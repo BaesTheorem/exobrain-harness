@@ -1,0 +1,15 @@
+# Secrets & credentials
+.mcp.json
+.claude/channels/
+.claude/settings.local.json
+
+# Claude Code runtime
+.claude/projects/
+.claude/plugins/
+
+# OS files
+.DS_Store
+
+# Python
+__pycache__/
+*.pyc
