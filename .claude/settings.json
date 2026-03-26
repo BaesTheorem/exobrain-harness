@@ -1,0 +1,18 @@
+{
+  "permissions": {
+    "allow": [
+      "Read",
+      "Write",
+      "Edit",
+      "Glob",
+      "Grep",
+      "Bash(osascript*)",
+      "Bash(ls*)",
+      "Bash(python3*)",
+      "Bash(mkdir*)",
+      "mcp__scheduled-tasks__*",
+      "mcp__32ab4f7e-*",
+      "mcp__2ea6cd75-*"
+    ]
+  }
+}
