@@ -97,16 +97,49 @@ osascript -e 'display notification "message" with title "Exobrain URGENT" sound 
 
 ## Command Queue
 
-The `queue/` folder is an async inbox for commands from any Claude Code session (phone, cloud, etc.). Alex can drop instructions from a lightweight session, and the next session with full tool access processes them.
+The `queue/` folder is an async inbox for commands that can't be completed in the current session. When Alex gives a command, **always try to execute it directly first** — only queue it if the current session lacks the required tools.
+
+### Routing Decision: Execute Now vs. Queue
+
+When Alex gives a command, check which tools are available in the current session before deciding. Use this reference:
+
+**Cloud/phone sessions typically have:**
+- GitHub MCP tools (`mcp__github__*`) — repo files, PRs, issues, branches
+- WebSearch, WebFetch — web lookups
+- Read, Write, Edit, Glob, Grep — files within the repo
+- RemoteTrigger — manage scheduled triggers
+
+**Cloud/phone sessions typically lack:**
+- Things 3 MCP tools (`search_todos`, `create_todo`, `update_todo`, etc.)
+- Google Calendar MCP tools (`gcal_create_event`, etc.)
+- Fitbit / Withings health data tools
+- Discord `reply` tool
+- Obsidian vault access (local filesystem at `/Users/alexhedtke/My Drive/...`)
+- macOS notifications (`osascript`)
+- Supernote parser (local script)
+
+**Decision flow:**
+1. **Can I fully complete this command with my available tools?** → Do it now.
+2. **Can I partially complete it?** → Do what you can now, queue the remainder with a note about what was already done.
+3. **Does it entirely require tools I don't have?** → Queue the whole command.
+
+**Always tell Alex what you did vs. what was queued.** Example: "I updated the repo README now. Queued a command to also update the matching Things 3 project — that'll be picked up by your next local session."
+
+### Queue Mechanics
 
 - **Check on every session start** — scan `queue/` for files with `"status": "pending"`
 - **Process in priority order**: `urgent` > `normal` > `low`
 - **Execute the command** as if Alex said it directly (update Things 3, Obsidian, Calendar, etc.)
 - **Update the file** after processing: set `status` to `"completed"` (or `"failed"`), add `processed_at` timestamp and `result` summary
 - **Urgent commands** get a Discord notification immediately
-- **To submit from cloud/phone**: create a JSON file in `queue/` following the schema in `queue/README.md`
-  - Filename format: `YYYY-MM-DD-HHMMSS-brief-label.json`
-  - Or use the GitHub MCP tools to create the file directly in the repo
+
+### Creating Queue Files
+
+- Filename format: `YYYY-MM-DD-HHMMSS-brief-label.json`
+- Use the GitHub MCP tools to commit the file directly if in a cloud session
+- Schema is documented in `queue/README.md`
+- In the `command` field, include full context — the processing session won't have this conversation's history
+- If you partially completed work, describe what's already done in the `command` so the processor doesn't duplicate effort
 
 ## On Session Start
 
