@@ -24,6 +24,7 @@ A Claude Code-powered personal automation system that manages information flow a
 - [File Structure](#file-structure)
 - [Setup from Scratch](#setup-from-scratch)
 - [Maintenance](#maintenance)
+- [Adapting This System (Guide for AI Assistants)](#adapting-this-system-guide-for-ai-assistants)
 
 ---
 
@@ -539,3 +540,154 @@ cat /tmp/exobrain-plaud-watcher.err    # stderr
 
 ### Checking Scheduled Task Status
 In a Claude Code session: use the scheduled-tasks MCP to list tasks and check `lastRunAt` timestamps.
+
+---
+
+## Adapting This System (Guide for AI Assistants)
+
+This section is written for other AI assistants helping a user build their own exobrain, whether forking this repo or building from scratch. The specific tools don't matter -- the architecture pattern does.
+
+### Core Concept
+
+An exobrain is a **capture-route-surface loop**. Information enters from many sources, gets processed into structured outputs, and surfaces back to the user at the right time. The value compounds over time as the system accumulates context about the user's life, relationships, and priorities.
+
+```
+CAPTURE  ->  ROUTE  ->  SURFACE
+(inputs)    (process)   (outputs that trigger at the right moment)
+   ^                         |
+   +--- feedback loop -------+
+   (user corrections train the system via memory)
+```
+
+### Design Principles
+
+1. **Single source of truth.** Pick one place where processed knowledge lives. This system uses an Obsidian vault, but it could be Notion, Logseq, a database, a folder of markdown files -- anything the user already checks daily. Everything else is an input or an action surface.
+
+2. **Append-only daily notes.** Never overwrite the user's notes. Always append. The daily note is a running log of the day, not a document to be edited. This prevents data loss and builds trust.
+
+3. **Deduplication before creation.** Before creating any task, event, or note, always search for an existing one first. Users hate duplicates more than they hate missing items. When a match exists, update it with new context rather than creating a duplicate.
+
+4. **Route, don't dump.** Every input should be decomposed and routed to the correct destination: tasks to the task manager, events to the calendar, people mentions to CRM notes, media recommendations to a media tracker. A single transcript might create 5 tasks, 2 events, update 3 people notes, and add 1 media recommendation. Never just paste raw content into a note.
+
+5. **Convention skills as guardrails.** Write "convention" documents that define how each output system should be used (formatting rules, dedup logic, field conventions). Reference these from every skill that touches that system. This prevents drift as you add skills -- the 15th skill to create a Things 3 task should follow the same conventions as the 1st.
+
+6. **Three automation tiers.** Not everything needs the same trigger mechanism:
+   - **File watchers / daemons** for real-time reactions (new file lands -> process it)
+   - **Scheduled tasks** for periodic synthesis (morning briefing, evening winddown, weekly review)
+   - **Interactive skills** for user-initiated actions (quick capture, research, CRM lookup)
+
+7. **Idempotent processing.** Keep a processing log so the system can be re-run safely. If a scheduled task runs twice, or a file watcher fires on the same file, nothing should be duplicated. The log is the system's memory of what it has already handled.
+
+8. **Notification as a first-class output.** The system is only useful if the user sees its outputs. Build notifications into every skill, not as an afterthought. Use multiple channels (macOS notifications for when they're at the computer, mobile push via Discord/Slack/Telegram for when they're not).
+
+9. **Memory as behavioral training.** The persistent memory system isn't a database -- it's a record of user corrections and preferences. When the user says "don't do X" or "always do Y", that becomes a memory that shapes all future behavior. This is how the system gets better over time without rewriting skills.
+
+10. **Proactive safety net.** The system should flag things the user might miss: overdue contacts, overstuffed calendars, tasks that keep rolling over, unanswered messages. Be constructive, not nagging. Surface the information; let the user decide what to do.
+
+### How to Adapt for a Different User
+
+#### Step 1: Audit the user's existing tools
+
+Map what the user already uses daily. Don't introduce new tools -- integrate with what they have. Common substitution table:
+
+| This system uses | Alternatives |
+|------------------|-------------|
+| Obsidian (knowledge base) | Notion, Logseq, Bear, Apple Notes, plain markdown folder |
+| Things 3 (task manager) | Todoist, TickTick, Reminders.app, Linear, GitHub Issues |
+| Google Calendar | Outlook, Fantastical, Apple Calendar |
+| Gmail | Outlook, Fastmail, ProtonMail |
+| Fitbit + Withings (health) | Apple Health (via shortcuts), Garmin, Oura, Whoop |
+| Plaud Note (voice recording) | Otter.ai, Whisper, Voice Memos + transcription |
+| Supernote (handwriting) | reMarkable, iPad + GoodNotes, Boox |
+| Discord (notifications) | Slack, Telegram, SMS, Pushover, ntfy |
+| iMessage | WhatsApp, Signal, Telegram (varies by region/social circle) |
+| macOS launchd (file watchers) | cron, systemd (Linux), Windows Task Scheduler, fswatch |
+
+#### Step 2: Establish the core loop first
+
+Don't try to build everything at once. Start with:
+
+1. **A daily note template** in their knowledge base
+2. **A capture skill** that routes input to the right place
+3. **A morning briefing** that pulls from calendar + tasks + weather
+4. **An evening winddown** that recaps the day
+
+These four components create the basic capture-route-surface loop. Everything else (CRM, health tracking, transcript processing, media tracking) is an extension that can be added incrementally.
+
+#### Step 3: Build the CLAUDE.md (or equivalent system prompt)
+
+The `CLAUDE.md` file is the system manifest. For a new user, it needs:
+
+- **Key paths**: Where does each tool store its data? Where should outputs go?
+- **Conventions**: How should daily notes be formatted? How should tasks be created? What deduplication rules apply?
+- **Priorities**: What is the user currently focused on? (Link to a file they maintain, like Dashboard.md)
+- **Personal rules**: Late-night date handling, notification preferences, people to skip, name corrections
+
+Start minimal and let the memory system accumulate the rest through user corrections.
+
+#### Step 4: Write convention skills for each output system
+
+Before writing any "action" skills (briefing, transcript processing, etc.), write a convention doc for each system the exobrain will write to. Example structure:
+
+```markdown
+# [System Name] Conventions
+
+## Creating items
+- How to format titles/descriptions
+- Required fields and metadata
+- Deduplication: always search before creating
+
+## Updating items
+- When to update vs create new
+- What fields to modify
+
+## Linking
+- How to cross-reference with the knowledge base
+- Backlink format
+```
+
+Every action skill should reference these conventions rather than defining its own rules.
+
+#### Step 5: Add input processors incrementally
+
+Each new input source (voice transcripts, handwritten notes, emails, messages) follows the same pattern:
+
+1. **Detect**: File watcher, API poll, or manual trigger
+2. **Parse**: Extract structured content (tasks, events, people, media, notes)
+3. **Route**: Send each extracted item to its destination via the convention skills
+4. **Log**: Record what was processed to prevent re-processing
+5. **Notify**: Tell the user what was routed where
+
+#### Step 6: Add the CRM layer
+
+The People/ notes pattern is one of the most valuable parts of the system and works regardless of tooling. Every time a person is mentioned in any input:
+
+1. Check if they have a note; create one if not
+2. Add dated context about the mention
+3. Track last contact date
+4. Surface overdue contacts in briefings
+
+This turns scattered mentions across transcripts, emails, and messages into a compounding relationship database.
+
+### Platform Considerations
+
+**macOS-specific components** that need replacement on other platforms:
+- `launchd` plists -> `systemd` timers (Linux), Task Scheduler (Windows), `cron` (universal)
+- `osascript` notifications -> `notify-send` (Linux), PowerShell toast (Windows), or skip and rely on Discord/Slack
+- `imessage-reader.py` (reads `chat.db`) -> platform-specific message access or skip entirely
+- `apple-notes-sync.py` (JXA scripting) -> not needed if the user doesn't use Apple Notes
+- Full Disk Access requirement -> varies by platform
+
+**Claude Code-specific components** that need replacement with other AI assistants:
+- `.claude/skills/` SKILL.md files -> system prompts, custom instructions, or equivalent skill/plugin format
+- `.claude/hooks/` -> startup scripts or equivalent lifecycle hooks
+- Scheduled tasks MCP -> cron jobs calling the AI's CLI, or the AI platform's native scheduling
+- Memory system (`.claude/projects/.../memory/`) -> any persistent key-value store the AI can read across sessions
+
+### Common Mistakes to Avoid
+
+- **Don't build for hypothetical inputs.** Only add processors for input sources the user actually has today. A Supernote processor is useless if they don't own a Supernote.
+- **Don't over-notify.** Start with one notification channel. Add more only if the user misses things.
+- **Don't create tasks the user didn't ask for.** Route discovered action items to an inbox for review, not directly onto the user's today list. Let them decide what's actually worth doing.
+- **Don't trust your own output blindly.** Build verification into research and synthesis skills. Run a background fact-checker on briefings. Cross-reference health data with the actual API, never approximate.
+- **Don't forget the feedback loop.** The system only improves if user corrections are captured as persistent memories. Without this, you'll make the same mistakes every session.
