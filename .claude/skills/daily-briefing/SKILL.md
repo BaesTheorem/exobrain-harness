@@ -98,6 +98,7 @@ Read `/Users/alexhedtke/Library/Mobile Documents/iCloud~md~obsidian/Documents/Ex
 ### 6. Email scan
 Use `gmail_search_messages` to scan emails from the last 24 hours (`after:` yesterday's date). Surface:
 - **Actionable items**: Anything needing a reply, a decision, or follow-up. Create Things 3 tasks for clear action items.
+- **Events**: Any email mentioning a specific date/time for a meeting, call, or event → **create a Google Calendar event immediately** via `gcal_create_event` (check for duplicates first). If timing is vague or needs confirmation → create a Things 3 inbox task `Review: [event]`. This is the #1 most common missed routing — always scan for dates/times in email bodies, not just subject lines.
 - **Important threads**: Recruiter messages, interview scheduling, time-sensitive requests.
 - **CRM-relevant**: Messages from People/ contacts — flag for follow-up if needed.
 
