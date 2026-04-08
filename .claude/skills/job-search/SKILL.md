@@ -15,14 +15,7 @@ Alex is actively job hunting. This skill handles the full pipeline: evaluating f
 **Resume PDF**: `/Users/alexhedtke/Library/Mobile Documents/iCloud~md~obsidian/Documents/Exobrain/Alex_Hedtke_Resume.pdf`
 Read the PDF at the start of any audit or cover letter to ensure you're working from the latest version.
 
-**Key background from resume**:
-- **[Job Title], [Employer]** (Nov 2021–present): Tier 1–2 support for 4,000-person global law firm. Azure AD security groups, Intune, Active Directory, M365 Admin Center, Citrix Virtual Desktop. Security ops: phishing triage in Exchange, sensitive DB access approvals, lost/stolen device protocols. Cross-timezone coordination (US/UK/APAC). ServiceNow, Assyst, SLA tracking. Recognized for clear technical communication reducing repeat tickets.
-- **[Job Title], [Employer]** (Aug 2014–Nov 2021): 7+ years high-volume consumer/SMB support. Hardware, software, networking (router/NAS/security system deployments). Windows and macOS. Strong client-facing communication.
-- **Technical Skills**: Windows 7–11, macOS, iOS, Citrix Virtual Desktop, Azure AD, Intune, AD, M365, Office 365, iManage, Elite 3E, Intapp Open, ServiceNow, TCP/IP, DNS
-- **Certs**: CompTIA A+, Network+, Security+, Cisco CCNA/CCENT, MCSE Server 2012 (Server Infrastructure + Private Cloud), Windows 8 Configuration
-- **Currently upskilling**: Sec+ (refresh), AZ-900, MD-102
-- **Leadership**: Founder/CEO of Guild of the Rose (500+ member applied rationality education org). Founder of Effective Altruism Kansas City.
-- **Profile**: 10+ years IT experience, enterprise environment focus, experienced remote collaborator, strong documentation practices, SLA-driven
+**Key background**: Read the resume PDF at the path above at runtime to get current experience, skills, certifications, and leadership history. Do not hardcode resume details in this skill — the PDF is the source of truth and may be updated independently.
 
 ## Modes
 

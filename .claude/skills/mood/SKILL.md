@@ -52,7 +52,7 @@ Half-points are valid (e.g., 2.5). Round to nearest 0.5 for display.
 ### Inferred signals (use cautiously, mark as inferred)
 - **Bedtime drift**: Consistently past 1 AM = self-care slip
 - **Alcohol mentions**: Frequency/quantity in transcripts
-- **Procrastination patterns**: Same tasks overdue for multiple days (e.g., the [Friend] follow-up)
+- **Procrastination patterns**: Same tasks overdue for multiple days (e.g., a follow-up that keeps rolling over)
 - **Social marathon detection**: 3+ consecutive high-social days without downtime
 - **Deviation from routine**: Skipping exercise blocks, missing study sessions
 

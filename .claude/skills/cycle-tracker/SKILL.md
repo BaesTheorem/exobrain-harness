@@ -61,8 +61,8 @@ Offer to launch the visual calendar: `python3 "/Users/alexhedtke/Documents/Exobr
 - **Cycle length**: Normal range is 21-35 days. Flag if outside this range.
 - **Luteal phase**: Relatively fixed at ~14 days. Variation usually comes from follicular phase.
 - **Irregular cycles**: If cycle-to-cycle variation exceeds 7 days, note this as irregular.
-- **PMS window**: Symptoms typically appear 5-7 days before period starts. partner has mentioned PMS-related irritability specifically.
-- **Hormones**: partner plans to get hormones + thyroid checked at Stanford — tracking data will be useful for that appointment.
+- **PMS window**: Symptoms typically appear 5-7 days before period starts. Note any specific PMS symptoms partner has mentioned for personalized tracking.
+- **Medical context**: Check partner's People note for any upcoming medical appointments where cycle data may be relevant.
 
 ## When Processing Transcripts/Notes
 

@@ -67,7 +67,7 @@ When reading messages, pay attention to how people communicate — not just what
 - **Relationship dynamic with Alex**: Initiator vs. responder, advice-giver vs. advice-seeker, emotional support patterns
 - **Recurring behaviors**: Always cancels last minute, tends to over-commit, consistently checks in, etc.
 
-Use specific examples from messages rather than vague labels. Flag noteworthy dynamics to Alex when relevant (e.g., "[Friend] has texted twice this week without a reply — she may be feeling ghosted").
+Use specific examples from messages rather than vague labels. Flag noteworthy dynamics to Alex when relevant (e.g., "[Friend] has texted twice this week without a reply — they may be feeling ghosted").
 
 ## Integration Notes
 
