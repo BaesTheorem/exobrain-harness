@@ -9,22 +9,14 @@ Scans Alex's friend group Discord server and summarizes activity so nothing fall
 
 ## Friend Group Server — Username Mapping
 
-| Discord Username | Real Name | Notes |
-|-----------------|-----------|-------|
-| [discord_user] | **Alex Hedtke** | This is Alex himself |
-| [discord_user] | [Friend] | |
-| [discord_user] | [Friend] | |
-| [discord_user] | [Friend] |
-| [discord_user] | [Friend] | |
-| [discord_user] | Cale | friend |
-| [discord_user] | [Friend] | friend's partner |
-| [discord_user] | [Friend] | friend |
-| [discord_user] | Jesse | Partner is [Friend] |
-| [discord_user] | [Friend] | [Friend]' brother |
-| [discord_user] | Gabe | |
-| [discord_user] | Anish | |
-| [discord_user] | Austin | |
-| [discord_user] | [Friend] | Venmo: @[Friend]-Antonacci |
+The username-to-real-name mapping lives in `discord/discord-digest-fetch.py` (gitignored — contains real names). To resolve Discord usernames to real names at runtime:
+
+1. Read the `USERNAME_MAP` dict from `discord/discord-digest-fetch.py`
+2. Replace all Discord usernames with real names in output
+3. Skip messages from Alex's own username
+4. Cross-reference names with People/ notes in the Obsidian vault — every friend group member should have one
+
+If the mapping file is missing, fall back to Discord display names from the API response and flag unresolved usernames for Alex to map.
 
 ## Channels Monitored (read-only)
 
@@ -109,4 +101,4 @@ Beyond factual updates, pay attention to how people interact in the server and u
 - **Group dynamics**: Who responds to whom, recurring debates, alliances, friction points
 - **Recurring behaviors across sessions**: Always volunteers to organize, tends to bail last-minute, consistently shares niche content, etc.
 
-Use specific examples from messages rather than vague labels. Flag noteworthy dynamics in the digest when relevant (e.g., "[Friend] and [Friend] independently pushing back on the same point — emerging pattern").
+Use specific examples from messages rather than vague labels. Flag noteworthy dynamics in the digest when relevant (e.g., "Two people independently pushing back on the same point — emerging pattern").
