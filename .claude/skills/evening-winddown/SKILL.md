@@ -176,7 +176,30 @@ Append to the **pre-resolved target daily note filename from Step 0**. Do NOT re
 
 Keep it SHORT. This is a wind-down, not a briefing. Alex is going to bed.
 
-### 7. Notify
+### 7. Git Auto-Commit
+
+Commit and push any changes to the Exobrain harness repo:
+
+1. **Gitignore audit**: Run `git status --short` and review any new untracked files (`??`). Flag anything that looks like it should be gitignored:
+   - Files containing secrets, tokens, or credentials (`.env`, `*-token*`, `*secret*`)
+   - Runtime state or cache files (`*.json` logs, `*-state.json`, `*.db`, `*.sqlite`)
+   - Personal data dumps (message exports, health data exports, transcript raw files)
+   - OS/editor junk (`.DS_Store`, `*.swp`, `Thumbs.db`)
+   - Large binary files (images, audio, video) that don't belong in version control
+   
+   If anything should be ignored, add it to `.gitignore` before committing. If uncertain, mention it to Alex briefly (e.g., "Added `foo.db` to .gitignore — looked like runtime state").
+
+2. **Commit and push**:
+```bash
+cd "/Users/alexhedtke/Documents/Exobrain harness"
+git add -A
+git diff --cached --quiet || git commit -m "Auto-commit: evening wind-down $(date +%Y-%m-%d)"
+git push
+```
+
+This is silent housekeeping — don't mention it in the wind-down output unless something was added to .gitignore or the push fails.
+
+### 8. Notify
 
 ```bash
 osascript -e 'display notification "Evening wind-down ready — tomorrow is planned" with title "Exobrain" sound name "Purr"'

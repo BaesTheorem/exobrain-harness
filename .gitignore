@@ -16,6 +16,9 @@
 __pycache__/
 *.pyc
 
+# Personal/sensitive data
+cycle-tracker/cycle-data.json
+
 # Runtime state
 processing-log.json
 apple-notes-sync/apple-notes-sync-state.json
