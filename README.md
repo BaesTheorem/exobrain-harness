@@ -1,0 +1,541 @@
+# Exobrain Harness
+
+A Claude Code-powered personal automation system that manages information flow across voice recordings, handwritten notes, tasks, calendar, health data, messaging, and a networked knowledge vault. Built as an "exobrain" -- an external cognitive system that captures, routes, synthesizes, and surfaces information so nothing falls through the cracks.
+
+**Owner**: Alex Hedtke
+**Platform**: macOS (Apple Silicon), Claude Code CLI + Desktop
+**Last audited**: 2026-04-06
+
+---
+
+## Table of Contents
+
+- [Architecture Overview](#architecture-overview)
+- [Components](#components)
+  - [Scripts](#scripts)
+  - [Skills](#skills)
+  - [Scheduled Tasks](#scheduled-tasks)
+  - [launchd Jobs](#launchd-jobs)
+  - [Hooks](#hooks)
+  - [Memory System](#memory-system)
+- [MCP Servers](#mcp-servers)
+- [External Services](#external-services)
+- [Data Flow](#data-flow)
+- [File Structure](#file-structure)
+- [Setup from Scratch](#setup-from-scratch)
+- [Maintenance](#maintenance)
+
+---
+
+## Architecture Overview
+
+```
+INPUTS                          PROCESSING                        OUTPUTS
+-----------                     ----------                        -------
+Plaud voice notes ----+
+Supernote handwriting-+
+Apple Notes ----------+
+iMessages ------------+         Claude Code                       Obsidian daily notes
+Discord messages -----+------>  (skills + scheduled tasks) -----> Things 3 tasks
+Google Calendar ------+         processing-log.json               Google Calendar events
+Gmail ----------------+                                           People/ CRM notes
+Fitbit/Withings ------+                                           Mood Journal
+Manual /capture ------+                                           macOS + Discord notifications
+```
+
+The system runs on three automation layers:
+1. **launchd file watchers/daemons** -- trigger transcript processing when new Plaud files arrive, sync Apple Notes, fetch Discord messages
+2. **Claude Code scheduled tasks** -- run morning briefing, transcript checks, inbox review, evening winddown, weekly review on cron
+3. **Interactive skills** -- invoked manually via `/skill-name` in Claude Code sessions
+
+All outputs converge on the Obsidian vault (`/Users/alexhedtke/Library/Mobile Documents/iCloud~md~obsidian/Documents/Exobrain/`) as the single source of truth, with Things 3 and Google Calendar as action surfaces.
+
+---
+
+## Components
+
+### Scripts
+
+| Script | Location | Language | Purpose | Dependencies |
+|--------|----------|----------|---------|--------------|
+| `supernote-parser.py` | `transcript-processing/` | Python | Extract PNG pages from `.note` files, compute SHA-256 page hashes for change detection | `supernotelib` |
+| `run-process-transcript.sh` | `transcript-processing/` | Shell | launchd wrapper -- checks for new Plaud files, invokes Claude, logs failures with notification on error | Claude CLI |
+| `imessage-reader.py` | `imessage/` | Python | Read macOS `chat.db` -- recent messages, chat history, full-text search, unread detection | sqlite3 (stdlib), Full Disk Access required |
+| `apple-notes-sync.py` | `apple-notes-sync/` | Python | One-way sync from Apple Notes to Obsidian vault. Queries Apple Notes via macOS JXA, converts HTML to Markdown, tracks modification timestamps. | html.parser (stdlib) |
+| `discord-digest-fetch.py` | `discord/` | Python | Fetch recent Discord messages from friend group server via REST API. Writes `discord-digest.json` for daily briefing. Maps usernames to real names. | urllib (stdlib) |
+| `discord-bot.sh` | `discord/` | Shell | Launch Claude CLI as persistent Discord bot (launchd manages restarts via `KeepAlive`) | Claude CLI, Discord plugin |
+| `run-discord-digest.sh` | `discord/` | Shell | launchd wrapper for `discord-digest-fetch.py` with proper PATH and working directory | python3 |
+| `get-weather.py` | `weather/` | Python | Fallback weather script for Kansas City via Open-Meteo API (no key needed). Primary weather now via Weather MCP. | `openmeteo_requests`, `openmeteo_sdk` |
+| `backup-exobrain.sh` | root | Shell | Weekly backup of processing log, credentials, skills, settings, and memory to compressed archive | None |
+| `session-start.sh` | `.claude/hooks/` | Shell | Hook -- displays date/logical day and runs system health checks on session start | bash, python3 |
+
+### Skills
+
+Skills are invoked with `/skill-name` in Claude Code. Each is defined in `.claude/skills/<name>/SKILL.md`.
+
+#### Actionable Skills (user-invoked or scheduled)
+
+| Skill | Purpose | Key Integrations |
+|-------|---------|------------------|
+| `/process-transcript` | Parse Plaud voice notes into tasks, events, notes, People updates | Things 3, GCal, Obsidian, CRM |
+| `/process-supernote` | OCR handwritten Supernote pages (vision), extract and route content | supernote-parser.py, Things 3, Obsidian |
+| `/daily-briefing` | Morning dashboard: weather, health, calendar, tasks, Discord, iMessages, mood, jobs, CRM | Weather MCP, Fitbit, Withings, GCal, Things 3, Gmail, Discord, iMessage |
+| `/weekly-review` | GTD-style weekly synthesis: email, calendar, notes, tasks, health trends, mood, CRM | Gmail, GCal, Things 3, Fitbit, Withings, Discord, iMessage |
+| `/evening-winddown` | End-of-day recap, mood check-in, tomorrow planning. Treats post-midnight as same day until 2 AM. | Fitbit, GCal, Things 3, iMessage, Discord, Supernote |
+| `/monthly-review` | End-of-month review: weekly synthesis, values alignment, areas balance, project vitality | All data sources |
+| `/capture` | Quick-capture thoughts/tasks/events, auto-route to correct destination | Things 3, GCal, Obsidian |
+| `/crm` | Network CRM: lookup contacts, draft outreach, parse digest emails, scan for mentions | People/ notes, Gmail, Things 3 |
+| `/imessage` | Read/search iMessages with contact resolution | imessage-reader.py |
+| `/mood` | Mood tracking with 5 sub-categories, calendar heatmap, weekly summaries | Fitbit (indirect signals), Obsidian |
+| `/discord-digest` | Scan friend group Discord for events, plans, and social context | Discord MCP, People/ notes |
+| `/TTRPG-campaign-manager` | D&D session prep (Lazy DM style), recap from transcripts, campaign lore queries | Obsidian campaign folders |
+| `/job-search` | Audit job postings for fit, research companies/people, tailor cover letters, track applications | Gmail, Things 3, Obsidian, WebSearch |
+| `/local-events` | Discover upcoming KC events. Searches Facebook, Meetup, venue calendars, library listings. | Monid CLI, WebSearch, GCal, Things 3 |
+| `/deep-research` | Multi-agent deep research for complex questions. Spawns parallel subagents, synthesizes cited report. | WebSearch, WebFetch |
+| `/cycle-tracker` | Track and manage [Partner]'s menstrual cycle -- log periods, symptoms, predictions | cycle-tracker/ app |
+| `/verify` | Background fact-checker -- runs silently after research tasks to catch errors | WebSearch, WebFetch |
+| `/news-briefing` | Comprehensive news intelligence briefing with bias analysis, blind spot detection, and prediction market cross-referencing | WebSearch, WebFetch |
+| `/de-ai` | Strip AI-generated patterns from text to sound human | None (text transformation only) |
+| `/whimsy` | Gamified whimsy point tracking with tiered rewards and anti-whimsy deductions | Obsidian daily notes |
+| `/discord:access` | Manage Discord channel access and pairing policy | Discord plugin config |
+| `/discord:configure` | Set up the Discord channel -- save bot token and review access policy | Discord plugin config |
+
+#### Convention Skills (reference docs, not directly invoked)
+
+| Skill | Purpose |
+|-------|---------|
+| `/obsidian` | Canonical reference for daily note formatting, People notes, wikilinks, vault structure, append-only rules |
+| `/things3` | Canonical reference for task creation, deduplication, project backlinks, task formatting |
+| `/calendar` | Canonical reference for event creation, flight buffers, overbooking detection, late-night date handling |
+| `/email` | Canonical reference for email scanning, job alert processing, actionable item extraction, CRM cross-referencing |
+
+### Scheduled Tasks (6)
+
+Managed via Claude Code's scheduled-tasks MCP. Run as remote agents on cron.
+
+| Task ID | Schedule | Purpose |
+|---------|----------|---------|
+| `morning-briefing` | 8:45 AM Mon-Fri | Runs `/daily-briefing`, writes to Obsidian, pings Discord |
+| `heartbeat-check` | 10:00 AM Mon-Fri | Verifies morning briefing ran; alerts via Discord + macOS if it didn't |
+| `check-transcripts` | 9 AM + 6 PM daily | Backup for launchd watcher -- finds and processes new Plaud files |
+| `evening-inbox-review` | 6:00 PM daily | Alerts if Things 3 inbox > 5 items or has urgent deadlines |
+| `evening-winddown` | 11:59 PM daily | Day recap, mood check-in, tomorrow planning via `/evening-winddown` |
+| `weekly-review` | 10:00 AM Sunday | Full GTD review, writes to Sunday's daily note, pings Discord |
+
+### launchd Jobs (3)
+
+Installed in `~/Library/LaunchAgents/`.
+
+| Plist | Location | Watches/Triggers | Purpose |
+|-------|----------|-----------------|---------|
+| `com.exobrain.plaud-watcher.plist` | `transcript-processing/` | `WatchPaths: Plaud/` folder (30s throttle) | Runs `run-process-transcript.sh` when new transcripts land |
+| `com.exobrain.apple-notes-sync.plist` | `apple-notes-sync/` | Interval: 900s (15 min) | Runs `apple-notes-sync.py` to sync Apple Notes to Obsidian |
+| `com.exobrain.discord-digest.plist` | `discord/` | Interval: 14400s (4 hours) | Runs `discord-digest-fetch.py` to fetch Discord messages for briefing |
+
+The Discord bot (`discord-bot.sh`) runs as a persistent process managed by Claude Code's Discord plugin, not via a separate launchd job.
+
+### Hooks
+
+| Hook | Event | File |
+|------|-------|------|
+| Session start | `SessionStart` (startup + resume) | `.claude/hooks/session-start.sh` |
+
+Displays today's date with logical day (accounting for the 2 AM boundary), then runs system health checks on all MCP servers, launchd jobs, credentials, and key paths.
+
+### Memory System
+
+Persistent cross-session memory in `.claude/projects/.../memory/`. ~30 files total.
+
+**Core**: user profile, reference paths, project architecture
+**Behavioral rules**: overbooking alerts, calendar verification, Guild event filtering, Things 3 deep links and inbox-only, CRM extraction and math verification, outreach style, claim verification, flight buffers, late-night date handling, Fitbit data accuracy, Withings in health data, Obsidian formatting (H3 daily note headings, no blank lines before headers, no H1 in People notes), transcript name corrections ([Partner]/[Friend]), job scan depth and stale listing verification, compact briefing format, no em dashes, sleep data date convention
+
+---
+
+## MCP Servers
+
+| Server | Transport | Purpose | Auth |
+|--------|-----------|---------|------|
+| **Things 3** | Local (Python, `uv tool run things-mcp`) | Task CRUD via Things 3 database | None (local app) |
+| **Fitbit** | Local (Node.js, custom build) | Health data: steps, HR, sleep, AZM, calories | OAuth2 (client ID + secret in `.mcp.json`) |
+| **Withings** | Local (Node.js, `npx gchallen/withings-mcp`) | Weight, body composition, blood pressure | OAuth2 (tokens in `.env`) |
+| **Weather** | Local (Node.js, `npx @dangahagan/weather-mcp`) | Current conditions + forecast (Open-Meteo + NOAA, no API key) | None |
+| **Google Calendar** | Claude Desktop managed | Event CRUD, free time queries | Google OAuth (Desktop-managed) |
+| **Gmail** | Claude Desktop managed | Email search, read, draft | Google OAuth (Desktop-managed) |
+| **Google Drive** | Claude Desktop managed | File search and fetch | Google OAuth (Desktop-managed) |
+| **Discord** | Claude plugin (`discord@claude-plugins-official`) | Message fetch, reply, react | Bot token (plugin-managed) |
+| **Scheduled Tasks** | Claude Desktop managed | Cron-based remote agent execution | None |
+| **MyChart** | Claude Desktop managed | Health records (available, not actively used) | MyChart OAuth |
+
+**Fitbit MCP location**: `/Users/alexhedtke/Documents/Claude Code/mcp-fitbit-main/`
+**Fitbit token**: `/Users/alexhedtke/Documents/Claude Code/mcp-fitbit-main/.fitbit-token.json` (auto-refreshed)
+**Withings tokens**: `/Users/alexhedtke/Documents/Exobrain harness/.env` (auto-refreshed)
+
+---
+
+## External Services
+
+| Service | Role | How Accessed |
+|---------|------|-------------|
+| **Obsidian** | Knowledge vault, daily notes, People CRM, mood journal | Direct filesystem R/W |
+| **Things 3** | Task management (GTD) | MCP server (things-mcp) |
+| **Google Calendar** | Events and scheduling | MCP server |
+| **Gmail** | Email scanning, job alerts, correspondence | MCP server |
+| **Fitbit** | Steps, heart rate, sleep, active zone minutes, calories | MCP server |
+| **Withings** | Weight, body composition (fat %, muscle, bone, hydration, visceral fat), blood pressure | MCP server |
+| **Plaud Note** | Voice recording to transcript files | Plaud app syncs `.txt` files to Google Drive, then to Obsidian vault |
+| **Supernote A5X** | Handwritten notes (`.note` format) | Supernote app syncs to Google Drive, then to filesystem |
+| **Apple Notes** | Quick capture on iPhone/iPad | `apple-notes-sync.py` syncs to Obsidian vault every 15 min |
+| **Discord** | Friend group server + notification channel | MCP plugin + `discord-digest-fetch.py` for offline message history |
+| **iMessage** | Text messages | `imessage-reader.py` reading `chat.db` |
+| **Open-Meteo** | Weather data (no API key) | Weather MCP (primary), `get-weather.py` (fallback) |
+
+---
+
+## Data Flow
+
+### Automatic (no user action required)
+```
+Plaud transcript lands in vault
+  -> launchd detects file change (30s throttle)
+  -> run-process-transcript.sh invokes Claude CLI
+  -> /process-transcript extracts tasks, events, notes, people
+  -> Routes to Things 3 / GCal / daily note / People/ notes
+  -> Updates processing-log.json
+  -> macOS notification + Discord ping
+
+Apple Notes changed on iPhone/iPad
+  -> launchd runs apple-notes-sync.py every 15 min
+  -> Syncs new/changed notes to Obsidian vault
+
+Discord messages arrive in friend group server
+  -> launchd runs discord-digest-fetch.py every 4 hours
+  -> Writes discord-digest.json for daily briefing consumption
+
+Backup (weekly):
+  -> backup-exobrain.sh archives config, skills, memory, credentials
+```
+
+### Scheduled (cron via Claude Code)
+```
+8:45 AM Mon-Fri:  /daily-briefing -> Obsidian + Discord
+10:00 AM Mon-Fri: heartbeat-check -> verify briefing ran
+9 AM + 6 PM:      check-transcripts -> backup for launchd watcher
+6:00 PM daily:    inbox review -> notification if inbox needs attention
+11:59 PM daily:   /evening-winddown -> day recap, mood, tomorrow planning
+10:00 AM Sunday:  /weekly-review -> comprehensive synthesis -> Obsidian + Discord
+```
+
+### Manual (user-invoked)
+```
+/capture "remind me to..."  -> Things 3 inbox
+/crm follow-up              -> surfaces overdue contacts
+/mood                        -> score and journal today
+/process-supernote           -> OCR new handwritten pages
+/TTRPG-campaign-manager prep -> collaborative session planning
+/job-search audit            -> assess job postings for fit
+/local-events                -> discover upcoming KC events
+/deep-research [question]    -> multi-agent investigation
+```
+
+---
+
+## File Structure
+
+```
+Exobrain harness/
+|-- CLAUDE.md                           # System manifest (paths, conventions, priorities)
+|-- README.md                           # This file
+|-- .mcp.json                           # MCP server configs + Fitbit credentials (git-ignored)
+|-- .env                                # Withings OAuth tokens (git-ignored)
+|-- .gitignore
+|-- processing-log.json                 # Transaction log of all processed items
+|-- requirements.txt                    # Python dependencies
+|-- backup-exobrain.sh                  # Weekly backup script
+|
+|-- transcript-processing/
+|   |-- supernote-parser.py             # .note -> PNG + SHA-256 hashes
+|   |-- run-process-transcript.sh       # launchd wrapper for transcript processing
+|   |-- com.exobrain.plaud-watcher.plist  # File watcher (symlinked to ~/Library/LaunchAgents/)
+|
+|-- imessage/
+|   |-- imessage-reader.py              # macOS chat.db reader
+|
+|-- apple-notes-sync/
+|   |-- apple-notes-sync.py             # Apple Notes -> Obsidian sync
+|   |-- apple-notes-sync-config.json    # Sync configuration
+|   |-- apple-notes-sync-state.json     # Sync state tracking
+|   |-- com.exobrain.apple-notes-sync.plist  # Apple Notes sync timer
+|
+|-- discord/
+|   |-- discord-bot.sh                  # Persistent Discord bot launcher
+|   |-- discord-digest-fetch.py         # Discord REST API -> digest JSON
+|   |-- discord-digest.json             # Latest Discord message digest
+|   |-- run-discord-digest.sh           # launchd wrapper for Discord digest
+|   |-- com.exobrain.discord-digest.plist  # Discord digest timer
+|
+|-- weather/
+|   |-- get-weather.py                  # Open-Meteo weather API (fallback)
+|
+|-- local-events/
+|   |-- local-events-log.json           # Previously surfaced KC events (dedup)
+|   |-- local-events-prefs.json         # Event preferences (artists, interests, venues)
+|
+|-- fonts/                              # Font assets
+|
+|-- Subdirectory apps
+|   |-- cycle-tracker/                  # [Partner]'s cycle tracking app
+|   |-- mood-tracker/                   # Mood journal web app
+|   |-- pomodoro/                       # Pomodoro timer app
+|   |-- sailboat-retro/                 # Sailboat retrospective visualization
+|
+|-- .claude/
+    |-- settings.json                   # Permissions, hook definitions
+    |-- settings.local.json             # Dev/extended permissions (git-ignored)
+    |-- launch.json                     # Dev server configs (sailboat retro)
+    |-- hooks/
+    |   |-- session-start.sh            # Date + system health check
+    |-- skills/
+        |-- capture/SKILL.md
+        |-- calendar/SKILL.md           # Convention reference
+        |-- crm/SKILL.md
+        |-- cycle-tracker/SKILL.md
+        |-- daily-briefing/SKILL.md
+        |-- de-ai/SKILL.md
+        |-- deep-research/SKILL.md
+        |-- discord-digest/SKILL.md
+        |-- email/SKILL.md              # Convention reference
+        |-- evening-winddown/SKILL.md
+        |-- imessage/SKILL.md
+        |-- job-search/SKILL.md
+        |-- local-events/SKILL.md
+        |-- mood/SKILL.md
+        |-- monthly-review/SKILL.md
+        |-- news-briefing/SKILL.md
+        |-- obsidian/SKILL.md           # Convention reference
+        |-- process-supernote/SKILL.md
+        |-- process-transcript/SKILL.md
+        |-- things3/SKILL.md            # Convention reference
+        |-- TTRPG-campaign-manager/SKILL.md
+        |-- verify/SKILL.md
+        |-- weekly-review/SKILL.md
+        |-- whimsy/SKILL.md
+
+External vault: /Users/alexhedtke/Library/Mobile Documents/iCloud~md~obsidian/Documents/Exobrain/
+|-- Dashboard.md                        # Current priorities
+|-- Mood Journal.md                     # Longitudinal mood tracking
+|-- Network CRM.md                      # CRM overview (Dataview queries)
+|-- Media recommendations.md            # Movies, books, shows, games, etc.
+|-- Daily notes/                        # Format: "dddd, MMMM Do, YYYY.md"
+|-- People/                             # Contact notes (compounding CRM)
+|-- Projects/                           # Project folders with notes + files
+|-- Plaud/                              # Voice transcripts (.txt JSON)
+|-- Supernotes -> /Users/alexhedtke/My Drive/Supernote/Note/
+```
+
+---
+
+## Setup from Scratch
+
+### Prerequisites
+
+- **macOS** (Apple Silicon or Intel)
+- **Claude Code CLI** installed and authenticated (`claude` in PATH)
+- **Claude Desktop app** with Google Calendar, Gmail, Google Drive MCPs configured
+- **Obsidian** with vault at a known path
+- **Things 3** installed (macOS app)
+- **Full Disk Access** granted to Terminal/Claude Code (for iMessage reading)
+- **Google Drive for Desktop** syncing the Obsidian vault and Supernote folders
+
+### Step 1: Clone the Repo
+
+```bash
+cd ~/Documents
+git clone <repo-url> "Exobrain harness"
+cd "Exobrain harness"
+```
+
+### Step 2: Install System Dependencies
+
+```bash
+# Python (use system Python 3.9+ or install via Homebrew)
+brew install python3 node screen
+
+# Python packages
+pip3 install supernotelib openmeteo-requests openmeteo-sdk
+
+# uv (for Things 3 MCP)
+pip3 install uv
+# OR: curl -LsSf https://astral.sh/uv/install.sh | sh
+
+# Things 3 MCP
+uv tool install things-mcp
+```
+
+### Step 3: Install Fitbit MCP Server
+
+```bash
+cd ~/Documents/"Claude Code"
+git clone <fitbit-mcp-repo-url> mcp-fitbit-main
+cd mcp-fitbit-main
+npm install
+npm run build
+```
+
+Create `.env` with your Fitbit OAuth2 credentials:
+```
+FITBIT_CLIENT_ID=your_client_id
+FITBIT_CLIENT_SECRET=your_client_secret
+```
+
+Register a Fitbit app at https://dev.fitbit.com/apps to get credentials. Set callback URL to `http://localhost:3000/callback`.
+
+### Step 4: Create `.mcp.json`
+
+In the harness root (this file is git-ignored):
+
+```json
+{
+  "mcpServers": {
+    "things3": {
+      "command": "python3",
+      "args": ["-m", "uv", "tool", "run", "things-mcp"]
+    },
+    "fitbit": {
+      "command": "node",
+      "args": ["/path/to/mcp-fitbit-main/build/index.js"],
+      "env": {
+        "FITBIT_CLIENT_ID": "your_id",
+        "FITBIT_CLIENT_SECRET": "your_secret"
+      }
+    },
+    "withings": {
+      "command": "npx",
+      "args": ["gchallen/withings-mcp"],
+      "env": {
+        "WITHINGS_CLIENT_ID": "your_id",
+        "WITHINGS_CLIENT_SECRET": "your_secret",
+        "WITHINGS_REDIRECT_URI": "your_uri",
+        "WITHINGS_REFRESH_TOKEN": "your_token"
+      }
+    },
+    "weather": {
+      "command": "npx",
+      "args": ["@dangahagan/weather-mcp"]
+    }
+  }
+}
+```
+
+### Step 5: Configure Claude Desktop MCP Servers
+
+In Claude Desktop settings, enable:
+- Google Calendar MCP
+- Gmail MCP
+- Google Drive MCP
+
+These use Google OAuth managed by Claude Desktop -- follow the in-app auth flow.
+
+### Step 6: Install Discord Plugin
+
+In Claude Code CLI:
+```bash
+claude plugins install discord@claude-plugins-official
+```
+
+Then pair to your Discord channel:
+```
+/discord:configure
+```
+
+Paste your Discord bot token when prompted. Set up channel access with `/discord:access`.
+
+### Step 7: Install launchd Jobs
+
+```bash
+# Symlink plist files to LaunchAgents
+ln -s "$PWD/transcript-processing/com.exobrain.plaud-watcher.plist" ~/Library/LaunchAgents/
+ln -s "$PWD/apple-notes-sync/com.exobrain.apple-notes-sync.plist" ~/Library/LaunchAgents/
+ln -s "$PWD/discord/com.exobrain.discord-digest.plist" ~/Library/LaunchAgents/
+
+# Load the jobs
+launchctl load ~/Library/LaunchAgents/com.exobrain.plaud-watcher.plist
+launchctl load ~/Library/LaunchAgents/com.exobrain.apple-notes-sync.plist
+launchctl load ~/Library/LaunchAgents/com.exobrain.discord-digest.plist
+
+# Verify
+launchctl list | grep exobrain
+```
+
+Edit the plist files to match your actual paths if they differ from the defaults.
+
+### Step 8: Make Scripts Executable
+
+```bash
+chmod +x discord/discord-bot.sh transcript-processing/run-process-transcript.sh discord/run-discord-digest.sh backup-exobrain.sh .claude/hooks/session-start.sh
+```
+
+### Step 9: Set Up Scheduled Tasks
+
+Open a Claude Code session in the harness directory. The scheduled tasks are managed via the `scheduled-tasks` MCP -- create them with `/schedule` or via the MCP tools:
+
+- **morning-briefing**: `45 8 * * 1-5` (8:45 AM weekdays)
+- **heartbeat-check**: `0 10 * * 1-5` (10 AM weekdays)
+- **check-transcripts**: `0 9,18 * * *` (9 AM + 6 PM daily)
+- **evening-inbox-review**: `0 18 * * *` (6 PM daily)
+- **evening-winddown**: `59 23 * * *` (11:59 PM daily)
+- **weekly-review**: `0 10 * * 0` (10 AM Sunday)
+
+Each scheduled task runs as a remote agent with its own Claude session. Run each once interactively first to pre-approve tool permissions.
+
+### Step 10: Grant Full Disk Access (for iMessage)
+
+System Settings -> Privacy & Security -> Full Disk Access -> Add Terminal.app (or the Claude Code binary).
+
+### Step 11: Configure Obsidian Vault
+
+Ensure the vault path matches what's in `CLAUDE.md`:
+- Vault root: `/Users/alexhedtke/Library/Mobile Documents/iCloud~md~obsidian/Documents/Exobrain/`
+- Daily notes format: `dddd, MMMM Do, YYYY`
+- Create folders if missing: `Daily notes/`, `People/`, `Projects/`, `Plaud/`, `Inbox/`
+
+### Step 12: Verify Everything Works
+
+```bash
+# Start a Claude Code session
+cd ~/Documents/"Exobrain harness"
+claude
+
+# The session-start hook should fire automatically and show system health
+# Then run:
+/daily-briefing      # Should write to today's daily note
+/process-transcript  # Should find and process pending transcripts
+```
+
+---
+
+## Maintenance
+
+### Updating Skills
+Edit `.claude/skills/<name>/SKILL.md` directly. Changes take effect on next skill invocation.
+
+### Updating Memory
+Memory files are in the project-scoped memory directory. Claude manages these automatically based on user feedback, but you can edit them manually.
+
+### Processing Log
+`processing-log.json` grows over time. It's safe to archive old entries periodically, but keep recent ones (30 days) for duplicate detection.
+
+### Fitbit Token Refresh
+The Fitbit MCP handles token refresh automatically via `.fitbit-token.json`. If auth breaks, delete the token file and re-authenticate.
+
+### Withings Token Refresh
+The Withings MCP handles token refresh automatically via `.env`. If auth breaks, re-run the OAuth flow.
+
+### Checking launchd Status
+```bash
+launchctl list | grep exobrain
+cat /tmp/exobrain-plaud-watcher.log    # stdout
+cat /tmp/exobrain-plaud-watcher.err    # stderr
+```
+
+### Checking Scheduled Task Status
+In a Claude Code session: use the scheduled-tasks MCP to list tasks and check `lastRunAt` timestamps.

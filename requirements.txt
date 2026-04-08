@@ -1,0 +1,3 @@
+supernotelib==0.7.0
+openmeteo-requests==1.7.5
+openmeteo-sdk==1.26.0

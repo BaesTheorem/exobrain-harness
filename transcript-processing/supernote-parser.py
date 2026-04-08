@@ -10,11 +10,21 @@ Outputs one PNG per page: page_0.png, page_1.png, etc.
 Prints JSON summary to stdout for Claude to parse.
 """
 
+import hashlib
 import json
 import os
 import sys
 
 import supernotelib
+
+
+def sha256_file(path: str) -> str:
+    """Compute SHA-256 hash of a file."""
+    h = hashlib.sha256()
+    with open(path, "rb") as f:
+        for chunk in iter(lambda: f.read(8192), b""):
+            h.update(chunk)
+    return h.hexdigest()
 
 
 def extract_pages(note_path: str, output_dir: str) -> dict:
@@ -27,17 +37,20 @@ def extract_pages(note_path: str, output_dir: str) -> dict:
     converter = supernotelib.converter.ImageConverter(notebook)
 
     pages = []
+    page_hashes = {}
     for i in range(total_pages):
         out_path = os.path.join(output_dir, f"page_{i}.png")
         img = converter.convert(i)
         img.save(out_path)
         pages.append(out_path)
+        page_hashes[str(i)] = sha256_file(out_path)
 
     return {
         "source": note_path,
         "total_pages": total_pages,
         "output_dir": output_dir,
         "pages": pages,
+        "page_hashes": page_hashes,
     }
 
 

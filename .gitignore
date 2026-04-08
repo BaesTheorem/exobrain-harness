@@ -1,11 +1,13 @@
 # Secrets & credentials
 .mcp.json
+.env
 .claude/channels/
 .claude/settings.local.json
 
 # Claude Code runtime
 .claude/projects/
 .claude/plugins/
+.claude/session-memory/
 
 # OS files
 .DS_Store
@@ -13,3 +15,8 @@
 # Python
 __pycache__/
 *.pyc
+
+# Runtime state
+processing-log.json
+apple-notes-sync/apple-notes-sync-state.json
+discord/discord-digest.json
