@@ -1,0 +1,22 @@
+{
+  "parties": {
+    "Calimport Campaign": {
+      "island": [],
+      "sails": [],
+      "anchor": [],
+      "rocks": [],
+      "sun": []
+    },
+    "Test": {
+      "island": [],
+      "sails": [],
+      "anchor": [],
+      "rocks": [],
+      "sun": []
+    }
+  },
+  "settings": {
+    "default_vault_path": "/Users/alexhedtke/Library/Mobile Documents/iCloud~md~obsidian/Documents/Exobrain/",
+    "current_party": "Test"
+  }
+}

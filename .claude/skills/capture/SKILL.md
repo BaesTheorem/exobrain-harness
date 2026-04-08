@@ -1,6 +1,6 @@
 ---
 name: capture
-description: Quick-capture a thought, task, note, or event. Routes to the right destination (Things 3, Obsidian daily note, or Google Calendar). Use when the user says "capture", "add a task", "remember this", "note this", "quick capture", or provides a brief item to save.
+description: Quick-capture a thought, task, note, or event. Routes to the right destination (Things 3, Obsidian daily note, or Google Calendar). Use when the user wants to jot something down, add a task or reminder, save a thought, "remind me to", "add to my list", "put this on my calendar", "I need to", "don't let me forget", "save this", or provides a brief item to save.
 ---
 
 # Quick Capture
@@ -14,8 +14,9 @@ Keywords: "need to", "should", "have to", "don't forget", "remind me", "todo", "
 
 Action:
 1. `search_todos` to check for duplicates
-2. `add_todo` to Things 3 Inbox
-3. Confirm: "Added task '[title]' to Things 3 Inbox"
+2. `add_todo` to Things 3 Inbox (or to a matching project if obvious)
+3. If routing to a project, verify the project has an Obsidian backlink in its notes field (`obsidian://open?vault=Alex's%20Exobrain&file=Projects/...`). If missing, add it via `update_project`.
+4. Confirm: "Added task '[title]' to Things 3 Inbox"
 
 ### Event
 Keywords: "meeting", "appointment", "on [day]", "at [time]", specific dates/times mentioned

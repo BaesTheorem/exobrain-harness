@@ -6,13 +6,50 @@
       "Edit",
       "Glob",
       "Grep",
+      "WebSearch",
+      "WebFetch",
       "Bash(osascript*)",
       "Bash(ls*)",
       "Bash(python3*)",
       "Bash(mkdir*)",
+      "Bash(cat*)",
+      "Bash(date*)",
+      "Bash(chmod*)",
+      "Bash(launchctl*)",
+      "Bash(npx*)",
       "mcp__scheduled-tasks__*",
       "mcp__32ab4f7e-*",
-      "mcp__2ea6cd75-*"
+      "mcp__2ea6cd75-*",
+      "mcp__c1fc4002-*",
+      "mcp__things3__*",
+      "mcp__fitbit__*",
+      "mcp__plugin_discord_discord__*",
+      "mcp__withings__*",
+      "mcp__weather__*",
+      "mcp__mcp-registry__*",
+      "mcp__mychart__*"
+    ]
+  },
+  "hooks": {
+    "SessionStart": [
+      {
+        "matcher": "startup",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "/Users/alexhedtke/Documents/Exobrain\\ harness/.claude/hooks/session-start.sh"
+          }
+        ]
+      },
+      {
+        "matcher": "resume",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "/Users/alexhedtke/Documents/Exobrain\\ harness/.claude/hooks/session-start.sh"
+          }
+        ]
+      }
     ]
   }
 }
