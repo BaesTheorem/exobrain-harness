@@ -36,6 +36,7 @@ Gather all data in parallel where possible, then present conversationally.
 **Health so far**:
 - `get_daily_activity_summary` for today — steps, calories, active minutes
 - Steps vs 15,000 goal — if below goal, note the gap but don't nag (it's bedtime)
+- Write/update today's Health Log note at `Health Log/YYYY-MM-DD.md` with final daily totals (steps, calories, AZM). If the morning briefing already created it with Withings data, update the activity fields only. If no Health Log note exists yet, create one with whatever data is available.
 
 **Communication**:
 - `python3 "/Users/alexhedtke/Documents/Exobrain harness/imessage/imessage-reader.py" unread` — any unanswered messages to flag for tomorrow

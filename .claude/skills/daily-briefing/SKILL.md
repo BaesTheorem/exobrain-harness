@@ -36,25 +36,43 @@ Use the Weather MCP server to get current conditions and forecast for Kansas Cit
 - Flag improvements or concerns
 - Make a specific recommendation tied to today's schedule (e.g., "You're 2k steps below average this week — your calendar is clear from 12-1pm, good time for a walk")
 
-**Raw data persistence (HTML comments):**
-After pulling health data from Fitbit and Withings, store the raw API responses as invisible HTML comments in the daily note immediately after the visible `#### Health` section. This serves two purposes:
-1. **Idempotent re-runs**: If the briefing runs again, check for existing `<!-- health-raw-data` markers. If present, read the cached data from comments instead of re-querying APIs. Update the visible summary only if new data is available.
-2. **Reference for later sessions**: Evening winddown, weekly review, mood scoring, and ad-hoc questions can read the raw data from the daily note without re-querying APIs (which may have rate limits or return different data for past dates).
+**Health Log persistence:**
+After pulling health data from Fitbit and Withings, write a dedicated Health Log note at:
+`/Users/alexhedtke/Library/Mobile Documents/iCloud~md~obsidian/Documents/Exobrain/Health Log/YYYY-MM-DD.md`
 
-Format:
+Use yesterday's date (since the briefing reports on yesterday's data). The note uses YAML frontmatter with numeric properties queryable by Obsidian Bases:
+
 ```markdown
-#### Health
-- Steps: 14,200 yesterday (✓ goal) | 7-day avg: 13,100
-- [sample health data]
-...
-- *Recommendation: ...*
-
-<!-- health-raw-data
-{"fitbit_activity": {...}, "fitbit_sleep": {...}, "fitbit_heart_rate": {...}, "fitbit_azm": {...}, "withings_weight": {...}, "withings_body_comp": {...}, "pulled_at": "2026-04-07T08:00:00-05:00"}
-health-raw-data -->
+---
+date: YYYY-MM-DD
+steps: 14200
+step_goal: 15000
+resting_hr: 68
+sleep_hours: 7.2
+sleep_score: 82
+azm: 45
+calories_burned: 2450
+weight_lbs: 137.1
+body_fat_pct: 10.5
+muscle_mass_lbs: 116.4
+bone_mass_lbs: 6.2
+hydration_pct: 41.5
+visceral_fat: 1.3
+bp_systolic:
+bp_diastolic:
+pulled_at: "YYYY-MM-DDTHH:MM:SS-05:00"
+---
+#### Notes
+- [any trend observations, flags, or recommendations]
+- [link to daily note: [[Daily notes/day name|date]]]
 ```
 
-The HTML comments are invisible in Obsidian's rendered view but readable when Claude reads the file. Keep the JSON compact (single line per object, no pretty-printing) to minimize file size.
+**Rules:**
+- If the Health Log note already exists for that date, read it instead of re-querying APIs (idempotent). Only update if new data is available.
+- Omit properties that have no data (e.g., no blood pressure reading = omit `bp_systolic`/`bp_diastolic` entirely, don't set to null)
+- All numbers are raw numeric values (no units in frontmatter — units go in the daily note summary)
+- The `Health Log.base` at the vault root renders all Health Log notes with filterable/sortable views
+- Evening winddown, weekly review, mood scoring, and ad-hoc questions should read Health Log notes instead of re-querying APIs
 
 ### 3. Calendar
 Use `gcal_list_events` for today's events across all calendars. List each event with time and location.
@@ -207,6 +225,7 @@ Write the briefing at the top (after nav header). Weather goes FIRST, outside th
 - Weight: 137.1 lbs | Fat: 10.5% | Muscle: 116.4 lbs (84.9%)
 - Visceral fat: 1.3 | Bone: 6.2 lbs | Hydration: 41.5%
 - *Recommendation: You're trending below step goal this week. 30-min walk during your lunch gap would help.*
+- Full data: [[Health Log/YYYY-MM-DD|Health Log]]
 
 #### Today
 - 9:00 AM — Team standup (Zoom)
