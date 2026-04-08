@@ -18,7 +18,7 @@ __pycache__/
 
 # Personal/sensitive data
 cycle-tracker/cycle-data.json
-.claude/skills/cycle-tracker/
+cycle-tracker/app.py
 
 # Runtime state
 processing-log.json
