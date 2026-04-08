@@ -214,7 +214,7 @@ _Choose some interesting [treasure](https://slyflourish.com/random_generators/5e
 
 9. **Update processing log**: Add an entry to `processing-log.json` with source `"plaud"` and a note that it was a TTRPG session transcript.
 
-9. **Do NOT route to daily notes or Things 3**: Session content stays in the campaign folder. The only exception is if Alex explicitly mentions real-life action items during the recording (e.g., "I need to buy more dice" or "remind me to text [Friend] about next session").
+9. **Do NOT route to daily notes or Things 3**: Session content stays in the campaign folder. The only exception is if Alex explicitly mentions real-life action items during the recording (e.g., "I need to buy more dice" or "remind me to text [player] about next session").
 
 ### 3. Campaign Query (any question about a campaign)
 
@@ -233,4 +233,4 @@ For general questions about a campaign ("what's the deal with CFAR?", "remind me
 - **Wikilinks**: Always use `[[wikilinks]]` to connect campaign notes. Check that targets exist before linking.
 - **Containment**: All campaign notes stay in the campaign's folder. Don't pollute the main vault.
 - **Campaign-specific rules**: Always check `Claude reference.md` for campaign-specific principles (age-appropriate content, spelling corrections, etc.)
-- **Spelling**: "[Friend]" not "Bryce". "[Partner]" not "Linda" (if they come up in player context).
+- **Spelling**: Check People/ notes for canonical name spellings if real people come up in player context.

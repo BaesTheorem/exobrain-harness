@@ -10,18 +10,14 @@ description: Process Plaud Note transcripts from the Plaud/ folder in the Obsidi
 ### 0. Canonical name mapping
 Plaud transcripts frequently mis-transcribe names. Before processing any transcript, apply these corrections throughout the text:
 
-| Mis-transcription | Correct Name | Notes |
-|-------------------|-------------|-------|
-| Linda | [Partner] | Plaud consistently hears "Linda" for "[Partner]" |
-| Bryce | [Friend] | partner's friend |
-| Dom, Dominique | [Friend] | |
-| Nate | [Friend] | Verify from context |
-| [Friend], Hidy | [Friend] | |
-| Sky, Skyler | [Friend] | |
-| Caleb, Kale | Cale | Roommate |
-| Marianna, Mariana | [Friend] | friend's partner |
+Plaud transcripts frequently mis-transcribe names. Before processing any transcript, check the People/ folder in the Obsidian vault for canonical spellings. Common Plaud mis-transcriptions include phonetically similar substitutions (e.g., "Linda" for a name ending in "-inda", "Bryce" for "[Friend]").
 
-Also normalize variations of the same person to one canonical name for People/ notes (e.g., don't create both `Dom.md` and `[Friend].md`). When in doubt, use the fullest version of the name that exists in the People/ folder. Always check for existing People/ notes with similar names before creating a new one.
+To build the correction table:
+1. Glob `/Users/alexhedtke/Library/Mobile Documents/iCloud~md~obsidian/Documents/Exobrain/People/*.md`
+2. Use those filenames as the canonical names
+3. Apply phonetic matching when Plaud produces a name that's close but not exact
+
+Also normalize variations of the same person to one canonical name for People/ notes (e.g., don't create both a nickname file and a full name file). When in doubt, use the fullest version of the name that exists in the People/ folder. Always check for existing People/ notes with similar names before creating a new one.
 
 ### 1. Find unprocessed transcripts
 - List all `.txt` files in `/Users/alexhedtke/Library/Mobile Documents/iCloud~md~obsidian/Documents/Exobrain/Plaud/`
@@ -120,7 +116,7 @@ For every person mentioned in the transcript:
    - Emotional patterns (how they give feedback, handle conflict, show care)
    - Relationship dynamics with Alex and with each other
    - Recurring behaviors across transcripts (always plays devil's advocate, tends to deflect, gives unsolicited advice, etc.)
-   Add observations to a `## Personality & Dynamics` section in the People note. Use specific examples from transcripts rather than vague labels. Flag noteworthy dynamics in the daily note recommendations when relevant (e.g., "[Friend] and [Friend] independently flagged the same thing — pattern worth noting").
+   Add observations to a `## Personality & Dynamics` section in the People note. Use specific examples from transcripts rather than vague labels. Flag noteworthy dynamics in the daily note recommendations when relevant (e.g., "Two people independently flagged the same thing — pattern worth noting").
 5. Use `[[wikilinks]]` to link People notes from the daily note Network table.
 6. Skip generic/unknown speakers (e.g., "Speaker 1", "unknown") — only create notes for identifiable people.
 

@@ -127,8 +127,8 @@ how_we_met: BlueDot
 - Additional contact fields can be appended (Venmo, Twitter/X, Bluesky, Instagram, Signal, Substack, etc.)
 - Accumulate knowledge over time -- every transcript, email, meeting, and message is a chance to enrich the note
 - Skip generic/unknown speakers ("Speaker 1", "unknown")
-- Plaud mis-transcribes "[Partner]" as "Linda" -- always correct to [[[Partner]]]
-- Correct spelling is "[Friend]" not "Bryce" (partner's friend)
+- Plaud mis-transcribes certain names — check People/ folder for canonical spellings before creating new notes
+- Check the process-transcript skill's name mapping protocol for common Plaud corrections
 
 ## Daily Note Content Order
 

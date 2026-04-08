@@ -78,7 +78,7 @@ This is the canonical reference for how the Exobrain interacts with Google Calen
 **Creating a clear event:**
 ```
 gcal_create_event(
-  summary: "Coffee with [Friend]",
+  summary: "Coffee with [Name]",
   start: "2026-04-07T10:00:00",
   end: "2026-04-07T11:00:00",
   location: "Messenger Coffee, KC"

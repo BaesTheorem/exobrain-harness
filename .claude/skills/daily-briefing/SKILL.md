@@ -148,7 +148,7 @@ Score yesterday's mood using the `/mood` skill methodology:
    - Self-Care lowest → "Your calendar is clear 12–1 PM. A 30-min walk would break the 3-day low-step streak and get you to 10k today."
    - Energy lowest → "You've been past 1 AM every night this week. Set an alarm for 12:30 AM tonight as a wind-down cue."
    - Purpose lowest → "No cert progress in 4 days. Block 45 min before your 2 PM meeting for one AZ-900 practice section — small win, big momentum."
-   - Social lowest → "You haven't seen anyone in 3 days. Text [Friend] about coffee — he's still in town."
+   - Social lowest → "You haven't seen anyone in 3 days. Text a friend about coffee — check CRM for who's overdue."
    - Emotional lowest → "You've been running hard. Journal for 10 min this morning before the day starts — David's 'journal before acting' approach might help."
 
    Format in the briefing as:
