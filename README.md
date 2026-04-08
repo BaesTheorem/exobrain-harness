@@ -92,7 +92,7 @@ Skills are invoked with `/skill-name` in Claude Code. Each is defined in `.claud
 | `/job-search` | Audit job postings for fit, research companies/people, tailor cover letters, track applications | Gmail, Things 3, Obsidian, WebSearch |
 | `/local-events` | Discover upcoming KC events. Searches Facebook, Meetup, venue calendars, library listings. | Monid CLI, WebSearch, GCal, Things 3 |
 | `/deep-research` | Multi-agent deep research for complex questions. Spawns parallel subagents, synthesizes cited report. | WebSearch, WebFetch |
-| `/cycle-tracker` | Track and manage [Partner]'s menstrual cycle -- log periods, symptoms, predictions | cycle-tracker/ app |
+| `/cycle-tracker` | Track and manage partner's menstrual cycle -- log periods, symptoms, predictions | cycle-tracker/ app |
 | `/verify` | Background fact-checker -- runs silently after research tasks to catch errors | WebSearch, WebFetch |
 | `/news-briefing` | Comprehensive news intelligence briefing with bias analysis, blind spot detection, and prediction market cross-referencing | WebSearch, WebFetch |
 | `/de-ai` | Strip AI-generated patterns from text to sound human | None (text transformation only) |
@@ -147,7 +147,7 @@ Displays today's date with logical day (accounting for the 2 AM boundary), then 
 Persistent cross-session memory in `.claude/projects/.../memory/`. ~30 files total.
 
 **Core**: user profile, reference paths, project architecture
-**Behavioral rules**: overbooking alerts, calendar verification, Guild event filtering, Things 3 deep links and inbox-only, CRM extraction and math verification, outreach style, claim verification, flight buffers, late-night date handling, Fitbit data accuracy, Withings in health data, Obsidian formatting (H3 daily note headings, no blank lines before headers, no H1 in People notes), transcript name corrections ([Partner]/[Friend]), job scan depth and stale listing verification, compact briefing format, no em dashes, sleep data date convention
+**Behavioral rules**: overbooking alerts, calendar verification, Guild event filtering, Things 3 deep links and inbox-only, CRM extraction and math verification, outreach style, claim verification, flight buffers, late-night date handling, Fitbit data accuracy, Withings in health data, Obsidian formatting (H3 daily note headings, no blank lines before headers, no H1 in People notes), transcript name corrections, job scan depth and stale listing verification, compact briefing format, no em dashes, sleep data date convention
 
 ---
 
@@ -283,7 +283,7 @@ Exobrain harness/
 |-- fonts/                              # Font assets
 |
 |-- Subdirectory apps
-|   |-- cycle-tracker/                  # [Partner]'s cycle tracking app
+|   |-- cycle-tracker/                  # Partner's cycle tracking app
 |   |-- mood-tracker/                   # Mood journal web app
 |   |-- pomodoro/                       # Pomodoro timer app
 |   |-- sailboat-retro/                 # Sailboat retrospective visualization
