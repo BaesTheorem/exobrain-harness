@@ -19,6 +19,11 @@ __pycache__/
 # Personal/sensitive data
 cycle-tracker/cycle-data.json
 cycle-tracker/app.py
+mood-tracker/mood-data.json
+local-events/local-events-log.json
+local-events/local-events-prefs.json
+sailboat-retro/retro-data.json
+discord/discord-digest-fetch.py
 
 # Runtime state
 processing-log.json
