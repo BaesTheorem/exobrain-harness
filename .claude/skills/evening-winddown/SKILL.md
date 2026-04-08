@@ -46,6 +46,7 @@ Gather all data in parallel where possible, then present conversationally.
 **Email scan**:
 Use `gmail_search_messages` to scan emails received since this morning's briefing (`after:` today's date). Surface:
 - **Actionable items**: Anything needing a reply, decision, or follow-up. Create Things 3 tasks for clear action items.
+- **Events**: Any email mentioning a specific date/time for a meeting, call, or event → **create a Google Calendar event immediately** (check for duplicates first). Vague timing → Things 3 inbox task `Review: [event]`.
 - **Important threads**: Recruiter messages, interview scheduling, time-sensitive requests.
 - **CRM-relevant**: Messages from People/ contacts — update People notes and `last_contact` if Alex sent an outgoing reply.
 - Keep this lightweight — only surface what's new since the morning briefing, not a full inbox dump.
@@ -57,7 +58,17 @@ Use `gmail_search_messages` to scan emails received since this morning's briefin
 - **CRM follow-ups**: If someone asked Alex something he hasn't replied to, flag it for tomorrow.
 - **CRM last_contact updates**: For any outgoing iMessages or emails Alex sent today, update `last_contact` in the corresponding People/ note frontmatter to today's date. This is critical for keeping the Network CRM accurate — outgoing communication resets the contact timer.
 
-### 1b. Supernote Processing (MANDATORY)
+### 1b. Cycle Tracker Check
+
+Run the `/cycle-tracker` skill to check current phase status:
+1. Read `cycle-data.json` and calculate current phase, day of cycle, and next predicted period
+2. Update the `## Cycle Tracking` section in partner's People note with current phase, cycle day, average length, next predicted date, and any recent symptoms
+3. If the period is predicted within 2 days, or currently in PMS/menstrual phase, note it briefly in the wind-down output
+4. If Alex mentioned any cycle-related observations during the day (from transcripts, notes, or direct input), log them to `cycle-data.json`
+
+This is silent housekeeping unless there's something worth flagging. The People note update ensures the CRM stays current.
+
+### 1c. Supernote Processing (MANDATORY)
 
 This is not optional. Process all unprocessed Supernote files before continuing the wind-down.
 

@@ -75,11 +75,14 @@ If any transcript or note mentions:
 
 ## Updating partner's People Note
 
-After any cycle data change, update the `## Cycle Tracking` section in partner's People note with:
-- Current phase and day of cycle
+Update the `## Cycle Tracking` section in partner's People note **daily** (via the evening winddown) and after any cycle data change. This section should always reflect current status:
+- Current phase and day of cycle (e.g., "Follicular — Day 10")
 - Average cycle length
 - Next predicted period date
 - Recent symptoms if any
+- Last updated date
+
+The People note path is defined in `PEOPLE_NOTE` in `cycle-tracker/app.py` (gitignored). If the path is unknown, search the People/ folder for partner's note.
 
 ## Integration with Daily Briefing
 
