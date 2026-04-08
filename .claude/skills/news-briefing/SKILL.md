@@ -7,9 +7,9 @@ description: Comprehensive news intelligence briefing with bias analysis, blind 
 
 A personalized intelligence briefing that goes beyond headlines. Analyzes how stories are framed across the political spectrum, surfaces blind spots, cross-references prediction markets, and fact-checks key claims — all with citations.
 
-**Output**: Standalone note in `/Users/alexhedtke/Library/Mobile Documents/iCloud~md~obsidian/Documents/Exobrain/News Briefings/YYYY-MM-DD.md`
+**Output**: Standalone note in `/Users/alexhedtke/Documents/Exobrain/News Briefings/YYYY-MM-DD.md`
 **Target length**: Under a 10-minute read (~2,000-2,500 words)
-**Reference**: Read `[[Alex's Tastes]]` (`/Users/alexhedtke/Library/Mobile Documents/iCloud~md~obsidian/Documents/Exobrain/Alex's Tastes.md`) for personalization context.
+**Reference**: Read `[[Alex's Tastes]]` (`/Users/alexhedtke/Documents/Exobrain/Alex's Tastes.md`) for personalization context.
 
 ## Architecture
 
@@ -233,7 +233,7 @@ After all agents return, compile the briefing. The Lead Editor (you, Opus) write
 
 ### Briefing Structure
 
-Write to `/Users/alexhedtke/Library/Mobile Documents/iCloud~md~obsidian/Documents/Exobrain/News Briefings/YYYY-MM-DD.md`:
+Write to `/Users/alexhedtke/Documents/Exobrain/News Briefings/YYYY-MM-DD.md`:
 
 ```markdown
 # News Briefing — [Day of Week], [Month] [Day], [Year]
@@ -347,7 +347,7 @@ Discord ping to `1486464885784182834`:
 
 ## Deduplication
 
-Before writing, check if `/Users/alexhedtke/Library/Mobile Documents/iCloud~md~obsidian/Documents/Exobrain/News Briefings/YYYY-MM-DD.md` already exists. If it does:
+Before writing, check if `/Users/alexhedtke/Documents/Exobrain/News Briefings/YYYY-MM-DD.md` already exists. If it does:
 - If called standalone, ask Alex if he wants to regenerate or skip.
 - If called from daily briefing, skip the full briefing and just write the daily note summary from the existing briefing.
 

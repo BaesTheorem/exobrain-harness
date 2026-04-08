@@ -7,8 +7,8 @@ description: Look up, manage, and surface Network CRM contacts. Cross-references
 
 Alex's CRM lives entirely in Obsidian. Each People/ note has YAML frontmatter with CRM fields. The Exobrain reads frontmatter to compute overdue status, surface follow-ups, and manage the network.
 
-**Dashboard**: `/Users/alexhedtke/Library/Mobile Documents/iCloud~md~obsidian/Documents/Exobrain/Network CRM.md`
-**People notes**: `/Users/alexhedtke/Library/Mobile Documents/iCloud~md~obsidian/Documents/Exobrain/People/[Name].md`
+**Dashboard**: `/Users/alexhedtke/Documents/Exobrain/Network CRM.md`
+**People notes**: `/Users/alexhedtke/Documents/Exobrain/People/[Name].md`
 
 ## Category Frequencies
 

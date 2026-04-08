@@ -12,7 +12,7 @@ Alex is actively job hunting. This skill handles the full pipeline: evaluating f
 
 ## Resume Reference
 
-**Resume PDF**: `/Users/alexhedtke/Library/Mobile Documents/iCloud~md~obsidian/Documents/Exobrain/Alex_Hedtke_Resume.pdf`
+**Resume PDF**: `/Users/alexhedtke/Documents/Exobrain/Alex_Hedtke_Resume.pdf`
 Read the PDF at the start of any audit or cover letter to ensure you're working from the latest version.
 
 **Key background**: Read the resume PDF at the path above at runtime to get current experience, skills, certifications, and leadership history. Do not hardcode resume details in this skill — the PDF is the source of truth and may be updated independently.
@@ -173,7 +173,7 @@ Runs modes 1→2→3 in sequence:
 
 ## Job Hub Note — "Get new job"
 
-**Path**: `/Users/alexhedtke/Library/Mobile Documents/iCloud~md~obsidian/Documents/Exobrain/Projects/Get new job.md`
+**Path**: `/Users/alexhedtke/Documents/Exobrain/Projects/Get new job.md`
 
 This note is the one-stop dashboard for all job hunting activity. **Every job-search action must append a log entry to this note** (after the existing Things 3 data / Notes section). Don't touch the existing task sections — only append below them.
 

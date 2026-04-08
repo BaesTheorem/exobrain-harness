@@ -49,7 +49,7 @@ The system runs on three automation layers:
 2. **Claude Code scheduled tasks** -- run morning briefing, transcript checks, inbox review, evening winddown, weekly review on cron
 3. **Interactive skills** -- invoked manually via `/skill-name` in Claude Code sessions
 
-All outputs converge on the Obsidian vault (`/Users/alexhedtke/Library/Mobile Documents/iCloud~md~obsidian/Documents/Exobrain/`) as the single source of truth, with Things 3 and Google Calendar as action surfaces.
+All outputs converge on the Obsidian vault (`/Users/alexhedtke/Documents/Exobrain/`) as the single source of truth, with Things 3 and Google Calendar as action surfaces.
 
 ---
 
@@ -321,7 +321,7 @@ Exobrain harness/
         |-- weekly-review/SKILL.md
         |-- whimsy/SKILL.md
 
-External vault: /Users/alexhedtke/Library/Mobile Documents/iCloud~md~obsidian/Documents/Exobrain/
+External vault: /Users/alexhedtke/Documents/Exobrain/
 |-- Dashboard.md                        # Current priorities
 |-- Mood Journal.md                     # Longitudinal mood tracking
 |-- Network CRM.md                      # CRM overview (Dataview queries)
@@ -495,7 +495,7 @@ System Settings -> Privacy & Security -> Full Disk Access -> Add Terminal.app (o
 ### Step 11: Configure Obsidian Vault
 
 Ensure the vault path matches what's in `CLAUDE.md`:
-- Vault root: `/Users/alexhedtke/Library/Mobile Documents/iCloud~md~obsidian/Documents/Exobrain/`
+- Vault root: `/Users/alexhedtke/Documents/Exobrain/`
 - Daily notes format: `dddd, MMMM Do, YYYY`
 - Create folders if missing: `Daily notes/`, `People/`, `Projects/`, `Plaud/`, `Inbox/`
 

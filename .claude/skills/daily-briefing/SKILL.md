@@ -38,7 +38,7 @@ Use the Weather MCP server to get current conditions and forecast for Kansas Cit
 
 **Health Log persistence:**
 After pulling health data from Fitbit and Withings, write a dedicated Health Log note at:
-`/Users/alexhedtke/Library/Mobile Documents/iCloud~md~obsidian/Documents/Exobrain/Health Log/YYYY-MM-DD.md`
+`/Users/alexhedtke/Documents/Exobrain/Health Log/YYYY-MM-DD.md`
 
 Use yesterday's date (since the briefing reports on yesterday's data). The note uses YAML frontmatter with numeric properties queryable by Obsidian Bases:
 
@@ -93,7 +93,7 @@ If buffer events are missing, create them via `gcal_create_event`. Check before 
 - Trust Things 3 to surface tasks on its own — Alex checks it independently.
 
 ### 5. Priorities check
-Read `/Users/alexhedtke/Library/Mobile Documents/iCloud~md~obsidian/Documents/Exobrain/Dashboard.md` for current priorities. Note which of today's tasks/events align with priorities. Flag if any priority area has no activity scheduled.
+Read `/Users/alexhedtke/Documents/Exobrain/Dashboard.md` for current priorities. Note which of today's tasks/events align with priorities. Flag if any priority area has no activity scheduled.
 
 ### 6. Email scan
 Use `gmail_search_messages` to scan emails from the last 24 hours (`after:` yesterday's date). Surface:
@@ -108,9 +108,9 @@ Use `gmail_search_messages` to scan emails from the last 24 hours (`after:` yest
 3. Categorize as **Strong Fit**, **Moderate Fit**, or **Skip**
 4. For Strong/Moderate fits:
    a. Create a Things 3 task in Inbox: `Apply: [Role] at [Company]` (tag: job-search, notes: fit summary + link + Obsidian backlink)
-   b. Create an Obsidian note at `/Users/alexhedtke/Library/Mobile Documents/iCloud~md~obsidian/Documents/Exobrain/Projects/Job Search/[Company] - [Role].md` with role details, fit assessment, link, and source
+   b. Create an Obsidian note at `/Users/alexhedtke/Documents/Exobrain/Projects/Job Search/[Company] - [Role].md` with role details, fit assessment, link, and source
    c. Ensure the Things 3 task notes include an Obsidian backlink to that note
-5. Append any Strong/Moderate fits to the job hub note (`/Users/alexhedtke/Library/Mobile Documents/iCloud~md~obsidian/Documents/Exobrain/Projects/Get new job.md`) under `## Job Search Log` as a dated `Audit` entry
+5. Append any Strong/Moderate fits to the job hub note (`/Users/alexhedtke/Documents/Exobrain/Projects/Get new job.md`) under `## Job Search Log` as a dated `Audit` entry
 6. **Do NOT include job alerts in the briefing** unless a posting is an exceptional fit (perfect role match, dream company, or unusually urgent). If you do surface one, keep it to 1 line.
 
 Keep the email section concise in the briefing — only surface what needs attention, not a full inbox dump.
@@ -131,7 +131,7 @@ Score yesterday's mood using the `/mood` skill methodology:
 1. Gather evidence from all sources already pulled (Fitbit, calendar, email, tasks)
 2. Score each sub-category (Emotional, Energy, Self-Care, Social, Purpose) on 1-5 scale
 3. Calculate overall score (weighted toward lowest sub-scores)
-4. Update `/Users/alexhedtke/Library/Mobile Documents/iCloud~md~obsidian/Documents/Exobrain/Mood Journal.md`:
+4. Update `/Users/alexhedtke/Documents/Exobrain/Mood Journal.md`:
    - Add daily log entry
    - Update the calendar heatmap cell color
 5. **Write mood to yesterday's daily note**: Append a `### Mood` section to YESTERDAY's daily note (not today's) with sub-scores and primary driver:
@@ -165,10 +165,10 @@ If it's a weekday, run a quick application count for the current week (search Gm
 - If behind mid-week, suggest time blocks from calendar gaps
 - Upcoming interviews or job-related events from calendar
 
-If any applications were submitted yesterday, append a brief dated log entry to the job hub note (`/Users/alexhedtke/Library/Mobile Documents/iCloud~md~obsidian/Documents/Exobrain/Projects/Get new job.md`) under `## Job Search Log`.
+If any applications were submitted yesterday, append a brief dated log entry to the job hub note (`/Users/alexhedtke/Documents/Exobrain/Projects/Get new job.md`) under `## Job Search Log`.
 
 **Job Applications tracker maintenance** (do this every day):
-- Read `[[Job Applications]]` (`/Users/alexhedtke/Library/Mobile Documents/iCloud~md~obsidian/Documents/Exobrain/Projects/Job Search/Job Applications.md`)
+- Read `[[Job Applications]]` (`/Users/alexhedtke/Documents/Exobrain/Projects/Job Search/Job Applications.md`)
 - Search Gmail for new application confirmations and rejection emails since the last entry date
 - Add any new applications to the table (populate as many fields as possible: title, comp, location, source)
 - Update status for any rejections received (change "Applied" to "Rejected" and add rejection date in Notes)
@@ -180,7 +180,7 @@ If any applications were submitted yesterday, append a brief dated log entry to 
 **CRITICAL: Get the math right. False positives create clutter and waste Alex's mental bandwidth. False negatives mean dropped relationships. Double-check every calculation.**
 
 Scan People/ notes for overdue contacts using the CRM methodology:
-1. Glob `/Users/alexhedtke/Library/Mobile Documents/iCloud~md~obsidian/Documents/Exobrain/People/*.md` and read frontmatter for notes that have `category` and `last_contact` fields
+1. Glob `/Users/alexhedtke/Documents/Exobrain/People/*.md` and read frontmatter for notes that have `category` and `last_contact` fields
 2. Compute overdue status using this exact formula:
    - `days_since = (today's date) - (last_contact date)` — count calendar days
    - `due_date = last_contact + frequency` — the date contact becomes due
@@ -194,7 +194,7 @@ Scan People/ notes for overdue contacts using the CRM methodology:
 6. **Do NOT list overdue contacts in the briefing.** Things 3 tasks are sufficient. Only mention a contact in the briefing if you have new context to add (e.g., you saw their name in an email, transcript, or event that changes the outreach approach).
 
 ### 11. News Briefing
-Check if `/Users/alexhedtke/Library/Mobile Documents/iCloud~md~obsidian/Documents/Exobrain/News Briefings/YYYY-MM-DD.md` exists for today.
+Check if `/Users/alexhedtke/Documents/Exobrain/News Briefings/YYYY-MM-DD.md` exists for today.
 
 - **If it does NOT exist**: Run the full `/news-briefing` skill (all phases — gathering, analysis, synthesis). This generates the complete briefing note.
 - **If it already exists**: Skip regeneration — just read the existing note.
@@ -209,7 +209,7 @@ Instead, read `/Users/alexhedtke/Documents/Exobrain harness/local-events/local-e
 - If no upcoming events in the log, just skip this section
 
 ### 13. Write to daily note
-Create or append to today's daily note (`/Users/alexhedtke/Library/Mobile Documents/iCloud~md~obsidian/Documents/Exobrain/Daily notes/[day name].md`).
+Create or append to today's daily note (`/Users/alexhedtke/Documents/Exobrain/Daily notes/[day name].md`).
 
 If the note doesn't exist, create it with the nav header first.
 

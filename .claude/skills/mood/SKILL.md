@@ -5,7 +5,7 @@ description: Track and analyze Alex's mood, mental health, and wellbeing over ti
 
 # Mood Tracking
 
-Maintains `/Users/alexhedtke/Library/Mobile Documents/iCloud~md~obsidian/Documents/Exobrain/Mood Journal.md` — a longitudinal record of Alex's mental health and wellbeing.
+Maintains `/Users/alexhedtke/Documents/Exobrain/Mood Journal.md` — a longitudinal record of Alex's mental health and wellbeing.
 
 ## Scale
 
@@ -85,7 +85,7 @@ Individual day entries with sub-scores, evidence, and primary driver. Most recen
 
 - **Data file**: `/Users/alexhedtke/Documents/Exobrain harness/mood-tracker/mood-data.json`
 - **Web UI**: `python3 "/Users/alexhedtke/Documents/Exobrain harness/mood-tracker/app.py"` → http://localhost:5174
-- **Obsidian note**: `/Users/alexhedtke/Library/Mobile Documents/iCloud~md~obsidian/Documents/Exobrain/Mood Journal.md` (auto-synced on every change)
+- **Obsidian note**: `/Users/alexhedtke/Documents/Exobrain/Mood Journal.md` (auto-synced on every change)
 - **CLI sync**: `python3 "/Users/alexhedtke/Documents/Exobrain harness/mood-tracker/app.py" --sync` (regenerate Obsidian note from data)
 
 The web app provides a full calendar heatmap, trend chart, sub-category sliders, flag chips, edit/delete on all entries, and editable weekly narrative summaries. All changes sync automatically to the Obsidian Mood Journal note.

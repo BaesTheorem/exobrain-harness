@@ -14,7 +14,7 @@ fi
 
 # Plaud lands transcripts in Google Drive; copy new ones into the Obsidian vault (iCloud)
 PLAUD_GDRIVE="$HOME/My Drive/Plaud"
-PLAUD_VAULT="$HOME/Library/Mobile Documents/iCloud~md~obsidian/Documents/Exobrain/Plaud"
+PLAUD_VAULT="$HOME/Documents/Exobrain/Plaud"
 LOG_FILE="$HOME/Documents/Exobrain harness/processing-log.json"
 
 if [ ! -d "$PLAUD_GDRIVE" ]; then

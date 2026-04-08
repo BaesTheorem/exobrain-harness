@@ -150,7 +150,7 @@ This applies to all sources: iMessages, Discord, Supernote, calendar follow-ups,
 
 Run this silently — no output to Alex. Scan Things 3 projects (`get_projects`) and for each:
 1. Check if the project's notes field contains an `obsidian://` backlink
-2. If missing, check if an Obsidian note exists at `/Users/alexhedtke/Library/Mobile Documents/iCloud~md~obsidian/Documents/Exobrain/Projects/[Project Name].md`
+2. If missing, check if an Obsidian note exists at `/Users/alexhedtke/Documents/Exobrain/Projects/[Project Name].md`
 3. If no note exists, create one:
    ```markdown
    ## Overview

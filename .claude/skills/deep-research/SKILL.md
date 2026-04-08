@@ -162,7 +162,7 @@ After producing the report:
 2. **People notes**: If the research involves specific people, update or create People/ notes
 3. **Tasks**: If the research surfaces action items, create Things 3 tasks
 4. **Media**: If media recommendations are mentioned, create individual `Media/[Title].md` notes (see CLAUDE.md schema). For books, include `author` and `word_count`.
-5. **Save report**: If the research is substantial, save it as a note in the vault at `/Users/alexhedtke/Library/Mobile Documents/iCloud~md~obsidian/Documents/Exobrain/Research/[Topic].md`
+5. **Save report**: If the research is substantial, save it as a note in the vault at `/Users/alexhedtke/Documents/Exobrain/Research/[Topic].md`
 
 ## Example: Complex Query
 

@@ -28,16 +28,16 @@ This repo is designed to be both **sharable** and **replicable** by others. Ever
 
 ## Key Paths
 
-- **Obsidian Vault**: `/Users/alexhedtke/Library/Mobile Documents/iCloud~md~obsidian/Documents/Exobrain/`
-- **Daily Notes**: `/Users/alexhedtke/Library/Mobile Documents/iCloud~md~obsidian/Documents/Exobrain/Daily notes/`
+- **Obsidian Vault**: `/Users/alexhedtke/Documents/Exobrain/`
+- **Daily Notes**: `/Users/alexhedtke/Documents/Exobrain/Daily notes/`
 - **Daily Note Filename Format**: `dddd, MMMM Do, YYYY` (e.g., `Wednesday, March 25th, 2026`)
 - **Plaud Landing Zone (GDrive)**: `/Users/alexhedtke/My Drive/Plaud/`
-- **Plaud Transcripts (Vault)**: `/Users/alexhedtke/Library/Mobile Documents/iCloud~md~obsidian/Documents/Exobrain/Plaud/`
+- **Plaud Transcripts (Vault)**: `/Users/alexhedtke/Documents/Exobrain/Plaud/`
 - **Supernote Notes**: `/Users/alexhedtke/My Drive/Supernote/Note/`
 - **Processing Log**: `/Users/alexhedtke/Documents/Exobrain harness/processing-log.json`
-- **Dashboard**: `/Users/alexhedtke/Library/Mobile Documents/iCloud~md~obsidian/Documents/Exobrain/Dashboard.md`
-- **People Notes**: `/Users/alexhedtke/Library/Mobile Documents/iCloud~md~obsidian/Documents/Exobrain/People/`
-- **Health Log**: `/Users/alexhedtke/Library/Mobile Documents/iCloud~md~obsidian/Documents/Exobrain/Health Log/` (one note per day, YYYY-MM-DD.md)
+- **Dashboard**: `/Users/alexhedtke/Documents/Exobrain/Dashboard.md`
+- **People Notes**: `/Users/alexhedtke/Documents/Exobrain/People/`
+- **Health Log**: `/Users/alexhedtke/Documents/Exobrain/Health Log/` (one note per day, YYYY-MM-DD.md)
 - **Supernote Parser**: `/Users/alexhedtke/Documents/Exobrain harness/transcript-processing/supernote-parser.py`
 - **iMessage Reader**: `/Users/alexhedtke/Documents/Exobrain harness/imessage/imessage-reader.py`
 - **Apple Notes Sync**: `/Users/alexhedtke/Documents/Exobrain harness/apple-notes-sync/apple-notes-sync.py`
@@ -64,7 +64,7 @@ This repo is designed to be both **sharable** and **replicable** by others. Ever
 - Always `search_todos` before adding — avoid duplicates
 - When a new task matches an existing task, use `update_todo` to append context rather than creating a duplicate
 - For detected events that are ambiguous, create a Things 3 task titled `Review: [event description]` in the Inbox
-- **Project backlinks**: Every Things 3 project must include an Obsidian backlink in its notes field. Use the format: `obsidian://open?vault=Alex's%20Exobrain&file=Projects/Project%20Name`. When creating a new project or encountering one without a backlink, add it via `update_project`. Also ensure a corresponding Obsidian note exists at `/Users/alexhedtke/Library/Mobile Documents/iCloud~md~obsidian/Documents/Exobrain/Projects/[Project Name].md`.
+- **Project backlinks**: Every Things 3 project must include an Obsidian backlink in its notes field. Use the format: `obsidian://open?vault=Alex's%20Exobrain&file=Projects/Project%20Name`. When creating a new project or encountering one without a backlink, add it via `update_project`. Also ensure a corresponding Obsidian note exists at `/Users/alexhedtke/Documents/Exobrain/Projects/[Project Name].md`.
 
 ## Calendar Conventions
 
@@ -88,7 +88,7 @@ When processing Plaud transcripts, create a journal-style daily note entry inclu
 
 When any transcript, note, or other imported content mentions a movie, show, anime, book, podcast, article, game, TTRPG, or other media:
 1. Extract it with: title, who recommended it, context (where/when it came up), and a brief description if available
-2. Create a note in `/Users/alexhedtke/Library/Mobile Documents/iCloud~md~obsidian/Documents/Exobrain/Media/[Title].md` with this frontmatter:
+2. Create a note in `/Users/alexhedtke/Documents/Exobrain/Media/[Title].md` with this frontmatter:
    ```yaml
    ---
    author: "Author Name"        # books only
@@ -107,7 +107,7 @@ When any transcript, note, or other imported content mentions a movie, show, ani
    For books: always include `author` and `word_count` (look up the approximate word count).
 3. Do NOT create duplicate entries — check if a Media/ note with that title already exists first (use Glob). If it exists, append new context to the body rather than creating a duplicate.
 4. Note in the daily note entry: "Added X media items to [[Media.base|Media]]"
-5. The `Media.base` view at `/Users/alexhedtke/Library/Mobile Documents/iCloud~md~obsidian/Documents/Exobrain/Media.base` auto-renders all Media/ notes with filterable/sortable views.
+5. The `Media.base` view at `/Users/alexhedtke/Documents/Exobrain/Media.base` auto-renders all Media/ notes with filterable/sortable views.
 
 ## Health Data
 
@@ -120,8 +120,8 @@ When any transcript, note, or other imported content mentions a movie, show, ani
 
 ## People Notes (Network CRM)
 
-- **Location**: `/Users/alexhedtke/Library/Mobile Documents/iCloud~md~obsidian/Documents/Exobrain/People/[Name].md`
-- **Dashboard**: `/Users/alexhedtke/Library/Mobile Documents/iCloud~md~obsidian/Documents/Exobrain/Network CRM.md`
+- **Location**: `/Users/alexhedtke/Documents/Exobrain/People/[Name].md`
+- **Dashboard**: `/Users/alexhedtke/Documents/Exobrain/Network CRM.md`
 - **Source of truth**: YAML frontmatter on People/ notes (not a Google Sheet)
 - **Categories**: Cat A = 14 days, Cat B = 21 days, Cat C = 45 days, Cat D = 90 days
 - Alex edits frontmatter directly in Obsidian (category, frequency, last_contact, etc.) — always read current frontmatter before computing status

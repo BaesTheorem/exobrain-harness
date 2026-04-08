@@ -46,7 +46,7 @@ This is the canonical reference for how the Exobrain interacts with Things 3. Al
    ```
    obsidian://open?vault=Exobrain&file=Projects/[Project%20Name]/[Project%20Name]
    ```
-   When creating a project or encountering one without a backlink, add it via `update_project`. Also ensure the corresponding Obsidian project folder and note exist at `/Users/alexhedtke/Library/Mobile Documents/iCloud~md~obsidian/Documents/Exobrain/Projects/[Project Name]/[Project Name].md`.
+   When creating a project or encountering one without a backlink, add it via `update_project`. Also ensure the corresponding Obsidian project folder and note exist at `/Users/alexhedtke/Documents/Exobrain/Projects/[Project Name]/[Project Name].md`.
 
 4. **Sanitize all text.** Task titles and notes must be clean plaintext. No URL encoding (`%20`, `+` for spaces), no stray HTML entities. Decode before writing.
 

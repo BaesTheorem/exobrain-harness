@@ -13,14 +13,14 @@ Plaud transcripts frequently mis-transcribe names. Before processing any transcr
 Plaud transcripts frequently mis-transcribe names. Before processing any transcript, check the People/ folder in the Obsidian vault for canonical spellings. Common Plaud mis-transcriptions include phonetically similar substitutions (e.g., "Linda" for a name ending in "-inda", "Bryce" for "[Friend]").
 
 To build the correction table:
-1. Glob `/Users/alexhedtke/Library/Mobile Documents/iCloud~md~obsidian/Documents/Exobrain/People/*.md`
+1. Glob `/Users/alexhedtke/Documents/Exobrain/People/*.md`
 2. Use those filenames as the canonical names
 3. Apply phonetic matching when Plaud produces a name that's close but not exact
 
 Also normalize variations of the same person to one canonical name for People/ notes (e.g., don't create both a nickname file and a full name file). When in doubt, use the fullest version of the name that exists in the People/ folder. Always check for existing People/ notes with similar names before creating a new one.
 
 ### 1. Find unprocessed transcripts
-- List all `.txt` files in `/Users/alexhedtke/Library/Mobile Documents/iCloud~md~obsidian/Documents/Exobrain/Plaud/`
+- List all `.txt` files in `/Users/alexhedtke/Documents/Exobrain/Plaud/`
 - Read `/Users/alexhedtke/Documents/Exobrain harness/processing-log.json`
 - Identify files not yet in the log. Check against both the original filename AND any renamed filename (since step 9 renames files after processing). A file is processed if its original name OR its renamed form appears in the log.
 - If no unprocessed files, notify and stop
@@ -94,7 +94,7 @@ Before adding wikilinks, check that the target note exists by listing files in t
 
 ### 6. Update People/ notes
 For every person mentioned in the transcript:
-1. Check if `/Users/alexhedtke/Library/Mobile Documents/iCloud~md~obsidian/Documents/Exobrain/People/[Name].md` exists
+1. Check if `/Users/alexhedtke/Documents/Exobrain/People/[Name].md` exists
 2. If it doesn't exist, create it:
    ```markdown
    ## Context
@@ -121,7 +121,7 @@ For every person mentioned in the transcript:
 6. Skip generic/unknown speakers (e.g., "Speaker 1", "unknown") — only create notes for identifiable people.
 
 ### 7. Log job-related content to job hub
-If the transcript contains any job search-related content — job leads, companies mentioned, networking contacts for job hunting, interview prep, upskilling discussion, application strategy — append a dated log entry to `/Users/alexhedtke/Library/Mobile Documents/iCloud~md~obsidian/Documents/Exobrain/Projects/Get new job.md` under `## Job Search Log`. Use the appropriate type (Networking, Research, Upskilling, Interview, etc.) and include the key details.
+If the transcript contains any job search-related content — job leads, companies mentioned, networking contacts for job hunting, interview prep, upskilling discussion, application strategy — append a dated log entry to `/Users/alexhedtke/Documents/Exobrain/Projects/Get new job.md` under `## Job Search Log`. Use the appropriate type (Networking, Research, Upskilling, Interview, etc.) and include the key details.
 
 ### 8. Flag proactive observations
 - If anything sounds like procrastination on a priority item, note it

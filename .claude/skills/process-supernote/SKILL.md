@@ -42,7 +42,7 @@ Analyze the OCR'd text for:
 ### 6. Copy PNGs into vault
 Copy the extracted PNG pages into the vault's attachments folder:
 ```
-/Users/alexhedtke/Library/Mobile Documents/iCloud~md~obsidian/Documents/Exobrain/attachments/supernote/
+/Users/alexhedtke/Documents/Exobrain/attachments/supernote/
 ```
 Name them `<note_name>_page_<N>.png` (e.g., `20260322_170801_page_0.png`). Only copy new/changed pages.
 
