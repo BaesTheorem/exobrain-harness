@@ -9,7 +9,7 @@ This is the canonical reference for how the Exobrain interacts with the Obsidian
 
 ## Vault Root
 
-`/Users/alexhedtke/Library/Mobile Documents/iCloud~md~obsidian/Documents/Exobrain/`
+`/Users/alexhedtke/Documents/Exobrain/`
 
 ## Key Locations
 

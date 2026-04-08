@@ -16,7 +16,7 @@ from urllib.parse import urlparse, parse_qs
 import webbrowser
 
 DATA_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), "mood-data.json")
-MOOD_JOURNAL = "/Users/alexhedtke/Library/Mobile Documents/iCloud~md~obsidian/Documents/Exobrain/Mood Journal.md"
+MOOD_JOURNAL = "/Users/alexhedtke/Documents/Exobrain/Mood Journal.md"
 PORT = 5174
 
 SCORE_COLORS = {

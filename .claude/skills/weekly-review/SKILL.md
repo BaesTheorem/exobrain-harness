@@ -21,7 +21,7 @@ Use `gcal_list_events` for:
 - **Next 4 weeks**: What's coming? Flag events needing preparation, deadlines approaching, and gaps that could be used for priority work.
 
 ### 3. Obsidian notes review
-Read the past 7 daily notes from `/Users/alexhedtke/Library/Mobile Documents/iCloud~md~obsidian/Documents/Exobrain/Daily notes/`.
+Read the past 7 daily notes from `/Users/alexhedtke/Documents/Exobrain/Daily notes/`.
 - Surface unresolved items, open questions, and incomplete threads
 - Note patterns or recurring themes
 
@@ -47,13 +47,13 @@ Run `/job-search status` logic to compile the week's application count and pace.
 - Upskilling progress (cert study sessions, training attended, exams)
 - Interview activity (scheduled, completed, outcomes)
 - Networking for job search (outreach sent, intros made)
-Append a dated `Applications` entry to the job hub note (`/Users/alexhedtke/Library/Mobile Documents/iCloud~md~obsidian/Documents/Exobrain/Projects/Get new job.md`) under `## Job Search Log`.
+Append a dated `Applications` entry to the job hub note (`/Users/alexhedtke/Documents/Exobrain/Projects/Get new job.md`) under `## Job Search Log`.
 
 ### 8. Health trends
 Pull 7-day Fitbit data (steps, sleep, zone minutes) — do NOT use Fitbit for weight. Pull Withings data separately: body composition (`withings_get_body_composition` imperial) for latest snapshot, plus `withings_get_measurements` for 7-day weight/body comp trends, and blood pressure if available. Summarize trends and flag concerns.
 
 ### 9. Mood Journal — weekly summary
-Read `/Users/alexhedtke/Library/Mobile Documents/iCloud~md~obsidian/Documents/Exobrain/Mood Journal.md` and generate the weekly summary:
+Read `/Users/alexhedtke/Documents/Exobrain/Mood Journal.md` and generate the weekly summary:
 1. Compile daily scores for Mon-Sun (score any unscored days using available data)
 2. Calculate sub-category averages and overall week score
 3. Write a 2-3 sentence weekly narrative: what drove the mood, key events, patterns
@@ -94,7 +94,7 @@ After completing all automated checks above, run the `/deep-recon` skill in auto
 
 **Cost note:** ~800k-1M tokens, 20-30 minutes. This runs after all other review steps are complete so it doesn't block the rest of the review.
 
-**Output:** The recon document lands in `/Users/alexhedtke/Library/Mobile Documents/iCloud~md~obsidian/Documents/Exobrain/recon/weekly/`. Include a link in the weekly review output:
+**Output:** The recon document lands in `/Users/alexhedtke/Documents/Exobrain/recon/weekly/`. Include a link in the weekly review output:
 > **Deep Recon**: [[recon/weekly/YYYY-MM-DD-topic-slug|This week's vault recon]] — [1-sentence summary of the most surprising finding]
 
 ## Manual Checklist

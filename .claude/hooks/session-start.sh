@@ -2,7 +2,7 @@
 # Exobrain session startup hook — date context + system health check
 
 HARNESS="/Users/alexhedtke/Documents/Exobrain harness"
-VAULT="/Users/alexhedtke/Library/Mobile Documents/iCloud~md~obsidian/Documents/Exobrain"
+VAULT="/Users/alexhedtke/Documents/Exobrain"
 
 # === DATE + LOGICAL DAY ===
 HOUR=$(date +%H)
