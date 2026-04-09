@@ -34,9 +34,7 @@ Gather all data in parallel where possible, then present conversationally.
 - Flag anything that rolled over (didn't get done and should be rescheduled)
 
 **Health so far**:
-- `get_daily_activity_summary` for today — steps, calories, active minutes
-- Steps vs 15,000 goal — if below goal, note the gap but don't nag (it's bedtime)
-- Write/update today's Health Log note at `Health Log/YYYY-MM-DD.md` with final daily totals (steps, calories, AZM). If the morning briefing already created it with Withings data, update the activity fields only. If no Health Log note exists yet, create one with whatever data is available.
+Follow the `/health` skill's **Evening Update** section. Pull today's final Fitbit activity totals and update the Health Log note. Steps vs 15,000 goal — note the gap but don't nag (it's bedtime).
 
 **Communication**:
 - `python3 "/Users/alexhedtke/Documents/Exobrain harness/imessage/imessage-reader.py" unread` — any unanswered messages to flag for tomorrow
@@ -44,12 +42,7 @@ Gather all data in parallel where possible, then present conversationally.
 - Discord scan (last 12 hours)
 
 **Email scan**:
-Use `gmail_search_messages` to scan emails received since this morning's briefing (`after:` today's date). Surface:
-- **Actionable items**: Anything needing a reply, decision, or follow-up. Create Things 3 tasks for clear action items.
-- **Events**: Any email mentioning a specific date/time for a meeting, call, or event → **create a Google Calendar event immediately** (check for duplicates first). Vague timing → Things 3 inbox task `Review: [event]`.
-- **Important threads**: Recruiter messages, interview scheduling, time-sensitive requests.
-- **CRM-relevant**: Messages from People/ contacts — update People notes and `last_contact` if Alex sent an outgoing reply.
-- Keep this lightweight — only surface what's new since the morning briefing, not a full inbox dump.
+Follow the `/email` skill's **Evening Winddown** section. Lightweight catch-up since the morning briefing — route new events/tasks, update CRM, skip job alerts.
 
 **Route actionable items from iMessage, Discord, and email**:
 - **Tasks**: If a message mentions something Alex needs to do, create a Things 3 task (check for duplicates first). Include context about who asked and when.
@@ -62,7 +55,7 @@ Use `gmail_search_messages` to scan emails received since this morning's briefin
 
 Run the `/cycle-tracker` skill to check current phase status:
 1. Read `cycle-data.json` and calculate current phase, day of cycle, and next predicted period
-2. Update the `## Cycle Tracking` section in partner's People note with current phase, cycle day, average length, next predicted date, and any recent symptoms
+2. Update the `## Cycle Tracking` section in partner's People note with current phase, cycle day, average length, next predicted date, any recent symptoms, and set `**Last synced**` to today's date
 3. If the period is predicted within 2 days, or currently in PMS/menstrual phase, note it briefly in the wind-down output
 4. If Alex mentioned any cycle-related observations during the day (from transcripts, notes, or direct input), log them to `cycle-data.json`
 
@@ -82,6 +75,24 @@ This is not optional. Process all unprocessed Supernote files before continuing 
    - Media mentions to individual `Media/[Title].md` notes (see CLAUDE.md schema)
 4. Update the processing log for each file processed
 5. Never defer Supernote processing to "tomorrow" — the wind-down is the catch-all
+
+### 1d. Apple Notes Processing (MANDATORY)
+
+Process any unprocessed notes in the Apple Notes inbox. Notes land here via `apple-notes-sync.py` every 15 minutes, but nothing extracts actionable content from them — this step closes that gap.
+
+1. Glob `/Users/alexhedtke/Documents/Exobrain/Inbox/Apple Notes/*.md`
+2. Check the processing log for already-processed files (source: `"apple-notes"`)
+3. For every unprocessed note, read it and extract:
+   - Tasks → Things 3 (per `/things3` conventions)
+   - Events → Google Calendar (clear) or Things 3 inbox (ambiguous)
+   - People mentions → People/ notes (create or update)
+   - Media mentions → individual `Media/[Title].md` notes (see CLAUDE.md schema)
+   - Notes/context → today's daily note
+4. Update the processing log for each note processed
+5. If a note is purely informational (no actionable items), still log it as processed so it isn't re-scanned tomorrow
+6. If the inbox is empty, skip silently
+
+This mirrors step 1c (Supernote) — the wind-down is the catch-all for all input sources.
 
 ### 2. Mood Self-Report
 
@@ -157,7 +168,7 @@ Run this silently — no output to Alex. Scan Things 3 projects (`get_projects`)
    - **Things project**: [things:///show?id=PROJECT_UUID]
    - **Created**: [today's date]
    ```
-4. Update the Things project's notes field via `update_project` to include: `obsidian://open?vault=Alex's%20Exobrain&file=Projects/Project%20Name` (URL-encode the file path)
+4. Update the Things project's notes field via `update_project` to include: `obsidian://open?vault=Exobrain&file=Projects/Project%20Name` (URL-encode the file path)
 
 This is housekeeping — don't mention it in the wind-down output or daily note.
 
@@ -217,7 +228,7 @@ This is silent housekeeping — don't mention it in the wind-down output unless 
 osascript -e 'display notification "Evening wind-down ready — tomorrow is planned" with title "Exobrain" sound name "Purr"'
 ```
 
-If running as scheduled task, also send Discord message to `1486464885784182834`:
+If running as scheduled task, also send Discord message to the chat_id from `DISCORD_NOTIFY_CHAT_ID` in `.env`:
 > 🌙 **Wind-down** — [1-line day summary]. Tomorrow: [count] events, top priority: [#1 priority].
 >
 > How was today? Quick 1-5 + one word.

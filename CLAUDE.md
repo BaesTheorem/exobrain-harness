@@ -64,7 +64,7 @@ This repo is designed to be both **sharable** and **replicable** by others. Ever
 - Always `search_todos` before adding — avoid duplicates
 - When a new task matches an existing task, use `update_todo` to append context rather than creating a duplicate
 - For detected events that are ambiguous, create a Things 3 task titled `Review: [event description]` in the Inbox
-- **Project backlinks**: Every Things 3 project must include an Obsidian backlink in its notes field. Use the format: `obsidian://open?vault=Alex's%20Exobrain&file=Projects/Project%20Name`. When creating a new project or encountering one without a backlink, add it via `update_project`. Also ensure a corresponding Obsidian note exists at `/Users/alexhedtke/Documents/Exobrain/Projects/[Project Name].md`.
+- **Project backlinks**: Every Things 3 project must include an Obsidian backlink in its notes field. Use the format: `obsidian://open?vault=Exobrain&file=Projects/Project%20Name`. When creating a new project or encountering one without a backlink, add it via `update_project`. Also ensure a corresponding Obsidian note exists at `/Users/alexhedtke/Documents/Exobrain/Projects/[Project Name].md`.
 
 ## Calendar Conventions
 
@@ -160,8 +160,8 @@ osascript -e 'display notification "message" with title "Exobrain URGENT" sound 
 ```
 
 **Discord** (reaches Alex's phone even when Mac is off):
-- Discord chat_id: `1486464885784182834` (group channel)
-- Use `reply` tool with the chat_id above
+- Discord chat_id: read `DISCORD_NOTIFY_CHAT_ID` from `.env` in the harness root
+- Use `reply` tool with that chat_id
 - Keep Discord messages concise — 1-3 lines with emoji prefix
 - Discord pings are required for all scheduled tasks (morning briefing, transcript processing, inbox review, weekly review)
 

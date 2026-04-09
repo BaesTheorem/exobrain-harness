@@ -12,7 +12,7 @@ import subprocess
 from datetime import datetime
 from pathlib import Path
 
-OBSIDIAN_VAULT = Path(os.path.expanduser("~/My Drive/Exobrain"))
+OBSIDIAN_VAULT = Path(os.path.expanduser("~/Documents/Exobrain"))
 DAILY_NOTES = OBSIDIAN_VAULT / "Daily notes"
 THINGS_DB = Path(os.path.expanduser(
     "~/Library/Group Containers/JLMPQHK86H.com.culturedcode.ThingsMac/"
@@ -134,12 +134,12 @@ class API:
             line += f" -- {notes.strip()}"
 
         content = path.read_text()
-        pomodoro_header = "## Pomodoro Log"
+        pomodoro_header = "### Pomodoro Log"
 
         if pomodoro_header in content:
             # Append under existing Pomodoro Log section
             idx = content.index(pomodoro_header) + len(pomodoro_header)
-            next_section = content.find("\n## ", idx)
+            next_section = content.find("\n### ", idx)
             if next_section == -1:
                 content = content.rstrip() + "\n" + line + "\n"
             else:
@@ -165,13 +165,13 @@ class API:
             return []
 
         content = path.read_text()
-        pomodoro_header = "## Pomodoro Log"
+        pomodoro_header = "### Pomodoro Log"
 
         if pomodoro_header not in content:
             return []
 
         idx = content.index(pomodoro_header) + len(pomodoro_header)
-        next_section = content.find("\n## ", idx)
+        next_section = content.find("\n### ", idx)
         section = content[idx:next_section] if next_section != -1 else content[idx:]
 
         return [

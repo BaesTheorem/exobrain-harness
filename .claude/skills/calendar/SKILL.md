@@ -73,6 +73,15 @@ This is the canonical reference for how the Exobrain interacts with Google Calen
 | Evening winddown | Today (recap) | Tomorrow (preview) | What happened, what's next |
 | CRM lookup | Past 30 days | -- | Recent meetings with a specific person |
 
+## Daily Briefing
+
+When called as part of the daily briefing:
+
+1. **Today's events**: `gcal_list_events` for today across all calendars. List each event with time and location. Filter out Guild events (per rule 4).
+2. **Flight buffer check**: Scan the next 14 days for flight events (keywords: flight, airline names, airport codes, "depart", "fly to"). For any flight found, verify that "Be at airport" (2hr before) and "Travel to airport" (1hr before, adjustable) buffer events exist. Create missing buffers via `gcal_create_event` — check for duplicates first.
+3. **Overbooking check**: Flag back-to-back meetings, no-break stretches, or overstuffed days.
+4. **Return**: Formatted event list for the daily note under `#### Today`.
+
 ## Examples
 
 **Creating a clear event:**

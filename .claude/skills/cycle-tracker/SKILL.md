@@ -80,7 +80,7 @@ Update the `## Cycle Tracking` section in partner's People note **daily** (via t
 - Average cycle length
 - Next predicted period date
 - Recent symptoms if any
-- Last updated date
+- `**Last synced**: YYYY-MM-DD` — set to today's date on every sync so staleness is visible
 
 The People note path is defined in `PEOPLE_NOTE` in `cycle-tracker/app.py` (gitignored). If the path is unknown, search the People/ folder for partner's note.
 

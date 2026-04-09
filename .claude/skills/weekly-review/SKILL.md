@@ -39,7 +39,7 @@ Review the someday list. Recommend at least 1 item to promote to "anytime" this 
 ### 7. Active Projects
 Use `get_projects`. For each active project:
 - Suggest one concrete, achievable task to complete this week
-- Verify the project has an Obsidian backlink in its notes field (`obsidian://open?vault=Alex's%20Exobrain&file=Projects/...`). If missing, add it via `update_project` and create the corresponding Obsidian note if needed
+- Verify the project has an Obsidian backlink in its notes field (`obsidian://open?vault=Exobrain&file=Projects/...`). If missing, add it via `update_project` and create the corresponding Obsidian note if needed
 
 ### 7b. Job Search Weekly Summary
 Run `/job-search status` logic to compile the week's application count and pace. Also summarize:
@@ -82,7 +82,10 @@ Note: Overdue active contacts are already surfaced daily in the morning briefing
 ### 11. Interaction highlights
 Read this week's daily notes and processing log. Compile a single list of notable interaction highlights from all processed transcripts, Supernote pages, iMessages, Discord, and calendar events. Focus on things Alex might want to reflect on or act on during the review — key conversations, commitments made, interesting ideas discussed, relationship moments, unresolved threads.
 
-### 12. Deep Recon — weekly vault reconnaissance
+### 12. Local Events — weekly scan
+Run `/local-events` (full scan mode) to refresh the events log with upcoming KC events. This is the primary trigger for the local-events skill — there is no separate scheduled task. The daily briefing reads from the log this produces.
+
+### 13. Deep Recon — weekly vault reconnaissance
 After completing all automated checks above, run the `/deep-recon` skill in autonomous, vault-only mode on the week's most prominent theme or open question.
 
 **How to pick the topic:**
@@ -130,5 +133,5 @@ Write `### Weekly Review` section in Sunday's daily note containing:
 osascript -e 'display notification "Your weekly review is ready — check Sunday'\''s daily note" with title "Exobrain" sound name "Purr"'
 ```
 
-Also send a Discord notification via `reply` to chat_id `1486464885784182834` with a summary:
+Also send a Discord notification via `reply` to the chat_id from `DISCORD_NOTIFY_CHAT_ID` in `.env` with a summary:
 > 📋 **Weekly Review ready** — [X] tasks created, [Y] overdue items flagged. Top flags: [1-2 sentence highlights]. Full review in Sunday's daily note.

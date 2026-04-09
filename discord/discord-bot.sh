@@ -9,13 +9,16 @@
 # We use --print with stream-json input to keep Claude alive as a daemon.
 # tail -f /dev/null holds stdin open indefinitely.
 
-export PATH="/usr/local/bin:/opt/homebrew/bin:/Users/alexhedtke/.npm-global/bin:/Users/alexhedtke/.local/bin:/usr/bin:/bin"
+SCRIPT_DIR="$(cd "$(dirname "$0")/.." && pwd)"
+source "$SCRIPT_DIR/config.sh"
 
-CLAUDE_BIN="/Users/alexhedtke/.npm-global/bin/claude"
-WORK_DIR="/Users/alexhedtke/Documents/Exobrain harness"
+CLAUDE_BIN="$(command -v claude)"
+WORK_DIR="$HARNESS_DIR"
 
 cd "$WORK_DIR"
 
+# --dangerously-skip-permissions is required because this runs as a daemon
+# and cannot present permission prompts to the user
 exec tail -f /dev/null | "$CLAUDE_BIN" \
     --print \
     --verbose \

@@ -69,7 +69,7 @@ LAUNCHER
 chmod +x "$APP_PATH/Contents/MacOS/launch"
 
 # 4. Create the Obsidian log note if it doesn't exist
-LOG_FILE="$HOME/My Drive/Exobrain/Pomodoro Log.md"
+LOG_FILE="$HOME/Documents/Exobrain/Pomodoro Log.md"
 if [ ! -f "$LOG_FILE" ]; then
     echo "# Pomodoro Log" > "$LOG_FILE"
     echo "" >> "$LOG_FILE"

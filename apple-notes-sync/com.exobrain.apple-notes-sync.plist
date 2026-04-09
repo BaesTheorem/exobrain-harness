@@ -3,7 +3,7 @@
 <plist version="1.0">
 <dict>
     <key>Label</key>
-    <string>com.user.apple-notes-sync</string>
+    <string>com.exobrain.apple-notes-sync</string>
 
     <!-- Source of truth: /Users/alexhedtke/Documents/Exobrain harness/apple-notes-sync/
          Deployed to ~/apple_notes_sync/ because launchd can't read ~/Documents/ (TCC) -->

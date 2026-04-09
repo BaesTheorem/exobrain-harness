@@ -123,15 +123,17 @@ Managed via Claude Code's scheduled-tasks MCP. Run as remote agents on cron.
 | `evening-winddown` | 11:59 PM daily | Day recap, mood check-in, tomorrow planning via `/evening-winddown` |
 | `weekly-review` | 10:00 AM Sunday | Full GTD review, writes to Sunday's daily note, pings Discord |
 
-### launchd Jobs (3)
+### launchd Jobs (5)
 
 Installed in `~/Library/LaunchAgents/`.
 
 | Plist | Location | Watches/Triggers | Purpose |
 |-------|----------|-----------------|---------|
 | `com.exobrain.plaud-watcher.plist` | `transcript-processing/` | `WatchPaths: Plaud/` folder (30s throttle) | Runs `run-process-transcript.sh` when new transcripts land |
+| `com.exobrain.supernote-watcher.plist` | `transcript-processing/` | `WatchPaths: Supernote/Note/` folder (30s throttle) | Runs `run-process-supernote.sh` when new Supernote files land |
 | `com.exobrain.apple-notes-sync.plist` | `apple-notes-sync/` | Interval: 900s (15 min) | Runs `apple-notes-sync.py` to sync Apple Notes to Obsidian |
 | `com.exobrain.discord-digest.plist` | `discord/` | Interval: 14400s (4 hours) | Runs `discord-digest-fetch.py` to fetch Discord messages for briefing |
+| `com.exobrain.backup.plist` | root | Weekly: Sunday 2 AM | Runs `backup-exobrain.sh` to archive config, skills, memory to Google Drive |
 
 The Discord bot (`discord-bot.sh`) runs as a persistent process managed by Claude Code's Discord plugin, not via a separate launchd job.
 
@@ -252,11 +254,13 @@ Exobrain harness/
 |-- processing-log.json                 # Transaction log of all processed items
 |-- requirements.txt                    # Python dependencies
 |-- backup-exobrain.sh                  # Weekly backup script
+|-- com.exobrain.backup.plist           # Weekly backup timer (symlinked to ~/Library/LaunchAgents/)
 |
 |-- transcript-processing/
 |   |-- supernote-parser.py             # .note -> PNG + SHA-256 hashes
 |   |-- run-process-transcript.sh       # launchd wrapper for transcript processing
-|   |-- com.exobrain.plaud-watcher.plist  # File watcher (symlinked to ~/Library/LaunchAgents/)
+|   |-- com.exobrain.plaud-watcher.plist     # File watcher (symlinked to ~/Library/LaunchAgents/)
+|   |-- com.exobrain.supernote-watcher.plist # File watcher (symlinked to ~/Library/LaunchAgents/)
 |
 |-- imessage/
 |   |-- imessage-reader.py              # macOS chat.db reader
@@ -455,13 +459,17 @@ Paste your Discord bot token when prompted. Set up channel access with `/discord
 ```bash
 # Symlink plist files to LaunchAgents
 ln -s "$PWD/transcript-processing/com.exobrain.plaud-watcher.plist" ~/Library/LaunchAgents/
+ln -s "$PWD/transcript-processing/com.exobrain.supernote-watcher.plist" ~/Library/LaunchAgents/
 ln -s "$PWD/apple-notes-sync/com.exobrain.apple-notes-sync.plist" ~/Library/LaunchAgents/
 ln -s "$PWD/discord/com.exobrain.discord-digest.plist" ~/Library/LaunchAgents/
+ln -s "$PWD/com.exobrain.backup.plist" ~/Library/LaunchAgents/
 
 # Load the jobs
 launchctl load ~/Library/LaunchAgents/com.exobrain.plaud-watcher.plist
+launchctl load ~/Library/LaunchAgents/com.exobrain.supernote-watcher.plist
 launchctl load ~/Library/LaunchAgents/com.exobrain.apple-notes-sync.plist
 launchctl load ~/Library/LaunchAgents/com.exobrain.discord-digest.plist
+launchctl load ~/Library/LaunchAgents/com.exobrain.backup.plist
 
 # Verify
 launchctl list | grep exobrain

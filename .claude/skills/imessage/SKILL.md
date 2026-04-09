@@ -60,14 +60,17 @@ When presenting iMessage results to the user:
 
 ## Personality & Social Dynamics
 
-When reading messages, pay attention to how people communicate — not just what they say. Note patterns and update the `## Personality & Dynamics` section of their People/ note:
-- **Communication style**: Direct, passive, emoji-heavy, long-form, terse, uses humor to deflect, etc.
-- **Responsiveness patterns**: Quick replies, delayed but thoughtful, leaves things on read, double-texts
-- **Emotional patterns**: How they handle conflict, give feedback, express care or frustration
-- **Relationship dynamic with Alex**: Initiator vs. responder, advice-giver vs. advice-seeker, emotional support patterns
-- **Recurring behaviors**: Always cancels last minute, tends to over-commit, consistently checks in, etc.
+Follow the `/crm` skill's mode 9 (Continuous Integration) protocol — enrich `## Context`, `## Connections`, and `## Personality & Dynamics` sections with observations from iMessages. Use specific examples, not vague labels.
 
-Use specific examples from messages rather than vague labels. Flag noteworthy dynamics to Alex when relevant (e.g., "[Friend] has texted twice this week without a reply — they may be feeling ghosted").
+## Daily Briefing
+
+When called as part of the daily briefing (produces no briefing output — purely CRM maintenance and action routing):
+
+1. **Scan last 24h**: `python3 "/Users/alexhedtke/Documents/Exobrain harness/imessage/imessage-reader.py" recent --hours 24 --limit 100`
+2. **CRM last_contact**: For outgoing messages to anyone with a People/ note, update `last_contact` in frontmatter.
+3. **CRM enrichment**: If any thread contains substantive new info (plans, life updates, mentions of other people), enrich the People note per `/crm` mode 9. For brief/routine texts ("omw", "sounds good"), just update `last_contact`.
+4. **Route actionable items**: Extract tasks, events, and follow-ups. Route per standard conventions (Things 3 for tasks, Calendar for clear events, Things 3 inbox for ambiguous events).
+5. **Do NOT list iMessages in the briefing.** This step is silent.
 
 ## Integration Notes
 

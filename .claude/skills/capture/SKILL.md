@@ -15,7 +15,7 @@ Keywords: "need to", "should", "have to", "don't forget", "remind me", "todo", "
 Action:
 1. `search_todos` to check for duplicates
 2. `add_todo` to Things 3 Inbox (or to a matching project if obvious)
-3. If routing to a project, verify the project has an Obsidian backlink in its notes field (`obsidian://open?vault=Alex's%20Exobrain&file=Projects/...`). If missing, add it via `update_project`.
+3. If routing to a project, verify the project has an Obsidian backlink in its notes field (`obsidian://open?vault=Exobrain&file=Projects/...`). If missing, add it via `update_project`.
 4. Confirm: "Added task '[title]' to Things 3 Inbox"
 
 ### Event

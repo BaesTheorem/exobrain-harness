@@ -169,7 +169,7 @@ Runs modes 1→2→3 in sequence:
 2. If fit is "Strong" or "Moderate," automatically research the company
 3. Generate a tailored cover letter
 4. Surface any network connections at the company
-5. Create a Things 3 task: "Apply to [Role] at [Company]" with the cover letter and research in the notes field. If routing to a project (e.g., "Job hunting"), verify the project has an Obsidian backlink in its notes field (`obsidian://open?vault=Alex's%20Exobrain&file=Projects/...`). If missing, add it via `update_project`.
+5. Create a Things 3 task: "Apply to [Role] at [Company]" with the cover letter and research in the notes field. If routing to a project (e.g., "Job hunting"), verify the project has an Obsidian backlink in its notes field (`obsidian://open?vault=Exobrain&file=Projects/...`). If missing, add it via `update_project`.
 
 ## Job Hub Note — "Get new job"
 
@@ -201,14 +201,23 @@ Types: `Applications`, `Audit`, `Cover Letter`, `Research`, `Pipeline`, `Upskill
 - **`/daily-briefing`**: Include application count for the current week and pace check. Log daily app count to the job hub note.
 - **`/weekly-review`**: Full application tracker summary, trends, and suggestions for next week's targets. Append the weekly job search summary to the job hub note.
 - **`/crm`**: Cross-reference company employees with Alex's network for warm intros. For Strong Fit roles (especially high comp + remote), auto-create `/crm potential` tasks for cold outreach to relevant people at the company
-- **`/hey-claude`**: Can answer "how's my job search going?" or "should I apply to this?"
+- Ad-hoc questions like "how's my job search going?" can be answered via tracker mode
 - **`/verify`**: Background fact-check on company research claims
 - **`/de-ai`**: Applied to all cover letter output to ensure human voice
 - **`/evening-winddown`**: Include daily application count in the recap
+
+## Daily Briefing
+
+When called as part of the daily briefing (weekdays only — skip on weekends):
+
+1. **Tracker maintenance**: Read `[[Job Applications]]` at `/Users/alexhedtke/Documents/Exobrain/Projects/Job Search/Job Applications.md`. Search Gmail for new application confirmations and rejection emails since the last entry. Add new apps, update statuses for rejections/interviews, update totals.
+2. **Weekly pace check**: Count apps submitted since Monday vs 10-20 goal. If behind mid-week, suggest time blocks from calendar gaps.
+3. **Upcoming interviews**: Surface any job-related events from today's calendar.
+4. **Return for briefing**: Only include in the briefing output if there's something notable — behind pace, interview today, or exceptional posting from the email scan. Otherwise silent.
 
 ## Proactive Behaviors
 
 - During `/daily-briefing`, if it's midweek and Alex is behind on applications, flag it with suggested time blocks from calendar gaps
 - When processing transcripts that mention job leads, companies, or networking contacts relevant to job search, surface them
-- If Alex hasn't submitted any applications in 3+ days, mention it constructively in `/hey-claude` interactions
+- If Alex hasn't submitted any applications in 3+ days, mention it constructively in ad-hoc interactions
 - Track which types of roles Alex applies to most — surface patterns that might help narrow or broaden the search

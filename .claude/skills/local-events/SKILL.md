@@ -1,6 +1,6 @@
 ---
 name: local-events
-description: Discover upcoming Kansas City events Alex would enjoy. Searches Facebook events, Meetup, venue calendars, and library listings. Highlights favorite artists, tech/AI meetups, live music, and social opportunities. Use when the user asks "what's going on in KC", "any events coming up", "things to do this weekend", "local events", "concerts near me", or when triggered by the weekly Sunday scheduled task.
+description: Discover upcoming Kansas City events Alex would enjoy. Searches Facebook events, Meetup, venue calendars, and library listings. Highlights favorite artists, tech/AI meetups, live music, and social opportunities. Use when the user asks "what's going on in KC", "any events coming up", "things to do this weekend", "local events", "concerts near me", or when triggered by the weekly review on Sundays.
 ---
 
 # Local Events
@@ -177,7 +177,7 @@ Rules:
 
 ## Modes
 
-### 1. Full scan: `/local-events` (default, also used by Sunday scheduled task)
+### 1. Full scan: `/local-events` (default, also triggered by Sunday weekly review)
 Run all sources, verify, deduplicate, write to daily note, update preferences.
 
 ### 2. Weekend: `/local-events weekend`
@@ -197,7 +197,7 @@ After the scan completes:
 ```bash
 osascript -e 'display notification "[N] new events found for the next 30 days" with title "Exobrain" sound name "Purr"'
 ```
-Discord ping to `1486464885784182834`:
+Discord ping to `DISCORD_NOTIFY_CHAT_ID` from `.env`:
 > 📅 **Weekly Events** — [N] new events found. [highlight 1-2 top picks]. Check today's daily note for full list.
 
 **Favorite artist alert** (urgent):
@@ -210,6 +210,6 @@ Discord:
 ## Integration with Other Skills
 
 - **`/daily-briefing`**: The briefing should reference the most recent Local Events scan if there's anything notable today or this weekend (1-2 line callout). It does NOT need to re-run the full scan — just read from the events log.
-- **`/hey-claude`**: Can answer "anything fun happening this weekend?" by reading the events log.
+- Ad-hoc questions like "anything fun happening this weekend?" can be answered by reading the events log.
 - **`/weekly-review`**: Include a "social/fun" section noting which events Alex attended or skipped, and upcoming highlights for next week.
 - **`/capture`**: If Alex mentions wanting to go to something, create a Things 3 task and check if it's already in the events list.

@@ -2,19 +2,23 @@
 # Wrapper script for launchd to trigger Supernote processing
 # Finds the latest Claude Code CLI and runs /process-supernote
 
-export PATH="$HOME/.npm-global/bin:$HOME/.local/bin:$PATH"
+SCRIPT_DIR="$(cd "$(dirname "$0")/.." && pwd)"
+source "$SCRIPT_DIR/config.sh"
 
 LOG_DIR="/tmp"
 TIMESTAMP=$(date +%Y%m%d_%H%M%S)
 
 if ! command -v claude &>/dev/null; then
     osascript -e 'display notification "Claude CLI not found — cannot process Supernote files" with title "Exobrain ERROR" sound name "Basso"'
+    # Touch the watched directory so launchd re-triggers when it next checks,
+    # rather than silently consuming the WatchPaths event
+    touch "$GDRIVE_SUPERNOTE" 2>/dev/null
     exit 1
 fi
 
 # Check if there are actually .note files
-SUPERNOTE_DIR="$HOME/My Drive/Supernote/Note"
-LOG_FILE="$HOME/Documents/Exobrain harness/processing-log.json"
+SUPERNOTE_DIR="$GDRIVE_SUPERNOTE"
+LOG_FILE="$PROCESSING_LOG"
 
 if [ ! -d "$SUPERNOTE_DIR" ]; then
     exit 0
@@ -26,12 +30,14 @@ if [ "$FILE_COUNT" -eq 0 ]; then
     exit 0
 fi
 
-# Run Claude with the process-supernote prompt
+# Run Claude with the process-supernote prompt (cd to harness dir for project context)
+cd "$HARNESS_DIR"
+# --dangerously-skip-permissions is required because launchd runs non-interactively
+# and cannot present permission prompts to the user
 claude \
     --print \
     --dangerously-skip-permissions \
-    --project-dir "$HOME/Documents/Exobrain harness" \
-    --prompt "Run /process-supernote to check for and process any new or modified Supernote files." \
+    -p "Run /process-supernote to check for and process any new or modified Supernote files." \
     2>"$LOG_DIR/exobrain-supernote-$TIMESTAMP.err"
 
 EXIT_CODE=$?

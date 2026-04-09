@@ -97,8 +97,29 @@ Standard flow when scanning emails produces actionable items:
 | Skill | Scope | Focus |
 |-------|-------|-------|
 | Daily briefing | Past 24 hours | Actionable items, important threads, CRM contacts, job alerts |
+| Evening winddown | Since morning briefing | New actionable items, events, CRM updates (lightweight catch-up) |
 | Weekly review | Past 7 days | Full follow-up scan, task creation, thread resolution |
 | Job search | Variable | Application confirmations, rejection emails, interview invitations |
+
+## Daily Briefing
+
+When called as part of the daily briefing:
+
+1. **Scan last 24h**: `gmail_search_messages` with `after:` yesterday's date. Surface actionable items, important threads, recruiter messages, and messages from People/ contacts.
+2. **Route events**: Any email with a specific date/time → `gcal_create_event` (check duplicates). Vague timing → Things 3 inbox task `Review: [event]`. This is the #1 most commonly missed routing — scan email bodies for dates/times, not just subject lines.
+3. **Route tasks**: Actionable items → Things 3 (check for existing tasks first).
+4. **Job alerts**: Search for job alert emails (Indeed, LinkedIn, Dice, ZipRecruiter). Read full bodies, deduplicate, categorize as Strong/Moderate/Skip per the `/job-search` skill's audit logic. For Strong/Moderate fits: create Things 3 task, create Obsidian note, append to job hub. Do NOT include job alerts in briefing output unless an exceptional fit.
+5. **CRM enrichment** (outgoing emails): Search `from:me` for last 24h. For outgoing emails to People/ contacts, update `last_contact`. If substantive new info, enrich the People note per `/crm` mode 9 (Continuous integration). For incoming from contacts, also scan for enrichment signals.
+6. **Return**: Concise list of what needs attention for the briefing. Only surface what's actionable — not a full inbox dump.
+
+## Evening Winddown
+
+When called as part of the evening winddown (lightweight catch-up since morning):
+
+1. **Scan since morning**: `gmail_search_messages` with `after:` today's date. Only surface what's new since the daily briefing.
+2. **Route events and tasks**: Same pipeline as daily briefing (events → Calendar, tasks → Things 3), but skip job alerts — those are a morning-only scan.
+3. **CRM updates**: Check outgoing emails (`from:me`) since morning. Update `last_contact` for People/ contacts. Enrich People notes for substantive correspondence per `/crm` mode 9.
+4. **Keep it lightweight**: This is a catch-up, not a full scan. Only flag items that need attention tonight or tomorrow.
 
 ## Draft Composition Rules
 

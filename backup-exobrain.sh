@@ -15,9 +15,12 @@
 #   - Obsidian vault (synced via Google Drive)
 #   - Supernote files (synced via Google Drive)
 
-HARNESS_DIR="$HOME/Documents/Exobrain harness"
-BACKUP_DIR="$HOME/Documents/Exobrain backups"
-MEMORY_DIR="$HOME/.claude/projects/-Users-alexhedtke-Documents-Exobrain-harness/memory"
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+source "$SCRIPT_DIR/config.sh"
+
+BACKUP_DIR="$HOME/My Drive/Exobrain backups"
+# Claude Code auto-generates this path from the project directory — it will differ per user
+MEMORY_DIR="$HOME/.claude/projects/-Users-$(whoami)-Documents-Exobrain-harness/memory"
 TIMESTAMP=$(date +%Y%m%d_%H%M%S)
 BACKUP_NAME="exobrain-backup-$TIMESTAMP"
 BACKUP_PATH="$BACKUP_DIR/$BACKUP_NAME"
@@ -36,6 +39,11 @@ mkdir -p "$BACKUP_PATH/scripts"
 find "$HARNESS_DIR" -maxdepth 2 -name "*.py" -o -name "*.sh" -o -name "*.plist" | while read -r f; do
     cp "$f" "$BACKUP_PATH/scripts/" 2>/dev/null
 done
+
+# Apple Notes sync config and state (gitignored runtime files)
+mkdir -p "$BACKUP_PATH/apple-notes-sync"
+cp "$HARNESS_DIR/apple-notes-sync/apple-notes-sync-config.json" "$BACKUP_PATH/apple-notes-sync/" 2>/dev/null
+cp "$HARNESS_DIR/apple-notes-sync/apple-notes-sync-state.json" "$BACKUP_PATH/apple-notes-sync/" 2>/dev/null
 
 # Skills
 if [ -d "$HARNESS_DIR/.claude/skills" ]; then
