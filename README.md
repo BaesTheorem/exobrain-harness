@@ -41,7 +41,7 @@ Discord messages -----+------>  (skills + scheduled tasks) -----> Things 3 tasks
 Google Calendar ------+         processing-log.json               Google Calendar events
 Gmail ----------------+                                           People/ CRM notes
 Fitbit/Withings ------+                                           Mood Journal
-Manual /capture ------+                                           macOS + Discord notifications
+Manual /capture ------+                                           macOS notifications
 ```
 
 The system runs on three automation layers:
@@ -166,7 +166,7 @@ Persistent cross-session memory in `.claude/projects/.../memory/`. ~30 files tot
 | **Google Calendar** | Claude Desktop managed | Event CRUD, free time queries | Google OAuth (Desktop-managed) |
 | **Gmail** | Claude Desktop managed | Email search, read, draft | Google OAuth (Desktop-managed) |
 | **Google Drive** | Claude Desktop managed | File search and fetch | Google OAuth (Desktop-managed) |
-| **Discord** | Claude plugin (`discord@claude-plugins-official`) | Message fetch, reply, react | Bot token (plugin-managed) |
+| **Discord** | Claude plugin (`discord@claude-plugins-official`) | Message fetch (digest) | Bot token (plugin-managed) |
 | **Scheduled Tasks** | Claude Desktop managed | Cron-based remote agent execution | None |
 | **MyChart** | Claude Desktop managed (hosted by [OpenRecord](https://github.com/Fan-Pier-Labs/openrecord)) | Full MyChart patient portal: meds, labs, imaging, vitals, messages, billing, insurance, referrals, preventive care, care team, immunizations, visits, documents, emergency contacts, refill requests (35+ tools, read + write) | MyChart credentials + TOTP (session auto-renews) |
 
@@ -191,7 +191,7 @@ Persistent cross-session memory in `.claude/projects/.../memory/`. ~30 files tot
 | **Plaud Note** | Voice recording to transcript files | Plaud app syncs `.txt` files to Google Drive, then to Obsidian vault |
 | **Supernote A5X** | Handwritten notes (`.note` format) | Supernote app syncs to Google Drive, then to filesystem |
 | **Apple Notes** | Quick capture on iPhone/iPad | `apple-notes-sync.py` syncs to Obsidian vault every 15 min |
-| **Discord** | Friend group server + notification channel | MCP plugin + `discord-digest-fetch.py` for offline message history |
+| **Discord** | Friend group server | MCP plugin + `discord-digest-fetch.py` for offline message history |
 | **iMessage** | Text messages | `imessage-reader.py` reading `chat.db` |
 | **Open-Meteo** | Weather data (no API key) | Weather MCP (primary), `get-weather.py` (fallback) |
 
@@ -207,7 +207,7 @@ Plaud transcript lands in vault
   -> /process-transcript extracts tasks, events, notes, people
   -> Routes to Things 3 / GCal / daily note / People/ notes
   -> Updates processing-log.json
-  -> macOS notification + Discord ping
+  -> macOS notification
 
 Apple Notes changed on iPhone/iPad
   -> launchd runs apple-notes-sync.py every 15 min
@@ -610,7 +610,7 @@ Map what the user already uses daily. Don't introduce new tools -- integrate wit
 | Fitbit + Withings (health) | Apple Health (via shortcuts), Garmin, Oura, Whoop |
 | Plaud Note (voice recording) | Otter.ai, Whisper, Voice Memos + transcription |
 | Supernote (handwriting) | reMarkable, iPad + GoodNotes, Boox |
-| Discord (notifications) | Slack, Telegram, SMS, Pushover, ntfy |
+| ~~Discord (notifications)~~ | Slack, Telegram, SMS, Pushover, ntfy |
 | iMessage | WhatsApp, Signal, Telegram (varies by region/social circle) |
 | macOS launchd (file watchers) | cron, systemd (Linux), Windows Task Scheduler, fswatch |
 
@@ -684,7 +684,7 @@ This turns scattered mentions across transcripts, emails, and messages into a co
 
 **macOS-specific components** that need replacement on other platforms:
 - `launchd` plists -> `systemd` timers (Linux), Task Scheduler (Windows), `cron` (universal)
-- `osascript` notifications -> `notify-send` (Linux), PowerShell toast (Windows), or skip and rely on Discord/Slack
+- `osascript` notifications -> `notify-send` (Linux), PowerShell toast (Windows)
 - `imessage-reader.py` (reads `chat.db`) -> platform-specific message access or skip entirely
 - `apple-notes-sync.py` (JXA scripting) -> not needed if the user doesn't use Apple Notes
 - Full Disk Access requirement -> varies by platform

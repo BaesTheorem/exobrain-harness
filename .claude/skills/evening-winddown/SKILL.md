@@ -133,7 +133,7 @@ Ask Alex directly for a mood score. Keep it lightweight:
 > **How was today?** Quick 1-5 + one word for what drove it.
 > (e.g., "4 — productive" or "2 — exhausted")
 
-**Wait for Alex's response.** If running as a scheduled task via Discord, send this as a Discord message and note that the daily briefing will pick up his reply tomorrow.
+**Wait for Alex's response.**
 
 If Alex provides a score:
 - Record it using the `/mood` skill methodology:
@@ -263,11 +263,6 @@ This is silent housekeeping — don't mention it in the wind-down output unless 
 ```bash
 osascript -e 'display notification "Evening wind-down ready — tomorrow is planned" with title "Exobrain" sound name "Purr"'
 ```
-
-If running as scheduled task, also send Discord message to the chat_id from `DISCORD_NOTIFY_CHAT_ID` in `.env`:
-> 🌙 **Wind-down** — [1-line day summary]. Tomorrow: [count] events, top priority: [#1 priority].
->
-> How was today? Quick 1-5 + one word.
 
 ## Interaction Style
 
