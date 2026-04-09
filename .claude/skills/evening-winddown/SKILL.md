@@ -61,7 +61,22 @@ Run the `/cycle-tracker` skill to check current phase status:
 
 This is silent housekeeping unless there's something worth flagging. The People note update ensures the CRM stays current.
 
-### 1c. Supernote Processing
+### 1c. Plaud Transcript Processing (MANDATORY)
+
+This is not optional. Process all unprocessed Plaud transcripts before continuing the wind-down.
+
+1. Check the processing log for already-processed files (source: `"plaud"`)
+2. List recent Plaud files: `ls -lt "/Users/alexhedtke/My Drive/Plaud/" | head -15`
+3. For every unprocessed transcript, run `/process-transcript` — extract content, route items:
+   - Tasks to Things 3 (per `/things3` conventions)
+   - Events to Google Calendar (clear) or Things 3 inbox (ambiguous)
+   - Notes/context to today's daily note
+   - People mentions to People/ notes
+   - Media mentions to individual `Media/[Title].md` notes (see CLAUDE.md schema)
+4. Update the processing log for each file processed
+5. Never defer transcript processing to "tomorrow" — the wind-down is the catch-all
+
+### 1d. Supernote Processing
 
 This is not optional. Process all unprocessed Supernote files before continuing the wind-down.
 
@@ -76,7 +91,7 @@ This is not optional. Process all unprocessed Supernote files before continuing 
 4. Update the processing log for each file processed
 5. Never defer Supernote processing to "tomorrow" — the wind-down is the catch-all
 
-### 1d. Apple Notes Processing
+### 1e. Apple Notes Processing
 
 Process any unprocessed notes in the Apple Notes dump. Notes land here via `apple-notes-sync.py` every 15 minutes, but nothing extracts actionable content from them — this step closes that gap.
 
@@ -92,7 +107,24 @@ Process any unprocessed notes in the Apple Notes dump. Notes land here via `appl
 5. If a note is purely informational (no actionable items), still log it as processed so it isn't re-scanned tomorrow
 6. If the inbox is empty, skip silently
 
-This mirrors step 1c (Supernote) — the wind-down is the catch-all for all input sources.
+This mirrors step 1d (Supernote) — the wind-down is the catch-all for all input sources.
+
+### 1f. Obsidian Vault Scan (MANDATORY)
+
+Alex writes directly in Obsidian throughout the day. Scan for notes created or modified today that haven't been processed by other steps.
+
+1. Find Obsidian notes modified today: `find "/Users/alexhedtke/Documents/Exobrain" -name "*.md" -newermt "YYYY-MM-DD 08:00"` (use target date)
+2. Filter out notes already handled by other wind-down steps (Daily notes/, Health Log/, People/, Media/, DnD/, .obsidian/, Audits/, News Briefings/, Mood Journal)
+3. For each remaining note, read it and check for:
+   - **Actionable items**: Tasks, events, follow-ups → route to Things 3 / Google Calendar
+   - **People mentions**: Update or create People/ notes
+   - **Media mentions**: Create Media/ notes per CLAUDE.md schema
+   - **Health/medical info**: Cross-reference with Health Log, flag discrepancies or new data
+   - **Context for existing projects**: Note connections to active priorities (Dashboard.md)
+4. Summarize what was found in the wind-down output (e.g., "Found 2 user-edited notes: Dr. Appt prep, Supplements update")
+5. If a note is purely reference/study material (e.g., BlueDot reading notes), acknowledge the count but don't process individually
+
+This catches everything Alex writes in Obsidian that isn't captured by Plaud, Supernote, Apple Notes, or other input pipelines.
 
 ### 2. Mood Self-Report
 
