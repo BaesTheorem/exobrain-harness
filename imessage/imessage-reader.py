@@ -9,13 +9,16 @@ Usage:
     python3 imessage-reader.py list [--limit N]
     python3 imessage-reader.py search "keyword" [--days N]
     python3 imessage-reader.py unread
+    python3 imessage-reader.py dump [--hours N] [--limit N]
 """
 
+import json
 import sqlite3
 import os
 import sys
 import argparse
 from datetime import datetime, timedelta
+from pathlib import Path
 
 DB_PATH = os.path.expanduser("~/Library/Messages/chat.db")
 CONTACTS_DIR = os.path.expanduser("~/Library/Application Support/AddressBook/Sources")
@@ -345,6 +348,69 @@ def get_unread():
     conn.close()
 
 
+GDRIVE_IMESSAGE = Path.home() / "My Drive" / "iMessage"
+
+
+def dump_messages(hours=24):
+    """Dump ALL conversations from the last N hours to Google Drive, grouped by chat.
+
+    Captures every message (sent and received) with no limit, organized by
+    conversation for pattern analysis over time.
+    """
+    conn = get_db()
+    cutoff = utc_cutoff_ts(hours=hours)
+    query = f"""
+        SELECT {MSG_QUERY_COLS}
+        {MSG_JOINS}
+        WHERE m.date > ?
+            AND m.associated_message_type = 0
+            AND (m.text IS NOT NULL OR m.attributedBody IS NOT NULL)
+        ORDER BY m.date ASC
+    """
+    rows = conn.execute(query, (cutoff,)).fetchall()
+
+    # Group by chat
+    chats = {}
+    total = 0
+    for row in rows:
+        dt = apple_ts_to_datetime(row["msg_date"])
+        raw_chat = row["chat_name"] or "Unknown"
+        chat_name = resolve_sender(raw_chat) if raw_chat.startswith("+") else raw_chat
+
+        if chat_name not in chats:
+            chats[chat_name] = {
+                "messages": [],
+                "sent": 0,
+                "received": 0,
+            }
+
+        is_from_me = bool(row["is_from_me"])
+        chats[chat_name]["messages"].append({
+            "timestamp": dt.isoformat() if dt else None,
+            "sender": "Me" if is_from_me else resolve_sender(row["sender_id"]),
+            "is_from_me": is_from_me,
+            "text": _row_text(row),
+        })
+        if is_from_me:
+            chats[chat_name]["sent"] += 1
+        else:
+            chats[chat_name]["received"] += 1
+        total += 1
+
+    GDRIVE_IMESSAGE.mkdir(parents=True, exist_ok=True)
+    out_file = GDRIVE_IMESSAGE / f"{datetime.now().strftime('%Y-%m-%d')}.json"
+    dump = {
+        "generated_at": datetime.now().isoformat(),
+        "hours_back": hours,
+        "total_messages": total,
+        "total_chats": len(chats),
+        "chats": chats,
+    }
+    out_file.write_text(json.dumps(dump, indent=2, ensure_ascii=False))
+    print(f"Dumped {total} messages across {len(chats)} chats to {out_file}")
+    conn.close()
+
+
 def _print_messages(rows):
     current_chat = None
     for row in rows:
@@ -386,6 +452,9 @@ def main():
 
     subparsers.add_parser("unread", help="Show unanswered messages (last 48h)")
 
+    p_dump = subparsers.add_parser("dump", help="Dump all conversations to Google Drive as JSON")
+    p_dump.add_argument("--hours", type=int, default=24)
+
     args = parser.parse_args()
 
     if args.command == "recent":
@@ -398,6 +467,8 @@ def main():
         search_messages(args.keyword, days=args.days)
     elif args.command == "unread":
         get_unread()
+    elif args.command == "dump":
+        dump_messages(hours=args.hours)
     else:
         parser.print_help()
 

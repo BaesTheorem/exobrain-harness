@@ -32,7 +32,7 @@ This repo is designed to be both **sharable** and **replicable** by others. Ever
 - **Daily Notes**: `/Users/alexhedtke/Documents/Exobrain/Daily notes/`
 - **Daily Note Filename Format**: `dddd, MMMM Do, YYYY` (e.g., `Wednesday, March 25th, 2026`)
 - **Plaud Landing Zone (GDrive)**: `/Users/alexhedtke/My Drive/Plaud/`
-- **Plaud Transcripts (Vault)**: `/Users/alexhedtke/Documents/Exobrain/Plaud/`
+- **Plaud Transcripts (GDrive)**: `/Users/alexhedtke/My Drive/Plaud/`
 - **Supernote Notes**: `/Users/alexhedtke/My Drive/Supernote/Note/`
 - **Processing Log**: `/Users/alexhedtke/Documents/Exobrain harness/processing-log.json`
 - **Dashboard**: `/Users/alexhedtke/Documents/Exobrain/Dashboard.md`
