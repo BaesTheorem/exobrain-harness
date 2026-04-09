@@ -16,29 +16,13 @@ if ! command -v claude &>/dev/null; then
     exit 1
 fi
 
-# Plaud lands transcripts in Google Drive; copy new ones into the Obsidian vault
-LOG_FILE="$PROCESSING_LOG"
-
+# Plaud transcripts stay in Google Drive — processed and renamed in-place
 if [ ! -d "$GDRIVE_PLAUD" ]; then
     exit 0
 fi
 
-# Move new files from GDrive landing zone to vault (move, not copy,
-# so Zapier's truncated filenames don't linger and get re-copied)
-mkdir -p "$PLAUD_VAULT"
-for f in "$GDRIVE_PLAUD"/*.{txt,md}; do
-    [ -f "$f" ] || continue
-    base=$(basename "$f")
-    if [ ! -f "$PLAUD_VAULT/$base" ]; then
-        mv "$f" "$PLAUD_VAULT/$base"
-    else
-        # Already in vault — remove the GDrive copy
-        rm "$f"
-    fi
-done
-
-# Count .md/.txt files in vault Plaud dir
-FILE_COUNT=$(find "$PLAUD_VAULT" \( -name "*.md" -o -name "*.txt" \) -type f 2>/dev/null | wc -l | tr -d ' ')
+# Count .md/.txt files in GDrive Plaud dir
+FILE_COUNT=$(find "$GDRIVE_PLAUD" \( -name "*.md" -o -name "*.txt" \) -type f 2>/dev/null | wc -l | tr -d ' ')
 if [ "$FILE_COUNT" -eq 0 ]; then
     exit 0
 fi

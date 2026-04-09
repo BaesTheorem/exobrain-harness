@@ -41,6 +41,12 @@ python3 "/Users/alexhedtke/Documents/Exobrain harness/imessage/imessage-reader.p
 ```
 Chats where the last message (within 48h) is not from Alex. Shows sender, timestamp, and preview.
 
+### Dump to Google Drive
+```bash
+python3 "/Users/alexhedtke/Documents/Exobrain harness/imessage/imessage-reader.py" dump [--hours N]
+```
+Writes ALL conversations (sent and received, no limit) to `~/My Drive/iMessage/YYYY-MM-DD.json`, grouped by chat. Each chat includes message count breakdowns (sent vs received). Default 24 hours. Used by daily briefing and evening winddown to persist raw iMessage data for replayability and conversation pattern analysis over time.
+
 ## Handling Requests
 
 - **"Who texted me?" / "Any unread texts?"** → Run `unread` command

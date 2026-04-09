@@ -20,7 +20,7 @@ To build the correction table:
 Also normalize variations of the same person to one canonical name for People/ notes (e.g., don't create both a nickname file and a full name file). When in doubt, use the fullest version of the name that exists in the People/ folder. Always check for existing People/ notes with similar names before creating a new one.
 
 ### 1. Find unprocessed transcripts
-- List all `.txt` files in `/Users/alexhedtke/Documents/Exobrain/Plaud/`
+- List all `.txt` files in `/Users/alexhedtke/My Drive/Plaud/`
 - Read `/Users/alexhedtke/Documents/Exobrain harness/processing-log.json`
 - Identify files not yet in the log. Check against both the original filename AND any renamed filename (since step 9 renames files after processing). A file is processed if its original name OR its renamed form appears in the log.
 - If no unprocessed files, notify and stop
@@ -134,7 +134,7 @@ Format: `YYYY-MM-DD_HHmm_[sanitized-title].txt` where:
 - Title comes from the `title` field with the date prefix stripped (e.g., `03-25 Voice Memo: Topic Description` → `Voice-Memo-Topic-Description`)
 - Replace spaces and special characters with hyphens, collapse multiple hyphens
 
-Use `mv` to rename in place within the Plaud/ folder. Update the processing log entry (step 10) to use the **new** filename as the `id`.
+Use `mv` to rename in place within `/Users/alexhedtke/My Drive/Plaud/` (files stay in Google Drive). Update the processing log entry (step 10) to use the **new** filename as the `id`.
 
 ### 10. Update processing log
 Append to `processing-log.json`:

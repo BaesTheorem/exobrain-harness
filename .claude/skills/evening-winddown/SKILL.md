@@ -44,7 +44,7 @@ Follow the `/health` skill's **Evening Update** section. Pull today's final Fitb
 **Email scan**:
 Follow the `/email` skill's **Evening Winddown** section. Lightweight catch-up since the morning briefing — route new events/tasks, update CRM, skip job alerts.
 
-**Route actionable items from iMessage, Discord, and email**:
+**Route actionable items from iMessage, Discord, Plaud transcripts, Supernote data, and email**:
 - **Tasks**: If a message mentions something Alex needs to do, create a Things 3 task (check for duplicates first). Include context about who asked and when.
 - **Events**: If a message mentions plans with a specific date/time, create a Google Calendar event (clear) or Things inbox task `Review: [event]` (ambiguous).
 - **People notes**: Update People/ notes for anyone mentioned with dated context. Create new People notes for new contacts.
@@ -61,7 +61,7 @@ Run the `/cycle-tracker` skill to check current phase status:
 
 This is silent housekeeping unless there's something worth flagging. The People note update ensures the CRM stays current.
 
-### 1c. Supernote Processing (MANDATORY)
+### 1c. Supernote Processing
 
 This is not optional. Process all unprocessed Supernote files before continuing the wind-down.
 
@@ -76,11 +76,11 @@ This is not optional. Process all unprocessed Supernote files before continuing 
 4. Update the processing log for each file processed
 5. Never defer Supernote processing to "tomorrow" — the wind-down is the catch-all
 
-### 1d. Apple Notes Processing (MANDATORY)
+### 1d. Apple Notes Processing
 
-Process any unprocessed notes in the Apple Notes inbox. Notes land here via `apple-notes-sync.py` every 15 minutes, but nothing extracts actionable content from them — this step closes that gap.
+Process any unprocessed notes in the Apple Notes dump. Notes land here via `apple-notes-sync.py` every 15 minutes, but nothing extracts actionable content from them — this step closes that gap.
 
-1. Glob `/Users/alexhedtke/Documents/Exobrain/Inbox/Apple Notes/*.md`
+1. Glob `/Users/alexhedtke/My Drive/Apple Notes/*.md`
 2. Check the processing log for already-processed files (source: `"apple-notes"`)
 3. For every unprocessed note, read it and extract:
    - Tasks → Things 3 (per `/things3` conventions)

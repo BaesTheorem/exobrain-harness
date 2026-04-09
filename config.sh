@@ -11,11 +11,14 @@ HARNESS_DIR="$HOME/Documents/Exobrain harness"
 VAULT_DIR="$HOME/Documents/Exobrain"
 
 # Google Drive sources (require Google Drive for Desktop)
+# Raw data stays in GDrive — backed up, persistent, and replayable
 GDRIVE_PLAUD="$HOME/My Drive/Plaud"
 GDRIVE_SUPERNOTE="$HOME/My Drive/Supernote/Note"
+GDRIVE_APPLE_NOTES="$HOME/My Drive/Apple Notes"
+GDRIVE_DISCORD="$HOME/My Drive/Discord"
+GDRIVE_IMESSAGE="$HOME/My Drive/iMessage"
 
 # Vault subdirectories
-PLAUD_VAULT="$VAULT_DIR/Plaud"
 DAILY_NOTES_DIR="$VAULT_DIR/Daily notes"
 PEOPLE_DIR="$VAULT_DIR/People"
 HEALTH_LOG_DIR="$VAULT_DIR/Health Log"

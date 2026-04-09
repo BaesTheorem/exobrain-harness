@@ -27,11 +27,11 @@ else
   ISSUES=$((ISSUES + 1))
 fi
 
-# Plaud folder
-if [ -d "$VAULT/Plaud" ]; then
+# Plaud folder (in Google Drive)
+if [ -d "$HOME/My Drive/Plaud" ]; then
   echo "OK: Plaud folder"
 else
-  echo "FAIL: Plaud folder missing"
+  echo "FAIL: Plaud folder missing (Google Drive not mounted?)"
   ISSUES=$((ISSUES + 1))
 fi
 
@@ -166,9 +166,11 @@ if [ -f "$DIGEST" ]; then
     echo "OK: Discord digest (${AGE}h old)"
   else
     echo "WARN: Discord digest stale (${AGE}h old)"
+    ISSUES=$((ISSUES + 1))
   fi
 else
   echo "WARN: Discord digest missing"
+  ISSUES=$((ISSUES + 1))
 fi
 
 # Summary
