@@ -46,7 +46,7 @@ Manual /capture ------+                                           macOS + Discor
 
 The system runs on three automation layers:
 1. **launchd file watchers/daemons** -- trigger transcript processing when new Plaud files arrive, sync Apple Notes, fetch Discord messages
-2. **Claude Code scheduled tasks** -- run morning briefing, transcript checks, inbox review, evening winddown, weekly review on cron
+2. **Claude Code scheduled tasks** -- run transcript checks, inbox review, weekly review on cron (morning briefing and evening winddown are manual/interactive)
 3. **Interactive skills** -- invoked manually via `/skill-name` in Claude Code sessions
 
 All outputs converge on the Obsidian vault (`/Users/alexhedtke/Documents/Exobrain/`) as the single source of truth, with Things 3 and Google Calendar as action surfaces.
@@ -110,18 +110,19 @@ Skills are invoked with `/skill-name` in Claude Code. Each is defined in `.claud
 | `/calendar` | Canonical reference for event creation, flight buffers, overbooking detection, late-night date handling |
 | `/email` | Canonical reference for email scanning, job alert processing, actionable item extraction, CRM cross-referencing |
 
-### Scheduled Tasks (6)
+### Scheduled Tasks (3)
 
 Managed via Claude Code's scheduled-tasks MCP. Run as remote agents on cron.
 
 | Task ID | Schedule | Purpose |
 |---------|----------|---------|
-| `morning-briefing` | 8:45 AM Mon-Fri | Runs `/daily-briefing`, writes to Obsidian, pings Discord |
-| `heartbeat-check` | 10:00 AM Mon-Fri | Verifies morning briefing ran; alerts via Discord + macOS if it didn't |
 | `check-transcripts` | 9 AM + 6 PM daily | Backup for launchd watcher -- finds and processes new Plaud files |
 | `evening-inbox-review` | 6:00 PM daily | Alerts if Things 3 inbox > 5 items or has urgent deadlines |
-| `evening-winddown` | 11:59 PM daily | Day recap, mood check-in, tomorrow planning via `/evening-winddown` |
 | `weekly-review` | 10:00 AM Sunday | Full GTD review, writes to Sunday's daily note, pings Discord |
+
+**Manually invoked** (require laptop to be on, or are interactive):
+- `/daily-briefing` -- morning dashboard (was scheduled, now manual)
+- `/evening-winddown` -- day recap, mood + concern check-in, tomorrow planning (interactive, so manual)
 
 ### launchd Jobs (5)
 
@@ -167,11 +168,12 @@ Persistent cross-session memory in `.claude/projects/.../memory/`. ~30 files tot
 | **Google Drive** | Claude Desktop managed | File search and fetch | Google OAuth (Desktop-managed) |
 | **Discord** | Claude plugin (`discord@claude-plugins-official`) | Message fetch, reply, react | Bot token (plugin-managed) |
 | **Scheduled Tasks** | Claude Desktop managed | Cron-based remote agent execution | None |
-| **MyChart** | Claude Desktop managed | Health records (available, not actively used) | MyChart OAuth |
+| **MyChart** | Claude Desktop managed (hosted by [OpenRecord](https://github.com/Fan-Pier-Labs/openrecord)) | Full MyChart patient portal: meds, labs, imaging, vitals, messages, billing, insurance, referrals, preventive care, care team, immunizations, visits, documents, emergency contacts, refill requests (35+ tools, read + write) | MyChart credentials + TOTP (session auto-renews) |
 
 **Fitbit MCP location**: `/Users/alexhedtke/Documents/Claude Code/mcp-fitbit-main/`
 **Fitbit token**: `/Users/alexhedtke/Documents/Claude Code/mcp-fitbit-main/.fitbit-token.json` (auto-refreshed)
 **Withings tokens**: `/Users/alexhedtke/Documents/Exobrain harness/.env` (auto-refreshed)
+**MyChart MCP**: Hosted at `openrecord.fanpierlabs.com` ([source](https://github.com/Fan-Pier-Labs/openrecord)). Currently using hosted version; plan to self-host later (Railway one-click or AWS Fargate). Credentials configured via OpenRecord web UI, MCP URL added to Claude Desktop. Supports multiple MyChart instances (pass `instance` param to target specific hospitals).
 
 ---
 
@@ -185,6 +187,7 @@ Persistent cross-session memory in `.claude/projects/.../memory/`. ~30 files tot
 | **Gmail** | Email scanning, job alerts, correspondence | MCP server |
 | **Fitbit** | Steps, heart rate, sleep, active zone minutes, calories | MCP server |
 | **Withings** | Weight, body composition (fat %, muscle, bone, hydration, visceral fat), blood pressure | MCP server |
+| **MyChart** | Full patient portal: meds, labs, imaging, vitals, messages, billing, insurance, preventive care, refills | MCP server ([OpenRecord](https://github.com/Fan-Pier-Labs/openrecord), hosted) |
 | **Plaud Note** | Voice recording to transcript files | Plaud app syncs `.txt` files to Google Drive, then to Obsidian vault |
 | **Supernote A5X** | Handwritten notes (`.note` format) | Supernote app syncs to Google Drive, then to filesystem |
 | **Apple Notes** | Quick capture on iPhone/iPad | `apple-notes-sync.py` syncs to Obsidian vault every 15 min |
@@ -220,12 +223,13 @@ Backup (weekly):
 
 ### Scheduled (cron via Claude Code)
 ```
-8:45 AM Mon-Fri:  /daily-briefing -> Obsidian + Discord
-10:00 AM Mon-Fri: heartbeat-check -> verify briefing ran
 9 AM + 6 PM:      check-transcripts -> backup for launchd watcher
 6:00 PM daily:    inbox review -> notification if inbox needs attention
-11:59 PM daily:   /evening-winddown -> day recap, mood, tomorrow planning
 10:00 AM Sunday:  /weekly-review -> comprehensive synthesis -> Obsidian + Discord
+
+Manual (interactive):
+/daily-briefing   -> morning dashboard (invoked in session)
+/evening-winddown -> day recap, mood, concern check-in, tomorrow planning (invoked in session)
 ```
 
 ### Manual (user-invoked)
@@ -487,12 +491,11 @@ chmod +x discord/discord-bot.sh transcript-processing/run-process-transcript.sh 
 
 Open a Claude Code session in the harness directory. The scheduled tasks are managed via the `scheduled-tasks` MCP -- create them with `/schedule` or via the MCP tools:
 
-- **morning-briefing**: `45 8 * * 1-5` (8:45 AM weekdays)
-- **heartbeat-check**: `0 10 * * 1-5` (10 AM weekdays)
 - **check-transcripts**: `0 9,18 * * *` (9 AM + 6 PM daily)
 - **evening-inbox-review**: `0 18 * * *` (6 PM daily)
-- **evening-winddown**: `59 23 * * *` (11:59 PM daily)
 - **weekly-review**: `0 10 * * 0` (10 AM Sunday)
+
+The daily briefing and evening winddown are invoked manually in interactive sessions (`/daily-briefing`, `/evening-winddown`).
 
 Each scheduled task runs as a remote agent with its own Claude session. Run each once interactively first to pre-approve tool permissions.
 

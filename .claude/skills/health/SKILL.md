@@ -47,6 +47,10 @@ pulled_at: "YYYY-MM-DDTHH:MM:SS-05:00"
 - [[Daily notes/day name|date]]
 ```
 
+### Concern Tracking
+
+Health Log notes may include additional frontmatter properties for tracking specific health concerns. These properties and their definitions are kept in a gitignored file (`health-concerns-config.md`) since they contain private health information. The evening winddown skill references that config at runtime.
+
 ### Rules
 
 - **Idempotent**: If a Health Log note already exists for a date, read it instead of re-querying APIs. Only update if new data is available (e.g., evening update adds final step count to a note the morning created with Withings data).

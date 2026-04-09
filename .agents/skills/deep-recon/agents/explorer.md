@@ -13,7 +13,7 @@ Search broadly across the web and the vault to surface raw material for brainsto
 - Look beyond the obvious: adjacent fields, historical parallels, unexpected domains
 - Search for recent thinking (last 1-2 years) as well as foundational ideas
 - Use short, varied queries (1-6 words each) — don't repeat the same framing
-- Fetch and summarize the most relevant pages (2-3 max)
+- Fetch and summarize the most relevant pages (2-3 max). **Use Defuddle**: run `npx @anthropic/defuddle@latest "[URL]"` via Bash instead of raw WebFetch — it strips navigation/ads and saves 60-80% of tokens. Fall back to WebFetch only if defuddle fails.
 
 ### Vault Search
 - Grep for key terms, people, concepts related to the topic

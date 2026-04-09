@@ -17,6 +17,7 @@ __pycache__/
 *.pyc
 
 # Personal/sensitive data
+.claude/skills/health/health-concerns-config.md
 cycle-tracker/cycle-data.json
 cycle-tracker/app.py
 mood-tracker/mood-data.json

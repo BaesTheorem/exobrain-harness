@@ -115,6 +115,10 @@ If Alex provides a score:
 If Alex doesn't respond (scheduled task mode):
 - Don't score. Leave it for the morning briefing to infer from signals.
 
+### 2b. Health Concern Check-In
+
+Read the health concerns config at `.claude/skills/health/health-concerns-config.md` for the current list of tracked concerns and their properties. Prompt Alex for today's scores (keep it to one line), write them to today's Health Log frontmatter, and flag any key correlations defined in the config.
+
 ### 3. Tomorrow Preview
 
 **Calendar**: Use `gcal_list_events` for tomorrow.

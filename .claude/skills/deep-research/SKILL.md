@@ -62,6 +62,7 @@ SEARCH STRATEGY:
 - Try 3-5 different query phrasings if initial results are thin
 - Prefer primary sources (official sites, papers, .gov, .edu) over SEO content farms
 - If you find a promising source, read it thoroughly rather than skimming
+- USE DEFUDDLE: When reading any web page, run `npx @anthropic/defuddle@latest "[URL]"` via Bash instead of WebFetch. Only use WebFetch as a fallback if defuddle fails.
 
 OUTPUT FORMAT:
 Return your findings as structured notes:
@@ -79,6 +80,7 @@ DO NOT fabricate sources or citations. If you can't find something, say so.
 - Use `model: "sonnet"` for subagents (cost-efficient, Opus for lead only)
 - Launch all independent subagents in a SINGLE message (parallel execution)
 - Each subagent should make 5-15 tool calls depending on complexity
+- **Defuddle all web pages.** Subagents must use `npx @anthropic/defuddle@latest "[URL]"` (via Bash) instead of raw WebFetch when reading page content. This strips navigation, ads, and boilerplate, often cutting tokens by 60-80%. Only fall back to WebFetch if defuddle fails.
 
 ## Step 3: Evaluate Coverage
 
