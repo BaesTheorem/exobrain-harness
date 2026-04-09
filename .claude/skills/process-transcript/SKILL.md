@@ -110,13 +110,7 @@ For every person mentioned in the transcript:
    ```
    And update `## Follow-ups` if new follow-ups were identified.
 4. Also add any new factual information about the person (role, company, interests, relationships, contact info, opinions, life events) to their `## Context` section. The People note should accumulate knowledge over time — every transcript is a chance to enrich it.
-5. **Personality & social dynamics**: Pay attention to how people interact, not just what they say. Note patterns like:
-   - Communication style (direct, diplomatic, devil's advocate, quiet observer, etc.)
-   - Social role in the group (mediator, instigator, advisor, hype person, etc.)
-   - Emotional patterns (how they give feedback, handle conflict, show care)
-   - Relationship dynamics with Alex and with each other
-   - Recurring behaviors across transcripts (always plays devil's advocate, tends to deflect, gives unsolicited advice, etc.)
-   Add observations to a `## Personality & Dynamics` section in the People note. Use specific examples from transcripts rather than vague labels. Flag noteworthy dynamics in the daily note recommendations when relevant (e.g., "Two people independently flagged the same thing — pattern worth noting").
+5. **Personality & social dynamics**: Follow the `/crm` skill's mode 9 (Continuous Integration) protocol — enrich `## Context`, `## Connections`, and `## Personality & Dynamics` sections with observations from the transcript. Use specific examples, not vague labels.
 5. Use `[[wikilinks]]` to link People notes from the daily note Network table.
 6. Skip generic/unknown speakers (e.g., "Speaker 1", "unknown") — only create notes for identifiable people.
 

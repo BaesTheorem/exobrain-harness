@@ -119,11 +119,34 @@ The web app provides a full calendar heatmap, trend chart, sub-category sliders,
 - **`/daily-briefing`**: After building the briefing, score yesterday and update the journal. Include a 1-line mood summary in the briefing: "Mood yesterday: 2.5/5 🟠 (depleted after social marathon)"
 - **`/weekly-review`**: Generate the weekly summary entry. Compare to prior weeks. Flag multi-week trends.
 - **`/process-transcript`**: If the transcript contains direct mood statements, note them for the next journal update. Don't score mid-day — wait for full-day data.
-- **`/hey-claude`**: Can answer "how have I been feeling?" or "show my mood trends" by reading the journal.
+
+
+## Daily Briefing
+
+When called as part of the daily briefing:
+
+1. **Score yesterday**: Gather evidence from all sources already pulled during the briefing (Fitbit via Health Log, calendar, email, tasks). Score each sub-category with brief justification. Calculate weighted overall.
+2. **Write to yesterday's daily note**: Append a `### Mood` section to YESTERDAY's daily note (not today's):
+   ```markdown
+   ### Mood
+   **Overall**: 3/5 🟡 — steady day, self-care dipped
+   - Emotional: 3 | Energy: 2.5 | Self-Care: 2 | Social: 3.5 | Purpose: 3
+   - *Primary driver: late bedtime + low steps dragged energy/self-care down*
+   ```
+   If yesterday's daily note doesn't exist, create it with the nav header first.
+3. **Update Mood Journal**: Add daily log entry + update calendar heatmap (programmatically via `mood-data.json` + `app.py --sync`, or REST API).
+4. **Mood boost recommendation**: Read the week's daily log entries so far. Identify the lowest or most consistently weak sub-category, then generate ONE concrete, actionable recommendation tied to today's schedule. Examples:
+   - Self-Care lowest → "Calendar clear 12-1 PM. A 30-min walk would break the 3-day low-step streak."
+   - Energy lowest → "Past 1 AM every night this week. Set a 12:30 AM wind-down alarm."
+   - Purpose lowest → "No cert progress in 4 days. Block 45 min before your 2 PM meeting."
+5. **Return for today's briefing**:
+   - 1-line summary: `**Mood yesterday**: 3/5 🟡 — steady day, self-care dipped`
+   - Boost: `**🎯 Mood boost**: [recommendation]`
+   - If multi-day declining trend, flag prominently.
 
 ## Proactive Flags
 
-Surface these in daily briefings and hey-claude responses:
+Surface these in daily briefings and ad-hoc responses:
 - **3+ days at 2 or below**: "You've been in a rough stretch — what would help?"
 - **Dropping trend**: 3+ consecutive days of declining scores
 - **Self-care slip**: Sleep/exercise sub-scores at 1-2 for 3+ days

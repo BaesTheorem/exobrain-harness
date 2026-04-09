@@ -22,6 +22,11 @@
     <key>StandardErrorPath</key>
     <string>/tmp/exobrain-supernote-watcher.err</string>
 
+    <!-- Periodic fallback in case WatchPaths misses a trigger
+         (e.g., Google Drive mounts after launchd already checked) -->
+    <key>StartInterval</key>
+    <integer>3600</integer>
+
     <key>ThrottleInterval</key>
     <integer>60</integer>
 </dict>

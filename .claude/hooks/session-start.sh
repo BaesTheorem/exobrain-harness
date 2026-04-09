@@ -1,8 +1,10 @@
 #!/bin/bash
 # Exobrain session startup hook — date context + system health check
 
-HARNESS="/Users/alexhedtke/Documents/Exobrain harness"
-VAULT="/Users/alexhedtke/Documents/Exobrain"
+SCRIPT_DIR="$(cd "$(dirname "$0")/../.." && pwd)"
+source "$SCRIPT_DIR/config.sh"
+HARNESS="$HARNESS_DIR"
+VAULT="$VAULT_DIR"
 
 # === DATE + LOGICAL DAY ===
 HOUR=$(date +%H)
@@ -34,7 +36,7 @@ else
 fi
 
 # Supernote folder
-if [ -d "/Users/alexhedtke/My Drive/Supernote/Note" ]; then
+if [ -d "$GDRIVE_SUPERNOTE" ]; then
   echo "OK: Supernote folder"
 else
   echo "FAIL: Supernote folder not accessible"
@@ -57,9 +59,29 @@ else
   ISSUES=$((ISSUES + 1))
 fi
 
-# Fitbit token
-if [ -f "/Users/alexhedtke/Documents/Claude Code/mcp-fitbit-main/.fitbit-token.json" ]; then
-  echo "OK: Fitbit token"
+# Fitbit token existence + freshness
+if [ -f "$FITBIT_TOKEN" ]; then
+  FITBIT_STATUS=$(python3 -c "
+import json, sys
+from datetime import datetime, timezone
+try:
+    d = json.load(open('$FITBIT_TOKEN'))
+    exp = datetime.fromisoformat(d['expires_at'].replace('Z', '+00:00'))
+    now = datetime.now(timezone.utc)
+    hours_left = (exp - now).total_seconds() / 3600
+    if hours_left < 0:
+        print(f'WARN: Fitbit token expired {-hours_left:.0f}h ago — needs re-auth')
+    elif hours_left < 1:
+        print(f'WARN: Fitbit token expires in {hours_left*60:.0f}m — refresh soon')
+    else:
+        print(f'OK: Fitbit token (valid for {hours_left:.0f}h)')
+except Exception as e:
+    print(f'WARN: Fitbit token unreadable — {e}')
+" 2>/dev/null)
+  echo "$FITBIT_STATUS"
+  if echo "$FITBIT_STATUS" | grep -q "WARN"; then
+    ISSUES=$((ISSUES + 1))
+  fi
 else
   echo "WARN: Fitbit token missing — may need re-auth"
   ISSUES=$((ISSUES + 1))
@@ -107,6 +129,20 @@ else
   ISSUES=$((ISSUES + 1))
 fi
 
+# Watcher health — check for recent failures (last 24h)
+for WATCHER in supernote plaud; do
+  FAIL_LOG="/tmp/exobrain-${WATCHER}-failures.log"
+  if [ -f "$FAIL_LOG" ]; then
+    FAIL_AGE=$(( ($(date +%s) - $(stat -f %m "$FAIL_LOG")) / 3600 ))
+    if [ "$FAIL_AGE" -le 24 ]; then
+      LAST_FAIL=$(tail -2 "$FAIL_LOG")
+      echo "WARN: ${WATCHER}-watcher has recent failures (${FAIL_AGE}h ago)"
+      echo "  $LAST_FAIL"
+      ISSUES=$((ISSUES + 1))
+    fi
+  fi
+done
+
 # Processing log integrity
 LOG="$HARNESS/processing-log.json"
 if [ -f "$LOG" ]; then
@@ -123,7 +159,7 @@ else
 fi
 
 # Discord digest freshness
-DIGEST="$HARNESS/discord-digest.json"
+DIGEST="$HARNESS/discord/discord-digest.json"
 if [ -f "$DIGEST" ]; then
   AGE=$(( ($(date +%s) - $(stat -f %m "$DIGEST")) / 3600 ))
   if [ "$AGE" -le 24 ]; then
@@ -151,12 +187,12 @@ if [ -d "$MEMORY_DIR" ]; then
   if [ -n "$RECENT" ]; then
     echo ""
     echo "=== Recent Session Memory ==="
-    for f in $RECENT; do
+    while IFS= read -r f; do
       FNAME=$(basename "$f")
       echo ""
       echo "--- $FNAME ---"
       cat "$f"
-    done
+    done <<< "$RECENT"
     echo ""
     echo "=== End Session Memory ==="
   fi

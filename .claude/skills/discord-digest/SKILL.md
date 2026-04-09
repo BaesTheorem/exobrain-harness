@@ -20,19 +20,19 @@ If the mapping file is missing, fall back to Discord display names from the API 
 
 ## Channels Monitored (read-only)
 
-- **General**: `945577631133351950`
-- **Musings and advice**: `945857863090311258`
-- **Hangouts**: `945577794732167211`
+Read channel IDs from `.env` in the harness root:
+- **General**: `DISCORD_CHANNEL_GENERAL`
+- **Musings and advice**: `DISCORD_CHANNEL_MUSINGS`
+- **Hangouts**: `DISCORD_CHANNEL_HANGOUTS`
 
 All channels are set to `requireMention: true` with empty `allowFrom` — the bot reads but never responds.
 
 ## How to Scan
 
-1. Use `fetch_messages` on each channel (limit 100 for Hangouts, 50 for General, 30 for Musings)
-2. Use `list_threads` on Hangouts to discover active/recent threads, then `fetch_messages` on each thread
-3. Filter to messages from the past 24 hours (for daily briefing) or past 7 days (for weekly/standalone)
-4. **Always replace Discord usernames with real names** using the mapping above
-5. Skip [discord_user] messages — that's Alex, he already knows what he said
+1. Read `discord/discord-digest.json` — this is populated by `discord-digest-fetch.py` every 4 hours via launchd. It contains recent messages from all channels with metadata.
+2. Filter to messages from the past 24 hours (for daily briefing) or past 7 days (for weekly/standalone)
+3. **Always replace Discord usernames with real names** using the `USERNAME_MAP` in `discord/discord-digest-fetch.py`
+4. Skip Alex's messages — he already knows what he said
 6. **Always cross-reference scheduling discussions with Alex's Google Calendar and Things 3** — flag conflicts, don't assume availability
 
 ## What to Extract
@@ -44,7 +44,7 @@ All channels are set to `requireMention: true` with empty `allowFrom` — the bo
 - Create a Things 3 task or calendar event for anything Alex hasn't responded to yet
 
 ### Questions & Mentions
-- Direct @mentions of Alex ([discord_user] or his Discord user ID)
+- Direct @mentions of Alex (username from `DISCORD_ALEX_USERNAME` in `.env`, or his Discord user ID)
 - Questions asked to the group that Alex hasn't answered
 - Plans that need an RSVP from Alex
 
@@ -76,7 +76,7 @@ Keep it concise — 3-5 bullet points max unless there's a lot of activity. If n
 - **`/daily-briefing`**: Calls this skill to generate the Discord section of the morning briefing
 - **`/weekly-review`**: Pulls 7-day Discord activity for the social/community section
 - **`/crm`**: Cross-references Discord usernames with People/ notes — these friends should all have People notes
-- **`/hey-claude`**: Can answer "what did I miss on Discord?" or "what's the group up to?"
+- Ad-hoc questions like "what did I miss on Discord?" can be answered by reading the digest
 
 ## Network CRM Integration
 
@@ -94,11 +94,4 @@ All friend group members should have People/ notes. When Discord activity reveal
 
 ### Personality & Social Dynamics
 
-Beyond factual updates, pay attention to how people interact in the server and update the `## Personality & Dynamics` section of their People/ note:
-- **Communication style**: Shitposter, earnest, devil's advocate, lurker-who-drops-bangers, etc.
-- **Social role in the group**: Organizer, hype person, contrarian, mediator, quiet observer
-- **Emotional patterns**: How they give feedback, handle disagreement, show enthusiasm or frustration
-- **Group dynamics**: Who responds to whom, recurring debates, alliances, friction points
-- **Recurring behaviors across sessions**: Always volunteers to organize, tends to bail last-minute, consistently shares niche content, etc.
-
-Use specific examples from messages rather than vague labels. Flag noteworthy dynamics in the digest when relevant (e.g., "Two people independently pushing back on the same point — emerging pattern").
+Follow the `/crm` skill's mode 9 (Continuous Integration) protocol — enrich `## Context`, `## Connections`, and `## Personality & Dynamics` sections with observations from Discord messages. Use specific examples, not vague labels.

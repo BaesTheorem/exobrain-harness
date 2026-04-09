@@ -24,5 +24,5 @@ The `/mood` skill and `/evening-winddown` populate entries automatically. Each e
 
 | File | Purpose |
 |------|---------|
-| `app.py` | Flask web app with calendar heatmap and trend charts |
+| `app.py` | Python web app (stdlib only) with calendar heatmap and trend charts |
 | `README.md` | This file |

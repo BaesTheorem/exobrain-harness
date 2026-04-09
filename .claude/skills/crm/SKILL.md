@@ -135,15 +135,14 @@ Help Alex compose a message:
    - Includes a concrete offer to help (signal-boost writing, make intros, share resources, be a sounding board)
    - Asks an open-ended question to re-engage
    - Matches tone (closer contacts = more casual)
-   - No em dashes (Alex's preference)
-4. Note which platform to send on (from `platform` field)
+4. Pass the draft through the /de-ai skill
+5. Note which platform to send on (from `platform` field)
 
 ### 5. Log contact: `/crm log [name]`
 After Alex contacts someone:
 
 1. Update `last_contact` in their People/ note frontmatter to today's date
 2. Add a dated mention to the Mentions section if context is provided
-3. That's it -- no more "create a task to update the Google Sheet"
 
 ### 6. Potential contact: `/crm potential [name]`
 Track someone Alex wants to eventually connect with:
@@ -187,7 +186,7 @@ When processing transcripts, emails, or calendar events:
 
 3. **Interest/topic evolution**: If someone's interests or expertise shift (e.g., they used to talk about ML but now they're focused on policy), update `expertise` in frontmatter and add context to `## Context`.
 
-4. **Communication pattern observations**: If you notice patterns across multiple interactions (e.g., "always responds quickly on Signal but ignores email", "tends to reach out when stressed"), add to `## Personality & Dynamics`.
+4. **Communication pattern observations**: If you notice patterns across multiple interactions (e.g., "always responds quickly on Signal but ignores email", "tends to reach out only when stressed", "likes to be the center of attention"), add to `## Personality & Dynamics`.
 
 5. **Cross-reference enrichment**: When processing a transcript that mentions Person A talking about Person B, update Person B's note with `- Mentioned by [[Person A]] in conversation (date) — [context]` in Mentions. This captures indirect intel.
 
@@ -205,13 +204,12 @@ When processing transcripts, emails, or calendar events:
 - **`/process-transcript`**: Calls Network scan (mode 8) for every transcript. Updates `last_contact` for anyone Alex spoke with.
 - **`/daily-briefing`**: Scans People/ frontmatter for all overdue contacts. Lists every overdue contact in the briefing and creates a Things 3 task for each (see Task Creation below).
 - **`/weekly-review`**: CRM health summary (total contacts, overdue count, category distribution). Surfaces 1 **potential** contact to initiate with this week and creates a Things 3 task for that outreach. Does not duplicate overdue surfacing (that's the daily briefing's job).
-- **`/hey-claude`**: Can answer "who should I follow up with?" or "tell me about [person]"
+- Ad-hoc questions like "who should I follow up with?" or "tell me about [person]" can be answered via CRM lookup
 
 ## Task Creation
 
 When the CRM surfaces contacts for outreach (overdue contacts in daily briefing, potential contacts in weekly review, or follow-up mode), **always create a Things 3 task** for each one:
 - **Title**: `Reach out to [Name]`
-- **When**: `today` (for daily briefing) or `anytime` (for weekly review)
 - **Notes**: Include platform, last interaction context, and People note deep link (`obsidian://open?vault=Exobrain&file=People/[Name]`)
 - **Tags**: `["networking"]`
 - Search Things 3 first (`search_todos`) to avoid duplicates -- don't create a task if one already exists for that person

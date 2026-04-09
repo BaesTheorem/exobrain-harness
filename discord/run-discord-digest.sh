@@ -2,8 +2,9 @@
 # Wrapper script for launchd to run Discord digest fetch
 # Uses Homebrew python3 which has proper file access permissions
 
-export PATH="/opt/homebrew/bin:/usr/local/bin:$HOME/.local/bin:$PATH"
+SCRIPT_DIR="$(cd "$(dirname "$0")/.." && pwd)"
+source "$SCRIPT_DIR/config.sh"
 
-cd "/Users/alexhedtke/Documents/Exobrain harness/discord" || exit 1
+cd "$HARNESS_DIR/discord" || exit 1
 
 python3 discord-digest-fetch.py

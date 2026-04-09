@@ -23,7 +23,6 @@ This is the canonical reference for how the Exobrain interacts with the Obsidian
 | `Media/[Title].md` | Individual media notes (books, movies, shows, games) — rendered by `Media.base` |
 | `Mood Journal.md` | Longitudinal mood tracking |
 | `Plaud/` | Raw Plaud transcript files |
-| `Supernotes` | Symlink to Supernote .note files |
 | `[Campaign Name]/` | TTRPG campaign folders |
 
 ## Best Practices

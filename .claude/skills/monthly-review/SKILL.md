@@ -154,7 +154,7 @@ The monthly review has five sections. Execute them in this order:
 
 **Steps**:
 1. Get all active projects from Things 3 (`get_projects`)
-2. Verify each project has an Obsidian backlink in its notes field (`obsidian://open?vault=Alex's%20Exobrain&file=Projects/...`). If missing, add it via `update_project` and create the corresponding Obsidian note if needed.
+2. Verify each project has an Obsidian backlink in its notes field (`obsidian://open?vault=Exobrain&file=Projects/...`). If missing, add it via `update_project` and create the corresponding Obsidian note if needed.
 3. For each project, assess progress this month:
    - Check completed tasks within the project
    - Search daily notes for mentions of the project
@@ -270,7 +270,7 @@ After all five sections are complete and Alex has had a chance to react to the v
    - Append after any existing content (including weekly review if present)
    - Use the section headers shown above
 2. Send macOS notification: `"Monthly review complete — check today's daily note"`
-3. Send Discord ping to `1486464885784182834`: `"📋 Monthly review for [Month] is done. [1-line summary of key finding]"`
+3. Send Discord ping to `DISCORD_NOTIFY_CHAT_ID` from `.env`: `"📋 Monthly review for [Month] is done. [1-line summary of key finding]"`
 4. Update processing log is NOT needed (monthly review is not a processing event)
 
 ## Interaction Style
