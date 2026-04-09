@@ -113,5 +113,3 @@ All briefing subsections use H4 (`####`) to nest under the H3. Do NOT include st
 osascript -e 'display notification "Your daily briefing is ready in today'\''s note" with title "Exobrain" sound name "Purr"'
 ```
 
-Also send a Discord notification via `reply` to the chat_id from `DISCORD_NOTIFY_CHAT_ID` in `.env`:
-> ☀️ **Morning Briefing** — [weather summary]. [step count vs goal]. [number] events today, [number] tasks due. [top priority or flag for the day]
