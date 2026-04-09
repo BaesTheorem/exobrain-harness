@@ -113,7 +113,7 @@ Search for upcoming KC meetups matching interests:
 - `WebSearch`: "site:meetup.com Kansas City AI" / "cybersecurity" / "tech" / "board games" / "DnD"
 - Also search: "meetup.com Kansas City events this month"
 
-### 3. KC Venue Calendars (via web fetch)
+### 3. KC Venue Calendars (via Defuddle)
 Check major venue calendars for upcoming shows:
 - Starlight Theatre: `https://www.kcstarlight.com/events`
 - Knuckleheads: `https://www.knuckleheadskc.com/events`
@@ -122,12 +122,12 @@ Check major venue calendars for upcoming shows:
 - recordBar: `https://www.therecordbar.com/events`
 - T-Mobile Center: `https://www.t-mobilecenter.com/events`
 
-For each venue, use `WebFetch` to pull the events page and extract shows in the next 30 days. Cross-reference artist names against the `favoriteArtists` list from the preferences file.
+For each venue, use `npx @anthropic/defuddle@latest "[URL]"` (via Bash) to extract clean content from the events page — this strips navigation, ads, and boilerplate, saving 60-80% of tokens vs raw WebFetch. Only fall back to WebFetch if defuddle fails. Extract shows in the next 30 days and cross-reference artist names against the `favoriteArtists` list from the preferences file.
 
 ### 4. KC Library Events
 - Kansas City Public Library: `https://kclibrary.org/events`
 - Johnson County Library: `https://www.jocolibrary.org/events`
-- Fetch and filter for: author talks, tech workshops, maker events, book clubs for genres Alex reads
+- Use Defuddle (`npx @anthropic/defuddle@latest "[URL]"`) to fetch and filter for: author talks, tech workshops, maker events, book clubs for genres Alex reads. Fall back to WebFetch only if defuddle fails.
 
 ### 5. Web Search Catch-All
 Run broader searches to catch anything the other sources miss:

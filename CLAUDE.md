@@ -113,6 +113,7 @@ When any transcript, note, or other imported content mentions a movie, show, ani
 
 - **Fitbit**: Steps, heart rate (resting + zones), zone minutes, sleep, calories. **Do NOT use Fitbit for weight** — that's Withings only.
 - **Withings**: Weight, body composition (fat %, muscle mass, bone mass, hydration, visceral fat index), and blood pressure exclusively. Always pull full body composition, not just weight.
+- **MyChart** (via [OpenRecord](https://github.com/Fan-Pier-Labs/openrecord)): Full Epic MyChart patient portal access (35+ tools, read + write). Medications, lab results, imaging, vitals, immunizations, allergies, health issues, visits (past + upcoming), provider messages, billing, insurance, referrals, preventive care, care team, documents, emergency contacts, and medication refill requests. Auth is MyChart credentials + TOTP; sessions auto-renew. Currently using hosted version at `openrecord.fanpierlabs.com`; plan to self-host later.
 - **Health Log**: All health data is persisted to `Health Log/YYYY-MM-DD.md` notes in the Obsidian vault (one per day, YAML frontmatter with numeric properties). The `Health Log.base` view at the vault root renders trends. When referencing past health data, read Health Log notes instead of re-querying APIs.
 - Always compare against past 7 days for trends
 - Alex's goal: 15,000+ steps/day — flag when falling behind and suggest catch-up opportunities based on calendar gaps

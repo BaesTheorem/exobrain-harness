@@ -29,5 +29,8 @@ SESSION_MEMORY_DIR="$HARNESS_DIR/.claude/session-memory"
 # External dependencies (outside the harness)
 FITBIT_TOKEN="$HOME/Documents/Claude Code/mcp-fitbit-main/.fitbit-token.json"
 
+# Ensure HOME is set (launchd doesn't set it)
+export HOME="${HOME:-$(dscl . -read /Users/$(whoami) NFSHomeDirectory | awk '{print $2}')}"
+
 # Claude CLI (npm global or local bin — whichever is found)
 export PATH="/usr/local/bin:/opt/homebrew/bin:$HOME/.npm-global/bin:$HOME/.local/bin:$PATH"

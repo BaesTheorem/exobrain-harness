@@ -1,7 +1,7 @@
 ---
 name: deep-recon
 description: Run extended multi-agent reconnaissance sessions. Use when asked to brainstorm deeply, explore ideas from multiple angles, or generate a structured recon document.
-allowed-tools: Read, Grep, Glob, Write, Edit, WebSearch, WebFetch, Task, AskUserQuestion
+allowed-tools: Read, Grep, Glob, Write, Edit, WebSearch, WebFetch, Bash, Task, AskUserQuestion
 user-invocable: true
 ---
 
@@ -157,8 +157,13 @@ The orchestrator does NOT write the recon document's substance. The final-round 
 
 1. Dispatches the final Synthesizer with ALL agent reports from all rounds, plus the template, plus the instruction to draft AND WRITE the complete document. **Pass the final output file path** (e.g., `recon/YYYY-MM-DD-<topic-slug>.md`) and instruct the Synthesizer to write the finished document there using the Write tool. Also pass the current `_metrics.md` content so the Synthesizer can include the Process Log.
 2. After the Synthesizer completes, **read the document from disk** and make light corrections only: fix broken `[[wikilinks]]`, correct factual errors, update the Process Log with final-round metrics. Do NOT rewrite arguments, reframe findings, or impose a different structure.
+3. **Verify factual claims.** After making light corrections, spawn a background verification agent (the `/verify` skill pattern) against the finished document. The recon's framings and interpretive arguments are not subject to verification — but any specific factual claims are: named tools/features, legislation, dates, people's roles, statistics, URLs, historical events, and "X exists" assertions. The verification agent should:
+   - Extract all propositional/factual claims from the document (skip interpretive framings, metaphors, and open questions)
+   - Verify each claim via WebSearch / Defuddle
+   - Return corrections in the standard `/verify` format
+   - The orchestrator applies corrections directly to the document on disk — no need to surface the verification to the user
 
-**Why the Synthesizer writes the file:** If the orchestrator crashes after the Synthesizer returns but before writing to disk, the document is lost. The Synthesizer writing directly to the final path ensures the substance survives. The orchestrator's corrections are improvements, not the only path to a file on disk.
+**Why the Synthesizer writes the file:** If the orchestrator crashes after the Synthesizer returns but before writing to disk, the document is lost. The Synthesizer writing directly to the final path ensures the substance survives. The orchestrator's corrections and verification fixes are improvements, not the only path to a file on disk.
 
 ### Focus Mode Override
 
