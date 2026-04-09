@@ -133,5 +133,3 @@ Write `### Weekly Review` section in Sunday's daily note containing:
 osascript -e 'display notification "Your weekly review is ready — check Sunday'\''s daily note" with title "Exobrain" sound name "Purr"'
 ```
 
-Also send a Discord notification via `reply` to the chat_id from `DISCORD_NOTIFY_CHAT_ID` in `.env` with a summary:
-> 📋 **Weekly Review ready** — [X] tasks created, [Y] overdue items flagged. Top flags: [1-2 sentence highlights]. Full review in Sunday's daily note.

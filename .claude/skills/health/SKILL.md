@@ -54,6 +54,7 @@ Health Log notes may include additional frontmatter properties for tracking spec
 ### Rules
 
 - **Idempotent**: If a Health Log note already exists for a date, read it instead of re-querying APIs. Only update if new data is available (e.g., evening update adds final step count to a note the morning created with Withings data).
+- **Morning cross-check** (exception to idempotent rule): When the morning briefing runs and yesterday's Health Log note already exists (created by the evening winddown), always pull fresh Fitbit data for yesterday and compare against the stored values. The evening winddown often runs before all data has synced (late-night steps, sleep data finalized after wake). If any field differs, update the note with the fresh value and note the correction in the `#### Notes` section (e.g., "Morning cross-check: steps updated 3,832 → 4,105").
 - **Omit empty fields**: No BP reading = omit `bp_systolic`/`bp_diastolic` entirely. Don't set to null.
 - **Raw numbers only**: No units in frontmatter. Units go in display text.
 - `Health Log.base` at the vault root renders all notes as filterable/sortable views.
@@ -78,7 +79,7 @@ Called by the daily briefing. Pulls **yesterday's** data and writes/updates the 
 
 ### What to write
 
-1. Write/update the Health Log note for yesterday's date
+1. If yesterday's Health Log note already exists, cross-check all Fitbit fields against the fresh API pull. Update any stale values and log corrections. Then write/update the Health Log note for yesterday's date
 2. Return a formatted summary for the daily note (under `#### Health`):
 
 ```markdown

@@ -144,9 +144,8 @@ When any transcript, note, or other imported content mentions a movie, show, ani
 
 ## Notification Policy
 
-**Dual notification**: Always send both macOS notification AND Discord ping for all outputs you create.
+Send a macOS notification for all outputs you create.
 
-**macOS** (local, when Mac is on):
 - Transcript processed (summary of what was routed)
 - Daily briefing ready
 - Large/important items needing review
@@ -159,12 +158,6 @@ osascript -e 'display notification "message" with title "Exobrain" sound name "P
 # Urgent notification
 osascript -e 'display notification "message" with title "Exobrain URGENT" sound name "Basso"'
 ```
-
-**Discord** (reaches Alex's phone even when Mac is off):
-- Discord chat_id: read `DISCORD_NOTIFY_CHAT_ID` from `.env` in the harness root
-- Use `reply` tool with that chat_id
-- Keep Discord messages concise — 1-3 lines with emoji prefix
-- Discord pings are required for all scheduled tasks (morning briefing, transcript processing, inbox review, weekly review)
 
 ## Session Memory
 
