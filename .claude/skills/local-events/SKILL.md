@@ -193,19 +193,15 @@ What's happening tonight in KC? Quick search focused on today's date only.
 
 After the scan completes:
 
-**Always** (macOS + Discord):
+**Always**:
 ```bash
 osascript -e 'display notification "[N] new events found for the next 30 days" with title "Exobrain" sound name "Purr"'
 ```
-Discord ping to `DISCORD_NOTIFY_CHAT_ID` from `.env`:
-> 📅 **Weekly Events** — [N] new events found. [highlight 1-2 top picks]. Check today's daily note for full list.
 
 **Favorite artist alert** (urgent):
 ```bash
 osascript -e 'display notification "[Artist] is coming to KC on [date]!" with title "Exobrain URGENT" sound name "Basso"'
 ```
-Discord:
-> 🎵 **Artist Alert** — [Artist] at [Venue] on [Date]. Tickets: [link]
 
 ## Integration with Other Skills
 

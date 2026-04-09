@@ -12,6 +12,5 @@ if [[ "$RESULT" == NOTIFY:* ]]; then
     # macOS notification
     osascript -e "display notification \"Partner's period is expected tomorrow ($FORMATTED). Be extra thoughtful today.\" with title \"Exobrain — Cycle Tracker\" sound name \"Purr\""
 
-    # Discord notification via Claude (if bot is running)
     echo "Period notification sent for $FORMATTED"
 fi

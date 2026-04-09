@@ -251,12 +251,10 @@ When called from `/daily-briefing`, add a 3-5 line summary to the daily note und
 ```
 
 ### Standalone
-When called directly via `/news-briefing`, write the full briefing note and append the summary to the daily note. Notify via macOS + Discord:
+When called directly via `/news-briefing`, write the full briefing note and append the summary to the daily note. Notify via macOS:
 ```bash
 osascript -e 'display notification "News briefing ready — [N] stories covered" with title "Exobrain" sound name "Purr"'
 ```
-Discord ping to `DISCORD_NOTIFY_CHAT_ID` from `.env`:
-> 📰 **News Briefing** — [top headline]. [N] stories, [N] blind spots. [[News Briefings/YYYY-MM-DD|Read it here]].
 
 ## Deduplication
 

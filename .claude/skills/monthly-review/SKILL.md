@@ -270,8 +270,7 @@ After all five sections are complete and Alex has had a chance to react to the v
    - Append after any existing content (including weekly review if present)
    - Use the section headers shown above
 2. Send macOS notification: `"Monthly review complete — check today's daily note"`
-3. Send Discord ping to `DISCORD_NOTIFY_CHAT_ID` from `.env`: `"📋 Monthly review for [Month] is done. [1-line summary of key finding]"`
-4. Update processing log is NOT needed (monthly review is not a processing event)
+3. Update processing log is NOT needed (monthly review is not a processing event)
 
 ## Interaction Style
 
