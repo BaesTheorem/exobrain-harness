@@ -18,7 +18,7 @@ Alex weighs in the morning before drinking water — hydration % reads low (~41%
 
 ## Health Log Notes
 
-Path: `/Users/alexhedtke/Documents/Exobrain/Health Log/YYYY-MM-DD.md` (one per day).
+Path: `/Users/alexhedtke/Documents/Exobrain/Areas/Health & Fitness/Health Log/YYYY-MM-DD.md` (one per day).
 
 ### Format
 
@@ -72,10 +72,12 @@ Called by the daily briefing. Pulls **yesterday's** data and writes/updates the 
 - `get_sleep_by_date_range` (last night) → sleep score, duration. Use today's date for the query — Fitbit records sleep under the wake-up date.
 - `get_activity_timeseries` (past 7 days) → step trend for comparison
 
-**Withings** (latest available):
-- `withings_get_weight` (imperial) → weight
-- `withings_get_body_composition` (imperial) → fat %, muscle mass, bone mass, hydration %, visceral fat
-- Blood pressure if measured
+**Withings** (only if a weigh-in occurred yesterday):
+- `withings_get_measurements` with yesterday's date as both startDate and endDate → check which measurement types were actually recorded
+- **Only include fields that were actually measured on that date.** The `withings_get_body_composition` tool silently combines the latest weight with the latest body comp even if they're from different dates — do NOT trust its output blindly. Use `withings_get_measurements` with date filtering to verify which types were recorded.
+- Common pattern: a quick weigh-in records only weight (type 1), while a full body scan records weight + fat mass (5) + muscle (76) + bone (88) + hydration (77) + visceral fat (170). Only include fields that have a measurement on that specific date.
+- If no weigh-in yesterday: **omit all Withings fields** from the Health Log note. Never carry forward stale Withings data from a prior date.
+- Blood pressure: include only if measured that day.
 
 ### What to write
 
@@ -89,7 +91,7 @@ Called by the daily briefing. Pulls **yesterday's** data and writes/updates the 
 - Weight: 137.1 lbs | Fat: 10.5% | Muscle: 116.4 lbs (84.9%)
 - Visceral fat: 1.3 | Bone: 6.2 lbs | Hydration: 41.5%
 - *Recommendation: [specific, tied to today's calendar gaps]*
-- Full data: [[Health Log/YYYY-MM-DD|Health Log]]
+- Full data: [[Areas/Health & Fitness/Health Log/YYYY-MM-DD|Health Log]]
 ```
 
 ### Step goal tracking
@@ -110,8 +112,8 @@ Called by the evening winddown. Pulls **today's** final activity totals and upda
 For downstream consumers (mood scoring, weekly review, monthly review, ad-hoc questions):
 
 **Do not re-query APIs.** Read Health Log notes directly:
-- Single day: `Health Log/YYYY-MM-DD.md`
-- Date range: Glob `Health Log/*.md`, filter by frontmatter date
+- Single day: `Areas/Health & Fitness/Health Log/YYYY-MM-DD.md`
+- Date range: Glob `Areas/Health & Fitness/Health Log/*.md`, filter by frontmatter date
 - 7-day trends: Read the 7 most recent Health Log notes
 
 This ensures consistency across skills and saves API calls.

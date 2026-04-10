@@ -13,7 +13,7 @@ Plaud transcripts frequently mis-transcribe names. Before processing any transcr
 Plaud transcripts frequently mis-transcribe names. Before processing any transcript, check the People/ folder in the Obsidian vault for canonical spellings. Common Plaud mis-transcriptions include phonetically similar substitutions (e.g., "Linda" for a name ending in "-inda", "Bryce" for "[Friend]").
 
 To build the correction table:
-1. Glob `/Users/alexhedtke/Documents/Exobrain/People/*.md`
+1. Glob `/Users/alexhedtke/Documents/Exobrain/Areas/Relationships & Community/People/*.md`
 2. Use those filenames as the canonical names
 3. Apply phonetic matching when Plaud produces a name that's close but not exact
 
@@ -22,7 +22,10 @@ Also normalize variations of the same person to one canonical name for People/ n
 ### 1. Find unprocessed transcripts
 - List all `.txt` files in `/Users/alexhedtke/My Drive/Plaud/`
 - Read `/Users/alexhedtke/Documents/Exobrain harness/processing-log.json`
-- Identify files not yet in the log. Check against both the original filename AND any renamed filename (since step 9 renames files after processing). A file is processed if its original name OR its renamed form appears in the log.
+- Identify files not yet in the log. **Filename matching alone is insufficient** — the same recording can appear under different filenames (e.g., `create_tim ... .txt` renamed to `2026-04-08_0955_...txt`). A file is considered already processed if ANY of the following match an existing log entry:
+  1. The filename matches an `id` or `filename` field in the log
+  2. The `create_time` in the file's JSON matches (within a few minutes) the date+time encoded in a log entry's `id`
+  3. The `title` in the file's JSON closely matches an existing log entry's `title` field on the same date
 - If no unprocessed files, notify and stop
 
 ### 2. For each unprocessed transcript, read and analyze
@@ -94,7 +97,7 @@ Before adding wikilinks, check that the target note exists by listing files in t
 
 ### 6. Update People/ notes
 For every person mentioned in the transcript:
-1. Check if `/Users/alexhedtke/Documents/Exobrain/People/[Name].md` exists
+1. Check if `/Users/alexhedtke/Documents/Exobrain/Areas/Relationships & Community/People/[Name].md` exists
 2. If it doesn't exist, create it:
    ```markdown
    ## Context

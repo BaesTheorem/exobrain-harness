@@ -20,9 +20,9 @@ GDRIVE_IMESSAGE="$HOME/My Drive/iMessage"
 
 # Vault subdirectories
 DAILY_NOTES_DIR="$VAULT_DIR/Daily notes"
-PEOPLE_DIR="$VAULT_DIR/People"
-HEALTH_LOG_DIR="$VAULT_DIR/Health Log"
-AUDITS_DIR="$VAULT_DIR/Audits"
+PEOPLE_DIR="$VAULT_DIR/Areas/Relationships & Community/People"
+HEALTH_LOG_DIR="$VAULT_DIR/Areas/Health & Fitness/Health Log"
+AUDITS_DIR="$VAULT_DIR/Areas/Exobrain/Audits"
 
 # Harness runtime files
 PROCESSING_LOG="$HARNESS_DIR/processing-log.json"

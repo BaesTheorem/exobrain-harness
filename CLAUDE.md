@@ -36,8 +36,8 @@ This repo is designed to be both **sharable** and **replicable** by others. Ever
 - **Supernote Notes**: `/Users/alexhedtke/My Drive/Supernote/Note/`
 - **Processing Log**: `/Users/alexhedtke/Documents/Exobrain harness/processing-log.json`
 - **Dashboard**: `/Users/alexhedtke/Documents/Exobrain/Dashboard.md`
-- **People Notes**: `/Users/alexhedtke/Documents/Exobrain/People/`
-- **Health Log**: `/Users/alexhedtke/Documents/Exobrain/Health Log/` (one note per day, YYYY-MM-DD.md)
+- **People Notes**: `/Users/alexhedtke/Documents/Exobrain/Areas/Relationships & Community/People/`
+- **Health Log**: `/Users/alexhedtke/Documents/Exobrain/Areas/Health & Fitness/Health Log/` (one note per day, YYYY-MM-DD.md)
 - **Supernote Parser**: `/Users/alexhedtke/Documents/Exobrain harness/transcript-processing/supernote-parser.py`
 - **iMessage Reader**: `/Users/alexhedtke/Documents/Exobrain harness/imessage/imessage-reader.py`
 - **Apple Notes Sync**: `/Users/alexhedtke/Documents/Exobrain harness/apple-notes-sync/apple-notes-sync.py`
@@ -114,17 +114,17 @@ When any transcript, note, or other imported content mentions a movie, show, ani
 - **Fitbit**: Steps, heart rate (resting + zones), zone minutes, sleep, calories. **Do NOT use Fitbit for weight** — that's Withings only.
 - **Withings**: Weight, body composition (fat %, muscle mass, bone mass, hydration, visceral fat index), and blood pressure exclusively. Always pull full body composition, not just weight.
 - **MyChart** (via [OpenRecord](https://github.com/Fan-Pier-Labs/openrecord)): Full Epic MyChart patient portal access (35+ tools, read + write). Medications, lab results, imaging, vitals, immunizations, allergies, health issues, visits (past + upcoming), provider messages, billing, insurance, referrals, preventive care, care team, documents, emergency contacts, and medication refill requests. Auth is MyChart credentials + TOTP; sessions auto-renew. Currently using hosted version at `openrecord.fanpierlabs.com`; plan to self-host later.
-- **Health Log**: All health data is persisted to `Health Log/YYYY-MM-DD.md` notes in the Obsidian vault (one per day, YAML frontmatter with numeric properties). The `Health Log.base` view at the vault root renders trends. When referencing past health data, read Health Log notes instead of re-querying APIs.
+- **Health Log**: All health data is persisted to `Areas/Health & Fitness/Health Log/YYYY-MM-DD.md` notes in the Obsidian vault (one per day, YAML frontmatter with numeric properties). The `Health Log.base` view at the vault root renders trends. When referencing past health data, read Health Log notes instead of re-querying APIs.
 - Always compare against past 7 days for trends
 - Alex's goal: 15,000+ steps/day — flag when falling behind and suggest catch-up opportunities based on calendar gaps
 - Alex weighs in the morning before drinking water — hydration % reads low (~41%) by design; this is not a concern.
 
 ## People Notes (Network CRM)
 
-- **Location**: `/Users/alexhedtke/Documents/Exobrain/People/[Name].md`
-- **Dashboard**: `/Users/alexhedtke/Documents/Exobrain/Network CRM.md`
+- **Location**: `/Users/alexhedtke/Documents/Exobrain/Areas/Relationships & Community/People/[Name].md`
+- **Dashboard**: `/Users/alexhedtke/Documents/Exobrain/Network CRM.base`
 - **Source of truth**: YAML frontmatter on People/ notes (not a Google Sheet)
-- **Categories**: Cat A = 14 days, Cat B = 21 days, Cat C = 45 days, Cat D = 90 days
+- **Categories**: Cat A = 14 days, Cat B = 21 days, Cat C = 45 days, Cat D = 90 days, null = no outreach (reference-only file)
 - Alex edits frontmatter directly in Obsidian (category, frequency, last_contact, etc.) — always read current frontmatter before computing status
 - If Alex overrides `frequency` to a non-default value, honor it (e.g., Cat B contact with frequency: 30 instead of default 21)
 - Every identifiable person mentioned in transcripts, emails, meetings, or Supernote notes gets a People note

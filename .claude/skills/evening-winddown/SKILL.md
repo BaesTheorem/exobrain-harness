@@ -114,7 +114,7 @@ This mirrors step 1d (Supernote) — the wind-down is the catch-all for all inpu
 Alex writes directly in Obsidian throughout the day. Scan for notes created or modified today that haven't been processed by other steps.
 
 1. Find Obsidian notes modified today: `find "/Users/alexhedtke/Documents/Exobrain" -name "*.md" -newermt "YYYY-MM-DD 08:00"` (use target date)
-2. Filter out notes already handled by other wind-down steps (Daily notes/, Health Log/, People/, Media/, DnD/, .obsidian/, Audits/, News Briefings/, Mood Journal)
+2. Filter out notes already handled by other wind-down steps (Daily notes/, Areas/Health & Fitness/Health Log/, People/, Media/, DnD/, .obsidian/, Audits/, News Briefings/, Mood Journal, Areas/)
 3. For each remaining note, read it and check for:
    - **Actionable items**: Tasks, events, follow-ups → route to Things 3 / Google Calendar
    - **People mentions**: Update or create People/ notes
@@ -193,20 +193,27 @@ Throughout the wind-down, **any actionable item discovered from any source** mus
 
 This applies to all sources: iMessages, Discord, Supernote, calendar follow-ups, priority gaps identified in the tomorrow preview, rollover decisions, unanswered messages flagged for tomorrow, and anything else actionable. If it needs doing, it gets a task.
 
-### 5. Ensure Things projects have Obsidian backlinks (silent)
+### 5. Things 3 ↔ Obsidian Project Sync (silent)
 
-Run this silently — no output to Alex. Scan Things 3 projects (`get_projects`) and for each:
+Run this silently — no output to Alex unless something needs attention.
+
+**5a. Run the sync watcher manually** as a catch-all:
+```bash
+python3 "/Users/alexhedtke/Documents/Exobrain harness/things3-sync/things3-obsidian-sync.py"
+```
+This syncs project status (active/someday/archive), area assignments, and folder placement between Things 3 and Obsidian. It also creates notes for new Things 3 projects. The launchd watcher (`com.exobrain.things3-sync`) runs this every 15 minutes, but the wind-down is the belt-and-suspenders fallback.
+
+**5b. Ensure Things projects have Obsidian backlinks**:
+Scan Things 3 projects (`get_projects`) and for each:
 1. Check if the project's notes field contains an `obsidian://` backlink
-2. If missing, check if an Obsidian note exists at `/Users/alexhedtke/Documents/Exobrain/Projects/[Project Name].md`
-3. If no note exists, create one:
-   ```markdown
-   ## Overview
-   - **Things project**: [things:///show?id=PROJECT_UUID]
-   - **Created**: [today's date]
-   ```
-4. Update the Things project's notes field via `update_project` to include: `obsidian://open?vault=Exobrain&file=Projects/Project%20Name` (URL-encode the file path)
+2. If missing, find the Obsidian note by scanning `Projects/` for a note with matching `things_id` in frontmatter
+3. If no note exists, the sync script (5a) should have created one — log a warning if it didn't
+4. Update the Things project's notes field via `update_project` to include the backlink (URL-encode the file path)
 
-This is housekeeping — don't mention it in the wind-down output or daily note.
+**5c. Verify area assignments**:
+Every active/someday project (except Shopping List) should have an `area` property in frontmatter linking to an `Areas/` note. Flag any that are missing.
+
+This is housekeeping — don't mention it in the wind-down output or daily note unless something failed.
 
 ### 6. Write to Daily Note
 

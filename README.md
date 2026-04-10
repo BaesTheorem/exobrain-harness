@@ -332,12 +332,24 @@ Exobrain harness/
 External vault: /Users/alexhedtke/Documents/Exobrain/
 |-- Dashboard.md                        # Current priorities
 |-- Mood Journal.md                     # Longitudinal mood tracking
-|-- Network CRM.md                      # CRM overview (Dataview queries)
-|-- Media recommendations.md            # Movies, books, shows, games, etc.
+|-- Network CRM.base                    # CRM database views
+|-- Projects.base                       # Project/Area database views
 |-- Daily notes/                        # Format: "dddd, MMMM Do, YYYY.md"
-|-- People/                             # Contact notes (compounding CRM)
+|-- Areas/                              # 11 life areas, each a folder:
+|   |-- Work & Career/
+|   |-- Relationships & Community/
+|   |   |-- People/                     # Contact notes (compounding CRM)
+|   |-- Health & Fitness/
+|   |   |-- Health Log/                 # Daily health data (YYYY-MM-DD.md)
+|   |-- Adventure & Creativity/
+|   |   |-- TTRPG Campaigns/
+|   |-- Exobrain/
+|   |   |-- Audits/
+|   |   |-- Monthly Reviews/
+|   |-- (+ 5 more areas)
 |-- Projects/                           # Project folders with notes + files
-|-- Plaud/                              # Voice transcripts (.txt JSON)
+|   |-- Someday/                        # Deferred projects
+|   |-- Archive/                        # Completed/cancelled projects
 |-- Supernotes -> /Users/alexhedtke/My Drive/Supernote/Note/
 ```
 
@@ -508,7 +520,7 @@ System Settings -> Privacy & Security -> Full Disk Access -> Add Terminal.app (o
 Ensure the vault path matches what's in `CLAUDE.md`:
 - Vault root: `/Users/alexhedtke/Documents/Exobrain/`
 - Daily notes format: `dddd, MMMM Do, YYYY`
-- Create folders if missing: `Daily notes/`, `People/`, `Projects/`, `Plaud/`, `Inbox/`
+- Create folders if missing: `Daily notes/`, `Areas/`, `Projects/`, `Plaud/`, `Inbox/`
 
 ### Step 12: Verify Everything Works
 

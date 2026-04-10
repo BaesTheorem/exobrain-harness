@@ -119,7 +119,7 @@ Synthesize the top recommendations (max 8) with:
 
 Audit reports are too large for daily notes. Write full reports to a dedicated folder:
 
-- **Audits folder**: `/Users/alexhedtke/Documents/Exobrain/Audits/`
+- **Audits folder**: `/Users/alexhedtke/Documents/Exobrain/Areas/Exobrain/Audits/`
 - **Report filename**: `YYYY-MM-DD-audit.md`
 - **Daily note**: Add a short summary (5-10 lines max) under `### Exobrain Audit` with a link to the full report
 

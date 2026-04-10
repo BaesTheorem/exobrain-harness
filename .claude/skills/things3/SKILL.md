@@ -65,7 +65,7 @@ This is the canonical reference for how the Exobrain interacts with Things 3. Al
 8. **Networking task format.** Outreach tasks surfaced by the CRM use this pattern:
    - Title: `Reach out to [Name]`
    - Tags: `["networking"]`
-   - Notes: Include platform, last interaction context, and People note deep link (`obsidian://open?vault=Exobrain&file=People/[Name]`)
+   - Notes: Include platform, last interaction context, and People note deep link (`obsidian://open?vault=Exobrain&file=Areas/Relationships%20%26%20Community/People/[Name]`)
 
 9. **No speculative outreach tasks.** Do not create tasks for potential contacts outside the weekly review's "1 potential per week" pick. Let the CRM surface them naturally. Only create outreach tasks when there is a time-sensitive reason indicated by context.
 
@@ -114,6 +114,6 @@ Morning, Exobrain, Relationships & Community, Health & Fitness, Values & Purpose
 3. add_todo(
      title: "Reach out to Sarah",
      tags: ["networking"],
-     notes: "Source: CRM daily briefing (2026-04-05)\nOverdue by 7 days (Cat B, 21-day frequency). Last contact: 3 weeks ago via Signal.\nContext: Discuss AI safety reading group.\nobsidian://open?vault=Exobrain&file=People/Sarah"
+     notes: "Source: CRM daily briefing (2026-04-05)\nOverdue by 7 days (Cat B, 21-day frequency). Last contact: 3 weeks ago via Signal.\nContext: Discuss AI safety reading group.\nobsidian://open?vault=Exobrain&file=Areas/Relationships%20%26%20Community/People/Sarah"
    )
 ```
