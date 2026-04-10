@@ -52,6 +52,9 @@ Append a dated `Applications` entry to the job hub note (`/Users/alexhedtke/Docu
 ### 8. Health trends
 Pull 7-day Fitbit data (steps, sleep, zone minutes) — do NOT use Fitbit for weight. Pull Withings data separately: body composition (`withings_get_body_composition` imperial) for latest snapshot, plus `withings_get_measurements` for 7-day weight/body comp trends, and blood pressure if available. Summarize trends and flag concerns.
 
+### 8b. Health concerns — weekly pattern check
+Read the concern dossier notes in `Areas/Health & Fitness/Concerns/` for the list of tracked properties, what to watch for, correlations to flag, and any active experiments or provider recommendations. Then read the past 7 Health Log notes and analyze accordingly. Compare to prior week if data exists (trend arrows). Update the dossier notes with any new findings or experiment results.
+
 ### 9. Mood Journal — weekly summary
 Read `/Users/alexhedtke/Documents/Exobrain/Mood Journal.md` and generate the weekly summary:
 1. Compile daily scores for Mon-Sun (score any unscored days using available data)
@@ -119,7 +122,7 @@ Write `### Weekly Review` section in Sunday's daily note containing:
 5. **Procrastination flags**: Items that keep getting pushed back
 6. **Someday promotion**: Item(s) suggested for this week
 7. **Project next actions**: One task per active project
-8. **Health snapshot**: 7-day trends with recommendations
+8. **Health snapshot**: 7-day trends with recommendations + health concern patterns (drowsiness, anxiety, panic, caffeine correlations)
 9. **Priority alignment**: Are daily activities matching stated priorities? Flag misalignment.
 10. **Mood summary**: Week's mood trajectory, sub-category trends, comparison to prior week, pattern flags
 11. **Network CRM**: CRM health summary + 1 recommended outreach for the week (with context and suggested angle)

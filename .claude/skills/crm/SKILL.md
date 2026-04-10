@@ -7,8 +7,8 @@ description: Look up, manage, and surface Network CRM contacts. Cross-references
 
 Alex's CRM lives entirely in Obsidian. Each People/ note has YAML frontmatter with CRM fields. The Exobrain reads frontmatter to compute overdue status, surface follow-ups, and manage the network.
 
-**Dashboard**: `/Users/alexhedtke/Documents/Exobrain/Network CRM.md`
-**People notes**: `/Users/alexhedtke/Documents/Exobrain/People/[Name].md`
+**Dashboard**: `/Users/alexhedtke/Documents/Exobrain/Network CRM.base`
+**People notes**: `/Users/alexhedtke/Documents/Exobrain/Areas/Relationships & Community/People/[Name].md`
 
 ## Category Frequencies
 
@@ -26,7 +26,7 @@ Frontmatter holds only CRM-operational fields. Contact details live in the `## C
 
 ```yaml
 ---
-category: A           # A / B / C / D / potential
+category: A           # A / B / C / D / potential / null
 frequency: 14         # days (defaults from category, but user can override)
 last_contact: 2026-03-30
 platform: Signal      # preferred outreach method (optional)
@@ -64,6 +64,7 @@ To determine who needs attention, scan all People/ notes that have `category` fr
 
 ```
 for each People/ note with frontmatter:
+  if category == "null": skip (reference-only, no outreach)
   days_since = today - last_contact
   if days_since > frequency:
     OVERDUE by (days_since - frequency) days
@@ -104,14 +105,15 @@ When the user asks about a specific person:
 Surface everyone who needs attention:
 
 1. Read all People/ notes that have `category` frontmatter (use Glob for `People/*.md`, then read each)
-2. Compute overdue status for each
-3. For each overdue person:
+2. Skip any with `category: null` (reference-only)
+3. Compute overdue status for each
+4. For each overdue person:
    - Why they're overdue (X days past, frequency Y)
    - Last interaction context (from Mentions section)
    - Suggested outreach approach (with an offer to help -- see Outreach Rules)
    - Platform (from `platform` frontmatter field)
-4. Sort: Cat A overdue first, then B, C, D. Within category, most overdue first.
-5. Also note anyone coming due in the next 3 days as "upcoming"
+5. Sort: Cat A overdue first, then B, C, D. Within category, most overdue first.
+6. Also note anyone coming due in the next 3 days as "upcoming"
 
 ### 3. New contact: `/crm add [name]`
 When Alex meets someone new:
@@ -210,7 +212,7 @@ When processing transcripts, emails, or calendar events:
 
 When the CRM surfaces contacts for outreach (overdue contacts in daily briefing, potential contacts in weekly review, or follow-up mode), **always create a Things 3 task** for each one:
 - **Title**: `Reach out to [Name]`
-- **Notes**: Include platform, last interaction context, and People note deep link (`obsidian://open?vault=Exobrain&file=People/[Name]`)
+- **Notes**: Include platform, last interaction context, and People note deep link (`obsidian://open?vault=Exobrain&file=Areas/Relationships%20%26%20Community/People/[Name]`)
 - **Tags**: `["networking"]`
 - Search Things 3 first (`search_todos`) to avoid duplicates -- don't create a task if one already exists for that person
 - Do NOT create tasks for potential contacts outside of the weekly review's "1 potential per week" pick -- let the CRM surface them naturally

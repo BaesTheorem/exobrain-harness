@@ -16,14 +16,17 @@ This is the canonical reference for how the Exobrain interacts with the Obsidian
 | Path (relative to vault root) | Purpose |
 |-------------------------------|---------|
 | `Daily notes/` | Daily journal notes |
-| `People/[Name].md` | Network CRM contact notes |
+| `Areas/` | Life areas (11 folders), each containing related notes and subfolders |
+| `Areas/Relationships & Community/People/[Name].md` | Network CRM contact notes |
+| `Areas/Health & Fitness/Health Log/YYYY-MM-DD.md` | Daily health log notes |
+| `Areas/Exobrain/Audits/` | Exobrain audit reports |
+| `Areas/Adventure & Creativity/TTRPG Campaigns/` | TTRPG campaign folders |
 | `Projects/[Project Name]/` | Project folders (contain project note + related files) |
 | `Dashboard.md` | Current priorities and overview |
-| `Network CRM.md` | CRM dashboard (Dataview queries) |
+| `Network CRM.base` | CRM dashboard (database views) |
 | `Media/[Title].md` | Individual media notes (books, movies, shows, games) — rendered by `Media.base` |
 | `Mood Journal.md` | Longitudinal mood tracking |
 | `Plaud/` | Raw Plaud transcript files |
-| `[Campaign Name]/` | TTRPG campaign folders |
 
 ## Best Practices
 

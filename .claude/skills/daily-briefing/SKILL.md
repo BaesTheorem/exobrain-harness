@@ -79,7 +79,7 @@ Weather goes FIRST (outside the briefing heading), then content under `### Morni
 - Weight: 137.1 lbs | Fat: 10.5% | Muscle: 116.4 lbs (84.9%)
 - Visceral fat: 1.3 | Bone: 6.2 lbs | Hydration: 41.5%
 - *Recommendation: You're trending below step goal this week. 30-min walk during your lunch gap would help.*
-- Full data: [[Health Log/YYYY-MM-DD|Health Log]]
+- Full data: [[Areas/Health & Fitness/Health Log/YYYY-MM-DD|Health Log]]
 
 **Mood yesterday**: 3/5 🟡 — steady day, self-care dipped
 **🎯 Mood boost**: [specific recommendation tied to today's schedule]
