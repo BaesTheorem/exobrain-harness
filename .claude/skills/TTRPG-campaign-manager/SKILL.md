@@ -51,7 +51,7 @@ For each campaign folder, look for a `Claude reference.md` file — this contain
    - **Secrets & Clues**: Draft 10 secrets mixing PC-personal, faction, lore, and quest-related
    - **Fantastic Locations**: Describe locations with sensory details and interactive features
    - **NPCs**: Suggest NPCs with movie-character archetypes for mannerisms
-   - **Monsters**: Suggest encounters with deadly benchmark calculation
+   - **Monsters**: Suggest encounters with deadly benchmark calculation. Create a `statblock` codeblock for any custom/modified creatures and an `encounter` codeblock for each combat encounter (see Plugin Integration section below). For multi-wave fights, use the `---` separator in the encounter block.
    - **Treasure**: Suggest thematic loot
 
 9. **Present to Alex**: Show the draft and ask targeted questions:
@@ -126,9 +126,8 @@ _What [NPCs](https://slyflourish.com/random_generators/npc_generator.html) might
 _What monsters might the characters face? What type and quantity of monsters make sense for the situation? Calculate the "[deadly benchmark](https://slyflourish.com/the_lazy_encounter_benchmark.html)". The encounter may be deadly if the sum total of monster Challenge Ratings are greater than one quarter of the sum total of character levels or half if they're above 4th level._
 
 - **Deadly Encounter Benchmark:**
-- Monster 1
-- Monster 2
-- Monster 3
+
+[For each combat encounter, include an `encounter` codeblock. For custom/modified creatures, include a `statblock` codeblock above the encounter. See "Obsidian Plugin Integration" in the TTRPG skill for syntax.]
 
 # Treasure
 
@@ -224,6 +223,214 @@ For general questions about a campaign ("what's the deal with CFAR?", "remind me
 2. Scan the relevant notes in the campaign folder (including `Claude reference.md`)
 3. Provide a concise answer with `[[wikilinks]]` to relevant notes
 4. Suggest connections or ideas if appropriate
+
+## Obsidian Plugin Integration
+
+### Fantasy Statblocks
+
+The [Fantasy Statblocks](https://github.com/javalent/fantasy-statblocks) plugin renders D&D-style statblocks in Obsidian. Use it during session prep to create inline statblocks for custom/modified creatures, and to maintain a bestiary of homebrew monsters.
+
+**When to create statblocks:**
+- Custom or modified monsters in the Monsters section of session prep
+- Named NPCs with combat stats (bosses, lieutenants, recurring villains)
+- Reskinned or buffed versions of SRD creatures
+
+**Referencing an SRD creature** (no custom stats needed):
+````
+```statblock
+monster: Goblin
+```
+````
+
+**Modified SRD creature** (override specific fields):
+````
+```statblock
+monster: Veteran
+name: Captain Vex Ironhand
+hp: 85
+ac: 18
+traits+:
+  - name: Tactical Commander
+    desc: Allied creatures within 30 ft. gain +2 to attack rolls on the first round of combat.
+actions+:
+  - name: Rallying Strike
+    desc: "Melee Weapon Attack: +5 to hit, reach 5 ft., one target. Hit: 10 (2d6 + 3) slashing damage. One allied creature within 30 ft. can use its reaction to make a melee attack."
+```
+````
+
+**Fully custom creature:**
+````
+```statblock
+name: Duskweaver Assassin
+size: Medium
+type: humanoid
+alignment: neutral evil
+ac: 16
+hp: 78
+hit_dice: 12d8 + 24
+speed: 40 ft.
+stats: [12, 20, 14, 13, 15, 10]
+saves:
+  - dexterity: 8
+  - wisdom: 5
+skillsaves:
+  - stealth: 11
+  - perception: 5
+damage_resistances: necrotic
+senses: darkvision 60 ft., passive Perception 15
+languages: Common, Thieves' Cant
+cr: 5
+traits:
+  - name: Shadow Step
+    desc: As a bonus action, the assassin can teleport up to 30 ft. to an unoccupied space it can see that is in dim light or darkness.
+actions:
+  - name: Multiattack
+    desc: The assassin makes two Shadow Blade attacks.
+  - name: Shadow Blade
+    desc: "Melee Weapon Attack: +8 to hit, reach 5 ft., one target. Hit: 12 (2d6 + 5) slashing damage plus 7 (2d6) necrotic damage."
+reactions:
+  - name: Fade
+    desc: When hit by an attack, the assassin can halve the damage and move 10 ft. without provoking opportunity attacks.
+```
+````
+
+**YAML gotchas** (critical for automation):
+- Always double-quote any string containing `:` or `*` (especially action descriptions like `"Melee Weapon Attack: +5 to hit"`)
+- `stats` must be exactly 6 numbers: `[STR, DEX, CON, INT, WIS, CHA]`
+- `saves` and `skillsaves` are arrays of single-key objects: `- dexterity: 8`
+- CR fractions must be quoted: `cr: "1/4"`
+- Use `traits+:`, `actions+:` etc. (with `+` suffix) to append to an existing `monster:` instead of replacing
+
+**Bestiary creatures** (for recurring homebrew monsters): Create a dedicated note in the campaign folder with `statblock: true` in YAML frontmatter. This registers the creature in the bestiary so it can be referenced by name in encounter blocks and other statblocks.
+
+```yaml
+---
+statblock: true
+name: Duskweaver Assassin
+size: Medium
+type: humanoid
+ac: 16
+hp: 78
+hit_dice: 12d8 + 24
+speed: 40 ft.
+stats: [12, 20, 14, 13, 15, 10]
+cr: 5
+# ... full stat fields in frontmatter
+---
+Lore and narrative notes about this creature go in the body.
+```
+
+**Layout options**: Control column rendering with `columns`, `columnWidth`, `columnHeight` fields. Add `dice: true` to enable clickable dice rolls in action descriptions (requires Dice Roller plugin).
+
+### Initiative Tracker
+
+The [Initiative Tracker](https://github.com/javalent/initiative-tracker) plugin runs combat encounters directly in Obsidian. Use it during session prep to create ready-to-run encounter blocks that Alex can launch with one click at the table.
+
+**When to create encounter blocks:**
+- Every combat encounter in the Monsters section of session prep
+- Multi-wave encounters (use `---` separator between waves)
+- Random encounter tables for exploration sessions
+
+**Basic encounter** (creatures pulled from Fantasy Statblocks bestiary):
+````
+```encounter
+name: Goblin Ambush
+creatures:
+  - 4: Goblin
+  - 1: Hobgoblin Captain
+```
+````
+
+**Detailed encounter with overrides:**
+````
+```encounter
+name: The Fallen Knight's Crypt
+party: Main Party
+rollHP: true
+creatures:
+  - 4:
+      creature: Skeleton
+  - 1:
+      creature: Wight
+      name: Sir Aldric the Betrayer
+      hp: 65
+      ac: 16
+      mod: 3
+  - 1:
+      creature: Commoner
+      name: Trapped Acolyte
+      friend: true
+      hp: 8
+      hidden: true
+```
+````
+
+**Multi-wave encounter:**
+````
+```encounter
+name: Wave 1 - Scouts
+creatures:
+  - 3: Goblin
+  - 1: Worg
+
+---
+
+name: Wave 2 - Reinforcements (Round 3)
+creatures:
+  - 2: Hobgoblin
+  - 1: Bugbear
+```
+````
+
+**Random encounter table** (renders as a selectable table):
+````
+```encounter-table
+name: Forest Patrol
+creatures:
+  - 1d4: Wolf
+  - 1: Dire Wolf
+
+---
+
+name: Bandit Ambush
+creatures:
+  - 1d6: Bandit
+  - 1: Bandit Captain
+
+---
+
+name: Fey Tricksters
+creatures:
+  - 2: Pixie
+  - 1: Satyr
+```
+````
+
+**Creature format reference:**
+
+| Format | Example | Use when |
+|--------|---------|----------|
+| Simple name | `- Goblin` | SRD creature, no modifications |
+| Count + name | `- 3: Goblin` | Multiple identical creatures |
+| Dice count | `- 1d4: Goblin` | Random quantity (needs Dice Roller) |
+| Object | `- 1: {creature: Goblin, name: Bob, hp: 20, hidden: true}` | Named/modified creatures |
+
+**Object fields**: `creature` (bestiary name), `name` (display name), `hp`, `ac`, `mod` (initiative modifier), `xp`, `hidden` (boolean, reveal during play), `friend`/`friendly` (boolean, ally NPC).
+
+**Integration with session prep workflow:**
+- Place encounter blocks directly in the Monsters section of the session prep note
+- Include the deadly benchmark calculation above the encounter blocks
+- For boss fights, pair the encounter block with a statblock for the boss creature
+- Use `hidden: true` for creatures that should be revealed mid-combat (reinforcements, ambushes)
+- Use `friend: true` for allied NPCs fighting alongside the party
+- Alex can click "Begin Encounter" on any block to start tracking initiative and HP live
+
+### Dice Roller Integration
+
+Both plugins integrate with the [Dice Roller](https://github.com/javalent/dice-roller) plugin (already installed):
+- **Statblocks**: Click dice expressions in action descriptions to roll damage, to-hit, saves. Enable with `dice: true` per block or globally.
+- **Initiative Tracker**: Dice expressions in creature counts (e.g., `1d4: Goblin`) are rolled when the encounter renders. Initiative rolls use the formula `1d20 + modifier`.
+- **HP rolling**: Set `rollHP: true` on an encounter block to roll hit dice for creature HP instead of using fixed values.
 
 ## Key Principles
 
