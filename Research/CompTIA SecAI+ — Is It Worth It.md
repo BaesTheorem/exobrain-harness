@@ -117,9 +117,33 @@ The Mythos news doesn't create the demand — the 4.8M cybersecurity workforce g
 
 ---
 
-## 5. Recommendation
+## 5. Sequencing — Does SecAI+ Subsume Security+?
 
-**Priority: HIGH. Target exam date: end of Q2 2026 (by June 30, 2026).**
+**No. SecAI+ does not replace Security+, and Security+ should come first if not already held.**
+
+CompTIA explicitly positioned SecAI+ as the first cert in their new **Expansion Series** — lateral specialization, *not* a rung above Security+. Three reasons the order matters:
+
+1. **SecAI+ assumes the Security+ foundation.** Security+/CySA+/PenTest+ are listed as recommended prior experience. Domain 2 (40% of the exam) leans on threat modeling, IAM, crypto, network security, and IR concepts SecAI+ does *not* re-teach. Beta takers flagged that fundamentals are assumed.
+2. **Security+ is the ATS/hiring key.** It's DoD 8140-approved and ANSI/ISO 17024 accredited. SecAI+ is *neither yet* — CompTIA's own FAQ says both are "pending." Without Security+, resumes get filtered out before SecAI+ is even read.
+3. **The domains don't overlap.** Security+ covers the ~80% of security work that isn't AI-specific (network defense, crypto, IAM, GRC basics, IR, hardware). SecAI+ covers adversarial ML, AI pipeline security, prompt injection, AI governance frameworks. Skipping Security+ leaves a foundation gap that shows up in interviews and on the job.
+
+### Sequencing decision tree
+
+**If Security+ / CySA+ / PenTest+ / CISSP / SSCP is already held:**
+- Go straight to SecAI+. Target **early June 2026**.
+
+**If none of the above is held:**
+1. **Security+ first** (SY0-701, ~$404, 6–8 week study plan). Priority 1.
+2. **SecAI+ second**, starting the week Security+ is passed. Target **late Q3 2026 (Sept–Oct)**.
+3. The Mythos-driven urgency still applies — it shifts the SecAI+ target back one quarter but stays inside the early-adopter window. Security+ covers so much ground that fast-tracking SecAI+ without it is a false economy.
+
+**Cross-check against Alex's actual cert stack:** Dashboard.md / career notes were not accessible from this harness run. Verify current cert stack before committing to the sequencing above.
+
+---
+
+## 6. Recommendation
+
+**Priority: HIGH. Target exam date: end of Q2 2026 (by June 30, 2026)** *if Security+ is already held*. **Late Q3 2026** if Security+ still needs to be earned first.
 
 Rationale:
 1. The cert itself is substantive, reasonably priced, and HR-recognized at a moment when AI security skills are urgent.
