@@ -31,3 +31,4 @@ discord/discord-digest-fetch.py
 processing-log.json
 apple-notes-sync/apple-notes-sync-state.json
 discord/discord-digest.json
+vault-migration-report.md
