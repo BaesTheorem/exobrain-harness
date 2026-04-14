@@ -26,6 +26,9 @@ local-events/local-events-log.json
 local-events/local-events-prefs.json
 sailboat-retro/retro-data.json
 discord/discord-digest-fetch.py
+.claude/skills/cybersecurity-bodyguard/targets.json
+.claude/skills/cybersecurity-bodyguard/scan-results/
+.claude/skills/cybersecurity-bodyguard/cache/
 
 # Runtime state
 processing-log.json

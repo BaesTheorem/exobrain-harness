@@ -1,0 +1,42 @@
+{
+  "_comment": "Copy this file to targets.json (gitignored) and fill in real values. Never commit targets.json. The bodyguard skill reads this to know what to scan for.",
+
+  "names": [
+    "First Last",
+    "Firstname Lastname"
+  ],
+  "emails": [
+    "primary@example.com",
+    "work@example.com",
+    "alias@example.com"
+  ],
+  "phones": [
+    "555-123-4567",
+    "5551234567",
+    "+15551234567"
+  ],
+  "addresses": {
+    "current": "street only, no number — used only for checking exposure, not stored in detail",
+    "prior": [
+      "previous city / state if within last 5 years"
+    ]
+  },
+  "city": "City Name",
+  "state": "ST",
+  "date_of_birth": "YYYY-MM-DD",
+  "usernames": [
+    "handle1",
+    "handle2"
+  ],
+  "employer": "Company Name",
+  "domains": [
+    "example.com"
+  ],
+  "partner": {
+    "_note": "Only fill this if partner has consented. Stalkers pivot through partners constantly.",
+    "names": [],
+    "emails": [],
+    "usernames": []
+  },
+  "aliases_pen_names": []
+}
