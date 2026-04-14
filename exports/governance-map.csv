@@ -1,0 +1,39 @@
+Actor / Mechanism,Power Tier,Tier,Type,Layer,Power,Horizon,Jurisdiction,Enforcement,Mechanism,Notes,URL
+Anthropic,Tier 1: Can Stop Deployment,1,lab,corporate,can_stop,current,US,voluntary,Responsible Scaling Policy (RSP v3.0),Voluntary and self-certified — RSP v3.0 dropped the pause commitment from v2,https://www.anthropic.com
+Chinese Government,Tier 1: Can Stop Deployment,1,government_body,legal,can_stop,current,China,binding,"content regulations, registration requirements, security assessments","CAC pre-deployment gate is real Tier 1 power, but exercised for political control, not safety evaluation",
+DeepSeek,Tier 1: Can Stop Deployment,1,lab,corporate,can_stop,current,China,voluntary,"internal processes, Chinese regulatory compliance",Subject to CAC pre-deployment gate domestically; open-weight international releases bypass all Western governance,https://www.deepseek.com
+Executive Office of the President,Tier 1: Can Stop Deployment,1,government_body,legal,can_stop,current,US,binding,"executive orders, OSTP guidance, agency direction","Latent power — IEEPA, DPA, CFIUS can stop deployments without new legislation, but no President has used them for AI yet",https://www.whitehouse.gov/ostp/
+Frontier AI Labs (Collective),Tier 1: Can Stop Deployment,1,lab,corporate,can_stop,current,global,voluntary,voluntary safety frameworks,Race dynamics mean collective restraint is a prisoner's dilemma — any lab can defect,
+Google DeepMind,Tier 1: Can Stop Deployment,1,lab,corporate,can_stop,current,US,voluntary,Frontier Safety Framework v3.0,Nested inside Alphabet — safety decisions subject to commercial pressure from Google product teams,https://deepmind.google
+Meta AI,Tier 1: Can Stop Deployment,1,lab,corporate,can_stop,current,US,voluntary,open-weight release decisions,"Open-weight releases are irreversible — once weights are public, Tier 1 stop-power is gone",https://ai.meta.com
+OpenAI,Tier 1: Can Stop Deployment,1,lab,corporate,can_stop,current,US,voluntary,Preparedness Framework v2,Dissolved original safety board; Preparedness Framework is internal and self-enforced,https://www.openai.com
+xAI,Tier 1: Can Stop Deployment,1,lab,corporate,can_stop,current,US,voluntary,internal safety processes,No published safety framework; Grok released with minimal guardrails; CEO publicly hostile to safety regulation,https://x.ai
+AWS,Tier 2: Can Block Inputs,2,infrastructure_provider,market,can_slow,current,US,voluntary,"cloud compute access, acceptable use policies",,https://aws.amazon.com
+Bureau of Industry and Security (BIS),Tier 2: Can Block Inputs,2,government_agency,legal,can_slow,current,US,binding,"export controls, Entity List",Compute chokepoint has a 2-4 year expiration as non-US fabs come online,https://www.bis.gov
+Google Cloud,Tier 2: Can Block Inputs,2,infrastructure_provider,market,can_slow,current,US,voluntary,"cloud compute access, acceptable use policies",,https://cloud.google.com
+Microsoft Azure,Tier 2: Can Block Inputs,2,infrastructure_provider,market,can_slow,current,US,voluntary,"cloud compute access, acceptable use policies",,https://azure.microsoft.com
+NVIDIA,Tier 2: Can Block Inputs,2,infrastructure_provider,market,can_slow,current,US,voluntary,"chip design, export compliance",,https://www.nvidia.com
+TSMC,Tier 2: Can Block Inputs,2,infrastructure_provider,market,can_slow,current,Taiwan,voluntary,advanced chip fabrication monopoly,,https://www.tsmc.com
+California SB 53,Tier 3: Legal Obligations,3,legislation,legal,can_embarrass,current,US,binding,transparency reporting requirements,,
+EU AI Act,Tier 3: Legal Obligations,3,legislation,legal,can_slow,current,EU,binding,"market access conditions, fines, transparency requirements","Binding but enforcement is years away — prohibited practices Feb 2025, GPAI rules Aug 2025, full enforcement Aug 2027",https://artificialintelligenceact.eu/
+S.2938 - AI Risk Evaluation Act,Tier 3: Legal Obligations,3,legislation,legal,can_slow,near_term,US,binding,mandatory pre-deployment DOE evaluation,,
+Senate Commerce Committee,Tier 3: Legal Obligations,3,government_body,legal,can_slow,near_term,US,binding,"legislative authority, hearing power, committee markup",,https://www.commerce.senate.gov
+US State Governments,Tier 3: Legal Obligations,3,government_body,legal,can_embarrass,current,US,binding,"state legislation, AG enforcement",,
+CAIS,Tier 4: Norm Shapers,4,civil_society,voluntary,can_embarrass,current,global,none,"expert consensus, risk framing, public statements",,https://www.safe.ai
+EPOCH AI,Tier 4: Norm Shapers,4,evaluation_org,voluntary,can_embarrass,current,global,advisory,"compute trend tracking, training run data analysis",,https://epochai.org
+FLI,Tier 4: Norm Shapers,4,civil_society,voluntary,can_embarrass,current,global,none,"safety index, public awareness, research funding",,https://futureoflife.org
+Frontier Model Forum,Tier 4: Norm Shapers,4,industry_consortium,voluntary,can_embarrass,current,global,voluntary,"shared research, voluntary norms, policymaker engagement",,https://www.frontiermodelforum.org
+ISO-IEC 42001,Tier 4: Norm Shapers,4,standards_body,voluntary,can_embarrass,near_term,international,voluntary,"AI Management System standard, certification",,https://www.iso.org/standard/81230.html
+METR,Tier 4: Norm Shapers,4,evaluation_org,voluntary,can_embarrass,current,global,advisory,"frontier capability evaluations, benchmark development",,https://metr.org
+MIRI,Tier 4: Norm Shapers,4,civil_society,voluntary,can_embarrass,current,US,none,"technical research, policy analysis, advocacy",,https://intelligence.org
+MLCommons,Tier 4: Norm Shapers,4,standards_body,voluntary,can_embarrass,current,global,voluntary,AI safety benchmarks,,https://mlcommons.org
+NIST,Tier 4: Norm Shapers,4,standards_body,institutional,can_embarrass,near_term,US,voluntary,"AI Risk Management Framework, standards development",,https://www.nist.gov/artificial-intelligence
+OECD,Tier 4: Norm Shapers,4,international_body,institutional,can_embarrass,current,international,advisory,"AI Principles, AI Incidents Monitor, policy coordination",,https://oecd.ai
+PauseAI,Tier 4: Norm Shapers,4,civil_society,voluntary,can_embarrass,current,global,none,"advocacy, congressional lobbying, public awareness",,https://pauseai.info
+RAND,Tier 4: Norm Shapers,4,think_tank,institutional,can_embarrass,current,US,advisory,"policy research, governance framework analysis",,https://www.rand.org
+UK AI Security Institute,Tier 4: Norm Shapers,4,government_agency,institutional,can_embarrass,current,UK,advisory,"model evaluations, safety research, international coordination",,https://www.aisi.gov.uk
+US CAISI,Tier 4: Norm Shapers,4,government_agency,institutional,can_embarrass,current,US,advisory,"standards development, voluntary model testing",,https://www.nist.gov
+Bletchley-Seoul-Paris Summit Process,Tier 5: Aspirational,5,international_body,institutional,aspirational,medium_term,international,none,"declarations, voluntary commitments, norm-setting",,
+G7 Hiroshima AI Process,Tier 5: Aspirational,5,international_body,institutional,aspirational,medium_term,international,none,"voluntary code of conduct, principles",,
+GPAI,Tier 5: Aspirational,5,international_body,institutional,aspirational,medium_term,international,none,"research, recommendations, technical advice",,https://gpai.ai
+UN AI Advisory Body,Tier 5: Aspirational,5,international_body,institutional,aspirational,long_term,international,none,"recommendations, resolutions",,
