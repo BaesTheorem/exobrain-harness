@@ -1,0 +1,35 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>Label</key>
+    <string>com.exobrain.bodyguard-weekly</string>
+
+    <key>ProgramArguments</key>
+    <array>
+        <string>/bin/bash</string>
+        <string>/Users/alexhedtke/Documents/Exobrain harness/.claude/skills/cybersecurity-bodyguard/scripts/weekly-scan.sh</string>
+    </array>
+
+    <!-- Weekly: Sunday at 8:00 AM -->
+    <key>StartCalendarInterval</key>
+    <dict>
+        <key>Weekday</key>
+        <integer>0</integer>
+        <key>Hour</key>
+        <integer>8</integer>
+        <key>Minute</key>
+        <integer>0</integer>
+    </dict>
+
+    <key>StandardOutPath</key>
+    <string>/tmp/bodyguard-weekly.log</string>
+
+    <key>StandardErrorPath</key>
+    <string>/tmp/bodyguard-weekly.err</string>
+
+    <!-- Don't re-run if missed (laptop asleep at 8am Sunday) — just run on next wake -->
+    <key>StartOnMount</key>
+    <false/>
+</dict>
+</plist>

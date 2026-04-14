@@ -63,16 +63,30 @@ For serious attack-surface reduction, subscribe to DeleteMe, Optery, or Kanary
 The skill's manual tracking still runs alongside paid services — they catch
 different brokers.
 
-### 6. (Optional) Schedule the weekly passive scan
+### 6. Install the weekly passive scan (launchd)
 
-Add to your scheduled-tasks MCP or cron:
+The harness ships with `com.exobrain.bodyguard-weekly.plist` — install it:
 
+```bash
+chmod +x /Users/alexhedtke/Documents/Exobrain\ harness/.claude/skills/cybersecurity-bodyguard/scripts/weekly-scan.sh
+cp /Users/alexhedtke/Documents/Exobrain\ harness/com.exobrain.bodyguard-weekly.plist ~/Library/LaunchAgents/
+launchctl load ~/Library/LaunchAgents/com.exobrain.bodyguard-weekly.plist
 ```
-# Every Sunday at 8am
-0 8 * * 0 cd /path/to/exobrain-harness && python3 .claude/skills/cybersecurity-bodyguard/scripts/osint_self_scan.py --mode full > /tmp/bodyguard-weekly.json
-```
 
-Then in Claude Code, invoke the skill to ingest and write to Security Log.
+Runs Sundays at 8 AM. Writes scan plan to `/tmp/bodyguard-weekly-YYYYMMDD.json`
+and posts a macOS notification. Open Claude Code and say "ingest bodyguard scan"
+to have it execute the Google dorks via WebSearch and append findings to
+`Security Log.md`.
+
+To uninstall: `launchctl unload ~/Library/LaunchAgents/com.exobrain.bodyguard-weekly.plist`
+
+### 7. Exposure audit on staged commits
+
+Already wired into the evening-winddown skill — step 7 of the wind-down runs
+`scripts/exposure_audit.py --staged` before auto-committing. HIGH findings
+(your real name, email, phone, partner info, or any credential shape) block
+the commit. MED findings (employer, usernames, aliases) prompt for confirmation.
+No manual install needed.
 
 ## What's tracked in git vs not
 

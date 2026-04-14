@@ -255,15 +255,26 @@ Commit and push any changes to the Exobrain harness repo:
    
    If anything should be ignored, add it to `.gitignore` before committing. If uncertain, mention it to Alex briefly (e.g., "Added `foo.db` to .gitignore — looked like runtime state").
 
-2. **Commit and push**:
+2. **Exposure audit (Mode 2 of cybersecurity-bodyguard)**: After staging, run the pre-commit PII check:
+   ```bash
+   git add -A
+   python3 .claude/skills/cybersecurity-bodyguard/scripts/exposure_audit.py --staged
+   ```
+   Interpret the exit code:
+   - **0** (no findings): proceed to commit
+   - **1** (MED only — employer/username/alias match): show findings to Alex in the wind-down output, ask "Proceed with commit? (y/n)"
+   - **2** (HIGH — real name, email, phone, partner info, secret, SSN/CC shape): **block the commit**. Print findings, surface as URGENT notification, create Things 3 task `SECURITY: review exposure before next commit`. Do NOT push. Exit the wind-down with the commit still staged so Alex can investigate in the morning.
+   
+   If `targets.json` doesn't exist yet, the script still runs generic secret/PII shape detection — do not skip this step on that basis.
+
+3. **Commit and push**:
 ```bash
 cd "/Users/alexhedtke/Documents/Exobrain harness"
-git add -A
 git diff --cached --quiet || git commit -m "Auto-commit: evening wind-down $(date +%Y-%m-%d)"
 git push
 ```
 
-This is silent housekeeping — don't mention it in the wind-down output unless something was added to .gitignore or the push fails.
+This is silent housekeeping — don't mention it in the wind-down output unless something was added to .gitignore, an exposure audit finding was surfaced, or the push fails.
 
 ### 8. Notify
 

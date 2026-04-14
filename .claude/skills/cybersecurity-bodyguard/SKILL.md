@@ -1,17 +1,16 @@
 ---
 name: cybersecurity-bodyguard
-description: Defensive security partner focused on doxxing, stalking, and targeted harassment. Use when the user says "bodyguard", "security scan", "doxx scan", "privacy scan", "threat check", "I'm being harassed", "I think I'm being stalked", "am I being doxxed", "scrub me from the internet", or asks about their public attack surface, data broker presence, credential breaches, or how to respond to a security incident. Also use for pre-flight exposure audits before publishing content, and for vetting unusual inbound contacts.
+description: Defensive security partner focused on doxxing, stalking, and targeted harassment. Use when the user says "bodyguard", "security scan", "doxx scan", "privacy scan", "threat check", "I'm being harassed", "I think I'm being stalked", "am I being doxxed", "scrub me from the internet", or asks about their public attack surface, data broker presence, credential breaches, or how to respond to a security incident. Also use for pre-flight exposure audits before publishing content.
 user_invocable: true
 ---
 
 # Cybersecurity Bodyguard
 
-Active **defense** against doxxing, stalking, and targeted harassment. This skill does four things:
+Active **defense** against doxxing, stalking, and targeted harassment. This skill does three things:
 
 1. **Passive OSINT self-scan** — what the internet knows about Alex right now
 2. **Outbound exposure audit** — catch PII leaks before they ship
-3. **Inbound social-engineering detection** — flag suspicious contacts
-4. **Incident response** — playbooks for when something is actively going wrong
+3. **Incident response** — playbooks for when something is actively going wrong
 
 **This skill is strictly defensive.** Never engage attackers, never scrape harassment forums, never take offensive action. If the situation escalates beyond what a playbook can handle, the correct action is always "escalate to a human professional" (lawyer, platform trust & safety, law enforcement cyber unit).
 
@@ -98,31 +97,7 @@ This extends the existing `exobrain-audit` privacy phase. Difference: that skill
 
 Inline findings with line numbers and suggested redactions. Do NOT auto-edit the artifact — surface the findings and let Alex decide.
 
-## Mode 3: Inbound social-engineering detection
-
-Triggered by: passively during email/iMessage/Discord processing, or explicitly ("is this sender sketchy", "vet this contact").
-
-### Signals to flag
-
-For each new inbound message from a sender not already in the People/ CRM:
-
-1. **Urgency + authority** — "this is your bank, account compromised, click now"
-2. **Out-of-band asks** — contact claims to be someone you know but from a new number/email/handle (pretexting)
-3. **Info-fishing** — asks for location, schedule, partner's name, employer details, or anything that isn't required for the stated purpose
-4. **Mimicry** — display name matches a known contact but the underlying address/handle differs (verify against People/ frontmatter)
-5. **Cross-platform pivoting** — same unknown party appears on multiple channels in short succession
-6. **Anonymized requests about Alex** — someone in the People/ CRM mentions a stranger asking about Alex, their location, schedule, or relationships. This is an early-warning signal for stalking.
-
-### Process
-
-1. Look up sender in People/ CRM. If not present, search Obsidian for any prior mention.
-2. If sender is unknown AND any signal above is present, log to `Security Log.md` under today's date with section `### Suspicious inbound`.
-3. Create Things 3 task `Review suspicious contact: <sender>` with brief context and a link to the source message.
-4. If the signal is "mimicry of a known contact," escalate immediately via URGENT macOS notification — this is the pattern used in targeted attacks.
-
-Never auto-block, auto-reply, or take any action on the sender. Only surface.
-
-## Mode 4: Incident response
+## Mode 3: Incident response
 
 Triggered by: "I'm being doxxed", "I think I'm being stalked", "someone's harassing me", "my address is out there", or any HIGH-severity finding from Mode 1 that suggests active targeting.
 
@@ -158,22 +133,18 @@ Detailed playbooks in `runbooks/`:
 - `doxx-incident-response.md` — step-by-step response when PII has been publicly posted
 - `stalking-response.md` — physical-safety protocol when a stalker is identified
 - `data-broker-removal.md` — per-broker opt-out procedures and tracker
-- `social-engineering-detection.md` — patterns, examples, and verification workflow
 - `hardening-checklist.md` — proactive steps (2FA, email aliases, phone number hygiene, etc.)
 
 ## Scheduling
 
-- **Weekly** (Sunday morning): Run Mode 1 (passive OSINT self-scan) and append to Security Log. Notify with count-per-severity summary.
-- **Daily** (morning briefing): Quick HIBP check only. Full scan only weekly to avoid rate limits and noise.
-- **On every commit to a public repo**: Mode 2 (exposure audit) should run automatically. Add this to the evening wind-down gitignore audit if not already integrated.
-- **On every new inbound sender**: Mode 3 (social-engineering detection) runs passively during email/iMessage/Discord processing.
+- **Weekly** (Sunday morning at 8 AM): launchd runs `scripts/weekly-scan.sh` which invokes Mode 1 (passive OSINT) and appends to Security Log. Install the plist at `com.exobrain.bodyguard-weekly.plist` — see `README.md`.
+- **Daily** (morning briefing): Quick HIBP check only. Full scan is weekly to avoid rate limits and noise.
+- **On every staged commit**: evening wind-down's git auto-commit step invokes Mode 2 exposure audit before pushing. If HIGH findings are present, the commit is blocked and the user is prompted.
 
 ## Integration with existing skills
 
 - **exobrain-audit** → Mode 2 extends its privacy phase. When exobrain-audit runs, it should additionally invoke the targets.json check.
-- **crm** → Mode 3 reads the People/ CRM for sender verification. When a new contact passes verification, the CRM skill creates the People/ note as usual.
-- **email**, **imessage**, **discord-digest** → each should call into Mode 3 for new senders. Pattern: after fetching messages, pass the sender list through the bodyguard filter before processing.
-- **evening-winddown** → already runs a gitignore audit; extend it to invoke Mode 2 on staged changes.
+- **evening-winddown** → git auto-commit step (step 7) runs Mode 2 against staged changes and blocks on HIGH findings.
 
 ## Ethical guardrails
 
