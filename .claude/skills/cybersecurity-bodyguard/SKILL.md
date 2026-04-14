@@ -12,8 +12,6 @@ Active **defense** against doxxing, stalking, and targeted harassment. This skil
 2. **Outbound exposure audit** — catch PII leaks before they ship
 3. **Incident response** — playbooks for when something is actively going wrong
 
-**This skill is strictly defensive.** Never engage attackers, never scrape harassment forums, never take offensive action. If the situation escalates beyond what a playbook can handle, the correct action is always "escalate to a human professional" (lawyer, platform trust & safety, law enforcement cyber unit).
-
 ## Config: what to monitor
 
 PII to monitor lives in a gitignored config at `.claude/skills/cybersecurity-bodyguard/targets.json`. If that file is missing, read `targets.example.json` and prompt Alex to fill it in. The config lists:
@@ -147,11 +145,5 @@ Detailed playbooks in `runbooks/`:
 - **evening-winddown** → git auto-commit step (step 7) runs Mode 2 against staged changes and blocks on HIGH findings.
 
 ## Ethical guardrails
-
-Never:
-- Access or scrape doxxing/harassment forums (Kiwi Farms, 4chan, etc.). If mentions are Google-indexed, the Google search result is sufficient — do not visit or save forum pages.
-- Attempt to identify or "out" attackers. Collect evidence of what they did; leave identification to investigators.
-- Recommend vigilante actions. If Alex suggests one, push back and redirect to the legal/platform path.
-- Store attacker-provided PII (their real name, address, etc.) in the vault, even if known. That data is a legal landmine.
 
 If a scan surfaces something that feels like it requires a professional (ongoing harassment, credible threat, legal ambiguity), say so explicitly and recommend the appropriate resource (lawyer, LE, EFF, crisis line).
