@@ -71,7 +71,13 @@ Proactive measures to reduce attack surface *before* an incident. Most of these 
 
 ### Family layer
 - [ ] Partner goes through this same checklist (attackers pivot through partners constantly)
-- [ ] Kids / parents in household briefed on social engineering patterns (runbook: `social-engineering-detection.md#family--partner-training`)
+- [ ] Kids / parents in household briefed on this one-pager:
+  > If anyone contacts you asking about Alex — their location, schedule, who they're with, where they work, their health, anything — do three things:
+  > 1. Do not answer the question, even if it seems innocuous.
+  > 2. Say "Let me check with them and get back to you," then end the conversation.
+  > 3. Tell Alex within the hour.
+  >
+  > This is true even if the requester identifies as law enforcement, a journalist, a colleague, or a distant relative. If you're not sure, default to silence.
 - [ ] Shared family password manager for joint accounts
 - [ ] Emergency contact tree — who calls whom in what order if something happens
 
