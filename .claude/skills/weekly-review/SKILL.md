@@ -7,6 +7,16 @@ description: Comprehensive GTD-style weekly review. Scans email, calendar, notes
 
 Claude checks everything it can automatically, then generates a manual checklist for items only Alex can check.
 
+## Time window (CRITICAL)
+
+**Weekly reviews always target the previous calendar week — Sunday through Saturday — not the trailing 7 days.**
+
+- If today is Sunday, "previous calendar week" = the Sun-Sat that just ended yesterday (i.e., 8 days ago through yesterday).
+- If today is any other day (Mon-Sat), "previous calendar week" = the most recent fully-completed Sun-Sat block, which ended last Saturday. Do NOT include any days from the currently-in-progress week.
+- Compute the window explicitly at the start of the review and state the date range in the output header (e.g., "Week of April 5 – April 11, 2026").
+- Apply this window consistently across every step: email scan, calendar review (past leg), daily notes, health trends, mood summary, interaction highlights, and Things 3 completions.
+- Exception: the calendar *forward* leg still looks at "next 4 weeks" from today, and Someday/Anytime/Inbox Things 3 views are evaluated as of now.
+
 ## Automated Checks
 
 ### 1. Email scan
