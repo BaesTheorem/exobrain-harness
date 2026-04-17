@@ -53,10 +53,23 @@ This repo is designed to be both **sharable** and **replicable** by others. Ever
 
 - **Format**: Nav header at top, then content as bullets/sections below
 - **Nav header**: `<< [[Yesterday Name|Yesterday]] | [[Tomorrow Name|Tomorrow]] >>`
+- **Standard order**: Nav header → `**Weather**: ...` line → `#### 📝 Alex's Notes` section → `### Morning briefing` (if present) → other sections
 - **NEVER overwrite** existing daily note content — only append
-- If the daily note doesn't exist yet, create it with the nav header
+- If the daily note doesn't exist yet, create it with the nav header (or use the template at `Templates/Daily Note.md`)
 - Use `[[wikilinks]]` to link to existing Obsidian notes
 - Before creating a new topic note, check if one already exists in the vault
+
+### Alex's manual input (preserve always)
+
+Alex writes his own content into the daily note. Treat these two mechanisms as **untouchable** — never modify, move, or strip them, even when rewriting a section you previously generated.
+
+1. **`#### 📝 Alex's Notes` section** — lives directly below the `**Weather**:` line. Everything between this H4 and the next H3/H4 is Alex's freeform space. Preserve the section header even when empty. Read its contents before generating briefings, winddowns, or recaps so you can reference what he wrote.
+2. **`> [!alex]` callouts** — Obsidian callouts of type `alex` anywhere in the note are Alex's inline corrections or additions. Example:
+   ```
+   > [!alex] correction
+   > Actually Minda not Linda — and she said 3pm not 2pm
+   ```
+   Before rewriting any section, grep for `> [!alex]` blocks in the current file, preserve them in place, and splice your new content around them. If a callout contradicts something you generated, defer to the callout — it is an explicit correction.
 
 ## Things 3 Conventions
 
