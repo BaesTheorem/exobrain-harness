@@ -51,7 +51,7 @@ For each campaign folder, look for a `Claude reference.md` file — this contain
    - **Secrets & Clues**: Draft 10 secrets mixing PC-personal, faction, lore, and quest-related
    - **Fantastic Locations**: Describe locations with sensory details and interactive features
    - **NPCs**: Suggest NPCs with movie-character archetypes for mannerisms
-   - **Monsters**: Suggest encounters with deadly benchmark calculation. Create a `statblock` codeblock for any custom/modified creatures and an `encounter` codeblock for each combat encounter (see Plugin Integration section below). For multi-wave fights, use the `---` separator in the encounter block.
+   - **Monsters**: Suggest encounters with deadly benchmark calculation. For each encounter, pick an **objective + 2 more axes** from the Encounter Axes menu (see "Combat Encounter Design" section below) and spell them out in the prep note so the fight has built-in novelty and player agency. Create a `statblock` codeblock for any custom/modified creatures and an `encounter` codeblock for each combat encounter (see Plugin Integration section below). For multi-wave fights, use the `---` separator in the encounter block.
    - **Treasure**: Suggest thematic loot
 
 9. **Present to Alex**: Show the draft and ask targeted questions:
@@ -223,6 +223,94 @@ For general questions about a campaign ("what's the deal with CFAR?", "remind me
 2. Scan the relevant notes in the campaign folder (including `Claude reference.md`)
 3. Provide a concise answer with `[[wikilinks]]` to relevant notes
 4. Suggest connections or ideas if appropriate
+
+## Combat Encounter Design — The Axes Method
+
+Standard monster-fighting combats become slogs when the only variable is "hit the bad guys." The fix is to give every encounter **multiple independent axes** the players and enemies can affect. One axis = ~5 possible outcomes; two axes = 25; **three axes = 125 — the sweet spot**. Four starts to overwhelm. (Method adapted from Tabletop University, "Encounter Axes" — https://www.youtube.com/watch?v=LyrB05cG890.)
+
+**Rules of thumb:**
+- Every encounter must have **at least one Objective** (the "protein"). It ends the fight.
+- Add **2 more axes** from Optimizers / Hazards / Chaos. That's the default.
+- Use 2 axes (objective + 1) for quick fights; 3 for full-length; 4 only if you want a set-piece.
+- **Telegraph every axis clearly** to the players on turn 1. Informed choices are the whole point.
+- If a player invents a new axis mid-combat, let it work within reason — reward creativity.
+- Complex villains with their own agenda can count as an axis.
+- "No-Go Zones" (instant-death hazards) must be obvious and used sparingly.
+
+### Objectives (Proteins) — pick at least one, ends the encounter
+
+| Objective | Description |
+|---|---|
+| **Kill Them** | Defeat the enemies. Always set a retreat threshold (how many must fall before the rest flee; 0 if it's their territory). |
+| **Kill the Target** | Boss fight or assassination; the rest are dressing. |
+| **Protect the Target** | Guard an NPC, artifact, or location. "Save the Hostages" is a variant. |
+| **Stop the Flood** | Enemies pour through multiple entrances; party must bar doors, drop bridges, spread out. |
+| **Escape** | Create distance from a pursuer, or flee a collapsing area. (Failed "Stop the Flood" often becomes this.) |
+| **Stop the Ritual** | Timed puzzle-fight; disrupt a group casting/channeling something. |
+| **Get the MacGuffin** | Mobile object of interest; the fight is secondary to controlling the object. |
+| **Sophie's Choice** | Two MacGuffins, can only grab one. |
+| **Pull the Lever** | Immovable MacGuffin — destroy the nexus, flip the power switch. |
+
+### Optimizers (Appetizers) — don't end the encounter, help whoever controls them
+
+| Axis | Description |
+|---|---|
+| **Free Your Allies / Call Reinforcements** | Alarm, horn, jail cell, signal fire. |
+| **The High Ground** | Elevation grants advantage attacking down / disadvantage attacking up. Stairs, ledges, rooftops, balconies. |
+| **The Stash** | Accessible resource pile — ammo, scrolls, potions, grenades. Physically mark it on the map. |
+| **The Chevy Chase** | Two zones separated by a wall with small entrances either side can open/close. Keep one main entrance unblockable or it devolves into Stop the Flood. |
+| **Reverse Whack-a-Mole** | Chevy Chase + High Ground — upper floor with trapdoors to poke out and attack through. |
+| **Levers 'n' Traps** | Environmental traps (flame jets, acid cauldrons, pit lids, oil slicks) with a visible operator. Kill/grab the operator, turn the traps on the enemy. |
+| **The BIG Gun** | Ballista, cannon, lightning gun. Give it a power source, ammo counter, or limited arc so it's not portable. |
+| **Boon Zone** | Enhancement tile — +1 weapon for a round, Haste zone, Bless aura, temp HP font. Not a consumable resource; a position. |
+
+### Hazards (Sides) — positioning and risk calculation
+
+| Axis | Description |
+|---|---|
+| **No-Go Zone** | Obvious, lethal, clearly telegraphed. Use sparingly. |
+| **Battlefield With a Crack** | Melee fighter's nightmare — a gap that splits the map. |
+| **Everything but the Sky Ship** | Melee fighter's dream — tight quarters, ranged characters suffer. |
+| **Mufasa Special** | One-sided fall/cliff (you can fall, but nothing falls on you). |
+| **Vat of Acid** | Hurt on entry but escapable — acid pool, lava flow, electric eel tank. |
+| **Pit of Creatures** | Vat you can fight your way through. |
+| **I Can Take It** | Vat you can endure (slow drain damage; tough character can tank it). |
+| **Magical Machinery** | Vat with a power button — disable it to neutralize. |
+| **Frogger** | Vat you can dodge through — traffic, stampede, rushing river, swinging blades. |
+| **You're On a Roof** | Fall is the whole threat; edges everywhere. |
+| **Thin Ice** | Size-gated (tiny/small safe; medium = Acrobatics; large = Acrobatics w/ disadvantage). Three stages: stable → cracked → broken. Cracks spread to adjacent squares. Glass roof = thin ice in a city. |
+
+### Chaos Axes (Desserts) — change the dynamic; tempting but not always wise
+
+| Axis | Description |
+|---|---|
+| **Fire** | Open flame near flammable materials. Spreads. Universally irresistible. |
+| **Lights Out** | Darkness, fog, magical obscurement. Pairs beautifully with Pull the Lever. |
+| **Random Stash** | Unlabeled potions — could heal or could be damaging AoE. |
+| **Bring It Down** | Supports holding up the ceiling / airship engines / mine shaft. High-risk demolition option. |
+| **Unlabeled Levers** | You killed the operator; none of the traps are labeled. Now what? |
+| **Free Them** | Caged creatures that attack everyone indiscriminately when released. |
+| **Power Up** | Dormant defenses (undead, automata) that reactivate. |
+| **Activate It** | Vague powerful object with a "Do Not Touch" sign. Wild Magic Surge, Dead Magic Zone, recurring AoE every 2 rounds, malfunction table. |
+
+### How to use during prep
+
+When filling out the **Monsters** section of a session prep note, for each combat encounter:
+
+1. **Pick an Objective** (default to Kill Them if nothing else fits the fiction).
+2. **Pick 2 more axes** — ideally one Optimizer and one Hazard, or swap one for a Chaos axis if the scene wants weirdness. Avoid two from the same category unless they cleverly combine (Chevy Chase + High Ground = Reverse Whack-a-Mole).
+3. **Write them into the prep note** above or below the `encounter` codeblock in a small block like:
+
+   ```markdown
+   **Axes:**
+   - *Objective*: Stop the Ritual (3 rounds until completion)
+   - *Optimizer*: The Stash — scroll of Counterspell on the altar
+   - *Hazard*: Vat of Acid — bubbling summoning circle, 3d6 acid if pushed in
+   ```
+
+4. **Make each axis legible at the table** — mark the stash with a token, describe the elevation, show the ritual timer. Players must see the axes to steer toward them.
+
+When brainstorming encounters, try to pick axes that reflect the *location's fiction* (a cult shrine wants Stop the Ritual + Activate It; a tavern brawl wants The Stash + Fire; a sky-ship boarding wants Mufasa Special + The BIG Gun). The axes should feel inevitable for the space, not bolted on.
 
 ## Obsidian Plugin Integration
 

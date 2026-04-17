@@ -9,17 +9,40 @@ This is the canonical reference for how the Exobrain interacts with Google Calen
 
 ## MCP Tools
 
-| Tool | Purpose |
-|------|---------|
-| `gcal_list_events` | List events for a date or date range |
-| `gcal_create_event` | Create a new event |
-| `gcal_update_event` | Update an existing event |
-| `gcal_delete_event` | Delete an event |
-| `gcal_get_event` | Get a specific event by ID |
-| `gcal_find_meeting_times` | Find mutual free times with others |
-| `gcal_find_my_free_time` | Find Alex's available slots |
-| `gcal_list_calendars` | List all calendars |
-| `gcal_respond_to_event` | RSVP to an event |
+Google Calendar is served by a hosted Claude.com connector (UUID prefix `mcp__32ab4f7e-f9e7-4457-9cb0-d1d0b280c571__`). The short aliases in this table are for documentation readability — call the actual UUID-prefixed tool names.
+
+| Doc alias | Actual tool name | Purpose |
+|-----------|------------------|---------|
+| `gcal_list_events` | `mcp__32ab4f7e-...__list_events` | List events for a date or date range |
+| `gcal_create_event` | `mcp__32ab4f7e-...__create_event` | Create a new event |
+| `gcal_update_event` | `mcp__32ab4f7e-...__update_event` | Update an existing event |
+| `gcal_delete_event` | `mcp__32ab4f7e-...__delete_event` | Delete an event |
+| `gcal_get_event` | `mcp__32ab4f7e-...__get_event` | Get a specific event by ID |
+| `gcal_suggest_time` | `mcp__32ab4f7e-...__suggest_time` | Suggest free slots |
+| `gcal_list_calendars` | `mcp__32ab4f7e-...__list_calendars` | List all calendars |
+| `gcal_respond_to_event` | `mcp__32ab4f7e-...__respond_to_event` | RSVP to an event |
+
+### ⚠️ Parameter names (the trap)
+
+The connector uses **camelCase** parameters, NOT the Google Calendar REST API names (`timeMin`/`timeMax`) and NOT snake_case (`start_time`/`end_time`). Unknown-param calls fail silently with `Tool execution failed. You can try again.` — there is no "unknown field" error.
+
+Canonical `list_events` shape:
+
+```
+list_events(
+  startTime: "2026-04-05T00:00:00-05:00",   # NOT time_min, NOT start_time, NOT timeMin
+  endTime:   "2026-04-12T00:00:00-05:00",   # NOT time_max, NOT end_time, NOT timeMax
+  pageSize: 50,                              # default 250, max 2500
+  orderBy: "startTime",                      # optional: default | startTime | startTimeDesc | lastModified
+  fullText: "optional keyword",              # free-form search across title/desc/location/attendees
+  eventTypeFilter: ["default", "focusTime"], # optional array
+  timeZone: "America/Chicago"                # optional
+)
+```
+
+Canonical `create_event` / `update_event`: use `startTime` and `endTime` the same way.
+
+If a `list_events` call fails opaquely, **first suspect**: param-name drift. Call `ToolSearch` with `select:mcp__32ab4f7e-f9e7-4457-9cb0-d1d0b280c571__list_events` to re-verify the live schema.
 
 ## Best Practices
 
