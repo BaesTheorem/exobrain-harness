@@ -36,3 +36,8 @@ apple-notes-sync/apple-notes-sync-state.json
 discord/discord-digest.json
 vault-migration-report.md
 scratch/
+
+# solo-dm: campaign state (SQLite + JSONL), preferences, non-SRD rules content
+data/solo-dm/
+.claude/skills/solo-dm/data/extensions/*.json
+!.claude/skills/solo-dm/data/extensions/README.md
