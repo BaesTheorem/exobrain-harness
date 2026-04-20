@@ -1,0 +1,187 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Solo DM — Dashboard</title>
+<link rel="stylesheet" href="/style.css">
+</head>
+<body>
+<header>
+  <div class="title">
+    <span class="campaign-name" id="campaign-name">…</span>
+    <span class="divider">·</span>
+    <span class="ig-date" id="ig-date">…</span>
+  </div>
+  <div class="header-right">
+    <span class="session" id="session">session —</span>
+    <button id="refresh" title="Refresh state from DB">↻</button>
+  </div>
+</header>
+
+<main>
+  <!-- LEFT: Character sheet -->
+  <aside id="sheet">
+    <div class="pc-header">
+      <h1 id="pc-name">…</h1>
+      <div class="pc-sub" id="pc-sub">…</div>
+    </div>
+
+    <section class="vitals">
+      <div class="stat big"><label>HP</label>
+        <div class="hp-bar"><div class="hp-fill" id="hp-fill"></div><span id="hp-text">—</span></div>
+      </div>
+      <div class="row">
+        <div class="stat"><label>AC</label><span id="ac">—</span></div>
+        <div class="stat"><label>Init</label><span id="init">—</span></div>
+        <div class="stat"><label>Spd</label><span id="spd">—</span></div>
+        <div class="stat"><label>PB</label><span id="pb">—</span></div>
+      </div>
+      <div class="row conditions"><label>Conditions</label><span id="conditions">—</span></div>
+      <div class="row"><label>Concentration</label><span id="concentration">—</span></div>
+      <div class="row"><label>XP</label><span id="xp">—</span></div>
+    </section>
+
+    <section class="abilities">
+      <h2>Abilities</h2>
+      <div class="abs" id="abs"></div>
+    </section>
+
+    <section class="saves-skills">
+      <div>
+        <h2>Saves</h2>
+        <ul id="saves"></ul>
+      </div>
+      <div>
+        <h2>Skills (prof)</h2>
+        <ul id="skills"></ul>
+      </div>
+    </section>
+
+    <section class="spellcasting">
+      <h2>Spellcasting <span class="muted" id="spell-dc-line">—</span></h2>
+      <div class="slots" id="slots"></div>
+      <div class="fey-free" id="fey-free"></div>
+    </section>
+
+    <section class="spells">
+      <h2>Prepared</h2>
+      <ul class="spell-list" id="prepared"></ul>
+      <h2>Cantrips</h2>
+      <ul class="spell-list" id="cantrips"></ul>
+      <details>
+        <summary>Spellbook (all)</summary>
+        <div id="spellbook"></div>
+      </details>
+    </section>
+
+    <section class="inventory">
+      <h2>Gear &amp; Gold</h2>
+      <div><strong id="gold">—</strong></div>
+      <ul id="inventory"></ul>
+    </section>
+
+    <section class="quests">
+      <h2>Active quests</h2>
+      <ul id="quests"></ul>
+    </section>
+  </aside>
+
+  <!-- CENTER: Map -->
+  <section id="map-wrap">
+    <div class="map-toolbar">
+      <div class="map-modes">
+        <button class="mode-btn active" data-mode="measure">Measure</button>
+        <button class="mode-btn" data-mode="marker">Add marker</button>
+        <button class="mode-btn" data-mode="move">Move marker</button>
+        <button class="mode-btn" data-mode="pc">Set PC position</button>
+        <button class="mode-btn" data-mode="calibrate">Calibrate</button>
+      </div>
+      <div class="map-info" id="map-info">⌘-click to mark points. Double-click to zoom. Drag to pan when zoomed.</div>
+    </div>
+    <div id="map-container">
+      <div id="map-inner">
+        <img id="map-img" src="/map" alt="campaign map" draggable="false"
+             onerror="document.getElementById('map-missing').style.display='block'">
+        <svg id="map-overlay" preserveAspectRatio="none"></svg>
+      </div>
+      <div id="zoom-controls">
+        <button id="zoom-in" title="Zoom in (or double-click map)">+</button>
+        <button id="zoom-out" title="Zoom out (or shift+double-click map)">−</button>
+        <button id="zoom-reset" title="Fit map to view">⌂</button>
+        <span class="zoom-level" id="zoom-level">1.0×</span>
+      </div>
+      <div id="map-missing" class="map-missing">
+        No map found. Drop your map image at:<br>
+        <code id="map-path">&lt;vault&gt;/assets/map.jpg</code>
+        <br>then click ↻ Refresh.
+      </div>
+    </div>
+  </section>
+
+  <!-- RIGHT: Distance + markers -->
+  <aside id="side">
+    <section>
+      <h2>Distance</h2>
+      <div class="distance-readout" id="distance-readout">
+        <div class="line"><label>Pixels (relative)</label><span id="dist-rel">—</span></div>
+        <div class="line"><label>Miles</label><span id="dist-miles">—</span></div>
+        <div class="line"><label>Days (Olwin cart, 18 mi)</label><span id="dist-cart">—</span></div>
+        <div class="line"><label>Days (normal, 20 mi)</label><span id="dist-normal">—</span></div>
+        <div class="line"><label>Days (pushed, 25 mi)</label><span id="dist-pushed">—</span></div>
+      </div>
+      <button id="clear-measure">Clear measure</button>
+    </section>
+
+    <section>
+      <h2>Calibration</h2>
+      <div id="cal-status" class="muted">Uncalibrated — clicking "Calibrate" will let you set two points and their real-world distance.</div>
+    </section>
+
+    <section>
+      <h2>Markers</h2>
+      <ul id="markers-list"></ul>
+    </section>
+
+    <section>
+      <h2>PC Position</h2>
+      <div id="pc-position-info" class="muted">Not set.</div>
+    </section>
+  </aside>
+</main>
+
+<dialog id="prompt-dialog">
+  <form method="dialog">
+    <h3 id="prompt-title">…</h3>
+    <p id="prompt-body" class="muted"></p>
+    <input type="text" id="prompt-input" autocomplete="off">
+    <menu>
+      <button value="cancel">Cancel</button>
+      <button id="prompt-ok" value="ok">OK</button>
+    </menu>
+  </form>
+</dialog>
+
+<div id="marker-info" class="marker-info hidden">
+  <button class="close" id="marker-info-close" title="Close (esc)">×</button>
+  <h2 id="marker-info-title">…</h2>
+  <div class="kind muted" id="marker-info-kind"></div>
+  <section class="summary">
+    <h3>From the Forgotten Realms wiki</h3>
+    <div id="marker-info-summary" class="muted">Loading…</div>
+    <a id="marker-info-link" target="_blank" rel="noopener">Open full wiki page →</a>
+  </section>
+  <section class="homebrew">
+    <h3>Campaign notes <span class="muted">(homebrew)</span></h3>
+    <textarea id="marker-info-notes" rows="6" placeholder="Anything this campaign has established about this place — NPCs met, in-fiction facts, house-canon. Persists to the DB."></textarea>
+    <div class="actions">
+      <span id="marker-info-status" class="muted"></span>
+      <button id="marker-info-save">Save</button>
+    </div>
+  </section>
+</div>
+<div id="marker-info-scrim" class="hidden"></div>
+
+<script src="/app.js"></script>
+</body>
+</html>

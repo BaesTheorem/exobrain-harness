@@ -1,0 +1,334 @@
+:root {
+  --bg: #14151a;
+  --bg-2: #1d1f26;
+  --bg-3: #262933;
+  --fg: #e8e8ea;
+  --fg-2: #b8b8bf;
+  --fg-3: #8a8a92;
+  --accent: #c89850;       /* parchment-gold */
+  --accent-2: #7aa2c8;     /* ink blue */
+  --danger: #c86a6a;
+  --good: #7ac87a;
+  --border: #30333d;
+  --mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  --sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", sans-serif;
+  --serif: Georgia, Palatino, serif;
+}
+* { box-sizing: border-box; }
+html, body { margin: 0; padding: 0; background: var(--bg); color: var(--fg); font-family: var(--sans); font-size: 13px; height: 100%; }
+body { display: flex; flex-direction: column; min-height: 100vh; }
+h1, h2, h3 { font-family: var(--serif); font-weight: 600; margin: 0 0 4px 0; color: var(--accent); }
+h1 { font-size: 18px; }
+h2 { font-size: 13px; text-transform: uppercase; letter-spacing: 0.05em; color: var(--fg-2); border-bottom: 1px solid var(--border); padding-bottom: 3px; margin-bottom: 6px; margin-top: 14px; }
+h2:first-child { margin-top: 0; }
+h3 { font-size: 14px; }
+
+.muted { color: var(--fg-3); }
+
+button {
+  background: var(--bg-3); color: var(--fg); border: 1px solid var(--border);
+  padding: 4px 10px; font-size: 12px; cursor: pointer; border-radius: 3px;
+  font-family: var(--sans);
+}
+button:hover { background: #30333d; border-color: var(--accent); }
+button.active { background: var(--accent); color: #1a1a1a; border-color: var(--accent); }
+
+header {
+  background: var(--bg-2); border-bottom: 1px solid var(--border);
+  padding: 8px 14px; display: flex; justify-content: space-between; align-items: center;
+}
+.title { font-family: var(--serif); font-size: 16px; }
+.campaign-name { color: var(--accent); font-weight: 600; }
+.divider { color: var(--fg-3); margin: 0 8px; }
+.ig-date { color: var(--fg-2); }
+.header-right { display: flex; gap: 10px; align-items: center; }
+.session { color: var(--fg-3); font-family: var(--mono); font-size: 11px; }
+
+main {
+  flex: 1; display: grid;
+  grid-template-columns: 340px 1fr 300px;
+  min-height: 0; /* allow inner scroll */
+}
+
+#sheet, #side {
+  background: var(--bg-2); border-right: 1px solid var(--border);
+  overflow-y: auto; padding: 12px;
+}
+#side { border-right: none; border-left: 1px solid var(--border); }
+
+/* Character sheet */
+.pc-header { border-bottom: 1px solid var(--border); padding-bottom: 8px; margin-bottom: 10px; }
+#pc-name { font-size: 17px; color: var(--accent); }
+.pc-sub { color: var(--fg-2); font-size: 12px; }
+
+.vitals .stat { display: inline-flex; flex-direction: column; align-items: flex-start; }
+.vitals .stat label { color: var(--fg-3); font-size: 10px; text-transform: uppercase; letter-spacing: 0.05em; }
+.vitals .stat span { font-family: var(--serif); font-size: 18px; color: var(--fg); }
+.vitals .stat.big { display: block; margin-bottom: 8px; }
+.vitals .stat.big span { font-size: 14px; color: var(--fg-2); }
+.hp-bar {
+  position: relative; height: 20px; background: #2a1a1a; border: 1px solid var(--border);
+  border-radius: 3px; overflow: hidden;
+}
+.hp-fill {
+  position: absolute; left: 0; top: 0; bottom: 0; background: linear-gradient(90deg, #3a8a3a, #5aa85a);
+  transition: width 0.3s ease;
+}
+.hp-bar span {
+  position: absolute; left: 0; right: 0; top: 0; bottom: 0;
+  display: flex; align-items: center; justify-content: center;
+  font-family: var(--mono); font-size: 12px; z-index: 1; text-shadow: 1px 1px 2px rgba(0,0,0,0.7);
+}
+
+.row { display: flex; justify-content: space-between; align-items: baseline; padding: 2px 0; font-size: 12px; }
+.row label { color: var(--fg-3); text-transform: uppercase; font-size: 10px; letter-spacing: 0.05em; }
+.row span { font-family: var(--mono); color: var(--fg); }
+.vitals .row { gap: 10px; }
+.vitals .row .stat { flex: 1; padding: 4px 6px; background: var(--bg-3); border-radius: 3px; text-align: center; }
+.vitals .row .stat span { font-family: var(--serif); font-size: 16px; }
+.vitals .row .stat label { display: block; font-size: 9px; }
+.row.conditions span { font-family: var(--sans); color: var(--danger); font-size: 11px; }
+
+.abs { display: grid; grid-template-columns: repeat(3, 1fr); gap: 4px; }
+.ab-box {
+  background: var(--bg-3); border: 1px solid var(--border); border-radius: 3px;
+  padding: 5px; text-align: center;
+}
+.ab-box .name { font-size: 9px; color: var(--fg-3); text-transform: uppercase; }
+.ab-box .score { font-family: var(--serif); font-size: 16px; font-weight: 600; }
+.ab-box .mod { font-family: var(--mono); font-size: 11px; color: var(--fg-2); }
+
+.saves-skills { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.saves-skills ul { list-style: none; padding: 0; margin: 0; font-size: 11px; }
+.saves-skills li { padding: 1px 0; font-family: var(--mono); color: var(--fg-2); }
+.saves-skills li strong { color: var(--fg); display: inline-block; min-width: 30px; }
+
+.slots { display: flex; flex-direction: column; gap: 5px; }
+.slot-row { display: flex; align-items: center; gap: 6px; font-size: 11px; }
+.slot-row label { color: var(--fg-3); font-family: var(--mono); min-width: 28px; font-size: 10px; }
+.slot-dots { display: flex; gap: 3px; }
+.slot-dot {
+  width: 12px; height: 12px; border-radius: 50%;
+  border: 1.5px solid var(--accent-2); background: transparent;
+}
+.slot-dot.filled { background: var(--accent-2); }
+
+.fey-free { margin-top: 8px; padding-top: 6px; border-top: 1px dashed var(--border); }
+.fey-row { display: flex; justify-content: space-between; font-size: 11px; padding: 2px 0; }
+.fey-row .avail-badge { font-family: var(--mono); color: var(--good); }
+.fey-row .avail-badge.spent { color: var(--fg-3); text-decoration: line-through; }
+
+.spell-list { list-style: none; padding: 0; margin: 0; columns: 2; column-gap: 14px; font-size: 11px; }
+.spell-list li { padding: 1px 0; break-inside: avoid; }
+.spells details { margin-top: 8px; font-size: 11px; }
+.spells details summary { cursor: pointer; color: var(--fg-2); }
+#spellbook { margin-top: 6px; }
+#spellbook .lvl-group { margin-bottom: 6px; }
+#spellbook .lvl-group h4 { font-family: var(--serif); font-size: 11px; margin: 2px 0; color: var(--accent-2); text-transform: uppercase; }
+#spellbook ul { list-style: none; padding: 0 0 0 8px; margin: 0; font-size: 11px; }
+
+.inventory ul { list-style: none; padding: 0; margin: 0; font-size: 11px; }
+.inventory li { padding: 2px 0; border-bottom: 1px dotted var(--border); color: var(--fg-2); }
+.inventory li:last-child { border: none; }
+.inventory li .qty { color: var(--fg-3); font-family: var(--mono); }
+.inventory li .note { color: var(--fg-3); font-size: 10px; display: block; font-style: italic; }
+
+.quests ul { list-style: none; padding: 0; font-size: 11px; }
+.quests li { padding: 3px 0; color: var(--fg-2); }
+.quests li::before { content: "◆ "; color: var(--accent); }
+
+/* Map */
+#map-wrap {
+  background: #0d0e12; display: flex; flex-direction: column; position: relative;
+  min-height: 0;
+}
+.map-toolbar {
+  padding: 6px 10px; background: var(--bg-2); border-bottom: 1px solid var(--border);
+  display: flex; justify-content: space-between; align-items: center; gap: 12px;
+}
+.map-modes { display: flex; gap: 4px; }
+.map-modes button { font-size: 11px; padding: 3px 8px; }
+.map-info { color: var(--fg-2); font-size: 11px; font-style: italic; }
+
+#map-container {
+  flex: 1; position: relative; overflow: hidden; min-height: 0;
+  cursor: grab;
+}
+#map-container.panning { cursor: grabbing; }
+#map-inner {
+  /* Explicit size + positioning set by JS once the image loads so that
+     the transform has a well-defined box and the overlay matches exactly. */
+  position: absolute; left: 0; top: 0;
+  transform-origin: 0 0;
+  transition: transform 180ms cubic-bezier(0.22, 0.61, 0.36, 1);
+  will-change: transform;
+}
+#map-inner.dragging { transition: none; }
+#map-img {
+  display: block; width: 100%; height: 100%;
+  user-select: none; -webkit-user-drag: none;
+  image-rendering: crisp-edges;
+}
+#map-overlay {
+  position: absolute; left: 0; top: 0; width: 100%; height: 100%;
+  pointer-events: none;
+  overflow: visible;
+}
+/* While panning, kill all marker hit-testing so pointermove events can't
+   get stuck on a scaled-up marker circle at high zoom. */
+#map-wrap.panning .marker-group { pointer-events: none !important; }
+/* Keep marker/measure glyphs legible regardless of zoom — strokes stay the
+   same screen width, circle radii remain visually consistent. */
+.measure-point, .cal-point, .marker-point, .pc-point {
+  vector-effect: non-scaling-stroke;
+}
+.measure-label, .cal-label, .marker-label, .pc-label {
+  vector-effect: non-scaling-stroke;
+}
+#zoom-controls {
+  position: absolute; top: 10px; right: 10px; z-index: 10;
+  display: flex; gap: 4px; align-items: center;
+  background: rgba(29, 31, 38, 0.85); padding: 4px 6px; border-radius: 4px;
+  border: 1px solid var(--border);
+}
+#zoom-controls button {
+  font-family: var(--mono); font-size: 14px; font-weight: bold;
+  width: 28px; height: 28px; padding: 0;
+  display: flex; align-items: center; justify-content: center;
+}
+#zoom-controls .zoom-level {
+  font-family: var(--mono); font-size: 11px; color: var(--fg-2); padding: 0 6px;
+  min-width: 40px; text-align: center;
+}
+.map-missing {
+  position: absolute; background: rgba(20, 21, 26, 0.95); color: var(--fg-2);
+  padding: 20px; border: 1px solid var(--accent); border-radius: 4px; font-size: 13px; text-align: center;
+  display: none;
+}
+.map-missing code { background: var(--bg-3); padding: 2px 6px; border-radius: 2px; font-family: var(--mono); color: var(--accent); }
+
+/* SVG overlay elements */
+.measure-point { fill: var(--accent); stroke: #000; stroke-width: 1; }
+.measure-line { stroke: var(--accent); stroke-width: 2; stroke-dasharray: 4 3; fill: none; }
+.measure-label {
+  font-family: var(--mono); font-size: 11px; fill: var(--accent);
+  paint-order: stroke; stroke: #000; stroke-width: 3; stroke-linejoin: round;
+}
+/* Markers are red, with a label that only appears on hover.
+   Stroke is thin so the red fill stays visible at all zoom levels. */
+.marker-point { fill: #e03030; stroke: #000; stroke-width: 0.8; }
+.marker-group:hover .marker-point { fill: #ff7a7a; stroke-width: 1.2; }
+/* Picked-up-to-move: pulsing orange ring behind the red dot */
+.marker-selected {
+  fill: none; stroke: #ffa030; stroke-width: 2.2; opacity: 0.9;
+  transform-origin: center; transform-box: fill-box;
+  animation: pulse 1.4s ease-out infinite;
+}
+.marker-label {
+  font-family: var(--serif); font-size: 12px; fill: #fff;
+  paint-order: stroke; stroke: #000; stroke-width: 2; stroke-linejoin: round;
+  opacity: 0;                         /* hidden by default */
+  pointer-events: none;
+  transition: opacity 120ms ease-out;
+}
+.marker-group:hover .marker-label { opacity: 1; }
+/* PC is green, with a pulsing green ring. */
+.pc-point {
+  fill: #3cd672; stroke: #fff; stroke-width: 2;
+}
+.pc-label {
+  font-family: var(--serif); font-size: 13px; font-weight: bold; fill: #3cd672;
+  paint-order: stroke; stroke: #000; stroke-width: 4; stroke-linejoin: round;
+}
+.pc-pulse {
+  fill: none; stroke: #3cd672; stroke-width: 1.5; opacity: 0.7;
+  transform-origin: center;
+  transform-box: fill-box;
+  animation: pulse 2s ease-out infinite;
+}
+/* Scale-only pulse — avoids overwriting `r` so the JS counter-scale for zoom
+   keeps working. */
+@keyframes pulse {
+  0%   { transform: scale(1);   opacity: 0.85; }
+  100% { transform: scale(3.5); opacity: 0; }
+}
+.cal-point { fill: var(--good); stroke: #000; stroke-width: 1; }
+.cal-line { stroke: var(--good); stroke-width: 2; stroke-dasharray: 6 4; fill: none; }
+
+/* Marker-info panel (click a marker to open) */
+.hidden { display: none !important; }
+#marker-info-scrim {
+  position: fixed; inset: 0; background: rgba(0,0,0,0.45); z-index: 40;
+}
+.marker-info {
+  position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%);
+  width: min(520px, 90vw); max-height: 80vh; overflow-y: auto;
+  background: var(--bg-2); border: 1px solid var(--accent); border-radius: 6px;
+  padding: 20px 22px 18px 22px; z-index: 50;
+  box-shadow: 0 10px 40px rgba(0,0,0,0.6);
+}
+.marker-info .close {
+  position: absolute; top: 8px; right: 10px;
+  background: transparent; color: var(--fg-3); border: none; font-size: 22px;
+  cursor: pointer; padding: 0 6px;
+}
+.marker-info .close:hover { color: var(--danger); background: transparent; border: none; }
+.marker-info h2 {
+  font-family: var(--serif); font-size: 20px; color: var(--accent);
+  margin: 0 0 4px 0; border: none; padding: 0; text-transform: none; letter-spacing: 0;
+}
+.marker-info .kind { font-size: 11px; text-transform: uppercase; letter-spacing: 0.08em; margin-bottom: 12px; }
+.marker-info h3 {
+  font-family: var(--sans); font-size: 11px; text-transform: uppercase; letter-spacing: 0.08em;
+  color: var(--fg-2); border-bottom: 1px solid var(--border); padding-bottom: 3px;
+  margin: 14px 0 8px 0;
+}
+.marker-info .summary { font-size: 12px; line-height: 1.45; color: var(--fg); }
+.marker-info #marker-info-summary { white-space: pre-wrap; margin-bottom: 6px; }
+.marker-info a {
+  color: var(--accent-2); text-decoration: none; font-size: 11px;
+}
+.marker-info a:hover { text-decoration: underline; }
+.marker-info textarea {
+  width: 100%; min-height: 120px; resize: vertical;
+  background: var(--bg-3); color: var(--fg); border: 1px solid var(--border);
+  border-radius: 3px; padding: 8px; font-family: var(--sans); font-size: 12px;
+  line-height: 1.4;
+}
+.marker-info .actions {
+  display: flex; justify-content: space-between; align-items: center;
+  margin-top: 8px;
+}
+.marker-info #marker-info-status { font-size: 11px; }
+.marker-info #marker-info-save {
+  background: var(--accent); color: #1a1a1a; border: 1px solid var(--accent);
+  padding: 5px 14px; border-radius: 3px;
+}
+
+/* Side panel */
+#side .distance-readout { font-family: var(--mono); font-size: 11px; margin-bottom: 8px; }
+#side .distance-readout .line { display: flex; justify-content: space-between; padding: 2px 0; }
+#side .distance-readout .line label { color: var(--fg-3); font-family: var(--sans); font-size: 10px; }
+#side .distance-readout .line span { color: var(--fg); }
+#markers-list { list-style: none; padding: 0; font-size: 11px; }
+#markers-list li {
+  display: flex; justify-content: space-between; align-items: center;
+  padding: 3px 0; border-bottom: 1px dotted var(--border);
+}
+#markers-list li .label { color: var(--fg-2); }
+#markers-list li button.delete {
+  background: transparent; color: var(--fg-3); padding: 0 4px; border: none; font-size: 14px;
+}
+#markers-list li button.delete:hover { color: var(--danger); }
+#cal-status { font-size: 11px; line-height: 1.4; }
+#pc-position-info { font-size: 11px; font-family: var(--mono); }
+
+dialog {
+  background: var(--bg-2); color: var(--fg); border: 1px solid var(--accent); border-radius: 4px;
+  padding: 16px; min-width: 320px;
+}
+dialog input {
+  width: 100%; padding: 6px; background: var(--bg-3); color: var(--fg);
+  border: 1px solid var(--border); border-radius: 3px; font-family: var(--sans); font-size: 13px;
+}
+dialog menu { padding: 0; margin: 10px 0 0 0; display: flex; justify-content: flex-end; gap: 8px; }
