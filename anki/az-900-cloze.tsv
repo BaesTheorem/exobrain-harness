@@ -1,0 +1,100 @@
+#separator:tab
+#html:false
+#notetype:Cloze
+#deck:AZ-900
+#columns:Text	Extra	Tags
+#tags column:3
+Cloud computing is the delivery of computing services (compute, storage, databases, networking, software) over {{c1::the internet}}.	Based on Microsoft AZ-900 skills outline (Jan 14, 2026).	az900 cloud-concepts
+Under the shared responsibility model, the customer is ALWAYS responsible for their {{c1::data and identities}}, regardless of IaaS/PaaS/SaaS.	Provider always handles physical datacenter, physical network, physical hosts.	az900 cloud-concepts shared-responsibility
+In IaaS, the customer is responsible for the {{c1::operating system}}, applications, and data; the provider manages the hardware, virtualization, and physical network.		az900 cloud-concepts shared-responsibility
+In SaaS, the provider manages nearly everything; the customer is only responsible for {{c1::data, devices, accounts, and identities}}.		az900 cloud-concepts shared-responsibility
+{{c1::Public}} cloud: services offered over the public internet by a third-party provider; resources shared across multiple tenants.		az900 cloud-concepts cloud-models
+{{c1::Private}} cloud: computing resources used exclusively by a single organization; can be on-premises or hosted by a third party.		az900 cloud-concepts cloud-models
+{{c1::Hybrid}} cloud: combines public and private clouds, allowing data and applications to be shared between them.		az900 cloud-concepts cloud-models
+The {{c1::consumption-based}} pricing model means you pay only for the resources you use, with no upfront capital expense.		az900 cloud-concepts pricing
+CapEx is {{c1::upfront spending on physical infrastructure}}, while OpEx is {{c1::ongoing, pay-as-you-go operational spending}}.	Cloud shifts CapEx to OpEx.	az900 cloud-concepts pricing
+{{c1::Serverless}} computing means the cloud provider manages the underlying infrastructure; you deploy code and pay only for execution time.	Azure Functions is a serverless compute example.	az900 cloud-concepts serverless
+{{c1::High availability}} is the ability of a service to remain operational and accessible, usually backed by SLAs.		az900 cloud-concepts benefits
+{{c1::Scalability}} is the ability to increase or decrease resources to match demand; {{c2::vertical}} scaling means a bigger machine, {{c2::horizontal}} scaling means more machines.		az900 cloud-concepts benefits
+{{c1::Elasticity}} is the ability to automatically scale resources up or down in response to changing demand.		az900 cloud-concepts benefits
+{{c1::Reliability}} is the ability of a system to recover from failures and continue functioning.		az900 cloud-concepts benefits
+IaaS stands for {{c1::Infrastructure as a Service}}; an Azure example is {{c2::Azure Virtual Machines}}.		az900 cloud-concepts service-types
+PaaS stands for {{c1::Platform as a Service}}; an Azure example is {{c2::Azure App Service}}.		az900 cloud-concepts service-types
+SaaS stands for {{c1::Software as a Service}}; an example is {{c2::Microsoft 365}}.		az900 cloud-concepts service-types
+Typical IaaS use case: {{c1::lift-and-shift migration, test/dev, full control over OS}}.		az900 cloud-concepts service-types
+Typical PaaS use case: {{c1::application development without managing the underlying infrastructure}}.		az900 cloud-concepts service-types
+Typical SaaS use case: {{c1::standardized productivity applications like email, CRM, collaboration}}.		az900 cloud-concepts service-types
+An Azure {{c1::region}} is a set of datacenters within a latency-defined perimeter, connected by a dedicated regional low-latency network.		az900 architecture core-components
+{{c1::Region pairs}} are two regions within the same geography paired for disaster recovery, at least {{c2::300 miles}} apart.	Per the AZ-900 training module. Examples: West US / East US, Southeast Asia / East Asia.	az900 architecture core-components
+{{c1::Sovereign}} regions are isolated instances of Azure such as Azure Government (US) and Azure China (operated by 21Vianet).		az900 architecture core-components
+{{c1::Availability zones}} are physically separate datacenters within an Azure region, each with independent power, cooling, and networking.	A region supporting AZs has a minimum of three.	az900 architecture core-components
+An Azure {{c1::datacenter}} is a physical facility containing servers that provide Azure services.		az900 architecture core-components
+An Azure {{c1::resource}} is any service instance you create, such as a VM, storage account, or database.		az900 architecture core-components
+A {{c1::resource group}} is a logical container for Azure resources that share the same lifecycle; a resource can only belong to one resource group.		az900 architecture core-components
+An Azure {{c1::subscription}} is a logical unit of Azure services linked to an account; it serves as a billing boundary and access boundary.		az900 architecture core-components
+A {{c1::management group}} is a container for organizing subscriptions to apply governance (policy, access) across many subscriptions at once.		az900 architecture core-components
+The Azure resource hierarchy from top to bottom is: {{c1::management groups → subscriptions → resource groups → resources}}.		az900 architecture core-components
+{{c1::Azure Virtual Machine Scale Sets}} let you create and manage a group of identical, load-balanced VMs that can auto-scale.		az900 architecture compute
+{{c1::Availability sets}} are a logical grouping of VMs within a datacenter that spreads them across {{c2::fault domains and update domains}} for redundancy.		az900 architecture compute
+{{c1::Azure Virtual Desktop}} is a desktop and application virtualization service running in Azure (supports Windows multi-session).		az900 architecture compute
+{{c1::Azure Functions}} is an event-driven serverless compute service for running small pieces of code on demand.		az900 architecture compute
+{{c1::Azure Container Instances (ACI)}} is the simplest way to run a container in Azure without managing orchestration.		az900 architecture compute
+{{c1::Azure Kubernetes Service (AKS)}} is Azure's managed Kubernetes for orchestrating containers at scale.		az900 architecture compute
+{{c1::Azure App Service}} is a PaaS offering for hosting web apps, REST APIs, and mobile backends.		az900 architecture compute
+An {{c1::Azure Virtual Network (VNet)}} is the fundamental building block for private networking in Azure; an isolated network in the cloud.		az900 architecture networking
+{{c1::VNet peering}} connects two Azure virtual networks so resources can communicate over the Microsoft backbone.		az900 architecture networking
+{{c1::Azure DNS}} is a hosting service for DNS domains using Microsoft's name servers.		az900 architecture networking
+{{c1::Azure VPN Gateway}} sends encrypted traffic between an Azure VNet and an on-premises location over the public internet.		az900 architecture networking
+{{c1::Azure ExpressRoute}} extends on-premises networks into Azure over a private, dedicated connection — it does NOT traverse the public internet.		az900 architecture networking
+A {{c1::public endpoint}} is accessible over the public internet via a public IP; a {{c2::private endpoint}} is a network interface with a private IP from your VNet, connecting privately to an Azure service via Private Link.		az900 architecture networking
+{{c1::Azure Blob Storage}} is object storage for unstructured data such as files, images, video, and backups.		az900 architecture storage
+{{c1::Azure Files}} provides managed file shares accessible via the SMB and NFS protocols.		az900 architecture storage
+{{c1::Azure Queue Storage}} is a service for storing large numbers of messages for asynchronous workloads.		az900 architecture storage
+{{c1::Azure Table Storage}} is a NoSQL key-value store for structured, non-relational data.		az900 architecture storage
+{{c1::Azure Disk Storage}} provides block-level storage volumes attached to Azure VMs.		az900 architecture storage
+Blob access tiers (hot-to-cold): {{c1::Hot, Cool, Cold, Archive}}; Hot has highest storage cost / lowest access cost, Archive is opposite.		az900 architecture storage
+{{c1::LRS}} (Locally Redundant Storage) keeps three copies of data within a single datacenter.		az900 architecture storage redundancy
+{{c1::ZRS}} (Zone-Redundant Storage) replicates data synchronously across three availability zones in one region.		az900 architecture storage redundancy
+{{c1::GRS}} (Geo-Redundant Storage) is LRS in the primary region plus asynchronous replication to the paired region.		az900 architecture storage redundancy
+{{c1::GZRS}} (Geo-Zone-Redundant Storage) is ZRS in the primary region plus LRS copy in the paired region.		az900 architecture storage redundancy
+{{c1::AzCopy}} is a command-line tool for copying data to and from Azure Storage.		az900 architecture storage tools
+{{c1::Azure Storage Explorer}} is a standalone GUI application for managing Azure storage across Windows, macOS, and Linux.		az900 architecture storage tools
+{{c1::Azure File Sync}} centralizes file shares in Azure Files while keeping local performance via Windows Server caches.		az900 architecture storage tools
+{{c1::Azure Migrate}} is a hub for discovering, assessing, and migrating on-premises servers, databases, apps, and data to Azure.		az900 architecture migration
+{{c1::Azure Data Box}} is a physical appliance for offline bulk data transfer to Azure, used when network transfer is impractical.		az900 architecture migration
+{{c1::Microsoft Entra ID}} (formerly Azure AD) is Microsoft's cloud-based identity and access management service.		az900 architecture identity
+{{c1::Microsoft Entra Domain Services}} provides managed domain services like domain join, group policy, LDAP, and Kerberos/NTLM without requiring you to manage domain controllers.		az900 architecture identity
+{{c1::Single sign-on (SSO)}} lets users authenticate once and access multiple applications without re-entering credentials.		az900 architecture identity
+{{c1::Multifactor authentication (MFA)}} requires two or more factors: something you {{c2::know, have, or are}}.		az900 architecture identity
+Passwordless authentication methods include {{c1::Windows Hello, FIDO2 security keys, and the Microsoft Authenticator app}}.		az900 architecture identity
+External identities in Entra ID include {{c1::B2B collaboration (invite guest users) and B2C (customer-facing identity)}}.	Entra External ID is the modern umbrella term.	az900 architecture identity
+{{c1::Microsoft Entra Conditional Access}} is an if-then policy engine that enforces access requirements based on signals like user, device, location, and risk.		az900 architecture identity
+{{c1::Azure RBAC}} (Role-Based Access Control) grants access via role assignments combining a security principal, a role definition, and a scope.		az900 architecture identity
+The {{c1::Zero Trust}} model is summarized as "never trust, always verify": verify explicitly, use least-privilege access, and assume breach.		az900 architecture security
+{{c1::Defense in depth}} uses layered security controls so no single point of failure compromises the system.	Microsoft's layers: physical, identity & access, perimeter, network, compute, application, data.	az900 architecture security
+{{c1::Microsoft Defender for Cloud}} is a cloud-native platform for security posture management (CSPM) and workload protection (CWPP) across Azure, hybrid, and multicloud.		az900 architecture security
+Factors that can affect Azure costs include {{c1::resource type, consumption, region, and billing zone for bandwidth}}.		az900 management cost
+The {{c1::Azure Pricing Calculator}} estimates the cost of Azure resources BEFORE you deploy them.		az900 management cost
+The {{c1::Azure TCO Calculator}} estimates savings from migrating on-premises workloads to Azure.	Not explicitly in the Jan 14 2026 outline but commonly tested.	az900 management cost
+{{c1::Microsoft Cost Management}} (in the Azure portal) lets you view, analyze, budget, and optimize spend after resources are deployed.		az900 management cost
+{{c1::Tags}} are name/value pairs applied to resources for organization, automation, and cost allocation; they are NOT inherited from resource groups by default.		az900 management cost
+{{c1::Microsoft Purview}} is a unified data governance and compliance solution (catalog, lineage, data risk, compliance).		az900 management governance
+{{c1::Azure Policy}} enforces organizational rules by evaluating resources for compliance against defined policy definitions.		az900 management governance
+{{c1::Resource locks}} prevent accidental modification or deletion of resources; the two lock types are {{c2::ReadOnly and CanNotDelete (Delete)}}.		az900 management governance
+The {{c1::Azure portal}} is the web-based graphical interface for managing Azure resources.		az900 management tools
+{{c1::Azure Cloud Shell}} is a browser-based shell with Azure CLI (Bash) and Azure PowerShell preinstalled and authenticated.		az900 management tools
+{{c1::Azure CLI}} is a cross-platform command-line tool using commands like `az vm create`.		az900 management tools
+{{c1::Azure PowerShell}} is a cross-platform PowerShell module with cmdlets like `New-AzVM`.		az900 management tools
+{{c1::Azure Arc}} extends Azure management and governance to resources running outside Azure — on-premises, in other clouds, and at the edge.		az900 management tools
+{{c1::Infrastructure as Code (IaC)}} is the practice of managing and provisioning infrastructure through declarative configuration files rather than manual processes.		az900 management tools
+{{c1::Azure Resource Manager (ARM)}} is the deployment and management service for Azure; it's the single control plane for all resource operations.		az900 management tools
+{{c1::ARM templates}} are JSON files that declaratively define Azure infrastructure for repeatable deployment. {{c2::Bicep}} is a DSL that compiles to ARM JSON.		az900 management tools
+{{c1::Azure Advisor}} provides personalized recommendations across five pillars: cost, security, reliability, operational excellence, and performance.		az900 management monitoring
+{{c1::Azure Service Health}} provides personalized alerts about service issues, planned maintenance, and health advisories affecting YOUR resources.		az900 management monitoring
+Azure {{c1::Status}} is a global page of current Azure outages; Azure {{c2::Service Health}} is personalized to the resources in your subscriptions.		az900 management monitoring
+{{c1::Azure Monitor}} is the comprehensive platform for collecting, analyzing, and acting on telemetry (metrics and logs) from Azure and other environments.		az900 management monitoring
+{{c1::Log Analytics}} is the tool within Azure Monitor used to write and run {{c2::KQL (Kusto Query Language)}} queries against log data.		az900 management monitoring
+{{c1::Azure Monitor alerts}} proactively notify you when configured conditions on monitored data are met.		az900 management monitoring
+{{c1::Application Insights}} is an APM feature of Azure Monitor for monitoring live web applications — tracking requests, dependencies, exceptions, and performance.		az900 management monitoring
+The three functional areas of the AZ-900 exam are: Describe cloud concepts ({{c1::25–30%}}), Describe Azure architecture and services ({{c2::35–40%}}), and Describe Azure management and governance ({{c3::30–35%}}).		az900 meta
+The passing score on the AZ-900 exam is {{c1::700}} (on a scale up to 1000), with {{c2::45}} minutes to complete it.		az900 meta
