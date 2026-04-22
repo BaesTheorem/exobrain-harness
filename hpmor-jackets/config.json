@@ -1,0 +1,19 @@
+{
+  "_comment": "Spine widths fetched from Blurb's spec calculator for Trade 6x9 Linen Hardcover w/ Dust Jacket, Standard Trade B&W Paper matte. Cover panel width is 6.542\" (board overhang vs. 6.0\" page trim). Jacket trim height 9.25\" (board overhang vs. 9.0\" page trim). Flap 3.375\" each side.",
+  "page_trim_width_in": 6.0,
+  "page_trim_height_in": 9.0,
+  "jacket_panel_width_in": 6.542,
+  "jacket_trim_height_in": 9.25,
+  "flap_width_in": 3.375,
+  "bleed_in": 0.125,
+  "safe_margin_in": 0.25,
+  "dpi": 300,
+  "volumes": {
+    "1": {"title": "Harry Potter and the Methods of Rationality", "pages": 352, "spine_in": 0.819},
+    "2": {"title": "Harry Potter and the Professor's Games", "pages": 288, "spine_in": 0.694},
+    "3": {"title": "Harry Potter and the Shadows of Death", "pages": 400, "spine_in": 0.875},
+    "4": {"title": "Hermione Granger and the Phoenix's Call", "pages": 396, "spine_in": 0.875},
+    "5": {"title": "Harry Potter and the Last Enemy", "pages": 232, "spine_in": 0.569},
+    "6": {"title": "Harry Potter and the Philosopher's Stone", "pages": 324, "spine_in": 0.75}
+  }
+}
