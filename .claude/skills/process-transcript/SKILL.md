@@ -26,7 +26,7 @@ Also normalize variations of the same person to one canonical name for People/ n
   1. The filename matches an `id` or `filename` field in the log
   2. The `create_time` in the file's JSON matches (within a few minutes) the date+time encoded in a log entry's `id`
   3. The `title` in the file's JSON closely matches an existing log entry's `title` field on the same date
-- If no unprocessed files, notify and stop
+- If no unprocessed files, stop silently (no notification)
 
 ### 2. For each unprocessed transcript, read and analyze
 

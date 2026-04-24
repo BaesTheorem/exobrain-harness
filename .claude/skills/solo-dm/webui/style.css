@@ -332,3 +332,207 @@ dialog input {
   border: 1px solid var(--border); border-radius: 3px; font-family: var(--sans); font-size: 13px;
 }
 dialog menu { padding: 0; margin: 10px 0 0 0; display: flex; justify-content: flex-end; gap: 8px; }
+
+/* --- Header: real-world date --- */
+.real-date {
+  color: var(--fg-muted, #888);
+  font-size: 12px;
+  margin-right: 12px;
+  font-family: var(--sans);
+}
+
+/* --- Unified spellbook with prepared indicator --- */
+.spellbook-legend {
+  font-size: 11px;
+  margin-left: 6px;
+}
+.spellbook-list {
+  list-style: none;
+  padding: 0;
+  margin: 4px 0 12px 0;
+}
+.spellbook-entry {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  padding: 2px 4px;
+  border-radius: 3px;
+  font-size: 13px;
+}
+.spellbook-entry.prepared {
+  background: rgba(200, 180, 100, 0.10);
+}
+.spellbook-entry .prep-dot {
+  font-size: 14px;
+  color: var(--fg-muted, #777);
+  width: 14px;
+  display: inline-block;
+  text-align: center;
+}
+.spellbook-entry.prepared .prep-dot {
+  color: #d4b24a;
+}
+.spellbook-entry .spell-name {
+  flex: 1;
+}
+.spellbook-entry.prepared .spell-name {
+  font-weight: 500;
+  color: var(--fg, #e8e8e8);
+}
+
+/* --- Ritual badge on spellbook entries --- */
+.spellbook-entry .ritual-badge {
+  display: inline-block;
+  min-width: 14px;
+  padding: 0 4px;
+  margin-left: 6px;
+  border: 1px solid #7a9ab8;
+  border-radius: 3px;
+  background: rgba(100, 140, 180, 0.15);
+  color: #9fbddc;
+  font-size: 10px;
+  font-weight: 600;
+  text-align: center;
+  line-height: 14px;
+  font-family: var(--sans);
+}
+
+/* --- Inventory: containers, drag-drop, select --- */
+#inventory {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+.inv-item {
+  padding: 2px 4px;
+  margin: 1px 0;
+  border-radius: 3px;
+  cursor: grab;
+  transition: background 80ms ease;
+}
+.inv-item:hover {
+  background: rgba(255,255,255,0.04);
+}
+.inv-item.selected {
+  background: rgba(200, 180, 100, 0.20);
+  outline: 1px solid rgba(200, 180, 100, 0.45);
+}
+.inv-item.dragging {
+  opacity: 0.45;
+  cursor: grabbing;
+}
+.inv-container > details > summary {
+  cursor: pointer;
+  list-style: none;
+  padding: 2px 0;
+}
+.inv-container > details > summary::-webkit-details-marker { display: none; }
+.inv-container > details > summary::before {
+  content: "▸ ";
+  display: inline-block;
+  transform: translateY(-1px);
+  color: var(--fg-muted, #888);
+  transition: transform 120ms ease;
+}
+.inv-container > details[open] > summary::before {
+  transform: rotate(90deg);
+}
+.inv-container-list {
+  list-style: none;
+  padding: 2px 0 2px 18px;
+  margin: 0;
+  border-left: 1px dashed rgba(255,255,255,0.12);
+  margin-left: 6px;
+  min-height: 6px;
+}
+.inv-container-list.drop-target {
+  background: rgba(100, 180, 140, 0.10);
+  border-left-color: rgba(100, 180, 140, 0.5);
+}
+#inventory.drop-target {
+  background: rgba(100, 180, 140, 0.05);
+  outline: 1px dashed rgba(100, 180, 140, 0.35);
+}
+.inv-label .qty {
+  color: var(--fg-muted, #888);
+  margin-left: 4px;
+}
+.inv-label .equipped-badge {
+  display: inline-block;
+  min-width: 14px;
+  padding: 0 4px;
+  margin-left: 6px;
+  border: 1px solid #a8864f;
+  border-radius: 3px;
+  background: rgba(168, 134, 79, 0.15);
+  color: #d4b24a;
+  font-size: 10px;
+  font-weight: 600;
+  text-align: center;
+  line-height: 14px;
+}
+.inv-label .note {
+  color: var(--fg-muted, #777);
+  font-size: 11px;
+  margin-left: 6px;
+  font-style: italic;
+}
+
+/* --- Inventory root: give drop-space at top and bottom --- */
+#inventory {
+  min-height: 80px;
+  padding: 4px 4px 20px 4px;
+  position: relative;
+}
+#inventory::after {
+  content: "";
+  display: block;
+  height: 16px;
+  margin-top: 4px;
+}
+#inventory.drop-target::after {
+  background: rgba(100, 180, 140, 0.12);
+  border: 1px dashed rgba(100, 180, 140, 0.45);
+  border-radius: 4px;
+}
+
+/* --- Mini inline buttons (for section headers) --- */
+.mini-btn {
+  font-size: 10px;
+  padding: 2px 8px;
+  margin-left: 8px;
+  border: 1px solid var(--border, #444);
+  background: var(--bg-3, #333);
+  color: var(--fg, #ddd);
+  border-radius: 3px;
+  cursor: pointer;
+  font-family: var(--sans);
+  vertical-align: middle;
+}
+.mini-btn:hover {
+  background: var(--bg-4, #444);
+  border-color: #666;
+}
+
+/* --- Context menu for inventory items --- */
+.ctx-menu {
+  position: absolute;
+  z-index: 10000;
+  min-width: 220px;
+  background: var(--bg-3, #2a2a2a);
+  border: 1px solid var(--border, #555);
+  border-radius: 4px;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.5);
+  padding: 4px 0;
+  font-family: var(--sans);
+  font-size: 12px;
+  color: var(--fg, #e8e8e8);
+}
+.ctx-menu-item {
+  padding: 5px 10px;
+  cursor: pointer;
+  user-select: none;
+}
+.ctx-menu-item:hover {
+  background: rgba(180, 160, 90, 0.20);
+}

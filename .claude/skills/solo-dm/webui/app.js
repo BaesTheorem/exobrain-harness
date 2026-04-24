@@ -9,6 +9,23 @@ const MODE_MOVE = "move";
 const MODE_PC = "pc";
 const MODE_CALIBRATE = "calibrate";
 
+// D&D 5e wizard ritual-tagged spells. Extend as Charles learns more.
+const RITUAL_SPELLS = new Set([
+  // 1st level
+  "Alarm", "Comprehend Languages", "Detect Magic", "Find Familiar", "Identify",
+  "Illusory Script", "Tenser's Floating Disk", "Unseen Servant",
+  // 2nd level
+  "Augury", "Gentle Repose", "Locate Animals or Plants", "Locate Object",
+  "Magic Mouth", "Silence", "Skywrite",
+  // 3rd level
+  "Feign Death", "Leomund's Tiny Hut", "Meld Into Stone", "Phantom Steed",
+  "Water Breathing", "Water Walk",
+  // 4th level
+  "Divination",
+  // 5th level
+  "Commune", "Commune with Nature", "Contact Other Plane", "Rary's Telepathic Bond",
+]);
+
 const state = {
   mode: MODE_MEASURE,
   measurePoints: [],
@@ -80,6 +97,8 @@ function renderSheet() {
 
   $("#campaign-name").textContent = state.campaign?.name || "—";
   $("#ig-date").textContent = formatIgDate(state.world?.in_game_date);
+  const today = new Date();
+  $("#real-date").textContent = today.toLocaleDateString(undefined, { weekday: "short", month: "short", day: "numeric", year: "numeric" });
   $("#session").textContent = state.session
     ? `session ${state.session.number}${state.session.ended_at ? " (closed)" : " (open)"}`
     : "no session";
@@ -187,7 +206,7 @@ function renderSheet() {
     slotsEl.appendChild(row);
   }
 
-  // Fey Touched free casts
+  // Fey Touched free casts + Quick Ritual tracker
   const feyEl = $("#fey-free");
   feyEl.innerHTML = "";
   const fey = s.fey_touched_free_casts_available;
@@ -202,40 +221,52 @@ function renderSheet() {
       feyEl.appendChild(row);
     }
   }
+  if (s.quick_ritual_available !== undefined) {
+    const qrAvail = !!s.quick_ritual_available;
+    const row = el("div", { class: "fey-row", title: "Quick Ritual — 1/LR, cast any known ritual as a normal action (no 10-minute extension)" });
+    row.appendChild(el("span", {}, "Quick Ritual"));
+    row.appendChild(
+      el("span", { class: "avail-badge" + (qrAvail ? "" : " spent") }, qrAvail ? "available" : "spent")
+    );
+    feyEl.appendChild(row);
+  }
 
-  // Cantrips / prepared
+  // Cantrips (always-available, no prepared status)
   const cantripsEl = $("#cantrips");
   cantripsEl.innerHTML = "";
   for (const c of s.cantrips_known || []) {
     cantripsEl.appendChild(el("li", {}, c));
   }
-  const prepEl = $("#prepared");
-  prepEl.innerHTML = "";
-  for (const sp of s.spells_prepared || []) {
-    prepEl.appendChild(el("li", {}, sp));
-  }
-  // Spellbook
+  // Unified spellbook with prepared indicators + ritual badges
+  const preparedSet = new Set(s.spells_prepared || []);
   const sbEl = $("#spellbook");
   sbEl.innerHTML = "";
   const sb = s.spellbook || {};
   for (const lvl of Object.keys(sb).sort()) {
     const group = el("div", { class: "lvl-group" });
     group.appendChild(el("h4", {}, `Level ${lvl}`));
-    const ul = el("ul", {});
-    for (const sp of sb[lvl]) ul.appendChild(el("li", {}, sp));
+    const ul = el("ul", { class: "spell-list spellbook-list" });
+    for (const sp of [...sb[lvl]].sort()) {
+      const isPrepared = preparedSet.has(sp);
+      const isRitual = RITUAL_SPELLS.has(sp);
+      const li = el("li", { class: "spellbook-entry" + (isPrepared ? " prepared" : "") });
+      li.appendChild(el("span", { class: "prep-dot" }, isPrepared ? "●" : "○"));
+      li.appendChild(el("span", { class: "spell-name" }, sp));
+      if (isRitual) li.appendChild(el("span", { class: "ritual-badge", title: "Ritual — can be cast without a slot over 10 extra minutes" }, "R"));
+      ul.appendChild(li);
+    }
     group.appendChild(ul);
     sbEl.appendChild(group);
   }
 
-  // Gear / gold
+  // Gear / gold — with containers, drag-drop, and multi-select
   $("#gold").textContent = `${s.gold ?? 0} gp`;
   const invEl = $("#inventory");
   invEl.innerHTML = "";
+  invEl.dataset.containerId = "ROOT";
+  attachDropTarget(invEl);
   for (const it of s.inventory || []) {
-    const li = el("li", {}, it.name);
-    if (it.qty && it.qty > 1) li.appendChild(el("span", { class: "qty" }, ` ×${it.qty}`));
-    if (it.note) li.appendChild(el("span", { class: "note" }, it.note));
-    invEl.appendChild(li);
+    invEl.appendChild(renderInventoryItem(it));
   }
 
   // Quests
@@ -246,8 +277,250 @@ function renderSheet() {
   }
 }
 
+// --- Inventory: nested containers, drag-drop, multi-select ---
+
+const invSelection = new Set();
+
+function renderInventoryItem(item) {
+  const isContainer = !!item.container;
+  const li = el("li", {
+    class: "inv-item" + (isContainer ? " inv-container" : ""),
+    "data-item-id": item.id || "",
+    draggable: "true",
+  });
+  attachItemDragEvents(li, item);
+
+  if (isContainer) {
+    const details = el("details", { open: "" });
+    const summary = el("summary", {});
+    summary.appendChild(buildItemLabel(item, true));
+    details.appendChild(summary);
+    const sub = el("ul", { class: "inv-container-list" });
+    sub.dataset.containerId = item.id || "";
+    attachDropTarget(sub);
+    for (const child of item.contents || []) {
+      sub.appendChild(renderInventoryItem(child));
+    }
+    details.appendChild(sub);
+    li.appendChild(details);
+  } else {
+    li.appendChild(buildItemLabel(item, false));
+  }
+
+  li.addEventListener("click", (e) => {
+    const summaryEl = e.target.closest("summary");
+    const isMeta = e.metaKey || e.ctrlKey;
+    if (summaryEl) {
+      // On a container's summary: only ⌘/Ctrl-click selects (preventing default expand/collapse).
+      // Plain click on summary always expands/collapses natively.
+      if (isMeta) {
+        e.preventDefault();
+        e.stopPropagation();
+        selectItem(li, item.id, "toggle");
+      }
+      return;
+    }
+    e.stopPropagation();
+    if (isMeta) {
+      selectItem(li, item.id, "toggle");
+    } else if (e.shiftKey) {
+      // TODO: true range-select. For now behave like toggle-add.
+      selectItem(li, item.id, "toggle");
+    } else {
+      selectItem(li, item.id, "replace");
+    }
+  });
+  if (invSelection.has(item.id)) li.classList.add("selected");
+  // Right-click context menu for item operations
+  li.addEventListener("contextmenu", (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    showInventoryContextMenu(e.pageX, e.pageY, item);
+  });
+  return li;
+}
+
+function showInventoryContextMenu(x, y, item) {
+  // Remove any existing menu
+  const existing = document.getElementById("inv-ctx-menu");
+  if (existing) existing.remove();
+  const menu = el("div", { id: "inv-ctx-menu", class: "ctx-menu", style: `top:${y}px; left:${x}px;` });
+  const addItem = (label, fn) => {
+    const row = el("div", { class: "ctx-menu-item" }, label);
+    row.addEventListener("click", async (e) => {
+      e.stopPropagation();
+      menu.remove();
+      try { await fn(); } catch (err) { console.error(err); alert("Action failed: " + err.message); }
+    });
+    menu.appendChild(row);
+  };
+  if (!item.container) {
+    addItem("Make container", async () => {
+      const res = await fetch("/api/inventory/toggle-container", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ item_id: item.id, container: true }),
+      });
+      if (res.ok) (typeof refreshState === "function" ? refreshState() : window.location.reload());
+    });
+  } else {
+    addItem("Un-make container (dissolve; contents move to parent)", async () => {
+      if (!confirm(`Dissolve "${item.name}" as a container? Its contents will move to the parent level.`)) return;
+      const res = await fetch("/api/inventory/toggle-container", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ item_id: item.id, container: false, dissolve: true }),
+      });
+      if (res.ok) (typeof refreshState === "function" ? refreshState() : window.location.reload());
+    });
+  }
+  addItem("Rename…", async () => {
+    const name = window.prompt("New name:", item.name);
+    if (!name || !name.trim() || name.trim() === item.name) return;
+    const res = await fetch("/api/inventory/rename", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ item_id: item.id, name: name.trim() }),
+    });
+    if (res.ok) (typeof refreshState === "function" ? refreshState() : window.location.reload());
+  });
+  addItem("Edit note…", async () => {
+    const note = window.prompt("Note (empty to clear):", item.note || "");
+    if (note === null) return;
+    const res = await fetch("/api/inventory/rename", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ item_id: item.id, note: note.trim() }),
+    });
+    if (res.ok) (typeof refreshState === "function" ? refreshState() : window.location.reload());
+  });
+  addItem("Delete", async () => {
+    if (!confirm(`Delete "${item.name}"? ${item.container && (item.contents||[]).length ? "All contents will also be deleted." : ""}`)) return;
+    const res = await fetch("/api/inventory/delete", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ item_id: item.id }),
+    });
+    if (res.ok) (typeof refreshState === "function" ? refreshState() : window.location.reload());
+  });
+  document.body.appendChild(menu);
+  // Dismiss on any outside click or escape
+  const dismiss = (ev) => {
+    if (!menu.contains(ev.target)) { menu.remove(); document.removeEventListener("click", dismiss); document.removeEventListener("keydown", escHandler); }
+  };
+  const escHandler = (ev) => { if (ev.key === "Escape") { menu.remove(); document.removeEventListener("click", dismiss); document.removeEventListener("keydown", escHandler); } };
+  setTimeout(() => {
+    document.addEventListener("click", dismiss);
+    document.addEventListener("keydown", escHandler);
+  }, 0);
+}
+
+function buildItemLabel(item, isContainer) {
+  const wrap = el("span", { class: "inv-label" });
+  wrap.appendChild(el("span", { class: "item-name" }, item.name || "(unnamed)"));
+  if (item.qty && item.qty > 1) wrap.appendChild(el("span", { class: "qty" }, ` ×${item.qty}`));
+  if (item.equipped) wrap.appendChild(el("span", { class: "equipped-badge", title: "equipped" }, "E"));
+  if (item.note) wrap.appendChild(el("span", { class: "note" }, item.note));
+  return wrap;
+}
+
+function selectItem(rowEl, itemId, mode) {
+  if (!itemId) return;
+  if (mode === "replace") {
+    document.querySelectorAll(".inv-item.selected").forEach((n) => n.classList.remove("selected"));
+    invSelection.clear();
+    invSelection.add(itemId);
+    rowEl.classList.add("selected");
+  } else if (mode === "toggle") {
+    if (invSelection.has(itemId)) {
+      invSelection.delete(itemId);
+      rowEl.classList.remove("selected");
+    } else {
+      invSelection.add(itemId);
+      rowEl.classList.add("selected");
+    }
+  }
+}
+
+function attachItemDragEvents(li, item) {
+  // Use IDL property for reliable draggable behavior across namespaces
+  li.draggable = true;
+  li.addEventListener("dragstart", (e) => {
+    e.stopPropagation();
+    const ids = invSelection.has(item.id) && invSelection.size > 1
+      ? Array.from(invSelection)
+      : [item.id];
+    // Use text/plain for broadest browser compat; also set custom type as hint.
+    const payload = JSON.stringify({ kind: "inv-ids", ids });
+    try { e.dataTransfer.setData("text/plain", payload); } catch (_) {}
+    try { e.dataTransfer.setData("application/x-inv-ids", JSON.stringify(ids)); } catch (_) {}
+    e.dataTransfer.effectAllowed = "move";
+    li.classList.add("dragging");
+    console.log("[inv] dragstart", { ids, from: item.name });
+  });
+  li.addEventListener("dragend", () => li.classList.remove("dragging"));
+}
+
+function attachDropTarget(ul) {
+  ul.addEventListener("dragover", (e) => {
+    // Must preventDefault to allow drop. DO NOT stopPropagation — we want root
+    // ul to receive events when cursor is over a root-level <li> that has no
+    // drop handler of its own.
+    e.preventDefault();
+    e.dataTransfer.dropEffect = "move";
+    ul.classList.add("drop-target");
+  });
+  ul.addEventListener("dragleave", (e) => {
+    if (!ul.contains(e.relatedTarget)) ul.classList.remove("drop-target");
+  });
+  ul.addEventListener("drop", async (e) => {
+    e.preventDefault();
+    e.stopPropagation(); // drop fires once; stop here so root doesn't also handle it
+    ul.classList.remove("drop-target");
+    // Read ids — try custom type first, fall back to text/plain JSON payload
+    let ids = null;
+    const raw = e.dataTransfer.getData("application/x-inv-ids");
+    if (raw) {
+      try { ids = JSON.parse(raw); } catch (_) {}
+    }
+    if (!ids) {
+      const plain = e.dataTransfer.getData("text/plain");
+      if (plain) {
+        try {
+          const obj = JSON.parse(plain);
+          if (obj && obj.kind === "inv-ids") ids = obj.ids;
+        } catch (_) {}
+      }
+    }
+    if (!ids || !ids.length) {
+      console.warn("[inv] drop had no item ids in dataTransfer");
+      return;
+    }
+    const targetContainerId = ul.dataset.containerId || "ROOT";
+    console.log("[inv] drop", { ids, targetContainerId });
+    try {
+      const res = await fetch("/api/inventory/move", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ item_ids: ids, target_container_id: targetContainerId }),
+      });
+      if (res.ok) {
+        invSelection.clear();
+        if (typeof refreshState === "function") await refreshState();
+        else window.location.reload();
+      } else {
+        console.warn("[inv] move failed", res.status, await res.text());
+      }
+    } catch (err) {
+      console.error("[inv] move error", err);
+    }
+  });
+}
+
 function formatIgDate(d) {
   if (!d) return "—";
+  // If the DB stored a pre-formatted string (e.g. "30 Flamerule 1491 DR, ~9am"), just return it.
+  if (typeof d === "string") return d;
   const months = [
     "Hammer","Alturiak","Ches","Tarsakh","Mirtul","Kythorn",
     "Flamerule","Eleasis","Eleint","Marpenoth","Uktar","Nightal"
@@ -847,6 +1120,31 @@ function wireEvents() {
     redrawOverlay();
   });
   $("#refresh").addEventListener("click", refresh);
+
+  // + Container button — create a new root-level container
+  const ncBtn = document.getElementById("new-container-btn");
+  if (ncBtn) {
+    ncBtn.addEventListener("click", async () => {
+      const name = window.prompt("New container name (e.g. 'Red Sheaf Room 9 stash', 'Saddlebag'):");
+      if (!name || !name.trim()) return;
+      const note = window.prompt("Optional note (location, context) — leave blank to skip:", "") || "";
+      try {
+        const res = await fetch("/api/inventory/create-container", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ name: name.trim(), note: note.trim(), parent_id: "ROOT" }),
+        });
+        if (res.ok) {
+          if (typeof refreshState === "function") await refreshState();
+          else window.location.reload();
+        } else {
+          alert("Failed to create container: " + (await res.text()));
+        }
+      } catch (err) {
+        alert("Error: " + err);
+      }
+    });
+  }
 
   // Zoom controls
   $("#zoom-in").addEventListener("click", () => zoomToCenter(state.zoom * ZOOM_STEP));
