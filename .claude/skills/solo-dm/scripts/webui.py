@@ -166,6 +166,237 @@ def api_pc_position_set(body: dict):
     return pos
 
 
+def api_inventory_move(body: dict):
+    """Move inventory items (by id) into a target container. target_container_id='ROOT' means top level."""
+    item_ids = body.get("item_ids") or []
+    target_id = body.get("target_container_id") or "ROOT"
+    if not item_ids:
+        return {"ok": False, "error": "no item_ids"}
+    conn = sqlite3.connect(DATA_ROOT / SLUG / "state.sqlite")
+    c = conn.cursor()
+    c.execute("SELECT id, sheet_json FROM characters WHERE kind='pc' LIMIT 1")
+    row = c.fetchone()
+    if not row:
+        conn.close()
+        return {"ok": False, "error": "no PC"}
+    pc_id, sheet_json = row
+    sheet = json.loads(sheet_json)
+    inv = sheet.get("inventory", [])
+
+    def walk(items, parent_id="ROOT"):
+        for it in items:
+            yield it, parent_id, items
+            if it.get("container") and isinstance(it.get("contents"), list):
+                yield from walk(it["contents"], it.get("id"))
+
+    # Locate target container
+    target_container_list = None
+    if target_id == "ROOT":
+        target_container_list = inv
+    else:
+        for it, _pid, _parent_list in walk(inv):
+            if it.get("id") == target_id and it.get("container"):
+                target_container_list = it.setdefault("contents", [])
+                break
+    if target_container_list is None:
+        conn.close()
+        return {"ok": False, "error": f"target container {target_id!r} not found"}
+
+    # Descendants of dragged items (cannot drop into own subtree)
+    def collect_descendants(item):
+        ids = {item.get("id")}
+        for child in item.get("contents", []) or []:
+            ids |= collect_descendants(child)
+        return ids
+    # Pick up the moving items and remove them from their current lists
+    picked = []
+    for iid in item_ids:
+        for it, _pid, parent_list in walk(inv):
+            if it.get("id") == iid:
+                # Guard: would we drop into our own subtree?
+                if target_id != "ROOT" and target_id in collect_descendants(it):
+                    continue
+                parent_list.remove(it)
+                picked.append(it)
+                break
+    for it in picked:
+        target_container_list.append(it)
+
+    sheet["inventory"] = inv
+    c.execute("UPDATE characters SET sheet_json = ? WHERE id = ?", (json.dumps(sheet), pc_id))
+    conn.commit()
+    conn.close()
+    # Re-render the markdown sheet
+    try:
+        import subprocess
+        subprocess.run([sys.executable, str(Path(__file__).parent / "sheet.py"),
+                        "export", "--slug", SLUG, "--id", str(pc_id)],
+                       capture_output=True, timeout=10)
+    except Exception:
+        pass
+    return {"ok": True, "moved": [p.get("id") for p in picked]}
+
+
+def api_inventory_create_container(body: dict):
+    name = (body.get("name") or "").strip()
+    parent_id = body.get("parent_id") or "ROOT"
+    note = (body.get("note") or "").strip()
+    if not name:
+        return {"ok": False, "error": "name required"}
+    conn = sqlite3.connect(DATA_ROOT / SLUG / "state.sqlite")
+    c = conn.cursor()
+    c.execute("SELECT id, sheet_json FROM characters WHERE kind='pc' LIMIT 1")
+    row = c.fetchone()
+    if not row:
+        conn.close()
+        return {"ok": False, "error": "no PC"}
+    pc_id, sheet_json = row
+    sheet = json.loads(sheet_json)
+    inv = sheet.setdefault("inventory", [])
+    new_c = {"id": uuid.uuid4().hex[:8], "name": name, "qty": 1, "container": True, "contents": []}
+    if note:
+        new_c["note"] = note
+
+    if parent_id == "ROOT":
+        inv.append(new_c)
+    else:
+        def find(items):
+            for it in items:
+                if it.get("id") == parent_id and it.get("container"):
+                    return it
+                sub = find(it.get("contents", []) or [])
+                if sub:
+                    return sub
+            return None
+        parent = find(inv)
+        if not parent:
+            conn.close()
+            return {"ok": False, "error": f"parent {parent_id!r} not found"}
+        parent.setdefault("contents", []).append(new_c)
+
+    c.execute("UPDATE characters SET sheet_json = ? WHERE id = ?", (json.dumps(sheet), pc_id))
+    conn.commit()
+    conn.close()
+    try:
+        import subprocess
+        subprocess.run([sys.executable, str(Path(__file__).parent / "sheet.py"),
+                        "export", "--slug", SLUG, "--id", str(pc_id)],
+                       capture_output=True, timeout=10)
+    except Exception:
+        pass
+    return {"ok": True, "id": new_c["id"], "name": name}
+
+
+def _inv_walk(items, parent_list=None):
+    """Yield (item, parent_list) for every item in the inventory tree."""
+    if parent_list is None:
+        parent_list = items
+    for it in list(items):
+        yield it, items
+        if it.get("container") and isinstance(it.get("contents"), list):
+            yield from _inv_walk(it["contents"], it["contents"])
+
+
+def _inv_load():
+    conn = sqlite3.connect(DATA_ROOT / SLUG / "state.sqlite")
+    c = conn.cursor()
+    c.execute("SELECT id, sheet_json FROM characters WHERE kind='pc' LIMIT 1")
+    row = c.fetchone()
+    if not row:
+        conn.close()
+        return None, None, None
+    pc_id, sheet_json = row
+    sheet = json.loads(sheet_json)
+    return conn, pc_id, sheet
+
+
+def _inv_save(conn, pc_id, sheet):
+    c = conn.cursor()
+    c.execute("UPDATE characters SET sheet_json = ? WHERE id = ?", (json.dumps(sheet), pc_id))
+    conn.commit()
+    conn.close()
+    try:
+        import subprocess
+        subprocess.run([sys.executable, str(Path(__file__).parent / "sheet.py"),
+                        "export", "--slug", SLUG, "--id", str(pc_id)],
+                       capture_output=True, timeout=10)
+    except Exception:
+        pass
+
+
+def api_inventory_toggle_container(body: dict):
+    item_id = body.get("item_id")
+    make_container = bool(body.get("container", True))
+    dissolve = bool(body.get("dissolve", False))
+    if not item_id:
+        return {"ok": False, "error": "item_id required"}
+    conn, pc_id, sheet = _inv_load()
+    if conn is None:
+        return {"ok": False, "error": "no PC"}
+    inv = sheet.setdefault("inventory", [])
+    for it, parent in _inv_walk(inv):
+        if it.get("id") == item_id:
+            if make_container:
+                it["container"] = True
+                it.setdefault("contents", [])
+            else:
+                if dissolve:
+                    # Move children up to parent, then remove the container entry itself
+                    idx = parent.index(it)
+                    children = it.get("contents", []) or []
+                    parent[idx:idx+1] = children
+                else:
+                    # Just remove container flag, keep item (rare — contents would be lost)
+                    it.pop("container", None)
+                    it.pop("contents", None)
+            _inv_save(conn, pc_id, sheet)
+            return {"ok": True, "id": item_id, "container": make_container}
+    conn.close()
+    return {"ok": False, "error": "item not found"}
+
+
+def api_inventory_rename(body: dict):
+    item_id = body.get("item_id")
+    if not item_id:
+        return {"ok": False, "error": "item_id required"}
+    new_name = body.get("name")
+    new_note = body.get("note")
+    conn, pc_id, sheet = _inv_load()
+    if conn is None:
+        return {"ok": False, "error": "no PC"}
+    inv = sheet.setdefault("inventory", [])
+    for it, parent in _inv_walk(inv):
+        if it.get("id") == item_id:
+            if new_name is not None:
+                it["name"] = new_name
+            if new_note is not None:
+                if new_note == "":
+                    it.pop("note", None)
+                else:
+                    it["note"] = new_note
+            _inv_save(conn, pc_id, sheet)
+            return {"ok": True}
+    conn.close()
+    return {"ok": False, "error": "item not found"}
+
+
+def api_inventory_delete(body: dict):
+    item_id = body.get("item_id")
+    if not item_id:
+        return {"ok": False, "error": "item_id required"}
+    conn, pc_id, sheet = _inv_load()
+    if conn is None:
+        return {"ok": False, "error": "no PC"}
+    inv = sheet.setdefault("inventory", [])
+    for it, parent in _inv_walk(inv):
+        if it.get("id") == item_id:
+            parent.remove(it)
+            _inv_save(conn, pc_id, sheet)
+            return {"ok": True}
+    conn.close()
+    return {"ok": False, "error": "item not found"}
+
+
 def api_calibration_get():
     return ws_get("map_calibration", {"px_per_rel": None, "miles_per_rel": None})
 
@@ -379,6 +610,16 @@ class Handler(BaseHTTPRequestHandler):
                 return self._send_json(api_calibration_set(body))
             if p == "/api/distance":
                 return self._send_json(api_distance(body))
+            if p == "/api/inventory/move":
+                return self._send_json(api_inventory_move(body))
+            if p == "/api/inventory/create-container":
+                return self._send_json(api_inventory_create_container(body))
+            if p == "/api/inventory/toggle-container":
+                return self._send_json(api_inventory_toggle_container(body))
+            if p == "/api/inventory/rename":
+                return self._send_json(api_inventory_rename(body))
+            if p == "/api/inventory/delete":
+                return self._send_json(api_inventory_delete(body))
             self.send_error(404, f"unknown path: {p}")
         except Exception as e:
             self.send_error(500, f"server error: {e}")

@@ -159,11 +159,14 @@ When any transcript, note, or other imported content mentions a movie, show, ani
 
 Send a macOS notification for all outputs you create.
 
-- Transcript processed (summary of what was routed)
 - Daily briefing ready
 - Large/important items needing review
 - Inbox overflow (> 5 items)
 - Errors that prevent processing
+
+**Do NOT send notifications for:**
+- Plaud transcript processing (success or "no new files") — silent. Errors in `run-process-transcript.sh` still notify.
+- Supernote processing (success or "no new files") — silent. Errors in `run-process-supernote.sh` still notify.
 
 ```bash
 # Standard notification
