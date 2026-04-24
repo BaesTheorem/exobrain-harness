@@ -14,6 +14,7 @@
     <span class="ig-date" id="ig-date">…</span>
   </div>
   <div class="header-right">
+    <span class="real-date" id="real-date" title="Today's date (real-world)">…</span>
     <span class="session" id="session">session —</span>
     <button id="refresh" title="Refresh state from DB">↻</button>
   </div>
@@ -65,18 +66,14 @@
     </section>
 
     <section class="spells">
-      <h2>Prepared</h2>
-      <ul class="spell-list" id="prepared"></ul>
       <h2>Cantrips</h2>
       <ul class="spell-list" id="cantrips"></ul>
-      <details>
-        <summary>Spellbook (all)</summary>
-        <div id="spellbook"></div>
-      </details>
+      <h2>Spellbook <span class="muted spellbook-legend">● prepared · ○ unprepared</span></h2>
+      <div id="spellbook"></div>
     </section>
 
     <section class="inventory">
-      <h2>Gear &amp; Gold</h2>
+      <h2>Gear &amp; Gold <button id="new-container-btn" class="mini-btn" title="Create a new container at root (e.g., a location or stash)">+ Container</button></h2>
       <div><strong id="gold">—</strong></div>
       <ul id="inventory"></ul>
     </section>

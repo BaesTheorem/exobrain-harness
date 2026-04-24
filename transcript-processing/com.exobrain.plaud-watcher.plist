@@ -5,6 +5,9 @@
     <key>Label</key>
     <string>com.exobrain.plaud-watcher</string>
 
+    <key>RunAtLoad</key>
+    <true/>
+
     <key>ProgramArguments</key>
     <array>
         <string>/bin/bash</string>
@@ -25,7 +28,7 @@
     <!-- Periodic fallback in case WatchPaths misses a trigger
          (e.g., Google Drive mounts after launchd already checked) -->
     <key>StartInterval</key>
-    <integer>3600</integer>
+    <integer>300</integer>
 
     <key>ThrottleInterval</key>
     <integer>30</integer>

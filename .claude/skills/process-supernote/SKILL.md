@@ -88,6 +88,4 @@ Store `pageHashes` so future runs can diff against them:
 Remove the extracted PNGs from `/tmp/supernote_pages/` after processing (vault copies are kept in `attachments/supernote/`).
 
 ### 10. Notify
-```bash
-osascript -e 'display notification "OCR: X new pages from [note name] (Y unchanged skipped)" with title "Exobrain" sound name "Purr"'
-```
+Do not send a macOS notification for routine Supernote processing. Errors are surfaced by `run-process-supernote.sh` instead. If something unusual needs Alex's attention (ambiguous items, bulk overflow), surface it in the daily note or Things 3 rather than via notification.
