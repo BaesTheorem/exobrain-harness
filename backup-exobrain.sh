@@ -12,7 +12,8 @@
 #   - Memory files
 #
 # What's NOT backed up (too large, already synced elsewhere):
-#   - Obsidian vault (synced via Google Drive)
+#   - Obsidian vault (synced via Obsidian Sync)
+#   - Plaud transcripts (synced via Google Drive)
 #   - Supernote files (synced via Google Drive)
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
