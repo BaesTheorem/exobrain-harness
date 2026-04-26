@@ -21,9 +21,22 @@ if [ ! -d "$GDRIVE_PLAUD" ]; then
     exit 0
 fi
 
-# Count .md/.txt files in GDrive Plaud dir
-FILE_COUNT=$(find "$GDRIVE_PLAUD" \( -name "*.md" -o -name "*.txt" \) -type f 2>/dev/null | wc -l | tr -d ' ')
-if [ "$FILE_COUNT" -eq 0 ]; then
+# Bail out if every transcript already has a matching entry in the processing log.
+# Otherwise this watcher fires Claude every 30 min just to be told "nothing new".
+/usr/bin/python3 - "$GDRIVE_PLAUD" "$PROCESSING_LOG" <<'PY'
+import json, os, sys
+plaud_dir, log_file = sys.argv[1], sys.argv[2]
+files = [n for n in os.listdir(plaud_dir) if n.endswith((".md", ".txt"))]
+if not files:
+    sys.exit(0)
+try:
+    log = json.load(open(log_file))
+except (FileNotFoundError, json.JSONDecodeError):
+    sys.exit(1)
+processed = {e.get("id") for e in log if e.get("source") == "plaud"}
+sys.exit(1 if any(f not in processed for f in files) else 0)
+PY
+if [ $? -eq 0 ]; then
     exit 0
 fi
 
