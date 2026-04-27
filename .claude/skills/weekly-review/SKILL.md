@@ -79,8 +79,9 @@ Read `/Users/alexhedtke/Documents/Exobrain/Mood Journal.md` and generate the wee
    - Social overload → crash pattern
    - Purpose score chronically low (procrastination/drift signal)
 
-### 10. Network CRM — weekly outreach pick
-Surface 1 potential contact for Alex to initiate with this week:
+### 10. Network CRM — weekly outreach pick + integration audit
+
+**Outreach pick** (1 potential contact):
 1. Scan People/ notes with `category: potential` and `reached_out: false`
 2. Pick **1 potential contact** to recommend, prioritizing those most relevant to current priorities (job search, AI safety network, local KC connections)
 3. For the selected contact, include in the review:
@@ -88,9 +89,21 @@ Surface 1 potential contact for Alex to initiate with this week:
    - Suggested outreach angle (with a concrete offer to help)
    - Platform to use (or suggest one based on available info)
 4. Create a Things 3 task `Reach out to [Name]` (when: anytime, tag: networking, notes: context + People note deep link). Search Things 3 first to avoid duplicates.
-5. Also include a brief CRM health summary: total categorized contacts, number overdue, category distribution.
 
-Note: Overdue active contacts are already surfaced daily in the morning briefing. The weekly review's CRM role is expanding the network via potential contacts.
+**CRM health summary**: total categorized contacts, number overdue, category distribution.
+
+**Integration audit (Karpathy wiki maintenance — `/crm` mode 11)**:
+1. Score every active People note against the compaction triggers in [[People Note Schema]]:
+   - Mentions count (>30 = signal)
+   - Days since oldest unintegrated Mention
+   - Duplicate section headers
+   - ✅ closed Follow-ups older than 30 days
+   - Section order out of canonical sequence
+2. Surface the top **3-5 People notes** most in need of compaction.
+3. For each, name the specific issue ("18 Mentions, 6 from before Mar 26 not lifted into Context") and recommend `/crm integrate [Name]`.
+4. This is the maintenance pass that keeps the wiki actually compounding — without it, notes degrade into append-only logs.
+
+Note: Overdue active contacts are surfaced daily in the morning briefing. The weekly review's CRM role is (a) expanding the network via potential contacts, and (b) maintaining the wiki integrity of existing notes.
 
 ### 11. Interaction highlights
 Read this week's daily notes and processing log. Compile a single list of notable interaction highlights from all processed transcripts, Supernote pages, iMessages, Discord, and calendar events. Focus on things Alex might want to reflect on or act on during the review — key conversations, commitments made, interesting ideas discussed, relationship moments, unresolved threads.
@@ -98,20 +111,15 @@ Read this week's daily notes and processing log. Compile a single list of notabl
 ### 12. Local Events — weekly scan
 Run `/local-events` (full scan mode) to refresh the events log with upcoming KC events. This is the primary trigger for the local-events skill — there is no separate scheduled task. The daily briefing reads from the log this produces.
 
-### 13. Deep Recon — weekly vault reconnaissance
-After completing all automated checks above, run the `/deep-recon` skill in autonomous, vault-only mode on the week's most prominent theme or open question.
+### 13. Exobrain Audit — weekly harness check
+After completing all automated checks above, run the `/exobrain-audit` skill to audit the harness itself: privacy/legibility scan of tracked files, architecture recon, and AI productivity research.
 
-**How to pick the topic:**
-1. Review the week's daily notes, interaction highlights, and open questions surfaced in steps 1-11
-2. Identify the thread that appeared most often OR the biggest unresolved question
-3. Frame it as a research question (e.g., "How does Alex's AI governance work connect to the job search?" or "What patterns exist across this month's networking conversations?")
+**Invocation:** Invoke the `exobrain-audit` skill. It runs its three phases (Privacy & Legibility, Architecture Recon, AI Productivity Research) and produces a structured findings list.
 
-**Invocation:** Run `/deep-recon --autonomous --vault-only --output recon/weekly/` with the chosen topic. This dispatches 4 parallel agents (Explorer, Associator, Critic, Synthesizer) to find connections across the vault that Alex hasn't noticed.
+**Cost note:** Heavy — runs multiple parallel subagents. This runs after all other review steps are complete so it doesn't block the rest of the review.
 
-**Cost note:** ~800k-1M tokens, 20-30 minutes. This runs after all other review steps are complete so it doesn't block the rest of the review.
-
-**Output:** The recon document lands in `/Users/alexhedtke/Documents/Exobrain/recon/weekly/`. Include a link in the weekly review output:
-> **Deep Recon**: [[recon/weekly/YYYY-MM-DD-topic-slug|This week's vault recon]] — [1-sentence summary of the most surprising finding]
+**Output:** Surface the audit findings in the weekly review output. Do NOT auto-apply fixes — present them for Alex to review first. Include a section in the weekly review:
+> **Exobrain Audit**: [N] privacy findings, [N] legibility gaps, [N] architecture/efficiency suggestions. See findings below.
 
 ## Manual Checklist
 Generate this for Alex to complete:
@@ -137,7 +145,7 @@ Write `### Weekly Review` section in Sunday's daily note containing:
 10. **Mood summary**: Week's mood trajectory, sub-category trends, comparison to prior week, pattern flags
 11. **Network CRM**: CRM health summary + 1 recommended outreach for the week (with context and suggested angle)
 12. **Interaction highlights**: Key conversations, commitments, relationship moments from the week
-13. **Deep Recon**: Link to this week's vault reconnaissance document + 1-sentence highlight
+13. **Exobrain Audit**: Privacy/legibility findings, architecture recon, and productivity research from `/exobrain-audit` (present for review, don't auto-fix)
 14. **Manual checklist**: Items for Alex to check himself
 15. **Proactive observations**: Patterns, efficiency suggestions, time-waste flags
 

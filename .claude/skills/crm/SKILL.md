@@ -175,37 +175,80 @@ When processing transcripts, emails, or calendar events:
 3. Classify new people as active vs potential
 4. Surface in the daily note's Network section
 
-### 9. Continuous integration — Karpathy wiki pattern
-**Every input source that touches a person should enrich their People note, not just log a mention.** This is the compounding CRM's growth engine. The People/ directory is a self-updating wiki: new information gets integrated into existing pages rather than stored as raw append-only logs.
+### 9. Karpathy wiki integration (default behavior, not opt-in)
 
-**When to run:** During every skill that encounters people — `/process-transcript`, `/daily-briefing` (email scan, iMessage scan, calendar review), `/weekly-review` (calendar retrospective, interaction highlights), `/process-supernote`, and ad-hoc conversations.
+**The canonical schema lives at [[People Note Schema]] — read it before any substantial People-note edit.** This mode is not an "advanced feature." It is the default behavior for every skill that touches a People note.
 
-**What to integrate (beyond `last_contact` and Mentions):**
+**When to run:** Every time. `/process-transcript`, `/daily-briefing` (email/iMessage/calendar), `/weekly-review`, `/process-supernote`, `/imessage`, `/discord-digest`, and ad-hoc.
 
-1. **Factual updates to `## Context`**: New job, moved cities, started a project, changed roles, got married, had a kid, adopted a pet, started a hobby, health updates, life events. Don't re-add what's already there — read the existing Context section first and only add genuinely new information.
+**The integration discipline (mandatory)**:
 
-2. **Relationship graph updates**: If the input reveals a connection between two people (e.g., "Sarah introduced me to James"), update BOTH People notes. Add a line like `- Connected to [[James Chen]] — introduced by Sarah at BlueDot meetup (2026-04-07)` to a `## Connections` section (create it if it doesn't exist, place it after `## Contact`).
+1. **Read the full note first.** Open Context, Connections, Personality & Dynamics — not just Mentions. Decide where new info belongs.
 
-3. **Interest/topic evolution**: If someone's interests or expertise shift (e.g., they used to talk about ML but now they're focused on policy), update `expertise` in frontmatter and add context to `## Context`.
+2. **Integrate, don't append.**
+   - **Fact updates** → `## Context` (replace stale lines, weave new ones in; each fact appears once).
+   - **Relationship links** → `## Connections` on BOTH notes (bidirectional).
+   - **Recurring behavior, third instance of a pattern** → name it in `## Personality & Dynamics`. Each bullet names a *pattern*, not a single instance.
+   - **Open thread** → `## Follow-ups`.
+   - **Pure event log line** → `## Mentions` (with `[[Day, Month Dth, YYYY]]` wikilink).
 
-4. **Communication pattern observations**: If you notice patterns across multiple interactions (e.g., "always responds quickly on Signal but ignores email", "tends to reach out only when stressed", "likes to be the center of attention"), add to `## Personality & Dynamics`.
+3. **Promote signal up the stack.** When a Mention represents a pattern (3+ instances) or fixed fact, lift it into the right section and prune or compact the original Mention.
 
-5. **Cross-reference enrichment**: When processing a transcript that mentions Person A talking about Person B, update Person B's note with `- Mentioned by [[Person A]] in conversation (date) — [context]` in Mentions. This captures indirect intel.
+4. **Conflicting info wins on recency.** Old: "Works at Acme." New: "Now at StartupX." Update Context, remove the old line; don't keep both.
 
-**How to integrate (not append):**
-- Read the full People note before writing
-- If new info contradicts old info, update the old info (e.g., old: "Works at Acme Corp" → new email signature says "Now at StartupX" → update Context, don't append both)
-- If new info extends existing info, weave it into the existing paragraph/bullet rather than adding a new one
-- Keep `## Mentions` as an append-only chronological log (this is the raw audit trail)
-- Keep `## Context`, `## Connections`, and `## Personality & Dynamics` as living documents that get refined over time
+5. **Cross-reference enrichment.** Transcript A mentions person B → add a Mention to B's note: `- Mentioned by [[A]] (date) — [context]`. If a fact about B emerges, also update B's `## Context`.
 
-**Lightweight mode for daily briefing:** The daily briefing processes dozens of emails and messages. For efficiency, only do deep enrichment when the input contains substantive new information about a person (new job, life event, project update, relationship insight). For routine emails ("sounds good, see you Tuesday"), just update `last_contact` — don't add a Mention entry for every pleasantry.
+6. **Frontmatter discipline.** Update `last_contact` on actual contact (not on indirect mentions). Update `expertise` and other frontmatter when those drift.
+
+**No more "lightweight mode."** Routine pleasantries ("sounds good, see you Tuesday") still update `last_contact` and skip a Mention entry — but if the email reveals anything substantive (new role, location change, relationship shift, project update), integrate it. The bar is "is there new signal?", not "is this a long email?"
+
+### 9b. Compaction — keeping People notes sharp
+
+The wiki only compounds if you compact. Without this, notes degrade into append-only logs and the "wiki" claim becomes aspirational.
+
+**Triggers for compaction on a People note**:
+- Mentions section has > 30 entries
+- A Mention older than 30 days describes a fact or pattern that didn't make it into Context / Personality & Dynamics
+- Same fact restated across 3+ Mentions but never lifted
+- ✅ closed Follow-ups sitting > 30 days
+- Duplicate section headers (e.g., two `## Mentions`)
+- Section order doesn't match [[People Note Schema]]
+
+**How to compact**:
+1. Read the full note.
+2. For each Mention older than 30 days: ask "is this load-bearing?" If yes, lift the fact into Context or the pattern into Personality & Dynamics. If no, prune.
+3. Aim for ≤ 25 Mentions on active contacts.
+4. Replace stale Context lines with current ones.
+5. Remove ✅ Follow-ups older than 30 days.
+6. Reorder sections to match the canonical schema.
+
+### 10. Integrate: `/crm integrate [name]`
+
+Manually trigger a full Karpathy-style refactor on a single People note.
+
+1. Read the full note.
+2. Apply the compaction triggers above.
+3. Promote signal up the stack: lift facts, name patterns, prune resolved threads.
+4. Reorder sections to match [[People Note Schema]].
+5. Bidirectional updates: if integration reveals connections to other People notes, update those too.
+6. Report a diff-style summary (lines lifted, lines pruned, sections reorganized) so Alex can spot-check.
+
+This is the explicit "I want this note in great shape" mode. The weekly-review integration audit (mode 11) surfaces candidates automatically.
+
+### 11. Integration audit (used by weekly review)
+
+Every Sunday, surface the 3-5 People notes most in need of compaction. For each People note:
+- Count Mentions, count days since oldest unintegrated Mention, count duplicate section headers, count ✅ Follow-ups > 30 days old.
+- Score and rank.
+- The weekly review's CRM section lists the top 3-5 with a one-click `/crm integrate [Name]` deep link or recommendation.
+
+Alex runs `/crm integrate [Name]` on the ones he wants refactored, or on his most-mentioned contacts as a maintenance pass.
 
 ## Integration with Other Skills
 
 - **`/process-transcript`**: Calls Network scan (mode 8) for every transcript. Updates `last_contact` for anyone Alex spoke with.
 - **`/daily-briefing`**: Scans People/ frontmatter for all overdue contacts. Lists every overdue contact in the briefing and creates a Things 3 task for each (see Task Creation below).
-- **`/weekly-review`**: CRM health summary (total contacts, overdue count, category distribution). Surfaces 1 **potential** contact to initiate with this week and creates a Things 3 task for that outreach. Does not duplicate overdue surfacing (that's the daily briefing's job).
+- **`/weekly-review`**: CRM health summary (total contacts, overdue count, category distribution). Surfaces 1 **potential** contact to initiate with this week and creates a Things 3 task for that outreach. Also runs the **integration audit (mode 11)** — surfaces 3-5 People notes most in need of compaction, with `/crm integrate` recommendations. Does not duplicate overdue surfacing (that's the daily briefing's job).
 - Ad-hoc questions like "who should I follow up with?" or "tell me about [person]" can be answered via CRM lookup
 
 ## Task Creation
