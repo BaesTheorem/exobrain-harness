@@ -132,21 +132,36 @@ When any transcript, note, or other imported content mentions a movie, show, ani
 - Alex's goal: 15,000+ steps/day — flag when falling behind and suggest catch-up opportunities based on calendar gaps
 - Alex weighs in the morning before drinking water — hydration % reads low (~41%) by design; this is not a concern.
 
-## People Notes (Network CRM)
+## People Notes (Karpathy-style wiki + CRM)
+
+People notes are a **Karpathy-style self-updating wiki**, not an append-only log. The Mentions section is the raw audit trail; everything else is living, integrated knowledge that gets *refactored* over time.
 
 - **Location**: `/Users/alexhedtke/Documents/Exobrain/Areas/Relationships & Community/People/[Name].md`
+- **Schema (canonical, mandatory)**: [[People Note Schema]] — every People note conforms to this structure. Read it before creating or substantially editing any People note.
 - **Dashboard**: `/Users/alexhedtke/Documents/Exobrain/Network CRM.base`
-- **Source of truth**: YAML frontmatter on People/ notes (not a Google Sheet)
-- **Categories**: Cat A = 14 days, Cat B = 21 days, Cat C = 45 days, Cat D = 90 days, null = no outreach (reference-only file)
-- Alex edits frontmatter directly in Obsidian (category, frequency, last_contact, etc.) — always read current frontmatter before computing status
-- If Alex overrides `frequency` to a non-default value, honor it (e.g., Cat B contact with frequency: 30 instead of default 21)
-- Every identifiable person mentioned in transcripts, emails, meetings, or Supernote notes gets a People note
-- Each note accumulates mentions over time with dated context — this is the compounding CRM
-- Always check if a person's note exists before creating a new one
-- Skip generic speakers ("Speaker 1", "unknown")
-- When surfacing follow-ups in daily notes or weekly reviews, link to the person's People note
-- After Alex contacts someone via an outgoing email, outgoing imessage, calendar event, or transcript conversation, update `last_contact` in their People/ note frontmatter directly
-- **Karpathy wiki pattern**: People notes are a self-updating wiki, not an append-only log. Every input source (transcript, email, iMessage, calendar, Supernote) should *integrate* new information into existing sections rather than just appending mentions. Update `## Context` with new facts, `## Connections` with relationship links between people, and `## Personality & Dynamics` with behavioral observations. See the CRM skill's "Continuous integration" section (mode 9) for the full protocol.
+- **Source of truth**: YAML frontmatter on People/ notes (not a Google Sheet).
+- **Categories**: Cat A = 14 days, Cat B = 21 days, Cat C = 45 days, Cat D = 90 days, null = no outreach.
+
+### The wiki discipline (non-negotiable)
+
+When ANY skill touches a People note (transcript processing, email scan, iMessage scan, calendar review, Supernote, manual update):
+
+1. **Read the full note first.** Open Context, Connections, Personality & Dynamics. Don't scroll to Mentions and append.
+2. **Integrate, don't append.** New facts → `## Context` (replace stale lines). New relationship links → `## Connections` on BOTH notes. Recurring behaviors → `## Personality & Dynamics` (name the pattern). Open threads → `## Follow-ups`. Raw event log → `## Mentions`.
+3. **Promote signal up the stack.** When a Mention represents a pattern (3+ similar instances) or a fixed fact, lift it into the right section and prune or compact the original Mention.
+4. **Compact old Mentions.** Mentions >30 days old should be lifted into Context / Personality & Dynamics, or pruned. Active People notes should aim for ≤25 Mentions; >30 is the compaction signal.
+5. **Conflicting info wins on recency.** If old says "lives in NC" and new says "moved to SF," update Context to SF and remove the old line. Don't keep both.
+6. **Cross-reference enrichment.** When transcript A mentions person B, update B's note too — both Mentions (indirect intel) and Context if a fact emerges.
+
+### Standing rules
+
+- Alex edits frontmatter directly in Obsidian; always read current frontmatter before computing status.
+- If Alex overrides `frequency` to a non-default value, honor it.
+- Every identifiable person mentioned gets a People note. Skip generic speakers ("Speaker 1", "unknown").
+- Always check if a person's note exists before creating a new one.
+- After Alex contacts someone (outgoing email, iMessage, calendar event, transcript conversation), update `last_contact` in frontmatter directly.
+- When surfacing follow-ups in daily notes or weekly reviews, link to the person's People note.
+- The full protocol — including `/crm integrate` mode and the weekly-review integration audit — lives in the `/crm` skill.
 
 ## Proactive Assistant Behavior
 
