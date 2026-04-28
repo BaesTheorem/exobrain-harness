@@ -60,8 +60,8 @@ Decide which mode to run based on what Alex asked:
 2. **Load preferences.** Read `data/solo-dm/preferences.json` (gitignored, may or may not exist) and honor its `content` settings for this session. If the file is absent, default to a tasteful PG-13 register. If present, follow its policy verbatim — including mature/explicit settings when configured. Campaign-specific overrides in `campaigns.settings_json` take precedence over the global preferences file.
 3. `python3 scripts/db.py open-session --slug <slug>` — records the JSONL path + session number.
 4. Load the context slice: `python3 scripts/context.py turn --slug <slug>`. Read it. Note Alex's Notes, Claude reference, and any `> [!alex]` callouts.
-5. If there was a prior session, read its `recap_md` (from the DB, not the full turn log).
-6. Give Alex a brief "Previously on…" recap (2-4 sentences) and describe the current scene setup, referencing any directives in Alex's Notes.
+5. If there was a prior session, read its `recap_md` AND `last_scene_verbatim` from the DB (not the full turn log).
+6. Give Alex a brief "Previously on…" recap (2-4 sentences) drawn from `recap_md`, then drop him back into the moment by re-presenting the prior session's `last_scene_verbatim` *unchanged* (under a "Where we left off" header). Do not summarize, paraphrase, or "tighten" it — quoting it verbatim is what restores the same beat. Reference any directives in Alex's Notes after.
 7. Do NOT open the first scene yet — wait for Alex to indicate he's ready to engage.
 
 ## Mode 3 — Play (the turn loop)
@@ -159,11 +159,24 @@ python3 scripts/db.py append-event --slug <s> --type retcon \
 
 1. Close any open scene first (Mode 4).
 2. Generate a scene-based prose recap from ALL scenes' summaries + events. Write it to `Sessions/Session-N-recap.md` in the vault AND store in `sessions.recap_md`.
-3. Append a one-line entry to `Campaign log.md` per scene.
-4. Update any changed Faction/Location/NPC notes (additive only — never overwrite Alex's edits).
-5. `python3 scripts/db.py close-session --slug <s>`.
-6. **Sycophancy diff:** read `Session-N-recap.md` and confirm every success/failure in the recap maps to a logged roll in the DB. If not, that's a bug — fix before finishing.
-7. macOS notification: `osascript -e 'display notification "Session N complete" with title "Solo DM"'`.
+3. **Capture the closing-scene verbatim.** Take the *exact* prose of the last scene/exchange you set — the final beat the player is sitting in as they walk away from the table. This is NOT a summary or a paraphrase: it's the literal text you narrated (the room, the NPC's last line, what's on the table, what action is pending). Aim for the last ~2-6 paragraphs you sent. Do not rewrite it, do not "polish" it for the recap, do not strip out unresolved beats — fidelity is the entire point. Resuming from a paraphrase loses the texture; resuming from verbatim text drops the player back into the same moment.
+   - Append it to `Sessions/Session-N-recap.md` under a `## Closing scene (verbatim)` header.
+   - Pass it via `--last-scene-verbatim` on close-session (below). Use a HEREDOC if it contains shell-special chars.
+4. Append a one-line entry to `Campaign log.md` per scene.
+5. Update any changed Faction/Location/NPC notes (additive only — never overwrite Alex's edits).
+6. `python3 scripts/db.py close-session --slug <s> --recap-md "$(cat Sessions/Session-N-recap.md)" --last-scene-verbatim "<verbatim closing-scene prose>"`.
+7. **Sycophancy diff:** read `Session-N-recap.md` and confirm every success/failure in the recap maps to a logged roll in the DB. If not, that's a bug — fix before finishing.
+8. macOS notification: `osascript -e 'display notification "Session N complete" with title "Solo DM"'`.
+
+## Calendar & quest hygiene (during play)
+
+The dashboard exposes a Harptos calendar view and an editable quest/task list, both backed by the campaign DB. Keep them in sync as scenes unfold — Alex relies on these to remember plans across sessions.
+
+- **When a scene plants a future appointment** ("we'll meet Olwin at the Red Sheaf in three days," "the festival is in a tenday"), POST it to `/api/calendar/events` (`{year, day_of_year, title, kind: "event"|"task"|"quest_beat", notes}`). Use the in-game date (Harptos), not real-world. If the date is relative ("in 3 days"), advance from the current `in_game_date` and write the resulting absolute date.
+- **When a new quest emerges**, POST `/api/quests` with the name and an initial list of beats (`[{text, done: false}, ...]`). Don't wait for the player to ask — capture it the turn it appears.
+- **When a quest beat completes**, PATCH the quest's `beats` array (set `done: true` on the matching entry). When a quest concludes, PATCH its `status` to `complete` or `failed`.
+- **When in-game time advances** (long rest, travel, downtime), POST `/api/calendar/advance` with `{days, hours, to_time}`. This updates the canonical `in_game_date` and any UI showing it.
+- These calls are local-only (port 8765) and don't appear in the player-facing narration. Make them silently — they're bookkeeping, not story beats.
 
 ## Mode 6 — Campaign status
 
