@@ -22,9 +22,12 @@ Also normalize variations of the same person to one canonical name for People/ n
 ### 1. Find unprocessed transcripts
 - List all `.txt` files in `/Users/alexhedtke/My Drive/Plaud/`
 - Read `/Users/alexhedtke/Documents/Exobrain harness/processing-log.json`
-- Identify files not yet in the log. **Filename matching alone is insufficient** — the same recording can appear under different filenames (e.g., `create_tim ... .txt` renamed to `2026-04-08_0955_...txt`). A file is considered already processed if ANY of the following match an existing log entry:
-  1. The filename matches an `id` or `filename` field in the log
-  2. The `create_time` in the file's JSON matches (within a few minutes) the date+time encoded in a log entry's `id`
+- Identify files not yet in the log. **Dedup by content, not just filename.** Two failure modes to guard against:
+  1. **Filename collision** — Plaud reuses the placeholder name `create_tim ... .txt` (and `... (N).txt` variants) for every unrenamed recording, so a new recording can have the same filename as a previously-processed file. **Treat any filename starting with `create_tim` as unprocessed by filename alone — always open the JSON and dedup by `create_time`.**
+  2. **Filename rename** — the same recording can appear under different filenames (e.g., `create_tim ... .txt` renamed to `2026-04-08_0955_...txt`).
+- A file is considered already processed if ANY of the following match an existing log entry:
+  1. The filename matches an `id` or `filename` field in the log **AND** the filename does not start with `create_tim`
+  2. The `create_time` in the file's JSON matches (within a few minutes) the `create_time` recorded in a log entry, or the date+time encoded in a log entry's `id` (e.g., `2026-04-08_0955_...`)
   3. The `title` in the file's JSON closely matches an existing log entry's `title` field on the same date
 - If no unprocessed files, stop silently (no notification)
 
@@ -140,12 +143,14 @@ Format: `YYYY-MM-DD_HHmm_[sanitized-title].txt` where:
 Use `mv` to rename in place within `/Users/alexhedtke/My Drive/Plaud/` (files stay in Google Drive). Update the processing log entry (step 10) to use the **new** filename as the `id`.
 
 ### 10. Update processing log
-Append to `processing-log.json`:
+Append to `processing-log.json`. Always include `create_time` so future dedup is content-based, not filename-based:
 ```json
 {
   "id": "filename.md",
   "processedAt": "ISO-8601 timestamp",
   "source": "plaud",
+  "create_time": "2026-04-27T13:07:28Z",
+  "title": "transcript title from JSON",
   "itemsCreated": { "tasks": N, "notes": N, "events": N }
 }
 ```

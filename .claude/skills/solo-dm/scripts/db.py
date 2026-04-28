@@ -8,7 +8,7 @@ are enforced in one place.
 CLI surface (invoked by the skill):
     db.py init --slug <slug> --name "<Name>" --vault "<path>"
     db.py open-session --slug <slug>
-    db.py close-session --slug <slug>
+    db.py close-session --slug <slug> [--recap-md <md>] [--last-scene-verbatim <md>]
     db.py open-scene --slug <slug> --name "<name>" --goals-json <json>
     db.py close-scene --slug <slug>
     db.py commit-turn --slug <slug> --actor <id|name> --action "<text>" \
@@ -62,6 +62,10 @@ def init_campaign(slug: str, name: str, vault_path: str) -> None:
     fresh = not path.exists()
     conn = sqlite3.connect(path)
     conn.executescript(SCHEMA_PATH.read_text())
+    # Lightweight migrations for existing DBs
+    cols = {r[1] for r in conn.execute("PRAGMA table_info(sessions)").fetchall()}
+    if "last_scene_verbatim" not in cols:
+        conn.execute("ALTER TABLE sessions ADD COLUMN last_scene_verbatim TEXT")
     if fresh:
         conn.execute(
             "INSERT INTO campaigns (slug, name, vault_path) VALUES (?,?,?)",
@@ -101,13 +105,22 @@ def open_session(slug: str) -> None:
     print(json.dumps({"ok": True, "session_id": sid, "number": n, "jsonl": str(jsonl)}))
 
 
-def close_session(slug: str) -> None:
+def close_session(slug: str, recap_md: str | None = None,
+                  last_scene_verbatim: str | None = None) -> None:
     conn = connect(slug)
     sid = _open_session_id(conn)
-    conn.execute("UPDATE sessions SET ended_at=datetime('now') WHERE id=?", (sid,))
+    fields = ["ended_at=datetime('now')"]
+    vals: list = []
+    if recap_md is not None:
+        fields.append("recap_md=?"); vals.append(recap_md)
+    if last_scene_verbatim is not None:
+        fields.append("last_scene_verbatim=?"); vals.append(last_scene_verbatim)
+    vals.append(sid)
+    conn.execute(f"UPDATE sessions SET {', '.join(fields)} WHERE id=?", vals)
     conn.execute(
         "INSERT INTO events (session_id, type, data_json) VALUES (?,?,?)",
-        (sid, "session_close", "{}"),
+        (sid, "session_close",
+         json.dumps({"has_verbatim": last_scene_verbatim is not None})),
     )
     conn.commit()
     print(json.dumps({"ok": True, "session_id": sid}))
@@ -399,6 +412,10 @@ def main() -> None:
 
     s = sub.add_parser("open-session"); s.add_argument("--slug", required=True)
     s = sub.add_parser("close-session"); s.add_argument("--slug", required=True)
+    s.add_argument("--recap-md")
+    s.add_argument("--last-scene-verbatim",
+                   help="Verbatim text of the final exchange/scene the DM set, "
+                        "used to resume the next session in the same beat.")
 
     s = sub.add_parser("open-scene"); s.add_argument("--slug", required=True)
     s.add_argument("--name", required=True); s.add_argument("--location-id", type=int)
@@ -449,7 +466,7 @@ def main() -> None:
     elif args.cmd == "open-session":
         open_session(args.slug)
     elif args.cmd == "close-session":
-        close_session(args.slug)
+        close_session(args.slug, args.recap_md, args.last_scene_verbatim)
     elif args.cmd == "open-scene":
         open_scene(args.slug, args.name, args.location_id, args.goals_json)
     elif args.cmd == "close-scene":

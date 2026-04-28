@@ -9,7 +9,9 @@
 <body>
 <header>
   <div class="title">
-    <span class="campaign-name" id="campaign-name">…</span>
+    <select class="campaign-select" id="campaign-select" title="Switch campaign">
+      <option value="">…</option>
+    </select>
     <span class="divider">·</span>
     <span class="ig-date" id="ig-date">…</span>
   </div>
@@ -65,10 +67,18 @@
       <div class="fey-free" id="fey-free"></div>
     </section>
 
+    <section class="ki" id="ki-section" hidden>
+      <h2>Ki <span class="muted" id="ki-text">— / —</span></h2>
+      <div class="slot-row">
+        <div class="slot-dots" id="ki-dots"></div>
+      </div>
+      <div class="muted" style="font-size:11px;">Click a dot to set ki to that point. Empty dots = spent.</div>
+    </section>
+
     <section class="spells">
       <h2>Cantrips</h2>
       <ul class="spell-list" id="cantrips"></ul>
-      <h2>Spellbook <span class="muted spellbook-legend">● prepared · ○ unprepared</span></h2>
+      <h2>Spellbook <span class="muted spellbook-legend" id="prep-counter">● prepared · ○ unprepared</span></h2>
       <div id="spellbook"></div>
     </section>
 
@@ -79,13 +89,21 @@
     </section>
 
     <section class="quests">
-      <h2>Active quests</h2>
+      <h2>Quests &amp; Tasks <button id="new-quest-btn" class="mini-btn" title="Add a new quest">+ Quest</button></h2>
       <ul id="quests"></ul>
     </section>
   </aside>
 
-  <!-- CENTER: Map -->
-  <section id="map-wrap">
+  <!-- CENTER: View switcher (Map | Calendar) -->
+  <section id="center-pane">
+    <nav class="view-tabs">
+      <button class="view-tab active" data-view="map">🗺 Map</button>
+      <button class="view-tab" data-view="calendar">📅 Calendar</button>
+      <button class="view-tab" data-view="combat">⚔ Combat</button>
+      <button class="view-tab" data-view="features">📜 Features</button>
+    </nav>
+
+    <div id="map-wrap">
     <div class="map-toolbar">
       <div class="map-modes">
         <button class="mode-btn active" data-mode="measure">Measure</button>
@@ -114,11 +132,56 @@
         <br>then click ↻ Refresh.
       </div>
     </div>
+    </div><!-- /#map-wrap -->
+
+    <div id="calendar-wrap" class="hidden">
+      <div class="cal-toolbar">
+        <button id="cal-prev" title="Previous month">‹</button>
+        <button id="cal-today" title="Jump to current in-game date">Today</button>
+        <button id="cal-next" title="Next month">›</button>
+        <span class="cal-title" id="cal-title">…</span>
+        <span class="cal-spacer"></span>
+        <button id="cal-add-event" title="Add an event on a chosen date">+ Event</button>
+        <button id="cal-advance" title="Advance the in-game date">⏩ Advance</button>
+        <a id="cal-wiki-link" class="cal-wiki-link" target="_blank" rel="noopener" href="#">Month on wiki ↗</a>
+      </div>
+      <div class="cal-grid-wrap">
+        <div class="cal-tendays" id="cal-tendays-row"></div>
+        <div class="cal-grid" id="cal-grid"></div>
+        <div class="cal-festival-banner" id="cal-festival-banner"></div>
+      </div>
+      <div class="cal-month-blurb" id="cal-month-blurb">
+        <h3 id="cal-blurb-title">…</h3>
+        <p id="cal-blurb-body" class="muted">Click "Month on wiki ↗" to load the canonical Forgotten Realms description.</p>
+      </div>
+    </div><!-- /#calendar-wrap -->
+
+    <div id="combat-wrap" class="hidden">
+      <div class="combat-toolbar">
+        <span class="combat-status" id="combat-status">No active encounter</span>
+        <span class="cal-spacer"></span>
+        <button id="combat-start-btn" title="Start a new encounter">⚔ Start encounter</button>
+        <button id="combat-add-btn" title="Add a token to the active encounter" class="hidden">+ Token</button>
+        <button id="combat-end-btn" title="End the encounter and clear the board" class="hidden">End encounter</button>
+      </div>
+      <div id="combat-grid-wrap">
+        <div class="combat-empty" id="combat-empty">
+          <p>No combat is active.</p>
+          <p class="muted">Start an encounter to spawn a hex grid (each hex = 5 ft) and place tokens for the PC and any enemies.</p>
+        </div>
+        <svg id="combat-grid" class="hidden" xmlns="http://www.w3.org/2000/svg"></svg>
+      </div>
+      <div class="combat-info" id="combat-info">⌘-click empty hex to add a quick token. Drag tokens to move (distance shown in feet). Click a token to edit HP/conditions.</div>
+    </div><!-- /#combat-wrap -->
+
+    <div id="features-wrap" class="hidden">
+      <div id="features-content" class="features-content"></div>
+    </div><!-- /#features-wrap -->
   </section>
 
-  <!-- RIGHT: Distance + markers -->
+  <!-- RIGHT: Distance + markers (map mode) / Upcoming events (calendar mode) -->
   <aside id="side">
-    <section>
+    <section class="side-map-only">
       <h2>Distance</h2>
       <div class="distance-readout" id="distance-readout">
         <div class="line"><label>Pixels (relative)</label><span id="dist-rel">—</span></div>
@@ -130,19 +193,40 @@
       <button id="clear-measure">Clear measure</button>
     </section>
 
-    <section>
+    <section class="side-map-only">
       <h2>Calibration</h2>
       <div id="cal-status" class="muted">Uncalibrated — clicking "Calibrate" will let you set two points and their real-world distance.</div>
     </section>
 
-    <section>
+    <section class="side-map-only">
       <h2>Markers</h2>
       <ul id="markers-list"></ul>
     </section>
 
-    <section>
+    <section class="side-map-only">
       <h2>PC Position</h2>
       <div id="pc-position-info" class="muted">Not set.</div>
+    </section>
+
+    <section class="side-cal-only hidden">
+      <h2>Upcoming events</h2>
+      <ul id="upcoming-events" class="upcoming-list"></ul>
+    </section>
+
+    <section class="side-cal-only hidden">
+      <h2>Selected day</h2>
+      <div id="cal-selected-info" class="muted">Click a day in the calendar to see and add events.</div>
+      <ul id="cal-selected-events" class="upcoming-list"></ul>
+    </section>
+
+    <section class="side-combat-only hidden">
+      <h2>Combatants</h2>
+      <ul id="combat-roster" class="combat-roster"></ul>
+    </section>
+
+    <section class="side-combat-only hidden">
+      <h2>Selected token</h2>
+      <div id="combat-selected" class="muted">Click a token on the grid.</div>
     </section>
   </aside>
 </main>
@@ -178,6 +262,31 @@
   </section>
 </div>
 <div id="marker-info-scrim" class="hidden"></div>
+
+<dialog id="combat-start-dialog">
+  <form method="dialog">
+    <h3>Start an encounter</h3>
+    <div class="combat-start-row">
+      <label>Grid (cols × rows)</label>
+      <input type="number" id="combat-cols" value="20" min="6" max="60" style="width:60px">
+      <span class="muted">×</span>
+      <input type="number" id="combat-rows" value="14" min="6" max="40" style="width:60px">
+      <span class="muted">(each hex = 5 ft)</span>
+    </div>
+    <div class="combat-start-row">
+      <label>Add enemy</label>
+      <input type="text" id="combat-monster-search" placeholder="goblin, bugbear, owlbear…" autocomplete="off" style="flex:1">
+      <input type="number" id="combat-monster-qty" value="1" min="1" max="20" style="width:50px" title="quantity">
+    </div>
+    <ul class="combat-search-results" id="combat-search-results"></ul>
+    <h4>Selected enemies</h4>
+    <ul class="combat-picked" id="combat-picked"></ul>
+    <menu>
+      <button value="cancel">Cancel</button>
+      <button id="combat-start-go" value="ok">Start encounter</button>
+    </menu>
+  </form>
+</dialog>
 
 <script src="/app.js"></script>
 </body>

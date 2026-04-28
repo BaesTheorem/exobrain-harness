@@ -74,6 +74,7 @@ CREATE TABLE IF NOT EXISTS sessions (
   ended_at    TEXT,
   prep_json   TEXT    NOT NULL DEFAULT '{}',
   recap_md    TEXT,
+  last_scene_verbatim TEXT,
   scene_count INTEGER NOT NULL DEFAULT 0,
   UNIQUE (campaign_id, number)
 );
@@ -169,6 +170,23 @@ CREATE TABLE IF NOT EXISTS world_state (
   updated_at  TEXT    NOT NULL DEFAULT (datetime('now')),
   UNIQUE (campaign_id, key)
 );
+
+-- Calendar events: free-floating notes attached to a Harptos date.
+-- Used for both planned events ("meet Olwin in 3 days at the Red Sheaf") and
+-- quest deadlines (auto-created when a quest gets a deadline_date).
+CREATE TABLE IF NOT EXISTS calendar_events (
+  id           INTEGER PRIMARY KEY,
+  campaign_id  INTEGER NOT NULL REFERENCES campaigns(id) ON DELETE CASCADE,
+  year         INTEGER NOT NULL,
+  day_of_year  INTEGER NOT NULL,
+  time_of_day  TEXT,
+  title        TEXT    NOT NULL,
+  notes        TEXT,
+  kind         TEXT    NOT NULL DEFAULT 'event' CHECK (kind IN ('event','task','quest_beat')),
+  quest_id     INTEGER REFERENCES quests(id) ON DELETE SET NULL,
+  created_at   TEXT    NOT NULL DEFAULT (datetime('now'))
+);
+CREATE INDEX IF NOT EXISTS idx_calendar_events_date ON calendar_events(campaign_id, year, day_of_year);
 
 CREATE TABLE IF NOT EXISTS relationships (
   npc_a_id INTEGER NOT NULL REFERENCES characters(id) ON DELETE CASCADE,
