@@ -6,6 +6,17 @@
       "runtimeExecutable": "/opt/homebrew/bin/python3.12",
       "runtimeArgs": ["-m", "http.server", "8347", "-d", "/Users/alexhedtke/Documents/Exobrain harness"],
       "port": 8347
+    },
+    {
+      "name": "solo-dm",
+      "runtimeExecutable": "/opt/homebrew/bin/python3.12",
+      "runtimeArgs": [
+        "/Users/alexhedtke/Documents/Exobrain harness/.claude/skills/solo-dm/scripts/webui.py",
+        "--slug", "theory-of-magic",
+        "--port", "8765",
+        "--no-browser"
+      ],
+      "port": 8765
     }
   ]
 }

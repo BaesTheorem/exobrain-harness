@@ -23,6 +23,13 @@ fi
 
 # Bail out if every transcript already has a matching entry in the processing log.
 # Otherwise this watcher fires Claude every 30 min just to be told "nothing new".
+#
+# Dedup is by filename + create_time. Plaud reuses the placeholder filename
+# `create_tim ... .txt` (and `... (N).txt` variants) for any unrenamed recording,
+# so filename-only matching has caused new recordings to be silently swallowed
+# whenever a previously-processed file had the same placeholder name. Any file
+# whose name starts with "create_tim" is therefore always treated as
+# unprocessed here — the skill's step 1 does the real dedup using create_time.
 /usr/bin/python3 - "$GDRIVE_PLAUD" "$PROCESSING_LOG" <<'PY'
 import json, os, sys
 plaud_dir, log_file = sys.argv[1], sys.argv[2]
@@ -34,7 +41,11 @@ try:
 except (FileNotFoundError, json.JSONDecodeError):
     sys.exit(1)
 processed = {e.get("id") for e in log if e.get("source") == "plaud"}
-sys.exit(1 if any(f not in processed for f in files) else 0)
+def is_unprocessed(fname):
+    if fname.startswith("create_tim"):
+        return True
+    return fname not in processed
+sys.exit(1 if any(is_unprocessed(f) for f in files) else 0)
 PY
 if [ $? -eq 0 ]; then
     exit 0
