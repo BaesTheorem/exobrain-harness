@@ -182,19 +182,37 @@ else
 fi
 
 # === SESSION MEMORY ===
+# Load: 3 most recent daily digests (cross-day context, ~150 words each) +
+# 3 most recent individual session memories (granular recent state).
+# Digests are filtered out of the session list to avoid double-counting.
 MEMORY_DIR="$HARNESS/.claude/session-memory"
 if [ -d "$MEMORY_DIR" ]; then
-  # Get the 3 most recent session memory files
-  RECENT=$(ls -t "$MEMORY_DIR"/*.md 2>/dev/null | head -3)
-  if [ -n "$RECENT" ]; then
+  RECENT_DIGESTS=$(ls -t "$MEMORY_DIR"/*_DIGEST.md 2>/dev/null | head -3)
+  RECENT_SESSIONS=$(ls -t "$MEMORY_DIR"/*.md 2>/dev/null | grep -v '_DIGEST\.md$' | head -3)
+
+  if [ -n "$RECENT_DIGESTS" ] || [ -n "$RECENT_SESSIONS" ]; then
+    echo ""
+    echo "=== Recent Daily Digests ==="
+    if [ -n "$RECENT_DIGESTS" ]; then
+      while IFS= read -r f; do
+        FNAME=$(basename "$f")
+        echo ""
+        echo "--- $FNAME ---"
+        cat "$f"
+      done <<< "$RECENT_DIGESTS"
+    else
+      echo "(none yet — first 11pm consolidator run will generate one)"
+    fi
     echo ""
     echo "=== Recent Session Memory ==="
-    while IFS= read -r f; do
-      FNAME=$(basename "$f")
-      echo ""
-      echo "--- $FNAME ---"
-      cat "$f"
-    done <<< "$RECENT"
+    if [ -n "$RECENT_SESSIONS" ]; then
+      while IFS= read -r f; do
+        FNAME=$(basename "$f")
+        echo ""
+        echo "--- $FNAME ---"
+        cat "$f"
+      done <<< "$RECENT_SESSIONS"
+    fi
     echo ""
     echo "=== End Session Memory ==="
   fi
