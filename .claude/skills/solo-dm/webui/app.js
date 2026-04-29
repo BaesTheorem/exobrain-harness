@@ -2688,4 +2688,21 @@ function wireEvents() {
     console.error(e);
     alert("Failed to load state. Check that the server is running and the DB exists.");
   }
+
+  // Auto-refresh: poll /api/state so out-of-band DB writes (model edits, scripts)
+  // appear without a manual reload. Skip when the user is mid-interaction so we
+  // don't clobber inputs or drag state.
+  setInterval(async () => {
+    if (state.dragging) return;
+    if (state.draggingInventory) return;
+    const ae = document.activeElement;
+    if (ae && (ae.tagName === "INPUT" || ae.tagName === "TEXTAREA" || ae.isContentEditable)) return;
+    try { await refresh(); } catch (e) { /* transient; next tick will retry */ }
+  }, 2000);
+
+  // Refresh immediately when the tab regains focus.
+  window.addEventListener("focus", () => {
+    if (state.dragging) return;
+    refresh().catch(() => {});
+  });
 })();
