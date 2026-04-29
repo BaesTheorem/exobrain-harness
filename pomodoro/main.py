@@ -14,6 +14,7 @@ from pathlib import Path
 
 OBSIDIAN_VAULT = Path(os.path.expanduser("~/Documents/Exobrain"))
 DAILY_NOTES = OBSIDIAN_VAULT / "Daily notes"
+POMODORO_LOG = OBSIDIAN_VAULT / "Pomodoro Log.md"
 THINGS_DB = Path(os.path.expanduser(
     "~/Library/Group Containers/JLMPQHK86H.com.culturedcode.ThingsMac/"
     "ThingsData-VE3Z1/Things Database.thingsdatabase/main.sqlite"
@@ -115,12 +116,12 @@ class API:
         return path
 
     def log_session(self, task_title, duration_minutes, notes, obsidian_link):
-        """Log a completed pomodoro session to today's daily note."""
+        """Log a completed pomodoro session to the dedicated Pomodoro Log note."""
         now = datetime.now()
         time_str = now.strftime("%-I:%M %p")
-        path = self._ensure_daily_note()
+        daily_note_name = now.strftime("%A, %B ") + ordinal(now.day) + now.strftime(", %Y")
+        date_header = f"### [[{daily_note_name}]]"
 
-        # Build the log entry
         task_display = task_title
         if obsidian_link:
             file_match = re.search(r'file=([^&]+)', obsidian_link)
@@ -133,22 +134,22 @@ class API:
         if notes and notes.strip():
             line += f" -- {notes.strip()}"
 
-        content = path.read_text()
-        pomodoro_header = "### Pomodoro Log"
+        if POMODORO_LOG.exists():
+            content = POMODORO_LOG.read_text()
+        else:
+            content = ""
 
-        if pomodoro_header in content:
-            # Append under existing Pomodoro Log section
-            idx = content.index(pomodoro_header) + len(pomodoro_header)
+        if date_header in content:
+            idx = content.index(date_header) + len(date_header)
             next_section = content.find("\n### ", idx)
             if next_section == -1:
                 content = content.rstrip() + "\n" + line + "\n"
             else:
-                content = content[:next_section] + "\n" + line + content[next_section:]
+                content = content[:next_section].rstrip() + "\n" + line + "\n" + content[next_section:]
         else:
-            # Append new Pomodoro Log section at end of file
-            content = content.rstrip() + "\n" + pomodoro_header + "\n" + line + "\n"
+            content = content.rstrip() + "\n" + date_header + "\n" + line + "\n"
 
-        path.write_text(content)
+        POMODORO_LOG.write_text(content.lstrip())
 
         subprocess.run([
             'osascript', '-e',
@@ -159,18 +160,19 @@ class API:
         return {'success': True}
 
     def get_today_sessions(self):
-        """Read today's pomodoro sessions from the daily note."""
-        path = self._daily_note_path()
-        if not path.exists():
+        """Read today's pomodoro sessions from the dedicated Pomodoro Log note."""
+        if not POMODORO_LOG.exists():
             return []
 
-        content = path.read_text()
-        pomodoro_header = "### Pomodoro Log"
+        content = POMODORO_LOG.read_text()
+        now = datetime.now()
+        daily_note_name = now.strftime("%A, %B ") + ordinal(now.day) + now.strftime(", %Y")
+        date_header = f"### [[{daily_note_name}]]"
 
-        if pomodoro_header not in content:
+        if date_header not in content:
             return []
 
-        idx = content.index(pomodoro_header) + len(pomodoro_header)
+        idx = content.index(date_header) + len(date_header)
         next_section = content.find("\n### ", idx)
         section = content[idx:next_section] if next_section != -1 else content[idx:]
 
