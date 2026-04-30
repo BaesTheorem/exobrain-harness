@@ -150,114 +150,17 @@ The monthly review has five sections. Execute them in this order:
 
 ### SECTION 4: Project Vitality Check
 
-**Goal**: Review every active project. If no progress was made this month, help Alex decide whether to keep, pause, or kill it.
+Run the `/weekly-review` project audit (step 7) at deeper depth. For each project, also categorize as Active / Stalled / Dormant based on this month's activity, and have a real conversation with Alex about each Stalled and Dormant one — surface the original motivation, ask "is this still worth your time?", and either commit to a next action or move to Someday. Do NOT unilaterally move projects.
 
-**Steps**:
-1. Get all active projects from Things 3 (`get_projects`)
-2. Verify each project has an Obsidian backlink in its notes field (`obsidian://open?vault=Exobrain&file=Projects/...`). If missing, add it via `update_project` and create the corresponding Obsidian note if needed.
-3. For each project, assess progress this month:
-   - Check completed tasks within the project
-   - Search daily notes for mentions of the project
-   - Check calendar for related events
-   - Check transcripts/processing log for discussions about it
-3. Categorize each project:
-   - **Active**: Clear progress this month (tasks completed, work done, events attended)
-   - **Stalled**: No meaningful progress. May still be important.
-   - **Dormant**: No activity AND no mentions. Candidate for pruning.
-4. For each **Stalled** project:
-   - Surface the original motivation (from project notes in Obsidian or Things 3)
-   - Ask Alex directly: "Is this still worth your time? What would need to change for you to make progress?"
-   - If Alex wants to keep it: suggest ONE concrete next action and a deadline
-   - If Alex wants advice: offer to draft a message to someone in the network who could help (check People/ notes for relevant contacts with expertise)
-5. For each **Dormant** project:
-   - Recommend moving to Someday unless Alex objects
-   - If it aligns with a core value or Dashboard priority, flag that tension
-
-**IMPORTANT**: Do NOT unilaterally move or delete projects. Present your assessment and let Alex decide. For projects Alex wants to keep but is stuck on, offer to draft outreach to a relevant contact (using /crm conventions — always include an offer to help).
-
-**Output format** (for the daily note):
-```markdown
-### Project Vitality
-| Project | Area | Status | Progress This Month |
-|---------|------|--------|-------------------|
-| [name] | [area] | Active/Stalled/Dormant | [brief description] |
-
-**Decisions made**:
-- [Project X]: [kept/paused/killed] — [reason]
-- [Project Y]: Next action: [task] by [date]
-```
+Output a `### Project Vitality` table to the daily note (Project | Area | Status | Progress This Month) plus a "Decisions made" list.
 
 ---
 
 ### SECTION 5: System Audit
 
-**Goal**: Ensure the Exobrain harness itself is healthy, reliable, and not rotting.
+Run the `/exobrain-audit` skill. It covers harness health, privacy/legibility, architecture recon, and AI productivity research. Surface findings under `### System Audit` in the daily note — don't auto-apply fixes.
 
-**Steps**:
-1. **Scheduled tasks health**:
-   - List all scheduled tasks (`list_scheduled_tasks`)
-   - Check `lastRunAt` for each — flag any that haven't run in expected timeframe
-   - Check if any are disabled
-
-2. **Processing log health**:
-   - Read `processing-log.json`
-   - Count items processed this month by source (plaud, supernote)
-   - Flag any processing gaps (days where transcripts existed but weren't processed)
-
-3. **launchd jobs health**:
-   - `launchctl list | grep exobrain` — verify jobs are loaded and running
-   - Check `/tmp/exobrain-plaud-watcher.log` and `.err` for errors
-
-4. **MCP server health**:
-   - Test Things 3 MCP: `get_inbox` (should respond)
-   - Test Fitbit MCP: `get_profile` (should respond, check token freshness)
-   - Test Google Calendar: `gcal_list_events` for today (should respond)
-   - Test Gmail: `gmail_get_profile` (should respond)
-   - Note any MCP servers that fail or timeout
-
-5. **Script health**:
-   - Verify `supernote-parser.py` runs: `python3 transcript-processing/supernote-parser.py --help` or similar
-   - Verify `imessage-reader.py` runs: `python3 imessage/imessage-reader.py list --limit 1`
-   - Verify `get-weather.py` runs: `python3 weather/get-weather.py`
-   - Check Python dependency versions: `pip3 list | grep -iE "supernote|openmeteo"`
-
-6. **Dependency freshness**:
-   - Check Python version (`python3 --version`)
-   - Check Node version (`node --version`)
-   - Check if `uv` is functional (`python3 -m uv --version`)
-   - Flag any EOL or significantly outdated versions
-
-7. **Vault health**:
-   - Check for orphaned People/ notes (mentioned nowhere)
-   - Check daily note naming consistency (any files that don't match `dddd, MMMM Do, YYYY` format)
-   - Count total People notes, daily notes, project notes — month-over-month growth
-
-8. **Memory system review**:
-   - Read MEMORY.md index
-   - Flag any memories that may be stale or outdated
-   - Suggest new memories if patterns from this month's review warrant them
-
-9. **Skill health**:
-   - List all skills, note any that haven't been used this month (check processing log and daily notes for invocation evidence)
-   - Flag skills that may need updating based on issues encountered this month
-
-10. **Security check**:
-    - Verify `.gitignore` still excludes `.mcp.json`, `settings.local.json`, channels/
-    - Check no secrets have leaked into tracked files
-    - Verify Fitbit token is refreshing (check `.fitbit-token.json` modification date)
-
-**Output format** (for the daily note):
-```markdown
-### System Audit
-**Scheduled tasks**: [all healthy / issues found]
-**Processing**: [N items processed this month (X plaud, Y supernote)]
-**MCP servers**: [all responding / issues found]
-**Scripts**: [all functional / issues found]
-**Dependencies**: [current / needs update]
-**Vault stats**: [N people notes, N daily notes, N project notes]
-**Issues found**: [list any problems with remediation steps]
-**Recommendations**: [improvements to implement next month]
-```
+Add a quick scheduled-task + launchd + MCP server smoke test on top of the audit (`list_scheduled_tasks`, `launchctl list | grep exobrain`, `get_inbox`, `gcal_list_events` today, `gmail_get_profile`, `get_profile` Fitbit). Flag anything stale.
 
 ---
 

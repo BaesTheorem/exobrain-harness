@@ -7,7 +7,6 @@
 # Claude Code runtime
 .claude/projects/
 .claude/plugins/
-.claude/session-memory/
 .claude/session-memories/
 
 # OS files
