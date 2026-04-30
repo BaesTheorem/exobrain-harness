@@ -27,7 +27,7 @@ AUDITS_DIR="$VAULT_DIR/Areas/Exobrain/Audits"
 # Harness runtime files
 PROCESSING_LOG="$HARNESS_DIR/processing-log.json"
 DISCORD_DIGEST="$HARNESS_DIR/discord/discord-digest.json"
-SESSION_MEMORY_DIR="$HARNESS_DIR/.claude/session-memory"
+SESSION_MEMORY_DIR="$VAULT_DIR/Claude"
 
 # External dependencies (outside the harness)
 FITBIT_TOKEN="$HOME/Documents/Claude Code/mcp-fitbit-main/.fitbit-token.json"

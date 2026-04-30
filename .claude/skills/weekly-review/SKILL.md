@@ -27,8 +27,8 @@ Use Gmail MCP (`gmail_search_messages`) to scan the past week's emails.
 
 ### 2. Calendar review
 Use `gcal_list_events` for:
-- **Past 2 weeks**: What happened? Generate follow-up tasks from past meetings. This is a networking superpower — identify people Alex met and suggest follow-up actions (thank-you notes, shared resources, scheduling next meeting).
-- **Next 4 weeks**: What's coming? Flag events needing preparation, deadlines approaching, and gaps that could be used for priority work.
+- **Past leg — the locked Sun-Sat window from above**: What happened? Generate follow-up tasks from past meetings. This is a networking superpower — identify people Alex met and suggest follow-up actions (thank-you notes, shared resources, scheduling next meeting).
+- **Forward leg — next 4 weeks from today**: What's coming? Flag events needing preparation, deadlines approaching, and gaps that could be used for priority work.
 
 ### 3. Obsidian notes review
 Read the past 7 daily notes from `/Users/alexhedtke/Documents/Exobrain/Daily notes/`.

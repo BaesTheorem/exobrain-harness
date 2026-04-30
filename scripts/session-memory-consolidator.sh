@@ -11,9 +11,11 @@ source "$SCRIPT_DIR/config.sh"
 
 CLAUDE_BIN="$(command -v claude)"
 HARNESS="$HARNESS_DIR"
-MEMORY_DIR="$HARNESS/.claude/session-memory"
+MEMORY_DIR="$SESSION_MEMORY_DIR"
 TRANSCRIPTS_DIR="$HOME/.claude/projects/-Users-alexhedtke-Documents-Exobrain-harness"
 TODAY="$(date +%Y-%m-%d)"
+
+mkdir -p "$MEMORY_DIR"
 
 # Prune old memory files. Sessions/deltas: 14 days. Digests: 30 days.
 # Uses mtime, which is fine since these files are write-once (deltas are

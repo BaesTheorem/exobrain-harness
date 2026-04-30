@@ -123,6 +123,26 @@ For every person mentioned in the transcript:
 ### 7. Log job-related content to job hub
 If the transcript contains any job search-related content — job leads, companies mentioned, networking contacts for job hunting, interview prep, upskilling discussion, application strategy — append a dated log entry to `/Users/alexhedtke/Documents/Exobrain/Projects/Get new job.md` under `## Job Search Log`. Use the appropriate type (Networking, Research, Upskilling, Interview, etc.) and include the key details.
 
+### 7b. Media extraction
+
+Whenever the transcript mentions a movie, show, anime, book, podcast, article, game, TTRPG, or other media, create or update `/Users/alexhedtke/Documents/Exobrain/Media/[Title].md`. Always Glob for an existing note first; if found, append to its body — don't duplicate.
+
+Frontmatter:
+```yaml
+---
+media_type: movie | tv | anime | book | music | game | article
+recommended_by: "Name"
+status: false              # true = consumed
+group_watch: true | false
+date_added: YYYY-MM-DD
+author: "Author Name"      # books only
+word_count: 80000          # books only, approximate
+---
+**Context**: [how it came up]
+```
+
+Mention in the daily note entry: "Added X media items to [[Media.base|Media]]". The `Media.base` view auto-renders all Media/ notes. This same schema applies to media discovered via Supernote, iMessage, Discord, or any other input pipeline.
+
 ### 8. Flag proactive observations
 - If anything sounds like procrastination on a priority item, note it
 - If something could be done more efficiently, suggest it

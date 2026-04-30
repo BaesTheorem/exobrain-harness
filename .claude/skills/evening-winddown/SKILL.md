@@ -7,16 +7,7 @@ description: Evening wind-down routine that recaps today, scores mood, and prior
 
 ## Date Handling — CRITICAL
 
-Alex often stays up past midnight. **The day is not over until Alex goes to bed.** The wind-down ALWAYS belongs in the day being wound down, never the next day.
-
-**Step 0 (do this FIRST, before anything else):** Run `date` to get the current time, then compute and lock the target date:
-
-- If current time is **before 2:00 AM**: the target date is the **PREVIOUS calendar day**. "Tomorrow" = current calendar day.
-- If current time is **2:00 AM or later**: the target date is the **current calendar day**. "Tomorrow" = next calendar day.
-
-**Immediately resolve the target daily note filename** (e.g., `Wednesday, April 1st, 2026`) and store it. Use ONLY this pre-resolved filename for all daily note operations. Do NOT re-check the clock later — the date is locked at the start, even if the clock crosses midnight during execution.
-
-This applies to ALL purposes: daily note, calendar events, Fitbit data, task completion, mood scoring, and tomorrow planning.
+**Step 0:** Run `date` and lock the target date at the start. If current time is before 2:00 AM, target = previous calendar day; otherwise target = current calendar day. Resolve the daily note filename (e.g., `Wednesday, April 1st, 2026`) once and use it for everything — do NOT re-check the clock if execution crosses midnight.
 
 ## Steps
 
@@ -61,55 +52,11 @@ Run the `/cycle-tracker` skill to check current phase status:
 
 This is silent housekeeping unless there's something worth flagging. The People note update ensures the CRM stays current.
 
-### 1c. Plaud Transcript Processing (MANDATORY)
+### 1c. Plaud + Supernote Processing (MANDATORY)
 
-This is not optional. Process all unprocessed Plaud transcripts before continuing the wind-down.
+Run `/process-transcript` and `/process-supernote` for any unprocessed files. The wind-down is the catch-all — never defer to "tomorrow."
 
-1. Check the processing log for already-processed files (source: `"plaud"`)
-2. List recent Plaud files: `ls -lt "/Users/alexhedtke/My Drive/Plaud/" | head -15`
-3. For every unprocessed transcript, run `/process-transcript` — extract content, route items:
-   - Tasks to Things 3 (per `/things3` conventions)
-   - Events to Google Calendar (clear) or Things 3 inbox (ambiguous)
-   - Notes/context to today's daily note
-   - People mentions to People/ notes
-   - Media mentions to individual `Media/[Title].md` notes (see CLAUDE.md schema)
-4. Update the processing log for each file processed
-5. Never defer transcript processing to "tomorrow" — the wind-down is the catch-all
-
-### 1d. Supernote Processing
-
-This is not optional. Process all unprocessed Supernote files before continuing the wind-down.
-
-1. Check the processing log (`/Users/alexhedtke/Documents/Exobrain harness/processing-log.json`) for already-processed files
-2. Check for Supernote files modified today or unprocessed: `ls -lt "/Users/alexhedtke/My Drive/Supernote/Note/" | head -10`
-3. For every unprocessed file, run `/process-supernote` — OCR, extract content, route items:
-   - Tasks to Things 3 (per `/things3` conventions)
-   - Events to Google Calendar (clear) or Things 3 inbox (ambiguous)
-   - Notes/context to today's daily note
-   - People mentions to People/ notes
-   - Media mentions to individual `Media/[Title].md` notes (see CLAUDE.md schema)
-4. Update the processing log for each file processed
-5. Never defer Supernote processing to "tomorrow" — the wind-down is the catch-all
-
-### 1e. Apple Notes Processing
-
-Process any unprocessed notes in the Apple Notes dump. Notes land here via `apple-notes-sync.py` every 15 minutes, but nothing extracts actionable content from them — this step closes that gap.
-
-1. Glob `/Users/alexhedtke/My Drive/Apple Notes/*.md`
-2. Check the processing log for already-processed files (source: `"apple-notes"`)
-3. For every unprocessed note, read it and extract:
-   - Tasks → Things 3 (per `/things3` conventions)
-   - Events → Google Calendar (clear) or Things 3 inbox (ambiguous)
-   - People mentions → People/ notes (create or update)
-   - Media mentions → individual `Media/[Title].md` notes (see CLAUDE.md schema)
-   - Notes/context → today's daily note
-4. Update the processing log for each note processed
-5. If a note is purely informational (no actionable items), still log it as processed so it isn't re-scanned tomorrow
-6. If the inbox is empty, skip silently
-
-This mirrors step 1d (Supernote) — the wind-down is the catch-all for all input sources.
-
-### 1f. Obsidian Vault Scan (MANDATORY)
+### 1e. Obsidian Vault Scan (MANDATORY)
 
 Alex writes directly in Obsidian throughout the day. Scan for notes created or modified today that haven't been processed by other steps.
 
@@ -136,12 +83,7 @@ Ask Alex directly for a mood score. Keep it lightweight:
 **Wait for Alex's response.**
 
 If Alex provides a score:
-- Record it using the `/mood` skill methodology:
-  - Use Alex's self-report as the primary signal
-  - Supplement with indirect signals from the data already gathered (steps, sleep time, calendar density, social activity)
-  - Score sub-categories (Emotional, Energy, Self-Care, Social, Purpose)
-  - Update Mood Journal with daily log entry and heatmap
-  - **Also write the mood entry to today's daily note** (see step 5 — the `## Evening Wind-Down` section includes the day score, but if mood was scored, also add the full sub-scores inline under the `### Evening Wind-Down` heading)
+- Defer to the `/mood` skill for scoring methodology (the `mood` skill is canonical: Alex's self-report anchors Emotional, indirect signals fill in the others, overall is weighted toward the lowest sub-score). Update the Mood Journal and write the mood line into the wind-down section of the locked target daily note.
 - Confirm with a one-liner: "Logged: 4/5 🟢 — productive. Self-Care flagged (only 8k steps)."
 
 If Alex doesn't respond (scheduled task mode):
