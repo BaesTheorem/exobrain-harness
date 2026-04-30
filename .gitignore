@@ -8,6 +8,7 @@
 .claude/projects/
 .claude/plugins/
 .claude/session-memories/
+.claude/worktrees/
 
 # OS files
 .DS_Store
