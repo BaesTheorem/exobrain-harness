@@ -209,3 +209,20 @@ if [ -d "$MEMORY_DIR" ]; then
     echo "=== End Session Memory ==="
   fi
 fi
+
+# === VAULT SNAPSHOT ===
+SNAPSHOT_FILE="$HOME/.claude/projects/-Users-alexhedtke-Documents-Exobrain-harness/vault-snapshot.md"
+if [ -f "$SNAPSHOT_FILE" ]; then
+  AGE_HOURS=$(( ($(date +%s) - $(stat -f %m "$SNAPSHOT_FILE")) / 3600 ))
+  echo ""
+  echo "=== Vault Snapshot (${AGE_HOURS}h old) ==="
+  cat "$SNAPSHOT_FILE"
+  echo ""
+  echo "=== End Vault Snapshot ==="
+  if [ "$AGE_HOURS" -gt 36 ]; then
+    echo "WARN: vault-snapshot stale (>36h). Check com.exobrain.vault-snapshot launchd job."
+  fi
+else
+  echo ""
+  echo "WARN: vault-snapshot missing. Run scripts/vault-snapshot.sh or check launchd."
+fi
