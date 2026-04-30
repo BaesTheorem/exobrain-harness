@@ -9,7 +9,7 @@ Two modes: **save** (end of session) and **load** (start of session). The startu
 
 ## Storage
 
-- **Directory**: `/Users/alexhedtke/Documents/Exobrain harness/.claude/session-memory/`
+- **Directory**: `/Users/alexhedtke/Documents/Exobrain/Claude/` (lives inside the Obsidian vault so memories are browsable and YAML frontmatter renders as Properties)
 - **File formats**:
   - Per-session memory: `YYYY-MM-DD_HHMM.md` (e.g., `2026-04-07_1741.md`)
   - Delta memory (post-save activity in same session): `YYYY-MM-DD_HHMM_delta.md`
@@ -85,80 +85,16 @@ After reading the session memories injected by the startup hook, synthesize them
 4. **Emotional read**: Is Alex stressed, energized, procrastinating? Adjust tone and proactivity accordingly.
 5. **Priority alignment**: What are the active themes? Weight everything toward those.
 
-### Resource-Efficient Data Prioritization
+### Be surgical (not comprehensive)
 
-As the Exobrain scales (more People notes, more daily notes, more skills, more MCP servers), the "read everything every time" approach wastes tokens, time, and API calls. Use the context profile to be **surgical** about what to read, query, and write.
+Use the context profile to skip work, not just plan it. Key heuristics:
 
-#### 1. API Call Efficiency
-
-| Signal | Action |
-|--------|--------|
-| Health data already pulled today (session memory says "Data Pulled: Fitbit/Withings") | **Skip APIs entirely.** Read raw data from today's daily note `<!-- health-raw-data -->` HTML comments. Zero API calls. |
-| Health data pulled but >12 hours ago | **Selective refresh.** Only re-pull metrics that change intraday (steps, active zone minutes). Skip weight/body comp (once-daily morning weigh-in doesn't change). |
-| No health data pulled today | **Full pull.** Query all Fitbit + Withings endpoints. Cache in HTML comments for later sessions. |
-| Gmail already scanned this session | **Incremental scan.** Use `after:` timestamp from session memory's "Data Pulled" section instead of re-scanning 24h. |
-| Calendar already read today | **Skip gcal_list_events** unless Alex explicitly asks or it's a new session type (e.g., briefing → winddown transition needs tomorrow's calendar, not today's). |
-| Weather pulled <3 hours ago | **Skip.** Weather doesn't change that fast. |
-
-#### 2. File Read Efficiency
-
-| Signal | Action |
-|--------|--------|
-| CRM overdue check needed (daily briefing step 10) | **Don't glob + read all 50+ People notes.** First, read only the frontmatter (first 10 lines) of each file. Only read the full note for contacts that are actually overdue or coming due within 3 days. |
-| People enrichment during email/iMessage scan | **Batch reads.** Collect all mentioned people first, then read their notes in one pass. Don't read → enrich → read → enrich one at a time. |
-| Weekly review reading daily notes | **Read session memories first.** If session memories cover the week, use them as the primary source. Only read daily notes to fill gaps or verify specific claims. |
-| Evening winddown recapping today | **Read today's session memories + today's daily note only.** Don't re-scan email, calendar, or health APIs — the briefing already captured that. |
-| Processing a transcript that mentions 8 people | **Check People/ file existence with Glob first** (one call), then only Read the notes that exist. Don't Read-then-404 for each person. |
-| Deep Recon vault search | **Use Grep with targeted queries**, not Read on every matching file. Read only the top 3-5 most relevant hits per search. |
-
-#### 3. Tool Call Efficiency
-
-| Signal | Action |
-|--------|--------|
-| Creating multiple Things 3 tasks | **Batch duplicate checks.** Run one `search_todos` with a broad query (e.g., "Reach out") instead of separate searches per contact. Parse results locally. |
-| CRM tasks already created this session | **Track in session memory.** Before creating a "Reach out to [Name]" task, check session memory's "Tasks Created" section first — cheaper than an MCP call. |
-| Multiple People notes need `last_contact` updates | **Batch writes.** Collect all updates, then write them sequentially. Don't interleave reads and writes. |
-| Subagent work (Deep Recon, deep-research) | **Set model intentionally.** Use Sonnet for Explorer/Associator/Critic. Only use Opus for Synthesizer or when the task genuinely requires it. Never default all agents to Opus. |
-| MCP tool search (deferred tools) | **Fetch in bulk.** One `ToolSearch` call for a category (e.g., "fitbit", max_results: 10) instead of individual `select:` calls per tool. |
-
-#### 4. Write Efficiency
-
-| Signal | Action |
-|--------|--------|
-| Daily note already has a `### Morning briefing` section | **Don't re-append.** Check for the heading before writing. If it exists, update in place or skip. |
-| People note enrichment with trivial info ("sounds good" email) | **Skip the write entirely.** Only update `last_contact` in frontmatter. Don't add a Mention entry for routine messages. |
-| Multiple transcript entries for the same day | **Append all to the same daily note in one write** if possible, rather than separate read-write cycles per transcript. |
-| Session memory from a trivial interaction | **Don't save.** Quick lookups, one-off questions, and "what's the weather" don't warrant a session memory file. |
-
-#### 5. Context Window Efficiency
-
-| Signal | Action |
-|--------|--------|
-| Skill requires reading a large file (Mood Journal, Network CRM) | **Read targeted sections.** Use `offset` and `limit` parameters to read just the relevant date range, not the entire file. |
-| Previous session memory mentions data values | **Trust the memory for planning purposes** (deciding what to do). Only re-read source files when you need to **act** on the data (create tasks, write notes, verify claims). |
-| Briefing output getting long | **Omit empty sections.** If no flags, no new tasks, no overdue contacts — don't write placeholder sections. Shorter daily notes = less to read in future sessions. |
-| Multiple skills need the same file (Dashboard.md, daily note) | **Read once at session start, reference from memory.** Don't re-read Dashboard.md in every skill that checks priorities. |
-| Session has been running long (context pressure) | **Save a session memory proactively** before compression hits. Cheaper than losing context and re-deriving it. |
-
-#### Decision Framework
-
-When deciding whether to pull data, read a file, or make a tool call, apply this quick test:
-
-1. **Is it cached?** Check session memory "Data Pulled" and daily note HTML comments first. If the data exists and is <12h old, use the cache.
-2. **Do I need it now?** If the data only matters for a later step, defer the read. Don't front-load all reads at session start.
-3. **How many items?** If >5 People notes, Things 3 tasks, or API calls needed, batch them. If >20, consider whether a subagent should handle it.
-4. **Will the output be used?** If a daily note section would be empty, don't write it. If a People note update is trivial, skip the Mention entry.
-5. **Is this the right session?** CRM deep enrichment can wait for weekly review. Flight buffer checks can wait for daily briefing. Don't do everything in every session.
-
-### What NOT to do
-
-- Don't read session memories aloud to Alex unless he asks ("what did we do last time?")
-- Don't re-query APIs if today's data is already cached in the daily note
-- Don't treat session memories as ground truth for current state — they're context clues, not authoritative. Always verify against live data when acting on a memory.
-- Don't save a session memory for trivial interactions (quick lookups, one-off questions, "what's the weather")
-- Don't glob + read all 50+ People notes when you only need 3
-- Don't spawn Opus subagents for tasks Sonnet can handle
-- Don't write empty sections to daily notes ("No flags today" wastes tokens on every future read)
+- **Trust the cache.** If session memory says "Data Pulled: Fitbit/Withings" today, read raw data from the daily note's `<!-- health-raw-data -->` HTML comments instead of re-querying. Same for weather (<3h), calendar (read today), Gmail (use `after:` timestamp).
+- **Frontmatter first, body second.** For the CRM overdue check, read frontmatter on each People note (first 10 lines). Only open the full note for contacts that are actually overdue or due within 3 days.
+- **Glob before Read.** When a transcript mentions N people, Glob `People/` once to see who exists, then Read only those.
+- **Batch don't interleave.** One broad `search_todos` for many contacts. Collect all `last_contact` updates, then write. One ToolSearch with `max_results: 10` instead of N `select:` calls.
+- **Skip trivial writes.** Don't append empty sections, don't add Mentions for "sounds good" replies, don't save session memory for one-off lookups.
+- **Memory is context, not truth.** Use it to decide *what* to do; verify against live data before *acting*.
 
 ## Integration Points
 

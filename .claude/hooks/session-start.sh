@@ -97,20 +97,12 @@ fi
 
 # launchd jobs
 PLAUD_LOADED=$(launchctl list 2>/dev/null | grep -c "plaud-watcher")
-NOTES_LOADED=$(launchctl list 2>/dev/null | grep -c "apple-notes-sync")
 DIGEST_LOADED=$(launchctl list 2>/dev/null | grep -c "discord-digest")
 
 if [ "$PLAUD_LOADED" -ge 1 ]; then
   echo "OK: launchd plaud-watcher"
 else
   echo "FAIL: launchd plaud-watcher not loaded"
-  ISSUES=$((ISSUES + 1))
-fi
-
-if [ "$NOTES_LOADED" -ge 1 ]; then
-  echo "OK: launchd apple-notes-sync"
-else
-  echo "FAIL: launchd apple-notes-sync not loaded"
   ISSUES=$((ISSUES + 1))
 fi
 
@@ -185,7 +177,7 @@ fi
 # Load: 3 most recent daily digests (cross-day context, ~150 words each) +
 # 3 most recent individual session memories (granular recent state).
 # Digests are filtered out of the session list to avoid double-counting.
-MEMORY_DIR="$HARNESS/.claude/session-memory"
+MEMORY_DIR="$SESSION_MEMORY_DIR"
 if [ -d "$MEMORY_DIR" ]; then
   RECENT_DIGESTS=$(ls -t "$MEMORY_DIR"/*_DIGEST.md 2>/dev/null | head -3)
   RECENT_SESSIONS=$(ls -t "$MEMORY_DIR"/*.md 2>/dev/null | grep -v '_DIGEST\.md$' | head -3)

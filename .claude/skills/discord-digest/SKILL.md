@@ -9,14 +9,12 @@ Scans Alex's friend group Discord server and summarizes activity so nothing fall
 
 ## Friend Group Server — Username Mapping
 
-The username-to-real-name mapping lives in `discord/discord-digest-fetch.py` (gitignored — contains real names). To resolve Discord usernames to real names at runtime:
+The username-to-real-name mapping lives in `discord/discord-digest-fetch.py` (gitignored — contains real names). At runtime:
 
 1. Read the `USERNAME_MAP` dict from `discord/discord-digest-fetch.py`
-2. Replace all Discord usernames with real names in output
-3. Skip messages from Alex's own username
-4. Cross-reference names with People/ notes in the Obsidian vault — every friend group member should have one
-
-If the mapping file is missing, fall back to Discord display names from the API response and flag unresolved usernames for Alex to map.
+2. **For each message**: if the username is in the map, replace with the real name. Otherwise use the Discord display name from the API response and append a `⚠ unresolved: <username>` line at the end of the digest so Alex can map them.
+3. Skip messages from Alex's own username.
+4. Cross-reference resolved names with People/ notes in the Obsidian vault — every friend group member should have one.
 
 ## Channels Monitored (read-only)
 
@@ -31,9 +29,9 @@ All channels are set to `requireMention: true` with empty `allowFrom` — the bo
 
 1. Read `discord/discord-digest.json` — this is populated by `discord-digest-fetch.py` every 4 hours via launchd. It contains recent messages from all channels with metadata.
 2. Filter to messages from the past 24 hours (for daily briefing) or past 7 days (for weekly/standalone)
-3. **Always replace Discord usernames with real names** using the `USERNAME_MAP` in `discord/discord-digest-fetch.py`
+3. Apply the username-mapping rule above (real name if mapped, otherwise display name + flag unresolved at digest end)
 4. Skip Alex's messages — he already knows what he said
-6. **Always cross-reference scheduling discussions with Alex's Google Calendar and Things 3** — flag conflicts, don't assume availability
+5. **Always cross-reference scheduling discussions with Alex's Google Calendar and Things 3** — flag conflicts, don't assume availability
 
 ## What to Extract
 
