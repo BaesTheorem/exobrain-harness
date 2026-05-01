@@ -1,6 +1,6 @@
 ---
 name: exobrain-audit
-description: Comprehensive audit of the Exobrain harness — privacy scan, architecture analysis, and AI productivity research. Use whenever the user says "audit", "exobrain audit", "harness audit", "system check", "privacy scan", "repo audit", or wants to review the overall health, security, and efficiency of the Exobrain system. Also use when the user asks about improving their setup, finding redundancies, or checking for leaked personal data.
+description: Audit the Exobrain harness REPO itself — scans tracked files for leaked personal data, checks legibility for stranger cloning, analyzes architecture, and surfaces AI productivity ideas. SCOPE IS THIS REPO, not the laptop or the public internet. Use when the user says "audit", "exobrain audit", "harness audit", "repo audit", or "harness privacy scan", or wants to review the health, legibility, and efficiency of the Exobrain harness codebase. For online/public attack surface use cybersecurity-bodyguard; for laptop/macOS security use antivirus.
 user_invocable: true
 ---
 

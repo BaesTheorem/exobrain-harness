@@ -100,7 +100,9 @@ Run multiple searches to cast a wide net:
 monid run -p apify -e /apify/facebook-events-scraper --input '{"searchQueries": ["Kansas City"], "maxEvents": 30}'
 
 # Music-specific searches (batch favorite artists)
-monid run -p apify -e /apify/facebook-events-scraper --input '{"searchQueries": ["Ren concert Kansas City", "Alt-J Kansas City", "Flaming Lips Kansas City", "Heilung Kansas City", "Imagine Dragons Kansas City", "Coldplay Kansas City", "All Time Low Kansas City", "Billy Joel Kansas City"], "maxEvents": 20}'
+# Read the favorite artist list from the gitignored prefs file at runtime, then build searchQueries.
+# Example: jq -r '.favoriteArtists[] | "\(.) Kansas City"' "$prefs_file"
+monid run -p apify -e /apify/facebook-events-scraper --input '{"searchQueries": [<favorite-artist queries>], "maxEvents": 20}'
 
 # Interest-specific
 monid run -p apify -e /apify/facebook-events-scraper --input '{"searchQueries": ["AI meetup Kansas City", "cybersecurity Kansas City", "board game Kansas City", "DnD Kansas City", "tech meetup Kansas City", "comedy Kansas City"], "maxEvents": 20}'

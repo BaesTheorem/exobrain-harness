@@ -1,5 +1,6 @@
 {
   "permissions": {
+    "_comment_mcp_uuids": "MCP UUID prefixes used in the allow list below: mcp__32ab4f7e-* = Google Calendar (hosted Claude.com connector), mcp__2ea6cd75-* = Gmail (hosted), mcp__c1fc4002-* = Google Drive (hosted). See .claude/skills/calendar/SKILL.md and .claude/skills/email/SKILL.md for the live mappings.",
     "allow": [
       "Read",
       "Write",

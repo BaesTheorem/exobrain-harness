@@ -3,6 +3,7 @@
 # Run via launchd or scheduled task daily at 8:00 AM
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+[ -f "$SCRIPT_DIR/app.py" ] || exit 0
 RESULT=$(python3 "$SCRIPT_DIR/app.py" --check-notify)
 
 if [[ "$RESULT" == NOTIFY:* ]]; then

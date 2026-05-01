@@ -49,7 +49,7 @@ All channels are set to `requireMention: true` with empty `allowFrom` — the bo
 ### Social Context
 - Who's been active (helps with CRM — these are Alex's closest friends)
 - Relationship updates, life events mentioned casually
-- Recurring events (Sunday coffee at Messenger Crossroads, weekly drag show at Missie's, etc.)
+- Recurring events (Sunday coffee at Messenger Crossroads, weekly drag show at [venue], etc.)
 
 ## Output Format (for daily briefing integration)
 

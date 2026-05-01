@@ -36,15 +36,13 @@ cp "$HARNESS_DIR/CLAUDE.md" "$BACKUP_PATH/" 2>/dev/null
 cp "$HARNESS_DIR/requirements.txt" "$BACKUP_PATH/" 2>/dev/null
 
 # Scripts (now organized in subdirectories)
+# -maxdepth 2 is intentionally shallow: it covers HARNESS_DIR/*.{py,sh,plist} and
+# HARNESS_DIR/*/*.{py,sh,plist}. Skill scripts at .claude/skills/*/scripts/* are
+# captured by the wholesale skills copy below (see "Skills" section).
 mkdir -p "$BACKUP_PATH/scripts"
 find "$HARNESS_DIR" -maxdepth 2 -name "*.py" -o -name "*.sh" -o -name "*.plist" | while read -r f; do
     cp "$f" "$BACKUP_PATH/scripts/" 2>/dev/null
 done
-
-# Apple Notes sync config and state (gitignored runtime files)
-mkdir -p "$BACKUP_PATH/apple-notes-sync"
-cp "$HARNESS_DIR/apple-notes-sync/apple-notes-sync-config.json" "$BACKUP_PATH/apple-notes-sync/" 2>/dev/null
-cp "$HARNESS_DIR/apple-notes-sync/apple-notes-sync-state.json" "$BACKUP_PATH/apple-notes-sync/" 2>/dev/null
 
 # Skills
 if [ -d "$HARNESS_DIR/.claude/skills" ]; then

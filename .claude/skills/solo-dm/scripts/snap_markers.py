@@ -7,14 +7,18 @@ solid/round. We reject any candidate that has >=2 similar-sized blobs in a
 horizontal strip around it.
 """
 from __future__ import annotations
-import json, sqlite3, math
+import argparse, json, sqlite3, math, sys
 from collections import deque
 from pathlib import Path
 from PIL import Image, ImageDraw, ImageFont
 import numpy as np
 
-MAP_PATH = Path('/Users/alexhedtke/Documents/Exobrain/Areas/Adventure & Creativity/Solo DnD/Theory of Magic/assets/map.webp')
-DB_PATH  = Path('/Users/alexhedtke/Documents/Exobrain harness/data/solo-dm/theory-of-magic/state.sqlite')
+HARNESS_ROOT = Path(__file__).resolve().parents[4]
+DATA_ROOT = HARNESS_ROOT / "data/solo-dm"
+
+# Filled in main() from --slug + --map args.
+MAP_PATH: Path = None  # type: ignore
+DB_PATH: Path = None   # type: ignore
 
 WIN_HALF   = 90
 DARK_THR   = 105
@@ -89,6 +93,18 @@ def score_candidate(blob, wcx, wcy):
 
 
 def main():
+    global MAP_PATH, DB_PATH
+    ap = argparse.ArgumentParser()
+    ap.add_argument("--slug", required=True, help="Campaign slug (subdir of data/solo-dm/)")
+    ap.add_argument("--map", required=True, help="Path to map image (jpg/png/webp)")
+    args = ap.parse_args()
+    MAP_PATH = Path(args.map).expanduser()
+    DB_PATH = DATA_ROOT / args.slug / "state.sqlite"
+    if not MAP_PATH.exists():
+        sys.exit(f"map image not found: {MAP_PATH}")
+    if not DB_PATH.exists():
+        sys.exit(f"no db for slug {args.slug!r}")
+
     im_full = Image.open(MAP_PATH)
     arr = np.asarray(im_full.convert('L'))
     H, W = arr.shape

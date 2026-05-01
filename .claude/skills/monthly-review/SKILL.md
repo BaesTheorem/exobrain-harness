@@ -1,3 +1,8 @@
+---
+name: monthly-review
+description: Comprehensive end-of-month review covering system health, weekly review synthesis, values alignment, area balance, and project vitality. Use when the user asks for a monthly review, says "how was my month", "monthly check-in", "month in review", "monthly recap", "end-of-month review", or it's the last weekend of the month.
+---
+
 # Monthly Review
 
 Comprehensive end-of-month review covering system health, weekly review synthesis, values alignment, area balance, and project vitality. Outputs to a dedicated section in the last Sunday's daily note for the month.

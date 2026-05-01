@@ -8,7 +8,7 @@ description: Job search assistant — audit postings for fit, research companies
 Alex is actively job hunting. This skill handles the full pipeline: evaluating fit, researching the company, tailoring cover letters, and tracking application volume.
 
 **Weekly goal**: 10–20 applications submitted per week.
-**Compensation floor**: $75,000/year. Do not report or recommend roles that list a salary below this threshold. If salary is unlisted, still include the role but flag the unknown comp.
+**Compensation floor**: see gitignored `Projects/Get new job/Claude Reference.md` for current floor. Do not report or recommend roles that list a salary below this threshold. If salary is unlisted, still include the role but flag the unknown comp.
 
 ## Resume Reference
 

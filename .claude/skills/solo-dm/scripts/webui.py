@@ -242,7 +242,7 @@ def api_pc_position_set(body: dict):
     pos = {
         "x": float(body["x"]),
         "y": float(body["y"]),
-        "label": body.get("label", "Charles"),
+        "label": body.get("label", "PC"),
     }
     ws_set("pc_position", pos)
     return pos

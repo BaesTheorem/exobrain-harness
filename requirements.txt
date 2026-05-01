@@ -1,9 +1,9 @@
-# Supernote OCR
+# Supernote OCR (transcript-processing/supernote-parser.py)
 supernotelib==0.7.0
-# Weather (get-weather.py)
+# Weather (weather/get-weather.py — numpy used by Open-Meteo SDK return values)
 openmeteo-requests==1.7.5
 openmeteo-sdk==1.26.0
 numpy
-# Pomodoro app
+# Pomodoro desktop app (pomodoro/main.py + create_icon.py)
 pywebview
 pillow

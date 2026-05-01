@@ -58,6 +58,7 @@ If a `list_events` call fails opaquely, **first suspect**: param-name drift. Cal
    - **"Be at airport"** -- 2 hours before departure
    - **"Travel to airport"** -- before "Be at airport", default 1 hour travel time
    Adjustments:
+   <!-- Alex's airport routing; replace with your own home→airport drive time -->
    - KC home to MCI is 45 minutes
    - Include departing airport address in the "Travel to airport" event location
    - Check for existing buffer events before creating to avoid duplicates
@@ -120,8 +121,8 @@ gcal_create_event(
 **Routing an ambiguous event to Things 3:**
 ```
 add_todo(
-  title: "Review: dinner with Sarah sometime next week",
-  notes: "From 04-05 transcript. Sarah suggested dinner but no date/time set."
+  title: "Review: dinner with [Name] sometime next week",
+  notes: "From 04-05 transcript. [Name] suggested dinner but no date/time set."
 )
 ```
 
