@@ -109,11 +109,11 @@ Morning, Exobrain, Relationships & Community, Health & Fitness, Values & Purpose
 
 **Creating a networking outreach task (CRM-surfaced):**
 ```
-1. search_todos("Reach out to Sarah")
+1. search_todos("Reach out to [Name]")
 2. No match found
 3. add_todo(
-     title: "Reach out to Sarah",
+     title: "Reach out to [Name]",
      tags: ["networking"],
-     notes: "Source: CRM daily briefing (2026-04-05)\nOverdue by 7 days (Cat B, 21-day frequency). Last contact: 3 weeks ago via Signal.\nContext: Discuss AI safety reading group.\nobsidian://open?vault=Exobrain&file=Areas/Relationships%20%26%20Community/People/Sarah"
+     notes: "Source: CRM daily briefing (2026-04-05)\nOverdue by 7 days (Cat B, 21-day frequency). Last contact: 3 weeks ago via Signal.\nContext: Discuss AI safety reading group.\nobsidian://open?vault=Exobrain&file=Areas/Relationships%20%26%20Community/People/[Name]"
    )
 ```

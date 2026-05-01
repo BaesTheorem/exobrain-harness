@@ -28,7 +28,7 @@ A <300-word summary structured as:
 
 ## Rules
 
-- **Cite roll outcomes verbatim** for anything that altered state. "Korvara hit AC 15 for 8 damage" not "Korvara attacked."
+- **Cite roll outcomes verbatim** for anything that altered state. "PC hit AC 15 for 8 damage" not "PC attacked."
 - **No compliments.** This is a log, not a pep talk.
 - **No speculation** about what the PC might do next.
 - **No retconning.** If the log says X happened, X happened.

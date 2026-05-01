@@ -9,7 +9,7 @@ const MODE_MOVE = "move";
 const MODE_PC = "pc";
 const MODE_CALIBRATE = "calibrate";
 
-// D&D 5e wizard ritual-tagged spells. Extend as Charles learns more.
+// D&D 5e wizard ritual-tagged spells. Extend as the PC learns more.
 const RITUAL_SPELLS = new Set([
   // 1st level
   "Alarm", "Comprehend Languages", "Detect Magic", "Find Familiar", "Identify",
@@ -1164,7 +1164,7 @@ function redrawOverlay() {
     g.__marker = {
       id: "__pc__",
       isPc: true,
-      label: state.pcPos.label || "Charles",
+      label: state.pcPos.label || "PC",
       x: state.pcPos.x,
       y: state.pcPos.y,
     };
@@ -1183,7 +1183,7 @@ function redrawOverlay() {
       style: `stroke-width: ${sw(2)}px;`,
     }));
     g.appendChild(
-      el("text", { class: "pc-label", x: x + 10 * invZ, y: y - 8 * invZ, style: labelStyle(fs(13)) }, state.pcPos.label || "Charles")
+      el("text", { class: "pc-label", x: x + 10 * invZ, y: y - 8 * invZ, style: labelStyle(fs(13)) }, state.pcPos.label || "PC")
     );
     ov.appendChild(g);
   }
@@ -1229,7 +1229,7 @@ function setMode(mode) {
     [MODE_MEASURE]:   "⌘-click two points to measure. Double-click zooms. Drag to pan.",
     [MODE_MARKER]:    "⌘-click to drop a custom marker.",
     [MODE_MOVE]:      "Click a marker to pick it up, then click the map to drop it. Preserves wiki + notes.",
-    [MODE_PC]:        "⌘-click to set Charles's current position.",
+    [MODE_PC]:        "⌘-click to set the PC's current position.",
     [MODE_CALIBRATE]: "⌘-click two points with a known real-world distance.",
   }[mode];
   resetDistanceReadout();
@@ -1332,7 +1332,7 @@ async function placeMovedMarker(pt) {
   // Special case: the PC lives in /api/pc-position, not /api/markers.
   if (id === "__pc__") {
     if (!state.pcPos) { state.moveSelected = null; return; }
-    const label = state.pcPos.label || "Charles";
+    const label = state.pcPos.label || "PC";
     try {
       const r = await api("/api/pc-position", {
         method: "POST",
@@ -1377,7 +1377,7 @@ async function deleteMarker(id) {
 }
 
 async function setPcPosition(pt) {
-  const label = prompt("PC position label:", "Charles") || "Charles";
+  const label = prompt("PC position label:", "PC") || "PC";
   const r = await api("/api/pc-position", {
     method: "POST",
     body: JSON.stringify({ x: pt.x, y: pt.y, label }),
@@ -1407,7 +1407,7 @@ async function onMarkerClick(m) {
   // In Move mode, clicking a marker picks it up (or swaps selection).
   if (state.mode === MODE_MOVE) {
     state.moveSelected = m.id;
-    const shown = m.isPc ? (m.label || "Charles") : (m.label || "").replace(/_/g, " ");
+    const shown = m.isPc ? (m.label || "PC") : (m.label || "").replace(/_/g, " ");
     $("#map-info").textContent = `Picked up ${shown}. Click anywhere on the map to drop it. ESC cancels.`;
     redrawOverlay();
     return;
@@ -1415,7 +1415,7 @@ async function onMarkerClick(m) {
   // PC has no wiki/info panel. Outside Move mode, clicking it is a no-op
   // with a small hint.
   if (m.isPc) {
-    $("#map-info").textContent = `${m.label || "Charles"} — switch to Move marker to reposition.`;
+    $("#map-info").textContent = `${m.label || "PC"} — switch to Move marker to reposition.`;
     return;
   }
   currentInfoMarker = m;

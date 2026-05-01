@@ -36,8 +36,8 @@ covered_through: 2026-04-07T17:40:55-05:00
 
 ## Data Pulled
 - [Which APIs were queried, for what dates, key values]
-- [e.g., "Fitbit: steps 14,200 (Apr 6), sleep 7h12m score 82"]
-- [e.g., "Withings: weight 137.1 lbs, fat 10.5%"]
+- [e.g., "Fitbit: steps [N] ([date]), sleep [Hh M m] score [N]"]
+- [e.g., "Withings: weight [N.N] lbs, fat [N.N]%"]
 - [e.g., "Gmail: scanned 24h, 3 actionable items found"]
 
 ## Tasks Created

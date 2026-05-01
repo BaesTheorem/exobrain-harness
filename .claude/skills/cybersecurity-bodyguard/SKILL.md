@@ -1,6 +1,6 @@
 ---
 name: cybersecurity-bodyguard
-description: Defensive security partner focused on doxxing, stalking, and targeted harassment. Use when the user says "bodyguard", "security scan", "doxx scan", "privacy scan", "threat check", "I'm being harassed", "I think I'm being stalked", "am I being doxxed", "scrub me from the internet", or asks about their public attack surface, data broker presence, credential breaches, or how to respond to a security incident. Also use for pre-flight exposure audits before publishing content.
+description: Defensive security partner focused on ONLINE/PUBLIC attack surface — doxxing, stalking, data brokers, credential breaches, and targeted harassment. SCOPE IS THE PUBLIC INTERNET, not this repo or the laptop. Use when the user says "bodyguard", "doxx scan", "OSINT scan", "online privacy scan", "public privacy scan", "threat check", "I'm being harassed", "I think I'm being stalked", "am I being doxxed", "scrub me from the internet", or asks about their public attack surface, data broker presence, credential breaches, or how to respond to a security incident. Also use for pre-flight exposure audits before publishing content. For repo/codebase privacy use exobrain-audit; for laptop/macOS security use antivirus.
 user_invocable: true
 ---
 

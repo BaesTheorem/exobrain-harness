@@ -25,19 +25,19 @@ Path: `/Users/alexhedtke/Documents/Exobrain/Areas/Health & Fitness/Health Log/YY
 ```yaml
 ---
 date: YYYY-MM-DD
-steps: 14200
+steps: 0
 step_goal: 15000
-resting_hr: 68
-sleep_hours: 7.2
-sleep_score: 82
-azm: 45
-calories_burned: 2450
-weight_lbs: 137.1
-body_fat_pct: 10.5
-muscle_mass_lbs: 116.4
-bone_mass_lbs: 6.2
-hydration_pct: 41.5
-visceral_fat: 1.3
+resting_hr: 0
+sleep_hours: 0.0
+sleep_score: 0
+azm: 0
+calories_burned: 0
+weight_lbs: 0.0
+body_fat_pct: 0.0
+muscle_mass_lbs: 0.0
+bone_mass_lbs: 0.0
+hydration_pct: 0.0
+visceral_fat: 0.0
 bp_systolic:
 bp_diastolic:
 pulled_at: "YYYY-MM-DDTHH:MM:SS-05:00"
@@ -85,11 +85,11 @@ Called by the daily briefing. Pulls **yesterday's** data and writes/updates the 
 2. Return a formatted summary for the daily note (under `#### Health`):
 
 ```markdown
-- Steps: 14,200 yesterday (✓ goal) | 7-day avg: 13,100
+- Steps: [value] yesterday (✓ goal) | 7-day avg: [value]
 - [sample health data]
-- Active Zone Minutes: 45 yesterday | 7-day total: 210
-- Weight: 137.1 lbs | Fat: 10.5% | Muscle: 116.4 lbs (84.9%)
-- Visceral fat: 1.3 | Bone: 6.2 lbs | Hydration: 41.5%
+- Active Zone Minutes: [value] yesterday | 7-day total: [value]
+- Weight: [value] lbs | Fat: [value]% | Muscle: [value] lbs ([value]%)
+- Visceral fat: [value] | Bone: [value] lbs | Hydration: [value]%
 - *Recommendation: [specific, tied to today's calendar gaps]*
 - Full data: [[Areas/Health & Fitness/Health Log/YYYY-MM-DD|Health Log]]
 ```

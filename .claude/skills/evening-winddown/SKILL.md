@@ -71,7 +71,7 @@ Alex writes directly in Obsidian throughout the day. Scan for notes created or m
 4. Summarize what was found in the wind-down output (e.g., "Found 2 user-edited notes: Dr. Appt prep, Supplements update")
 5. If a note is purely reference/study material (e.g., BlueDot reading notes), acknowledge the count but don't process individually
 
-This catches everything Alex writes in Obsidian that isn't captured by Plaud, Supernote, Apple Notes, or other input pipelines.
+This catches everything Alex writes in Obsidian that isn't captured by Plaud, Supernote, or other input pipelines.
 
 ### 2. Mood Self-Report
 

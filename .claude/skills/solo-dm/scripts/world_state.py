@@ -26,15 +26,10 @@ import sys
 from datetime import datetime, timezone
 from pathlib import Path
 
-HARNESS_ROOT = Path("/Users/alexhedtke/Documents/Exobrain harness")
+HARNESS_ROOT = Path(__file__).resolve().parents[4]
 DATA_ROOT = HARNESS_ROOT / "data/solo-dm"
-VAULT_ROOT = Path("/Users/alexhedtke/Documents/Exobrain/Areas/Adventure & Creativity/Solo DnD")
-
-# Campaign-folder name is controlled by the DB's campaigns table.
-# For now, hardcode the mapping for theory-of-magic; add others as needed.
-SLUG_TO_FOLDER = {
-    "theory-of-magic": "Theory of Magic",
-}
+# VAULT_ROOT and per-campaign folder come from the campaigns.vault_path column in
+# each campaign's state.sqlite — set at campaign-creation time.
 
 # Marker used to separate auto-generated content from curated content.
 CURATED_MARKER = "## Curated threads"
@@ -219,13 +214,19 @@ def _group_npcs_by_disposition(npcs: list[dict]) -> dict[str, list[dict]]:
 
 
 def export(slug: str) -> Path:
-    if slug not in SLUG_TO_FOLDER:
-        sys.exit(f"unknown slug {slug!r} — add to SLUG_TO_FOLDER")
-    campaign_folder = VAULT_ROOT / SLUG_TO_FOLDER[slug]
+    c = _conn(slug)
+    row = c.execute("SELECT vault_path FROM campaigns WHERE slug = ? LIMIT 1", (slug,)).fetchone()
+    if not row or not row["vault_path"]:
+        sys.exit(f"no vault_path set for campaign {slug!r}")
+    campaign_folder = Path(row["vault_path"]).expanduser()
     if not campaign_folder.exists():
         sys.exit(f"campaign folder not found: {campaign_folder}")
 
-    c = _conn(slug)
+    pc_row = c.execute(
+        "SELECT name FROM characters WHERE kind='pc' LIMIT 1"
+    ).fetchone()
+    pc_name = pc_row["name"] if pc_row else "PC"
+
     ws = _load_world_keys(c)
 
     factions = _scan_folder(campaign_folder / "Factions")
@@ -258,7 +259,7 @@ def export(slug: str) -> Path:
     if ws.get("recent_event"):
         lines.append(f"- **Recent regional event**: {ws['recent_event']}")
     lines.append("")
-    lines.append("Character sheet: [[Characters/Charles yn Hakim el Xander]]")
+    lines.append(f"Character sheet: [[Characters/{pc_name}]]")
     lines.append("")
 
     # Factions

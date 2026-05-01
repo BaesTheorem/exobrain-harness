@@ -7,6 +7,8 @@ description: Draft and send an issue report email to the KC Streetcar team (info
 
 Draft a concise, actionable issue report email to the KC Streetcar operations team.
 
+**Setup**: Before first use, replace `[Your Name]`, `[Your Phone]`, and `[Your Email]` placeholders below (in Step 3 and the Email Template) with your own contact info. Keep that contact info out of the public repo if you are sharing this skill.
+
 ## Workflow
 
 ### Step 1: Identify the station
@@ -49,7 +51,7 @@ Use `Gmail:gmail_create_draft` with:
   - Whether photo evidence is available
   - **Why this matters** — always include a brief line explaining the value of the feature being reported on. For tracker/display issues: real-time arrival data is one of the streetcar system's strongest features for rider confidence and ridership growth, and fallback to static intervals undermines that. For safety issues: frame in terms of rider or pedestrian safety. For accessibility issues: frame in terms of ADA compliance and inclusive access. This context helps the ops team prioritize.
   - A line inviting follow-up
-  - User's contact info: Alex Hedtke, 816-541-6685, alex.hedtke@gmail.com
+  - User's contact info: [Your Name], [Your Phone], [Your Email]
 
 ### Step 4: Remind user to attach and send
 
@@ -79,9 +81,9 @@ I'd like to report an issue observed at the <Station Name> station on <Date> at 
 
 Please let me know if additional detail would be helpful.
 
-Alex Hedtke
-816-541-6685
-alex.hedtke@gmail.com
+[Your Name]
+[Your Phone]
+[Your Email]
 ```
 
 ## Notes

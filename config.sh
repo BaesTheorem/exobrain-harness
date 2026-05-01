@@ -14,7 +14,6 @@ VAULT_DIR="$HOME/Documents/Exobrain"
 # Raw data stays in GDrive — backed up, persistent, and replayable
 GDRIVE_PLAUD="$HOME/My Drive/Plaud"
 GDRIVE_SUPERNOTE="$HOME/My Drive/Supernote/Note"
-GDRIVE_APPLE_NOTES="$HOME/My Drive/Apple Notes"
 GDRIVE_DISCORD="$HOME/My Drive/Discord"
 GDRIVE_IMESSAGE="$HOME/My Drive/iMessage"
 
