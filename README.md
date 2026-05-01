@@ -64,6 +64,11 @@ All outputs converge on the Obsidian vault (`/Users/alexhedtke/Documents/Exobrai
 | `discord-digest-fetch.py` | `discord/` | Python | Fetch recent Discord messages from friend group server via REST API. Writes `discord-digest.json` for daily briefing. Maps usernames to real names. | urllib (stdlib) |
 | `discord-bot.sh` | `discord/` | Shell | Launch Claude CLI as persistent Discord bot (launchd manages restarts via `KeepAlive`) | Claude CLI, Discord plugin |
 | `run-discord-digest.sh` | `discord/` | Shell | launchd wrapper for `discord-digest-fetch.py` with proper PATH and working directory | python3 |
+| `run-process-supernote.sh` | `transcript-processing/` | Shell | launchd wrapper for Supernote processing -- mirror of `run-process-transcript.sh` for handwritten notes | Claude CLI |
+| `things3-obsidian-sync.py` | `things3-sync/` | Python | Mirror Things 3 projects/areas into Obsidian as backlinkable notes | Things 3 MCP, AppleScript |
+| `notify-check.sh` | `cycle-tracker/` | Shell | Partner notification check for cycle tracker app | bash |
+| `vault-snapshot.sh` | `scripts/` | Shell | Daily 06:00 -- builds compact Dashboard + Projects digest for session-start hook injection | bash |
+| `session-memory-consolidator.sh` | `scripts/` | Shell | Daily 23:00 -- backfills missing session memories from today's transcripts | bash, Claude CLI |
 | `get-weather.py` | `weather/` | Python | Fallback weather script for Kansas City via Open-Meteo API (no key needed). Primary weather now via Weather MCP. | `openmeteo_requests`, `openmeteo_sdk` |
 | `backup-exobrain.sh` | root | Shell | Weekly backup of processing log, credentials, skills, settings, and memory to compressed archive | None |
 | `session-start.sh` | `.claude/hooks/` | Shell | Hook -- displays date/logical day and runs system health checks on session start | bash, python3 |
@@ -96,6 +101,15 @@ Skills are invoked with `/skill-name` in Claude Code. Each is defined in `.claud
 | `/news-briefing` | Comprehensive news intelligence briefing with bias analysis, blind spot detection, and prediction market cross-referencing | WebSearch, WebFetch |
 | `/de-ai` | Strip AI-generated patterns from text to sound human | None (text transformation only) |
 | `/whimsy` | Gamified whimsy point tracking with tiered rewards and anti-whimsy deductions | Obsidian daily notes |
+| `/antivirus` | Native macOS LOCAL machine security audit -- XProtect state, persistence, network listeners, browser extensions, quarantine history | Built-in macOS tooling |
+| `/cybersecurity-bodyguard` | Defensive security partner for ONLINE/PUBLIC attack surface -- doxxing, stalking, data brokers, breach checks | WebSearch, OSINT scripts |
+| `/exobrain-audit` | Audit this repo for leaked personal data, legibility for cloning, architecture quality, and AI productivity ideas | Filesystem scan, WebSearch |
+| `/deep-recon` | Multi-agent reconnaissance for deep brainstorming -- spawns parallel subagents and synthesizes a structured recon document | WebSearch, WebFetch, Task |
+| `/defuddle` | Extract clean markdown from web pages using Defuddle CLI (replaces WebFetch for standard pages) | Defuddle CLI (`npm install -g defuddle`) |
+| `/kc-streetcar-report` | Draft and send an issue report email to KC Streetcar operations | Gmail MCP, Pillow |
+| `/session-memory` | Cross-session continuity -- save structured summary at session end, load context at session start. Mostly automatic via hook + CLAUDE.md. | Filesystem |
+| `/solo-dm` | Automated solo D&D 5e DM with grounded adjudication, Python/SQLite backend, Obsidian shared notebook | Python, SQLite, Obsidian |
+| `/ttrpg-player` | Player-side TTRPG assistant (NOT the GM skill) -- character creation, Knife Theory backstory, tactical prep | Obsidian campaign folders |
 | `/discord:access` | Manage Discord channel access and pairing policy | Discord plugin config |
 | `/discord:configure` | Set up the Discord channel -- save bot token and review access policy | Discord plugin config |
 
@@ -104,9 +118,14 @@ Skills are invoked with `/skill-name` in Claude Code. Each is defined in `.claud
 | Skill | Purpose |
 |-------|---------|
 | `/obsidian` | Canonical reference for daily note formatting, People notes, wikilinks, vault structure, append-only rules |
+| `/obsidian-markdown` | Obsidian Flavored Markdown reference -- wikilinks, embeds, callouts, properties, comments |
+| `/obsidian-bases` | How to create and edit `.base` files -- views, filters, formulas, summaries |
+| `/obsidian-cli` | How to interact with the vault via the Obsidian CLI for read/create/search/manage operations |
+| `/json-canvas` | How to create and edit `.canvas` files -- nodes, edges, groups, connections (JSON Canvas Spec 1.0) |
 | `/things3` | Canonical reference for task creation, deduplication, project backlinks, task formatting |
 | `/calendar` | Canonical reference for event creation, flight buffers, overbooking detection, late-night date handling |
 | `/email` | Canonical reference for email scanning, job alert processing, actionable item extraction, CRM cross-referencing |
+| `/health` | Canonical reference for Fitbit + Withings data pulls, API allocation, Health Log structure (called by other skills) |
 
 ### Scheduled Tasks (3)
 
@@ -135,7 +154,7 @@ Installed in `~/Library/LaunchAgents/`.
 | `com.exobrain.discord-bot.plist` | `discord/` | RunAtLoad + KeepAlive | Runs `discord-bot.sh` as a persistent Claude CLI session for Discord plugin |
 | `com.exobrain.session-memory-consolidator.plist` | `scripts/` | Daily: 23:00 | Runs `scripts/session-memory-consolidator.sh` to write missing session memories from today's transcripts |
 | `com.exobrain.vault-snapshot.plist` | `scripts/` | Daily: 06:00 | Runs `scripts/vault-snapshot.sh` to build a compact Dashboard + Projects digest for session-start injection |
-| `com.exobrain.bodyguard-weekly.plist` | `.claude/skills/cybersecurity-bodyguard/` | Weekly | Runs the cybersecurity-bodyguard weekly OSINT scan |
+| `com.exobrain.bodyguard-weekly.plist` | root | Weekly | Runs the cybersecurity-bodyguard weekly OSINT scan (`.claude/skills/cybersecurity-bodyguard/scripts/weekly-scan.sh`) |
 | `com.exobrain.backup.plist` | root | Weekly: Sunday 2 AM | Runs `backup-exobrain.sh` to archive config, skills, memory to Google Drive |
 
 ### Hooks
@@ -148,7 +167,7 @@ Displays today's date with logical day (accounting for the 2 AM boundary), then 
 
 ### Memory System
 
-Persistent cross-session memory in `.claude/projects/.../memory/`. ~30 files total.
+Persistent cross-session memory in `.claude/projects/.../memory/`. ~50 files total.
 
 **Core**: user profile, reference paths, project architecture
 **Behavioral rules**: overbooking alerts, calendar verification, Guild event filtering, Things 3 deep links and inbox-only, CRM extraction and math verification, outreach style, claim verification, flight buffers, late-night date handling, Fitbit data accuracy, Withings in health data, Obsidian formatting (H3 daily note headings, no blank lines before headers, no H1 in People notes), transcript name corrections, job scan depth and stale listing verification, compact briefing format, no em dashes, sleep data date convention
@@ -250,26 +269,50 @@ Exobrain harness/
 |-- .mcp.json                           # MCP server configs + Fitbit credentials (git-ignored)
 |-- .env                                # Withings OAuth tokens (git-ignored)
 |-- .gitignore
-|-- processing-log.json                 # Transaction log of all processed items
+|-- processing-log.json                 # Transaction log of all processed items (git-ignored)
 |-- requirements.txt                    # Python dependencies
+|-- config.sh                           # Shared shell config (paths, common env)
+|-- skills-lock.json                    # Pinned skill versions for the harness
 |-- backup-exobrain.sh                  # Weekly backup script
-|-- com.exobrain.backup.plist           # Weekly backup timer (symlinked to ~/Library/LaunchAgents/)
+|-- com.exobrain.backup.plist           # Weekly backup timer (Step 7 copies it to ~/Library/LaunchAgents/)
+|-- com.exobrain.bodyguard-weekly.plist # Weekly cybersecurity-bodyguard OSINT scan
 |
 |-- transcript-processing/
+|   |-- README.md
 |   |-- supernote-parser.py             # .note -> PNG + SHA-256 hashes
 |   |-- run-process-transcript.sh       # launchd wrapper for transcript processing
-|   |-- com.exobrain.plaud-watcher.plist     # File watcher (symlinked to ~/Library/LaunchAgents/)
-|   |-- com.exobrain.supernote-watcher.plist # File watcher (symlinked to ~/Library/LaunchAgents/)
+|   |-- run-process-supernote.sh        # launchd wrapper for Supernote processing
+|   |-- com.exobrain.plaud-watcher.plist     # File watcher (copied to ~/Library/LaunchAgents/ at install)
+|   |-- com.exobrain.supernote-watcher.plist # File watcher (copied to ~/Library/LaunchAgents/ at install)
+|
+|-- things3-sync/
+|   |-- README.md
+|   |-- things3-obsidian-sync.py        # Mirror Things 3 projects/areas into Obsidian
+|   |-- run-things3-sync.sh             # launchd wrapper
+|   |-- com.exobrain.things3-sync.plist # 15-min interval timer
+|
+|-- scripts/
+|   |-- README.md
+|   |-- vault-snapshot.sh               # Daily 06:00 -- compact Dashboard + Projects digest
+|   |-- session-memory-consolidator.sh  # Daily 23:00 -- backfill missing session memories
+|   |-- com.exobrain.vault-snapshot.plist
+|   |-- com.exobrain.session-memory-consolidator.plist
 |
 |-- imessage/
 |   |-- imessage-reader.py              # macOS chat.db reader
 |
 |-- discord/
+|   |-- README.md
 |   |-- discord-bot.sh                  # Persistent Discord bot launcher
 |   |-- discord-digest-fetch.py         # Discord REST API -> digest JSON
-|   |-- discord-digest.json             # Latest Discord message digest
+|   |-- discord-digest.json             # Latest Discord message digest (git-ignored)
 |   |-- run-discord-digest.sh           # launchd wrapper for Discord digest
-|   |-- com.exobrain.discord-digest.plist  # Discord digest timer
+|   |-- com.exobrain.discord-digest.plist  # Discord digest timer (4h interval)
+|   |-- com.exobrain.discord-bot.plist     # Persistent bot daemon (RunAtLoad + KeepAlive)
+|
+|-- cycle-tracker/                      # Partner's cycle tracking app
+|   |-- README.md
+|   |-- notify-check.sh                 # Partner notification check
 |
 |-- weather/
 |   |-- get-weather.py                  # Open-Meteo weather API (fallback)
@@ -279,9 +322,12 @@ Exobrain harness/
 |   |-- local-events-prefs.json         # Event preferences (artists, interests, venues)
 |
 |-- fonts/                              # Font assets
+|   |-- README.md
+|
+|-- anki/                               # Anki deck source files / notes
+|-- hpmor-jackets/                      # Custom HPMOR book jacket project
 |
 |-- Subdirectory apps
-|   |-- cycle-tracker/                  # Partner's cycle tracking app
 |   |-- mood-tracker/                   # Mood journal web app
 |   |-- pomodoro/                       # Pomodoro timer app
 |   |-- sailboat-retro/                 # Sailboat retrospective visualization
@@ -292,31 +338,7 @@ Exobrain harness/
     |-- launch.json                     # Dev server configs (sailboat retro)
     |-- hooks/
     |   |-- session-start.sh            # Date + system health check
-    |-- skills/
-        |-- capture/SKILL.md
-        |-- calendar/SKILL.md           # Convention reference
-        |-- crm/SKILL.md
-        |-- cycle-tracker/SKILL.md
-        |-- daily-briefing/SKILL.md
-        |-- de-ai/SKILL.md
-        |-- deep-research/SKILL.md
-        |-- discord-digest/SKILL.md
-        |-- email/SKILL.md              # Convention reference
-        |-- evening-winddown/SKILL.md
-        |-- imessage/SKILL.md
-        |-- job-search/SKILL.md
-        |-- local-events/SKILL.md
-        |-- mood/SKILL.md
-        |-- monthly-review/SKILL.md
-        |-- news-briefing/SKILL.md
-        |-- obsidian/SKILL.md           # Convention reference
-        |-- process-supernote/SKILL.md
-        |-- process-transcript/SKILL.md
-        |-- things3/SKILL.md            # Convention reference
-        |-- TTRPG-campaign-manager/SKILL.md
-        |-- verify/SKILL.md
-        |-- weekly-review/SKILL.md
-        |-- whimsy/SKILL.md
+    |-- skills/                         # 38 skills total -- see Skills section above
 
 External vault: /Users/alexhedtke/Documents/Exobrain/
 |-- Dashboard.md                        # Current priorities
