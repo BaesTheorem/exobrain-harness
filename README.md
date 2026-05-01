@@ -321,12 +321,6 @@ Exobrain harness/
 |   |-- local-events-log.json           # Previously surfaced KC events (dedup)
 |   |-- local-events-prefs.json         # Event preferences (artists, interests, venues)
 |
-|-- fonts/                              # Font assets
-|   |-- README.md
-|
-|-- anki/                               # Anki deck source files / notes
-|-- hpmor-jackets/                      # Custom HPMOR book jacket project
-|
 |-- Subdirectory apps
 |   |-- mood-tracker/                   # Mood journal web app
 |   |-- pomodoro/                       # Pomodoro timer app
