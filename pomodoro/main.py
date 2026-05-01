@@ -34,6 +34,8 @@ def today_header():
 
 
 class API:
+    _session_lines = {}
+
     def get_today_tasks(self):
         """Fetch Things 3 Today tasks with project info and Obsidian backlinks."""
         try:
@@ -115,9 +117,12 @@ class API:
         path.write_text(nav + "\n")
         return path
 
-    def log_session(self, task_title, duration_minutes, notes, obsidian_link):
-        """Log a completed pomodoro session to the dedicated Pomodoro Log note."""
+    def start_session(self, task_title, duration_minutes, obsidian_link):
+        """Write a log entry when the session starts. Returns a session_id used
+        later to delete (on Stop) or annotate (on completion). The session_id
+        is tracked in memory; nothing is written into the log file itself."""
         now = datetime.now()
+        session_id = int(now.timestamp() * 1000)
         time_str = now.strftime("%-I:%M %p")
         daily_note_name = now.strftime("%A, %B ") + ordinal(now.day) + now.strftime(", %Y")
         date_header = f"### [[{daily_note_name}]]"
@@ -131,13 +136,9 @@ class API:
                 task_display = f"[[{note_name}|{task_title}]]"
 
         line = f"- **{time_str}** -- {task_display} ({duration_minutes} min)"
-        if notes and notes.strip():
-            line += f" -- {notes.strip()}"
+        self._session_lines[session_id] = line
 
-        if POMODORO_LOG.exists():
-            content = POMODORO_LOG.read_text()
-        else:
-            content = ""
+        content = POMODORO_LOG.read_text() if POMODORO_LOG.exists() else ""
 
         if date_header in content:
             idx = content.index(date_header) + len(date_header)
@@ -150,13 +151,42 @@ class API:
             content = content.rstrip() + "\n" + date_header + "\n" + line + "\n"
 
         POMODORO_LOG.write_text(content.lstrip())
+        return {'session_id': session_id}
+
+    def delete_session(self, session_id):
+        """Remove the log line for this session_id (Stop before completion)."""
+        line = self._session_lines.pop(session_id, None)
+        if not line or not POMODORO_LOG.exists():
+            return {'success': False}
+        content = POMODORO_LOG.read_text()
+        lines = content.split('\n')
+        for i, l in enumerate(lines):
+            if l == line:
+                lines.pop(i)
+                break
+        POMODORO_LOG.write_text('\n'.join(lines))
+        return {'success': True}
+
+    def update_session(self, session_id, notes):
+        """Append user notes to the existing log line for this session_id."""
+        line = self._session_lines.pop(session_id, None)
+        if not line or not POMODORO_LOG.exists():
+            return {'success': False}
+        notes = (notes or '').strip()
+        content = POMODORO_LOG.read_text()
+        if notes:
+            new_line = line + f" -- {notes}"
+            lines = content.split('\n')
+            for i, l in enumerate(lines):
+                if l == line:
+                    lines[i] = new_line
+                    break
+            POMODORO_LOG.write_text('\n'.join(lines))
 
         subprocess.run([
             'osascript', '-e',
-            f'display notification "Logged: {task_title} ({duration_minutes} min)" '
-            f'with title "Pomodoro" sound name "Glass"'
+            'display notification "Logged" with title "Pomodoro" sound name "Glass"'
         ], check=False)
-
         return {'success': True}
 
     def get_today_sessions(self):

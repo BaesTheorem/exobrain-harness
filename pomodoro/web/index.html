@@ -397,6 +397,7 @@ body {
 
     <div class="duration-selector">
       <button class="duration-chip" data-minutes="15">15m</button>
+      <button class="duration-chip" data-minutes="20">20m</button>
       <button class="duration-chip active" data-minutes="25">25m</button>
       <button class="duration-chip" data-minutes="50">50m</button>
     </div>
@@ -465,6 +466,7 @@ let totalMinutes = 0;
 let selectedTask = null;
 let isCustomTask = false;
 let tasks = [];
+let currentSessionId = null;
 
 // ── Elements ──
 const $time = document.getElementById('timerTime');
@@ -579,13 +581,20 @@ function selectCustom() {
 }
 
 // ── Timer ──
-function startTimer() {
+async function startTimer() {
   const taskTitle = getTaskTitle();
   if (!taskTitle) {
     $taskName.textContent = 'Select a task first';
     $taskName.style.color = 'var(--red)';
     setTimeout(() => { $taskName.style.color = ''; }, 1500);
     return;
+  }
+  const api = window.pywebview && window.pywebview.api;
+  if (api) {
+    const link = selectedTask ? selectedTask.obsidian_link : null;
+    const result = await api.start_session(taskTitle, durationMinutes, link);
+    currentSessionId = result && result.session_id;
+    loadLog();
   }
   state = 'running';
   timerSeconds = totalSeconds;
@@ -625,6 +634,12 @@ function resumeTimer() {
 }
 
 function stopTimer() {
+  if ((state === 'running' || state === 'paused') && currentSessionId) {
+    const api = window.pywebview && window.pywebview.api;
+    const id = currentSessionId;
+    if (api) api.delete_session(id).then(() => loadLog());
+    currentSessionId = null;
+  }
   clearInterval(interval);
   interval = null;
   state = 'idle';
@@ -726,10 +741,9 @@ function showNotesPrompt() {
 
 async function saveLog() {
   const api = window.pywebview && window.pywebview.api;
-  const title = getTaskTitle();
   const notes = $notesInput.value;
-  const link = selectedTask ? selectedTask.obsidian_link : null;
-  if (api) await api.log_session(title, durationMinutes, notes, link);
+  if (api && currentSessionId) await api.update_session(currentSessionId, notes);
+  currentSessionId = null;
   $notes.classList.remove('visible');
   loadLog();
 }
