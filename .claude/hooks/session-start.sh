@@ -87,11 +87,19 @@ else
   ISSUES=$((ISSUES + 1))
 fi
 
-# Withings credentials
-if [ -f "$HARNESS/.env" ]; then
-  echo "OK: Withings credentials (.env)"
+# Withings credentials — verifies refresh token is present in .mcp.json (preferred)
+# or .env. Withings uses a long-lived refresh token; access tokens are minted on
+# demand by the MCP server, so there's no on-disk expiry to inspect here.
+WITHINGS_OK=0
+if [ -f "$HARNESS/.mcp.json" ] && python3 -c "import json,sys; d=json.load(open('$HARNESS/.mcp.json')); sys.exit(0 if d.get('mcpServers',{}).get('withings',{}).get('env',{}).get('WITHINGS_REFRESH_TOKEN') else 1)" 2>/dev/null; then
+  WITHINGS_OK=1
+elif [ -f "$HARNESS/.env" ] && grep -q "WITHINGS_REFRESH_TOKEN" "$HARNESS/.env" 2>/dev/null; then
+  WITHINGS_OK=1
+fi
+if [ "$WITHINGS_OK" -eq 1 ]; then
+  echo "OK: Withings credentials (refresh token present)"
 else
-  echo "FAIL: Withings .env missing"
+  echo "WARN: Withings refresh token missing — may need re-auth"
   ISSUES=$((ISSUES + 1))
 fi
 
@@ -150,14 +158,31 @@ else
   ISSUES=$((ISSUES + 1))
 fi
 
-# Discord digest freshness
+# Discord digest freshness — read last_successful_fetch from JSON (file mtime
+# can be misleading because a failed fetch may rewrite the file with old data).
+# See discord/README.md for the contract.
 DIGEST="$HARNESS/discord/discord-digest.json"
 if [ -f "$DIGEST" ]; then
-  AGE=$(( ($(date +%s) - $(stat -f %m "$DIGEST")) / 3600 ))
-  if [ "$AGE" -le 24 ]; then
-    echo "OK: Discord digest (${AGE}h old)"
-  else
-    echo "WARN: Discord digest stale (${AGE}h old)"
+  DIGEST_AGE=$(python3 -c "
+import json, sys
+from datetime import datetime, timezone
+try:
+    d = json.load(open('$DIGEST'))
+    ts = d.get('last_successful_fetch') or d.get('fetched_at')
+    if not ts:
+        print('WARN: Discord digest has no last_successful_fetch field')
+        sys.exit(0)
+    dt = datetime.fromisoformat(ts.replace('Z', '+00:00'))
+    age_h = int((datetime.now(timezone.utc) - dt).total_seconds() / 3600)
+    if age_h <= 24:
+        print(f'OK: Discord digest (last successful fetch {age_h}h ago)')
+    else:
+        print(f'WARN: Discord digest stale (last successful fetch {age_h}h ago)')
+except Exception as e:
+    print(f'WARN: Discord digest unreadable — {e}')
+" 2>/dev/null)
+  echo "$DIGEST_AGE"
+  if echo "$DIGEST_AGE" | grep -q "WARN"; then
     ISSUES=$((ISSUES + 1))
   fi
 else

@@ -148,9 +148,19 @@ After all agents return, **you** (Opus) perform the analysis and write the brief
 
 ### Briefing Structure
 
-Write to `/Users/alexhedtke/Documents/Exobrain/News Briefings/YYYY-MM-DD.md`:
+Write to `/Users/alexhedtke/Documents/Exobrain/News Briefings/YYYY-MM-DD.md`.
+
+**Required**: include a `tldr:` field in the YAML frontmatter as a 3-bullet list (YAML array of strings) summarizing the briefing. The daily-briefing skill reads this field directly so it doesn't have to load the full body. Each bullet is one sentence.
 
 ```markdown
+---
+date: YYYY-MM-DD
+tldr:
+  - "First headline-level takeaway in one sentence."
+  - "Second takeaway."
+  - "Third takeaway."
+---
+
 # News Briefing — [Day of Week], [Month] [Day], [Year]
 
 *Generated [timestamp]. ~[N]-minute read.*

@@ -16,7 +16,7 @@ from urllib.parse import urlparse, parse_qs
 import webbrowser
 
 DATA_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), "mood-data.json")
-MOOD_JOURNAL = "/Users/alexhedtke/Documents/Exobrain/Mood Journal.md"
+MOOD_JOURNAL = os.path.expanduser("~/Documents/Exobrain/Mood Journal.md")
 PORT = 5174
 
 SCORE_COLORS = {
@@ -146,7 +146,7 @@ def sync_obsidian(data):
 
     lines = []
     lines.append("<< [[Dashboard]] >>")
-    lines.append("[Open Mood Tracker](http://localhost:5174) \u00b7 [Launch App](file:///Users/alexhedtke/Desktop/MoodTracker.app)")
+    lines.append("[Open Mood Tracker](http://localhost:5174) \u00b7 [Launch App](file://" + os.path.expanduser("~/Desktop/MoodTracker.app") + ")")
     lines.append("")
 
     # ─── Calendar Heatmaps ───

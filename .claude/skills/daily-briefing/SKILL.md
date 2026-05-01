@@ -12,6 +12,7 @@ Run steps in parallel where there are no dependencies (health + weather + calend
 ## Steps
 
 ### 1. Weather (inline)
+<!-- Kansas City; replace with your coordinates -->
 Use the Weather MCP to get current conditions and forecast for Kansas City, MO (latitude 39.10, longitude -94.58). If unavailable, fall back to `python3 "/Users/alexhedtke/Documents/Exobrain harness/weather/get-weather.py"`. Prepare:
 - Current temperature, conditions, humidity, wind
 - High/low, chance of rain (flag if > 30%), UV index (flag if > 7)
@@ -52,9 +53,9 @@ Follow the `/crm` skill's **Network scan** mode (mode 8). Create Things 3 tasks 
 ### 11. News
 Check if `/Users/alexhedtke/Documents/Exobrain/News Briefings/YYYY-MM-DD.md` exists for today.
 - **Does not exist**: Run the full `/news-briefing` skill (all phases).
-- **Already exists**: Read the existing note.
+- **Already exists**: Read **only the YAML frontmatter** of the note — do NOT load the body. The news-briefing skill writes a `tldr:` field (a 3-bullet YAML array) for exactly this purpose. Extract the frontmatter with e.g. `awk '/^---$/{c++; next} c==1' path.md` and parse the `tldr:` list.
 
-Either way, prepare a 3-5 line summary for the daily note under `#### News`.
+Use the 3 `tldr:` bullets verbatim as the daily note's `#### News` section content. Do not re-summarize the body.
 
 ### 12. Local Events (read-only)
 Do NOT run `/local-events` here — the full scan runs as part of the weekly review on Sundays.
@@ -73,11 +74,11 @@ Weather goes FIRST (outside the briefing heading), then content under `### Morni
 
 ### Morning briefing
 #### Health
-- Steps: 14,200 yesterday (✓ goal) | 7-day avg: 13,100
+- Steps: [value] yesterday (✓ goal) | 7-day avg: [value]
 - [sample health data]
-- Active Zone Minutes: 45 yesterday | 7-day total: 210
-- Weight: 137.1 lbs | Fat: 10.5% | Muscle: 116.4 lbs (84.9%)
-- Visceral fat: 1.3 | Bone: 6.2 lbs | Hydration: 41.5%
+- Active Zone Minutes: [value] yesterday | 7-day total: [value]
+- Weight: [value] lbs | Fat: [value]% | Muscle: [value] lbs ([value]%)
+- Visceral fat: [value] | Bone: [value] lbs | Hydration: [value]%
 - *Recommendation: You're trending below step goal this week. 30-min walk during your lunch gap would help.*
 - Full data: [[Areas/Health & Fitness/Health Log/YYYY-MM-DD|Health Log]]
 
@@ -86,7 +87,7 @@ Weather goes FIRST (outside the briefing heading), then content under `### Morni
 
 #### Today
 - 9:00 AM — Team standup (Zoom)
-- 11:00 AM — 1:1 with Sarah
+- 11:00 AM — 1:1 with [Name]
 - 2:00 PM — Free block
 ...
 

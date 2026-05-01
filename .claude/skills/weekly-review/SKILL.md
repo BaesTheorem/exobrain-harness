@@ -123,7 +123,6 @@ After completing all automated checks above, run the `/exobrain-audit` skill to 
 
 ## Manual Checklist
 Generate this for Alex to complete:
-- [ ] Check Apple Notes for anything to capture
 - [ ] Check physical inbox (mail, papers, etc.)
 - [ ] Review computer files/downloads for anything to file or act on
 

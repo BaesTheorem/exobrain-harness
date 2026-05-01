@@ -1,6 +1,6 @@
 ---
 name: antivirus
-description: Native macOS security audit — XProtect state, persistence mechanisms (LaunchAgents/Daemons, login items), network listeners, browser extensions, known-malware paths, and quarantine history. No third-party AV required. Use when the user says "antivirus scan", "security check", "am I infected", "check my machine", or during a bodyguard incident response.
+description: Native macOS LOCAL MACHINE security audit — XProtect state, persistence mechanisms (LaunchAgents/Daemons, login items), network listeners, browser extensions, known-malware paths, and quarantine history on THIS LAPTOP. No third-party AV required. SCOPE IS THE LOCAL MAC, not this repo or the public internet. Use when the user says "antivirus scan", "machine antivirus scan", "macOS security check", "am I infected", "check my machine", "is my Mac compromised", or during a bodyguard incident response. For online/public attack surface use cybersecurity-bodyguard; for repo/codebase privacy use exobrain-audit.
 ---
 
 # Antivirus (macOS Native Audit)

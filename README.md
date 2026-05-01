@@ -4,7 +4,7 @@ A Claude Code-powered personal automation system that manages information flow a
 
 **Owner**: Alex Hedtke
 **Platform**: macOS (Apple Silicon), Claude Code CLI + Desktop
-**Last audited**: 2026-04-06
+**Last audited**: 2026-05-01
 
 ---
 
@@ -35,7 +35,6 @@ INPUTS                          PROCESSING                        OUTPUTS
 -----------                     ----------                        -------
 Plaud voice notes ----+
 Supernote handwriting-+
-Apple Notes ----------+
 iMessages ------------+         Claude Code                       Obsidian daily notes
 Discord messages -----+------>  (skills + scheduled tasks) -----> Things 3 tasks
 Google Calendar ------+         processing-log.json               Google Calendar events
@@ -45,7 +44,7 @@ Manual /capture ------+                                           macOS notifica
 ```
 
 The system runs on three automation layers:
-1. **launchd file watchers/daemons** -- trigger transcript processing when new Plaud files arrive, sync Apple Notes, fetch Discord messages
+1. **launchd file watchers/daemons** -- trigger transcript processing when new Plaud files arrive, fetch Discord messages
 2. **Claude Code scheduled tasks** -- run transcript checks, inbox review, weekly review on cron (morning briefing and evening winddown are manual/interactive)
 3. **Interactive skills** -- invoked manually via `/skill-name` in Claude Code sessions
 
@@ -62,7 +61,6 @@ All outputs converge on the Obsidian vault (`/Users/alexhedtke/Documents/Exobrai
 | `supernote-parser.py` | `transcript-processing/` | Python | Extract PNG pages from `.note` files, compute SHA-256 page hashes for change detection | `supernotelib` |
 | `run-process-transcript.sh` | `transcript-processing/` | Shell | launchd wrapper -- checks for new Plaud files, invokes Claude, logs failures with notification on error | Claude CLI |
 | `imessage-reader.py` | `imessage/` | Python | Read macOS `chat.db` -- recent messages, chat history, full-text search, unread detection | sqlite3 (stdlib), Full Disk Access required |
-| `apple-notes-sync.py` | `apple-notes-sync/` | Python | One-way sync from Apple Notes to Obsidian vault. Queries Apple Notes via macOS JXA, converts HTML to Markdown, tracks modification timestamps. | html.parser (stdlib) |
 | `discord-digest-fetch.py` | `discord/` | Python | Fetch recent Discord messages from friend group server via REST API. Writes `discord-digest.json` for daily briefing. Maps usernames to real names. | urllib (stdlib) |
 | `discord-bot.sh` | `discord/` | Shell | Launch Claude CLI as persistent Discord bot (launchd manages restarts via `KeepAlive`) | Claude CLI, Discord plugin |
 | `run-discord-digest.sh` | `discord/` | Shell | launchd wrapper for `discord-digest-fetch.py` with proper PATH and working directory | python3 |
@@ -124,19 +122,21 @@ Managed via Claude Code's scheduled-tasks MCP. Run as remote agents on cron.
 - `/daily-briefing` -- morning dashboard (was scheduled, now manual)
 - `/evening-winddown` -- day recap, mood + concern check-in, tomorrow planning (interactive, so manual)
 
-### launchd Jobs (5)
+### launchd Jobs (9)
 
 Installed in `~/Library/LaunchAgents/`.
 
 | Plist | Location | Watches/Triggers | Purpose |
 |-------|----------|-----------------|---------|
-| `com.exobrain.plaud-watcher.plist` | `transcript-processing/` | `WatchPaths: Plaud/` folder (30s throttle) | Runs `run-process-transcript.sh` when new transcripts land |
+| `com.exobrain.plaud-watcher.plist` | `transcript-processing/` | `WatchPaths: Plaud/` folder (30s throttle, 30-min fallback) | Runs `run-process-transcript.sh` when new transcripts land |
 | `com.exobrain.supernote-watcher.plist` | `transcript-processing/` | `WatchPaths: Supernote/Note/` folder (30s throttle) | Runs `run-process-supernote.sh` when new Supernote files land |
-| `com.exobrain.apple-notes-sync.plist` | `apple-notes-sync/` | Interval: 900s (15 min) | Runs `apple-notes-sync.py` to sync Apple Notes to Obsidian |
+| `com.exobrain.things3-sync.plist` | `things3-sync/` | Interval: 900s (15 min) | Runs `things3-obsidian-sync.py` to mirror Things 3 projects/areas into Obsidian |
 | `com.exobrain.discord-digest.plist` | `discord/` | Interval: 14400s (4 hours) | Runs `discord-digest-fetch.py` to fetch Discord messages for briefing |
+| `com.exobrain.discord-bot.plist` | `discord/` | RunAtLoad + KeepAlive | Runs `discord-bot.sh` as a persistent Claude CLI session for Discord plugin |
+| `com.exobrain.session-memory-consolidator.plist` | `scripts/` | Daily: 23:00 | Runs `scripts/session-memory-consolidator.sh` to write missing session memories from today's transcripts |
+| `com.exobrain.vault-snapshot.plist` | `scripts/` | Daily: 06:00 | Runs `scripts/vault-snapshot.sh` to build a compact Dashboard + Projects digest for session-start injection |
+| `com.exobrain.bodyguard-weekly.plist` | `.claude/skills/cybersecurity-bodyguard/` | Weekly | Runs the cybersecurity-bodyguard weekly OSINT scan |
 | `com.exobrain.backup.plist` | root | Weekly: Sunday 2 AM | Runs `backup-exobrain.sh` to archive config, skills, memory to Google Drive |
-
-The Discord bot (`discord-bot.sh`) runs as a persistent process managed by Claude Code's Discord plugin, not via a separate launchd job.
 
 ### Hooks
 
@@ -190,7 +190,6 @@ Persistent cross-session memory in `.claude/projects/.../memory/`. ~30 files tot
 | **MyChart** | Full patient portal: meds, labs, imaging, vitals, messages, billing, insurance, preventive care, refills | MCP server ([OpenRecord](https://github.com/Fan-Pier-Labs/openrecord), hosted) |
 | **Plaud Note** | Voice recording to transcript files | Plaud app syncs `.txt` files to Google Drive, then to Obsidian vault |
 | **Supernote A5X** | Handwritten notes (`.note` format) | Supernote app syncs to Google Drive, then to filesystem |
-| **Apple Notes** | Quick capture on iPhone/iPad | `apple-notes-sync.py` syncs to Obsidian vault every 15 min |
 | **Discord** | Friend group server | MCP plugin + `discord-digest-fetch.py` for offline message history |
 | **iMessage** | Text messages | `imessage-reader.py` reading `chat.db` |
 | **Open-Meteo** | Weather data (no API key) | Weather MCP (primary), `get-weather.py` (fallback) |
@@ -208,10 +207,6 @@ Plaud transcript lands in vault
   -> Routes to Things 3 / GCal / daily note / People/ notes
   -> Updates processing-log.json
   -> macOS notification
-
-Apple Notes changed on iPhone/iPad
-  -> launchd runs apple-notes-sync.py every 15 min
-  -> Syncs new/changed notes to Obsidian vault
 
 Discord messages arrive in friend group server
   -> launchd runs discord-digest-fetch.py every 4 hours
@@ -268,12 +263,6 @@ Exobrain harness/
 |
 |-- imessage/
 |   |-- imessage-reader.py              # macOS chat.db reader
-|
-|-- apple-notes-sync/
-|   |-- apple-notes-sync.py             # Apple Notes -> Obsidian sync
-|   |-- apple-notes-sync-config.json    # Sync configuration
-|   |-- apple-notes-sync-state.json     # Sync state tracking
-|   |-- com.exobrain.apple-notes-sync.plist  # Apple Notes sync timer
 |
 |-- discord/
 |   |-- discord-bot.sh                  # Persistent Discord bot launcher
@@ -378,8 +367,8 @@ cd "Exobrain harness"
 ### Step 2: Install System Dependencies
 
 ```bash
-# Python (use system Python 3.9+ or install via Homebrew)
-brew install python3 node screen
+# Python 3.12+ (the harness's launch.json hardcodes /opt/homebrew/bin/python3.12)
+brew install python@3.12 node screen
 
 # Python packages
 pip3 install supernotelib openmeteo-requests openmeteo-sdk
@@ -473,20 +462,28 @@ Paste your Discord bot token when prompted. Set up channel access with `/discord
 ### Step 7: Install launchd Jobs
 
 ```bash
-# Symlink plist files to LaunchAgents
-ln -s "$PWD/transcript-processing/com.exobrain.plaud-watcher.plist" ~/Library/LaunchAgents/
-ln -s "$PWD/transcript-processing/com.exobrain.supernote-watcher.plist" ~/Library/LaunchAgents/
-ln -s "$PWD/apple-notes-sync/com.exobrain.apple-notes-sync.plist" ~/Library/LaunchAgents/
-ln -s "$PWD/discord/com.exobrain.discord-digest.plist" ~/Library/LaunchAgents/
-ln -s "$PWD/com.exobrain.backup.plist" ~/Library/LaunchAgents/
+# Copy plist files to LaunchAgents (NOT symlinks — TCC blocks symlinks
+# into ~/Documents from loading at login, so the jobs would never run at boot).
+cp "$PWD/transcript-processing/com.exobrain.plaud-watcher.plist" ~/Library/LaunchAgents/
+cp "$PWD/transcript-processing/com.exobrain.supernote-watcher.plist" ~/Library/LaunchAgents/
+cp "$PWD/things3-sync/com.exobrain.things3-sync.plist" ~/Library/LaunchAgents/
+cp "$PWD/discord/com.exobrain.discord-digest.plist" ~/Library/LaunchAgents/
+cp "$PWD/discord/com.exobrain.discord-bot.plist" ~/Library/LaunchAgents/
+cp "$PWD/scripts/com.exobrain.session-memory-consolidator.plist" ~/Library/LaunchAgents/
+cp "$PWD/scripts/com.exobrain.vault-snapshot.plist" ~/Library/LaunchAgents/
+cp "$PWD/com.exobrain.backup.plist" ~/Library/LaunchAgents/
 
 # Load the jobs
 launchctl load ~/Library/LaunchAgents/com.exobrain.plaud-watcher.plist
 launchctl load ~/Library/LaunchAgents/com.exobrain.supernote-watcher.plist
-launchctl load ~/Library/LaunchAgents/com.exobrain.apple-notes-sync.plist
+launchctl load ~/Library/LaunchAgents/com.exobrain.things3-sync.plist
 launchctl load ~/Library/LaunchAgents/com.exobrain.discord-digest.plist
+launchctl load ~/Library/LaunchAgents/com.exobrain.discord-bot.plist
+launchctl load ~/Library/LaunchAgents/com.exobrain.session-memory-consolidator.plist
+launchctl load ~/Library/LaunchAgents/com.exobrain.vault-snapshot.plist
 launchctl load ~/Library/LaunchAgents/com.exobrain.backup.plist
 
+# After any plist edit, copy again — the LaunchAgents copy is the authoritative one.
 # Verify
 launchctl list | grep exobrain
 ```
@@ -615,7 +612,7 @@ Map what the user already uses daily. Don't introduce new tools -- integrate wit
 
 | This system uses | Alternatives |
 |------------------|-------------|
-| Obsidian (knowledge base) | Notion, Logseq, Bear, Apple Notes, plain markdown folder |
+| Obsidian (knowledge base) | Notion, Logseq, Bear, plain markdown folder |
 | Things 3 (task manager) | Todoist, TickTick, Reminders.app, Linear, GitHub Issues |
 | Google Calendar | Outlook, Fantastical, Apple Calendar |
 | Gmail | Outlook, Fastmail, ProtonMail |
@@ -698,7 +695,6 @@ This turns scattered mentions across transcripts, emails, and messages into a co
 - `launchd` plists -> `systemd` timers (Linux), Task Scheduler (Windows), `cron` (universal)
 - `osascript` notifications -> `notify-send` (Linux), PowerShell toast (Windows)
 - `imessage-reader.py` (reads `chat.db`) -> platform-specific message access or skip entirely
-- `apple-notes-sync.py` (JXA scripting) -> not needed if the user doesn't use Apple Notes
 - Full Disk Access requirement -> varies by platform
 
 **Claude Code-specific components** that need replacement with other AI assistants:

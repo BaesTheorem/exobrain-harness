@@ -14,7 +14,7 @@ from urllib.parse import urlparse, parse_qs
 import webbrowser
 
 DATA_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), "retro-data.json")
-DEFAULT_VAULT_PATH = "/Users/alexhedtke/Documents/Exobrain/"
+DEFAULT_VAULT_PATH = os.path.expanduser("~/Documents/Exobrain/")
 PORT = 5175
 
 
@@ -24,11 +24,11 @@ def load_data():
     if not os.path.exists(DATA_FILE):
         data = {
             "parties": {
-                "Calimport Campaign": {"island": [], "sails": [], "anchor": [], "rocks": [], "sun": []}
+                "Default Campaign": {"island": [], "sails": [], "anchor": [], "rocks": [], "sun": []}
             },
             "settings": {
                 "default_vault_path": DEFAULT_VAULT_PATH,
-                "current_party": "Calimport Campaign"
+                "current_party": "Default Campaign"
             }
         }
         save_data(data)

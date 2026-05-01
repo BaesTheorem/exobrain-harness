@@ -309,7 +309,7 @@ def selftest() -> None:
                      "VALUES (1,1,'Opening','[]')")
         conn.execute(
             "INSERT INTO characters (campaign_id, name, kind, model_tier, sheet_json, current_hp) "
-            "VALUES (1,'Korvara','pc','opus',?,19)",
+            "VALUES (1,'Test PC','pc','opus',?,19)",
             (json.dumps({"class": "Druid", "level": 2, "ac": 14}),),
         )
         for i in range(15):

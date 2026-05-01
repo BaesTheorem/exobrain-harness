@@ -217,7 +217,7 @@ _Choose some interesting [treasure](https://slyflourish.com/random_generators/5e
 
 ### 3. Campaign Query (any question about a campaign)
 
-For general questions about a campaign ("what's the deal with CFAR?", "remind me about Korvara's backstory", "what threads are dangling?"):
+For general questions about a campaign ("what's the deal with [faction]?", "remind me about [character]'s backstory", "what threads are dangling?"):
 
 1. Clarify which campaign if ambiguous
 2. Scan the relevant notes in the campaign folder (including `Claude reference.md`)

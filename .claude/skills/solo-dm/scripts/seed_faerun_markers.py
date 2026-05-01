@@ -16,7 +16,8 @@ import sys
 import uuid
 from pathlib import Path
 
-DATA_ROOT = Path("/Users/alexhedtke/Documents/Exobrain harness/data/solo-dm")
+HARNESS_ROOT = Path(__file__).resolve().parents[4]
+DATA_ROOT = HARNESS_ROOT / "data/solo-dm"
 
 # (label, x, y, kind, wiki_slug_or_None)
 # Coordinates are approximate — 0,0 top-left, 1,1 bottom-right.
