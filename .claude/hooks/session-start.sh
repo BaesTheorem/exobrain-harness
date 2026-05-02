@@ -46,7 +46,7 @@ fi
 # MCP config
 if [ -f "$HARNESS/.mcp.json" ]; then
   # Check each server is defined
-  for SERVER in things3 fitbit withings weather; do
+  for SERVER in things3 fitbit withings; do
     if python3 -c "import json; d=json.load(open('$HARNESS/.mcp.json')); assert '$SERVER' in d.get('mcpServers',{})" 2>/dev/null; then
       echo "OK: MCP $SERVER configured"
     else

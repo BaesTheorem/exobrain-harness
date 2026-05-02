@@ -26,7 +26,6 @@
       "mcp__fitbit__*",
       "mcp__plugin_discord_discord__*",
       "mcp__withings__*",
-      "mcp__weather__*",
       "mcp__mcp-registry__*",
       "mcp__mychart__*"
     ]

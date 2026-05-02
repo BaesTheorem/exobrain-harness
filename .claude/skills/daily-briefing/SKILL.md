@@ -13,7 +13,7 @@ Run steps in parallel where there are no dependencies (health + weather + calend
 
 ### 1. Weather (inline)
 <!-- Kansas City; replace with your coordinates -->
-Use the Weather MCP to get current conditions and forecast for Kansas City, MO (latitude 39.10, longitude -94.58). If unavailable, fall back to `python3 "/Users/alexhedtke/Documents/Exobrain harness/weather/get-weather.py"`. Prepare:
+Run `python3 "/Users/alexhedtke/Documents/Exobrain harness/weather/get-weather.py"` to get current conditions and forecast for Kansas City, MO (latitude 39.10, longitude -94.58). Prepare:
 - Current temperature, conditions, humidity, wind
 - High/low, chance of rain (flag if > 30%), UV index (flag if > 7)
 - Clothing recommendation (jacket? umbrella? sunglasses? layers?)

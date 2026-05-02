@@ -69,7 +69,7 @@ All outputs converge on the Obsidian vault (`/Users/alexhedtke/Documents/Exobrai
 | `notify-check.sh` | `cycle-tracker/` | Shell | Partner notification check for cycle tracker app | bash |
 | `vault-snapshot.sh` | `scripts/` | Shell | Daily 06:00 -- builds compact Dashboard + Projects digest for session-start hook injection | bash |
 | `session-memory-consolidator.sh` | `scripts/` | Shell | Daily 23:00 -- backfills missing session memories from today's transcripts | bash, Claude CLI |
-| `get-weather.py` | `weather/` | Python | Fallback weather script for Kansas City via Open-Meteo API (no key needed). Primary weather now via Weather MCP. | `openmeteo_requests`, `openmeteo_sdk` |
+| `get-weather.py` | `weather/` | Python | Weather script for Kansas City via Open-Meteo API (no key needed). Used by `/daily-briefing`. | `openmeteo_requests`, `openmeteo_sdk` |
 | `backup-exobrain.sh` | root | Shell | Weekly backup of processing log, credentials, skills, settings, and memory to compressed archive | None |
 | `session-start.sh` | `.claude/hooks/` | Shell | Hook -- displays date/logical day and runs system health checks on session start | bash, python3 |
 
@@ -83,7 +83,7 @@ Skills are invoked with `/skill-name` in Claude Code. Each is defined in `.claud
 |-------|---------|------------------|
 | `/process-transcript` | Parse Plaud voice notes into tasks, events, notes, People updates | Things 3, GCal, Obsidian, CRM |
 | `/process-supernote` | OCR handwritten Supernote pages (vision), extract and route content | supernote-parser.py, Things 3, Obsidian |
-| `/daily-briefing` | Morning dashboard: weather, health, calendar, tasks, Discord, iMessages, mood, jobs, CRM | Weather MCP, Fitbit, Withings, GCal, Things 3, Gmail, Discord, iMessage |
+| `/daily-briefing` | Morning dashboard: weather, health, calendar, tasks, Discord, iMessages, mood, jobs, CRM | get-weather.py, Fitbit, Withings, GCal, Things 3, Gmail, Discord, iMessage |
 | `/weekly-review` | GTD-style weekly synthesis: email, calendar, notes, tasks, health trends, mood, CRM | Gmail, GCal, Things 3, Fitbit, Withings, Discord, iMessage |
 | `/evening-winddown` | End-of-day recap, mood check-in, tomorrow planning. Treats post-midnight as same day until 2 AM. | Fitbit, GCal, Things 3, iMessage, Discord, Supernote |
 | `/monthly-review` | End-of-month review: weekly synthesis, values alignment, areas balance, project vitality | All data sources |
@@ -181,7 +181,6 @@ Persistent cross-session memory in `.claude/projects/.../memory/`. ~50 files tot
 | **Things 3** | Local (Python, `uv tool run things-mcp`) | Task CRUD via Things 3 database | None (local app) |
 | **Fitbit** | Local (Node.js, custom build) | Health data: steps, HR, sleep, AZM, calories | OAuth2 (client ID + secret in `.mcp.json`) |
 | **Withings** | Local (Node.js, `npx gchallen/withings-mcp`) | Weight, body composition, blood pressure | OAuth2 (tokens in `.env`) |
-| **Weather** | Local (Node.js, `npx @dangahagan/weather-mcp`) | Current conditions + forecast (Open-Meteo + NOAA, no API key) | None |
 | **Google Calendar** | Claude Desktop managed | Event CRUD, free time queries | Google OAuth (Desktop-managed) |
 | **Gmail** | Claude Desktop managed | Email search, read, draft | Google OAuth (Desktop-managed) |
 | **Google Drive** | Claude Desktop managed | File search and fetch | Google OAuth (Desktop-managed) |
@@ -211,7 +210,7 @@ Persistent cross-session memory in `.claude/projects/.../memory/`. ~50 files tot
 | **Supernote A5X** | Handwritten notes (`.note` format) | Supernote app syncs to Google Drive, then to filesystem |
 | **Discord** | Friend group server | MCP plugin + `discord-digest-fetch.py` for offline message history |
 | **iMessage** | Text messages | `imessage-reader.py` reading `chat.db` |
-| **Open-Meteo** | Weather data (no API key) | Weather MCP (primary), `get-weather.py` (fallback) |
+| **Open-Meteo** | Weather data (no API key) | `get-weather.py` |
 
 ---
 
@@ -315,7 +314,7 @@ Exobrain harness/
 |   |-- notify-check.sh                 # Partner notification check
 |
 |-- weather/
-|   |-- get-weather.py                  # Open-Meteo weather API (fallback)
+|   |-- get-weather.py                  # Open-Meteo weather API
 |
 |-- local-events/
 |   |-- local-events-log.json           # Previously surfaced KC events (dedup)
@@ -443,10 +442,6 @@ In the harness root (this file is git-ignored):
         "WITHINGS_REDIRECT_URI": "your_uri",
         "WITHINGS_REFRESH_TOKEN": "your_token"
       }
-    },
-    "weather": {
-      "command": "npx",
-      "args": ["@dangahagan/weather-mcp"]
     }
   }
 }

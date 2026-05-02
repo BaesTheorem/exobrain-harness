@@ -1,6 +1,6 @@
 # Weather
 
-Fallback weather script using the Open-Meteo API. The primary weather source is the Weather MCP server; this script exists for cases where the MCP is unavailable.
+Weather script using the Open-Meteo API. Used by the daily-briefing skill to fetch current conditions and forecast. No API key required.
 
 ## Usage
 
