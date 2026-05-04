@@ -27,6 +27,9 @@ Gather all data in parallel where possible, then present conversationally.
 **Health so far**:
 Follow the `/health` skill's **Evening Update** section. Pull today's final Fitbit activity totals and update the Health Log note. Steps vs 15,000 goal — note the gap but don't nag (it's bedtime).
 
+**Pomodoro log**:
+Read today's section from `/Users/alexhedtke/Documents/Exobrain/Pomodoro Log.md` (header format `### [[Friday, May 1st, 2026]]` matching the locked target date). If the section exists, capture every `- **HH:MM AM/PM** -- ...` bullet under it and the total session count + minutes. If the section is missing, treat as zero sessions. This feeds the Focus line in step 6.
+
 **Communication**:
 - `python3 "/Users/alexhedtke/Documents/Exobrain harness/imessage/imessage-reader.py" unread` — any unanswered messages to flag for tomorrow
 - `python3 "/Users/alexhedtke/Documents/Exobrain harness/imessage/imessage-reader.py" recent --hours 24 --limit 100` — scan today's messages for actionable items
@@ -169,6 +172,8 @@ Append to the **pre-resolved target daily note filename from Step 0**. Do NOT re
 **Completed**: [count] tasks, [count] events attended
 **Rolled over**: [list any deferred tasks with brief reason]
 **Steps**: [count] ([% of goal])
+**Focus**: [N] pomodoros / [total] min
+[bulleted list of today's pomodoro entries verbatim from the Pomodoro Log section, or "_no sessions logged_" if none]
 
 **Unanswered**: [any messages to handle tomorrow]
 **Routed today**: [X] tasks created, [Y] events created, [Z] People notes updated (from iMessage/Discord/Supernote)

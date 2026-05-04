@@ -35,6 +35,7 @@ processing-log.json
 discord/discord-digest.json
 vault-migration-report.md
 scratch/
+apple-notes-sync/
 
 # solo-dm: campaign state (SQLite + JSONL), preferences, non-SRD rules content
 data/solo-dm/
