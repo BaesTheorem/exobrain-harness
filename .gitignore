@@ -36,6 +36,7 @@ discord/discord-digest.json
 vault-migration-report.md
 scratch/
 apple-notes-sync/
+.tmp-winddown-*.md
 
 # solo-dm: campaign state (SQLite + JSONL), preferences, non-SRD rules content
 data/solo-dm/
