@@ -68,6 +68,8 @@ Called by the daily briefing. Pulls **yesterday's** data and writes/updates the 
 **Fitbit** (yesterday's date):
 - `get_daily_activity_summary` → steps, calories
 - `get_heart_rate` → resting HR
+- `get_heart_rate_by_date_range` (today minus 15 to today) → RHR baseline for canary check
+- `get_temp_skin_by_date_range` (today minus 15 to today) → skin temp baseline for canary confirmer (see **RHR Illness Canary** below)
 - `get_azm_timeseries` (past 7 days) → AZM with trend
 - `get_sleep_by_date_range` (last night) → sleep score, duration. Use today's date for the query — Fitbit records sleep under the wake-up date.
 - `get_activity_timeseries` (past 7 days) → step trend for comparison
@@ -97,6 +99,59 @@ Called by the daily briefing. Pulls **yesterday's** data and writes/updates the 
 ### Step goal tracking
 
 Alex's goal: 15,000+ steps/day. Compare yesterday to 7-day average. If below goal, identify a free block in today's calendar and suggest a specific walk time. One recommendation per briefing — don't nag.
+
+### RHR Illness Canary
+
+Resting heart rate typically rises 1-2 days before symptoms appear, but stress and anxiety also elevate RHR. **Skin temperature is the discriminator**: illness pushes nightly skin temp variation +0.2°C (+0.4°F) above baseline; stress does not. The canary fires only when both signals agree.
+
+**Inputs**:
+- 15 days of RHR via `get_heart_rate_by_date_range` (today minus 15 to today)
+- 15 days of nightly skin temp via `get_temp_skin_by_date_range` (same range)
+
+Drop days with missing readings.
+
+**Baselines** (each computed independently, excluding today's value):
+- RHR baseline: median of prior 14 days
+- Skin temp baseline: median of prior 14 nights' `nightlyRelative` value (Fitbit already reports this relative to a longer-term personal baseline, so the 14-night median is your near-term normal)
+
+**RHR-elevated condition** (either of):
+- Today's RHR ≥3 bpm above RHR baseline AND yesterday's RHR also ≥3 bpm above its baseline
+- Today's RHR ≥5 bpm above RHR baseline (single-day spike)
+
+**Skin temp confirmer**: last night's skin temp variation ≥+0.2°C above the 14-night skin-temp median. (Fitbit reports in °C; +0.2°C ≈ +0.36°F.)
+
+**Fire alert only when both the RHR-elevated condition AND the skin temp confirmer are true.**
+
+If RHR is elevated but skin temp is normal, **do not fire** — this is the stress/anxiety pattern, not illness. Do not surface it in the briefing at all.
+
+**Severity** (only applies when alert fires):
+- `moderate`: 2-day RHR streak ≥3 bpm + skin temp confirmed, or single-day +5–6 bpm + skin temp confirmed
+- `high`: single-day RHR spike ≥7 bpm, OR 3+ day RHR streak ≥3 bpm, in both cases with skin temp confirmed
+
+**Output** (returned to the daily briefing alongside the `#### Health` summary):
+```
+{
+  "fired": true,
+  "severity": "moderate" | "high",
+  "today_rhr": 82,
+  "rhr_baseline": 75,
+  "rhr_delta": 7,
+  "skin_temp_delta_c": 0.34,
+  "streak_days": 3,
+  "message": "RHR elevated 7 bpm AND skin temp +0.34°C above baseline (3-day streak). Likely illness onset — consider lightening tomorrow's schedule, hydrating, and protecting sleep."
+}
+```
+
+If `fired` is false, the briefing omits the alert. **Do not nag**: when the streak ends (RHR returns within 2 bpm of baseline OR skin temp returns to baseline), suppress further alerts until a fresh trigger.
+
+**Skin temp data unavailability**: if the Fitbit API returns no skin temp data for last night (device wasn't worn, or device doesn't support it), do not fire — never fall back to RHR-only, since RHR alone has too many false positives from stress.
+
+**Confounders** to mention in the message when relevant:
+- Hard workout in the past 24h (check `get_exercises`) — exercise can elevate next-day RHR
+- Heavy alcohol the prior evening — note from the daily note if mentioned
+- Travel/altitude change
+
+These don't suppress the alert (skin temp already filters most stress-only events), but the message should acknowledge them so Alex can interpret the signal.
 
 ## Evening Update
 

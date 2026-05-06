@@ -22,6 +22,8 @@ Run `python3 "/Users/alexhedtke/Documents/Exobrain harness/weather/get-weather.p
 ### 2. Health
 Follow the `/health` skill's **Morning Snapshot** section. Pull yesterday's Fitbit + Withings data, write the Health Log note, and prepare the `#### Health` summary for the daily note.
 
+Also run the **RHR Illness Canary** check from that skill. If it fires, render the alert at the **top of the briefing**, above `#### Health` and above the schedule — this is the one section that pre-empts everything else because it changes how Alex should plan the day.
+
 ### 3. Calendar
 Follow the `/calendar` skill's **Daily Briefing** section. List today's events and check flight buffers for the next 14 days.
 
@@ -73,6 +75,11 @@ Weather goes FIRST (outside the briefing heading), then content under `### Morni
 **Weather**: ☀️ 72°F, sunny, high of 78. No rain expected. Light layers.
 
 ### Morning briefing
+> [!warning] ⚠️ RHR elevated 7 bpm above 14-day baseline (3-day streak)
+> Possible illness onset. Consider lightening tomorrow's schedule, hydrating, and protecting sleep tonight.
+
+(Only render the callout when the RHR canary fires. Omit entirely otherwise — do not leave a placeholder.)
+
 #### Health
 - Steps: [value] yesterday (✓ goal) | 7-day avg: [value]
 - [sample health data]
