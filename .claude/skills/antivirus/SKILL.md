@@ -39,7 +39,7 @@ Anything outside these prefixes should be flagged for review.
 
 ## Phases
 
-Run in parallel where possible. Every phase writes to `/Users/alexhedtke/Documents/Exobrain/Areas/Security/av-scans/YYYY-MM-DD.md`.
+Run in parallel where possible. Every phase writes to `/Users/alexhedtke/Exobrain/Areas/Security/av-scans/YYYY-MM-DD.md`.
 
 ### Phase 1 — OS protections
 
@@ -150,7 +150,7 @@ Do not install these silently; the user decides.
 
 ## Output
 
-Write a report to `/Users/alexhedtke/Documents/Exobrain/Areas/Security/av-scans/YYYY-MM-DD.md`:
+Write a report to `/Users/alexhedtke/Exobrain/Areas/Security/av-scans/YYYY-MM-DD.md`:
 
 ```markdown
 ---
@@ -187,7 +187,7 @@ Create Things 3 tasks for HIGH findings. Bundle MED findings into one review tas
 
 If HIGH findings appear, do not attempt to remediate silently — walk the user through each finding, confirm it's actually unexpected (vs. legitimate software they forgot about), then decide together whether to quarantine, remove, or investigate further.
 
-For confirmed malware: don't just delete. Preserve the binary and plist in `~/Documents/Exobrain/Areas/Security/Incidents/YYYY-MM-DD-av-finding/` for later analysis, then remove persistence mechanisms and reboot.
+For confirmed malware: don't just delete. Preserve the binary and plist in `~/Exobrain/Areas/Security/Incidents/YYYY-MM-DD-av-finding/` for later analysis, then remove persistence mechanisms and reboot.
 
 ## Ethical guardrails
 

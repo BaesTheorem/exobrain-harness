@@ -51,9 +51,9 @@ The skill writes to these vault paths — create them now so later logging
 doesn't fail:
 
 ```bash
-mkdir -p "/Users/alexhedtke/Documents/Exobrain/Areas/Security/Incidents"
-touch "/Users/alexhedtke/Documents/Exobrain/Areas/Security/Security Log.md"
-touch "/Users/alexhedtke/Documents/Exobrain/Areas/Security/broker-removals.md"
+mkdir -p "/Users/alexhedtke/Exobrain/Areas/Security/Incidents"
+touch "/Users/alexhedtke/Exobrain/Areas/Security/Security Log.md"
+touch "/Users/alexhedtke/Exobrain/Areas/Security/broker-removals.md"
 ```
 
 ### 5. (Optional) Subscribe to a broker-removal service
@@ -68,8 +68,8 @@ different brokers.
 The harness ships with `com.exobrain.bodyguard-weekly.plist` — install it:
 
 ```bash
-chmod +x /Users/alexhedtke/Documents/Exobrain\ harness/.claude/skills/cybersecurity-bodyguard/scripts/weekly-scan.sh
-cp /Users/alexhedtke/Documents/Exobrain\ harness/com.exobrain.bodyguard-weekly.plist ~/Library/LaunchAgents/
+chmod +x /Users/alexhedtke/Exobrain\ harness/.claude/skills/cybersecurity-bodyguard/scripts/weekly-scan.sh
+cp /Users/alexhedtke/Exobrain\ harness/com.exobrain.bodyguard-weekly.plist ~/Library/LaunchAgents/
 launchctl load ~/Library/LaunchAgents/com.exobrain.bodyguard-weekly.plist
 ```
 

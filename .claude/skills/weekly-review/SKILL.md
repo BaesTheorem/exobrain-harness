@@ -31,7 +31,7 @@ Use `gcal_list_events` for:
 - **Forward leg — next 4 weeks from today**: What's coming? Flag events needing preparation, deadlines approaching, and gaps that could be used for priority work.
 
 ### 3. Obsidian notes review
-Read the past 7 daily notes from `/Users/alexhedtke/Documents/Exobrain/Daily notes/`.
+Read the past 7 daily notes from `/Users/alexhedtke/Exobrain/Daily notes/`.
 - Surface unresolved items, open questions, and incomplete threads
 - Note patterns or recurring themes
 
@@ -57,7 +57,7 @@ Run `/job-search status` logic to compile the week's application count and pace.
 - Upskilling progress (cert study sessions, training attended, exams)
 - Interview activity (scheduled, completed, outcomes)
 - Networking for job search (outreach sent, intros made)
-Append a dated `Applications` entry to the job hub note (`/Users/alexhedtke/Documents/Exobrain/Projects/Get new job.md`) under `## Job Search Log`.
+Append a dated `Applications` entry to the job hub note (`/Users/alexhedtke/Exobrain/Projects/Get new job.md`) under `## Job Search Log`.
 
 ### 8. Health trends
 Pull 7-day Fitbit data (steps, sleep, zone minutes) — do NOT use Fitbit for weight. Pull Withings data separately: body composition (`withings_get_body_composition` imperial) for latest snapshot, plus `withings_get_measurements` for 7-day weight/body comp trends, and blood pressure if available. Summarize trends and flag concerns.
@@ -66,7 +66,7 @@ Pull 7-day Fitbit data (steps, sleep, zone minutes) — do NOT use Fitbit for we
 Read the concern dossier notes in `Areas/Health & Fitness/Concerns/` for the list of tracked properties, what to watch for, correlations to flag, and any active experiments or provider recommendations. Then read the past 7 Health Log notes and analyze accordingly. Compare to prior week if data exists (trend arrows). Update the dossier notes with any new findings or experiment results.
 
 ### 9. Mood Journal — weekly summary
-Read `/Users/alexhedtke/Documents/Exobrain/Mood Journal.md` and generate the weekly summary:
+Read `/Users/alexhedtke/Exobrain/Mood Journal.md` and generate the weekly summary:
 1. Compile daily scores for Mon-Sun (score any unscored days using available data)
 2. Calculate sub-category averages and overall week score
 3. Write a 2-3 sentence weekly narrative: what drove the mood, key events, patterns

@@ -14,7 +14,7 @@ For each URL where PII was posted:
 
 ```bash
 # Create incident directory
-INCIDENT_DIR="/Users/alexhedtke/Documents/Exobrain/Areas/Security/Incidents/$(date +%Y-%m-%d)-<short-name>"
+INCIDENT_DIR="/Users/alexhedtke/Exobrain/Areas/Security/Incidents/$(date +%Y-%m-%d)-<short-name>"
 mkdir -p "$INCIDENT_DIR/screenshots" "$INCIDENT_DIR/archives"
 ```
 

@@ -9,7 +9,7 @@ This is the canonical reference for how the Exobrain interacts with the Obsidian
 
 ## Vault Root
 
-`/Users/alexhedtke/Documents/Exobrain/`
+`/Users/alexhedtke/Exobrain/`
 
 ## Key Locations
 

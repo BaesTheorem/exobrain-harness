@@ -9,7 +9,7 @@ For when Alex is a **player** in a campaign, not the GM. For GM work (session pr
 
 ## Campaign Identification
 
-Always clarify which campaign if ambiguous. Campaign folders live under `/Users/alexhedtke/Documents/Exobrain/Areas/Adventure & Creativity/TTRPG Campaigns/`.
+Always clarify which campaign if ambiguous. Campaign folders live under `/Users/alexhedtke/Exobrain/Areas/Adventure & Creativity/TTRPG Campaigns/`.
 
 For player-side campaigns, look for Alex's PC note (usually named after the character) inside the campaign folder and read it before giving advice. A `Claude reference.md` at the campaign root may contain player-side context too.
 
@@ -17,8 +17,8 @@ For player-side campaigns, look for Alex's PC note (usually named after the char
 
 Both of these live in the vault and should be **read at runtime** rather than duplicated here:
 
-- **7 Tactical Aspects of Combat** (Bilbron Bafflestone): `/Users/alexhedtke/Documents/Exobrain/Areas/Adventure & Creativity/TTRPG Campaigns/The Seven Tactical Aspects of Combat.md` — the canonical framework for combat optimization
-- **Tactician tips** (Jerick): `/Users/alexhedtke/Documents/Exobrain/Areas/Adventure & Creativity/TTRPG Campaigns/DnD Tactician tips.md` — how to lead a party well without being an asshole
+- **7 Tactical Aspects of Combat** (Bilbron Bafflestone): `/Users/alexhedtke/Exobrain/Areas/Adventure & Creativity/TTRPG Campaigns/The Seven Tactical Aspects of Combat.md` — the canonical framework for combat optimization
+- **Tactician tips** (Jerick): `/Users/alexhedtke/Exobrain/Areas/Adventure & Creativity/TTRPG Campaigns/DnD Tactician tips.md` — how to lead a party well without being an asshole
 
 Skim the relevant sections whenever tactical advice is requested.
 

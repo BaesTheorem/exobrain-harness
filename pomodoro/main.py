@@ -12,7 +12,7 @@ import subprocess
 from datetime import datetime
 from pathlib import Path
 
-OBSIDIAN_VAULT = Path(os.path.expanduser("~/Documents/Exobrain"))
+OBSIDIAN_VAULT = Path(os.path.expanduser("~/Exobrain"))
 DAILY_NOTES = OBSIDIAN_VAULT / "Daily notes"
 POMODORO_LOG = OBSIDIAN_VAULT / "Pomodoro Log.md"
 THINGS_DB = Path(os.path.expanduser(

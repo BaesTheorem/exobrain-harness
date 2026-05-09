@@ -18,7 +18,7 @@ Alex weighs in the morning before drinking water — hydration % reads low (~41%
 
 ## Health Log Notes
 
-Path: `/Users/alexhedtke/Documents/Exobrain/Areas/Health & Fitness/Health Log/YYYY-MM-DD.md` (one per day).
+Path: `/Users/alexhedtke/Exobrain/Areas/Health & Fitness/Health Log/YYYY-MM-DD.md` (one per day).
 
 ### Format
 

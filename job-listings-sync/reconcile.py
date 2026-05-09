@@ -27,7 +27,7 @@ from datetime import date
 from pathlib import Path
 
 LISTINGS = Path(
-    "/Users/alexhedtke/Documents/Exobrain/Projects/Get new job/Job Listings"
+    "/Users/alexhedtke/Exobrain/Projects/Get new job/Job Listings"
 )
 
 

@@ -37,7 +37,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "/Users/alexhedtke/Documents/Exobrain\\ harness/.claude/hooks/session-start.sh"
+            "command": "/Users/alexhedtke/Exobrain\\ harness/.claude/hooks/session-start.sh"
           }
         ]
       },
@@ -46,7 +46,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "/Users/alexhedtke/Documents/Exobrain\\ harness/.claude/hooks/session-start.sh"
+            "command": "/Users/alexhedtke/Exobrain\\ harness/.claude/hooks/session-start.sh"
           }
         ]
       }

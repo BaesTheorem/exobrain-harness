@@ -7,9 +7,9 @@ description: Comprehensive news intelligence briefing with bias analysis, blind 
 
 A personalized intelligence briefing that goes beyond headlines. Analyzes how stories are framed across the political spectrum, surfaces blind spots, cross-references prediction markets, and fact-checks key claims — all with citations.
 
-**Output**: Standalone note in `/Users/alexhedtke/Documents/Exobrain/News Briefings/YYYY-MM-DD.md`
+**Output**: Standalone note in `/Users/alexhedtke/Exobrain/News Briefings/YYYY-MM-DD.md`
 **Target length**: Under a 10-minute read (~2,000-2,500 words)
-**Reference**: Read `[[Alex's Tastes]]` (`/Users/alexhedtke/Documents/Exobrain/Alex's Tastes.md`) for personalization context.
+**Reference**: Read `[[Alex's Tastes]]` (`/Users/alexhedtke/Exobrain/Alex's Tastes.md`) for personalization context.
 
 ## Architecture
 
@@ -148,7 +148,7 @@ After all agents return, **you** (Opus) perform the analysis and write the brief
 
 ### Briefing Structure
 
-Write to `/Users/alexhedtke/Documents/Exobrain/News Briefings/YYYY-MM-DD.md`.
+Write to `/Users/alexhedtke/Exobrain/News Briefings/YYYY-MM-DD.md`.
 
 **Required**: include a `tldr:` field in the YAML frontmatter as a 3-bullet list (YAML array of strings) summarizing the briefing. The daily-briefing skill reads this field directly so it doesn't have to load the full body. Each bullet is one sentence.
 
@@ -268,7 +268,7 @@ osascript -e 'display notification "News briefing ready — [N] stories covered"
 
 ## Deduplication
 
-Before writing, check if `/Users/alexhedtke/Documents/Exobrain/News Briefings/YYYY-MM-DD.md` already exists:
+Before writing, check if `/Users/alexhedtke/Exobrain/News Briefings/YYYY-MM-DD.md` already exists:
 - Standalone: ask Alex if he wants to regenerate or skip.
 - From daily briefing: skip and just write the daily note summary from the existing briefing.
 

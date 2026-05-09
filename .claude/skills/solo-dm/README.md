@@ -43,7 +43,7 @@ python3 scripts/context.py selftest     # context size budget
 - `data/srd/` — vendored MIT-licensed 2014 SRD from 5e-bits/5e-database. In the repo.
 - `data/extensions/` — Alex's book content (Xanathar's, Tasha's, etc.). Gitignored.
 - `~/Documents/Exobrain harness/data/solo-dm/<slug>/state.sqlite` — per-campaign state. Outside repo, outside vault.
-- `~/Documents/Exobrain/Areas/Adventure & Creativity/Solo DnD/<Campaign>/` — shared human-readable notebook. Inside vault, gitignored.
+- `~/Exobrain/Areas/Adventure & Creativity/Solo DnD/<Campaign>/` — shared human-readable notebook. Inside vault, gitignored.
 
 ## Anti-sycophancy guarantees
 

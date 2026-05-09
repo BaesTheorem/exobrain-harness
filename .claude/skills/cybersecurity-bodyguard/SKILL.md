@@ -55,7 +55,7 @@ Run in parallel where possible:
 
 ### Output
 
-Write findings to `/Users/alexhedtke/Documents/Exobrain/Areas/Security/Security Log.md` (create if missing) with today's date as a section header. Format:
+Write findings to `/Users/alexhedtke/Exobrain/Areas/Security/Security Log.md` (create if missing) with today's date as a section header. Format:
 
 ```markdown
 ## 2026-04-14 — Passive scan
@@ -102,7 +102,7 @@ Triggered by: "I'm being doxxed", "I think I'm being stalked", "someone's harass
 ### First 15 minutes (do these in order)
 
 1. **Stop and breathe.** The instinct to engage is the wrong instinct. Do not respond to the attacker on any channel.
-2. **Preserve evidence.** Screenshot everything (full page, with URL bar visible). Save to `/Users/alexhedtke/Documents/Exobrain/Areas/Security/Incidents/YYYY-MM-DD-<short-name>/`. Do not edit, crop, or annotate originals.
+2. **Preserve evidence.** Screenshot everything (full page, with URL bar visible). Save to `/Users/alexhedtke/Exobrain/Areas/Security/Incidents/YYYY-MM-DD-<short-name>/`. Do not edit, crop, or annotate originals.
 3. **Assess immediate physical risk.** If the doxx includes current home address AND there is any credible threat of in-person action, skip to runbook `stalking-response.md` (which includes calling 911 / local PD non-emergency).
 4. **Contain the spread.** Lock down public accounts (Twitter → protected, Instagram → private, LinkedIn → limit connections, GitHub → review public repos). Runbook: `doxx-incident-response.md#lockdown-checklist`.
 5. **Open a case file.** Create `Incidents/YYYY-MM-DD-<name>/README.md` with: timeline, URLs, screenshots, attacker handles, actions taken. This is evidence for platforms, lawyers, and LE.
