@@ -1,76 +1,75 @@
 #!/bin/bash
-# Backup critical Exobrain data to a timestamped archive
-# Run manually or via cron: 0 2 * * 0 (weekly, Sunday 2 AM)
+# Daily full-folder backup of the Exobrain harness to Google Drive.
+# Keeps the last 3 backups; only prunes after verifying the new archive.
 #
-# What's backed up:
-#   - processing-log.json (irreplaceable transaction history)
-#   - .env (credentials/tokens)
-#   - .mcp.json (MCP config with credentials)
-#   - All skills (SKILL.md files)
-#   - All scripts
-#   - CLAUDE.md (system manifest)
-#   - Memory files
+# Schedule: daily at 2:00 AM via com.exobrain.backup.plist
 #
-# What's NOT backed up (too large, already synced elsewhere):
-#   - Obsidian vault (synced via Obsidian Sync)
-#   - Plaud transcripts (synced via Google Drive)
-#   - Supernote files (synced via Google Drive)
+# Excludes runtime caches (__pycache__, .DS_Store, .claude/projects, etc.)
+# but DOES include .env and .mcp.json — these are needed to restore a working
+# harness, and Google Drive is the user's own private storage.
+
+set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 source "$SCRIPT_DIR/config.sh"
 
 BACKUP_DIR="$HOME/My Drive/Exobrain backups"
-# Claude Code auto-generates this path from the project directory — it will differ per user
-MEMORY_DIR="$HOME/.claude/projects/-Users-$(whoami)-Documents-Exobrain-harness/memory"
 TIMESTAMP=$(date +%Y%m%d_%H%M%S)
-BACKUP_NAME="exobrain-backup-$TIMESTAMP"
+BACKUP_NAME="exobrain-harness-$TIMESTAMP.tar.gz"
 BACKUP_PATH="$BACKUP_DIR/$BACKUP_NAME"
+KEEP=3
 
-mkdir -p "$BACKUP_PATH"
+mkdir -p "$BACKUP_DIR"
 
-# Core files
-cp "$HARNESS_DIR/processing-log.json" "$BACKUP_PATH/" 2>/dev/null
-cp "$HARNESS_DIR/.env" "$BACKUP_PATH/" 2>/dev/null
-cp "$HARNESS_DIR/.mcp.json" "$BACKUP_PATH/" 2>/dev/null
-cp "$HARNESS_DIR/CLAUDE.md" "$BACKUP_PATH/" 2>/dev/null
-cp "$HARNESS_DIR/requirements.txt" "$BACKUP_PATH/" 2>/dev/null
+# Freshness guard: skip if a verified backup already exists from the last 20h.
+# This pairs with RunAtLoad in the plist so login/boot catches up after a
+# power-off, but doesn't spam duplicate backups during normal logins.
+# 20h is intentionally < 24h so the daily 2 AM run is never suppressed.
+if find "$BACKUP_DIR" -name 'exobrain-harness-*.tar.gz' -mmin -1200 -print -quit 2>/dev/null | grep -q .; then
+    echo "[$(date)] Recent backup exists (<20h old); skipping."
+    exit 0
+fi
 
-# Scripts (now organized in subdirectories)
-# -maxdepth 2 is intentionally shallow: it covers HARNESS_DIR/*.{py,sh,plist} and
-# HARNESS_DIR/*/*.{py,sh,plist}. Skill scripts at .claude/skills/*/scripts/* are
-# captured by the wholesale skills copy below (see "Skills" section).
-mkdir -p "$BACKUP_PATH/scripts"
-find "$HARNESS_DIR" -maxdepth 2 -name "*.py" -o -name "*.sh" -o -name "*.plist" | while read -r f; do
-    cp "$f" "$BACKUP_PATH/scripts/" 2>/dev/null
+# Build archive of the entire harness folder, excluding only caches/runtime junk.
+HARNESS_PARENT="$(dirname "$HARNESS_DIR")"
+HARNESS_BASENAME="$(basename "$HARNESS_DIR")"
+
+tar \
+    --exclude='__pycache__' \
+    --exclude='*.pyc' \
+    --exclude='.DS_Store' \
+    --exclude="$HARNESS_BASENAME/.claude/projects" \
+    --exclude="$HARNESS_BASENAME/.claude/channels" \
+    --exclude="$HARNESS_BASENAME/.claude/worktrees" \
+    --exclude="$HARNESS_BASENAME/.claude/session-memories" \
+    --exclude="$HARNESS_BASENAME/.claude/plugins" \
+    -czf "$BACKUP_PATH" \
+    -C "$HARNESS_PARENT" \
+    "$HARNESS_BASENAME"
+
+# Verify: file exists, is non-empty, and is a valid gzip tar.
+if [ ! -s "$BACKUP_PATH" ]; then
+    echo "[$(date)] ERROR: backup file missing or empty: $BACKUP_PATH" >&2
+    osascript -e 'display notification "Backup file missing or empty" with title "Exobrain URGENT" sound name "Basso"'
+    exit 1
+fi
+
+if ! tar -tzf "$BACKUP_PATH" >/dev/null 2>&1; then
+    echo "[$(date)] ERROR: backup archive is corrupted: $BACKUP_PATH" >&2
+    rm -f "$BACKUP_PATH"
+    osascript -e 'display notification "Backup archive corrupted" with title "Exobrain URGENT" sound name "Basso"'
+    exit 1
+fi
+
+BACKUP_SIZE=$(du -h "$BACKUP_PATH" | cut -f1)
+echo "[$(date)] Backup verified: $BACKUP_PATH ($BACKUP_SIZE)"
+
+# Only after verification: prune old daily full-folder backups, keep last $KEEP.
+# Note: this pattern intentionally does NOT match legacy `exobrain-backup-*`
+# archives from the previous weekly curated job — those are left in place.
+ls -t "$BACKUP_DIR"/exobrain-harness-*.tar.gz 2>/dev/null | tail -n +$((KEEP + 1)) | while IFS= read -r old; do
+    echo "[$(date)] Pruning old backup: $old"
+    rm -f "$old"
 done
 
-# Skills
-if [ -d "$HARNESS_DIR/.claude/skills" ]; then
-    cp -r "$HARNESS_DIR/.claude/skills" "$BACKUP_PATH/skills" 2>/dev/null
-fi
-
-# Settings
-mkdir -p "$BACKUP_PATH/settings"
-cp "$HARNESS_DIR/.claude/settings.json" "$BACKUP_PATH/settings/" 2>/dev/null
-cp "$HARNESS_DIR/.claude/settings.local.json" "$BACKUP_PATH/settings/" 2>/dev/null
-
-# Hooks
-if [ -d "$HARNESS_DIR/.claude/hooks" ]; then
-    cp -r "$HARNESS_DIR/.claude/hooks" "$BACKUP_PATH/hooks" 2>/dev/null
-fi
-
-# Memory
-if [ -d "$MEMORY_DIR" ]; then
-    cp -r "$MEMORY_DIR" "$BACKUP_PATH/memory" 2>/dev/null
-fi
-
-# Compress
-cd "$BACKUP_DIR"
-tar -czf "$BACKUP_NAME.tar.gz" "$BACKUP_NAME" 2>/dev/null
-rm -rf "$BACKUP_PATH"
-
-# Prune old backups (keep last 8 = ~2 months of weekly backups)
-ls -t "$BACKUP_DIR"/exobrain-backup-*.tar.gz 2>/dev/null | tail -n +9 | xargs rm -f 2>/dev/null
-
-BACKUP_SIZE=$(du -h "$BACKUP_DIR/$BACKUP_NAME.tar.gz" | cut -f1)
-echo "Backup complete: $BACKUP_DIR/$BACKUP_NAME.tar.gz ($BACKUP_SIZE)"
+echo "[$(date)] Backup complete."

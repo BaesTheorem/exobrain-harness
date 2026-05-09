@@ -11,11 +11,16 @@
         <string>/Users/alexhedtke/Documents/Exobrain harness/backup-exobrain.sh</string>
     </array>
 
-    <!-- Weekly: Sunday at 2:00 AM -->
+    <!-- Catch-up after power-off: launchd doesn't reliably refire missed
+         StartCalendarInterval events after a cold boot, so RunAtLoad makes
+         the agent fire on login/boot. The script's 20-hour freshness guard
+         prevents duplicate backups during normal logins. -->
+    <key>RunAtLoad</key>
+    <true/>
+
+    <!-- Daily at 2:00 AM (local time). Omitting Weekday makes it daily. -->
     <key>StartCalendarInterval</key>
     <dict>
-        <key>Weekday</key>
-        <integer>0</integer>
         <key>Hour</key>
         <integer>2</integer>
         <key>Minute</key>
