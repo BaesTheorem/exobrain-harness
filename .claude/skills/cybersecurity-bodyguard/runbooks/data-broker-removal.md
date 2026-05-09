@@ -10,7 +10,7 @@ Data brokers are the invisible backbone of doxxing. Almost every doxx begins wit
 
 ## Tracker
 
-Maintain removal state in `/Users/alexhedtke/Documents/Exobrain/Areas/Security/broker-removals.md`:
+Maintain removal state in `/Users/alexhedtke/Exobrain/Areas/Security/broker-removals.md`:
 
 ```markdown
 | Broker             | URL                      | Last removed | Status   | Notes           |

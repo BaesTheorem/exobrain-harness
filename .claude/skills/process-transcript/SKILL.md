@@ -13,7 +13,7 @@ Plaud transcripts frequently mis-transcribe names. Before processing any transcr
 Plaud transcripts frequently mis-transcribe names. Before processing any transcript, check the People/ folder in the Obsidian vault for canonical spellings. Common Plaud mis-transcriptions include phonetically similar substitutions (e.g., "Linda" for a name ending in "-inda", "Bryce" for "[Friend]").
 
 To build the correction table:
-1. Glob `/Users/alexhedtke/Documents/Exobrain/Areas/Relationships & Community/People/*.md`
+1. Glob `/Users/alexhedtke/Exobrain/Areas/Relationships & Community/People/*.md`
 2. Use those filenames as the canonical names
 3. Apply phonetic matching when Plaud produces a name that's close but not exact
 
@@ -100,7 +100,7 @@ Before adding wikilinks, check that the target note exists by listing files in t
 
 ### 6. Update People/ notes
 For every person mentioned in the transcript:
-1. Check if `/Users/alexhedtke/Documents/Exobrain/Areas/Relationships & Community/People/[Name].md` exists
+1. Check if `/Users/alexhedtke/Exobrain/Areas/Relationships & Community/People/[Name].md` exists
 2. If it doesn't exist, create it:
    ```markdown
    ## Context
@@ -121,11 +121,11 @@ For every person mentioned in the transcript:
 6. Skip generic/unknown speakers (e.g., "Speaker 1", "unknown") — only create notes for identifiable people.
 
 ### 7. Log job-related content to job hub
-If the transcript contains any job search-related content — job leads, companies mentioned, networking contacts for job hunting, interview prep, upskilling discussion, application strategy — append a dated log entry to `/Users/alexhedtke/Documents/Exobrain/Projects/Get new job.md` under `## Job Search Log`. Use the appropriate type (Networking, Research, Upskilling, Interview, etc.) and include the key details.
+If the transcript contains any job search-related content — job leads, companies mentioned, networking contacts for job hunting, interview prep, upskilling discussion, application strategy — append a dated log entry to `/Users/alexhedtke/Exobrain/Projects/Get new job.md` under `## Job Search Log`. Use the appropriate type (Networking, Research, Upskilling, Interview, etc.) and include the key details.
 
 ### 7b. Media extraction
 
-Whenever the transcript mentions a movie, show, anime, book, podcast, article, game, TTRPG, or other media, create or update `/Users/alexhedtke/Documents/Exobrain/Media/[Title].md`. Always Glob for an existing note first; if found, append to its body — don't duplicate.
+Whenever the transcript mentions a movie, show, anime, book, podcast, article, game, TTRPG, or other media, create or update `/Users/alexhedtke/Exobrain/Media/[Title].md`. Always Glob for an existing note first; if found, append to its body — don't duplicate.
 
 Frontmatter:
 ```yaml

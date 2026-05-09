@@ -12,7 +12,7 @@ Alex is actively job hunting. This skill handles the full pipeline: evaluating f
 
 ## Resume Reference
 
-**Resume PDF**: `/Users/alexhedtke/Documents/Exobrain/Alex_Hedtke_Resume.pdf`
+**Resume PDF**: `/Users/alexhedtke/Exobrain/Alex_Hedtke_Resume.pdf`
 Read the PDF at the start of any audit or cover letter to ensure you're working from the latest version.
 
 **Key background**: Read the resume PDF at the path above at runtime to get current experience, skills, certifications, and leadership history. Do not hardcode resume details in this skill — the PDF is the source of truth and may be updated independently.
@@ -208,8 +208,8 @@ Runs modes 1→2→3 in sequence:
 
 ## Per-Listing Notes & Bases Tracker (canonical)
 
-**Folder**: `/Users/alexhedtke/Documents/Exobrain/Projects/Get new job/Job Listings/`
-**Bases file**: `/Users/alexhedtke/Documents/Exobrain/Projects/Get new job/Job Listings.base`
+**Folder**: `/Users/alexhedtke/Exobrain/Projects/Get new job/Job Listings/`
+**Bases file**: `/Users/alexhedtke/Exobrain/Projects/Get new job/Job Listings.base`
 
 Every researched, audited, or scanned job listing **MUST get a dedicated note** in the Job Listings folder. The `.base` file aggregates them into a checkable tracker. This is the canonical surface — not the hub-note tables, which are dated snapshots that drift.
 
@@ -313,7 +313,7 @@ For interviewing/offer/withdrawn transitions, Alex updates `status` manually —
 
 ## Job Hub Note — "Get new job"
 
-**Path**: `/Users/alexhedtke/Documents/Exobrain/Projects/Get new job.md`
+**Path**: `/Users/alexhedtke/Exobrain/Projects/Get new job.md`
 
 This note is the one-stop dashboard for all job hunting activity. **Every job-search action must append a log entry to this note** (after the existing Things 3 data / Notes section). Don't touch the existing task sections — only append below them.
 
@@ -352,7 +352,7 @@ Types: `Applications`, `Audit`, `Cover Letter`, `Research`, `Pipeline`, `Upskill
 
 When called as part of the daily briefing (weekdays only — skip on weekends):
 
-1. **Tracker maintenance**: The canonical tracker is the `Job Listings` Bases file at `/Users/alexhedtke/Documents/Exobrain/Projects/Get new job/Job Listings.base` plus the per-listing notes in `Projects/Get new job/Job Listings/`. Search Gmail for new application confirmations and rejection emails since the last entry. For each new confirmation: if a listing note already exists for that company+role, set `applied: true`, `status: applied`, and `application_date: <today>`. If no note exists, create one per the schema in the "Per-Listing Notes & Bases Tracker" section above. For rejections: set `status: rejected` and `rejection_date: <date>`.
+1. **Tracker maintenance**: The canonical tracker is the `Job Listings` Bases file at `/Users/alexhedtke/Exobrain/Projects/Get new job/Job Listings.base` plus the per-listing notes in `Projects/Get new job/Job Listings/`. Search Gmail for new application confirmations and rejection emails since the last entry. For each new confirmation: if a listing note already exists for that company+role, set `applied: true`, `status: applied`, and `application_date: <today>`. If no note exists, create one per the schema in the "Per-Listing Notes & Bases Tracker" section above. For rejections: set `status: rejected` and `rejection_date: <date>`.
 2. **Weekly pace check**: Count apps submitted since Monday vs 10-20 goal. If behind mid-week, suggest time blocks from calendar gaps.
 3. **Upcoming interviews**: Surface any job-related events from today's calendar.
 4. **Return for briefing**: Only include in the briefing output if there's something notable — behind pace, interview today, or exceptional posting from the email scan. Otherwise silent.

@@ -14,7 +14,7 @@ from urllib.parse import urlparse, parse_qs
 import webbrowser
 
 DATA_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), "retro-data.json")
-DEFAULT_VAULT_PATH = os.path.expanduser("~/Documents/Exobrain/")
+DEFAULT_VAULT_PATH = os.path.expanduser("~/Exobrain/")
 PORT = 5175
 
 

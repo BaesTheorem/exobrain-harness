@@ -25,7 +25,7 @@ The monthly review has five sections. Execute them in this order:
 
 **Steps**:
 1. Identify all Sundays in the current month
-2. Read each Sunday's daily note from the Obsidian vault (`/Users/alexhedtke/Documents/Exobrain/Daily notes/`)
+2. Read each Sunday's daily note from the Obsidian vault (`/Users/alexhedtke/Exobrain/Daily notes/`)
 3. Extract the `## Weekly Review` section from each
 4. Synthesize across all weekly reviews:
    - **Wins**: What went well repeatedly? What got done?

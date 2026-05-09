@@ -28,7 +28,7 @@ THINGS_DB = os.path.expanduser(
     "~/Library/Group Containers/JLMPQHK86H.com.culturedcode.ThingsMac/"
     "ThingsData-VE3Z1/Things Database.thingsdatabase/main.sqlite"
 )
-VAULT = Path(os.path.expanduser("~/Documents/Exobrain"))
+VAULT = Path(os.path.expanduser("~/Exobrain"))
 PROJECTS_DIR = VAULT / "Projects"
 AREAS_DIR = VAULT / "Areas"
 SOMEDAY_DIR = PROJECTS_DIR / "Someday"

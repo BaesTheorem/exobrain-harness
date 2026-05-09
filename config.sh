@@ -8,7 +8,7 @@
 
 # Core directories
 HARNESS_DIR="$HOME/Documents/Exobrain harness"
-VAULT_DIR="$HOME/Documents/Exobrain"
+VAULT_DIR="$HOME/Exobrain"
 
 # Google Drive sources (require Google Drive for Desktop)
 # Raw data stays in GDrive — backed up, persistent, and replayable

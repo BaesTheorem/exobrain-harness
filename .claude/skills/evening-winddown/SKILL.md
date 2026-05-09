@@ -28,7 +28,7 @@ Gather all data in parallel where possible, then present conversationally.
 Follow the `/health` skill's **Evening Update** section. Pull today's final Fitbit activity totals and update the Health Log note. Steps vs 15,000 goal — note the gap but don't nag (it's bedtime).
 
 **Pomodoro log**:
-Read today's section from `/Users/alexhedtke/Documents/Exobrain/Pomodoro Log.md` (header format `### [[Friday, May 1st, 2026]]` matching the locked target date). If the section exists, capture every `- **HH:MM AM/PM** -- ...` bullet under it and the total session count + minutes. If the section is missing, treat as zero sessions. This feeds the Focus line in step 6.
+Read today's section from `/Users/alexhedtke/Exobrain/Pomodoro Log.md` (header format `### [[Friday, May 1st, 2026]]` matching the locked target date). If the section exists, capture every `- **HH:MM AM/PM** -- ...` bullet under it and the total session count + minutes. If the section is missing, treat as zero sessions. This feeds the Focus line in step 6.
 
 **Communication**:
 - `python3 "/Users/alexhedtke/Documents/Exobrain harness/imessage/imessage-reader.py" unread` — any unanswered messages to flag for tomorrow
@@ -63,7 +63,7 @@ Run `/process-transcript` and `/process-supernote` for any unprocessed files. Th
 
 Alex writes directly in Obsidian throughout the day. Scan for notes created or modified today that haven't been processed by other steps.
 
-1. Find Obsidian notes modified today: `find "/Users/alexhedtke/Documents/Exobrain" -name "*.md" -newermt "YYYY-MM-DD 08:00"` (use target date)
+1. Find Obsidian notes modified today: `find "/Users/alexhedtke/Exobrain" -name "*.md" -newermt "YYYY-MM-DD 08:00"` (use target date)
 2. Filter out notes already handled by other wind-down steps (Daily notes/, Areas/Health & Fitness/Health Log/, People/, Media/, DnD/, .obsidian/, Audits/, News Briefings/, Mood Journal, Areas/)
 3. For each remaining note, read it and check for:
    - **Actionable items**: Tasks, events, follow-ups → route to Things 3 / Google Calendar

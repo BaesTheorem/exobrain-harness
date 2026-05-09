@@ -9,7 +9,7 @@ Two modes: **save** (end of session) and **load** (start of session). The startu
 
 ## Storage
 
-- **Directory**: `/Users/alexhedtke/Documents/Exobrain/Claude/` (lives inside the Obsidian vault so memories are browsable and YAML frontmatter renders as Properties)
+- **Directory**: `/Users/alexhedtke/Exobrain/Claude/` (lives inside the Obsidian vault so memories are browsable and YAML frontmatter renders as Properties)
 - **File formats**:
   - Per-session memory: `YYYY-MM-DD_HHMM.md` (e.g., `2026-04-07_1741.md`)
   - Delta memory (post-save activity in same session): `YYYY-MM-DD_HHMM_delta.md`

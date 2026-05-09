@@ -22,7 +22,7 @@ The default failure mode of an LLM DM is sycophancy: DCs quietly shaved to the p
 
 - Skill root: `/Users/alexhedtke/Documents/Exobrain harness/.claude/skills/solo-dm/`
 - DB root: `/Users/alexhedtke/Documents/Exobrain harness/data/solo-dm/<slug>/`
-- Vault root: `/Users/alexhedtke/Documents/Exobrain/Areas/Adventure & Creativity/Solo DnD/<Campaign>/`
+- Vault root: `/Users/alexhedtke/Exobrain/Areas/Adventure & Creativity/Solo DnD/<Campaign>/`
 
 ## Modes
 

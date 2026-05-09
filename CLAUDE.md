@@ -16,15 +16,15 @@ The gitignore audit in evening winddown and daily auto-commit catches new files.
 
 ## Key Paths
 
-- **Obsidian Vault**: `/Users/alexhedtke/Documents/Exobrain/`
-- **Daily Notes**: `/Users/alexhedtke/Documents/Exobrain/Daily notes/`
+- **Obsidian Vault**: `/Users/alexhedtke/Exobrain/`
+- **Daily Notes**: `/Users/alexhedtke/Exobrain/Daily notes/`
 - **Daily Note Filename Format**: `dddd, MMMM Do, YYYY` (e.g., `Wednesday, March 25th, 2026`)
 - **Plaud Transcripts (GDrive)**: `/Users/alexhedtke/My Drive/Plaud/`
 - **Supernote Notes**: `/Users/alexhedtke/My Drive/Supernote/Note/`
 - **Processing Log**: `/Users/alexhedtke/Documents/Exobrain harness/processing-log.json`
-- **Dashboard**: `/Users/alexhedtke/Documents/Exobrain/Dashboard.md`
-- **People Notes**: `/Users/alexhedtke/Documents/Exobrain/Areas/Relationships & Community/People/`
-- **Health Log**: `/Users/alexhedtke/Documents/Exobrain/Areas/Health & Fitness/Health Log/` (one note per day, YYYY-MM-DD.md)
+- **Dashboard**: `/Users/alexhedtke/Exobrain/Dashboard.md`
+- **People Notes**: `/Users/alexhedtke/Exobrain/Areas/Relationships & Community/People/`
+- **Health Log**: `/Users/alexhedtke/Exobrain/Areas/Health & Fitness/Health Log/` (one note per day, YYYY-MM-DD.md)
 - **Supernote Parser**: `/Users/alexhedtke/Documents/Exobrain harness/transcript-processing/supernote-parser.py`
 - **iMessage Reader**: `/Users/alexhedtke/Documents/Exobrain harness/imessage/imessage-reader.py`
 - **Discord Digest Fetcher**: `/Users/alexhedtke/Documents/Exobrain harness/discord/discord-digest-fetch.py`
@@ -79,7 +79,7 @@ Project-specific facts (not in the skill):
 
 ## People Notes / Network CRM
 
-- **Location**: `/Users/alexhedtke/Documents/Exobrain/Areas/Relationships & Community/People/[Name].md`
+- **Location**: `/Users/alexhedtke/Exobrain/Areas/Relationships & Community/People/[Name].md`
 - **Schema**: [[People Note Schema]] (canonical, mandatory)
 - **Source of truth**: YAML frontmatter on the People/ note. Alex edits it directly in Obsidian — always read current frontmatter before acting on it.
 

@@ -30,7 +30,7 @@ Steps:
 
 ### Document the pattern
 
-Create `/Users/alexhedtke/Documents/Exobrain/Areas/Security/Incidents/stalking-<suspect-handle-or-initials>/pattern-log.md`:
+Create `/Users/alexhedtke/Exobrain/Areas/Security/Incidents/stalking-<suspect-handle-or-initials>/pattern-log.md`:
 
 ```markdown
 # Pattern log: <suspect>

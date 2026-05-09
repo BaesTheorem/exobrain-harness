@@ -35,7 +35,7 @@ Check Things 3 (`get_today` and `get_upcoming` for next 3 days) but do NOT list 
 Trust Things 3 to surface tasks on its own — Alex checks it independently.
 
 ### 5. Priorities
-Read `/Users/alexhedtke/Documents/Exobrain/Dashboard.md`. Note which tasks/events align with priorities. Flag if any priority area has no activity scheduled today.
+Read `/Users/alexhedtke/Exobrain/Dashboard.md`. Note which tasks/events align with priorities. Flag if any priority area has no activity scheduled today.
 
 ### 6. Email
 Follow the `/email` skill's **Daily Briefing** section. Scan last 24h, route actionable items, process job alerts, and run CRM enrichment on outgoing emails.
@@ -53,7 +53,7 @@ Follow the `/job-search` skill's **Daily Briefing** section. If it's a weekday, 
 Follow the `/crm` skill's **Network scan** mode (mode 8). Create Things 3 tasks for overdue contacts. Do NOT list overdue contacts in the briefing — Things 3 tasks are sufficient. Only mention a contact if you have new context from email/transcript/calendar.
 
 ### 11. News
-Check if `/Users/alexhedtke/Documents/Exobrain/News Briefings/YYYY-MM-DD.md` exists for today.
+Check if `/Users/alexhedtke/Exobrain/News Briefings/YYYY-MM-DD.md` exists for today.
 - **Does not exist**: Run the full `/news-briefing` skill (all phases).
 - **Already exists**: Read **only the YAML frontmatter** of the note — do NOT load the body. The news-briefing skill writes a `tldr:` field (a 3-bullet YAML array) for exactly this purpose. Extract the frontmatter with e.g. `awk '/^---$/{c++; next} c==1' path.md` and parse the `tldr:` list.
 
