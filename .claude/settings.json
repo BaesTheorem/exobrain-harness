@@ -49,6 +49,15 @@
             "command": "/Users/alexhedtke/Documents/Exobrain\\ harness/.claude/hooks/session-start.sh"
           }
         ]
+      },
+      {
+        "matcher": "clear",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "/Users/alexhedtke/Documents/Exobrain\\ harness/.claude/hooks/session-start.sh"
+          }
+        ]
       }
     ]
   }

@@ -86,7 +86,9 @@ Ask Alex directly for a mood score. Keep it lightweight:
 **Wait for Alex's response.**
 
 If Alex provides a score:
-- Defer to the `/mood` skill for scoring methodology (the `mood` skill is canonical: Alex's self-report anchors Emotional, indirect signals fill in the others, overall is weighted toward the lowest sub-score). Update the Mood Journal and write the mood line into the wind-down section of the locked target daily note.
+- Defer to the `/mood` skill for scoring methodology (the `mood` skill is canonical: Alex's self-report anchors Emotional, indirect signals fill in the others, overall is weighted toward the lowest sub-score).
+- **Write the daily note's frontmatter first** (source of truth — `mood_score` + the five facets `mood_emotional`, `mood_energy`, `mood_self_care`, `mood_social`, `mood_purpose`). Then render the Day-score line in the Evening Wind-Down body section from those same values.
+- After writing the body, run `python3 "/Users/alexhedtke/Documents/Exobrain harness/mood-tracker/render-mood-journal.py"` to regenerate `Mood Journal.md` from frontmatter.
 - Confirm with a one-liner: "Logged: 4/5 🟢 — productive. Self-Care flagged (only 8k steps)."
 
 If Alex doesn't respond (scheduled task mode):
@@ -159,6 +161,16 @@ Scan Things 3 projects (`get_projects`) and for each:
 Every active/someday project (except Shopping List) should have an `area` property in frontmatter linking to an `Areas/` note. Flag any that are missing.
 
 This is housekeeping — don't mention it in the wind-down output or daily note unless something failed.
+
+### 5d. Mood Journal Render (silent)
+
+Run silently as a catch-all for any manual mood-score edits Alex made to daily-note frontmatter during the day:
+
+```bash
+python3 "/Users/alexhedtke/Documents/Exobrain harness/mood-tracker/render-mood-journal.py"
+```
+
+This regenerates `Mood Journal.md` (calendar heatmaps + weekly summaries + daily log) from every daily note's frontmatter. Narrative prose lives in each daily note's `### Mood` body section, not in this file. Don't mention in output unless something failed.
 
 ### 6. Write to Daily Note
 

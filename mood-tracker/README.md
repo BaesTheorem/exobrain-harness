@@ -1,28 +1,33 @@
 # Mood Tracker
 
-A web-based mood journal that tracks daily mood scores with 5 sub-categories (Emotional, Energy, Self-Care, Social, Purpose), weekly summaries, and trend detection.
+Renders `~/Exobrain/Mood Journal.md` from daily-note YAML frontmatter.
 
-## Gitignored Files
+## Source of truth
 
-### `mood-data.json`
-Contains daily mood entries with scores, personal notes, sleep timing, social context, and mental health flags. Gitignored because it includes sensitive personal health and wellbeing data.
+Each daily note's frontmatter stores the mood data:
 
-**To initialize**: Create an empty file:
-```json
-{
-  "entries": [],
-  "weekly_summaries": []
-}
+```yaml
+mood_score: 3
+mood_emotional: 3
+mood_energy: 2.5
+mood_self_care: 2
+mood_social: 4.5
+mood_purpose: 2.5
 ```
 
-The `/mood` skill and `/evening-winddown` populate entries automatically. Each entry includes:
-- `date`, `overall_score` (1-5), sub-scores (emotional, energy, self_care, social, purpose)
-- `notes` (free-text), `primary_driver`, `flags` (e.g., bedtime_drift, social_marathon)
-- `data_sources` (what signals informed the score)
+Narrative (primary driver, notes, flags) lives in the daily note's body as a `### Mood` section.
 
-## Tracked Files
+## Files
 
 | File | Purpose |
 |------|---------|
-| `app.py` | Python web app (stdlib only) with calendar heatmap and trend charts |
+| `render-mood-journal.py` | Walks `Daily notes/*.md`, reads frontmatter, regenerates `Mood Journal.md` (calendar heatmaps + weekly summaries + daily log). Stdlib only. |
 | `README.md` | This file |
+
+## Run
+
+```bash
+python3 render-mood-journal.py
+```
+
+The `/mood` and `/evening-winddown` skills run this automatically after they write to frontmatter.

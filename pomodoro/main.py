@@ -9,8 +9,11 @@ import sqlite3
 import os
 import re
 import subprocess
-from datetime import datetime
+import threading
+import time
+from datetime import datetime, timedelta
 from pathlib import Path
+from urllib.parse import unquote
 
 OBSIDIAN_VAULT = Path(os.path.expanduser("~/Exobrain"))
 DAILY_NOTES = OBSIDIAN_VAULT / "Daily notes"
@@ -35,6 +38,75 @@ def today_header():
 
 class API:
     _session_lines = {}
+    # timer_id (int ms) → {"timer": threading.Timer, "end_ts": float,
+    #                     "message": str, "is_break": bool, "remaining": float | None}
+    _timers = {}
+
+    # ─── Background timer (notify-while-minimized) ────────────────────────────
+
+    def _notify_complete(self, timer_id):
+        """Fire the completion notification. Called by threading.Timer."""
+        info = self._timers.pop(timer_id, None)
+        if info is None:
+            return
+        sound = "Purr" if info["is_break"] else "Hero"
+        subprocess.run([
+            'osascript', '-e',
+            f'display notification "{info["message"]}" with title "Pomodoro" sound name "{sound}"'
+        ], check=False)
+
+    def _schedule(self, timer_id, seconds, message, is_break):
+        timer = threading.Timer(seconds, self._notify_complete, args=[timer_id])
+        timer.daemon = True
+        timer.start()
+        self._timers[timer_id] = {
+            "timer": timer,
+            "end_ts": time.time() + seconds,
+            "message": message,
+            "is_break": is_break,
+            "remaining": None,
+        }
+
+    def _cancel(self, timer_id):
+        info = self._timers.pop(timer_id, None)
+        if info is not None:
+            info["timer"].cancel()
+
+    def pause_timer(self, timer_id):
+        """JS calls this on pause. Returns {'remaining': seconds}."""
+        info = self._timers.get(timer_id)
+        if info is None:
+            return {'remaining': 0}
+        info["timer"].cancel()
+        info["remaining"] = max(0.0, info["end_ts"] - time.time())
+        return {'remaining': info["remaining"]}
+
+    def resume_timer(self, timer_id):
+        """JS calls this on resume. Re-arms with stored remaining seconds."""
+        info = self._timers.get(timer_id)
+        if info is None or info.get("remaining") is None:
+            return {'success': False}
+        seconds = info["remaining"]
+        # Replace timer in place
+        timer = threading.Timer(seconds, self._notify_complete, args=[timer_id])
+        timer.daemon = True
+        timer.start()
+        info["timer"] = timer
+        info["end_ts"] = time.time() + seconds
+        info["remaining"] = None
+        return {'success': True}
+
+    def start_break_timer(self, duration_minutes, is_long):
+        """JS calls this when starting a break. Returns {'timer_id': ...}."""
+        timer_id = int(time.time() * 1000)
+        msg = "Break's over! Ready to focus?"
+        self._schedule(timer_id, duration_minutes * 60, msg, is_break=True)
+        return {'timer_id': timer_id}
+
+    def cancel_timer(self, timer_id):
+        """JS calls this when stopping a focus or break timer pre-completion."""
+        self._cancel(timer_id)
+        return {'success': True}
 
     def get_today_tasks(self):
         """Fetch Things 3 Today tasks with project info and Obsidian backlinks."""
@@ -98,24 +170,140 @@ class API:
         return DAILY_NOTES / f"{name}.md"
 
     def _ensure_daily_note(self):
-        """Create the daily note with nav header if it doesn't exist."""
+        """Create the daily note with frontmatter + nav header if it doesn't exist.
+        Frontmatter scaffold matches Templates/Daily Note.md so Bases queries work."""
         path = self._daily_note_path()
         if path.exists():
             return path
 
         now = datetime.now()
-        from datetime import timedelta
+        iso_date = now.strftime("%Y-%m-%d")
         yesterday = now - timedelta(days=1)
         tomorrow = now + timedelta(days=1)
 
         def fmt(dt):
             return dt.strftime("%A, %B ") + ordinal(dt.day) + dt.strftime(", %Y")
 
-        yesterday_name = fmt(yesterday)
-        tomorrow_name = fmt(tomorrow)
-        nav = f"<< [[{yesterday_name}|Yesterday]] | [[{tomorrow_name}|Tomorrow]] >>"
-        path.write_text(nav + "\n")
+        frontmatter = (
+            "---\n"
+            f"date: {iso_date}\n"
+            "type: daily\n"
+            "mood_score: \n"
+            "mood_emotional: \n"
+            "mood_energy: \n"
+            "mood_self_care: \n"
+            "mood_social: \n"
+            "mood_purpose: \n"
+            "steps: \n"
+            "sleep_hours: \n"
+            f'health_log: "[[Areas/Health & Fitness/Health Log/{iso_date}|Health Log]]"\n'
+            "worked_on: []\n"
+            "people: []\n"
+            "pomodoros: \n"
+            "anki_cards: \n"
+            "anki_sessions: \n"
+            "---\n"
+        )
+        nav = f"<< [[{fmt(yesterday)}|Yesterday]] | [[{fmt(tomorrow)}|Tomorrow]] >>"
+        path.write_text(frontmatter + nav + "\n")
         return path
+
+    # ─── Frontmatter helpers ──────────────────────────────────────────────────
+
+    def _update_fm_scalar(self, content, key, value):
+        """Set a scalar frontmatter field. Append if missing. Returns new content."""
+        if not content.startswith("---\n"):
+            return content
+        end = content.find("\n---\n", 4)
+        if end == -1:
+            return content
+        block_lines = content[4:end].split("\n")
+        body = content[end + 5:]
+        for i, line in enumerate(block_lines):
+            stripped = line.split(":", 1)[0].strip()
+            if stripped == key:
+                block_lines[i] = f"{key}: {value}"
+                return "---\n" + "\n".join(block_lines) + "\n---\n" + body
+        block_lines.append(f"{key}: {value}")
+        return "---\n" + "\n".join(block_lines) + "\n---\n" + body
+
+    def _add_fm_list_item(self, content, key, item):
+        """Add an item to a frontmatter list field if not already present.
+        Handles inline empty form ('key: []') and block form. Rewrites as block form.
+        Returns (new_content, changed)."""
+        if not content.startswith("---\n"):
+            return content, False
+        end = content.find("\n---\n", 4)
+        if end == -1:
+            return content, False
+        block_lines = content[4:end].split("\n")
+        body = content[end + 5:]
+
+        key_idx = None
+        for i, line in enumerate(block_lines):
+            stripped = line.split(":", 1)[0].strip()
+            if stripped == key:
+                key_idx = i
+                break
+
+        existing = []
+        items_end = key_idx + 1 if key_idx is not None else 0
+
+        if key_idx is not None:
+            inline = re.match(r'^[^:]+:\s*\[(.*?)\]\s*$', block_lines[key_idx])
+            if inline:
+                items_str = inline.group(1).strip()
+                if items_str:
+                    existing = [x.strip() for x in items_str.split(',')]
+            else:
+                for j in range(key_idx + 1, len(block_lines)):
+                    l = block_lines[j]
+                    if l.startswith("  -") or l.startswith("- "):
+                        existing.append(l.lstrip()[1:].strip())
+                        items_end = j + 1
+                    elif l == "":
+                        items_end = j + 1
+                        continue
+                    else:
+                        break
+
+        if item in existing:
+            return content, False
+
+        new_items = existing + [item]
+        new_lines = [f"{key}:"] + [f"  - {it}" for it in new_items]
+        if key_idx is None:
+            block_lines = block_lines + new_lines
+        else:
+            block_lines = block_lines[:key_idx] + new_lines + block_lines[items_end:]
+        return "---\n" + "\n".join(block_lines) + "\n---\n" + body, True
+
+    def _sync_pomodoro_count(self):
+        """Recount today's sessions and update daily-note frontmatter `pomodoros`."""
+        path = self._ensure_daily_note()
+        content = path.read_text()
+        count = len(self.get_today_sessions())
+        new_content = self._update_fm_scalar(content, "pomodoros", count)
+        if new_content != content:
+            path.write_text(new_content)
+
+    def _add_worked_on(self, obsidian_link):
+        """If the session is linked to a Project note, add it to daily-note `worked_on`."""
+        if not obsidian_link:
+            return
+        m = re.search(r'file=([^&]+)', obsidian_link)
+        if not m:
+            return
+        file_path = unquote(m.group(1))
+        if not file_path.startswith("Projects/") or file_path.startswith("Projects/Archive/"):
+            return
+        display = file_path.split("/")[-1]
+        wikilink = f'"[[{file_path}|{display}]]"'
+        path = self._ensure_daily_note()
+        content = path.read_text()
+        new_content, changed = self._add_fm_list_item(content, "worked_on", wikilink)
+        if changed:
+            path.write_text(new_content)
 
     def start_session(self, task_title, duration_minutes, obsidian_link):
         """Write a log entry when the session starts. Returns a session_id used
@@ -131,7 +319,6 @@ class API:
         if obsidian_link:
             file_match = re.search(r'file=([^&]+)', obsidian_link)
             if file_match:
-                from urllib.parse import unquote
                 note_name = unquote(file_match.group(1)).replace('/', ' > ')
                 task_display = f"[[{note_name}|{task_title}]]"
 
@@ -141,6 +328,7 @@ class API:
         content = POMODORO_LOG.read_text() if POMODORO_LOG.exists() else ""
 
         if date_header in content:
+            # Today's section already exists — append within it (within-day stays chronological).
             idx = content.index(date_header) + len(date_header)
             next_section = content.find("\n### ", idx)
             if next_section == -1:
@@ -148,13 +336,19 @@ class API:
             else:
                 content = content[:next_section].rstrip() + "\n" + line + "\n" + content[next_section:]
         else:
-            content = content.rstrip() + "\n" + date_header + "\n" + line + "\n"
+            # New day — prepend a section at the top so day headers stay newest-first.
+            new_section = date_header + "\n" + line + "\n"
+            content = new_section + ("\n" + content.lstrip() if content.strip() else "")
 
         POMODORO_LOG.write_text(content.lstrip())
+        self._sync_pomodoro_count()
+        self._add_worked_on(obsidian_link)
+        self._schedule(session_id, duration_minutes * 60, "Time's up — take a break", is_break=False)
         return {'session_id': session_id}
 
     def delete_session(self, session_id):
         """Remove the log line for this session_id (Stop before completion)."""
+        self._cancel(session_id)
         line = self._session_lines.pop(session_id, None)
         if not line or not POMODORO_LOG.exists():
             return {'success': False}
@@ -165,10 +359,12 @@ class API:
                 lines.pop(i)
                 break
         POMODORO_LOG.write_text('\n'.join(lines))
+        self._sync_pomodoro_count()
         return {'success': True}
 
     def update_session(self, session_id, notes):
         """Append user notes to the existing log line for this session_id."""
+        self._cancel(session_id)
         line = self._session_lines.pop(session_id, None)
         if not line or not POMODORO_LOG.exists():
             return {'success': False}

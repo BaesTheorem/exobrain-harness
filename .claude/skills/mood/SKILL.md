@@ -64,6 +64,28 @@ Half-points are valid (e.g., 2.5). Round to nearest 0.5 for display.
 4. **Note the primary driver** — what most influenced the score ("depleted after 72hr social marathon", "productive study day + good sleep")
 5. **Flag patterns** — is this part of a trend? Deviation from baseline?
 
+## Source of Truth — Frontmatter
+
+**Daily note YAML frontmatter is the canonical store** for every mood score.
+Each daily note (e.g. `Daily notes/Monday, May 11th, 2026.md`) carries:
+
+```yaml
+mood_score: 3
+mood_emotional: 3
+mood_energy: 2.5
+mood_self_care: 2
+mood_social: 4.5
+mood_purpose: 2.5
+```
+
+Everything else — the `### Mood` body section, `mood-data.json`, and the
+`Mood Journal.md` heatmap — is **derived** from these fields. When you score
+a day, write the frontmatter first, then render the body and run the sync.
+
+Narrative fields that don't fit in frontmatter (`primary_driver`, `notes`,
+`flags`) live in the body section and in `mood-data.json`. They are not
+overwritten by the sync script.
+
 ## Obsidian Note Structure
 
 The Mood Journal has three sections:
@@ -81,14 +103,12 @@ One entry per week (Monday-Sunday), including:
 ### 3. Daily Log
 Individual day entries with sub-scores, evidence, and primary driver. Most recent at the top within each week.
 
-## Data & Web UI
+## Files
 
-- **Data file**: `/Users/alexhedtke/Documents/Exobrain harness/mood-tracker/mood-data.json`
-- **Web UI**: `python3 "/Users/alexhedtke/Documents/Exobrain harness/mood-tracker/app.py"` → http://localhost:5174
-- **Obsidian note**: `/Users/alexhedtke/Exobrain/Mood Journal.md` (auto-synced on every change)
-- **CLI sync**: `python3 "/Users/alexhedtke/Documents/Exobrain harness/mood-tracker/app.py" --sync` (regenerate Obsidian note from data)
-
-The web app provides a full calendar heatmap, trend chart, sub-category sliders, flag chips, edit/delete on all entries, and editable weekly narrative summaries. All changes sync automatically to the Obsidian Mood Journal note.
+- **Source of truth**: daily-note YAML frontmatter (`mood_score` + 5 facets) for each note in `~/Exobrain/Daily notes/`. Edit via Obsidian Properties UI or by skills.
+- **Body narrative**: `### Mood` section in the daily note body (primary driver, notes, flags). Free-form prose.
+- **Renderer**: `python3 "/Users/alexhedtke/Documents/Exobrain harness/mood-tracker/render-mood-journal.py"` regenerates `~/Exobrain/Mood Journal.md` (calendar heatmaps + weekly summaries + daily log) from frontmatter.
+- **No JSON store, no web UI, no REST API.** The vault is the database.
 
 ## Updating the Journal
 
@@ -97,22 +117,24 @@ The web app provides a full calendar heatmap, trend chart, sub-category sliders,
 - **Weekly review**: Add the weekly summary narrative
 - **Standalone `/mood`**: Score today so far, or review trends
 - **Transcript processing**: If a transcript contains strong mood signals, flag for journal update
-- **Web UI**: Alex can log directly at http://localhost:5174
+- **Obsidian Properties UI**: Alex can edit `mood_score` and the facets directly in any daily note. The renderer picks up manual edits.
 
-### How to update (programmatic)
-1. Read `mood-data.json`
-2. Add/update the entry in the `entries` array
-3. Save the file
-4. Run `python3 app.py --sync` to regenerate the Obsidian note
-   — OR use the REST API: `POST /api/entries` (auto-syncs)
+### How to update
 
-### REST API
-- `GET /api/data` — full data
-- `GET /api/trends?days=14` — recent entries
-- `GET /api/streak` — current scoring streak
-- `POST /api/entries` — create/update entry (auto-syncs Obsidian)
-- `DELETE /api/entries?date=YYYY-MM-DD` — delete entry (auto-syncs)
-- `POST /api/weekly-narrative` — update week narrative (auto-syncs)
+1. Write the score + 5 facets to the daily note's YAML frontmatter
+   (`mood_score`, `mood_emotional`, `mood_energy`, `mood_self_care`,
+   `mood_social`, `mood_purpose`).
+2. Append a `### Mood` body section to the daily note with the narrative
+   (`primary_driver`, notes, flags) — prose belongs in the body, not in YAML.
+3. Run the renderer to regenerate the Mood Journal heatmap:
+   ```bash
+   python3 "/Users/alexhedtke/Documents/Exobrain harness/mood-tracker/render-mood-journal.py"
+   ```
+   It walks every daily note, reads frontmatter, and rewrites
+   `~/Exobrain/Mood Journal.md` (calendar heatmaps + weekly summaries + daily log).
+
+Manual frontmatter edits (via Obsidian Properties UI) are picked up the next
+time the renderer runs — at evening wind-down, or on demand.
 
 ## Integration with Other Skills
 
@@ -126,20 +148,31 @@ The web app provides a full calendar heatmap, trend chart, sub-category sliders,
 When called as part of the daily briefing:
 
 1. **Score yesterday**: Gather evidence from all sources already pulled during the briefing (Fitbit via Health Log, calendar, email, tasks). Score each sub-category with brief justification. Calculate weighted overall.
-2. **Write to yesterday's daily note**: Append a `### Mood` section to YESTERDAY's daily note (not today's):
+2. **Write yesterday's daily note frontmatter** (source of truth):
+   ```yaml
+   mood_score: 3
+   mood_emotional: 3
+   mood_energy: 2.5
+   mood_self_care: 2
+   mood_social: 3.5
+   mood_purpose: 3
+   ```
+   If yesterday's daily note doesn't exist, create it with frontmatter + nav header first.
+3. **Render the `### Mood` body section** in the same note from those values:
    ```markdown
    ### Mood
    **Overall**: 3/5 🟡 — steady day, self-care dipped
    - Emotional: 3 | Energy: 2.5 | Self-Care: 2 | Social: 3.5 | Purpose: 3
    - *Primary driver: late bedtime + low steps dragged energy/self-care down*
    ```
-   If yesterday's daily note doesn't exist, create it with the nav header first.
-3. **Update Mood Journal**: Add daily log entry + update calendar heatmap (programmatically via `mood-data.json` + `app.py --sync`, or REST API).
-4. **Mood boost recommendation**: Read the week's daily log entries so far. Identify the lowest or most consistently weak sub-category, then generate ONE concrete, actionable recommendation tied to today's schedule. Examples:
+4. **Render Mood Journal**: Run
+   `python3 "/Users/alexhedtke/Documents/Exobrain harness/mood-tracker/render-mood-journal.py"`.
+   It reads frontmatter from every daily note and regenerates `Mood Journal.md`.
+5. **Mood boost recommendation**: Read the week's daily log entries so far. Identify the lowest or most consistently weak sub-category, then generate ONE concrete, actionable recommendation tied to today's schedule. Examples:
    - Self-Care lowest → "Calendar clear 12-1 PM. A 30-min walk would break the 3-day low-step streak."
    - Energy lowest → "Past 1 AM every night this week. Set a 12:30 AM wind-down alarm."
    - Purpose lowest → "No cert progress in 4 days. Block 45 min before your 2 PM meeting."
-5. **Return for today's briefing**:
+6. **Return for today's briefing**:
    - 1-line summary: `**Mood yesterday**: 3/5 🟡 — steady day, self-care dipped`
    - Boost: `**🎯 Mood boost**: [recommendation]`
    - If multi-day declining trend, flag prominently.

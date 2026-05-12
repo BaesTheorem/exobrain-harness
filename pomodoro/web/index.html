@@ -433,12 +433,17 @@ let timerSeconds = 25 * 60;
 let totalSeconds = 25 * 60;
 const durationMinutes = 25;
 let interval = null;
+// Wall-clock anchors — counting setInterval ticks alone breaks when the
+// window is minimized (macOS throttles background timers).
+let endTimestamp = null;       // Date.now() when timerSeconds hits 0
+let pausedRemaining = null;    // seconds left when paused; used to re-anchor on resume
 let sessionsCompleted = 0;
 let totalMinutes = 0;
 let selectedTask = null;
 let isCustomTask = false;
 let tasks = [];
 let currentSessionId = null;
+let currentBreakTimerId = null;  // returned by api.start_break_timer; used to cancel
 
 // ── Elements ──
 const $time = document.getElementById('timerTime');
@@ -558,6 +563,8 @@ async function startTimer() {
   }
   state = 'running';
   timerSeconds = totalSeconds;
+  endTimestamp = Date.now() + totalSeconds * 1000;
+  pausedRemaining = null;
   $label.textContent = 'Focus';
   $progress.classList.remove('break', 'paused');
   updateButtons();
@@ -565,43 +572,69 @@ async function startTimer() {
   interval = setInterval(tick, 1000);
 }
 
-function startBreak() {
+async function startBreak() {
   const isLong = sessionsCompleted % 4 === 0 && sessionsCompleted > 0;
+  const breakMinutes = isLong ? 15 : 5;
   state = 'break';
-  totalSeconds = isLong ? 15 * 60 : 5 * 60;
+  totalSeconds = breakMinutes * 60;
   timerSeconds = totalSeconds;
+  endTimestamp = Date.now() + totalSeconds * 1000;
+  pausedRemaining = null;
   $label.textContent = isLong ? 'Long Break' : 'Break';
   $progress.classList.add('break');
   $progress.classList.remove('paused');
   updateButtons();
   tick();
   interval = setInterval(tick, 1000);
+  // Python-side background timer for notify-while-minimized.
+  const api = window.pywebview && window.pywebview.api;
+  if (api) {
+    const result = await api.start_break_timer(breakMinutes, isLong);
+    currentBreakTimerId = result && result.timer_id;
+  }
 }
 
 function pauseTimer() {
   clearInterval(interval);
   interval = null;
+  pausedRemaining = timerSeconds;
+  endTimestamp = null;
   state = 'paused';
   $progress.classList.add('paused');
   updateButtons();
+  // Cancel the Python-side timer; will be re-armed on resume.
+  const api = window.pywebview && window.pywebview.api;
+  const id = currentSessionId || currentBreakTimerId;
+  if (api && id) api.pause_timer(id);
 }
 
 function resumeTimer() {
   state = state === 'break' ? 'break' : 'running';
+  endTimestamp = Date.now() + (pausedRemaining ?? timerSeconds) * 1000;
+  pausedRemaining = null;
   $progress.classList.remove('paused');
   updateButtons();
   interval = setInterval(tick, 1000);
+  const api = window.pywebview && window.pywebview.api;
+  const id = currentSessionId || currentBreakTimerId;
+  if (api && id) api.resume_timer(id);
 }
 
 function stopTimer() {
+  const api = window.pywebview && window.pywebview.api;
   if ((state === 'running' || state === 'paused') && currentSessionId) {
-    const api = window.pywebview && window.pywebview.api;
     const id = currentSessionId;
     if (api) api.delete_session(id).then(() => loadLog());
     currentSessionId = null;
   }
+  if (state === 'break' && currentBreakTimerId) {
+    if (api) api.cancel_timer(currentBreakTimerId);
+    currentBreakTimerId = null;
+  }
   clearInterval(interval);
   interval = null;
+  endTimestamp = null;
+  pausedRemaining = null;
   state = 'idle';
   timerSeconds = durationMinutes * 60;
   totalSeconds = durationMinutes * 60;
@@ -612,11 +645,14 @@ function stopTimer() {
 }
 
 function tick() {
-  timerSeconds--;
+  if (endTimestamp !== null) {
+    timerSeconds = Math.max(0, Math.round((endTimestamp - Date.now()) / 1000));
+  }
   updateTimerDisplay();
   if (timerSeconds <= 0) {
     clearInterval(interval);
     interval = null;
+    endTimestamp = null;
     onTimerComplete();
   }
 }
@@ -626,7 +662,8 @@ function onTimerComplete() {
   const api = window.pywebview && window.pywebview.api;
 
   if (wasBreak) {
-    if (api) api.notify("Break's over! Ready to focus?", true);
+    // Python-side timer already fired the macOS notification.
+    currentBreakTimerId = null;
     state = 'idle';
     timerSeconds = durationMinutes * 60;
     totalSeconds = durationMinutes * 60;
@@ -635,7 +672,7 @@ function onTimerComplete() {
     updateTimerDisplay();
     updateButtons();
   } else {
-    if (api) api.notify('Pomodoro complete! Time for a break.', false);
+    // Python-side timer already fired the macOS notification.
     sessionsCompleted++;
     totalMinutes += durationMinutes;
     $statSessions.textContent = sessionsCompleted;

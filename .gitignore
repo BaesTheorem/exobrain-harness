@@ -21,7 +21,6 @@ __pycache__/
 .claude/skills/health/health-concerns-config.md
 cycle-tracker/cycle-data.json
 cycle-tracker/app.py
-mood-tracker/mood-data.json
 local-events/local-events-log.json
 local-events/local-events-prefs.json
 sailboat-retro/retro-data.json
