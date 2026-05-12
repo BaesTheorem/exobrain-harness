@@ -260,7 +260,7 @@ body {
 .custom-input-row {
   display: flex; align-items: center;
   padding: 10px 16px; gap: 12px;
-  border-top: 0.5px solid var(--border);
+  border-bottom: 0.5px solid var(--border);
 }
 
 .custom-input {
@@ -324,27 +324,6 @@ body {
   font-size: 13px;
 }
 
-/* Duration Selector */
-.duration-selector {
-  display: flex; gap: 6px;
-  justify-content: center;
-  margin-bottom: 20px;
-}
-
-.duration-chip {
-  padding: 4px 12px; border-radius: 14px;
-  font-size: 12px; font-weight: 500;
-  cursor: pointer;
-  background: var(--card-elevated);
-  color: var(--text-secondary);
-  border: none; font-family: inherit;
-  transition: all 0.15s ease;
-}
-.duration-chip.active {
-  background: var(--blue-dim);
-  color: var(--blue);
-}
-
 /* Loading */
 .loading { text-align: center; padding: 20px; color: var(--text-tertiary); }
 
@@ -395,13 +374,6 @@ body {
     <div id="currentTaskName" class="current-task-name">Select a task</div>
     <div id="currentTaskProject" class="current-task-project"></div>
 
-    <div class="duration-selector">
-      <button class="duration-chip" data-minutes="15">15m</button>
-      <button class="duration-chip" data-minutes="20">20m</button>
-      <button class="duration-chip active" data-minutes="25">25m</button>
-      <button class="duration-chip" data-minutes="50">50m</button>
-    </div>
-
     <div id="buttonRow" class="button-row">
       <button id="btnStart" class="btn btn-primary" onclick="startTimer()">Start</button>
     </div>
@@ -433,14 +405,14 @@ body {
   <!-- Task Selector -->
   <div class="task-section" id="taskSection">
     <div class="section-header">Today</div>
-    <div id="taskList" class="task-list">
-      <div class="loading"><div class="loading-spinner"></div></div>
-    </div>
     <div class="custom-input-row">
       <div class="task-radio" id="customRadio"></div>
       <input class="custom-input" id="customInput"
              placeholder="Or type a custom task..."
              onfocus="selectCustom()" oninput="selectCustom()">
+    </div>
+    <div id="taskList" class="task-list">
+      <div class="loading"><div class="loading-spinner"></div></div>
     </div>
   </div>
 
@@ -459,7 +431,7 @@ body {
 let state = 'idle';
 let timerSeconds = 25 * 60;
 let totalSeconds = 25 * 60;
-let durationMinutes = 25;
+const durationMinutes = 25;
 let interval = null;
 let sessionsCompleted = 0;
 let totalMinutes = 0;
@@ -495,18 +467,6 @@ async function init() {
   loadTasks();
   loadLog();
   updateDots();
-
-  document.querySelectorAll('.duration-chip').forEach(chip => {
-    chip.addEventListener('click', () => {
-      if (state !== 'idle') return;
-      document.querySelectorAll('.duration-chip').forEach(c => c.classList.remove('active'));
-      chip.classList.add('active');
-      durationMinutes = parseInt(chip.dataset.minutes);
-      totalSeconds = durationMinutes * 60;
-      timerSeconds = totalSeconds;
-      updateTimerDisplay();
-    });
-  });
 }
 
 // ── Tasks ──
