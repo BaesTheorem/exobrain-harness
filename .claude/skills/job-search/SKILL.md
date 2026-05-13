@@ -12,7 +12,7 @@ Alex is actively job hunting. This skill handles the full pipeline: evaluating f
 
 ## Resume Reference
 
-**Resume PDF**: `/Users/alexhedtke/Exobrain/Alex_Hedtke_Resume.pdf`
+**Resume PDF**: `/Users/alexhedtke/Exobrain/Projects/Get new job/Alex_Hedtke_Resume.pdf`
 Read the PDF at the start of any audit or cover letter to ensure you're working from the latest version.
 
 **Key background**: Read the resume PDF at the path above at runtime to get current experience, skills, certifications, and leadership history. Do not hardcode resume details in this skill — the PDF is the source of truth and may be updated independently.
