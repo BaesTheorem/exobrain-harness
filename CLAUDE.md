@@ -41,7 +41,7 @@ The gitignore audit in evening winddown and daily auto-commit catches new files.
 - **Nav header**: `<< [[Yesterday Name|Yesterday]] | [[Tomorrow Name|Tomorrow]] >>`
 - **Standard order**: Nav header → `**Weather**: ...` line → `#### 📝 Alex's Notes` section → `### Morning briefing` (if present) → other sections
 - **NEVER overwrite** existing daily note content — only append
-- If the daily note doesn't exist yet, create it with the nav header (or use the template at `Templates/Daily Note.md`)
+- Daily notes are auto-created by a Templater template — don't construct them manually. If today's note is missing, trigger Obsidian to create it via `open "obsidian://daily?vault=Exobrain"` so Templater runs, then proceed.
 - Use `[[wikilinks]]` to link to existing Obsidian notes
 - Before creating a new topic note, check if one already exists in the vault
 

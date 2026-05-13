@@ -32,6 +32,9 @@ discord/discord-digest-fetch.py
 # Runtime state
 processing-log.json
 discord/discord-digest.json
+awair/state.json
+tv/token.json
+tv/state.json
 vault-migration-report.md
 scratch/
 apple-notes-sync/

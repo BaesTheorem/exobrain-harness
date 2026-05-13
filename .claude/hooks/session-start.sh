@@ -129,6 +129,14 @@ else
   ISSUES=$((ISSUES + 1))
 fi
 
+AWAIR_LOADED=$(launchctl list 2>/dev/null | grep -c "awair-co2-watcher")
+if [ "$AWAIR_LOADED" -ge 1 ]; then
+  echo "OK: launchd awair-co2-watcher"
+else
+  echo "FAIL: launchd awair-co2-watcher not loaded"
+  ISSUES=$((ISSUES + 1))
+fi
+
 # Watcher health — check for recent failures (last 24h)
 for WATCHER in supernote plaud; do
   FAIL_LOG="/tmp/exobrain-${WATCHER}-failures.log"
