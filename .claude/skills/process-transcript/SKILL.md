@@ -43,7 +43,7 @@ Each transcript file is **JSON** with this structure:
 }
 ```
 
-Use `create_time` for the recording date (convert UTC → Central Time). Use `title` for the transcript heading. Use `summary` (speaker-labeled) as the primary content to analyze; fall back to `transcript` (raw timestamped) for additional detail.
+Use `create_time` for the recording date and time. **Critical timezone gotcha**: Plaud writes the recording's *local* wall-clock time into `create_time` but appends a `Z` (UTC) suffix anyway. Do **not** apply a UTC→local conversion — strip the `Z` and treat the timestamp as naive local time in the **current system timezone** (read it from `date +%Z` or Python's `datetime.now().astimezone().tzinfo`; for Alex's normal location this is `America/Chicago`). Applying a UTC offset incorrectly shifts the displayed time by 5 hours and flips the date for any recording made between midnight and 5 AM local. Use `title` for the transcript heading. Use `summary` (speaker-labeled) as the primary content to analyze; fall back to `transcript` (raw timestamped) for additional detail.
 
 Extract these categories from the transcript content:
 
@@ -65,7 +65,7 @@ For each task:
 - **Ambiguous** → `add_todo` to Things 3 Inbox as "Review: [event description]" with details in notes
 
 ### 5. Write to daily note
-Determine the **transcript's recording date** from the `create_time` field in the JSON. Each transcript file is JSON with a structure like `{"create_time": "2026-03-25T12:19:59Z", "summary": "...", "title": "...", "transcript": "..."}`. Parse `create_time` and convert to the daily note filename format (e.g., `Wednesday, March 25th, 2026`). Convert from UTC to America/Chicago (Central Time) before determining the date — a recording at `2026-03-26T04:30:00Z` is March 25th local time.
+Determine the **transcript's recording date** from the `create_time` field in the JSON. Each transcript file is JSON with a structure like `{"create_time": "2026-03-25T12:19:59Z", "summary": "...", "title": "...", "transcript": "..."}`. Parse `create_time` as **naive local time in the current system timezone** (see the timezone gotcha in step 2) — strip the `Z`, do not apply any UTC offset — then format to the daily note filename style (e.g., `Wednesday, March 25th, 2026`).
 
 **Always write to the recording date's daily note, NOT today's daily note.** A transcript from March 25th processed on March 27th goes in the March 25th note.
 
@@ -149,14 +149,14 @@ Mention in the daily note entry: "Added X media items to [[Media.base|Media]]". 
 - If a task relates to current priorities (from Dashboard.md), highlight the connection
 
 ### 9. Rename transcript file
-After processing, rename the transcript file to include the recording date/time for easy searching. Parse `create_time` from the JSON (convert UTC → Central Time) and the `title` field, then rename:
+After processing, rename the transcript file to include the recording date/time for easy searching. Parse `create_time` from the JSON as **naive local time in the current system timezone** (see step 2 — strip the `Z`, do not apply a UTC offset) and the `title` field, then rename:
 
 ```
 create_tim ...  (N).txt  →  2026-03-25_1219_Voice-Memo-Topic-Description.txt
 ```
 
 Format: `YYYY-MM-DD_HHmm_[sanitized-title].txt` where:
-- Date and time come from `create_time` (converted to Central Time)
+- Date and time come from `create_time` (read as naive local time — see step 2)
 - Title comes from the `title` field with the date prefix stripped (e.g., `03-25 Voice Memo: Topic Description` → `Voice-Memo-Topic-Description`)
 - Replace spaces and special characters with hyphens, collapse multiple hyphens
 
