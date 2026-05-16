@@ -673,11 +673,8 @@ function onTimerComplete() {
     updateButtons();
   } else {
     // Python-side timer already fired the macOS notification.
-    sessionsCompleted++;
-    totalMinutes += durationMinutes;
-    $statSessions.textContent = sessionsCompleted;
-    $statMinutes.textContent = totalMinutes;
-    updateDots();
+    // Counter is reconciled in loadLog() — the session was logged at start_session,
+    // so it's already counted; no local increment needed.
     state = 'logging';
     $label.textContent = 'Done!';
     showNotesPrompt();
@@ -752,6 +749,17 @@ async function loadLog() {
     const api = window.pywebview && window.pywebview.api;
     if (!api) return;
     const sessions = await api.get_today_sessions();
+
+    // Reconcile JS state against today's log (resets at midnight).
+    sessionsCompleted = sessions ? sessions.length : 0;
+    totalMinutes = (sessions || []).reduce((sum, s) => {
+      const m = s.match(/\((\d+)\s*min\)/);
+      return sum + (m ? parseInt(m[1], 10) : 0);
+    }, 0);
+    $statSessions.textContent = sessionsCompleted;
+    $statMinutes.textContent = totalMinutes;
+    updateDots();
+
     if (!sessions || !sessions.length) {
       $logList.innerHTML = '<div class="log-empty">No sessions logged yet</div>';
       return;
@@ -759,7 +767,6 @@ async function loadLog() {
     $logList.innerHTML = sessions.map(s =>
       `<div class="log-item">${esc(s)}</div>`
     ).join('');
-    $statSessions.textContent = Math.max(sessionsCompleted, sessions.length);
   } catch (e) {}
 }
 
