@@ -133,7 +133,20 @@ print(t)
 cd "$HARNESS"
 
 echo "[$(date)] Starting session-memory consolidation"
-echo "$PROMPT" | "$CLAUDE_BIN" \
-    --print \
-    --dangerously-skip-permissions
+TIMEOUT_SEC=300
+echo "$PROMPT" | "$CLAUDE_BIN" --print --dangerously-skip-permissions &
+CLAUDE_PID=$!
+(
+    sleep $TIMEOUT_SEC
+    if kill -0 $CLAUDE_PID 2>/dev/null; then
+        kill -TERM $CLAUDE_PID 2>/dev/null || true
+        sleep 5
+        kill -KILL $CLAUDE_PID 2>/dev/null || true
+        echo "[$(date)] TIMEOUT after ${TIMEOUT_SEC}s — claude --print killed" >> /tmp/exobrain-session-memory-failures.log
+    fi
+) &
+KILLER_PID=$!
+wait $CLAUDE_PID 2>/dev/null || true
+kill $KILLER_PID 2>/dev/null || true
+wait $KILLER_PID 2>/dev/null || true
 echo "[$(date)] Done"

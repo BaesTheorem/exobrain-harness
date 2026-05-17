@@ -1,6 +1,6 @@
 # Discord Integration
 
-Fetches messages from a friend group Discord server for daily briefing consumption, and runs a persistent Discord bot for notifications.
+Fetches messages from a friend group Discord server for daily briefing consumption.
 
 ## Gitignored Files
 
@@ -45,34 +45,29 @@ The hook uses `last_successful_fetch` (not file mtime) to detect stale digests �
 
 | File | Purpose |
 |------|---------|
-| `discord-bot.sh` | Launches Claude CLI as persistent Discord bot |
 | `run-discord-digest.sh` | launchd wrapper for discord-digest-fetch.py |
-| `com.exobrain.discord-bot.plist` | launchd plist for the bot daemon (RunAtLoad, KeepAlive) |
 | `com.exobrain.discord-digest.plist` | launchd timer for the digest fetcher (runs every 4 hours) |
 | `README.md` | This file |
 
 ## `DISCORD_BOT_TOKEN`
 
-The two pieces use the token differently:
+`discord-digest-fetch.py` reads `DISCORD_BOT_TOKEN` from the process environment. For the launchd job to see it, set it in `com.exobrain.discord-digest.plist`'s `EnvironmentVariables` block:
 
-- **`discord-bot.sh`** (the daemon) inherits its token from the **Discord plugin's** own configuration, set up via Claude Code's `/discord:configure` skill. The plist does NOT need to inject it.
-- **`discord-digest-fetch.py`** reads `DISCORD_BOT_TOKEN` from the **process environment**. For the launchd job to see it, set it in `com.exobrain.discord-digest.plist`'s `EnvironmentVariables` block:
-  ```xml
-  <key>EnvironmentVariables</key>
-  <dict>
-      <key>DISCORD_BOT_TOKEN</key>
-      <string>your_bot_token_here</string>
-  </dict>
-  ```
-  Or export it via `launchctl setenv` at login. Don't commit either form — the plist with a real token must NOT be checked in. (Currently `com.exobrain.discord-digest.plist` does not inject the token; if the digest is silently empty, this is the first thing to check.)
+```xml
+<key>EnvironmentVariables</key>
+<dict>
+    <key>DISCORD_BOT_TOKEN</key>
+    <string>your_bot_token_here</string>
+</dict>
+```
+
+Or export it via `launchctl setenv` at login. Don't commit either form — the plist with a real token must NOT be checked in. (Currently `com.exobrain.discord-digest.plist` does not inject the token; if the digest is silently empty, this is the first thing to check.)
 
 ## Install
 
-Copy plists into `~/Library/LaunchAgents/` as real files, NOT symlinks (TCC blocks login-time loading of symlinks into `~/Documents/`):
+Copy plist into `~/Library/LaunchAgents/` as a real file, NOT a symlink (TCC blocks login-time loading of symlinks into `~/Documents/`):
 
 ```bash
-cp com.exobrain.discord-bot.plist ~/Library/LaunchAgents/
 cp com.exobrain.discord-digest.plist ~/Library/LaunchAgents/
-launchctl load ~/Library/LaunchAgents/com.exobrain.discord-bot.plist
 launchctl load ~/Library/LaunchAgents/com.exobrain.discord-digest.plist
 ```
