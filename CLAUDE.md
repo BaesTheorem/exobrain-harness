@@ -30,10 +30,7 @@ The gitignore audit in evening winddown and daily auto-commit catches new files.
 - **Discord Digest Fetcher**: `/Users/alexhedtke/Documents/Exobrain harness/discord/discord-digest-fetch.py`
 - **Withings Credentials**: `/Users/alexhedtke/Documents/Exobrain harness/.env`
 
-## Current Priorities
-
-- Read `Dashboard.md` at runtime to get Alex's current priorities — it's a scratchpad he maintains directly.
-- When processing any content, flag items related to those priorities for special attention.
+`Dashboard.md` is Alex's priorities scratchpad — read it at runtime and flag related items.
 
 ## Daily Note Conventions
 
@@ -69,13 +66,7 @@ See `/process-transcript` for the full pipeline (journal entry, task/event routi
 
 ## Health Data
 
-See `/health` skill for API allocation, pull conventions, and Health Log structure.
-
-Project-specific facts (not in the skill):
-- **Step goal**: 15,000+/day. Flag shortfalls and suggest calendar gaps to catch up.
-- **Withings is the only weight source.** Do NOT use Fitbit for weight.
-- **Hydration quirk**: Alex weighs in the morning before drinking water — hydration % reads low (~41%) by design.
-- **MyChart** (via [OpenRecord](https://github.com/Fan-Pier-Labs/openrecord), hosted at `openrecord.fanpierlabs.com`): full Epic patient portal access. Sessions auto-renew.
+See `/health` skill for API allocation, pull conventions, Health Log structure, and MyChart access.
 
 ## People Notes / Network CRM
 
@@ -94,9 +85,7 @@ See `/crm` skill modes 9 + 9b for the full Karpathy-wiki discipline (integrate n
 
 ## Notification Policy
 
-Send a macOS notification for outputs you create: daily briefing ready, large items needing review, inbox overflow (>5), processing errors.
-
-**Silent**: Plaud and Supernote processing (success or "no new files"). Errors in their wrapper scripts still notify.
+Notify on user-visible outputs (briefings, items needing review, inbox >5, errors). Silent for Plaud/Supernote routine processing.
 
 ```bash
 osascript -e 'display notification "msg" with title "Exobrain" sound name "Purr"'          # standard
@@ -109,9 +98,7 @@ Before ending any **significant session** (processed data, made decisions, creat
 
 ## On Session Start
 
-The `session-start.sh` hook runs automatically and checks system health. If it reports pending unprocessed transcripts or Supernote files, process them. The launchd watcher and scheduled `check-transcripts` task handle most cases automatically — this is the fallback for anything they missed.
-
-If the startup hook outputs recent session memories, use them to build a context profile per the `/session-memory` skill's load mode. Don't read them aloud — just let them inform your behavior silently.
+The `.claude/hooks/session-start.sh` hook outputs system status and recent session memories. Act on any WARN/FAIL; process anything flagged unprocessed (fallback for the launchd watcher); use memories silently per `/session-memory` load mode.
 
 ## Processing Log
 
