@@ -55,13 +55,28 @@ fi
 cd "$HARNESS_DIR"
 # --dangerously-skip-permissions is required because launchd runs non-interactively
 # and cannot present permission prompts to the user
+TIMEOUT_SEC=900
 claude \
     --print \
     --dangerously-skip-permissions \
     -p "Run /process-transcript to check for and process any new Plaud transcripts." \
-    2>"$LOG_DIR/exobrain-process-$TIMESTAMP.err"
-
+    2>"$LOG_DIR/exobrain-process-$TIMESTAMP.err" &
+CLAUDE_PID=$!
+(
+    sleep $TIMEOUT_SEC
+    if kill -0 $CLAUDE_PID 2>/dev/null; then
+        kill -TERM $CLAUDE_PID 2>/dev/null
+        sleep 5
+        kill -KILL $CLAUDE_PID 2>/dev/null
+        echo "[$TIMESTAMP] TIMEOUT after ${TIMEOUT_SEC}s — claude --print killed" >> "$LOG_DIR/exobrain-plaud-failures.log"
+        osascript -e "display notification \"Plaud processor hung — killed after ${TIMEOUT_SEC}s\" with title \"Exobrain ERROR\" sound name \"Basso\""
+    fi
+) &
+KILLER_PID=$!
+wait $CLAUDE_PID 2>/dev/null
 EXIT_CODE=$?
+kill $KILLER_PID 2>/dev/null
+wait $KILLER_PID 2>/dev/null
 
 if [ $EXIT_CODE -ne 0 ]; then
     ERROR_MSG=$(tail -1 "$LOG_DIR/exobrain-process-$TIMESTAMP.err" 2>/dev/null | head -c 100)
