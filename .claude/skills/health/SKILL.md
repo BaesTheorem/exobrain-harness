@@ -16,6 +16,10 @@ Single source of truth for all health data. Other skills reference this skill ra
 
 Alex weighs in the morning before drinking water — hydration % reads low (~41%) by design. Not a concern.
 
+## MyChart (Epic patient portal)
+
+Available via [OpenRecord](https://github.com/Fan-Pier-Labs/openrecord), hosted at `openrecord.fanpierlabs.com`. Full Epic patient portal access; sessions auto-renew. MCP tools are namespaced `mcp__claude_ai_MyChart__*` (lab results, medications, messages, appointments, etc.).
+
 ## Health Log Notes
 
 Path: `/Users/alexhedtke/Exobrain/Areas/Health & Fitness/Health Log/YYYY-MM-DD.md` (one per day).
