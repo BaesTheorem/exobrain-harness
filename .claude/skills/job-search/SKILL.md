@@ -10,6 +10,38 @@ Alex is actively job hunting. This skill handles the full pipeline: evaluating f
 **Weekly goal**: 10–20 applications submitted per week.
 **Compensation floor**: see gitignored `Projects/Get new job/Claude Reference.md` for current floor. Do not report or recommend roles that list a salary below this threshold. If salary is unlisted, still include the role but flag the unknown comp.
 
+## Sources of Job Listings
+
+Use multiple sources and triangulate — no single source is authoritative for "open and accepting applications." **Don't lean on a single source** — title-only LinkedIn search misses listings on firm-careers portals and ATS boards that don't crosspost, and misses responsibility-matching roles whose titles wouldn't make the title pre-filter.
+
+1. **Gmail job alerts** (Indeed, LinkedIn, Dice, ZipRecruiter) — see `/email` for query syntax. Read full email bodies; dedupe across sources.
+2. **LinkedIn MCP** (`mcp__linkedin__search_jobs`, `get_job_details`) — see `/linkedin` for read-only rules and pacing. Good for discovery by keyword + location, and for cross-checking listings found elsewhere. Also the source for hiring-contact lookup (`get_company_employees`) on Strong-Fit roles.
+3. **Google search via WebSearch** (NEW — added 2026-05-19 after Alex flagged LinkedIn-only blind spot):
+   - **X-ray search ATS boards**: `site:boards.greenhouse.io "<keyword>" remote`, `site:jobs.lever.co "<keyword>" remote`, `site:jobs.ashbyhq.com "<keyword>" remote`, `site:apply.workable.com "<keyword>" remote` — these often surface listings not crossposted to LinkedIn
+   - **Niche remote job boards**: `site:remoterocketship.com`, `site:himalayas.app`, `site:builtin.com`, `site:weworkremotely.com`, `site:remotive.com` — different employer mix
+   - **Firm careers portals**: search by responsibility keyword without site filter to surface direct-to-employer postings (`"phishing remediation" "remote" careers`)
+   - **Search by JD responsibility keywords, NOT just titles** (the killer feature — see "Responsibility-keyword search" below). Alex's title-only filter misses roles whose JDs match his daily work but whose titles he'd otherwise skip.
+4. **Firm careers portals direct** — the firm's own site is the most reliable signal that a role is still open. Cross-check aggregator hits against the firm portal.
+5. **ATS Boards APIs** (Greenhouse, Lever) — strongest positive verification path. See mode 1 step 3 below for direct API URLs.
+6. **Alex-provided URLs and pasted postings** — treat as a starting point, still run the audit + verification.
+
+### Responsibility-keyword search (the title-blind-spot fix)
+
+Don't limit search keywords to titles like "IT Analyst" / "Security Analyst" / "GRC Analyst". Use **responsibility phrases** from Alex's actual day-to-day work, because employers describe roles in JD bullets even when the title is unusual. From the Claude Reference, Alex's transferable responsibility keywords:
+
+- **Identity & Access**: "Entra ID security groups", "Azure AD group management", "access provisioning", "access reviews", "SSO/MFA configuration", "IAM provisioning"
+- **Phishing & Email Security**: "phishing email analysis", "phishing remediation", "Exchange message trace", "compromised account response", "phishing triage"
+- **Endpoint & Device**: "Microsoft Intune", "endpoint security", "lost/stolen device triage", "device wipe", "device lifecycle"
+- **Cloud & Virtual Desktop**: "Azure Virtual Desktop support", "AVD support", "Citrix Virtual Desktop support", "M365 administration", "Microsoft 365 admin"
+- **Cross-timezone IT**: "global IT support", "cross-timezone IT", "SLA-driven IT support", "follow-the-sun support"
+- **Legal-tech (law firm angle)**: "iManage", "Elite 3E", "Intapp", "law firm IT"
+- **Frameworks (GRC angle)**: "NIST CSF", "NIST AI RMF", "SOC 2 evidence", "vendor risk assessment", "phishing simulation"
+- **Current title fair game**: "IT Analyst" — Alex's current title, common at law firms and mid-market enterprises
+
+These responsibility searches surface listings titled things like "Information Security Engineer", "Identity Administrator", "Endpoint Specialist", "Risk Analyst", "IT Coordinator" — where the JD responsibilities map 80%+ to Alex's work even though the title would normally be filtered.
+
+**Title pre-filter caveat**: the LinkedIn-search-result title pre-filter (drop Senior/Sr/Lead etc.) applies only when reading LinkedIn search snippets *before* JD reads — to save MCP budget. For Google/WebSearch results, each search result IS a JD page, so read it directly and evaluate by the 4-gate filter without pre-screening titles.
+
 ## Resume Reference
 
 **Resume PDF**: `/Users/alexhedtke/Exobrain/Projects/Get new job/Alex_Hedtke_Resume.pdf`
@@ -97,8 +129,7 @@ When Alex shares a job posting URL or text, evaluate fit:
 5. If the verdict is "apply" or "apply with caveats," ask if Alex wants a cover letter and/or company research.
 
 6. **Cold outreach trigger** (Strong Fit only, especially when compensation and remote opportunity are both good):
-   - **LinkedIn people search** (via Monid CLI): Find the hiring manager, team lead, or department head at the company:
-     `monid run -p apify -e /harvestapi/linkedin-company-employees --input '{"companies": ["https://www.linkedin.com/company/COMPANY"], "profileScraperMode": "Short ($4 per 1k)", "maxItems": 5, "jobTitles": ["IT Manager", "Hiring Manager", "IT Director", "CISO"]}'`
+   - **LinkedIn people search** (via `linkedin` MCP — read `/linkedin` for read-only rules and pacing): Find the hiring manager, team lead, or department head at the company. Use `get_company_employees` with the company LinkedIn URL and a keyword filter for titles like "IT Manager", "Hiring Manager", "IT Director", "CISO". Pull richer detail on individuals with `get_person_profile`. Draft any outreach as text for Alex to send manually — never send through the MCP.
    - Cross-reference results against Alex's People/ notes and CRM for warm intro paths
    - Create Things 3 tasks for cold outreach via `/crm potential [name]` for each identified person, with context about the role and why reaching out matters
    - Include in the task notes: the role title, why it's a strong fit, LinkedIn profile URL, and a suggested outreach angle
@@ -131,13 +162,11 @@ Deep-dive on a company before applying:
 
 1. **Company overview**: What they do, size, funding stage, recent news
 2. **Culture signals**: Glassdoor themes, LinkedIn presence, tech blog, open-source contributions
-3. **Key people** (via Monid CLI LinkedIn endpoints):
-   - Search for hiring manager / team lead / department head: `monid run -p apify -e /harvestapi/linkedin-company-employees --input '{"companies": ["https://www.linkedin.com/company/COMPANY"], "profileScraperMode": "Short ($4 per 1k)", "maxItems": 10, "jobTitles": ["IT Manager", "Hiring Manager", "IT Director", "CISO", "Security Manager"]}'`
-   - For specific people by name: `monid run -p apify -e /harvestapi/linkedin-profile-search-by-name --input '{"profileScraperMode": "Short", "firstName": "...", "lastName": "...", "currentCompanies": ["https://www.linkedin.com/company/COMPANY"]}'`
-   - Poll results: `monid runs get --run-id <id> --wait`
-   - Always prepend `export PATH="$HOME/.local/bin:$PATH" && NO_COLOR=1` to monid commands
+3. **Key people** (via `linkedin` MCP — see `/linkedin` for full conventions; read-only, paced like a human):
+   - Search for hiring manager / team lead / department head: `get_company_employees` with the company LinkedIn URL and a keyword filter for titles like "IT Manager", "Hiring Manager", "IT Director", "CISO", "Security Manager".
+   - For specific people by name: `search_people` with `firstName`/`lastName` and `currentCompany` set to the target company. Use `get_person_profile` to enrich a known profile URL.
    - Check Alex's People/ notes and CRM for any existing connections at the company
-4. **Network angle**: Check if anyone in Alex's network works there or has connections (search People/ notes, CRM digest). Cross-reference Monid LinkedIn results against People/ notes for mutual connections. A warm intro is 10x more valuable than a cold app
+4. **Network angle**: Check if anyone in Alex's network works there or has connections (search People/ notes, CRM digest). Cross-reference LinkedIn MCP results against People/ notes for mutual connections. A warm intro is 10x more valuable than a cold app
 5. **AI/tech stance**: For tech roles, note the company's position on AI, security, governance (relevant to Alex's interests)
 6. **Interview intel**: Any publicly available interview process info (Glassdoor, Blind, etc.)
 
@@ -235,8 +264,6 @@ company: <string>
 role: <string>
 status: candidate          # candidate | applied | interviewing | rejected | offer | withdrawn | closed
 applied: false             # boolean — used as the .base checkbox
-tier: 1                    # 1 (top priority) → 5 (worth a flyer); 99 = skip
-fit: strong                # strong | moderate | stretch | skip
 comp_min: 65000            # USD/yr; null if unlisted
 comp_max: 80000            # USD/yr; null if unlisted
 comp_listed: true
@@ -267,7 +294,6 @@ Truthful nulls: omit `comp_min` / `comp_max` if unlisted (set `comp_listed: fals
 ## Snapshot
 - **Comp**: <range or "unlisted">
 - **Location**: <details, remote/hybrid posture>
-- **Tier**: <1-5> — **Fit**: <strong/moderate/stretch>
 - **Status**: <verified-open / possibly stale / etc.>
 - **Verified via**: <signals>
 
@@ -292,10 +318,9 @@ Truthful nulls: omit `comp_min` / `comp_max` if unlisted (set `comp_listed: fals
 
 The `.base` lives at `Projects/Get new job/Job Listings.base` (sibling of the folder, not inside). It must filter on `file.inFolder("Projects/Get new job/Job Listings")` and `type == "job-listing"`. Standard views to include:
 
-- **Active**: `applied == false AND status != "closed" AND status != "withdrawn"`, sorted by tier ASC then fit
+- **Active**: `applied == false AND declined != true AND status not in (closed, withdrawn, rejected)`, sorted by comp DESC
 - **Applied**: `applied == true`, sorted by `application_date` DESC
-- **By Tier**: grouped by `tier`, sorted by `fit` then `company`
-- **Strong Fits**: `fit == "strong"`, sorted by tier ASC
+- **All**: ungrouped, all listings, sorted by file.name ASC
 
 The `applied` boolean is the inline checkbox in the Bases table view — flipping it updates the note's `applied` frontmatter property in place. Obsidian Bases is a view layer with no property-trigger automation, so flipping the checkbox does NOT directly cascade to other fields. The cascade is handled by a launchd file watcher in the Exobrain harness:
 
@@ -343,6 +368,7 @@ Types: `Applications`, `Audit`, `Cover Letter`, `Research`, `Pipeline`, `Upskill
 - **`/daily-briefing`**: Include application count for the current week and pace check. Log daily app count to the job hub note.
 - **`/weekly-review`**: Full application tracker summary, trends, and suggestions for next week's targets. Append the weekly job search summary to the job hub note.
 - **`/crm`**: Cross-reference company employees with Alex's network for warm intros. For Strong Fit roles (especially high comp + remote), auto-create `/crm potential` tasks for cold outreach to relevant people at the company
+- **`/linkedin`**: Canonical reference for the LinkedIn MCP. READ-ONLY — discovery and lookup only, never send messages or connection requests. Used as one source of job listings (`search_jobs`, `get_job_details`) and for hiring-contact identification (`get_company_employees`)
 - Ad-hoc questions like "how's my job search going?" can be answered via tracker mode
 - **`/verify`**: Background fact-check on company research claims
 - **`/de-ai`**: Applied to all cover letter output to ensure human voice
@@ -353,9 +379,61 @@ Types: `Applications`, `Audit`, `Cover Letter`, `Research`, `Pipeline`, `Upskill
 When called as part of the daily briefing (weekdays only — skip on weekends):
 
 1. **Tracker maintenance**: The canonical tracker is the `Job Listings` Bases file at `/Users/alexhedtke/Exobrain/Projects/Get new job/Job Listings.base` plus the per-listing notes in `Projects/Get new job/Job Listings/`. Search Gmail for new application confirmations and rejection emails since the last entry. For each new confirmation: if a listing note already exists for that company+role, set `applied: true`, `status: applied`, and `application_date: <today>`. If no note exists, create one per the schema in the "Per-Listing Notes & Bases Tracker" section above. For rejections: set `status: rejected` and `rejection_date: <date>`.
-2. **Weekly pace check**: Count apps submitted since Monday vs 10-20 goal. If behind mid-week, suggest time blocks from calendar gaps.
-3. **Upcoming interviews**: Surface any job-related events from today's calendar.
-4. **Return for briefing**: Only include in the briefing output if there's something notable — behind pace, interview today, or exceptional posting from the email scan. Otherwise silent.
+
+2. **Google/WebSearch discovery scan** (NEW — added 2026-05-19 to fix LinkedIn-only blind spot):
+   - Rotate 2-3 Google X-ray searches per day across ATS boards and niche remote boards. Suggested rotation (alternate which to skip):
+     - `site:boards.greenhouse.io "<responsibility phrase>" remote` — pick a different responsibility phrase each day (Entra ID, phishing remediation, access provisioning, M365 admin, compromised account, Intune endpoint, etc.)
+     - `site:jobs.lever.co "<responsibility phrase>" remote`
+     - `site:jobs.ashbyhq.com "<keyword>" remote`
+     - `site:remoterocketship.com "IT analyst" OR "security analyst" OR "compliance analyst"`
+     - `site:himalayas.app "IT analyst" remote $75K`
+     - `site:builtin.com "compliance analyst" OR "security analyst" remote`
+   - Vary which responsibility phrase you search each day (see "Responsibility-keyword search" in Sources section). Rotating across days makes the activity pattern look like a human exploring rather than a script.
+   - For each promising search result: open with `/defuddle` or WebFetch to read the JD directly (no need for separate "verify the title" step — the page IS the JD).
+   - **Staleness check**: Google's index lags real-time. Lever (`jobs.lever.co/*`) silently returns 404 when a listing is removed. If `defuddle` returns empty content or `WebFetch` returns 403, fall back to `curl -sL -A "<browser UA>"` to confirm — many JS-rendered pages need a real UA, but a 404 page means the listing is dead. Discard 404s.
+   - **Cloudflare-protected aggregators**: RemoteRocketship and a few others 1010-block curl with a Cloudflare challenge. Those are not blockers for Alex (he can open them in a browser), so still surface the URL — just note "verification incomplete, Alex must spot-check JD" in the listing note.
+   - Apply the 4-gate hard requirements (remote / FT permanent / comp $75K+ or strong inference / ≥80% strong fit).
+   - Dedupe against `Projects/Get new job/Job Listings/` folder.
+   - Create per-listing notes for survivors with `source: greenhouse` / `source: lever` / `source: company-portal` / etc. as appropriate.
+
+3. **LinkedIn discovery scan** (verified workflow — never skip the JD read or the comp DQ check):
+   - Read `/linkedin` first for read-only rules, pacing, and the `references[]` mapping gotcha.
+   - Run 3-4 `mcp__linkedin__search_jobs` calls across rotating angles to vary the daily activity pattern. Suggested rotation (pick 3-4 each day, alternate which to skip):
+     - `IT analyst` / `IT operations`
+     - `identity access management` / `IAM analyst`
+     - `security analyst` / `cybersecurity analyst`
+     - `GRC compliance analyst` / `information security GRC`
+     - `IT auditor` / `compliance auditor`
+   - Filters: `work_type=remote`, `job_type=full_time`, `date_posted=past_24_hours` (so we don't re-scan yesterday's pool), `sort_by=date`.
+   - **Use ONLY job_id→title mappings from each response's `references[]` block.** Discard any job_ids from `job_ids[]` not present in `references[]` — positional alignment is unreliable. (See [[feedback-linkedin-search-job-id-mapping]].)
+   - **Title pre-filter** (before any JD read — saves MCP budget on guaranteed-decline candidates per [[feedback-entry-level-target]]):
+     - Drop titles containing: Senior, Sr., Sr, Lead, Principal, Staff, Manager, Director, Head of, Architect, Engineer III/IV/V
+     - Drop obvious specialist mismatches: Epic, Cerner, Workday HRIS, Oracle ERP, SAP, Salesforce admin, Dynamics 365, Mainframe, Geospatial/GIS, AI/ML Engineer, EE/ME engineering, sourcing/procurement (Ariba/Coupa/Jaggaer), Tier I (too junior in tools Alex doesn't have)
+     - Drop obvious sales/CSM: Account Executive, Customer Success, Solutions Engineer (pre-sales), Sales Engineer, Sales Development Rep
+     - Keep: plain Analyst/Administrator/Specialist, Junior/Associate, "I"/"II" (with JD-verify experience cap, see below)
+     - For "II" titles: if JD requires ≥6 years specialty tenure, treat as stretch and skip.
+   - Dedupe candidates against the existing `Projects/Get new job/Job Listings/` folder (filename `<Company> - <Role>.md`) — skip any company+role already noted, regardless of status.
+   - For each fresh candidate from references[]:
+     a. Call `mcp__linkedin__get_job_details` — **read the actual JD before any fit label**. No title-only audits.
+     b. Apply the 4-gate hard requirements (`feedback-job-hard-requirements`):
+        - Fully remote (JD says remote, not just LinkedIn label — Cyderes 2026-05-19 was hybrid despite "Remote" label)
+        - Full-time permanent (not contract, contract-to-hire, 1099, temp)
+        - **Comp ≥$75K listed**, OR brief market-data check (Glassdoor/Salary.com/ZipRecruiter median for that title) shows strong evidence the role clears the floor — *if unlisted and you can't reach high confidence in <2 min of research, DQ*
+        - Strong fit ≥80% (no failed JD hard reqs — degree, years, named tools, clearance, bilingual — AND ≥80% of top responsibilities/qualifications match Alex's resume)
+     c. Create a per-listing note **only** if all 4 gates pass. Use the schema in "Per-Listing Notes & Bases Tracker" above. Set `verified: true` and record the comp-evidence inference (if applicable) in `verification_signals`.
+   - Pacing: no numerical cap, but follow `/linkedin` qualitative rules — batch JD reads in small groups (2-4 per turn) with reasoning between, vary keyword angles day-to-day, no tight loops. The natural ceiling is "I've exhausted reasonable search angles," not an arbitrary count.
+   - Target volume: 2-5 new verified candidates per day → hits the 10-20 weekly app goal.
+
+4. **Cold outreach surfacing**: For any new verified candidate scoring Strong Fit (especially high comp + remote), follow mode 1 step 6 — use `mcp__linkedin__get_company_employees` with title keyword filter, surface hiring contacts, create `/crm potential <name>` Things 3 tasks. Cap at the top 1-2 candidates per day to keep MCP pacing reasonable.
+
+5. **Weekly pace check**: Count apps submitted since Monday vs 10-20 goal. If behind mid-week, suggest time blocks from calendar gaps.
+
+6. **Upcoming interviews**: Surface any job-related events from today's calendar.
+
+7. **Return for briefing** (per `feedback-briefing-compact` — jobs/contacts go to Things 3, not the briefing body):
+   - Under `#### New tasks created`: any Things 3 tasks created during this run (cold outreach, advance-to-package, etc.) with `things:///show?id=ID` deep links.
+   - Under `#### Flags`: only mention job-search items if exceptional — behind pace mid-week, interview today, or a stand-out Strong Fit posting that warrants same-day action. The candidate count goes here ("3 new verified candidates added to tracker — see Bases for triage") not the candidate list itself.
+   - Append a `## Job Search Log` entry to the hub note (`Projects/Get new job.md`) summarizing: scan counts (titles searched / JD-verified / passed all gates), new candidate names with apply URLs, declined names with one-line reason. Be honest about counts — don't pad the survivor list.
 
 ## Proactive Behaviors
 

@@ -1,6 +1,6 @@
 ---
 name: local-events
-description: Discover upcoming Kansas City events Alex would enjoy. Searches Facebook events, Meetup, venue calendars, and library listings. Highlights favorite artists, tech/AI meetups, live music, and social opportunities. Use when the user asks "what's going on in KC", "any events coming up", "things to do this weekend", "local events", "concerts near me", or when triggered by the weekly review on Sundays.
+description: Discover upcoming Kansas City events Alex would enjoy. Searches Meetup, venue calendars, and library listings. Highlights favorite artists, tech/AI meetups, live music, and social opportunities. Use when the user asks "what's going on in KC", "any events coming up", "things to do this weekend", "local events", "concerts near me", or when triggered by the weekly review on Sundays.
 ---
 
 # Local Events
@@ -56,7 +56,6 @@ This JSON file tracks every event previously surfaced, so the same event is not 
 ```
 
 **ID generation**: Use source prefix + unique identifier:
-- Facebook: `fb-{event_id}`
 - Meetup: `meetup-{event_id or slug}`
 - Venue calendar: `venue-{venue_slug}-{date}-{sanitized_name}`
 - Library: `lib-{library_slug}-{date}-{sanitized_name}`
@@ -90,32 +89,14 @@ Only surface events scoring 5+ (weighted average). Always surface favorite artis
 
 ## Sources
 
-Search these sources in parallel where possible. Always prepend `export PATH="$HOME/.local/bin:$PATH" && NO_COLOR=1` to all monid commands.
+Search these sources in parallel where possible.
 
-### 1. Facebook Events (via Monid CLI)
-Run multiple searches to cast a wide net:
-
-```bash
-# General KC events
-monid run -p apify -e /apify/facebook-events-scraper --input '{"searchQueries": ["Kansas City"], "maxEvents": 30}'
-
-# Music-specific searches (batch favorite artists)
-# Read the favorite artist list from the gitignored prefs file at runtime, then build searchQueries.
-# Example: jq -r '.favoriteArtists[] | "\(.) Kansas City"' "$prefs_file"
-monid run -p apify -e /apify/facebook-events-scraper --input '{"searchQueries": [<favorite-artist queries>], "maxEvents": 20}'
-
-# Interest-specific
-monid run -p apify -e /apify/facebook-events-scraper --input '{"searchQueries": ["AI meetup Kansas City", "cybersecurity Kansas City", "board game Kansas City", "DnD Kansas City", "tech meetup Kansas City", "comedy Kansas City"], "maxEvents": 20}'
-```
-
-Poll each run: `monid runs get --run-id <id> --wait`
-
-### 2. Meetup.com (via web search)
+### 1. Meetup.com (via web search)
 Search for upcoming KC meetups matching interests:
 - `WebSearch`: "site:meetup.com Kansas City AI" / "cybersecurity" / "tech" / "board games" / "DnD"
 - Also search: "meetup.com Kansas City events this month"
 
-### 3. KC Venue Calendars (via Defuddle)
+### 2. KC Venue Calendars (via Defuddle)
 Check major venue calendars for upcoming shows:
 - Starlight Theatre: `https://www.kcstarlight.com/events`
 - Knuckleheads: `https://www.knuckleheadskc.com/events`
@@ -124,12 +105,20 @@ Check major venue calendars for upcoming shows:
 - recordBar: `https://www.therecordbar.com/events`
 - T-Mobile Center: `https://www.t-mobilecenter.com/events`
 
-For each venue, use `npx @anthropic/defuddle@latest "[URL]"` (via Bash) to extract clean content from the events page — this strips navigation, ads, and boilerplate, saving 60-80% of tokens vs raw WebFetch. Only fall back to WebFetch if defuddle fails. Extract shows in the next 30 days and cross-reference artist names against the `favoriteArtists` list from the preferences file.
+For each venue, use `defuddle parse "[URL]" -m` (via Bash) to extract clean content from the events page — this strips navigation, ads, and boilerplate, saving 60-80% of tokens vs raw WebFetch. Only fall back to WebFetch if defuddle fails. Extract shows in the next 30 days and cross-reference artist names against the `favoriteArtists` list from the preferences file.
 
-### 4. KC Library Events
+### 3. KC Library Events
 - Kansas City Public Library: `https://kclibrary.org/events`
 - Johnson County Library: `https://www.jocolibrary.org/events`
-- Use Defuddle (`npx @anthropic/defuddle@latest "[URL]"`) to fetch and filter for: author talks, tech workshops, maker events, book clubs for genres Alex reads. Fall back to WebFetch only if defuddle fails.
+- Use Defuddle (`defuddle parse "[URL]" -m`) to fetch and filter for: author talks, tech workshops, maker events, book clubs for genres Alex reads. Fall back to WebFetch only if defuddle fails.
+
+### 4. r/kansascity Subreddit
+The KC subreddit is a high-signal source — locals post events, festivals, pop-ups, and meetups that don't show up on venue calendars. There's almost always a pinned/recent **"What's Happening This Week [date]"** megathread.
+
+- **Megathread**: WebFetch on reddit.com is blocked. Use `curl -sL -A "Mozilla/5.0" "https://www.reddit.com/r/kansascity/search.json?q=%22What%27s%20Happening%20This%20Week%22&restrict_sr=on&sort=new&limit=5"` + jq to find this week's thread URL, then fetch `https://reddit.com/r/kansascity/comments/<id>.json?limit=300&sort=top` and extract body (`.[0].data.children[0].data.selftext`) + comments (`.[1].data.children[] | select(.kind=="t1") | .data.body`).
+- **General sweep**: `curl -sL -A "Mozilla/5.0" "https://www.reddit.com/r/kansascity/new.json?limit=60"` then jq for "Things To Do 📍" flair — catches one-off event posts outside the megathread. Fetch interesting posts via `https://reddit.com/r/kansascity/comments/<id>.json` for body details.
+
+Extract events from the megathread comments + body, score them through the same rubric, and verify dates/links against the original venue before surfacing. Reddit posts often paraphrase or get details slightly wrong — always click through to confirm.
 
 ### 5. Web Search Catch-All
 Run broader searches to catch anything the other sources miss:
@@ -145,7 +134,7 @@ Every event MUST be verified before being surfaced:
 2. **Check for cancellation language** — look for "cancelled", "postponed", "rescheduled" on the page
 3. **Cross-reference dates** — if an event date seems wrong or in the past, verify against the source
 4. **Check against Alex's calendar** — use `gcal_list_events` to check for conflicts at the suggested event time
-5. **Deduplicate** — the same event may appear across Facebook, Meetup, and venue sites. Consolidate into one entry with the best link (prefer official venue/ticketing link over Facebook)
+5. **Deduplicate** — the same event may appear across Meetup, venue sites, and web search results. Consolidate into one entry with the best link (prefer official venue/ticketing link)
 
 ## Output Format
 
@@ -186,7 +175,7 @@ Run all sources, verify, deduplicate, write to daily note, update preferences.
 Focus on Friday-Sunday events only. Quick weekend planning.
 
 ### 3. Artist watch: `/local-events artists`
-Only search for favorite artists coming to KC. Check all venue calendars + Facebook + web search for each artist.
+Only search for favorite artists coming to KC. Check all venue calendars + web search for each artist.
 
 ### 4. Tonight: `/local-events tonight`
 What's happening tonight in KC? Quick search focused on today's date only.
