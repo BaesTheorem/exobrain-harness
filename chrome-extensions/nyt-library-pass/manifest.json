@@ -1,0 +1,27 @@
+{
+  "manifest_version": 3,
+  "name": "KC Library NYT Pass",
+  "version": "1.0.0",
+  "description": "One-click redemption of the Kansas City Public Library's New York Times group pass via OCLC EZproxy.",
+  "action": {
+    "default_title": "Redeem NYT pass"
+  },
+  "permissions": ["storage", "tabs"],
+  "host_permissions": [
+    "https://kclibrary.idm.oclc.org/*",
+    "https://ezmyaccount.nytimes.com/*",
+    "https://www.nytimes.com/*",
+    "https://myaccount.nytimes.com/*"
+  ],
+  "background": {
+    "service_worker": "background.js"
+  },
+  "content_scripts": [
+    {
+      "matches": ["https://kclibrary.idm.oclc.org/login*"],
+      "js": ["content-ezproxy.js"],
+      "run_at": "document_idle"
+    }
+  ],
+  "options_page": "options.html"
+}

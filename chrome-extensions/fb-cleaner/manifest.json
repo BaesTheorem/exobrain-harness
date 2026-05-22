@@ -1,0 +1,19 @@
+{
+  "manifest_version": 3,
+  "name": "FB Cleaner",
+  "version": "0.7.1",
+  "description": "Hides Reels, Stories, Sponsored posts, suggested posts from non-followed Pages/Groups, and posts from any account you add to the mute list. Toggle via toolbar icon.",
+  "permissions": ["storage"],
+  "action": {
+    "default_title": "FB Cleaner",
+    "default_popup": "popup.html"
+  },
+  "content_scripts": [
+    {
+      "matches": ["*://*.facebook.com/*"],
+      "js": ["content.js"],
+      "run_at": "document_start",
+      "all_frames": true
+    }
+  ]
+}

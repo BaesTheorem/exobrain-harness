@@ -1,0 +1,82 @@
+<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <title>KC Library NYT Pass — Settings</title>
+    <style>
+      body {
+        font-family: -apple-system, BlinkMacSystemFont, sans-serif;
+        max-width: 480px;
+        margin: 32px auto;
+        padding: 0 24px;
+        color: #222;
+      }
+      h1 {
+        font-size: 18px;
+        margin-bottom: 4px;
+      }
+      p.lede {
+        color: #666;
+        margin-top: 0;
+        font-size: 13px;
+      }
+      label {
+        display: block;
+        margin-top: 16px;
+        font-size: 13px;
+        font-weight: 600;
+      }
+      input {
+        width: 100%;
+        padding: 8px 10px;
+        margin-top: 4px;
+        font-size: 14px;
+        border: 1px solid #ccc;
+        border-radius: 4px;
+        box-sizing: border-box;
+      }
+      button {
+        margin-top: 20px;
+        padding: 8px 14px;
+        font-size: 14px;
+        background: #1a1a1a;
+        color: white;
+        border: 0;
+        border-radius: 4px;
+        cursor: pointer;
+      }
+      #status {
+        margin-top: 12px;
+        font-size: 13px;
+        color: #0a7a0a;
+      }
+      .note {
+        font-size: 12px;
+        color: #888;
+        margin-top: 24px;
+        line-height: 1.5;
+      }
+    </style>
+  </head>
+  <body>
+    <h1>KC Library NYT Pass</h1>
+    <p class="lede">Credentials are stored only in this browser's local extension storage.</p>
+
+    <label for="card">Library card number</label>
+    <input id="card" type="text" autocomplete="off" />
+
+    <label for="pin">PIN</label>
+    <input id="pin" type="password" autocomplete="off" />
+
+    <button id="save">Save</button>
+    <span id="status"></span>
+
+    <p class="note">
+      Click the extension's toolbar icon to redeem the pass. The login page will
+      submit automatically, then NYT will sign you in using your existing Google
+      session.
+    </p>
+
+    <script src="options.js"></script>
+  </body>
+</html>

@@ -83,12 +83,10 @@ When the user asks about a specific person:
 2. Compute overdue status from frontmatter
 3. Search Things 3 (`search_todos`) for tasks mentioning that person
 4. Search recent calendar events (`gcal_list_events` with `q=[name]`, past 30 days)
-5. **LinkedIn enrichment** (via Monid CLI): If no LinkedIn data yet:
-   - `monid run -p apify -e /harvestapi/linkedin-profile-search-by-name --input '{"profileScraperMode": "Short", "firstName": "...", "lastName": "...", "strictSearch": true, "maxPages": 1}'`
-   - If LinkedIn URL known: `monid run -p apify -e /dev_fusion/linkedin-profile-scraper --input '{"profileUrls": ["..."]}'`
-   - Poll: `monid runs get --run-id <id> --wait`
+5. **LinkedIn enrichment** (via `linkedin` MCP): If no LinkedIn data yet:
+   - Search by name: `search_people` with `firstName`/`lastName` (add company or location filters if known)
+   - If LinkedIn URL known: `get_person_profile` with the URL and the sections you need (experience, education, contact_info, etc.)
    - Add `linkedin:` to frontmatter, add `## LinkedIn` section to body
-   - Always prepend `export PATH="$HOME/.local/bin:$PATH" && NO_COLOR=1` to monid commands
 6. Present unified view:
    ```
    ## [Name]
@@ -119,7 +117,7 @@ Surface everyone who needs attention:
 When Alex meets someone new:
 
 1. Ask for or extract from context: name, email, how they met, city, expertise, category
-2. **LinkedIn lookup** via Monid (see mode 1)
+2. **LinkedIn lookup** via `linkedin` MCP (see mode 1)
 3. Create `People/[Name].md` with:
    - Frontmatter (category, frequency, last_contact, platform, expertise)
    - `## Contact` card (all fields, populated where known, blank where not)
