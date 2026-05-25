@@ -42,5 +42,6 @@ defaults but may need adjusting.
 
 ## Icons
 
-Placeholder PNGs go in `icons/`. The extension loads without them (Chrome
-shows a default), but they're declared in the manifest for when you add them.
+The New York Times masthead "T" (black on transparent) lives in `icons/` at 16,
+32, 48, and 128px, wired into `manifest.json` via `action.default_icon` and the
+top-level `icons` block. Swap in your own PNGs at those sizes to rebrand.
