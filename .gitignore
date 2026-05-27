@@ -35,6 +35,12 @@ discord/discord-digest-fetch.py
 .claude/skills/cybersecurity-bodyguard/scan-results/
 .claude/skills/cybersecurity-bodyguard/cache/
 
+# Claude Bus — secrets + local state
+bus/.env
+bus/*.db
+bus/.bus-cursor
+bus/friend-kit/.env
+
 # Runtime state
 processing-log.json
 discord/discord-digest.json

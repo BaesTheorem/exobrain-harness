@@ -1,0 +1,6 @@
+# Secrets and local state — never commit
+.env
+*.db
+.bus-cursor
+__pycache__/
+.venv/
