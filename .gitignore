@@ -16,10 +16,16 @@
 # Python
 __pycache__/
 *.pyc
+.venv/
+
+# Phone — Google Calendar OAuth credentials + token (secrets)
+phone/gcp-oauth.keys.json
+phone/gcal-token.json
 
 # Personal/sensitive data
 .claude/skills/health/health-concerns-config.md
 cycle-tracker/cycle-data.json
+cycle-tracker/cycle-data.archived-*.json
 cycle-tracker/app.py
 local-events/local-events-log.json
 local-events/local-events-prefs.json
