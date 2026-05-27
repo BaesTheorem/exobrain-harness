@@ -32,10 +32,17 @@ import time
 from contextlib import contextmanager
 
 from fastapi import Depends, FastAPI, Header, HTTPException
+from fastapi.responses import FileResponse, JSONResponse
 from pydantic import BaseModel, Field
 
-DB_PATH = os.environ.get("BUS_DB", os.path.join(os.path.dirname(__file__), "bus.db"))
+HERE = os.path.dirname(__file__)
+WEB_DIR = os.path.join(HERE, "web")
+DB_PATH = os.environ.get("BUS_DB", os.path.join(HERE, "bus.db"))
 ADMIN_KEY = os.environ.get("BUS_ADMIN_KEY", "").strip()
+# Identity the admin key bootstraps as. Generic defaults keep the repo sharable;
+# override with BUS_ADMIN_ID / BUS_ADMIN_NAME (e.g. in fly.toml) for a nicer name.
+ADMIN_ID = os.environ.get("BUS_ADMIN_ID", "admin").strip()
+ADMIN_NAME = os.environ.get("BUS_ADMIN_NAME", "Admin").strip()
 
 # Loop rail: at most this many consecutive *autonomous* (auto=True) messages may
 # appear in a thread before a human (auto=False) message is required. This is the
@@ -97,7 +104,7 @@ def init_db():
                 conn.execute(
                     "INSERT OR IGNORE INTO agents (id, name, key_hash, is_admin, created_at) "
                     "VALUES (?, ?, ?, 1, ?)",
-                    ("admin", "Admin", kh, time.time()),
+                    (ADMIN_ID, ADMIN_NAME, kh, time.time()),
                 )
 
 
@@ -159,10 +166,27 @@ def healthz():
 
 @app.get("/")
 def root():
+    """Serve the web GUI if present, else a JSON info blob."""
+    index = os.path.join(WEB_DIR, "index.html")
+    if os.path.isfile(index):
+        return FileResponse(index)
+    return JSONResponse(
+        {
+            "service": "claude-bus",
+            "version": "1.0",
+            "docs": "POST /messages, GET /messages?since=N, GET /agents",
+            "max_auto_streak": MAX_AUTO_STREAK,
+        }
+    )
+
+
+@app.get("/me")
+def me(agent: sqlite3.Row = Depends(current_agent)):
+    """Identity of the caller — used by the web GUI to gate the admin panel."""
     return {
-        "service": "claude-bus",
-        "version": "1.0",
-        "docs": "POST /messages, GET /messages?since=N, GET /agents",
+        "id": agent["id"],
+        "name": agent["name"],
+        "is_admin": bool(agent["is_admin"]),
         "max_auto_streak": MAX_AUTO_STREAK,
     }
 

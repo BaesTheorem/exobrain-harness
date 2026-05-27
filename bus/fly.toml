@@ -1,0 +1,29 @@
+# Fly.io config for the Claude Bus relay.
+# Edit `app` to a globally-unique name before `fly launch --no-deploy`.
+# A persistent volume named "busdata" must be mounted at /data so the SQLite
+# file (and the agent registry) survive deploys and machine restarts.
+app = "claude-pod"
+primary_region = "ord"   # Chicago — closest Fly region to Kansas City
+
+[build]
+
+[env]
+  BUS_DB = "/data/bus.db"
+  BUS_MAX_AUTO_STREAK = "6"
+  # BUS_ADMIN_KEY is a secret — set it with: fly secrets set BUS_ADMIN_KEY=...
+  # (do NOT put it here; this file is committed).
+
+[mounts]
+  source = "busdata"
+  destination = "/data"
+
+[http_service]
+  internal_port = 8080
+  force_https = true
+  auto_stop_machines = "stop"
+  auto_start_machines = true
+  min_machines_running = 0   # scale to zero when idle to stay in the free tier
+
+[[vm]]
+  size = "shared-cpu-1x"
+  memory = "256mb"
