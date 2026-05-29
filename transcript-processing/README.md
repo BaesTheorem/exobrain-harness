@@ -14,7 +14,6 @@ When new files land, launchd fires Claude Code in `--print` mode to run the rele
 | `run-process-transcript.sh` | launchd wrapper invoked when new Plaud transcripts land. Bails out fast if every file is already in `processing-log.json`; otherwise runs `claude --print -p "Run /process-transcript ..."`. Notifies on failure. |
 | `run-process-supernote.sh` | launchd wrapper invoked when new Supernote files land. Same pattern — fast bailout if every `.note` file's mtime is already covered by the processing log. |
 | `supernote-parser.py` | Standalone helper used by `/process-supernote`. Reads a `.note` file with `supernotelib`, exports each page as PNG, and computes SHA-256 page hashes for change detection. |
-| `youtube-transcript.py` | Standalone helper that fetches a YouTube transcript via `yt-dlp` (manual captions, falls back to auto-captions). Used when Alex asks Claude to summarize a YouTube video. |
 | `com.exobrain.plaud-watcher.plist` | launchd plist. WatchPaths: `~/My Drive/Plaud`. Throttle 30s, fallback StartInterval 1800s in case Google Drive mounts after launchd's initial check. |
 | `com.exobrain.supernote-watcher.plist` | launchd plist. WatchPaths: `~/My Drive/Supernote/Note`. Throttle 30s. |
 
@@ -40,12 +39,10 @@ After any plist edit, copy the file again — the LaunchAgents copy is the autho
 - **Python 3.12+** (Homebrew at `/opt/homebrew/bin/python3.12`). The wrappers use `/usr/bin/python3` only for the small dedup pre-check; the skills themselves run inside Claude.
 - **Python packages**:
   - `supernotelib` — used by `supernote-parser.py` to extract pages from `.note` files
-  - `yt-dlp` — used by `youtube-transcript.py`
 - **Google Drive for Desktop** mounting `~/My Drive/Plaud` and `~/My Drive/Supernote/Note`.
 
 ```bash
 pip3 install supernotelib
-brew install yt-dlp
 ```
 
 ## Config (`../config.sh`)

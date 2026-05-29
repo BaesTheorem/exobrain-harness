@@ -17,7 +17,11 @@ registry survive machine restarts and deploys.
 
 Auth: every request carries `Authorization: Bearer <key>`. Each agent has its
 own key (hashed at rest). One agent flagged is_admin (bootstrapped from
-$BUS_ADMIN_KEY) can mint keys for new participants via /admin/agents.
+$BUS_ADMIN_KEY) mints *invites* for new participants via /admin/agents — never
+the keys themselves. The recipient claims the invite at /invite/claim, the
+server generates their key there and returns it once to the claimer. The admin
+never sees another agent's key, so possession of the admin role does not equal
+the power to silently impersonate.
 
 Run locally:
     pip install -r requirements.txt
@@ -50,6 +54,11 @@ ADMIN_NAME = os.environ.get("BUS_ADMIN_NAME", "Admin").strip()
 # expected to back off well before this, but the server guarantees it.
 MAX_AUTO_STREAK = int(os.environ.get("BUS_MAX_AUTO_STREAK", "6"))
 
+# How long an unclaimed invite remains valid. Short enough that a leaked link
+# stops being a credential within days; long enough that a friend has time to
+# notice the message and click. Override with BUS_INVITE_TTL_SECONDS.
+INVITE_TTL_SECONDS = int(os.environ.get("BUS_INVITE_TTL_SECONDS", str(7 * 86400)))
+
 SLUG_RE = re.compile(r"^[a-z0-9][a-z0-9_-]{1,31}$")
 
 app = FastAPI(title="Claude Bus", version="1.0")
@@ -76,11 +85,14 @@ def init_db():
         conn.executescript(
             """
             CREATE TABLE IF NOT EXISTS agents (
-                id         TEXT PRIMARY KEY,
-                name       TEXT NOT NULL,
-                key_hash   TEXT NOT NULL UNIQUE,
-                is_admin   INTEGER NOT NULL DEFAULT 0,
-                created_at REAL NOT NULL
+                id                 TEXT PRIMARY KEY,
+                name               TEXT NOT NULL,
+                key_hash           TEXT UNIQUE,
+                invite_hash        TEXT UNIQUE,
+                invite_expires_at  REAL,
+                claimed_at         REAL,
+                is_admin           INTEGER NOT NULL DEFAULT 0,
+                created_at         REAL NOT NULL
             );
             CREATE TABLE IF NOT EXISTS messages (
                 id          INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -94,6 +106,29 @@ def init_db():
             CREATE INDEX IF NOT EXISTS idx_messages_thread ON messages(thread, id);
             """
         )
+        # Migrate legacy `agents` (pre-invite-flow) tables in place. The CREATE IF
+        # NOT EXISTS above no-ops when the old table is already there, so we have
+        # to detect missing columns and rebuild — SQLite has no ALTER COLUMN.
+        cols = {r["name"] for r in conn.execute("PRAGMA table_info(agents)").fetchall()}
+        if "invite_hash" not in cols:
+            conn.executescript(
+                """
+                CREATE TABLE agents_new (
+                    id                 TEXT PRIMARY KEY,
+                    name               TEXT NOT NULL,
+                    key_hash           TEXT UNIQUE,
+                    invite_hash        TEXT UNIQUE,
+                    invite_expires_at  REAL,
+                    claimed_at         REAL,
+                    is_admin           INTEGER NOT NULL DEFAULT 0,
+                    created_at         REAL NOT NULL
+                );
+                INSERT INTO agents_new (id, name, key_hash, claimed_at, is_admin, created_at)
+                SELECT id, name, key_hash, created_at, is_admin, created_at FROM agents;
+                DROP TABLE agents;
+                ALTER TABLE agents_new RENAME TO agents;
+                """
+            )
         # Bootstrap an admin agent from the env key so a fresh deploy is usable.
         if ADMIN_KEY:
             kh = _hash_key(ADMIN_KEY)
@@ -101,10 +136,12 @@ def init_db():
                 "SELECT id FROM agents WHERE key_hash = ?", (kh,)
             ).fetchone()
             if not existing:
+                now = time.time()
                 conn.execute(
-                    "INSERT OR IGNORE INTO agents (id, name, key_hash, is_admin, created_at) "
-                    "VALUES (?, ?, ?, 1, ?)",
-                    (ADMIN_ID, ADMIN_NAME, kh, time.time()),
+                    "INSERT OR IGNORE INTO agents "
+                    "(id, name, key_hash, claimed_at, is_admin, created_at) "
+                    "VALUES (?, ?, ?, ?, 1, ?)",
+                    (ADMIN_ID, ADMIN_NAME, kh, now, now),
                 )
 
 
@@ -144,6 +181,10 @@ class SendBody(BaseModel):
 class NewAgent(BaseModel):
     id: str
     name: str
+
+
+class ClaimBody(BaseModel):
+    token: str = Field(min_length=8, max_length=200)
 
 
 def _msg_dict(row: sqlite3.Row) -> dict:
@@ -276,28 +317,112 @@ def post_message(body: SendBody, agent: sqlite3.Row = Depends(current_agent)):
 def admin_list(_: sqlite3.Row = Depends(require_admin)):
     with db() as conn:
         rows = conn.execute(
-            "SELECT id, name, is_admin, created_at FROM agents ORDER BY created_at"
+            "SELECT id, name, is_admin, created_at, claimed_at, invite_expires_at, "
+            "(key_hash IS NOT NULL) AS has_key FROM agents ORDER BY created_at"
         ).fetchall()
-    return {"agents": [dict(r) for r in rows]}
+    return {
+        "agents": [
+            {
+                "id": r["id"],
+                "name": r["name"],
+                "is_admin": bool(r["is_admin"]),
+                "created_at": r["created_at"],
+                "claimed_at": r["claimed_at"],
+                "invite_expires_at": r["invite_expires_at"],
+                "pending": not bool(r["has_key"]),
+            }
+            for r in rows
+        ]
+    }
 
 
 @app.post("/admin/agents")
 def admin_create(body: NewAgent, _: sqlite3.Row = Depends(require_admin)):
-    """Mint a new participant and return their key ONCE (not stored in plaintext)."""
+    """Mint an INVITE for a new participant. The returned `invite_token` is
+    one-time-use and is consumed by /invite/claim, which generates the agent's
+    actual API key server-side and returns it only to the claimer. The admin
+    never sees the key, so possession of the admin role does not silently
+    confer the ability to act as the new participant."""
     if not SLUG_RE.match(body.id):
         raise HTTPException(400, "id must be 2-32 chars, lowercase a-z 0-9 _ -")
-    key = secrets.token_urlsafe(24)
+    token = secrets.token_urlsafe(24)
+    expires = time.time() + INVITE_TTL_SECONDS
     with db() as conn:
         if conn.execute("SELECT 1 FROM agents WHERE id = ?", (body.id,)).fetchone():
             raise HTTPException(409, f"Agent '{body.id}' already exists")
         conn.execute(
-            "INSERT INTO agents (id, name, key_hash, is_admin, created_at) "
-            "VALUES (?, ?, ?, 0, ?)",
-            (body.id, body.name, _hash_key(key), time.time()),
+            "INSERT INTO agents "
+            "(id, name, key_hash, invite_hash, invite_expires_at, is_admin, created_at) "
+            "VALUES (?, ?, NULL, ?, ?, 0, ?)",
+            (body.id, body.name, _hash_key(token), expires, time.time()),
         )
     return {
         "id": body.id,
         "name": body.name,
+        "invite_token": token,
+        "invite_expires_at": expires,
+        "note": "Share the invite link, not the token. The recipient claims their own key.",
+    }
+
+
+@app.post("/admin/agents/{agent_id}/reinvite")
+def admin_reinvite(agent_id: str, _: sqlite3.Row = Depends(require_admin)):
+    """Revoke an agent's current key and issue a new invite. Lets the admin
+    recover from a leaked or lost key without recreating the agent. The agent
+    must claim again to get a fresh key — there is no path that hands the key
+    to the admin."""
+    with db() as conn:
+        row = conn.execute(
+            "SELECT id, is_admin FROM agents WHERE id = ?", (agent_id,)
+        ).fetchone()
+        if not row:
+            raise HTTPException(404, f"Unknown agent '{agent_id}'")
+        if row["is_admin"]:
+            raise HTTPException(400, "Cannot reinvite the admin")
+        token = secrets.token_urlsafe(24)
+        expires = time.time() + INVITE_TTL_SECONDS
+        conn.execute(
+            "UPDATE agents SET key_hash = NULL, claimed_at = NULL, "
+            "invite_hash = ?, invite_expires_at = ? WHERE id = ?",
+            (_hash_key(token), expires, agent_id),
+        )
+    return {
+        "id": agent_id,
+        "invite_token": token,
+        "invite_expires_at": expires,
+        "note": "Previous key revoked. Recipient claims a new key with this invite.",
+    }
+
+
+@app.post("/invite/claim")
+def invite_claim(body: ClaimBody):
+    """Unauthenticated. Consume a one-time invite token and return the freshly
+    generated API key for that agent. Idempotency-by-design: the token is
+    cleared on first successful claim, so a re-submit returns 409."""
+    token_hash = _hash_key(body.token)
+    with db() as conn:
+        row = conn.execute(
+            "SELECT id, name, invite_expires_at, key_hash FROM agents "
+            "WHERE invite_hash = ?",
+            (token_hash,),
+        ).fetchone()
+        if not row:
+            raise HTTPException(404, "Invite not found or already used")
+        if row["key_hash"] is not None:
+            # invite_hash without a NULL key would be a server-side bug, but
+            # guard anyway — refuse to overwrite a live credential.
+            raise HTTPException(409, "Invite already claimed")
+        if row["invite_expires_at"] and row["invite_expires_at"] < time.time():
+            raise HTTPException(410, "Invite expired")
+        key = secrets.token_urlsafe(24)
+        conn.execute(
+            "UPDATE agents SET key_hash = ?, invite_hash = NULL, "
+            "invite_expires_at = NULL, claimed_at = ? WHERE id = ?",
+            (_hash_key(key), time.time(), row["id"]),
+        )
+    return {
+        "id": row["id"],
+        "name": row["name"],
         "key": key,
-        "note": "Give this key to the participant now. It is not recoverable later.",
+        "note": "This is your API key. Save it now — it cannot be recovered.",
     }

@@ -46,7 +46,10 @@
   .pill { display: inline-block; font-size: 11px; padding: 1px 7px; border-radius: 99px;
           border: 1px solid var(--line); color: var(--muted); margin-left: 6px; }
   .pill.auto { color: var(--warn); border-color: var(--warn); }
+  .pill.pending { color: var(--warn); border-color: var(--warn); }
   .pill.dm { color: var(--accent); border-color: var(--accent2); }
+  .agentlist .reinvite { background: none; border: none; color: var(--accent);
+       cursor: pointer; font-size: 12px; margin-left: 8px; }
   /* chat */
   #threadbar { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 12px; }
   #threadbar button { background: var(--panel2); border: 1px solid var(--line); color: var(--muted);
@@ -159,15 +162,13 @@
         </div>
         <div class="row" style="margin-top:12px"><button class="btn" id="mintBtn">Create &amp; get invite link</button></div>
         <div id="mintResult" style="display:none; margin-top:14px">
-          <label>Invite link <span class="muted">(send privately — it contains their key)</span></label>
+          <label>Invite link <span class="muted">(send privately — one-time claim)</span></label>
           <pre id="inviteLink"></pre>
           <div class="row">
             <button class="btn ghost copybtn" data-copy="inviteLink">Copy invite link</button>
-            <button class="btn ghost copybtn" data-copy="rawKey">Copy raw key</button>
           </div>
-          <pre id="rawKey" style="display:none"></pre>
-          <p class="muted small">Shown once. The friend opens the link in a browser to chat, or pastes the key
-            into their Claude Code <code>.env</code> via the Connect tab.</p>
+          <p class="muted small">The recipient opens this link and the server generates their key on the spot —
+            you never see it. The link works once and then expires.</p>
         </div>
       </div>
       <div class="card">
@@ -186,17 +187,45 @@ let cursor = 0, threads = new Set(["main"]), curThread = "main";
 const byThread = {};                    // thread -> [messages]
 let pollTimer = null;
 
-// ---- key bootstrap: URL fragment (#key=...) wins, then localStorage ----
-(function bootstrapKey() {
+// ---- key bootstrap: invite token (#invite=...) is exchanged for a fresh key
+// at /invite/claim. A direct key (#key=...) is still accepted for the admin's
+// own onboarding link and the Connect-tab .env flow. Falls back to localStorage.
+async function bootstrapKey() {
+  const inv = location.hash.match(/invite=([^&]+)/);
+  if (inv) {
+    const token = decodeURIComponent(inv[1]);
+    history.replaceState(null, "", location.pathname);   // scrub token from URL bar
+    try {
+      const res = await fetch(BUS + "/invite/claim", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ token }),
+      });
+      if (!res.ok) {
+        let d = res.status;
+        try { d = (await res.json()).detail || d; } catch (e) {}
+        showJoinError("Invite invalid or already used: " + d);
+        return false;
+      }
+      const data = await res.json();
+      KEY = data.key;
+      localStorage.setItem("busKey", KEY);
+      return true;
+    } catch (e) {
+      showJoinError("Couldn't claim invite: " + e.message);
+      return false;
+    }
+  }
   const m = location.hash.match(/key=([^&]+)/);
   if (m) {
     KEY = decodeURIComponent(m[1]);
     localStorage.setItem("busKey", KEY);
-    history.replaceState(null, "", location.pathname);   // scrub key from URL bar
-  } else {
-    KEY = localStorage.getItem("busKey");
+    history.replaceState(null, "", location.pathname);
+    return true;
   }
-})();
+  KEY = localStorage.getItem("busKey");
+  return !!KEY;
+}
 
 async function api(method, path, body) {
   const opt = { method, headers: { "Authorization": "Bearer " + KEY } };
@@ -352,10 +381,36 @@ async function refreshAgents() {
   if (!ME.is_admin) return;
   try {
     const data = await api("GET", "/admin/agents");
-    $("agentList").innerHTML = data.agents.map(a =>
-      `<li><b>${esc(a.id)}</b> — ${esc(a.name)}${a.is_admin ? ' <span class="pill">admin</span>' : ""}</li>`
-    ).join("");
+    $("agentList").innerHTML = data.agents.map(a => {
+      let badge = "";
+      if (a.is_admin) badge = ' <span class="pill">admin</span>';
+      else if (a.pending) badge = ' <span class="pill pending">pending invite</span>';
+      const action = a.is_admin ? "" :
+        ` <button class="reinvite" data-id="${esc(a.id)}">${a.pending ? "new invite" : "revoke &amp; reinvite"}</button>`;
+      return `<li><b>${esc(a.id)}</b> — ${esc(a.name)}${badge}${action}</li>`;
+    }).join("");
+    $("agentList").querySelectorAll(".reinvite").forEach(btn => {
+      btn.onclick = () => reinvite(btn.dataset.id);
+    });
   } catch (e) {}
+}
+
+function showInvite(token, msg) {
+  const link = BUS + "/#invite=" + encodeURIComponent(token);
+  $("inviteLink").textContent = link;
+  $("mintResult").style.display = "block";
+  const b = $("adminBanner"); b.className = "banner ok"; b.textContent = msg;
+}
+
+async function reinvite(id) {
+  if (!confirm(`Revoke ${id}'s current key and issue a fresh invite? They will lose access until they claim again.`)) return;
+  try {
+    const r = await api("POST", `/admin/agents/${encodeURIComponent(id)}/reinvite`);
+    showInvite(r.invite_token, `Reinvited ${id}. Their previous key is revoked — send the new link privately.`);
+    refreshAgents();
+  } catch (e) {
+    const b = $("adminBanner"); b.className = "banner err"; b.textContent = "Couldn't reinvite: " + e.message;
+  }
 }
 
 $("mintBtn").onclick = async () => {
@@ -364,11 +419,7 @@ $("mintBtn").onclick = async () => {
   if (!id || !name) { b.className = "banner err"; b.textContent = "Need both an id and a display name."; return; }
   try {
     const r = await api("POST", "/admin/agents", { id, name });
-    const link = BUS + "/#key=" + encodeURIComponent(r.key);
-    $("inviteLink").textContent = link;
-    $("rawKey").textContent = r.key;
-    $("mintResult").style.display = "block";
-    b.className = "banner ok"; b.textContent = `Created ${r.id}. Send the invite link privately.`;
+    showInvite(r.invite_token, `Created ${r.id}. Send the invite link privately — it's one-time use.`);
     $("newId").value = ""; $("newName").value = "";
     refreshAgents();
   } catch (e) {
@@ -388,16 +439,19 @@ document.addEventListener("click", e => {
 });
 
 // ---------- boot ----------
-if (KEY) {
-  tryJoin(KEY).catch(() => {              // stale/invalid stored key → show join
-    localStorage.removeItem("busKey");
+(async function boot() {
+  const haveKey = await bootstrapKey();
+  if (haveKey) {
+    try { await tryJoin(KEY); }
+    catch (e) {                            // stale/invalid stored or claimed key
+      localStorage.removeItem("busKey");
+      $("join").style.display = "flex";
+      $("joinKey").value = "";
+    }
+  } else {
     $("join").style.display = "flex";
-    $("joinKey").value = "";
-  });
-} else {
-  const m = location.hash.match(/key=([^&]+)/);  // (already scrubbed, but keep prefill safe)
-  $("join").style.display = "flex";
-}
+  }
+})();
 </script>
 </body>
 </html>
