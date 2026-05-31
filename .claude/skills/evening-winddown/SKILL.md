@@ -45,16 +45,6 @@ Follow the `/email` skill's **Evening Winddown** section. Lightweight catch-up s
 - **CRM follow-ups**: If someone asked Alex something he hasn't replied to, flag it for tomorrow.
 - **CRM last_contact updates**: For any outgoing iMessages or emails Alex sent today, update `last_contact` in the corresponding People/ note frontmatter to today's date. This is critical for keeping the Network CRM accurate — outgoing communication resets the contact timer.
 
-### 1b. Cycle Tracker Check
-
-Run the `/cycle-tracker` skill to check current phase status:
-1. Read `cycle-data.json` and calculate current phase, day of cycle, and next predicted period
-2. Update the `## Cycle Tracking` section in partner's People note with current phase, cycle day, average length, next predicted date, any recent symptoms, and set `**Last synced**` to today's date
-3. If the period is predicted within 2 days, or currently in PMS/menstrual phase, note it briefly in the wind-down output
-4. If Alex mentioned any cycle-related observations during the day (from transcripts, notes, or direct input), log them to `cycle-data.json`
-
-This is silent housekeeping unless there's something worth flagging. The People note update ensures the CRM stays current.
-
 ### 1c. Plaud + Supernote Processing (MANDATORY)
 
 Run `/process-transcript` and `/process-supernote` for any unprocessed files. The wind-down is the catch-all — never defer to "tomorrow."

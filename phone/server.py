@@ -51,7 +51,7 @@ ALLOWED_CALLERS = {
 }
 
 # Directories outside the repo the agent must reach (vault, Plaud/Supernote).
-ADD_DIRS = ["/Users/alexhedtke/Exobrain", "/Users/alexhedtke/My Drive"]
+ADD_DIRS = [str(Path.home() / "Exobrain"), str(Path.home() / "My Drive")]
 
 # Google Calendar MCP (scoped to the phone agent). Loads only once the OAuth
 # credentials file exists, so the phone keeps working during setup.

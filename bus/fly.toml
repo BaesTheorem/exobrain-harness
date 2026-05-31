@@ -2,7 +2,7 @@
 # Edit `app` to a globally-unique name before `fly launch --no-deploy`.
 # A persistent volume named "busdata" must be mounted at /data so the SQLite
 # file (and the agent registry) survive deploys and machine restarts.
-app = "claude-pod"
+app = "claude-bus-CHANGEME"
 primary_region = "ord"   # Chicago — closest Fly region to Kansas City
 
 [build]
