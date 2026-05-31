@@ -6,7 +6,7 @@
     <string>com.exobrain.awair-co2-watcher</string>
     <key>ProgramArguments</key>
     <array>
-        <string>/usr/bin/python3</string>
+        <string>/opt/homebrew/bin/python3</string>
         <string>/Users/alexhedtke/Documents/Exobrain harness/awair/awair-co2-watcher.py</string>
     </array>
     <key>WorkingDirectory</key>

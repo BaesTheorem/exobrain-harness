@@ -10,8 +10,8 @@ Token-paired local WebSocket on port 8002.
    works too: probe `M-SEARCH * HTTP/1.1` to `239.255.255.250:1900`).
 2. Add to `.env` at harness root:
    ```
-   TV_HOST=192.168.0.160
-   TV_MAC=70:B1:3D:BB:AB:D0
+   TV_HOST=<your-tv-local-ip>
+   TV_MAC=<your-tv-mac-address>
    ```
 3. Install deps in **both** Pythons the harness uses:
    ```
