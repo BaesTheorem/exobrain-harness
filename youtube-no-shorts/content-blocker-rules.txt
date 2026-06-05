@@ -1,0 +1,41 @@
+! YouTube — No Shorts (content-blocker / AdGuard-style cosmetic rules)
+!
+! Use this ONLY if you prefer a content blocker (AdGuard for iOS, 1Blocker)
+! over the Userscripts app. These are cosmetic CSS-hide rules — they hide
+! Shorts but, unlike the userscript, they CANNOT redirect a /shorts/ link to
+! the normal player. For the full experience use youtube-no-shorts.user.js.
+!
+! In AdGuard for iOS: Settings → User rules → paste these lines.
+
+! ---------- Desktop shelves & sections ----------
+youtube.com##ytd-reel-shelf-renderer
+youtube.com##ytd-rich-shelf-renderer[is-shorts]
+youtube.com##ytd-rich-section-renderer:has(ytd-rich-shelf-renderer[is-shorts])
+youtube.com##grid-shorts-renderer
+youtube.com##ytd-reel-item-renderer
+
+! ---------- Desktop feed/search/grid Short items ----------
+youtube.com##ytd-video-renderer:has(a[href*="/shorts/"])
+youtube.com##ytd-grid-video-renderer:has(a[href*="/shorts/"])
+youtube.com##ytd-rich-item-renderer:has(a[href*="/shorts/"])
+youtube.com##ytd-compact-video-renderer:has(a[href*="/shorts/"])
+
+! ---------- Desktop left guide / mini-guide ----------
+youtube.com##ytd-guide-entry-renderer:has(a[title="Shorts"])
+youtube.com##ytd-mini-guide-entry-renderer:has(a[title="Shorts"])
+
+! ---------- Desktop channel-page Shorts tab ----------
+youtube.com##yt-tab-shape[tab-title="Shorts"]
+
+! ---------- Mobile web shelves, lockups & items ----------
+youtube.com##ytm-reel-shelf-renderer
+youtube.com##ytm-rich-section-renderer:has(ytm-reel-shelf-renderer)
+youtube.com##ytm-shorts-lockup-view-model
+youtube.com##ytm-shorts-lockup-view-model-v2
+youtube.com##ytm-video-with-context-renderer:has(a[href*="/shorts/"])
+youtube.com##ytm-rich-item-renderer:has(a[href*="/shorts/"])
+youtube.com##ytm-item-section-renderer:has(a[href*="/shorts/"])
+
+! ---------- Mobile web bottom pivot-bar Shorts button ----------
+youtube.com##ytm-pivot-bar-item-renderer:has(a[href^="/shorts"])
+youtube.com##ytm-pivot-bar-item-renderer:has(.pivot-shorts)
