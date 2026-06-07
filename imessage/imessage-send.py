@@ -20,7 +20,7 @@ import subprocess
 import sys
 from pathlib import Path
 
-SIGNATURE = "-Alex's Claude"
+SIGNATURE = "-MIST (Alex's assistant)"
 SCRIPT = Path(__file__).resolve().parent / "send-imessage.applescript"
 
 
