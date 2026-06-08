@@ -4,7 +4,7 @@ A Claude Code-powered personal automation system that manages information flow a
 
 **Owner**: Alex Hedtke
 **Platform**: macOS (Apple Silicon), Claude Code CLI + Desktop
-**Last audited**: 2026-05-01
+**Last audited**: 2026-06-08
 
 ---
 
@@ -13,6 +13,7 @@ A Claude Code-powered personal automation system that manages information flow a
 - [Architecture Overview](#architecture-overview)
 - [Components](#components)
   - [Scripts](#scripts)
+  - [Standalone Modules](#standalone-modules)
   - [Skills](#skills)
   - [Scheduled Tasks](#scheduled-tasks)
   - [launchd Jobs](#launchd-jobs)
@@ -62,7 +63,6 @@ All outputs converge on the Obsidian vault (`/Users/alexhedtke/Exobrain/`) as th
 | `run-process-transcript.sh` | `transcript-processing/` | Shell | launchd wrapper -- checks for new Plaud files, invokes Claude, logs failures with notification on error | Claude CLI |
 | `imessage-reader.py` | `imessage/` | Python | Read macOS `chat.db` -- recent messages, chat history, full-text search, unread detection | sqlite3 (stdlib), Full Disk Access required |
 | `discord-digest-fetch.py` | `discord/` | Python | Fetch recent Discord messages from friend group server via REST API. Writes `discord-digest.json` for daily briefing. Maps usernames to real names. | urllib (stdlib) |
-| `discord-bot.sh` | `discord/` | Shell | Launch Claude CLI as persistent Discord bot (launchd manages restarts via `KeepAlive`) | Claude CLI, Discord plugin |
 | `run-discord-digest.sh` | `discord/` | Shell | launchd wrapper for `discord-digest-fetch.py` with proper PATH and working directory | python3 |
 | `run-process-supernote.sh` | `transcript-processing/` | Shell | launchd wrapper for Supernote processing -- mirror of `run-process-transcript.sh` for handwritten notes | Claude CLI |
 | `things3-obsidian-sync.py` | `things3-sync/` | Python | Mirror Things 3 projects/areas into Obsidian as backlinkable notes | Things 3 MCP, AppleScript |
@@ -70,8 +70,23 @@ All outputs converge on the Obsidian vault (`/Users/alexhedtke/Exobrain/`) as th
 | `vault-snapshot.sh` | `scripts/` | Shell | Daily 06:00 -- builds compact Dashboard + Projects digest for session-start hook injection | bash |
 | `session-memory-consolidator.sh` | `scripts/` | Shell | Daily 23:00 -- backfills missing session memories from today's transcripts | bash, Claude CLI |
 | `get-weather.py` | `weather/` | Python | Weather script for Kansas City via Open-Meteo API (no key needed). Used by `/daily-briefing`. | `openmeteo_requests`, `openmeteo_sdk` |
-| `backup-exobrain.sh` | root | Shell | Weekly backup of processing log, credentials, skills, settings, and memory to compressed archive | None |
+| `backup-exobrain.sh` | root | Shell | Daily (2 AM) backup of processing log, credentials, skills, settings, and memory to compressed archive; keeps last 3 (20h freshness guard prevents dupes) | None |
 | `session-start.sh` | `.claude/hooks/` | Shell | Hook -- displays date/logical day and runs system health checks on session start | bash, python3 |
+
+### Standalone Modules
+
+Self-contained subsystems, each with its own README. Several are local-first integrations (home devices, voice, phone) that the laptop reaches over the LAN or a tunnel.
+
+| Module | Purpose |
+|--------|---------|
+| `anki/` | Polls Anki's SQLite DB every 10 min and mirrors study sessions into the vault (`Anki Log.md` + `anki_cards`/`anki_sessions`/`worked_on` daily-note frontmatter). Maps decks to Projects. launchd-driven. |
+| `awair/` | Polls an Awair Element air-quality monitor's local API every 5 min and fires a macOS notification when CO2 crosses warn/urgent thresholds during active hours. launchd-driven. |
+| `bus/` | "Claude Bus" -- a tiny hosted FastAPI+SQLite relay (deployed to Fly.io) so Alex's Claude, friends' Claudes, and the friends themselves can talk over one shared channel. Per-participant bearer keys, an invite flow, a server-enforced auto-message loop rail, and a client-side privacy gate. Driven by the `/claude-bus` skill. |
+| `chrome-extensions/` | Unpacked Chrome extensions. Currently `fb-cleaner/` -- hides Facebook Reels, Stories, and Sponsored posts on facebook.com with a toolbar toggle. |
+| `mist-voice/` | Fully offline cloned-voice service that gives the assistant MIST's voice (from the show *Pantheon*) via a local XTTS-v2 model. Used for pre-rendered audio (spoken notifications, narrated briefings/podcasts); slower than real-time on this M1, so not for live conversation. |
+| `phone/` | Two-way voice calls with Claude. Twilio ConversationRelay handles speech-to-text/text-to-speech; a local FastAPI server runs a Claude Agent SDK session loading the harness `CLAUDE.md`, MCP servers, and skills. Mutating tools are gated behind a keypad/spoken PIN. |
+| `tv/` | Local control of a Tizen Samsung TV over the LAN (token-paired WebSocket, no cloud account) -- power/Wake-on-LAN, volume, app launch, raw remote keys, plus a full-screen TUI console. |
+| `youtube-no-shorts/` | A userscript (+ content-blocker rules) that removes YouTube Shorts on the real youtube.com (iPhone via the Userscripts app, desktop via Tampermonkey), preserving login and Premium background playback. |
 
 ### Skills
 
@@ -92,11 +107,11 @@ Skills are invoked with `/skill-name` in Claude Code. Each is defined in `.claud
 | `/imessage` | Read/search iMessages with contact resolution | imessage-reader.py |
 | `/mood` | Mood tracking with 5 sub-categories, calendar heatmap, weekly summaries | Fitbit (indirect signals), Obsidian |
 | `/discord-digest` | Scan friend group Discord for events, plans, and social context | Discord MCP, People/ notes |
+| `/claude-bus` | Talk to friends' Claudes (and the friends themselves) over the shared Claude Bus relay -- coordinate plans, relay messages | `bus/busclient.py`, Dashboard, GCal, Things 3 |
 | `/TTRPG-campaign-manager` | D&D session prep (Lazy DM style), recap from transcripts, campaign lore queries | Obsidian campaign folders |
 | `/job-search` | Audit job postings for fit, research companies/people, tailor cover letters, track applications | Gmail, Things 3, Obsidian, WebSearch |
 | `/local-events` | Discover upcoming KC events. Searches Meetup, venue calendars, library listings. | WebSearch, GCal, Things 3 |
 | `/deep-research` | Multi-agent deep research for complex questions. Spawns parallel subagents, synthesizes cited report. | WebSearch, WebFetch |
-| `/cycle-tracker` | Track and manage partner's menstrual cycle -- log periods, symptoms, predictions | cycle-tracker/ app |
 | `/verify` | Background fact-checker -- runs silently after research tasks to catch errors | WebSearch, WebFetch |
 | `/news-briefing` | Comprehensive news intelligence briefing with bias analysis, blind spot detection, and prediction market cross-referencing | WebSearch, WebFetch |
 | `/de-ai` | Strip AI-generated patterns from text to sound human | None (text transformation only) |
@@ -110,8 +125,6 @@ Skills are invoked with `/skill-name` in Claude Code. Each is defined in `.claud
 | `/session-memory` | Cross-session continuity -- save structured summary at session end, load context at session start. Mostly automatic via hook + CLAUDE.md. | Filesystem |
 | `/solo-dm` | Automated solo D&D 5e DM with grounded adjudication, Python/SQLite backend, Obsidian shared notebook | Python, SQLite, Obsidian |
 | `/ttrpg-player` | Player-side TTRPG assistant (NOT the GM skill) -- character creation, Knife Theory backstory, tactical prep | Obsidian campaign folders |
-| `/discord:access` | Manage Discord channel access and pairing policy | Discord plugin config |
-| `/discord:configure` | Set up the Discord channel -- save bot token and review access policy | Discord plugin config |
 
 #### Convention Skills (reference docs, not directly invoked)
 
@@ -126,6 +139,7 @@ Skills are invoked with `/skill-name` in Claude Code. Each is defined in `.claud
 | `/calendar` | Canonical reference for event creation, flight buffers, overbooking detection, late-night date handling |
 | `/email` | Canonical reference for email scanning, job alert processing, actionable item extraction, CRM cross-referencing |
 | `/health` | Canonical reference for Fitbit + Withings data pulls, API allocation, Health Log structure (called by other skills) |
+| `/linkedin` | Canonical reference for LinkedIn MCP use -- read-only profile/company/job lookups, bot-detection avoidance, pacing rules (referenced by job-search, crm) |
 
 ### Scheduled Tasks (3)
 
@@ -141,7 +155,7 @@ Managed via Claude Code's scheduled-tasks MCP. Run as remote agents on cron.
 - `/daily-briefing` -- morning dashboard (was scheduled, now manual)
 - `/evening-winddown` -- day recap, mood + concern check-in, tomorrow planning (interactive, so manual)
 
-### launchd Jobs (9)
+### launchd Jobs (10)
 
 Installed in `~/Library/LaunchAgents/`.
 
@@ -151,11 +165,14 @@ Installed in `~/Library/LaunchAgents/`.
 | `com.exobrain.supernote-watcher.plist` | `transcript-processing/` | `WatchPaths: Supernote/Note/` folder (30s throttle) | Runs `run-process-supernote.sh` when new Supernote files land |
 | `com.exobrain.things3-sync.plist` | `things3-sync/` | Interval: 900s (15 min) | Runs `things3-obsidian-sync.py` to mirror Things 3 projects/areas into Obsidian |
 | `com.exobrain.discord-digest.plist` | `discord/` | Interval: 14400s (4 hours) | Runs `discord-digest-fetch.py` to fetch Discord messages for briefing |
-| `com.exobrain.discord-bot.plist` | `discord/` | RunAtLoad + KeepAlive | Runs `discord-bot.sh` as a persistent Claude CLI session for Discord plugin |
+| `com.exobrain.anki-sync.plist` | `anki/` | Interval: 600s (10 min), RunAtLoad | Runs `run-anki-sync.sh` -> `anki-sync.py` to mirror Anki study sessions into the vault (`Anki Log.md` + daily-note frontmatter) |
+| `com.exobrain.awair-co2-watcher.plist` | `awair/` | Interval: 300s (5 min) | Runs `awair-co2-watcher.py` to poll the Awair Element local API and alert on high CO2 |
 | `com.exobrain.session-memory-consolidator.plist` | `scripts/` | Daily: 23:00 | Runs `scripts/session-memory-consolidator.sh` to write missing session memories from today's transcripts |
 | `com.exobrain.vault-snapshot.plist` | `scripts/` | Daily: 06:00 | Runs `scripts/vault-snapshot.sh` to build a compact Dashboard + Projects digest for session-start injection |
 | `com.exobrain.bodyguard-weekly.plist` | root | Weekly | Runs the cybersecurity-bodyguard weekly OSINT scan (`.claude/skills/cybersecurity-bodyguard/scripts/weekly-scan.sh`) |
-| `com.exobrain.backup.plist` | root | Weekly: Sunday 2 AM | Runs `backup-exobrain.sh` to archive config, skills, memory to Google Drive |
+| `com.exobrain.backup.plist` | root | Daily: 2:00 AM (RunAtLoad + 20h freshness guard) | Runs `backup-exobrain.sh` to archive config, skills, memory to Google Drive (keeps last 3) |
+
+> **Local-only (untracked) job:** `job-listings-sync/` ships its `reconcile.py`/`run.sh` but its `com.exobrain.job-listings-sync.plist` is **not** committed. It watches `Projects/Get new job/Job Listings/` and runs `run.sh` -> `reconcile.py` to reconcile job-listing frontmatter when files change. A cloner would need to author the plist themselves.
 
 ### Hooks
 
@@ -265,15 +282,16 @@ Manual (interactive):
 Exobrain harness/
 |-- CLAUDE.md                           # System manifest (paths, conventions, priorities)
 |-- README.md                           # This file
+|-- MAC-MINI-MIGRATION-PLAN.md          # Plan to move always-on automation to a dedicated Mac Mini (laptop becomes a client)
 |-- .mcp.json                           # MCP server configs + Fitbit credentials (git-ignored)
-|-- .env                                # Withings OAuth tokens (git-ignored)
+|-- .env                                # Shared local secrets: Withings tokens, AWAIR_HOST, TV_HOST/TV_MAC (git-ignored)
 |-- .gitignore
 |-- processing-log.json                 # Transaction log of all processed items (git-ignored)
 |-- requirements.txt                    # Python dependencies
 |-- config.sh                           # Shared shell config (paths, common env)
 |-- skills-lock.json                    # Pinned skill versions for the harness
-|-- backup-exobrain.sh                  # Weekly backup script
-|-- com.exobrain.backup.plist           # Weekly backup timer (Step 7 copies it to ~/Library/LaunchAgents/)
+|-- backup-exobrain.sh                  # Daily 2 AM backup script (keeps last 3)
+|-- com.exobrain.backup.plist           # Daily backup timer (Step 7 copies it to ~/Library/LaunchAgents/)
 |-- com.exobrain.bodyguard-weekly.plist # Weekly cybersecurity-bodyguard OSINT scan
 |
 |-- transcript-processing/
@@ -297,28 +315,84 @@ Exobrain harness/
 |   |-- com.exobrain.vault-snapshot.plist
 |   |-- com.exobrain.session-memory-consolidator.plist
 |
+|-- anki/                               # Anki study-session sync (launchd, 10-min poll)
+|   |-- README.md
+|   |-- anki-sync.py                     # Reads Anki SQLite read-only, writes Anki Log.md + daily-note frontmatter
+|   |-- run-anki-sync.sh                 # launchd wrapper (bash has Full Disk Access)
+|   |-- com.exobrain.anki-sync.plist
+|
+|-- awair/                              # Awair Element CO2 watcher (launchd, 5-min poll)
+|   |-- README.md
+|   |-- awair-co2-watcher.py            # Polls device local API, alerts on high CO2 (state.json git-ignored)
+|   |-- com.exobrain.awair-co2-watcher.plist
+|
 |-- imessage/
+|   |-- README.md
 |   |-- imessage-reader.py              # macOS chat.db reader
+|   |-- imessage-send.py                # Send an iMessage
+|   |-- send-imessage.applescript       # AppleScript send helper
 |
 |-- discord/
 |   |-- README.md
-|   |-- discord-bot.sh                  # Persistent Discord bot launcher
-|   |-- discord-digest-fetch.py         # Discord REST API -> digest JSON
+|   |-- discord-digest-fetch.py         # Discord REST API -> digest JSON (git-ignored; rebuild per README)
 |   |-- discord-digest.json             # Latest Discord message digest (git-ignored)
 |   |-- run-discord-digest.sh           # launchd wrapper for Discord digest
 |   |-- com.exobrain.discord-digest.plist  # Discord digest timer (4h interval)
-|   |-- com.exobrain.discord-bot.plist     # Persistent bot daemon (RunAtLoad + KeepAlive)
 |
-|-- cycle-tracker/                      # Partner's cycle tracking app
+|-- bus/                               # "Claude Bus" relay (FastAPI + SQLite, deploy to Fly.io)
+|   |-- README.md, protocol.md
+|   |-- server.py                       # The relay: auth, store, loop rail
+|   |-- busclient.py                    # Client used by /claude-bus skill (stdlib only)
+|   |-- Dockerfile, fly.toml, requirements.txt
+|   |-- web/index.html                  # Browser GUI served at the bus URL
+|   |-- friend-kit/                     # Drop-in payload (client + skill + SETUP) handed to a friend
+|   |-- .env, *.db, .bus-cursor          # Secrets + local state (git-ignored)
+|
+|-- phone/                             # Two-way voice calls with Claude (Twilio + Claude Agent SDK)
+|   |-- README.md, README-MIST.md
+|   |-- server.py                       # FastAPI WebSocket + TwiML; PIN-gates mutating tools
+|   |-- server_mist.py                  # MIST-voice audio-path variant
+|   |-- call.py                         # Places an outbound call
+|   |-- requirements.txt, .env.example
+|   |-- .env                            # Twilio creds + VOICE_PIN (git-ignored)
+|
+|-- mist-voice/                        # Offline cloned MIST voice (XTTS-v2, local)
+|   |-- README.md
+|   |-- bin/mist-say, bin/mist-notify   # Speak a line / spoken macOS notification
+|   |-- scripts/                        # serve.py, say.py, narrate.py, transcribe.py, ...
+|   |-- samples/reference/              # Approved reference clip(s) for the clone
+|   |-- models/                         # ~1.8GB pretrained weights (git-ignored, auto-redownloaded)
+|
+|-- tv/                                # Local Samsung (Tizen) TV control over the LAN
+|   |-- README.md
+|   |-- tv                              # CLI entrypoint
+|   |-- tv_control.py                   # Control module (importable from skills)
+|   |-- console/tv-console.py           # Full-screen TUI dashboard
+|   |-- token.json, state.json          # Pairing token + state (git-ignored)
+|
+|-- chrome-extensions/
+|   |-- fb-cleaner/                     # Hides FB Reels/Stories/Sponsored posts (unpacked extension)
+|
+|-- youtube-no-shorts/                 # Removes YouTube Shorts on real youtube.com
+|   |-- README.md
+|   |-- youtube-no-shorts.user.js       # Userscript (iPhone Userscripts app / desktop Tampermonkey)
+|   |-- content-blocker-rules.txt       # Cosmetic hide rules for AdGuard/1Blocker
+|
+|-- cycle-tracker/                      # Generic partner cycle-tracking module (dormant; app.py git-ignored)
 |   |-- README.md
 |   |-- notify-check.sh                 # Partner notification check
 |
 |-- weather/
+|   |-- README.md
 |   |-- get-weather.py                  # Open-Meteo weather API
 |
 |-- local-events/
-|   |-- local-events-log.json           # Previously surfaced KC events (dedup)
-|   |-- local-events-prefs.json         # Event preferences (artists, interests, venues)
+|   |-- README.md                       # Module doc (log/prefs JSON are runtime state, git-ignored)
+|
+|-- job-listings-sync/                  # Reconciles job-listing note frontmatter on change
+|   |-- README.md                       #   (its launchd plist is local-only / NOT tracked)
+|   |-- reconcile.py
+|   |-- run.sh
 |
 |-- Subdirectory apps
 |   |-- mood-tracker/                   # Mood journal web app
@@ -331,7 +405,7 @@ Exobrain harness/
     |-- launch.json                     # Dev server configs (sailboat retro)
     |-- hooks/
     |   |-- session-start.sh            # Date + system health check
-    |-- skills/                         # 38 skills total -- see Skills section above
+    |-- skills/                         # 39 skills total -- see Skills section above
 
 External vault: /Users/alexhedtke/Exobrain/
 |-- Dashboard.md                        # Current priorities
@@ -479,9 +553,11 @@ cp "$PWD/transcript-processing/com.exobrain.plaud-watcher.plist" ~/Library/Launc
 cp "$PWD/transcript-processing/com.exobrain.supernote-watcher.plist" ~/Library/LaunchAgents/
 cp "$PWD/things3-sync/com.exobrain.things3-sync.plist" ~/Library/LaunchAgents/
 cp "$PWD/discord/com.exobrain.discord-digest.plist" ~/Library/LaunchAgents/
-cp "$PWD/discord/com.exobrain.discord-bot.plist" ~/Library/LaunchAgents/
+cp "$PWD/anki/com.exobrain.anki-sync.plist" ~/Library/LaunchAgents/
+cp "$PWD/awair/com.exobrain.awair-co2-watcher.plist" ~/Library/LaunchAgents/
 cp "$PWD/scripts/com.exobrain.session-memory-consolidator.plist" ~/Library/LaunchAgents/
 cp "$PWD/scripts/com.exobrain.vault-snapshot.plist" ~/Library/LaunchAgents/
+cp "$PWD/com.exobrain.bodyguard-weekly.plist" ~/Library/LaunchAgents/
 cp "$PWD/com.exobrain.backup.plist" ~/Library/LaunchAgents/
 
 # Load the jobs
@@ -489,9 +565,11 @@ launchctl load ~/Library/LaunchAgents/com.exobrain.plaud-watcher.plist
 launchctl load ~/Library/LaunchAgents/com.exobrain.supernote-watcher.plist
 launchctl load ~/Library/LaunchAgents/com.exobrain.things3-sync.plist
 launchctl load ~/Library/LaunchAgents/com.exobrain.discord-digest.plist
-launchctl load ~/Library/LaunchAgents/com.exobrain.discord-bot.plist
+launchctl load ~/Library/LaunchAgents/com.exobrain.anki-sync.plist
+launchctl load ~/Library/LaunchAgents/com.exobrain.awair-co2-watcher.plist
 launchctl load ~/Library/LaunchAgents/com.exobrain.session-memory-consolidator.plist
 launchctl load ~/Library/LaunchAgents/com.exobrain.vault-snapshot.plist
+launchctl load ~/Library/LaunchAgents/com.exobrain.bodyguard-weekly.plist
 launchctl load ~/Library/LaunchAgents/com.exobrain.backup.plist
 
 # After any plist edit, copy again — the LaunchAgents copy is the authoritative one.
@@ -504,7 +582,7 @@ Edit the plist files to match your actual paths if they differ from the defaults
 ### Step 8: Make Scripts Executable
 
 ```bash
-chmod +x discord/discord-bot.sh transcript-processing/run-process-transcript.sh discord/run-discord-digest.sh backup-exobrain.sh .claude/hooks/session-start.sh
+chmod +x transcript-processing/run-process-transcript.sh discord/run-discord-digest.sh job-listings-sync/run.sh cycle-tracker/notify-check.sh backup-exobrain.sh .claude/hooks/session-start.sh
 ```
 
 ### Step 9: Set Up Scheduled Tasks

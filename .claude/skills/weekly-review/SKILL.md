@@ -121,6 +121,23 @@ After completing all automated checks above, run the `/exobrain-audit` skill to 
 **Output:** Surface the audit findings in the weekly review output. Do NOT auto-apply fixes — present them for Alex to review first. Include a section in the weekly review:
 > **Exobrain Audit**: [N] privacy findings, [N] legibility gaps, [N] architecture/efficiency suggestions. See findings below.
 
+### 13b. Harness iteration — close the loop
+Step 13 *surfaces* problems; this step *fixes* them, so the system compounds instead of just accumulating findings every week. Turn the week's signals into concrete, shipped harness improvements.
+
+**Inputs (what the system got wrong or could do better this week):**
+- The `/exobrain-audit` findings from step 13 (privacy, legibility, architecture/efficiency).
+- **New or edited memory files this week** — each user correction is the system having gotten something wrong; look for repeats that should become a skill/convention change, not just a memory.
+- **Processing-log errors/failures** and any launchd or scheduled-task failures since last review.
+- Any skill output Alex had to **manually fix or redo**, and recurring friction noted in this week's daily notes.
+
+**Produce a prioritized Harness Improvement backlog** — each item: `{symptom → proposed change → file(s) touched → effort → risk}`.
+
+**Ship the safe, high-value ones this week** (with Alex's go-ahead): low-risk edits to skills, convention docs, memory, `.gitignore`, README, or notification copy.
+- **Before committing, re-run the privacy/gitignore guard** — no secrets, no real third-party names, no personal data — per the CLAUDE.md Privacy & Legibility rules.
+- Queue anything risky or large as a Things 3 task under the **Exobrain** project rather than forcing it in.
+
+**Log it** — append a dated entry to `Areas/Exobrain/Iteration Log.md` (create if missing): what changed, why, and what was deferred. This keeps the system's evolution traceable and stops the same finding from resurfacing every week.
+
 ## Manual Checklist
 Generate this for Alex to complete:
 - [ ] Check physical inbox (mail, papers, etc.)
@@ -145,6 +162,7 @@ Write `### Weekly Review` section in Sunday's daily note containing:
 11. **Network CRM**: CRM health summary + 1 recommended outreach for the week (with context and suggested angle)
 12. **Interaction highlights**: Key conversations, commitments, relationship moments from the week
 13. **Exobrain Audit**: Privacy/legibility findings, architecture recon, and productivity research from `/exobrain-audit` (present for review, don't auto-fix)
+13b. **Harness Iteration**: improvements shipped this week vs. queued (one-line reason for each); link the `Areas/Exobrain/Iteration Log.md` entry
 14. **Manual checklist**: Items for Alex to check himself
 15. **Proactive observations**: Patterns, efficiency suggestions, time-waste flags
 
