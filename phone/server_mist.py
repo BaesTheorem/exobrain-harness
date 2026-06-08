@@ -135,14 +135,17 @@ async def stream_speech(ws, stream_sid, text, session):
     session["speaking"] = True
     try:
         for fr in frames:
-            if session.get("barge"):                    # caller interrupted
-                await ws.send_text(json.dumps({"event": "clear", "streamSid": stream_sid}))
+            if session.get("barge") or session.get("closed"):   # interrupted / call ended
+                if not session.get("closed"):
+                    await ws.send_text(json.dumps({"event": "clear", "streamSid": stream_sid}))
                 return
             await ws.send_text(json.dumps({
                 "event": "media", "streamSid": stream_sid,
                 "media": {"payload": base64.b64encode(fr).decode()},
             }))
             await asyncio.sleep(FRAME_MS / 1000)        # pace playback
+    except (WebSocketDisconnect, RuntimeError):
+        session["closed"] = True                        # socket closed mid-send
     finally:
         session["speaking"] = False
 
@@ -216,7 +219,7 @@ async def twiml():
 async def media(ws: WebSocket):
     await ws.accept()
     session = {"authed": False, "pin": "", "client": None, "caller_allowed": False,
-               "speaking": False, "barge": False}
+               "speaking": False, "barge": False, "closed": False}
     stream_sid = None
     utt = Utterance()
     busy = False  # a turn is being processed
@@ -284,6 +287,7 @@ async def media(ws: WebSocket):
     except WebSocketDisconnect:
         pass
     finally:
+        session["closed"] = True            # stop any in-flight stream_speech
         client = session.get("client")
         if client:
             try:
