@@ -111,13 +111,18 @@ def mist_wav(text: str) -> bytes:
 
 
 def wav_to_ulaw_frames(wav_bytes: bytes):
-    """WAV (any rate, mono PCM16) -> list of 20ms mu-law frames @ 8kHz."""
-    import io, wave
-    w = wave.open(io.BytesIO(wav_bytes), "rb")
-    rate = w.getframerate(); pcm = w.readframes(w.getnframes()); w.close()
-    if rate != TW_RATE:
-        pcm, _ = audioop.ratecv(pcm, 2, 1, rate, TW_RATE, None)
-    ulaw = audioop.lin2ulaw(pcm, 2)
+    """WAV (24kHz mono PCM16 from XTTS) -> list of 20ms mu-law frames @ 8kHz.
+
+    Uses ffmpeg's high-quality resampler with an anti-alias lowpass (telephone
+    band) + a small presence lift, instead of audioop.ratecv whose crude
+    downsample aliased into a raspy 'smoker' artifact."""
+    import subprocess
+    proc = subprocess.run(
+        ["ffmpeg", "-hide_banner", "-loglevel", "error", "-i", "pipe:0",
+         "-af", "highpass=f=80,lowpass=f=3400,equalizer=f=2200:t=q:w=1.4:g=3,dynaudnorm=g=7",
+         "-ar", str(TW_RATE), "-ac", "1", "-f", "mulaw", "pipe:1"],
+        input=wav_bytes, stdout=subprocess.PIPE, stderr=subprocess.PIPE, check=True)
+    ulaw = proc.stdout
     return [ulaw[i:i + FRAME_BYTES_ULAW] for i in range(0, len(ulaw), FRAME_BYTES_ULAW)]
 
 
@@ -156,6 +161,10 @@ def pop_sentences(buf: str):
 
 async def speak_turn(ws, stream_sid, session, user_text: str):
     """Run one agent turn; stream MIST audio sentence-by-sentence as it generates."""
+    if session.get("client") is None:                 # brain still booting
+        task = session.get("client_task")
+        if task:
+            await task
     client = session["client"]
     await client.query(user_text, session_id="phone")
     pending = ""
@@ -239,7 +248,11 @@ async def media(ws: WebSocket):
                 # Outbound-only deployment (call.py dials Alex), so the caller is
                 # trusted for reads. The PIN still gates every mutating tool.
                 session["caller_allowed"] = True
-                session["client"] = await start_agent(session)
+                # Boot the brain in the background so the greeting plays right
+                # away instead of 10-30s of dead air while MCP servers start.
+                async def _boot():
+                    session["client"] = await start_agent(session)
+                session["client_task"] = asyncio.create_task(_boot())
                 await stream_speech(ws, stream_sid, WELCOME, session)
 
             elif ev == "media":
