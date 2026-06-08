@@ -4,3 +4,6 @@ websockets>=13
 anthropic>=0.40
 twilio>=9.0
 python-dotenv>=1.0
+# server_mist.py (MIST-voice Media Streams) only:
+audioop-lts; python_version >= "3.13"   # audioop was removed from stdlib in 3.13
+# STT + TTS run as a service in mist-voice/.venv (faster-whisper + XTTS), not here.

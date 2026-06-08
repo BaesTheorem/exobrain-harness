@@ -16,7 +16,7 @@ os.environ.setdefault("TTS_HOME", os.path.join(ROOT, "models"))
 os.environ.setdefault("PYTORCH_ENABLE_MPS_FALLBACK", "1")
 
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
-import json, torch
+import base64, audioop, json, torch
 from TTS.tts.configs.xtts_config import XttsConfig
 from TTS.tts.models.xtts import Xtts
 
@@ -25,6 +25,21 @@ MODEL = None
 GPT_LATENT = None
 SPK_EMB = None
 SR = 24000
+_WHISPER = None  # lazy STT for the phone (/stt)
+
+
+def stt(pcm16_8k: bytes) -> str:
+    """Transcribe raw PCM16 mono 8kHz bytes (phone audio). Resamples to 16kHz."""
+    global _WHISPER
+    if _WHISPER is None:
+        from faster_whisper import WhisperModel
+        _WHISPER = WhisperModel(os.environ.get("PHONE_STT_MODEL", "base.en"),
+                                device="cpu", compute_type="int8")
+    import numpy as np
+    pcm16k, _ = audioop.ratecv(pcm16_8k, 2, 1, 8000, 16000, None)
+    audio = np.frombuffer(pcm16k, dtype="<i2").astype("float32") / 32768.0
+    segs, _ = _WHISPER.transcribe(audio, language="en", vad_filter=True)
+    return " ".join(s.text.strip() for s in segs).strip()
 
 def load(device):
     """Load XTTS and precompute MIST's conditioning latents once."""
@@ -55,11 +70,16 @@ class H(BaseHTTPRequestHandler):
             self._json({"ok": MODEL is not None, "device": str(next(MODEL.parameters()).device) if MODEL else None})
         else: self.send_error(404)
     def do_POST(self):
-        if self.path != "/say": return self.send_error(404)
         body = json.loads(self.rfile.read(int(self.headers["Content-Length"])) or b"{}")
-        data = synth(body["text"], float(body.get("speed", 1.0)))
-        self.send_response(200); self.send_header("Content-Type", "audio/wav")
-        self.send_header("Content-Length", str(len(data))); self.end_headers(); self.wfile.write(data)
+        if self.path == "/say":
+            data = synth(body["text"], float(body.get("speed", 1.0)))
+            self.send_response(200); self.send_header("Content-Type", "audio/wav")
+            self.send_header("Content-Length", str(len(data))); self.end_headers(); self.wfile.write(data)
+        elif self.path == "/stt":
+            text = stt(base64.b64decode(body["pcm16_8k"]))   # phone STT
+            self._json({"text": text})
+        else:
+            self.send_error(404)
     def _json(self, o):
         b = json.dumps(o).encode(); self.send_response(200)
         self.send_header("Content-Type", "application/json"); self.send_header("Content-Length", str(len(b)))
