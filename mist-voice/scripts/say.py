@@ -29,9 +29,10 @@ def main():
         sys.exit(f"No reference clips in {REF_DIR}. Build the sample pack first.")
 
     from TTS.api import TTS
+    from pronounce import fix_pronunciation
     tts = TTS("tts_models/multilingual/multi-dataset/xtts_v2").to(args.device)
     tts.tts_to_file(
-        text=args.text,
+        text=fix_pronunciation(args.text),
         speaker_wav=refs,
         language="en",
         speed=args.speed,

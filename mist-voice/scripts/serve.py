@@ -50,6 +50,8 @@ def load(device):
 def synth(text, speed=1.0):
     # Same call as scripts/say.py (the demo Alex approved): conditions on the
     # full reference set each time, all default XTTS sampling params.
+    from pronounce import fix_pronunciation
+    text = fix_pronunciation(text)
     wav = MODEL.tts(text=text, speaker_wav=REFS, language="en", speed=speed)
     import numpy as np
     pcm = (np.clip(np.asarray(wav, dtype="float32"), -1, 1) * 32767).astype("<i2").tobytes()
