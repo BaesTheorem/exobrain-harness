@@ -1,17 +1,22 @@
-# Copyrighted source audio (Pantheon clips) — never commit
+# Repo is PRIVATE — Alex chose to keep the MIST voice data in the repo rather
+# than gitignore it. We still exclude two categories for practical reasons:
+
+# 1) Big regenerable source: the raw supercut is >100MB (GitHub's hard per-file
+#    limit, no LFS here) and is reproducible via yt-dlp. Isolated stems likewise.
 samples/raw/
 samples/isolated/
-samples/reference/
 
-# Cloned-voice model weights / speaker embeddings of a real actor — never commit
+# 2) Pretrained PUBLIC model weights (~1.8GB XTTS + whisper) — not our data,
+#    redownloaded automatically by the scripts.
 models/
-*.pth
-*.wav
-*.mp3
-*.m4a
-*.npz
-speaker_embedding*
+
+# Transient synthesis outputs
+out.wav
 
 # Python env
 .venv/
 __pycache__/
+
+# Kept IN the repo (the irreplaceable curation work):
+#   samples/reference/  — the MIST reference clips + _archive of dropped takes
+#   demo_mist.wav        — the canonical approved sample
