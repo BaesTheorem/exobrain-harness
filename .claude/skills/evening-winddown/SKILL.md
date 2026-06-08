@@ -45,9 +45,15 @@ Follow the `/email` skill's **Evening Winddown** section. Lightweight catch-up s
 - **CRM follow-ups**: If someone asked Alex something he hasn't replied to, flag it for tomorrow.
 - **CRM last_contact updates**: For any outgoing iMessages or emails Alex sent today, update `last_contact` in the corresponding People/ note frontmatter to today's date. This is critical for keeping the Network CRM accurate — outgoing communication resets the contact timer.
 
-### 1c. Plaud + Supernote Processing (MANDATORY)
+### 1c. Plaud + Supernote Processing (catch-all safety net)
 
-Run `/process-transcript` and `/process-supernote` for any unprocessed files. The wind-down is the catch-all — never defer to "tomorrow."
+The launchd watchers (`plaud-watcher`, `supernote-watcher`) and the `check-transcripts` task already process files as they land. Wind-down is the **fallback** for anything they missed — not a nightly re-scan of work already done. Pre-check before invoking the skills so a normal night (everything already processed) costs almost nothing:
+
+1. List source files: the Plaud `.txt` files in `/Users/alexhedtke/My Drive/Plaud/` and the Supernote `.note` files in `/Users/alexhedtke/My Drive/Supernote/Note/` (see `/process-transcript` and `/process-supernote` for the canonical paths).
+2. Read `processing-log.json` and build the set of already-processed IDs. Dedup by `create_time`/title for Plaud and by page-hash for Supernote, **not** just filename (per the Plaud content-dedup rule — the same recording can appear under different filenames).
+3. **Only if** there are source files with no matching log entry, invoke `/process-transcript` and/or `/process-supernote` for those specific files. If everything is already logged, note "Plaud/Supernote: all processed" and move on — do **not** invoke the skills.
+
+This keeps the "never defer to tomorrow" guarantee (genuinely unprocessed files always get caught) while skipping the redundant full re-scan on the common case where the watchers already did the work.
 
 ### 1e. Obsidian Vault Scan (MANDATORY)
 

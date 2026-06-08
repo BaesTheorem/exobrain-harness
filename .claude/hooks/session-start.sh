@@ -137,6 +137,22 @@ else
   ISSUES=$((ISSUES + 1))
 fi
 
+THINGS3SYNC_LOADED=$(launchctl list 2>/dev/null | grep -c "things3-sync")
+if [ "$THINGS3SYNC_LOADED" -ge 1 ]; then
+  echo "OK: launchd things3-sync"
+else
+  echo "FAIL: launchd things3-sync not loaded"
+  ISSUES=$((ISSUES + 1))
+fi
+
+BACKUP_LOADED=$(launchctl list 2>/dev/null | grep -c "com.exobrain.backup")
+if [ "$BACKUP_LOADED" -ge 1 ]; then
+  echo "OK: launchd backup"
+else
+  echo "FAIL: launchd backup not loaded"
+  ISSUES=$((ISSUES + 1))
+fi
+
 # Watcher health — check for recent failures (last 24h)
 for WATCHER in supernote plaud; do
   FAIL_LOG="/tmp/exobrain-${WATCHER}-failures.log"

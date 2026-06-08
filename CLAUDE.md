@@ -105,10 +105,20 @@ See `/crm` skill modes 9 + 9b for the full Karpathy-wiki discipline (integrate n
 
 Notify on user-visible outputs (briefings, items needing review, inbox >5, errors). Silent for Plaud/Supernote routine processing.
 
+Speak notifications in MIST's voice (shows the macOS notification AND says it aloud):
 ```bash
-osascript -e 'display notification "msg" with title "Exobrain" sound name "Purr"'          # standard
-osascript -e 'display notification "msg" with title "Exobrain URGENT" sound name "Basso"'  # urgent
+mist-voice/bin/mist-notify "msg"                       # standard (title MIST, Purr)
+mist-voice/bin/mist-notify "msg" "MIST URGENT" Basso   # urgent
 ```
+Falls back to a silent notification if the voice service isn't running. Bare `osascript` is fine when audio would be intrusive.
+
+## Voice (MIST audio output)
+
+MIST has an offline cloned voice — see `mist-voice/` ([[project_mist_voice]]). It runs slower than real-time on this M1, so it's for **pre-rendered** output, not live conversation.
+
+- **Speak a line:** `mist-voice/bin/mist-say "text"` (resident service if up, else cold-starts ~28s).
+- **Narrate a note/report to audio:** `mist-voice/.venv/bin/python mist-voice/scripts/narrate.py <note.md> -o "<out>.mp3"` (strips markdown, sentence-splits, concatenates). Use for the **news-briefing podcast** and an audio version of the **morning briefing** and **evening wind-down** — save the mp3 under `~/Exobrain/Attachments/MIST Audio/` and link it in the note.
+- **Service:** for batch/podcast work start it first so it's fast: `mist-voice/.venv/bin/python mist-voice/scripts/serve.py &`. Not kept always-resident (RAM); the narrator requires it running.
 
 ## Session Memory
 

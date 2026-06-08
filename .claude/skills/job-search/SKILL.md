@@ -312,7 +312,14 @@ Truthful nulls: omit `comp_min` / `comp_max` if unlisted (set `comp_listed: fals
 
 ## Notes
 <freeform — interview prep, follow-up reminders, cold-outreach status, etc.>
+
+> [!info]- Raw JD (archived verbatim)
+> <source URL + archive date>
+>
+> <the FULL job description text, copied verbatim, every line prefixed with `> `>
 ```
+
+**Always archive the full raw JD inline.** Postings get pulled, ATS pages 404, and recruiter screens happen weeks after the listing disappears (Nerdio 2026-06-02: original Rippling page was down by interview day; had to recover the JD from a Built In mirror). At create/audit time, copy the complete posting text verbatim into a **collapsible callout** (`> [!info]- Raw JD (archived verbatim)`) at the bottom of the listing note — intro/about, all responsibilities, required + preferred qualifications, comp, benefits. The `-` after the callout type makes it collapsed by default so it doesn't clutter the note. Do not summarize or trim; the "Why this fits" / "Gaps" bullets are the summary, this callout is the source of truth. Lead the callout with the source URL and archive date. Keep it **inline in the listing note** — do not split it into a sibling file.
 
 ### Bases file conventions
 

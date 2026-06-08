@@ -4,6 +4,10 @@
 .claude/channels/
 .claude/settings.local.json
 
+# MIST persona portraits (copyrighted Pantheon stills, local-only)
+.claude/MIST*.webp
+.claude/mist.png
+
 # Claude Code runtime
 .claude/projects/
 .claude/plugins/
@@ -57,3 +61,15 @@ apple-notes-sync/
 data/solo-dm/
 .claude/skills/solo-dm/data/extensions/*.json
 !.claude/skills/solo-dm/data/extensions/README.md
+
+# Writing-style corpus (raw personal writing — private)
+writing-style/corpus/
+
+# Claude Bot — private config (guild/channel IDs), local state, venv
+claude-bot/config.toml
+claude-bot/claudebot.db
+claude-bot/.venv/
+claude-bot/**/__pycache__/
+
+# Scratch / temp extraction (junk — never commit)
+tmp-cannonballs/

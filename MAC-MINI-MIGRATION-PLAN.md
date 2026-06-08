@@ -70,8 +70,8 @@ All of these currently run on the MacBook. **Move all to Mini, disable all on Ma
 | `com.exobrain.plaud-watcher`                | Watches GDrive Plaud folder, processes    |
 | `com.exobrain.supernote-watcher`            | Watches GDrive Supernote folder           |
 | `com.exobrain.awair-co2-watcher`            | Polls Awair sensor on LAN                 |
-| `com.exobrain.discord-bot`                  | Discord listener / responder              |
 | `com.exobrain.discord-digest`               | Scheduled Discord digest fetch            |
+| `com.exobrain.session-memory-consolidator`  | Backfills session memories nightly        |
 | `com.exobrain.things3-sync`                 | Things 3 backlinks / project sync         |
 | `com.exobrain.job-listings-sync`            | Job listings sync                         |
 | `com.exobrain.backup`                       | Backup of exobrain harness                |
