@@ -1,0 +1,14 @@
+#!/bin/bash
+# Show a macOS notification AND speak it in MIST's voice.
+#   mist-notify "Inbox is over five. Want me to triage it?"
+#   mist-notify "Build failed." "Exobrain URGENT" Basso
+# Falls back to a silent notification if the MIST service isn't running.
+set -euo pipefail
+DIR="$(cd "$(dirname "$0")/.." && pwd)"
+MSG="${1:?usage: mist-notify \"message\" [title] [sound]}"
+TITLE="${2:-MIST}"
+SOUND="${3:-Purr}"
+
+osascript -e "display notification \"${MSG//\"/\\\"}\" with title \"${TITLE//\"/\\\"}\" sound name \"$SOUND\"" || true
+# Speak it (non-blocking so it doesn't hold up the caller)
+( "$DIR/bin/mist-say" "$MSG" >/dev/null 2>&1 || true ) &
