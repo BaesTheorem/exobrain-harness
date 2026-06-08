@@ -19,16 +19,29 @@ Amazon/Google/ElevenLabs, so the phone needs an audio-path rebuild (raw Twilio
 Media Streams) to use a local voice. That's a deferred phase — see the harness
 task list.
 
-## What's here (and what's gitignored)
+## Final voice config (approved)
 
-Committed: code, this README, the pipeline scripts.
-**Gitignored** (see `.gitignore`): everything that's copyrighted source audio
-or a cloned model of a real actor (Thomasin McKenzie voices MIST). Specifically:
+- **Reference: a single clip — `samples/reference/06_need_your_help.wav`.** The
+  other takes are parked in `samples/reference/_archive/`. Curation history: the
+  all-6 set leaned British (Thomasin McKenzie's NZ vowels, amplified by the phone
+  band); per-clip A/B with Alex landed on `need_your_help` alone as the most
+  American while still her.
+- **Speed 1.0**, default XTTS sampling (via `TTS.api`), pronunciation dict on.
+- To revisit accent/prosody, swap clips between `reference/` and `reference/_archive/`.
 
-- `samples/raw/` — downloaded Pantheon clips (copyright). NOT committed.
-- `samples/isolated/` — demucs vocal-isolated stems. NOT committed.
-- `samples/reference/` — the clean MIST-only reference set fed to the clone. NOT committed.
-- `models/`, `*.pth`, `speaker_embedding*` — the cloned-voice weights/embedding. NOT committed.
+## What's here (repo is PRIVATE)
+
+Alex made the repo private and chose to KEEP the voice data in it rather than
+gitignore it. Committed now: the reference clips (`samples/reference/` +
+`_archive/`) and `demo_mist.wav`, alongside all code.
+
+Still gitignored for practical reasons (see `.gitignore`):
+- `samples/raw/`, `samples/isolated/` — the raw supercut is >100MB (GitHub's
+  per-file limit, no LFS) and is reproducible via yt-dlp.
+- `models/` — ~1.8GB of PUBLIC pretrained weights (XTTS + whisper), auto-redownloaded.
+
+Note: MIST is voiced by Thomasin McKenzie. This is private, non-distributed
+personal use; do not make the repo public or redistribute the audio.
 
 ## Rebuild from scratch
 
