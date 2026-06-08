@@ -1,0 +1,17 @@
+# Copyrighted source audio (Pantheon clips) — never commit
+samples/raw/
+samples/isolated/
+samples/reference/
+
+# Cloned-voice model weights / speaker embeddings of a real actor — never commit
+models/
+*.pth
+*.wav
+*.mp3
+*.m4a
+*.npz
+speaker_embedding*
+
+# Python env
+.venv/
+__pycache__/
