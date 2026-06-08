@@ -39,6 +39,34 @@ or a cloned model of a real actor (Thomasin McKenzie voices MIST). Specifically:
 4. Extract + isolate those windows into `samples/reference/`.
 5. Clone + generate: `scripts/say.py "text"` (XTTS-v2, conditioned on the reference set).
 
+## Usage
+
+Resident service (keeps the model loaded; ~28s one-time load):
+```bash
+.venv/bin/python scripts/serve.py --device cpu --port 8087   # leave running
+./bin/mist-say "Good morning, Alex."                          # fast, plays aloud
+```
+Cold one-shot (reloads model each call, slow — fine for scripts/pre-render):
+```bash
+.venv/bin/python scripts/say.py "text" -o out.wav --play
+```
+
+## Latency reality (measured on this M1 / 8GB, June 2026)
+
+XTTS-v2 warm inference RTF: **~1.78 on CPU, ~1.58 on MPS** (MPS barely helps —
+unsupported-op CPU fallback eats the GPU gain). Both are **slower than
+real-time**, so a typical response sentence takes ~6-8s to generate.
+
+**Implication for voice surfaces:**
+- **Pre-rendered / non-realtime (SHIPPABLE NOW):** notifications read aloud,
+  news-briefing podcast, morning briefing / evening recap audio, pre-recorded
+  phone check-in set pieces. Latency irrelevant — MIST's voice is perfect here.
+- **Live phone conversation (NOT viable on this box):** RTF>1 means dead air per
+  turn and gappy streaming. Options if we want it: (a) hybrid — pre-render
+  MIST's set pieces, keep cloud TTS for dynamic Q&A; (b) self-host XTTS on a
+  GPU / a beefier Mac mini (see MAC-MINI-MIGRATION-PLAN) for real-time; (c)
+  accept ~6-8s per-turn latency with a full Media Streams rebuild.
+
 ## Ethics / scope
 
 Private, non-distributed personal use only — Alex's own assistant voice, never
