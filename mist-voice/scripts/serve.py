@@ -16,14 +16,12 @@ os.environ.setdefault("TTS_HOME", os.path.join(ROOT, "models"))
 os.environ.setdefault("PYTORCH_ENABLE_MPS_FALLBACK", "1")
 
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
-import base64, audioop, json, torch
-from TTS.tts.configs.xtts_config import XttsConfig
-from TTS.tts.models.xtts import Xtts
+import base64, audioop, json
+from TTS.api import TTS
 
 REFS = sorted(glob.glob(os.path.join(ROOT, "samples", "reference", "*.wav")))
-MODEL = None
-GPT_LATENT = None
-SPK_EMB = None
+MODEL = None        # a TTS.api object — SAME path as the approved demo
+DEVICE = "cpu"
 SR = 24000
 _WHISPER = None  # lazy STT for the phone (/stt)
 
@@ -42,23 +40,20 @@ def stt(pcm16_8k: bytes) -> str:
     return " ".join(s.text.strip() for s in segs).strip()
 
 def load(device):
-    """Load XTTS and precompute MIST's conditioning latents once."""
-    global MODEL, GPT_LATENT, SPK_EMB
-    from TTS.utils.manage import ModelManager
-    mdir = ModelManager().download_model("tts_models/multilingual/multi-dataset/xtts_v2")[0]
-    cfg = XttsConfig(); cfg.load_json(os.path.join(mdir, "config.json"))
-    MODEL = Xtts.init_from_config(cfg)
-    MODEL.load_checkpoint(cfg, checkpoint_dir=mdir, use_deepspeed=False)
-    MODEL.to(device)
-    GPT_LATENT, SPK_EMB = MODEL.get_conditioning_latents(audio_path=REFS)
-    print(f"[mist] ready on {device}; {len(REFS)} reference clips cached", flush=True)
+    """Load XTTS via the high-level TTS.api — identical to the approved demo so
+    the service voice matches it exactly (no hand-tuned sampling params)."""
+    global MODEL, DEVICE
+    DEVICE = device
+    MODEL = TTS("tts_models/multilingual/multi-dataset/xtts_v2").to(device)
+    print(f"[mist] ready on {device}; {len(REFS)} reference clips", flush=True)
 
 def synth(text, speed=1.0):
-    out = MODEL.inference(text, "en", GPT_LATENT, SPK_EMB, speed=speed, temperature=0.65)
-    wav = out["wav"]
-    buf = io.BytesIO()
+    # Same call as scripts/say.py (the demo Alex approved): conditions on the
+    # full reference set each time, all default XTTS sampling params.
+    wav = MODEL.tts(text=text, speaker_wav=REFS, language="en", speed=speed)
     import numpy as np
-    pcm = (np.clip(wav, -1, 1) * 32767).astype("<i2").tobytes()
+    pcm = (np.clip(np.asarray(wav, dtype="float32"), -1, 1) * 32767).astype("<i2").tobytes()
+    buf = io.BytesIO()
     with wave.open(buf, "wb") as w:
         w.setnchannels(1); w.setsampwidth(2); w.setframerate(SR); w.writeframes(pcm)
     return buf.getvalue()
@@ -67,7 +62,7 @@ class H(BaseHTTPRequestHandler):
     def log_message(self, *a): pass
     def do_GET(self):
         if self.path == "/health":
-            self._json({"ok": MODEL is not None, "device": str(next(MODEL.parameters()).device) if MODEL else None})
+            self._json({"ok": MODEL is not None, "device": DEVICE})
         else: self.send_error(404)
     def do_POST(self):
         body = json.loads(self.rfile.read(int(self.headers["Content-Length"])) or b"{}")
