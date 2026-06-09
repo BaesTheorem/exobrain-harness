@@ -125,7 +125,7 @@ MIST has an offline cloned voice — see `mist-voice/` ([[project_mist_voice]]).
 MIST's face-to-face desktop chat surface — a from-scratch app that renders Claude's full UI by running the official `claude` binary headlessly over stream-json (Flask + WKWebView). Like the voice **data**, the full app lives in a separate **private** repo, not in this public harness. See `mist-console/README.md` here for the pointer + rebuild, and [[project_mist_console]].
 
 - **Repo:** https://github.com/BaesTheorem/mist-console (private). **Local:** `~/Documents/mist-console`.
-- **Seam:** the Console reads MIST's persona at runtime from this harness — `mist-terminal/mist-persona.md` via `--append-system-prompt-file`. Keep it in place or the Console loses MIST's voice.
+- **Seam:** the Console runs `claude` in the harness cwd, so this `CLAUDE.md` (incl. the persona above) auto-loads — no side-file persona needed.
 - Personal data (conversation history `data/`, greeting audio, logs) is gitignored even in the private repo.
 
 ## Session Memory

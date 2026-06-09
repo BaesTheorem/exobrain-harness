@@ -22,9 +22,10 @@ Lives locally at: `~/Documents/mist-console`
 - gitignored even in the private repo: `data/` (conversation history), `greetings/`, `*.log`
 
 ## Seam with this harness
-The Console reads MIST's persona system prompt at runtime from this harness:
-`mist-terminal/mist-persona.md` (passed to `claude` via `--append-system-prompt-file`).
-Keep that file in place or the Console falls back to a vanilla Claude voice.
+The Console runs `claude` with the harness as its working directory, so the
+Exobrain's `CLAUDE.md` (including the **Identity & Voice: MIST** persona) is
+auto-loaded as project instructions. No side-file persona — keep the harness
+`CLAUDE.md` in place and the Console speaks as MIST.
 
 ## Rebuild
 ```bash
