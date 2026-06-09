@@ -120,6 +120,14 @@ MIST has an offline cloned voice — see `mist-voice/` ([[project_mist_voice]]).
 - **Narrate a note/report to audio:** `mist-voice/.venv/bin/python mist-voice/scripts/narrate.py <note.md> -o "<out>.mp3"` (strips markdown, sentence-splits, concatenates). Use for the **news-briefing podcast** and an audio version of the **morning briefing** and **evening wind-down** — save the mp3 under `~/Exobrain/Attachments/MIST Audio/` and link it in the note.
 - **Service:** for batch/podcast work start it first so it's fast: `mist-voice/.venv/bin/python mist-voice/scripts/serve.py &`. Not kept always-resident (RAM); the narrator requires it running.
 
+## MIST Console (desktop UI)
+
+MIST's face-to-face desktop chat surface — a from-scratch app that renders Claude's full UI by running the official `claude` binary headlessly over stream-json (Flask + WKWebView). Like the voice **data**, the full app lives in a separate **private** repo, not in this public harness. See `mist-console/README.md` here for the pointer + rebuild, and [[project_mist_console]].
+
+- **Repo:** https://github.com/BaesTheorem/mist-console (private). **Local:** `~/Documents/mist-console`.
+- **Seam:** the Console reads MIST's persona at runtime from this harness — `mist-terminal/mist-persona.md` via `--append-system-prompt-file`. Keep it in place or the Console loses MIST's voice.
+- Personal data (conversation history `data/`, greeting audio, logs) is gitignored even in the private repo.
+
 ## Session Memory
 
 Before ending any **significant session** (processed data, made decisions, created tasks, discussed plans), write a session memory file per the `/session-memory` skill. This enables cross-session continuity — the next session's startup hook will read the last 3 session memories and use them to prioritize what data to pull and how deep to go. Skip this for trivial interactions (quick lookups, one-off questions).
