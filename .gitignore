@@ -68,6 +68,7 @@ writing-style/corpus/
 # Claude Bot — private config (guild/channel IDs), local state, venv
 claude-bot/config.toml
 claude-bot/claudebot.db
+claude-bot/claudebot.db-*
 claude-bot/.venv/
 claude-bot/**/__pycache__/
 
