@@ -1,0 +1,28 @@
+#!/bin/zsh
+# MIST launcher — starts Claude Code wrapped in MIST's persona, with a spoken greeting.
+# Run by MIST.app (inside a Ghostty window) or directly from any terminal.
+
+HARNESS="/Users/alexhedtke/Documents/Exobrain harness"
+
+# Make sure the claude binary + homebrew tools are reachable regardless of how we were launched.
+export PATH="$HOME/.npm-global/bin:/opt/homebrew/bin:/usr/local/bin:$PATH"
+
+# --- Spoken greeting in MIST's cloned voice (non-blocking; cold-starts the voice service if down) ---
+GREETINGS=(
+  "Hey Alex. MIST here. Let's get into it."
+  "I'm awake. What are we building?"
+  "Good to see you. I'm ready when you are."
+  "MIST online. Tell me where you want to start."
+)
+if [ -x "$HARNESS/mist-voice/bin/mist-say" ]; then
+  idx=$(( $(date +%s) % ${#GREETINGS[@]} + 1 ))
+  ( "$HARNESS/mist-voice/bin/mist-say" "${GREETINGS[$idx]}" >/dev/null 2>&1 & )
+fi
+
+# --- Text banner ---
+printf '\n\033[1;38;5;44m        M I S T\033[0m\n'
+printf '\033[38;5;245m   Cloud Intelligence · Alex'\''s exobrain assistant\033[0m\n\n'
+
+# --- Launch Claude Code in the harness, where CLAUDE.md (incl. the MIST persona) auto-loads ---
+cd "$HARNESS" || exit 1
+exec claude "$@"
