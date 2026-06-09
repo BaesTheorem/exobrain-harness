@@ -29,21 +29,32 @@ task list.
 - **Speed 1.0**, default XTTS sampling (via `TTS.api`), pronunciation dict on.
 - To revisit accent/prosody, swap clips between `reference/` and `reference/_archive/`.
 
-## What's here (repo is PRIVATE)
+## Where the voice data lives (separate PRIVATE repo)
 
-Alex made the repo private and chose to KEEP the voice data in it rather than
-gitignore it. Committed now: the reference clips (`samples/reference/` +
-`_archive/`) and `demo_mist.wav`, alongside all code.
+**This harness repo is PUBLIC** (sharable/replicable, per the top-level CLAUDE.md),
+so it holds only the **code/recipe** here in `mist-voice/`. The **voice data** —
+copyrighted *Pantheon* show audio — lives in a separate **private** repo:
 
-Still gitignored for practical reasons (see `.gitignore`):
-- `samples/raw/`, `samples/isolated/` — the raw supercut is >100MB (GitHub's
-  per-file limit, no LFS) and is reproducible via yt-dlp.
-- `models/` — ~1.8GB of PUBLIC pretrained weights (XTTS + whisper), auto-redownloaded.
+> **`BaesTheorem/mist-voice-data`** (private, git-lfs) — raw supercut, reference
+> clips, `_archive/` takes, the 605-segment curation TSV, and `demo_mist.wav`.
+> See `VOICE-DATA.md` for contents + the exact copy-back rebuild steps.
 
-Note: MIST is voiced by Thomasin McKenzie. This is private, non-distributed
-personal use; do not make the repo public or redistribute the audio.
+Everything under `samples/` and `demo_mist.wav` is **gitignored here** and pulled
+from that private repo when needed. Model weights (`models/`, ~1.8GB public XTTS +
+whisper) are also gitignored and auto-redownload.
+
+Note: MIST is voiced by Thomasin McKenzie. Private, non-distributed personal use
+only; never commit the audio to this public repo or redistribute it.
 
 ## Rebuild from scratch
+
+**Fast path (recommended):** clone the private data repo and copy it in — no
+re-ripping needed:
+```bash
+git clone https://github.com/BaesTheorem/mist-voice-data.git   # needs git-lfs
+cp -R mist-voice-data/samples ./ && cp mist-voice-data/demo_mist.wav ./
+```
+Then jump to step 1 below for the env. **From-zero path (no data repo):**
 
 1. `python3.12 -m venv .venv && .venv/bin/pip install demucs faster-whisper coqui-tts`
 2. Source MIST dialogue: `yt-dlp -x --audio-format wav -o samples/raw/<name>.wav <clip-url>`

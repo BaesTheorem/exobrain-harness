@@ -1,13 +1,12 @@
-# Repo is PRIVATE — Alex chose to keep the MIST voice data in the repo rather
-# than gitignore it. We still exclude two categories for practical reasons:
+# Voice DATA is NOT in this public harness. It's copyrighted Pantheon show audio
+# and lives in a SEPARATE PRIVATE repo. See VOICE-DATA.md for the repo + rebuild.
+#   → https://github.com/BaesTheorem/mist-voice-data  (private, git-lfs)
+# Everything under samples/ (raw corpus, reference clips, curation TSVs) + the
+# canonical sample is pulled from there, never committed here.
+samples/
+demo_mist.wav
 
-# 1) Big regenerable source: the raw supercut is >100MB (GitHub's hard per-file
-#    limit, no LFS here) and is reproducible via yt-dlp. Isolated stems likewise.
-samples/raw/
-samples/isolated/
-
-# 2) Pretrained PUBLIC model weights (~1.8GB XTTS + whisper) — not our data,
-#    redownloaded automatically by the scripts.
+# Pretrained PUBLIC model weights (~1.8GB XTTS + whisper) — auto-redownloaded.
 models/
 
 # Transient synthesis outputs
@@ -16,7 +15,3 @@ out.wav
 # Python env
 .venv/
 __pycache__/
-
-# Kept IN the repo (the irreplaceable curation work):
-#   samples/reference/  — the MIST reference clips + _archive of dropped takes
-#   demo_mist.wav        — the canonical approved sample
