@@ -14,6 +14,7 @@ The repo keeps only the public glue: this README, the notification wrapper scrip
 |------|---------|---------|
 | `README.md` | Yes | This file |
 | `notify-check.sh` | Yes | Daily notification wrapper. Calls `python3 app.py --check-notify`; if the result is `NOTIFY:YYYY-MM-DD`, fires a macOS notification telling Alex tomorrow is the predicted period day. Run via launchd or a scheduled task daily at 8:00 AM. |
+| `routine-cycle-notify.md` | Yes | Archived definition of the Claude Code scheduled routine ("cycle tracker notify") that checked daily for an upcoming period and notified Alex. Preserved here after the routine was removed from Claude Code's scheduled tasks; not currently scheduled. Personal identifiers are placeholdered. |
 | `app.py` | No (gitignored) | Single-file Python web app — see "Building app.py" below. |
 | `cycle-data.json` | No (gitignored) | Personal health data |
 
