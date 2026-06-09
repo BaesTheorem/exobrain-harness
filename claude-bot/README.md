@@ -48,6 +48,22 @@ Feature phases land as additional modules:
    .venv/bin/python bot.py
    ```
 
+## Running as a service (launchd)
+
+For always-on operation, it runs as a LaunchAgent (`com.exobrain.claude-bot`,
+`RunAtLoad` + `KeepAlive` — starts at login, restarts on crash). A copy of the
+plist lives here (`com.exobrain.claude-bot.plist`); the live one is in
+`~/Library/LaunchAgents/` (a real copy, not a symlink).
+
+```bash
+cp com.exobrain.claude-bot.plist ~/Library/LaunchAgents/   # edit the paths if not Alex's machine
+launchctl load   ~/Library/LaunchAgents/com.exobrain.claude-bot.plist   # start / restart
+launchctl unload ~/Library/LaunchAgents/com.exobrain.claude-bot.plist   # stop
+```
+
+Logs: `~/.claude/channels/discord/claude-bot.log`. Only one gateway connection
+is allowed per token, so stop the launchd job before running `bot.py` by hand.
+
 ## Files
 
 | File | Role |
