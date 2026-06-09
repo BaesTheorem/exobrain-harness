@@ -1,0 +1,6 @@
+# MIST Discord bot — Python 3.13+ (developed on 3.14). Install into a venv:
+#   python3 -m venv .venv
+#   .venv/bin/python -m pip install -r requirements.txt
+discord.py>=2.4
+anthropic>=0.40
+# audioop-lts is pulled in automatically on Python 3.13+ (stdlib audioop removed)

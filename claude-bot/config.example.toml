@@ -1,0 +1,27 @@
+# MIST Discord bot configuration — copy this to config.toml and fill in.
+# config.toml is GITIGNORED (it holds your private guild/channel IDs).
+# The bot TOKEN is NOT here — it's read from the shared Exobrain env file
+# (~/.claude/channels/discord/.env, key DISCORD_BOT_TOKEN).
+
+[bot]
+name = "MIST"                # display name used in messages and the LLM persona
+guild_id = 000000000000000000   # your server's ID (right-click server -> Copy Server ID)
+prefix = "!"
+admin_ids = [000000000000000000]  # your Discord user ID(s) — full command access
+# mod_role_id = 000000000000000000  # optional: a role that also counts as admin
+
+# Optional per-channel overrides. Key is the channel ID as a string.
+# [channel.123456789012345678]
+# prefix = "?"
+
+# --- feature module config (filled in as phases land) ---
+
+# [chatter]                  # Phase 5: LLM persona
+# anthropic_api_key = "sk-ant-..."   # or set ANTHROPIC_API_KEY in the environment
+# model = "claude-opus-4-8"
+# system = "You are MIST, a friendly assistant in a private Discord server."
+# allowed_channels = []      # channel IDs where the bot will chat
+
+# [greeting]                 # Phase 3: member onboarding
+# rules_gate = false         # require new members to DM "I agree" before gaining access
+# default_role_id = 0        # role granted on join / when no saved roles exist
