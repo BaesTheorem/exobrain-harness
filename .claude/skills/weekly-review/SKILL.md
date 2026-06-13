@@ -74,6 +74,15 @@ The thorough counterpart to the wind-down's quick pulse. See `/electricity` for 
 4. **Rate-plan check**: with TOU peak 4-8pm (~16% premium), is meaningful load landing in peak? Total summer kWh is usually the bigger lever than time-shifting, so weight recommendations accordingly.
 5. **Recommendation(s)**: 0-2 concrete moves, each with the expected effect framed as **Alex's ~1/3 share** of the bill (it's split three ways). The 3rd-floor early-overnight deep-cool is the biggest lever, but it's his and his housemate's sleep comfort — surface the tradeoff honestly, recommend, don't nag. If a change is worth trying, create a Things 3 task for it (search first to dedup).
 
+### 8d. Budget check — Envelope Budget app
+A real read on how the budget is doing against its priorities, with concrete recommendations. Use the `/finances` skill (read `Areas/Money & Finances/Budget.md` first for the live priorities, then the app).
+
+1. **Pull the snapshot**: `cd ~/Documents/envelope-budget && .venv/bin/python report.py` (read-only). This gives Ready to Assign, reconcile drift, every envelope (available/target/spent), savings + debt progress, recurring charges, and the next-paycheck plan.
+2. **On-track read**: against the priorities in `Budget.md` (emergency fund first, card at minimum, dining capped, liquidity for the job transition) — is he tracking? Call out **overspent envelopes**, anything underfunded that matters, and any **reconcile drift** (a missing/miscategorized transaction to track down).
+3. **The priorities, specifically**: emergency-fund progress this week and the gap to the runway goal; whether dining/discretionary crept past plan (with the number, tied to the savings/debt it competes with); the card payoff reality at the current payment.
+4. **Subscriptions**: flag any new recurring charge or price hike the detector caught; name cut candidates (his call).
+5. **Recommendation(s)**: 0-2 concrete moves, each tied to a priority and the dollars it frees or protects. If a move is worth making (cut a subscription, set aside more, fix a miscategorization), create a Things 3 task (search first to dedup) — but only Alex moves money; advise, don't act on the accounts. Be honest and warm: celebrate real progress, name the hard things, don't nag.
+
 ### 9. Mood Journal — weekly summary
 Read `/Users/alexhedtke/Exobrain/Mood Journal.md` and generate the weekly summary:
 1. Compile daily scores for Mon-Sun (score any unscored days using available data)
