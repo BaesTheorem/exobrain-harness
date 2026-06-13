@@ -109,7 +109,7 @@ You can also reference specific notes or folders as source material:
 
 ## Output
 
-The skill produces an Obsidian-native markdown document saved to a `recon/` subdirectory, structured as:
+The skill produces an Obsidian-native markdown document saved to the vault's `recon/` folder (`/Users/alexhedtke/Exobrain/recon/`) — never into a code repo or project directory — structured as:
 
 - **Central Question** — the refined driving question
 - **The Territory** — 3–5 fully developed framings, each standing on its own terms

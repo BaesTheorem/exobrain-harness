@@ -1,12 +1,14 @@
 #!/usr/bin/env python3
 """
 Polls the Awair Element local API for CO2 and fires a macOS notification
-when levels exceed configured thresholds during active hours.
+AND a Discord DM when levels exceed configured thresholds during active hours.
 
 Hysteresis prevents notification spam: after notifying, suppress same-tier
 alerts for HYSTERESIS_MIN minutes. Persists state in awair/state.json.
 
-Config via env (.env at harness root): AWAIR_HOST.
+Config:
+  - harness .env (AWAIR_HOST, DISCORD_NOTIFY_CHAT_ID)
+  - ~/.claude/channels/discord/.env (DISCORD_BOT_TOKEN)
 Tunable constants below.
 """
 
@@ -21,6 +23,8 @@ from pathlib import Path
 HARNESS_DIR = Path(__file__).resolve().parent.parent
 STATE_FILE = Path(__file__).resolve().parent / "state.json"
 LOG_FILE = Path.home() / ".claude" / "channels" / "awair" / "co2-watcher.log"
+DISCORD_ENV = Path.home() / ".claude" / "channels" / "discord" / ".env"
+DISCORD_API = "https://discord.com/api/v10"
 
 CO2_WARN = 1000
 CO2_URGENT = 1500
@@ -82,6 +86,40 @@ def notify(title, message, urgent=False):
     )
 
 
+def load_discord_token():
+    if not DISCORD_ENV.exists():
+        return None
+    for line in DISCORD_ENV.read_text().splitlines():
+        if line.startswith("DISCORD_BOT_TOKEN="):
+            return line.split("=", 1)[1].strip()
+    return None
+
+
+def notify_discord(channel_id, message):
+    """Send a DM to Alex via the bot. Best-effort: log and return on failure."""
+    token = load_discord_token()
+    if not token or not channel_id:
+        log("discord skip: missing token or DISCORD_NOTIFY_CHAT_ID")
+        return
+    url = f"{DISCORD_API}/channels/{channel_id}/messages"
+    body = json.dumps({"content": message}).encode()
+    req = urllib.request.Request(
+        url,
+        data=body,
+        method="POST",
+        headers={
+            "Authorization": f"Bot {token}",
+            "Content-Type": "application/json",
+            "User-Agent": "DiscordBot (https://exobrain.local, 1.0)",
+        },
+    )
+    try:
+        with urllib.request.urlopen(req, timeout=8) as r:
+            r.read()
+    except Exception as e:
+        log(f"discord send failed: {e}")
+
+
 def in_active_hours(now):
     return ACTIVE_HOUR_START <= now.hour < ACTIVE_HOUR_END
 
@@ -128,6 +166,9 @@ def main():
     pm25 = data.get("pm25", "?")
     msg = f"CO2 {co2} ppm (score {score}, PM2.5 {pm25}) — open a window"
     notify("Air quality", msg, urgent=(tier == "urgent"))
+
+    emoji = "🚨" if tier == "urgent" else "🌬️"
+    notify_discord(env.get("DISCORD_NOTIFY_CHAT_ID"), f"{emoji} **Air quality** — {msg}")
     log(f"notified {tier}: co2={co2} score={score} pm25={pm25}")
 
     state[f"last_{tier}"] = now.isoformat(timespec="seconds")
