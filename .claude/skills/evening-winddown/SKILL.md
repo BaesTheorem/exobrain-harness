@@ -94,6 +94,16 @@ If Alex doesn't respond (scheduled task mode):
 
 Read the health concerns config at `.claude/skills/health/health-concerns-config.md` for the current list of tracked concerns and their properties. Prompt Alex for today's scores (keep it to one line), write them to today's Health Log frontmatter, and flag any key correlations defined in the config.
 
+### 2c. Electricity & Thermostat (short)
+
+A quick pulse only — the thorough cost review + recommendations live in the weekly review. See `/electricity` for the integrations and read paths.
+
+1. Read the **Energy Log** note (`Areas/Money & Finances/Energy Log.md`) — the scheduled jobs keep its three blocks current; no need to trigger a pull.
+2. Surface at most **two lines**:
+   - **Today vs. typical**: today's kWh/$ against the cycle's "typical" baseline (note Evergy lags ~1 day, so today's number is usually partial — say so).
+   - **3rd floor**: today's cooling hours, and flag only a clear **anomaly** (e.g., a floor running far more than usual, or a much higher day than its outdoor low would predict).
+3. If nothing's off, one line: "Energy: tracking $X under/over typical, nothing unusual." Don't lecture about the overnight schedule here — that's the weekly review's job.
+
 ### 3. Tomorrow Preview
 
 **Calendar**: Use `gcal_list_events` for tomorrow.
@@ -185,6 +195,7 @@ Append to the **pre-resolved target daily note filename from Step 0**. Do NOT re
 
 **Unanswered**: [any messages to handle tomorrow]
 **Routed today**: [X] tasks created, [Y] events created, [Z] People notes updated (from iMessage/Discord/Supernote)
+**Energy**: [today's kWh vs typical, partial-day caveat; 3rd-floor cooling hrs; or "nothing unusual"]
 
 **Tomorrow's top 3**:
 1. [priority 1]
