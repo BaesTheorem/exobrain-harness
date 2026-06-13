@@ -1,8 +1,8 @@
 # Awair Element — CO2 watcher
 
 Polls the Awair Element's local API every 5 minutes via launchd and fires a
-macOS notification when CO2 crosses thresholds during active hours
-(default 7am–11pm).
+macOS notification **and a Discord DM** when CO2 crosses thresholds during
+active hours (default 7am–11pm).
 
 ## Setup
 
@@ -20,7 +20,12 @@ macOS notification when CO2 crosses thresholds during active hours
    ```
    AWAIR_HOST=AWAIR-ELEM-XXXXXX.local
    ```
-4. Load the launchd agent (real file copy, not a symlink — see
+4. (Discord) The watcher DMs Alex via the MIST bot. Two values are needed:
+   - `DISCORD_NOTIFY_CHAT_ID` in the harness `.env` — the bot↔Alex DM channel id.
+   - `DISCORD_BOT_TOKEN` in `~/.claude/channels/discord/.env` (shared with the
+     digest fetcher). If either is missing the watcher logs a skip and still
+     fires the macOS notification.
+5. Load the launchd agent (real file copy, not a symlink — see
    `feedback_launchd_symlinks`):
    ```
    cp com.exobrain.awair-co2-watcher.plist ~/Library/LaunchAgents/

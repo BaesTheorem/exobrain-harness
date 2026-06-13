@@ -1,0 +1,6 @@
+# pyremoteplay is unmaintained (last release 2023); these pins make it work on
+# modern Python (3.14) / Apple Silicon. See README for build gotchas.
+pyremoteplay==0.7.6
+pyee==9.1.1          # >=10 removed top-level ExecutorEventEmitter
+async-timeout        # used by pyps4-2ndscreen but not declared
+netifaces==0.11.0    # must be built from source on arm64 (see README)

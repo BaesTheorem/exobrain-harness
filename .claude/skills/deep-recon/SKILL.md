@@ -29,9 +29,10 @@ From the user's prompt, determine:
    - `--vault-only`: Skip web search, only use vault content
    - Default: Both vault and web
 5. **Output location**:
-   - `--output <path>`: Write all output (final document + agent reports) to this directory
-   - Default: `recon/` subdirectory relative to the source file's directory (or vault root if no source file)
-   - Examples: `--output essays/recon/`, `--output recon/`, `--output working/my-project/recon/`
+   - Recon reports are Obsidian deliverables, exactly like deep-research reports. They ALWAYS go in the vault, NEVER in a code repository, a project directory, or the Exobrain harness — even when the source material lives in one.
+   - **Default (use this unless told otherwise): `/Users/alexhedtke/Exobrain/recon/`** — an absolute path in the vault. Write all output (final document + agent reports + `_metrics.md` + any PDFs) here.
+   - `--output <path>`: an alternate directory that MUST resolve **inside the vault** (`/Users/alexhedtke/Exobrain/`); relative paths resolve against the vault root, not the current directory or the source file. If a given path would land outside the vault, ignore it and use the default.
+   - Hard rule: never write a recon artifact to a path outside `/Users/alexhedtke/Exobrain/`. Do not create a `recon/` folder next to a source file or in a project repo.
 6. **Source material**: If the user references specific notes, folders, or tags, read those first
 7. **PDF collection**:
    - `--pdfs`: Explorer searches for and downloads relevant PDFs to a `PDFs/` subdirectory within the output directory
@@ -67,14 +68,14 @@ Dispatch all 4 agents **in parallel** using the Task tool. Each agent's prompt s
 - The topic/question
 - The context brief from Step 2
 - The agent's role instructions (from its definition file)
-- The output file path: `recon/rN-<role>.md` (e.g., `recon/r1-explorer.md`)
+- The output file path: `<output_dir>/rN-<role>.md` — an ABSOLUTE path in the vault (e.g., `/Users/alexhedtke/Exobrain/recon/r1-explorer.md`). Never a bare `recon/` relative path; the agent's cwd may be a code repo.
 - Round-specific instructions: "This is round 1. Cast a wide net."
 - Explicit instruction: "Write your report to `<output path>` using the Write tool. The orchestrator reads from disk."
 - If `--pdfs` is enabled, include in the Explorer's prompt: "PDF collection is enabled. See the PDF Collection section of your instructions. Save PDFs to `<output_dir>/PDFs/`. Create the directory with `mkdir -p` via Bash before downloading."
 
 ### Between Rounds
 
-After all agents complete, **read their output files from disk** (`recon/rN-<role>.md`). Agent reports written to disk are the ground truth — they survive context crashes. Also check the Task return values as a fallback, but prefer the disk files.
+After all agents complete, **read their output files from disk** (`<output_dir>/rN-<role>.md`, the absolute vault path). Agent reports written to disk are the ground truth — they survive context crashes. Also check the Task return values as a fallback, but prefer the disk files.
 
 **Interactive mode:**
 - Summarize the most interesting findings in 3-5 bullet points
@@ -90,7 +91,7 @@ After all agents complete, **read their output files from disk** (`recon/rN-<rol
 
 ### Metrics Persistence
 
-After collecting each round's agent results and BEFORE any further processing, write (or update) `_metrics.md` in the recon/ output directory with:
+After collecting each round's agent results and BEFORE any further processing, write (or update) `_metrics.md` in the output directory (the absolute vault path, e.g. `/Users/alexhedtke/Exobrain/recon/_metrics.md`) with:
 
 - Per-agent token counts and elapsed times (from Task result metadata)
 - Round wall-clock time (time from dispatching agents to last agent returning)
@@ -155,7 +156,7 @@ After the final round, produce the recon document.
 
 The orchestrator does NOT write the recon document's substance. The final-round Synthesizer agent writes the complete document — including YAML frontmatter, Process Log, and all formatting — directly to the final output path on disk.
 
-1. Dispatches the final Synthesizer with ALL agent reports from all rounds, plus the template, plus the instruction to draft AND WRITE the complete document. **Pass the final output file path** (e.g., `recon/YYYY-MM-DD-<topic-slug>.md`) and instruct the Synthesizer to write the finished document there using the Write tool. Also pass the current `_metrics.md` content so the Synthesizer can include the Process Log.
+1. Dispatches the final Synthesizer with ALL agent reports from all rounds, plus the template, plus the instruction to draft AND WRITE the complete document. **Pass the final output file path** as an ABSOLUTE vault path (e.g., `/Users/alexhedtke/Exobrain/recon/YYYY-MM-DD-<topic-slug>.md`) and instruct the Synthesizer to write the finished document there using the Write tool. Also pass the current `_metrics.md` content so the Synthesizer can include the Process Log.
 2. After the Synthesizer completes, **read the document from disk** and make light corrections only: fix broken `[[wikilinks]]`, correct factual errors, update the Process Log with final-round metrics. Do NOT rewrite arguments, reframe findings, or impose a different structure.
 3. **Verify factual claims.** After making light corrections, spawn a background verification agent (the `/verify` skill pattern) against the finished document. The recon's framings and interpretive arguments are not subject to verification — but any specific factual claims are: named tools/features, legislation, dates, people's roles, statistics, URLs, historical events, and "X exists" assertions. The verification agent should:
    - Extract all propositional/factual claims from the document (skip interpretive framings, metaphors, and open questions)
@@ -177,15 +178,18 @@ Focus mode uses the Synthesizer's existing convergent instructions (pick the str
 
 ### Output Location
 
-If `--output <path>` was specified, use that directory. Otherwise, save to a `recon/` subdirectory relative to the source file's directory. If no source file was specified, save to `recon/` at the vault root.
+Recon reports are Obsidian deliverables, like deep-research reports — they ALWAYS live in the vault, NEVER in a code repo, a project's `recon/` folder, or the Exobrain harness.
 
-- `--output essays/recon/` → save to `essays/recon/YYYY-MM-DD-<topic-slug>.md`
-- Source is `New City Reader/nai.md`, no `--output` → save to `New City Reader/recon/YYYY-MM-DD-<topic-slug>.md`
-- No source file, no `--output` → save to `recon/YYYY-MM-DD-<topic-slug>.md`
+- **Default: `/Users/alexhedtke/Exobrain/recon/`** (absolute vault path). Final document: `/Users/alexhedtke/Exobrain/recon/YYYY-MM-DD-<topic-slug>.md`.
+- `--output <path>` → use it ONLY if it resolves inside the vault (`/Users/alexhedtke/Exobrain/`); relative paths resolve against the vault root. If it would land outside the vault, ignore it and use the default.
 
-Create the output folder if it doesn't exist.
+Even when the recon's source material is a file in a project repo (an app, the harness, an essay folder outside the vault), the report and all its artifacts still go to the vault `recon/` folder. Do NOT create a `recon/` folder next to the source or in the project.
+
+Create the output folder with `mkdir -p` if it doesn't exist.
 
 Save individual agent reports to the same folder as `rN-agentname.md` files. These are reference material, not the deliverable.
+
+**Never** write the final document, `rN-agentname.md` reports, `_metrics.md`, `_context-brief.md`, or downloaded PDFs to any path outside `/Users/alexhedtke/Exobrain/`.
 
 ### Formatting
 
