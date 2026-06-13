@@ -65,6 +65,15 @@ Pull 7-day Fitbit data (steps, sleep, zone minutes) — do NOT use Fitbit for we
 ### 8b. Health concerns — weekly pattern check
 Read the concern dossier notes in `Areas/Health & Fitness/Concerns/` for the list of tracked properties, what to watch for, correlations to flag, and any active experiments or provider recommendations. Then read the past 7 Health Log notes and analyze accordingly. Compare to prior week if data exists (trend arrows). Update the dossier notes with any new findings or experiment results.
 
+### 8c. Electricity & HVAC — weekly cost + schedule review
+The thorough counterpart to the wind-down's quick pulse. See `/electricity` for the integrations, read paths, rate plan, and cost-split framing. Goal: a real read on where the bill is going and **at least one concrete, actionable recommendation** (or an explicit "stay the course, here's why").
+
+1. **Cost vs. baseline**: from the Energy Log / `evergy-energy --json`, report the cycle's usage + cost-to-date, projection, and the gap to "typical" (kWh and $, and the % over/under). Note the trend vs. last week.
+2. **Per-floor breakdown**: from `nest-hvac`, sum the week's cooling hours per floor. Name the cost driver (normally the 3rd floor) and its share. Flag any floor whose runtime jumped.
+3. **The overnight experiment (the main event)**: read the `NIGHTLOG:AUTO` block. Line up the week's nights by **outdoor low** and compare 3rd-floor overnight runtime across nights with *similar* lows. State plainly whether the native schedule is saving energy or whether the cheap nights were just mild — and **say so even when the answer is "not enough spread of lows yet, keep logging."** Don't manufacture a verdict from one or two nights.
+4. **Rate-plan check**: with TOU peak 4-8pm (~16% premium), is meaningful load landing in peak? Total summer kWh is usually the bigger lever than time-shifting, so weight recommendations accordingly.
+5. **Recommendation(s)**: 0-2 concrete moves, each with the expected effect framed as **Alex's ~1/3 share** of the bill (it's split three ways). The 3rd-floor early-overnight deep-cool is the biggest lever, but it's his and his housemate's sleep comfort — surface the tradeoff honestly, recommend, don't nag. If a change is worth trying, create a Things 3 task for it (search first to dedup).
+
 ### 9. Mood Journal — weekly summary
 Read `/Users/alexhedtke/Exobrain/Mood Journal.md` and generate the weekly summary:
 1. Compile daily scores for Mon-Sun (score any unscored days using available data)
@@ -157,6 +166,7 @@ Write `### Weekly Review` section in Sunday's daily note containing:
 6. **Someday promotion**: Item(s) suggested for this week
 7. **Project next actions**: One task per active project
 8. **Health snapshot**: 7-day trends with recommendations + health concern patterns (drowsiness, anxiety, panic, caffeine correlations)
+8c. **Energy & HVAC**: cost vs. typical, per-floor cooling breakdown, overnight-schedule verdict (or "keep logging"), and 0-2 recommendations framed as Alex's ~1/3 share
 9. **Priority alignment**: Are daily activities matching stated priorities? Flag misalignment.
 10. **Mood summary**: Week's mood trajectory, sub-category trends, comparison to prior week, pattern flags
 11. **Network CRM**: CRM health summary + 1 recommended outreach for the week (with context and suggested angle)
