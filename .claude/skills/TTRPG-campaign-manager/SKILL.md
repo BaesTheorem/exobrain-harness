@@ -14,13 +14,17 @@ Each campaign has its own folder (e.g., `Calimport DnD Campaign/`). All notes fo
 
 **IMPORTANT**: When Alex asks for session prep, recap, or any campaign-specific work, always clarify which campaign if it's ambiguous. Check what campaign folders exist and ask if there's more than one active campaign.
 
-For each campaign folder, look for a `Claude reference.md` file — this contains campaign-specific context (players, characters, NPCs, factions, principles, etc.) that you should load before doing any work.
+For each campaign folder, look for a `Claude reference.md` file (or `Campaign Reference doc.md`) — this contains campaign-specific context (players, characters, NPCs, factions, principles, etc.) that you should load before doing any work. Also load, if present:
+- **`Campaign Fronts.md`** — the living "fronts" tracker (what the threats are doing between sessions). **Advance it at the top of every session prep** (see Mode 1).
+- **`Campaign Arc Plan.md`** — the campaign's North Star and thread tracker (hold loosely; two horizons out).
 
 ## Modes
 
 ### 1. Session Prep (`/dnd-campaign prep` or "let's prep the next session")
 
 **Goal**: Collaboratively fill out a session prep note using the Lazy DM template. Make Alex's job as easy as possible by drafting content, suggesting ideas, and asking targeted questions.
+
+**Always advance the Campaign Fronts first.** If the campaign has a `Campaign Fronts.md`, open it before drafting and run its "Advance the Fronts" ritual: mark what the players triggered / stalled / ignored last session, tick the ignored fronts one portent forward, re-check any meta-clock, and log it in the Tracker. The freshly-ticked portents are the campaign's source of truth for what the threats are doing now — they feed the Strong Start, Scenes, and Secrets below. Do this *with* Alex, surfacing what's about to fire and letting him redirect.
 
 **Steps**:
 
@@ -35,6 +39,7 @@ For each campaign folder, look for a `Claude reference.md` file — this contain
 5. **Check unused material first**: Read `Unused Material.md` in the campaign folder. Pull forward any scenes, secrets, NPCs, locations, encounters, or treasure that still fit the upcoming session. Remove items from unused material as they get incorporated into the new prep.
 
 6. **Scan the full campaign folder**: Read all notes to build a complete picture of:
+   - The active **fronts** and any meta-clock (`Campaign Fronts.md`) — what's about to fire
    - What happened in previous sessions (recaps)
    - Unresolved plot threads and dangling hooks
    - NPCs introduced but not yet developed
@@ -193,6 +198,7 @@ _Choose some interesting [treasure](https://slyflourish.com/random_generators/5e
    - Preserve memorable quotes inline where they happened, and also collect them in the Quotes section at the end
 
 7. **Update campaign notes**: After creating the recap:
+   - **Update `Campaign Fronts.md`**: mark which grim portents actually fired this session, advance the Tracker, and re-check any meta-clock
    - Update any NPC notes that were affected
    - Update faction notes if the balance shifted
    - Update PC notes with new developments (fun moments, quotes, plot points, character arcs)
