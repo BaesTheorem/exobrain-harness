@@ -101,6 +101,15 @@ is a future presence-based "both top-floor residents away → coast" override
 (pending a geofence/presence build). Don't rebuild the dismantled Mac-side
 overnight enforcer.
 
+## Live dashboard (read-only viewer)
+
+`Energy Dashboard.app` (`~/Documents/energy-dashboard`, Flask :5016, its own
+private repo `BaesTheorem/energy-dashboard`, **not** in the harness) is a live
+flat/sharp window onto both integrations. It **only reads** `nest-data.json` and
+`energy-data.json` — never writes to those repos and never controls thermostats.
+Floor labels are genericized to numbers there too. It's the human-facing view;
+this skill is still the source of truth for pulling/analyzing.
+
 ## Privacy
 
 - Integration code stays in its own repos; **only the Energy Log note** crosses
