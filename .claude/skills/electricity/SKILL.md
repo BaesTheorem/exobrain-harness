@@ -51,7 +51,7 @@ and touch nothing. The scheduled jobs below own the writes.
 
 ## The Energy Log note (the one vault surface)
 
-`Areas/Money & Finances/Energy Log.md`. Three auto-managed marker blocks, each
+`Areas/Money & Finances/Energy Log.md`. Four auto-managed marker blocks, each
 preserves the others — **never hand-edit between the markers**, write your own
 notes above/below them:
 
@@ -60,6 +60,7 @@ notes above/below them:
 | `ENERGY:AUTO` | `energy-pull.py` | Cycle outlook + daily kWh/$ table |
 | `HVAC:AUTO` | `nest-poll.py` | Live per-floor temp/setpoint/status + cooling-today |
 | `NIGHTLOG:AUTO` | `night-log.py` | Per-night 3rd-floor runtime vs. outdoor low |
+| `PRECOOL:AUTO` | `precool-log.py` | Pre-cool decision vs. result, per-band learning |
 
 ## The overnight schedule experiment
 
@@ -96,10 +97,23 @@ weather constant.
 
 **Native Nest schedule = the reliable static baseline; MIST/code = dynamic
 overrides only.** Alex hand-entered the 24h 3rd-floor schedule in the Nest app,
-so the daily ramp no longer depends on the Mac. The only remaining dynamic piece
-is a future presence-based "both top-floor residents away → coast" override
-(pending a geofence/presence build). Don't rebuild the dismantled Mac-side
-overnight enforcer.
+so the daily ramp no longer depends on the Mac.
+
+Live dynamic overrides:
+- **Weather-responsive afternoon pre-cool** (`nest-precool.py`, daily 14:00):
+  scales the 3rd-floor pre-cool *depth* to the day's forecast high so the
+  sleeping floor banks against the 4-8pm peak only as hard as the weather
+  warrants — mild days bank nothing, hot days bank deep. Tier table:
+  ≤80°F→72, 81-87→70, 88-93→68, 94+→66. Guardrails: SAFE_RANGE 66-74°F,
+  13:00-16:00 active window, `precool.disabled` kill switch. The native schedule
+  resumes at its next setpoint change. **This is the only dynamic write today.**
+  Its results loop is `precool-log.py` (the `PRECOOL:AUTO` block) — read it to
+  see whether a band's bank depth is necessary and tune the tiers from evidence.
+- *Future:* a presence-based "both top-floor residents away → coast" override
+  (pending a geofence/presence build).
+
+Don't rebuild the dismantled Mac-side overnight enforcer (the ramp lives in the
+native Nest schedule now).
 
 ## Live dashboard (read-only viewer)
 
