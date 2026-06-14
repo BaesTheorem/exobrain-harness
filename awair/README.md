@@ -1,8 +1,18 @@
-# Awair Element — CO2 watcher
+# Awair Element — CO2 watcher + air-quality logger
 
 Polls the Awair Element's local API every 5 minutes via launchd and fires a
 macOS notification **and a Discord DM** when CO2 crosses thresholds during
-active hours (default 7am–11pm).
+active hours (default 7am–11pm). Every successful reading is also appended to
+`air-log.csv`, which a nightly rollup summarizes into an **Air Quality Log**
+note in the vault (CO2 + humidity averages, peaks, and time-in-range).
+
+## Resilience
+
+The watcher resolves `AWAIR_HOST` to an IP and caches the last-known-good IP in
+`state.json`. mDNS `.local` names often fail to resolve from a launchd context
+(works fine interactively), so when resolution fails it falls back to the cached
+IP. This keeps the watcher from going silently blind when mDNS flakes out. Set a
+DHCP reservation on the router so the cached IP stays valid long-term.
 
 ## Setup
 
@@ -25,11 +35,13 @@ active hours (default 7am–11pm).
    - `DISCORD_BOT_TOKEN` in `~/.claude/channels/discord/.env` (shared with the
      digest fetcher). If either is missing the watcher logs a skip and still
      fires the macOS notification.
-5. Load the launchd agent (real file copy, not a symlink — see
+5. Load the launchd agents (real file copies, not symlinks — see
    `feedback_launchd_symlinks`):
    ```
    cp com.exobrain.awair-co2-watcher.plist ~/Library/LaunchAgents/
+   cp com.exobrain.awair-rollup.plist ~/Library/LaunchAgents/
    launchctl load ~/Library/LaunchAgents/com.exobrain.awair-co2-watcher.plist
+   launchctl load ~/Library/LaunchAgents/com.exobrain.awair-rollup.plist
    ```
 
 ## Thresholds
@@ -46,6 +58,10 @@ Edit constants at the top of `awair-co2-watcher.py`:
 
 ## Files
 
-- `awair-co2-watcher.py` — the script
-- `state.json` — last-notified timestamps (gitignored)
-- Logs: `~/.claude/channels/awair/co2-watcher.log`
+- `awair-co2-watcher.py` — the polling/alerting script; also appends each reading to `air-log.csv`
+- `awair-rollup.py` — nightly summarizer → `Areas/Health & Fitness/Air Quality Log.md` (rewrites only the `AIR:AUTO` block)
+- `com.exobrain.awair-co2-watcher.plist` — 5-min poller
+- `com.exobrain.awair-rollup.plist` — nightly rollup (23:55) + RunAtLoad
+- `state.json` — last-notified timestamps + cached `last_ip` (gitignored)
+- `air-log.csv` — per-reading time series, source of truth for the rollup (gitignored: reveals presence patterns)
+- Logs: `~/.claude/channels/awair/co2-watcher.log`, `rollup.std{out,err}.log`
