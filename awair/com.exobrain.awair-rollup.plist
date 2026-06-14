@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>Label</key>
+    <string>com.exobrain.awair-rollup</string>
+    <key>ProgramArguments</key>
+    <array>
+        <string>/opt/homebrew/bin/python3</string>
+        <string>/Users/alexhedtke/Documents/Exobrain harness/awair/awair-rollup.py</string>
+    </array>
+    <key>WorkingDirectory</key>
+    <string>/Users/alexhedtke/Documents/Exobrain harness/awair</string>
+    <key>StartCalendarInterval</key>
+    <dict>
+        <key>Hour</key>
+        <integer>23</integer>
+        <key>Minute</key>
+        <integer>55</integer>
+    </dict>
+    <key>RunAtLoad</key>
+    <true/>
+    <key>StandardOutPath</key>
+    <string>/Users/alexhedtke/.claude/channels/awair/rollup.stdout.log</string>
+    <key>StandardErrorPath</key>
+    <string>/Users/alexhedtke/.claude/channels/awair/rollup.stderr.log</string>
+</dict>
+</plist>

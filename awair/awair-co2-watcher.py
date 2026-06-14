@@ -23,6 +23,7 @@ from pathlib import Path
 
 HARNESS_DIR = Path(__file__).resolve().parent.parent
 STATE_FILE = Path(__file__).resolve().parent / "state.json"
+AIR_CSV = Path(__file__).resolve().parent / "air-log.csv"
 LOG_FILE = Path.home() / ".claude" / "channels" / "awair" / "co2-watcher.log"
 DISCORD_ENV = Path.home() / ".claude" / "channels" / "discord" / ".env"
 DISCORD_API = "https://discord.com/api/v10"
@@ -96,6 +97,33 @@ def fetch_with_fallback(host, state):
     if last_err:
         log(f"fetch failed (tried {candidates}): {last_err}")
     return None, None
+
+
+CSV_COLS = ["timestamp", "co2", "co2_est", "humid", "temp", "pm25", "voc", "score"]
+
+
+def append_csv(now, data):
+    """Append one reading to the air-log time series (source of truth for the
+    daily rollup). Best-effort: a logging failure must never block alerting."""
+    def fmt(key, ndigits=None):
+        v = data.get(key)
+        if v is None:
+            return ""
+        return round(v, ndigits) if ndigits is not None else v
+
+    row = [
+        now.isoformat(timespec="seconds"),
+        fmt("co2"), fmt("co2_est"), fmt("humid", 1),
+        fmt("temp", 1), fmt("pm25"), fmt("voc"), fmt("score"),
+    ]
+    try:
+        new = not AIR_CSV.exists()
+        with AIR_CSV.open("a") as f:
+            if new:
+                f.write(",".join(CSV_COLS) + "\n")
+            f.write(",".join(str(c) for c in row) + "\n")
+    except OSError as e:
+        log(f"csv append failed: {e}")
 
 
 def load_state():
@@ -185,6 +213,8 @@ def main():
     if co2 is None:
         log(f"no co2 in response: {data}")
         return
+
+    append_csv(now, data)
 
     tier = None
     if co2 >= CO2_URGENT:
