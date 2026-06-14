@@ -14,6 +14,7 @@ Tunable constants below.
 
 import json
 import os
+import socket
 import subprocess
 import sys
 import urllib.request
@@ -58,6 +59,43 @@ def fetch_air_data(host):
     url = f"http://{host}/air-data/latest"
     with urllib.request.urlopen(url, timeout=5) as r:
         return json.loads(r.read())
+
+
+def resolve_host(host):
+    """Return an IP for host, or None. mDNS .local names often fail to
+    resolve from a launchd context, so callers fall back to a cached IP."""
+    try:
+        return socket.gethostbyname(host)
+    except OSError:
+        return None
+
+
+def fetch_with_fallback(host, state):
+    """Try the configured host, then a cached last-known IP. Returns
+    (data, ip_used) on success or (None, None). Self-heals the cache so the
+    watcher never goes silently blind when mDNS resolution flakes out."""
+    candidates = []
+    ip = resolve_host(host)
+    if ip:
+        candidates.append(ip)
+    elif host not in (state.get("last_ip"),):
+        candidates.append(host)  # let urllib try in case it resolves differently
+    cached = state.get("last_ip")
+    if cached and cached not in candidates:
+        candidates.append(cached)
+
+    last_err = None
+    for cand in candidates:
+        try:
+            data = fetch_air_data(cand)
+            if cand[0].isdigit():
+                state["last_ip"] = cand
+            return data, cand
+        except Exception as e:  # noqa: BLE001 — try the next candidate
+            last_err = e
+    if last_err:
+        log(f"fetch failed (tried {candidates}): {last_err}")
+    return None, None
 
 
 def load_state():
@@ -135,11 +173,13 @@ def main():
     if not in_active_hours(now):
         return
 
-    try:
-        data = fetch_air_data(host)
-    except Exception as e:
-        log(f"fetch failed: {e}")
-        return
+    state = load_state()
+    prev_ip = state.get("last_ip")
+    data, _ = fetch_with_fallback(host, state)
+    if state.get("last_ip") != prev_ip:
+        save_state(state)
+    if data is None:
+        return  # fetch_with_fallback already logged the failure
 
     co2 = data.get("co2")
     if co2 is None:
@@ -155,7 +195,6 @@ def main():
     if tier is None:
         return
 
-    state = load_state()
     last_iso = state.get(f"last_{tier}")
     if last_iso:
         last = datetime.fromisoformat(last_iso)
