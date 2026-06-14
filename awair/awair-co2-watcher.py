@@ -1,7 +1,9 @@
 #!/usr/bin/env python3
 """
-Polls the Awair Element local API for CO2 and fires a macOS notification
-AND a Discord DM when levels exceed configured thresholds during active hours.
+Polls the Awair Element local API every run. It ALWAYS logs the reading to the
+air-log time series (24/7, so the bedroom's overnight CO2/humidity is captured),
+and fires a macOS notification AND a Discord DM only when levels exceed
+configured thresholds DURING active hours (so no 3am banners).
 
 Hysteresis prevents notification spam: after notifying, suppress same-tier
 alerts for HYSTERESIS_MIN minutes. Persists state in awair/state.json.
@@ -198,8 +200,6 @@ def main():
         sys.exit(0)
 
     now = datetime.now()
-    if not in_active_hours(now):
-        return
 
     state = load_state()
     prev_ip = state.get("last_ip")
@@ -214,7 +214,12 @@ def main():
         log(f"no co2 in response: {data}")
         return
 
+    # Log every reading, around the clock — overnight bedroom air is the data we
+    # most want. Alerts, below, still respect active hours so we don't wake Alex.
     append_csv(now, data)
+
+    if not in_active_hours(now):
+        return
 
     tier = None
     if co2 >= CO2_URGENT:
