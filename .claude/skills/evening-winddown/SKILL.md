@@ -27,6 +27,8 @@ Gather all data in parallel where possible, then present conversationally.
 **Health so far**:
 Follow the `/health` skill's **Evening Update** section. Pull today's final Fitbit activity totals and update the Health Log note. Steps vs 15,000 goal — note the gap but don't nag (it's bedtime).
 
+**Loki (cat)**: read today's `Areas/Health & Fitness/Loki Health Log/` note (don't re-query the API) and give a one-line status — her weight + today's visit count. Run the **Loki anomaly watch** from the `/health` skill; flag a sustained weight slide or frequency change as a watch-item only if it's real. If no Loki note exists yet, skip silently.
+
 **Pomodoro log**:
 Read today's section from `/Users/alexhedtke/Exobrain/Pomodoro Log.md` (header format `### [[Friday, May 1st, 2026]]` matching the locked target date). If the section exists, capture every `- **HH:MM AM/PM** -- ...` bullet under it and the total session count + minutes. If the section is missing, treat as zero sessions. This feeds the Focus line in step 6.
 
