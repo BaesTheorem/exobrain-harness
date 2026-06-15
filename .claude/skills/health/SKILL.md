@@ -214,6 +214,14 @@ daily visit count from the trailing ~14 days of Loki Health Log notes). Flag, as
 Don't nag: flag a sustained change, not single-day noise. One litterbox weighing
 is jittery (she moves); trust the multi-day trend, not one reading.
 
+**Acute no-visit canary** (autonomous, not a briefing job): the puller itself
+checks the gap since Loki's last box visit on every hourly poll and fires a
+spoken `mist-notify` if she hasn't gone in **12h** (escalates at 18h) — her
+observed max in a month is 10.2h. A cat that stops using the box may be blocked
+(a urinary emergency). This fires in near-real-time on its own; the briefing
+doesn't need to replicate it. If a gap alert recently fired, mention it in the
+next briefing for continuity.
+
 ## Integration
 
 | Skill | Uses | How |
