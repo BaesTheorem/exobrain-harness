@@ -17,7 +17,7 @@ the harness, and don't commit pulled data or housemate names anywhere.
 
 | Integration | Repo (local) | What it owns | On-demand read (no writes) |
 |-------------|--------------|--------------|----------------------------|
-| **Evergy** (`evergy-energy`) | `~/Documents/evergy-energy` | kWh + $ usage, cost, billing-cycle forecast | `.venv/bin/python energy-pull.py --json` |
+| **Evergy** (folded into Claude Home) | `~/Documents/claude-home/integrations/evergy` | kWh + $ usage, cost, billing-cycle forecast | `.venv/bin/python energy-pull.py --json` |
 | **Nest** (`nest-hvac`) | `~/Documents/nest-hvac` | Per-floor live state + exact cooling runtime | `.venv/bin/python nest-poll.py --json` |
 
 Always prefer the `--json` paths for a live read — they print current numbers
@@ -117,12 +117,13 @@ native Nest schedule now).
 
 ## Live dashboard (read-only viewer)
 
-`Energy Dashboard.app` (`~/Documents/energy-dashboard`, Flask :5016, its own
-private repo `BaesTheorem/energy-dashboard`, **not** in the harness) is a live
-flat/sharp window onto both integrations. It **only reads** `nest-data.json` and
-`energy-data.json` — never writes to those repos and never controls thermostats.
+`Claude Home.app` (`~/Documents/claude-home`, Flask :5016, its own private repo
+`BaesTheorem/claude-home`, **not** in the harness) is a live flat/sharp window
+onto the home's devices. The **Evergy puller now lives inside it** at
+`integrations/evergy/` (folded in 2026-06-15); it also reads `nest-data.json`
+for HVAC + the doorbell feed/snapshots. The viewer never controls thermostats.
 Floor labels are genericized to numbers there too. It's the human-facing view;
-this skill is still the source of truth for pulling/analyzing.
+this skill is still the source of truth for pulling/analyzing electricity.
 
 ## Privacy
 
