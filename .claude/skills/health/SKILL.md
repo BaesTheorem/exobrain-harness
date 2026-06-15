@@ -177,12 +177,49 @@ For downstream consumers (mood scoring, weekly review, monthly review, ad-hoc qu
 
 This ensures consistency across skills and saves API calls.
 
+## Loki (pet health)
+
+Alex's cat **Loki** is tracked as a first-class health subject, same as Alex.
+Her **PetKit PuraMax 2** litterbox has a built-in scale, so a standalone puller
+logs every visit's body weight, time, and duration. The litterbox is a cat's
+best early-warning sensor — weight drift and frequency changes show up weeks
+before behavior does, and cats hide illness.
+
+- **Puller**: `~/Documents/petkit-loki` (standalone repo, NOT in the harness;
+  same pattern as `nest-hvac`/`evergy-energy`). Hourly launchd poll via
+  `pypetkitapi`. Raw per-visit data in a gitignored `loki-litter-log.csv`.
+- **Daily notes**: `Areas/Health & Fitness/Loki Health Log/YYYY-MM-DD.md`, one
+  per day, frontmatter `visits`, `weight_lbs`, `total_minutes`, `avg_visit_min`,
+  `poops`. `Loki Health Log.base` renders the filterable views.
+- **Profile**: `Areas/Health & Fitness/Loki.md` (baseline, vet notes, watch-items).
+
+**Reading Loki's data** (same rule as Alex's): **don't re-query the API.** Read
+the Loki Health Log notes directly. The puller owns the API; skills read the
+notes. To force a fresh pull or rebuild a day, see the petkit-loki README.
+
+### Loki anomaly watch (the actual payoff)
+
+When surfacing Loki, compare recent data to her baseline (median weight + typical
+daily visit count from the trailing ~14 days of Loki Health Log notes). Flag, as
+**watch-items not diagnoses**, and only when the signal is real:
+
+- **Weight slide** — a sustained drop (≥~5% off baseline median over a week+) is
+  the earliest signal for kidney disease, the most common serious problem at her
+  age. This is the highest-value flag. Surface it and suggest a vet weigh-in.
+- **Frequency spike / straining** — visits well above baseline, or many short
+  trips, can mean a UTI or (emergency) a urinary blockage.
+- **Frequency drop** — well below baseline can mean constipation or reduced
+  eating/drinking.
+
+Don't nag: flag a sustained change, not single-day noise. One litterbox weighing
+is jittery (she moves); trust the multi-day trend, not one reading.
+
 ## Integration
 
 | Skill | Uses | How |
 |-------|------|-----|
-| **daily-briefing** | Morning snapshot | Pulls APIs, writes Health Log, returns formatted summary |
-| **evening-winddown** | Evening update | Pulls today's final Fitbit totals, updates Health Log |
+| **daily-briefing** | Morning snapshot | Pulls APIs, writes Health Log, returns formatted summary; reads latest Loki Health Log for the pet line |
+| **evening-winddown** | Evening update | Pulls today's final Fitbit totals, updates Health Log; reads today's Loki Health Log |
 | **mood** | Read historical | Reads Health Log for sleep/steps/HR as indirect mood signals |
-| **weekly-review** | Read historical | 7-day trends from Health Log notes + fresh Withings pull |
-| **monthly-review** | Read historical | Month-over-month from Health Log notes |
+| **weekly-review** | Read historical | 7-day trends from Health Log notes + fresh Withings pull; 7-day Loki weight/visit trend |
+| **monthly-review** | Read historical | Month-over-month from Health Log notes, incl. Loki weight trend |

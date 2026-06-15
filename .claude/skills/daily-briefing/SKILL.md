@@ -24,6 +24,8 @@ Follow the `/health` skill's **Morning Snapshot** section. Pull yesterday's Fitb
 
 Also run the **RHR Illness Canary** check from that skill. If it fires, render the alert at the **top of the briefing**, above `#### Health` and above the schedule — this is the one section that pre-empts everything else because it changes how Alex should plan the day.
 
+**Loki (cat):** read the most recent `Areas/Health & Fitness/Loki Health Log/` note (don't re-query the API) and add one `#### Loki` line with her latest weight + yesterday's visit count. Run the **Loki anomaly watch** from the `/health` skill against her ~14-day baseline; if a sustained weight slide or frequency change is flagging, surface it as a watch-item with a vet-weigh-in nudge. If nothing's off, keep it to the single status line. If there's no recent Loki note (puller not set up / no data yet), omit the section silently.
+
 ### 3. Calendar
 Follow the `/calendar` skill's **Daily Briefing** section. List today's events and check flight buffers for the next 14 days.
 
@@ -88,6 +90,11 @@ Weather goes FIRST (outside the briefing heading), then content under `### Morni
 - Visceral fat: [value] | Bone: [value] lbs | Hydration: [value]%
 - *Recommendation: You're trending below step goal this week. 30-min walk during your lunch gap would help.*
 - Full data: [[Areas/Health & Fitness/Health Log/YYYY-MM-DD|Health Log]]
+
+#### Loki
+- 🐈‍⬛ [value] lbs | [value] visits yesterday ([trend vs baseline, or "steady"])
+- *[watch-item only if a sustained change is flagging; else omit this line]*
+- Full data: [[Loki Health Log.base|Loki Health Log]]
 
 **Mood yesterday**: 3/5 🟡 — steady day, self-care dipped
 **🎯 Mood boost**: [specific recommendation tied to today's schedule]
