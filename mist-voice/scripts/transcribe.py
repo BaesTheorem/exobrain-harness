@@ -3,7 +3,7 @@
 windows by content. Writes <input>.segments.tsv (start  end  text) next to a
 readable transcript. CPU int8 — fine on M1/8GB.
 
-Usage: transcribe.py <audio.wav> [--model small.en]
+Usage: transcribe.py <audio.wav> [--model distil-medium.en]
 """
 import sys, json, argparse
 from pathlib import Path
@@ -12,7 +12,9 @@ from faster_whisper import WhisperModel
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("audio")
-    ap.add_argument("--model", default="small.en")
+    # Batch, one-off, latency-insensitive — so spend the cycles on accuracy.
+    # distil-medium.en beats small.en clearly and still fits an 8GB M1 at int8.
+    ap.add_argument("--model", default="distil-medium.en")
     args = ap.parse_args()
 
     src = Path(args.audio)

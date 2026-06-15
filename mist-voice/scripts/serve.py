@@ -31,12 +31,17 @@ def stt(pcm16_8k: bytes) -> str:
     global _WHISPER
     if _WHISPER is None:
         from faster_whisper import WhisperModel
-        _WHISPER = WhisperModel(os.environ.get("PHONE_STT_MODEL", "base.en"),
+        # distil-small.en: ~small.en accuracy at ~base.en latency. The right
+        # trade for a live phone turn — better words without slowing the reply.
+        _WHISPER = WhisperModel(os.environ.get("PHONE_STT_MODEL", "distil-small.en"),
                                 device="cpu", compute_type="int8")
     import numpy as np
     pcm16k, _ = audioop.ratecv(pcm16_8k, 2, 1, 8000, 16000, None)
     audio = np.frombuffer(pcm16k, dtype="<i2").astype("float32") / 32768.0
-    segs, _ = _WHISPER.transcribe(audio, language="en", vad_filter=True)
+    # Each utterance is one independent phone turn — don't condition on the
+    # previous transcript, which invites repeated-phrase hallucinations.
+    segs, _ = _WHISPER.transcribe(audio, language="en", vad_filter=True,
+                                  condition_on_previous_text=False)
     return " ".join(s.text.strip() for s in segs).strip()
 
 def load(device):
