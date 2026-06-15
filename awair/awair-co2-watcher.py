@@ -16,6 +16,7 @@ Tunable constants below.
 
 import json
 import os
+import shutil
 import socket
 import subprocess
 import sys
@@ -141,15 +142,31 @@ def save_state(state):
     STATE_FILE.write_text(json.dumps(state, indent=2))
 
 
+AWAIR_APP_BUNDLE_ID = "com.alexhedtke.energydashboard"  # Home Climate.app (shows the Awair air data)
+
+
 def notify(title, message, urgent=False):
     sound = "Basso" if urgent else "Purr"
     label = "Exobrain URGENT" if urgent else "Exobrain"
+    full_title = f"{label}: {title}"
+    # Post via terminal-notifier so clicking the notification opens Home Climate.
+    # Plain `osascript display notification` is owned by Script Editor, so a click
+    # opened Script Editor instead. Fall back to osascript if it isn't installed.
+    tn = shutil.which("terminal-notifier") or "/opt/homebrew/bin/terminal-notifier"
+    try:
+        if os.path.exists(tn):
+            subprocess.run(
+                [tn, "-title", full_title, "-message", message,
+                 "-sender", AWAIR_APP_BUNDLE_ID,
+                 "-execute", f"open -b {AWAIR_APP_BUNDLE_ID}", "-sound", sound],
+                check=False,
+            )
+            return
+    except Exception:
+        pass
     subprocess.run(
-        [
-            "osascript",
-            "-e",
-            f'display notification "{message}" with title "{label}: {title}" sound name "{sound}"',
-        ],
+        ["osascript", "-e",
+         f'display notification "{message}" with title "{full_title}" sound name "{sound}"'],
         check=False,
     )
 
