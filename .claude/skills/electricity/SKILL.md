@@ -18,7 +18,7 @@ the harness, and don't commit pulled data or housemate names anywhere.
 | Integration | Repo (local) | What it owns | On-demand read (no writes) |
 |-------------|--------------|--------------|----------------------------|
 | **Evergy** (folded into Claude Home) | `~/Documents/claude-home/integrations/evergy` | kWh + $ usage, cost, billing-cycle forecast | `.venv/bin/python energy-pull.py --json` |
-| **Nest** (`nest-hvac`) | `~/Documents/nest-hvac` | Per-floor live state + exact cooling runtime | `.venv/bin/python nest-poll.py --json` |
+| **Nest** (folded into Claude Home) | `~/Documents/claude-home/integrations/nest` | Per-floor live state + exact cooling runtime + doorbell | `.venv/bin/python nest-poll.py --json` |
 
 Always prefer the `--json` paths for a live read — they print current numbers
 and touch nothing. The scheduled jobs below own the writes.
