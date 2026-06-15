@@ -8,12 +8,41 @@ import json
 import sqlite3
 import os
 import re
+import shutil
 import subprocess
 import threading
 import time
 from datetime import datetime, timedelta
 from pathlib import Path
 from urllib.parse import unquote
+
+POMODORO_BUNDLE_ID = "com.exobrain.pomodoro"  # Pomodoro.app
+
+
+def desktop_notify(message, title="Pomodoro", sound="Hero"):
+    """Post a macOS notification that OPENS the Pomodoro app when clicked.
+
+    Plain `osascript display notification` posts a notification owned by Script
+    Editor, so clicking it opens Script Editor. terminal-notifier lets us set the
+    app as the sender and click target; we fall back to osascript if it's missing.
+    """
+    tn = shutil.which("terminal-notifier") or "/opt/homebrew/bin/terminal-notifier"
+    try:
+        if os.path.exists(tn):
+            subprocess.run(
+                [tn, "-title", title, "-message", message,
+                 "-sender", POMODORO_BUNDLE_ID,
+                 "-execute", f"open -b {POMODORO_BUNDLE_ID}", "-sound", sound],
+                check=False,
+            )
+            return
+    except Exception:
+        pass
+    subprocess.run(
+        ['osascript', '-e',
+         f'display notification "{message}" with title "{title}" sound name "{sound}"'],
+        check=False,
+    )
 
 OBSIDIAN_VAULT = Path(os.path.expanduser("~/Exobrain"))
 DAILY_NOTES = OBSIDIAN_VAULT / "Daily notes"
@@ -50,10 +79,7 @@ class API:
         if info is None:
             return
         sound = "Purr" if info["is_break"] else "Hero"
-        subprocess.run([
-            'osascript', '-e',
-            f'display notification "{info["message"]}" with title "Pomodoro" sound name "{sound}"'
-        ], check=False)
+        desktop_notify(info["message"], sound=sound)
 
     def _schedule(self, timer_id, seconds, message, is_break):
         timer = threading.Timer(seconds, self._notify_complete, args=[timer_id])
@@ -379,10 +405,7 @@ class API:
                     break
             POMODORO_LOG.write_text('\n'.join(lines))
 
-        subprocess.run([
-            'osascript', '-e',
-            'display notification "Logged" with title "Pomodoro" sound name "Glass"'
-        ], check=False)
+        desktop_notify("Logged", sound="Glass")
         return {'success': True}
 
     def get_today_sessions(self):
@@ -409,12 +432,8 @@ class API:
         ]
 
     def notify(self, message, is_break):
-        """Send macOS notification."""
-        sound = "Purr" if is_break else "Hero"
-        subprocess.run([
-            'osascript', '-e',
-            f'display notification "{message}" with title "Pomodoro" sound name "{sound}"'
-        ], check=False)
+        """Send macOS notification (clicking it opens the Pomodoro app)."""
+        desktop_notify(message, sound="Purr" if is_break else "Hero")
         return {'success': True}
 
 
