@@ -24,6 +24,7 @@ Use multiple sources and triangulate — no single source is authoritative for "
 4. **Firm careers portals direct** — the firm's own site is the most reliable signal that a role is still open. Cross-check aggregator hits against the firm portal.
 5. **ATS Boards APIs** (Greenhouse, Lever) — strongest positive verification path. See mode 1 step 3 below for direct API URLs.
 6. **Alex-provided URLs and pasted postings** — treat as a starting point, still run the audit + verification.
+7. **80,000 Hours job board** (https://jobs.80000hours.org) — ALWAYS include in every search (Alex standing instruction 2026-06-17). Aggregates high-impact roles at EA / AI-safety / AI-policy orgs that don't crosspost to LinkedIn or mainstream ATS. Use the board's role-type + location filters; surface ops / IT / security / compliance / analyst roles (US/remote), not just research. Connects to Alex's EA / AI-governance pivot track.
 
 ### Responsibility-keyword search (the title-blind-spot fix)
 
