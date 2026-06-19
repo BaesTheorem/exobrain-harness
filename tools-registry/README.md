@@ -22,6 +22,21 @@ tools — into the vault's `Dependencies/` folder, rendered by `Dependencies.bas
 top-level/intentional installs are listed (the `brew leaves` / `--not-required` filter), not
 the transitive dependencies underneath them.
 
+Finally, it records each project's **own dependency stack** into `Project Dependencies/`,
+rendered by `Project Dependencies.base`. For every project under `~/Documents` (depth ≤ 3)
+with a `.venv`, `requirements.txt`, `pyproject.toml`, or `package.json`, it lists top-level
+deps (venv `pip list --not-required` when present, else the manifest, plus `package.json`).
+The dependency list is a queryable frontmatter property, so `dependencies.contains("X")`
+finds every project using package X.
+
+## Three layers
+
+| Base | Answers |
+|------|---------|
+| `Tools.base` | What did I build? (apps, jobs, CLI tools) |
+| `Dependencies.base` | What machine-wide software does it run on? (runtimes, brew, global pip/npm) |
+| `Project Dependencies.base` | What does each individual project depend on? |
+
 ## Usage
 
 ```
