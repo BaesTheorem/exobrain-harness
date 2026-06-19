@@ -16,6 +16,12 @@ rewritten each run (notes are a disposable projection — never hand-edit them).
 CLI-only tools with no launcher and no launchd job are added by hand via the `SUPPLEMENTAL`
 list in the scanner.
 
+It also inventories the **downloaded substrate** those tools run on — language runtimes,
+Homebrew formulae/casks, global Python (`pip list --not-required`) and Node packages, and uv
+tools — into the vault's `Dependencies/` folder, rendered by `Dependencies.base`. Only
+top-level/intentional installs are listed (the `brew leaves` / `--not-required` filter), not
+the transitive dependencies underneath them.
+
 ## Usage
 
 ```

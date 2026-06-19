@@ -28,6 +28,9 @@ APPS_DIR = os.path.join(HOME, "Desktop", "Apps")
 LAUNCHAGENTS = os.path.join(HOME, "Library", "LaunchAgents")
 JOB_PREFIXES = ("com.exobrain.", "com.mist.", "com.nightwatch.", "com.alexhedtke.")
 VAULT_FOLDER = os.path.join(HOME, "Exobrain", "Tools")
+VAULT_DEPS = os.path.join(HOME, "Exobrain", "Dependencies")
+BREW = "/opt/homebrew/bin/brew"
+HB_PY = "/opt/homebrew/bin/python3"
 
 ILLEGAL = re.compile(r'[\\/:#^\[\]|*?"<>]')
 
@@ -145,6 +148,93 @@ def scan_jobs(loaded):
     return items
 
 
+def run(cmd):
+    try:
+        return subprocess.run(cmd, capture_output=True, text=True, timeout=90).stdout
+    except Exception:
+        return ""
+
+
+def scan_dependencies():
+    """Auto-discover the downloaded substrate: runtimes, brew, npm, pip, uv tools."""
+    deps = []
+
+    # Language runtimes
+    for name, path, args in [
+        ("Python (Homebrew)", HB_PY, ["--version"]),
+        ("Node.js", "/opt/homebrew/bin/node", ["--version"]),
+        ("npm", "/opt/homebrew/bin/npm", ["--version"]),
+        ("OpenJDK 17", "/opt/homebrew/opt/openjdk@17/bin/java", ["--version"]),
+        ("Ruby (system)", "/usr/bin/ruby", ["--version"]),
+    ]:
+        if os.path.exists(path):
+            ver = run([path] + args).strip().splitlines()
+            deps.append({"name": name, "kind": "runtime", "source": "homebrew/system",
+                         "version": (ver[0] if ver else ""), "path": path})
+
+    # Homebrew formulae (leaves only — intentionally installed, not transitive deps)
+    versions = {}
+    for line in run([BREW, "list", "--versions"]).splitlines():
+        parts = line.split()
+        if parts:
+            versions[parts[0]] = " ".join(parts[1:])
+    for leaf in run([BREW, "leaves"]).split():
+        deps.append({"name": leaf, "kind": "brew-formula", "source": "homebrew",
+                     "version": versions.get(leaf, ""), "path": ""})
+
+    # Homebrew casks
+    for cask in run([BREW, "list", "--cask"]).split():
+        deps.append({"name": cask, "kind": "brew-cask", "source": "homebrew",
+                     "version": versions.get(cask, ""), "path": ""})
+
+    # npm globals
+    for line in run(["/opt/homebrew/bin/npm", "ls", "-g", "--depth=0"]).splitlines():
+        m = re.search(r"([@\w/.-]+)@([\d.]+)\s*$", line.strip())
+        if m and "node_modules" not in line:
+            deps.append({"name": m.group(1), "kind": "npm-global", "source": "npm",
+                         "version": m.group(2), "path": ""})
+
+    # Global pip packages on the Homebrew python (where --break-system-packages installs land).
+    # --not-required = top-level intentional installs only (the pip analog of `brew leaves`),
+    # so transitive dependencies don't flood the registry.
+    skip = {"pip", "setuptools", "wheel"}
+    for line in run([HB_PY, "-m", "pip", "list", "--not-required"]).splitlines()[2:]:
+        parts = line.split()
+        if len(parts) >= 2 and parts[0].lower() not in skip:
+            note = ""
+            if parts[0].lower() == "playwright":
+                browsers = os.path.join(HOME, "Library", "Caches", "ms-playwright")
+                if os.path.isdir(browsers):
+                    note = "Browsers: " + ", ".join(sorted(os.listdir(browsers)))
+            deps.append({"name": parts[0], "kind": "pip-global", "source": "pip (homebrew py)",
+                         "version": parts[1], "path": "", "notes": note})
+
+    # uv tools
+    for line in run(["uv", "tool", "list"]).splitlines():
+        m = re.match(r"^(\S+)\s+v([\d.]+)", line.strip())
+        if m:
+            deps.append({"name": m.group(1), "kind": "uv-tool", "source": "uv",
+                         "version": m.group(2), "path": ""})
+
+    return deps
+
+
+def write_dep_note(item):
+    fm = [
+        "---",
+        "type: dependency",
+        f"kind: {item.get('kind')}",
+        f"source: {yaml_str(item.get('source'))}",
+        f"version: {yaml_str(item.get('version'))}",
+        f"dep_path: {yaml_str(item.get('path'))}",
+        "---",
+    ]
+    body = [item["notes"]] if item.get("notes") else []
+    note = "\n".join(fm) + "\n" + "\n".join(body) + "\n"
+    fn = ILLEGAL.sub(" ", item["name"]).strip()[:90] + ".md"
+    open(os.path.join(VAULT_DEPS, fn), "w").write(note)
+
+
 def yaml_str(v):
     if v is None or v == "":
         return '""'
@@ -176,22 +266,36 @@ def write_note(item):
     open(os.path.join(VAULT_FOLDER, fn), "w").write(note)
 
 
-def main():
-    os.makedirs(VAULT_FOLDER, exist_ok=True)
-    for fn in os.listdir(VAULT_FOLDER):
+def wipe(folder):
+    os.makedirs(folder, exist_ok=True)
+    for fn in os.listdir(folder):
         if fn.endswith(".md"):
-            os.remove(os.path.join(VAULT_FOLDER, fn))
+            os.remove(os.path.join(folder, fn))
 
+
+def main():
+    # Built tools (apps + scheduled jobs + cli)
+    wipe(VAULT_FOLDER)
     loaded = loaded_labels()
     items = scan_apps() + scan_jobs(loaded) + SUPPLEMENTAL
     for it in items:
         write_note(it)
-
     apps = sum(1 for i in items if i["category"] == "app")
     jobs = sum(1 for i in items if i["category"] == "scheduled-job")
     live = sum(1 for i in items if i.get("live"))
     print(f"Synced {len(items)} tools ({apps} apps, {jobs} jobs, {len(SUPPLEMENTAL)} cli) -> {VAULT_FOLDER}")
     print(f"Live right now: {live}")
+
+    # Downloaded substrate (runtimes, brew, npm, pip, uv)
+    wipe(VAULT_DEPS)
+    deps = scan_dependencies()
+    for d in deps:
+        write_dep_note(d)
+    by_kind = {}
+    for d in deps:
+        by_kind[d["kind"]] = by_kind.get(d["kind"], 0) + 1
+    print(f"Synced {len(deps)} dependencies -> {VAULT_DEPS}")
+    print("  " + ", ".join(f"{k}: {v}" for k, v in sorted(by_kind.items())))
 
 
 if __name__ == "__main__":
