@@ -68,6 +68,7 @@ This JSON file tracks every event previously surfaced, so the same event is not 
 4. **If new**: Add to the log with `firstSeen` and `lastSurfaced` set to today, then surface it.
 5. **Cleanup**: On each run, set `status` to `"surfaced-passed"` for any events whose `date` is before today.
 6. **If already logged with status "updated"**: Surface once to show the change, then set status back to `"active"`.
+7. **Sync to vault (always, at the end of every run)**: After the log is updated, run `python3 local-events/sync-to-vault.py`. This projects the log into one note per event under the vault's `Local Events/` folder, which the **`Local Events.base`** renders (views: This Week, Upcoming, Favorite Artists, Free, Passed, All). The log JSON stays the canonical store; the notes are a disposable projection (the folder is wiped and rewritten each run), so never hand-edit them. This is what keeps the vault view from going stale.
 
 ## Scoring Events
 
