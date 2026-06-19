@@ -19,6 +19,7 @@ Usage:  python3 tools-registry-scan.py
 import os
 import re
 import glob
+import json
 import socket
 import plistlib
 import subprocess
@@ -29,6 +30,9 @@ LAUNCHAGENTS = os.path.join(HOME, "Library", "LaunchAgents")
 JOB_PREFIXES = ("com.exobrain.", "com.mist.", "com.nightwatch.", "com.alexhedtke.")
 VAULT_FOLDER = os.path.join(HOME, "Exobrain", "Tools")
 VAULT_DEPS = os.path.join(HOME, "Exobrain", "Dependencies")
+VAULT_PROJDEPS = os.path.join(HOME, "Exobrain", "Project Dependencies")
+PROJECTS_ROOT = os.path.join(HOME, "Documents")
+PRUNE = {"node_modules", ".venv", "site-packages", ".git", "__pycache__"}
 BREW = "/opt/homebrew/bin/brew"
 HB_PY = "/opt/homebrew/bin/python3"
 
@@ -266,6 +270,120 @@ def write_note(item):
     open(os.path.join(VAULT_FOLDER, fn), "w").write(note)
 
 
+def parse_requirements(path):
+    names = []
+    for line in open(path, errors="ignore"):
+        line = line.strip()
+        if not line or line.startswith(("#", "-")):
+            continue
+        name = re.split(r"[=<>!~;\[\s]", line, maxsplit=1)[0].strip()
+        if name:
+            names.append(name)
+    return names
+
+
+def parse_pyproject(path):
+    try:
+        import tomllib
+        data = tomllib.load(open(path, "rb"))
+    except Exception:
+        return []
+    deps = data.get("project", {}).get("dependencies", []) or []
+    out = []
+    for d in deps:
+        m = re.match(r"[A-Za-z0-9_.-]+", d)
+        if m:
+            out.append(m.group(0))
+    return out
+
+
+def parse_package_json(path):
+    try:
+        data = json.load(open(path))
+    except Exception:
+        return []
+    names = list((data.get("dependencies") or {}).keys())
+    names += list((data.get("devDependencies") or {}).keys())
+    return names
+
+
+def venv_top_level(venv_python):
+    out = run([venv_python, "-m", "pip", "list", "--not-required"])
+    names = []
+    for line in out.splitlines()[2:]:
+        parts = line.split()
+        if len(parts) >= 2 and parts[0].lower() not in {"pip", "setuptools", "wheel"}:
+            names.append(parts[0])
+    return names
+
+
+def find_project_roots():
+    """Dirs under ~/Documents that declare dependencies (manifest or .venv), depth<=3."""
+    roots = set()
+    for dirpath, dirnames, filenames in os.walk(PROJECTS_ROOT):
+        depth = dirpath[len(PROJECTS_ROOT):].count(os.sep)
+        if depth >= 3:
+            dirnames[:] = []
+        dirnames[:] = [d for d in dirnames if d not in PRUNE and not d.startswith(".")]
+        if os.path.isdir(os.path.join(dirpath, ".venv")) or any(
+            f in filenames for f in ("requirements.txt", "pyproject.toml", "package.json")
+        ):
+            roots.add(dirpath)
+    return sorted(roots)
+
+
+def scan_project_deps():
+    projects = []
+    for root in find_project_roots():
+        deps, langs = [], set()
+        venv_py = os.path.join(root, ".venv", "bin", "python")
+        if os.path.exists(venv_py):
+            deps += venv_top_level(venv_py)
+            langs.add("python")
+        elif os.path.isfile(os.path.join(root, "requirements.txt")):
+            deps += parse_requirements(os.path.join(root, "requirements.txt"))
+            langs.add("python")
+        elif os.path.isfile(os.path.join(root, "pyproject.toml")):
+            deps += parse_pyproject(os.path.join(root, "pyproject.toml"))
+            langs.add("python")
+        if os.path.isfile(os.path.join(root, "package.json")):
+            deps += parse_package_json(os.path.join(root, "package.json"))
+            langs.add("node")
+        deps = sorted(set(deps), key=str.lower)
+        if not deps:
+            continue
+        rel = os.path.relpath(root, PROJECTS_ROOT)
+        projects.append({
+            "name": rel.replace(os.sep, " — "),
+            "repo_remote": git_remote(root),
+            "venv": ".venv" if os.path.exists(venv_py) else "",
+            "language": "+".join(sorted(langs)),
+            "dependencies": deps,
+            "path": root,
+        })
+    return projects
+
+
+def write_projdep_note(p):
+    fm = [
+        "---",
+        "type: project-deps",
+        f"project: {yaml_str(p['name'])}",
+        f"language: {yaml_str(p['language'])}",
+        f"dep_count: {len(p['dependencies'])}",
+        f"venv: {yaml_str(p['venv'])}",
+        f"repo_remote: {yaml_str(p.get('repo_remote'))}",
+        f"proj_path: {yaml_str(p['path'])}",
+        "dependencies:",
+    ]
+    fm += [f"  - {yaml_str(d)}" for d in p["dependencies"]]
+    fm.append("---")
+    body = ["Top-level dependencies: " + ", ".join(p["dependencies"])]
+    note = "\n".join(fm) + "\n" + "\n".join(body) + "\n"
+    fn = ILLEGAL.sub(" ", p["name"]).strip()[:90] + ".md"
+    open(os.path.join(VAULT_PROJDEPS, fn), "w").write(note)
+
+
 def wipe(folder):
     os.makedirs(folder, exist_ok=True)
     for fn in os.listdir(folder):
@@ -296,6 +414,14 @@ def main():
         by_kind[d["kind"]] = by_kind.get(d["kind"], 0) + 1
     print(f"Synced {len(deps)} dependencies -> {VAULT_DEPS}")
     print("  " + ", ".join(f"{k}: {v}" for k, v in sorted(by_kind.items())))
+
+    # Per-project dependency stacks
+    wipe(VAULT_PROJDEPS)
+    projects = scan_project_deps()
+    for p in projects:
+        write_projdep_note(p)
+    total_deps = sum(len(p["dependencies"]) for p in projects)
+    print(f"Synced {len(projects)} project dependency stacks ({total_deps} deps) -> {VAULT_PROJDEPS}")
 
 
 if __name__ == "__main__":
