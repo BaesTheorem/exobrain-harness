@@ -43,9 +43,21 @@ radius; it doesn't make the account untraceable. (For a throwaway F2P account, f
 
 | Scheme | Address shape | Ban-safe for main identity? | Setup |
 |---|---|---|---|
-| `addy` (use for game/risky accounts) | `random@anonaddy.me` (addy.io) | **YES** — separate domain, kill any alias | needs `secrets.json` |
+| `catchall` (**recommended** for risky accounts) | `<service>@yourdomain.com` | **YES** — own domain, no link to Gmail | a domain + Cloudflare Email Routing (free) |
+| `addy` | `random@anonaddy.me` (addy.io) | **YES** — separate domain, kill any alias | needs `secrets.json` |
 | `gmail-plus` (low-stakes only) | `alex.hedtke+<service>@gmail.com` | **NO** — normalizes to main address | none — works now |
 | `gmail-dot` (low-stakes only) | dotted username variant | **NO** — normalizes to main address | none |
+
+**Recommended ban-safe setup — Cloudflare Email Routing (free, no server):** register a cheap
+throwaway domain, point its nameservers at Cloudflare, enable Email Routing with a catch-all
+rule `*@yourdomain.com` → `alex.hedtke@gmail.com`. Then add `{"catchall_domain":"yourdomain.com"}`
+to `secrets.json` and use `--scheme catchall`. Any address you invent works instantly, looks
+legit, has no link to your Gmail, and forwards in so MIST reads the code. This beats both hosted
+addy.io and self-hosted AnonAddy for throwaway *inbound* signups (self-hosting AnonAddy needs a
+domain AND a VPS with port 25 + SPF/DKIM/DMARC + PTR + ongoing deliverability upkeep — worth it
+only if you need to *reply* from aliases). Also pair with a **VPN** to keep the throwaway off
+your home IP — but note OSRS flags VPN IPs, device fingerprinting survives a VPN, and never share
+a VPN exit between your main and throwaway accounts.
 
 Upgrade path for real disposability: **addy.io** (free, unlimited aliases, an API
 so MIST can auto-mint, forwards to Gmail). To enable, sign up at addy.io, set the
