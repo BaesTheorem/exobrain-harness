@@ -52,6 +52,15 @@ public class MistAgent {
             if (cmd.equals("gamestate")) return gamestate();
             if (cmd.equals("state")) return state();
             if (cmd.equals("npcs")) return npcs();
+            if (cmd.equals("stats")) return stats();
+            if (cmd.equals("hp")) return hp();
+            if (cmd.equals("inv")) return inv();
+            if (cmd.equals("eat")) return eat();
+            if (cmd.equals("players")) return players();
+            if (cmd.equals("target")) return target();
+            if (cmd.startsWith("threats")) { String w = cmd.length() > 7 ? cmd.substring(7).trim() : "*"; return threats(w.isEmpty() ? "*" : w); }
+            if (cmd.startsWith("widgetkids ")) return widgetkids(cmd.substring(11).trim());
+            if (cmd.startsWith("clickwidget ")) return clickWidget(cmd.substring(12).trim());
             if (cmd.startsWith("clicknpc ")) return clickNpc(cmd.substring(9).trim());
             if (cmd.startsWith("type ")) { typeText(cmd.substring(5)); return "OK typed " + (cmd.length() - 5) + " chars"; }
             if (cmd.equals("clear")) { for (int i = 0; i < 32; i++) specialKey("BACKSPACE"); return "OK clear"; }
@@ -225,6 +234,239 @@ public class MistAgent {
             clickCanvas(bestPt[0], bestPt[1]);
             return "OK clicknpc '" + best + "' @" + bestPt[0] + "," + bestPt[1];
         } catch (Throwable t) { return "CLICKNPC_ERR " + t; }
+    }
+
+    // ---- combat reads: skills / hp / inventory / players / threats ----
+    // precise-typed reflective invoke (call() matches by arg-count only, which is
+    // ambiguous for overloads taking an enum vs an int — these need exact types).
+    static Object callT(Object target, String cls, String method, Class<?>[] types, Object... args) throws Exception {
+        return Class.forName(cls).getMethod(method, types).invoke(target, args);
+    }
+    static Object skillEnum(String name) throws Exception {
+        @SuppressWarnings({"unchecked", "rawtypes"})
+        Object v = Enum.valueOf((Class) Class.forName("net.runelite.api.Skill"), name);
+        return v;
+    }
+
+    static String stats() {
+        try {
+            Object cl = client();
+            Class<?> skCls = Class.forName("net.runelite.api.Skill");
+            java.lang.reflect.Method gr = Class.forName("net.runelite.api.Client").getMethod("getRealSkillLevel", skCls);
+            java.lang.reflect.Method gb = Class.forName("net.runelite.api.Client").getMethod("getBoostedSkillLevel", skCls);
+            String[] names = {"ATTACK", "STRENGTH", "DEFENCE", "HITPOINTS", "RANGED", "MAGIC", "PRAYER"};
+            StringBuilder sb = new StringBuilder();
+            for (String n : names) {
+                Object s = skillEnum(n);
+                sb.append(n.substring(0, 3)).append("=").append(gb.invoke(cl, s)).append("/").append(gr.invoke(cl, s)).append(" ");
+            }
+            return sb.toString().trim();
+        } catch (Throwable t) { return "STATS_ERR " + t; }
+    }
+
+    static String hp() {
+        try {
+            Object cl = client();
+            Class<?> skCls = Class.forName("net.runelite.api.Skill");
+            Object HP = skillEnum("HITPOINTS");
+            int cur = (int) callT(cl, "net.runelite.api.Client", "getBoostedSkillLevel", new Class[]{skCls}, HP);
+            int max = (int) callT(cl, "net.runelite.api.Client", "getRealSkillLevel", new Class[]{skCls}, HP);
+            return "HP " + cur + " " + max;
+        } catch (Throwable t) { return "HP_ERR " + t; }
+    }
+
+    static Object inventoryContainer(Object cl) throws Exception {
+        Class<?> invId = Class.forName("net.runelite.api.InventoryID");
+        @SuppressWarnings({"unchecked", "rawtypes"})
+        Object INV = Enum.valueOf((Class) invId, "INVENTORY");
+        return callT(cl, "net.runelite.api.Client", "getItemContainer", new Class[]{invId}, INV);
+    }
+    static String itemName(Object cl, int id) {
+        try {
+            java.lang.reflect.Method m;
+            try { m = Class.forName("net.runelite.api.Client").getMethod("getItemDefinition", int.class); }
+            catch (NoSuchMethodException e) { m = Class.forName("net.runelite.api.Client").getMethod("getItemComposition", int.class); }
+            Object comp = m.invoke(cl, id);
+            return String.valueOf(comp.getClass().getMethod("getName").invoke(comp)).replace(' ', '_');
+        } catch (Throwable t) { return "item" + id; }
+    }
+    static String inv() {
+        try {
+            Object cl = client();
+            Object inv = inventoryContainer(cl);
+            if (inv == null) return "NO_INV";
+            Object[] items = (Object[]) Class.forName("net.runelite.api.ItemContainer").getMethod("getItems").invoke(inv);
+            StringBuilder sb = new StringBuilder();
+            for (int i = 0; i < items.length; i++) {
+                Object it = items[i];
+                int id = (int) it.getClass().getMethod("getId").invoke(it);
+                if (id <= 0) continue;
+                int q = (int) it.getClass().getMethod("getQuantity").invoke(it);
+                sb.append(i).append(":").append(id).append(":").append(itemName(cl, id)).append("x").append(q).append("; ");
+            }
+            return sb.length() == 0 ? "EMPTY_INV" : sb.toString();
+        } catch (Throwable t) { return "INV_ERR " + t; }
+    }
+
+    // common training/PvM foods (substring match against item names, lowercased)
+    static final String[] FOOD = {"shrimp", "sardine", "herring", "anchovies", "trout", "pike", "salmon",
+        "tuna", "cod", "lobster", "bass", "swordfish", "monkfish", "shark", "manta", "sea_turtle",
+        "anglerfish", "karambwan", "bread", "cake", "_pie", "pizza", "cooked", "stew", "curry",
+        "potato", "wine", "kebab", "jug_of_wine"};
+    static boolean isFood(String nm) {
+        String n = nm.toLowerCase();
+        for (String f : FOOD) if (n.contains(f)) return true;
+        return false;
+    }
+
+    // RuneLite getWidget(group, child) across fixed/resizable inventory ids; return the one with item children
+    static Object inventoryWidget(Object cl) throws Exception {
+        java.lang.reflect.Method gw = Class.forName("net.runelite.api.Client").getMethod("getWidget", int.class, int.class);
+        int[][] ids = {{149, 0}, {161, 0}, {164, 0}};   // fixed, resizable-classic, resizable-modern
+        for (int[] gc : ids) {
+            Object w = gw.invoke(cl, gc[0], gc[1]);
+            if (w == null) continue;
+            Object[] kids = (Object[]) w.getClass().getMethod("getDynamicChildren").invoke(w);
+            if (kids != null && kids.length > 0) return w;
+        }
+        return null;
+    }
+    static int[] widgetCenter(Object w) throws Exception {
+        Object loc = w.getClass().getMethod("getCanvasLocation").invoke(w);
+        if (loc == null) return null;
+        int x = (int) loc.getClass().getMethod("getX").invoke(loc);
+        int y = (int) loc.getClass().getMethod("getY").invoke(loc);
+        int wd = (int) w.getClass().getMethod("getWidth").invoke(w);
+        int ht = (int) w.getClass().getMethod("getHeight").invoke(w);
+        if (x < 0 || y < 0) return null;
+        return new int[]{x + wd / 2, y + ht / 2};
+    }
+    static String eat() {
+        try {
+            Object cl = client();
+            Object w = inventoryWidget(cl);
+            if (w == null) return "NO_INV_WIDGET";
+            Object[] kids = (Object[]) w.getClass().getMethod("getDynamicChildren").invoke(w);
+            for (Object k : kids) {
+                int id = (int) k.getClass().getMethod("getItemId").invoke(k);
+                if (id <= 0) continue;
+                if (!isFood(itemName(cl, id).replace('_', ' '))) continue;
+                int[] pt = widgetCenter(k);
+                if (pt == null) continue;
+                clickCanvas(pt[0], pt[1]);
+                return "OK eat " + itemName(cl, id) + " @" + pt[0] + "," + pt[1];
+            }
+            return "NO_FOOD";
+        } catch (Throwable t) { return "EAT_ERR " + t; }
+    }
+
+    static String players() {
+        try {
+            Object cl = client();
+            int plane = planeOf(cl);
+            Object lp = call(cl, "net.runelite.api.Client", "getLocalPlayer");
+            java.util.List<?> ps = (java.util.List<?>) call(cl, "net.runelite.api.Client", "getPlayers");
+            StringBuilder sb = new StringBuilder();
+            int n = 0;
+            for (Object p : ps) {
+                if (p == null || p == lp) continue;
+                Object nm = call(p, "net.runelite.api.Actor", "getName");
+                Object loc = call(p, "net.runelite.api.Actor", "getLocalLocation");
+                int[] pt = loc == null ? null : canvasPt(cl, loc, plane);
+                sb.append(nm).append(pt == null ? "@off" : "@" + pt[0] + "," + pt[1]).append("; ");
+                if (++n > 40) break;
+            }
+            return sb.length() == 0 ? "NO_PLAYERS" : sb.toString();
+        } catch (Throwable t) { return "PLAYERS_ERR " + t; }
+    }
+
+    static String target() {
+        try {
+            Object cl = client();
+            Object lp = call(cl, "net.runelite.api.Client", "getLocalPlayer");
+            if (lp == null) return "NO_PLAYER";
+            Object it = call(lp, "net.runelite.api.Actor", "getInteracting");
+            if (it == null) return "NONE";
+            return "TARGET " + call(it, "net.runelite.api.Actor", "getName");
+        } catch (Throwable t) { return "TARGET_ERR " + t; }
+    }
+
+    // NPCs currently interacting with (attacking) a player whose name contains <who> ("*" = any player)
+    static String threats(String who) {
+        try {
+            Object cl = client();
+            int plane = planeOf(cl);
+            java.util.List<?> ns = (java.util.List<?>) call(cl, "net.runelite.api.Client", "getNpcs");
+            String needle = who.toLowerCase();
+            StringBuilder sb = new StringBuilder();
+            for (Object npc : ns) {
+                if (npc == null) continue;
+                Object it = call(npc, "net.runelite.api.Actor", "getInteracting");
+                if (it == null) continue;
+                Object tn = call(it, "net.runelite.api.Actor", "getName");
+                if (tn == null) continue;
+                if (!who.equals("*") && !tn.toString().toLowerCase().contains(needle)) continue;
+                Object nm = call(npc, "net.runelite.api.Actor", "getName");
+                Object loc = call(npc, "net.runelite.api.Actor", "getLocalLocation");
+                int[] pt = loc == null ? null : canvasPt(cl, loc, plane);
+                sb.append(nm).append("->").append(tn).append(pt == null ? "@off" : "@" + pt[0] + "," + pt[1]).append("; ");
+            }
+            return sb.length() == 0 ? "NO_THREATS" : sb.toString();
+        } catch (Throwable t) { return "THREATS_ERR " + t; }
+    }
+
+    // ---- widget debugging / clicking (calibrate combat-style tab etc.) ----
+    static String widgetkids(String a) {
+        try {
+            String[] p = a.split("\\s+");
+            int g = Integer.parseInt(p[0]), c = p.length > 1 ? Integer.parseInt(p[1]) : 0;
+            Object cl = client();
+            Object w = Class.forName("net.runelite.api.Client").getMethod("getWidget", int.class, int.class).invoke(cl, g, c);
+            if (w == null) return "NO_WIDGET " + g + "," + c;
+            StringBuilder sb = new StringBuilder();
+            appendWidget(sb, w, "root");
+            Object[] dyn = (Object[]) w.getClass().getMethod("getDynamicChildren").invoke(w);
+            if (dyn != null) for (int i = 0; i < dyn.length; i++) appendWidget(sb, dyn[i], "d" + i);
+            Object[] st = (Object[]) w.getClass().getMethod("getStaticChildren").invoke(w);
+            if (st != null) for (int i = 0; i < st.length; i++) appendWidget(sb, st[i], "s" + i);
+            return sb.toString();
+        } catch (Throwable t) { return "WIDGETKIDS_ERR " + t; }
+    }
+    static void appendWidget(StringBuilder sb, Object w, String tag) {
+        if (w == null) return;
+        try {
+            Object loc = w.getClass().getMethod("getCanvasLocation").invoke(w);
+            int x = -1, y = -1;
+            if (loc != null) { x = (int) loc.getClass().getMethod("getX").invoke(loc); y = (int) loc.getClass().getMethod("getY").invoke(loc); }
+            int wd = (int) w.getClass().getMethod("getWidth").invoke(w);
+            int ht = (int) w.getClass().getMethod("getHeight").invoke(w);
+            Object txt = w.getClass().getMethod("getText").invoke(w);
+            int iid = (int) w.getClass().getMethod("getItemId").invoke(w);
+            boolean hid = (boolean) w.getClass().getMethod("isHidden").invoke(w);
+            sb.append(tag).append("[").append(x).append(",").append(y).append(" ").append(wd).append("x").append(ht)
+              .append(hid ? " HID" : "").append(iid > 0 ? " item" + iid : "")
+              .append(txt != null && !txt.toString().isEmpty() ? " '" + txt + "'" : "").append("] ");
+        } catch (Exception e) { sb.append(tag).append("[err] "); }
+    }
+    // clickwidget <group> <child> [dynIndex]  -> click the canvas center of a widget (or a dynamic child)
+    static String clickWidget(String a) {
+        try {
+            String[] p = a.split("\\s+");
+            int g = Integer.parseInt(p[0]), c = Integer.parseInt(p[1]);
+            Object cl = client();
+            Object w = Class.forName("net.runelite.api.Client").getMethod("getWidget", int.class, int.class).invoke(cl, g, c);
+            if (w == null) return "NO_WIDGET";
+            if (p.length > 2) {
+                Object[] dyn = (Object[]) w.getClass().getMethod("getDynamicChildren").invoke(w);
+                int di = Integer.parseInt(p[2]);
+                if (dyn == null || di >= dyn.length) return "NO_DYNCHILD";
+                w = dyn[di];
+            }
+            int[] pt = widgetCenter(w);
+            if (pt == null) return "WIDGET_HIDDEN";
+            clickCanvas(pt[0], pt[1]);
+            return "OK clickwidget @" + pt[0] + "," + pt[1];
+        } catch (Throwable t) { return "CLICKWIDGET_ERR " + t; }
     }
 
     static Canvas findCanvas() {
