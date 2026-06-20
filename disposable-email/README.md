@@ -20,13 +20,32 @@ Ask MIST: "mint me a throwaway email for X" and she runs `mint`, hands you the
 address, and when the verification arrives she reads it via Gmail and gives you the
 code/link.
 
+## ⚠ Ban risk / identity isolation (read before using for game accounts)
+
+`gmail-plus` and `gmail-dot` **normalize back to `alex.hedtke@gmail.com`** — everyone
+(Jagex included) strips the `+tag` and ignores dots. So if an account on one of those
+gets **banned**, the address that gets blacklisted is effectively your *main* Gmail:
+you couldn't reuse it for that service again, and any legit account on it starts dirty.
+(It can't get Google to suspend your Gmail — different companies — just poison it *for
+that service*.)
+
+**Rule:** anything that might get banned (game accounts, sketchy signups) → use
+`--scheme addy`. Jagex/etc. see `something@anonaddy.me` with no link to your Gmail; it
+still forwards in so MIST reads the code; a ban there never touches your real address.
+Plus/dot addressing is only for low-stakes stuff you'd never get banned from (newsletters,
+trials).
+
+Caveat: email is one linkage vector. Bans also link by **IP + device** — botting from
+the home IP/Mac is linkable regardless of email. Addy protects your *main email*'s blast
+radius; it doesn't make the account untraceable. (For a throwaway F2P account, fine.)
+
 ## Backends (schemes)
 
-| Scheme | Address shape | Disposability | Setup |
+| Scheme | Address shape | Ban-safe for main identity? | Setup |
 |---|---|---|---|
-| `gmail-plus` (default) | `alex.hedtke+<service>@gmail.com` | low (strip `+tag` → real addr) | none — works now |
-| `gmail-dot` | dotted username variant | low; for forms that reject `+` | none |
-| `addy` | `random@anonaddy.me` (addy.io) | **high** — kill any alias, real-looking | needs `secrets.json` |
+| `addy` (use for game/risky accounts) | `random@anonaddy.me` (addy.io) | **YES** — separate domain, kill any alias | needs `secrets.json` |
+| `gmail-plus` (low-stakes only) | `alex.hedtke+<service>@gmail.com` | **NO** — normalizes to main address | none — works now |
+| `gmail-dot` (low-stakes only) | dotted username variant | **NO** — normalizes to main address | none |
 
 Upgrade path for real disposability: **addy.io** (free, unlimited aliases, an API
 so MIST can auto-mint, forwards to Gmail). To enable, sign up at addy.io, set the
