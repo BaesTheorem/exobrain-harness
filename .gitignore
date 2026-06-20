@@ -75,3 +75,7 @@ claude-bot/**/__pycache__/
 
 # Scratch / temp extraction (junk — never commit)
 tmp-cannonballs/
+
+# disposable-email: alias registry (personal) + API secrets
+disposable-email/aliases.json
+disposable-email/secrets.json
