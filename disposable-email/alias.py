@@ -48,7 +48,7 @@ def _unique_tag(rows, service):
     """Clean tag per service; if the service already has a live alias, suffix -2, -3…
     (disposable: you can always mint a fresh one for the same service)."""
     base = _slug(service)
-    existing = {r["tag"] for r in rows if r.get("scheme", "").startswith("gmail")}
+    existing = {r.get("tag") for r in rows}
     if base not in existing:
         return base
     n = 2
@@ -68,6 +68,18 @@ def mint(service, scheme="gmail-plus", note=""):
         # insert a dot after a position derived from the service name (stable, readable)
         pos = (sum(ord(c) for c in tag) % (len(u) - 1)) + 1
         alias = f"{u[:pos]}.{u[pos:]}@{BASE_DOMAIN}"
+    elif scheme == "catchall":
+        # Catch-all domain (e.g. Cloudflare Email Routing *@domain -> Gmail). Any address
+        # works without pre-registering, so minting is just local string + registry log.
+        dom = None
+        if os.path.exists(SECRETS):
+            dom = json.load(open(SECRETS)).get("catchall_domain")
+        if not dom:
+            return ("CATCHALL_NOT_CONFIGURED: add {\"catchall_domain\":\"yourdomain.com\"} to "
+                    "%s (point the domain at Cloudflare, enable Email Routing catch-all "
+                    "*@domain -> %s)" % (SECRETS, BASE_EMAIL))
+        tag = _unique_tag(rows, service)        # reuse the -2/-3 uniqueness logic
+        alias = f"{tag}@{dom}"
     elif scheme == "addy":
         return addy_mint(service, note)
     else:
