@@ -160,6 +160,18 @@ Setup:
    Alora = `… Powered by RuneLite`). Don't run Alora + official at once — they'd both want
    agent port 43210 (BindException). Kill one first (or add a port arg later).
 
+**Disposable-account pipeline (ban containment).** Each throwaway is expendable; the goal is
+that a ban on #1 doesn't link to / block making + running #2 from the same Mac. The vectors
+that link accounts on one machine are MUTABLE and we reset them: the client-side UID files
+(`~/.runelite/random.dat` + `jagexcache/` — OSRS's real machine id), the IP (rotate VPN exit),
+and the email (fresh separate-domain alias). Immutable hardware specs are coarse/non-unique and
+OSRS has no kernel anti-cheat, so there's no reliable identity-wide "hardware ban"; MAC is
+local-only and not transmitted to Jagex. Residual re-link risk = BEHAVIORAL clustering (same
+spots/patterns), which is account-level attrition, not identity-wide. Run between throwaways:
+`scripts/reset-identity.sh` (wipes UID+cache; `--mac` paranoid-mode MAC spoof, usually
+unnecessary + flaky on modern macOS). Total hardware separation = run the stack on a separate
+device (Raspberry Pi), not this Mac.
+
 **BLOCKER — Jagex account auth.** New OSRS accounts are Jagex accounts (login screen shows
 New User / Existing User, not legacy email/pass). To log a Jagex account into our
 agent-injected RuneLite, the `JX_ACCESS_TOKEN` / `JX_REFRESH_TOKEN` / `JX_SESSION_ID` /
