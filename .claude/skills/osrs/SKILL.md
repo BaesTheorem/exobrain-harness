@@ -57,7 +57,17 @@ python3 osrs.py npcs           # on-screen NPCs: name@canvasX,canvasY
 python3 osrs.py shot /tmp/o.png  # capture the window (then Read it)
 python3 osrs.py clicknpc "Makeover Mage"   # walk to + talk to an NPC by name
 python3 osrs.py type "hi everyone"; python3 osrs.py key ENTER   # talk in public chat
+# --- combat ---
+python3 osrs.py cmd "::train"        # Alora teleport (any ::command / chat line)
+python3 osrs.py stats                # ATT/STR/DEF/HIT/RAN/MAG/PRA = boosted/real
+python3 osrs.py setstyle 3           # 0 accurate 1 aggressive 2 defensive 3 controlled
+python3 osrs.py train 30             # autonomous 30-min melee session (login, ::train, fight, eat)
+python3 osrs.py guard <AlexName> 30  # bodyguard: follow + kill what attacks the ward
 ```
+
+> Screenshots / `win` need PyObjC (Quartz), which lives only in **`/usr/bin/python3`** on this Mac
+> (the harness `python3` lacks it). Use `/usr/bin/python3 osrs.py shot ...`; all socket/agent
+> commands work under any python3.
 
 ## Tools (`scripts/osrs.py`)
 
@@ -72,7 +82,46 @@ python3 osrs.py type "hi everyone"; python3 osrs.py key ENTER   # talk in public
 | `click <x> <y>` | Click canvas coords |
 | `type <text>` / `key <ENTER\|SPACE\|BACKSPACE\|TAB\|ESC>` / `clear` | Keyboard into the focused game input |
 | `find` / `info` / `tree` | Canvas info / AWT frame inventory / Swing component tree (debugging) |
+| `walkmap <dx> <dy>` | Click the minimap offset from center (walk); +x east, +y south |
 | `send <raw>` | Send any raw command to the agent socket (127.0.0.1:43210) |
+| **`stats` / `hp`** | Skill levels `ATT=cur/max ...` / `HP cur max` (RuneLite reflection) |
+| **`inv`** | Inventory slots `slot:itemId:Name xQty` (names via ItemComposition) |
+| **`eat`** | Eat the first food item found in the inventory |
+| **`players`** | On-screen other players `name@cx,cy` (find/follow Alex) |
+| **`target`** | What MIST is interacting with (`TARGET <name>` / `NONE`) |
+| **`threats [name]`** | NPCs whose `getInteracting` == a player (default any; pass Alex's name) |
+| **`cmd <text>`** | Type a chat line / Alora `::command` and press ENTER |
+| **`attack [tokens…]`** | Click nearest on-screen NPC matching a name token (default: training targets) |
+| **`setstyle <0-3>`** | Switch attack style (opens combat tab if needed) |
+| **`reset [dist]`** | Walk out + back to reset crab aggression/tolerance |
+| **`train [min] [goto]`** | Autonomous melee loop (login → `::train` → fight/eat/upgrade/reset) |
+| **`guard <ward> [min]`** | Bodyguard loop: follow ward, kill NPCs attacking it, self-heal |
+
+## Combat
+
+Validated live on MISTci. Full strategy + sources: `~/Exobrain/Research/OSRS Combat Strategy.md`.
+
+- **Alora Normal XP is ×325** for combat (→×15 after 99). Training is near-instant by OSRS
+  standards: MISTci went combat 3 → ~62 in a few minutes of crabs. This is the defining fact.
+- **The training loop** = `::train` (teleports to Rock Crabs, world ~2688,3718) → walk into the
+  dormant **"Rocks"** so they wake into aggressive Rock Crabs (lvl 13, 50 HP, ~1 Defence) →
+  **Auto-Retaliate** (on by default) + **Controlled** style trains Att/Str/Def together. Clicking
+  a dormant `Rocks` walks MIST into it, which is what wakes it — so `attack` doubles as "go wake a crab".
+- **Crab tolerance**: crabs go dormant after ~10 min; `reset` walks a minimap-radius out and back
+  to re-aggro. Also a 20-min no-interaction logout exists — the loop clicks periodically to dodge it.
+- **Starter kit** (free on a new Alora Normal account) already holds the whole lvl 1→40 melee
+  setup: iron armour, iron + **rune scimitar**, amulet of strength/glory, climbing boots, **250
+  lobsters**, 250k gp. `train` auto-swaps iron→rune scimitar at 40 Attack.
+- **Eating / equipping by canvas slot** (Alora's old client revision exposes no inventory widget
+  children, so we click fixed-mode slot coords directly): `slot(i) = (563 + 42·(i%4), 213 + 36·(i//4))`.
+- **Attack-style tab** = widget group 593, style buttons static children s3-s6. Calibrated canvas
+  centers: Accurate(Chop) (602,272), Aggressive(Slash) (681,272), Defensive(Block) (681,326),
+  Controlled(Lunge) (602,326). Combat-tab toggle ≈ (530,168).
+- **Bodyguard reality (be honest with Alex)**: OSRS has **no taunt / aggro-redirect** — once an
+  NPC locks onto Alex you can't pull it off. `guard` therefore *kills threats fast* (reads each
+  NPC's `getInteracting`, attacks any targeting the ward), damage-shares in multi-combat, follows,
+  and self-heals. `threats` also surfaces **pets** (they "interact with" owners) — `guard` filters
+  obvious pet names, but it's an escort-that-kills, not a damage sponge.
 
 ## Conventions & gotchas
 
