@@ -28,7 +28,10 @@ import sys, os, socket, subprocess, time, json
 
 AGENT = ("127.0.0.1", 43210)
 OWNER = "RuneLite"
-TITLE_SUBSTR = "Powered by RuneLite"           # main game window (not the bare 'Alora' child)
+# Main game window title: Alora = "Alora - <char> - Powered by RuneLite"; official = "RuneLite"
+# (or "RuneLite - <char>"). Both contain "RuneLite"; aux windows (splash/menubar) have empty
+# titles, so we match owner=RuneLite + non-empty title + largest area.
+TITLE_SUBSTR = "RuneLite"
 TITLEBAR = 32                                   # macOS title bar height (window->content offset)
 JAVA = "/opt/homebrew/opt/openjdk@17/bin/java"
 CLIENT_JAR = os.path.expanduser("~/alora/client_runelite.jar")
@@ -38,23 +41,35 @@ CREDS = os.path.expanduser("~/Documents/osrs-companion/credentials.json")
 LOG = "/tmp/alora_agent.log"
 
 def pid():
-    try:
-        return int(subprocess.check_output(["pgrep", "-f", "client_runelite.jar"]).split()[0])
-    except Exception:
-        return None
+    # Alora client = client_runelite.jar; official RuneLite = net.runelite.client.RuneLite
+    for pat in ("client_runelite.jar", "net.runelite.client.RuneLite"):
+        try:
+            out = subprocess.check_output(["pgrep", "-f", pat]).split()
+            if out:
+                return int(out[0])
+        except Exception:
+            continue
+    return None
 
 def window():
     from Quartz import (CGWindowListCopyWindowInfo, kCGWindowListOptionAll, kCGNullWindowID)
     p = pid()
     if p is None:
         return None
+    best = None
     for w in CGWindowListCopyWindowInfo(kCGWindowListOptionAll, kCGNullWindowID):
+        name = str(w.get('kCGWindowName') or '')
         if w.get('kCGWindowOwnerPID') == p and OWNER in str(w.get('kCGWindowOwnerName', '')) \
-           and TITLE_SUBSTR in str(w.get('kCGWindowName', '')):
+           and TITLE_SUBSTR in name:
             b = w['kCGWindowBounds']
-            return dict(wid=int(w['kCGWindowNumber']), x=int(b['X']), y=int(b['Y']),
-                        w=int(b['Width']), h=int(b['Height']), name=str(w.get('kCGWindowName')))
-    return None
+            area = int(b['Width']) * int(b['Height'])
+            cand = dict(wid=int(w['kCGWindowNumber']), x=int(b['X']), y=int(b['Y']),
+                        w=int(b['Width']), h=int(b['Height']), name=name, _area=area)
+            if best is None or area > best['_area']:    # main game window = largest titled one
+                best = cand
+    if best:
+        best.pop('_area', None)
+    return best
 
 def shot(out="/tmp/osrs.png"):
     win = window()
@@ -81,6 +96,34 @@ def send(cmd, timeout=5):
         return data.decode(errors="replace").strip()
     except Exception as e:
         return "SOCKET_ERR %s" % e
+
+RL_REPO = os.path.expanduser("~/.runelite/repository2")   # official RuneLite client jars
+LOG_VANILLA = "/tmp/runelite_agent.log"
+
+def launch_vanilla():
+    """Launch the OFFICIAL RuneLite client (vanilla OSRS) with the mist-agent injected.
+    Validated 2026-06-20: -javaagent loads despite DisableAttachMechanism, reflection +
+    eyes + hands all work on the official client. Populate ~/.runelite/repository2 first by
+    running the RuneLite launcher once. Jagex-account login needs JX_* tokens in the env
+    (exported from a Jagex Launcher session) — without them you land on the login screen."""
+    if pid():
+        return "ALREADY_RUNNING pid=%d" % pid()
+    import glob
+    cp = ":".join(sorted(glob.glob(os.path.join(RL_REPO, "*.jar"))))
+    if not cp:
+        return "NO_RUNELITE_CLIENT: run the RuneLite launcher once to populate %s" % RL_REPO
+    cmd = [JAVA, "-javaagent:%s" % AGENT_JAR, "-cp", cp,
+           "-XX:+DisableAttachMechanism", "-Xmx768m", "-Xss2m", "-XX:CompileThreshold=1500",
+           "--add-opens=java.base/java.net=ALL-UNNAMED",
+           "--add-opens=java.base/java.io=ALL-UNNAMED",
+           "--add-opens=java.desktop/com.apple.eawt=ALL-UNNAMED",
+           "-Dsun.java2d.metal=false", "-Dsun.java2d.opengl=true",
+           "-Dapple.awt.application.appearance=system",
+           "-Drunelite.launcher.version=2.7.7",
+           "net.runelite.client.RuneLite"]
+    with open(LOG_VANILLA, "w") as f:
+        subprocess.Popen(cmd, stdout=f, stderr=subprocess.STDOUT, start_new_session=True)
+    return "LAUNCHED_VANILLA (JX_* in env: %s)" % ("yes" if os.environ.get("JX_ACCESS_TOKEN") else "no -> login screen")
 
 def launch():
     if pid():
@@ -425,6 +468,8 @@ def main():
         print(shot(a[1] if len(a) > 1 else "/tmp/osrs.png"))
     elif c == "launch":
         print(launch())
+    elif c == "launch-vanilla":
+        print(launch_vanilla())
     elif c == "login":
         print(login(a[1] if len(a) > 1 else "mist"))
     elif c == "walkmap":
