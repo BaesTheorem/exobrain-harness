@@ -141,6 +141,34 @@ Validated live on MISTci. Full strategy + sources: `~/Exobrain/Research/OSRS Com
   weak for twitch combat/PvP. Anti-cheat could flag a throwaway account — acceptable for PoC.
   This approach does NOT transfer to official Jagex OSRS (bannable, no agent) — future phase.
 
+## Vanilla / official OSRS (Jagex) — ported 2026-06-20
+
+The same stack runs on **official OSRS via RuneLite** (not Jagex's C++ client — that's not
+Java, so no agent/reflection). Proven live: the `-javaagent` loads despite
+`DisableAttachMechanism`, and reflection brain + eyes (`screencapture`) + hands (canvas
+clicks) all work on the official client at the login screen. **Ban risk is real and accepted
+(throwaway F2P account); vanilla is x1 XP so training is hours/days, not the Alora minutes.**
+
+Setup:
+1. `~/Documents/osrs-companion/vanilla/RuneLite.jar` = official launcher 2.7.7 (sha256
+   `a7ee00f0…`). Run it once (`java -jar RuneLite.jar`) to download the client into
+   `~/.runelite/repository2/` (client-/injected-client-/runelite-api- + deps).
+2. `python3 osrs.py launch-vanilla` — launches the official client with the agent (globs the
+   repository2 classpath; same JVM args RuneLite's launcher uses). All agent/combat/guard
+   commands then work identically (same socket, same `net.runelite.api`).
+3. `pid()`/`window()` match both clients (official window title = `RuneLite`, ~796×535;
+   Alora = `… Powered by RuneLite`). Don't run Alora + official at once — they'd both want
+   agent port 43210 (BindException). Kill one first (or add a port arg later).
+
+**BLOCKER — Jagex account auth.** New OSRS accounts are Jagex accounts (login screen shows
+New User / Existing User, not legacy email/pass). To log a Jagex account into our
+agent-injected RuneLite, the `JX_ACCESS_TOKEN` / `JX_REFRESH_TOKEN` / `JX_SESSION_ID` /
+`JX_CHARACTER_ID` env vars (minted by a Jagex Launcher session) must be in the environment
+before `launch-vanilla`. So: Alex creates a throwaway Jagex account + F2P character (email +
+CAPTCHA, his hands), runs the Jagex Launcher once; we capture the JX_* tokens and export them
+for `launch-vanilla`. No `::train` on vanilla — navigate to F2P spots (Lumbridge cows/chickens
+→ Al-Kharid warriors → Hill Giants Edgeville dungeon → Flesh Crawlers Stronghold) and walk in.
+
 ## Character
 
 MISTci is female with a styled appearance (Alora Makeover Mage gives the full design interface,
