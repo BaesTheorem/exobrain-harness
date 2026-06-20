@@ -162,7 +162,12 @@ def main():
             i = rest.index("--note"); note_txt = rest[i + 1]; del rest[i:i + 2]
         if not rest:
             print("usage: alias.py mint <service> [--scheme ...] [--note ...]"); return
-        print(mint(rest[0], scheme, note_txt))
+        out = mint(rest[0], scheme, note_txt)
+        print(out)
+        if scheme in ("gmail-plus", "gmail-dot") and out.endswith("@" + BASE_DOMAIN):
+            print("  ⚠ this NORMALIZES to %s — NOT safe for anything that might get banned"
+                  " (e.g. game accounts). Use --scheme addy for a separate-domain alias that"
+                  " can't poison your main email." % BASE_EMAIL)
     elif c == "list":
         print(list_aliases(a[2] if len(a) > 2 and a[1] == "--service" else None))
     elif c == "note":
