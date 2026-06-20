@@ -389,9 +389,15 @@ STYLE_XY = {0: (602, 272),             # Chop  -> Accurate (Attack)
 STYLE_NAME = {0: "accurate/Attack", 1: "aggressive/Strength", 2: "defensive/Defence", 3: "controlled/all"}
 
 def _combat_tab_open():
-    """True if the style buttons are on-screen (combat tab is the active side panel)."""
+    """True if the style buttons are on-screen (combat tab is the active side panel).
+    A hidden widget RETAINS its last canvas coords, so coords alone give a false positive
+    once the tab has ever been shown — must check the HID flag on the s3 entry."""
     dump = send("widgetkids 593 0")
-    return "s3[-1,-1" not in dump and "s3[" in dump
+    i = dump.find("s3[")
+    if i < 0:
+        return False
+    entry = dump[i:dump.find("]", i)]
+    return "HID" not in entry and "-1,-1" not in entry
 
 def setstyle(idx):
     """Switch attack style. Always opens the combat tab first (idempotent on Alora — clicking
