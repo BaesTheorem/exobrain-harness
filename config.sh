@@ -40,17 +40,13 @@ KEEP_MONTHLY=6    # newest archive of each of the last N calendar months
 # (the harness and vault are captured in full separately, so they're skipped).
 REPO_SCAN_ROOT="$HOME/Documents"
 
-# Extra git-repo scan roots beyond REPO_SCAN_ROOT, for checkouts nested deeper
-# than the maxdepth-2 sweep can reach (e.g. ~/Documents/Claude Code/mcp-fitbit-main,
-# whose .env + Fitbit token would otherwise never be captured). A single path
-# (may contain spaces); empty = disabled.
-REPO_SCAN_EXTRA="$HOME/Documents/Claude Code"
-
 # Out-of-tree files/dirs captured verbatim under a home-extras/ namespace in the
 # archive. These are secrets + local state that live OUTSIDE the harness, the
-# vault, and the git-repo sweep, so nothing else would catch them. Paths are
-# relative to $HOME; missing entries are silently skipped. The large/ephemeral
-# Claude dirs (projects/, channels/ except the Discord token, plugins/, etc.) are
+# vault, and the git-repo sweep (either above $HOME/Documents, or not git repos),
+# so nothing else would catch them. Paths are relative to $HOME; missing entries
+# are silently skipped. node_modules/.venv/caches/history-DB/logs are filtered in
+# backup-exobrain.sh, so listing a whole app dir stays lean. The large/ephemeral
+# Claude dirs (projects/, channels/ except the Discord token, plugins/) are
 # deliberately NOT listed — only the irreplaceable settings + the bot token.
 EXTRA_INCLUDES=(
     ".plaud"                                    # Plaud MCP OAuth token + device IDs
@@ -61,6 +57,7 @@ EXTRA_INCLUDES=(
     ".claude/statusline-command.sh"
     ".claude/channels/discord/.env"             # Discord bot token (channels/ is otherwise excluded)
     ".claude/channels/discord/access.json"
+    "Documents/Claude Code/mcp-fitbit-main"     # Fitbit MCP: .env + token + build (NOT a git repo)
     "Documents/ytmusic-manager/browser.json"    # YT Music auth (not a git repo)
     "Documents/osrs-companion/credentials.json" # OSRS agent auth (not a git repo)
     "Documents/home-assistant/config"           # HA hand-built config (history DB excluded below)

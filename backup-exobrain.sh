@@ -40,7 +40,6 @@ KEEP_DAILY="${KEEP_DAILY:-7}"
 KEEP_WEEKLY="${KEEP_WEEKLY:-4}"
 KEEP_MONTHLY="${KEEP_MONTHLY:-6}"
 REPO_SCAN_ROOT="${REPO_SCAN_ROOT:-$HOME/Documents}"
-REPO_SCAN_EXTRA="${REPO_SCAN_EXTRA:-}"
 LOCAL_BACKUP_DIR="${LOCAL_BACKUP_DIR:-}"
 # EXTRA_INCLUDES is an array in config.sh; default to empty if config predates it.
 if ! declare -p EXTRA_INCLUDES >/dev/null 2>&1; then EXTRA_INCLUDES=(); fi
@@ -119,7 +118,7 @@ EXTRA_LIST="$WORK/extras.list"
         else
             printf '%s\n' "$rel"
         fi
-    done | grep -Ev 'home-assistant_v2\.db|\.log(\.|$)|(^|/)(deps|tts)/|(^|/)\.DS_Store$|(^|/)__pycache__/|\.pyc$'
+    done | grep -Ev 'home-assistant_v2\.db|\.log(\.|$)|(^|/)(deps|tts|node_modules|\.venv|\.git)/|(^|/)\.DS_Store$|(^|/)__pycache__/|\.pyc$'
 ) > "$EXTRA_LIST" 2>/dev/null || true
 if [ -s "$EXTRA_LIST" ]; then
     extra_count=$(wc -l < "$EXTRA_LIST" | tr -d ' ')
@@ -169,7 +168,7 @@ while IFS= read -r gitdir; do
     # -s prepends the namespace so repos can't collide on a shared relative path.
     tar -rf "$COLLECTIVE_TAR" -s "|^|repos-gitignored/$name/|" -C "$repo" -T "$list"
     rm -f "$list"
-done < <(find "$REPO_SCAN_ROOT" ${REPO_SCAN_EXTRA:+"$REPO_SCAN_EXTRA"} -maxdepth 2 -type d -name .git 2>/dev/null)
+done < <(find "$REPO_SCAN_ROOT" -maxdepth 2 -type d -name .git 2>/dev/null)
 
 # --- Compress, verify, then publish to Drive ----------------------------------
 echo "[$(date)] Compressing..."

@@ -92,12 +92,15 @@ If `gh`/clone is down, extract the harness whole from the tarball instead (its t
 ### Phase 4 — Out-of-tree credentials
 As of the **2026-06-21 backup fixes**, the items that used to be missing are now in the tarball — overlay them, don't hunt:
 ```bash
-# home-extras/ → ~/.plaud, global ~/.claude settings + CLAUDE.md + global .mcp.json
-# + Discord bot token (channels/discord/.env), plus non-git app auth
-# (ytmusic browser.json, osrs credentials.json, home-assistant config).
+# home-extras/ restores everything the git sweep + harness/vault trees miss:
+#   ~/.plaud; global ~/.claude settings + CLAUDE.md + global .mcp.json + Discord
+#   bot token (channels/discord/.env); the whole Fitbit MCP at
+#   "Documents/Claude Code/mcp-fitbit-main" (a non-git vendored copy — .env, token,
+#   and build/ come back, node_modules does not); ytmusic browser.json; osrs
+#   credentials.json; home-assistant config.
 rsync -a ~/restore-staging/home-extras/ "$HOME/"
-# Fitbit MCP creds now ride in repos-gitignored/mcp-fitbit-main/ — clone/rebuild
-# the repo under ~/Documents/Claude Code/ first (Phase 5), then overlay its .env + token.
+# Fitbit MCP needs its deps reinstalled (node_modules was excluded to stay lean):
+( cd "$HOME/Documents/Claude Code/mcp-fitbit-main" && npm install )   # build/index.js is already restored
 ```
 - From `~/restore-staging/repos-gitignored/<repo>/`: phone GCP keys, bus/.env, disposable-email secrets, tv/token.json, etc. — rsync these in Phase 5 *after* each repo is cloned, not before, or the clone fails on a non-empty dir.
 - **Older archives (pre-2026-06-21)** have no `home-extras/`: re-auth instead — Plaud via `mcp__plaud__login`, Fitbit via its OAuth flow, and recreate `~/.claude` globals by hand.
