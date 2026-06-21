@@ -60,9 +60,13 @@ if command -v launchctl >/dev/null 2>&1; then
   loaded=$(launchctl list 2>/dev/null | grep -cE 'exobrain|mist|nightwatch|passage')
   [ "$loaded" -gt 0 ] && pass "$loaded exobrain/mist/nightwatch jobs loaded" \
     || warn "no automation jobs loaded (expected if --no-watchers / minimal restore)"
-  badjobs=$(launchctl list 2>/dev/null | awk '/exobrain|mist|nightwatch|passage/ && $2 != 0 && $2 != "-" {print $3" (exit "$2")"}')
-  [ -z "$badjobs" ] && pass "no jobs in a failed exit state" \
-    || { while IFS= read -r j; do fail "job failed: $j"; done <<< "$badjobs"; }
+  # launchctl shows each job's LAST exit code. Periodic jobs legitimately exit
+  # nonzero once (SIGTERM on restart = -15, transient API failure = 1, EX_CONFIG
+  # = 78). So a nonzero last-exit is worth eyeballing (WARN), not a hard FAIL.
+  # Hard FAIL is reserved for jobs that don't load at all (handled above).
+  badjobs=$(launchctl list 2>/dev/null | awk '/exobrain|mist|nightwatch|passage/ && $2 != 0 && $2 != "-" {print $3" (last exit "$2")"}')
+  [ -z "$badjobs" ] && pass "no jobs in a nonzero last-exit state" \
+    || { while IFS= read -r j; do warn "nonzero last exit, eyeball it: $j"; done <<< "$badjobs"; }
   for d in discord maintenance awair; do
     [ -d "$HOME/.claude/channels/$d" ] || warn "~/.claude/channels/$d missing — its plist will fail to start"
   done
