@@ -89,13 +89,20 @@ ls "$HOME/Documents/Exobrain harness/.mcp.json"
 ```
 If `gh`/clone is down, extract the harness whole from the tarball instead (its tracked code is in there).
 
-### Phase 4 — Out-of-tree credentials  (the part the backup currently misses)
-Place each, then verify. Items marked ⚠ are likely **absent from the backup** (see the recon's gap table) — restore from wherever Alex stored them, or re-auth:
-- `~/.claude/` globals (`settings.json` with `bypassPermissions`, `CLAUDE.md`, global `.mcp.json`, `channels/discord/.env` Discord token) ⚠
-- `~/.plaud/` (Plaud OAuth token + device IDs) ⚠ — or re-auth later via `mcp__plaud__login`
-- `~/Documents/Claude Code/mcp-fitbit-main/` `.env` + `.fitbit-token.json` ⚠ — or re-run Fitbit OAuth
-- From `~/restore-staging/repos-gitignored/<repo>/`: phone GCP keys, bus/.env, disposable-email secrets, tv/token.json, etc. (these ARE in the backup — but rsync them in Phase 5 *after* each repo is cloned, not before, or the clone fails on a non-empty dir).
+### Phase 4 — Out-of-tree credentials
+As of the **2026-06-21 backup fixes**, the items that used to be missing are now in the tarball — overlay them, don't hunt:
+```bash
+# home-extras/ → ~/.plaud, global ~/.claude settings + CLAUDE.md + global .mcp.json
+# + Discord bot token (channels/discord/.env), plus non-git app auth
+# (ytmusic browser.json, osrs credentials.json, home-assistant config).
+rsync -a ~/restore-staging/home-extras/ "$HOME/"
+# Fitbit MCP creds now ride in repos-gitignored/mcp-fitbit-main/ — clone/rebuild
+# the repo under ~/Documents/Claude Code/ first (Phase 5), then overlay its .env + token.
+```
+- From `~/restore-staging/repos-gitignored/<repo>/`: phone GCP keys, bus/.env, disposable-email secrets, tv/token.json, etc. — rsync these in Phase 5 *after* each repo is cloned, not before, or the clone fails on a non-empty dir.
+- **Older archives (pre-2026-06-21)** have no `home-extras/`: re-auth instead — Plaud via `mcp__plaud__login`, Fitbit via its OAuth flow, and recreate `~/.claude` globals by hand.
 - **Cloud MCPs** (Gmail, Calendar, Drive, MyChart, LinkedIn, Plaud): not restorable from disk — reconnect each at claude.ai → Integrations.
+- **Stale OAuth that rotates regardless of backup:** Withings refresh token, and the Google `token.json` in envelope-budget / inbox-clone / nest — expect a 401 on first call and re-auth in browser.
 
 ### Phase 5 — Sibling repos
 ```bash
@@ -141,8 +148,8 @@ mkdir -p ~/.claude/channels/discord ~/.claude/channels/maintenance ~/.claude/cha
 #   launchctl bootstrap gui/$(id -u) ~/Library/LaunchAgents/<name>.plist
 launchctl list | grep -E 'exobrain|mist|nightwatch|passage'   # every job: recent PID, exit 0
 ```
-> [!note] Orphaned plist bodies
-> 8 jobs (5× `com.mist.routine.*`, 3× `com.nightwatch.*`, plus `tools-registry` and `mist-hotkey-agent`) have **no plist source committed in any repo** — only their scripts survive. Until the backup fix lands (commit the bodies into `mist-console/launchd/`, `night-watch/launchd/`, `tools-registry/`), you must hand-recreate these plist XML bodies or extract them from a machine that still has them. Flag this to Alex; otherwise these silently never run (weeks to notice: no nightly auto-commit, no evening/weekly review).
+> [!note] Where the plist bodies live
+> The formerly-orphaned job definitions are now committed (2026-06-21): `mist-console/launchd/` (5× `com.mist.routine.*` + `mist-hotkey-agent`), `night-watch/launchd/` (3× `com.nightwatch.*`), and in the harness at `maintenance/` (`headless-chrome-reaper`) and `tools-registry/`. The copy loop above must source plists from those dirs too. (Restoring a pre-2026-06-21 archive? Those bodies won't be in it — hand-recreate from the list in the recon note, or pull from a machine that still has them.)
 
 ## On completion
 Report what's live vs. still manual (cloud MCP re-auths, stale-OAuth re-auths for envelope-budget/inbox-clone/nest, any orphaned plists not recreated). Recommend writing a `/session-memory`. Remind Alex the vault was left to Sync unless he opted into `--vault-from-backup`.

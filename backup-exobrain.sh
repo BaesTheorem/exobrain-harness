@@ -40,6 +40,10 @@ KEEP_DAILY="${KEEP_DAILY:-7}"
 KEEP_WEEKLY="${KEEP_WEEKLY:-4}"
 KEEP_MONTHLY="${KEEP_MONTHLY:-6}"
 REPO_SCAN_ROOT="${REPO_SCAN_ROOT:-$HOME/Documents}"
+REPO_SCAN_EXTRA="${REPO_SCAN_EXTRA:-}"
+LOCAL_BACKUP_DIR="${LOCAL_BACKUP_DIR:-}"
+# EXTRA_INCLUDES is an array in config.sh; default to empty if config predates it.
+if ! declare -p EXTRA_INCLUDES >/dev/null 2>&1; then EXTRA_INCLUDES=(); fi
 
 TIMESTAMP=$(date +%Y%m%d_%H%M%S)
 ARCHIVE_NAME="exobrain-collective-$TIMESTAMP.tar.gz"
@@ -99,6 +103,30 @@ tar -rf "$COLLECTIVE_TAR" \
     -C "$VAULT_PARENT" \
     "$VAULT_BASENAME"
 
+# 2b. Out-of-tree extras — secrets/state that live OUTSIDE the harness, the vault,
+#     and the git-repo sweep, so nothing else would catch them: the Plaud token,
+#     global ~/.claude settings + the Discord bot token, and a couple of non-git
+#     app auth files. Namespaced under home-extras/ so restore is unambiguous. The
+#     Home Assistant history DB and junk are filtered out (huge + regenerable).
+echo "[$(date)] Adding out-of-tree extras"
+EXTRA_LIST="$WORK/extras.list"
+(
+    cd "$HOME" || exit 0
+    for rel in ${EXTRA_INCLUDES[@]+"${EXTRA_INCLUDES[@]}"}; do
+        [ -e "$rel" ] || continue
+        if [ -d "$rel" ]; then
+            find "$rel" -type f
+        else
+            printf '%s\n' "$rel"
+        fi
+    done | grep -Ev 'home-assistant_v2\.db|\.log(\.|$)|(^|/)(deps|tts)/|(^|/)\.DS_Store$|(^|/)__pycache__/|\.pyc$'
+) > "$EXTRA_LIST" 2>/dev/null || true
+if [ -s "$EXTRA_LIST" ]; then
+    extra_count=$(wc -l < "$EXTRA_LIST" | tr -d ' ')
+    echo "[$(date)]   + home-extras ($extra_count files)"
+    tar -rf "$COLLECTIVE_TAR" -s "|^|home-extras/|" -C "$HOME" -T "$EXTRA_LIST"
+fi
+
 # 3. Every sibling repo's gitignored data, namespaced under repos-gitignored/.
 #    Auto-discovers repos so new ones are covered without editing this script.
 #
@@ -141,7 +169,7 @@ while IFS= read -r gitdir; do
     # -s prepends the namespace so repos can't collide on a shared relative path.
     tar -rf "$COLLECTIVE_TAR" -s "|^|repos-gitignored/$name/|" -C "$repo" -T "$list"
     rm -f "$list"
-done < <(find "$REPO_SCAN_ROOT" -maxdepth 2 -type d -name .git 2>/dev/null)
+done < <(find "$REPO_SCAN_ROOT" ${REPO_SCAN_EXTRA:+"$REPO_SCAN_EXTRA"} -maxdepth 2 -type d -name .git 2>/dev/null)
 
 # --- Compress, verify, then publish to Drive ----------------------------------
 echo "[$(date)] Compressing..."
@@ -155,6 +183,26 @@ tar -tzf "$WORK/$ARCHIVE_NAME" >/dev/null 2>&1 || fail "collective archive is co
 mv -f "$WORK/$ARCHIVE_NAME" "$ARCHIVE_PATH"
 BACKUP_SIZE=$(du -h "$ARCHIVE_PATH" | cut -f1)
 echo "[$(date)] Backup verified: $ARCHIVE_PATH ($BACKUP_SIZE)"
+
+# --- Optional secondary copy to an off-Google destination ---------------------
+# Google Drive is both the backup target AND a primary data source, so a single
+# account lockout takes both at once. A copy on an external disk / other cloud
+# mount breaks that single point of failure. Disabled unless LOCAL_BACKUP_DIR is
+# set (config.sh). Copy via a .tmp then atomic mv so a partial is never mistaken
+# for a complete archive.
+if [ -n "$LOCAL_BACKUP_DIR" ]; then
+    if [ -d "$LOCAL_BACKUP_DIR" ]; then
+        if cp "$ARCHIVE_PATH" "$LOCAL_BACKUP_DIR/$ARCHIVE_NAME.tmp" \
+           && mv -f "$LOCAL_BACKUP_DIR/$ARCHIVE_NAME.tmp" "$LOCAL_BACKUP_DIR/$ARCHIVE_NAME"; then
+            echo "[$(date)] Secondary copy: $LOCAL_BACKUP_DIR/$ARCHIVE_NAME"
+        else
+            echo "[$(date)] WARN: secondary copy to $LOCAL_BACKUP_DIR failed" >&2
+            rm -f "$LOCAL_BACKUP_DIR/$ARCHIVE_NAME.tmp" 2>/dev/null || true
+        fi
+    else
+        echo "[$(date)] WARN: LOCAL_BACKUP_DIR set but not present: $LOCAL_BACKUP_DIR (skipping)" >&2
+    fi
+fi
 
 # --- Prune with grandfather-father-son retention ------------------------------
 # Single-copy GFS: compute the union of archives needed by the daily, weekly,
