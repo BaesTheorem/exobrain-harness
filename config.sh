@@ -40,6 +40,38 @@ KEEP_MONTHLY=6    # newest archive of each of the last N calendar months
 # (the harness and vault are captured in full separately, so they're skipped).
 REPO_SCAN_ROOT="$HOME/Documents"
 
+# Extra git-repo scan roots beyond REPO_SCAN_ROOT, for checkouts nested deeper
+# than the maxdepth-2 sweep can reach (e.g. ~/Documents/Claude Code/mcp-fitbit-main,
+# whose .env + Fitbit token would otherwise never be captured). A single path
+# (may contain spaces); empty = disabled.
+REPO_SCAN_EXTRA="$HOME/Documents/Claude Code"
+
+# Out-of-tree files/dirs captured verbatim under a home-extras/ namespace in the
+# archive. These are secrets + local state that live OUTSIDE the harness, the
+# vault, and the git-repo sweep, so nothing else would catch them. Paths are
+# relative to $HOME; missing entries are silently skipped. The large/ephemeral
+# Claude dirs (projects/, channels/ except the Discord token, plugins/, etc.) are
+# deliberately NOT listed — only the irreplaceable settings + the bot token.
+EXTRA_INCLUDES=(
+    ".plaud"                                    # Plaud MCP OAuth token + device IDs
+    ".claude/settings.json"                     # global Claude Code settings (bypassPermissions etc.)
+    ".claude/settings.local.json"
+    ".claude/CLAUDE.md"                         # global persona / user instructions
+    ".claude/.mcp.json"                         # global things3 MCP definition
+    ".claude/statusline-command.sh"
+    ".claude/channels/discord/.env"             # Discord bot token (channels/ is otherwise excluded)
+    ".claude/channels/discord/access.json"
+    "Documents/ytmusic-manager/browser.json"    # YT Music auth (not a git repo)
+    "Documents/osrs-companion/credentials.json" # OSRS agent auth (not a git repo)
+    "Documents/home-assistant/config"           # HA hand-built config (history DB excluded below)
+)
+
+# Optional second backup destination OFF Google Drive (external disk or another
+# cloud mount). Empty = disabled. Google Drive is both the backup target AND a
+# primary data source, so a single account lockout takes both at once; a copy
+# here breaks that single point of failure. Each verified archive is copied here.
+LOCAL_BACKUP_DIR=""
+
 # External dependencies (outside the harness)
 FITBIT_TOKEN="$HOME/Documents/Claude Code/mcp-fitbit-main/.fitbit-token.json"
 
