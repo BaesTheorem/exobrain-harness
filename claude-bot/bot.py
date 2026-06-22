@@ -11,6 +11,12 @@ Run:  .venv/bin/python bot.py
 
 from __future__ import annotations
 
+try:
+    import setproctitle
+    setproctitle.setproctitle("MIST Discord Bot")
+except ImportError:
+    pass  # cosmetic process name only; never block startup on it
+
 import importlib
 import logging
 import pkgutil
