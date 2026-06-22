@@ -4,3 +4,4 @@
 discord.py>=2.4
 anthropic>=0.40
 # audioop-lts is pulled in automatically on Python 3.13+ (stdlib audioop removed)
+setproctitle
