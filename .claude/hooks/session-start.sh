@@ -103,6 +103,28 @@ else
   ISSUES=$((ISSUES + 1))
 fi
 
+# Nest (SDM) refresh-token freshness. The OAuth consent screen is in "Testing"
+# status, so Google expires the refresh token 7 days after it's minted. The
+# refresh path never rewrites token.json, so its mtime IS the mint time — warn
+# off file age before it silently dies and takes live HVAC + pre-cool with it.
+NEST_TOKEN="$HOME/Documents/claude-home/integrations/nest/token.json"
+if [ -f "$NEST_TOKEN" ]; then
+  NEST_AGE_DAYS=$(( ($(date +%s) - $(stat -f %m "$NEST_TOKEN")) / 86400 ))
+  DAYS_LEFT=$(( 7 - NEST_AGE_DAYS ))
+  if [ "$DAYS_LEFT" -le 0 ]; then
+    echo "WARN: Nest token likely expired (${NEST_AGE_DAYS}d old, >7d) — re-auth: nest-auth.py"
+    ISSUES=$((ISSUES + 1))
+  elif [ "$DAYS_LEFT" -le 2 ]; then
+    echo "WARN: Nest token expires in ~${DAYS_LEFT}d — re-auth soon: nest-auth.py"
+    ISSUES=$((ISSUES + 1))
+  else
+    echo "OK: Nest token (valid ~${DAYS_LEFT}d more)"
+  fi
+else
+  echo "WARN: Nest token missing — run nest-auth.py to reconnect HVAC"
+  ISSUES=$((ISSUES + 1))
+fi
+
 # launchd jobs
 PLAUD_LOADED=$(launchctl list 2>/dev/null | grep -c "plaud-watcher")
 DIGEST_LOADED=$(launchctl list 2>/dev/null | grep -c "discord-digest")
