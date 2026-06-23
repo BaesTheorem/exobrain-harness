@@ -1,0 +1,6 @@
+# Captured RF/IR/NFC signals and SD backups are personal data — never commit.
+sd-backup/
+*.sub
+*.ir
+*.nfc
+*.rfid
