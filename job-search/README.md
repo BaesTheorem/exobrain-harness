@@ -33,3 +33,18 @@ then reload as above.
 The LinkedIn MCP is interactively authenticated and may be absent in a launchd run. The scan
 degrades gracefully to the web lanes (Google X-ray + 80k Hours), which always work, and notes
 in the hub-note log which lanes actually ran.
+
+### LinkedIn-lane backfill flag
+When a headless run can't reach the LinkedIn MCP, it raises a flag so the next *interactive*
+session backfills that lane before anything else:
+
+- The headless run prints `LINKEDIN_LANE: RAN` or `LINKEDIN_LANE: SKIPPED` as its last line.
+- `run-job-scan.sh` parses that marker and owns the sentinel
+  `job-search/.linkedin-scan-pending` (gitignored, transient): `SKIPPED` stamps today's date
+  into it, `RAN` clears it, a missing marker (timeout/crash) leaves it untouched.
+- `.claude/hooks/session-start.sh` checks for the sentinel and, if present, prints a loud
+  "ACTION FIRST" banner at the very top of the session telling it to run the LinkedIn lane,
+  then `rm` the flag. A later successful scan (headless or interactive) also clears it.
+
+So a missed LinkedIn lane is self-healing: either the next day's headless run reaches it, or
+the next interactive session is told to fill the gap manually.
