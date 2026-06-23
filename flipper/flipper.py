@@ -149,9 +149,14 @@ class Flipper:
         return out.strip("\r\n")
 
     def write_file(self, local_path, flipper_path):
-        """Push a local file to the Flipper via `storage write`."""
+        """Push a local file to the Flipper via `storage write`.
+
+        Flipper's `storage write` opens in APPEND mode, so remove any existing
+        file first to get true overwrite semantics.
+        """
         with open(local_path, "rb") as f:
             data = f.read()
+        self.cmd(f"storage remove {flipper_path}")  # ignore "not exist"
         self.ser.reset_input_buffer()
         self.ser.write(f"storage write {flipper_path}\r".encode())
         time.sleep(0.4)
