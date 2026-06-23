@@ -50,6 +50,28 @@ Read the PDF at the start of any audit or cover letter to ensure you're working 
 
 **Key background**: Read the resume PDF at the path above at runtime to get current experience, skills, certifications, and leadership history. Do not hardcode resume details in this skill — the PDF is the source of truth and may be updated independently.
 
+## Resume + Cover Letter Generation (use the builder)
+
+Do NOT hand-build resume/cover-letter HTML per JD anymore. Use the reusable builder at `Exobrain harness/resume-builder/` (see its README):
+
+- **Tailored resume**: write a surgical `tailoring/<company>.json` (overrides: `summary`, `skills_append` per row, `experience_bullets` per job id `clyde`/`geeksquad`), then `python3 build.py resume --tailor tailoring/<company>.json`. Output: `~/Downloads/Alex_Hedtke_Resume_<Tag>.pdf`.
+- **Cover letter**: write the letter body (date line down) to a `.md`, run `/de-ai` on it, then `python3 build.py cover --md <file>.md --company "<Name>" --tag <Tag>`. Output: `~/Downloads/Alex_Hedtke_Cover_Letter_<Tag>.pdf`.
+- Canonical resume content lives in `resume-builder/data/resume_data.json` (source of truth). Tailoring rules are still surgical-only per [[Claude Reference]]; the builder does not relax them.
+- The builder bakes in the document-side ATS / AI-screening defenses (clean metadata, selectable single-column text, human filename, no Skia/Chrome fingerprint). The **prose** defense is still yours: run `/de-ai` on every tailored summary/bullet and cover letter. Full rationale: [[ATS & AI-Screening Playbook]] (`Projects/Get new job/`). Read it before tailoring.
+
+## Contact Research (MANDATORY for every qualifying JD)
+
+For **every** posting that clears the 4 hard gates (not just Strong Fits), research the people around the role and record them on the listing note. This is required at audit time, in scan mode, in the apply pipeline, and in the daily-briefing scan — any time a listing note is created or promoted. Read `/linkedin` first (READ-ONLY, human-paced; never send or connect). For each qualifying JD, identify and capture:
+
+1. **Recruiter(s) / Talent Acquisition** — esp. anyone covering IT/security/technical reqs. `get_company_employees` filtered by ("recruiter" OR "talent").
+2. **Hiring manager (and the chain above)** — IT/Security Manager, IT Director, Information Security Manager, CISO, or whoever the role reports into. At smaller orgs security often rolls up under IT Infrastructure/Operations — note that.
+3. **Same-role employees** — current people holding the same/similar title (signals team size and whether the seat is net-new).
+4. **Likely teammates** — others on the IT/Security/Infrastructure team Alex would work alongside.
+
+Method: `search_companies` to confirm the company URN (disambiguate look-alikes), then `get_company_employees` across a few title-keyword passes, then `get_person_profile` to enrich the top ~3-5. Cross-reference every name against Alex's People/ notes (`Areas/Relationships & Community/People/`) and CRM for warm-intro paths. Record findings in the listing note: fill `contact` / `contact_url` frontmatter with the single highest-impact target, and list the rest under `## Highest-impact contact` (rename to "## People around this role" when there are several) with **Name | Title | LinkedIn | why-relevant**. For Strong-Fit roles (esp. high comp + remote), continue to mode 1 step 6 (draft outreach + `/crm potential` tasks). For weaker-but-qualifying roles, capturing the contacts on the note is enough — no outreach task required unless Alex asks.
+
+If the LinkedIn MCP is unavailable, note "contact research pending (LinkedIn MCP unavailable)" on the listing and fall back to the company careers page / company LinkedIn.
+
 ## Modes
 
 ### 1. Audit: `/job-search audit` (or paste a job posting)
@@ -197,7 +219,7 @@ Generate an ATS-compliant, tailored cover letter:
    - **Closing**: Enthusiasm + availability + call to action
 5. Run through `/de-ai` principles — the letter must sound like a real human, not ChatGPT. No "I am writing to express my interest," no "I am excited to leverage my synergies," no corporate fluff. Alex's voice: direct, genuine, slightly informal, knowledgeable.
 
-**Output**: The cover letter text, plus a list of ATS keywords embedded and where they appear.
+**Output**: The cover letter text, plus a list of ATS keywords embedded and where they appear. After Alex approves the text, generate the PDF via the builder (`build.py cover --md ... --company ... --tag ...`, see "Resume + Cover Letter Generation" above) so it lands in `~/Downloads/` with clean metadata. Generate a tailored resume alongside it (`build.py resume --tailor ...`) whenever the role meaningfully benefits per [[Claude Reference]].
 
 ### 4. Tracker: `/job-search status`
 Weekly application tracking via email confirmations:
@@ -432,7 +454,7 @@ When called as part of the daily briefing (weekdays only — skip on weekends):
    - Pacing: no numerical cap, but follow `/linkedin` qualitative rules — batch JD reads in small groups (2-4 per turn) with reasoning between, vary keyword angles day-to-day, no tight loops. The natural ceiling is "I've exhausted reasonable search angles," not an arbitrary count.
    - Target volume: 2-5 new verified candidates per day → hits the 10-20 weekly app goal.
 
-4. **Cold outreach surfacing**: For any new verified candidate scoring Strong Fit (especially high comp + remote), follow mode 1 step 6 — use `mcp__linkedin__get_company_employees` with title keyword filter, surface hiring contacts, create `/crm potential <name>` Things 3 tasks. Cap at the top 1-2 candidates per day to keep MCP pacing reasonable.
+4. **Contact research + cold outreach surfacing**: For **every** new verified candidate, run the mandatory Contact Research (see "Contact Research" section above) — recruiter(s), hiring manager(s), same-role employees, likely teammates — and record them on the listing note. Then, for candidates scoring Strong Fit (especially high comp + remote), follow mode 1 step 6: draft outreach and create `/crm potential <name>` Things 3 tasks for the top 1-2 targets. Cap outreach-task creation at the top 1-2 candidates per day to keep MCP pacing reasonable; the contact *capture* on the note applies to all qualifying candidates.
 
 5. **Weekly pace check**: Count apps submitted since Monday vs 10-20 goal. If behind mid-week, suggest time blocks from calendar gaps.
 
