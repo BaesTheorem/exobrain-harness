@@ -15,6 +15,24 @@ else
   echo "Date: $(date +"%A, %B %-d, %Y %I:%M %p")"
 fi
 
+# === PENDING ACTION: LinkedIn job lane backfill ===
+# Raised by the headless daily job scan (run-job-scan.sh) when it couldn't reach
+# the LinkedIn MCP. Surface it loudly and first so this interactive session
+# backfills that lane before anything else. Cleared by a later successful scan
+# (headless or interactive) or by rm'ing the file once the lane has run.
+JOBSCAN_SENTINEL="$HARNESS/job-search/.linkedin-scan-pending"
+if [ -f "$JOBSCAN_SENTINEL" ]; then
+  MISS_DATE=$(head -1 "$JOBSCAN_SENTINEL" 2>/dev/null)
+  PENDING_DAYS=$(( ($(date +%s) - $(stat -f %m "$JOBSCAN_SENTINEL")) / 86400 ))
+  echo ""
+  echo "‼️  ACTION FIRST — LinkedIn job lane pending (missed ${MISS_DATE:-recently}, ${PENDING_DAYS}d ago)"
+  echo "    The headless daily job scan could not reach the LinkedIn MCP, so that"
+  echo "    discovery lane was skipped. Before anything else this session, run the"
+  echo "    /job-search LinkedIn lane (search_jobs across rotating angles → JD-read →"
+  echo "    4 hard gates → dedup vs Job Listings/ → write listing notes), then clear it:"
+  echo "      rm \"$JOBSCAN_SENTINEL\""
+fi
+
 # === SYSTEM HEALTH ===
 echo ""
 ISSUES=0

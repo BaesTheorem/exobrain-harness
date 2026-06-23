@@ -79,3 +79,6 @@ tmp-cannonballs/
 # disposable-email: alias registry (personal) + API secrets
 disposable-email/aliases.json
 disposable-email/secrets.json
+
+# Transient flag: headless job scan couldn't reach LinkedIn MCP (see job-search/README.md)
+job-search/.linkedin-scan-pending

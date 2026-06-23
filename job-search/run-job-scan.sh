@@ -43,6 +43,10 @@ Steps:
 5. For every survivor, create a per-listing note in Projects/Get new job/Job Listings/ per the skill schema (full frontmatter + raw JD archived verbatim in a collapsible callout).
 6. Append a dated "Pipeline" entry to the hub note (Projects/Get new job/Get new job.md) under ## Job Search Log summarizing: which lanes ran, scan tally (searches/JD-reads/passed/failed), and each survivor with apply URL. Be honest about counts; do not pad.
 7. NOTIFY ONLY IF new verified candidates were added: run  mist-voice/bin/mist-notify "Job scan: N new verified candidate(s) in the tracker"  (use the urgent variant only if a stand-out high-comp remote strong-fit appeared). If zero survivors, stay completely silent (no notification), just leave the honest hub-note log entry.
+8. LINKEDIN LANE MARKER (REQUIRED, for the wrapper): the VERY LAST line of your output must be exactly one of:
+   - "LINKEDIN_LANE: RAN"     if the LinkedIn MCP was available and you actually searched it this run.
+   - "LINKEDIN_LANE: SKIPPED" if the LinkedIn MCP was NOT reachable in this headless run (so that lane was skipped).
+   Print nothing after that line. The wrapper uses it to flag the next interactive session to backfill the LinkedIn lane.
 
 Stay in MIST voice in any notification. This is a silent tracker-populating job, not a briefing.'
 
@@ -75,6 +79,20 @@ if [ $EXIT_CODE -ne 0 ]; then
     echo "[$TIMESTAMP] FAILED (exit $EXIT_CODE)" >> "$LOG_DIR/exobrain-job-scan-failures.log"
     echo "  stderr: $ERROR_MSG" >> "$LOG_DIR/exobrain-job-scan-failures.log"
 fi
+
+# === LinkedIn-lane sentinel ===
+# The session-start hook surfaces this flag so the next interactive session
+# backfills the LinkedIn discovery lane that a headless run couldn't reach.
+# Bash owns the flag, driven by the marker the run prints as its last line:
+#   RAN     -> LinkedIn was searched this run; clear any pending flag.
+#   SKIPPED -> LinkedIn MCP was unreachable; raise the flag (stamp today).
+#   (absent / timeout / crash) -> leave the flag untouched; we can't know.
+SENTINEL="$HARNESS_DIR/job-search/.linkedin-scan-pending"
+MARKER=$(grep -oE 'LINKEDIN_LANE: (RAN|SKIPPED)' "$LOG_DIR/exobrain-job-scan-$TIMESTAMP.out" 2>/dev/null | tail -1)
+case "$MARKER" in
+    *RAN)     rm -f "$SENTINEL" ;;
+    *SKIPPED) date +%Y-%m-%d > "$SENTINEL" ;;
+esac
 
 # Clean up empty error/out files
 [ -s "$LOG_DIR/exobrain-job-scan-$TIMESTAMP.err" ] || rm -f "$LOG_DIR/exobrain-job-scan-$TIMESTAMP.err"
