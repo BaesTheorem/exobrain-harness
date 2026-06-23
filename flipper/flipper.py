@@ -200,7 +200,8 @@ def main():
         elif args.cmd == "delete":
             print(fz.cmd(f"storage remove {args.path}"))
         elif args.cmd == "tx-subghz":
-            print(fz.cmd(f"subghz tx_from_file {args.path} {args.repeat}", idle=5.0))
+            # tx_from_file <file> <repeat> <device: 0=CC1101_INT, 1=CC1101_EXT>
+            print(fz.cmd(f"subghz tx_from_file {args.path} {args.repeat} 0", idle=5.0))
         elif args.cmd == "tx-ir":
             print(fz.cmd("ir tx " + " ".join(args.ir_args), idle=5.0))
         elif args.cmd == "raw":
