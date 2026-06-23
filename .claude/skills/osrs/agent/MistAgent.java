@@ -65,7 +65,9 @@ public class MistAgent {
             if (cmd.startsWith("type ")) { typeText(cmd.substring(5)); return "OK typed " + (cmd.length() - 5) + " chars"; }
             if (cmd.equals("clear")) { for (int i = 0; i < 32; i++) specialKey("BACKSPACE"); return "OK clear"; }
             if (cmd.startsWith("key ")) { specialKey(cmd.substring(4).trim()); return "OK key " + cmd.substring(4).trim(); }
-            if (cmd.startsWith("click ")) { String[] p = cmd.substring(6).trim().split("\\s+"); clickCanvas(Integer.parseInt(p[0]), Integer.parseInt(p[1])); return "OK click " + p[0] + "," + p[1]; }
+            if (cmd.startsWith("click ")) { String[] p = cmd.substring(6).trim().split("\\s+"); humanClick(Integer.parseInt(p[0]), Integer.parseInt(p[1])); return "OK click " + p[0] + "," + p[1]; }
+            if (cmd.startsWith("rclick ")) { String[] p = cmd.substring(7).trim().split("\\s+"); clickCanvas(Integer.parseInt(p[0]), Integer.parseInt(p[1])); return "OK rclick " + p[0] + "," + p[1]; }
+            if (cmd.startsWith("hmove ")) { String[] p = cmd.substring(6).trim().split("\\s+"); humanMove(Integer.parseInt(p[0]), Integer.parseInt(p[1])); return "OK hmove " + p[0] + "," + p[1]; }
             return "UNKNOWN " + cmd;
         } catch (Exception e) { return "ERR " + e; }
     }
@@ -231,7 +233,7 @@ public class MistAgent {
                 best = nm; bestPt = pt; break;
             }
             if (bestPt == null) return "NPC_NOT_FOUND_ONSCREEN " + namePart;
-            clickCanvas(bestPt[0], bestPt[1]);
+            humanClick(bestPt[0], bestPt[1]);
             return "OK clicknpc '" + best + "' @" + bestPt[0] + "," + bestPt[1];
         } catch (Throwable t) { return "CLICKNPC_ERR " + t; }
     }
@@ -490,18 +492,21 @@ public class MistAgent {
 
     static void onEdt(Runnable r) throws Exception { SwingUtilities.invokeAndWait(r); }
 
+    // human typing: per-key dispatch with variable inter-keystroke cadence (not an instant burst)
     static void typeText(String text) throws Exception {
         final Canvas c = findCanvas();
         if (c == null) throw new IllegalStateException("no canvas");
-        onEdt(() -> {
-            for (char ch : text.toCharArray()) {
+        for (char ch : text.toCharArray()) {
+            final char fch = ch;
+            onEdt(() -> {
                 long t = System.currentTimeMillis();
-                int kc = KeyEvent.getExtendedKeyCodeForChar(ch);
-                c.dispatchEvent(new KeyEvent(c, KeyEvent.KEY_PRESSED, t, 0, kc, ch));
-                c.dispatchEvent(new KeyEvent(c, KeyEvent.KEY_TYPED, t, 0, KeyEvent.VK_UNDEFINED, ch));
-                c.dispatchEvent(new KeyEvent(c, KeyEvent.KEY_RELEASED, t, 0, kc, ch));
-            }
-        });
+                int kc = KeyEvent.getExtendedKeyCodeForChar(fch);
+                c.dispatchEvent(new KeyEvent(c, KeyEvent.KEY_PRESSED, t, 0, kc, fch));
+                c.dispatchEvent(new KeyEvent(c, KeyEvent.KEY_TYPED, t, 0, KeyEvent.VK_UNDEFINED, fch));
+                c.dispatchEvent(new KeyEvent(c, KeyEvent.KEY_RELEASED, t, 0, kc, fch));
+            });
+            Thread.sleep(55 + RNG.nextInt(110) + (fch == ' ' ? RNG.nextInt(60) : 0));
+        }
     }
 
     static void specialKey(String name) throws Exception {
@@ -514,6 +519,10 @@ public class MistAgent {
             case "BACKSPACE": kc = KeyEvent.VK_BACK_SPACE; ch = '\b'; break;
             case "TAB": kc = KeyEvent.VK_TAB; ch = '\t'; break;
             case "ESC": kc = KeyEvent.VK_ESCAPE; break;
+            case "LEFT": kc = KeyEvent.VK_LEFT; break;       // camera rotate (antiban)
+            case "RIGHT": kc = KeyEvent.VK_RIGHT; break;
+            case "UP": kc = KeyEvent.VK_UP; break;
+            case "DOWN": kc = KeyEvent.VK_DOWN; break;
             default: throw new IllegalArgumentException("unknown key " + name);
         }
         final int fkc = kc; final char fch = ch;
@@ -525,6 +534,7 @@ public class MistAgent {
         });
     }
 
+    // raw instant click (used for calibration / UI where exactness > realism)
     static void clickCanvas(int x, int y) throws Exception {
         final Canvas c = findCanvas();
         if (c == null) throw new IllegalStateException("no canvas");
@@ -534,6 +544,82 @@ public class MistAgent {
             c.dispatchEvent(new MouseEvent(c, MouseEvent.MOUSE_PRESSED, t, InputEvent.BUTTON1_DOWN_MASK, x, y, 1, false, MouseEvent.BUTTON1));
             c.dispatchEvent(new MouseEvent(c, MouseEvent.MOUSE_RELEASED, t, InputEvent.BUTTON1_DOWN_MASK, x, y, 1, false, MouseEvent.BUTTON1));
             c.dispatchEvent(new MouseEvent(c, MouseEvent.MOUSE_CLICKED, t, InputEvent.BUTTON1_DOWN_MASK, x, y, 1, false, MouseEvent.BUTTON1));
+        });
+    }
+
+    // ---- behavioral humanization: human-like mouse paths + click dynamics ----
+    // The client samples mouse position/motion; straight teleport-clicks at exact tile
+    // centers are a bot tell. We move along a WindMouse curve (gravity+wind, ease in/out),
+    // pause a human reaction beat, press with a short dwell, and land slightly off-centre.
+    static final java.util.Random RNG = new java.util.Random();
+    static volatile double curX = 382, curY = 250;        // tracked virtual cursor (canvas space)
+    static double rnd() { return RNG.nextDouble(); }
+    static int clampi(int v, int lo, int hi) { return v < lo ? lo : (v > hi ? hi : v); }
+
+    // WindMouse (Benjamin Land): human-like path from (sx,sy) to (dx,dy) as a list of points.
+    static java.util.List<int[]> windMouse(double sx, double sy, double dx, double dy) {
+        double G = 9, W = 3, M = 15, D = 12;              // gravity, wind, max-step, dist-threshold
+        double sqrt3 = Math.sqrt(3), sqrt5 = Math.sqrt(5);
+        java.util.List<int[]> pts = new java.util.ArrayList<>();
+        double cx = sx, cy = sy, vx = 0, vy = 0, wx = 0, wy = 0;
+        int lastX = (int) Math.round(cx), lastY = (int) Math.round(cy), guard = 0;
+        double dist;
+        while ((dist = Math.hypot(dx - cx, dy - cy)) >= 1 && guard++ < 10000) {
+            double wMag = Math.min(W, dist);
+            if (dist >= D) {
+                wx = wx / sqrt3 + (2 * rnd() - 1) * wMag / sqrt5;
+                wy = wy / sqrt3 + (2 * rnd() - 1) * wMag / sqrt5;
+            } else {
+                wx /= sqrt3; wy /= sqrt3;
+                if (M < 3) M = rnd() * 3 + 3; else M /= sqrt5;
+            }
+            vx += wx + G * (dx - cx) / dist;
+            vy += wy + G * (dy - cy) / dist;
+            double vMag = Math.hypot(vx, vy);
+            if (vMag > M) {
+                double vClip = M / 2 + rnd() * M / 2;
+                vx = (vx / vMag) * vClip; vy = (vy / vMag) * vClip;
+            }
+            cx += vx; cy += vy;
+            int mx = (int) Math.round(cx), my = (int) Math.round(cy);
+            if (mx != lastX || my != lastY) { pts.add(new int[]{mx, my}); lastX = mx; lastY = my; }
+        }
+        pts.add(new int[]{(int) Math.round(dx), (int) Math.round(dy)});
+        return pts;
+    }
+
+    static void humanMove(int tx, int ty) throws Exception {
+        final Canvas c = findCanvas();
+        if (c == null) throw new IllegalStateException("no canvas");
+        int w = c.getWidth(), h = c.getHeight();
+        for (int[] p : windMouse(curX, curY, tx, ty)) {
+            final int px = clampi(p[0], 0, w - 1), py = clampi(p[1], 0, h - 1);
+            SwingUtilities.invokeLater(() -> dispatchMove(c, px, py));
+            Thread.sleep(1 + RNG.nextInt(7));            // pacing between motion samples
+        }
+        curX = tx; curY = ty;
+    }
+    static void dispatchMove(Canvas c, int x, int y) {
+        c.dispatchEvent(new MouseEvent(c, MouseEvent.MOUSE_MOVED, System.currentTimeMillis(), 0, x, y, 0, false));
+    }
+
+    // human click: jittered endpoint, curved approach, reaction beat, press dwell
+    static void humanClick(int x, int y) throws Exception {
+        int jx = (int) Math.round(x + RNG.nextGaussian() * 2.2);   // land slightly off exact centre
+        int jy = (int) Math.round(y + RNG.nextGaussian() * 2.2);
+        humanMove(jx, jy);
+        final Canvas c = findCanvas();
+        final int fx = clampi(jx, 0, c.getWidth() - 1), fy = clampi(jy, 0, c.getHeight() - 1);
+        Thread.sleep(50 + RNG.nextInt(160));             // reaction beat before pressing
+        onEdt(() -> {
+            long t = System.currentTimeMillis();
+            c.dispatchEvent(new MouseEvent(c, MouseEvent.MOUSE_PRESSED, t, InputEvent.BUTTON1_DOWN_MASK, fx, fy, 1, false, MouseEvent.BUTTON1));
+        });
+        Thread.sleep(40 + RNG.nextInt(70));              // press dwell
+        onEdt(() -> {
+            long t = System.currentTimeMillis();
+            c.dispatchEvent(new MouseEvent(c, MouseEvent.MOUSE_RELEASED, t, InputEvent.BUTTON1_DOWN_MASK, fx, fy, 1, false, MouseEvent.BUTTON1));
+            c.dispatchEvent(new MouseEvent(c, MouseEvent.MOUSE_CLICKED, t, InputEvent.BUTTON1_DOWN_MASK, fx, fy, 1, false, MouseEvent.BUTTON1));
         });
     }
 }

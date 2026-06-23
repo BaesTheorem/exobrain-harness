@@ -78,9 +78,11 @@ python3 osrs.py guard <AlexName> 30  # bodyguard: follow + kill what attacks the
 | `win` / `shot [out]` | Window bounds (JSON) / capture window PNG |
 | `state` / `gamestate` | Player name+world coords / RuneLite GameState (STARTING=equip, LOGIN_SCREEN, LOGGED_IN) |
 | `npcs` | On-screen NPCs `name@cx,cy` (off-screen ones resolve to `@0,0`) |
-| `clicknpc <name>` | Click nearest on-screen NPC whose name contains `<name>` (left-click = walk+talk/default) |
-| `click <x> <y>` | Click canvas coords |
-| `type <text>` / `key <ENTER\|SPACE\|BACKSPACE\|TAB\|ESC>` / `clear` | Keyboard into the focused game input |
+| `clicknpc <name>` | Click nearest on-screen NPC whose name contains `<name>` (left-click = walk+talk/default; uses the humanized click path) |
+| `click <x> <y>` | **Human** click: WindMouse curved approach + ~2px Gaussian jitter + reaction beat + press dwell. Default for in-world clicks; every higher-level command and `osrs.py` flow routes through it |
+| `rclick <x> <y>` | **Raw** instant click at exact coords (no path, no jitter). Exactness escape-hatch for fixed UI/login/inventory/style coords if jitter ever misses a small target |
+| `hmove <x> <y>` | Human mouse move only (WindMouse path, no click) — idle/antiban motion |
+| `type <text>` / `key <ENTER\|SPACE\|BACKSPACE\|TAB\|ESC\|LEFT\|RIGHT\|UP\|DOWN>` / `clear` | Keyboard into the focused game input. `type` uses a human per-keystroke cadence (not an instant burst); arrow keys rotate the camera (antiban) |
 | `find` / `info` / `tree` | Canvas info / AWT frame inventory / Swing component tree (debugging) |
 | `walkmap <dx> <dy>` | Click the minimap offset from center (walk); +x east, +y south |
 | `send <raw>` | Send any raw command to the agent socket (127.0.0.1:43210) |
@@ -137,6 +139,12 @@ Validated live on MISTci. Full strategy + sources: `~/Exobrain/Research/OSRS Com
   then `key ENTER` to send. MIST converses in the OSRS chatbox with Alex and other players.
 - The pre-login "Equip/CLICK HERE TO PLAY" screen is drawn *in the game canvas*, so canvas
   clicks work there too. (RuneLite's own Swing side-panels need `clickcomp` instead.)
+- **Humanized input (antiban)**: the client samples mouse motion, so the agent moves the cursor
+  along a WindMouse curve (gravity+wind, ease in/out), pauses a reaction beat, presses with a
+  short dwell, and lands a couple px off the exact tile center; `type` dispatches per-keystroke
+  with variable cadence rather than an instant burst. `click`/`clicknpc`/`type` and every
+  `osrs.py` flow use these humanized paths by default. `rclick` is the raw-exact fallback for
+  fixed UI coords; arrow keys (`key LEFT/RIGHT/...`) rotate the camera for idle variation.
 - **Honest limits**: vision/agent loop is great for skilling, questing, banking, walking, chat;
   weak for twitch combat/PvP. Anti-cheat could flag a throwaway account — acceptable for PoC.
   This approach does NOT transfer to official Jagex OSRS (bannable, no agent) — future phase.
