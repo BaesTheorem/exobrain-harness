@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>Label</key>
+    <string>com.exobrain.job-scan</string>
+
+    <!-- Daily at 08:00 local. Does NOT RunAtLoad (no scan on every login). -->
+    <key>StartCalendarInterval</key>
+    <dict>
+        <key>Hour</key>
+        <integer>8</integer>
+        <key>Minute</key>
+        <integer>0</integer>
+    </dict>
+
+    <key>ProgramArguments</key>
+    <array>
+        <string>/bin/bash</string>
+        <string>/Users/alexhedtke/Documents/Exobrain harness/job-search/run-job-scan.sh</string>
+    </array>
+
+    <key>StandardOutPath</key>
+    <string>/tmp/exobrain-job-scan.log</string>
+
+    <key>StandardErrorPath</key>
+    <string>/tmp/exobrain-job-scan.err</string>
+
+    <key>ThrottleInterval</key>
+    <integer>30</integer>
+</dict>
+</plist>
