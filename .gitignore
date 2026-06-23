@@ -82,3 +82,10 @@ disposable-email/secrets.json
 
 # Transient flag: headless job scan couldn't reach LinkedIn MCP (see job-search/README.md)
 job-search/.linkedin-scan-pending
+
+# resume-builder: real resume data + per-JD tailoring contain Alex's PII /
+# resume content (public repo). Ship only the *.example.* templates.
+resume-builder/data/resume_data.json
+resume-builder/tailoring/*
+!resume-builder/tailoring/example.json
+!resume-builder/tailoring/example_cover.md

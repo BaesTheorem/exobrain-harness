@@ -1,0 +1,25 @@
+{
+  "_comment": "TEMPLATE. Copy to resume_data.json (gitignored) and fill with real data. This file ships with placeholders because the harness repo is public — never commit real contact info or resume content here.",
+  "name": "[Full Name]",
+  "contact": "[City, ST ZIP] • [phone] • [email] • [linkedin-url]",
+  "summary": "[Professional summary. Per the standing rule, open with the tenure framing: 'N+ years in [field], including M+ years in an enterprise environment [doing role-relevant X]'.]",
+  "skills": [
+    {"label": "Platforms and OS", "text": "[comma-separated, ends with a period.]"},
+    {"label": "Cloud and Identity", "text": "[...]"},
+    {"label": "Security", "text": "[...]"}
+  ],
+  "experience": [
+    {
+      "id": "job1",
+      "title": "[Title] | [Employer] | [Start] – [End]",
+      "bullets": ["[accomplishment bullet]", "[accomplishment bullet]"]
+    }
+  ],
+  "education_inprogress": "[optional in-progress line, or omit]",
+  "education": [
+    {"title": "[Credential | Issuer | Date]", "bullets": ["[detail]"]}
+  ],
+  "leadership": [
+    {"title": "[Role | Org | Dates]", "bullets": ["[detail]"]}
+  ]
+}
