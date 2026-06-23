@@ -49,9 +49,40 @@ Everything the Flipper captures lives as files on the SD card under `/ext`
 - **tx verbs vary by firmware.** `tx-subghz`/`tx-ir` are thin wrappers over
   `raw`. If a firmware names the verb differently, use `raw` and we'll adjust.
 
-## Later: wireless
+## Wireless (Bluetooth LE) — `flipper_ble.py`
 
-The command layer is transport-agnostic. To go wireless without a Claude Home
-app, an ESP32 flashed with a UART-to-TCP bridge on the Flipper's GPIO UART can
-expose this same CLI over the LAN; point pyserial at a `socket://host:port` URL.
-Not wired up yet — USB first.
+`flipper_ble.py` drives the Flipper **wirelessly over Bluetooth**, no cable.
+
+```bash
+python3 flipper_ble.py info                          # device_info over BLE
+python3 flipper_ble.py battery                        # battery %
+python3 flipper_ble.py list /ext/subghz
+python3 flipper_ble.py read /ext/subghz/foo.sub > foo.sub
+python3 flipper_ble.py write ./foo.sub /ext/subghz/foo.sub
+python3 flipper_ble.py delete /ext/foo.sub
+python3 flipper_ble.py ping                           # confirm RPC link
+```
+
+Requires `bleak` (`pip install --break-system-packages bleak`) and the
+Flipper's Bluetooth ON (Settings → Bluetooth → ON).
+
+### How it works (and why it's not just the USB tool)
+
+The Flipper's BLE serial channel does **not** expose the text CLI — over
+Bluetooth it speaks the **protobuf RPC** only. So `flipper_ble.py` is a
+from-scratch, dependency-free RPC client: hand-rolled protobuf wire
+encode/decode (no `protoc`, no protobuf runtime) over the BLE GATT serial
+service via `bleak`. Field numbers come from the official `.proto` definitions
+(flipperdevices/flipperzero-protobuf).
+
+- First run scans for "Flipper <name>"; the device address is cached to
+  `.ble_addr` (gitignored) so later runs connect directly — faster and far more
+  reliable than re-scanning each time.
+- First connection may prompt a pairing PIN on the Flipper screen; confirm it
+  there.
+
+### Known limits
+
+- **Large file reads can be flaky** over BLE (known firmware transfer bug). Small
+  files, listings, info, and writes are solid. For bulk SD pulls, use USB.
+- Single session and BLE range (~10 m) caveats from the USB tool still apply.

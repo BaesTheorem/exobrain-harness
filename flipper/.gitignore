@@ -4,3 +4,5 @@ sd-backup/
 *.ir
 *.nfc
 *.rfid
+
+.ble_addr
