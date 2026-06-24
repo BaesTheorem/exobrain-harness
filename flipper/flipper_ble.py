@@ -153,8 +153,8 @@ class Main:
         self.fields = f
 
 
-def build_main(cid, content_field, content_bytes):
-    body = _fv(1, cid) + _fl(content_field, content_bytes)
+def build_main(cid, content_field, content_bytes, has_next=False):
+    body = _fv(1, cid) + (_fv(3, 1) if has_next else b"") + _fl(content_field, content_bytes)
     return _varint(len(body)) + body          # length-delimited frame
 
 
@@ -361,11 +361,33 @@ class FlipperBLE:
                         data.extend(chunk)
         return bytes(data)
 
-    async def write_file(self, path, data):
-        # File.data = field 4; WriteRequest{ path=1, file=2: File }
-        file_msg = _fl(4, data)
-        req = _fs(1, path) + _fl(2, file_msg)
-        await self.rpc(WRITE_REQ, req, timeout=15.0)
+    async def write_file(self, path, data, chunk=512):
+        # File.data = field 4; WriteRequest{ path=1, file=2: File }. Large files
+        # must be STREAMED: many WriteRequests sharing one command_id, has_next on
+        # all but the last (one giant message overflows the firmware -> no ack).
+        # First chunk truncates, the rest append, so this is a clean overwrite.
+        self._cid += 1
+        cid = self._cid
+        n = len(data)
+        i = 0
+        while True:
+            piece = data[i:i + chunk]
+            i += chunk
+            last = i >= n
+            req = _fs(1, path) + _fl(2, _fl(4, piece))
+            await self._write(build_main(cid, WRITE_REQ, req, has_next=not last))
+            if last:
+                break
+        while True:                                  # one ack after the final chunk
+            m = await self._next_frame(20.0)
+            if m is None:
+                raise TimeoutError("write: no final ack (BLE)")
+            if m.command_id != cid:
+                continue
+            if m.status != 0:
+                raise RuntimeError(f"write RPC error status={m.status}")
+            if not m.has_next:
+                return
 
     async def delete(self, path, recursive=False):
         req = _fs(1, path) + (_fv(2, 1) if recursive else b"")
