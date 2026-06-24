@@ -49,12 +49,25 @@ python3 flipper/flipper_ble.py list /ext/subghz
 python3 flipper/flipper_ble.py read /ext/subghz/foo.sub > foo.sub
 python3 flipper/flipper_ble.py write ./foo.sub /ext/subghz/foo.sub
 python3 flipper/flipper_ble.py delete /ext/foo.sub
-python3 flipper/flipper_ble.py app "Sub-GHz"                 # launch an on-device app by name
-python3 flipper/flipper_ble.py app-exit                      # exit (only if RPC-owned; else use `input back`)
-python3 flipper/flipper_ble.py input down                    # tap a button: up/down/left/right/ok/back
-python3 flipper/flipper_ble.py input ok --repeat 2           # repeat a tap
+# --- full wireless remote control (drive ANY app/function) ---
+python3 flipper/flipper_ble.py app "Sub-GHz"                 # launch an app by name (see catalog below)
+python3 flipper/flipper_ble.py app "NFC" /ext/nfc/card.nfc   # ...optionally opening a file
+python3 flipper/flipper_ble.py app "Sub-GHz" --force         # exit any running app first, then launch
+python3 flipper/flipper_ble.py app-file /ext/nfc/card.nfc    # hand a file to the already-running app
+python3 flipper/flipper_ble.py app-exit                      # exit (only if RPC-owned; else use `keys back`)
+python3 flipper/flipper_ble.py input down                    # tap one button: up/down/left/right/ok/back
+python3 flipper/flipper_ble.py input ok --repeat 2           # repeat a tap; `input ok long` = long-press
+python3 flipper/flipper_ble.py keys down down ok             # button SEQUENCE in one session (':long' suffix)
 python3 flipper/flipper_ble.py screen                        # ASCII dump of the 128x64 screen (text, not vision)
 python3 flipper/flipper_ble.py screen -o shot.png            # ...and save a scaled PNG too
+python3 flipper/flipper_ble.py stream -n 8 -d ./caps         # capture N frames while an app runs
+# --- system + storage functions ---
+python3 flipper/flipper_ble.py alert                         # beep+vibrate+flash (find-my-flipper)
+python3 flipper/flipper_ble.py reboot [os|dfu|update]        # reboot into a mode (link drops)
+python3 flipper/flipper_ble.py clock | clock --set now       # read / set the device clock
+python3 flipper/flipper_ble.py df [path]                     # SD free/used space
+python3 flipper/flipper_ble.py stat PATH | md5 PATH          # file type/size | md5sum
+python3 flipper/flipper_ble.py mkdir PATH | rename OLD NEW    # storage ops
 ```
 Needs `bleak` and the Flipper's **Bluetooth ON** (Settings → Bluetooth → ON).
 The BLE channel speaks **protobuf RPC only** (not the text CLI), so this is a
@@ -62,27 +75,38 @@ hand-rolled, dependency-free RPC client (wire codec built from the official
 `flipperzero-protobuf` field numbers). First connect may prompt a pairing PIN on
 the Flipper; device address is cached to `flipper/.ble_addr` for fast reconnect.
 
-### Sub-GHz "raw read" over Bluetooth (no USB cable, no vision)
+### Wireless remote: the model for driving ANY app/function
 
-The USB `subghz rx` live-decode rides the **text CLI**, which BLE does not
-expose — and the RPC has **no sub-GHz method** (verified against the full
-`flipperzero-protobuf`). So a live read can't be tunneled over BLE the way it
-can over USB. Instead, **drive the device's own Sub-GHz app by RPC** and read
-the result as a file:
+The BLE link has **no text CLI** and the RPC exposes **no per-feature methods**
+(no `subghz`, no `nfc`, etc. — verified against the full `flipperzero-protobuf`).
+So you don't call a function directly; you **drive the Flipper's own UI** the way
+a person would, and read results from **files**, not the screen. Three primitives
+generalize to everything:
 
-1. `app "Sub-GHz"` — launches the Sub-GHz app (lands on its menu; "Read" is
-   the top/selected item, then "Read RAW", "Saved", "Add Manually").
-2. `input ok` — enter **Read** (auto-listens 433.92 MHz OOK650) or `input down`
-   then `input ok` for **Read RAW** (records the raw waveform to a file).
-3. `screen` — confirm state / see received signals **as text** (the 128x64
-   framebuffer rendered to ASCII; results never require image vision).
-4. On a capture, save it (button presses), then `read /ext/subghz/<name>.sub`
-   pulls the **plain-text `.sub`** over BLE → `analyze-sub.py` it.
+- **`app <name> [file]`** — open any app (and optionally a saved file). Names are
+  exact, space- and case-sensitive. Confirmed catalog: `"Sub-GHz"`, `"NFC"`,
+  `"125 kHz RFID"`, `"Infrared"`, `"iButton"`, `"GPIO"`, `"U2F"`, `"Bad USB"`,
+  `"Settings"`, `"Apps"` (external `.fap` launcher). External plugins: `app "Apps"`
+  then navigate, or `app-file <path.fap>`.
+- **`keys ...` / `input`** — navigate that app's menus and trigger its functions
+  (Read, Save, Emulate, Send, etc.). `keys` sends a whole sequence in one session.
+- **`screen` / `stream`** — read UI state back **as text** (framebuffer → ASCII).
+  Only a navigation aid; never needed for results.
 
-**Key point:** decoded results are always plain-text `.sub` files read over BLE.
-The screen is only a navigation aid (and it's text too). Exit cleanly with
-`input back` when done so the radio isn't held (BLE is single-session).
-TX safety in the dedicated section below still applies — never transmit unknowns.
+**Results come back as files.** Whatever the app captures (a `.sub`, `.nfc`,
+`.ir`, `.rfid`, `.txt` log) is saved to `/ext/<app>/...` and pulled with `read`
+as plain text — no image vision, ever. Example, sub-GHz raw read: `app "Sub-GHz"`
+→ `input ok` (Read, auto-listens 433.92 MHz OOK650) → on a hit, save via buttons
+→ `read /ext/subghz/<name>.sub` → `analyze-sub.py`.
+
+**Gotchas:**
+- **One app at a time.** `AppStart` returns RPC `status=17` if an app is already
+  running. Use `app ... --force` (exits first) or `keys back` to back out.
+- **`app-exit` only works for RPC-owned apps** (`status=21` otherwise) — once
+  you're in an app's own menus, `keys back` is the reliable exit.
+- **Single BLE session** — exit cleanly (`keys back`) when done so radios aren't
+  held and the device is usable by hand again.
+- TX safety in the dedicated section below still applies — never transmit unknowns.
 
 ### Analyze a capture — `analyze-sub.py`
 ```bash
