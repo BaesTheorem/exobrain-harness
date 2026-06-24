@@ -45,6 +45,42 @@ KNOWN_TOP = {
     ("NEC", "04 00 00 00"),              # LG TVs
 }
 
+# (protocol, address) -> rank, by 2025 global TV units shipped (US-blended).
+# Fingerprints verified against the Flipper-IRDB TVs/<brand> power codes; ranks
+# from TrendForce/Omdia 2025 share (TCL ~16%, Samsung ~13%, Hisense ~12%, LG ~8%,
+# then Vizio/Sony/Insignia/Toshiba/Sharp/Panasonic/Philips). Order-only.
+SIGNATURE_RANK = {
+    ("NECext", "EA C7 00 00"): 1,        # TCL / Onn (onn. TVs are TCL-built)
+    ("Samsung32", "07 00 00 00"): 2,     # Samsung
+    ("NECext", "00 BF 00 00"): 3,        # Hisense
+    ("NEC", "04 00 00 00"): 4,           # LG / Vizio / Hisense (shared NEC addr, all top-tier)
+    ("NECext", "04 F4 00 00"): 4,        # LG
+    ("SIRC", "01 00 00 00"): 5,          # Sony
+    ("SIRC15", "01 00 00 00"): 5,
+    ("SIRC20", "01 00 00 00"): 5,
+    ("NECext", "86 05 00 00"): 6,        # Insignia (Best Buy, US-popular)
+    ("NECext", "02 7D 00 00"): 6,        # Toshiba / Insignia
+    ("NEC", "40 00 00 00"): 7,           # Toshiba
+    ("NECext", "00 7F 00 00"): 8,        # Sharp
+    ("Kaseikyo", "80 02 20 00"): 9,      # Panasonic
+    ("RC5", "00 00 00 00"): 10,          # Philips
+    ("RC6", "00 00 00 00"): 10,          # Philips
+    ("NECext", "00 BD 00 00"): 10,       # Philips
+}
+POP_UNMATCHED_BASE = 50                  # known protocol, unknown brand -> after the named brands
+POP_RAW_RANK = 60                        # raw timing capture, unattributable -> last
+
+SIGNATURE_BRAND = {
+    ("NECext", "EA C7 00 00"): "TCL/Onn", ("Samsung32", "07 00 00 00"): "Samsung",
+    ("NECext", "00 BF 00 00"): "Hisense", ("NEC", "04 00 00 00"): "LG/Vizio",
+    ("NECext", "04 F4 00 00"): "LG", ("SIRC", "01 00 00 00"): "Sony",
+    ("SIRC15", "01 00 00 00"): "Sony", ("SIRC20", "01 00 00 00"): "Sony",
+    ("NECext", "86 05 00 00"): "Insignia", ("NECext", "02 7D 00 00"): "Toshiba/Insignia",
+    ("NEC", "40 00 00 00"): "Toshiba", ("NECext", "00 7F 00 00"): "Sharp",
+    ("Kaseikyo", "80 02 20 00"): "Panasonic", ("RC5", "00 00 00 00"): "Philips",
+    ("RC6", "00 00 00 00"): "Philips", ("NECext", "00 BD 00 00"): "Philips",
+}
+
 
 def parse_blocks(text):
     """Return (header, [block_text, ...]). A block starts at a 'name:' line."""
@@ -101,7 +137,29 @@ def within_key(block, index):
 FAMILY_WEIGHT = {0: 2, 1: 2}            # Samsung, NEC bucket -> 2 picks/cycle
 
 
+def pop_rank(block):
+    """Rank a block by current brand market share (lower = sooner)."""
+    proto = field(block, "protocol")
+    if proto is None:
+        return POP_RAW_RANK
+    r = SIGNATURE_RANK.get((proto, field(block, "address")))
+    if r is not None:
+        return r
+    return POP_UNMATCHED_BASE + FAMILY_RANK.get(proto, OTHER_PARSED_RANK)
+
+
 def order_blocks(deduped, mode):
+    if mode == "popularity":
+        # absolute popularity: most-likely-to-work codes first (minimises expected
+        # sweep time when pointed at a random TV). Power before other buttons
+        # within a rank; otherwise stable.
+        def key(t):
+            i, b = t
+            name = (field(b, "name") or "").lower()
+            name_pri = 0 if "power" in name or name in ("pwr", "pow") else 1
+            return (pop_rank(b), name_pri, i)
+        return [b for _, b in sorted(enumerate(deduped), key=key)]
+
     groups = {}
     for i, b in enumerate(deduped):
         groups.setdefault(family_of(b), []).append((within_key(b, i), b))
@@ -131,8 +189,10 @@ def main():
                     help="button name to count/trim for the report and --top (default: Power)")
     ap.add_argument("--top", type=int, default=0,
                     help="keep only the N most-popular codes for --button (0 = keep all, full coverage)")
-    ap.add_argument("--order", choices=("interleave", "family"), default="interleave",
-                    help="interleave = round-robin brands so any TV dies early (default); "
+    ap.add_argument("--order", choices=("popularity", "interleave", "family"), default="popularity",
+                    help="popularity = most-common brands first by 2025 market share (default, "
+                         "minimises expected time on a random TV); interleave = round-robin brands "
+                         "so any TV dies in the first few codes (best worst-case); "
                          "family = all of one brand together (single-brand targeting)")
     args = ap.parse_args()
 
@@ -182,7 +242,8 @@ def main():
         p = field(b, "protocol") or "RAW"
         a = field(b, "address") or field(b, "frequency") or "?"
         c = field(b, "command") or ""
-        print(f"  {p:<10} addr {a:<12} cmd {c}")
+        brand = SIGNATURE_BRAND.get((p, a), "")
+        print(f"  {p:<10} addr {a:<12} cmd {c:<12} {brand}")
 
 
 if __name__ == "__main__":
