@@ -105,13 +105,17 @@ def utc_cutoff_ts(hours=0, days=0):
 def extract_body_text(blob):
     """Extract plain text from NSAttributedString / NSArchiver blob (attributedBody column).
 
-    The blob is an NSKeyedArchiver/NSArchiver serialization. The text payload
-    lives after the first 'NSString' marker with the following byte pattern:
-        NSString <header bytes> 0x2b('+') <length encoding> <utf-8 text>
-    Length encoding: 0x01 NN (1-byte), 0x81 NN (1-byte extended),
-                     0x84 NNNNNNNN (4-byte LE), 0x85 NNNNNNNNNNNNNNNN (8-byte LE).
-    Some messages use a simpler layout where text immediately follows '+' with a
-    single length byte.
+    The blob is an Apple typedstream (NSArchiver) serialization. The text payload
+    lives after the first 'NSString' marker with the byte pattern:
+        NSString <class metadata> 0x2b('+') <length encoding> <utf-8 text>
+
+    Length encoding follows the typedstream variable-length integer convention:
+        - byte < 0x81           -> the byte itself is the length (text follows immediately)
+        - 0x81 <u16 little-end> -> 2-byte length (used for messages 128..65535 bytes)
+        - 0x82 <u32 little-end> -> 4-byte length
+        - 0x83 <u64 little-end> -> 8-byte length
+    The escape marker is consumed along with its length bytes before the text begins,
+    so a 0x81-tagged string starts 3 bytes after the marker, not 2.
     """
     if not blob:
         return None
@@ -125,20 +129,19 @@ def extract_body_text(blob):
         if plus_idx == -1 or plus_idx > 20:
             return None
         after_plus = remaining[plus_idx + 1:]
-        # Decode length
+        # Decode the typedstream length integer.
         tag = after_plus[0]
         if tag == 0x81:
-            # Extended 1-byte length: next 2 bytes, first is length
-            length = after_plus[1]
-            text_start = 2
-        elif tag == 0x84:
+            length = int.from_bytes(after_plus[1:3], "little")
+            text_start = 3
+        elif tag == 0x82:
             length = int.from_bytes(after_plus[1:5], "little")
             text_start = 5
-        elif tag == 0x85:
+        elif tag == 0x83:
             length = int.from_bytes(after_plus[1:9], "little")
             text_start = 9
         else:
-            # Simple: tag itself is the length byte
+            # Lengths below 0x81 are stored directly in the marker byte.
             length = tag
             text_start = 1
         raw = after_plus[text_start : text_start + length]
