@@ -29,8 +29,17 @@ Usage:
     flipper_ble.py app-exit               # exit the running app
     flipper_ble.py input down             # tap a button (up/down/left/right/ok/back)
     flipper_ble.py input ok --repeat 2    # tap OK twice
+    flipper_ble.py keys down down ok      # send a button sequence in one session
+    flipper_ble.py keys ok:long back      # ':long' suffix = long-press
     flipper_ble.py screen                 # ASCII dump of the 128x64 screen
     flipper_ble.py screen -o shot.png     # ...and save a scaled PNG
+    flipper_ble.py stream -n 8 -d ./caps  # capture N screen frames (watch an app run)
+    flipper_ble.py app "NFC" /ext/nfc/x.nfc  # launch app, optionally opening a file
+    flipper_ble.py app-file /ext/nfc/x.nfc   # hand a file to the already-running app
+    flipper_ble.py df | stat PATH | md5 PATH | mkdir PATH | rename A B
+    flipper_ble.py alert                  # beep+vibrate+flash (find-my-flipper)
+    flipper_ble.py reboot [os|dfu|update] # reboot into a mode
+    flipper_ble.py clock | clock --set now   # read / set the device clock
 
 Requires the Flipper's Bluetooth ON. First connect may prompt a pairing PIN
 on the Flipper screen — confirm it there.
@@ -60,9 +69,17 @@ LIST_REQ, LIST_RESP = 7, 8
 READ_REQ, READ_RESP = 9, 10
 WRITE_REQ = 11
 DELETE_REQ = 12
-APP_START_REQ, APP_EXIT_REQ = 16, 47
+APP_START_REQ, APP_EXIT_REQ, APP_LOAD_FILE_REQ = 16, 47, 48
 INPUT_EVENT_REQ = 23
 SCREEN_STREAM_START, SCREEN_STREAM_STOP, SCREEN_FRAME = 20, 21, 22
+MKDIR_REQ, RENAME_REQ = 13, 30
+MD5_REQ, MD5_RESP = 14, 15
+STAT_REQ, STAT_RESP = 24, 25
+SINFO_REQ, SINFO_RESP = 28, 29
+REBOOT_REQ = 31
+ALERT_REQ = 38
+GETDT_REQ, GETDT_RESP, SETDT_REQ = 35, 36, 37
+REBOOT_MODES = {"os": 0, "dfu": 1, "update": 2}
 
 # Gui InputKey / InputType enums (gui.proto, input.proto)
 INPUT_KEYS = {"up": 0, "down": 1, "right": 2, "left": 3, "ok": 4, "back": 5}
@@ -397,6 +414,92 @@ class FlipperBLE:
             pass
         return fb
 
+    async def stream_frames(self, n):
+        """Capture up to n framebuffers in one stream session (for watching an
+        app run). Stops early if the screen goes idle (no new frame in 5s)."""
+        self._cid += 1
+        await self._write(build_main(self._cid, SCREEN_STREAM_START, b""))
+        frames = []
+        while len(frames) < n:
+            m = await self._next_frame(timeout=5.0)
+            if m is None:
+                break
+            d = m.fields.get(SCREEN_FRAME)
+            if d:
+                data = parse(d[0]).get(1, [b""])[0]
+                if len(data) >= 1024:
+                    frames.append(bytes(data[:1024]))
+        self._cid += 1
+        try:
+            await self._write(build_main(self._cid, SCREEN_STREAM_STOP, b""))
+            await asyncio.sleep(0.1)
+        except Exception:
+            pass
+        return frames
+
+    async def keys(self, seq, delay=0.12):
+        """Send a button sequence in one session. Items are key names, optionally
+        suffixed ':long' for a long-press, e.g. ['down', 'down', 'ok:long']."""
+        for item in seq:
+            name, _, mod = item.partition(":")
+            key = INPUT_KEYS.get(name.lower())
+            if key is None:
+                raise ValueError(f"unknown key '{name}'; choose from {list(INPUT_KEYS)}")
+            await self.tap(key, long=(mod.lower() == "long"))
+            await asyncio.sleep(delay)
+
+    async def app_load_file(self, path):
+        await self.rpc(APP_LOAD_FILE_REQ, _fs(1, path), timeout=12.0)
+
+    # --- storage functions ---
+    async def storage_info(self, path="/ext"):
+        m = (await self.rpc(SINFO_REQ, _fs(1, path)))[0]
+        r = parse(m.fields.get(SINFO_RESP, [b""])[0])
+        return r.get(1, [0])[0], r.get(2, [0])[0]      # total, free (bytes)
+
+    async def stat(self, path):
+        m = (await self.rpc(STAT_REQ, _fs(1, path)))[0]
+        d = m.fields.get(STAT_RESP)
+        if not d:
+            return None
+        ff = parse(parse(d[0]).get(1, [b""])[0])         # StatResponse.file -> File
+        return {"type": "DIR" if ff.get(1, [0])[0] == 1 else "FILE",
+                "size": ff.get(3, [0])[0]}
+
+    async def md5(self, path):
+        m = (await self.rpc(MD5_REQ, _fs(1, path), timeout=30.0))[0]
+        return parse(m.fields.get(MD5_RESP, [b""])[0]).get(1, [b""])[0].decode(errors="replace")
+
+    async def mkdir(self, path):
+        await self.rpc(MKDIR_REQ, _fs(1, path))
+
+    async def rename(self, old, new):
+        await self.rpc(RENAME_REQ, _fs(1, old) + _fs(2, new))
+
+    # --- system functions ---
+    async def alert(self):
+        await self.rpc(ALERT_REQ)
+
+    async def reboot(self, mode=0):
+        # The link drops on reboot; fire-and-forget (no ack to wait for).
+        self._cid += 1
+        await self._write(build_main(self._cid, REBOOT_REQ, _fv(1, mode)))
+        await asyncio.sleep(0.3)
+
+    async def get_datetime(self):
+        m = (await self.rpc(GETDT_REQ))[0]
+        dt = parse(parse(m.fields.get(GETDT_RESP, [b""])[0]).get(1, [b""])[0])
+        g = lambda i: dt.get(i, [0])[0]
+        return dict(hour=g(1), minute=g(2), second=g(3),
+                    day=g(4), month=g(5), year=g(6), weekday=g(7))
+
+    async def set_datetime(self, dt):
+        # dt: a datetime.datetime. weekday 1=Mon..7=Sun (isoweekday).
+        body = (_fv(1, dt.hour) + _fv(2, dt.minute) + _fv(3, dt.second)
+                + _fv(4, dt.day) + _fv(5, dt.month) + _fv(6, dt.year)
+                + _fv(7, dt.isoweekday()))
+        await self.rpc(SETDT_REQ, _fl(1, body))          # SetDateTimeRequest.datetime = 1
+
 
 async def run(args):
     async with FlipperBLE() as fz:
@@ -426,7 +529,20 @@ async def run(args):
             await fz.delete(args.path, args.recursive)
             print(f"deleted {args.path}")
         elif args.cmd == "app":
-            await fz.app_start(args.name, args.args or "")
+            try:
+                await fz.app_start(args.name, args.args or "")
+            except RuntimeError as e:
+                if not args.force:
+                    sys.exit(f"could not launch {args.name}: {e}\n"
+                             "(an app is likely already running — re-run with --force "
+                             "to exit it first, or use `keys back` to back out)")
+                try:                       # force: get back to the desktop, then retry
+                    await fz.app_exit()
+                except RuntimeError:
+                    pass
+                await fz.keys(["back", "back", "back"])
+                await asyncio.sleep(0.4)
+                await fz.app_start(args.name, args.args or "")
             print(f"launched: {args.name}" + (f" {args.args}" if args.args else ""))
         elif args.cmd == "app-exit":
             try:
@@ -453,6 +569,58 @@ async def run(args):
             if args.out:
                 fb_to_png(fb, args.out, args.scale)
                 print(f"[png saved] {args.out}", file=sys.stderr)
+        elif args.cmd == "keys":
+            await fz.keys(args.seq, delay=args.delay)
+            print("sent: " + " ".join(args.seq))
+        elif args.cmd == "stream":
+            frames = await fz.stream_frames(args.frames)
+            for idx, fb in enumerate(frames):
+                print(f"--- frame {idx + 1}/{len(frames)} ---")
+                print(fb_to_ascii(fb))
+                if args.dir:
+                    p = os.path.join(args.dir, f"frame_{idx:03d}.png")
+                    fb_to_png(fb, p, args.scale)
+            if args.dir:
+                print(f"[{len(frames)} png saved] {args.dir}", file=sys.stderr)
+        elif args.cmd == "app-file":
+            await fz.app_load_file(args.path)
+            print(f"loaded into running app: {args.path}")
+        elif args.cmd == "mkdir":
+            await fz.mkdir(args.path)
+            print(f"mkdir {args.path}")
+        elif args.cmd == "rename":
+            await fz.rename(args.old, args.new)
+            print(f"renamed {args.old} -> {args.new}")
+        elif args.cmd == "stat":
+            st = await fz.stat(args.path)
+            print(f"{args.path}: {st}" if st else f"{args.path}: (no stat)")
+        elif args.cmd == "md5":
+            print(f"{await fz.md5(args.path)}  {args.path}")
+        elif args.cmd == "df":
+            total, free = await fz.storage_info(args.path)
+            used = total - free
+            mb = lambda b: f"{b / 1048576:.1f}MB"
+            pct = (100 * used / total) if total else 0
+            print(f"{args.path}: {mb(used)}/{mb(total)} used ({pct:.0f}%), {mb(free)} free")
+        elif args.cmd == "alert":
+            await fz.alert()
+            print("alert played (find-my-flipper)")
+        elif args.cmd == "reboot":
+            mode = REBOOT_MODES.get(args.mode.lower())
+            if mode is None:
+                sys.exit(f"unknown mode '{args.mode}'; choose from {list(REBOOT_MODES)}")
+            await fz.reboot(mode)
+            print(f"reboot ({args.mode}) sent; link will drop")
+        elif args.cmd == "clock":
+            if args.set:
+                import datetime as _dt
+                when = _dt.datetime.now() if args.set == "now" else _dt.datetime.fromisoformat(args.set)
+                await fz.set_datetime(when)
+                print(f"clock set -> {when.isoformat(timespec='seconds')}")
+            else:
+                d = await fz.get_datetime()
+                print(f"{d['year']:04d}-{d['month']:02d}-{d['day']:02d} "
+                      f"{d['hour']:02d}:{d['minute']:02d}:{d['second']:02d}")
 
 
 def main():
@@ -466,10 +634,21 @@ def main():
     pr = sub.add_parser("read"); pr.add_argument("path")
     pw = sub.add_parser("write"); pw.add_argument("local"); pw.add_argument("flipper_path")
     pd = sub.add_parser("delete"); pd.add_argument("path"); pd.add_argument("--recursive", action="store_true")
-    pa = sub.add_parser("app"); pa.add_argument("name"); pa.add_argument("args", nargs="?")
+    pa = sub.add_parser("app"); pa.add_argument("name"); pa.add_argument("args", nargs="?"); pa.add_argument("--force", action="store_true", help="exit any running app first")
     sub.add_parser("app-exit")
     pi = sub.add_parser("input"); pi.add_argument("key"); pi.add_argument("type", nargs="?", default="short"); pi.add_argument("--repeat", type=int, default=1)
+    pk = sub.add_parser("keys"); pk.add_argument("seq", nargs="+"); pk.add_argument("--delay", type=float, default=0.12)
     psc = sub.add_parser("screen"); psc.add_argument("-o", "--out"); psc.add_argument("--scale", type=int, default=4)
+    pst = sub.add_parser("stream"); pst.add_argument("-n", "--frames", type=int, default=6); pst.add_argument("-d", "--dir"); pst.add_argument("--scale", type=int, default=4)
+    paf = sub.add_parser("app-file"); paf.add_argument("path")
+    pm = sub.add_parser("mkdir"); pm.add_argument("path")
+    prn = sub.add_parser("rename"); prn.add_argument("old"); prn.add_argument("new")
+    pstat = sub.add_parser("stat"); pstat.add_argument("path")
+    pmd = sub.add_parser("md5"); pmd.add_argument("path")
+    pdf = sub.add_parser("df"); pdf.add_argument("path", nargs="?", default="/ext")
+    sub.add_parser("alert")
+    prb = sub.add_parser("reboot"); prb.add_argument("mode", nargs="?", default="os")
+    pcl = sub.add_parser("clock"); pcl.add_argument("--set", nargs="?", const="now", default=None)
     args = ap.parse_args()
     asyncio.run(run(args))
 
