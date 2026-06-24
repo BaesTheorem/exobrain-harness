@@ -49,12 +49,40 @@ python3 flipper/flipper_ble.py list /ext/subghz
 python3 flipper/flipper_ble.py read /ext/subghz/foo.sub > foo.sub
 python3 flipper/flipper_ble.py write ./foo.sub /ext/subghz/foo.sub
 python3 flipper/flipper_ble.py delete /ext/foo.sub
+python3 flipper/flipper_ble.py app "Sub-GHz"                 # launch an on-device app by name
+python3 flipper/flipper_ble.py app-exit                      # exit (only if RPC-owned; else use `input back`)
+python3 flipper/flipper_ble.py input down                    # tap a button: up/down/left/right/ok/back
+python3 flipper/flipper_ble.py input ok --repeat 2           # repeat a tap
+python3 flipper/flipper_ble.py screen                        # ASCII dump of the 128x64 screen (text, not vision)
+python3 flipper/flipper_ble.py screen -o shot.png            # ...and save a scaled PNG too
 ```
 Needs `bleak` and the Flipper's **Bluetooth ON** (Settings → Bluetooth → ON).
 The BLE channel speaks **protobuf RPC only** (not the text CLI), so this is a
 hand-rolled, dependency-free RPC client (wire codec built from the official
 `flipperzero-protobuf` field numbers). First connect may prompt a pairing PIN on
 the Flipper; device address is cached to `flipper/.ble_addr` for fast reconnect.
+
+### Sub-GHz "raw read" over Bluetooth (no USB cable, no vision)
+
+The USB `subghz rx` live-decode rides the **text CLI**, which BLE does not
+expose — and the RPC has **no sub-GHz method** (verified against the full
+`flipperzero-protobuf`). So a live read can't be tunneled over BLE the way it
+can over USB. Instead, **drive the device's own Sub-GHz app by RPC** and read
+the result as a file:
+
+1. `app "Sub-GHz"` — launches the Sub-GHz app (lands on its menu; "Read" is
+   the top/selected item, then "Read RAW", "Saved", "Add Manually").
+2. `input ok` — enter **Read** (auto-listens 433.92 MHz OOK650) or `input down`
+   then `input ok` for **Read RAW** (records the raw waveform to a file).
+3. `screen` — confirm state / see received signals **as text** (the 128x64
+   framebuffer rendered to ASCII; results never require image vision).
+4. On a capture, save it (button presses), then `read /ext/subghz/<name>.sub`
+   pulls the **plain-text `.sub`** over BLE → `analyze-sub.py` it.
+
+**Key point:** decoded results are always plain-text `.sub` files read over BLE.
+The screen is only a navigation aid (and it's text too). Exit cleanly with
+`input back` when done so the radio isn't held (BLE is single-session).
+TX safety in the dedicated section below still applies — never transmit unknowns.
 
 ### Analyze a capture — `analyze-sub.py`
 ```bash

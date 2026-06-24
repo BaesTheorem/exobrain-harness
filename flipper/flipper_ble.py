@@ -7,7 +7,16 @@ it speaks the protobuf RPC only. So this is a from-scratch, dependency-free
 implementation of the Flipper RPC: hand-rolled protobuf wire encoding/decoding
 (no protoc, no protobuf runtime) over the BLE serial GATT service via bleak.
 
-Supports: ping, info (device_info), battery, list, read, write, delete.
+Supports: ping, info (device_info), battery, power, list, read, write, delete,
+plus wireless device CONTROL — app (launch an on-device app), input (inject a
+button press), and screen (dump the framebuffer as text/PNG).
+
+Why control matters: the BLE link has no text CLI and the RPC has no sub-GHz
+method, so a *live* sub-GHz read can't be tunneled like it can over USB. Instead
+we drive the Flipper's own Sub-GHz app by injecting buttons, let it record/save,
+then read the resulting .sub file over BLE as plain text and analyze it offline.
+The decoded RESULT is always a text file — no screen-scraping needed for it; the
+`screen` dump is only a navigation aid.
 
 Usage:
     flipper_ble.py info
@@ -16,6 +25,12 @@ Usage:
     flipper_ble.py read /ext/subghz/foo.sub
     flipper_ble.py write ./local.sub /ext/subghz/foo.sub
     flipper_ble.py delete /ext/subghz/foo.sub
+    flipper_ble.py app "Sub-GHz"          # launch an on-device app by name
+    flipper_ble.py app-exit               # exit the running app
+    flipper_ble.py input down             # tap a button (up/down/left/right/ok/back)
+    flipper_ble.py input ok --repeat 2    # tap OK twice
+    flipper_ble.py screen                 # ASCII dump of the 128x64 screen
+    flipper_ble.py screen -o shot.png     # ...and save a scaled PNG
 
 Requires the Flipper's Bluetooth ON. First connect may prompt a pairing PIN
 on the Flipper screen — confirm it there.
@@ -45,6 +60,13 @@ LIST_REQ, LIST_RESP = 7, 8
 READ_REQ, READ_RESP = 9, 10
 WRITE_REQ = 11
 DELETE_REQ = 12
+APP_START_REQ, APP_EXIT_REQ = 16, 47
+INPUT_EVENT_REQ = 23
+SCREEN_STREAM_START, SCREEN_STREAM_STOP, SCREEN_FRAME = 20, 21, 22
+
+# Gui InputKey / InputType enums (gui.proto, input.proto)
+INPUT_KEYS = {"up": 0, "down": 1, "right": 2, "left": 3, "ok": 4, "back": 5}
+INPUT_TYPES = {"press": 0, "release": 1, "short": 2, "long": 3, "repeat": 4}
 
 
 # ---------- protobuf wire format (hand-rolled) ----------
@@ -117,6 +139,48 @@ class Main:
 def build_main(cid, content_field, content_bytes):
     body = _fv(1, cid) + _fl(content_field, content_bytes)
     return _varint(len(body)) + body          # length-delimited frame
+
+
+# ---------- screen framebuffer rendering (128x64, 1-bit, page format) ----------
+# Byte index = (y // 8) * 128 + x; bit (y % 8) is the pixel, LSB = top row.
+def fb_pixel(fb, x, y):
+    return (fb[(y >> 3) * 128 + x] >> (y & 7)) & 1
+
+
+def fb_to_ascii(fb):
+    """Render the framebuffer as text, packing 2 vertical pixels per char."""
+    glyphs = " ▀▄█"            # index = top | (bottom << 1)
+    rows = []
+    for ty in range(0, 64, 2):
+        line = [glyphs[fb_pixel(fb, x, ty) | (fb_pixel(fb, x, ty + 1) << 1)]
+                for x in range(128)]
+        rows.append("".join(line).rstrip())
+    return "\n".join(rows)
+
+
+def fb_to_png(fb, path, scale=4):
+    """Write the framebuffer to an 8-bit grayscale PNG (stdlib zlib only)."""
+    import struct
+    import zlib
+    W, H = 128, 64
+    raw = bytearray()
+    for y in range(H):
+        line = bytearray()
+        for x in range(W):
+            line.extend([0 if fb_pixel(fb, x, y) else 255] * scale)
+        for _ in range(scale):
+            raw.append(0)          # filter type: none
+            raw.extend(line)
+
+    def chunk(typ, data):
+        return (struct.pack(">I", len(data)) + typ + data
+                + struct.pack(">I", zlib.crc32(typ + data) & 0xFFFFFFFF))
+
+    ihdr = struct.pack(">IIBBBBB", W * scale, H * scale, 8, 0, 0, 0, 0)
+    png = (b"\x89PNG\r\n\x1a\n" + chunk(b"IHDR", ihdr)
+           + chunk(b"IDAT", zlib.compress(bytes(raw), 9)) + chunk(b"IEND", b""))
+    with open(path, "wb") as f:
+        f.write(png)
 
 
 # ---------- BLE RPC client ----------
@@ -290,6 +354,49 @@ class FlipperBLE:
         req = _fs(1, path) + (_fv(2, 1) if recursive else b"")
         await self.rpc(DELETE_REQ, req)
 
+    # --- device control (launch apps, inject buttons, read the screen) ---
+    async def app_start(self, name, app_args=""):
+        content = _fs(1, name) + (_fs(2, app_args) if app_args else b"")
+        await self.rpc(APP_START_REQ, content, timeout=12.0)
+
+    async def app_exit(self):
+        await self.rpc(APP_EXIT_REQ)
+
+    async def send_input(self, key, itype):
+        await self.rpc(INPUT_EVENT_REQ, _fv(1, key) + _fv(2, itype))
+
+    async def tap(self, key, long=False):
+        # Mimic a real button: Press, then Short|Long, then Release.
+        for t in (INPUT_TYPES["press"],
+                  INPUT_TYPES["long"] if long else INPUT_TYPES["short"],
+                  INPUT_TYPES["release"]):
+            await self.send_input(key, t)
+            await asyncio.sleep(0.03)
+
+    async def screen_frame(self):
+        """Grab one 1024-byte framebuffer. Don't use rpc(): the firmware starts
+        streaming immediately and rpc() would discard the initial frame."""
+        self._cid += 1
+        await self._write(build_main(self._cid, SCREEN_STREAM_START, b""))
+        fb = None
+        for _ in range(80):
+            m = await self._next_frame(timeout=4.0)
+            if m is None:
+                break
+            d = m.fields.get(SCREEN_FRAME)
+            if d:
+                data = parse(d[0]).get(1, [b""])[0]   # ScreenFrame.data = 1
+                if len(data) >= 1024:
+                    fb = bytes(data[:1024])
+                    break
+        self._cid += 1                                # stop the stream (best effort)
+        try:
+            await self._write(build_main(self._cid, SCREEN_STREAM_STOP, b""))
+            await asyncio.sleep(0.1)
+        except Exception:
+            pass
+        return fb
+
 
 async def run(args):
     async with FlipperBLE() as fz:
@@ -318,6 +425,34 @@ async def run(args):
         elif args.cmd == "delete":
             await fz.delete(args.path, args.recursive)
             print(f"deleted {args.path}")
+        elif args.cmd == "app":
+            await fz.app_start(args.name, args.args or "")
+            print(f"launched: {args.name}" + (f" {args.args}" if args.args else ""))
+        elif args.cmd == "app-exit":
+            try:
+                await fz.app_exit()
+                print("app exit sent")
+            except RuntimeError as e:
+                # status=21 etc: the app isn't RPC-owned (already in its own
+                # menus). Button-back is the right exit there.
+                print(f"app-exit not accepted ({e}); use `input back` instead",
+                      file=sys.stderr)
+        elif args.cmd == "input":
+            key = INPUT_KEYS.get(args.key.lower())
+            if key is None:
+                sys.exit(f"unknown key '{args.key}'; choose from {list(INPUT_KEYS)}")
+            for _ in range(args.repeat):
+                await fz.tap(key, long=(args.type.lower() == "long"))
+                await asyncio.sleep(0.08)
+            print(f"sent {args.key} x{args.repeat}")
+        elif args.cmd == "screen":
+            fb = await fz.screen_frame()
+            if not fb:
+                sys.exit("no screen frame received over BLE")
+            print(fb_to_ascii(fb))
+            if args.out:
+                fb_to_png(fb, args.out, args.scale)
+                print(f"[png saved] {args.out}", file=sys.stderr)
 
 
 def main():
@@ -331,6 +466,10 @@ def main():
     pr = sub.add_parser("read"); pr.add_argument("path")
     pw = sub.add_parser("write"); pw.add_argument("local"); pw.add_argument("flipper_path")
     pd = sub.add_parser("delete"); pd.add_argument("path"); pd.add_argument("--recursive", action="store_true")
+    pa = sub.add_parser("app"); pa.add_argument("name"); pa.add_argument("args", nargs="?")
+    sub.add_parser("app-exit")
+    pi = sub.add_parser("input"); pi.add_argument("key"); pi.add_argument("type", nargs="?", default="short"); pi.add_argument("--repeat", type=int, default=1)
+    psc = sub.add_parser("screen"); psc.add_argument("-o", "--out"); psc.add_argument("--scale", type=int, default=4)
     args = ap.parse_args()
     asyncio.run(run(args))
 
