@@ -125,14 +125,24 @@ bottom; you abort when the device reacts. So the wait = the position of your
 device's code in the list. Stock `tv.ir` is ~300 Power codes in no useful order,
 so it crawls. The optimizer **dedups** and **reorders by brand popularity**:
 ```bash
-python3 flipper/optimize-universal-ir.py tv.ir.orig -o tv.ir            # full coverage, just faster
-python3 flipper/optimize-universal-ir.py tv.ir.orig -o tv.ir --top 40   # also trim Power to top 40 (drops long tail)
-python3 flipper/optimize-universal-ir.py tv.ir.orig -o tv.ir --order family   # all of one brand together
+python3 flipper/optimize-universal-ir.py tv.ir.orig -o tv.ir                    # popularity order (default)
+python3 flipper/optimize-universal-ir.py tv.ir.orig -o tv.ir --order interleave # round-robin brands (best worst-case)
+python3 flipper/optimize-universal-ir.py tv.ir.orig -o tv.ir --order family     # all of one brand together
+python3 flipper/optimize-universal-ir.py tv.ir.orig -o tv.ir --top 40           # also trim Power to top 40
 ```
-Default `--order interleave` round-robins families (Samsung → NEC/LG → Sony →
-Panasonic → Philips → ...) so **any** mainstream TV is hit in the first ~8 codes
-instead of after hundreds. `family` mode groups a brand's variants together
-(better if you target one brand). Coverage is preserved unless `--top` is given.
+Default `--order popularity` ranks codes by **current TV market share** so the
+most-likely-to-work codes fire first (minimises expected time on a random TV):
+TCL/Onn → Samsung → Hisense → LG/Vizio → Sony → ... Brands are identified by
+matching each code's `(protocol, address)` against power-code fingerprints pulled
+from the **Flipper-IRDB** (`TVs/<brand>/`); the rank order tracks 2025 unit-share
+data (TrendForce/Omdia). `interleave` round-robins families so *any* TV dies in
+the first ~8 codes (better if you point at a wide brand mix); `family` groups one
+brand together. Coverage is preserved unless `--top` is given.
+
+Caveats worth knowing: ~half of stock `tv.ir`'s Power codes are **RAW** (timing
+captures with no protocol/address) so they can't be brand-attributed and sort
+last; `NEC 04` is shared by LG/Vizio/Hisense. The signature ranks live in
+`SIGNATURE_RANK` in the script — refresh them when market share shifts.
 
 **Workflow (all over BLE):**
 1. `read /ext/infrared/assets/tv.ir > flipper/sd-backup/tv.ir.orig` (back up first; `sd-backup/` is gitignored).
