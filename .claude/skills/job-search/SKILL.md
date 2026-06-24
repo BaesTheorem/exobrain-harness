@@ -61,8 +61,11 @@ Read the PDF at the start of any audit or cover letter to ensure you're working 
 
 Do NOT hand-build resume/cover-letter HTML per JD anymore. Use the reusable builder at `Exobrain harness/resume-builder/` (see its README):
 
-- **Tailored resume**: write a surgical `tailoring/<company>.json` (overrides: `summary`, `skills_append` per row, `experience_bullets` per job id `clyde`/`geeksquad`), then `python3 build.py resume --tailor tailoring/<company>.json`. Output: `~/Downloads/Alex_Hedtke_Resume_<Tag>.pdf`.
-- **Cover letter**: write the letter body (date line down) to a `.md`, run `/de-ai` on it, then `python3 build.py cover --md <file>.md --company "<Name>" --tag <Tag>`. Output: `~/Downloads/Alex_Hedtke_Cover_Letter_<Tag>.pdf`.
+**Artifact output location (standing rule, Alex 2026-06-24): stash every generated resume/cover letter in the listing's own folder, NOT in `~/Downloads/`.** Each job we apply to or build artifacts for gets a dedicated folder at `Projects/Get new job/Job Listings/<Company> - <Role>/` that holds the listing note plus its PDFs (see "Per-Listing Notes" below for the folder-promotion mechanics). Pass the builder's `--out` flag to write straight into that folder. Keep the human filename (`Alex_Hedtke_Resume_<Tag>.pdf` / `Alex_Hedtke_Cover_Letter_<Tag>.pdf`) — it's part of the ATS defense and is what Alex uploads. Do not also leave a copy in Downloads.
+
+- **Tailored resume**: write a surgical `tailoring/<company>.json` (overrides: `summary`, `skills_append` per row, `experience_bullets` per job id `clyde`/`geeksquad`), then `python3 build.py resume --tailor tailoring/<company>.json --out "/Users/alexhedtke/Exobrain/Projects/Get new job/Job Listings/<Company> - <Role>/Alex_Hedtke_Resume_<Tag>.pdf"`.
+- **Cover letter**: write the letter body (date line down) to a `.md`, run `/de-ai` on it, then `python3 build.py cover --md <file>.md --company "<Name>" --tag <Tag> --out "/Users/alexhedtke/Exobrain/Projects/Get new job/Job Listings/<Company> - <Role>/Alex_Hedtke_Cover_Letter_<Tag>.pdf"`.
+- The builder's `tailoring/*.json` and `*.md` inputs stay in the harness repo (gitignored); only the rendered PDF outputs go to the listing folder in the vault.
 - Canonical resume content lives in `resume-builder/data/resume_data.json` (source of truth). Tailoring rules are still surgical-only per [[Claude Reference]]; the builder does not relax them.
 - The builder bakes in the document-side ATS / AI-screening defenses (clean metadata, selectable single-column text, human filename, no Skia/Chrome fingerprint). The **prose** defense is still yours: run `/de-ai` on every tailored summary/bullet and cover letter. Full rationale: [[ATS & AI-Screening Playbook]] (`Projects/Get new job/`). Read it before tailoring.
 
@@ -282,8 +285,10 @@ Every researched, audited, or scanned job listing **MUST get a dedicated note** 
 
 ### Note location and naming
 
-- Folder: `Projects/Get new job/Job Listings/`
-- Filename: `<Company> - <Role>.md` (e.g., `Nerdio - Support Solutions Engineer AMER MSP.md`). If a company has multiple roles, list them as separate files. Strip illegal filename characters.
+- Base folder: `Projects/Get new job/Job Listings/`
+- **Plain listing (scanned/candidate, no artifacts, not applied)**: a flat note `Job Listings/<Company> - <Role>.md` (e.g., `Nerdio - Support Solutions Engineer AMER MSP.md`). If a company has multiple roles, list them as separate files. Strip illegal filename characters.
+- **Active listing (we built artifacts for it, or applied)** — folder convention (Alex 2026-06-24): promote it to its own dedicated folder `Job Listings/<Company> - <Role>/` that holds the note `<Company> - <Role>.md` PLUS its artifact PDFs (tailored resume + cover letter). When promoting an existing flat note, move the `.md` into the new same-named folder. This keeps everything for one application in one place.
+- The Bases tracker is unaffected by the flat-vs-folder split: its filter `file.inFolder("Projects/Get new job/Job Listings")` is **recursive** (matches subfolders), and the `file.ext == "md"` + `type == "job-listing"` clauses exclude the PDFs, so artifacts never pollute the table and foldered notes still aggregate. Wikilinks resolve by basename, so `[[<Company> - <Role>]]` keeps working after a note moves into its folder.
 
 ### Frontmatter schema (REQUIRED)
 

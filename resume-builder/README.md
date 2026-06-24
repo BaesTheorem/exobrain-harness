@@ -24,7 +24,15 @@ python3 build.py resume --tailor tailoring/ideal.json
 
 # Cover letter (markdown = letter from the date line down)
 python3 build.py cover --md tailoring/ideal_cover.md --company "IDEAL Industries, Inc." --tag IDEAL
+
+# Job-search convention (Alex 2026-06-24): for a real application, write the PDF
+# straight into that listing's dedicated folder instead of Downloads, via --out:
+python3 build.py resume --tailor tailoring/ideal.json \
+  --out "/Users/alexhedtke/Exobrain/Projects/Get new job/Job Listings/IDEAL Industries - <Role>/Alex_Hedtke_Resume_IDEAL.pdf"
 ```
+`--out <path>` overrides the default `~/Downloads/` destination for either subcommand.
+The `/job-search` skill owns the per-listing folder convention; the builder just
+writes wherever `--out` points (default stays Downloads for ad-hoc one-offs).
 Requires: `playwright` (chromium), `pypdf`, `qpdf`.
 
 ## Tailoring schema (`tailoring/<company>.json`, all keys optional)
