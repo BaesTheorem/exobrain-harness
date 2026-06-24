@@ -116,6 +116,36 @@ Reports frequency/modulation, timing levels, frame structure, and a verdict:
 **fixed-code repeating remote (cloneable)** vs **rolling code / noise / junk**.
 Run this before ever transmitting an unknown capture.
 
+### Speed up the on-board universal remote — `optimize-universal-ir.py`
+
+The Infrared **Universal Remotes** (TV-B-Gone et al.) read one asset file —
+`/ext/infrared/assets/tv.ir` (also `ac.ir`, `audio.ir`, ...) — and transmit every
+signal matching the pressed button (all `Power` codes) **sequentially**, top to
+bottom; you abort when the device reacts. So the wait = the position of your
+device's code in the list. Stock `tv.ir` is ~300 Power codes in no useful order,
+so it crawls. The optimizer **dedups** and **reorders by brand popularity**:
+```bash
+python3 flipper/optimize-universal-ir.py tv.ir.orig -o tv.ir            # full coverage, just faster
+python3 flipper/optimize-universal-ir.py tv.ir.orig -o tv.ir --top 40   # also trim Power to top 40 (drops long tail)
+python3 flipper/optimize-universal-ir.py tv.ir.orig -o tv.ir --order family   # all of one brand together
+```
+Default `--order interleave` round-robins families (Samsung → NEC/LG → Sony →
+Panasonic → Philips → ...) so **any** mainstream TV is hit in the first ~8 codes
+instead of after hundreds. `family` mode groups a brand's variants together
+(better if you target one brand). Coverage is preserved unless `--top` is given.
+
+**Workflow (all over BLE):**
+1. `read /ext/infrared/assets/tv.ir > flipper/sd-backup/tv.ir.orig` (back up first; `sd-backup/` is gitignored).
+2. `optimize-universal-ir.py tv.ir.orig -o tv_new.ir`.
+3. **Verified write-back:** `md5` the local file, `write` it to the device, `md5`
+   the device copy, compare; restore `tv.ir.orig` on mismatch. (A corrupt asset
+   breaks the universal remote, so always verify — large writes are chunk-streamed
+   but verify anyway.)
+
+**Reapply after any firmware update / asset reinstall** — those regenerate the
+stock assets and revert the order, same as the dolphin manifest. The original is
+backed up at `flipper/sd-backup/tv.ir.orig`.
+
 ## USB vs BLE — which to reach for
 
 - **BLE** for everyday wireless: info, battery, listings, reading/writing small
