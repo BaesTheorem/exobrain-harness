@@ -5,7 +5,9 @@
 
 [bot]
 name = "MIST"                # display name used in messages and the LLM persona
-guild_id = 000000000000000000   # your server's ID (right-click server -> Copy Server ID)
+# One or more servers to serve. Use guild_ids for several; guild_id for one.
+guild_ids = [000000000000000000]  # server IDs (right-click server -> Copy Server ID)
+guild_id = 000000000000000000     # optional single/primary (merged with guild_ids)
 prefix = "!"
 admin_ids = [000000000000000000]  # your Discord user ID(s) — full command access
 # mod_role_id = 000000000000000000  # optional: a role that also counts as admin
@@ -21,6 +23,8 @@ admin_ids = [000000000000000000]  # your Discord user ID(s) — full command acc
 # enabled = true
 # model = "sonnet"           # `claude` CLI model alias; "opus" for richer replies
 # history = 12               # how many recent channel messages to use as context
+# always_respond_guilds = []  # guild IDs where she replies to EVERY owner
+#                            # message (no @mention); e.g. a personal server
 # # Runs on the `claude` CLI headless (your Claude subscription), NOT the paid
 # # Anthropic API — no per-message cost, no API key needed.
 # # owner_username = "your_discord_username"  # she ONLY replies to this user;
