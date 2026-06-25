@@ -65,6 +65,11 @@ class Handler:
         self.reaction_remove_handlers: list[Callable] = []
         self.member_join_handlers: list[Callable] = []
         self.member_remove_handlers: list[Callable] = []
+        # Raw edit/delete events, used by the portal/bridge relay to propagate
+        # changes to mirrored copies (raw variants fire even for messages not in
+        # the client's cache, which is essential for an always-on relay).
+        self.raw_message_edit_handlers: list[Callable] = []
+        self.raw_message_delete_handlers: list[Callable] = []
 
     # --- registration (called by modules in setup()) ---
     def command(self, *triggers: str, **kwargs) -> Callable[[CommandFn], CommandFn]:

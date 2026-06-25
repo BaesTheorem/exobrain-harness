@@ -31,6 +31,11 @@ admin_ids = [000000000000000000]  # your Discord user ID(s) — full command acc
 # #                            # defaults to DISCORD_ALEX_USERNAME in the harness .env
 # # system = "..."           # optional: override MIST's built-in persona wholesale
 
+# [bridge]                   # Live two-way channel "portals" (Fletcher's webhook
+# enabled = true             # bridge). Open with `!portal #other-channel` (admin).
+#                            # The bot needs the Manage Webhooks permission in both
+#                            # channels. Portals may cross servers the bot is in.
+
 # [greeting]                 # Phase 3: member onboarding
 # rules_gate = false         # require new members to DM "I agree" before gaining access
 # default_role_id = 0        # role granted on join / when no saved roles exist
