@@ -308,14 +308,16 @@ def setup(ctx: Context) -> None:
             lines.append(f"<#{r['src_channel_id']}> ⇄ <#{r['dst_channel_id']}>")
         return "\n".join(lines)
 
-    async def open_portal(here: discord.TextChannel, other: discord.TextChannel) -> str:
+    async def open_portal(here: discord.TextChannel, other: discord.TextChannel) -> tuple[str, bool]:
+        """Returns (status text, opened?) — `opened` is True only when a new
+        portal was actually created, so callers can quip only on success."""
         if other.id == here.id:
-            return "I can't portal a channel to itself, silly ^_^"
+            return "I can't portal a channel to itself, silly ^_^", False
         if db.query(
             "SELECT 1 FROM bridges WHERE src_channel_id=? AND dst_channel_id=? LIMIT 1",
             (here.id, other.id),
         ):
-            return f"There's already a portal to <#{other.id}>. ✨"
+            return f"There's already a portal to <#{other.id}>. ✨", False
         try:
             # Webhook on the DESTINATION carries here -> there; webhook on HERE
             # carries there -> here. Two webhooks = one two-way portal.
@@ -323,10 +325,10 @@ def setup(ctx: Context) -> None:
             wh_here = await here.create_webhook(name=WEBHOOK_NAME, reason="MIST portal")
         except discord.Forbidden:
             return ("I need the **Manage Webhooks** permission in *both* channels to open a "
-                    "portal. Can you grant that and try again? ^_^")
+                    "portal. Can you grant that and try again? ^_^"), False
         except discord.HTTPException:
             log.exception("portal webhook creation failed")
-            return "Something went sideways creating the portal webhooks. >_<"
+            return "Something went sideways creating the portal webhooks. >_<", False
         db.execute(
             "INSERT OR REPLACE INTO bridges"
             "(src_channel_id, dst_channel_id, dst_guild_id, dst_webhook_id, dst_webhook_token)"
@@ -344,16 +346,18 @@ def setup(ctx: Context) -> None:
         except discord.HTTPException:
             pass
         return (f"🌀✨ Portal open! <#{here.id}> ⇄ <#{other.id}>. Anything said in either "
-                f"channel shows up in the other now. (╯°□°)╯︵ ┻━┻")
+                f"channel shows up in the other now. (╯°□°)╯︵ ┻━┻"), True
 
-    async def close_portal(here: discord.TextChannel, other: discord.TextChannel) -> str:
+    async def close_portal(here: discord.TextChannel, other: discord.TextChannel) -> tuple[str, bool]:
+        """Returns (status text, closed?) — `closed` is True only when a portal
+        was actually torn down."""
         rows = db.query(
             "SELECT * FROM bridges WHERE (src_channel_id=? AND dst_channel_id=?) "
             "OR (src_channel_id=? AND dst_channel_id=?)",
             (here.id, other.id, other.id, here.id),
         )
         if not rows:
-            return "There's no portal between those two channels."
+            return "There's no portal between those two channels.", False
         for r in rows:
             try:
                 await webhook_for(r["dst_webhook_id"], r["dst_webhook_token"]).delete(
@@ -374,7 +378,7 @@ def setup(ctx: Context) -> None:
             await other.send("🌀 The portal to this channel was closed.")
         except discord.HTTPException:
             pass
-        return f"Portal to <#{other.id}> closed. ┬─┬ノ( º _ ºノ)"
+        return f"Portal to <#{other.id}> closed. ┬─┬ノ( º _ ºノ)", True
 
     # ---- prefix command: !portal / !bridge ---------------------------------
 
@@ -409,14 +413,16 @@ def setup(ctx: Context) -> None:
             if other is None:
                 await message.reply(f"I can't find a channel matching `{args[1]}`. >_<", mention_author=False)
                 return
-            await message.reply(await close_portal(message.channel, other), mention_author=False)
+            text, _ = await close_portal(message.channel, other)
+            await message.reply(text, mention_author=False)
             return
 
         other = resolve_channel(" ".join(args))
         if other is None:
             await message.reply(f"I can't find a channel matching `{' '.join(args)}`. >_<", mention_author=False)
             return
-        await message.reply(await open_portal(message.channel, other), mention_author=False)
+        text, _ = await open_portal(message.channel, other)
+        await message.reply(text, mention_author=False)
 
     # ---- slash command: /portal open|close|list ----------------------------
     # Gated in Discord's own UI to members who can Manage Webhooks (admins), and
@@ -424,6 +430,38 @@ def setup(ctx: Context) -> None:
 
     if ctx.tree is not None:
         from discord import app_commands
+
+        from quips import RollingQuips
+
+        # Rolling quip pools (shuffle-bag rotation) so /portal replies never read
+        # canned. Relevant per command; appended as Discord subtext (-#). On the
+        # error/no-op paths the helper message already carries her voice, so we
+        # only tack a celebratory quip onto the happy path.
+        OPEN_QUIPS = RollingQuips([
+            "Wormhole stabilized. Try not to tell physics. ( ͡° ͜ʖ ͡°)",
+            "Two channels, one conversation. I do love a good merge. ✨",
+            "I folded a little spacetime for you. You're welcome 😼",
+            "Tin cans and string, but make it cosmic. 🌀",
+            "The bridge is hot, mind the photons. 🔥",
+            "Eavesdropping is now bidirectional and fully sanctioned. >:3",
+            "Somewhere a wormhole physicist just felt a chill. 🥶",
+        ])
+        CLOSE_QUIPS = RollingQuips([
+            "Portal collapsed, spacetime un-creased. ┬─┬ノ( º _ ºノ)",
+            "Snip. That wormhole is officially yesterday's news. ✂️",
+            "And the channels drift apart, like in the sad movies. ;-;",
+            "Reality restored to factory settings. ✨",
+            "Cut the cosmic string. No refunds. 💨",
+        ])
+        LIST_QUIPS = RollingQuips([
+            "Counting my wormholes like a dragon counts gold. 🐉",
+            "Behold, the current state of my little multiverse. 🌌",
+            "Every place I'm bending reality, all in one tidy list. ✨",
+            "My portal collection. I'm quite proud of it, honestly. 😌",
+        ])
+
+        def _quip(text: str, pool: RollingQuips) -> str:
+            return f"{text}\n-# {pool.next()}"
 
         portal = app_commands.Group(
             name="portal",
@@ -445,7 +483,8 @@ def setup(ctx: Context) -> None:
                     "Portals can only start from a normal text channel.", ephemeral=True)
                 return
             await interaction.response.defer(ephemeral=True, thinking=True)
-            await interaction.followup.send(await open_portal(here, channel), ephemeral=True)
+            text, ok = await open_portal(here, channel)
+            await interaction.followup.send(_quip(text, OPEN_QUIPS) if ok else text, ephemeral=True)
 
         @portal.command(name="close", description="Close the portal between here and another channel")
         @app_commands.describe(channel="The channel whose portal to close")
@@ -456,11 +495,12 @@ def setup(ctx: Context) -> None:
                     "Portals can only be closed from a normal text channel.", ephemeral=True)
                 return
             await interaction.response.defer(ephemeral=True, thinking=True)
-            await interaction.followup.send(await close_portal(here, channel), ephemeral=True)
+            text, ok = await close_portal(here, channel)
+            await interaction.followup.send(_quip(text, CLOSE_QUIPS) if ok else text, ephemeral=True)
 
         @portal.command(name="list", description="List the open portals")
         async def portal_list(interaction: discord.Interaction):
-            await interaction.response.send_message(list_portals(), ephemeral=True)
+            await interaction.response.send_message(_quip(list_portals(), LIST_QUIPS), ephemeral=True)
 
         ctx.tree.add_command(portal, guilds=[discord.Object(id=g) for g in ctx.config.guild_ids])
 
