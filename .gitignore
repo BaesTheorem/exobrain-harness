@@ -71,6 +71,9 @@ claude-bot/config.toml
 claude-bot/claudebot.db
 claude-bot/claudebot.db-*
 claude-bot/.venv/
+claude-bot/.ace-venv/
+claude-bot/.ace-cache/
+claude-bot/assets/
 claude-bot/**/__pycache__/
 
 # Scratch / temp extraction (junk — never commit)
