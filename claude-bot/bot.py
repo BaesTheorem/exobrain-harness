@@ -68,12 +68,15 @@ class FletcherBot(discord.Client):
         log.info("registered %d commands", len(self.handler.commands))
 
     async def on_ready(self):
-        guild = self.get_guild(self.config.guild_id)
+        served = []
+        for gid in self.config.guild_ids:
+            g = self.get_guild(gid)
+            served.append(g.name if g else f"<{gid} not found>")
         log.info(
-            "%s connected as %s (%s) — serving guild: %s",
+            "%s connected as %s (%s) — serving guild(s): %s",
             self.config.name,
             self.user, self.user.id if self.user else "?",
-            guild.name if guild else f"<{self.config.guild_id} not found>",
+            ", ".join(served),
         )
         await self.change_presence(activity=discord.Game(name=f"{self.config.prefix}help"))
 
@@ -105,13 +108,13 @@ class FletcherBot(discord.Client):
             await fn(payload, self.ctx)
 
     async def on_member_join(self, member: discord.Member):
-        if member.guild.id != self.config.guild_id:
+        if member.guild.id not in self.config.guild_ids:
             return
         for fn in self.handler.member_join_handlers:
             await fn(member, self.ctx)
 
     async def on_member_remove(self, member: discord.Member):
-        if member.guild.id != self.config.guild_id:
+        if member.guild.id not in self.config.guild_ids:
             return
         for fn in self.handler.member_remove_handlers:
             await fn(member, self.ctx)

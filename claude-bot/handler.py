@@ -105,10 +105,10 @@ class Handler:
         False if it wasn't a command at all (chatter etc. may handle it)."""
         if message.author.bot:
             return False
-        # Single-guild guard for COMMANDS: ignore commands outside our server.
-        # DMs are intentionally let through to message_handlers (chatter), but
-        # they are never treated as commands here.
-        if message.guild is None or message.guild.id != self.config.guild_id:
+        # Guild guard for COMMANDS: ignore commands outside the servers we
+        # serve. DMs are intentionally let through to message_handlers
+        # (chatter), but they are never treated as commands here.
+        if message.guild is None or message.guild.id not in self.config.guild_ids:
             return False
         content = message.content.strip()
         if not content.startswith(self.config.prefix):

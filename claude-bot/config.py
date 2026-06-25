@@ -86,7 +86,16 @@ class Config:
         # Display name used in user-facing text and the LLM persona.
         # Defaults to "MIST" (override in config.toml if you rename it).
         self.name: str = bot.get("name", "MIST")
-        self.guild_id: int = int(bot["guild_id"])
+        # The bot can serve one or more guilds. `guild_ids` (list) is the
+        # general form; `guild_id` (single) is kept for back-compat and as the
+        # "primary" guild used for display. Either may be set; they're merged.
+        ids: set[int] = {int(x) for x in bot.get("guild_ids", [])}
+        if "guild_id" in bot:
+            ids.add(int(bot["guild_id"]))
+        if not ids:
+            raise RuntimeError("config.toml [bot] needs guild_id or guild_ids")
+        self.guild_ids: set[int] = ids
+        self.guild_id: int = int(bot.get("guild_id", next(iter(ids))))  # primary
         self.prefix: str = bot.get("prefix", "!")
         self.admin_ids: set[int] = {int(x) for x in bot.get("admin_ids", [])}
         self.mod_role_id: int | None = bot.get("mod_role_id")

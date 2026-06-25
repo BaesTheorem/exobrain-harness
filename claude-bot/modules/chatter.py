@@ -83,6 +83,9 @@ def setup(ctx: Context) -> None:
     history_len = int(cfg.get("history", 12))
     system_prompt = cfg.get("system") or DEFAULT_SYSTEM
     timeout = float(cfg.get("timeout", 90))
+    # Guilds where she replies to EVERY owner message (no @mention needed) —
+    # e.g. a dedicated personal server. Elsewhere she waits to be addressed.
+    always_respond = {int(g) for g in cfg.get("always_respond_guilds", [])}
 
     def _is_owner(user: discord.User | discord.Member) -> bool:
         # Discord usernames are globally unique, so name-matching is reliable.
@@ -94,8 +97,10 @@ def setup(ctx: Context) -> None:
             return False  # only ever reply to Alex
         if isinstance(message.channel, discord.DMChannel):
             return True
-        if message.guild is None or message.guild.id != ctx.config.guild_id:
+        if message.guild is None or message.guild.id not in ctx.config.guild_ids:
             return False
+        if message.guild.id in always_respond:
+            return True  # dedicated server: reply to every owner message
         if me in message.mentions:
             return True
         ref = message.reference
