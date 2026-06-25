@@ -16,11 +16,14 @@ admin_ids = [000000000000000000]  # your Discord user ID(s) — full command acc
 
 # --- feature module config (filled in as phases land) ---
 
-# [chatter]                  # Phase 5: LLM persona
-# anthropic_api_key = "sk-ant-..."   # or set ANTHROPIC_API_KEY in the environment
-# model = "claude-opus-4-8"
-# system = "You are MIST, a friendly assistant in a private Discord server."
-# allowed_channels = []      # channel IDs where the bot will chat
+# [chatter]                  # Phase 5: LLM persona — MIST replies to @mentions,
+#                            # replies to her messages, and DMs.
+# enabled = true
+# model = "claude-sonnet-4-6"   # sonnet keeps chat snappy; opus-4-8 for richer replies
+# max_tokens = 600
+# history = 12               # how many recent channel messages to use as context
+# # ANTHROPIC_API_KEY is read from the env / shared discord .env, not from here.
+# # system = "..."           # optional: override MIST's built-in persona wholesale
 
 # [greeting]                 # Phase 3: member onboarding
 # rules_gate = false         # require new members to DM "I agree" before gaining access

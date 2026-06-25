@@ -29,19 +29,40 @@ ENV_FILE = Path.home() / ".claude" / "channels" / "discord" / ".env"
 CONFIG_FILE = HERE / "config.toml"
 
 
+def _read_env_key(name: str) -> str | None:
+    """Look up a key in the process environment, falling back to the shared
+    Exobrain discord .env file. Returns None if not found anywhere."""
+    val = os.environ.get(name)
+    if val:
+        return val.strip()
+    if ENV_FILE.exists():
+        for line in ENV_FILE.read_text().splitlines():
+            if line.startswith(f"{name}="):
+                return line.split("=", 1)[1].strip()
+    return None
+
+
 def load_token() -> str:
     """Read DISCORD_BOT_TOKEN from the environment, falling back to the
     shared Exobrain .env file. Raises if neither is set."""
-    token = os.environ.get("DISCORD_BOT_TOKEN")
+    token = _read_env_key("DISCORD_BOT_TOKEN")
     if token:
-        return token.strip()
-    if ENV_FILE.exists():
-        for line in ENV_FILE.read_text().splitlines():
-            if line.startswith("DISCORD_BOT_TOKEN="):
-                return line.split("=", 1)[1].strip()
+        return token
     raise RuntimeError(
         f"No DISCORD_BOT_TOKEN in environment or {ENV_FILE}. "
         "Set it in the env file or export it before running."
+    )
+
+
+def load_anthropic_key() -> str:
+    """Read ANTHROPIC_API_KEY (used by the chatter module) from the
+    environment, falling back to the shared Exobrain discord .env file."""
+    key = _read_env_key("ANTHROPIC_API_KEY")
+    if key:
+        return key
+    raise RuntimeError(
+        f"No ANTHROPIC_API_KEY in environment or {ENV_FILE}. "
+        "The chatter module needs it to call the Anthropic API."
     )
 
 

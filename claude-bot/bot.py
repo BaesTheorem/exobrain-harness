@@ -78,7 +78,19 @@ class FletcherBot(discord.Client):
         await self.change_presence(activity=discord.Game(name=f"{self.config.prefix}help"))
 
     async def on_message(self, message: discord.Message):
-        await self.handler.dispatch(message, self.ctx)
+        if message.author.bot:
+            return
+        # Prefix commands take priority; if none matched, offer the message to
+        # the message_handlers (chatter replies to @mentions / replies / DMs).
+        handled = await self.handler.dispatch(message, self.ctx)
+        if handled:
+            return
+        for fn in self.handler.message_handlers:
+            try:
+                if await fn(message, self.ctx):
+                    break
+            except Exception:
+                log.exception("message handler failed")
 
     async def on_raw_reaction_add(self, payload: discord.RawReactionActionEvent):
         if self.user and payload.user_id == self.user.id:
