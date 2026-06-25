@@ -29,6 +29,7 @@ Feature phases land as additional modules:
 | 5 ✅ | `modules/chatter.py` | Claude-powered chat persona (runs on the `claude` CLI) |
 | 6 ✅ | `modules/portal.py` | `!portal` one-off jump links between channels (Fletcher teleport) |
 | 7 ✅ | `modules/ace.py` | `!ace` Ace Attorney video generator (isolated venv, throttled) |
+| 8 ✅ | `modules/instagram.py` | reply to an Instagram link + @mention MIST → reel embeds as inline video (Fletcher kkinstagram fix) |
 
 ## Setup
 
