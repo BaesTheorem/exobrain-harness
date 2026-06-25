@@ -33,3 +33,40 @@ class RollingQuips:
         quip = self._bag.pop()
         self._last = quip
         return quip
+
+
+class Quips:
+    """Central rolling-quip registry, shared across modules via ctx.quips.
+
+    Each module registers a pool per command key in setup() (e.g. "portal.open"),
+    then tags a response so MIST signs off with a rolling, relevant one-liner
+    rendered as Discord subtext (-#). Any key without a registered pool falls
+    back to the "general" pool, so EVERY command (current or future) gets a quip
+    for free, even before someone writes it a bespoke pool.
+
+    Keep quips short and dry: no narrating feelings, no 💛/🥺 filler.
+    """
+
+    _GENERAL = [
+        "There you go ✨",
+        "Done 🫡",
+        "Handled ✨",
+        "That's that 👀",
+        "Anything else? ^_^",
+        "Easy 🫡",
+    ]
+
+    def __init__(self):
+        self._pools: dict[str, RollingQuips] = {"general": RollingQuips(list(self._GENERAL))}
+
+    def add(self, key: str, lines: list[str]) -> None:
+        self._pools[key] = RollingQuips(lines)
+
+    def line(self, key: str = "general") -> str:
+        pool = self._pools.get(key) or self._pools["general"]
+        return pool.next()
+
+    def tag(self, text: str, key: str = "general") -> str:
+        """Append a rolling quip to `text` as Discord subtext."""
+        quip = self.line(key)
+        return f"{text}\n-# {quip}" if quip else text
