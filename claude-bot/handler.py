@@ -57,6 +57,10 @@ class Handler:
         self.db = db
         self.commands: list[Command] = []
         # Event handler lists, populated by modules (Fletcher: join_handlers etc.)
+        # message_handlers run for messages that are NOT a recognized command
+        # (e.g. the chatter module replying to @mentions / DMs). Each returns
+        # True if it consumed the message, so later handlers can be skipped.
+        self.message_handlers: list[Callable] = []
         self.reaction_add_handlers: list[Callable] = []
         self.reaction_remove_handlers: list[Callable] = []
         self.member_join_handlers: list[Callable] = []
@@ -95,31 +99,36 @@ class Handler:
         return False
 
     # --- dispatch (called from on_message) ---
-    async def dispatch(self, message: discord.Message, ctx: Context) -> None:
+    async def dispatch(self, message: discord.Message, ctx: Context) -> bool:
+        """Try to handle the message as a prefix command. Returns True if a
+        command consumed it (so on_message won't also run message_handlers),
+        False if it wasn't a command at all (chatter etc. may handle it)."""
         if message.author.bot:
-            return
-        # Single-guild guard: ignore anything outside our server (allow DMs through later if needed)
+            return False
+        # Single-guild guard for COMMANDS: ignore commands outside our server.
+        # DMs are intentionally let through to message_handlers (chatter), but
+        # they are never treated as commands here.
         if message.guild is None or message.guild.id != self.config.guild_id:
-            return
+            return False
         content = message.content.strip()
         if not content.startswith(self.config.prefix):
-            return
+            return False
 
         match = self.find(content)
         if match is None:
-            return
+            return False
         cmd, args = match
 
         if cmd.admin and not self.is_admin(message.author):
             await message.reply("You don't have permission to use that.", mention_author=False)
-            return
+            return True
 
         if len(args) < cmd.min_args:
             await message.reply(
                 f"Usage: `{cmd.triggers[0]}` needs at least {cmd.min_args} argument(s).",
                 mention_author=False,
             )
-            return
+            return True
 
         if cmd.cooldown:
             now = time.monotonic()
@@ -128,7 +137,7 @@ class Handler:
                 wait = cmd.cooldown - (now - last)
                 await message.add_reaction("⏳")
                 log.debug("rate-limited %s for %s (%.1fs left)", message.author, cmd.triggers[0], wait)
-                return
+                return True
             cmd._last_used[message.author.id] = now
 
         try:
@@ -139,3 +148,4 @@ class Handler:
                 await message.add_reaction("🚫")
             except discord.HTTPException:
                 pass
+        return True
