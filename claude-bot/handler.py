@@ -20,6 +20,8 @@ from typing import Awaitable, Callable
 
 import discord
 
+from quips import Quips
+
 log = logging.getLogger("fletcher")
 
 # A command handler: (message, args, ctx) -> awaitable. args is the message
@@ -52,6 +54,10 @@ class Context:
         # discord.app_commands.CommandTree for slash (/) commands. Modules add
         # their app commands to it in setup(); bot.py syncs it on_ready.
         self.tree = tree
+        # Shared rolling-quip registry. Modules register per-command pools in
+        # setup() and tag their replies so every command signs off in MIST's
+        # voice (ctx.quips.tag(text, "module.command")).
+        self.quips = Quips()
 
 
 class Handler:

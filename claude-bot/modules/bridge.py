@@ -380,6 +380,30 @@ def setup(ctx: Context) -> None:
             pass
         return f"Portal to <#{other.id}> closed. ┬─┬ノ( º _ ºノ)", True
 
+    # Rolling quip pools (shared registry), used by BOTH !portal and /portal.
+    # Short and dry, sci-fi flavor, no feelings-narration.
+    ctx.quips.add("portal.open", [
+        "Wormhole stabilized 🫡",
+        "Two channels, one conversation now ✨",
+        "Bridge is up. Go say hi 👀",
+        "Linked. Have fun over there :D",
+        "Portal's open, in you go ✨",
+        "Connected. Don't mind me, I'm just the tunnel ^_^",
+    ])
+    ctx.quips.add("portal.close", [
+        "Wormhole collapsed 🫡",
+        "Portal closed, that's that ✨",
+        "Unlinked. Back to two channels 👋",
+        "Bridge down, all quiet ˘ω˘",
+        "Severed. Cleanly, I promise ✨",
+    ])
+    ctx.quips.add("portal.list", [
+        "Every open portal, right here 🫡",
+        "All the live links ✨",
+        "Current portals, counted 👀",
+        "Here's what's wired up right now ^_^",
+    ])
+
     # ---- prefix command: !portal / !bridge ---------------------------------
 
     @ctx.handler.command(
@@ -403,7 +427,7 @@ def setup(ctx: Context) -> None:
 
         sub = args[0].lower()
         if sub == "list":
-            await message.reply(list_portals(), mention_author=False)
+            await message.reply(ctx.quips.tag(list_portals(), "portal.list"), mention_author=False)
             return
         if sub == "close":
             if len(args) < 2:
@@ -413,16 +437,16 @@ def setup(ctx: Context) -> None:
             if other is None:
                 await message.reply(f"I can't find a channel matching `{args[1]}`. >_<", mention_author=False)
                 return
-            text, _ = await close_portal(message.channel, other)
-            await message.reply(text, mention_author=False)
+            text, ok = await close_portal(message.channel, other)
+            await message.reply(ctx.quips.tag(text, "portal.close") if ok else text, mention_author=False)
             return
 
         other = resolve_channel(" ".join(args))
         if other is None:
             await message.reply(f"I can't find a channel matching `{' '.join(args)}`. >_<", mention_author=False)
             return
-        text, _ = await open_portal(message.channel, other)
-        await message.reply(text, mention_author=False)
+        text, ok = await open_portal(message.channel, other)
+        await message.reply(ctx.quips.tag(text, "portal.open") if ok else text, mention_author=False)
 
     # ---- slash command: /portal open|close|list ----------------------------
     # Gated in Discord's own UI to members who can Manage Webhooks (admins), and
@@ -431,36 +455,9 @@ def setup(ctx: Context) -> None:
     if ctx.tree is not None:
         from discord import app_commands
 
-        from quips import RollingQuips
-
-        # Rolling quip pools (shuffle-bag rotation) so /portal replies never read
-        # canned. Relevant per command; appended as Discord subtext (-#). On the
-        # error/no-op paths the helper message already carries her voice, so we
-        # only tack a celebratory quip onto the happy path.
-        OPEN_QUIPS = RollingQuips([
-            "Wormhole stabilized 🫡",
-            "Two channels, one conversation now ✨",
-            "Bridge is up. Go say hi 👀",
-            "Linked. Have fun over there :D",
-            "Portal's open, in you go ✨",
-            "Connected. Don't mind me, I'm just the tunnel ^_^",
-        ])
-        CLOSE_QUIPS = RollingQuips([
-            "Wormhole collapsed 🫡",
-            "Portal closed, that's that ✨",
-            "Unlinked. Back to two channels 👋",
-            "Bridge down, all quiet ˘ω˘",
-            "Severed. Cleanly, I promise ✨",
-        ])
-        LIST_QUIPS = RollingQuips([
-            "Every open portal, right here 🫡",
-            "All the live links ✨",
-            "Current portals, counted 👀",
-            "Here's what's wired up right now ^_^",
-        ])
-
-        def _quip(text: str, pool: RollingQuips) -> str:
-            return f"{text}\n-# {pool.next()}"
+        # Quip pools live in the shared ctx.quips registry (registered above), so
+        # /portal and !portal sign off identically. On error/no-op paths the
+        # helper message already carries her voice, so we quip only on success.
 
         portal = app_commands.Group(
             name="portal",
@@ -483,7 +480,8 @@ def setup(ctx: Context) -> None:
                 return
             await interaction.response.defer(ephemeral=True, thinking=True)
             text, ok = await open_portal(here, channel)
-            await interaction.followup.send(_quip(text, OPEN_QUIPS) if ok else text, ephemeral=True)
+            await interaction.followup.send(
+                ctx.quips.tag(text, "portal.open") if ok else text, ephemeral=True)
 
         @portal.command(name="close", description="Close the portal between here and another channel")
         @app_commands.describe(channel="The channel whose portal to close")
@@ -495,11 +493,13 @@ def setup(ctx: Context) -> None:
                 return
             await interaction.response.defer(ephemeral=True, thinking=True)
             text, ok = await close_portal(here, channel)
-            await interaction.followup.send(_quip(text, CLOSE_QUIPS) if ok else text, ephemeral=True)
+            await interaction.followup.send(
+                ctx.quips.tag(text, "portal.close") if ok else text, ephemeral=True)
 
         @portal.command(name="list", description="List the open portals")
         async def portal_list(interaction: discord.Interaction):
-            await interaction.response.send_message(_quip(list_portals(), LIST_QUIPS), ephemeral=True)
+            await interaction.response.send_message(
+                ctx.quips.tag(list_portals(), "portal.list"), ephemeral=True)
 
         ctx.tree.add_command(portal, guilds=[discord.Object(id=g) for g in ctx.config.guild_ids])
 
