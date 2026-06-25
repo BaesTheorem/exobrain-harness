@@ -95,6 +95,20 @@ class FletcherBot(discord.Client):
             except Exception:
                 log.exception("message handler failed")
 
+    async def on_raw_message_edit(self, payload: discord.RawMessageUpdateEvent):
+        for fn in self.handler.raw_message_edit_handlers:
+            try:
+                await fn(payload, self.ctx)
+            except Exception:
+                log.exception("raw message edit handler failed")
+
+    async def on_raw_message_delete(self, payload: discord.RawMessageDeleteEvent):
+        for fn in self.handler.raw_message_delete_handlers:
+            try:
+                await fn(payload, self.ctx)
+            except Exception:
+                log.exception("raw message delete handler failed")
+
     async def on_raw_reaction_add(self, payload: discord.RawReactionActionEvent):
         if self.user and payload.user_id == self.user.id:
             return

@@ -26,7 +26,8 @@ Feature phases land as additional modules:
 | 2 | `modules/fun.py` | dice, pick, spoilers, text effects, sentinel pledge |
 | 3 | `modules/moderation.py`, `modules/greeting.py` | reaction roles, lockout gate, role save/restore |
 | 4 | `modules/schedule.py` | reminders, recurring tasks |
-| 5 | `modules/chatter.py` | Claude-powered chat persona (current Anthropic SDK, native tool-use) |
+| 5 ✅ | `modules/chatter.py` | Claude-powered chat persona (runs on the `claude` CLI) |
+| 6 ✅ | `modules/bridge.py` | live two-way channel **portals** (webhook bridge) |
 
 ## Setup
 
@@ -73,6 +74,33 @@ is allowed per token, so stop the launchd job before running `bot.py` by hand.
 | `config.py` | token loading + flat single-guild config |
 | `db.py` | SQLite schema + helpers |
 | `modules/` | feature modules, each with `setup(ctx)` |
+
+## Portals (two-way channel bridges)
+
+`modules/bridge.py` is the modern single-bot rebuild of Fletcher's webhook
+bridge: a **portal** is a persistent, two-way mirror between two text channels
+(optionally in different servers). Messages, edits, deletes and reactions in one
+side appear in the other, posted under the original author's name and avatar.
+
+Admin commands:
+
+```
+!portal #other-channel     open a two-way portal between here and #other
+!portal list               list the open portals
+!portal close #other       tear a portal down (deletes both webhooks)
+```
+
+`!bridge` is an alias. Channels resolve from a `#mention`, raw id, channel name
+(searched across every server the bot is in), or a Discord URL. The bot needs
+the **Manage Webhooks** permission in both channels.
+
+How it stays correct (the parts naive clones drop): a DB `bridges` registry that
+survives restart; a `bridge_messagemap` so edits/deletes/reactions find their
+mirrored copy; loop prevention (webhook/bot messages are never relayed); and a
+`bridge_pending` race buffer for edits/deletes that arrive before the original
+finishes mirroring. Known limits: only human messages relay, content is capped
+at 2000 chars, cross-server *custom* emoji reactions only mirror when the
+destination can already use the emoji, and reaction removes are best-effort.
 
 ## Privacy
 
