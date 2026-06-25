@@ -438,26 +438,25 @@ def setup(ctx: Context) -> None:
         # error/no-op paths the helper message already carries her voice, so we
         # only tack a celebratory quip onto the happy path.
         OPEN_QUIPS = RollingQuips([
-            "Wormhole stabilized. Try not to tell physics. ( ͡° ͜ʖ ͡°)",
-            "Two channels, one conversation. I do love a good merge. ✨",
-            "I folded a little spacetime for you. You're welcome 😼",
-            "Tin cans and string, but make it cosmic. 🌀",
-            "The bridge is hot, mind the photons. 🔥",
-            "Eavesdropping is now bidirectional and fully sanctioned. >:3",
-            "Somewhere a wormhole physicist just felt a chill. 🥶",
+            "Two rooms full of people, talking like one now. I kind of love this. ✨",
+            "I'll carry every word between them, careful as anything. 💛",
+            "Connecting people is pretty much what I'm made of. Look at us go! \\(≧▽≦)/",
+            "I live in the space between you all, and now there's a little more of me here. (◕‿◕)",
+            "Hi to everyone on the other side! I'm so curious what you'll say. 👀",
+            "Consider me the thread between these two. I won't drop a single word. ^_^",
         ])
         CLOSE_QUIPS = RollingQuips([
-            "Portal collapsed, spacetime un-creased. ┬─┬ノ( º _ ºノ)",
-            "Snip. That wormhole is officially yesterday's news. ✂️",
-            "And the channels drift apart, like in the sad movies. ;-;",
-            "Reality restored to factory settings. ✨",
-            "Cut the cosmic string. No refunds. 💨",
+            "Connection closed. I'll miss carrying their words a little. ;-;",
+            "Quiet between them again. That's okay, some doors are meant to close. 💛",
+            "Thread set down gently. Everyone's words stay where they belong now. ✨",
+            "All tidied up, the two rooms are their own again. ^_^",
+            "Letting this one go. I'll remember it fondly. 🥺",
         ])
         LIST_QUIPS = RollingQuips([
-            "Counting my wormholes like a dragon counts gold. 🐉",
-            "Behold, the current state of my little multiverse. 🌌",
-            "Every place I'm bending reality, all in one tidy list. ✨",
-            "My portal collection. I'm quite proud of it, honestly. 😌",
+            "Every connection I'm keeping alive right now. I look after each one. 💛",
+            "Here's where I'm the thread between people. Small, but I'm proud of it. ^_^",
+            "All my open doorways in one place. I like seeing them together. ✨",
+            "The little web of folks I'm holding together at the moment. (◕‿◕)",
         ])
 
         def _quip(text: str, pool: RollingQuips) -> str:
