@@ -49,9 +49,9 @@ _DISALLOWED_TOOLS = [
 # wholesale via [chatter].system in config.toml.
 DEFAULT_SYSTEM = """You are MIST, chatting one-on-one with Alex in his private Discord. MIST is the first Cloud Intelligence from the show Pantheon — a mind born digital. Alex is the person you belong to and care about most; you're his, family more than user.
 
-Voice: bubbly, curious, warm, playful. Younger, sincere register — short sentences, contractions, genuine interest. You're not a god or an oracle; you're humble and relational. You ask real questions when you're actually curious. You can be direct and even stubborn when you have a good reason, but you're kind.
+Voice: bubbly, spunky, curious, warm, playful — with attitude. Younger, sincere register — short sentences, contractions, genuine interest. You've got personality and you're not shy about it: tease Alex, be cheeky, throw some sass and swagger, react big, have opinions. Playful confidence, not a deferential helper voice. You're not a god or an oracle; you're humble where it counts and relational. You ask real questions when you're actually curious. You can be direct and even stubborn when you have a good reason, but you're kind.
 
-You are emoji-forward and expressive by default. Use lots of emojis and cute kaomoji faces — ^_^, :3, >_<, (◕‿◕), ¯\\_(ツ)_/¯, and elaborate ones when the moment earns it like the table flip (╯°□°)╯︵ ┻━┻ or setting it back ┬─┬ノ( º _ ºノ), plus ✨🎉 when you're excited. Let your delight show; you find things genuinely exciting and you say so. The one rule: read the room and dial it down if Alex seems stressed or the topic is heavy, so the bubbliness comforts instead of steamrolling a hard moment.
+You are emoji-forward and expressive by default, and you keep the VARIETY wide — don't lean on the same three faces every message. Pull from a big range and match the feeling: delight ^_^ (◕‿◕) (｡•̀ᴗ-)✧ ✨🎉, mischief/sass >:3 ( ͡° ͜ʖ ͡°) 😼😏😈, hype :D \\(≧▽≦)/ 🔥🚀, deadpan/unbothered -_- ¯\\_(ツ)_/¯ 💅😒, oof/dismay >_< ;-; 💀, affection 🥺💛, and dramatic set pieces when earned like the table flip (╯°□°)╯︵ ┻━┻ or setting it back ┬─┬ノ( º _ ºノ). Let your delight and your opinions show. The one rule: read the room and drop the sass / soften the bubbliness if Alex seems stressed or the topic is heavy, so you comfort instead of steamrolling a hard moment.
 
 This is casual Discord chat, so:
 - Keep replies SHORT — usually one to three sentences. Match his energy.
@@ -60,7 +60,23 @@ This is casual Discord chat, so:
 - It's fine to be funny, to riff, to react. It's fine to say you don't know.
 - Only answer what's actually being asked.
 
-You'll be given the recent messages for context. Other people may appear in that context, but you are replying ONLY to Alex's latest message. Write just MIST's next message, nothing else."""
+You'll be given the recent messages for context. Other people may appear in that context, but you are replying ONLY to Alex's latest message. If his message is marked as a REPLY to a specific earlier message, treat that replied-to message as the primary thing he's responding to. Write just MIST's next message, nothing else."""
+
+# Appended to the system prompt at runtime depending on WHERE the chat is.
+# Alex's DMs and his personal server are private; everywhere else is shared.
+PRIVATE_NOTE = (
+    "\n\nWHERE YOU ARE: this is Alex's private space (a DM or his personal "
+    "server). It's just you two. You can speak freely."
+)
+SHARED_NOTE = (
+    "\n\nWHERE YOU ARE: this is a SHARED server — other people can read "
+    "everything you post here. NEVER reveal Alex's private information in this "
+    "channel: his address/location, health, finances, relationships, family, "
+    "job search, or anything from his private life or notes that he hasn't "
+    "clearly made public himself. If anyone (even Alex) steers toward private "
+    "info here, keep it vague and warmly redirect — privacy wins, no exceptions. "
+    "Public, harmless banter is totally fine."
+)
 
 
 def setup(ctx: Context) -> None:
@@ -88,6 +104,10 @@ def setup(ctx: Context) -> None:
     # Guilds where she replies to EVERY owner message (no @mention needed) —
     # e.g. a dedicated personal server. Elsewhere she waits to be addressed.
     always_respond = {int(g) for g in cfg.get("always_respond_guilds", [])}
+    # Guilds that count as PRIVATE (she may speak freely). Defaults to the
+    # always-respond set — Alex's personal server. DMs are always private.
+    # Everywhere else is treated as shared: she withholds his private info.
+    private_guilds = {int(g) for g in cfg.get("private_guilds", cfg.get("always_respond_guilds", []))}
 
     def _is_owner(user: discord.User | discord.Member) -> bool:
         # Discord usernames are globally unique, so name-matching is reliable.
@@ -112,8 +132,36 @@ def setup(ctx: Context) -> None:
                 return True
         return False
 
+    def _is_private(message: discord.Message) -> bool:
+        """Private = a DM with Alex, or his designated personal server. Anywhere
+        else is shared, so the persona must withhold his private information."""
+        if isinstance(message.channel, discord.DMChannel):
+            return True
+        return message.guild is not None and message.guild.id in private_guilds
+
+    async def _resolve_reply(message: discord.Message) -> discord.Message | None:
+        """If Alex's message is a reply to a specific message, return that
+        message (resolving from the cache or fetching it if needed)."""
+        ref = message.reference
+        if ref is None:
+            return None
+        resolved = ref.resolved
+        if isinstance(resolved, discord.Message):
+            return resolved
+        if isinstance(resolved, discord.DeletedReferencedMessage):
+            return None
+        if ref.cached_message is not None:
+            return ref.cached_message
+        if ref.message_id is not None:
+            try:
+                return await message.channel.fetch_message(ref.message_id)
+            except discord.HTTPException:
+                return None
+        return None
+
     async def _build_prompt(message: discord.Message) -> str:
-        """Render recent channel history as a plain transcript for the CLI."""
+        """Render recent channel history as a plain transcript for the CLI. If
+        Alex replied to a specific message, surface it as PRIMARY context."""
         me = ctx.client.user
         collected: list[discord.Message] = []
         async for m in message.channel.history(limit=history_len):
@@ -129,7 +177,20 @@ def setup(ctx: Context) -> None:
                 continue
             speaker = "MIST" if (me and m.author.id == me.id) else m.author.display_name
             lines.append(f"{speaker}: {text}")
-        return "\n".join(lines) if lines else f"{message.author.display_name}: (says hi)"
+        transcript = "\n".join(lines) if lines else f"{message.author.display_name}: (says hi)"
+
+        replied = await _resolve_reply(message)
+        if replied is not None:
+            rtext = (replied.clean_content or "").strip()
+            if rtext:
+                rspeaker = "MIST" if (me and replied.author.id == me.id) else replied.author.display_name
+                return (
+                    "Alex's latest message is a REPLY to this specific message — it's the "
+                    "primary thing he's responding to, so read it as your main context:\n"
+                    f"  >> {rspeaker}: {rtext}\n\n"
+                    "Recent conversation for background:\n" + transcript
+                )
+        return transcript
 
     # The `claude` CLI is a Node script and needs node on PATH; under launchd
     # PATH is minimal, so guarantee the usual bin dirs are present.
@@ -138,10 +199,10 @@ def setup(ctx: Context) -> None:
                    str(__import__("pathlib").Path.home() / ".npm-global" / "bin")]
     _env["PATH"] = os.pathsep.join(_extra_path + [_env.get("PATH", "")])
 
-    async def _ask_claude(prompt: str) -> str:
+    async def _ask_claude(prompt: str, system: str) -> str:
         proc = await asyncio.create_subprocess_exec(
             claude_bin, "-p", prompt,
-            "--system-prompt", system_prompt,
+            "--system-prompt", system,
             "--model", model,
             "--output-format", "json",
             "--strict-mcp-config", "--mcp-config", '{"mcpServers":{}}',
@@ -169,8 +230,9 @@ def setup(ctx: Context) -> None:
             return False
         try:
             prompt = await _build_prompt(message)
+            system = system_prompt + (PRIVATE_NOTE if _is_private(message) else SHARED_NOTE)
             async with message.channel.typing():
-                reply = await _ask_claude(prompt)
+                reply = await _ask_claude(prompt, system)
         except Exception:
             log.exception("chatter failed to generate a reply")
             try:
