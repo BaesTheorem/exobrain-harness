@@ -26,6 +26,9 @@ from pathlib import Path
 
 HERE = Path(__file__).resolve().parent
 ENV_FILE = Path.home() / ".claude" / "channels" / "discord" / ".env"
+# The harness root .env holds DISCORD_ALEX_USERNAME (the bot's owner handle),
+# used by the chatter module to gate "only ever reply to me".
+HARNESS_ENV = HERE.parent / ".env"
 CONFIG_FILE = HERE / "config.toml"
 
 
@@ -54,16 +57,15 @@ def load_token() -> str:
     )
 
 
-def load_anthropic_key() -> str:
-    """Read ANTHROPIC_API_KEY (used by the chatter module) from the
-    environment, falling back to the shared Exobrain discord .env file."""
-    key = _read_env_key("ANTHROPIC_API_KEY")
-    if key:
-        return key
-    raise RuntimeError(
-        f"No ANTHROPIC_API_KEY in environment or {ENV_FILE}. "
-        "The chatter module needs it to call the Anthropic API."
-    )
+def load_owner_username() -> str | None:
+    """The handle of the bot's owner (Alex). The chatter module only ever
+    replies to this user. Read from [chatter].owner_username in config.toml
+    if set, else DISCORD_ALEX_USERNAME from the harness root .env."""
+    if HARNESS_ENV.exists():
+        for line in HARNESS_ENV.read_text().splitlines():
+            if line.startswith("DISCORD_ALEX_USERNAME="):
+                return line.split("=", 1)[1].strip()
+    return None
 
 
 class Config:
