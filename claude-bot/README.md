@@ -23,7 +23,7 @@ Feature phases land as additional modules:
 | Phase | Module | Features |
 |-------|--------|----------|
 | 1 ✅ | `modules/core.py` | help, ping, about — proves dispatch |
-| 2 | `modules/fun.py` | dice, pick, spoilers, text effects, sentinel pledge |
+| 2 ✅ | `modules/fun.py` | `!roll` dice, `!pick`, `!fight`, `!8ball`, `!mock` (offline) |
 | 3 | `modules/moderation.py`, `modules/greeting.py` | reaction roles, lockout gate, role save/restore |
 | 4 | `modules/schedule.py` | reminders, recurring tasks |
 | 5 ✅ | `modules/chatter.py` | Claude-powered chat persona (runs on the `claude` CLI) |
