@@ -44,11 +44,14 @@ class Context:
     modules never import each other's state (Fletcher injects these as module
     globals on reload; we pass them explicitly)."""
 
-    def __init__(self, client: discord.Client, config, db, handler: "Handler"):
+    def __init__(self, client: discord.Client, config, db, handler: "Handler", tree=None):
         self.client = client
         self.config = config
         self.db = db
         self.handler = handler
+        # discord.app_commands.CommandTree for slash (/) commands. Modules add
+        # their app commands to it in setup(); bot.py syncs it on_ready.
+        self.tree = tree
 
 
 class Handler:

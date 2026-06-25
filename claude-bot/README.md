@@ -82,17 +82,21 @@ bridge: a **portal** is a persistent, two-way mirror between two text channels
 (optionally in different servers). Messages, edits, deletes and reactions in one
 side appear in the other, posted under the original author's name and avatar.
 
-Admin commands:
+Admin commands, as **slash commands** (gated in Discord's UI to members who can
+Manage Webhooks) and as classic prefix commands:
 
 ```
-!portal #other-channel     open a two-way portal between here and #other
-!portal list               list the open portals
-!portal close #other       tear a portal down (deletes both webhooks)
+/portal open  channel:#other     |   !portal #other-channel
+/portal close channel:#other     |   !portal close #other-channel
+/portal list                     |   !portal list
 ```
 
-`!bridge` is an alias. Channels resolve from a `#mention`, raw id, channel name
-(searched across every server the bot is in), or a Discord URL. The bot needs
-the **Manage Webhooks** permission in both channels.
+Slash commands are registered per-guild and synced on connect, so they appear
+instantly (the bot must have been invited with the `applications.commands`
+scope; if `/portal` is missing, re-invite it with that scope). `!bridge` is an
+alias for the prefix form, and its channels resolve from a `#mention`, raw id,
+channel name (searched across every server the bot is in), or a Discord URL. The
+bot needs the **Manage Webhooks** permission in both channels.
 
 How it stays correct (the parts naive clones drop): a DB `bridges` registry that
 survives restart; a `bridge_messagemap` so edits/deletes/reactions find their

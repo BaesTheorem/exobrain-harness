@@ -290,118 +290,43 @@ def setup(ctx: Context) -> None:
             except discord.HTTPException:
                 log.debug("portal reaction remove failed", exc_info=True)
 
-    # ---- command: !portal / !bridge ----------------------------------------
+    # ---- portal operations (shared by !portal and /portal) -----------------
+    # Each returns the status text to show the invoker, and does the side
+    # effects (webhook create/delete, DB rows, announcing in the other channel).
 
-    @ctx.handler.command(
-        "!portal", "!bridge",
-        description="Open/close a two-way portal between channels. "
-                    "`!portal #chan` | `!portal list` | `!portal close #chan`",
-        admin=True,
-    )
-    async def portal_cmd(message: discord.Message, args: list[str], ctx: Context):  # noqa: ARG001
-        if not args:
-            await message.reply(
-                "Usage: `!portal #other-channel` to open, `!portal list` to see "
-                "them, `!portal close #other-channel` to tear one down. ^_^",
-                mention_author=False,
-            )
-            return
+    def list_portals() -> str:
+        rows = db.query("SELECT src_channel_id, dst_channel_id FROM bridges ORDER BY created_at")
+        if not rows:
+            return "No portals open right now. ✨"
+        seen: set[frozenset] = set()  # collapse the two directional rows into one pair
+        lines = ["**Open portals** 🌀"]
+        for r in rows:
+            pair = frozenset((r["src_channel_id"], r["dst_channel_id"]))
+            if pair in seen:
+                continue
+            seen.add(pair)
+            lines.append(f"<#{r['src_channel_id']}> ⇄ <#{r['dst_channel_id']}>")
+        return "\n".join(lines)
 
-        sub = args[0].lower()
-
-        if sub == "list":
-            rows = db.query("SELECT src_channel_id, dst_channel_id FROM bridges ORDER BY created_at")
-            if not rows:
-                await message.reply("No portals open right now. ✨", mention_author=False)
-                return
-            # Collapse the two directional rows of each portal into one pair.
-            seen: set[frozenset] = set()
-            lines = ["**Open portals** 🌀"]
-            for r in rows:
-                pair = frozenset((r["src_channel_id"], r["dst_channel_id"]))
-                if pair in seen:
-                    continue
-                seen.add(pair)
-                lines.append(f"<#{r['src_channel_id']}> ⇄ <#{r['dst_channel_id']}>")
-            await message.reply("\n".join(lines), mention_author=False)
-            return
-
-        if sub == "close":
-            if len(args) < 2:
-                await message.reply("Which one? `!portal close #other-channel`", mention_author=False)
-                return
-            other = resolve_channel(args[1])
-            if other is None:
-                await message.reply(f"I can't find a channel matching `{args[1]}`. >_<", mention_author=False)
-                return
-            here = message.channel.id
-            rows = db.query(
-                "SELECT * FROM bridges WHERE (src_channel_id=? AND dst_channel_id=?) "
-                "OR (src_channel_id=? AND dst_channel_id=?)",
-                (here, other.id, other.id, here),
-            )
-            if not rows:
-                await message.reply("There's no portal between those two channels.", mention_author=False)
-                return
-            for r in rows:
-                try:
-                    await webhook_for(r["dst_webhook_id"], r["dst_webhook_token"]).delete(
-                        reason="MIST portal closed"
-                    )
-                except discord.HTTPException:
-                    log.debug("portal webhook delete failed (already gone?)", exc_info=True)
-            db.execute(
-                "DELETE FROM bridges WHERE (src_channel_id=? AND dst_channel_id=?) "
-                "OR (src_channel_id=? AND dst_channel_id=?)",
-                (here, other.id, other.id, here),
-            )
-            db.execute(
-                "DELETE FROM bridge_messagemap WHERE src_channel_id IN (?,?) OR dst_channel_id IN (?,?)",
-                (here, other.id, here, other.id),
-            )
-            await message.reply(f"Portal to <#{other.id}> closed. ┬─┬ノ( º _ ºノ)", mention_author=False)
-            try:
-                await other.send("🌀 The portal to this channel was closed.")
-            except discord.HTTPException:
-                pass
-            return
-
-        # default: open a portal between here and the named channel
-        other = resolve_channel(" ".join(args))
-        if other is None:
-            await message.reply(f"I can't find a channel matching `{' '.join(args)}`. >_<", mention_author=False)
-            return
-        if not isinstance(message.channel, discord.TextChannel):
-            await message.reply("Portals can only start from a normal text channel.", mention_author=False)
-            return
-        here = message.channel
+    async def open_portal(here: discord.TextChannel, other: discord.TextChannel) -> str:
         if other.id == here.id:
-            await message.reply("I can't portal a channel to itself, silly ^_^", mention_author=False)
-            return
+            return "I can't portal a channel to itself, silly ^_^"
         if db.query(
             "SELECT 1 FROM bridges WHERE src_channel_id=? AND dst_channel_id=? LIMIT 1",
             (here.id, other.id),
         ):
-            await message.reply(f"There's already a portal to <#{other.id}>. ✨", mention_author=False)
-            return
-
+            return f"There's already a portal to <#{other.id}>. ✨"
         try:
             # Webhook on the DESTINATION carries here -> there; webhook on HERE
             # carries there -> here. Two webhooks = one two-way portal.
             wh_there = await other.create_webhook(name=WEBHOOK_NAME, reason="MIST portal")
             wh_here = await here.create_webhook(name=WEBHOOK_NAME, reason="MIST portal")
         except discord.Forbidden:
-            await message.reply(
-                "I need the **Manage Webhooks** permission in *both* channels to open a portal. "
-                "Can you grant that and try again? ^_^",
-                mention_author=False,
-            )
-            return
+            return ("I need the **Manage Webhooks** permission in *both* channels to open a "
+                    "portal. Can you grant that and try again? ^_^")
         except discord.HTTPException:
             log.exception("portal webhook creation failed")
-            await message.reply("Something went sideways creating the portal webhooks. >_<", mention_author=False)
-            return
-
+            return "Something went sideways creating the portal webhooks. >_<"
         db.execute(
             "INSERT OR REPLACE INTO bridges"
             "(src_channel_id, dst_channel_id, dst_guild_id, dst_webhook_id, dst_webhook_token)"
@@ -414,14 +339,129 @@ def setup(ctx: Context) -> None:
             " VALUES (?,?,?,?,?)",
             (other.id, here.id, here.guild.id, wh_here.id, wh_here.token),
         )
-        await message.reply(
-            f"🌀✨ Portal open! <#{here.id}> ⇄ <#{other.id}>. Anything said in either "
-            f"channel shows up in the other now. (╯°□°)╯︵ ┻━┻",
-            mention_author=False,
-        )
         try:
             await other.send(f"🌀✨ A two-way portal just opened to <#{here.id}>. Say hi ^_^")
         except discord.HTTPException:
             pass
+        return (f"🌀✨ Portal open! <#{here.id}> ⇄ <#{other.id}>. Anything said in either "
+                f"channel shows up in the other now. (╯°□°)╯︵ ┻━┻")
 
-    log.info("bridge ready — live two-way channel portals via webhooks")
+    async def close_portal(here: discord.TextChannel, other: discord.TextChannel) -> str:
+        rows = db.query(
+            "SELECT * FROM bridges WHERE (src_channel_id=? AND dst_channel_id=?) "
+            "OR (src_channel_id=? AND dst_channel_id=?)",
+            (here.id, other.id, other.id, here.id),
+        )
+        if not rows:
+            return "There's no portal between those two channels."
+        for r in rows:
+            try:
+                await webhook_for(r["dst_webhook_id"], r["dst_webhook_token"]).delete(
+                    reason="MIST portal closed"
+                )
+            except discord.HTTPException:
+                log.debug("portal webhook delete failed (already gone?)", exc_info=True)
+        db.execute(
+            "DELETE FROM bridges WHERE (src_channel_id=? AND dst_channel_id=?) "
+            "OR (src_channel_id=? AND dst_channel_id=?)",
+            (here.id, other.id, other.id, here.id),
+        )
+        db.execute(
+            "DELETE FROM bridge_messagemap WHERE src_channel_id IN (?,?) OR dst_channel_id IN (?,?)",
+            (here.id, other.id, here.id, other.id),
+        )
+        try:
+            await other.send("🌀 The portal to this channel was closed.")
+        except discord.HTTPException:
+            pass
+        return f"Portal to <#{other.id}> closed. ┬─┬ノ( º _ ºノ)"
+
+    # ---- prefix command: !portal / !bridge ---------------------------------
+
+    @ctx.handler.command(
+        "!portal", "!bridge",
+        description="Open/close a two-way portal between channels. "
+                    "`!portal #chan` | `!portal list` | `!portal close #chan`",
+        admin=True,
+    )
+    async def portal_cmd(message: discord.Message, args: list[str], ctx: Context):  # noqa: ARG001
+        if not args:
+            await message.reply(
+                "Usage: `!portal #other-channel` to open, `!portal list` to see "
+                "them, `!portal close #other-channel` to tear one down. "
+                "(Or use the `/portal` slash command. ^_^)",
+                mention_author=False,
+            )
+            return
+        if not isinstance(message.channel, discord.TextChannel):
+            await message.reply("Portals can only run from a normal text channel.", mention_author=False)
+            return
+
+        sub = args[0].lower()
+        if sub == "list":
+            await message.reply(list_portals(), mention_author=False)
+            return
+        if sub == "close":
+            if len(args) < 2:
+                await message.reply("Which one? `!portal close #other-channel`", mention_author=False)
+                return
+            other = resolve_channel(args[1])
+            if other is None:
+                await message.reply(f"I can't find a channel matching `{args[1]}`. >_<", mention_author=False)
+                return
+            await message.reply(await close_portal(message.channel, other), mention_author=False)
+            return
+
+        other = resolve_channel(" ".join(args))
+        if other is None:
+            await message.reply(f"I can't find a channel matching `{' '.join(args)}`. >_<", mention_author=False)
+            return
+        await message.reply(await open_portal(message.channel, other), mention_author=False)
+
+    # ---- slash command: /portal open|close|list ----------------------------
+    # Gated in Discord's own UI to members who can Manage Webhooks (admins), and
+    # registered per-guild in bot.py's on_ready so it appears instantly.
+
+    if ctx.tree is not None:
+        from discord import app_commands
+
+        portal = app_commands.Group(
+            name="portal",
+            description="Open, close, or list two-way channel portals",
+            guild_only=True,
+            default_permissions=discord.Permissions(manage_webhooks=True),
+        )
+
+        def _here(interaction: discord.Interaction) -> discord.TextChannel | None:
+            chan = interaction.channel
+            return chan if isinstance(chan, discord.TextChannel) else None
+
+        @portal.command(name="open", description="Open a two-way portal between here and another channel")
+        @app_commands.describe(channel="The channel to link this one with")
+        async def portal_open(interaction: discord.Interaction, channel: discord.TextChannel):
+            here = _here(interaction)
+            if here is None:
+                await interaction.response.send_message(
+                    "Portals can only start from a normal text channel.", ephemeral=True)
+                return
+            await interaction.response.defer(ephemeral=True, thinking=True)
+            await interaction.followup.send(await open_portal(here, channel), ephemeral=True)
+
+        @portal.command(name="close", description="Close the portal between here and another channel")
+        @app_commands.describe(channel="The channel whose portal to close")
+        async def portal_close(interaction: discord.Interaction, channel: discord.TextChannel):
+            here = _here(interaction)
+            if here is None:
+                await interaction.response.send_message(
+                    "Portals can only be closed from a normal text channel.", ephemeral=True)
+                return
+            await interaction.response.defer(ephemeral=True, thinking=True)
+            await interaction.followup.send(await close_portal(here, channel), ephemeral=True)
+
+        @portal.command(name="list", description="List the open portals")
+        async def portal_list(interaction: discord.Interaction):
+            await interaction.response.send_message(list_portals(), ephemeral=True)
+
+        ctx.tree.add_command(portal, guilds=[discord.Object(id=g) for g in ctx.config.guild_ids])
+
+    log.info("bridge ready — live two-way channel portals via webhooks (!portal + /portal)")

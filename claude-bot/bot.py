@@ -55,7 +55,11 @@ class FletcherBot(discord.Client):
         self.config = config
         self.db = db
         self.handler = Handler(config, db)
-        self.ctx = Context(self, config, db, self.handler)
+        # Slash (/) command tree. Modules register app commands on it in their
+        # setup(); we sync it per-guild in on_ready (guild-scoped syncs are
+        # instant, unlike global commands which take up to an hour to appear).
+        self.tree = discord.app_commands.CommandTree(self)
+        self.ctx = Context(self, config, db, self.handler, self.tree)
 
     def load_modules(self) -> None:
         """Import every module under modules/ and call its setup(ctx).
@@ -79,6 +83,20 @@ class FletcherBot(discord.Client):
             ", ".join(served),
         )
         await self.change_presence(activity=discord.Game(name=f"{self.config.prefix}help"))
+        # Register slash commands with Discord, one guild at a time so they show
+        # up instantly. Forbidden => the bot was invited without the
+        # `applications.commands` scope and must be re-invited with it.
+        for gid in self.config.guild_ids:
+            try:
+                synced = await self.tree.sync(guild=discord.Object(id=gid))
+                log.info("synced %d slash command(s) to guild %s", len(synced), gid)
+            except discord.Forbidden:
+                log.warning(
+                    "slash sync forbidden for guild %s — re-invite the bot with the "
+                    "applications.commands scope to enable / commands", gid,
+                )
+            except discord.HTTPException:
+                log.exception("slash command sync failed for guild %s", gid)
 
     async def on_message(self, message: discord.Message):
         if message.author.bot:
