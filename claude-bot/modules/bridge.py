@@ -438,25 +438,25 @@ def setup(ctx: Context) -> None:
         # error/no-op paths the helper message already carries her voice, so we
         # only tack a celebratory quip onto the happy path.
         OPEN_QUIPS = RollingQuips([
-            "Two rooms full of people, talking like one now. I kind of love this. ✨",
-            "I'll carry every word between them, careful as anything. 💛",
-            "Connecting people is pretty much what I'm made of. Look at us go! \\(≧▽≦)/",
-            "I live in the space between you all, and now there's a little more of me here. (◕‿◕)",
-            "Hi to everyone on the other side! I'm so curious what you'll say. 👀",
-            "Consider me the thread between these two. I won't drop a single word. ^_^",
+            "Wormhole stabilized 🫡",
+            "Two channels, one conversation now ✨",
+            "Bridge is up. Go say hi 👀",
+            "Linked. Have fun over there :D",
+            "Portal's open, in you go ✨",
+            "Connected. Don't mind me, I'm just the tunnel ^_^",
         ])
         CLOSE_QUIPS = RollingQuips([
-            "Connection closed. I'll miss carrying their words a little. ;-;",
-            "Quiet between them again. That's okay, some doors are meant to close. 💛",
-            "Thread set down gently. Everyone's words stay where they belong now. ✨",
-            "All tidied up, the two rooms are their own again. ^_^",
-            "Letting this one go. I'll remember it fondly. 🥺",
+            "Wormhole collapsed 🫡",
+            "Portal closed, that's that ✨",
+            "Unlinked. Back to two channels 👋",
+            "Bridge down, all quiet ˘ω˘",
+            "Severed. Cleanly, I promise ✨",
         ])
         LIST_QUIPS = RollingQuips([
-            "Every connection I'm keeping alive right now. I look after each one. 💛",
-            "Here's where I'm the thread between people. Small, but I'm proud of it. ^_^",
-            "All my open doorways in one place. I like seeing them together. ✨",
-            "The little web of folks I'm holding together at the moment. (◕‿◕)",
+            "Every open portal, right here 🫡",
+            "All the live links ✨",
+            "Current portals, counted 👀",
+            "Here's what's wired up right now ^_^",
         ])
 
         def _quip(text: str, pool: RollingQuips) -> str:
