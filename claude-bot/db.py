@@ -78,50 +78,17 @@ CREATE TABLE IF NOT EXISTS chatter_messages (
 );
 CREATE VIRTUAL TABLE IF NOT EXISTS chatter_fts
     USING fts5(content, content='chatter_messages', content_rowid='id');
-
--- Live channel portals (Fletcher: webhook bridge). Each row is ONE DIRECTION:
--- messages posted in src_channel_id are mirrored into dst_channel_id through a
--- webhook (dst_webhook_id/token) we own on the destination. A two-way portal is
--- two rows, A->B and B->A. Survives restart (rebuilt from this table on boot).
-CREATE TABLE IF NOT EXISTS bridges (
-    src_channel_id INTEGER NOT NULL,
-    dst_channel_id INTEGER NOT NULL,
-    dst_guild_id   INTEGER NOT NULL,
-    dst_webhook_id INTEGER NOT NULL,
-    dst_webhook_token TEXT NOT NULL,
-    created_at     TEXT DEFAULT CURRENT_TIMESTAMP,
-    PRIMARY KEY (src_channel_id, dst_channel_id)
-);
-CREATE INDEX IF NOT EXISTS bridges_src ON bridges (src_channel_id);
-
--- Routing table: maps a source message to each mirrored copy so edits, deletes
--- and reactions propagate. One row per (source message, destination copy).
-CREATE TABLE IF NOT EXISTS bridge_messagemap (
-    src_channel_id INTEGER NOT NULL,
-    src_message_id INTEGER NOT NULL,
-    dst_channel_id INTEGER NOT NULL,
-    dst_message_id INTEGER NOT NULL,
-    dst_webhook_id INTEGER NOT NULL,
-    dst_webhook_token TEXT NOT NULL,
-    created_at     TEXT DEFAULT CURRENT_TIMESTAMP,
-    PRIMARY KEY (src_channel_id, src_message_id, dst_channel_id)
-);
-CREATE INDEX IF NOT EXISTS bridge_map_src ON bridge_messagemap (src_message_id);
-CREATE INDEX IF NOT EXISTS bridge_map_dst ON bridge_messagemap (dst_message_id);
-
--- Race buffer: an edit/delete can arrive before the relay has written the
--- messagemap row for the original. We park a tombstone here and replay it the
--- moment the map row lands; a TTL sweep drops stale ones. (Fletcher:
--- bridge_pending — "any replication that skips this silently drops fast edits".)
-CREATE TABLE IF NOT EXISTS bridge_pending (
-    src_channel_id INTEGER NOT NULL,
-    src_message_id INTEGER NOT NULL,
-    action         TEXT NOT NULL,      -- 'edit' | 'delete'
-    payload        TEXT,               -- JSON: {"content": "..."} for edits
-    created_at     REAL NOT NULL,      -- epoch seconds, for the TTL sweep
-    PRIMARY KEY (src_channel_id, src_message_id, action)
-);
 """
+
+# Note: the old webhook-mirror portal (bridges / bridge_messagemap /
+# bridge_pending) was removed in favor of one-off jump-link portals
+# (modules/portal.py), which keep no state. Those tables are dropped on init if
+# they linger from an older DB.
+_DROP_LEGACY = (
+    "DROP TABLE IF EXISTS bridge_pending",
+    "DROP TABLE IF EXISTS bridge_messagemap",
+    "DROP TABLE IF EXISTS bridges",
+)
 
 
 class DB:
@@ -130,6 +97,8 @@ class DB:
         self.conn.row_factory = sqlite3.Row
         self.conn.execute("PRAGMA journal_mode=WAL")
         self.conn.executescript(SCHEMA)
+        for stmt in _DROP_LEGACY:
+            self.conn.execute(stmt)
         self.conn.commit()
 
     # --- small helpers used across modules ---

@@ -27,7 +27,8 @@ Feature phases land as additional modules:
 | 3 | `modules/moderation.py`, `modules/greeting.py` | reaction roles, lockout gate, role save/restore |
 | 4 | `modules/schedule.py` | reminders, recurring tasks |
 | 5 ✅ | `modules/chatter.py` | Claude-powered chat persona (runs on the `claude` CLI) |
-| 6 ✅ | `modules/bridge.py` | live two-way channel **portals** (webhook bridge) |
+| 6 ✅ | `modules/portal.py` | `!portal` one-off jump links between channels (Fletcher teleport) |
+| 7 ✅ | `modules/ace.py` | `!ace` Ace Attorney video generator (isolated venv, throttled) |
 
 ## Setup
 
@@ -75,36 +76,59 @@ is allowed per token, so stop the launchd job before running `bot.py` by hand.
 | `db.py` | SQLite schema + helpers |
 | `modules/` | feature modules, each with `setup(ctx)` |
 
-## Portals (two-way channel bridges)
+## Portals (one-off jump links)
 
-`modules/bridge.py` is the modern single-bot rebuild of Fletcher's webhook
-bridge: a **portal** is a persistent, two-way mirror between two text channels
-(optionally in different servers). Messages, edits, deletes and reactions in one
-side appear in the other, posted under the original author's name and avatar.
+`modules/portal.py` mirrors Fletcher's `!teleport`/`!portal`: a **portal** is
+NOT a channel mirror, it's a pair of cross-linked jump messages. You drop one to
+carry a conversation into another channel without losing stride. It posts a
+"jump over" link in the current channel pointing at the other, and a "jump back"
+link in the other pointing home. Clicking either jumps you there. Nothing is
+relayed or bridged, so there's no state and nothing to close, just delete the
+messages if you want them gone.
 
-Admin commands, as **slash commands** (gated in Discord's UI to members who can
-Manage Webhooks) and as classic prefix commands:
+Anyone can use it (no admin), as a slash command or a prefix command:
 
 ```
-/portal open  channel:#other     |   !portal #other-channel
-/portal close channel:#other     |   !portal close #other-channel
-/portal list                     |   !portal list
+/portal channel:#other     |   !portal #other   (aliases: !teleport, !tp)
 ```
 
-Slash commands are registered per-guild and synced on connect, so they appear
-instantly (the bot must have been invited with the `applications.commands`
-scope; if `/portal` is missing, re-invite it with that scope). `!bridge` is an
-alias for the prefix form, and its channels resolve from a `#mention`, raw id,
-channel name (searched across every server the bot is in), or a Discord URL. The
-bot needs the **Manage Webhooks** permission in both channels.
+Channels resolve from a `#mention`, raw id, channel name (searched across every
+server the bot is in), or a Discord URL, and may cross servers. The bot only
+needs **Send Messages** + **Embed Links** in both channels. Slash commands sync
+per-guild on connect (needs the `applications.commands` invite scope).
 
-How it stays correct (the parts naive clones drop): a DB `bridges` registry that
-survives restart; a `bridge_messagemap` so edits/deletes/reactions find their
-mirrored copy; loop prevention (webhook/bot messages are never relayed); and a
-`bridge_pending` race buffer for edits/deletes that arrive before the original
-finishes mirroring. Known limits: only human messages relay, content is capped
-at 2000 chars, cross-server *custom* emoji reactions only mirror when the
-destination can already use the emoji, and reaction removes are best-effort.
+> An earlier version implemented portals as a persistent webhook *mirror*
+> (Fletcher's `!bridge`). That was the wrong feature and was removed; the
+> `bridges` / `bridge_messagemap` / `bridge_pending` tables are dropped on boot.
+
+## Ace Attorney video generator (`!ace`)
+
+`modules/ace.py` renders the last few messages as a Phoenix-Wright courtroom
+video (`!ace [count]`, default 6 messages, or `!objection`). It uses the
+[`objection_engine`](https://pypi.org/project/objection_engine/) library, which
+pins old, heavy deps (Pillow 9.5, moviepy, spaCy) that can't share the bot's
+main venv, so it lives in a **separate `.ace-venv`** that the bot invokes as a
+subprocess (`ace_render.py`) off the gateway loop.
+
+Because each render is a real CPU+ffmpeg load on the host, it's guarded: **one
+render at a time**, and a global throttle of **5 renders per 10 minutes** that
+trips a **30-minute lockout** so it can't be used to spam-load the machine. The
+module disables itself cleanly if `.ace-venv` isn't built.
+
+Building the renderer venv (Apple Silicon; needs `ffmpeg` on PATH and a
+Python 3.12, since `objection_engine` won't build on 3.14):
+
+```bash
+python3.12 -m venv .ace-venv
+.ace-venv/bin/pip install objection_engine
+# objection_engine pins Pillow 9.5.0, whose cached wheel can be the wrong arch;
+# rebuild it natively, and pin setuptools so google-cloud-translate keeps pkg_resources:
+ARCHFLAGS="-arch arm64" .ace-venv/bin/pip install --no-cache-dir --force-reinstall --no-binary :all: "Pillow==9.5.0"
+.ace-venv/bin/pip install "setuptools<80"
+```
+
+First render downloads the sprite/music assets into the venv (one-time, ~80s).
+`.ace-venv` is gitignored.
 
 ## Privacy
 
