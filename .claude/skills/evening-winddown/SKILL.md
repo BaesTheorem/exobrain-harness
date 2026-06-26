@@ -27,14 +27,19 @@ Gather all data in parallel where possible, then present conversationally.
 **Health so far**:
 Follow the `/health` skill's **Evening Update** section. Pull today's final Fitbit activity totals and update the Health Log note. Steps vs 15,000 goal — note the gap but don't nag (it's bedtime).
 
-**Loki (cat)**: read today's `Areas/Health & Fitness/Loki Health Log/` note (don't re-query the API) and give a one-line status — her weight + today's visit count. Run the **Loki anomaly watch** from the `/health` skill; flag a sustained weight slide or frequency change as a watch-item only if it's real. If no Loki note exists yet, skip silently.
+**Loki (cat)**: read the **last 7 daily notes** in `Areas/Health & Fitness/Loki Health Log/` (today + the prior 6, by `YYYY-MM-DD.md` filename — don't re-query the API). Pull `weight_lbs` and `visits` from each note's frontmatter and look across the window for **emerging trends**, not just today's snapshot:
+- **Weight trajectory**: is the 7-day weight drifting up or down? A steady multi-day slide (or climb) matters more than any single day; ignore single-visit outliers (e.g. a 4.75 lb half-on-the-scale reading).
+- **Visit frequency**: is the daily visit count trending away from her normal band (more frequent could signal urinary/GI issues; much less could signal constipation or that she's avoiding the box)?
+- **Duration**: unusually long average visits can indicate straining.
+
+Give a one-line status for today (weight + visit count) plus a one-line trend read across the week. Run the **Loki anomaly watch** from the `/health` skill and flag a real sustained trend as a watch-item; if the week looks stable, say so in one line. If fewer than 2 notes exist, just report what's there. If no Loki notes exist yet, skip silently.
 
 **Pomodoro log**:
 Read today's section from `/Users/alexhedtke/Exobrain/Pomodoro Log.md` (header format `### [[Friday, May 1st, 2026]]` matching the locked target date). If the section exists, capture every `- **HH:MM AM/PM** -- ...` bullet under it and the total session count + minutes. If the section is missing, treat as zero sessions. This feeds the Focus line in step 6.
 
-**Communication**:
-- `python3 "/Users/alexhedtke/Documents/Exobrain harness/imessage/imessage-reader.py" unread` — any unanswered messages to flag for tomorrow
-- `python3 "/Users/alexhedtke/Documents/Exobrain harness/imessage/imessage-reader.py" recent --hours 24 --limit 100` — scan today's messages for actionable items
+**Communication**: scan the **full day of message history**, not just the latest message per thread. The `unread` command only surfaces the most recent unread line per chat, which hides earlier asks buried in a thread — always pair it with the full-day `recent` pull and read every message in the window.
+- `python3 "/Users/alexhedtke/Documents/Exobrain harness/imessage/imessage-reader.py" unread` — the set of chats with waiting replies (entry point, not the full picture).
+- `python3 "/Users/alexhedtke/Documents/Exobrain harness/imessage/imessage-reader.py" recent --hours 24 --limit 400` — pull the **whole day** across all conversations and read it in full. Raise `--limit` (or re-run with a wider window) if 400 truncates a busy day — don't stop at the last message in a thread. Read both incoming AND Alex's outgoing messages: incoming for asks/plans to route, outgoing to update CRM `last_contact`.
 - Discord scan (last 12 hours)
 
 **Email scan**:
