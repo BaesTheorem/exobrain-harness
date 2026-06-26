@@ -193,6 +193,19 @@ else
   ISSUES=$((ISSUES + 1))
 fi
 
+# Scheduled MIST routines — check the LAST EXIT CODE, not just that the job is
+# loaded. A loaded job that exits nonzero every fire (e.g. 78/EX_CONFIG when
+# headless `claude` can't read the Keychain) is silently dead, and "loaded" alone
+# hides that. launchctl list columns: PID  LAST_EXIT  LABEL. Flag any nonzero.
+ROUTINE_FAILS=$(launchctl list 2>/dev/null | awk '$3 ~ /^com\.mist\.routine\./ && $2 != "-" && $2 != "0" {print $3" (exit "$2")"}')
+if [ -n "$ROUTINE_FAILS" ]; then
+  echo "WARN: scheduled routine(s) failing on last run — investigate run-routine logs:"
+  while IFS= read -r line; do
+    echo "  FAIL: $line"
+  done <<< "$ROUTINE_FAILS"
+  ISSUES=$((ISSUES + 1))
+fi
+
 # Watcher health — check for recent failures (last 24h)
 for WATCHER in supernote plaud; do
   FAIL_LOG="/tmp/exobrain-${WATCHER}-failures.log"
