@@ -58,9 +58,19 @@ DEFAULTS = {
     "probe_interval_seconds": 600,   # don't re-probe the same link more often
     "ewma_alpha": 0.4,               # weight of a new measurement vs history
     "learned_ttl_seconds": 86_400,   # a learned speed older than this -> re-estimate
-    # ---- metered networks (your hotspot): never probe; assume this throughput ----
+    # ---- unmeasured networks: estimates are unreliable (public-wifi backhaul is
+    #      throttled/captive even with great signal). Discount + cap an estimate so
+    #      a never-measured net can't pull you off a working link on radio looks alone.
+    "estimate_discount": 0.5,
+    "estimate_cap_mbps": 60,
+    # ---- metered networks (your hotspot): judged on REAL speed, not assumed slow.
+    #      Just probed rarely + cheaply to conserve cellular data. A mild factor (<1)
+    #      means a roughly-equal unlimited wifi is preferred (save data), but a
+    #      clearly-faster hotspot still wins and keeps you.
     "metered_ssids": [],
-    "assumed_metered_mbps": 8,
+    "metered_probe_bytes": 1_000_000,
+    "metered_probe_interval_seconds": 1800,
+    "metered_throughput_factor": 0.8,
     # ---- switching ----
     # SSID -> password. With a password we join the target directly (no outage,
     # honors the throughput choice). Without one we fall back to disassociate +
@@ -185,9 +195,11 @@ def current(cfg):
 
 # ---- throughput probe + learning ---------------------------------------------
 
-def probe_mbps(cfg):
-    """Measure real end-to-end download throughput of the CURRENT link (Mbps)."""
-    url = cfg["probe_url"].format(bytes=cfg["probe_bytes"])
+def probe_mbps(cfg, metered=False):
+    """Measure real end-to-end download throughput of the CURRENT link (Mbps).
+    Metered links use a smaller payload to conserve cellular data."""
+    nbytes = cfg["metered_probe_bytes"] if metered else cfg["probe_bytes"]
+    url = cfg["probe_url"].format(bytes=nbytes)
     req = urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0 (WiFiRoam)"})
     try:
         t0 = time.time()
@@ -227,17 +239,18 @@ def learned_mbps(state, ssid, cfg):
 
 
 def current_throughput(state, cfg, cur):
-    """Best estimate of the current link's real throughput, probing if stale."""
+    """Real throughput of the current link, probing if stale. The hotspot is
+    measured like anything else, just probed rarely/cheaply (metered)."""
     ssid = cur["ssid"]
     if not ssid:
         return 0.0, "no link"
-    if ssid in cfg["metered_ssids"]:
-        return float(cfg["assumed_metered_mbps"]), "metered (assumed)"
+    metered = ssid in cfg["metered_ssids"]
+    interval = cfg["metered_probe_interval_seconds"] if metered else cfg["probe_interval_seconds"]
     e = state.get(ssid, {})
-    fresh = e and time.time() - e.get("ts", 0) < cfg["probe_interval_seconds"]
+    fresh = e and time.time() - e.get("ts", 0) < interval
     if fresh:
         return e["mbps"], "measured (cached)"
-    m = probe_mbps(cfg)
+    m = probe_mbps(cfg, metered=metered)
     if m is not None:
         record(state, ssid, m, cur["rssi"], cfg)
         return m, "measured (probed)"
@@ -247,13 +260,22 @@ def current_throughput(state, cfg, cur):
 
 
 def expected_mbps(state, entry, cfg):
-    """Expected throughput for a CANDIDATE network (learned if we have it)."""
-    if entry["ssid"] in cfg["metered_ssids"]:
-        return float(cfg["assumed_metered_mbps"]), "metered"
+    """Expected throughput for a CANDIDATE network. Learned value if we have one;
+    otherwise a discounted+capped radio estimate (unmeasured backhaul is unreliable
+    and must not pull us off a working link on signal alone)."""
     m = learned_mbps(state, entry["ssid"], cfg)
     if m is not None:
         return m, "learned"
-    return entry["est_mbps"], "estimated"
+    est = min(entry["est_mbps"] * cfg["estimate_discount"], cfg["estimate_cap_mbps"])
+    return round(est, 1), "estimated"
+
+
+def effective(ssid, mbps, cfg):
+    """Comparison value: metered nets get a mild factor so an roughly-equal
+    unlimited wifi is preferred (saves data) while a clearly-faster hotspot wins."""
+    if ssid in cfg["metered_ssids"]:
+        return mbps * cfg["metered_throughput_factor"]
+    return mbps
 
 
 # ---- decision -----------------------------------------------------------------
@@ -269,24 +291,26 @@ def decide(cfg, state):
         return None, f"no known network above {cfg['min_join_rssi']} dBm in range"
 
     cur_mbps, cur_src = current_throughput(state, cfg, cur)
+    cur_eff = effective(cur["ssid"], cur_mbps, cfg)
 
+    # rank candidates by metered-adjusted expected throughput
     scored = []
     for e in cands:
         exp, src = expected_mbps(state, e, cfg)
-        scored.append((exp, e, src))
+        scored.append((effective(e["ssid"], exp, cfg), exp, e, src))
     scored.sort(key=lambda x: -x[0])
-    best_exp, best, best_src = scored[0]
+    best_eff, best_exp, best, best_src = scored[0]
 
     if best["ssid"] == cur["ssid"]:
         return None, (f"already on best: {cur['ssid']} "
                       f"~{cur_mbps:.0f} Mbps ({cur_src}, {cur['rssi']} dBm)")
 
-    need = max(cur_mbps * (1 + cfg["throughput_margin_frac"]),
-               cur_mbps + cfg["throughput_margin_floor_mbps"])
-    if best_exp < need:
+    need = max(cur_eff * (1 + cfg["throughput_margin_frac"]),
+               cur_eff + cfg["throughput_margin_floor_mbps"])
+    if best_eff < need:
         return None, (f"staying on {cur['ssid']} ~{cur_mbps:.0f} Mbps ({cur_src}); "
                       f"best alt {best['ssid']} ~{best_exp:.0f} Mbps ({best_src}) "
-                      f"below switch bar ~{need:.0f}")
+                      f"below switch bar")
     return best["ssid"], (f"switch {cur['ssid']}(~{cur_mbps:.0f} Mbps {cur_src}) -> "
                           f"{best['ssid']}(~{best_exp:.0f} Mbps {best_src}, {best['rssi']} dBm)")
 
@@ -408,9 +432,9 @@ def main():
         print(f"{len(prefs)} preferred networks known")
         for e in scan(cfg):
             mark = "*" if e["ssid"] in prefs else " "
-            learn = learned_mbps(state, e["ssid"], cfg)
-            tag = f"learned ~{learn:.0f}" if learn else f"est ~{e['est_mbps']:.0f}"
-            print(f" {mark} {e['rssi']:>4} dBm  {tag:>12} Mbps  {e['ssid']}")
+            val, src = expected_mbps(state, e, cfg)   # what decide() actually uses
+            print(f" {mark} {e['rssi']:>4} dBm  {src:>9} ~{val:>5.0f} Mbps  {e['ssid']}")
+        print("  (* = known/switchable; estimates are discounted+capped vs radio)")
         return
     if "--probe" in args:
         m = probe_mbps(cfg)
