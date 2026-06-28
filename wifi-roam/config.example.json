@@ -15,10 +15,17 @@
   "ewma_alpha": 0.4,
   "learned_ttl_seconds": 86400,
 
-  "metered_ssids": ["My iPhone", "Your Hotspot Name Here"],
-  "assumed_metered_mbps": 8,
+  "_estimate_comment": "Never-measured nets are unreliable (public wifi shows strong signal but throttled/captive backhaul), so a radio estimate is discounted + capped and won't pull you off a working link on its own.",
+  "estimate_discount": 0.5,
+  "estimate_cap_mbps": 60,
 
-  "_passwords_comment": "SSID -> wifi password. With a password the watcher joins that network directly (no outage, full throughput-based switching). Without one it can only disassociate + let macOS auto-join, which just escapes the hotspot. This file lives outside the git repo; never commit real passwords.",
+  "_metered_comment": "Your phone hotspot. Judged on its REAL measured speed (not assumed slow), just probed rarely + cheaply to save cellular. The factor (<1) means a roughly-equal unlimited wifi is preferred, but a clearly-faster hotspot keeps you.",
+  "metered_ssids": ["Your Hotspot Name Here"],
+  "metered_probe_bytes": 1000000,
+  "metered_probe_interval_seconds": 1800,
+  "metered_throughput_factor": 0.8,
+
+  "_passwords_comment": "SSID -> wifi password. With a password the watcher joins that network directly (no outage, full throughput-based switching). Without one it can only disassociate + let macOS auto-join, which just escapes a lower-priority net. This file lives outside the git repo; never commit real passwords.",
   "passwords": {},
   "switch_cooldown_seconds": 120
 }
