@@ -26,11 +26,12 @@ import time
 import urllib.parse
 import urllib.request
 
-# Generated images land in a dedicated gallery inside the MIST Console app
-# (data/ is gitignored, so art never gets committed). The Console serves these
-# inline; Alex downloads the keepers from the lightbox. Override with --dir or
-# the MIST_IMAGE_DIR env var.
-DEFAULT_DIR = os.path.expanduser("~/Documents/mist-console/data/generated-images")
+# Generated images land in a dedicated gallery (gitignored, so art never gets
+# committed) that the MIST Console already serves inline from the harness root.
+# Alex downloads the keepers from the lightbox. Override with --dir or the
+# MIST_IMAGE_DIR env var.
+DEFAULT_DIR = os.path.realpath(
+    os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "gallery"))
 RETRIES = 3
 TIMEOUT = 120  # FLUX can take a while; be patient before failing
 # harness .env lives two dirs up from this script (mist-image/bin/mist-image)
