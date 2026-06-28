@@ -92,3 +92,6 @@ resume-builder/data/resume_data.json
 resume-builder/tailoring/*
 !resume-builder/tailoring/example.json
 !resume-builder/tailoring/example_cover.md
+
+# Generated images (mist-image) — personal, never commit
+mist-image/gallery/

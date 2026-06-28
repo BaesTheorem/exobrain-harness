@@ -9,10 +9,10 @@ mist-image/bin/mist-image "a red fox in snow" -o fox.png --size 1024 --seed 42
 mist-image/bin/mist-image "wide cinematic vista" --width 1344 --height 768 --open
 ```
 
-- Default output dir: the MIST Console gallery
-  `~/Documents/mist-console/data/generated-images/` (gitignored). The Console
-  renders these inline; download the keepers from the lightbox. Override with
-  `--dir`, `$MIST_IMAGE_DIR`, or a full path in `-o`.
+- Default output dir: `mist-image/gallery/` (gitignored). The MIST Console
+  renders these inline (it serves the harness root via `/file`, so no Console
+  restart is ever needed) and you download the keepers from the lightbox.
+  Override with `--dir`, `$MIST_IMAGE_DIR`, or a full path in `-o`.
 - `stdout` is the saved path only (so callers can capture it); logs go to stderr.
 
 ## Keys (one-time, required)
