@@ -1,0 +1,24 @@
+{
+  "_comment": "Copy to config.json (gitignored). SSIDs are personal data — never commit the real file.",
+
+  "interface": "en0",
+  "poll_seconds": 30,
+
+  "min_join_rssi": -78,
+
+  "throughput_margin_frac": 0.30,
+  "throughput_margin_floor_mbps": 5,
+
+  "probe_bytes": 4000000,
+  "probe_timeout": 8,
+  "probe_interval_seconds": 600,
+  "ewma_alpha": 0.4,
+  "learned_ttl_seconds": 86400,
+
+  "metered_ssids": ["My iPhone", "Your Hotspot Name Here"],
+  "assumed_metered_mbps": 8,
+
+  "_passwords_comment": "SSID -> wifi password. With a password the watcher joins that network directly (no outage, full throughput-based switching). Without one it can only disassociate + let macOS auto-join, which just escapes the hotspot. This file lives outside the git repo; never commit real passwords.",
+  "passwords": {},
+  "switch_cooldown_seconds": 120
+}

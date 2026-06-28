@@ -1,0 +1,6 @@
+# personal data + build artifacts — never commit
+.venv/
+config.json
+state.json
+*.log
+WiFiRoam.app/
