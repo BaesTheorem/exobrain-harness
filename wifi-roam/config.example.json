@@ -9,8 +9,8 @@
   "throughput_margin_frac": 0.30,
   "throughput_margin_floor_mbps": 5,
 
-  "probe_bytes": 4000000,
-  "probe_timeout": 8,
+  "probe_bytes": 20000000,
+  "probe_timeout": 12,
   "probe_interval_seconds": 600,
   "ewma_alpha": 0.4,
   "learned_ttl_seconds": 86400,

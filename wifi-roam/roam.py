@@ -53,8 +53,9 @@ DEFAULTS = {
     "throughput_margin_floor_mbps": 5,
     # ---- speed probe (measures real end-to-end Mbps of the CURRENT link) ----
     "probe_url": "https://speed.cloudflare.com/__down?bytes={bytes}",
-    "probe_bytes": 4_000_000,        # ~4 MB; capped by timeout
-    "probe_timeout": 8,              # seconds
+    "probe_bytes": 20_000_000,       # 20 MB — big enough to read past TCP slow-start
+                                     # (4 MB was noisy: 160-330 Mbps on the same link)
+    "probe_timeout": 12,             # seconds; a partial transfer still gives a rate
     "probe_interval_seconds": 600,   # don't re-probe the same link more often
     "ewma_alpha": 0.4,               # weight of a new measurement vs history
     "learned_ttl_seconds": 86_400,   # a learned speed older than this -> re-estimate
@@ -197,22 +198,28 @@ def current(cfg):
 
 def probe_mbps(cfg, metered=False):
     """Measure real end-to-end download throughput of the CURRENT link (Mbps).
-    Metered links use a smaller payload to conserve cellular data."""
+    Timed from the FIRST received byte (so DNS/TLS/first-byte latency is excluded
+    and fast links aren't underreported). A partial transfer still yields a valid
+    sustained rate. Metered links use a smaller payload."""
     nbytes = cfg["metered_probe_bytes"] if metered else cfg["probe_bytes"]
     url = cfg["probe_url"].format(bytes=nbytes)
     req = urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0 (WiFiRoam)"})
     try:
         t0 = time.time()
         got = 0
+        t_first = None
         with urllib.request.urlopen(req, timeout=cfg["probe_timeout"]) as r:
-            deadline = t0 + cfg["probe_timeout"]
-            while time.time() < deadline:
+            while time.time() - t0 < cfg["probe_timeout"]:
                 chunk = r.read(65536)
                 if not chunk:
                     break
+                if t_first is None:        # exclude connection setup from timing
+                    t_first = time.time()
                 got += len(chunk)
-        dt = time.time() - t0
-        if dt <= 0 or got == 0:
+        if t_first is None or got == 0:
+            return None
+        dt = time.time() - t_first
+        if dt <= 0:
             return None
         return round(got * 8 / dt / 1e6, 1)
     except Exception as e:
