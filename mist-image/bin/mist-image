@@ -26,7 +26,11 @@ import time
 import urllib.parse
 import urllib.request
 
-DEFAULT_DIR = os.path.expanduser("~/Downloads")
+# Generated images land in a dedicated gallery inside the MIST Console app
+# (data/ is gitignored, so art never gets committed). The Console serves these
+# inline; Alex downloads the keepers from the lightbox. Override with --dir or
+# the MIST_IMAGE_DIR env var.
+DEFAULT_DIR = os.path.expanduser("~/Documents/mist-console/data/generated-images")
 RETRIES = 3
 TIMEOUT = 120  # FLUX can take a while; be patient before failing
 # harness .env lives two dirs up from this script (mist-image/bin/mist-image)
@@ -171,7 +175,7 @@ def main():
     ap = argparse.ArgumentParser(prog="mist-image", description="Generate an image from a prompt.")
     ap.add_argument("prompt", nargs="+", help="the image description")
     ap.add_argument("-o", "--out", help="output filename or path (bare name lands in --dir)")
-    ap.add_argument("--dir", default=DEFAULT_DIR, help=f"output directory (default {DEFAULT_DIR})")
+    ap.add_argument("--dir", default=None, help=f"output directory (default $MIST_IMAGE_DIR or {DEFAULT_DIR})")
     ap.add_argument("--size", type=int, help="square dimension shortcut, e.g. 1024")
     ap.add_argument("--width", type=int, default=1024)
     ap.add_argument("--height", type=int, default=1024)
@@ -186,7 +190,9 @@ def main():
     prompt = " ".join(args.prompt).strip()
     width = args.size or args.width
     height = args.size or args.height
-    os.makedirs(os.path.expanduser(args.dir), exist_ok=True)
+    # Resolve after load_env so MIST_IMAGE_DIR can come from the harness .env too.
+    out_dir = os.path.expanduser(args.dir or os.environ.get("MIST_IMAGE_DIR") or DEFAULT_DIR)
+    os.makedirs(out_dir, exist_ok=True)
 
     log(f"{backend}: \"{prompt}\" ({width}x{height}" + (f", seed {args.seed}" if args.seed is not None else "") + ")")
     if backend == "cloudflare":
@@ -194,7 +200,7 @@ def main():
     else:
         body, ct = gen_pollinations(prompt, width, height, args.seed, args.model)
 
-    path = resolve_out(args.out, prompt, ct, os.path.expanduser(args.dir), args.seed)
+    path = resolve_out(args.out, prompt, ct, out_dir, args.seed)
     with open(path, "wb") as f:
         f.write(body)
     log(f"saved {len(body):,} bytes -> {path}")
