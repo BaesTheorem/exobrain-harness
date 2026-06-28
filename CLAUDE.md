@@ -140,7 +140,7 @@ MIST has an offline cloned voice — see `mist-voice/` ([[project_mist_voice]]).
 Whenever Alex asks for an image to be generated, run `mist-image/bin/mist-image "<prompt>"` (see `mist-image/README.md`). It's a stdlib CLI; generation runs on a cloud GPU so it never touches this 8GB machine's RAM.
 
 - **Generate:** `mist-image/bin/mist-image "a foggy harbor at dawn"` — saves to `~/Downloads` and prints the path. Flags: `-o name.png`, `--size 1024` (or `--width/--height`), `--seed N` (reproducible), `--open`.
-- **Show Alex the result:** after generating, Read the saved path so the image renders inline, then report where it saved.
+- **Show Alex the result:** after generating, emit a markdown image of the saved file in your reply, e.g. `![harper pin](/Users/alexhedtke/Downloads/harper-pin.png)`. The MIST Console renders local-path images inline (click = full-size lightbox + Download), serving them via its `/file` route. Then say where it saved. (On non-Console surfaces, also Read the path so you can see it.)
 - **Keys:** reads a free key from the gitignored harness `.env` (`POLLINATIONS_API_KEY`, or `CF_ACCOUNT_ID` + `CF_API_TOKEN` for Cloudflare Workers AI / FLUX.1-schnell). `--backend auto` prefers Cloudflare when its keys exist. The truly keyless free APIs ended mid-2026, so one free key is required; never commit it.
 
 ## MIST Console (desktop UI)
