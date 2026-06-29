@@ -5,9 +5,11 @@
 #   mist-notify "New transcript processed" "MIST" Purr "obsidian://open?vault=Exobrain&file=Daily%20notes/..."
 #
 # 4th arg is the click target the banner opens. It can be:
+#   - "console"        -> raise the MIST Console (its current chat). Use for briefings/triage.
+#   - "console:<sid>"  -> raise the Console AND switch to that chat (the chat that produced this).
 #   - a URL/scheme  (https://, http://localhost:5014, obsidian://, things:///...)  -> opened directly
 #   - a file path or app name                                                      -> opened with `open`
-#   - omitted                                                                      -> defaults to the MIST Console app
+#   - omitted                                                                      -> defaults to the MIST Console (current chat)
 # Every notification is clickable and lands on the app/source it came from.
 #
 # Uses terminal-notifier (clickable). Falls back to osascript if it's missing,
@@ -20,12 +22,19 @@ SOUND="${3:-Purr}"
 LINK="${4:-}"
 
 # Default click target: bring up the MIST Console (MIST's home surface).
-DEFAULT_APP="MIST Console"
+CONSOLE_BUNDLE="com.exobrain.mist-console"
+CONSOLE_PORT="5014"
 
 if command -v terminal-notifier >/dev/null 2>&1; then
   args=(-title "$TITLE" -message "$MSG" -sound "$SOUND")
-  if [ -z "$LINK" ]; then
-    args+=(-execute "open -a \"$DEFAULT_APP\"")
+  if [ -z "$LINK" ] || [ "$LINK" = "console" ]; then
+    # Raise the Console to its current chat.
+    args+=(-execute "open -b $CONSOLE_BUNDLE")
+  elif [[ "$LINK" == console:* ]]; then
+    # Tell the Console which chat to surface, then raise it. The /focus call
+    # no-ops harmlessly if the Console isn't running or the sid is unknown.
+    SID="${LINK#console:}"
+    args+=(-execute "curl -s \"http://localhost:$CONSOLE_PORT/focus?sid=$SID\" >/dev/null 2>&1; open -b $CONSOLE_BUNDLE")
   elif [[ "$LINK" == *"://"* ]]; then
     args+=(-open "$LINK")
   else
