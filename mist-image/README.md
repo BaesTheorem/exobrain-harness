@@ -15,6 +15,22 @@ mist-image/bin/mist-image "wide cinematic vista" --width 1344 --height 768 --ope
   Override with `--dir`, `$MIST_IMAGE_DIR`, or a full path in `-o`.
 - `stdout` is the saved path only (so callers can capture it); logs go to stderr.
 
+## Reference / identity-preserving generation (`--ref`)
+
+Keep a specific character, face, or style across new poses instead of describing
+it in words. Pass up to 4 reference images and address them as `image 0`..`image 3`
+in the prompt. Uses **FLUX.2** on Cloudflare Workers AI (needs `CF_ACCOUNT_ID` +
+`CF_API_TOKEN`); references are auto-resized under 512px via `sips`.
+
+```
+mist-image/bin/mist-image "full-body shot of the character in image 0, standing" \
+    --ref face.png -o out.png --width 768 --height 1152
+```
+
+For MIST's own avatar see [`REFERENCE-FACE.md`](REFERENCE-FACE.md). The Workers AI
+safety filter false-flags some seeds even on wholesome prompts; the CLI auto-retries
+with fresh seeds before giving up.
+
 ## Keys (one-time, required)
 
 The genuinely keyless image APIs are gone as of mid-2026. Pick one free key and
