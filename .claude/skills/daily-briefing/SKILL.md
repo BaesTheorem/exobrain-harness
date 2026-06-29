@@ -124,7 +124,8 @@ Weather goes FIRST (outside the briefing heading), then content under `### Morni
 All briefing subsections use H4 (`####`) to nest under the H3. Do NOT include standalone "Tasks Due", "Upcoming", or "Overdue Contacts" sections.
 
 ### 14. Notify
+Clickable banner that opens the MIST Console chat (per Alex's standing rule — briefings open the Console, not the note). Pass `console` as the 4th arg; if you're running inside a Console session and know its sid, pass `console:<sid>` so the click lands on this exact chat.
 ```bash
-osascript -e 'display notification "Your daily briefing is ready in today'\''s note" with title "Exobrain" sound name "Purr"'
+mist-voice/bin/mist-notify "Your daily briefing is ready in today's note" "MIST" Purr console
 ```
 
