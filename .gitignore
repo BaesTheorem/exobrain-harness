@@ -95,3 +95,5 @@ resume-builder/tailoring/*
 
 # Generated images (mist-image) — personal, never commit
 mist-image/gallery/
+# Reference face for --ref identity generation: a copyrighted show frame, never commit
+mist-image/mist-reference-face.png

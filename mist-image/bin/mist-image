@@ -8,23 +8,36 @@ the pixels are made on someone else's GPU and downloaded as a file.
   mist-image "a red fox in snow" -o fox.png --size 1024 --seed 42
   mist-image "wide cinematic vista" --width 1344 --height 768 --open
 
-Default output: ~/Downloads. Default backend: pollinations (free, no key).
+Reference / identity-preserving generation (FLUX.2 on Cloudflare):
+  mist-image "full-body shot of the character in image 0, standing" \
+      --ref mist-face.png -o mist.png --width 768 --height 1152
+
+  Pass up to 4 --ref images and address them as "image 0".."image 3" in the
+  prompt. Use this to keep a specific character/face/style across new poses,
+  instead of re-describing them in words. Needs CF_ACCOUNT_ID + CF_API_TOKEN.
+
+Default output: gallery/. Default backend: cloudflare if its keys exist, else
+pollinations.
 
 Backends
-  pollinations  free, no key, FLUX-based. The default.
-  cloudflare    Cloudflare Workers AI FLUX.1-schnell. Needs env:
+  pollinations  free, needs a free key. FLUX-based.
+  cloudflare    Cloudflare Workers AI. FLUX.1-schnell for text-to-image; FLUX.2
+                (klein) for --ref reference-conditioned generation. Needs env:
                   CF_ACCOUNT_ID, CF_API_TOKEN
-                More reliable / higher volume. Swap with --backend cloudflare.
 """
 import argparse
 import base64
 import json
 import os
+import random
 import re
+import subprocess
 import sys
+import tempfile
 import time
 import urllib.parse
 import urllib.request
+import uuid
 
 # Generated images land in a dedicated gallery (gitignored, so art never gets
 # committed) that the MIST Console already serves inline from the harness root.
@@ -34,6 +47,10 @@ DEFAULT_DIR = os.path.realpath(
     os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "gallery"))
 RETRIES = 3
 TIMEOUT = 120  # FLUX can take a while; be patient before failing
+# FLUX.2 is the only model here that accepts reference images (identity-preserving
+# generation). flux-2-dev is currently 500ing on Workers AI, so default to klein-9b,
+# which supports the same multi-reference multipart contract. Override with --model.
+FLUX2_REF_MODEL = "@cf/black-forest-labs/flux-2-klein-9b"
 # harness .env lives two dirs up from this script (mist-image/bin/mist-image)
 ENV_FILE = os.path.join(os.path.dirname(__file__), "..", "..", ".env")
 
@@ -172,6 +189,104 @@ def gen_cloudflare(prompt, width, height, seed, model):
     return base64.b64decode(b64), "image/png"
 
 
+def prep_reference(path, maxdim=480):
+    """Return PNG bytes of a reference image guaranteed under 512x512.
+
+    FLUX.2 rejects reference images that are 512px or larger on either side, so we
+    downscale (and normalize to PNG) with macOS `sips` — no Python image deps.
+    """
+    src = os.path.abspath(os.path.expanduser(path))
+    if not os.path.exists(src):
+        raise SystemExit(f"[mist-image] reference image not found: {path}")
+    fd, tmp = tempfile.mkstemp(suffix=".png")
+    os.close(fd)
+    try:
+        r = subprocess.run(
+            ["sips", "-s", "format", "png", "--resampleHeightWidthMax", str(maxdim),
+             src, "--out", tmp],
+            stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        if r.returncode != 0 or not os.path.getsize(tmp):
+            raise SystemExit(f"[mist-image] could not read/resize reference (needs macOS `sips`): {path}")
+        with open(tmp, "rb") as f:
+            return f.read()
+    finally:
+        if os.path.exists(tmp):
+            os.unlink(tmp)
+
+
+def _multipart(fields, files):
+    """Build a multipart/form-data body. files: {name: (filename, bytes)}."""
+    boundary = "----mist" + uuid.uuid4().hex
+    crlf = "\r\n"
+    body = b""
+    for k, v in fields.items():
+        body += ("--" + boundary + crlf).encode()
+        body += f'Content-Disposition: form-data; name="{k}"{crlf}{crlf}{v}{crlf}'.encode()
+    for k, (fn, data) in files.items():
+        body += ("--" + boundary + crlf).encode()
+        body += (f'Content-Disposition: form-data; name="{k}"; filename="{fn}"{crlf}'
+                 f'Content-Type: image/png{crlf}{crlf}').encode()
+        body += data + crlf.encode()
+    body += ("--" + boundary + "--" + crlf).encode()
+    return body, "multipart/form-data; boundary=" + boundary
+
+
+def gen_cloudflare_flux2(prompt, width, height, seed, model, refs, steps):
+    """Identity-preserving generation: condition on up to 4 reference images.
+
+    Reference fields are named input_image_0..3; the prompt can address them as
+    'image 0', etc. The Workers AI safety filter false-flags some seeds even on
+    wholesome inputs, so on a flag we retry with fresh seeds rather than failing.
+    """
+    acct = os.environ.get("CF_ACCOUNT_ID")
+    token = os.environ.get("CF_API_TOKEN")
+    if not (acct and token):
+        raise SystemExit(
+            "[mist-image] reference generation (--ref) needs CF_ACCOUNT_ID and CF_API_TOKEN in the harness .env"
+        )
+    cf_model = model if model.startswith("@cf/") else FLUX2_REF_MODEL
+    url = f"https://api.cloudflare.com/client/v4/accounts/{acct}/ai/run/{cf_model}"
+    files = {}
+    for i, p in enumerate(refs[:4]):
+        files[f"input_image_{i}"] = (f"ref{i}.png", prep_reference(p))
+    attempts = 5
+    for attempt in range(1, attempts + 1):
+        s = seed if (attempt == 1 and seed is not None) else random.randint(1, 2 ** 31 - 1)
+        fields = {"prompt": prompt, "width": str(width), "height": str(height),
+                  "steps": str(steps or 18), "seed": str(s)}
+        body, ct = _multipart(fields, files)
+        req = urllib.request.Request(
+            url, data=body,
+            headers={"Authorization": f"Bearer {token}", "Content-Type": ct}, method="POST")
+        try:
+            with urllib.request.urlopen(req, timeout=TIMEOUT) as resp:
+                raw, rct = resp.read(), resp.headers.get("Content-Type", "")
+        except urllib.error.HTTPError as e:
+            msg = e.read().decode("utf-8", "replace")
+            if e.code == 400 and "flagged" in msg.lower():
+                log(f"seed {s} flagged by the safety filter; retrying with a new seed ({attempt}/{attempts})")
+                continue
+            raise SystemExit(f"[mist-image] cloudflare flux-2 error ({e.code}): {msg[:300]}")
+        except Exception as e:  # noqa: BLE001
+            log(f"attempt {attempt}/{attempts} failed ({e}); retrying in 2s")
+            time.sleep(2)
+            continue
+        if rct.lower().startswith("image/"):
+            return raw, rct
+        try:
+            data = json.loads(raw)
+        except Exception:
+            raise SystemExit(f"[mist-image] flux-2 returned unparseable response: {raw[:300]!r}")
+        b64 = data.get("result", {}).get("image") or data.get("image")
+        if not b64:
+            raise SystemExit(f"[mist-image] flux-2 response missing image: {raw[:300]!r}")
+        img = base64.b64decode(b64)
+        sniff = "image/jpeg" if img[:2] == b"\xff\xd8" else "image/png"
+        return img, sniff
+    raise SystemExit(
+        "[mist-image] flux-2 safety filter flagged every seed; try a more modest prompt or a different reference")
+
+
 def main():
     ap = argparse.ArgumentParser(prog="mist-image", description="Generate an image from a prompt.")
     ap.add_argument("prompt", nargs="+", help="the image description")
@@ -183,6 +298,10 @@ def main():
     ap.add_argument("--seed", type=int, help="reproducible seed")
     ap.add_argument("--model", default="flux", help="model name (backend-specific)")
     ap.add_argument("--backend", default="auto", choices=["auto", "pollinations", "cloudflare"])
+    ap.add_argument("--ref", action="append", metavar="PATH",
+                    help="reference image(s) for identity-preserving generation (FLUX.2, up to 4). "
+                         "Forces the cloudflare backend; address them as 'image 0' etc. in the prompt.")
+    ap.add_argument("--steps", type=int, help="diffusion steps for --ref mode (default 18)")
     ap.add_argument("--open", action="store_true", help="open the image when done")
     args = ap.parse_args()
 
@@ -195,11 +314,17 @@ def main():
     out_dir = os.path.expanduser(args.dir or os.environ.get("MIST_IMAGE_DIR") or DEFAULT_DIR)
     os.makedirs(out_dir, exist_ok=True)
 
-    log(f"{backend}: \"{prompt}\" ({width}x{height}" + (f", seed {args.seed}" if args.seed is not None else "") + ")")
-    if backend == "cloudflare":
-        body, ct = gen_cloudflare(prompt, width, height, args.seed, args.model)
+    refs = args.ref or []
+    seedlog = f", seed {args.seed}" if args.seed is not None else ""
+    if refs:
+        log(f"cloudflare flux-2 (ref x{len(refs)}): \"{prompt}\" ({width}x{height}{seedlog})")
+        body, ct = gen_cloudflare_flux2(prompt, width, height, args.seed, args.model, refs, args.steps)
     else:
-        body, ct = gen_pollinations(prompt, width, height, args.seed, args.model)
+        log(f"{backend}: \"{prompt}\" ({width}x{height}{seedlog})")
+        if backend == "cloudflare":
+            body, ct = gen_cloudflare(prompt, width, height, args.seed, args.model)
+        else:
+            body, ct = gen_pollinations(prompt, width, height, args.seed, args.model)
 
     path = resolve_out(args.out, prompt, ct, out_dir, args.seed)
     with open(path, "wb") as f:
