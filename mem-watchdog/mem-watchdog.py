@@ -18,6 +18,7 @@ Stdlib only, system python (3.9). No third-party deps so launchd never breaks on
 a missing venv.
 """
 import os
+import shutil
 import signal
 import subprocess
 import time
@@ -69,17 +70,34 @@ def _log(path, line):
 
 
 def _notify(title, message):
-    # Visual + audible alert. osascript is dependency-free and always present;
-    # a memory leak about to kill the machine is worth a sound.
+    # Visual + audible alert. Prefer a CLICKABLE terminal-notifier banner that
+    # opens Activity Monitor (where Alex can spot the memory hog). Fall back to
+    # osascript -- dependency-free and always present -- if it's missing; a
+    # memory leak about to kill the machine is worth a sound either way.
+    safe_msg = message.replace('"', "'")
+    safe_title = title.replace('"', "'")
+    tn = shutil.which("terminal-notifier") or "/opt/homebrew/bin/terminal-notifier"
+    fired = False
     try:
-        subprocess.run(
-            ["osascript", "-e",
-             'display notification "{}" with title "{}" sound name "Basso"'
-             .format(message.replace('"', "'"), title.replace('"', "'"))],
-            check=False, timeout=10,
-        )
+        if os.path.exists(tn):
+            subprocess.run(
+                [tn, "-title", safe_title, "-message", safe_msg,
+                 "-execute", "open -a 'Activity Monitor'", "-sound", "Basso"],
+                check=False, timeout=10,
+            )
+            fired = True
     except Exception:
         pass
+    if not fired:
+        try:
+            subprocess.run(
+                ["osascript", "-e",
+                 'display notification "{}" with title "{}" sound name "Basso"'
+                 .format(safe_msg, safe_title)],
+                check=False, timeout=10,
+            )
+        except Exception:
+            pass
     # Best-effort MIST voice if the harness notifier is on PATH (silent fallback baked in).
     mist = os.path.expanduser("~/Documents/Exobrain harness/mist-voice/bin/mist-notify")
     if os.path.exists(mist):

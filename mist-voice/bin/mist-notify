@@ -1,14 +1,42 @@
 #!/bin/bash
-# Show a macOS notification AND speak it in MIST's voice.
+# Show a CLICKABLE macOS notification AND speak it in MIST's voice.
 #   mist-notify "Inbox is over five. Want me to triage it?"
 #   mist-notify "Build failed." "Exobrain URGENT" Basso
-# Falls back to a silent notification if the MIST service isn't running.
+#   mist-notify "New transcript processed" "MIST" Purr "obsidian://open?vault=Exobrain&file=Daily%20notes/..."
+#
+# 4th arg is the click target the banner opens. It can be:
+#   - a URL/scheme  (https://, http://localhost:5014, obsidian://, things:///...)  -> opened directly
+#   - a file path or app name                                                      -> opened with `open`
+#   - omitted                                                                      -> defaults to the MIST Console app
+# Every notification is clickable and lands on the app/source it came from.
+#
+# Uses terminal-notifier (clickable). Falls back to osascript if it's missing,
+# and to a silent notification if the MIST voice service isn't running.
 set -euo pipefail
 DIR="$(cd "$(dirname "$0")/.." && pwd)"
-MSG="${1:?usage: mist-notify \"message\" [title] [sound]}"
+MSG="${1:?usage: mist-notify \"message\" [title] [sound] [link]}"
 TITLE="${2:-MIST}"
 SOUND="${3:-Purr}"
+LINK="${4:-}"
 
-osascript -e "display notification \"${MSG//\"/\\\"}\" with title \"${TITLE//\"/\\\"}\" sound name \"$SOUND\"" || true
+# Default click target: bring up the MIST Console (MIST's home surface).
+DEFAULT_APP="MIST Console"
+
+if command -v terminal-notifier >/dev/null 2>&1; then
+  args=(-title "$TITLE" -message "$MSG" -sound "$SOUND")
+  if [ -z "$LINK" ]; then
+    args+=(-execute "open -a \"$DEFAULT_APP\"")
+  elif [[ "$LINK" == *"://"* ]]; then
+    args+=(-open "$LINK")
+  else
+    args+=(-execute "open $(printf '%q' "$LINK")")
+  fi
+  terminal-notifier "${args[@]}" >/dev/null 2>&1 || true
+else
+  # No terminal-notifier: osascript banners can't carry a click action, so the
+  # link is best-effort lost here, but the notification still fires.
+  osascript -e "display notification \"${MSG//\"/\\\"}\" with title \"${TITLE//\"/\\\"}\" sound name \"$SOUND\"" || true
+fi
+
 # Speak it (non-blocking so it doesn't hold up the caller)
 ( "$DIR/bin/mist-say" "$MSG" >/dev/null 2>&1 || true ) &

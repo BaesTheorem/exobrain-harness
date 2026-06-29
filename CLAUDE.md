@@ -120,12 +120,15 @@ The point is to *actually get it right and get it done*, not to look rigorous. I
 
 Notify on user-visible outputs (briefings, items needing review, inbox >5, errors). Silent for Plaud/Supernote routine processing.
 
-Speak notifications in MIST's voice (shows the macOS notification AND says it aloud):
+**Every notification must be clickable and open the app/source it came from** (Alex's standing rule, 2026-06-29). `mist-notify` takes an optional 4th arg, the click target the banner opens; always pass it. It can be any `open`-able URL/scheme (`obsidian://open?vault=Exobrain&file=...`, `things:///show?id=...`, `http://localhost:<port>` for a local app, `https://...`) or a file path / app name. With no link it defaults to opening the MIST Console. Banners are delivered via `terminal-notifier` (clickable), falling back to `osascript` only if it's missing.
+
 ```bash
-mist-voice/bin/mist-notify "msg"                       # standard (title MIST, Purr)
-mist-voice/bin/mist-notify "msg" "MIST URGENT" Basso   # urgent
+mist-voice/bin/mist-notify "msg"                                            # standard (title MIST, Purr); click opens MIST Console
+mist-voice/bin/mist-notify "Inbox is over five" "MIST" Purr "http://localhost:5008"   # click opens the relevant app
+mist-voice/bin/mist-notify "Briefing's ready" "MIST" Purr "obsidian://open?vault=Exobrain&file=Daily%20notes/..."
+mist-voice/bin/mist-notify "Build failed" "MIST URGENT" Basso "http://localhost:5016"  # urgent
 ```
-Falls back to a silent notification if the voice service isn't running. Bare `osascript` is fine when audio would be intrusive.
+Apps/watchers we build follow the same rule: a notification carries a link to its own source (product page, ticket page, dashboard, the originating app's port). Discord alerts embed the source URL inline (Discord auto-links it). Falls back to a silent notification if the voice service isn't running. Bare `osascript` is fine when audio would be intrusive, but it cannot carry a click action, so prefer `mist-notify`/`terminal-notifier` whenever the banner should be clickable.
 
 ## Voice (MIST audio output)
 
