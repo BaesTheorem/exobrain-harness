@@ -42,6 +42,25 @@ with sync_playwright() as p:
 PY
 ```
 
+## PDF output (print-to-pdf)
+
+For a PDF rather than a PNG, **default straight to Playwright's `page.pdf()`** — do not reach for Chrome's `--headless=old --print-to-pdf` first. On this machine that path hangs indefinitely and produces no file (it times out the Bash call and leaves a stuck Chrome + locked `--user-data-dir`). Playwright's `page.pdf()` renders in a second or two and, importantly, **preserves clickable links** — both external `https` URLs and internal `#anchor` jumps come through as live PDF link annotations, so numbered-citation dossiers (superscript markers that jump to a source list) work end to end.
+
+```bash
+python3 - <<'PY'
+from playwright.sync_api import sync_playwright
+with sync_playwright() as p:
+    b = p.chromium.launch()
+    pg = b.new_page()
+    pg.goto("file:///tmp/page.html", wait_until="networkidle")
+    pg.pdf(path="/path/out.pdf", format="Letter", print_background=True,
+           margin={"top":"0.6in","bottom":"0.6in","left":"0.7in","right":"0.7in"})
+    b.close()
+PY
+```
+
+Use `@page { size: letter; margin: ... }` plus `-webkit-print-color-adjust: exact` in the HTML so background fills (callout boxes, header bands) actually print.
+
 ## Other options (static HTML only, no JS)
 
 - `qlmanage -t -s 1400 -o /tmp "/tmp/page.html"` — macOS Quick Look, native, no flash, but ignores most JS.
