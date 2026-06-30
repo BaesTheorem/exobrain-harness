@@ -1,6 +1,6 @@
 ---
 name: dnd-sheet
-description: Work on Alex's self-contained D&D 5e character sheet web app (the MPMB replacement) — a single ~13MB index.html with all CSS/JS/sourcebook data baked in. Use when Alex says "the D&D sheet", "character sheet app", "the MPMB replacement", "the dnd-character-sheet repo", mentions a bug or feature on that sheet, asks to add a class/feat/spell/item mechanic, the Universal/Classic/DDB theme, the rest system, magic items, the coverage oracle, or wants to ship/deploy a change to it. NOT for solo-dm, ttrpg-player, or TTRPG-campaign-manager (those are play/GM skills). Read this before touching index.html so you don't retread known gotchas.
+description: Work on Alex's self-contained D&D 5e character sheet web app (the MPMB replacement) — a single ~13MB index.html with all CSS/JS/sourcebook data baked in. Use when Alex says "the D&D sheet", "character sheet app", "the MPMB replacement", "the dnd-character-sheet repo", mentions a bug or feature on that sheet, asks to add a class/feat/spell/item mechanic, the Universal (formerly D&D Beyond) or Classic theme, the rest system, magic items, the coverage oracle, or wants to ship/deploy a change to it. NOT for solo-dm, ttrpg-player, or TTRPG-campaign-manager (those are play/GM skills). Read this before touching index.html so you don't retread known gotchas.
 ---
 
 # D&D Character Sheet
@@ -44,12 +44,21 @@ The `<script>`-extract-then-`node --check` syntax check is **UNRELIABLE** on thi
 - **Preview a theme** by copying index.html and swapping `const DEFAULT_THEME = "dndbeyond"` → the target theme id, and `let darkMode = prefBool(DARK_KEY)` → `true` for dark.
 - **Headless test seams** (things that don't render the way you'd expect): hand-pushed `asiChoices` get wiped by `compute()→syncAsiSlots()` (truncates to `asiCount()`, 0 without a class) — set `#classlevel='Fighter 4'` for a real slot; the ASI panel DOM only renders when its panel is open. Class-resource Limited rows (Arcane Recovery, Channel Divinity, Bardic Inspiration) come from `LIMITED_RESOURCES` via `fillLimitedFeatures(cls,lvl)` at char generation, NOT `refreshLimitedFeatures` — seed them to test. Write-in spell rows hold the name in an INPUT VALUE, not textContent (search `input.sp-name` value). A headless wizard sheet needs `spellMaxByInst[0]=9` + `spellEntriesOf(0)[L]` set to render spell rows.
 
+## Keep app CODE copyright-clean (load-bearing constraint)
+
+Alex may one day **sell or more widely distribute the sheet itself**, so the app code must stay free of copyrighted WotC material. The design rule: **the baked `#source-data` blob is the ONLY place copyrighted content is allowed to live.** Null out `#source-data` and what's left should be a copyright-clean app (point it at a 5etools source to reconstitute). The whole-file-with-data-baked-in is fine for Alex's own use *today*; the separation is what keeps a future strip-and-sell viable.
+
+**What this means for every edit that adds content:**
+- Never hardcode copyrightable WotC TEXT into app JS (spell/feature/item/invocation/maneuver/metamagic/fighting-style descriptions, stat-block prose). It belongs in `#source-data`, pulled in by a loader. This is already done — `OPTIONAL_FEATURES` and `FIGHTING_STYLES` text were de-baked into `#source-data` (via `etOptionalFeatures`) so app code is text-free. Keep it that way; don't reintroduce verbatim text into a registry.
+- **Names + mechanics + formulas are NOT copyrightable** and are fine to keep hardcoded — that's why the hand-coded registries (`FEAT_SPELLS`, `FEAT_SKILLS`, `FEATURE_ATTACKS`, `LIMITED_RESOURCES`, `ELSEWHERE_ITEMS`) live in app JS and survive a rebake. Alex's OWN paraphrase prose (`SPELL_CHANGES`, `TCE_RULES`) is also fine to keep — it's his words.
+- Audit reference: nulling `#source-data` takes the file ~13.3MB → ~2.85MB with a graceful "load a sourcebook" prompt; reload works via a local 5etools server OR a CORS mirror (e.g. the jsDelivr 5etools-2014 mirror). If you add a new content type, route its TEXT through `#source-data` + a loader, not into app code.
+
 ## Architecture / where things live
 
 - **Storage = IndexedDB** (`dnd-sheet` db): char data + portraits + thumbnails, fronted by a synchronous in-memory cache `_cs` (moved off localStorage to escape the ~10MB cap). `SOURCES_KEY` + settings stay in localStorage. Opening a sheet that carries baked characters partitions into `dnd-sheet-file-<hash>` localStorage so it shows the FILE's chars, not yours.
 - **Runtime data = the baked `#source-data`** (`DATA_VERSION` const, now 31+). `source-data.json` is a gitignored, STALE local artifact and `build-data.py` is the offline CLI baker (reads local 5etools → `source-data.json`, never writes the committed index.html). Do NOT run a full `build-data.py` rebuild to ship data — it's behind on hand-patched fields and regresses. New data gets injected SURGICALLY into `#source-data` via Python string-insert (the established pattern for itemSpells, attackSpells, draconic ancestry, etc.).
 - **Three data representations that DIVERGED, not duplication to collapse:** (1) `build-data.py` = global superset baker (extracts across ALL 5etools files), (2) the in-browser JS loader `etBook`/`mergeBook`/`bakeSourceData()` = the LIVE per-loaded-book generator, (3) the baked `#source-data` that ships. `build-data.py` is NOT redundant/deletable — keep it. As of v2.30.0+ the loader was brought to parity (it had silently lagged, dropping hand-patched fields on every "Reload all sources").
-- **Hand-coded registries survive a rebake** (names + mechanics, non-copyrightable, or Alex's own prose): `FEAT_SPELLS`, `FEAT_SKILLS`, `FEATURE_ATTACKS`, `LIMITED_RESOURCES`, `SPELL_CHANGES`, `ELSEWHERE_ITEMS`, `TCE_RULES`. Base-class feature choices (Fighting Styles, Infusions, invocations/metamagic/maneuvers) are hand-coded in app JS too. All copyrightable WotC TEXT (invocations/maneuvers/metamagic/fighting-style descriptions) was de-baked into `#source-data` via loaders (`etOptionalFeatures`) so app code stays text-free — keep it that way.
+- **Hand-coded registries survive a rebake** (names + mechanics, non-copyrightable, or Alex's own prose): `FEAT_SPELLS`, `FEAT_SKILLS`, `FEATURE_ATTACKS`, `LIMITED_RESOURCES`, `SPELL_CHANGES`, `ELSEWHERE_ITEMS`, `TCE_RULES`. Base-class feature choices (Fighting Styles, Infusions, invocations/metamagic/maneuvers) are hand-coded in app JS too (names/mechanics only — their TEXT lives in `#source-data`, per "Keep app code copyright-clean" above).
 
 ### The DATA_VERSION gotcha (causes "Sourcebooks out of date" forever)
 
@@ -57,7 +66,9 @@ When you bump the `DATA_VERSION` const, you **MUST also re-stamp the baked `#sou
 
 ## Themes
 
-- **"Universal Character Sheet"** (internal id stays `dndbeyond` for save compat — do NOT rename the id) is the DEFAULT. Landscape dashboard on screen via a JS layout engine (`activate()` builds `#ddb-*` scaffold, `relocate()`s cards by `data-csec` key); on PRINT it falls back to the original portrait sheet (clean B&W). The trademark name is gone from the UI.
+There are effectively **two** themes — the old standalone "Universal" theme was FOLDED INTO the "D&D Beyond" theme, which is now displayed as **"Universal Character Sheet"** (the trademark name is gone from the UI). Don't treat Universal and D&D Beyond as separate options.
+
+- **"Universal Character Sheet"** is the DEFAULT. Its **internal id stays `dndbeyond`** for save compat — do NOT rename the id; legacy saved `theme:"universal"` migrates to `dndbeyond`, and `"universal"` survives only as the default `:root` palette used for printing. Landscape dashboard on screen via a JS layout engine (`activate()` builds the `#ddb-*` scaffold, `relocate()`s cards by `data-csec` key); on PRINT it falls back to the original portrait sheet (clean B&W via the `universal` palette).
 - **"Classic"** theme = a COMPLETE pixel-for-pixel rebuild of the official WotC 2014 fillable PDF (all 3 pages, light + dark). NOT a restyle — Alex explicitly rejected a CSS reskin as not faithful. Official page art is the background; live automated fields are absolutely positioned over it at the PDF's AcroForm rects, synced app↔overlay by id/selector. Engine is `CLASSIC_PAGES`, gated on `body.classic-layout`. Source PDF: `~/Downloads/5E_CharacterSheet_Fillable.pdf`.
 
 ## Coverage oracle (MPMB parity tracking)
