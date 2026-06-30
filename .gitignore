@@ -93,6 +93,8 @@ resume-builder/tailoring/*
 !resume-builder/tailoring/example.json
 !resume-builder/tailoring/example_cover.md
 
+# Scratch images/screenshots — temp working files, never commit
+tmp/
 # Generated images (mist-image) — personal, never commit
 mist-image/gallery/
 # Reference face for --ref identity generation: a copyrighted show frame, never commit
