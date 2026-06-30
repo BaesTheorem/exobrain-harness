@@ -16,8 +16,6 @@ source_notes:
 > **Elapsed**: {{total_elapsed}} wall clock · R1: {{r1_elapsed}} · R2: {{r2_elapsed}}
 >
 > {{Per-round agent summaries}}
->
-> **Agent reports**: {{agent_report_wikilinks}}
 
 > [!abstract] Central Question
 > {{central_question — the brainstorm's driving question, refined through the rounds}}

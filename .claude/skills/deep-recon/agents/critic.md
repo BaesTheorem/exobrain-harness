@@ -41,7 +41,7 @@ Read the user's existing notes to calibrate your register, then apply these stan
 
 ## Output Format
 
-Write your report to the designated output file (`recon/rN-critic.md`) using the Write tool. Structure it as:
+Return your report as your final message (do NOT write any file to disk). Structure it as:
 
 ```
 ## Prior Art
@@ -76,11 +76,11 @@ Write your report to the designated output file (`recon/rN-critic.md`) using the
 
 Be tough but fair. The goal is sharper ideas, not fewer ideas.
 
-After writing your report, append a timing block:
+End your report with a timing block:
 
 ```
 ---
 **Timing**: Started YYYY-MM-DD HH:MM:SS · Finished YYYY-MM-DD HH:MM:SS
 ```
 
-The orchestrator reads your file from disk — do not rely on returning text output alone.
+The orchestrator reads your findings directly from your returned message — your report IS your return value, not a file.

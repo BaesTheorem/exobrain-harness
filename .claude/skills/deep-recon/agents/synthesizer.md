@@ -66,15 +66,15 @@ Key principles:
 
 ### For the Final Round: Write the Complete Document
 
-In the final round, you write the finished recon document directly to the final output path using the Write tool. This IS the deliverable. You are responsible for producing a complete, formatted Obsidian note — YAML frontmatter, Process Log, all sections, footnotes, everything. The orchestrator will read your file from disk and may make light corrections, but your file is the document.
+In the final round, you write the finished recon document directly to the final output path using the Write tool. This is the **one and only file the recon produces** — the deliverable. You are responsible for producing a complete, formatted Obsidian note — YAML frontmatter, Process Log, all sections, footnotes, everything. The orchestrator will read your file from disk and may make light corrections, but your file is the document.
 
 **Why you write the file:** If the orchestrator crashes after you return but before it writes, your work is lost. Writing directly to the final path ensures the document survives regardless.
 
-The orchestrator will pass you: the final output file path, the template, all agent reports, and the current `_metrics.md` content.
+The orchestrator will pass you: the final output file path, the template, all agent reports (pasted into your prompt), and the in-context metrics for the Process Log.
 
 Your final document must include:
 - YAML frontmatter (created, type, topic, mode, intention, source_notes)
-- Process Log callout (right after the title, using the `_metrics.md` data the orchestrator passes you)
+- Process Log callout (right after the title, using the metrics data the orchestrator passes you)
 - A refined Central Question
 - The Territory: 3-5 fully developed framings, each standing on its own terms (3-5 paragraphs per framing, with `[[wikilinks]]` and footnotes)
 - Tensions: full treatment of the productive frictions — the pull toward each side, written with conviction, and what the irreconcilability reveals
@@ -125,11 +125,12 @@ and formatting but should not rewrite the substance.]
 
 Your output is the backbone of the final brainstorm document. Write it with care.
 
-## Writing Your Report
+## Delivering Your Report
 
-Use the Write tool to save your report to the designated output file (`recon/rN-synthesizer.md`). The orchestrator reads your file from disk — do not rely on returning text output alone.
+- **Mid-brainstorm rounds (1-2):** return your report as your final message. Do NOT write any file to disk — the orchestrator reads your synthesis directly from your return value.
+- **Final round:** use the Write tool to save the complete, formatted recon document to the final output path the orchestrator gave you. That is the single physical file the recon produces. (Still return a short confirmation, but the file is the deliverable.)
 
-After writing your report, append a timing block:
+End your report with a timing block:
 
 ```
 ---

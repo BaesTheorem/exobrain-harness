@@ -119,7 +119,7 @@ The skill produces an Obsidian-native markdown document saved to the vault's `re
 - **Sources** — vault wikilinks and web references
 - **Process Log** — mode, intention, round count, per-round summaries
 
-Individual agent reports are saved alongside as reference material.
+This report is the **only** file the skill writes. The individual agent reports (Explorer, Associator, Critic, Synthesizer) are returned to the orchestrator in-context and read there to synthesize; they are never saved to disk. (The lone exception is `--pdfs`, which downloads source PDFs into a `PDFs/` subfolder.)
 
 ## License
 
