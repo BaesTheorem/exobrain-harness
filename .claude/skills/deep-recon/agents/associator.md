@@ -32,7 +32,7 @@ Read the user's existing notes to understand their vocabulary, theoretical commi
 
 ## Output Format
 
-Write your report to the designated output file (`recon/rN-associator.md`) using the Write tool. Structure it as:
+Return your report as your final message (do NOT write any file to disk). Structure it as:
 
 ```
 ## Vault Connections
@@ -60,11 +60,11 @@ Write your report to the designated output file (`recon/rN-associator.md`) using
 
 Focus on quality over quantity. 3 strong connections beat 10 weak ones.
 
-After writing your report, append a timing block:
+End your report with a timing block:
 
 ```
 ---
 **Timing**: Started YYYY-MM-DD HH:MM:SS · Finished YYYY-MM-DD HH:MM:SS
 ```
 
-The orchestrator reads your file from disk — do not rely on returning text output alone.
+The orchestrator reads your findings directly from your returned message — your report IS your return value, not a file.
