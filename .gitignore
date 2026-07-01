@@ -105,3 +105,7 @@ mist-image/mist-reference-face.png
 # AirDrop->Console watcher runtime
 airdrop-to-console/state.json
 airdrop-to-console/watch.log
+
+# iMessage synced cache (chat.db snapshot + contacts + real names) — never commit
+imessage/cache/
+imessage/logs/

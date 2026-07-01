@@ -20,7 +20,29 @@ import argparse
 from datetime import datetime, timedelta
 from pathlib import Path
 
-DB_PATH = os.path.expanduser("~/Library/Messages/chat.db")
+# DB source resolution (so Claude never needs Full Disk Access):
+#   1. $IMESSAGE_DB if set
+#   2. the launchd-synced cache snapshot (imessage/cache/chat.db) if present
+#   3. the live protected DB (needs FDA — the old, CC-update-fragile path)
+# The cache is populated by imessage-sync.py running under launchd with a stable
+# FDA'd interpreter. See imessage-sync.py for the why.
+_LIVE_DB = os.path.expanduser("~/Library/Messages/chat.db")
+_CACHE_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "cache")
+_CACHE_DB = os.path.join(_CACHE_DIR, "chat.db")
+_CACHE_CONTACTS = os.path.join(_CACHE_DIR, "contacts.json")
+_STATUS_FILE = os.path.join(_CACHE_DIR, "sync-status.json")
+
+
+def _resolve_db_path():
+    env = os.environ.get("IMESSAGE_DB")
+    if env:
+        return env
+    if os.path.exists(_CACHE_DB):
+        return _CACHE_DB
+    return _LIVE_DB
+
+
+DB_PATH = _resolve_db_path()
 CONTACTS_DIR = os.path.expanduser("~/Library/Application Support/AddressBook/Sources")
 
 # Apple's epoch: 2001-01-01 00:00:00 UTC
@@ -44,10 +66,18 @@ def _normalize_phone(number):
 
 
 def get_contacts():
-    """Build a phone→name lookup from all AddressBook source databases."""
+    """Phone→name lookup. Prefers the FDA-free synced cache, falls back to live."""
     global _CONTACTS
     if _CONTACTS is not None:
         return _CONTACTS
+    # Prefer the cached contacts map written by imessage-sync.py (no FDA needed).
+    if os.path.exists(_CACHE_CONTACTS):
+        try:
+            with open(_CACHE_CONTACTS, encoding="utf-8") as f:
+                _CONTACTS = json.load(f)
+            return _CONTACTS
+        except Exception:
+            pass  # fall through to live AddressBook
     _CONTACTS = {}
     if not os.path.isdir(CONTACTS_DIR):
         return _CONTACTS
@@ -150,6 +180,31 @@ def extract_body_text(blob):
         return None
 
 
+def show_status():
+    """Report which DB source is in use and how fresh the synced cache is."""
+    source = "cache snapshot" if DB_PATH == _CACHE_DB else ("env override" if DB_PATH not in (_CACHE_DB, _LIVE_DB) else "LIVE (needs FDA — fragile)")
+    print(f"DB source: {source}")
+    print(f"DB path:   {DB_PATH}")
+    if os.path.exists(_STATUS_FILE):
+        try:
+            with open(_STATUS_FILE, encoding="utf-8") as f:
+                st = json.load(f)
+            synced = st.get("synced_at")
+            print(f"Last sync: {synced}  (ok={st.get('ok')}, messages={st.get('message_count')})")
+            if synced:
+                age = datetime.now() - datetime.fromisoformat(synced)
+                mins = int(age.total_seconds() // 60)
+                staleness = "fresh" if mins < 30 else ("stale" if mins < 180 else "STALE — sync may be broken")
+                print(f"Age:       {mins} min ({staleness})")
+            if not st.get("ok"):
+                print(f"Last error: {st.get('error')}")
+        except Exception as e:
+            print(f"(could not read sync-status.json: {e})")
+    else:
+        print("No sync-status.json yet — the launchd sync hasn't run successfully.")
+        print("See imessage/README.md for the one-time Full Disk Access setup.")
+
+
 def get_db():
     if not os.path.exists(DB_PATH):
         print("Error: chat.db not found at", DB_PATH, file=sys.stderr)
@@ -160,9 +215,15 @@ def get_db():
         return conn
     except (sqlite3.OperationalError, sqlite3.DatabaseError) as e:
         if "authorization denied" in str(e) or "unable to open" in str(e):
-            print("Error: Full Disk Access not granted.", file=sys.stderr)
-            print("Go to: System Settings > Privacy & Security > Full Disk Access", file=sys.stderr)
-            print("Add your terminal app / Claude Code and restart.", file=sys.stderr)
+            if DB_PATH == _LIVE_DB:
+                print("Error: reading the LIVE chat.db but Full Disk Access is not granted", file=sys.stderr)
+                print("       to this process (this breaks on every Claude Code update).", file=sys.stderr)
+                print("Fix (permanent): set up the launchd sync so Claude reads the cache instead:", file=sys.stderr)
+                print("  1. Grant Full Disk Access to /usr/bin/python3 (stable path, survives CC updates)", file=sys.stderr)
+                print("  2. launchctl bootstrap gui/$(id -u) ~/Library/LaunchAgents/com.exobrain.imessage-sync.plist", file=sys.stderr)
+                print("  3. Re-run this reader — it will read imessage/cache/chat.db, no FDA needed.", file=sys.stderr)
+            else:
+                print(f"Error: cache DB unreadable at {DB_PATH}", file=sys.stderr)
             sys.exit(1)
         raise
 
@@ -455,6 +516,8 @@ def main():
 
     subparsers.add_parser("unread", help="Show unanswered messages (last 48h)")
 
+    subparsers.add_parser("status", help="Show DB source + synced-cache freshness")
+
     p_dump = subparsers.add_parser("dump", help="Dump all conversations to Google Drive as JSON")
     p_dump.add_argument("--hours", type=int, default=24)
 
@@ -470,6 +533,8 @@ def main():
         search_messages(args.keyword, days=args.days)
     elif args.command == "unread":
         get_unread()
+    elif args.command == "status":
+        show_status()
     elif args.command == "dump":
         dump_messages(hours=args.hours)
     else:
