@@ -19,7 +19,7 @@ FONTSIZE    = 58
 FADE_MS     = 240          # fade in / out per line
 GAP_HOLD    = 3.5          # if next line starts within this many s, hold current till then
 TAIL        = 1.3          # else, keep line up this long after its own end
-LEAD        = 0.10         # nudge each line to appear slightly before the vocal
+LEAD        = 0.05         # nudge each line to appear slightly before the vocal
 
 def norm(w):
     w = w.lower().replace("’", "'").replace("‘", "'")
@@ -117,6 +117,73 @@ for (n, li), (s, e) in zip(lyr_words, times):
         line_start[li] = s
     if li not in line_end or e > line_end[li]:
         line_end[li] = e
+
+# ---------- chorus re-anchoring ----------
+# Chorus lines are identical and repeat ~34x, so global difflib can map them to
+# the wrong occurrence (off by whole repeats). Verse lines have unique words and
+# align reliably. So: bound each run of chorus lines by its neighboring verse
+# times, then map the run's lines to the FIRST real "Sinking"/"Oh-...-sink"
+# onsets whisper heard inside that window.
+def lnorm(s):
+    return re.sub(r"[^a-z0-9]", "", s.lower().replace("’", "'"))
+
+CHORUS = {"sinkingdowndeeperdown", "ohwellsinkitdeeperdown"}
+is_ch = [lnorm(lines[i]) in CHORUS for i in range(len(lines))]
+def ltype(i):
+    return "S" if lnorm(lines[i]).startswith("sinking") else "O"
+
+markers = []   # (type, start_time)
+for wi, w in enumerate(words):
+    nw = re.sub(r"[^a-z0-9]", "", w[0].lower())
+    if nw == "sinking":
+        markers.append(("S", w[1]))
+    elif nw == "oh":
+        look = "".join(re.sub(r"[^a-z0-9]", "", words[j][0].lower())
+                       for j in range(wi + 1, min(wi + 4, len(words))))
+        if "sink" in look:            # chorus "Oh we'll sink", not verse "Oh we'll get"
+            markers.append(("O", w[1]))
+markers.sort(key=lambda m: m[1])
+
+N = len(lines)
+i = 0
+while i < N:
+    if not is_ch[i]:
+        i += 1; continue
+    j = i
+    while j < N and is_ch[j]:
+        j += 1
+    run = list(range(i, j))
+    # widen back to the preceding verse's START so the chorus's true first onset
+    # isn't excluded (verses contain no "sinking"/"oh-sink", so this is safe).
+    lo = line_start.get(i - 1, 0.0) if i - 1 >= 0 else 0.0
+    hi = line_start.get(j) if j < N else words[-1][2] + 5
+    win = [m for m in markers if lo <= m[1] < hi]
+
+    # pass 1: greedy onset match by type
+    got = {}
+    mp = 0
+    for li in run:
+        want = ltype(li)
+        while mp < len(win) and win[mp][0] != want:
+            mp += 1
+        if mp < len(win):
+            got[li] = win[mp][1]; mp += 1
+
+    st = [got.get(li) for li in run]
+    # "garbage" region (whisper zero/neg-duration clusters or a hallucination
+    # loop): incomplete, or any two lines land < 1.2s apart. Fall back to an
+    # even musical cadence anchored at the chorus's true first "Sinking" onset.
+    tight = any(st[k] is not None and st[k - 1] is not None and
+                st[k] - st[k - 1] < 1.2 for k in range(1, len(st)))
+    if None in st or tight:
+        anchor = next((m[1] for m in win if m[0] == "S"), st[0] if st and st[0] else lo)
+        cad = min(2.4, max(1.4, (hi - anchor - 0.3) / len(run)))
+        st = [anchor + k * cad for k in range(len(run))]
+
+    for li, s in zip(run, st):
+        line_start[li] = s
+        line_end[li] = s + 1.8
+    i = j
 
 order = sorted(line_start.keys())
 starts = [line_start[i] for i in order]
