@@ -155,7 +155,7 @@ The Combat card's HP block is the compact `.hpbox` widget, modeled on D&D Beyond
 ## Design taste (this app specifically)
 
 - **Flat / sharp:** square corners, no shadows, no shading, hairline borders, flat colors. "Straight, clean, sharp angles." NOTE: this is a D&D-sheet-ONLY preference — do NOT generalize it to Alex's other apps.
-- **No emoji as icons** (rest buttons once shipped with 🏕️/🌙, replaced with sun/crescent SVG). Use small inline SVG drawn with `currentColor` so it inherits theme color. Default icon source for new icons: https://iconstash.io.
+- **No emoji as icons** (rest buttons once shipped with 🏕️/🌙, replaced with sun/crescent SVG). Use small inline SVG drawn with `currentColor` so it inherits theme color. Default icon source for new icons: https://iconstash.io. The spell **Cast** control (`.sp-cast`, CSS ≈968) followed the same path in 2.78.2: it was a faint low-opacity ⚡ emoji, now a bordered accent-gold pill = sparkle SVG + "Cast" label. It's created in TWO places that must stay in sync: `castBtnHTML(l)` (≈10476, the spell-slot button) AND the scroll `castBtn` in the granted-spells render (≈7305, `sp-cast-locked` variant for scrolls not on your class list). The scroll button sits AFTER the name text node so `refreshSpellDamageCells()` still reads the name from `firstChild` — keep any icon/label INSIDE the button, not before it.
 - Faithful use of WotC trade dress (the Classic art) is fine — Alex's personal tool, the PDF grants personal-use photocopy. Alex is the sole judge of what content ships; do NOT flag/warn/moralize about committing WotC data (he removed that clause).
 
 ## Open / pending (as of last session)
