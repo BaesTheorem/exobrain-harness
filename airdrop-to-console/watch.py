@@ -21,6 +21,7 @@ import os
 import subprocess
 import sys
 import time
+import urllib.error
 import urllib.request
 
 HOME = os.path.expanduser("~")
@@ -30,6 +31,10 @@ ARCHIVE = os.path.join(HARNESS, "tmp", "images", "airdrop")
 STATE_PATH = os.path.join(HARNESS, "airdrop-to-console", "state.json")
 CONSOLE = "http://127.0.0.1:5014"
 CHAT_TITLE = "\U0001F4F7 iPhone Photos"  # 📷
+# If some chat was active within this many seconds, the photo joins it (you're
+# clearly working there); otherwise it goes to the dedicated photos chat. A
+# manual /here or /photos claim in the Console overrides this either way.
+RECENCY_WINDOW = 120
 
 IMG_EXTS = {".heic", ".heif", ".jpg", ".jpeg", ".png", ".gif", ".webp"}
 # Extensions the Console/Read pipeline handles directly. Anything else (HEIC/HEIF)
@@ -142,26 +147,71 @@ def ensure_session(state):
     return sid
 
 
-def send_image(state, jpeg_path, ext, caption):
-    """POST the image to the dedicated chat as a data-URL. Self-heal on 404/held."""
+def get_claim():
+    """The live manual routing claim set via /here or /photos, or None."""
+    try:
+        _, c = _req("GET", "/airdrop-claim", timeout=6)
+    except Exception:
+        return None
+    return c if c and c.get("target") else None
+
+
+def recent_session_id(window=RECENCY_WINDOW):
+    """The most-recently-active chat, if it was active within `window` seconds."""
+    try:
+        _, lst = _req("GET", "/sessions", timeout=6)
+    except Exception:
+        return None
+    now = time.time()
+    best, best_ts = None, 0.0
+    for s in (lst or []):
+        la = s.get("last_activity") or 0
+        if la > best_ts:
+            best, best_ts = s.get("id"), la
+    return best if best and (now - best_ts) <= window else None
+
+
+def resolve_target(state):
+    """Where should this photo land? Manual claim > recency > dedicated chat."""
+    claim = get_claim()
+    if claim:
+        tgt = claim["target"]
+        if tgt == "dedicated":
+            return ensure_session(state)
+        if session_exists(tgt):
+            return tgt
+        # the claimed chat was deleted -> fall through to recency/dedicated
+    rid = recent_session_id()
+    if rid:
+        return rid
+    return ensure_session(state)
+
+
+def _post_image(sid, jpeg_path, ext, caption):
+    """POST the image to one chat. Returns 'ok' | 'gone' | 'held' | 'fail'."""
     mime = "jpeg" if ext in (".jpg", ".jpeg") else ext.lstrip(".")
     with open(jpeg_path, "rb") as f:
         b64 = base64.b64encode(f.read()).decode()
     payload = {"text": caption, "image": f"data:image/{mime};base64,{b64}"}
-    for attempt in range(2):
-        sid = ensure_session(state)
-        try:
-            status, resp = _req("POST", f"/send/{sid}", payload)
-        except urllib.error.HTTPError as e:
-            if e.code == 404:            # chat was deleted mid-flight
-                state["sid"] = None
-                continue
-            raise
-        if resp.get("held"):             # context-cost gate -> use a fresh chat
-            state["sid"] = None
-            continue
-        return resp.get("ok", False)
-    return False
+    try:
+        _, resp = _req("POST", f"/send/{sid}", payload)
+    except urllib.error.HTTPError as e:
+        if e.code == 404:                # chat was deleted mid-flight
+            return "gone"
+        raise
+    if resp.get("held"):                 # context-cost gate
+        return "held"
+    return "ok" if resp.get("ok", False) else "fail"
+
+
+def send_image(state, jpeg_path, ext, caption):
+    """Deliver to the resolved target; on 404/held fall back to a fresh photos chat."""
+    sid = resolve_target(state)
+    status = _post_image(sid, jpeg_path, ext, caption)
+    if status in ("gone", "held"):
+        state["sid"] = None
+        status = _post_image(ensure_session(state), jpeg_path, ext, caption)
+    return status == "ok"
 
 
 # ---------- move / transcode ----------
