@@ -14,19 +14,19 @@ BG, TIMINGS, AUDIO, OUT = sys.argv[1:5]
 
 FPS        = 24
 W, H       = 1920, 1080
-MAXW       = 1480            # text wrap width in px
-MARGIN_BOT = 120            # gap from block bottom to frame bottom
-FONT_PATH  = "/System/Library/Fonts/Supplemental/Baskerville.ttc"
-SIZE       = 58
-SIZE_FIN   = 66
-STROKE     = 3
+MAXW       = 1600            # text wrap width in px
+MARGIN_BOT = 118            # gap from block bottom to frame bottom
+FONT_PATH  = "/System/Library/Fonts/Supplemental/Iowan Old Style.ttc"
+SIZE       = 87
+SIZE_FIN   = 100
+STROKE     = 4
 FILL       = (242, 246, 255)
-FILL_FIN   = (255, 216, 111)   # warm gold for the finale
+FILL_FIN   = (212, 175, 55)   # #D4AF37 metallic gold for the finale
 STROKE_CLR = (18, 10, 4)
-LINE_SP    = 1.12
+LINE_SP    = 1.10
 
-font      = ImageFont.truetype(FONT_PATH, SIZE, index=0)
-font_fin  = ImageFont.truetype(FONT_PATH, SIZE_FIN, index=1)   # bold for finale
+font      = ImageFont.truetype(FONT_PATH, SIZE, index=0)        # Iowan Roman
+font_fin  = ImageFont.truetype(FONT_PATH, SIZE_FIN, index=1)   # Iowan Bold for finale
 
 def wrap(text, fnt):
     """Greedy word-wrap to MAXW using real glyph metrics."""
