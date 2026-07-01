@@ -176,7 +176,18 @@ while i < N:
     tight = any(st[k] is not None and st[k - 1] is not None and
                 st[k] - st[k - 1] < 1.2 for k in range(1, len(st)))
     if None in st or tight:
-        anchor = next((m[1] for m in win if m[0] == "S"), st[0] if st and st[0] else lo)
+        onset = next((m[1] for m in win if m[0] == "S"), None)
+        # a chorus can't begin implausibly soon after the previous line started.
+        # If whisper truncated the last verse line (and started its hallucination
+        # loop early), the onset lands too early: floor the anchor at the previous
+        # line's start plus that verse's own line-cadence.
+        exp_prev = 3.5
+        if i - 2 >= 0 and (i - 1) in line_start and (i - 2) in line_start:
+            g = line_start[i - 1] - line_start[i - 2]
+            if 1.5 <= g <= 6.0:
+                exp_prev = g
+        floor = line_start[i - 1] + exp_prev if (i - 1) in line_start else lo
+        anchor = max(onset if onset is not None else floor, floor)
         cad = min(2.4, max(1.4, (hi - anchor - 0.3) / len(run)))
         st = [anchor + k * cad for k in range(len(run))]
 
