@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>Label</key>
+    <string>com.exobrain.airdrop-console</string>
+    <key>ProgramArguments</key>
+    <array>
+        <string>/bin/bash</string>
+        <string>/Users/alexhedtke/Documents/Exobrain harness/airdrop-to-console/run-watch.sh</string>
+    </array>
+    <!-- Fire the instant AirDrop drops anything into Downloads. -->
+    <key>WatchPaths</key>
+    <array>
+        <string>/Users/alexhedtke/Downloads</string>
+    </array>
+    <!-- Catch photos that arrived while the Console was closed, once it's back. -->
+    <key>StartInterval</key>
+    <integer>900</integer>
+    <key>RunAtLoad</key>
+    <true/>
+    <key>StandardOutPath</key>
+    <string>/Users/alexhedtke/Documents/Exobrain harness/airdrop-to-console/watch.log</string>
+    <key>StandardErrorPath</key>
+    <string>/Users/alexhedtke/Documents/Exobrain harness/airdrop-to-console/watch.log</string>
+</dict>
+</plist>
