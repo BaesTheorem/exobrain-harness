@@ -25,8 +25,23 @@ AirDropped images back out of Downloads and routes them to the Console instead.
 - The image is **moved** out of Downloads into `../tmp/images/airdrop/` and POSTed
   to the Console (`/send/<sid>`) as a data-URL, so it renders in the chat bubble and
   MIST can `Read` it.
-- Target is a dedicated, pinned **📷 iPhone Photos** chat, recreated automatically
-  if you delete it (or if it gets too large and hits the context gate).
+
+## Where the photo lands
+
+The watcher picks the target chat by intent, in priority order:
+
+1. **Manual claim.** Type `/here` in a Console chat's composer and AirDrops route
+   into that chat for 5 minutes; `/photos` forces them into the dedicated photos
+   chat instead; `/here off` clears the claim. (These are Console-local commands,
+   intercepted client-side, never sent to MIST.)
+2. **Recency.** Absent a claim, if any chat was active within the last **120s**,
+   you're clearly working in it, so the photo joins that chat.
+3. **Dedicated chat.** Otherwise it goes to a pinned **📷 iPhone Photos** chat,
+   recreated automatically if you delete it (or if it gets too large and hits the
+   context gate).
+
+So: mid-conversation photos land in the conversation; photos you grab while away
+land in the photos chat; and `/here` / `/photos` override either way.
 
 ## Install
 
@@ -51,9 +66,11 @@ Take a photo on the iPhone → Share → AirDrop → this Mac. Done. It shows up
 - `state.json` — runtime state (dedup UUIDs + the dedicated chat id). Gitignored.
 - `watch.log` — launchd stdout/stderr. Gitignored.
 
-## Switching where photos land
+## Console dependency
 
-Default is the isolated **📷 iPhone Photos** chat so an AirDrop never barges into a
-conversation you're mid-way through. If you'd rather photos drop into whatever chat
-is active, that needs the Console to expose the focused tab server-side (it doesn't
-today); ask MIST to wire it up.
+The routing reads two Console endpoints: `GET /sessions` (recency) and
+`GET/POST /airdrop-claim` (manual claims, set by the `/here` and `/photos`
+composer commands in `mist-console`). If the Console is an older build without
+`/airdrop-claim`, the claim lookup fails closed and routing falls back to recency
+then the dedicated chat, so nothing breaks. Restart the Console after updating it
+to pick up the endpoint and commands.
