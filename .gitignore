@@ -101,3 +101,7 @@ tmp/
 mist-image/gallery/
 # Reference face for --ref identity generation: a copyrighted show frame, never commit
 mist-image/mist-reference-face.png
+
+# AirDrop->Console watcher runtime
+airdrop-to-console/state.json
+airdrop-to-console/watch.log
