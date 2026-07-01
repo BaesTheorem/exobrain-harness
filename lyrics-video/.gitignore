@@ -1,0 +1,7 @@
+# Per-project working files: derived from user-supplied media, keep local only.
+work/
+*.mp3
+*.wav
+*.mp4
+*.png
+*.json
