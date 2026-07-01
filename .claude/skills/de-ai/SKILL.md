@@ -102,11 +102,17 @@ Make the third paragraph sound more like a startup founder wrote it
 - **Curly quotes**: Use straight quotes and apostrophes (' and ") unless the platform renders them automatically.
 - **Emoji as formatting**: Don't use emoji as bullet markers or section decorators in prose.
 
-## 14. Remove Vague Attributions
+## 14. Kill Metaphorical "Quietly" (and Hype Adverbs)
+- Never use "quietly" as a metaphor: "quietly wins", "quietly tracks your sleep", "quietly the best option", "the app quietly does X". It fakes understated insight and reads as slightly sycophantic. It's a dead AI tell.
+- Only keep "quietly" when it describes a literal low-volume sound ("she spoke quietly").
+- Same treatment for the sibling hype-adverbs that smuggle in praise or false ease: "effortlessly", "seamlessly", "simply", "elegantly", "gracefully". Cut them or replace with a concrete claim about what actually happens.
+- Fix: state the thing plainly. "quietly tracks heart rate" → "tracks heart rate". "quietly wins the comparison" → "wins the comparison" or, better, say *why* it wins.
+
+## 15. Remove Vague Attributions
 - "Experts argue", "Industry reports suggest", "Observers have cited", "Some critics argue" — these are weasel phrases
 - Either name the source or cut the claim
 
-## 15. Watch for Promotional Tone
+## 16. Watch for Promotional Tone
 - Travel-guide or press-release language: "nestled in the heart of", "boasts a vibrant", "showcasing a rich tapestry of"
 - If it reads like a brochure, rewrite it as something a person would actually say
 
