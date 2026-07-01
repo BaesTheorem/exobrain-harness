@@ -12,6 +12,8 @@
 .claude/projects/
 .claude/plugins/
 .claude/session-memories/
+# session memories also land at repo root; keep both ignored (personal context)
+session-memories/
 .claude/worktrees/
 
 # OS files

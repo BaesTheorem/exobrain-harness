@@ -66,7 +66,6 @@ All outputs converge on the Obsidian vault (`/Users/alexhedtke/Exobrain/`) as th
 | `run-discord-digest.sh` | `discord/` | Shell | launchd wrapper for `discord-digest-fetch.py` with proper PATH and working directory | python3 |
 | `run-process-supernote.sh` | `transcript-processing/` | Shell | launchd wrapper for Supernote processing -- mirror of `run-process-transcript.sh` for handwritten notes | Claude CLI |
 | `things3-obsidian-sync.py` | `things3-sync/` | Python | Mirror Things 3 projects/areas into Obsidian as backlinkable notes | Things 3 MCP, AppleScript |
-| `notify-check.sh` | `cycle-tracker/` | Shell | Partner notification check for cycle tracker app | bash |
 | `vault-snapshot.sh` | `scripts/` | Shell | Daily 06:00 -- builds compact Dashboard + Projects digest for session-start hook injection | bash |
 | `session-memory-consolidator.sh` | `scripts/` | Shell | Daily 23:00 -- backfills missing session memories from today's transcripts | bash, Claude CLI |
 | `get-weather.py` | `weather/` | Python | Weather script for Kansas City via Open-Meteo API (no key needed). Used by `/daily-briefing`. | `openmeteo_requests`, `openmeteo_sdk` |
@@ -378,10 +377,6 @@ Exobrain harness/
 |   |-- youtube-no-shorts.user.js       # Userscript (iPhone Userscripts app / desktop Tampermonkey)
 |   |-- content-blocker-rules.txt       # Cosmetic hide rules for AdGuard/1Blocker
 |
-|-- cycle-tracker/                      # Generic partner cycle-tracking module (dormant; app.py git-ignored)
-|   |-- README.md
-|   |-- notify-check.sh                 # Partner notification check
-|
 |-- weather/
 |   |-- README.md
 |   |-- get-weather.py                  # Open-Meteo weather API
@@ -582,7 +577,7 @@ Edit the plist files to match your actual paths if they differ from the defaults
 ### Step 8: Make Scripts Executable
 
 ```bash
-chmod +x transcript-processing/run-process-transcript.sh discord/run-discord-digest.sh job-listings-sync/run.sh cycle-tracker/notify-check.sh backup-exobrain.sh .claude/hooks/session-start.sh
+chmod +x transcript-processing/run-process-transcript.sh discord/run-discord-digest.sh job-listings-sync/run.sh backup-exobrain.sh .claude/hooks/session-start.sh
 ```
 
 ### Step 9: Set Up Scheduled Tasks

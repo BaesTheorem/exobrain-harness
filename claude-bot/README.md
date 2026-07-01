@@ -4,8 +4,7 @@ A single-server Discord bot for one private server, modeled on the
 open-source [~nova/Fletcher](https://git.sr.ht/~nova/fletcher) bot but
 stripped of its cross-server machinery. The running bot is named **MIST**
 (set via `config.toml`); "Fletcher" appears in this code only as the upstream
-project the architecture is based on. See `../fletcher-replication/FLETCHER-DEEP-DIVE.md`
-for the full analysis of the original.
+project the architecture is based on.
 
 ## What it is / isn't
 
