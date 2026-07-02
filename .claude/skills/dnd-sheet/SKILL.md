@@ -11,6 +11,7 @@ Alex's from-scratch, single-file D&D 5e (2014 rules) character sheet app — a c
 - **GitHub:** `BaesTheorem/dnd-character-sheet` (`main`, origin set, gh auth = BaesTheorem)
 - **The app:** `index.html` (~13MB). That's it. Everything ships in this one file.
 - **Deploy = push to `main`.** Alex runs the GitHub Pages build (`baestheorem.github.io/dnd-character-sheet`), not the local file or stale Drive/iCloud copies. When he says "I don't see my change," the answer is almost always "reload the Pages tab," not a code bug.
+- **NEVER edit Alex's local/iCloud character-sheet file unless he explicitly tells you to (standing rule, 2026-07-02).** Ship changes to the repo only; he downloads them himself. Do NOT transplant into or `cp` over `~/Library/Mobile Documents/.../Character Sheet*.html` (or any of his local copies) as a convenience. The transplant/rescue procedure documented under "Distribution model" is only for when he ASKS for an in-place rescue. Reading his file to reproduce a bug is fine; writing to it is not.
 
 ## First moves every session
 
