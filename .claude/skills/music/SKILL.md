@@ -43,8 +43,25 @@ mist-music/bin/mist-music gen "cinematic orchestral, hopeful" --instrumental --d
 mist-music/bin/mist-music gen "full electric blues band" --ref demo.mp3 --ref-strength 0.35   # seed off a melody
 ```
 
-Backend: ACE-Step on Space `ACE-Step/ACE-Step`, endpoint `/__call__`. Full songs
-(vocals + lyrics + production) up to **240 s**, 320 kbps MP3, generated in seconds.
+Backend: **ACE-Step v1.5 "Studio"** Space `ACE-Step/Ace-Step-v1.5` (default,
+`--backend v15`), driving its one big `/generation_wrapper` endpoint. Newer
+`xl-turbo` checkpoint (few-step, so `--steps` is clamped to ≤20), plus a real
+**`cover`** task mode: pass `--ref <track>` and it routes the source through the
+Space's cover pipeline (Source Audio + a precomputed audio-codes encode via
+`/lambda_4`) with `--ref-strength` as the cover-strength. `--backend v1` falls
+back to the original `ACE-Step/ACE-Step` Space (`/__call__`) if Studio is down.
+The adapter builds the 49-param arg vector from the Space's **live defaults** and
+overrides by param name, so it survives the Space reordering args.
+
+**ZeroGPU quota is the real constraint, not permission.** ACE-Step has no
+copyright filter (unlike Suno, whose upload/lyric checks went distributor-grade
+strict after the Nov-2025 Warner settlement and false-positive public-domain and
+covers). But the v1.5 cover reserves ~180 s of GPU per gen, and the free
+per-account ZeroGPU pool is small, so expect ~1 gen when fresh. HF PRO = 40
+min/day (~13 gens). For *hours* of iteration the answer is a rented hourly GPU
+(RunPod/Vast ~$0.30–0.50/hr) running ACE-Step 1.5 / YuE (the deferred rig).
+
+Older backend detail: full songs (vocals + lyrics) up to **240 s**, 320 kbps MP3.
 
 - positional `prompt` = **style tags** (genre, mood, instruments, BPM) — a comma
   list, *not* a sentence.
@@ -54,8 +71,8 @@ Backend: ACE-Step on Space `ACE-Step/ACE-Step`, endpoint `/__call__`. Full songs
 - `--ref PATH` — condition on a melody. PATH is an **audio clip OR sheet music**
   (MIDI/MusicXML/score image/PDF; notation is auto-rendered to audio first).
   `--ref-strength 0..1` = how hard it leans on the reference.
-- `--steps N` (default 60; ~100 for cleaner takes), `--seed S`, `--space S`,
-  `-o FILE`, `--dir`, `--no-embed`, `--open`.
+- `--steps N` (clamped ≤20 on v15 xl-turbo), `--seed S`, `--backend auto|v15|v1`,
+  `--space S`, `-o FILE`, `--dir`, `--no-embed`, `--open`.
 
 **HF token / quota (important):** the free Space runs on **ZeroGPU with an
 anonymous per-IP daily quota** (~a handful of gens) — then `gen` fails with
