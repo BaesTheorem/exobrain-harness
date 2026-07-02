@@ -250,7 +250,15 @@ def cmd_transcribe(args):
 
 # ACE-Step's "prompt" field is really a comma-list of STYLE TAGS (genre, mood,
 # instruments, BPM), and "lyrics" carries the words with [verse]/[chorus] tags.
-DEFAULT_SPACE = "ACE-Step/ACE-Step"
+#
+# Two backends:
+#   v15 (default) -- ACE-Step v1.5 "Studio" Space. Newer xl-turbo checkpoint,
+#        a real `cover` task mode (source audio + cover-strength), faster/cleaner.
+#        Its API is one big /generation_wrapper with ~49 positional params, so we
+#        build the arg vector from the Space's live defaults and override by name.
+#   v1  -- the original ACE-Step Space, simple /__call__. Kept as a fallback.
+DEFAULT_SPACE = "ACE-Step/ACE-Step"          # v1 fallback
+V15_SPACE = "ACE-Step/Ace-Step-v1.5"         # v1.5 Studio (preferred)
 
 
 def _prep_reference(ref, tmpdir):
@@ -271,6 +279,97 @@ def _prep_reference(ref, tmpdir):
     die(f"can't use '{ext}' as a reference. Give an audio clip or sheet music.")
 
 
+def _extract_audio(result):
+    """Pull the first real audio filepath out of a Space's return."""
+    if isinstance(result, (list, tuple)):
+        for item in result:
+            got = _extract_audio(item)
+            if got:
+                return got
+        return None
+    audio = result
+    if isinstance(audio, dict):
+        audio = audio.get("path") or audio.get("value") or audio.get("name")
+    if audio and isinstance(audio, str) and os.path.exists(audio):
+        return audio
+    return None
+
+
+def _gen_v1(client, args, ref_path, lyrics, handle_file):
+    """Original ACE-Step Space: one flat /__call__."""
+    return client.predict(
+        float(args.duration),      # audio_duration (-1 = auto)
+        args.prompt,               # prompt = style tags
+        lyrics,                    # lyrics
+        int(args.steps),           # infer_step
+        15.0, "euler", "apg", 10.0,
+        args.seed or None,         # manual_seeds
+        0.5, 0.0, 3.0,
+        True, False, True,         # use_erg_tag/lyric/diffusion
+        None, 0.0, 0.0,
+        bool(ref_path),            # audio2audio_enable
+        float(args.ref_strength),  # ref_audio_strength
+        handle_file(ref_path) if ref_path else None,  # ref_audio_input
+        "none",                    # lora
+        api_name="/__call__",
+    )
+
+
+def _gen_v15(client, args, ref_path, lyrics, handle_file):
+    """ACE-Step v1.5 Studio Space. Build the /generation_wrapper arg vector from
+    the Space's own live defaults, then override the slots we drive by parameter
+    name -- resilient if the Space reorders/adds params. Cover mode feeds the
+    source track through param_17 + precomputed audio codes (/lambda_4)."""
+    try:
+        import contextlib
+        import io
+        with contextlib.redirect_stdout(io.StringIO()):  # view_api prints a summary
+            api = client.view_api(return_format="dict")
+        params = api["named_endpoints"]["/generation_wrapper"]["parameters"]
+    except Exception as e:  # noqa: BLE001
+        die(f"couldn't read the v1.5 Space API: {e}")
+
+    vec = [p.get("parameter_default") for p in params]
+    idx = {p.get("parameter_name"): i for i, p in enumerate(params)}
+
+    def put(name, value):
+        if name in idx:
+            vec[idx[name]] = value
+
+    cover = bool(ref_path)
+    # DiT steps: xl-turbo wants few steps (slider is 1..20); clamp our --steps.
+    steps = min(max(int(args.steps), 1), 20)
+
+    put("selected_model", "acestep-v15-xl-turbo")
+    put("generation_mode", "cover" if cover else "custom")
+    put("simple_query_input", args.prompt)     # required even in custom/cover mode
+    put("param_4", args.prompt)                 # Prompt (style tags)
+    put("param_5", lyrics)                      # Lyrics ([inst] for instrumental)
+    put("param_10", steps)                      # DiT Inference Steps
+    put("param_12", not args.seed)              # Random Seed (checkbox)
+    put("param_13", str(args.seed) if args.seed else "-1")
+    put("param_14", None)                       # Reference Audio (unused; cover uses Source)
+    put("param_15", -1.0 if cover else float(args.duration))  # cover matches source length
+    put("param_16", 1)                          # batch size -> one sample (saves GPU/quota)
+    put("param_23", "cover" if cover else "text2music")  # task type
+    put("param_22", float(args.ref_strength))   # cover strength (0..1)
+    put("param_30", "mp3")                       # Audio Format
+    put("param_47", "strings")                   # required instrument literal (no-op w/ empty list)
+    put("param_48", [])
+
+    if cover:
+        src = handle_file(ref_path)
+        put("param_17", src)                     # Source Audio
+        log("encoding the reference track (cover mode) ...")
+        try:
+            codes = client.predict(src, api_name="/lambda_4")
+        except Exception as e:  # noqa: BLE001
+            die(f"couldn't encode the reference audio for cover mode: {e}")
+        put("param_18", codes if isinstance(codes, str) else "")
+
+    return client.predict(*vec, api_name="/generation_wrapper")
+
+
 def cmd_gen(args):
     try:
         from gradio_client import Client, handle_file
@@ -285,7 +384,13 @@ def cmd_gen(args):
     if args.instrumental or not lyrics:
         lyrics = "[inst]"
 
-    space = args.space or os.environ.get("MIST_MUSIC_SPACE") or DEFAULT_SPACE
+    backend = args.backend
+    if backend == "auto":
+        # v1.5 unless the user pointed --space at the old one explicitly.
+        backend = "v1" if (args.space and "Ace-Step-v1.5" not in args.space
+                           and args.space != V15_SPACE) else "v15"
+    default_space = V15_SPACE if backend == "v15" else DEFAULT_SPACE
+    space = args.space or os.environ.get("MIST_MUSIC_SPACE") or default_space
     hf_token = os.environ.get("HF_TOKEN") or os.environ.get("HUGGINGFACE_TOKEN")
 
     out_path = ensure_out_path("song", args.output, args.dir, ".mp3")
@@ -293,7 +398,7 @@ def cmd_gen(args):
     with tempfile.TemporaryDirectory() as tmp:
         ref_path = _prep_reference(os.path.expanduser(args.ref), tmp) if args.ref else None
 
-        log(f"connecting to {space} ...")
+        log(f"connecting to {space} ({backend}) ...")
         try:
             client = Client(space, verbose=False, token=hf_token)
         except Exception as e:  # noqa: BLE001
@@ -301,35 +406,22 @@ def cmd_gen(args):
                 "Free Spaces sleep or queue. Retry in a moment, or pass --space "
                 "with another ACE-Step Space.")
 
-        log(f"generating {'a full song' if lyrics != '[inst]' else 'an instrumental'} "
-            f"(~{args.duration if args.duration > 0 else 'auto'}s) ...")
+        kind = "cover" if ref_path else ("a full song" if lyrics != "[inst]" else "an instrumental")
+        log(f"generating {kind} on {backend} ...")
         try:
-            result = client.predict(
-                float(args.duration),      # audio_duration (-1 = auto)
-                args.prompt,               # prompt = style tags
-                lyrics,                    # lyrics
-                int(args.steps),           # infer_step
-                15.0, "euler", "apg", 10.0,
-                args.seed or None,         # manual_seeds
-                0.5, 0.0, 3.0,
-                True, False, True,         # use_erg_tag/lyric/diffusion
-                None, 0.0, 0.0,
-                bool(ref_path),            # audio2audio_enable
-                float(args.ref_strength),  # ref_audio_strength
-                handle_file(ref_path) if ref_path else None,  # ref_audio_input
-                "none",                    # lora
-                api_name="/__call__",
-            )
+            gen = _gen_v15 if backend == "v15" else _gen_v1
+            result = gen(client, args, ref_path, lyrics, handle_file)
+        except SystemExit:
+            raise
         except Exception as e:  # noqa: BLE001
             die(f"generation failed: {e}\n"
-                "The free Space may be busy or updated its API. Retry, or tell me "
-                "and I'll point at another Space (or wire the Suno-browser backend).")
+                "The free Space may be busy, out of ZeroGPU quota, or updated its "
+                "API. Retry, pass --space with another ACE-Step Space, or "
+                "--backend v1 for the old engine.")
 
-    audio = result[0] if isinstance(result, (list, tuple)) else result
-    if isinstance(audio, dict):
-        audio = audio.get("path") or audio.get("value")
-    if not audio or not os.path.exists(audio):
-        die(f"the Space returned no audio file (got: {audio!r}).")
+    audio = _extract_audio(result)
+    if not audio:
+        die(f"the Space returned no audio file (got: {result!r}).")
 
     os.makedirs(os.path.dirname(out_path), exist_ok=True)
     import shutil
@@ -399,7 +491,10 @@ def build_parser():
     g.add_argument("--ref-strength", type=float, default=0.5, help="0..1 how much the ref steers it")
     g.add_argument("--steps", type=int, default=60, help="inference steps (quality vs speed)")
     g.add_argument("--seed", help="manual seed(s) for reproducibility")
-    g.add_argument("--space", help=f"HF Space to use (default {DEFAULT_SPACE})")
+    g.add_argument("--backend", choices=["auto", "v15", "v1"], default="auto",
+                   help="engine: v15 = ACE-Step 1.5 Studio w/ cover mode (default), "
+                        "v1 = original Space (auto picks v15)")
+    g.add_argument("--space", help=f"HF Space to use (default {V15_SPACE} for v15)")
     g.add_argument("--no-embed", action="store_true", help="don't print the Console audio-embed line")
     g.add_argument("--open", action="store_true", help="open the result when done")
     g.set_defaults(func=cmd_gen)
