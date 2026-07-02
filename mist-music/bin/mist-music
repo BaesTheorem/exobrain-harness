@@ -1,0 +1,6 @@
+#!/usr/bin/env bash
+# mist-music — MIST's music tool (render sheet music, transcribe audio, generate).
+# Thin shim: run the CLI under this project's venv (music21 / oemer live there).
+set -euo pipefail
+DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+exec "$DIR/.venv/bin/python" "$DIR/mist_music.py" "$@"
