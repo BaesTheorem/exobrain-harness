@@ -6,11 +6,13 @@ MIST's music tool. Three real jobs, one CLI:
    **photo/scan/PDF of a printed score**, and it renders to audio.
 2. **Transcribe an audio clip → notation.** Feed an mp3/wav and it hands back MIDI
    and MusicXML, so MIST can "read" what you played or hummed.
-3. **Generate music from a text prompt** (optionally conditioned on a melody clip),
-   on a cloud GPU so it never touches this 8GB machine's RAM.
+3. **Generate a full MP3 song from a text prompt** (vocals, lyrics, production;
+   optionally conditioned on a melody clip or sheet music), on a cloud GPU so it
+   never touches this 8GB machine's RAM.
 
 The reliable core (render + transcribe) runs **entirely locally** and needs no key.
-Only `gen` needs a free Hugging Face token.
+`gen` uses a free public Hugging Face Space, so it needs **no key either** (an
+`HF_TOKEN` is used only if present, for higher quota).
 
 ## Usage
 
@@ -24,11 +26,19 @@ bin/mist-music play score.mid                   # render + open in the default p
 bin/mist-music transcribe riff.mp3              # audio -> riff.mid + riff.musicxml
 bin/mist-music transcribe hum.wav --render      # ...and render the cleaned MIDI back to mp3
 
-bin/mist-music gen "warm lo-fi piano, rain on a window, 90bpm"
-bin/mist-music gen "epic taiko drums" --model facebook/musicgen-medium --duration 15
+bin/mist-music gen "dreamy synthwave, warm analog pads, 100 BPM, nostalgic" --duration 90
+bin/mist-music gen "acoustic folk, fingerpicked guitar, soft vocals" --lyrics "[verse]..."
+bin/mist-music gen "cinematic orchestral, hopeful" --instrumental
+bin/mist-music gen "lo-fi hip hop over this melody" --ref riff.wav        # condition on a clip
+bin/mist-music gen "full band version of this tune" --ref lead.musicxml   # ...or sheet music
 ```
 
-Output defaults to `out/` (gitignored). Override with `-o file` or `--dir`.
+`render`/`transcribe` output defaults to `out/` (gitignored). `gen` output defaults
+to `tmp/audio/` under the harness so the MIST Console can serve + play it inline.
+Override any with `-o file` or `--dir`.
+
+`gen`'s first positional arg is **style tags** (genre, mood, instruments, BPM), not
+a sentence. Words go in `--lyrics` with `[verse]`/`[chorus]`/`[bridge]` tags.
 
 ## How it works
 
@@ -38,7 +48,7 @@ Output defaults to `out/` (gitignored). Override with `-o file` or `--dir`.
 | `render` (MusicXML/ABC) | music21 → MIDI → `mid2mp3` | local |
 | `render` (image/PDF) | **oemer OMR** → MusicXML → music21 → MIDI → `mid2mp3` | local |
 | `transcribe` | `mp32mid` (Spotify Basic Pitch, ONNX) → MIDI → music21 → MusicXML | local |
-| `gen` | Hugging Face serverless Inference API (MusicGen) | `HF_TOKEN` |
+| `gen` | **ACE-Step v1.5** on a free HF Space via `gradio_client`; `--ref` → audio2audio | cloud, keyless |
 
 Reuses the existing **midi-tools** installs (`~/.local/bin/mid2mp3`, `~/.local/bin/mp32mid`)
 rather than duplicating the render/transcribe machinery. See `project_midi_tools` memory.
@@ -55,13 +65,14 @@ rather than duplicating the render/transcribe machinery. See `project_midi_tools
   (`verovio`/`cairosvg` are only used to engrave test scores; the core doesn't need them.)
   For multi-page PDF scores, `brew install poppler` (else it falls back to page 1 via `sips`).
 
-- **`gen` (optional):** add a free Hugging Face token to the harness `.env`:
-  ```
-  HF_TOKEN=hf_xxxxxxxx
-  ```
-  Get one at https://huggingface.co/settings/tokens (role: read). HF's free serverless
-  tier is rate-limited (~a few hundred calls/hour) and its MusicGen hosting has been
-  spotty in 2026 — if `gen` reports the model isn't served, we wire a fallback backend.
+- **`gen`:** no setup needed. It calls **ACE-Step v1.5** on a free public Hugging Face
+  Space via `gradio_client` (installed in the venv). Full songs with vocals + lyrics,
+  up to 240s, generated on their GPU. Optional: set `HF_TOKEN` in the harness `.env`
+  for higher quota, or `MIST_MUSIC_SPACE` / `--space` to point at a different ACE-Step
+  Space if the default is asleep or busy.
+  - **Quality upgrade (not built):** Suno's free tier sounds better but has no free API;
+    it would mean browser-driving a logged-in Suno account (fragile, ToS-gray). Wired as
+    a possible `--backend suno` if we ever want top-tier vocals.
 
 ## Notes / gotchas
 
