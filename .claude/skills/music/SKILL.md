@@ -3,7 +3,8 @@ name: music
 description: "Alex's music toolset — generate full songs from a text prompt, render sheet music (MIDI/MusicXML/photo/PDF) to audio, transcribe audio to notation, and build captioned lyric videos from a track + a still image + lyrics. Use when Alex says 'make a song', 'generate music', 'lyric video', 'captioned lyrics video', 'karaoke video', 'transcribe this audio', 'read this sheet music', 'turn this MIDI into audio', 'set these lyrics to the track', or otherwise wants to create, convert, or caption music."
 metadata:
   tools_dir: "/Users/alexhedtke/Documents/Exobrain harness"
-  mist_music: "mist-music/bin/mist-music (gen / render / transcribe / play)"
+  mist_music: "mist-music/bin/mist-music (gen / render / transcribe / play); venv mist-music/.venv"
+  gen_backend: "ACE-Step v1.5 on HF Space ACE-Step/ACE-Step via gradio_client; HF_TOKEN in harness .env for ZeroGPU quota"
   lyric_video: "lyrics-video/ (build_ass.py + render_video.py)"
   whisper: "whisper-cli + one-pace/whisper-models/ggml-large-v3.bin (shared)"
 ---
@@ -28,24 +29,88 @@ themselves are generic and committed. Public-repo privacy still applies.
 
 ## §1 · mist-music (generate / render / transcribe)
 
-A stdlib CLI at `mist-music/bin/mist-music`. Local core (render + transcribe) is
-keyless and offline; `gen` runs **ACE-Step** on a free Hugging Face Space (keyless,
-cloud GPU, so it never touches this 8GB machine's RAM). **Read `mist-music/README.md`
-before non-trivial work** — it has the full pipeline, deps, and setup.
+A stdlib CLI at `mist-music/bin/mist-music`, own venv at `mist-music/.venv`
+(music21, oemer, gradio_client). Local core (render + transcribe) is keyless and
+offline; `gen` runs **ACE-Step v1.5** on a free Hugging Face Space via
+`gradio_client` (cloud GPU, so it never touches this 8GB machine's RAM). **Read
+`mist-music/README.md` before non-trivial work** — full pipeline, deps, setup.
+
+### gen — text (+ lyrics, + a melody) → a full MP3 song
 
 ```bash
-mist-music/bin/mist-music gen "acoustic folk, fingerpicked guitar, soft vocals, 90 BPM" --lyrics "[verse]..."
+mist-music/bin/mist-music gen "acoustic folk, fingerpicked guitar, soft vocals, 90 BPM" --lyrics-file lyrics.txt
 mist-music/bin/mist-music gen "cinematic orchestral, hopeful" --instrumental --duration 90
-mist-music/bin/mist-music render score.mid            # MIDI/MusicXML/photo/PDF -> mp3
-mist-music/bin/mist-music transcribe riff.mp3         # audio -> riff.mid + riff.musicxml
+mist-music/bin/mist-music gen "full electric blues band" --ref demo.mp3 --ref-strength 0.35   # seed off a melody
 ```
 
-- `gen`'s first arg is **style tags** (genre, mood, instruments, BPM), *not* a
-  sentence. Lyrics go in `--lyrics` with `[verse]`/`[chorus]`/`[bridge]` tags.
-- `gen` output defaults to `tmp/audio/` so the MIST Console can serve + play it
-  inline; `render`/`transcribe` default to `mist-music/out/` (gitignored).
-- Show Alex generated audio inline in the Console reply (it renders local media
-  with a download control), then say where it saved.
+Backend: ACE-Step on Space `ACE-Step/ACE-Step`, endpoint `/__call__`. Full songs
+(vocals + lyrics + production) up to **240 s**, 320 kbps MP3, generated in seconds.
+
+- positional `prompt` = **style tags** (genre, mood, instruments, BPM) — a comma
+  list, *not* a sentence.
+- `--lyrics "…"` / `--lyrics-file f` — words, with `[verse]`/`[chorus]`/`[bridge]`
+  tags. Omit or pass `--instrumental` → no vocals (`[inst]`).
+- `--duration N` — seconds, ≤ 240 (`-1` = auto).
+- `--ref PATH` — condition on a melody. PATH is an **audio clip OR sheet music**
+  (MIDI/MusicXML/score image/PDF; notation is auto-rendered to audio first).
+  `--ref-strength 0..1` = how hard it leans on the reference.
+- `--steps N` (default 60; ~100 for cleaner takes), `--seed S`, `--space S`,
+  `-o FILE`, `--dir`, `--no-embed`, `--open`.
+
+**HF token / quota (important):** the free Space runs on **ZeroGPU with an
+anonymous per-IP daily quota** (~a handful of gens) — then `gen` fails with
+"exceeded your ZeroGPU quota". `HF_TOKEN` is already wired in the harness `.env`
+(Alex's token, sourced from `~/Documents/one-pace/.hf_token`); authenticated, the
+allowance is much larger. **Don't re-ask for a token — it's set.**
+
+### render / transcribe (sheet music ↔ audio ↔ notation)
+
+```bash
+mist-music/bin/mist-music render score.mid        # MIDI / MusicXML / score image / PDF -> mp3
+mist-music/bin/mist-music transcribe riff.mp3     # audio -> riff.mid + riff.musicxml
+```
+
+- `render` reuses `mid2mp3` (FluidSynth). The **image/PDF OMR path (oemer) is
+  wired but flaky** — for a printed score, prefer **reading it with your own
+  vision** to pull key/tempo/chords/lyrics, and use any source audio as the
+  `--ref` melody, rather than trusting OMR.
+- `transcribe` reuses `mp32mid` (Basic Pitch) — turn a clip or a score into a
+  `--ref` seed for `gen`.
+
+### Console embedding (inline player + download button)
+
+`gen` output defaults to `tmp/audio/` and it prints `![title](/abs/path.mp3)`.
+The MIST Console renders that local-audio path as an **inline `<audio>` player
+(pause / play / scrub) plus a Save-to-Downloads button** — same chrome as
+generated images. So just print the embed line in your reply, then say where it
+saved. `render`/`transcribe` default to `mist-music/out/` (gitignored).
+
+- Gotcha: serving audio needs the Console's `/file` allowlist (extended to audio
+  in `app.py`), which only loads on a **Console restart**. Manual restart:
+  `kill -9 $(/usr/sbin/lsof -nP -iTCP:5014 -sTCP:LISTEN -t); open ~/Desktop/Apps/"MIST Console.app"`
+  (AppKit swallows plain SIGTERM → use `-9`). Since the shutdown fix, closing the
+  window fully stops the server, so a plain relaunch already reloads code.
+
+### Working method (dialing in a track)
+
+- **Spread, then pick.** Generate a small set of variants in the **background**,
+  present them as inline players, let Alex choose, then refine the winner. Don't
+  one-shot a final.
+- **Lock `--seed` when sweeping one variable** (e.g. `--ref-strength`) so the
+  differences are that variable, not a lucky roll.
+- **Reference-strength tradeoff:** higher hugs the reference's *melody* but also
+  drags in its *timbre* — a thin/lo-fi reference (e.g. a MuseScore soundfont demo)
+  goes **muddy** at high strength; lower is cleaner but drifts off the tune. For
+  lo-fi refs the clear-but-faithful pocket is often **~0.2–0.4**. `audio2audio`
+  also **locks the output length to the reference clip** (`--duration` is ignored
+  when `--ref` is set).
+- **Instrumental beds for later vocals** (Alex often adds the voice in Suno):
+  pass `--instrumental`, drop vocal descriptors from the tags, and add tags that
+  put the **lead instrument on the melody** ("lead electric guitar carries the
+  melody") so nothing sags where a singer would be.
+- **Top-tier vocals:** ACE-Step vocals can be artifacty. For the best voice Alex
+  may take an instrumental bed to **Suno** (free tier, browser-only — *not* wired
+  as a backend). A Suno `--backend` is the noted future upgrade.
 
 ---
 
@@ -148,4 +213,10 @@ line, a chorus, and the finale. Confirm `ffprobe` duration matches the audio.
 - `ffmpeg` 8.x at `/opt/homebrew/bin` — encodes fine but is a **minimal build**
   (no libass/drawtext/freetype). Pillow + numpy do the text compositing.
 - mist-music reuses **midi-tools** (`~/.local/bin/mid2mp3`, `mp32mid`); see the
-  `project_midi_tools` memory.
+  `project_midi_tools` memory. Render/transcribe also need `fluidsynth` + the
+  `FluidR3Mono_GM.sf3` soundfont and the Basic Pitch venv.
+- mist-music `.venv` holds `music21` (MusicXML↔MIDI), `oemer` (OMR), and
+  `gradio_client` (ACE-Step). Rebuild: `python3 -m venv mist-music/.venv &&
+  mist-music/.venv/bin/python -m pip install music21 oemer gradio_client`.
+- See the `project_mist_music` memory for the ACE-Step Space API, the ZeroGPU
+  quota gotcha, and reference-conditioning notes.
