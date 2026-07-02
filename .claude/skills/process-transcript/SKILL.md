@@ -10,7 +10,7 @@ description: Process Plaud Note transcripts from the Plaud/ folder in the Obsidi
 ### 0. Canonical name mapping
 Plaud transcripts frequently mis-transcribe names. Before processing any transcript, apply these corrections throughout the text:
 
-Plaud transcripts frequently mis-transcribe names. Before processing any transcript, check the People/ folder in the Obsidian vault for canonical spellings. Common Plaud mis-transcriptions include phonetically similar substitutions (e.g., "Linda" for a name ending in "-inda", "Bryce" for "[Friend]").
+Before processing any transcript, check the People/ folder in the Obsidian vault for canonical spellings. Common Plaud mis-transcriptions include phonetically similar substitutions (e.g., "Linda" for a name ending in "-inda", "Bryce" for "[Friend]").
 
 To build the correction table:
 1. Glob `/Users/alexhedtke/Exobrain/Areas/Relationships & Community/People/*.md`
@@ -51,6 +51,17 @@ Extract these categories from the transcript content:
 **Events**: Meetings, appointments, deadlines with dates/times
 **Notes**: Ideas, reflections, information worth remembering, key decisions
 **Insights**: Connections to existing knowledge, patterns, recommendations
+
+### 2b. TTRPG session handoff (check before routing)
+Before routing anything, decide whether this transcript is a **tabletop RPG session recording** (a D&D/TTRPG game at the table, not just a conversation that mentions D&D). Signals: in-character dialogue, dice rolls, initiative/combat, a DM narrating scenes, known player/character names in a play context, references to "the party", "the session", spells/abilities being used.
+
+If it is a session recording, **stop the normal pipeline here and hand off to the `TTRPG-campaign-manager` skill (Mode 2: Session Recap)**. Do not run steps 3–8 on session content:
+- The recap belongs in the campaign folder as `Session [N] recap.md`, not the daily note.
+- Do NOT route session beats to Things 3 or Google Calendar, and do NOT enrich People/ notes from in-character material.
+- The **only** exception is real-life action items Alex says out loud during the session (e.g., "remind me to text [player] about next week", "I need to buy more dice") — capture those as tasks/events per steps 3–4, but leave everything else to the recap.
+- The campaign-manager skill owns the processing-log entry for the session (source `"plaud"`, flagged as a TTRPG session), so skip step 10 here for it.
+
+If it's merely a conversation that *references* a TTRPG (e.g., planning a session, chatting about the campaign), keep processing normally — the Media-extraction rule in step 7b still applies.
 
 ### 3. Route tasks to Things 3
 For each task:
