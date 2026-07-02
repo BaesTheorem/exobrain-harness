@@ -101,6 +101,8 @@ tmp/
 mist-image/gallery/
 # Reference face for --ref identity generation: a copyrighted show frame, never commit
 mist-image/mist-reference-face.png
+# Generated + input audio (mist-music) — personal, never commit
+mist-music/out/
 
 # AirDrop->Console watcher runtime
 airdrop-to-console/state.json
