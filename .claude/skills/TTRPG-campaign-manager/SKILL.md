@@ -219,7 +219,7 @@ _Choose some interesting [treasure](https://slyflourish.com/random_generators/5e
 
 9. **Update processing log**: Add an entry to `processing-log.json` with source `"plaud"` and a note that it was a TTRPG session transcript.
 
-9. **Do NOT route to daily notes or Things 3**: Session content stays in the campaign folder. The only exception is if Alex explicitly mentions real-life action items during the recording (e.g., "I need to buy more dice" or "remind me to text [player] about next session").
+10. **Do NOT route to daily notes or Things 3**: Session content stays in the campaign folder. The only exception is if Alex explicitly mentions real-life action items during the recording (e.g., "I need to buy more dice" or "remind me to text [player] about next session").
 
 ### 3. Campaign Query (any question about a campaign)
 
