@@ -53,6 +53,9 @@ EXTRA_INCLUDES=(
     ".claude/settings.json"                     # global Claude Code settings (bypassPermissions etc.)
     ".claude/settings.local.json"
     ".claude/CLAUDE.md"                         # global persona / user instructions
+    ".claude/mist-global.md"                    # symlink hop for the @import (paths with spaces break)
+    ".claude/projects/-Users-alexhedtke-Documents-Exobrain-harness/memory"  # MIST's single persistent memory store (projects/ is otherwise excluded)
+    ".claude.json"                              # user-scope MCP servers (fitbit/withings creds) + Claude CLI state
     ".claude/.mcp.json"                         # global things3 MCP definition
     ".claude/statusline-command.sh"
     ".claude/channels/discord/.env"             # Discord bot token (channels/ is otherwise excluded)

@@ -102,6 +102,17 @@ rsync -a ~/restore-staging/home-extras/ "$HOME/"
 # Fitbit MCP needs its deps reinstalled (node_modules was excluded to stay lean):
 ( cd "$HOME/Documents/Claude Code/mcp-fitbit-main" && npm install )   # build/index.js is already restored
 ```
+As of the **2026-07-03 Global MIST additions**, `home-extras/` also carries `~/.claude.json` (user-scope MCP servers incl. fitbit/withings creds), MIST's persistent memory store (`.claude/projects/-Users-alexhedtke-Documents-Exobrain-harness/memory/`), and the `~/.claude/mist-global.md` symlink. Two symlinks must be recreated by hand (they can't ride in the file list):
+```bash
+# Global skills: every harness skill available in any folder
+ln -s "$HOME/Documents/Exobrain harness/.claude/skills" ~/.claude/skills
+# Shared memory for other project cwds (repeat per frequently-used project slug)
+for d in -Users-alexhedtke -Users-alexhedtke-Exobrain -Users-alexhedtke-Documents-mist-console; do
+  mkdir -p ~/.claude/projects/$d
+  ln -sfn ~/.claude/projects/-Users-alexhedtke-Documents-Exobrain-harness/memory ~/.claude/projects/$d/memory
+done
+```
+(`mist-global.md` restores from the tarball as a symlink; if it's missing: `ln -s "$HOME/Documents/Exobrain harness/CLAUDE.global.md" ~/.claude/mist-global.md`. It exists because `@import` paths in `~/.claude/CLAUDE.md` break on spaces.)
 - From `~/restore-staging/repos-gitignored/<repo>/`: phone GCP keys, bus/.env, disposable-email secrets, tv/token.json, etc. — rsync these in Phase 5 *after* each repo is cloned, not before, or the clone fails on a non-empty dir.
 - **Older archives (pre-2026-06-21)** have no `home-extras/`: re-auth instead — Plaud via `mcp__plaud__login`, Fitbit via its OAuth flow, and recreate `~/.claude` globals by hand.
 - **Cloud MCPs** (Gmail, Calendar, Drive, MyChart, LinkedIn, Plaud): not restorable from disk — reconnect each at claude.ai → Integrations.
