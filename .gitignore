@@ -103,6 +103,11 @@ mist-image/gallery/
 mist-image/mist-reference-face.png
 # Generated + input audio (mist-music) — personal, never commit
 mist-music/out/
+# Loose audio/video files dropped at repo root — large binaries, never commit
+/*.mp3
+/*.wav
+/*.mp4
+/*.m4a
 
 # AirDrop->Console watcher runtime
 airdrop-to-console/state.json
