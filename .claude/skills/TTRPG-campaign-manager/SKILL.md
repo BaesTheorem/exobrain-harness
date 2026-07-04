@@ -34,7 +34,7 @@ For each campaign folder, look for a `Claude reference.md` file (or `Campaign Re
 
 3. **Load campaign context**: Read the `Claude reference.md` in the campaign folder for players, characters, and campaign-specific notes.
 
-4. **Create the prep note**: Create `Session [N] prep.md` in the campaign folder using the Lazy DM template below. **Fill in the "Review the Player Characters" section with the actual PCs from the campaign's Claude reference.**
+4. **Draft in chat only — no prep-note writes until Alex confirms**: Do **not** create or write `Session [N] prep.md` (or apply ripple edits like Unused Material removals) until Alex explicitly says to write it. All drafting, presenting, and iterating through step 10 happens in the conversation, so Alex can shape the session before anything lands on disk.
 
 5. **Check unused material first**: Read `Unused Material.md` in the campaign folder. Pull forward any scenes, secrets, NPCs, locations, encounters, or treasure that still fit the upcoming session. Remove items from unused material as they get incorporated into the new prep.
 
@@ -49,7 +49,7 @@ For each campaign folder, look for a `Claude reference.md` file (or `Campaign Re
 
 7. **Check People notes**: Read People notes for each player to find IRL context worth weaving in.
 
-8. **Draft the prep note**: Pre-populate each section with suggestions:
+8. **Draft the prep content (in chat)**: Pre-populate each section with suggestions:
    - **Review PCs**: Note each character's current motivations, unresolved threads, and what would make this session great for that player specifically
    - **Strong Start**: Propose 2-3 options based on where last session ended
    - **Scenes**: Suggest scenes that advance active plot threads
@@ -65,13 +65,15 @@ For each campaign folder, look for a `Claude reference.md` file (or `Campaign Re
    - "Any player dynamics I should know about?"
    - "What tone are you going for — heavier or lighter?"
 
-10. **Iterate collaboratively**: Refine based on Alex's feedback. Update the prep note after each round. Flag:
+10. **Iterate collaboratively**: Refine the draft in chat based on Alex's feedback. Flag:
    - Interesting ideas from previous sessions that haven't been explored yet
    - Potential tie-ins between PC backstories and current plot
    - Moments designed specifically for each player
    - Connections to the broader faction conflict
 
-11. **Final check**: Before finishing, verify all `[[wikilinks]]` point to existing notes. Create new notes in the campaign folder if needed for new NPCs, locations, or lore entries.
+11. **Write the note once Alex confirms**: On his explicit go-ahead (and not before), create `Session [N] prep.md` in the campaign folder using the Lazy DM template below. **Fill in the "Review the Player Characters" section with the actual PCs from the campaign's Claude reference.** Only now apply the ripple edits (Unused Material removals/annotations, etc.).
+
+12. **Final check**: After writing, verify all `[[wikilinks]]` point to existing notes. Create new notes in the campaign folder if needed for new NPCs, locations, or lore entries.
 
 ### Lazy DM Session Prep Template
 
