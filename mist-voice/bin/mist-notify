@@ -47,5 +47,11 @@ else
   osascript -e "display notification \"${MSG//\"/\\\"}\" with title \"${TITLE//\"/\\\"}\" sound name \"$SOUND\"" || true
 fi
 
-# Speak it (non-blocking so it doesn't hold up the caller)
-( "$DIR/bin/mist-say" "$MSG" >/dev/null 2>&1 || true ) &
+# Speak it in MIST's voice (non-blocking so it doesn't hold up the caller),
+# unless voice notifications are muted. Mute switch (either works):
+#   touch ~/.mist-voice-muted        (or)   export MIST_VOICE_MUTED=1
+# Un-mute: rm ~/.mist-voice-muted . The clickable banner above still fires
+# regardless; only the spoken voice is suppressed.
+if [ ! -f "$HOME/.mist-voice-muted" ] && [ "${MIST_VOICE_MUTED:-0}" != "1" ]; then
+  ( "$DIR/bin/mist-say" "$MSG" >/dev/null 2>&1 || true ) &
+fi
