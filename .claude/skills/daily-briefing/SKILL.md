@@ -9,6 +9,8 @@ Lightweight orchestrator that assembles a morning briefing by running domain-spe
 
 Run steps in parallel where there are no dependencies (health + weather + calendar can all run simultaneously, for example).
 
+**MCP readiness (do this before declaring any integration "down").** The Google Calendar, Gmail, Drive, and MyChart tools are **claude.ai-hosted remote MCP servers**. They re-handshake at the start of every session and often are still `connecting` when the briefing fires (especially the 8 AM launchd run). A missing `mcp__claude_ai_*` tool at startup means *not yet connected*, **not** broken. Before you skip calendar or email, call `ToolSearch` for the tool you need (e.g. `google calendar list events`, `gmail search threads`) — ToolSearch **blocks until connecting servers finish**, so it doubles as a wait. Only after a ToolSearch still fails to surface the tool should you flag that integration as unavailable in the briefing. Do not report calendar/email as "down" just because the tool wasn't loaded on the first turn.
+
 ## Steps
 
 ### 1. Weather (inline)
