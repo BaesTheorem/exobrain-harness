@@ -104,6 +104,9 @@ mist-image/gallery/
 mist-image/mist-reference-face.png
 # Generated + input audio (mist-music) — personal, never commit
 mist-music/out/
+# mist-voice: chatterbox venv + generated audio outputs — large binaries, never commit
+mist-voice/.venv-chatterbox/
+mist-voice/*.wav
 # Loose audio/video files dropped at repo root — large binaries, never commit
 /*.mp3
 /*.wav
