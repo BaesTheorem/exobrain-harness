@@ -1,6 +1,6 @@
 {
   "permissions": {
-    "_comment_mcp_hosted": "Hosted Claude.com connectors in the allow list below: mcp__claude_ai_Google_Calendar__* = Google Calendar, mcp__claude_ai_Gmail__* = Gmail, mcp__claude_ai_Google_Drive__* = Google Drive. See .claude/skills/calendar/SKILL.md and .claude/skills/email/SKILL.md for the live mappings.",
+    "_comment_mcp_hosted": "Hosted Claude.com connectors in the allow list below: mcp__claude_ai_Google_Calendar__* = Google Calendar, mcp__claude_ai_Gmail__* = Gmail, mcp__claude_ai_Google_Drive__* = Google Drive, mcp__claude_ai_MyChart__* = MyChart/Epic. See .claude/skills/calendar/SKILL.md and .claude/skills/email/SKILL.md for the live mappings. mcp__things3/fitbit/withings__* are local servers from .mcp.json; mcp__plaud/linkedin__* are local servers from user-level ~/.claude.json.",
     "allow": [
       "Read",
       "Write",
@@ -18,16 +18,15 @@
       "Bash(chmod*)",
       "Bash(launchctl*)",
       "Bash(npx*)",
-      "mcp__scheduled-tasks__*",
       "mcp__claude_ai_Google_Calendar__*",
       "mcp__claude_ai_Gmail__*",
       "mcp__claude_ai_Google_Drive__*",
+      "mcp__claude_ai_MyChart__*",
       "mcp__things3__*",
       "mcp__fitbit__*",
-      "mcp__plugin_discord_discord__*",
       "mcp__withings__*",
-      "mcp__mcp-registry__*",
-      "mcp__mychart__*"
+      "mcp__plaud__*",
+      "mcp__linkedin__*"
     ]
   },
   "hooks": {

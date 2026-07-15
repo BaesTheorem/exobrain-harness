@@ -41,7 +41,10 @@ The fix decouples **reading** from **consuming**:
    ```
 
 If `status` ever shows STALE or an FDA error, re-check step 2 and kickstart again.
-The `session-start` health check can smoke-test `imessage-reader.py status`.
+The `session-start` health check now monitors this job automatically: it WARNs on a
+nonzero launchd exit code (with the FDA fix inline) and on a missing or stale
+(`>6h`) cache snapshot, so this can no longer die silently. The launchd plist lives
+at `imessage/com.exobrain.imessage-sync.plist` (tracked).
 
 ## Usage
 

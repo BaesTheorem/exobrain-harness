@@ -5,11 +5,14 @@
     <key>Label</key>
     <string>com.exobrain.job-scan</string>
 
-    <!-- Daily at 08:00 local. Does NOT RunAtLoad (no scan on every login). -->
+    <!-- Daily at 09:00 local. Staggered clear of the 08:00 morning-briefing so the
+         two headless Claude sessions don't run concurrently (RAM/token spike on the
+         8GB machine) and don't both process the same job-alert emails at once. Does
+         NOT RunAtLoad (no scan on every login). -->
     <key>StartCalendarInterval</key>
     <dict>
         <key>Hour</key>
-        <integer>8</integer>
+        <integer>9</integer>
         <key>Minute</key>
         <integer>0</integer>
     </dict>
