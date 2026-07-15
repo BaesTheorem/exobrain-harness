@@ -29,7 +29,7 @@ WHAT IT WRITES (all under imessage/cache/, which is gitignored)
                        visible, never silent
 
 Run manually (only works if the calling process has FDA):
-    .venv/bin/python3 imessage-sync.py
+    .venv/bin/mist-imessage-python3 imessage-sync.py
 Normally run by launchd: com.exobrain.imessage-sync (every 15 min + at load).
 """
 
