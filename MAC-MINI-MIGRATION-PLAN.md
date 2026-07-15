@@ -158,6 +158,30 @@ No data is destroyed in either direction since everything syncs via Things Cloud
 - **Hostname** for the Mini? (Suggest: `mini-heartbeat` or `exobrain-core`.)
 - **iMessage MCP** — works fine on the Mini once signed into the same Apple ID; Messages.app must be open at least once for the chat.db to populate.
 
+## To-Do (post-setup, after the Mini is stable)
+
+Deferred work that wants the Mini's headroom (16GB, always-on) or is a natural fit once the heartbeat has moved. Do these only after Phase 4 single-heartbeat is verified.
+
+### Fine-tune a dedicated MIST voice model
+
+**Why:** the current voice (`mist-voice/`, XTTS-v2) and the evaluated-and-passed alternative (Chatterbox) are both **zero-shot clones conditioned on a few seconds of reference**. That has a fidelity ceiling. On 2026-07-15 we A/B'd Chatterbox against XTTS across four settings (default 0.5/0.5, MIST-tuned 0.6/0.35, and a rich 27s reference at 0.4/0.4); Chatterbox won on license (MIT vs Coqui non-commercial) and naturalness, but Alex's verdict was "close but distinctly **not her**." XTTS stays the shipping voice because it's still the best zero-shot fidelity we have. The real upgrade is to stop zero-shot cloning and **fine-tune** a speaker model on real data.
+
+**We already have the dataset, locally:**
+- `mist-voice/samples/raw/mist_supercut.wav` (~335MB clean MIST corpus)
+- `mist-voice/samples/raw/mist_supercut.segments.tsv` (605 curated segments — which spans are clean MIST)
+- Longer clean takes in `mist-voice/samples/reference/_archive/` (a 27s analytical clip, a 15s monologue, etc.)
+- Source of truth is the private `BaesTheorem/mist-voice-data` repo (git-lfs).
+
+**Why it waits for the Mini / a GPU:** you cannot train on the 8GB M1 Air. The M4 base (16GB) has real headroom to prep the dataset and orchestrate, but XTTS/F5 fine-tuning is CUDA-centric — the fastest path is renting a cloud GPU (vast.ai / RunPod, ~$1–3 for a ~1hr run) and pulling the resulting weights back. The Mini is the always-on box that can drive that unattended.
+
+**Rough recipe (flesh out when picked up):**
+1. Prep dataset: segment the supercut per the TSV into clean utterance WAVs + a transcript manifest (Whisper is already in the mist-voice venv for transcription).
+2. Pick the trainer: XTTS-v2 fine-tune (keeps the current pipeline, most faithful cloner) or F5-TTS (research-grade). Chatterbox venv (`mist-voice/.venv-chatterbox`) stays around regardless — it's the fast + MIT engine we'd want for any future **real-time** GPU voice (e.g. the "Hey MIST" smart-speaker satellite).
+3. Rent GPU, run the fine-tune, evaluate by ear against the current XTTS baseline.
+4. If it wins, wire the fine-tuned model into `say.py`/`serve.py`/`mist-say`, update `mist-voice/README.md`'s "Final voice config" section, and commit.
+
+**Keep, don't retread:** Chatterbox was evaluated and passed on for *cloning fidelity* — don't re-run that A/B. The open lever is fine-tuning, not another zero-shot engine.
+
 ## Estimated total effort
 
 - Hardware: ~$600 one-time.
