@@ -193,6 +193,35 @@ else
   ISSUES=$((ISSUES + 1))
 fi
 
+# iMessage sync — the launchd job snapshots chat.db into imessage/cache/ under a
+# stable FDA-granted interpreter so skills read the cache WITHOUT Full Disk Access.
+# It fails SILENTLY if FDA isn't granted to the plist's python3 (exit 2 / "Operation
+# not permitted"), leaving briefings/CRM/winddown reading an empty cache. Check the
+# job's last exit code AND cache freshness (sync runs every 15m). See imessage/README.md.
+# launchctl list columns: PID  LAST_EXIT  LABEL.
+IMSG_EXIT=$(launchctl list 2>/dev/null | awk '$3 == "com.exobrain.imessage-sync" {print $2}')
+IMSG_CACHE="$HARNESS/imessage/cache/chat.db"
+if [ -z "$IMSG_EXIT" ]; then
+  echo "WARN: launchd imessage-sync not loaded — iMessage data unavailable to skills"
+  ISSUES=$((ISSUES + 1))
+elif [ "$IMSG_EXIT" != "0" ] && [ "$IMSG_EXIT" != "-" ]; then
+  echo "WARN: imessage-sync failing (exit $IMSG_EXIT) — likely Full Disk Access not granted to /usr/bin/python3"
+  echo "  Fix: System Settings → Privacy & Security → Full Disk Access → add /usr/bin/python3 → toggle ON,"
+  echo "  then: launchctl kickstart -k gui/\$(id -u)/com.exobrain.imessage-sync"
+  ISSUES=$((ISSUES + 1))
+elif [ ! -f "$IMSG_CACHE" ]; then
+  echo "WARN: imessage cache snapshot missing — sync has never succeeded (check FDA per imessage/README.md)"
+  ISSUES=$((ISSUES + 1))
+else
+  IMSG_AGE=$(( ($(date +%s) - $(stat -f %m "$IMSG_CACHE")) / 3600 ))
+  if [ "$IMSG_AGE" -gt 6 ]; then
+    echo "WARN: imessage cache stale (${IMSG_AGE}h old; sync runs every 15m) — check com.exobrain.imessage-sync"
+    ISSUES=$((ISSUES + 1))
+  else
+    echo "OK: imessage-sync (cache ${IMSG_AGE}h fresh)"
+  fi
+fi
+
 # Scheduled MIST routines — check the LAST EXIT CODE, not just that the job is
 # loaded. A loaded job that exits nonzero every fire (e.g. 78/EX_CONFIG when
 # headless `claude` can't read the Keychain) is silently dead, and "loaded" alone
