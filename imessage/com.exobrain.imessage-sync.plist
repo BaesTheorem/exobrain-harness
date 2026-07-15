@@ -1,43 +1,23 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
-<!--
-  Snapshots ~/Library/Messages/chat.db into imessage/cache/ every 15 min so
-  imessage-reader.py (and the skills that call it) can read iMessage history
-  WITHOUT Full Disk Access. See imessage/README.md.
-
-  ONE-TIME SETUP: /usr/bin/python3 must have Full Disk Access, or this job fails
-  silently with exit 2 ("Operation not permitted"). System Settings → Privacy &
-  Security → Full Disk Access → add /usr/bin/python3 → toggle ON, then:
-    launchctl kickstart -k gui/$(id -u)/com.exobrain.imessage-sync
-  The session-start hook now smoke-tests this job's exit code + cache freshness.
-
-  Install: cp this into ~/Library/LaunchAgents/ then
-    launchctl bootstrap gui/$(id -u) ~/Library/LaunchAgents/com.exobrain.imessage-sync.plist
--->
 <plist version="1.0">
 <dict>
-    <key>Label</key>
-    <string>com.exobrain.imessage-sync</string>
-
-    <key>ProgramArguments</key>
-    <array>
-        <string>/usr/bin/python3</string>
-        <string>/Users/alexhedtke/Documents/Exobrain harness/imessage/imessage-sync.py</string>
-    </array>
-
-    <key>RunAtLoad</key>
-    <true/>
-
-    <key>StartInterval</key>
-    <integer>900</integer>
-
-    <key>WorkingDirectory</key>
-    <string>/Users/alexhedtke/Documents/Exobrain harness/imessage</string>
-
-    <key>StandardOutPath</key>
-    <string>/Users/alexhedtke/Documents/Exobrain harness/imessage/logs/imessage-sync.stdout.log</string>
-
-    <key>StandardErrorPath</key>
-    <string>/Users/alexhedtke/Documents/Exobrain harness/imessage/logs/imessage-sync.stderr.log</string>
+	<key>Label</key>
+	<string>com.exobrain.imessage-sync</string>
+	<key>ProgramArguments</key>
+	<array>
+		<string>/Users/alexhedtke/Documents/Exobrain harness/imessage/.venv/bin/python3.12</string>
+		<string>/Users/alexhedtke/Documents/Exobrain harness/imessage/imessage-sync.py</string>
+	</array>
+	<key>RunAtLoad</key>
+	<true/>
+	<key>StandardErrorPath</key>
+	<string>/Users/alexhedtke/Documents/Exobrain harness/imessage/logs/imessage-sync.stderr.log</string>
+	<key>StandardOutPath</key>
+	<string>/Users/alexhedtke/Documents/Exobrain harness/imessage/logs/imessage-sync.stdout.log</string>
+	<key>StartInterval</key>
+	<integer>900</integer>
+	<key>WorkingDirectory</key>
+	<string>/Users/alexhedtke/Documents/Exobrain harness/imessage</string>
 </dict>
 </plist>
