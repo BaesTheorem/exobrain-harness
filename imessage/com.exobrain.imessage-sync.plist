@@ -6,7 +6,7 @@
 	<string>com.exobrain.imessage-sync</string>
 	<key>ProgramArguments</key>
 	<array>
-		<string>/Users/alexhedtke/Documents/Exobrain harness/imessage/.venv/bin/python3.12</string>
+		<string>/Users/alexhedtke/Documents/Exobrain harness/imessage/.venv/bin/mist-imessage-python3</string>
 		<string>/Users/alexhedtke/Documents/Exobrain harness/imessage/imessage-sync.py</string>
 	</array>
 	<key>RunAtLoad</key>
