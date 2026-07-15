@@ -201,9 +201,10 @@ _Choose some interesting [treasure](https://slyflourish.com/random_generators/5e
 
 7. **Update campaign notes**: After creating the recap:
    - **Update `Campaign Fronts.md`**: mark which grim portents actually fired this session, advance the Tracker, and re-check any meta-clock
+   - **Update `Lazy Campaign Sheet.md` (the one-pager), if the campaign has one**: refresh the **"Where We Are"** status snapshot and the **"Situations on Offer"** menu (retire situations that fired, add new live threads). This is the doc most prone to silent drift — it's easy to update Campaign Fronts and forget the one-pager. Do NOT duplicate the live front clocks here; the one-pager should point to `Campaign Fronts.md` for those and only carry front *goals* + the situations menu.
    - Update any NPC notes that were affected
    - Update faction notes if the balance shifted
-   - Update PC notes with new developments (fun moments, quotes, plot points, character arcs)
+   - Update PC notes with new developments (fun moments, quotes, plot points, character arcs); bump the `level:` frontmatter if the party leveled
    - Add any new NPCs/locations/items as separate notes if they'll recur
    - Mark used secrets/clues as checked in the prep note
 
