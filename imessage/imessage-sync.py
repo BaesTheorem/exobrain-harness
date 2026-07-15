@@ -10,8 +10,14 @@ accessing chat.db is attributed to the Claude Code binary, which lives at a
 versioned path that changes on every CC update — so the grant silently breaks
 each time CC updates.
 
-The fix: run THIS script under a stable interpreter path (/usr/bin/python3) via
-launchd, and grant FDA to that stable path exactly once. This script takes a
+The fix: run THIS script under a stable interpreter path via launchd, and grant
+FDA to that path exactly once. NOTE: /usr/bin/python3 is NOT that path — it's an
+xcrun stub whose real exec target is the Command Line Tools python at a versioned
+path (/Library/Developer/CommandLineTools/...), and TCC keys on that moving
+target, so an FDA grant to the stub never applies. Instead we run under a
+dedicated `python3.12 -m venv --copies` interpreter (imessage/.venv/bin/python3.12,
+a real Mach-O copy at a fixed path we own, gitignored) that survives brew/CLT
+updates. Grant FDA to THAT binary once. This script takes a
 consistent snapshot of chat.db into imessage/cache/ and caches the contacts map.
 imessage-reader.py then reads the *cache* (an ordinary file, no FDA needed), so
 Claude never touches the protected path.
@@ -23,7 +29,7 @@ WHAT IT WRITES (all under imessage/cache/, which is gitignored)
                        visible, never silent
 
 Run manually (only works if the calling process has FDA):
-    /usr/bin/python3 imessage-sync.py
+    .venv/bin/python3 imessage-sync.py
 Normally run by launchd: com.exobrain.imessage-sync (every 15 min + at load).
 """
 
@@ -140,7 +146,7 @@ def main():
         if "authorization denied" in msg or "unable to open" in msg or "not permitted" in msg or isinstance(e, PermissionError):
             hint = (
                 "Full Disk Access not granted to this interpreter. Grant FDA to "
-                "/usr/bin/python3 (System Settings > Privacy & Security > Full "
+                f"{sys.executable} (System Settings > Privacy & Security > Full "
                 "Disk Access), then reload com.exobrain.imessage-sync."
             )
             write_status(False, error=f"FDA denied: {msg}")
