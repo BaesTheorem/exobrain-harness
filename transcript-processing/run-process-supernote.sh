@@ -80,6 +80,7 @@ claude \
     --print \
     --dangerously-skip-permissions \
     -p "Run /process-supernote to check for and process any new or modified Supernote files." \
+    >"$LOG_DIR/exobrain-supernote-$TIMESTAMP.out" \
     2>"$LOG_DIR/exobrain-supernote-$TIMESTAMP.err" &
 CLAUDE_PID=$!
 (
@@ -98,12 +99,23 @@ EXIT_CODE=$?
 kill $KILLER_PID 2>/dev/null
 wait $KILLER_PID 2>/dev/null
 
+# claude's stdout was captured to a per-run file; replay it to launchd's
+# StandardOutPath so the running processing history is preserved as before.
+cat "$LOG_DIR/exobrain-supernote-$TIMESTAMP.out" 2>/dev/null
+
 if [ $EXIT_CODE -ne 0 ]; then
     ERROR_MSG=$(tail -1 "$LOG_DIR/exobrain-supernote-$TIMESTAMP.err" 2>/dev/null | head -c 100)
+    # claude --print prints API errors (e.g. "Connection closed mid-response") to
+    # stdout, not stderr. When stderr is empty, fall back to the stdout tail so the
+    # failure log is never blank (that blank is exactly what made 2026-07-15 hard to diagnose).
+    [ -z "$ERROR_MSG" ] && ERROR_MSG=$(tail -3 "$LOG_DIR/exobrain-supernote-$TIMESTAMP.out" 2>/dev/null | tr '\n' ' ' | head -c 200)
     osascript -e "display notification \"Supernote processing failed (exit $EXIT_CODE): $ERROR_MSG\" with title \"Exobrain ERROR\" sound name \"Basso\""
     echo "[$TIMESTAMP] FAILED (exit $EXIT_CODE)" >> "$LOG_DIR/exobrain-supernote-failures.log"
-    echo "  stderr: $ERROR_MSG" >> "$LOG_DIR/exobrain-supernote-failures.log"
+    echo "  detail: $ERROR_MSG" >> "$LOG_DIR/exobrain-supernote-failures.log"
 fi
 
 # Clean up error file if empty
 [ ! -s "$LOG_DIR/exobrain-supernote-$TIMESTAMP.err" ] && rm -f "$LOG_DIR/exobrain-supernote-$TIMESTAMP.err"
+# Drop the per-run stdout copy on success (already replayed above); keep it on
+# failure for post-mortem.
+[ $EXIT_CODE -eq 0 ] && rm -f "$LOG_DIR/exobrain-supernote-$TIMESTAMP.out"
