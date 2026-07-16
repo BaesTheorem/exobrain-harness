@@ -23,6 +23,23 @@ public class MistAgent {
         Thread t = new Thread(MistAgent::serve, "mist-agent");
         t.setDaemon(true);
         t.start();
+        Thread m = new Thread(MistAgent::muteLoop, "mist-mute");
+        m.setDaemon(true);
+        m.start();
+    }
+
+    // Auto-enforce silence: re-apply mute whenever logged in. Music volume is a synced preference
+    // that a track change can re-raise and setMusicVolume doesn't persist, so a one-shot isn't
+    // enough; this keeps her instance silent across track changes AND re-logins (the client JVM
+    // persists, so this thread outlives individual game sessions). Cheap + idempotent.
+    static volatile boolean autoMute = true;
+    static void muteLoop() {
+        while (true) {
+            try {
+                Thread.sleep(3000);
+                if (autoMute && gamestate().contains("LOGGED_IN")) mute("");
+            } catch (Throwable ignore) {}
+        }
     }
 
     static void log(String s) { System.err.println("[mist-agent] " + s); }
@@ -59,7 +76,13 @@ public class MistAgent {
             if (cmd.equals("players")) return players();
             if (cmd.equals("target")) return target();
             if (cmd.startsWith("threats")) { String w = cmd.length() > 7 ? cmd.substring(7).trim() : "*"; return threats(w.isEmpty() ? "*" : w); }
+            if (cmd.startsWith("automute ")) { autoMute = cmd.substring(9).trim().equalsIgnoreCase("on"); return "OK automute=" + autoMute; }
+            if (cmd.equals("vols")) return vols();
+            if (cmd.equals("mute") || cmd.startsWith("mute ")) return mute(cmd.length() > 4 ? cmd.substring(4).trim() : "");
+            if (cmd.equals("roots")) return roots();
             if (cmd.startsWith("widgetkids ")) return widgetkids(cmd.substring(11).trim());
+            if (cmd.startsWith("widgettree ")) return widgetTree(cmd.substring(11).trim());
+            if (cmd.startsWith("clickpath ")) return clickPath(cmd.substring(10).trim());
             if (cmd.startsWith("clickwidget ")) return clickWidget(cmd.substring(12).trim());
             if (cmd.startsWith("clicknpc ")) return clickNpc(cmd.substring(9).trim());
             if (cmd.startsWith("type ")) { typeText(cmd.substring(5)); return "OK typed " + (cmd.length() - 5) + " chars"; }
@@ -144,6 +167,31 @@ public class MistAgent {
         CLIENT = gi.invoke(inj, Class.forName("net.runelite.api.Client"));
         return CLIENT;
     }
+    // RuneLite's ClientThread (from the injector). The official client (1.12.x) guards widget
+    // reads like getCanvasLocation with "must be called on client thread"; we hop onto it.
+    static Object CLIENTTHREAD;
+    static Object clientThread() throws Exception {
+        if (CLIENTTHREAD != null) return CLIENTTHREAD;
+        Class<?> rl = Class.forName("net.runelite.client.RuneLite");
+        Object inj = rl.getMethod("getInjector").invoke(null);
+        java.lang.reflect.Method gi = Class.forName("com.google.inject.Injector").getMethod("getInstance", Class.class);
+        gi.setAccessible(true);
+        CLIENTTHREAD = gi.invoke(inj, Class.forName("net.runelite.client.callback.ClientThread"));
+        return CLIENTTHREAD;
+    }
+    // Run a task synchronously on the client thread (queue via ClientThread.invoke + latch for the result).
+    @SuppressWarnings("unchecked")
+    static <T> T onClient(java.util.concurrent.Callable<T> task) throws Exception {
+        final Object[] box = new Object[2];   // [0]=result [1]=throwable
+        final java.util.concurrent.CountDownLatch latch = new java.util.concurrent.CountDownLatch(1);
+        Runnable r = () -> { try { box[0] = task.call(); } catch (Throwable t) { box[1] = t; } finally { latch.countDown(); } };
+        Object ct = clientThread();
+        Class.forName("net.runelite.client.callback.ClientThread").getMethod("invoke", Runnable.class).invoke(ct, r);
+        if (!latch.await(6, java.util.concurrent.TimeUnit.SECONDS)) throw new IllegalStateException("client-thread timeout");
+        if (box[1] != null) throw new Exception((Throwable) box[1]);
+        return (T) box[0];
+    }
+
     // invoke a no/var-arg method (matched by name + arg count) declared on the given interface/class
     static Object call(Object target, String cls, String method, Object... args) throws Exception {
         Class<?> c = Class.forName(cls);
@@ -419,7 +467,10 @@ public class MistAgent {
 
     // ---- widget debugging / clicking (calibrate combat-style tab etc.) ----
     static String widgetkids(String a) {
-        try {
+        try { return onClient(() -> widgetkidsImpl(a)); } catch (Throwable t) { return "WIDGETKIDS_ERR " + t; }
+    }
+    static String widgetkidsImpl(String a) {
+      try {
             String[] p = a.split("\\s+");
             int g = Integer.parseInt(p[0]), c = p.length > 1 ? Integer.parseInt(p[1]) : 0;
             Object cl = client();
@@ -448,24 +499,176 @@ public class MistAgent {
             sb.append(tag).append("[").append(x).append(",").append(y).append(" ").append(wd).append("x").append(ht)
               .append(hid ? " HID" : "").append(iid > 0 ? " item" + iid : "")
               .append(txt != null && !txt.toString().isEmpty() ? " '" + txt + "'" : "").append("] ");
-        } catch (Exception e) { sb.append(tag).append("[err] "); }
+        } catch (Throwable e) { Throwable r = e; while (r.getCause() != null) r = r.getCause(); sb.append(tag).append("[err:").append(r.getClass().getSimpleName()).append(":").append(r.getMessage()).append("] "); }
     }
+    // mute [vol] -> set music + sound-effect + area-sound volume (default 0 = silent) via the
+    // official API (Client.setMusicVolume / Preferences.set*Volume). Per-instance, no UI needed,
+    // works even while the settings tab is locked (tutorial). Pass a value to restore, e.g. mute 100.
+    // read-only volume report (does NOT set) — for verifying the auto-mute daemon
+    static String vols() {
+        try {
+            return onClient(() -> {
+                Object cl = client();
+                Class<?> C = Class.forName("net.runelite.api.Client");
+                Class<?> P = Class.forName("net.runelite.api.Preferences");
+                Object prefs = C.getMethod("getPreferences").invoke(cl);
+                int mv = (int) C.getMethod("getMusicVolume").invoke(cl);
+                int sv = (int) P.getMethod("getSoundEffectVolume").invoke(prefs);
+                int av = (int) P.getMethod("getAreaSoundEffectVolume").invoke(prefs);
+                return "VOLS music=" + mv + " sfx=" + sv + " area=" + av + " automute=" + autoMute;
+            });
+        } catch (Throwable t) { return "VOLS_ERR " + t; }
+    }
+    static String mute(String a) {
+        final int v = a.isEmpty() ? 0 : Integer.parseInt(a);
+        try {
+            return onClient(() -> {
+                Object cl = client();
+                Class<?> C = Class.forName("net.runelite.api.Client");
+                Class<?> P = Class.forName("net.runelite.api.Preferences");
+                C.getMethod("setMusicVolume", int.class).invoke(cl, v);
+                Object prefs = C.getMethod("getPreferences").invoke(cl);
+                P.getMethod("setSoundEffectVolume", int.class).invoke(prefs, v);
+                P.getMethod("setAreaSoundEffectVolume", int.class).invoke(prefs, v);
+                int mv = (int) C.getMethod("getMusicVolume").invoke(cl);
+                int sv = (int) P.getMethod("getSoundEffectVolume").invoke(prefs);
+                int av = (int) P.getMethod("getAreaSoundEffectVolume").invoke(prefs);
+                return "OK mute music=" + mv + " sfx=" + sv + " area=" + av;
+            });
+        } catch (Throwable t) { return "MUTE_ERR " + t; }
+    }
+
+    // roots -> list currently-loaded, visible interface roots via Client.getWidgetRoots().
+    // Each entry: g<group>.<child>[x,y WxH d<dyn> s<static>]. Finds an open interface's group
+    // id WITHOUT guessing (e.g. the character creator), so widgettree/clickpath can drive it.
+    static String roots() {
+        try { return onClient(MistAgent::rootsImpl); } catch (Throwable t) { return "ROOTS_ERR " + t; }
+    }
+    static String rootsImpl() {
+        try {
+            Object cl = client();
+            Object[] rs = (Object[]) call(cl, "net.runelite.api.Client", "getWidgetRoots");
+            if (rs == null) return "NO_ROOTS";
+            StringBuilder sb = new StringBuilder();
+            for (Object w : rs) {
+                if (w == null) continue;
+                boolean hid = (boolean) w.getClass().getMethod("isHidden").invoke(w);
+                if (hid) continue;
+                int id = (int) w.getClass().getMethod("getId").invoke(w);
+                Object loc = w.getClass().getMethod("getCanvasLocation").invoke(w);
+                int x = -1, y = -1;
+                if (loc != null) { x = (int) loc.getClass().getMethod("getX").invoke(loc); y = (int) loc.getClass().getMethod("getY").invoke(loc); }
+                int wd = (int) w.getClass().getMethod("getWidth").invoke(w);
+                int ht = (int) w.getClass().getMethod("getHeight").invoke(w);
+                int nd = 0, ns = 0;
+                Object[] dyn = (Object[]) w.getClass().getMethod("getDynamicChildren").invoke(w); if (dyn != null) nd = dyn.length;
+                Object[] st = (Object[]) w.getClass().getMethod("getStaticChildren").invoke(w); if (st != null) ns = st.length;
+                sb.append("g").append(id >>> 16).append(".").append(id & 0xFFFF)
+                  .append("[").append(x).append(",").append(y).append(" ").append(wd).append("x").append(ht)
+                  .append(" d").append(nd).append(" s").append(ns).append("] ");
+            }
+            return sb.length() == 0 ? "NO_VISIBLE_ROOTS" : sb.toString();
+        } catch (Throwable t) { return "ROOTS_ERR " + t; }
+    }
+
+    // widgettree <group> [child] -> recursive dump of the subtree. Reports only visible, positioned
+    // nodes that are actionable/meaningful (have a sprite, text, or menu action). Each node printed as
+    // <path>[cx,cy sprN act'..' 'text'] where <path> is dot-separated s/d/n child indices usable by clickpath.
+    static String widgetTree(String a) {
+        try { return onClient(() -> widgetTreeImpl(a)); } catch (Throwable t) { return "WIDGETTREE_ERR " + t; }
+    }
+    static String widgetTreeImpl(String a) {
+      try {
+            String[] p = a.split("\\s+");
+            int g = Integer.parseInt(p[0]), c = p.length > 1 ? Integer.parseInt(p[1]) : 0;
+            Object cl = client();
+            Object w = Class.forName("net.runelite.api.Client").getMethod("getWidget", int.class, int.class).invoke(cl, g, c);
+            if (w == null) return "NO_WIDGET " + g + "," + c;
+            StringBuilder sb = new StringBuilder();
+            walk(sb, w, "");
+            return sb.length() == 0 ? "EMPTY" : sb.toString();
+        } catch (Throwable t) { return "WIDGETTREE_ERR " + t; }
+    }
+    static void walk(StringBuilder sb, Object w, String path) throws Exception {
+        if (w == null) return;
+        boolean hid = (boolean) w.getClass().getMethod("isHidden").invoke(w);
+        Object loc = w.getClass().getMethod("getCanvasLocation").invoke(w);
+        int x = -1, y = -1;
+        if (loc != null) { x = (int) loc.getClass().getMethod("getX").invoke(loc); y = (int) loc.getClass().getMethod("getY").invoke(loc); }
+        int wd = (int) w.getClass().getMethod("getWidth").invoke(w);
+        int ht = (int) w.getClass().getMethod("getHeight").invoke(w);
+        int spr = -1; try { spr = (int) w.getClass().getMethod("getSpriteId").invoke(w); } catch (Exception e) {}
+        Object txt = null; try { txt = w.getClass().getMethod("getText").invoke(w); } catch (Exception e) {}
+        String act = ""; try { String[] acts = (String[]) w.getClass().getMethod("getActions").invoke(w);
+            if (acts != null) for (String s : acts) if (s != null && !s.isEmpty()) { act = s; break; } } catch (Exception e) {}
+        boolean meaningful = spr > 0 || (txt != null && !txt.toString().isEmpty()) || !act.isEmpty();
+        if (!hid && x >= 0 && meaningful) {
+            sb.append(path.isEmpty() ? "root" : path).append("[").append(x + wd / 2).append(",").append(y + ht / 2)
+              .append(spr > 0 ? " spr" + spr : "").append(!act.isEmpty() ? " act'" + act + "'" : "")
+              .append(txt != null && !txt.toString().isEmpty() ? " '" + txt + "'" : "").append("] ");
+        }
+        appendKids(sb, w, "getStaticChildren", path, "s");
+        appendKids(sb, w, "getDynamicChildren", path, "d");
+        appendKids(sb, w, "getNestedChildren", path, "n");
+    }
+    static void appendKids(StringBuilder sb, Object w, String method, String path, String tag) throws Exception {
+        Object[] kids;
+        try { kids = (Object[]) w.getClass().getMethod(method).invoke(w); } catch (Exception e) { return; }
+        if (kids == null) return;
+        String sep = path.isEmpty() ? "" : ".";
+        for (int i = 0; i < kids.length; i++) walk(sb, kids[i], path + sep + tag + i);
+    }
+
+    // clickpath <group> <child> <path>  -> click canvas center of a nested widget addressed by a
+    // dot-separated s/d/n index path (as printed by widgettree), e.g. "clickpath 269 0 s3.d1".
+    static String clickPath(String a) {
+        try {
+            String[] p = a.split("\\s+");
+            int g = Integer.parseInt(p[0]), c = Integer.parseInt(p[1]);
+            String path = p.length > 2 ? p[2] : "";
+            Object res = onClient(() -> {
+                Object cl = client();
+                Object w = Class.forName("net.runelite.api.Client").getMethod("getWidget", int.class, int.class).invoke(cl, g, c);
+                if (w == null) return "NO_WIDGET";
+                if (!path.isEmpty()) {
+                    for (String step : path.split("\\.")) {
+                        char kind = step.charAt(0); int idx = Integer.parseInt(step.substring(1));
+                        String method = kind == 's' ? "getStaticChildren" : kind == 'd' ? "getDynamicChildren" : "getNestedChildren";
+                        Object[] kids = (Object[]) w.getClass().getMethod(method).invoke(w);
+                        if (kids == null || idx >= kids.length) return "NO_CHILD " + step;
+                        w = kids[idx];
+                    }
+                }
+                int[] pt = widgetCenter(w);
+                return pt == null ? "WIDGET_HIDDEN" : pt;
+            });
+            if (res instanceof String) return (String) res;
+            int[] pt = (int[]) res;
+            clickCanvas(pt[0], pt[1]);
+            return "OK clickpath @" + pt[0] + "," + pt[1];
+        } catch (Throwable t) { return "CLICKPATH_ERR " + t; }
+    }
+
     // clickwidget <group> <child> [dynIndex]  -> click the canvas center of a widget (or a dynamic child)
     static String clickWidget(String a) {
         try {
             String[] p = a.split("\\s+");
             int g = Integer.parseInt(p[0]), c = Integer.parseInt(p[1]);
-            Object cl = client();
-            Object w = Class.forName("net.runelite.api.Client").getMethod("getWidget", int.class, int.class).invoke(cl, g, c);
-            if (w == null) return "NO_WIDGET";
-            if (p.length > 2) {
-                Object[] dyn = (Object[]) w.getClass().getMethod("getDynamicChildren").invoke(w);
-                int di = Integer.parseInt(p[2]);
-                if (dyn == null || di >= dyn.length) return "NO_DYNCHILD";
-                w = dyn[di];
-            }
-            int[] pt = widgetCenter(w);
-            if (pt == null) return "WIDGET_HIDDEN";
+            int di = p.length > 2 ? Integer.parseInt(p[2]) : -1;
+            Object res = onClient(() -> {
+                Object cl = client();
+                Object w = Class.forName("net.runelite.api.Client").getMethod("getWidget", int.class, int.class).invoke(cl, g, c);
+                if (w == null) return "NO_WIDGET";
+                if (di >= 0) {
+                    Object[] dyn = (Object[]) w.getClass().getMethod("getDynamicChildren").invoke(w);
+                    if (dyn == null || di >= dyn.length) return "NO_DYNCHILD";
+                    w = dyn[di];
+                }
+                int[] pt = widgetCenter(w);
+                return pt == null ? "WIDGET_HIDDEN" : pt;
+            });
+            if (res instanceof String) return (String) res;
+            int[] pt = (int[]) res;
             clickCanvas(pt[0], pt[1]);
             return "OK clickwidget @" + pt[0] + "," + pt[1];
         } catch (Throwable t) { return "CLICKWIDGET_ERR " + t; }
