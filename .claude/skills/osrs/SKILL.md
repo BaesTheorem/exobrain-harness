@@ -98,6 +98,26 @@ python3 osrs.py guard <AlexName> 30  # bodyguard: follow + kill what attacks the
 | **`reset [dist]`** | Walk out + back to reset crab aggression/tolerance |
 | **`train [min] [goto]`** | Autonomous melee loop (login → `::train` → fight/eat/upgrade/reset) |
 | **`guard <ward> [min]`** | Bodyguard loop: follow ward, kill NPCs attacking it, self-heal |
+| **`roots`** | List open interface roots (`getWidgetRoots`) → find a modal's group id without guessing |
+| **`widgettree <grp> [ch]`** | Recursive dump of a widget subtree: `<path>[cx,cy sprN act'..' 'text']`, path = dot-sep s/d/n child indices |
+| **`clickpath <grp> <ch> <path>`** | Click a nested widget by its widgettree path (coords read from the game, no pixels) |
+| **`mute [vol]`** | Set music+sfx+area-sound volume (default 0). Uses `Client.setMusicVolume` + `Preferences.set*Volume` |
+| **`vols`** | Read-only volume report `music/sfx/area` + `automute` state |
+| **`automute on\|off`** | Toggle the auto-mute daemon (default ON) |
+
+> **Widget reads need the client thread.** The official client (1.12.x) guards `getCanvasLocation`
+> etc. with "must be called on client thread"; the agent hops onto RuneLite's `ClientThread` for
+> `roots`/`widgetkids`/`widgettree`/`clickpath`/`mute`. Alora's older client didn't need this.
+> **Login-screen mouse is dead** on the official client (synthetic AWT mouse isn't read there) — use
+> `key ENTER` to drive Play Now. In-world clicks work fine. **Occluded-window screencapture misses
+> the sprite-drawn tab icons**, so locate tabs/controls via `roots`+`widgettree`, not pixels.
+> **Muting is auto-enforced.** A `mist-mute` daemon thread (started in `premain`) re-applies `mute`
+> every 3s while `LOGGED_IN`, so silence survives track changes AND re-logins (the client JVM persists
+> across game sessions). sfx + area-sound zero cleanly via `Preferences`; **music volume is a synced
+> preference `setMusicVolume` doesn't persist** (`getMusicVolume` always reads ~20), but the daemon
+> re-zeros the live MIDI output every 3s so any track-change blip lasts <3s. Toggle with `automute off`
+> (needed before `mute 100` restores sound, else the daemon reverts it). The in-game settings tab is
+> locked during the Gielinor Guide tutorial, which is why this reflection route (not UI) is the mute.
 
 ## Combat
 
@@ -180,14 +200,31 @@ spots/patterns), which is account-level attrition, not identity-wide. Run betwee
 unnecessary + flaky on modern macOS). Total hardware separation = run the stack on a separate
 device (Raspberry Pi), not this Mac.
 
-**BLOCKER — Jagex account auth.** New OSRS accounts are Jagex accounts (login screen shows
-New User / Existing User, not legacy email/pass). To log a Jagex account into our
-agent-injected RuneLite, the `JX_ACCESS_TOKEN` / `JX_REFRESH_TOKEN` / `JX_SESSION_ID` /
-`JX_CHARACTER_ID` env vars (minted by a Jagex Launcher session) must be in the environment
-before `launch-vanilla`. So: Alex creates a throwaway Jagex account + F2P character (email +
-CAPTCHA, his hands), runs the Jagex Launcher once; we capture the JX_* tokens and export them
-for `launch-vanilla`. No `::train` on vanilla — navigate to F2P spots (Lumbridge cows/chickens
-→ Al-Kharid warriors → Hill Giants Edgeville dungeon → Flesh Crawlers Stronghold) and walk in.
+**Jagex account auth — SOLVED 2026-07-15.** New OSRS accounts are Jagex accounts (login shows
+New User / Existing User, not legacy email/pass). We don't sniff env (modern macOS blocks
+reading another process's env via `ps eww`/`ps -E`). Instead we let RuneLite persist the
+session to disk, then our client reads it:
+1. Alex creates the throwaway Jagex account + F2P character (email + CAPTCHA, his hands).
+2. In the **Jagex Launcher**, set the OSRS client to **RuneLite** (not the native `osrs_ehc`
+   C++ client — no JVM = no agent). It installs its own RuneLite under
+   `~/Library/Application Support/Jagex Launcher/Games/Old School RuneScape/RuneLite/RuneLite.app`.
+3. Run that launcher's `--configure` (`.../RuneLite.app/Contents/MacOS/RuneLite --configure`)
+   and add **`--insecure-write-credentials`** to the Client arguments field, Save.
+4. Log the Launcher into the throwaway account and click **Play**. RuneLite writes the session
+   to `~/.runelite/credentials.properties` (Java properties, plaintext).
+5. Close that RuneLite + the Launcher, then `python3 osrs.py launch-vanilla`. Our agent client
+   reads credentials.properties and logs in. **The Launcher is never needed again** (session
+   token doesn't expire); re-mint only if the session is ever invalidated.
+
+**Gotcha (the whole reason it first failed):** the macOS Launcher mints only `JX_SESSION_ID` +
+`JX_CHARACTER_ID` (sufficient on their own) and writes `JX_ACCESS_TOKEN` / `JX_REFRESH_TOKEN` /
+`JX_DISPLAY_NAME` **empty**. An empty `JX_ACCESS_TOKEN` reads as invalid and drops the client
+to the legacy login screen. `launch-vanilla` now calls `sanitize_jx_creds()` to strip empty
+JX_ lines before launch (keeps only the two real keys → LOGGED_IN). First login also forces the
+**Set display name** + **Character Creator** screens, driven in-canvas via `click`/`type`.
+
+No `::train` on vanilla — navigate to F2P spots (Lumbridge cows/chickens → Al-Kharid warriors
+→ Hill Giants Edgeville dungeon → Flesh Crawlers Stronghold) and walk in.
 
 ## Character
 

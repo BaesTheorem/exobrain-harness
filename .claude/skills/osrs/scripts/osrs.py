@@ -100,18 +100,76 @@ def send(cmd, timeout=5):
 RL_REPO = os.path.expanduser("~/.runelite/repository2")   # official RuneLite client jars
 LOG_VANILLA = "/tmp/runelite_agent.log"
 
+RL_CREDS = os.path.expanduser("~/.runelite/credentials.properties")  # JX_* tokens persisted by RuneLite
+
+def read_jx_creds():
+    """Read Jagex-account tokens from ~/.runelite/credentials.properties (Java .properties
+    format, plaintext) that RuneLite writes when launched via the Jagex Launcher with
+    --insecure-write-credentials. Returns {JX_ACCESS_TOKEN: ..., ...}. The RuneLite client
+    reads these from the ENV, so launch_vanilla merges them into the child JVM's environment;
+    this is what lets MISTci's agent-injected client authenticate without the Jagex Launcher.
+    Any key starting with JX_ is passed through verbatim (key-agnostic on purpose)."""
+    creds = {}
+    if not os.path.exists(RL_CREDS):
+        return creds
+    with open(RL_CREDS) as f:
+        for line in f:
+            line = line.strip()
+            if not line or line.startswith("#") or "=" not in line:
+                continue
+            k, v = line.split("=", 1)
+            k, v = k.strip(), v.strip()
+            # Only pass through non-empty JX_* values. The Jagex Launcher hands RuneLite the
+            # game session (JX_SESSION_ID + JX_CHARACTER_ID) but often leaves ACCESS/REFRESH
+            # empty; an empty env var reads as "present but invalid" and can break login, so skip.
+            if k.startswith("JX_") and v:
+                creds[k] = v
+    return creds
+
+def sanitize_jx_creds():
+    """RuneLite's injected-client reads credentials.properties DIRECTLY from disk. The Jagex
+    Launcher on macOS mints only JX_SESSION_ID + JX_CHARACTER_ID (the game session, which is
+    all that's required and does not expire) and writes JX_ACCESS_TOKEN / JX_REFRESH_TOKEN /
+    JX_DISPLAY_NAME EMPTY. An empty JX_ACCESS_TOKEN reads as 'present but invalid' and drops
+    the client to the legacy login screen instead of Jagex auto-login. Fix: rewrite the file
+    keeping only non-empty JX_* lines. Idempotent; runs before every launch so a fresh re-mint
+    self-heals. Validated live 2026-07-15: 2-key file -> LOGGED_IN. Backs up the raw file once."""
+    if not os.path.exists(RL_CREDS):
+        return
+    kept = read_jx_creds()  # already drops empties
+    with open(RL_CREDS) as f:
+        raw = f.read()
+    # only rewrite if the file actually carries empty JX_ lines
+    has_empty = any(l.strip().startswith("JX_") and l.strip().endswith("=") for l in raw.splitlines())
+    if not has_empty or not kept:
+        return
+    bak = RL_CREDS + ".raw"
+    if not os.path.exists(bak):
+        with open(bak, "w") as f:
+            f.write(raw)
+    with open(RL_CREDS, "w") as f:
+        f.write("#Do not share this file with anyone\n")
+        for k, v in kept.items():
+            f.write("%s=%s\n" % (k, v))
+
 def launch_vanilla():
     """Launch the OFFICIAL RuneLite client (vanilla OSRS) with the mist-agent injected.
     Validated 2026-06-20: -javaagent loads despite DisableAttachMechanism, reflection +
     eyes + hands all work on the official client. Populate ~/.runelite/repository2 first by
-    running the RuneLite launcher once. Jagex-account login needs JX_* tokens in the env
-    (exported from a Jagex Launcher session) — without them you land on the login screen."""
+    running the RuneLite launcher once. Jagex-account login needs JX_* tokens in the env:
+    we source them from ~/.runelite/credentials.properties (minted once via the Jagex
+    Launcher + --insecure-write-credentials), falling back to any JX_* already in os.environ.
+    Without them you land on the login screen."""
     if pid():
         return "ALREADY_RUNNING pid=%d" % pid()
     import glob
     cp = ":".join(sorted(glob.glob(os.path.join(RL_REPO, "*.jar"))))
     if not cp:
         return "NO_RUNELITE_CLIENT: run the RuneLite launcher once to populate %s" % RL_REPO
+    sanitize_jx_creds()  # strip empty JX_* lines so the client uses the session instead of the login screen
+    env = dict(os.environ)
+    jx = read_jx_creds()
+    env.update(jx)  # credentials.properties wins over stale shell env
     cmd = [JAVA, "-javaagent:%s" % AGENT_JAR, "-cp", cp,
            "-XX:+DisableAttachMechanism", "-Xmx768m", "-Xss2m", "-XX:CompileThreshold=1500",
            "--add-opens=java.base/java.net=ALL-UNNAMED",
@@ -122,8 +180,10 @@ def launch_vanilla():
            "-Drunelite.launcher.version=2.7.7",
            "net.runelite.client.RuneLite"]
     with open(LOG_VANILLA, "w") as f:
-        subprocess.Popen(cmd, stdout=f, stderr=subprocess.STDOUT, start_new_session=True)
-    return "LAUNCHED_VANILLA (JX_* in env: %s)" % ("yes" if os.environ.get("JX_ACCESS_TOKEN") else "no -> login screen")
+        subprocess.Popen(cmd, env=env, stdout=f, stderr=subprocess.STDOUT, start_new_session=True)
+    has_tok = bool(env.get("JX_ACCESS_TOKEN"))
+    src = "credentials.properties" if jx.get("JX_ACCESS_TOKEN") else ("shell env" if has_tok else "none")
+    return "LAUNCHED_VANILLA (JX_* token source: %s -> %s)" % (src, "authenticated" if has_tok else "login screen")
 
 def launch():
     if pid():
