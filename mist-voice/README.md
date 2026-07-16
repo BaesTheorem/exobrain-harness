@@ -75,6 +75,17 @@ Cold one-shot (reloads model each call, slow — fine for scripts/pre-render):
 .venv/bin/python scripts/say.py "text" -o out.wav --play
 ```
 
+The service also exposes speech-to-text for the phone audio path:
+- `POST /stt` with `{"pcm16_8k": "<base64>"}` (raw PCM16 mono 8kHz phone audio)
+  returns `{"text": ...}`. Transcribes via faster-whisper, lazy-loaded on first
+  call; audio is resampled to 16kHz internally, and each request is treated as
+  one independent phone turn (no conditioning on the previous transcript, which
+  invites repeated-phrase hallucinations).
+- `PHONE_STT_MODEL` env var selects the whisper model (default `distil-small.en`:
+  roughly small.en accuracy at base.en latency, the right trade for a live phone
+  turn). Runs on CPU with int8 compute.
+- `GET /health` returns `{"ok": true, "device": ...}`.
+
 ## Latency reality (measured on this M1 / 8GB, June 2026)
 
 XTTS-v2 warm inference RTF: **~1.78 on CPU, ~1.58 on MPS** (MPS barely helps —

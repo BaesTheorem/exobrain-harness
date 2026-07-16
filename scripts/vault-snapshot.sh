@@ -9,6 +9,7 @@ source "$SCRIPT_DIR/config.sh"
 
 DASHBOARD="$VAULT_DIR/Dashboard.md"
 PROJECTS_DIR="$VAULT_DIR/Projects"
+# Claude Code's per-project data dir (project cwd with slashes replaced by dashes; a different clone path gives a different name)
 OUT_DIR="$HOME/.claude/projects/-Users-alexhedtke-Documents-Exobrain-harness"
 OUT="$OUT_DIR/vault-snapshot.md"
 

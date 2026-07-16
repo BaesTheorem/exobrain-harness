@@ -39,6 +39,16 @@ KEEP_MONTHLY=6    # newest archive of each of the last N calendar months
 # Where to discover sibling git repos whose gitignored data should be backed up
 # (the harness and vault are captured in full separately, so they're skipped).
 REPO_SCAN_ROOT="$HOME/Documents"
+# Repos whose gitignored data should NOT be swept into the archive (huge
+# regenerable assets, VM images). Skips are logged loudly in the backup log.
+BACKUP_EXCLUDE_REPOS=(
+    "Cannonballs Resurrection"   # 14GB of game/VM assets; tripled the archive and ENOSPC'd the run (2026-07)
+)
+# Per-repo cap on gitignored-data size (MB). Repos over the cap are skipped with
+# a loud log line instead of silently sinking the backup (disk, Drive quota).
+BACKUP_REPO_MAX_MB=2048
+# Abort a run early if the local staging volume has less than this much free.
+BACKUP_MIN_FREE_GB=20
 
 # Out-of-tree files/dirs captured verbatim under a home-extras/ namespace in the
 # archive. These are secrets + local state that live OUTSIDE the harness, the

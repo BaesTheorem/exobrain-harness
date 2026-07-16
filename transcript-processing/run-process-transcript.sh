@@ -8,6 +8,23 @@ source "$SCRIPT_DIR/config.sh"
 LOG_DIR="/tmp"
 TIMESTAMP=$(date +%Y%m%d_%H%M%S)
 
+# Serialize plaud/supernote processing: both append to processing-log.json.
+# macOS ships no flock(1), so python takes flock(2) on the inherited FD; the
+# lock lives on the open file description and holds for this script's lifetime.
+exec 200>"/tmp/exobrain-processing.lock"
+/usr/bin/python3 -c '
+import fcntl, sys, time
+deadline = time.time() + 1800
+while True:
+    try:
+        fcntl.flock(200, fcntl.LOCK_EX | fcntl.LOCK_NB)
+        sys.exit(0)
+    except OSError:
+        if time.time() >= deadline:
+            sys.exit(1)
+        time.sleep(5)
+' || { echo "[$(date +%Y%m%d_%H%M%S)] SKIPPED: could not acquire processing lock in 30m" >> /tmp/exobrain-plaud-failures.log; exit 0; }
+
 if ! command -v claude &>/dev/null; then
     osascript -e 'display notification "Claude CLI not found — cannot process transcripts" with title "Exobrain ERROR" sound name "Basso"'
     # Touch the watched directory so launchd re-triggers when it next checks,

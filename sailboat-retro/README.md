@@ -7,12 +7,10 @@ A visual sailboat retrospective tool for TTRPG campaign sessions. Uses the sailb
 ### `retro-data.json`
 Campaign and session retro data including party names, session entries, and Obsidian vault paths. Gitignored to keep game state clean on clone.
 
-**To initialize**: Create an empty file:
-```json
-{"campaigns": {}}
-```
+**To initialize**: Nothing to do. `app.py` auto-creates the file on first run
+with its `{"parties": ..., "settings": ...}` schema.
 
-The web app (`app.py`) manages campaigns and session entries through the UI.
+The web app (`app.py`) manages parties and session entries through the UI.
 
 ## Tracked Files
 

@@ -60,6 +60,7 @@ Edit constants at the top of `awair-co2-watcher.py`:
 
 - `awair-co2-watcher.py` — the polling/alerting script; also appends each reading to `air-log.csv`
 - `awair-rollup.py` — nightly summarizer → `Areas/Health & Fitness/Air Quality Log.md` (rewrites only the `AIR:AUTO` block)
+- `awair-oauth.py` — one-time OAuth login for the Awair *cloud* API (only needed for historical backfill; the local poller needs no token). Reads `AWAIR_CLIENT_ID`, `AWAIR_CLIENT_SECRET`, and optional `AWAIR_REDIRECT_URI` (default `http://localhost:8128/callback`) from the harness `.env`, then writes back `AWAIR_ACCESS_TOKEN` plus `AWAIR_REFRESH_TOKEN` / `AWAIR_TOKEN_EXPIRES_IN` when the server returns them
 - `com.exobrain.awair-co2-watcher.plist` — 5-min poller
 - `com.exobrain.awair-rollup.plist` — nightly rollup (23:55) + RunAtLoad
 - `state.json` — last-notified timestamps + cached `last_ip` (gitignored)

@@ -205,8 +205,9 @@ if [ -z "$IMSG_EXIT" ]; then
   echo "WARN: launchd imessage-sync not loaded — iMessage data unavailable to skills"
   ISSUES=$((ISSUES + 1))
 elif [ "$IMSG_EXIT" != "0" ] && [ "$IMSG_EXIT" != "-" ]; then
-  echo "WARN: imessage-sync failing (exit $IMSG_EXIT) — likely Full Disk Access not granted to /usr/bin/python3"
-  echo "  Fix: System Settings → Privacy & Security → Full Disk Access → add /usr/bin/python3 → toggle ON,"
+  echo "WARN: imessage-sync failing (exit $IMSG_EXIT): likely Full Disk Access not granted to the venv interpreter"
+  echo "  Fix: System Settings → Privacy & Security → Full Disk Access → add $HARNESS/imessage/.venv/bin/mist-imessage-python3 → toggle ON"
+  echo "  (NOT /usr/bin/python3, an xcrun stub whose grant never applies; see imessage/README.md)"
   echo "  then: launchctl kickstart -k gui/\$(id -u)/com.exobrain.imessage-sync"
   ISSUES=$((ISSUES + 1))
 elif [ ! -f "$IMSG_CACHE" ]; then
@@ -222,11 +223,12 @@ else
   fi
 fi
 
-# Scheduled MIST routines — check the LAST EXIT CODE, not just that the job is
-# loaded. A loaded job that exits nonzero every fire (e.g. 78/EX_CONFIG when
-# headless `claude` can't read the Keychain) is silently dead, and "loaded" alone
-# hides that. launchctl list columns: PID  LAST_EXIT  LABEL. Flag any nonzero.
-ROUTINE_FAILS=$(launchctl list 2>/dev/null | awk '$3 ~ /^com\.mist\.routine\./ && $2 != "-" && $2 != "0" {print $3" (exit "$2")"}')
+# Scheduled MIST routines AND com.exobrain jobs — check the LAST EXIT CODE, not
+# just that the job is loaded. A loaded job that exits nonzero every fire (e.g.
+# 78/EX_CONFIG when headless `claude` can't read the Keychain) is silently dead,
+# and "loaded" alone hides that. launchctl list columns: PID  LAST_EXIT  LABEL.
+# Flag any nonzero. imessage-sync is excluded: it has its own richer check above.
+ROUTINE_FAILS=$(launchctl list 2>/dev/null | awk '$3 ~ /^com\.(mist\.routine|exobrain)\./ && $3 != "com.exobrain.imessage-sync" && $2 != "-" && $2 != "0" {print $3" (exit "$2")"}')
 if [ -n "$ROUTINE_FAILS" ]; then
   echo "WARN: scheduled routine(s) failing on last run — investigate run-routine logs:"
   while IFS= read -r line; do
@@ -235,19 +237,39 @@ if [ -n "$ROUTINE_FAILS" ]; then
   ISSUES=$((ISSUES + 1))
 fi
 
-# Watcher health — check for recent failures (last 24h)
+# Watcher health — check for recent failures (last 24h). Suppress the WARN when
+# processing has succeeded SINCE the failure: the 30-min poll self-recovers
+# transient API errors, and a newer processing-log.json proves recovery.
 for WATCHER in supernote plaud; do
   FAIL_LOG="/tmp/exobrain-${WATCHER}-failures.log"
   if [ -f "$FAIL_LOG" ]; then
     FAIL_AGE=$(( ($(date +%s) - $(stat -f %m "$FAIL_LOG")) / 3600 ))
     if [ "$FAIL_AGE" -le 24 ]; then
-      LAST_FAIL=$(tail -2 "$FAIL_LOG")
-      echo "WARN: ${WATCHER}-watcher has recent failures (${FAIL_AGE}h ago)"
-      echo "  $LAST_FAIL"
-      ISSUES=$((ISSUES + 1))
+      PROC_LOG="$HARNESS/processing-log.json"
+      if [ -f "$PROC_LOG" ] && [ "$(stat -f %m "$PROC_LOG")" -gt "$(stat -f %m "$FAIL_LOG")" ]; then
+        echo "OK: ${WATCHER}-watcher had a failure ${FAIL_AGE}h ago but processing succeeded since (recovered)"
+      else
+        LAST_FAIL=$(tail -2 "$FAIL_LOG")
+        echo "WARN: ${WATCHER}-watcher has recent failures (${FAIL_AGE}h ago)"
+        echo "  $LAST_FAIL"
+        ISSUES=$((ISSUES + 1))
+      fi
     fi
   fi
 done
+
+# Session-memory consolidator health — the 23:00 job writes YYYY-MM-DD_DIGEST.md;
+# if the newest digest is >26h old the consolidator is silently dead (observed
+# 2026-07: three straight nights of failures behind exit 0) and startup context
+# degrades fast. 26h allows for "today's digest doesn't exist until 23:00".
+NEWEST_DIGEST=$(ls -t "$HOME/Exobrain/Claude/"*_DIGEST.md 2>/dev/null | head -1)
+if [ -n "$NEWEST_DIGEST" ]; then
+  DIGEST_AGE_H=$(( ($(date +%s) - $(stat -f %m "$NEWEST_DIGEST")) / 3600 ))
+  if [ "$DIGEST_AGE_H" -gt 26 ]; then
+    echo "WARN: session-memory digest stale (${DIGEST_AGE_H}h old; consolidator runs 23:00) — check /tmp/exobrain-session-memory-failures.log and /tmp/exobrain-session-memory-last.out"
+    ISSUES=$((ISSUES + 1))
+  fi
+fi
 
 # Processing log integrity
 LOG="$HARNESS/processing-log.json"
@@ -342,6 +364,8 @@ if [ -d "$MEMORY_DIR" ]; then
 fi
 
 # === VAULT SNAPSHOT ===
+# (Dir name is Claude Code's per-project data dir: the project cwd with slashes
+# replaced by dashes. A different clone path means a different dir name.)
 SNAPSHOT_FILE="$HOME/.claude/projects/-Users-alexhedtke-Documents-Exobrain-harness/vault-snapshot.md"
 if [ -f "$SNAPSHOT_FILE" ]; then
   AGE_HOURS=$(( ($(date +%s) - $(stat -f %m "$SNAPSHOT_FILE")) / 3600 ))

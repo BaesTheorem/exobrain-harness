@@ -51,7 +51,8 @@ locked (fail-safe).
 Claude scaffolded the code, but these steps need a person:
 
 1. **Twilio account** — sign up at console.twilio.com. Grab the **Account SID**
-   and **Auth Token** from the dashboard. (Account SID is already in `.env`.)
+   and **Auth Token** from the dashboard. Copy `.env.example` to `.env` and
+   fill both in.
 2. **A Twilio phone number** — buy/claim one in the console. Put it in
    `TWILIO_FROM_NUMBER` (E.164, e.g. `+18165551234`).
 3. **Verify your cell** — on a *trial* account, outbound calls only reach

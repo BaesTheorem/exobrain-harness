@@ -38,6 +38,7 @@ Analyze the OCR'd text for:
 - **Tasks** → Route to Things 3
 - **Events** → Route to calendar or Things 3 review task
 - **Notes/ideas** → Add to daily note
+- **Media mentions** (books, movies, games to check out) → create or update `/Users/alexhedtke/Exobrain/Media/[Title].md`; follow the Media extraction schema in `/process-transcript` (step 7b), including the Glob-for-existing-note-first rule
 
 ### 6. Copy PNGs into vault
 Copy the extracted PNG pages into the vault's attachments folder:

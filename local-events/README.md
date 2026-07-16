@@ -38,4 +38,4 @@ The `/local-events` skill refines preferences over time based on feedback.
 
 ## Tracked Files
 
-None currently -- this directory only contains data files and this README.
+- `sync-to-vault.py` -- syncs surfaced events from the log into the Obsidian vault.

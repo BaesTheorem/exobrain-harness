@@ -120,3 +120,12 @@ airdrop-to-console/watch.log
 # iMessage synced cache (chat.db snapshot + contacts + real names) — never commit
 imessage/cache/
 imessage/logs/
+
+# Wi-Fi diagnostics output (SSID, MAC, gateway, DNS) — never commit
+maintenance/wifi-diag-out.txt
+
+# Local-only watcher fleet (personal product/price/tour targets, home ZIP,
+# state, and its own README, which names them all). Nothing inside is tracked;
+# .claude/commands/bounty.md and the root README note why the dir is absent.
+# (Moved here from .git/info/exclude, which does not survive a re-clone.)
+watchers/

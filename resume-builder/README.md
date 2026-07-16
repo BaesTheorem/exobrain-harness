@@ -19,16 +19,16 @@ cd "Exobrain harness/resume-builder"
 # Canonical resume -> ~/Downloads/Alex_Hedtke_Resume.pdf
 python3 build.py resume
 
-# Tailored resume -> ~/Downloads/Alex_Hedtke_Resume_IDEAL.pdf
-python3 build.py resume --tailor tailoring/ideal.json
+# Tailored resume -> ~/Downloads/Alex_Hedtke_Resume_ACME.pdf
+python3 build.py resume --tailor tailoring/acme.json
 
 # Cover letter (markdown = letter from the date line down)
-python3 build.py cover --md tailoring/ideal_cover.md --company "IDEAL Industries, Inc." --tag IDEAL
+python3 build.py cover --md tailoring/acme_cover.md --company "Acme Corp" --tag ACME
 
 # Job-search convention (Alex 2026-06-24): for a real application, write the PDF
 # straight into that listing's dedicated folder instead of Downloads, via --out:
-python3 build.py resume --tailor tailoring/ideal.json \
-  --out "/Users/alexhedtke/Exobrain/Projects/Get new job/Job Listings/IDEAL Industries - <Role>/Alex_Hedtke_Resume_IDEAL.pdf"
+python3 build.py resume --tailor tailoring/acme.json \
+  --out "/Users/alexhedtke/Exobrain/Projects/Get new job/Job Listings/Acme Corp - <Role>/Alex_Hedtke_Resume_ACME.pdf"
 ```
 `--out <path>` overrides the default `~/Downloads/` destination for either subcommand.
 The `/job-search` skill owns the per-listing folder convention; the builder just
@@ -38,7 +38,7 @@ Requires: `playwright` (chromium), `pypdf`, `qpdf`.
 ## Tailoring schema (`tailoring/<company>.json`, all keys optional)
 ```json
 {
-  "tag": "IDEAL",
+  "tag": "ACME",
   "summary": "...override summary (KEEP the 11+/4+ tenure framing)...",
   "skills_append": { "Security": "Additional focus on <truthful ATS keywords>." },
   "experience_bullets": { "clyde": ["reordered / polished bullet", "..."] }

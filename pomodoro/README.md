@@ -17,7 +17,7 @@ bash setup.sh
 |------|---------|
 | `main.py` | App entry point — timer logic, Things 3 task picker, Obsidian logging |
 | `setup.sh` | Builds the macOS .app bundle |
-| `create_icon.py` | Generates the app icon from `AppIcon.icns` |
+| `create_icon.py` | Generates the `AppIcon.icns` app icon |
 | `web/index.html` | Timer UI (loaded by pywebview) |
 
 ## Dependencies

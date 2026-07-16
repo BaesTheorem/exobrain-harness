@@ -36,7 +36,7 @@ Apple ID · Google account · GitHub · **Obsidian Sync account** (separate from
 brew install python@3.12 node git gh jq git-lfs ffmpeg   # python@3.12 REQUIRED for mist-voice
 git lfs install
 npm install -g @anthropic-ai/claude-code defuddle
-gh auth login                                            # every repo is private
+gh auth login                                            # most sibling repos are private (the harness repo itself is public)
 curl -LsSf https://astral.sh/uv/install.sh | sh
 git clone https://github.com/BaesTheorem/exobrain-harness.git "$HOME/Documents/Exobrain harness"
 ```

@@ -1,16 +1,16 @@
 #!/usr/bin/env python3
 """Fetch posts + comment threads from a subreddit into an anonymized JSON corpus.
 
-Built for anecdote mining (default: r/ankylosingspondylitis). Uses Reddit's public
+Generic anecdote-mining tool: point --sub at any topic community. Uses Reddit's public
 `.json` endpoints (no PRAW, no API key) with a browser User-Agent, the same pattern
 the local-events skill uses. Usernames are ANONYMIZED at ingest (one-way hash) so the
 corpus can hold public post text without storing who wrote it. The corpus is written
 under reddit/data/ which is gitignored.
 
 Usage:
-  python3 reddit-anecdote-fetch.py                         # r/ankylosingspondylitis, top/year + top/all
-  python3 reddit-anecdote-fetch.py --sub ankylosingspondylitis --sort top --time year --pages 6
-  python3 reddit-anecdote-fetch.py --dry-run --pages 1     # ~25 posts, no comment fetch, sanity check
+  python3 reddit-anecdote-fetch.py --sub <subreddit>
+  python3 reddit-anecdote-fetch.py --sub <subreddit> --sort top --time year --pages 6
+  python3 reddit-anecdote-fetch.py --sub <subreddit> --dry-run --pages 1   # ~25 posts, no comment fetch, sanity check
 
 This is a read-only public-data pull. It does not log in and never posts.
 """
@@ -123,7 +123,7 @@ def fetch_comments(sub, post_id, pause, top_n=40):
 
 def main():
     ap = argparse.ArgumentParser()
-    ap.add_argument("--sub", default="ankylosingspondylitis")
+    ap.add_argument("--sub", required=True)
     ap.add_argument("--sort", default="top", choices=["top", "hot", "new", "controversial"])
     ap.add_argument("--time", dest="tval", default="year",
                     help="top/controversial window: hour|day|week|month|year|all")

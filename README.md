@@ -4,7 +4,7 @@ A Claude Code-powered personal automation system that manages information flow a
 
 **Owner**: Alex Hedtke
 **Platform**: macOS (Apple Silicon), Claude Code CLI + Desktop
-**Last audited**: 2026-06-08
+**Last audited**: 2026-07-16
 
 ---
 
@@ -154,24 +154,31 @@ Managed via Claude Code's scheduled-tasks MCP. Run as remote agents on cron.
 - `/daily-briefing` -- morning dashboard (was scheduled, now manual)
 - `/evening-winddown` -- day recap, mood + concern check-in, tomorrow planning (interactive, so manual)
 
-### launchd Jobs (10)
+### launchd Jobs (19)
 
-Installed in `~/Library/LaunchAgents/`.
+Installed in `~/Library/LaunchAgents/`. All 19 plists are tracked in the repo.
 
 | Plist | Location | Watches/Triggers | Purpose |
 |-------|----------|-----------------|---------|
 | `com.exobrain.plaud-watcher.plist` | `transcript-processing/` | `WatchPaths: Plaud/` folder (30s throttle, 30-min fallback) | Runs `run-process-transcript.sh` when new transcripts land |
-| `com.exobrain.supernote-watcher.plist` | `transcript-processing/` | `WatchPaths: Supernote/Note/` folder (30s throttle) | Runs `run-process-supernote.sh` when new Supernote files land |
+| `com.exobrain.supernote-watcher.plist` | `transcript-processing/` | `WatchPaths: Supernote/Note/` folder (60s throttle, 30-min fallback) | Runs `run-process-supernote.sh` when new Supernote files land |
 | `com.exobrain.things3-sync.plist` | `things3-sync/` | Interval: 900s (15 min) | Runs `things3-obsidian-sync.py` to mirror Things 3 projects/areas into Obsidian |
 | `com.exobrain.discord-digest.plist` | `discord/` | Interval: 14400s (4 hours) | Runs `discord-digest-fetch.py` to fetch Discord messages for briefing |
 | `com.exobrain.anki-sync.plist` | `anki/` | Interval: 600s (10 min), RunAtLoad | Runs `run-anki-sync.sh` -> `anki-sync.py` to mirror Anki study sessions into the vault (`Anki Log.md` + daily-note frontmatter) |
 | `com.exobrain.awair-co2-watcher.plist` | `awair/` | Interval: 300s (5 min) | Runs `awair-co2-watcher.py` to poll the Awair Element local API and alert on high CO2 |
+| `com.exobrain.awair-rollup.plist` | `awair/` | Daily: 23:55 | Runs `awair-rollup.py` to summarize the day's `air-log.csv` into the vault's Air Quality Log note |
+| `com.exobrain.airdrop-console.plist` | `airdrop-to-console/` | `WatchPaths: ~/Downloads` (15-min fallback) | Runs `run-watch.sh` to route AirDropped iPhone photos into the pinned MIST Console chat |
+| `com.exobrain.claude-bot.plist` | `claude-bot/` | KeepAlive daemon (RunAtLoad, 30s throttle) | Runs `bot.py`, the MIST Discord bot (single-server discord.py client) |
+| `com.exobrain.imessage-sync.plist` | `imessage/` | Interval: 900s (15 min) | Runs `imessage-sync.py` under a stable FDA-granted interpreter to snapshot `chat.db` into a local cache |
+| `com.exobrain.job-listings-sync.plist` | `job-listings-sync/` | `WatchPaths: Job Listings/` folder (5s throttle, 5-min fallback) | Runs `run.sh` -> `reconcile.py` to reconcile job-listing note frontmatter when files change |
+| `com.exobrain.job-scan.plist` | `job-search/` | Daily: 09:00 | Runs `run-job-scan.sh`, the headless daily job-discovery scan for `/job-search` |
+| `com.exobrain.headless-chrome-reaper.plist` | `maintenance/` | Interval: 120s (2 min) | Kills orphaned headless Chrome render processes older than 10 minutes |
+| `com.exobrain.mem-watchdog.plist` | `mem-watchdog/` | KeepAlive daemon (60s poll) | Runs `mem-watchdog.py` to kill runaway processes before they exhaust the 8GB machine's RAM |
 | `com.exobrain.session-memory-consolidator.plist` | `scripts/` | Daily: 23:00 | Runs `scripts/session-memory-consolidator.sh` to write missing session memories from today's transcripts |
 | `com.exobrain.vault-snapshot.plist` | `scripts/` | Daily: 06:00 | Runs `scripts/vault-snapshot.sh` to build a compact Dashboard + Projects digest for session-start injection |
-| `com.exobrain.bodyguard-weekly.plist` | root | Weekly | Runs the cybersecurity-bodyguard weekly OSINT scan (`.claude/skills/cybersecurity-bodyguard/scripts/weekly-scan.sh`) |
-| `com.exobrain.backup.plist` | root | Daily: 2:00 AM (RunAtLoad + 20h freshness guard) | Runs `backup-exobrain.sh` to archive config, skills, memory to Google Drive (keeps last 3) |
-
-> **Local-only (untracked) job:** `job-listings-sync/` ships its `reconcile.py`/`run.sh` but its `com.exobrain.job-listings-sync.plist` is **not** committed. It watches `Projects/Get new job/Job Listings/` and runs `run.sh` -> `reconcile.py` to reconcile job-listing frontmatter when files change. A cloner would need to author the plist themselves.
+| `com.exobrain.tools-registry.plist` | `tools-registry/` | Daily: 07:15 | Runs `tools-registry-scan.py` to rebuild the vault's `Tools/` inventory notes from apps + LaunchAgents |
+| `com.exobrain.bodyguard-weekly.plist` | root | Weekly: Sunday 08:00 | Runs the cybersecurity-bodyguard weekly OSINT scan (`.claude/skills/cybersecurity-bodyguard/scripts/weekly-scan.sh`) |
+| `com.exobrain.backup.plist` | root | Daily: 2:00 AM (RunAtLoad + 20h freshness guard) | Runs `backup-exobrain.sh`: one collective archive (harness + vault + sibling repos' gitignored data) to Google Drive, GFS retention |
 
 ### Hooks
 
@@ -289,9 +296,10 @@ Exobrain harness/
 |-- requirements.txt                    # Python dependencies
 |-- config.sh                           # Shared shell config (paths, common env)
 |-- skills-lock.json                    # Pinned skill versions for the harness
-|-- backup-exobrain.sh                  # Daily 2 AM backup script (keeps last 3)
+|-- backup-exobrain.sh                  # Daily 2 AM collective backup (harness + vault + repo gitignored data, GFS retention)
 |-- com.exobrain.backup.plist           # Daily backup timer (Step 7 copies it to ~/Library/LaunchAgents/)
 |-- com.exobrain.bodyguard-weekly.plist # Weekly cybersecurity-bodyguard OSINT scan
+|-- watchers/                           # (gitignored) local-only price/restock/tour watchers; configs hold personal targets
 |
 |-- transcript-processing/
 |   |-- README.md
@@ -385,9 +393,10 @@ Exobrain harness/
 |   |-- README.md                       # Module doc (log/prefs JSON are runtime state, git-ignored)
 |
 |-- job-listings-sync/                  # Reconciles job-listing note frontmatter on change
-|   |-- README.md                       #   (its launchd plist is local-only / NOT tracked)
+|   |-- README.md
 |   |-- reconcile.py
 |   |-- run.sh
+|   |-- com.exobrain.job-listings-sync.plist  # Watches the Job Listings/ vault folder
 |
 |-- Subdirectory apps
 |   |-- mood-tracker/                   # Mood journal web app
@@ -542,32 +551,19 @@ Paste your Discord bot token when prompted. Set up channel access with `/discord
 ### Step 7: Install launchd Jobs
 
 ```bash
-# Copy plist files to LaunchAgents (NOT symlinks — TCC blocks symlinks
+# Copy every tracked plist to LaunchAgents (NOT symlinks: TCC blocks symlinks
 # into ~/Documents from loading at login, so the jobs would never run at boot).
-cp "$PWD/transcript-processing/com.exobrain.plaud-watcher.plist" ~/Library/LaunchAgents/
-cp "$PWD/transcript-processing/com.exobrain.supernote-watcher.plist" ~/Library/LaunchAgents/
-cp "$PWD/things3-sync/com.exobrain.things3-sync.plist" ~/Library/LaunchAgents/
-cp "$PWD/discord/com.exobrain.discord-digest.plist" ~/Library/LaunchAgents/
-cp "$PWD/anki/com.exobrain.anki-sync.plist" ~/Library/LaunchAgents/
-cp "$PWD/awair/com.exobrain.awair-co2-watcher.plist" ~/Library/LaunchAgents/
-cp "$PWD/scripts/com.exobrain.session-memory-consolidator.plist" ~/Library/LaunchAgents/
-cp "$PWD/scripts/com.exobrain.vault-snapshot.plist" ~/Library/LaunchAgents/
-cp "$PWD/com.exobrain.bodyguard-weekly.plist" ~/Library/LaunchAgents/
-cp "$PWD/com.exobrain.backup.plist" ~/Library/LaunchAgents/
+# See the launchd Jobs table above for what each one does; skip any you don't want.
+for plist in $(git ls-files '*.plist'); do
+  cp "$PWD/$plist" ~/Library/LaunchAgents/
+done
 
 # Load the jobs
-launchctl load ~/Library/LaunchAgents/com.exobrain.plaud-watcher.plist
-launchctl load ~/Library/LaunchAgents/com.exobrain.supernote-watcher.plist
-launchctl load ~/Library/LaunchAgents/com.exobrain.things3-sync.plist
-launchctl load ~/Library/LaunchAgents/com.exobrain.discord-digest.plist
-launchctl load ~/Library/LaunchAgents/com.exobrain.anki-sync.plist
-launchctl load ~/Library/LaunchAgents/com.exobrain.awair-co2-watcher.plist
-launchctl load ~/Library/LaunchAgents/com.exobrain.session-memory-consolidator.plist
-launchctl load ~/Library/LaunchAgents/com.exobrain.vault-snapshot.plist
-launchctl load ~/Library/LaunchAgents/com.exobrain.bodyguard-weekly.plist
-launchctl load ~/Library/LaunchAgents/com.exobrain.backup.plist
+for plist in ~/Library/LaunchAgents/com.exobrain.*.plist; do
+  launchctl load "$plist"
+done
 
-# After any plist edit, copy again — the LaunchAgents copy is the authoritative one.
+# After any plist edit, copy again (the LaunchAgents copy is the authoritative one).
 # Verify
 launchctl list | grep exobrain
 ```

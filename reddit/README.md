@@ -1,8 +1,9 @@
 # reddit — subreddit anecdote miner
 
 Pulls public posts + comment threads from a subreddit into an anonymized JSON corpus
-for pattern mining. Built for the ankylosing-spondylitis evidence project (Part B), but
-the `--sub` flag makes it general.
+for pattern mining. Generic anecdote-mining tool: point `--sub` at any topic community
+(a chronic-illness sub, a hobby sub, a product sub) to build a corpus for downstream
+theme extraction.
 
 ## What it does
 
@@ -12,14 +13,14 @@ thread, **anonymizes every author at ingest** (one-way hash — no reverse map i
 and writes `data/<sub>-corpus.json`.
 
 ```bash
-# default: r/ankylosingspondylitis, top of the past year, 6 pages
-python3 reddit-anecdote-fetch.py
+# top of the past year, 6 pages
+python3 reddit-anecdote-fetch.py --sub <subreddit>
 
 # sanity check — listing only, no comment threads
-python3 reddit-anecdote-fetch.py --dry-run --pages 1
+python3 reddit-anecdote-fetch.py --sub <subreddit> --dry-run --pages 1
 
 # broaden coverage: top/year AND top/all
-python3 reddit-anecdote-fetch.py --also-all --pages 6
+python3 reddit-anecdote-fetch.py --sub <subreddit> --also-all --pages 6
 ```
 
 Key flags: `--sub`, `--sort {top,hot,new,controversial}`, `--time {week,month,year,all}`,
@@ -35,7 +36,7 @@ Key flags: `--sub`, `--sort {top,hot,new,controversial}`, `--time {week,month,ye
 
 ## Downstream
 
-The corpus feeds the Part B extraction agents (theme tagging, intervention mentions,
-claimed direction) that produce
-`~/Exobrain/Research/Ankylosing Spondylitis — Reddit Anecdote Patterns.md`. Anecdote is
+The corpus feeds extraction agents (theme tagging, intervention mentions, claimed
+direction) that produce a patterns note in the vault, e.g.
+`~/Exobrain/Research/<Topic> Reddit Anecdote Patterns.md`. Anecdote is
 hypothesis-generation only and is never upgraded to evidence.

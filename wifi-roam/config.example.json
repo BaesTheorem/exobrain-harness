@@ -25,7 +25,7 @@
   "metered_probe_interval_seconds": 1800,
   "metered_throughput_factor": 0.8,
 
-  "_passwords_comment": "SSID -> wifi password. With a password the watcher joins that network directly (no outage, full throughput-based switching). Without one it can only disassociate + let macOS auto-join, which just escapes a lower-priority net. This file lives outside the git repo; never commit real passwords.",
+  "_passwords_comment": "SSID -> wifi password. With a password the watcher joins that network directly (no outage, full throughput-based switching). Without one it can only disassociate + let macOS auto-join, which just escapes a lower-priority net. The runtime copy (~/Library/Application Support/WiFiRoam/config.json) lives outside the git repo; never commit real passwords.",
   "passwords": {},
   "switch_cooldown_seconds": 120
 }

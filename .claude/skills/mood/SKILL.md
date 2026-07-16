@@ -47,6 +47,7 @@ Half-points are valid (e.g., 2.5). Round to nearest 0.5 for display.
 - **Fitbit resting HR**: Trending up = stress/poor recovery, trending down = improving fitness
 - **Withings body composition**: Weight trend, fat % changes, muscle mass — use for Self-Care scoring. Do NOT use Fitbit for weight.
 - **Things 3 completion rate**: Tasks getting done vs. piling up
+- **Pomodoro sessions** (`/Users/alexhedtke/Exobrain/Pomodoro Log.md`): daily session count and total minutes; focused-work momentum feeds the Purpose sub-score
 - **Calendar density**: Overstuffed days = stress risk, empty days after heavy ones = recovery
 
 ### Inferred signals (use cautiously, mark as inferred)

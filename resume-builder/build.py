@@ -21,15 +21,15 @@ USAGE
   # Canonical resume:
   python3 build.py resume
   # Tailored resume for a JD:
-  python3 build.py resume --tailor tailoring/ideal.json
+  python3 build.py resume --tailor tailoring/acme.json
   # Cover letter (markdown body = everything from the date line down):
-  python3 build.py cover --md tailoring/ideal_cover.md --company "IDEAL Industries, Inc." --tag IDEAL
+  python3 build.py cover --md tailoring/acme_cover.md --company "Acme Corp" --tag ACME
 
 Output defaults to ~/Downloads/. Requires: playwright (chromium), pypdf, qpdf.
 
 TAILORING SCHEMA (all keys optional):
   {
-    "tag": "IDEAL",                         # filename suffix + PDF title
+    "tag": "ACME",                          # filename suffix + PDF title
     "summary": "...override summary...",     # must keep the 11+/4+ tenure framing
     "skills_append": {"Security": "extra, truthful, ATS keywords"},
     "experience_bullets": {                  # replace a job's bullets (reorder/polish)
