@@ -310,6 +310,7 @@ contact: "Dan Diaz, Sr Technical Recruiter"
 contact_url: "https://linkedin.com/in/..."
 verified: true             # boolean — survived 2-signal verification
 verification_signals: "Live on Rippling ATS; LinkedIn job ID 43xx; application form active"
+date_added: 2026-05-08     # date this note first entered the tracker; stamp <today> at creation, NEVER edit after
 posted: 2026-05-08         # date the listing was first surfaced or research was done
 application_date:          # date Alex submitted; null until applied
 rejection_date:            # date a rejection was received; null otherwise
@@ -319,6 +320,8 @@ source: rippling-ats       # short tag: greenhouse, lever, ashby, workday, icims
 ```
 
 Truthful nulls: omit `comp_min` / `comp_max` if unlisted (set `comp_listed: false`); leave `application_date` blank until Alex submits.
+
+**Always stamp `date_added: <today>` when creating a new listing note** (whether from a scan, an apply, or an "I applied to X" mention). It records when the listing entered the tracker and is write-once: never change it on later edits or when a flat note is promoted to its own folder. (Historical notes were backfilled from earliest known engagement date since the vault has no git history.)
 
 ### Note body (concise, Alex-readable)
 
