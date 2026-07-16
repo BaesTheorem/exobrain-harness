@@ -9,7 +9,8 @@ Daily unattended discovery scan for the `/job-search` skill.
   appends a hub-note log entry, and fires a `mist-notify` ONLY when new verified candidates
   are added (silent on zero-survivor days). Inline scan (no parallel subagents) to keep
   daily token cost low. 30-min timeout guard.
-- **`com.exobrain.job-scan.plist`** — source copy of the launchd job. Runs daily at 08:00.
+- **`com.exobrain.job-scan.plist`** — source copy of the launchd job. Runs daily at 09:00
+  (deliberately staggered after the other morning jobs).
   The live copy is a **real file** at `~/Library/LaunchAgents/com.exobrain.job-scan.plist`
   (never a symlink — see `feedback_launchd_symlinks`).
 

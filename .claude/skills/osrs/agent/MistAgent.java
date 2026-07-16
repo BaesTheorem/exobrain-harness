@@ -36,7 +36,7 @@ public class MistAgent {
     static void muteLoop() {
         while (true) {
             try {
-                Thread.sleep(3000);
+                Thread.sleep(30000); // volumes rarely need re-asserting; 30s keeps the client thread quiet
                 if (autoMute && gamestate().contains("LOGGED_IN")) mute("");
             } catch (Throwable ignore) {}
         }

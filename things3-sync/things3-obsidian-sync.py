@@ -24,6 +24,8 @@ from pathlib import Path
 
 # --- Configuration ---
 
+# The ThingsData-XXXXX suffix varies per install; find yours with:
+#   ls ~/Library/Group\ Containers/JLMPQHK86H.com.culturedcode.ThingsMac/
 THINGS_DB = os.path.expanduser(
     "~/Library/Group Containers/JLMPQHK86H.com.culturedcode.ThingsMac/"
     "ThingsData-VE3Z1/Things Database.thingsdatabase/main.sqlite"

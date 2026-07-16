@@ -13,12 +13,13 @@ broke every time Claude Code updated.
 
 The fix decouples **reading** from **consuming**:
 
-- **`imessage-sync.py`** (the FDA half) runs under a **stable** interpreter,
-  `/usr/bin/python3`, via the `com.exobrain.imessage-sync` launchd agent every 15
-  minutes. It takes a consistent snapshot of `chat.db` (sqlite online-backup API,
-  WAL-safe) into `cache/chat.db`, caches a `contacts.json` phone→name map, and
-  writes `sync-status.json`. You grant FDA to `/usr/bin/python3` **once** and it
-  survives every future Claude Code update.
+- **`imessage-sync.py`** (the FDA half) runs under a **stable** interpreter we
+  own, `imessage/.venv/bin/mist-imessage-python3`, via the
+  `com.exobrain.imessage-sync` launchd agent every 15 minutes. It takes a
+  consistent snapshot of `chat.db` (sqlite online-backup API, WAL-safe) into
+  `cache/chat.db`, caches a `contacts.json` phone→name map, and writes
+  `sync-status.json`. You grant FDA to that binary **once** and it survives
+  every future Claude Code, Homebrew, and CLT update.
 - **`imessage-reader.py`** (the consuming half) reads `cache/chat.db` — an ordinary
   file, **no FDA needed**. Claude never touches the protected path.
 
@@ -26,10 +27,20 @@ The fix decouples **reading** from **consuming**:
 
 ## One-time setup (Full Disk Access)
 
-1. **System Settings → Privacy & Security → Full Disk Access**.
-2. Click **+**, press **⌘⇧G**, enter `/usr/bin/python3`, add it, and toggle it ON.
-   (This is Apple's own interpreter at a fixed path — it does not move on CC or
-   Homebrew updates.)
+1. **Build the dedicated interpreter** (a real Mach-O copy at a fixed path we
+   own, gitignored):
+   ```bash
+   cd imessage
+   python3.12 -m venv --copies .venv    # --copies = real binaries, not symlinks
+   cp .venv/bin/python3.12 .venv/bin/mist-imessage-python3   # unique name for the TCC grant
+   ```
+   Why not `/usr/bin/python3`? It's an xcrun stub: its real exec target is the
+   Command Line Tools python at a versioned path
+   (`/Library/Developer/CommandLineTools/...`), and TCC keys on that moving
+   target, so an FDA grant to the stub never applies.
+2. **System Settings → Privacy & Security → Full Disk Access**. Click **+**,
+   press **⌘⇧G**, enter the full path to
+   `imessage/.venv/bin/mist-imessage-python3`, add it, and toggle it ON.
 3. Load + run the agent:
    ```bash
    launchctl bootstrap gui/$(id -u) ~/Library/LaunchAgents/com.exobrain.imessage-sync.plist
@@ -69,7 +80,7 @@ if the cache doesn't exist yet.
 
 ## Signing rule
 
-`imessage-send.py` automatically appends **`-Alex's Claude`** to every outgoing
+`imessage-send.py` automatically appends **`-MIST (Alex's assistant)`** to every outgoing
 message so recipients always know it's the assistant, not Alex personally. The
 signature is enforced in code — don't bypass it by sending through raw osascript.
 Outgoing messages to other people are outward-facing prose: humanize them

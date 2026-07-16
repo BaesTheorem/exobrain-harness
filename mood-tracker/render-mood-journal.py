@@ -23,7 +23,7 @@ import sys
 from datetime import date, datetime, timedelta
 from pathlib import Path
 
-VAULT = Path("/Users/alexhedtke/Exobrain")
+VAULT = Path.home() / "Exobrain"
 DAILY_NOTES_DIR = VAULT / "Daily notes"
 MOOD_JOURNAL = VAULT / "Mood Journal.md"
 

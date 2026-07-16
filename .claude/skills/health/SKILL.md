@@ -14,7 +14,7 @@ Single source of truth for all health data. Other skills reference this skill ra
 | **Fitbit** | Steps, sleep, resting HR, AZM, calories, activity trends | **Weight** (that's Withings only) |
 | **Withings** | Weight, body composition (fat %, muscle mass, bone mass, hydration %, visceral fat), blood pressure | Activity data |
 
-Alex weighs in the morning before drinking water — hydration % reads low (~41%) by design. Not a concern.
+Alex weighs in the morning before drinking water — hydration % reads low by design. Not a concern.
 
 ## MyChart (Epic patient portal)
 
@@ -84,6 +84,8 @@ Called by the daily briefing. Pulls **yesterday's** data and writes/updates the 
 - Common pattern: a quick weigh-in records only weight (type 1), while a full body scan records weight + fat mass (5) + muscle (76) + bone (88) + hydration (77) + visceral fat (170). Only include fields that have a measurement on that specific date.
 - If no weigh-in yesterday: **omit all Withings fields** from the Health Log note. Never carry forward stale Withings data from a prior date.
 - Blood pressure: include only if measured that day.
+
+**Awair (air quality)**: read the latest entry in `/Users/alexhedtke/Exobrain/Areas/Health & Fitness/Air Quality Log.md` (written by the awair-rollup watcher; read the note, don't query the device) and include a one-line CO2/air-quality summary in the daily note's health section.
 
 ### What to write
 

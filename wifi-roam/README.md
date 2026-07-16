@@ -40,8 +40,10 @@ auto-join.
 /opt/homebrew/opt/python@3.14/bin/python3.14 -m venv .venv
 .venv/bin/pip install pyobjc-framework-CoreWLAN pyobjc-framework-CoreLocation
 ./setup.sh
-cp config.example.json config.json     # set metered_ssids to your hotspot name(s)
-open WiFiRoam.app                       # click Allow on the Location prompt
+# edit the RUNTIME config (setup.sh seeds it from config.example.json):
+#   ~/Library/Application Support/WiFiRoam/config.json  -> set metered_ssids
+# (the daemon reads only that copy; a repo-local config.json is ignored)
+open ~/Library/Application\ Support/WiFiRoam/WiFiRoam.app  # click Allow on the Location prompt
 launchctl bootstrap gui/$(id -u) ~/Library/LaunchAgents/com.alexhedtke.wifiroam.plist
 ```
 

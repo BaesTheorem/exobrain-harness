@@ -2,8 +2,8 @@
 Place an outbound call: Claude rings your phone and starts talking.
 
 Prereqs (see README.md):
-    - server.py running and exposed via ngrok
-    - PUBLIC_WS_URL in .env pointing at the ngrok wss URL (/ws)
+    - server.py running and exposed via cloudflared
+    - PUBLIC_WS_URL in .env pointing at the cloudflared wss URL (/ws)
     - Twilio + Anthropic creds in .env
 
 Usage:
@@ -41,7 +41,7 @@ TWIML = (
 
 def main():
     if not WS_URL:
-        sys.exit("PUBLIC_WS_URL is empty — start ngrok and set it in .env first.")
+        sys.exit("PUBLIC_WS_URL is empty: start cloudflared and set it in .env first.")
     client = Client(ACCOUNT_SID, AUTH_TOKEN)
     call = client.calls.create(to=TO, from_=FROM, twiml=TWIML)
     print(f"Calling {TO} ... call SID {call.sid}")

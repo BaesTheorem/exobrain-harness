@@ -13,6 +13,8 @@ Top-level utility scripts that run on a launchd schedule, separate from the inpu
 
 Both shell scripts source `../config.sh` for `HARNESS_DIR`, `VAULT_DIR`, and `SESSION_MEMORY_DIR`.
 
+The `~/.claude/projects/-Users-alexhedtke-Documents-Exobrain-harness/` path above is Claude Code's per-project data directory: the project's cwd with slashes replaced by dashes. If you clone the harness to a different path, Claude Code derives a different directory name, so adjust these paths to match your clone location.
+
 ## Install
 
 Copy plists into `~/Library/LaunchAgents/` as real files — NOT symlinks. macOS TCC blocks login-time loading of symlinks pointing into `~/Documents/`, so a symlinked plist will never run at boot.

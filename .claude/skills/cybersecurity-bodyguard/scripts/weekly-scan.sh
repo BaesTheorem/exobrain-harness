@@ -9,7 +9,8 @@
 
 set -euo pipefail
 
-HARNESS_DIR="/Users/alexhedtke/Documents/Exobrain harness"
+# Machine-specific default; override with HARNESS_DIR in the environment
+HARNESS_DIR="${HARNESS_DIR:-/Users/alexhedtke/Documents/Exobrain harness}"
 SKILL_DIR="${HARNESS_DIR}/.claude/skills/cybersecurity-bodyguard"
 SCAN_OUT="/tmp/bodyguard-weekly-$(date +%Y%m%d).json"
 LOG="/tmp/bodyguard-weekly.log"

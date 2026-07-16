@@ -11,7 +11,7 @@ Move the always-on parts of the exobrain harness to a dedicated Mac Mini so the 
 ## Architecture: heartbeat vs. clients
 
 ```
-                       Things Cloud / iCloud / Google Drive / Things 3 sync
+                       Things Cloud / Obsidian Sync / Google Drive / iCloud
                               ▲                      ▲
                               │                      │
                     ┌─────────┴─────────┐  ┌─────────┴─────────┐
@@ -39,7 +39,7 @@ Rule: **exactly one machine owns the automation.** Both machines can read and ed
 
 | System            | Sync mechanism            |
 |-------------------|---------------------------|
-| Obsidian vault    | iCloud Drive (existing)   |
+| Obsidian vault    | Obsidian Sync (paid first-party service, existing; NOT iCloud Drive) |
 | Things 3          | Things Cloud              |
 | Plaud transcripts | Google Drive for Desktop  |
 | Supernote files   | Google Drive for Desktop  |
@@ -95,8 +95,7 @@ All of these currently run on the MacBook. **Move all to Mini, disable all on Ma
 5. Install Claude Code CLI.
 6. Install Things 3 (Mac App Store), sign in, wait for sync to finish.
 7. Install Google Drive for Desktop, sign in, set Plaud + Supernote folders to mirror (not stream) so launchd watchers see real files.
-8. Wait for iCloud Drive to fully sync the Obsidian vault. **Important:** verify the vault path matches `/Users/alexhedtke/Exobrain/` exactly (depends on whether you use the same short username).
-9. Install Obsidian, point it at the synced vault.
+8. Install Obsidian, sign into **Obsidian Sync** (separate account from the Apple ID), connect the remote vault, and wait for it to fully sync. **Important:** verify the vault path matches `/Users/alexhedtke/Exobrain/` exactly (depends on whether you use the same short username).
 
 ### Phase 2 — Move the harness (estimate: 1 hour)
 
@@ -120,7 +119,7 @@ For the first week, watch for duplicate processing:
 
 - Drop a test Plaud .txt into the synced folder. Confirm only one Things 3 task is created.
 - Send a Discord message. Confirm only one bot response.
-- Check `processing-log.json` for `(conflict)` suffixes from iCloud — none expected.
+- Check `processing-log.json` and the vault for sync-conflict artifacts (Obsidian Sync conflict copies, Drive `(conflict)` suffixes) — none expected.
 - Compare daily note for any duplicated headings or sections.
 
 ## Remote access — phone to Mini
@@ -134,7 +133,7 @@ If a future need for SSH / Screen Sharing from outside the home network emerges,
 1. **Watchers and schedulers run on Mini only.** MacBook plists stay disabled.
 2. **Discord bot runs on Mini only.** One token, one connection.
 3. **Manual Claude invocations are fine on either machine** — both can run skills, edit the vault, push commits, ask questions.
-4. **Don't run `daily-briefing`, `evening-winddown`, or `weekly-review` on both machines on the same day** — they're idempotent-ish but iCloud sync conflicts on the daily note are annoying. Pick one (probably Mini if scheduled, MacBook if manual).
+4. **Don't run `daily-briefing`, `evening-winddown`, or `weekly-review` on both machines on the same day** — they're idempotent-ish but Obsidian Sync conflicts on the daily note are annoying. Pick one (probably Mini if scheduled, MacBook if manual).
 5. **If the Mini is down**, you can re-enable the MacBook plists as a fallback. Document this in a runbook (TBD).
 
 ## Rollback plan
@@ -145,7 +144,7 @@ If migration causes problems:
 2. `launchctl bootstrap` MacBook jobs again from the same plist files (still present).
 3. Mini becomes a passive client until you try again.
 
-No data is destroyed in either direction since everything syncs via Things Cloud / iCloud / Google Drive.
+No data is destroyed in either direction since everything syncs via Things Cloud / Obsidian Sync / Google Drive.
 
 ## Decisions locked
 

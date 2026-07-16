@@ -133,8 +133,16 @@ print(t)
 cd "$HARNESS"
 
 echo "[$(date)] Starting session-memory consolidation"
-TIMEOUT_SEC=300
-echo "$PROMPT" | "$CLAUDE_BIN" --print --dangerously-skip-permissions &
+# 1200s, matching the other headless runners: 300s guaranteed timeouts on heavy
+# days (13MB+ of transcripts on 2026-07-15) and the job died 3 nights straight.
+TIMEOUT_SEC=1200
+FAIL_LOG="/tmp/exobrain-session-memory-failures.log"
+RUN_OUT="/tmp/exobrain-session-memory-last.out"
+DIGEST_FILE="$MEMORY_DIR/${TODAY}_DIGEST.md"
+
+# caffeinate: the 23:00 run must survive system sleep (a 2026-07-13 run stalled
+# 10 hours across a sleep and finished the next morning).
+echo "$PROMPT" | caffeinate -is "$CLAUDE_BIN" --print --dangerously-skip-permissions > "$RUN_OUT" 2>&1 &
 CLAUDE_PID=$!
 (
     sleep $TIMEOUT_SEC
@@ -142,11 +150,32 @@ CLAUDE_PID=$!
         kill -TERM $CLAUDE_PID 2>/dev/null || true
         sleep 5
         kill -KILL $CLAUDE_PID 2>/dev/null || true
-        echo "[$(date)] TIMEOUT after ${TIMEOUT_SEC}s — claude --print killed" >> /tmp/exobrain-session-memory-failures.log
     fi
 ) &
 KILLER_PID=$!
-wait $CLAUDE_PID 2>/dev/null || true
+CLAUDE_STATUS=0
+wait $CLAUDE_PID 2>/dev/null || CLAUDE_STATUS=$?
 kill $KILLER_PID 2>/dev/null || true
 wait $KILLER_PID 2>/dev/null || true
+cat "$RUN_OUT"   # keep the transcript in the launchd log as before
+
+# Verify the run actually produced today's digest; exit 0 used to mask every
+# failure mode here (timeout kill, API disconnect), so check the OUTCOME, not
+# just the exit code, and say so where a human will see it.
+if [ "$CLAUDE_STATUS" -ne 0 ] || [ ! -s "$DIGEST_FILE" ]; then
+    REASON="exit $CLAUDE_STATUS"
+    [ "$CLAUDE_STATUS" -ge 128 ] && REASON="$REASON (killed, likely ${TIMEOUT_SEC}s timeout)"
+    [ -s "$DIGEST_FILE" ] || REASON="$REASON; digest missing"
+    {
+        echo "[$(date +%Y%m%d_%H%M%S)] FAILED ($REASON)"
+        echo "  stdout tail:"
+        tail -c 1500 "$RUN_OUT" 2>/dev/null | sed 's/^/  /'
+    } >> "$FAIL_LOG"
+    NOTIFY="$SCRIPT_DIR/mist-voice/bin/mist-notify"
+    if [ -x "$NOTIFY" ]; then
+        "$NOTIFY" "Session-memory consolidator failed ($REASON)" "MIST" Basso console || true
+    fi
+    echo "[$(date)] Done (FAILED: $REASON)"
+    exit 1
+fi
 echo "[$(date)] Done"

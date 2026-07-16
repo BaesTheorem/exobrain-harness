@@ -32,7 +32,7 @@ Some employers get scanned directly on every discovery pass because Alex has an 
 
 Generic handling for this lane:
 - Scan each listed firm's careers portal every discovery pass, in addition to the open-market boards. Apply the per-firm filtering notes from the reference (which roles to target, which org areas / locations to skip).
-- A firm in this lane may carry a **documented remote-gate exception**: if the reference marks it as a warm-referral hybrid opt-in (Alex in-metro, no relocation, comp confirmed), do NOT auto-DQ its roles for being hybrid/in-office — still apply the other three gates (full-time permanent, comp ≥$75K or strong inference, ≥80% strong fit) normally. Exceptions are per-firm and per-connection; they don't generalize to other hybrid employers. Watch the actual reporting location — an "onsite" role reporting to an out-of-state project site is relocation, not local-hybrid; flag those.
+- A firm in this lane may carry a **documented remote-gate exception**: if the reference marks it as a warm-referral hybrid opt-in (Alex in-metro, no relocation, comp confirmed), do NOT auto-DQ its roles for being hybrid/in-office — still apply the other three gates (full-time permanent, comp at or above the floor in the gitignored Claude Reference.md or strong inference, ≥80% strong fit) normally. Exceptions are per-firm and per-connection; they don't generalize to other hybrid employers. Watch the actual reporting location — an "onsite" role reporting to an out-of-state project site is relocation, not local-hybrid; flag those.
 
 ### Responsibility-keyword search (the title-blind-spot fix)
 
@@ -183,7 +183,7 @@ When Alex provides a list of companies to investigate for open positions:
 4. **Every reported role MUST include**:
    - Job title and company
    - Location (and remote/hybrid status)
-   - Salary if listed (flag if below $75K floor; omit if unlisted but note it)
+   - Salary if listed (flag if below the comp floor, whose value lives in the gitignored Claude Reference.md; omit if unlisted but note it)
    - A direct link to the posting — preferably the firm's own careers portal, not just a job board mirror
    - A brief fit assessment (1-2 lines: why it matches, any notable gaps)
    - Verification method (e.g., "confirmed on firm portal 2026-04-01" or "LinkedIn ID 43xxxxx, posted March 2026")
@@ -306,7 +306,7 @@ comp_listed: true
 remote: true
 location: "Remote US"
 apply_url: "https://..."
-contact: "Dan Diaz, Sr Technical Recruiter"
+contact: "[Name], Sr Technical Recruiter"
 contact_url: "https://linkedin.com/in/..."
 verified: true             # boolean — survived 2-signal verification
 verification_signals: "Live on Rippling ATS; LinkedIn job ID 43xx; application form active"
@@ -422,7 +422,7 @@ Types: `Applications`, `Audit`, `Cover Letter`, `Research`, `Pipeline`, `Upskill
 
 ## Daily Briefing
 
-When called as part of the daily briefing (weekdays only — skip on weekends):
+When called as part of the daily briefing (every day, weekends included):
 
 1. **Tracker maintenance**: The canonical tracker is the `Job Listings` Bases file at `/Users/alexhedtke/Exobrain/Projects/Get new job/Job Listings.base` plus the per-listing notes in `Projects/Get new job/Job Listings/`. Search Gmail for new application confirmations and rejection emails since the last entry. For each new confirmation: if a listing note already exists for that company+role, set `applied: true`, `status: applied`, and `application_date: <today>`. If no note exists, create one per the schema in the "Per-Listing Notes & Bases Tracker" section above. For rejections: set `status: rejected` and `rejection_date: <date>`.
 
@@ -432,13 +432,13 @@ When called as part of the daily briefing (weekdays only — skip on weekends):
      - `site:jobs.lever.co "<responsibility phrase>" remote`
      - `site:jobs.ashbyhq.com "<keyword>" remote`
      - `site:remoterocketship.com "IT analyst" OR "security analyst" OR "compliance analyst"`
-     - `site:himalayas.app "IT analyst" remote $75K`
+     - `site:himalayas.app "IT analyst" remote "$<comp floor>"` (substitute the comp floor from the gitignored Claude Reference.md)
      - `site:builtin.com "compliance analyst" OR "security analyst" remote`
    - Vary which responsibility phrase you search each day (see "Responsibility-keyword search" in Sources section). Rotating across days makes the activity pattern look like a human exploring rather than a script.
    - For each promising search result: open with `/defuddle` or WebFetch to read the JD directly (no need for separate "verify the title" step — the page IS the JD).
    - **Staleness check**: Google's index lags real-time. Lever (`jobs.lever.co/*`) silently returns 404 when a listing is removed. If `defuddle` returns empty content or `WebFetch` returns 403, fall back to `curl -sL -A "<browser UA>"` to confirm — many JS-rendered pages need a real UA, but a 404 page means the listing is dead. Discard 404s.
    - **Cloudflare-protected aggregators**: RemoteRocketship and a few others 1010-block curl with a Cloudflare challenge. Those are not blockers for Alex (he can open them in a browser), so still surface the URL — just note "verification incomplete, Alex must spot-check JD" in the listing note.
-   - Apply the 4-gate hard requirements (remote / FT permanent / comp $75K+ or strong inference / ≥80% strong fit).
+   - Apply the 4-gate hard requirements (remote / FT permanent / comp at or above the floor (value lives in the gitignored Claude Reference.md) or strong inference / ≥80% strong fit).
    - Dedupe against `Projects/Get new job/Job Listings/` folder.
    - Create per-listing notes for survivors with `source: greenhouse` / `source: lever` / `source: company-portal` / etc. as appropriate.
 
@@ -464,7 +464,7 @@ When called as part of the daily briefing (weekdays only — skip on weekends):
      b. Apply the 4-gate hard requirements (`feedback-job-hard-requirements`):
         - Fully remote (JD says remote, not just LinkedIn label — Cyderes 2026-05-19 was hybrid despite "Remote" label)
         - Full-time permanent (not contract, contract-to-hire, 1099, temp)
-        - **Comp ≥$75K listed**, OR brief market-data check (Glassdoor/Salary.com/ZipRecruiter median for that title) shows strong evidence the role clears the floor — *if unlisted and you can't reach high confidence in <2 min of research, DQ*
+        - **Comp at or above the floor listed** (the floor's value lives in the gitignored Claude Reference.md), OR brief market-data check (Glassdoor/Salary.com/ZipRecruiter median for that title) shows strong evidence the role clears the floor — *if unlisted and you can't reach high confidence in <2 min of research, DQ*
         - Strong fit ≥80% (no failed JD hard reqs — degree, years, named tools, clearance, bilingual — AND ≥80% of top responsibilities/qualifications match Alex's resume)
      c. Create a per-listing note **only** if all 4 gates pass. Use the schema in "Per-Listing Notes & Bases Tracker" above. Set `verified: true` and record the comp-evidence inference (if applicable) in `verification_signals`.
    - Pacing: no numerical cap, but follow `/linkedin` qualitative rules — batch JD reads in small groups (2-4 per turn) with reasoning between, vary keyword angles day-to-day, no tight loops. The natural ceiling is "I've exhausted reasonable search angles," not an arbitrary count.

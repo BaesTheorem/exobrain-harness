@@ -28,7 +28,7 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from urllib.parse import urlparse, parse_qs
 
-HARNESS_ROOT = Path("/Users/alexhedtke/Documents/Exobrain harness")
+HARNESS_ROOT = Path(__file__).resolve().parents[4]
 DATA_ROOT = HARNESS_ROOT / "data/solo-dm"
 WEBUI_DIR = HARNESS_ROOT / ".claude/skills/solo-dm/webui"
 SCRIPTS_DIR = HARNESS_ROOT / ".claude/skills/solo-dm/scripts"

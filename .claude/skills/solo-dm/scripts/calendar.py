@@ -22,7 +22,7 @@ import sqlite3
 import sys
 from pathlib import Path
 
-HARNESS_ROOT = Path("/Users/alexhedtke/Documents/Exobrain harness")
+HARNESS_ROOT = Path(__file__).resolve().parents[4]
 DATA_ROOT = HARNESS_ROOT / "data/solo-dm"
 
 MONTHS = [

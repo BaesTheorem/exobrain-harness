@@ -5,7 +5,7 @@ Background housekeeping jobs that keep the machine tidy. Driven by launchd.
 ## headless-chrome-reaper.sh
 
 Kills orphaned headless Chrome render processes (and their hung shell wrappers)
-older than 5 minutes. These accumulate when a `Google Chrome --headless`
+older than 10 minutes (`THRESHOLD_SECS=600` default). These accumulate when a `Google Chrome --headless`
 screenshot / `--dump-dom` / `--print-to-pdf` invocation hangs and never exits, a
 known macOS failure mode (see the `browser-render` skill, which is the preferred,
 timeout-guarded path that avoids spawning these in the first place).
@@ -16,7 +16,7 @@ headless marker. It will **not** touch:
 
 - LinkedIn MCP's `chrome-headless-shell` (uses `~/.linkedin-mcp/profile`, not /tmp)
 - Plaud / other Electron apps (different binary, no /tmp profile)
-- Fresh in-flight renders younger than 5 minutes
+- Fresh in-flight renders younger than 10 minutes
 
 ### Run by
 

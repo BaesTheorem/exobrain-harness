@@ -33,7 +33,7 @@ TIMEOUT_SEC=1800
 PROMPT='Run the daily /job-search discovery scan as defined in the job-search skill (its "Daily Briefing" section). Do this INLINE in this single session — do NOT spawn parallel subagents, to keep daily token cost low.
 
 Steps:
-1. Read the resume PDF and Claude Reference.md for the comp floor ($75K) and the 4 hard gates (fully remote / full-time permanent / comp >=$75K listed-or-strong-evidence / >=80% strong fit, failing no stated hard requirement).
+1. Read the resume PDF and Claude Reference.md for the comp floor (the number lives in the gitignored Claude Reference.md; read it at runtime, never assume it) and the 4 hard gates (fully remote / full-time permanent / comp at-or-above the reference floor listed-or-strong-evidence / >=80% strong fit, failing no stated hard requirement).
 2. List the existing Projects/Get new job/Job Listings/ folder and dedup against it — never re-surface a company+role already noted.
 3. Run a rotating set of discovery searches (vary day-to-day so the pattern looks human):
    - 2-3 Google X-ray searches across ATS boards (site:boards.greenhouse.io / jobs.lever.co / jobs.ashbyhq.com / apply.workable.com) and niche remote boards (remoterocketship.com / himalayas.app / builtin.com), rotating a responsibility keyword (Entra ID, phishing remediation, access provisioning, M365 admin, compromised account, Intune endpoint, IAM analyst).
@@ -75,9 +75,13 @@ wait $KILLER_PID 2>/dev/null
 
 if [ $EXIT_CODE -ne 0 ]; then
     ERROR_MSG=$(tail -1 "$LOG_DIR/exobrain-job-scan-$TIMESTAMP.err" 2>/dev/null | head -c 100)
+    # claude --print prints API errors (e.g. "Connection closed mid-response") to
+    # stdout, not stderr. When stderr is empty, fall back to the stdout tail so the
+    # failure log is never blank.
+    [ -z "$ERROR_MSG" ] && ERROR_MSG=$(tail -3 "$LOG_DIR/exobrain-job-scan-$TIMESTAMP.out" 2>/dev/null | tr '\n' ' ' | head -c 200)
     osascript -e "display notification \"Job scan failed (exit $EXIT_CODE): $ERROR_MSG\" with title \"Exobrain ERROR\" sound name \"Basso\""
     echo "[$TIMESTAMP] FAILED (exit $EXIT_CODE)" >> "$LOG_DIR/exobrain-job-scan-failures.log"
-    echo "  stderr: $ERROR_MSG" >> "$LOG_DIR/exobrain-job-scan-failures.log"
+    echo "  detail: $ERROR_MSG" >> "$LOG_DIR/exobrain-job-scan-failures.log"
 fi
 
 # === LinkedIn-lane sentinel ===

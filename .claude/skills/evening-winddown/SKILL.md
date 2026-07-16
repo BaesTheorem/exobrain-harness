@@ -67,7 +67,7 @@ This keeps the "never defer to tomorrow" guarantee (genuinely unprocessed files 
 Alex writes directly in Obsidian throughout the day. Scan for notes created or modified today that haven't been processed by other steps.
 
 1. Find Obsidian notes modified today: `find "/Users/alexhedtke/Exobrain" -name "*.md" -newermt "YYYY-MM-DD 08:00"` (use target date)
-2. Filter out notes already handled by other wind-down steps (Daily notes/, Areas/Health & Fitness/Health Log/, People/, Media/, DnD/, .obsidian/, Audits/, News Briefings/, Mood Journal, Areas/)
+2. Filter out notes already handled by other wind-down steps (Daily notes/, Areas/Health & Fitness/Health Log/, People/, Media/, DnD/, .obsidian/, Audits/, News Briefings/, Mood Journal, Areas/), plus Projects/Get new job/, Tools/, and Archive/ (Obsidian sync bumps mtimes there without content edits)
 3. For each remaining note, read it and check for:
    - **Actionable items**: Tasks, events, follow-ups → route to Things 3 / Google Calendar
    - **People mentions**: Update or create People/ notes

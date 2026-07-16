@@ -45,6 +45,7 @@ python3 tools-registry/tools-registry-scan.py
 
 ## Auto-refresh
 
-A launchd job (`com.exobrain.tools-registry`, machine-local — not in this repo) runs the scan
-daily at 07:15 so the registry stays current. To replicate, create a LaunchAgent that runs the
-command above on a `StartCalendarInterval`.
+A launchd job (`com.exobrain.tools-registry`, source copy tracked here as
+`com.exobrain.tools-registry.plist`) runs the scan daily at 07:15 so the registry stays
+current. To replicate, copy the plist into `~/Library/LaunchAgents/` (as a real file, not a
+symlink) and bootstrap it.

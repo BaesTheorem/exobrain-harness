@@ -5,6 +5,7 @@ latents, and synthesizes on request — no 28s reload per call.
   uvicorn-free: just run it.   python scripts/serve.py [--device cpu|mps] [--port 8087]
 
   POST /say   {"text": "...", "speed": 1.0}  -> audio/wav  (MIST's voice)
+  POST /stt   {"pcm16_8k": "<base64>"}        -> {"text": ...}  (phone STT, faster-whisper)
   GET  /health                                -> {"ok": true, "device": ...}
 
 Used by the `mist-say` CLI and (later) the phone audio path.

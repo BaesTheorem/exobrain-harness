@@ -47,6 +47,8 @@ def desktop_notify(message, title="Pomodoro", sound="Hero"):
 OBSIDIAN_VAULT = Path(os.path.expanduser("~/Exobrain"))
 DAILY_NOTES = OBSIDIAN_VAULT / "Daily notes"
 POMODORO_LOG = OBSIDIAN_VAULT / "Pomodoro Log.md"
+# The ThingsData-XXXXX suffix varies per install; find yours with:
+#   ls ~/Library/Group\ Containers/JLMPQHK86H.com.culturedcode.ThingsMac/
 THINGS_DB = Path(os.path.expanduser(
     "~/Library/Group Containers/JLMPQHK86H.com.culturedcode.ThingsMac/"
     "ThingsData-VE3Z1/Things Database.thingsdatabase/main.sqlite"

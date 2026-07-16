@@ -219,7 +219,7 @@ def get_db():
                 print("Error: reading the LIVE chat.db but Full Disk Access is not granted", file=sys.stderr)
                 print("       to this process (this breaks on every Claude Code update).", file=sys.stderr)
                 print("Fix (permanent): set up the launchd sync so Claude reads the cache instead:", file=sys.stderr)
-                print("  1. Grant Full Disk Access to /usr/bin/python3 (stable path, survives CC updates)", file=sys.stderr)
+                print("  1. Grant Full Disk Access to imessage/.venv/bin/mist-imessage-python3 (see imessage-sync.py)", file=sys.stderr)
                 print("  2. launchctl bootstrap gui/$(id -u) ~/Library/LaunchAgents/com.exobrain.imessage-sync.plist", file=sys.stderr)
                 print("  3. Re-run this reader — it will read imessage/cache/chat.db, no FDA needed.", file=sys.stderr)
             else:

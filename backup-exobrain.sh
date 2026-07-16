@@ -34,6 +34,14 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 source "$SCRIPT_DIR/config.sh"
 
+# Keep the Mac awake for the whole run: backups take hours, and system sleep
+# mid-tar stalls or corrupts them ("Interrupted system call", 2026-07). Re-exec
+# once under caffeinate; the guard env var prevents a loop.
+if [ -z "${EXOBRAIN_CAFFEINATED:-}" ] && command -v caffeinate >/dev/null 2>&1; then
+    export EXOBRAIN_CAFFEINATED=1
+    exec caffeinate -is "$0" "$@"
+fi
+
 # --- Settings (with safe fallbacks if config.sh predates these vars) ----------
 BACKUP_DIR="${BACKUP_DIR:-$HOME/My Drive/Exobrain backups}"
 KEEP_DAILY="${KEEP_DAILY:-7}"
@@ -43,6 +51,9 @@ REPO_SCAN_ROOT="${REPO_SCAN_ROOT:-$HOME/Documents}"
 LOCAL_BACKUP_DIR="${LOCAL_BACKUP_DIR:-}"
 # EXTRA_INCLUDES is an array in config.sh; default to empty if config predates it.
 if ! declare -p EXTRA_INCLUDES >/dev/null 2>&1; then EXTRA_INCLUDES=(); fi
+if ! declare -p BACKUP_EXCLUDE_REPOS >/dev/null 2>&1; then BACKUP_EXCLUDE_REPOS=(); fi
+BACKUP_REPO_MAX_MB="${BACKUP_REPO_MAX_MB:-2048}"
+BACKUP_MIN_FREE_GB="${BACKUP_MIN_FREE_GB:-20}"
 
 TIMESTAMP=$(date +%Y%m%d_%H%M%S)
 ARCHIVE_NAME="exobrain-collective-$TIMESTAMP.tar.gz"
@@ -68,6 +79,15 @@ mkdir -p "$BACKUP_DIR"
 if find "$BACKUP_DIR" -name 'exobrain-collective-*.tar.gz' -mmin -1200 -print -quit 2>/dev/null | grep -q .; then
     echo "[$(date)] Recent collective backup exists (<20h old); skipping."
     exit 0
+fi
+
+# --- Free-space preflight ------------------------------------------------------
+# The archive is staged locally (tar, then its gzip) before moving to Drive, so
+# a full disk kills the run mid-write (observed 2026-07: ENOSPC at 21.6GB). Fail
+# fast and loud instead; an exact pre-gzip check runs later.
+AVAIL_GB=$(( $(df -k "${TMPDIR:-/tmp}" | awk 'NR==2 {print $4}') / 1048576 ))
+if [ "$AVAIL_GB" -lt "$BACKUP_MIN_FREE_GB" ]; then
+    fail "backup aborted: ${AVAIL_GB}GB free on staging volume, need ${BACKUP_MIN_FREE_GB}GB"
 fi
 
 # --- Build the archive in a local temp dir ------------------------------------
@@ -145,6 +165,14 @@ while IFS= read -r gitdir; do
     # Skip the harness (already captured whole above).
     [ "$repo" = "$HARNESS_DIR" ] && continue
 
+    # Explicitly excluded repos (huge regenerable assets; see config.sh).
+    for skip in ${BACKUP_EXCLUDE_REPOS[@]+"${BACKUP_EXCLUDE_REPOS[@]}"}; do
+        if [ "$name" = "$skip" ]; then
+            echo "[$(date)]   - $name SKIPPED (listed in BACKUP_EXCLUDE_REPOS)"
+            continue 2
+        fi
+    done
+
     list="$WORK/$name.list"
     (
         cd "$repo" || exit 0
@@ -163,6 +191,17 @@ while IFS= read -r gitdir; do
     ) > "$list" 2>/dev/null || true
     [ -s "$list" ] || { rm -f "$list"; continue; }
 
+    # Per-repo size cap: one repo's gitignored data ballooning (e.g. 14GB of
+    # game/VM assets) must not sink the whole backup. Skips are logged loudly,
+    # never silent; raise the cap or exclude the repo explicitly in config.sh.
+    size_bytes=$(tr '\n' '\0' < "$list" | (cd "$repo" && xargs -0 stat -f %z 2>/dev/null) | awk '{s+=$1} END {print s+0}')
+    size_mb=$(( size_bytes / 1048576 ))
+    if [ "$size_mb" -gt "$BACKUP_REPO_MAX_MB" ]; then
+        echo "[$(date)]   - $name SKIPPED (${size_mb}MB gitignored data over the ${BACKUP_REPO_MAX_MB}MB cap; see config.sh BACKUP_REPO_MAX_MB / BACKUP_EXCLUDE_REPOS)"
+        rm -f "$list"
+        continue
+    fi
+
     count=$(wc -l < "$list" | tr -d ' ')
     echo "[$(date)]   + $name ($count files)"
     # -s prepends the namespace so repos can't collide on a shared relative path.
@@ -171,6 +210,13 @@ while IFS= read -r gitdir; do
 done < <(find "$REPO_SCAN_ROOT" -maxdepth 2 -type d -name .git 2>/dev/null)
 
 # --- Compress, verify, then publish to Drive ----------------------------------
+# Exact space check: the gzip output is strictly smaller than the tar, so free
+# space >= tar size guarantees the compress step cannot hit ENOSPC.
+TAR_BYTES=$(stat -f %z "$COLLECTIVE_TAR")
+AVAIL_BYTES=$(( $(df -k "$WORK" | awk 'NR==2 {print $4}') * 1024 ))
+if [ "$AVAIL_BYTES" -lt "$TAR_BYTES" ]; then
+    fail "backup aborted before compress: need $((TAR_BYTES / 1073741824))GB free for gzip, have $((AVAIL_BYTES / 1073741824))GB"
+fi
 echo "[$(date)] Compressing..."
 gzip -c "$COLLECTIVE_TAR" > "$WORK/$ARCHIVE_NAME"
 rm -f "$COLLECTIVE_TAR"
