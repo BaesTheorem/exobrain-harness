@@ -36,9 +36,10 @@ unreliable and offer a solar chart instead (noon, and skip house-based claims).
 3. **Write content modules**: copy `pipeline/content_template.py` per subject, plus a
    synastry module (crib the section list from `pipeline/content_guide.md`). Every
    claim must be grounded in the computed data: placement, house, orb. Plain language,
-   honest about hard aspects, no doom and no flattery. The synastry packet opens with
-   both people's compact Sun/Moon/Rising badge strips in two named columns
-   (`ctx["bigthree_strip"]`) and includes a dedicated Discepolo scorecard section
+   honest about hard aspects, no doom and no flattery. The synastry cover carries both
+   people's compact Sun/Moon/Rising badge strips in two named columns
+   (`ctx["bigthree_strip"]`) alongside the bi-wheel, and the packet includes a
+   dedicated Discepolo scorecard section
    (`ctx["score_table"]`) showing each scored item, its points, and the band table. An
    Attraction & Intimacy section is optional: offer it when drafting a synastry packet,
    include only if the user says yes.
