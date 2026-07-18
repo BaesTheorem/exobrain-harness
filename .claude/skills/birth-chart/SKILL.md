@@ -5,9 +5,14 @@ description: Generate professional printable birth-chart PDF packets (natal and 
 
 # Birth Chart Packets
 
-Produces print-ready Letter PDF packets: one natal packet per person, plus a synastry
-packet when two people are given. All astronomy runs on the Swiss Ephemeris (tropical
-zodiac, Placidus houses); prose is written fresh per person.
+Produces print-ready Letter PDF packets. The flagship deliverable is the natal packet,
+one per person. A synastry packet is an optional add-on: offer it when two people are
+given, produce it only if the user wants it. All astronomy runs on the Swiss Ephemeris
+(tropical zodiac, Placidus houses); prose is written fresh per person.
+
+**Natal packets stand alone.** Never mention the synastry packet, the other person, or
+the relationship inside a natal packet; each must read as a complete document its
+subject could receive by itself. Cross-chart material lives only in the synastry packet.
 
 **Repo**: `~/Documents/birth-charts` (public: `BaesTheorem/birth-charts`). Real people's
 data lives only under `work/` (gitignored). Read the repo's
