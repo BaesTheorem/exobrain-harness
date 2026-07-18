@@ -36,7 +36,9 @@ unreliable and offer a solar chart instead (noon, and skip house-based claims).
 3. **Write content modules**: copy `pipeline/content_template.py` per subject, plus a
    synastry module (crib the section list from `pipeline/content_guide.md`). Every
    claim must be grounded in the computed data: placement, house, orb. Plain language,
-   honest about hard aspects, no doom and no flattery.
+   honest about hard aspects, no doom and no flattery. The synastry packet includes a
+   dedicated Discepolo scorecard section (`ctx["score_table"]`) showing each scored
+   item, its points, and the band table.
 4. **De-AI pass (mandatory, before rendering)**: run the `/de-ai` skill checklist over
    all prose. Minimum greps: em dashes, metaphorical "quietly" and hype adverbs,
    correctio ("is not X; it is Y"), "genuinely/precisely/profound/remarkable",
