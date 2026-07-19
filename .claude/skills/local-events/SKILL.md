@@ -128,9 +128,20 @@ Run broader searches to catch anything the other sources miss:
 - `WebSearch`: "Kansas City tech events [current month]"
 - `WebSearch`: "things to do Kansas City this weekend"
 
+WebSearch's synthesized answer text is a lead, not a fact. Treat every event/date/tour claim it produces as unverified until you open the actual listing (`WebFetch`/`defuddle`) and read it. See the primary-source rule in **Verification** — this is doubly true for favorite-artist tour claims.
+
 ## Verification
 
-Every event MUST be verified before being surfaced:
+### Favorite-artist tour claims are PRIMARY-SOURCE-ONLY (never from a search summary)
+
+This is the one that has burned us. Any statement about a favorite artist's tour status — "on tour," "not touring," "coming to KC," "skips KC," "nearest date is [city] [date]," a specific date/venue — is a factual claim that MUST be confirmed by *opening and reading a primary source*: the artist's official site/tour page, or a real ticketing/venue listing (Ticketmaster/AXS/the venue's own events page) that shows the actual date.
+
+- **A WebSearch "answer" is NOT a source.** The synthesized prose WebSearch returns is a small model summarizing snippets and it hallucinates freely (it once invented a whole Heilung North American tour, dates and venues, that every primary source flatly contradicted). Use WebSearch only to find candidate URLs, then `WebFetch`/`defuddle` the actual page and quote *it*. Aggregator prose (Songkick/Bandsintown/Concertful blurbs) also gets read directly, not trusted second-hand.
+- **If you cannot confirm a date on a primary source, do not assert anything about the artist's touring.** The only safe negative is a statement about *your search*, not about the artist: write "no confirmed KC dates found for [artist] this window" — never "[artist]'s back on tour but skips KC" or "[artist]'s nearest is [city]." Those are affirmative tour claims and require the same primary-source proof.
+- **When a direct source (a watcher, an API, the artist's own page) conflicts with a search summary, the direct source wins.** Do not talk yourself out of a correct instrument because a search sounded confident.
+- This applies everywhere the claim can land: the daily note, the `Local Events/` notes, the Discord ping, and the macOS notification.
+
+### Every event MUST be verified before being surfaced:
 1. **Check the event URL still works** — use `WebFetch` on the event link to confirm it's not 404/cancelled
 2. **Check for cancellation language** — look for "cancelled", "postponed", "rescheduled" on the page
 3. **Cross-reference dates** — if an event date seems wrong or in the past, verify against the source
@@ -160,6 +171,7 @@ Every event MUST be verified before being surfaced:
 
 Rules:
 - Always include direct links to the event page or ticketing
+- **A favorite-artist line may only appear if a primary source confirms the date (see Verification).** No confirmed date = no tour claim; at most write "no confirmed KC dates found for [artist] this window." Never fabricate tour context like "back on tour but skips KC."
 - Favorite artist matches go in the Alert section regardless of date
 - Sort by date within each section
 - Include price if known, "Free" if free, omit if unknown
