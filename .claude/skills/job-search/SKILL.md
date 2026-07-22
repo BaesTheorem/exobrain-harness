@@ -25,6 +25,11 @@ Use multiple sources and triangulate — no single source is authoritative for "
 5. **ATS Boards APIs** (Greenhouse, Lever) — strongest positive verification path. See mode 1 step 3 below for direct API URLs.
 6. **Alex-provided URLs and pasted postings** — treat as a starting point, still run the audit + verification.
 7. **80,000 Hours job board** (https://jobs.80000hours.org) — ALWAYS include in every search (Alex standing instruction 2026-06-17). Aggregates high-impact roles at EA / AI-safety / AI-policy orgs that don't crosspost to LinkedIn or mainstream ATS. Use the board's role-type + location filters; surface ops / IT / security / compliance / analyst roles (US/remote), not just research. Connects to Alex's EA / AI-governance pivot track.
+8. **Dice, Indeed, and Hiring.cafe** (ADDED 2026-07-22, Alex standing instruction) — scan all three directly on every discovery pass, in addition to (not instead of) the Gmail alerts from them. These carry a different employer mix than LinkedIn/ATS X-ray and each other; triangulate.
+   - **Dice** (https://www.dice.com) — tech-heavy board, good for IT/security/identity. Search UI: `https://www.dice.com/jobs?q=<keywords>&location=Remote&filters.postedDate=SEVEN&filters.employmentType=FULLTIME`. Dice is JS-rendered but its search backend is reachable: try the `WebFetch` of the search URL first; if it doesn't return listings, use `WebSearch` `site:dice.com "<responsibility phrase>" remote`. **Watch for the staffing-agency/C2C recruiter glut** — Dice is dense with corp-to-corp contract reqs and body-shop reposts (the AARATECH / RemoteHunter pattern). Aggressively apply Gate 2 (permanent, no contract/C2C/1099) and the body-shop smell test (tiny firm, req posted by a developer, no real JD).
+   - **Indeed** (https://www.indeed.com) — largest volume, but **bot-hostile**: WebFetch and curl routinely 403 / return a CAPTCHA wall. Reach it via `WebSearch` `site:indeed.com "<title or responsibility phrase>" remote $75,000` to surface candidate URLs, then verify each on the **employer's own careers page / ATS** rather than trusting the Indeed mirror (Indeed pages also over-report "remote" and go stale). If a role only exists on Indeed and can't be confirmed on a primary source, mark "verification incomplete — Alex must spot-check."
+   - **Hiring.cafe** (https://hiring.cafe) — fast aggregator with strong structured filters (remote, salary floor, full-time, posting recency). Best used via its search UI/URL params (e.g. filter Remote + US + min salary $75K + full-time + last 7 days). It's an aggregator, so it points to an underlying source — **follow through to the primary posting (employer ATS/careers page) and verify there**, same as any aggregator mirror. Good for catching roles that never hit LinkedIn or the big ATS X-ray.
+   - All three feed the **same 4-gate filter, dedup, and per-listing-note pipeline** as every other source. Rotate keyword angles across days like the other lanes.
 
 ### Specific employer boards to watch (warm-connection lane)
 
@@ -441,6 +446,13 @@ When called as part of the daily briefing (every day, weekends included):
    - Apply the 4-gate hard requirements (remote / FT permanent / comp at or above the floor (value lives in the gitignored Claude Reference.md) or strong inference / ≥80% strong fit).
    - Dedupe against `Projects/Get new job/Job Listings/` folder.
    - Create per-listing notes for survivors with `source: greenhouse` / `source: lever` / `source: company-portal` / etc. as appropriate.
+
+2b. **Dice / Indeed / Hiring.cafe scan** (ADDED 2026-07-22 — see Source #8 above for URLs, query syntax, and per-board gotchas):
+   - Hit all three each pass. Rotate the keyword angle day-to-day like the other lanes (title + responsibility phrases).
+   - **Dice**: full-time + remote + last-7-days filter; discard the C2C/contract/body-shop glut hard (Gate 2 + smell test).
+   - **Indeed**: bot-hostile — surface URLs via `WebSearch site:indeed.com`, then verify on the employer's own ATS/careers page; mark "verification incomplete" if only the Indeed mirror exists.
+   - **Hiring.cafe**: use its structured filters (Remote + US + min $75K + full-time + recent); follow through to the primary posting and verify there.
+   - Same 4-gate filter + dedup against the Job Listings folder. Create per-listing notes for survivors with `source: dice` / `source: indeed` / `source: hiringcafe` (or the underlying employer-ATS tag if the aggregator resolves to one).
 
 3. **LinkedIn discovery scan** (verified workflow — never skip the JD read or the comp DQ check):
    - Read `/linkedin` first for read-only rules, pacing, and the `references[]` mapping gotcha.
