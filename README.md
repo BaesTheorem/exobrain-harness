@@ -4,7 +4,7 @@ A Claude Code-powered personal automation system that manages information flow a
 
 **Owner**: Alex Hedtke
 **Platform**: macOS (Apple Silicon), Claude Code CLI + Desktop
-**Last audited**: 2026-07-16
+**Last audited**: 2026-07-23
 
 ---
 
@@ -37,7 +37,7 @@ INPUTS                          PROCESSING                        OUTPUTS
 Plaud voice notes ----+
 Supernote handwriting-+
 iMessages ------------+         Claude Code                       Obsidian daily notes
-Discord messages -----+------>  (skills + scheduled tasks) -----> Things 3 tasks
+Discord messages -----+------>  (skills + scheduled routines) --> Things 3 tasks
 Google Calendar ------+         processing-log.json               Google Calendar events
 Gmail ----------------+                                           People/ CRM notes
 Fitbit/Withings ------+                                           Mood Journal
@@ -46,7 +46,7 @@ Manual /capture ------+                                           macOS notifica
 
 The system runs on three automation layers:
 1. **launchd file watchers/daemons** -- trigger transcript processing when new Plaud files arrive, fetch Discord messages
-2. **Claude Code scheduled tasks** -- run transcript checks, inbox review, weekly review on cron (morning briefing and evening winddown are manual/interactive)
+2. **Scheduled routines** -- launchd jobs (`com.mist.routine.*`) that inject the morning briefing, afternoon email scan, evening winddown, local-events scan, and weekly review into the MIST Console on a calendar schedule
 3. **Interactive skills** -- invoked manually via `/skill-name` in Claude Code sessions
 
 All outputs converge on the Obsidian vault (`/Users/alexhedtke/Exobrain/`) as the single source of truth, with Things 3 and Google Calendar as action surfaces.
@@ -86,6 +86,24 @@ Self-contained subsystems, each with its own README. Several are local-first int
 | `phone/` | Two-way voice calls with Claude. Twilio ConversationRelay handles speech-to-text/text-to-speech; a local FastAPI server runs a Claude Agent SDK session loading the harness `CLAUDE.md`, MCP servers, and skills. Mutating tools are gated behind a keypad/spoken PIN. |
 | `tv/` | Local control of a Tizen Samsung TV over the LAN (token-paired WebSocket, no cloud account) -- power/Wake-on-LAN, volume, app launch, raw remote keys, plus a full-screen TUI console. |
 | `youtube-no-shorts/` | A userscript (+ content-blocker rules) that removes YouTube Shorts on the real youtube.com (iPhone via the Userscripts app, desktop via Tampermonkey), preserving login and Premium background playback. |
+| `airdrop-to-console/` | Watches `~/Downloads` for AirDropped iPhone photos and routes them into a pinned MIST Console chat. launchd-driven. |
+| `claude-bot/` | The MIST Discord bot -- a discord.py client that gives friends' servers a chat presence and portal channels. launchd KeepAlive daemon. |
+| `disposable-email/` | Throwaway email aliases for signups that shouldn't touch the main identity (game accounts, trials). |
+| `flipper/` | CLI to drive a Flipper Zero over USB serial or Bluetooth LE -- read/write device files, analyze captures, transmit. Paired with the `/flipper` skill. |
+| `job-search/` | Headless daily job-discovery scan for the `/job-search` skill (`claude --print` under launchd at 09:00). |
+| `lyrics-video/` | Turns an audio track + a still image + exact lyrics into a captioned, line-by-line lyric video. Fully offline. |
+| `maintenance/` | Background housekeeping jobs (headless-Chrome reaper, wifi diagnostics). launchd-driven. |
+| `mem-watchdog/` | Memory watchdog for the 8GB machine -- kills runaway processes before they exhaust RAM and freeze the system. launchd KeepAlive daemon. |
+| `mist-console/` | Pointer + rebuild doc for the MIST Console, the desktop chat app (private repo). The Console runs `claude` headlessly in this harness's cwd, so `CLAUDE.md` and all skills load. |
+| `mist-image/` | Text-to-image CLI (pure stdlib). Generation runs on a cloud GPU, nothing local. |
+| `mist-music/` | Music CLI: generate full songs from a prompt, render sheet music/MIDI to audio, transcribe audio to notation. |
+| `mist-terminal/` | Double-clickable MIST.app that launches Claude Code as MIST in a themed terminal with a spoken greeting. |
+| `playstation/` | Remote control of the household PS5 via pyremoteplay (Sony Remote Play protocol). |
+| `reddit/` | Subreddit anecdote miner -- pulls public posts + comment threads into an anonymized JSON corpus for pattern mining. |
+| `resume-builder/` | Reusable PDF builder for resumes and cover letters, so tailoring to a JD never means hand-rebuilding HTML/CSS. |
+| `tools-registry/` | Rebuilds the vault's `Tools/` inventory notes from installed apps + LaunchAgents. launchd daily. |
+| `wifi-roam/` | Keeps the Mac on the best-throughput known wifi instead of clinging to whatever it first joined. |
+| `writing-style/` | Learns Alex's personal writing voice from his own correspondence and distills it into a `Writing Voice.md` reference. |
 
 ### Skills
 
@@ -124,6 +142,19 @@ Skills are invoked with `/skill-name` in Claude Code. Each is defined in `.claud
 | `/session-memory` | Cross-session continuity -- save structured summary at session end, load context at session start. Mostly automatic via hook + CLAUDE.md. | Filesystem |
 | `/solo-dm` | Automated solo D&D 5e DM with grounded adjudication, Python/SQLite backend, Obsidian shared notebook | Python, SQLite, Obsidian |
 | `/ttrpg-player` | Player-side TTRPG assistant (NOT the GM skill) -- character creation, Knife Theory backstory, tactical prep | Obsidian campaign folders |
+| `/birth-chart` | Generate printable natal/synastry birth-chart PDF packets from birth data | birth-charts repo (Swiss Ephemeris) |
+| `/human-design` | Generate printable Human Design PDF packets (BodyGraph, Type, Strategy, Authority) | human-design repo |
+| `/bounty` | Claim and complete open-source bounties end to end, as the repo owner | GitHub, bounty-hunter watcher |
+| `/dnd-sheet` | Work on the self-contained 5e character sheet web app (single-HTML MPMB replacement) | dnd-character-sheet repo |
+| `/electricity` | Pull and analyze home electricity: Evergy usage/cost + Nest HVAC runtime, writes the Energy Log | Evergy, Nest SDM, Obsidian |
+| `/finances` | Personal-finance partner built around the local Envelope Budget app | Envelope Budget (:5010) |
+| `/flipper` | Drive the Flipper Zero from the CLI -- files, captures, transmit, device state | `flipper/` module |
+| `/it-analyst` | IT Support Analyst co-pilot for working service-desk tickets -- triage, troubleshooting, resolution notes | Vault KBAs |
+| `/jackbox` | Play Jackbox games autonomously by driving jackbox.tv in a headed Chrome | Chrome DevTools protocol |
+| `/music` | Generate full songs, render/transcribe sheet music, build captioned lyric videos | mist-music/, lyrics-video/ |
+| `/osrs` | Play Old School RuneScape as MIST on a private server, fully in the background | RuneLite, in-process agent |
+| `/restore-harness` | Restore the harness onto a wiped or new Mac from the daily backup tarball + GitHub | backup-exobrain.sh, RESTORE.md |
+| `/setup-exobrain` | Walk a NEW person (not the repo owner) through standing up their own exobrain with their tools | None (guide) |
 
 #### Convention Skills (reference docs, not directly invoked)
 
@@ -139,24 +170,28 @@ Skills are invoked with `/skill-name` in Claude Code. Each is defined in `.claud
 | `/email` | Canonical reference for email scanning, job alert processing, actionable item extraction, CRM cross-referencing |
 | `/health` | Canonical reference for Fitbit + Withings data pulls, API allocation, Health Log structure (called by other skills) |
 | `/linkedin` | Canonical reference for LinkedIn MCP use -- read-only profile/company/job lookups, bot-detection avoidance, pacing rules (referenced by job-search, crm) |
+| `/browser-render` | Canonical reference for headless-browser screenshots of local HTML -- render HTML/SVG to PNG/PDF without flashing the screen |
+| `/humor` | Operational reference for being genuinely funny -- humor mechanics (benign-violation, incongruity-resolution) used by the Discord persona and chat |
 
-### Scheduled Tasks (3)
+A few additional local-only skills exist on this machine but are git-excluded (personal-scope tooling that never gets committed).
 
-Managed via Claude Code's scheduled-tasks MCP. Run as remote agents on cron.
+### Scheduled Routines (5)
 
-| Task ID | Schedule | Purpose |
+Local launchd jobs (`com.mist.routine.*`) that inject each routine's prompt into the MIST Console via its `run-routine-catchup.sh`, so the results land in the same chat surface the user already reads. The runner supports a catch-up window: if the laptop was asleep at fire time, the routine still runs on wake up to a cutoff hour. These plists ship with the private mist-console repo, not this one.
+
+| Routine | Schedule | Purpose |
 |---------|----------|---------|
-| `check-transcripts` | 9 AM + 6 PM daily | Backup for launchd watcher -- finds and processes new Plaud files |
-| `evening-inbox-review` | 6:00 PM daily | Alerts if Things 3 inbox > 5 items or has urgent deadlines |
-| `weekly-review` | 10:00 AM Sunday | Full GTD review, writes to Sunday's daily note, pings Discord |
+| `morning-briefing` | 8:00 AM daily (catch-up until 6 PM) | Full `/daily-briefing` into the Console |
+| `afternoon-email-scan` | 2:00 PM daily | Scan Gmail for actionable items, job alerts, CRM mentions |
+| `evening-winddown` | 10:00 PM daily | `/evening-winddown`: day recap, mood check-in, tomorrow planning |
+| `local-events-scan` | Thursday 12:00 PM | `/local-events` KC event discovery |
+| `weekly-review` | Sunday 4:00 PM | Full GTD `/weekly-review`, writes to Sunday's daily note |
 
-**Manually invoked** (require laptop to be on, or are interactive):
-- `/daily-briefing` -- morning dashboard (was scheduled, now manual)
-- `/evening-winddown` -- day recap, mood + concern check-in, tomorrow planning (interactive, so manual)
+The session-start hook surfaces any routine whose last run exited nonzero, so failures don't pass silently.
 
 ### launchd Jobs (19)
 
-Installed in `~/Library/LaunchAgents/`. All 19 plists are tracked in the repo.
+Installed in `~/Library/LaunchAgents/`. All 19 plists are tracked in the repo. (The same machine also runs launchd jobs owned by sibling repos -- claude-home energy/HVAC pollers, price/restock watchers, the mist-console autocommit -- which are documented in their own repos, not here.)
 
 | Plist | Location | Watches/Triggers | Purpose |
 |-------|----------|-----------------|---------|
@@ -190,7 +225,7 @@ Displays today's date with logical day (accounting for the 2 AM boundary), then 
 
 ### Memory System
 
-Persistent cross-session memory in `.claude/projects/.../memory/`. ~50 files total.
+Persistent cross-session memory in `.claude/projects/.../memory/`. ~225 files total, indexed by a one-line-per-memory `MEMORY.md` loaded each session. Other frequently used repos symlink their memory dirs to this store, so there is one memory regardless of project.
 
 **Core**: user profile, reference paths, project architecture
 **Behavioral rules**: overbooking alerts, calendar verification, Guild event filtering, Things 3 deep links and inbox-only, CRM extraction and math verification, outreach style, claim verification, flight buffers, late-night date handling, Fitbit data accuracy, Withings in health data, Obsidian formatting (H3 daily note headings, no blank lines before headers, no H1 in People notes), transcript name corrections, job scan depth and stale listing verification, compact briefing format, no em dashes, sleep data date convention
@@ -208,7 +243,8 @@ Persistent cross-session memory in `.claude/projects/.../memory/`. ~50 files tot
 | **Gmail** | Claude Desktop managed | Email search, read, draft | Google OAuth (Desktop-managed) |
 | **Google Drive** | Claude Desktop managed | File search and fetch | Google OAuth (Desktop-managed) |
 | **Discord** | Claude plugin (`discord@claude-plugins-official`) | Message fetch (digest) | Bot token (plugin-managed) |
-| **Scheduled Tasks** | Claude Desktop managed | Cron-based remote agent execution | None |
+| **Plaud** | Remote MCP | Recording list, transcripts, AI summary notes, audio links | OAuth (tokens in `~/.plaud/`, auto-refreshed) |
+| **LinkedIn** | Local (linkedin-scraper-mcp) | Read-only profile/company/job lookups for job-search and CRM | Browser session (never sends messages) |
 | **MyChart** | Claude Desktop managed (hosted by [OpenRecord](https://github.com/Fan-Pier-Labs/openrecord)) | Full MyChart patient portal: meds, labs, imaging, vitals, messages, billing, insurance, referrals, preventive care, care team, immunizations, visits, documents, emergency contacts, refill requests (35+ tools, read + write) | MyChart credentials + TOTP (session auto-renews) |
 
 **Fitbit MCP location**: `/Users/alexhedtke/Documents/Claude Code/mcp-fitbit-main/`
@@ -229,7 +265,7 @@ Persistent cross-session memory in `.claude/projects/.../memory/`. ~50 files tot
 | **Fitbit** | Steps, heart rate, sleep, active zone minutes, calories | MCP server |
 | **Withings** | Weight, body composition (fat %, muscle, bone, hydration, visceral fat), blood pressure | MCP server |
 | **MyChart** | Full patient portal: meds, labs, imaging, vitals, messages, billing, insurance, preventive care, refills | MCP server ([OpenRecord](https://github.com/Fan-Pier-Labs/openrecord), hosted) |
-| **Plaud Note** | Voice recording to transcript files | Plaud app syncs `.txt` files to Google Drive, then to Obsidian vault |
+| **Plaud Note** | Voice recording to transcript files | Plaud app syncs `.txt` files to Google Drive, then to Obsidian vault; Plaud MCP for direct library access |
 | **Supernote A5X** | Handwritten notes (`.note` format) | Supernote app syncs to Google Drive, then to filesystem |
 | **Discord** | Friend group server | MCP plugin + `discord-digest-fetch.py` for offline message history |
 | **iMessage** | Text messages | `imessage-reader.py` reading `chat.db` |
@@ -253,19 +289,17 @@ Discord messages arrive in friend group server
   -> launchd runs discord-digest-fetch.py every 4 hours
   -> Writes discord-digest.json for daily briefing consumption
 
-Backup (weekly):
-  -> backup-exobrain.sh archives config, skills, memory, credentials
+Backup (daily 2 AM):
+  -> backup-exobrain.sh archives harness + vault + sibling repos' gitignored data to Google Drive
 ```
 
-### Scheduled (cron via Claude Code)
+### Scheduled routines (launchd -> MIST Console)
 ```
-9 AM + 6 PM:      check-transcripts -> backup for launchd watcher
-6:00 PM daily:    inbox review -> notification if inbox needs attention
-10:00 AM Sunday:  /weekly-review -> comprehensive synthesis -> Obsidian + Discord
-
-Manual (interactive):
-/daily-briefing   -> morning dashboard (invoked in session)
-/evening-winddown -> day recap, mood, concern check-in, tomorrow planning (invoked in session)
+8:00 AM daily:    morning-briefing  -> /daily-briefing dashboard in the Console
+2:00 PM daily:    afternoon-email-scan -> Gmail actionables, job alerts, CRM mentions
+10:00 PM daily:   evening-winddown  -> day recap, mood, tomorrow planning
+Thu 12:00 PM:     local-events-scan -> KC event discovery
+Sun 4:00 PM:      weekly-review     -> comprehensive synthesis -> Obsidian + Discord
 ```
 
 ### Manual (user-invoked)
@@ -287,7 +321,12 @@ Manual (interactive):
 ```
 Exobrain harness/
 |-- CLAUDE.md                           # System manifest (paths, conventions, priorities)
+|-- CLAUDE.global.md                    # Machine-wide instructions (persona, privacy, epistemics), imported by ~/.claude/CLAUDE.md
 |-- README.md                           # This file
+|-- RESTORE.md                          # Disaster-recovery runbook (pairs with /restore-harness and restore-smoke-test.sh)
+|-- restore-smoke-test.sh               # Verifies the latest backup tarball actually restores
+|-- Brewfile                            # Homebrew manifest for rebuilding system deps
+|-- auto-commit-harness.sh              # Daily auto-commit of harness changes (with gitignore audit)
 |-- MAC-MINI-MIGRATION-PLAN.md          # Plan to move always-on automation to a dedicated Mac Mini (laptop becomes a client)
 |-- .mcp.json                           # MCP server configs + Fitbit credentials (git-ignored)
 |-- .env                                # Shared local secrets: Withings tokens, AWAIR_HOST, TV_HOST/TV_MAC (git-ignored)
@@ -398,6 +437,13 @@ Exobrain harness/
 |   |-- run.sh
 |   |-- com.exobrain.job-listings-sync.plist  # Watches the Job Listings/ vault folder
 |
+|-- Standalone modules (each with its own README -- see Standalone Modules table)
+|   |-- airdrop-to-console/  claude-bot/  disposable-email/  flipper/
+|   |-- job-search/  lyrics-video/  maintenance/  mem-watchdog/
+|   |-- mist-console/  mist-image/  mist-music/  mist-terminal/  mist-voice/
+|   |-- playstation/  reddit/  resume-builder/  tools-registry/
+|   |-- wifi-roam/  writing-style/
+|
 |-- Subdirectory apps
 |   |-- mood-tracker/                   # Mood journal web app
 |   |-- pomodoro/                       # Pomodoro timer app
@@ -409,7 +455,7 @@ Exobrain harness/
     |-- launch.json                     # Dev server configs (sailboat retro)
     |-- hooks/
     |   |-- session-start.sh            # Date + system health check
-    |-- skills/                         # 39 skills total -- see Skills section above
+    |-- skills/                         # 54 tracked skills -- see Skills section above
 
 External vault: /Users/alexhedtke/Exobrain/
 |-- Dashboard.md                        # Current priorities
@@ -576,17 +622,11 @@ Edit the plist files to match your actual paths if they differ from the defaults
 chmod +x transcript-processing/run-process-transcript.sh discord/run-discord-digest.sh job-listings-sync/run.sh backup-exobrain.sh .claude/hooks/session-start.sh
 ```
 
-### Step 9: Set Up Scheduled Tasks
+### Step 9: Set Up Scheduled Routines
 
-Open a Claude Code session in the harness directory. The scheduled tasks are managed via the `scheduled-tasks` MCP -- create them with `/schedule` or via the MCP tools:
+The recurring routines (morning briefing, afternoon email scan, evening winddown, local-events scan, weekly review) run as `com.mist.routine.*` launchd jobs that inject prompts into the MIST Console (see Scheduled Routines above). Those plists live with the mist-console repo. Without the Console, the equivalent is a launchd/cron job that runs `claude --print "/daily-briefing"` (and the rest) in this directory on the same schedule -- the `job-search/run-job-scan.sh` wrapper is a working template for headless `claude --print` under launchd.
 
-- **check-transcripts**: `0 9,18 * * *` (9 AM + 6 PM daily)
-- **evening-inbox-review**: `0 18 * * *` (6 PM daily)
-- **weekly-review**: `0 10 * * 0` (10 AM Sunday)
-
-The daily briefing and evening winddown are invoked manually in interactive sessions (`/daily-briefing`, `/evening-winddown`).
-
-Each scheduled task runs as a remote agent with its own Claude session. Run each once interactively first to pre-approve tool permissions.
+Run each routine once interactively first to pre-approve tool permissions.
 
 ### Step 10: Grant Full Disk Access (for iMessage)
 
@@ -638,8 +678,12 @@ cat /tmp/exobrain-plaud-watcher.log    # stdout
 cat /tmp/exobrain-plaud-watcher.err    # stderr
 ```
 
-### Checking Scheduled Task Status
-In a Claude Code session: use the scheduled-tasks MCP to list tasks and check `lastRunAt` timestamps.
+### Checking Scheduled Routine Status
+```bash
+launchctl list | grep com.mist.routine
+tail -50 ~/Library/Logs/mist-routines.log
+```
+The session-start hook also flags any `com.exobrain.*` or `com.mist.routine.*` job whose last run exited nonzero.
 
 ---
 
