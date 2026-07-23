@@ -1,5 +1,5 @@
 #!/bin/zsh
-# MIST launcher — starts Claude Code wrapped in MIST's persona, with a spoken greeting.
+# MIST launcher -- starts Claude Code wrapped in MIST's persona, with a spoken greeting.
 # Run by MIST.app (inside a Ghostty window) or directly from any terminal.
 
 HARNESS="/Users/alexhedtke/Documents/Exobrain harness"

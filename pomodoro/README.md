@@ -15,13 +15,13 @@ bash setup.sh
 
 | File | Purpose |
 |------|---------|
-| `main.py` | App entry point — timer logic, Things 3 task picker, Obsidian logging |
+| `main.py` | App entry point -- timer logic, Things 3 task picker, Obsidian logging |
 | `setup.sh` | Builds the macOS .app bundle |
 | `create_icon.py` | Generates the `AppIcon.icns` app icon |
 | `web/index.html` | Timer UI (loaded by pywebview) |
 
 ## Dependencies
 
-- `pywebview` — native window wrapper
-- `pillow` — icon generation
+- `pywebview` -- native window wrapper
+- `pillow` -- icon generation
 - Things 3 (reads task list from its SQLite database)

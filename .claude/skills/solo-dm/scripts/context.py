@@ -240,7 +240,7 @@ def build_npc_context(slug: str, cid: int, turns_back: int = 5) -> dict:
             (g for g in scene_goals if g.get("character_id") == cid or g.get("name") == ch["name"]),
             None,
         )
-        # recent turns in scene — strip PC meta-info (damage totals redacted to 'hit'/'miss')
+        # recent turns in scene -- strip PC meta-info (damage totals redacted to 'hit'/'miss')
         turns = _recent_turns(c, scene["id"] if scene else None, turns_back)
         redacted = []
         for t in turns:

@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-alias.py — disposable email alias system for Alex.
+alias.py -- disposable email alias system for Alex.
 
 Mints segregated, throwaway email aliases that all FORWARD INTO Alex's Gmail, so
 MIST can read verification codes via the Gmail MCP and finish signups. Every alias
@@ -8,9 +8,9 @@ is tracked in a gitignored registry (which service it was for, when, status) so 
 leaked/sold address is identifiable and can be burned + replaced.
 
 Backends (schemes):
-  gmail-plus  (default) alex.hedtke+<service>@gmail.com  — works instantly, no setup.
+  gmail-plus  (default) alex.hedtke+<service>@gmail.com -- works instantly, no setup.
   gmail-dot             dotted variant (hides the +tag for forms that reject '+').
-  addy                  addy.io API alias (true disposability) — needs ADDY_API_KEY.
+  addy                  addy.io API alias (true disposability) -- needs ADDY_API_KEY.
 
 Usage:
   alias.py mint <service> [--scheme gmail-plus|gmail-dot|addy] [--note "..."]
@@ -27,8 +27,8 @@ import sys, os, json, time, datetime, re
 BASE_EMAIL = "alex.hedtke@gmail.com"
 BASE_USER, BASE_DOMAIN = BASE_EMAIL.split("@")
 HERE = os.path.dirname(os.path.abspath(__file__))
-REGISTRY = os.path.join(HERE, "aliases.json")           # gitignored — personal data
-SECRETS = os.path.join(HERE, "secrets.json")            # gitignored — addy.io API key etc.
+REGISTRY = os.path.join(HERE, "aliases.json")           # gitignored -- personal data
+SECRETS = os.path.join(HERE, "secrets.json")            # gitignored -- addy.io API key etc.
 
 def _load():
     if os.path.exists(REGISTRY):
@@ -127,7 +127,7 @@ def list_aliases(service=None):
         flag = "" if r["status"] == "active" else " [%s]" % r["status"]
         out.append("%-34s  %-14s  %-10s  %s%s" % (
             r["alias"], r["service"], r["created"], r["scheme"], flag)
-            + ("  — " + r["note"] if r.get("note") else ""))
+            + (" -- " + r["note"] if r.get("note") else ""))
     return "\n".join(out)
 
 def note(alias, text):
@@ -145,7 +145,7 @@ def burn(alias):
         if r["alias"] == alias:
             r["status"] = "burned"
             _save(rows)
-            # (addy aliases can also be deactivated via API — add if/when used heavily)
+            # (addy aliases can also be deactivated via API -- add if/when used heavily)
             return "burned: " + alias + " (stop using it; mint a fresh one for that service)"
     return "NOT_FOUND " + alias
 
@@ -177,7 +177,7 @@ def main():
         out = mint(rest[0], scheme, note_txt)
         print(out)
         if scheme in ("gmail-plus", "gmail-dot") and out.endswith("@" + BASE_DOMAIN):
-            print("  ⚠ this NORMALIZES to %s — NOT safe for anything that might get banned"
+            print("  ⚠ this NORMALIZES to %s -- NOT safe for anything that might get banned"
                   " (e.g. game accounts). Use --scheme addy for a separate-domain alias that"
                   " can't poison your main email." % BASE_EMAIL)
     elif c == "list":

@@ -1,7 +1,7 @@
 #!/bin/bash
 # Deploy WiFi Roam. Source lives in this repo; the *runtime* is copied to
 # ~/Library/Application Support/WiFiRoam because launchd cannot read files under
-# ~/Documents (TCC-protected) — the venv interpreter fails to boot there.
+# ~/Documents (TCC-protected) -- the venv interpreter fails to boot there.
 # Idempotent: re-run after editing roam.py to redeploy.
 set -euo pipefail
 

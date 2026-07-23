@@ -3,11 +3,11 @@
 Reads iMessage history from macOS `chat.db` (briefings, CRM, winddowns) and sends
 iMessages on Alex's behalf via Messages.app.
 
-## Architecture — why there are two halves
+## Architecture -- why there are two halves
 
 Reading `chat.db` needs macOS **Full Disk Access (FDA)**, and FDA is granted per
 **binary path**. The old setup had Claude Code shell out to `python3` directly, so
-the process touching `chat.db` was attributed to *Claude Code's* binary — which
+the process touching `chat.db` was attributed to *Claude Code's* binary -- which
 lives at a versioned path that changes on every CC update. Result: FDA silently
 broke every time Claude Code updated.
 
@@ -20,7 +20,7 @@ The fix decouples **reading** from **consuming**:
   `cache/chat.db`, caches a `contacts.json` phone→name map, and writes
   `sync-status.json`. You grant FDA to that binary **once** and it survives
   every future Claude Code, Homebrew, and CLT update.
-- **`imessage-reader.py`** (the consuming half) reads `cache/chat.db` — an ordinary
+- **`imessage-reader.py`** (the consuming half) reads `cache/chat.db` -- an ordinary
   file, **no FDA needed**. Claude never touches the protected path.
 
 `cache/` and `logs/` are gitignored (message snapshots + real contact names).
@@ -60,7 +60,7 @@ at `imessage/com.exobrain.imessage-sync.plist` (tracked).
 ## Usage
 
 ```bash
-# Read (from the synced cache — no FDA needed)
+# Read (from the synced cache -- no FDA needed)
 python3 imessage-reader.py status                          # DB source + cache freshness
 python3 imessage-reader.py recent [--hours N] [--limit N]
 python3 imessage-reader.py chat "Name or Phone" [--days N] [--limit N]
@@ -82,11 +82,11 @@ if the cache doesn't exist yet.
 
 `imessage-send.py` automatically appends **`-MIST (Alex's assistant)`** to every outgoing
 message so recipients always know it's the assistant, not Alex personally. The
-signature is enforced in code — don't bypass it by sending through raw osascript.
+signature is enforced in code -- don't bypass it by sending through raw osascript.
 Outgoing messages to other people are outward-facing prose: humanize them
 (no em dashes, run /de-ai) and confirm content before sending.
 
 ## Dependencies
 
-None — stdlib only (`sqlite3`, `shutil`). Sender shells out to `osascript` +
+None -- stdlib only (`sqlite3`, `shutil`). Sender shells out to `osascript` +
 `send-imessage.applescript`.

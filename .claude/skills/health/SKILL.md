@@ -14,7 +14,7 @@ Single source of truth for all health data. Other skills reference this skill ra
 | **Fitbit** | Steps, sleep, resting HR, AZM, calories, activity trends | **Weight** (that's Withings only) |
 | **Withings** | Weight, body composition (fat %, muscle mass, bone mass, hydration %, visceral fat), blood pressure | Activity data |
 
-Alex weighs in the morning before drinking water — hydration % reads low by design. Not a concern.
+Alex weighs in the morning before drinking water -- hydration % reads low by design. Not a concern.
 
 ## MyChart (Epic patient portal)
 
@@ -75,12 +75,12 @@ Called by the daily briefing. Pulls **yesterday's** data and writes/updates the 
 - `get_heart_rate_by_date_range` (today minus 15 to today) → RHR baseline for canary check
 - `get_temp_skin_by_date_range` (today minus 15 to today) → skin temp baseline for canary confirmer (see **RHR Illness Canary** below)
 - `get_azm_timeseries` (past 7 days) → AZM with trend
-- `get_sleep_by_date_range` (last night) → sleep score, duration. Use today's date for the query — Fitbit records sleep under the wake-up date.
+- `get_sleep_by_date_range` (last night) → sleep score, duration. Use today's date for the query -- Fitbit records sleep under the wake-up date.
 - `get_activity_timeseries` (past 7 days) → step trend for comparison
 
 **Withings** (only if a weigh-in occurred yesterday):
 - `withings_get_measurements` with yesterday's date as both startDate and endDate → check which measurement types were actually recorded
-- **Only include fields that were actually measured on that date.** The `withings_get_body_composition` tool silently combines the latest weight with the latest body comp even if they're from different dates — do NOT trust its output blindly. Use `withings_get_measurements` with date filtering to verify which types were recorded.
+- **Only include fields that were actually measured on that date.** The `withings_get_body_composition` tool silently combines the latest weight with the latest body comp even if they're from different dates -- do NOT trust its output blindly. Use `withings_get_measurements` with date filtering to verify which types were recorded.
 - Common pattern: a quick weigh-in records only weight (type 1), while a full body scan records weight + fat mass (5) + muscle (76) + bone (88) + hydration (77) + visceral fat (170). Only include fields that have a measurement on that specific date.
 - If no weigh-in yesterday: **omit all Withings fields** from the Health Log note. Never carry forward stale Withings data from a prior date.
 - Blood pressure: include only if measured that day.
@@ -104,7 +104,7 @@ Called by the daily briefing. Pulls **yesterday's** data and writes/updates the 
 
 ### Step goal tracking
 
-Alex's goal: 15,000+ steps/day. Compare yesterday to 7-day average. If below goal, identify a free block in today's calendar and suggest a specific walk time. One recommendation per briefing — don't nag.
+Alex's goal: 15,000+ steps/day. Compare yesterday to 7-day average. If below goal, identify a free block in today's calendar and suggest a specific walk time. One recommendation per briefing -- don't nag.
 
 ### RHR Illness Canary
 
@@ -128,10 +128,10 @@ Drop days with missing readings.
 
 **Fire alert only when both the RHR-elevated condition AND the skin temp confirmer are true.**
 
-If RHR is elevated but skin temp is normal, **do not fire** — this is the stress/anxiety pattern, not illness. Do not surface it in the briefing at all.
+If RHR is elevated but skin temp is normal, **do not fire** -- this is the stress/anxiety pattern, not illness. Do not surface it in the briefing at all.
 
 **Severity** (only applies when alert fires):
-- `moderate`: 2-day RHR streak ≥3 bpm + skin temp confirmed, or single-day +5–6 bpm + skin temp confirmed
+- `moderate`: 2-day RHR streak ≥3 bpm + skin temp confirmed, or single-day +5-6 bpm + skin temp confirmed
 - `high`: single-day RHR spike ≥7 bpm, OR 3+ day RHR streak ≥3 bpm, in both cases with skin temp confirmed
 
 **Output** (returned to the daily briefing alongside the `#### Health` summary):
@@ -144,17 +144,17 @@ If RHR is elevated but skin temp is normal, **do not fire** — this is the stre
   "rhr_delta": 7,
   "skin_temp_delta_c": 0.34,
   "streak_days": 3,
-  "message": "RHR elevated 7 bpm AND skin temp +0.34°C above baseline (3-day streak). Likely illness onset — consider lightening tomorrow's schedule, hydrating, and protecting sleep."
+  "message": "RHR elevated 7 bpm AND skin temp +0.34°C above baseline (3-day streak). Likely illness onset -- consider lightening tomorrow's schedule, hydrating, and protecting sleep."
 }
 ```
 
 If `fired` is false, the briefing omits the alert. **Do not nag**: when the streak ends (RHR returns within 2 bpm of baseline OR skin temp returns to baseline), suppress further alerts until a fresh trigger.
 
-**Skin temp data unavailability**: if the Fitbit API returns no skin temp data for last night (device wasn't worn, or device doesn't support it), do not fire — never fall back to RHR-only, since RHR alone has too many false positives from stress.
+**Skin temp data unavailability**: if the Fitbit API returns no skin temp data for last night (device wasn't worn, or device doesn't support it), do not fire -- never fall back to RHR-only, since RHR alone has too many false positives from stress.
 
 **Confounders** to mention in the message when relevant:
-- Hard workout in the past 24h (check `get_exercises`) — exercise can elevate next-day RHR
-- Heavy alcohol the prior evening — note from the daily note if mentioned
+- Hard workout in the past 24h (check `get_exercises`) -- exercise can elevate next-day RHR
+- Heavy alcohol the prior evening -- note from the daily note if mentioned
 - Travel/altitude change
 
 These don't suppress the alert (skin temp already filters most stress-only events), but the message should acknowledge them so Alex can interpret the signal.
@@ -166,7 +166,7 @@ Called by the evening winddown. Pulls **today's** final activity totals and upda
 - `get_daily_activity_summary` for today → final steps, calories, active minutes
 - If the morning briefing already created the note (with Withings data), update only the activity fields
 - If no Health Log note exists yet, create one with whatever data is available
-- This is the "final tally" for the day — steps vs goal, but don't nag at bedtime
+- This is the "final tally" for the day -- steps vs goal, but don't nag at bedtime
 
 ## Reading Historical Data
 
@@ -184,7 +184,7 @@ This ensures consistency across skills and saves API calls.
 Alex's cat **Loki** is tracked as a first-class health subject, same as Alex.
 Her **PetKit PuraMax 2** litterbox has a built-in scale, so a standalone puller
 logs every visit's body weight, time, and duration. The litterbox is a cat's
-best early-warning sensor — weight drift and frequency changes show up weeks
+best early-warning sensor -- weight drift and frequency changes show up weeks
 before behavior does, and cats hide illness.
 
 - **Puller**: `~/Documents/petkit-loki` (standalone repo, NOT in the harness;
@@ -205,12 +205,12 @@ When surfacing Loki, compare recent data to her baseline (median weight + typica
 daily visit count from the trailing ~14 days of Loki Health Log notes). Flag, as
 **watch-items not diagnoses**, and only when the signal is real:
 
-- **Weight slide** — a sustained drop (≥~5% off baseline median over a week+) is
+- **Weight slide** -- a sustained drop (≥~5% off baseline median over a week+) is
   the earliest signal for kidney disease, the most common serious problem at her
   age. This is the highest-value flag. Surface it and suggest a vet weigh-in.
-- **Frequency spike / straining** — visits well above baseline, or many short
+- **Frequency spike / straining** -- visits well above baseline, or many short
   trips, can mean a UTI or (emergency) a urinary blockage.
-- **Frequency drop** — well below baseline can mean constipation or reduced
+- **Frequency drop** -- well below baseline can mean constipation or reduced
   eating/drinking.
 
 Don't nag: flag a sustained change, not single-day noise. One litterbox weighing
@@ -218,7 +218,7 @@ is jittery (she moves); trust the multi-day trend, not one reading.
 
 **Acute no-visit canary** (autonomous, not a briefing job): the puller itself
 checks the gap since Loki's last box visit on every hourly poll and fires a
-spoken `mist-notify` if she hasn't gone in **12h** (escalates at 18h) — her
+spoken `mist-notify` if she hasn't gone in **12h** (escalates at 18h) -- her
 observed max in a month is 10.2h. A cat that stops using the box may be blocked
 (a urinary emergency). This fires in near-real-time on its own; the briefing
 doesn't need to replicate it. If a gap alert recently fired, mention it in the

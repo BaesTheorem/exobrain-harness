@@ -6,12 +6,12 @@ private repo because it's copyrighted *Pantheon* show audio:
 ## → https://github.com/BaesTheorem/mist-voice-data  (private · git-lfs)
 
 Contents (mirrors this `mist-voice/` layout):
-- `samples/raw/mist_supercut.wav` — ~335MB raw corpus of MIST's lines
-- `samples/raw/mist_supercut.segments.tsv` — 605-segment curation (which spans are clean MIST)
-- `samples/reference/06_need_your_help.wav` — active cloning reference
-- `samples/reference/_archive/*.wav` — dropped takes
-- `samples/mist_windows.tsv` — window manifest
-- `demo_mist.wav` — approved canonical sample
+- `samples/raw/mist_supercut.wav` -- ~335MB raw corpus of MIST's lines
+- `samples/raw/mist_supercut.segments.tsv` -- 605-segment curation (which spans are clean MIST)
+- `samples/reference/06_need_your_help.wav` -- active cloning reference
+- `samples/reference/_archive/*.wav` -- dropped takes
+- `samples/mist_windows.tsv` -- window manifest
+- `demo_mist.wav` -- approved canonical sample
 
 ## Rebuild
 ```bash

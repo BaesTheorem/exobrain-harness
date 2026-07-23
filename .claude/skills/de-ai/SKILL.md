@@ -109,7 +109,7 @@ Make the third paragraph sound more like a startup founder wrote it
 - Fix: state the thing plainly. "quietly tracks heart rate" → "tracks heart rate". "quietly wins the comparison" → "wins the comparison" or, better, say *why* it wins.
 
 ## 15. Remove Vague Attributions
-- "Experts argue", "Industry reports suggest", "Observers have cited", "Some critics argue" — these are weasel phrases
+- "Experts argue", "Industry reports suggest", "Observers have cited", "Some critics argue" -- these are weasel phrases
 - Either name the source or cut the claim
 
 ## 16. Watch for Promotional Tone
@@ -141,31 +141,31 @@ portable across projects. Scrub every surface below before pushing. Sources:
   capture; never a bullet list restating what changed. Many good commits are
   subject-only.
 - No emoji. No marketing verbs (leverage/enhance/ensure/streamline/facilitate).
-- **Vary structure across commits** — every commit being a verbose multiline
+- **Vary structure across commits** -- every commit being a verbose multiline
   block is the single strongest AI fingerprint (multiline-ratio, 44.7% feature
   importance). Small atomic commits; terse where apt ("fix typo", "bump deps");
   include issue refs (`#123`) like a human would.
 
 Before (AI): `feat: implement comprehensive retry logic to ensure robust uploads`
 with a 5-bullet body restating the diff + `Co-Authored-By: Claude`.
-After (human): `Retry uploads on 5xx (#412)` — body only if the *why* is
+After (human): `Retry uploads on 5xx (#412)` -- body only if the *why* is
 non-obvious.
 
 ### Code comments & docstrings
 - **Delete comments that restate the code.** Comment WHY, not WHAT.
 - No "Step 1 / Step 2" narration. No full Args/Returns/Raises boilerplate on
-  trivial or internal helpers — match the file's existing docstring density
+  trivial or internal helpers -- match the file's existing docstring density
   (often none).
 - Sparse and irregular density. Cut comment hedges: "Note that…", "It's worth
   noting…", "This ensures…", "This allows…".
 - No comments narrating your own reasoning ("We use a dict here for O(1)
-  lookup…"). No generic TODOs — a real TODO names a blocker or ticket.
+  lookup…"). No generic TODOs -- a real TODO names a blocker or ticket.
 
 Before (AI): `i += 1  # increment the counter`  After (human): `i += 1` (or, if
 non-obvious, `i += 1  # retries exhausted, give up`).
 
 ### The code itself
-- **Match repo conventions exactly** — naming, import style, error-handling
+- **Match repo conventions exactly** -- naming, import style, error-handling
   pattern, framework idioms. The diff should be statistically indistinguishable
   from the surrounding code.
 - **Grep for existing helpers before writing new ones.** Don't reimplement what
@@ -173,11 +173,11 @@ non-obvious, `i += 1  # retries exhausted, give up`).
 - No over-engineering: no factory/strategy/config layer for a one-off; no
   defensive `try/except` around operations that can't fail; never swallow
   exceptions (the catch-and-return-empty pattern hides bugs).
-- **Names earn their length** — not generic (`data`, `temp`, `result`) and not
+- **Names earn their length** -- not generic (`data`, `temp`, `result`) and not
   bloated (`user_data_result`). Short and confident where context is clear.
 - **Minimal, single-concern diff.** Don't reformat untouched lines. Remove dead
   code, unused imports, and abandoned attempts before pushing.
-- **Verify every API/method actually exists** — LLMs hallucinate methods and even
+- **Verify every API/method actually exists** -- LLMs hallucinate methods and even
   whole packages (5-21% of AI-suggested npm packages don't exist). Don't add
   dependencies the repo doesn't need.
 - Tests cover edge cases (null/empty/boundary/failure), not just the happy path.
@@ -188,8 +188,8 @@ non-obvious, `i += 1  # retries exhausted, give up`).
   (`Closes #n`), one or two lines on the problem and approach, and note anything
   untested or any tradeoff. Trust the reviewer to read the diff.
 - No closing pleasantries ("Let me know if you'd like any changes!"). No
-  four-section template on a two-line fix — skip the body if the title says it.
-- Genuine uncertainty reads as human — flag what you're unsure about.
+  four-section template on a two-line fix -- skip the body if the title says it.
+- Genuine uncertainty reads as human -- flag what you're unsure about.
 
 ### Behavioral (meta-tells that get people caught)
 - **Be able to explain every line without AI.** Ghostty's literal test: "if you

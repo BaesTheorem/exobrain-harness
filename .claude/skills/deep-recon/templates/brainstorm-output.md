@@ -18,13 +18,13 @@ source_notes:
 > {{Per-round agent summaries}}
 
 > [!abstract] Central Question
-> {{central_question — the brainstorm's driving question, refined through the rounds}}
+> {{central_question -- the brainstorm's driving question, refined through the rounds}}
 
 ## The Territory
 
-### {{Framing 1 — an evocative name, not a category}}
+### {{Framing 1 -- an evocative name, not a category}}
 
-{{What does the topic look like through this lens? 3-5 paragraphs developing this reading fully, on its own terms. Include [[wikilinks]] and footnotes. Do not reference other framings — this one stands alone. End with what this framing reveals and what it obscures.}}
+{{What does the topic look like through this lens? 3-5 paragraphs developing this reading fully, on its own terms. Include [[wikilinks]] and footnotes. Do not reference other framings -- this one stands alone. End with what this framing reveals and what it obscures.}}
 
 ### {{Framing 2}}
 
@@ -40,7 +40,7 @@ source_notes:
 
 ### {{X}} vs. {{Y}}
 
-**The pull toward X:** {{why X is compelling, what it enables — 3-5 sentences, written with conviction}}
+**The pull toward X:** {{why X is compelling, what it enables -- 3-5 sentences, written with conviction}}
 
 **The pull toward Y:** {{same treatment, equally committed}}
 
@@ -56,7 +56,7 @@ source_notes:
 
 ## Open Questions
 
-{{Questions the brainstorm generated but did not answer. Genuinely open — not rhetorical, not implying their own answers. Each question should make the user want to think further, not act.}}
+{{Questions the brainstorm generated but did not answer. Genuinely open -- not rhetorical, not implying their own answers. Each question should make the user want to think further, not act.}}
 
 1. {{Question}}
 2. {{Question}}
@@ -65,10 +65,10 @@ source_notes:
 ## Sources
 
 ### From the Vault
-- [[Note name]] — how it connects
+- [[Note name]] -- how it connects
 
 ### From the Web
-- [Source title](URL) — key insight
+- [Source title](URL) -- key insight
 
 ### Downloaded PDFs (if --pdfs was used)
-- `PDFs/<filename>.pdf` — description
+- `PDFs/<filename>.pdf` -- description

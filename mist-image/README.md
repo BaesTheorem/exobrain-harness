@@ -34,7 +34,7 @@ with fresh seeds before giving up.
 ## Keys (one-time, required)
 
 The genuinely keyless image APIs are gone as of mid-2026. Pick one free key and
-drop it in the **harness `.env`** (gitignored) — the CLI reads it automatically,
+drop it in the **harness `.env`** (gitignored) -- the CLI reads it automatically,
 including from scheduled/launchd calls.
 
 **Pollinations (fastest, one token):**

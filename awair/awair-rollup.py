@@ -19,8 +19,8 @@ NOTE = Path.home() / "Exobrain" / "Areas" / "Health & Fitness" / "Air Quality Lo
 START = "<!-- AIR:AUTO START -->"
 END = "<!-- AIR:AUTO END -->"
 
-CO2_WARN = 1000          # ppm — stuffy/ventilate threshold (matches watcher)
-HUMID_HIGH = 60.0        # % RH — mildew-risk threshold
+CO2_WARN = 1000          # ppm -- stuffy/ventilate threshold (matches watcher)
+HUMID_HIGH = 60.0        # % RH -- mildew-risk threshold
 DAYS = 14
 
 NOTE_TEMPLATE = """# Air Quality Log
@@ -120,7 +120,7 @@ def write_note(body):
             post = text.split(END, 1)[1]
             NOTE.write_text(f"{pre}{START}\n{body}\n{END}{post}")
             return
-        # note exists but no markers — append a fresh auto block
+        # note exists but no markers -- append a fresh auto block
         NOTE.write_text(f"{text.rstrip()}\n\n{START}\n{body}\n{END}\n")
         return
     NOTE.write_text(NOTE_TEMPLATE.format(start=START, body=body, end=END))

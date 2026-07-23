@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""optimize-universal-ir.py — make the Flipper's on-board universal remote sweep
+"""optimize-universal-ir.py -- make the Flipper's on-board universal remote sweep
 (TV-B-Gone and friends) finish faster.
 
 The universal remote sends every signal whose name matches the pressed button
@@ -10,7 +10,7 @@ in the list. This tool rewrites an assets/*.ir library to:
   1. DEDUP identical signals (same protocol+address+command, or identical raw data)
   2. REORDER by brand/protocol popularity so mainstream gear powers off first
 
-Coverage is preserved by default (nothing is dropped) — only the order changes,
+Coverage is preserved by default (nothing is dropped) -- only the order changes,
 so even an exotic device still eventually gets hit. `--top N` additionally trims
 the prioritised button to the N most-popular codes for maximum speed (drops the
 long tail; use when you only target mainstream gear).
@@ -37,7 +37,7 @@ FAMILY_RANK = {
 OTHER_PARSED_RANK = 6
 RAW_RANK = 7
 
-# Codes I'm fairly confident map to a top brand — nudged to the front of their
+# Codes I'm fairly confident map to a top brand -- nudged to the front of their
 # family. Order-only, so a wrong guess costs at most a few positions, never a miss.
 KNOWN_TOP = {
     ("Samsung32", "07 00 00 00"),        # Samsung TVs
@@ -124,7 +124,7 @@ def family_of(block):
 
 def within_key(block, index):
     """Order inside a family: prioritised button first, then known-top brand
-    codes, then original order — so each family's first pick is its most-likely
+    codes, then original order -- so each family's first pick is its most-likely
     power code."""
     name = (field(block, "name") or "").lower()
     name_pri = 0 if "power" in name or name in ("pwr", "pow") else 1
@@ -199,7 +199,7 @@ def main():
     text = open(args.input, encoding="utf-8", errors="replace").read()
     header, blocks = parse_blocks(text)
     if not blocks:
-        sys.exit("no signal blocks found — is this a Flipper .ir library file?")
+        sys.exit("no signal blocks found -- is this a Flipper .ir library file?")
 
     n_before = len(blocks)
     btn_before = sum(1 for b in blocks if (field(b, "name") or "").lower() == args.button.lower())

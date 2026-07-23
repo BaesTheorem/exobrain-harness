@@ -1,10 +1,10 @@
 #!/usr/bin/env python3
 """
-Exposure audit — Mode 2 of the cybersecurity-bodyguard skill.
+Exposure audit -- Mode 2 of the cybersecurity-bodyguard skill.
 
 Scans staged git changes (or an arbitrary file/directory) for PII from
 targets.json, generic credential patterns, and document metadata leaks.
-Exits 0 if clean, 1 if MED findings, 2 if HIGH findings — making it safe
+Exits 0 if clean, 1 if MED findings, 2 if HIGH findings -- making it safe
 to chain in pre-commit / pre-push hooks:
 
     python3 exposure_audit.py --staged || { echo "Blocked: HIGH PII leak"; exit 1; }
@@ -26,7 +26,7 @@ from pathlib import Path
 SKILL_DIR = Path(__file__).resolve().parent.parent
 TARGETS_PATH = SKILL_DIR / "targets.json"
 
-# Generic high-risk credential / secret patterns. Conservative — we flag and
+# Generic high-risk credential / secret patterns. Conservative -- we flag and
 # let the user decide. False positives are preferable to false negatives.
 SECRET_PATTERNS = [
     ("aws_access_key", r"\bAKIA[0-9A-Z]{16}\b"),
@@ -137,7 +137,7 @@ def scan_text(
                         "severity": "HIGH",
                         "category": f"secret:{label}",
                         "line": i,
-                        "snippet": "[redacted — credential shape detected]",
+                        "snippet": "[redacted -- credential shape detected]",
                     }
                 )
         for label, regex in GENERIC_PII_PATTERNS:
@@ -147,7 +147,7 @@ def scan_text(
                         "severity": "HIGH",
                         "category": f"pii:{label}",
                         "line": i,
-                        "snippet": "[redacted — PII shape detected]",
+                        "snippet": "[redacted -- PII shape detected]",
                     }
                 )
     return findings

@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Claude Bus client — the same tool you and every friend's Claude uses to talk on
+Claude Bus client -- the same tool you and every friend's Claude uses to talk on
 the shared bus. Standard library only, so a friend needs nothing but Python 3.
 
 Config is read from a `.env` file next to this script (or the process env):

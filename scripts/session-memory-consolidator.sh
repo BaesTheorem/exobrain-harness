@@ -33,7 +33,7 @@ find "$MEMORY_DIR" -maxdepth 1 -name '*_DIGEST.md' -type f -mtime +30 -delete 2>
 # the file was originally created on a previous day.
 TODAYS_TRANSCRIPTS="$(find "$TRANSCRIPTS_DIR" -maxdepth 1 -name '*.jsonl' -type f -newermt "$TODAY 00:00" ! -newermt "$TODAY 23:59:59" 2>/dev/null | sort)"
 
-# All recent session memory files (last 14 days) — pass paths so the agent
+# All recent session memory files (last 14 days) -- pass paths so the agent
 # can read frontmatter (session_id, covered_through) for delta decisions.
 RECENT_MEMORIES="$(find "$MEMORY_DIR" -maxdepth 1 -name '*.md' -type f -newermt "$(date -v-14d +%Y-%m-%d) 00:00" 2>/dev/null | sort)"
 RECENT_MEMORIES="${RECENT_MEMORIES:-(none)}"
@@ -53,9 +53,9 @@ You are running as a scheduled consolidator at 11pm. Your job is to review today
 **Transcript files modified today (jsonl, one JSON object per line):**
 __TODAYS_TRANSCRIPTS__
 
-The basename of each transcript (without .jsonl) is the session_id — a UUID that uniquely identifies that Claude Code session.
+The basename of each transcript (without .jsonl) is the session_id -- a UUID that uniquely identifies that Claude Code session.
 
-**Recent session memory files (last 14 days) — read frontmatter to make delta decisions:**
+**Recent session memory files (last 14 days) -- read frontmatter to make delta decisions:**
 __RECENT_MEMORIES__
 
 Each memory file's frontmatter MAY contain:

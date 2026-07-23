@@ -23,8 +23,8 @@ Also normalize variations of the same person to one canonical name for People/ n
 - List all `.txt` files in `/Users/alexhedtke/My Drive/Plaud/`
 - Read `/Users/alexhedtke/Documents/Exobrain harness/processing-log.json`
 - Identify files not yet in the log. **Dedup by content, not just filename.** Two failure modes to guard against:
-  1. **Filename collision** — Plaud reuses the placeholder name `create_tim ... .txt` (and `... (N).txt` variants) for every unrenamed recording, so a new recording can have the same filename as a previously-processed file. **Treat any filename starting with `create_tim` as unprocessed by filename alone — always open the JSON and dedup by `create_time`.**
-  2. **Filename rename** — the same recording can appear under different filenames (e.g., `create_tim ... .txt` renamed to `2026-04-08_0955_...txt`).
+  1. **Filename collision** -- Plaud reuses the placeholder name `create_tim ... .txt` (and `... (N).txt` variants) for every unrenamed recording, so a new recording can have the same filename as a previously-processed file. **Treat any filename starting with `create_tim` as unprocessed by filename alone -- always open the JSON and dedup by `create_time`.**
+  2. **Filename rename** -- the same recording can appear under different filenames (e.g., `create_tim ... .txt` renamed to `2026-04-08_0955_...txt`).
 - A file is considered already processed if ANY of the following match an existing log entry:
   1. The filename matches an `id` or `filename` field in the log **AND** the filename does not start with `create_tim`
   2. The `create_time` in the file's JSON matches (within a few minutes) the `create_time` recorded in a log entry, or the date+time encoded in a log entry's `id` (e.g., `2026-04-08_0955_...`)
@@ -43,7 +43,7 @@ Each transcript file is **JSON** with this structure:
 }
 ```
 
-Use `create_time` for the recording date and time. **Critical timezone gotcha**: Plaud writes the recording's *local* wall-clock time into `create_time` but appends a `Z` (UTC) suffix anyway. Do **not** apply a UTC→local conversion — strip the `Z` and treat the timestamp as naive local time in the **current system timezone** (read it from `date +%Z` or Python's `datetime.now().astimezone().tzinfo`; for Alex's normal location this is `America/Chicago`). Applying a UTC offset incorrectly shifts the displayed time by 5 hours and flips the date for any recording made between midnight and 5 AM local. Use `title` for the transcript heading. Use `summary` (speaker-labeled) as the primary content to analyze; fall back to `transcript` (raw timestamped) for additional detail.
+Use `create_time` for the recording date and time. **Critical timezone gotcha**: Plaud writes the recording's *local* wall-clock time into `create_time` but appends a `Z` (UTC) suffix anyway. Do **not** apply a UTC→local conversion -- strip the `Z` and treat the timestamp as naive local time in the **current system timezone** (read it from `date +%Z` or Python's `datetime.now().astimezone().tzinfo`; for Alex's normal location this is `America/Chicago`). Applying a UTC offset incorrectly shifts the displayed time by 5 hours and flips the date for any recording made between midnight and 5 AM local. Use `title` for the transcript heading. Use `summary` (speaker-labeled) as the primary content to analyze; fall back to `transcript` (raw timestamped) for additional detail.
 
 Extract these categories from the transcript content:
 
@@ -55,17 +55,17 @@ Extract these categories from the transcript content:
 ### 2b. TTRPG session handoff (check before routing)
 Before routing anything, decide whether this transcript is a **tabletop RPG session recording** (a D&D/TTRPG game at the table, not just a conversation that mentions D&D). Signals: in-character dialogue, dice rolls, initiative/combat, a DM narrating scenes, known player/character names in a play context, references to "the party", "the session", spells/abilities being used.
 
-If it is a session recording, **stop the normal pipeline here and hand off to the `TTRPG-campaign-manager` skill (Mode 2: Session Recap)**. Do not run steps 3–8 on session content:
+If it is a session recording, **stop the normal pipeline here and hand off to the `TTRPG-campaign-manager` skill (Mode 2: Session Recap)**. Do not run steps 3-8 on session content:
 - The recap belongs in the campaign folder as `Session [N] recap.md`, not the daily note.
 - Do NOT route session beats to Things 3 or Google Calendar, and do NOT enrich People/ notes from in-character material.
-- The **only** exception is real-life action items Alex says out loud during the session (e.g., "remind me to text [player] about next week", "I need to buy more dice") — capture those as tasks/events per steps 3–4, but leave everything else to the recap.
+- The **only** exception is real-life action items Alex says out loud during the session (e.g., "remind me to text [player] about next week", "I need to buy more dice") -- capture those as tasks/events per steps 3-4, but leave everything else to the recap.
 - The campaign-manager skill owns the processing-log entry for the session (source `"plaud"`, flagged as a TTRPG session), so skip step 10 here for it.
 
-If it's merely a conversation that *references* a TTRPG (e.g., planning a session, chatting about the campaign), keep processing normally — the Media-extraction rule in step 7b still applies.
+If it's merely a conversation that *references* a TTRPG (e.g., planning a session, chatting about the campaign), keep processing normally -- the Media-extraction rule in step 7b still applies.
 
 ### 3. Route tasks to Things 3
 For each task:
-1. **Sanitize text**: Ensure task titles and notes are clean plaintext — no URL encoding (`+` for spaces, `%20`, etc.). If the transcript JSON contains URL-encoded strings, decode them first.
+1. **Sanitize text**: Ensure task titles and notes are clean plaintext -- no URL encoding (`+` for spaces, `%20`, etc.). If the transcript JSON contains URL-encoded strings, decode them first.
 2. Use `search_todos` to check if a similar task already exists
 3. If exists → `update_todo` to append new context as a note
 4. If new → `add_todo` to Inbox (or to a specific project if clearly matching)
@@ -76,7 +76,7 @@ For each task:
 - **Ambiguous** → `add_todo` to Things 3 Inbox as "Review: [event description]" with details in notes
 
 ### 5. Write to daily note
-Determine the **transcript's recording date** from the `create_time` field in the JSON. Each transcript file is JSON with a structure like `{"create_time": "2026-03-25T12:19:59Z", "summary": "...", "title": "...", "transcript": "..."}`. Parse `create_time` as **naive local time in the current system timezone** (see the timezone gotcha in step 2) — strip the `Z`, do not apply any UTC offset — then format to the daily note filename style (e.g., `Wednesday, March 25th, 2026`).
+Determine the **transcript's recording date** from the `create_time` field in the JSON. Each transcript file is JSON with a structure like `{"create_time": "2026-03-25T12:19:59Z", "summary": "...", "title": "...", "transcript": "..."}`. Parse `create_time` as **naive local time in the current system timezone** (see the timezone gotcha in step 2) -- strip the `Z`, do not apply any UTC offset -- then format to the daily note filename style (e.g., `Wednesday, March 25th, 2026`).
 
 **Always write to the recording date's daily note, NOT today's daily note.** A transcript from March 25th processed on March 27th goes in the March 25th note.
 
@@ -85,13 +85,13 @@ Read the existing daily note for that date. If it doesn't exist, create it with:
 << [[Yesterday Name|Yesterday]] | [[Tomorrow Name|Tomorrow]] >>
 ```
 
-Append a section for the transcript using this compact format. **Each transcript is a standalone H3 — never nest transcripts under a parent heading, never use H2 for transcript entries, and never create a "### Transcripts" or "### Transcript Processing" group heading.** Use bold text for sub-sections, no markdown headings below the H3:
+Append a section for the transcript using this compact format. **Each transcript is a standalone H3 -- never nest transcripts under a parent heading, never use H2 for transcript entries, and never create a "### Transcripts" or "### Transcript Processing" group heading.** Use bold text for sub-sections, no markdown headings below the H3:
 ```markdown
 ### 📼 Transcript: [filename or topic]
 **Source**: [file info and timestamp]
 **Speaker(s)**: [who was involved]
 
-**Summary** — [2-3 sentence overview of the conversation/recording]
+**Summary** -- [2-3 sentence overview of the conversation/recording]
 
 **Key points**
 - [main subjects, decisions, notable details as bullets]
@@ -100,12 +100,12 @@ Append a section for the transcript using this compact format. **Each transcript
 - [unresolved items that came up]
 
 **Tasks created**
-- [ ] [Task name](things:///show?id=UUID) — [brief context]
+- [ ] [Task name](things:///show?id=UUID) -- [brief context]
 
-**Recommendations** — [your suggestions for follow-ups, efficiency, connections to [[existing notes]]]
+**Recommendations** -- [your suggestions for follow-ups, efficiency, connections to [[existing notes]]]
 ```
 
-Keep it tight — aim for one screen of content per transcript. Merge key topics, people, and connections inline rather than giving each its own section.
+Keep it tight -- aim for one screen of content per transcript. Merge key topics, people, and connections inline rather than giving each its own section.
 
 Before adding wikilinks, check that the target note exists by listing files in the vault.
 
@@ -115,28 +115,28 @@ For every person mentioned in the transcript:
 2. If it doesn't exist, create it:
    ```markdown
    ## Context
-   - **First mentioned**: [today's date] — [brief context from transcript]
+   - **First mentioned**: [today's date] -- [brief context from transcript]
    ## Mentions
-   - [[Daily note link]] — [1-line context of interaction]
+   - [[Daily note link]] -- [1-line context of interaction]
    ## Follow-ups
    - [any pending follow-ups from the transcript]
    ```
 3. If it already exists, append to the `## Mentions` section:
    ```
-   - [[Daily note link]] — [1-line context of interaction]
+   - [[Daily note link]] -- [1-line context of interaction]
    ```
    And update `## Follow-ups` if new follow-ups were identified.
-4. Also add any new factual information about the person (role, company, interests, relationships, contact info, opinions, life events) to their `## Context` section. The People note should accumulate knowledge over time — every transcript is a chance to enrich it.
-5. **Personality & social dynamics**: Follow the `/crm` skill's mode 9 (Continuous Integration) protocol — enrich `## Context`, `## Connections`, and `## Personality & Dynamics` sections with observations from the transcript. Use specific examples, not vague labels.
+4. Also add any new factual information about the person (role, company, interests, relationships, contact info, opinions, life events) to their `## Context` section. The People note should accumulate knowledge over time -- every transcript is a chance to enrich it.
+5. **Personality & social dynamics**: Follow the `/crm` skill's mode 9 (Continuous Integration) protocol -- enrich `## Context`, `## Connections`, and `## Personality & Dynamics` sections with observations from the transcript. Use specific examples, not vague labels.
 5. Use `[[wikilinks]]` to link People notes from the daily note Network table.
-6. Skip generic/unknown speakers (e.g., "Speaker 1", "unknown") — only create notes for identifiable people.
+6. Skip generic/unknown speakers (e.g., "Speaker 1", "unknown") -- only create notes for identifiable people.
 
 ### 7. Log job-related content to job hub
-If the transcript contains any job search-related content — job leads, companies mentioned, networking contacts for job hunting, interview prep, upskilling discussion, application strategy — append a dated log entry to `/Users/alexhedtke/Exobrain/Projects/Get new job.md` under `## Job Search Log`. Use the appropriate type (Networking, Research, Upskilling, Interview, etc.) and include the key details.
+If the transcript contains any job search-related content -- job leads, companies mentioned, networking contacts for job hunting, interview prep, upskilling discussion, application strategy -- append a dated log entry to `/Users/alexhedtke/Exobrain/Projects/Get new job.md` under `## Job Search Log`. Use the appropriate type (Networking, Research, Upskilling, Interview, etc.) and include the key details.
 
 ### 7b. Media extraction
 
-Whenever the transcript mentions a movie, show, anime, book, podcast, article, game, TTRPG, or other media, create or update `/Users/alexhedtke/Exobrain/Media/[Title].md`. Always Glob for an existing note first; if found, append to its body — don't duplicate.
+Whenever the transcript mentions a movie, show, anime, book, podcast, article, game, TTRPG, or other media, create or update `/Users/alexhedtke/Exobrain/Media/[Title].md`. Always Glob for an existing note first; if found, append to its body -- don't duplicate.
 
 Frontmatter:
 ```yaml
@@ -160,14 +160,14 @@ Mention in the daily note entry: "Added X media items to [[Media.base|Media]]". 
 - If a task relates to current priorities (from Dashboard.md), highlight the connection
 
 ### 9. Rename transcript file
-After processing, rename the transcript file to include the recording date/time for easy searching. Parse `create_time` from the JSON as **naive local time in the current system timezone** (see step 2 — strip the `Z`, do not apply a UTC offset) and the `title` field, then rename:
+After processing, rename the transcript file to include the recording date/time for easy searching. Parse `create_time` from the JSON as **naive local time in the current system timezone** (see step 2 -- strip the `Z`, do not apply a UTC offset) and the `title` field, then rename:
 
 ```
 create_tim ...  (N).txt  →  2026-03-25_1219_Voice-Memo-Topic-Description.txt
 ```
 
 Format: `YYYY-MM-DD_HHmm_[sanitized-title].txt` where:
-- Date and time come from `create_time` (read as naive local time — see step 2)
+- Date and time come from `create_time` (read as naive local time -- see step 2)
 - Title comes from the `title` field with the date prefix stripped (e.g., `03-25 Voice Memo: Topic Description` → `Voice-Memo-Topic-Description`)
 - Replace spaces and special characters with hyphens, collapse multiple hyphens
 

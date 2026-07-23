@@ -101,7 +101,7 @@ def damage(slug: str, cid: int, amount: int, turn_id: int | None) -> None:
     _save(c, cid, ch["sheet"], hp, thp, ch["conditions"])
     _event(c, "damage", {"character_id": cid, "amount": amount, "absorbed_temp": absorbed,
                          "hp_after": hp, "temp_hp_after": thp}, turn_id)
-    # Concentration check: damage of 10+ or half damage, whichever higher — DM's job. Log flag.
+    # Concentration check: damage of 10+ or half damage, whichever higher -- DM's job. Log flag.
     conc = ch["sheet"].get("concentration")
     if conc and amount > 0:
         dc = max(10, amount // 2)
@@ -124,7 +124,7 @@ def heal(slug: str, cid: int, amount: int, turn_id: int | None) -> None:
 def temp_hp(slug: str, cid: int, amount: int, turn_id: int | None) -> None:
     c = _conn(slug)
     ch = _load(c, cid)
-    # Temp HP doesn't stack — take the higher.
+    # Temp HP doesn't stack -- take the higher.
     new_thp = max(ch["temp_hp"], amount)
     _save(c, cid, ch["sheet"], ch["current_hp"], new_thp, ch["conditions"])
     _event(c, "note", {"flag": "temp_hp_set", "character_id": cid,
@@ -288,7 +288,7 @@ def export(slug: str, cid: int) -> None:
         if body_marker in text:
             existing_body = text.split(body_marker, 1)[1]
         else:
-            # Old file or hand-written — don't clobber. Keep as backup.
+            # Old file or hand-written -- don't clobber. Keep as backup.
             backup = path.with_suffix(".md.bak")
             backup.write_text(text)
             existing_body = "\n\n<!-- preserved body; previous file saved as .bak -->\n"

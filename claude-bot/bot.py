@@ -1,8 +1,8 @@
-"""MIST — Discord bot entry point.
+"""MIST -- Discord bot entry point.
 
 A stripped-down, modern reimagining of the ~nova/Fletcher Discord bot, scoped
 to ONE private Discord server. No sharding, no cross-server bridge engine, no
-per-guild config cascade, no hot reload — just a single discord.py gateway
+per-guild config cascade, no hot reload -- just a single discord.py gateway
 client with a command registry and pluggable feature modules. The running bot
 is named "MIST" (config.name); "Fletcher" is the upstream we model.
 
@@ -38,7 +38,7 @@ log = logging.getLogger("fletcher")
 def build_intents() -> discord.Intents:
     """We need message content (read commands/chat), members (join/leave
     features), reactions (reaction-roles, spoilers), and voice (optional).
-    message_content and members are PRIVILEGED — enable them in the Discord
+    message_content and members are PRIVILEGED -- enable them in the Discord
     Developer Portal or the gateway connection will be rejected."""
     intents = discord.Intents.default()
     intents.message_content = True
@@ -77,7 +77,7 @@ class FletcherBot(discord.Client):
             g = self.get_guild(gid)
             served.append(g.name if g else f"<{gid} not found>")
         log.info(
-            "%s connected as %s (%s) — serving guild(s): %s",
+            "%s connected as %s (%s) -- serving guild(s): %s",
             self.config.name,
             self.user, self.user.id if self.user else "?",
             ", ".join(served),
@@ -92,7 +92,7 @@ class FletcherBot(discord.Client):
                 log.info("synced %d slash command(s) to guild %s", len(synced), gid)
             except discord.Forbidden:
                 log.warning(
-                    "slash sync forbidden for guild %s — re-invite the bot with the "
+                    "slash sync forbidden for guild %s -- re-invite the bot with the "
                     "applications.commands scope to enable / commands", gid,
                 )
             except discord.HTTPException:

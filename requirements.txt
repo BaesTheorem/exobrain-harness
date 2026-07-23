@@ -1,6 +1,6 @@
 # Supernote OCR (transcript-processing/supernote-parser.py)
 supernotelib==0.7.0
-# Weather (weather/get-weather.py — numpy used by Open-Meteo SDK return values)
+# Weather (weather/get-weather.py -- numpy used by Open-Meteo SDK return values)
 openmeteo-requests==1.7.5
 openmeteo-sdk==1.26.0
 numpy

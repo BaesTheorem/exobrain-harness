@@ -3,7 +3,7 @@ name: obsidian
 description: Best practices and conventions for all Obsidian vault interactions. Canonical reference for daily note formatting, People notes, wikilinks, vault structure, and append-only rules. Referenced by other skills. Use when you need to check Obsidian conventions, note structure, or vault paths before reading or writing to the vault.
 ---
 
-# Obsidian Vault — Best Practices Reference
+# Obsidian Vault -- Best Practices Reference
 
 This is the canonical reference for how the Exobrain interacts with the Obsidian vault. All skills that read from or write to the vault MUST follow these conventions.
 
@@ -24,7 +24,7 @@ This is the canonical reference for how the Exobrain interacts with the Obsidian
 | `Projects/[Project Name]/` | Project folders (contain project note + related files) |
 | `Dashboard.md` | Current priorities and overview |
 | `Network CRM.base` | CRM dashboard (database views) |
-| `Media/[Title].md` | Individual media notes (books, movies, shows, games) — rendered by `Media.base` |
+| `Media/[Title].md` | Individual media notes (books, movies, shows, games) -- rendered by `Media.base` |
 | `Mood Journal.md` | Longitudinal mood tracking |
 | `Plaud/` | Raw Plaud transcript files |
 
@@ -129,7 +129,7 @@ how_we_met: BlueDot
 - Additional contact fields can be appended (Venmo, Twitter/X, Bluesky, Instagram, Signal, Substack, etc.)
 - Accumulate knowledge over time -- every transcript, email, meeting, and message is a chance to enrich the note
 - Skip generic/unknown speakers ("Speaker 1", "unknown")
-- Plaud mis-transcribes certain names — check People/ folder for canonical spellings before creating new notes
+- Plaud mis-transcribes certain names -- check People/ folder for canonical spellings before creating new notes
 - Check the process-transcript skill's name mapping protocol for common Plaud corrections
 
 ## Daily Note Content Order

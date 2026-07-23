@@ -1,6 +1,6 @@
-# MIST Discord bot configuration — copy this to config.toml and fill in.
+# MIST Discord bot configuration -- copy this to config.toml and fill in.
 # config.toml is GITIGNORED (it holds your private guild/channel IDs).
-# The bot TOKEN is NOT here — it's read from the shared Exobrain env file
+# The bot TOKEN is NOT here -- it's read from the shared Exobrain env file
 # (~/.claude/channels/discord/.env, key DISCORD_BOT_TOKEN).
 
 [bot]
@@ -9,7 +9,7 @@ name = "MIST"                # display name used in messages and the LLM persona
 guild_ids = [000000000000000000]  # server IDs (right-click server -> Copy Server ID)
 guild_id = 000000000000000000     # optional single/primary (merged with guild_ids)
 prefix = "!"
-admin_ids = [000000000000000000]  # your Discord user ID(s) — full command access
+admin_ids = [000000000000000000]  # your Discord user ID(s) -- full command access
 # mod_role_id = 000000000000000000  # optional: a role that also counts as admin
 
 # Optional per-channel overrides. Key is the channel ID as a string.
@@ -18,7 +18,7 @@ admin_ids = [000000000000000000]  # your Discord user ID(s) — full command acc
 
 # --- feature module config (filled in as phases land) ---
 
-# [chatter]                  # Phase 5: LLM persona — MIST replies to the OWNER
+# [chatter]                  # Phase 5: LLM persona -- MIST replies to the OWNER
 #                            # when @mentioned, replied to, or DMed.
 # enabled = true
 # model = "claude-opus-4-8"  # `claude` CLI model: alias ("sonnet"/"opus") or a
@@ -31,7 +31,7 @@ admin_ids = [000000000000000000]  # your Discord user ID(s) — full command acc
 #                            # private. Everywhere else she withholds Alex's
 #                            # private info (shared servers can be read by others).
 # # Runs on the `claude` CLI headless (your Claude subscription), NOT the paid
-# # Anthropic API — no per-message cost, no API key needed.
+# # Anthropic API -- no per-message cost, no API key needed.
 # # owner_username = "your_discord_username"  # she ONLY replies to this user;
 # #                            # defaults to DISCORD_ALEX_USERNAME in the harness .env
 # # system = "..."           # optional: override MIST's built-in persona wholesale
@@ -42,7 +42,7 @@ admin_ids = [000000000000000000]  # your Discord user ID(s) — full command acc
 #                            # channels. Portals may cross servers the bot is in.
 
 # [instagram]                # Reel embedder: reply to a message with an Instagram
-# enabled = true             # link and @mention MIST — she reposts it so the reel
+# enabled = true             # link and @mention MIST -- she reposts it so the reel
 #                            # plays inline (Discord's native IG embed is broken).
 # proxy_domain = "kkinstagram.com"  # embed-fixer frontend (Fletcher uses this one)
 # reupload_video = false     # if true AND yt-dlp is installed, download the reel

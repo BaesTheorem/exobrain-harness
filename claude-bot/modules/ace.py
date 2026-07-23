@@ -1,4 +1,4 @@
-"""!ace — render the recent conversation as an Ace Attorney courtroom video.
+"""!ace -- render the recent conversation as an Ace Attorney courtroom video.
 
 Fletcher's swag.py has an `!ace` generator; this is the real "Ace Attorney video
 generator." It dramatizes the last few messages as a Phoenix-Wright-style scene
@@ -9,7 +9,7 @@ dedicated `.ace-venv` (see README) invoked as a subprocess, off the gateway loop
 Because each render is a heavy CPU+ffmpeg load on Alex's personal machine, it is
 guarded hard:
   * **one render at a time** (an asyncio.Lock; concurrent calls are turned away);
-  * **a global throttle** — more than 5 renders in 10 minutes trips a 30-minute
+  * **a global throttle** -- more than 5 renders in 10 minutes trips a 30-minute
     lockout for everyone, so the command can't be weaponized to spam-load the box.
 
 Disabled gracefully if the `.ace-venv` isn't built.
@@ -84,7 +84,7 @@ def _fmt_duration(seconds: float) -> str:
 
 def setup(ctx: Context) -> None:
     if not ACE_PY.exists() or not ACE_SCRIPT.exists():
-        log.info("ace module disabled — .ace-venv not built (see README 'Ace Attorney')")
+        log.info("ace module disabled -- .ace-venv not built (see README 'Ace Attorney')")
         return
     ACE_CACHE.mkdir(exist_ok=True)  # objection_engine caches its asset pack here
 
@@ -190,4 +190,4 @@ def setup(ctx: Context) -> None:
                 if out is not None:
                     shutil.rmtree(out.parent, ignore_errors=True)
 
-    log.info("ace ready — Ace Attorney video generator (1 at a time, 5/10min then 30min lockout)")
+    log.info("ace ready -- Ace Attorney video generator (1 at a time, 5/10min then 30min lockout)")

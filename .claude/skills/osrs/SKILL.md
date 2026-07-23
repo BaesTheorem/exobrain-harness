@@ -1,44 +1,44 @@
 ---
 name: osrs
-description: Play Old School RuneScape with Alex as MIST — an embodied, agentic character on the Alora private server, controlled fully in the background so the shared Mac stays usable. Canonical reference for launching/logging in the client, reading live game state (player coords, on-screen NPCs), and acting (move, click NPCs/objects, type in chat) via the in-process agent. Use when Alex says "play OSRS", "log MIST into Alora", "let's play RuneScape", "go to / talk to <NPC>", "MIST come play", references her OSRS character (MISTci), or wants MIST to do something in the game world.
+description: Play Old School RuneScape with Alex as MIST -- an embodied, agentic character on the Alora private server, controlled fully in the background so the shared Mac stays usable. Canonical reference for launching/logging in the client, reading live game state (player coords, on-screen NPCs), and acting (move, click NPCs/objects, type in chat) via the in-process agent. Use when Alex says "play OSRS", "log MIST into Alora", "let's play RuneScape", "go to / talk to <NPC>", "MIST come play", references her OSRS character (MISTci), or wants MIST to do something in the game world.
 metadata:
   requires:
     bins: [openjdk@17, cliclick]
 ---
 
-# osrs — MIST embodied in Old School RuneScape (Alora)
+# osrs -- MIST embodied in Old School RuneScape (Alora)
 
 MIST plays as her own character **MISTci** on **Alora** (an OSRS private server) so Alex
 can play *alongside* her. Everything runs **fully in the background**: MIST never steals
 the cursor, focus, or screen, so Alex can use the Mac (or play his own client) at the same
-time. This was a hard requirement — see the architecture below for why it's built this way.
+time. This was a hard requirement -- see the architecture below for why it's built this way.
 
 ## Architecture (why it works on a shared 8GB M1)
 
 Three channels, all background, validated live:
 
-- **Eyes** — `screencapture -l<windowID> out.png` captures the client window even when it's
+- **Eyes** -- `screencapture -l<windowID> out.png` captures the client window even when it's
   occluded/unfocused. Find the window via Quartz `kCGWindowListOptionAll` (owner `RuneLite`,
-  title contains "Powered by RuneLite") — *not* `OnScreenOnly`, which misses occluded windows.
-- **Hands + voice** — a tiny **launch-time Java agent** (`-javaagent`) runs *inside the client
+  title contains "Powered by RuneLite") -- *not* `OnScreenOnly`, which misses occluded windows.
+- **Hands + voice** -- a tiny **launch-time Java agent** (`-javaagent`) runs *inside the client
   JVM* and dispatches AWT mouse/key events straight to the game canvas, bypassing macOS
   focus routing. This is the key trick: macOS only delivers synthetic *keyboard* to the focused
   window, but an in-process agent doesn't care about focus, so **MIST can type in chat in the
   background**. (`-XX:+DisableAttachMechanism` only blocks *late* attach, not launch-time agents.)
-- **Brain** — the same agent reads **RuneLite's live game state via reflection**
+- **Brain** -- the same agent reads **RuneLite's live game state via reflection**
   (`net.runelite.client.RuneLite.getInjector().getInstance(Client.class)`): player world coords,
   game state, and every on-screen NPC's name + canvas position. Navigation is therefore
-  "find the NPC named X, click it" — not pixel-hunting.
+  "find the NPC named X, click it" -- not pixel-hunting.
 
 Rejected alternatives (don't revisit without new info): cliclick/foreground (fights Alex for
-the cursor); second macOS user via Screen Sharing (macOS 26 refuses localhost — "you cannot
+the cursor); second macOS user via Screen Sharing (macOS 26 refuses localhost -- "you cannot
 control your own screen"); a Linux VM (too heavy for 8GB alongside Alex's own client).
 
 The whole game (world, minimap, inventory, chat) renders in **one 765×503 canvas** (RuneLite
 fixed mode). The agent's click/state/npc helpers all work in that canvas coordinate space, so
 coords are stable regardless of where the OS window sits. `canvas = window - (0, 32 titlebar)`.
 
-## Runtime files (NOT in the repo — gitignored / external)
+## Runtime files (NOT in the repo -- gitignored / external)
 
 - Client: `~/alora/client_runelite.jar` (Alora's RuneLite fork; self-downloaded by `Alora.jar`).
 - Agent jar (built): `~/Documents/osrs-companion/mist-agent/mist-agent.jar`.
@@ -81,7 +81,7 @@ python3 osrs.py guard <AlexName> 30  # bodyguard: follow + kill what attacks the
 | `clicknpc <name>` | Click nearest on-screen NPC whose name contains `<name>` (left-click = walk+talk/default; uses the humanized click path) |
 | `click <x> <y>` | **Human** click: WindMouse curved approach + ~2px Gaussian jitter + reaction beat + press dwell. Default for in-world clicks; every higher-level command and `osrs.py` flow routes through it |
 | `rclick <x> <y>` | **Raw** instant click at exact coords (no path, no jitter). Exactness escape-hatch for fixed UI/login/inventory/style coords if jitter ever misses a small target |
-| `hmove <x> <y>` | Human mouse move only (WindMouse path, no click) — idle/antiban motion |
+| `hmove <x> <y>` | Human mouse move only (WindMouse path, no click) -- idle/antiban motion |
 | `type <text>` / `key <ENTER\|SPACE\|BACKSPACE\|TAB\|ESC\|LEFT\|RIGHT\|UP\|DOWN>` / `clear` | Keyboard into the focused game input. `type` uses a human per-keystroke cadence (not an instant burst); arrow keys rotate the camera (antiban) |
 | `find` / `info` / `tree` | Canvas info / AWT frame inventory / Swing component tree (debugging) |
 | `walkmap <dx> <dy>` | Click the minimap offset from center (walk); +x east, +y south |
@@ -108,7 +108,7 @@ python3 osrs.py guard <AlexName> 30  # bodyguard: follow + kill what attacks the
 > **Widget reads need the client thread.** The official client (1.12.x) guards `getCanvasLocation`
 > etc. with "must be called on client thread"; the agent hops onto RuneLite's `ClientThread` for
 > `roots`/`widgetkids`/`widgettree`/`clickpath`/`mute`. Alora's older client didn't need this.
-> **Login-screen mouse is dead** on the official client (synthetic AWT mouse isn't read there) — use
+> **Login-screen mouse is dead** on the official client (synthetic AWT mouse isn't read there) -- use
 > `key ENTER` to drive Play Now. In-world clicks work fine. **Occluded-window screencapture misses
 > the sprite-drawn tab icons**, so locate tabs/controls via `roots`+`widgettree`, not pixels.
 > **Muting is auto-enforced.** A `mist-mute` daemon thread (started in `premain`) re-applies `mute`
@@ -128,9 +128,9 @@ Validated live on MISTci. Full strategy + sources: `~/Exobrain/Research/OSRS Com
 - **The training loop** = `::train` (teleports to Rock Crabs, world ~2688,3718) → walk into the
   dormant **"Rocks"** so they wake into aggressive Rock Crabs (lvl 13, 50 HP, ~1 Defence) →
   **Auto-Retaliate** (on by default) + **Controlled** style trains Att/Str/Def together. Clicking
-  a dormant `Rocks` walks MIST into it, which is what wakes it — so `attack` doubles as "go wake a crab".
+  a dormant `Rocks` walks MIST into it, which is what wakes it -- so `attack` doubles as "go wake a crab".
 - **Crab tolerance**: crabs go dormant after ~10 min; `reset` walks a minimap-radius out and back
-  to re-aggro. Also a 20-min no-interaction logout exists — the loop clicks periodically to dodge it.
+  to re-aggro. Also a 20-min no-interaction logout exists -- the loop clicks periodically to dodge it.
 - **Starter kit** (free on a new Alora Normal account) already holds the whole lvl 1→40 melee
   setup: iron armour, iron + **rune scimitar**, amulet of strength/glory, climbing boots, **250
   lobsters**, 250k gp. `train` auto-swaps iron→rune scimitar at 40 Attack.
@@ -139,10 +139,10 @@ Validated live on MISTci. Full strategy + sources: `~/Exobrain/Research/OSRS Com
 - **Attack-style tab** = widget group 593, style buttons static children s3-s6. Calibrated canvas
   centers: Accurate(Chop) (602,272), Aggressive(Slash) (681,272), Defensive(Block) (681,326),
   Controlled(Lunge) (602,326). Combat-tab toggle ≈ (530,168).
-- **Bodyguard reality (be honest with Alex)**: OSRS has **no taunt / aggro-redirect** — once an
+- **Bodyguard reality (be honest with Alex)**: OSRS has **no taunt / aggro-redirect** -- once an
   NPC locks onto Alex you can't pull it off. `guard` therefore *kills threats fast* (reads each
   NPC's `getInteracting`, attacks any targeting the ward), damage-shares in multi-combat, follows,
-  and self-heals. `threats` also surfaces **pets** (they "interact with" owners) — `guard` filters
+  and self-heals. `threats` also surfaces **pets** (they "interact with" owners) -- `guard` filters
   obvious pet names, but it's an escort-that-kills, not a damage sponge.
 
 ## Conventions & gotchas
@@ -166,12 +166,12 @@ Validated live on MISTci. Full strategy + sources: `~/Exobrain/Research/OSRS Com
   `osrs.py` flow use these humanized paths by default. `rclick` is the raw-exact fallback for
   fixed UI coords; arrow keys (`key LEFT/RIGHT/...`) rotate the camera for idle variation.
 - **Honest limits**: vision/agent loop is great for skilling, questing, banking, walking, chat;
-  weak for twitch combat/PvP. Anti-cheat could flag a throwaway account — acceptable for PoC.
-  This approach does NOT transfer to official Jagex OSRS (bannable, no agent) — future phase.
+  weak for twitch combat/PvP. Anti-cheat could flag a throwaway account -- acceptable for PoC.
+  This approach does NOT transfer to official Jagex OSRS (bannable, no agent) -- future phase.
 
-## Vanilla / official OSRS (Jagex) — ported 2026-06-20
+## Vanilla / official OSRS (Jagex) -- ported 2026-06-20
 
-The same stack runs on **official OSRS via RuneLite** (not Jagex's C++ client — that's not
+The same stack runs on **official OSRS via RuneLite** (not Jagex's C++ client -- that's not
 Java, so no agent/reflection). Proven live: the `-javaagent` loads despite
 `DisableAttachMechanism`, and reflection brain + eyes (`screencapture`) + hands (canvas
 clicks) all work on the official client at the login screen. **Ban risk is real and accepted
@@ -181,17 +181,17 @@ Setup:
 1. `~/Documents/osrs-companion/vanilla/RuneLite.jar` = official launcher 2.7.7 (sha256
    `a7ee00f0…`). Run it once (`java -jar RuneLite.jar`) to download the client into
    `~/.runelite/repository2/` (client-/injected-client-/runelite-api- + deps).
-2. `python3 osrs.py launch-vanilla` — launches the official client with the agent (globs the
+2. `python3 osrs.py launch-vanilla` -- launches the official client with the agent (globs the
    repository2 classpath; same JVM args RuneLite's launcher uses). All agent/combat/guard
    commands then work identically (same socket, same `net.runelite.api`).
 3. `pid()`/`window()` match both clients (official window title = `RuneLite`, ~796×535;
-   Alora = `… Powered by RuneLite`). Don't run Alora + official at once — they'd both want
+   Alora = `… Powered by RuneLite`). Don't run Alora + official at once -- they'd both want
    agent port 43210 (BindException). Kill one first (or add a port arg later).
 
 **Disposable-account pipeline (ban containment).** Each throwaway is expendable; the goal is
 that a ban on #1 doesn't link to / block making + running #2 from the same Mac. The vectors
 that link accounts on one machine are MUTABLE and we reset them: the client-side UID files
-(`~/.runelite/random.dat` + `jagexcache/` — OSRS's real machine id), the IP (rotate VPN exit),
+(`~/.runelite/random.dat` + `jagexcache/` -- OSRS's real machine id), the IP (rotate VPN exit),
 and the email (fresh separate-domain alias). Immutable hardware specs are coarse/non-unique and
 OSRS has no kernel anti-cheat, so there's no reliable identity-wide "hardware ban"; MAC is
 local-only and not transmitted to Jagex. Residual re-link risk = BEHAVIORAL clustering (same
@@ -200,13 +200,13 @@ spots/patterns), which is account-level attrition, not identity-wide. Run betwee
 unnecessary + flaky on modern macOS). Total hardware separation = run the stack on a separate
 device (Raspberry Pi), not this Mac.
 
-**Jagex account auth — SOLVED 2026-07-15.** New OSRS accounts are Jagex accounts (login shows
+**Jagex account auth -- SOLVED 2026-07-15.** New OSRS accounts are Jagex accounts (login shows
 New User / Existing User, not legacy email/pass). We don't sniff env (modern macOS blocks
 reading another process's env via `ps eww`/`ps -E`). Instead we let RuneLite persist the
 session to disk, then our client reads it:
 1. Alex creates the throwaway Jagex account + F2P character (email + CAPTCHA, his hands).
 2. In the **Jagex Launcher**, set the OSRS client to **RuneLite** (not the native `osrs_ehc`
-   C++ client — no JVM = no agent). It installs its own RuneLite under
+   C++ client -- no JVM = no agent). It installs its own RuneLite under
    `~/Library/Application Support/Jagex Launcher/Games/Old School RuneScape/RuneLite/RuneLite.app`.
 3. Run that launcher's `--configure` (`.../RuneLite.app/Contents/MacOS/RuneLite --configure`)
    and add **`--insecure-write-credentials`** to the Client arguments field, Save.
@@ -223,7 +223,7 @@ to the legacy login screen. `launch-vanilla` now calls `sanitize_jx_creds()` to 
 JX_ lines before launch (keeps only the two real keys → LOGGED_IN). First login also forces the
 **Set display name** + **Character Creator** screens, driven in-canvas via `click`/`type`.
 
-No `::train` on vanilla — navigate to F2P spots (Lumbridge cows/chickens → Al-Kharid warriors
+No `::train` on vanilla -- navigate to F2P spots (Lumbridge cows/chickens → Al-Kharid warriors
 → Hill Giants Edgeville dungeon → Flesh Crawlers Stronghold) and walk in.
 
 ## Character

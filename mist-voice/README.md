@@ -1,7 +1,7 @@
-# mist-voice — local MIST voice for Exobrain
+# mist-voice -- local MIST voice for Exobrain
 
 Goal: give the Exobrain assistant MIST's *actual voice* (from the TV show
-*Pantheon*) when it speaks — phone calls and any future voice project — using a
+*Pantheon*) when it speaks -- phone calls and any future voice project -- using a
 **fully offline** voice clone running on this Mac. No cloud TTS, no third-party
 voice service.
 
@@ -16,12 +16,12 @@ Alex chose an offline clone over cloud voice services:
 
 Tradeoff: Twilio ConversationRelay (the phone's current TTS) only calls
 Amazon/Google/ElevenLabs, so the phone needs an audio-path rebuild (raw Twilio
-Media Streams) to use a local voice. That's a deferred phase — see the harness
+Media Streams) to use a local voice. That's a deferred phase -- see the harness
 task list.
 
 ## Final voice config (approved)
 
-- **Reference: a single clip — `samples/reference/06_need_your_help.wav`.** The
+- **Reference: a single clip -- `samples/reference/06_need_your_help.wav`.** The
   other takes are parked in `samples/reference/_archive/`. Curation history: the
   all-6 set leaned British (Thomasin McKenzie's NZ vowels, amplified by the phone
   band); per-clip A/B with Alex landed on `need_your_help` alone as the most
@@ -32,10 +32,10 @@ task list.
 ## Where the voice data lives (separate PRIVATE repo)
 
 **This harness repo is PUBLIC** (sharable/replicable, per the top-level CLAUDE.md),
-so it holds only the **code/recipe** here in `mist-voice/`. The **voice data** —
-copyrighted *Pantheon* show audio — lives in a separate **private** repo:
+so it holds only the **code/recipe** here in `mist-voice/`. The **voice data** --
+copyrighted *Pantheon* show audio -- lives in a separate **private** repo:
 
-> **`BaesTheorem/mist-voice-data`** (private, git-lfs) — raw supercut, reference
+> **`BaesTheorem/mist-voice-data`** (private, git-lfs) -- raw supercut, reference
 > clips, `_archive/` takes, the 605-segment curation TSV, and `demo_mist.wav`.
 > See `VOICE-DATA.md` for contents + the exact copy-back rebuild steps.
 
@@ -48,7 +48,7 @@ only; never commit the audio to this public repo or redistribute it.
 
 ## Rebuild from scratch
 
-**Fast path (recommended):** clone the private data repo and copy it in — no
+**Fast path (recommended):** clone the private data repo and copy it in -- no
 re-ripping needed:
 ```bash
 git clone https://github.com/BaesTheorem/mist-voice-data.git   # needs git-lfs
@@ -70,7 +70,7 @@ Resident service (keeps the model loaded; ~28s one-time load):
 .venv/bin/python scripts/serve.py --device cpu --port 8087   # leave running
 ./bin/mist-say "Good morning, Alex."                          # fast, plays aloud
 ```
-Cold one-shot (reloads model each call, slow — fine for scripts/pre-render):
+Cold one-shot (reloads model each call, slow -- fine for scripts/pre-render):
 ```bash
 .venv/bin/python scripts/say.py "text" -o out.wav --play
 ```
@@ -88,22 +88,22 @@ The service also exposes speech-to-text for the phone audio path:
 
 ## Latency reality (measured on this M1 / 8GB, June 2026)
 
-XTTS-v2 warm inference RTF: **~1.78 on CPU, ~1.58 on MPS** (MPS barely helps —
+XTTS-v2 warm inference RTF: **~1.78 on CPU, ~1.58 on MPS** (MPS barely helps --
 unsupported-op CPU fallback eats the GPU gain). Both are **slower than
 real-time**, so a typical response sentence takes ~6-8s to generate.
 
 **Implication for voice surfaces:**
 - **Pre-rendered / non-realtime (SHIPPABLE NOW):** notifications read aloud,
   news-briefing podcast, morning briefing / evening recap audio, pre-recorded
-  phone check-in set pieces. Latency irrelevant — MIST's voice is perfect here.
+  phone check-in set pieces. Latency irrelevant -- MIST's voice is perfect here.
 - **Live phone conversation (NOT viable on this box):** RTF>1 means dead air per
-  turn and gappy streaming. Options if we want it: (a) hybrid — pre-render
+  turn and gappy streaming. Options if we want it: (a) hybrid -- pre-render
   MIST's set pieces, keep cloud TTS for dynamic Q&A; (b) self-host XTTS on a
   GPU / a beefier Mac mini (see MAC-MINI-MIGRATION-PLAN) for real-time; (c)
   accept ~6-8s per-turn latency with a full Media Streams rebuild.
 
 ## Ethics / scope
 
-Private, non-distributed personal use only — Alex's own assistant voice, never
+Private, non-distributed personal use only -- Alex's own assistant voice, never
 published or used to impersonate. MIST is itself a synthetic AI character in the
 show. Do not commit the audio or the model; do not redistribute.

@@ -4,7 +4,7 @@ Polls Anki's SQLite database every 10 minutes and writes session data into the O
 
 ## What it writes
 
-**`~/Exobrain/Anki Log.md`** — one H3 date header per day with one bullet per session:
+**`~/Exobrain/Anki Log.md`** -- one H3 date header per day with one bullet per session:
 ```
 ### [[Monday, May 11th, 2026]]
 - **11:49 AM** -- Security+ (21 cards, 8 min)
@@ -12,9 +12,9 @@ Polls Anki's SQLite database every 10 minutes and writes session data into the O
 ```
 
 **Today's daily-note frontmatter:**
-- `anki_cards` — total cards reviewed today
-- `anki_sessions` — count of distinct study sessions today (each session = a burst of reviews with no 5+ min idle gap)
-- `worked_on:` — auto-appends the Project wikilink that matches the decks studied (e.g. Sec+ Certification)
+- `anki_cards` -- total cards reviewed today
+- `anki_sessions` -- count of distinct study sessions today (each session = a burst of reviews with no 5+ min idle gap)
+- `worked_on:` -- auto-appends the Project wikilink that matches the decks studied (e.g. Sec+ Certification)
 
 ## How sessions are defined
 
@@ -37,7 +37,7 @@ Decks that don't match any pattern get the display label "Other" in the log bull
 |------|---------|
 | `anki-sync.py` | Main script. Reads Anki SQLite read-only, writes Obsidian. Stdlib only. |
 | `run-anki-sync.sh` | Bash wrapper used by launchd (bash typically has Full Disk Access; Python directly often doesn't). |
-| `com.exobrain.anki-sync.plist` | launchd LaunchAgent — polls every 10 min, runs at load. |
+| `com.exobrain.anki-sync.plist` | launchd LaunchAgent -- polls every 10 min, runs at load. |
 
 ## Install
 
@@ -47,7 +47,7 @@ chmod +x anki/run-anki-sync.sh
 launchctl load ~/Library/LaunchAgents/com.exobrain.anki-sync.plist
 ```
 
-Use a real file copy, not a symlink — TCC blocks login-time load of plists symlinked into `~/Documents/`.
+Use a real file copy, not a symlink -- TCC blocks login-time load of plists symlinked into `~/Documents/`.
 
 Verify:
 ```bash
@@ -58,6 +58,6 @@ tail -f /tmp/exobrain-anki-sync.log
 ## Behavior notes
 
 - **Idempotent**: every run rewrites today's section of `Anki Log.md` and refreshes today's daily-note frontmatter. Safe to invoke as often as you like.
-- **Past days** are never modified — the script only looks at reviews from today's 00:00 onward.
+- **Past days** are never modified -- the script only looks at reviews from today's 00:00 onward.
 - **Anki must be installed** at the standard profile path (`~/Library/Application Support/Anki2/User 1/collection.anki2`). If the DB is missing or locked, the script no-ops silently.
-- **Daily note must exist** for frontmatter to update. The script doesn't create daily notes itself — that's left to the pomodoro app, skills, or Obsidian's Daily Notes plugin.
+- **Daily note must exist** for frontmatter to update. The script doesn't create daily notes itself -- that's left to the pomodoro app, skills, or Obsidian's Daily Notes plugin.

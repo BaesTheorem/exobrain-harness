@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Solo DM — Dashboard</title>
+<title>Solo DM -- Dashboard</title>
 <link rel="stylesheet" href="/style.css">
 </head>
 <body>
@@ -17,7 +17,7 @@
   </div>
   <div class="header-right">
     <span class="real-date" id="real-date" title="Today's date (real-world)">…</span>
-    <span class="session" id="session">session —</span>
+    <span class="session" id="session">session -- </span>
     <button id="refresh" title="Refresh state from DB">↻</button>
   </div>
 </header>
@@ -32,17 +32,17 @@
 
     <section class="vitals">
       <div class="stat big"><label>HP</label>
-        <div class="hp-bar"><div class="hp-fill" id="hp-fill"></div><span id="hp-text">—</span></div>
+        <div class="hp-bar"><div class="hp-fill" id="hp-fill"></div><span id="hp-text"> -- </span></div>
       </div>
       <div class="row">
-        <div class="stat"><label>AC</label><span id="ac">—</span></div>
-        <div class="stat"><label>Init</label><span id="init">—</span></div>
-        <div class="stat"><label>Spd</label><span id="spd">—</span></div>
-        <div class="stat"><label>PB</label><span id="pb">—</span></div>
+        <div class="stat"><label>AC</label><span id="ac"> -- </span></div>
+        <div class="stat"><label>Init</label><span id="init"> -- </span></div>
+        <div class="stat"><label>Spd</label><span id="spd"> -- </span></div>
+        <div class="stat"><label>PB</label><span id="pb"> -- </span></div>
       </div>
-      <div class="row conditions"><label>Conditions</label><span id="conditions">—</span></div>
-      <div class="row"><label>Concentration</label><span id="concentration">—</span></div>
-      <div class="row"><label>XP</label><span id="xp">—</span></div>
+      <div class="row conditions"><label>Conditions</label><span id="conditions"> -- </span></div>
+      <div class="row"><label>Concentration</label><span id="concentration"> -- </span></div>
+      <div class="row"><label>XP</label><span id="xp"> -- </span></div>
     </section>
 
     <section class="abilities">
@@ -62,13 +62,13 @@
     </section>
 
     <section class="spellcasting">
-      <h2>Spellcasting <span class="muted" id="spell-dc-line">—</span></h2>
+      <h2>Spellcasting <span class="muted" id="spell-dc-line"> -- </span></h2>
       <div class="slots" id="slots"></div>
       <div class="fey-free" id="fey-free"></div>
     </section>
 
     <section class="ki" id="ki-section" hidden>
-      <h2>Ki <span class="muted" id="ki-text">— / —</span></h2>
+      <h2>Ki <span class="muted" id="ki-text"> -- / -- </span></h2>
       <div class="slot-row">
         <div class="slot-dots" id="ki-dots"></div>
       </div>
@@ -84,7 +84,7 @@
 
     <section class="inventory">
       <h2>Gear &amp; Gold <button id="new-container-btn" class="mini-btn" title="Create a new container at root (e.g., a location or stash)">+ Container</button></h2>
-      <div><strong id="gold">—</strong></div>
+      <div><strong id="gold"> -- </strong></div>
       <ul id="inventory"></ul>
     </section>
 
@@ -184,18 +184,18 @@
     <section class="side-map-only">
       <h2>Distance</h2>
       <div class="distance-readout" id="distance-readout">
-        <div class="line"><label>Pixels (relative)</label><span id="dist-rel">—</span></div>
-        <div class="line"><label>Miles</label><span id="dist-miles">—</span></div>
-        <div class="line"><label>Days (Olwin cart, 18 mi)</label><span id="dist-cart">—</span></div>
-        <div class="line"><label>Days (normal, 20 mi)</label><span id="dist-normal">—</span></div>
-        <div class="line"><label>Days (pushed, 25 mi)</label><span id="dist-pushed">—</span></div>
+        <div class="line"><label>Pixels (relative)</label><span id="dist-rel"> -- </span></div>
+        <div class="line"><label>Miles</label><span id="dist-miles"> -- </span></div>
+        <div class="line"><label>Days (Olwin cart, 18 mi)</label><span id="dist-cart"> -- </span></div>
+        <div class="line"><label>Days (normal, 20 mi)</label><span id="dist-normal"> -- </span></div>
+        <div class="line"><label>Days (pushed, 25 mi)</label><span id="dist-pushed"> -- </span></div>
       </div>
       <button id="clear-measure">Clear measure</button>
     </section>
 
     <section class="side-map-only">
       <h2>Calibration</h2>
-      <div id="cal-status" class="muted">Uncalibrated — clicking "Calibrate" will let you set two points and their real-world distance.</div>
+      <div id="cal-status" class="muted">Uncalibrated -- clicking "Calibrate" will let you set two points and their real-world distance.</div>
     </section>
 
     <section class="side-map-only">
@@ -254,7 +254,7 @@
   </section>
   <section class="homebrew">
     <h3>Campaign notes <span class="muted">(homebrew)</span></h3>
-    <textarea id="marker-info-notes" rows="6" placeholder="Anything this campaign has established about this place — NPCs met, in-fiction facts, house-canon. Persists to the DB."></textarea>
+    <textarea id="marker-info-notes" rows="6" placeholder="Anything this campaign has established about this place -- NPCs met, in-fiction facts, house-canon. Persists to the DB."></textarea>
     <div class="actions">
       <span id="marker-info-status" class="muted"></span>
       <button id="marker-info-save">Save</button>

@@ -1,7 +1,7 @@
-! YouTube — No Shorts (content-blocker / AdGuard-style cosmetic rules)
+! YouTube -- No Shorts (content-blocker / AdGuard-style cosmetic rules)
 !
 ! Use this ONLY if you prefer a content blocker (AdGuard for iOS, 1Blocker)
-! over the Userscripts app. These are cosmetic CSS-hide rules — they hide
+! over the Userscripts app. These are cosmetic CSS-hide rules -- they hide
 ! Shorts but, unlike the userscript, they CANNOT redirect a /shorts/ link to
 ! the normal player. For the full experience use youtube-no-shorts.user.js.
 !

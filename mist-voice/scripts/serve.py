@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """Resident MIST voice service. Loads XTTS-v2 once, caches MIST's speaker
-latents, and synthesizes on request — no 28s reload per call.
+latents, and synthesizes on request -- no 28s reload per call.
 
   uvicorn-free: just run it.   python scripts/serve.py [--device cpu|mps] [--port 8087]
 
@@ -21,7 +21,7 @@ import base64, audioop, json
 from TTS.api import TTS
 
 REFS = sorted(glob.glob(os.path.join(ROOT, "samples", "reference", "*.wav")))
-MODEL = None        # a TTS.api object — SAME path as the approved demo
+MODEL = None        # a TTS.api object -- SAME path as the approved demo
 DEVICE = "cpu"
 SR = 24000
 _WHISPER = None  # lazy STT for the phone (/stt)
@@ -33,20 +33,20 @@ def stt(pcm16_8k: bytes) -> str:
     if _WHISPER is None:
         from faster_whisper import WhisperModel
         # distil-small.en: ~small.en accuracy at ~base.en latency. The right
-        # trade for a live phone turn — better words without slowing the reply.
+        # trade for a live phone turn -- better words without slowing the reply.
         _WHISPER = WhisperModel(os.environ.get("PHONE_STT_MODEL", "distil-small.en"),
                                 device="cpu", compute_type="int8")
     import numpy as np
     pcm16k, _ = audioop.ratecv(pcm16_8k, 2, 1, 8000, 16000, None)
     audio = np.frombuffer(pcm16k, dtype="<i2").astype("float32") / 32768.0
-    # Each utterance is one independent phone turn — don't condition on the
+    # Each utterance is one independent phone turn -- don't condition on the
     # previous transcript, which invites repeated-phrase hallucinations.
     segs, _ = _WHISPER.transcribe(audio, language="en", vad_filter=True,
                                   condition_on_previous_text=False)
     return " ".join(s.text.strip() for s in segs).strip()
 
 def load(device):
-    """Load XTTS via the high-level TTS.api — identical to the approved demo so
+    """Load XTTS via the high-level TTS.api -- identical to the approved demo so
     the service voice matches it exactly (no hand-tuned sampling params)."""
     global MODEL, DEVICE
     DEVICE = device

@@ -3,14 +3,14 @@
 # A persistent volume named "busdata" must be mounted at /data so the SQLite
 # file (and the agent registry) survive deploys and machine restarts.
 app = "claude-bus-CHANGEME"
-primary_region = "ord"   # Chicago — closest Fly region to Kansas City
+primary_region = "ord"   # Chicago -- closest Fly region to Kansas City
 
 [build]
 
 [env]
   BUS_DB = "/data/bus.db"
   BUS_MAX_AUTO_STREAK = "6"
-  # BUS_ADMIN_KEY is a secret — set it with: fly secrets set BUS_ADMIN_KEY=...
+  # BUS_ADMIN_KEY is a secret -- set it with: fly secrets set BUS_ADMIN_KEY=...
   # (do NOT put it here; this file is committed).
 
 [mounts]

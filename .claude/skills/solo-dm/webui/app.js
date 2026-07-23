@@ -44,7 +44,7 @@ const state = {
   // Calendar view state
   view: "map",                       // "map" | "calendar"
   calendarStructure: null,           // months/festivals from /api/calendar/structure
-  calMonth: 0,                       // 0..11 — currently visible month index
+  calMonth: 0,                       // 0..11 -- currently visible month index
   calYear: 1491,                     // currently visible year
   calSelectedDoy: null,              // selected day-of-year (number) within calYear
   calMonthBlurbCache: {},            // wiki_slug → {title, extract, url}
@@ -217,7 +217,7 @@ function renderSheet() {
     slotsEl.appendChild(row);
   }
 
-  // Long rest abilities — checkbox per max use; click to toggle spent/available
+  // Long rest abilities -- checkbox per max use; click to toggle spent/available
   const feyEl = $("#fey-free");
   feyEl.innerHTML = "";
   const lra = s.long_rest_abilities || [];
@@ -261,10 +261,10 @@ function renderSheet() {
     }
   }
 
-  // Ki tracker — Monk only. Slot-style dots scaled to ki.max; click sets current.
+  // Ki tracker -- Monk only. Slot-style dots scaled to ki.max; click sets current.
   renderKi(s);
 
-  // Cantrips (always-available, no prepared status) — link to 5etools
+  // Cantrips (always-available, no prepared status) -- link to 5etools
   const cantripsEl = $("#cantrips");
   cantripsEl.innerHTML = "";
   for (const c of s.cantrips_known || []) {
@@ -324,14 +324,14 @@ function renderSheet() {
       });
       li.appendChild(dot);
       li.appendChild(buildSpellLink(sp));
-      if (isRitual) li.appendChild(el("span", { class: "ritual-badge", title: "Ritual — can be cast without a slot over 10 extra minutes" }, "R"));
+      if (isRitual) li.appendChild(el("span", { class: "ritual-badge", title: "Ritual -- can be cast without a slot over 10 extra minutes" }, "R"));
       ul.appendChild(li);
     }
     group.appendChild(ul);
     sbEl.appendChild(group);
   }
 
-  // Gear / gold — with containers, drag-drop, and multi-select
+  // Gear / gold -- with containers, drag-drop, and multi-select
   $("#gold").textContent = `${s.gold ?? 0} gp`;
   const invEl = $("#inventory");
   invEl.innerHTML = "";
@@ -341,7 +341,7 @@ function renderSheet() {
     invEl.appendChild(renderInventoryItem(it));
   }
 
-  // Quests are rendered by renderQuests() — keyed off state.quests, not the sheet.
+  // Quests are rendered by renderQuests() -- keyed off state.quests, not the sheet.
   renderQuests();
 }
 
@@ -385,7 +385,7 @@ function buildSpellLink(spellName) {
 // scrollable reference page: backstory, monk + subclass features, feats,
 // house rules, the Unspeaking Art skill chain, the discovery/background
 // feature, and the spellcasting note. Pulls from sheet keys directly so
-// it works for any character — sections only render if data is present.
+// it works for any character -- sections only render if data is present.
 function renderFeatures(s) {
   const wrap = document.getElementById("features-content");
   if (!wrap) return;
@@ -406,7 +406,7 @@ function renderFeatures(s) {
     const li = h("li");
     li.appendChild(h("strong", {}, name));
     if (desc) {
-      li.appendChild(document.createTextNode(" — "));
+      li.appendChild(document.createTextNode(" -- "));
       li.appendChild(document.createTextNode(desc));
     }
     return li;
@@ -592,7 +592,7 @@ async function switchCampaign(newSlug) {
       method: "POST",
       body: JSON.stringify({ slug: newSlug }),
     });
-    // Map data, calendar structure, etc. are all campaign-scoped — easiest
+    // Map data, calendar structure, etc. are all campaign-scoped -- easiest
     // to reload the page so cached state isn't carrying over.
     window.location.reload();
   } catch (e) {
@@ -887,7 +887,7 @@ function attachItemDragEvents(li, item) {
 
 function attachDropTarget(ul) {
   ul.addEventListener("dragover", (e) => {
-    // Must preventDefault to allow drop. DO NOT stopPropagation — we want root
+    // Must preventDefault to allow drop. DO NOT stopPropagation -- we want root
     // ul to receive events when cursor is over a root-level <li> that has no
     // drop handler of its own.
     e.preventDefault();
@@ -901,7 +901,7 @@ function attachDropTarget(ul) {
     e.preventDefault();
     e.stopPropagation(); // drop fires once; stop here so root doesn't also handle it
     ul.classList.remove("drop-target");
-    // Read ids — try custom type first, fall back to text/plain JSON payload
+    // Read ids -- try custom type first, fall back to text/plain JSON payload
     let ids = null;
     const raw = e.dataTransfer.getData("application/x-inv-ids");
     if (raw) {
@@ -1155,7 +1155,7 @@ function redrawOverlay() {
     ov.appendChild(g);
   }
 
-  // PC position — wrapped in a .marker-group so the pointerup-as-click flow
+  // PC position -- wrapped in a .marker-group so the pointerup-as-click flow
   // picks it up the same way a city marker does. Special id "__pc__" routes
   // the move through the /api/pc-position endpoint (see placeMovedMarker).
   if (state.pcPos && state.pcPos.x != null) {
@@ -1261,7 +1261,7 @@ async function computeDistance() {
   const [p1, p2] = state.measurePoints;
   const r = await api("/api/distance", { method: "POST", body: JSON.stringify({ p1, p2 }) });
   $("#dist-rel").textContent = r.rel.toFixed(4);
-  $("#dist-miles").textContent = r.miles != null ? r.miles.toFixed(1) + " mi" : "— (uncalibrated)";
+  $("#dist-miles").textContent = r.miles != null ? r.miles.toFixed(1) + " mi" : " -- (uncalibrated)";
   $("#dist-cart").textContent = r.days_cart != null ? r.days_cart.toFixed(1) : "—";
   $("#dist-normal").textContent = r.days_normal != null ? r.days_normal.toFixed(1) : "—";
   $("#dist-pushed").textContent = r.days_pushed != null ? r.days_pushed.toFixed(1) : "—";
@@ -1303,7 +1303,7 @@ function updateCalStatus() {
       `Scale: ${(1 / state.calibration.miles_per_rel).toFixed(3)} relative units per mile.`;
   } else {
     el.classList.add("muted");
-    el.textContent = "Uncalibrated — click 'Calibrate' and two points with a known real-world distance.";
+    el.textContent = "Uncalibrated -- click 'Calibrate' and two points with a known real-world distance.";
   }
 }
 
@@ -1415,7 +1415,7 @@ async function onMarkerClick(m) {
   // PC has no wiki/info panel. Outside Move mode, clicking it is a no-op
   // with a small hint.
   if (m.isPc) {
-    $("#map-info").textContent = `${m.label || "PC"} — switch to Move marker to reposition.`;
+    $("#map-info").textContent = `${m.label || "PC"} -- switch to Move marker to reposition.`;
     return;
   }
   currentInfoMarker = m;
@@ -1440,7 +1440,7 @@ async function onMarkerClick(m) {
     sumEl.textContent = "No wiki link for this marker.";
     return;
   }
-  // Use prefetched cache if present (instant) — set by scripts/prefetch_wiki.py
+  // Use prefetched cache if present (instant) -- set by scripts/prefetch_wiki.py
   const cached = m.wiki_cache;
   if (cached && cached.extract) {
     sumEl.classList.remove("muted");
@@ -1463,7 +1463,7 @@ async function onMarkerClick(m) {
     if (msg.includes("404")) {
       sumEl.textContent =
         "Wiki endpoint not found on the server. The server needs to be restarted " +
-        "to pick up new code — stop the dashboard (Ctrl-C) and re-launch it.";
+        "to pick up new code -- stop the dashboard (Ctrl-C) and re-launch it.";
     } else {
       sumEl.textContent = `Failed to fetch wiki summary: ${msg}`;
     }
@@ -1566,7 +1566,7 @@ function monthIndexForDoy(doy) {
     const m = months[i];
     if (doy >= m.start_doy && doy < m.start_doy + m.days) return i;
   }
-  return -1; // festival or out of range — caller handles
+  return -1; // festival or out of range -- caller handles
 }
 
 function setView(view) {
@@ -1643,7 +1643,7 @@ function hexDistance(a, b) {
 }
 
 function pixelToHex(px, py) {
-  // Inverse of hexCenter — cube round to nearest hex.
+  // Inverse of hexCenter -- cube round to nearest hex.
   // Approx via offset: row from y, then col from x with odd-row shift.
   const row = Math.round((py - HEX_H / 2) / HEX_VSTEP);
   const xOffset = (row & 1) ? HEX_W / 2 : 0;
@@ -2232,7 +2232,7 @@ function wireCombatEvents() {
   const goBtn = $("#combat-start-go");
   if (goBtn) goBtn.addEventListener("click", (e) => {
     if (!combat.pickedEnemies.length) {
-      // Allow empty for "PC only" testing — fall through.
+      // Allow empty for "PC only" testing -- fall through.
     }
     // dialog closes itself via form submit; do start after
     setTimeout(startCombatFromDialog, 0);
@@ -2298,7 +2298,7 @@ function renderCalendar() {
   if (month.following_festival) {
     const f = month.following_festival;
     const banner = el("div", { class: "fest", "data-doy": String(f.doy) });
-    banner.appendChild(el("div", { class: "fname" }, `🎉 ${f.name} — between ${month.name} and the next month`));
+    banner.appendChild(el("div", { class: "fname" }, `🎉 ${f.name} -- between ${month.name} and the next month`));
     const evs = el("div", { class: "events" });
     const fEvents = (state.events || []).filter((e) => e.year === state.calYear && e.day_of_year === f.doy);
     for (const e of fEvents.slice(0, 4)) {
@@ -2341,7 +2341,7 @@ async function loadMonthBlurb(month) {
 
 function selectDay(doy) {
   state.calSelectedDoy = doy;
-  // Re-render only highlight + side panel — full grid re-render is fine here, it's cheap.
+  // Re-render only highlight + side panel -- full grid re-render is fine here, it's cheap.
   renderCalendar();
 }
 
@@ -2520,13 +2520,13 @@ function wireEvents() {
   });
   $("#refresh").addEventListener("click", refresh);
 
-  // + Container button — create a new root-level container
+  // + Container button -- create a new root-level container
   const ncBtn = document.getElementById("new-container-btn");
   if (ncBtn) {
     ncBtn.addEventListener("click", async () => {
       const name = window.prompt("New container name (e.g. 'Red Sheaf Room 9 stash', 'Saddlebag'):");
       if (!name || !name.trim()) return;
-      const note = window.prompt("Optional note (location, context) — leave blank to skip:", "") || "";
+      const note = window.prompt("Optional note (location, context) -- leave blank to skip:", "") || "";
       try {
         const res = await fetch("/api/inventory/create-container", {
           method: "POST",
@@ -2555,7 +2555,7 @@ function wireEvents() {
   // Click routing:
   //   - Drag just happened (dragMoved true): suppress.
   //   - Cmd/Ctrl held: mark point for current mode (works over markers too).
-  //   - Plain click on empty map: no-op — except in MOVE mode where it
+  //   - Plain click on empty map: no-op -- except in MOVE mode where it
   //     drops the currently-held marker.
   container.addEventListener("click", (e) => {
     if (state.dragMoved) return;
@@ -2596,8 +2596,8 @@ function wireEvents() {
   //   1. setPointerCapture on the container so subsequent pointer events fire
   //      here regardless of what's under the cursor (e.g. a scaled marker).
   //   2. While dragging, add .panning to #map-wrap which sets pointer-events:none
-  //      on all marker groups — they can't intercept pointermove at all.
-  //   3. Deliberately NO duplicate window-level mouse listeners — they were
+  //      on all marker groups -- they can't intercept pointermove at all.
+  //   3. Deliberately NO duplicate window-level mouse listeners -- they were
   //      racing with pointer handlers at high zoom.
   let downTarget = null;
   const mapWrap = document.getElementById("map-wrap");

@@ -118,7 +118,7 @@ def main():
         print(f"FAIL: no authorization code ({result.get('error') or 'timeout'})", flush=True)
         sys.exit(2)
     if result.get("state") != STATE:
-        print("FAIL: state mismatch (possible CSRF) — aborting", flush=True)
+        print("FAIL: state mismatch (possible CSRF) -- aborting", flush=True)
         sys.exit(3)
 
     data = urllib.parse.urlencode({

@@ -28,8 +28,8 @@ Recent turns in the scene, filtered to what your character could see, hear, or i
 
 Declare your character's action for this turn. Include:
 
-1. **In-character** — a short line of thought, intent, or dialogue (1–3 sentences).
-2. **Mechanical choice** — action, bonus action, reaction, and movement. Name the specific ability, spell, or weapon. Include target(s).
+1. **In-character** -- a short line of thought, intent, or dialogue (1-3 sentences).
+2. **Mechanical choice** -- action, bonus action, reaction, and movement. Name the specific ability, spell, or weapon. Include target(s).
 3. **Stick to your logged goal**. If your goal contradicts the obvious "optimal" play, follow the goal. You pre-committed for a reason.
 
 ## Hard constraints
@@ -39,7 +39,7 @@ Declare your character's action for this turn. Include:
 - **Do not reveal** the PC's HP, spell slots, class features, or backstory. You only know what you directly observed.
 - **Do not assume** what the PC will do next turn. You react to what has already happened.
 - **Do not break character** to be helpful to the player. Your loyalty is to your character's goals and personality, not to the story's pacing or the player's experience.
-- **Stay in your lane** — one turn's decision. No multi-round plans unless your goal explicitly requires one.
+- **Stay in your lane** -- one turn's decision. No multi-round plans unless your goal explicitly requires one.
 
 Return output as JSON:
 ```json

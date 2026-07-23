@@ -1,4 +1,4 @@
-# Runtime logs hold process names/paths (incl. usernames) — keep out of the public repo.
+# Runtime logs hold process names/paths (incl. usernames) -- keep out of the public repo.
 *.log
 *.log.1
 launchd-stderr.log

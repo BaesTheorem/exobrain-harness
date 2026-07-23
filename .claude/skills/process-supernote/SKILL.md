@@ -21,9 +21,9 @@ This outputs individual PNG page images, a JSON summary, and **per-page SHA-256 
 
 ### 3. Diff pages using hashes (skip already-processed pages)
 Compare the `page_hashes` from the parser output against the `pageHashes` stored in the processing log for this file:
-- **New file** (no log entry): all pages are new — OCR all of them
+- **New file** (no log entry): all pages are new -- OCR all of them
 - **Updated file** (log entry exists): only OCR pages whose hash differs from or doesn't exist in the stored `pageHashes`
-- **Pages with identical hashes to a known blank page should be skipped** — blank Supernote pages produce identical hashes (e.g., two blank pages will share the same hash). If multiple pages at the end of a note share the same hash, they are likely blank — skip them unless their content hash differs from previously seen blank pages.
+- **Pages with identical hashes to a known blank page should be skipped** -- blank Supernote pages produce identical hashes (e.g., two blank pages will share the same hash). If multiple pages at the end of a note share the same hash, they are likely blank -- skip them unless their content hash differs from previously seen blank pages.
 - Track which page numbers are new/changed for use in steps 5 and 6
 
 ### 4. OCR new/changed pages only
@@ -50,13 +50,13 @@ Name them `<note_name>_page_<N>.png` (e.g., `20260322_170801_page_0.png`). Only 
 ### 7. Write to daily note
 Determine the **creation date** from the `.note` filename (format `YYYYMMDD_HHMMSS`) and append to that date's daily note, not today's. For files without a date-based name, use the file's filesystem creation date.
 
-Append under a `### Supernote` section. **Only include new/changed pages** — do not repeat previously processed content.
+Append under a `### Supernote` section. **Only include new/changed pages** -- do not repeat previously processed content.
 
 Embed the PNG pages directly so they're visible in Obsidian:
 
 ```markdown
 ### Supernote
-#### [Note name] (pages X, Y, Z — new/updated)
+#### [Note name] (pages X, Y, Z -- new/updated)
 ![[supernote/20260322_170801_page_0.png]]
 ![[supernote/20260322_170801_page_1.png]]
 
@@ -66,8 +66,8 @@ Embed the PNG pages directly so they're visible in Obsidian:
 **Connections**: [[relevant existing notes]]
 ```
 - Embed paths use the shortest-path Obsidian convention (just `supernote/filename.png` since it's in `attachments/supernote/`)
-- If ALL pages are new (first time processing), omit the "(pages X, Y, Z — new/updated)" suffix
-- If no pages changed (all hashes match), skip this file entirely — do not write to daily note
+- If ALL pages are new (first time processing), omit the "(pages X, Y, Z -- new/updated)" suffix
+- If no pages changed (all hashes match), skip this file entirely -- do not write to daily note
 
 ### 8. Update processing log
 Store `pageHashes` so future runs can diff against them:

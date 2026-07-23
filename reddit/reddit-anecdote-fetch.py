@@ -53,7 +53,7 @@ def get_json(url, tries=4):
         except urllib.error.HTTPError as e:
             if e.code in (429, 500, 502, 503) and attempt < tries - 1:
                 wait = 2 ** attempt + 1
-                print(f"  {e.code} on {url} — backing off {wait}s", file=sys.stderr)
+                print(f"  {e.code} on {url} -- backing off {wait}s", file=sys.stderr)
                 time.sleep(wait)
                 continue
             print(f"  HTTP {e.code} on {url}", file=sys.stderr)
@@ -187,7 +187,7 @@ def main():
         "posts": corpus,
     }
     out_path.write_text(json.dumps(payload, indent=2))
-    print(f"Wrote {out_path} — {payload['post_count']} posts, "
+    print(f"Wrote {out_path} -- {payload['post_count']} posts, "
           f"{payload['comment_count']} comments.", file=sys.stderr)
 
 

@@ -14,17 +14,17 @@ greeting audio, and a fast-moving personal UI):
 Lives locally at: `~/Documents/mist-console`
 
 ## What's there
-- `app.py` / `bridge.py` — Flask glue + the headless `claude` stream-json bridge
-- `desktop.py` — native WKWebView window + the double-tap-⌥ quick-entry overlay
-- `static/` — the UI (tab rail, pinned conversations, slash-command autocomplete, quickbox overlay + conversation picker)
-- `mist-hotkey-agent.py` + `install-agent.sh` — always-on global-hotkey LaunchAgent
-- `make-app.sh` — packages the clickable `.app` bundle
+- `app.py` / `bridge.py` -- Flask glue + the headless `claude` stream-json bridge
+- `desktop.py` -- native WKWebView window + the double-tap-⌥ quick-entry overlay
+- `static/` -- the UI (tab rail, pinned conversations, slash-command autocomplete, quickbox overlay + conversation picker)
+- `mist-hotkey-agent.py` + `install-agent.sh` -- always-on global-hotkey LaunchAgent
+- `make-app.sh` -- packages the clickable `.app` bundle
 - gitignored even in the private repo: `data/` (conversation history), `greetings/`, `*.log`
 
 ## Seam with this harness
 The Console runs `claude` with the harness as its working directory, so the
 Exobrain's `CLAUDE.md` (including the **Identity & Voice: MIST** persona) is
-auto-loaded as project instructions. No side-file persona — keep the harness
+auto-loaded as project instructions. No side-file persona -- keep the harness
 `CLAUDE.md` in place and the Console speaks as MIST.
 
 ## Rebuild

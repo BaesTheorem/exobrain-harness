@@ -26,14 +26,14 @@ while True:
 ' || { echo "[$(date +%Y%m%d_%H%M%S)] SKIPPED: could not acquire processing lock in 30m" >> /tmp/exobrain-plaud-failures.log; exit 0; }
 
 if ! command -v claude &>/dev/null; then
-    osascript -e 'display notification "Claude CLI not found — cannot process transcripts" with title "Exobrain ERROR" sound name "Basso"'
+    osascript -e 'display notification "Claude CLI not found -- cannot process transcripts" with title "Exobrain ERROR" sound name "Basso"'
     # Touch the watched directory so launchd re-triggers when it next checks,
     # rather than silently consuming the WatchPaths event
     touch "$GDRIVE_PLAUD" 2>/dev/null
     exit 1
 fi
 
-# Plaud transcripts stay in Google Drive — processed and renamed in-place
+# Plaud transcripts stay in Google Drive -- processed and renamed in-place
 if [ ! -d "$GDRIVE_PLAUD" ]; then
     exit 0
 fi
@@ -46,7 +46,7 @@ fi
 # so filename-only matching has caused new recordings to be silently swallowed
 # whenever a previously-processed file had the same placeholder name. Any file
 # whose name starts with "create_tim" is therefore always treated as
-# unprocessed here — the skill's step 1 does the real dedup using create_time.
+# unprocessed here -- the skill's step 1 does the real dedup using create_time.
 /usr/bin/python3 - "$GDRIVE_PLAUD" "$PROCESSING_LOG" <<'PY'
 import json, os, sys
 plaud_dir, log_file = sys.argv[1], sys.argv[2]
@@ -86,8 +86,8 @@ CLAUDE_PID=$!
         kill -TERM $CLAUDE_PID 2>/dev/null
         sleep 5
         kill -KILL $CLAUDE_PID 2>/dev/null
-        echo "[$TIMESTAMP] TIMEOUT after ${TIMEOUT_SEC}s — claude --print killed" >> "$LOG_DIR/exobrain-plaud-failures.log"
-        osascript -e "display notification \"Plaud processor hung — killed after ${TIMEOUT_SEC}s\" with title \"Exobrain ERROR\" sound name \"Basso\""
+        echo "[$TIMESTAMP] TIMEOUT after ${TIMEOUT_SEC}s -- claude --print killed" >> "$LOG_DIR/exobrain-plaud-failures.log"
+        osascript -e "display notification \"Plaud processor hung -- killed after ${TIMEOUT_SEC}s\" with title \"Exobrain ERROR\" sound name \"Basso\""
     fi
 ) &
 KILLER_PID=$!

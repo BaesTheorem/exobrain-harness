@@ -10,7 +10,7 @@ network by expected throughput, and switches to the best one.
 
 ## Why it needs an app bundle
 
-Network **names** on macOS 14.4+ are gated behind Location Services — a process
+Network **names** on macOS 14.4+ are gated behind Location Services -- a process
 without that permission sees every SSID as `<redacted>`. Location grants are keyed
 to a bundle identity, so the watcher runs inside `WiFiRoam.app` purely to hold the
 grant. You approve it once; launchd runs it forever after.
@@ -19,12 +19,12 @@ grant. You approve it once; launchd runs it forever after.
 
 You can't measure the speed of a network you're not connected to, so it's layered:
 
-1. **Measured** — a small capped speed probe of the *current* link (Cloudflare,
+1. **Measured** -- a small capped speed probe of the *current* link (Cloudflare,
    ~4 MB, time-boxed). This is what catches a hotspot with strong signal but slow
    cellular backhaul. Skipped on `metered_ssids` so it never burns hotspot data.
-2. **Learned** — every probe is stored per-SSID (EWMA) in `state.json` and reused
+2. **Learned** -- every probe is stored per-SSID (EWMA) in `state.json` and reused
    to rank that network later without re-probing.
-3. **Estimated** — for a known network never measured, capacity is estimated from
+3. **Estimated** -- for a known network never measured, capacity is estimated from
    the scan (band, channel width, signal). Cold-start only; learning overrides it.
 
 Signal (RSSI) is only a **gate** (`min_join_rssi`, must be joinable) and a
@@ -60,12 +60,12 @@ WiFiRoam.app/Contents/MacOS/wifiroam --probe         # measure the current link
 WiFiRoam.app/Contents/MacOS/wifiroam --once --dry-run # decide, print, don't switch
 ```
 
-## config.json (gitignored — holds your network names)
+## config.json (gitignored -- holds your network names)
 
 | key | meaning |
 |---|---|
 | `min_join_rssi` | dBm floor; weaker known nets are ignored |
-| `throughput_margin_frac` / `_floor_mbps` | hysteresis — how much better an alternative must be to switch |
+| `throughput_margin_frac` / `_floor_mbps` | hysteresis -- how much better an alternative must be to switch |
 | `probe_*` | speed-probe size / timeout / how often to re-probe a link |
 | `metered_ssids` | your hotspot name(s): never probed, assumed slow |
 | `assumed_metered_mbps` | the throughput a metered net is assumed to have |

@@ -30,10 +30,10 @@ SKILL_DIR = Path(__file__).resolve().parent.parent
 TARGETS_PATH = SKILL_DIR / "targets.json"
 TARGETS_EXAMPLE = SKILL_DIR / "targets.example.json"
 
-# HIBP API — requires HIBP_API_KEY env var (free tier: $3.95/month)
+# HIBP API -- requires HIBP_API_KEY env var (free tier: $3.95/month)
 HIBP_ENDPOINT = "https://haveibeenpwned.com/api/v3/breachedaccount/{email}"
 
-# Data brokers to check via Google dorks. We do not hit broker sites directly —
+# Data brokers to check via Google dorks. We do not hit broker sites directly --
 # Google's indexed view is sufficient for presence detection and avoids
 # creating broker-side records of the query.
 BROKER_DOMAINS = [
@@ -89,7 +89,7 @@ def build_google_dorks(targets: dict[str, Any]) -> list[dict[str, str]]:
     """
     Produce a list of Google search queries to run.
 
-    We do NOT execute these — that requires WebSearch, which the skill drives
+    We do NOT execute these -- that requires WebSearch, which the skill drives
     via Claude. This function just builds the query plan.
     """
     dorks: list[dict[str, str]] = []

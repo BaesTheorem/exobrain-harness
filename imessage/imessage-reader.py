@@ -23,7 +23,7 @@ from pathlib import Path
 # DB source resolution (so Claude never needs Full Disk Access):
 #   1. $IMESSAGE_DB if set
 #   2. the launchd-synced cache snapshot (imessage/cache/chat.db) if present
-#   3. the live protected DB (needs FDA — the old, CC-update-fragile path)
+#   3. the live protected DB (needs FDA -- the old, CC-update-fragile path)
 # The cache is populated by imessage-sync.py running under launchd with a stable
 # FDA'd interpreter. See imessage-sync.py for the why.
 _LIVE_DB = os.path.expanduser("~/Library/Messages/chat.db")
@@ -182,7 +182,7 @@ def extract_body_text(blob):
 
 def show_status():
     """Report which DB source is in use and how fresh the synced cache is."""
-    source = "cache snapshot" if DB_PATH == _CACHE_DB else ("env override" if DB_PATH not in (_CACHE_DB, _LIVE_DB) else "LIVE (needs FDA — fragile)")
+    source = "cache snapshot" if DB_PATH == _CACHE_DB else ("env override" if DB_PATH not in (_CACHE_DB, _LIVE_DB) else "LIVE (needs FDA -- fragile)")
     print(f"DB source: {source}")
     print(f"DB path:   {DB_PATH}")
     if os.path.exists(_STATUS_FILE):
@@ -194,14 +194,14 @@ def show_status():
             if synced:
                 age = datetime.now() - datetime.fromisoformat(synced)
                 mins = int(age.total_seconds() // 60)
-                staleness = "fresh" if mins < 30 else ("stale" if mins < 180 else "STALE — sync may be broken")
+                staleness = "fresh" if mins < 30 else ("stale" if mins < 180 else "STALE -- sync may be broken")
                 print(f"Age:       {mins} min ({staleness})")
             if not st.get("ok"):
                 print(f"Last error: {st.get('error')}")
         except Exception as e:
             print(f"(could not read sync-status.json: {e})")
     else:
-        print("No sync-status.json yet — the launchd sync hasn't run successfully.")
+        print("No sync-status.json yet -- the launchd sync hasn't run successfully.")
         print("See imessage/README.md for the one-time Full Disk Access setup.")
 
 
@@ -221,7 +221,7 @@ def get_db():
                 print("Fix (permanent): set up the launchd sync so Claude reads the cache instead:", file=sys.stderr)
                 print("  1. Grant Full Disk Access to imessage/.venv/bin/mist-imessage-python3 (see imessage-sync.py)", file=sys.stderr)
                 print("  2. launchctl bootstrap gui/$(id -u) ~/Library/LaunchAgents/com.exobrain.imessage-sync.plist", file=sys.stderr)
-                print("  3. Re-run this reader — it will read imessage/cache/chat.db, no FDA needed.", file=sys.stderr)
+                print("  3. Re-run this reader -- it will read imessage/cache/chat.db, no FDA needed.", file=sys.stderr)
             else:
                 print(f"Error: cache DB unreadable at {DB_PATH}", file=sys.stderr)
             sys.exit(1)

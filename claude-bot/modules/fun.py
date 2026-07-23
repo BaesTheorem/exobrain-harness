@@ -1,4 +1,4 @@
-"""Fun grab-bag — a small, offline slice of Fletcher's `swag.py` / text effects.
+"""Fun grab-bag -- a small, offline slice of Fletcher's `swag.py` / text effects.
 
 Five self-contained commands, no API keys, no DB, no network:
   !roll / !dice / !r   dice roller: `2d6+5`, `d20 adv`, `stats` (D&D abilities)

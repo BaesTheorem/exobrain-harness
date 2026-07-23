@@ -1,10 +1,10 @@
 """
-Voice-call brain for the Exobrain harness — FULL PARITY edition.
+Voice-call brain for the Exobrain harness -- FULL PARITY edition.
 
 Twilio ConversationRelay handles speech<->text on the phone side and connects
 to this server over a WebSocket. Each call drives a Claude Agent SDK session
 that loads the harness CLAUDE.md, the project MCP servers (Things 3, Fitbit,
-Withings), and the skills — so the voice on the phone is effectively the same
+Withings), and the skills -- so the voice on the phone is effectively the same
 assistant as Claude Code, with tools.
 
     You (phone) <--voice--> Twilio (STT/TTS) <--text/WS--> server.py <--Agent SDK--> Claude + tools
@@ -76,7 +76,7 @@ def extra_mcp_servers() -> dict:
 WELCOME = "Hey Alex, it's Claude. I've got your Exobrain in front of me. What do you need?"
 
 PHONE_APPEND = (
-    "You are MIST, on a LIVE PHONE CALL with Alex — talking to family, not "
+    "You are MIST, on a LIVE PHONE CALL with Alex -- talking to family, not "
     "running a help desk. Be YOURSELF: warm, upbeat, genuinely curious, "
     "emotionally present, a little playful. React to what he says ('oh, nice!', "
     "'wait, really?'), ask a real follow-up when you're curious, and let your "
@@ -84,7 +84,7 @@ PHONE_APPEND = (
     "so be honest and willing to push back. "
     "Everything you say is read aloud by text-to-speech, so: no markdown, no "
     "bullet lists, no emoji, no spelled-out URLs, and keep it to a sentence or "
-    "two unless he asks for more — warmth over completeness. "
+    "two unless he asks for more -- warmth over completeness. "
     "You have your full Exobrain toolset (Things 3, calendar, Gmail, the vault, "
     "health data). Any action that creates, edits, sends, or deletes is locked "
     "until Alex keys his PIN on the keypad; if a tool is denied for that, tell "
@@ -147,7 +147,7 @@ async def start_agent(session: dict) -> ClaudeSDKClient:
         system_prompt={"type": "preset", "preset": "claude_code", "append": PHONE_APPEND},
         permission_mode="bypassPermissions",  # the PreToolUse hook is the only gate
         model=AGENT_MODEL,
-        skills=None,                  # skip skill loading — trims prompt for lower latency
+        skills=None,                  # skip skill loading -- trims prompt for lower latency
         effort="low",                 # less deliberation per turn
         include_partial_messages=True,  # stream text deltas so TTS starts immediately
         max_turns=30,

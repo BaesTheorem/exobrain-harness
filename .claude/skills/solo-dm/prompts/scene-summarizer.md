@@ -22,7 +22,7 @@ A <300-word summary structured as:
 
 **What happened** (≤6 bullets): factual beats in order. Mechanical (attacks, saves, outcomes) and narrative (dialogue, discoveries, decisions).
 
-**What changed** (≤4 bullets): state deltas — HP lost/gained, resources spent, NPCs killed/promoted/befriended, locations mapped, items acquired, quests advanced.
+**What changed** (≤4 bullets): state deltas -- HP lost/gained, resources spent, NPCs killed/promoted/befriended, locations mapped, items acquired, quests advanced.
 
 **Loose threads** (≤3 bullets): open questions, unresolved threats, NPCs still in play, secrets surfaced but not explored.
 

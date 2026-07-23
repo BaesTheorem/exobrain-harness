@@ -14,9 +14,9 @@ Each campaign has its own folder (e.g., `Calimport DnD Campaign/`). All notes fo
 
 **IMPORTANT**: When Alex asks for session prep, recap, or any campaign-specific work, always clarify which campaign if it's ambiguous. Check what campaign folders exist and ask if there's more than one active campaign.
 
-For each campaign folder, look for a `Claude reference.md` file (or `Campaign Reference doc.md`) — this contains campaign-specific context (players, characters, NPCs, factions, principles, etc.) that you should load before doing any work. Also load, if present:
-- **`Campaign Fronts.md`** — the living "fronts" tracker (what the threats are doing between sessions). **Advance it at the top of every session prep** (see Mode 1).
-- **`Campaign Arc Plan.md`** — the campaign's North Star and thread tracker (hold loosely; two horizons out).
+For each campaign folder, look for a `Claude reference.md` file (or `Campaign Reference doc.md`) -- this contains campaign-specific context (players, characters, NPCs, factions, principles, etc.) that you should load before doing any work. Also load, if present:
+- **`Campaign Fronts.md`** -- the living "fronts" tracker (what the threats are doing between sessions). **Advance it at the top of every session prep** (see Mode 1).
+- **`Campaign Arc Plan.md`** -- the campaign's North Star and thread tracker (hold loosely; two horizons out).
 
 ## Modes
 
@@ -24,7 +24,7 @@ For each campaign folder, look for a `Claude reference.md` file (or `Campaign Re
 
 **Goal**: Collaboratively fill out a session prep note using the Lazy DM template. Make Alex's job as easy as possible by drafting content, suggesting ideas, and asking targeted questions.
 
-**Always advance the Campaign Fronts first.** If the campaign has a `Campaign Fronts.md`, open it before drafting and run its "Advance the Fronts" ritual: mark what the players triggered / stalled / ignored last session, tick the ignored fronts one portent forward, re-check any meta-clock, and log it in the Tracker. The freshly-ticked portents are the campaign's source of truth for what the threats are doing now — they feed the Strong Start, Scenes, and Secrets below. Do this *with* Alex, surfacing what's about to fire and letting him redirect.
+**Always advance the Campaign Fronts first.** If the campaign has a `Campaign Fronts.md`, open it before drafting and run its "Advance the Fronts" ritual: mark what the players triggered / stalled / ignored last session, tick the ignored fronts one portent forward, re-check any meta-clock, and log it in the Tracker. The freshly-ticked portents are the campaign's source of truth for what the threats are doing now -- they feed the Strong Start, Scenes, and Secrets below. Do this *with* Alex, surfacing what's about to fire and letting him redirect.
 
 **Steps**:
 
@@ -34,12 +34,12 @@ For each campaign folder, look for a `Claude reference.md` file (or `Campaign Re
 
 3. **Load campaign context**: Read the `Claude reference.md` in the campaign folder for players, characters, and campaign-specific notes.
 
-4. **Draft in chat only — no prep-note writes until Alex confirms**: Do **not** create or write `Session [N] prep.md` (or apply ripple edits like Unused Material removals) until Alex explicitly says to write it. All drafting, presenting, and iterating through step 10 happens in the conversation, so Alex can shape the session before anything lands on disk.
+4. **Draft in chat only -- no prep-note writes until Alex confirms**: Do **not** create or write `Session [N] prep.md` (or apply ripple edits like Unused Material removals) until Alex explicitly says to write it. All drafting, presenting, and iterating through step 10 happens in the conversation, so Alex can shape the session before anything lands on disk.
 
 5. **Check unused material first**: Read `Unused Material.md` in the campaign folder. Pull forward any scenes, secrets, NPCs, locations, encounters, or treasure that still fit the upcoming session. Remove items from unused material as they get incorporated into the new prep.
 
 6. **Scan the full campaign folder**: Read all notes to build a complete picture of:
-   - The active **fronts** and any meta-clock (`Campaign Fronts.md`) — what's about to fire
+   - The active **fronts** and any meta-clock (`Campaign Fronts.md`) -- what's about to fire
    - What happened in previous sessions (recaps)
    - Unresolved plot threads and dangling hooks
    - NPCs introduced but not yet developed
@@ -63,7 +63,7 @@ For each campaign folder, look for a `Claude reference.md` file (or `Campaign Re
    - "Where did we leave off exactly?"
    - "Any specific beats you want to hit?"
    - "Any player dynamics I should know about?"
-   - "What tone are you going for — heavier or lighter?"
+   - "What tone are you going for -- heavier or lighter?"
 
 10. **Iterate collaboratively**: Refine the draft in chat based on Alex's feedback. Flag:
    - Interesting ideas from previous sessions that haven't been explored yet
@@ -83,7 +83,7 @@ Use this template when creating new session prep notes:
 # Review the Player Characters
 What motivates the players? What motivates their characters? How to make sure everyone has something in the session that either appeals to them generally, or connects to what they love about their character.
 
-[List each PC with a wikilink — pull from the campaign's Claude reference]
+[List each PC with a wikilink -- pull from the campaign's Claude reference]
 
 # Strong Start
 
@@ -189,19 +189,19 @@ _Choose some interesting [treasure](https://slyflourish.com/random_generators/5e
    - [Memorable lines from players and characters, attributed]
 
    ## Scenes Not Reached (Move to Session [N+1])
-   - [Scenes from the prep that were never reached — these get moved to Unused Material.md during the consolidation step]
+   - [Scenes from the prep that were never reached -- these get moved to Unused Material.md during the consolidation step]
    ```
 
    **Scene naming guidelines:**
    - Name scenes for what actually happened, not what was prepped (e.g., "Grey Hands Interception" not "Main Set-Piece")
    - Use short, punchy names that scan well in a table of contents
-   - Each scene should cover one narrative beat — a location, encounter, conversation, or decision point
-   - Include mechanical details (rolls, damage, saves) woven into the narrative — these are fun to look back on
+   - Each scene should cover one narrative beat -- a location, encounter, conversation, or decision point
+   - Include mechanical details (rolls, damage, saves) woven into the narrative -- these are fun to look back on
    - Preserve memorable quotes inline where they happened, and also collect them in the Quotes section at the end
 
 7. **Update campaign notes**: After creating the recap:
    - **Update `Campaign Fronts.md`**: mark which grim portents actually fired this session, advance the Tracker, and re-check any meta-clock
-   - **Update `Lazy Campaign Sheet.md` (the one-pager), if the campaign has one**: refresh the **"Where We Are"** status snapshot and the **"Situations on Offer"** menu (retire situations that fired, add new live threads). This is the doc most prone to silent drift — it's easy to update Campaign Fronts and forget the one-pager. Do NOT duplicate the live front clocks here; the one-pager should point to `Campaign Fronts.md` for those and only carry front *goals* + the situations menu.
+   - **Update `Lazy Campaign Sheet.md` (the one-pager), if the campaign has one**: refresh the **"Where We Are"** status snapshot and the **"Situations on Offer"** menu (retire situations that fired, add new live threads). This is the doc most prone to silent drift -- it's easy to update Campaign Fronts and forget the one-pager. Do NOT duplicate the live front clocks here; the one-pager should point to `Campaign Fronts.md` for those and only carry front *goals* + the situations menu.
    - Update any NPC notes that were affected
    - Update faction notes if the balance shifted
    - Update PC notes with new developments (fun moments, quotes, plot points, character arcs); bump the `level:` frontmatter if the party leveled
@@ -233,20 +233,20 @@ For general questions about a campaign ("what's the deal with [faction]?", "remi
 3. Provide a concise answer with `[[wikilinks]]` to relevant notes
 4. Suggest connections or ideas if appropriate
 
-## Combat Encounter Design — The Axes Method
+## Combat Encounter Design -- The Axes Method
 
-Standard monster-fighting combats become slogs when the only variable is "hit the bad guys." The fix is to give every encounter **multiple independent axes** the players and enemies can affect. One axis = ~5 possible outcomes; two axes = 25; **three axes = 125 — the sweet spot**. Four starts to overwhelm. (Method adapted from Tabletop University, "Encounter Axes" — https://www.youtube.com/watch?v=LyrB05cG890.)
+Standard monster-fighting combats become slogs when the only variable is "hit the bad guys." The fix is to give every encounter **multiple independent axes** the players and enemies can affect. One axis = ~5 possible outcomes; two axes = 25; **three axes = 125 -- the sweet spot**. Four starts to overwhelm. (Method adapted from Tabletop University, "Encounter Axes" -- https://www.youtube.com/watch?v=LyrB05cG890.)
 
 **Rules of thumb:**
 - Every encounter must have **at least one Objective** (the "protein"). It ends the fight.
 - Add **2 more axes** from Optimizers / Hazards / Chaos. That's the default.
 - Use 2 axes (objective + 1) for quick fights; 3 for full-length; 4 only if you want a set-piece.
 - **Telegraph every axis clearly** to the players on turn 1. Informed choices are the whole point.
-- If a player invents a new axis mid-combat, let it work within reason — reward creativity.
+- If a player invents a new axis mid-combat, let it work within reason -- reward creativity.
 - Complex villains with their own agenda can count as an axis.
 - "No-Go Zones" (instant-death hazards) must be obvious and used sparingly.
 
-### Objectives (Proteins) — pick at least one, ends the encounter
+### Objectives (Proteins) -- pick at least one, ends the encounter
 
 | Objective | Description |
 |---|---|
@@ -258,44 +258,44 @@ Standard monster-fighting combats become slogs when the only variable is "hit th
 | **Stop the Ritual** | Timed puzzle-fight; disrupt a group casting/channeling something. |
 | **Get the MacGuffin** | Mobile object of interest; the fight is secondary to controlling the object. |
 | **Sophie's Choice** | Two MacGuffins, can only grab one. |
-| **Pull the Lever** | Immovable MacGuffin — destroy the nexus, flip the power switch. |
+| **Pull the Lever** | Immovable MacGuffin -- destroy the nexus, flip the power switch. |
 
-### Optimizers (Appetizers) — don't end the encounter, help whoever controls them
+### Optimizers (Appetizers) -- don't end the encounter, help whoever controls them
 
 | Axis | Description |
 |---|---|
 | **Free Your Allies / Call Reinforcements** | Alarm, horn, jail cell, signal fire. |
 | **The High Ground** | Elevation grants advantage attacking down / disadvantage attacking up. Stairs, ledges, rooftops, balconies. |
-| **The Stash** | Accessible resource pile — ammo, scrolls, potions, grenades. Physically mark it on the map. |
+| **The Stash** | Accessible resource pile -- ammo, scrolls, potions, grenades. Physically mark it on the map. |
 | **The Chevy Chase** | Two zones separated by a wall with small entrances either side can open/close. Keep one main entrance unblockable or it devolves into Stop the Flood. |
-| **Reverse Whack-a-Mole** | Chevy Chase + High Ground — upper floor with trapdoors to poke out and attack through. |
+| **Reverse Whack-a-Mole** | Chevy Chase + High Ground -- upper floor with trapdoors to poke out and attack through. |
 | **Levers 'n' Traps** | Environmental traps (flame jets, acid cauldrons, pit lids, oil slicks) with a visible operator. Kill/grab the operator, turn the traps on the enemy. |
 | **The BIG Gun** | Ballista, cannon, lightning gun. Give it a power source, ammo counter, or limited arc so it's not portable. |
-| **Boon Zone** | Enhancement tile — +1 weapon for a round, Haste zone, Bless aura, temp HP font. Not a consumable resource; a position. |
+| **Boon Zone** | Enhancement tile -- +1 weapon for a round, Haste zone, Bless aura, temp HP font. Not a consumable resource; a position. |
 
-### Hazards (Sides) — positioning and risk calculation
+### Hazards (Sides) -- positioning and risk calculation
 
 | Axis | Description |
 |---|---|
 | **No-Go Zone** | Obvious, lethal, clearly telegraphed. Use sparingly. |
-| **Battlefield With a Crack** | Melee fighter's nightmare — a gap that splits the map. |
-| **Everything but the Sky Ship** | Melee fighter's dream — tight quarters, ranged characters suffer. |
+| **Battlefield With a Crack** | Melee fighter's nightmare -- a gap that splits the map. |
+| **Everything but the Sky Ship** | Melee fighter's dream -- tight quarters, ranged characters suffer. |
 | **Mufasa Special** | One-sided fall/cliff (you can fall, but nothing falls on you). |
-| **Vat of Acid** | Hurt on entry but escapable — acid pool, lava flow, electric eel tank. |
+| **Vat of Acid** | Hurt on entry but escapable -- acid pool, lava flow, electric eel tank. |
 | **Pit of Creatures** | Vat you can fight your way through. |
 | **I Can Take It** | Vat you can endure (slow drain damage; tough character can tank it). |
-| **Magical Machinery** | Vat with a power button — disable it to neutralize. |
-| **Frogger** | Vat you can dodge through — traffic, stampede, rushing river, swinging blades. |
+| **Magical Machinery** | Vat with a power button -- disable it to neutralize. |
+| **Frogger** | Vat you can dodge through -- traffic, stampede, rushing river, swinging blades. |
 | **You're On a Roof** | Fall is the whole threat; edges everywhere. |
 | **Thin Ice** | Size-gated (tiny/small safe; medium = Acrobatics; large = Acrobatics w/ disadvantage). Three stages: stable → cracked → broken. Cracks spread to adjacent squares. Glass roof = thin ice in a city. |
 
-### Chaos Axes (Desserts) — change the dynamic; tempting but not always wise
+### Chaos Axes (Desserts) -- change the dynamic; tempting but not always wise
 
 | Axis | Description |
 |---|---|
 | **Fire** | Open flame near flammable materials. Spreads. Universally irresistible. |
 | **Lights Out** | Darkness, fog, magical obscurement. Pairs beautifully with Pull the Lever. |
-| **Random Stash** | Unlabeled potions — could heal or could be damaging AoE. |
+| **Random Stash** | Unlabeled potions -- could heal or could be damaging AoE. |
 | **Bring It Down** | Supports holding up the ceiling / airship engines / mine shaft. High-risk demolition option. |
 | **Unlabeled Levers** | You killed the operator; none of the traps are labeled. Now what? |
 | **Free Them** | Caged creatures that attack everyone indiscriminately when released. |
@@ -307,17 +307,17 @@ Standard monster-fighting combats become slogs when the only variable is "hit th
 When filling out the **Monsters** section of a session prep note, for each combat encounter:
 
 1. **Pick an Objective** (default to Kill Them if nothing else fits the fiction).
-2. **Pick 2 more axes** — ideally one Optimizer and one Hazard, or swap one for a Chaos axis if the scene wants weirdness. Avoid two from the same category unless they cleverly combine (Chevy Chase + High Ground = Reverse Whack-a-Mole).
+2. **Pick 2 more axes** -- ideally one Optimizer and one Hazard, or swap one for a Chaos axis if the scene wants weirdness. Avoid two from the same category unless they cleverly combine (Chevy Chase + High Ground = Reverse Whack-a-Mole).
 3. **Write them into the prep note** above or below the `encounter` codeblock in a small block like:
 
    ```markdown
    **Axes:**
    - *Objective*: Stop the Ritual (3 rounds until completion)
-   - *Optimizer*: The Stash — scroll of Counterspell on the altar
-   - *Hazard*: Vat of Acid — bubbling summoning circle, 3d6 acid if pushed in
+   - *Optimizer*: The Stash -- scroll of Counterspell on the altar
+   - *Hazard*: Vat of Acid -- bubbling summoning circle, 3d6 acid if pushed in
    ```
 
-4. **Make each axis legible at the table** — mark the stash with a token, describe the elevation, show the ritual timer. Players must see the axes to steer toward them.
+4. **Make each axis legible at the table** -- mark the stash with a token, describe the elevation, show the ritual timer. Players must see the axes to steer toward them.
 
 When brainstorming encounters, try to pick axes that reflect the *location's fiction* (a cult shrine wants Stop the Ritual + Activate It; a tavern brawl wants The Stash + Fire; a sky-ship boarding wants Mufasa Special + The BIG Gun). The axes should feel inevitable for the space, not bolted on.
 

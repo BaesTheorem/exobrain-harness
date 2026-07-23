@@ -1,8 +1,8 @@
-# RESTORE — bringing the harness back on a wiped or new Mac
+# RESTORE -- bringing the harness back on a wiped or new Mac
 
-This is the **bootstrap**. It's readable on github.com from a bare machine, before Claude Code or the harness exist. Follow Phases 0–1 by hand to get the machine to the point where Claude can run; then hand off to the **`/restore-harness`** skill, which drives the rest with full per-step detail and the vault guardrail.
+This is the **bootstrap**. It's readable on github.com from a bare machine, before Claude Code or the harness exist. Follow Phases 0-1 by hand to get the machine to the point where Claude can run; then hand off to the **`/restore-harness`** skill, which drives the rest with full per-step detail and the vault guardrail.
 
-Full reasoning, the gap analysis, and the lay-of-the-land: the recon note `recon/2026-06-20-restore-harness-from-backup.md` in the Obsidian vault (recoverable via Obsidian Sync). For the always-on Mac Mini *split* (old machine still alive), use `MAC-MINI-MIGRATION-PLAN.md` instead — different problem.
+Full reasoning, the gap analysis, and the lay-of-the-land: the recon note `recon/2026-06-20-restore-harness-from-backup.md` in the Obsidian vault (recoverable via Obsidian Sync). For the always-on Mac Mini *split* (old machine still alive), use `MAC-MINI-MIGRATION-PLAN.md` instead -- different problem.
 
 ## The one rule
 
@@ -14,11 +14,11 @@ Code ← GitHub · Private data/secrets/DBs ← backup tarball · Vault ← Obsi
 
 ## Credentials you must have on hand (none are in any backup)
 
-Apple ID · Google account · GitHub · **Obsidian Sync account** (separate from Apple ID — easy to forget) · Fitbit & Withings logins.
+Apple ID · Google account · GitHub · **Obsidian Sync account** (separate from Apple ID -- easy to forget) · Fitbit & Withings logins.
 
-## Phase 0 — Reach the tarball
+## Phase 0 -- Reach the tarball
 
-1. Run macOS setup. **Use the same short username `alexhedtke`** — 38 launchd plists hardcode `/Users/alexhedtke/`.
+1. Run macOS setup. **Use the same short username `alexhedtke`** -- 38 launchd plists hardcode `/Users/alexhedtke/`.
 2. Sign into Apple ID.
 3. Install **Google Drive for Desktop**, sign in, set `Exobrain backups/`, `Plaud/`, `Supernote/Note/` to **Mirror** (not Stream). Wait for `Exobrain backups/` to appear on disk.
 4. Pick the newest **`exobrain-collective-*.tar.gz`** (not a legacy `exobrain-harness-*`, which lacks the vault + per-repo data) and extract:
@@ -29,7 +29,7 @@ Apple ID · Google account · GitHub · **Obsidian Sync account** (separate from
    ```
    If Drive won't materialize: download the tarball from drive.google.com in a browser instead.
 
-## Phase 1 — System foundation
+## Phase 1 -- System foundation
 
 ```bash
 /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
@@ -54,7 +54,7 @@ Then in the session:
 /restore-harness            # full restore (vault left to Sync)
 /restore-harness --minimal  # just get MIST working interactively, finish the rest later
 ```
-The skill handles Phases 2–8: vault checkpoint (guardrail), out-of-tree credentials, sibling repos, TCC grants, smoke test, and launchd. Verify any time with:
+The skill handles Phases 2-8: vault checkpoint (guardrail), out-of-tree credentials, sibling repos, TCC grants, smoke test, and launchd. Verify any time with:
 ```bash
 bash restore-smoke-test.sh
 ```

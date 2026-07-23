@@ -1,4 +1,4 @@
-"""Command registry and dispatch — the modern, single-guild equivalent of
+"""Command registry and dispatch -- the modern, single-guild equivalent of
 Fletcher's CommandHandler.
 
 Fletcher stores commands as plain dicts so it can hot-reload modules via

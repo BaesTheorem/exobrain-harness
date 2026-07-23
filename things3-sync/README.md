@@ -26,7 +26,7 @@ New projects auto-create their Obsidian note. Area assignments from Things 3 syn
 
 ## Install
 
-Copy the plist (real file, NOT a symlink — TCC blocks login-time loading of symlinks into `~/Documents/`):
+Copy the plist (real file, NOT a symlink -- TCC blocks login-time loading of symlinks into `~/Documents/`):
 
 ```bash
 cp com.exobrain.things3-sync.plist ~/Library/LaunchAgents/
@@ -46,9 +46,9 @@ Edit these at the top of `things3-obsidian-sync.py` to tune behavior:
 |----------|---------|---------|
 | `THINGS_DB` | `~/Library/Group Containers/JLMPQHK86H.com.culturedcode.ThingsMac/ThingsData-VE3Z1/Things Database.thingsdatabase/main.sqlite` | Read-only path to Things 3's SQLite DB. The `VE3Z1` suffix may differ on a fresh install. |
 | `VAULT` | `~/Exobrain` | Obsidian vault root. |
-| `EXCLUDED_AREA_TITLES` | `{"Morning", "Evening"}` | Areas treated as ritual containers, not project areas — projects in these areas are NOT required to have a parent area. |
+| `EXCLUDED_AREA_TITLES` | `{"Morning", "Evening"}` | Areas treated as ritual containers, not project areas -- projects in these areas are NOT required to have a parent area. |
 | `AREA_EXEMPT_PROJECTS` | `{"Shopping list"}` | Project names allowed to live without an area assignment (otherwise the script warns). |
 
 ## Read-only safety
 
-The script opens the Things 3 database with `mode=ro` and never writes to it — Things 3 itself is the source of truth for task state. Edits flow Things 3 → Obsidian, never back.
+The script opens the Things 3 database with `mode=ro` and never writes to it -- Things 3 itself is the source of truth for task state. Edits flow Things 3 → Obsidian, never back.

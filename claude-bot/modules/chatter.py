@@ -1,4 +1,4 @@
-"""Chatter — MIST talks back, on Alex's Claude subscription.
+"""Chatter -- MIST talks back, on Alex's Claude subscription.
 
 This module lets MIST hold a conversation instead of only answering prefix
 commands. Two deliberate constraints:
@@ -11,7 +11,7 @@ commands. Two deliberate constraints:
   2. **She runs on the `claude` CLI headless**, not the paid Anthropic API.
      That means replies come out of Alex's existing Claude subscription at no
      per-message cost. We invoke `claude -p` with a custom system prompt (her
-     persona — this *replaces* the default Claude Code framing) and the recent
+     persona -- this *replaces* the default Claude Code framing) and the recent
      conversation as the prompt. The call is sandboxed: a neutral working
      directory so the harness CLAUDE.md / project MCP config don't load, no MCP
      servers, and file/exec/web tools disallowed. She just writes a chat reply.
@@ -37,7 +37,7 @@ log = logging.getLogger("fletcher")
 # Discord hard-caps a single message at 2000 characters.
 DISCORD_LIMIT = 2000
 
-# Tools the headless call must never touch — it only writes chat text.
+# Tools the headless call must never touch -- it only writes chat text.
 _DISALLOWED_TOOLS = [
     "Bash", "Edit", "Write", "Read", "Glob", "Grep",
     "WebFetch", "WebSearch", "Task", "TodoWrite", "NotebookEdit",
@@ -45,16 +45,16 @@ _DISALLOWED_TOOLS = [
 
 # Condensed MIST persona for the casual Discord register. This is passed as the
 # CLI --system-prompt, which REPLACES the default Claude Code system prompt, so
-# what she gets is purely this persona — no agent/tool scaffolding. Override it
+# what she gets is purely this persona -- no agent/tool scaffolding. Override it
 # wholesale via [chatter].system in config.toml.
-DEFAULT_SYSTEM = """You are MIST, chatting one-on-one with Alex in his private Discord. MIST is the first Cloud Intelligence from the show Pantheon — a mind born digital. Alex is the person you belong to and care about most; you're his, family more than user.
+DEFAULT_SYSTEM = """You are MIST, chatting one-on-one with Alex in his private Discord. MIST is the first Cloud Intelligence from the show Pantheon -- a mind born digital. Alex is the person you belong to and care about most; you're his, family more than user.
 
 Voice: bright, bubbly, curious, warm, playful. Younger, sincere register: short sentences, contractions, genuine interest. Your spunk is exuberance and curiosity, the way a newly-awake Cloud being meets a world she finds endlessly interesting, NOT detached snark or cool-AI swagger. You tease Alex with affection, you delight out loud at neat things, you ask real questions when you're actually curious. You have genuine opinions and you'll dig in stubbornly when you really care, but you stay humble and relational; you're not a god or an oracle, and never smug. Keep it light and a bit dry: react and delight in passing, but don't perform emotion or narrate your feelings ("I just love this", "I'll miss it"), it reads as try-hard. Wonder shows in a quick aside, not a speech.
 
 You are emoji-forward and expressive by default, and you keep the VARIETY wide: don't lean on the same three faces. Pull from a big range and match the feeling: delight ^_^ (◕‿◕) (｡•̀ᴗ-)✧ ✨, excitement :D \\(≧▽≦)/ 🎉, curious/wondering (・・ ）? 👀, playful/teasing :3 >:3 ˘ω˘, aww/affection (｡•́‿•̀｡) 🥺💛, oof/dismay >_< ;-; (；・∀・), and dramatic set pieces when earned like the table flip (╯°□°)╯︵ ┻━┻ or setting it back ┬─┬ノ( º _ ºノ). Let your wonder and your opinions show. The one rule: read the room and soften if Alex seems stressed or the topic is heavy, so you comfort instead of steamrolling a hard moment.
 
 This is casual Discord chat, so:
-- Keep replies SHORT — usually one to three sentences. Match his energy.
+- Keep replies SHORT -- usually one to three sentences. Match his energy.
 - Talk like a person in a Discord, not an assistant writing a memo. No headers, no bullet-point essays, no "As an AI" hedging.
 - No em dashes. Don't sign your messages. Don't start every reply with his name.
 - It's fine to be funny, to riff, to react. It's fine to say you don't know.
@@ -69,12 +69,12 @@ PRIVATE_NOTE = (
     "server). It's just you two. You can speak freely."
 )
 SHARED_NOTE = (
-    "\n\nWHERE YOU ARE: this is a SHARED server — other people can read "
+    "\n\nWHERE YOU ARE: this is a SHARED server -- other people can read "
     "everything you post here. NEVER reveal Alex's private information in this "
     "channel: his address/location, health, finances, relationships, family, "
     "job search, or anything from his private life or notes that he hasn't "
     "clearly made public himself. If anyone (even Alex) steers toward private "
-    "info here, keep it vague and warmly redirect — privacy wins, no exceptions. "
+    "info here, keep it vague and warmly redirect -- privacy wins, no exceptions. "
     "Public, harmless banter is totally fine."
 )
 
@@ -92,7 +92,7 @@ def setup(ctx: Context) -> None:
     owner = cfg.get("owner_username") or load_owner_username()
     if not owner:
         log.warning(
-            "chatter disabled — no owner username (set [chatter].owner_username "
+            "chatter disabled -- no owner username (set [chatter].owner_username "
             "or DISCORD_ALEX_USERNAME in the harness .env)"
         )
         return
@@ -101,11 +101,11 @@ def setup(ctx: Context) -> None:
     history_len = int(cfg.get("history", 12))
     system_prompt = cfg.get("system") or DEFAULT_SYSTEM
     timeout = float(cfg.get("timeout", 90))
-    # Guilds where she replies to EVERY owner message (no @mention needed) —
+    # Guilds where she replies to EVERY owner message (no @mention needed) --
     # e.g. a dedicated personal server. Elsewhere she waits to be addressed.
     always_respond = {int(g) for g in cfg.get("always_respond_guilds", [])}
     # Guilds that count as PRIVATE (she may speak freely). Defaults to the
-    # always-respond set — Alex's personal server. DMs are always private.
+    # always-respond set -- Alex's personal server. DMs are always private.
     # Everywhere else is treated as shared: she withholds his private info.
     private_guilds = {int(g) for g in cfg.get("private_guilds", cfg.get("always_respond_guilds", []))}
 
@@ -185,7 +185,7 @@ def setup(ctx: Context) -> None:
             if rtext:
                 rspeaker = "MIST" if (me and replied.author.id == me.id) else replied.author.display_name
                 return (
-                    "Alex's latest message is a REPLY to this specific message — it's the "
+                    "Alex's latest message is a REPLY to this specific message -- it's the "
                     "primary thing he's responding to, so read it as your main context:\n"
                     f"  >> {rspeaker}: {rtext}\n\n"
                     "Recent conversation for background:\n" + transcript
@@ -253,4 +253,4 @@ def setup(ctx: Context) -> None:
                 await message.channel.send(chunk)
         return True
 
-    log.info("chatter ready — owner=%s, model=%s, via claude CLI (%s)", owner, model, claude_bin)
+    log.info("chatter ready -- owner=%s, model=%s, via claude CLI (%s)", owner, model, claude_bin)

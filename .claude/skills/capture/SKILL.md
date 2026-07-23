@@ -14,7 +14,7 @@ Keywords: "need to", "should", "have to", "don't forget", "remind me", "todo", "
 
 Action:
 1. `search_todos` to check for duplicates
-2. `add_todo` to Things 3 Inbox (always — never set `when` or route to a project; see `things3` skill)
+2. `add_todo` to Things 3 Inbox (always -- never set `when` or route to a project; see `things3` skill)
 3. Confirm: "Added task '[title]' to Things 3 Inbox"
 
 ### Event

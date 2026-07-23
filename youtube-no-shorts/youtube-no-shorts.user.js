@@ -1,5 +1,5 @@
 // ==UserScript==
-// @name         YouTube — No Shorts
+// @name         YouTube -- No Shorts
 // @namespace    https://github.com/local/youtube-no-shorts
 // @version      1.2.0
 // @description  Removes YouTube Shorts everywhere (home, search, subscriptions, channels, sidebar/bottom nav) and redirects /shorts/ links to the normal player. Runs on the real youtube.com, so login, recommendations, and YouTube Premium background playback are untouched. Works on iOS Safari (Userscripts app), desktop (Tampermonkey/Violentmonkey), and the mobile web layout.
@@ -14,7 +14,7 @@
   'use strict';
 
   /* -------------------------------------------------------------------------
-   * 1. CSS — hide every known Shorts surface on both the desktop (ytd-*)
+   * 1. CSS -- hide every known Shorts surface on both the desktop (ytd-*)
    *    and mobile-web (ytm-*) layouts. Injected at document-start so Shorts
    *    never flash in before the page settles.
    *
@@ -80,7 +80,7 @@ yt-lockup-view-model:has(a[href*="/shorts/"])
 
   /* -------------------------------------------------------------------------
    * 2. Redirect any /shorts/<id> URL to the normal watch page.
-   *    The video still plays exactly as a regular video — which means
+   *    The video still plays exactly as a regular video -- which means
    *    Premium background playback works on it too.
    * ---------------------------------------------------------------------- */
   function redirectShorts() {
@@ -105,7 +105,7 @@ yt-lockup-view-model:has(a[href*="/shorts/"])
   window.addEventListener('popstate', redirectShorts);
 
   /* -------------------------------------------------------------------------
-   * 3. JS sweep — belt-and-suspenders for anything CSS :has() misses
+   * 3. JS sweep -- belt-and-suspenders for anything CSS :has() misses
    *    (e.g. lazily hydrated nav items). Hides Shorts links' containers and
    *    nav entries that point at /shorts.
    * ---------------------------------------------------------------------- */

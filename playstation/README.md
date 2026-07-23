@@ -5,8 +5,8 @@ Remote control of the household PS5 from this Mac, via [pyremoteplay](https://gi
 
 ## What's here vs. gitignored
 
-- `requirements.txt` — pinned deps that make the unmaintained library work on Python 3.14 / Apple Silicon.
-- `.venv/` — gitignored virtualenv.
+- `requirements.txt` -- pinned deps that make the unmaintained library work on Python 3.14 / Apple Silicon.
+- `.venv/` -- gitignored virtualenv.
 - **Credentials are NOT in this repo.** pyremoteplay stores the PSN OAuth profile and
   per-console registration keys in `~/.pyremoteplay/.profile.json` in the home directory.
   Treat that file as a secret.
@@ -24,7 +24,7 @@ Build gotchas discovered the hard way:
   x86_64 binary even while tagging the wheel `arm64`. Force it with
   `ARCHFLAGS="-arch arm64"` + `--no-binary netifaces`.
 - `pyee>=10` breaks the import (`ExecutorEventEmitter` moved); pin `pyee==9.1.1`.
-- `async-timeout` is needed by `pyps4-2ndscreen` but not declared — install explicitly.
+- `async-timeout` is needed by `pyps4-2ndscreen` but not declared -- install explicitly.
 - `av` (video decode for actually viewing the stream) is optional; without it you can
   still send controller input and wake/standby commands.
 

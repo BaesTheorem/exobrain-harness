@@ -28,7 +28,7 @@
     <key>StandardErrorPath</key>
     <string>/tmp/bodyguard-weekly.err</string>
 
-    <!-- Don't re-run if missed (laptop asleep at 8am Sunday) — just run on next wake -->
+    <!-- Don't re-run if missed (laptop asleep at 8am Sunday) -- just run on next wake -->
     <key>StartOnMount</key>
     <false/>
 </dict>

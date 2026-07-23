@@ -95,7 +95,7 @@ def fetch_with_fallback(host, state):
             if cand[0].isdigit():
                 state["last_ip"] = cand
             return data, cand
-        except Exception as e:  # noqa: BLE001 — try the next candidate
+        except Exception as e:  # noqa: BLE001 -- try the next candidate
             last_err = e
     if last_err:
         log(f"fetch failed (tried {candidates}): {last_err}")
@@ -231,7 +231,7 @@ def main():
         log(f"no co2 in response: {data}")
         return
 
-    # Log every reading, around the clock — overnight bedroom air is the data we
+    # Log every reading, around the clock -- overnight bedroom air is the data we
     # most want. Alerts, below, still respect active hours so we don't wake Alex.
     append_csv(now, data)
 
@@ -255,11 +255,11 @@ def main():
 
     score = data.get("score", "?")
     pm25 = data.get("pm25", "?")
-    msg = f"CO2 {co2} ppm (score {score}, PM2.5 {pm25}) — open a window"
+    msg = f"CO2 {co2} ppm (score {score}, PM2.5 {pm25}) -- open a window"
     notify("Air quality", msg, urgent=(tier == "urgent"))
 
     emoji = "🚨" if tier == "urgent" else "🌬️"
-    notify_discord(env.get("DISCORD_NOTIFY_CHAT_ID"), f"{emoji} **Air quality** — {msg}")
+    notify_discord(env.get("DISCORD_NOTIFY_CHAT_ID"), f"{emoji} **Air quality** -- {msg}")
     log(f"notified {tier}: co2={co2} score={score} pm25={pm25}")
 
     state[f"last_{tier}"] = now.isoformat(timespec="seconds")

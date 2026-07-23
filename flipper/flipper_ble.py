@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-flipper_ble.py — drive a Flipper Zero WIRELESSLY over Bluetooth LE.
+flipper_ble.py -- drive a Flipper Zero WIRELESSLY over Bluetooth LE.
 
 The Flipper's BLE serial channel does NOT expose the text CLI (unlike USB);
 it speaks the protobuf RPC only. So this is a from-scratch, dependency-free
@@ -8,14 +8,14 @@ implementation of the Flipper RPC: hand-rolled protobuf wire encoding/decoding
 (no protoc, no protobuf runtime) over the BLE serial GATT service via bleak.
 
 Supports: ping, info (device_info), battery, power, list, read, write, delete,
-plus wireless device CONTROL — app (launch an on-device app), input (inject a
+plus wireless device CONTROL -- app (launch an on-device app), input (inject a
 button press), and screen (dump the framebuffer as text/PNG).
 
 Why control matters: the BLE link has no text CLI and the RPC has no sub-GHz
 method, so a *live* sub-GHz read can't be tunneled like it can over USB. Instead
 we drive the Flipper's own Sub-GHz app by injecting buttons, let it record/save,
 then read the resulting .sub file over BLE as plain text and analyze it offline.
-The decoded RESULT is always a text file — no screen-scraping needed for it; the
+The decoded RESULT is always a text file -- no screen-scraping needed for it; the
 `screen` dump is only a navigation aid.
 
 Usage:
@@ -42,7 +42,7 @@ Usage:
     flipper_ble.py clock | clock --set now   # read / set the device clock
 
 Requires the Flipper's Bluetooth ON. First connect may prompt a pairing PIN
-on the Flipper screen — confirm it there.
+on the Flipper screen -- confirm it there.
 
 Caveat: large file reads over BLE can be flaky (known firmware transfer bug).
 Small files, listings, and info are solid.
@@ -556,7 +556,7 @@ async def run(args):
             except RuntimeError as e:
                 if not args.force:
                     sys.exit(f"could not launch {args.name}: {e}\n"
-                             "(an app is likely already running — re-run with --force "
+                             "(an app is likely already running -- re-run with --force "
                              "to exit it first, or use `keys back` to back out)")
                 try:                       # force: get back to the desktop, then retry
                     await fz.app_exit()

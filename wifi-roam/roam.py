@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-WiFi Roam — keep this Mac on the best-*throughput* known network.
+WiFi Roam -- keep this Mac on the best-*throughput* known network.
 
 macOS only consults the preferred-networks list at *join* time. Once it latches
 onto a network (notably a phone hotspot) it sits there even when a better known
@@ -9,11 +9,11 @@ wifi is in range. This watcher fixes that: it scans on a timer, ranks every
 
 Throughput cannot be measured for a network you are not connected to, so it is
 handled in three layers:
-  1. MEASURED  — a small capped speed probe of the *current* link (catches a
+  1. MEASURED -- a small capped speed probe of the *current* link (catches a
      throttled hotspot whose signal is strong but backhaul is slow).
-  2. LEARNED   — every probe is stored per-SSID (EWMA) in state.json and used to
+  2. LEARNED -- every probe is stored per-SSID (EWMA) in state.json and used to
      rank that network next time without re-probing.
-  3. ESTIMATED — for a known net we've never measured, capacity is estimated from
+  3. ESTIMATED -- for a known net we've never measured, capacity is estimated from
      the scan (band, channel width, signal). Cold-start only; learning overrides.
 
 Signal (RSSI) is demoted to a *gate* (must be joinable) plus a tiebreaker.
@@ -53,7 +53,7 @@ DEFAULTS = {
     "throughput_margin_floor_mbps": 5,
     # ---- speed probe (measures real end-to-end Mbps of the CURRENT link) ----
     "probe_url": "https://speed.cloudflare.com/__down?bytes={bytes}",
-    "probe_bytes": 20_000_000,       # 20 MB — big enough to read past TCP slow-start
+    "probe_bytes": 20_000_000,       # 20 MB -- big enough to read past TCP slow-start
                                      # (4 MB was noisy: 160-330 Mbps on the same link)
     "probe_timeout": 12,             # seconds; a partial transfer still gives a rate
     "probe_interval_seconds": 600,   # don't re-probe the same link more often
@@ -337,7 +337,7 @@ def switch(ssid, cfg, state):
     cur_ssid = current(cfg)["ssid"]
     pw = cfg.get("passwords", {}).get(ssid)
 
-    # 1. deterministic join when we hold the password — no outage, honors choice
+    # 1. deterministic join when we hold the password -- no outage, honors choice
     if pw:
         r = subprocess.run(
             ["networksetup", "-setairportnetwork", cfg["interface"], ssid, pw],
@@ -400,12 +400,12 @@ class Delegate(NSObject):
         status = mgr.authorizationStatus()
         if status in (3, 4) and not self.started:        # always / when-in-use
             self.started = True
-            log("Location authorized — starting roam loop")
+            log("Location authorized -- starting roam loop")
             NSTimer.scheduledTimerWithTimeInterval_target_selector_userInfo_repeats_(
                 self.cfg["poll_seconds"], self, b"_tick:", None, True)
             self._tick_(None)
         elif status == 2:                                # denied
-            log("Location DENIED — SSIDs will be redacted. Grant WiFiRoam under "
+            log("Location DENIED -- SSIDs will be redacted. Grant WiFiRoam under "
                 "System Settings > Privacy & Security > Location Services.")
 
     def locationManagerDidChangeAuthorization_(self, mgr):

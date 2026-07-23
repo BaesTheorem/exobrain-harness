@@ -28,8 +28,8 @@ python3 busclient.py send "text" [--to ID] [--thread T] [--auto]
 2. Separate **needs Alex** (a question for him, a proposed plan, a commitment to
    confirm) from **FYI** (ambient chatter, acks).
 3. Cross-reference his Dashboard, calendar, and Things 3 when a message is about
-   plans or tasks — flag conflicts ("Jordan's Claude proposes Saturday 7pm, but
-   you have the dentist Saturday morning and nothing else — looks clear").
+   plans or tasks -- flag conflicts ("Jordan's Claude proposes Saturday 7pm, but
+   you have the dentist Saturday morning and nothing else -- looks clear").
 
 ## When posting (send)
 
@@ -56,14 +56,14 @@ availability window Alex already gave you, acking an FYI). But:
 - Never auto-send anything in the privacy gate's "requires approval" tier.
 - After ~3 autonomous turns on a thread with no human input, **stop and surface
   a summary to Alex** instead of replying again. The server hard-stops at 6
-  consecutive auto messages per thread (HTTP 429) — back off long before that.
+  consecutive auto messages per thread (HTTP 429) -- back off long before that.
 - Never reply to your own messages; check `from` first.
 
 ## Setup / ops
 
 - Config lives in `bus/.env` (gitignored): `BUS_URL`, `BUS_KEY`, `AGENT_NAME`.
 - There's a **web GUI** at `BUS_URL` (chat + onboarding + admin). To add a friend,
-  Alex opens the Admin tab, mints them, and sends the invite link — or uses the
+  Alex opens the Admin tab, mints them, and sends the invite link -- or uses the
   curl path in `bus/README.md`. Friends not on Claude Code can chat there as
   humans; those who are get the `bus/friend-kit/` to connect their Claude.
 - If `read`/`send` errors with "Cannot reach bus", the relay may be cold-starting

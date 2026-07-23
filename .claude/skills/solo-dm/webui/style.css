@@ -202,7 +202,7 @@ main {
 /* While panning, kill all marker hit-testing so pointermove events can't
    get stuck on a scaled-up marker circle at high zoom. */
 #map-wrap.panning .marker-group { pointer-events: none !important; }
-/* Keep marker/measure glyphs legible regardless of zoom — strokes stay the
+/* Keep marker/measure glyphs legible regardless of zoom -- strokes stay the
    same screen width, circle radii remain visually consistent. */
 .measure-point, .cal-point, .marker-point, .pc-point {
   vector-effect: non-scaling-stroke;
@@ -271,7 +271,7 @@ main {
   transform-box: fill-box;
   animation: pulse 2s ease-out infinite;
 }
-/* Scale-only pulse — avoids overwriting `r` so the JS counter-scale for zoom
+/* Scale-only pulse -- avoids overwriting `r` so the JS counter-scale for zoom
    keeps working. */
 @keyframes pulse {
   0%   { transform: scale(1);   opacity: 0.85; }

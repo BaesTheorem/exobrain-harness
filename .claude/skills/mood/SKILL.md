@@ -5,7 +5,7 @@ description: Track and analyze Alex's mood, mental health, and wellbeing over ti
 
 # Mood Tracking
 
-Maintains `/Users/alexhedtke/Exobrain/Mood Journal.md` — a longitudinal record of Alex's mental health and wellbeing.
+Maintains `/Users/alexhedtke/Exobrain/Mood Journal.md` -- a longitudinal record of Alex's mental health and wellbeing.
 
 ## Scale
 
@@ -31,21 +31,21 @@ Half-points are valid (e.g., 2.5). Round to nearest 0.5 for display.
 | **Social** | Connection quality, social battery, isolation | Transcript social content, Discord activity, iMessage responsiveness |
 | **Purpose** | Motivation, progress on priorities, momentum | Things 3 completion, study sessions, procrastination flags, overdue tasks |
 
-**Overall = weighted average leaning toward the lowest sub-score** — a great social day doesn't cancel out struggling emotionally. Use judgment, not pure math.
+**Overall = weighted average leaning toward the lowest sub-score** -- a great social day doesn't cancel out struggling emotionally. Use judgment, not pure math.
 
 ## Data Sources & Signals
 
 ### Direct signals (high confidence)
 - **Explicit mood statements** in transcripts ("feeling bleh", "great day", "anxious about X")
 - **Alex's notes to Claude** at end of recordings (he often narrates his state)
-- **iMessage tone** — short/terse replies vs. engaged/warm
-- **Discord engagement** — active participation vs. lurking
+- **iMessage tone** -- short/terse replies vs. engaged/warm
+- **Discord engagement** -- active participation vs. lurking
 
 ### Indirect signals (medium confidence)
 - **Fitbit sleep**: Duration, efficiency, bedtime (target: before 12:45 AM). Poor sleep = energy/mood drag
 - **Fitbit steps**: <8k = sedentary day (flag), >15k = goal met (boost), >20k = exceptional
 - **Fitbit resting HR**: Trending up = stress/poor recovery, trending down = improving fitness
-- **Withings body composition**: Weight trend, fat % changes, muscle mass — use for Self-Care scoring. Do NOT use Fitbit for weight.
+- **Withings body composition**: Weight trend, fat % changes, muscle mass -- use for Self-Care scoring. Do NOT use Fitbit for weight.
 - **Things 3 completion rate**: Tasks getting done vs. piling up
 - **Pomodoro sessions** (`/Users/alexhedtke/Exobrain/Pomodoro Log.md`): daily session count and total minutes; focused-work momentum feeds the Purpose sub-score
 - **Calendar density**: Overstuffed days = stress risk, empty days after heavy ones = recovery
@@ -61,11 +61,11 @@ Half-points are valid (e.g., 2.5). Round to nearest 0.5 for display.
 
 1. **Gather evidence** from all available sources for that day
 2. **Score each sub-category** with a brief justification
-3. **Calculate overall** — weighted toward lowest scores, with judgment
-4. **Note the primary driver** — what most influenced the score ("depleted after 72hr social marathon", "productive study day + good sleep")
-5. **Flag patterns** — is this part of a trend? Deviation from baseline?
+3. **Calculate overall** -- weighted toward lowest scores, with judgment
+4. **Note the primary driver** -- what most influenced the score ("depleted after 72hr social marathon", "productive study day + good sleep")
+5. **Flag patterns** -- is this part of a trend? Deviation from baseline?
 
-## Source of Truth — Frontmatter
+## Source of Truth -- Frontmatter
 
 **Daily note YAML frontmatter is the canonical store** for every mood score.
 Each daily note (e.g. `Daily notes/Monday, May 11th, 2026.md`) carries:
@@ -79,8 +79,8 @@ mood_social: 4.5
 mood_purpose: 2.5
 ```
 
-Everything else — the `### Mood` body section, `mood-data.json`, and the
-`Mood Journal.md` heatmap — is **derived** from these fields. When you score
+Everything else -- the `### Mood` body section, `mood-data.json`, and the
+`Mood Journal.md` heatmap -- is **derived** from these fields. When you score
 a day, write the frontmatter first, then render the body and run the sync.
 
 Narrative fields that don't fit in frontmatter (`primary_driver`, `notes`,
@@ -126,7 +126,7 @@ Individual day entries with sub-scores, evidence, and primary driver. Most recen
    (`mood_score`, `mood_emotional`, `mood_energy`, `mood_self_care`,
    `mood_social`, `mood_purpose`).
 2. Append a `### Mood` body section to the daily note with the narrative
-   (`primary_driver`, notes, flags) — prose belongs in the body, not in YAML.
+   (`primary_driver`, notes, flags) -- prose belongs in the body, not in YAML.
 3. Run the renderer to regenerate the Mood Journal heatmap:
    ```bash
    python3 "/Users/alexhedtke/Documents/Exobrain harness/mood-tracker/render-mood-journal.py"
@@ -135,13 +135,13 @@ Individual day entries with sub-scores, evidence, and primary driver. Most recen
    `~/Exobrain/Mood Journal.md` (calendar heatmaps + weekly summaries + daily log).
 
 Manual frontmatter edits (via Obsidian Properties UI) are picked up the next
-time the renderer runs — at evening wind-down, or on demand.
+time the renderer runs -- at evening wind-down, or on demand.
 
 ## Integration with Other Skills
 
 - **`/daily-briefing`**: After building the briefing, score yesterday and update the journal. Include a 1-line mood summary in the briefing: "Mood yesterday: 2.5/5 🟠 (depleted after social marathon)"
 - **`/weekly-review`**: Generate the weekly summary entry. Compare to prior weeks. Flag multi-week trends.
-- **`/process-transcript`**: If the transcript contains direct mood statements, note them for the next journal update. Don't score mid-day — wait for full-day data.
+- **`/process-transcript`**: If the transcript contains direct mood statements, note them for the next journal update. Don't score mid-day -- wait for full-day data.
 
 
 ## Daily Briefing
@@ -162,7 +162,7 @@ When called as part of the daily briefing:
 3. **Render the `### Mood` body section** in the same note from those values:
    ```markdown
    ### Mood
-   **Overall**: 3/5 🟡 — steady day, self-care dipped
+   **Overall**: 3/5 🟡 -- steady day, self-care dipped
    - Emotional: 3 | Energy: 2.5 | Self-Care: 2 | Social: 3.5 | Purpose: 3
    - *Primary driver: late bedtime + low steps dragged energy/self-care down*
    ```
@@ -174,15 +174,15 @@ When called as part of the daily briefing:
    - Energy lowest → "Past 1 AM every night this week. Set a 12:30 AM wind-down alarm."
    - Purpose lowest → "No cert progress in 4 days. Block 45 min before your 2 PM meeting."
 6. **Return for today's briefing**:
-   - 1-line summary: `**Mood yesterday**: 3/5 🟡 — steady day, self-care dipped`
+   - 1-line summary: `**Mood yesterday**: 3/5 🟡 -- steady day, self-care dipped`
    - Boost: `**🎯 Mood boost**: [recommendation]`
    - If multi-day declining trend, flag prominently.
 
 ## Proactive Flags
 
 Surface these in daily briefings and ad-hoc responses:
-- **3+ days at 2 or below**: "You've been in a rough stretch — what would help?"
+- **3+ days at 2 or below**: "You've been in a rough stretch -- what would help?"
 - **Dropping trend**: 3+ consecutive days of declining scores
 - **Self-care slip**: Sleep/exercise sub-scores at 1-2 for 3+ days
-- **Social overload**: Social score high but Energy/Emotional dropping — marathon pattern
+- **Social overload**: Social score high but Energy/Emotional dropping -- marathon pattern
 - **Recovery needed**: Flag empty calendar slots as recovery opportunities after low-score days

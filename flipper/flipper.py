@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
 """
-flipper.py — drive a Flipper Zero from the command line over its USB serial CLI.
+flipper.py -- drive a Flipper Zero from the command line over its USB serial CLI.
 
 This talks to the Flipper's built-in text CLI (the same REPL you get over
-`screen /dev/cu.usbmodemflip_xxxx`). No protobuf, no external Flipper libs —
+`screen /dev/cu.usbmodemflip_xxxx`). No protobuf, no external Flipper libs --
 just pyserial against the device's command prompt. Works on stock or any
 custom firmware (Unleashed/Momentum/RogueMaster) since the CLI is upstream.
 

@@ -1,6 +1,6 @@
 ---
 name: music
-description: "Alex's music toolset — generate full songs from a text prompt, render sheet music (MIDI/MusicXML/photo/PDF) to audio, transcribe audio to notation, and build captioned lyric videos from a track + a still image + lyrics. Use when Alex says 'make a song', 'generate music', 'lyric video', 'captioned lyrics video', 'karaoke video', 'transcribe this audio', 'read this sheet music', 'turn this MIDI into audio', 'set these lyrics to the track', or otherwise wants to create, convert, or caption music."
+description: "Alex's music toolset -- generate full songs from a text prompt, render sheet music (MIDI/MusicXML/photo/PDF) to audio, transcribe audio to notation, and build captioned lyric videos from a track + a still image + lyrics. Use when Alex says 'make a song', 'generate music', 'lyric video', 'captioned lyrics video', 'karaoke video', 'transcribe this audio', 'read this sheet music', 'turn this MIDI into audio', 'set these lyrics to the track', or otherwise wants to create, convert, or caption music."
 metadata:
   tools_dir: "/Users/alexhedtke/Documents/Exobrain harness"
   mist_music: "mist-music/bin/mist-music (gen / render / transcribe / play); venv mist-music/.venv"
@@ -33,9 +33,9 @@ A stdlib CLI at `mist-music/bin/mist-music`, own venv at `mist-music/.venv`
 (music21, oemer, gradio_client). Local core (render + transcribe) is keyless and
 offline; `gen` runs **ACE-Step v1.5** on a free Hugging Face Space via
 `gradio_client` (cloud GPU, so it never touches this 8GB machine's RAM). **Read
-`mist-music/README.md` before non-trivial work** — full pipeline, deps, setup.
+`mist-music/README.md` before non-trivial work** -- full pipeline, deps, setup.
 
-### gen — text (+ lyrics, + a melody) → a full MP3 song
+### gen -- text (+ lyrics, + a melody) → a full MP3 song
 
 ```bash
 mist-music/bin/mist-music gen "acoustic folk, fingerpicked guitar, soft vocals, 90 BPM" --lyrics-file lyrics.txt
@@ -59,26 +59,26 @@ strict after the Nov-2025 Warner settlement and false-positive public-domain and
 covers). But the v1.5 cover reserves ~180 s of GPU per gen, and the free
 per-account ZeroGPU pool is small, so expect ~1 gen when fresh. HF PRO = 40
 min/day (~13 gens). For *hours* of iteration the answer is a rented hourly GPU
-(RunPod/Vast ~$0.30–0.50/hr) running ACE-Step 1.5 / YuE (the deferred rig).
+(RunPod/Vast ~$0.30-0.50/hr) running ACE-Step 1.5 / YuE (the deferred rig).
 
 Older backend detail: full songs (vocals + lyrics) up to **240 s**, 320 kbps MP3.
 
-- positional `prompt` = **style tags** (genre, mood, instruments, BPM) — a comma
+- positional `prompt` = **style tags** (genre, mood, instruments, BPM) -- a comma
   list, *not* a sentence.
-- `--lyrics "…"` / `--lyrics-file f` — words, with `[verse]`/`[chorus]`/`[bridge]`
+- `--lyrics "…"` / `--lyrics-file f` -- words, with `[verse]`/`[chorus]`/`[bridge]`
   tags. Omit or pass `--instrumental` → no vocals (`[inst]`).
-- `--duration N` — seconds, ≤ 240 (`-1` = auto).
-- `--ref PATH` — condition on a melody. PATH is an **audio clip OR sheet music**
+- `--duration N` -- seconds, ≤ 240 (`-1` = auto).
+- `--ref PATH` -- condition on a melody. PATH is an **audio clip OR sheet music**
   (MIDI/MusicXML/score image/PDF; notation is auto-rendered to audio first).
   `--ref-strength 0..1` = how hard it leans on the reference.
 - `--steps N` (clamped ≤20 on v15 xl-turbo), `--seed S`, `--backend auto|v15|v1`,
   `--space S`, `-o FILE`, `--dir`, `--no-embed`, `--open`.
 
 **HF token / quota (important):** the free Space runs on **ZeroGPU with an
-anonymous per-IP daily quota** (~a handful of gens) — then `gen` fails with
+anonymous per-IP daily quota** (~a handful of gens) -- then `gen` fails with
 "exceeded your ZeroGPU quota". `HF_TOKEN` is already wired in the harness `.env`
 (Alex's token, sourced from `~/Documents/one-pace/.hf_token`); authenticated, the
-allowance is much larger. **Don't re-ask for a token — it's set.**
+allowance is much larger. **Don't re-ask for a token -- it's set.**
 
 ### render / transcribe (sheet music ↔ audio ↔ notation)
 
@@ -88,17 +88,17 @@ mist-music/bin/mist-music transcribe riff.mp3     # audio -> riff.mid + riff.mus
 ```
 
 - `render` reuses `mid2mp3` (FluidSynth). The **image/PDF OMR path (oemer) is
-  wired but flaky** — for a printed score, prefer **reading it with your own
+  wired but flaky** -- for a printed score, prefer **reading it with your own
   vision** to pull key/tempo/chords/lyrics, and use any source audio as the
   `--ref` melody, rather than trusting OMR.
-- `transcribe` reuses `mp32mid` (Basic Pitch) — turn a clip or a score into a
+- `transcribe` reuses `mp32mid` (Basic Pitch) -- turn a clip or a score into a
   `--ref` seed for `gen`.
 
 ### Console embedding (inline player + download button)
 
 `gen` output defaults to `tmp/audio/` and it prints `![title](/abs/path.mp3)`.
 The MIST Console renders that local-audio path as an **inline `<audio>` player
-(pause / play / scrub) plus a Save-to-Downloads button** — same chrome as
+(pause / play / scrub) plus a Save-to-Downloads button** -- same chrome as
 generated images. So just print the embed line in your reply, then say where it
 saved. `render`/`transcribe` default to `mist-music/out/` (gitignored).
 
@@ -116,9 +116,9 @@ saved. `render`/`transcribe` default to `mist-music/out/` (gitignored).
 - **Lock `--seed` when sweeping one variable** (e.g. `--ref-strength`) so the
   differences are that variable, not a lucky roll.
 - **Reference-strength tradeoff:** higher hugs the reference's *melody* but also
-  drags in its *timbre* — a thin/lo-fi reference (e.g. a MuseScore soundfont demo)
+  drags in its *timbre* -- a thin/lo-fi reference (e.g. a MuseScore soundfont demo)
   goes **muddy** at high strength; lower is cleaner but drifts off the tune. For
-  lo-fi refs the clear-but-faithful pocket is often **~0.2–0.4**. `audio2audio`
+  lo-fi refs the clear-but-faithful pocket is often **~0.2-0.4**. `audio2audio`
   also **locks the output length to the reference clip** (`--duration` is ignored
   when `--ref` is set).
 - **Instrumental beds for later vocals** (Alex often adds the voice in Suno):
@@ -126,7 +126,7 @@ saved. `render`/`transcribe` default to `mist-music/out/` (gitignored).
   put the **lead instrument on the melody** ("lead electric guitar carries the
   melody") so nothing sags where a singer would be.
 - **Top-tier vocals:** ACE-Step vocals can be artifacty. For the best voice Alex
-  may take an instrumental bed to **Suno** (free tier, browser-only — *not* wired
+  may take an instrumental bed to **Suno** (free tier, browser-only -- *not* wired
   as a backend). A Suno `--backend` is the noted future upgrade.
 
 ---
@@ -140,7 +140,7 @@ Fully offline. Scripts: `lyrics-video/build_ass.py`, `lyrics-video/render_video.
 ### The one principle that makes it work
 
 **The lyrics Alex gives are ground truth for the WORDS. Whisper supplies only the
-TIMING.** Sung/layered vocals mishear badly, so we never trust whisper's text — we
+TIMING.** Sung/layered vocals mishear badly, so we never trust whisper's text -- we
 run it for word-level timestamps, then fuzzy-align Alex's exact lines onto that
 timeline. Always ask Alex for the exact lyrics, **one on-screen line per line**;
 blank lines and `[Section headers]` are ignored (no caption during instrumental
@@ -148,7 +148,7 @@ gaps).
 
 ### Inputs
 
-- `lyrics-video/work/lyrics.txt` — one on-screen line per line, in order.
+- `lyrics-video/work/lyrics.txt` -- one on-screen line per line, in order.
 - A still image (any aspect; it gets a 16:9 blurred-fill treatment).
 - The audio track (mp3/wav).
 
@@ -190,11 +190,11 @@ Output the MP4 next to the source (e.g. `~/Downloads/<Song> - Lyric Video.mp4`).
 - **Finale styling** (gold + bold + larger) is triggered by a hard-coded detector
   in `build_ass.py` (`ln.startswith("Hark!")`). Re-point or remove it per song.
 
-### Gotchas — all solved, don't re-derive
+### Gotchas -- all solved, don't re-derive
 
 - **Stripped ffmpeg has no `ass` / `subtitles` / `drawtext` filter** (no libass /
   freetype). That's *why* text is drawn in Python (Pillow), not burned by ffmpeg.
-  Don't reach for `-vf subtitles=…`. **Never replace the system ffmpeg** — onepace
+  Don't reach for `-vf subtitles=…`. **Never replace the system ffmpeg** -- onepace
   depends on it; it still encodes H.264 + AAC fine.
 - **Whisper intro bleed:** the first sung token gets smeared back across a silent
   intro (a "word" 25 s long). `build_ass.py` clamps any implausibly long word to a
@@ -211,7 +211,7 @@ Output the MP4 next to the source (e.g. `~/Downloads/<Song> - Lyric Video.mp4`).
   anchor at the prior line's start + that verse's own line-cadence.
 - **Timing won't be beat-perfect on dense mixes.** First pass is whisper-accurate.
   If a line drifts, ask Alex which line and nudge it. Only reach for vocal
-  separation (demucs — not installed) if a mix is so dense the timing is rough; it
+  separation (demucs -- not installed) if a mix is so dense the timing is rough; it
   isolates vocals for a big accuracy boost but costs compute + a dep.
 
 ### Verify before handing over
@@ -225,9 +225,9 @@ line, a chorus, and the finale. Confirm `ffprobe` duration matches the audio.
 ## Shared infra & paths
 
 - `whisper-cli` (`/opt/homebrew/bin`) + `ggml-large-v3.bin` under
-  `one-pace/whisper-models/` — shared with the onepace subtitle pipeline; don't
+  `one-pace/whisper-models/` -- shared with the onepace subtitle pipeline; don't
   duplicate the model (3 GB).
-- `ffmpeg` 8.x at `/opt/homebrew/bin` — encodes fine but is a **minimal build**
+- `ffmpeg` 8.x at `/opt/homebrew/bin` -- encodes fine but is a **minimal build**
   (no libass/drawtext/freetype). Pillow + numpy do the text compositing.
 - mist-music reuses **midi-tools** (`~/.local/bin/mid2mp3`, `mp32mid`); see the
   `project_midi_tools` memory. Render/transcribe also need `fluidsynth` + the

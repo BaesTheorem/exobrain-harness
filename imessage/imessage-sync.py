@@ -1,17 +1,17 @@
 #!/usr/bin/env python3
 """
-iMessage Sync for Exobrain — the Full-Disk-Access half of the reader.
+iMessage Sync for Exobrain -- the Full-Disk-Access half of the reader.
 
 WHY THIS EXISTS
 ---------------
 Reading ~/Library/Messages/chat.db requires macOS Full Disk Access (FDA). TCC
 grants FDA per *binary path*. When Claude Code shells out to python, the process
 accessing chat.db is attributed to the Claude Code binary, which lives at a
-versioned path that changes on every CC update — so the grant silently breaks
+versioned path that changes on every CC update -- so the grant silently breaks
 each time CC updates.
 
 The fix: run THIS script under a stable interpreter path via launchd, and grant
-FDA to that path exactly once. NOTE: /usr/bin/python3 is NOT that path — it's an
+FDA to that path exactly once. NOTE: /usr/bin/python3 is NOT that path -- it's an
 xcrun stub whose real exec target is the Command Line Tools python at a versioned
 path (/Library/Developer/CommandLineTools/...), and TCC keys on that moving
 target, so an FDA grant to the stub never applies. Instead we run under a
@@ -23,9 +23,9 @@ imessage-reader.py then reads the *cache* (an ordinary file, no FDA needed), so
 Claude never touches the protected path.
 
 WHAT IT WRITES (all under imessage/cache/, which is gitignored)
-    chat.db          — consistent snapshot via sqlite's online-backup API
-    contacts.json    — {normalized_phone: "First Last"} built from AddressBook
-    sync-status.json — {ok, synced_at, message_count, error} so a failed sync is
+    chat.db -- consistent snapshot via sqlite's online-backup API
+    contacts.json -- {normalized_phone: "First Last"} built from AddressBook
+    sync-status.json -- {ok, synced_at, message_count, error} so a failed sync is
                        visible, never silent
 
 Run manually (only works if the calling process has FDA):
@@ -104,7 +104,7 @@ def snapshot_db():
     Returns the message count in the snapshot.
     """
     CACHE_DIR.mkdir(parents=True, exist_ok=True)
-    # Read-only source. Not `immutable=1` — we WANT the WAL applied so recent
+    # Read-only source. Not `immutable=1` -- we WANT the WAL applied so recent
     # messages are included.
     src = sqlite3.connect(f"file:{LIVE_DB}?mode=ro", uri=True)
     tmp_fd, tmp_path = tempfile.mkstemp(dir=str(CACHE_DIR), suffix=".tmp")
@@ -156,7 +156,7 @@ def main():
         print(f"Error: {msg}", file=sys.stderr)
         return 1
 
-    # Contacts are best-effort — a failure here shouldn't fail the whole sync.
+    # Contacts are best-effort -- a failure here shouldn't fail the whole sync.
     try:
         contacts = build_contacts()
         tmp = CACHE_CONTACTS.with_suffix(".json.tmp")

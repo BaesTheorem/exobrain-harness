@@ -1,4 +1,4 @@
-// FB Cleaner — hides Reels sections, Stories tray, and Sponsored posts on Facebook.
+// FB Cleaner -- hides Reels sections, Stories tray, and Sponsored posts on Facebook.
 //
 // Facebook obfuscates the "Sponsored" label (split text, decoy chars, off-screen nodes)
 // so we walk the post's aria-labelledby target and only count text from elements that
@@ -25,7 +25,7 @@ const FAST_PATH_CSS = `
   }
   /* Optimistic hide for posts the MO has tagged as "pending verification". JS
      applies this attribute ONLY to mutations that happen after the feed has
-     settled — during the initial hydration our observer isn't even attached,
+     settled -- during the initial hydration our observer isn't even attached,
      so this never blocks FB's first render. */
   [role="article"][data-fbc-pending]:not([data-fbc-hidden]) {
     opacity: 0 !important;
@@ -53,7 +53,7 @@ function removeStyle() {
   if (style) style.remove();
 }
 
-// Inject the stylesheet optimistically — before we know the toggle state. If the
+// Inject the stylesheet optimistically -- before we know the toggle state. If the
 // user has the extension disabled, the storage callback below removes it. This
 // trades a brief flicker (rare disabled case) for instant blocking (common case).
 injectStyle();
@@ -92,7 +92,7 @@ function hide(el, reason) {
   // Collapse any wrapper that now contains nothing but this hidden child. Margin /
   // separator spacing often lives on these outer wrappers, so leaving them visible
   // produces gaps between remaining posts. We only collapse when the wrapper has
-  // exactly one child (the one we just hid) — that way we never accidentally hide
+  // exactly one child (the one we just hid) -- that way we never accidentally hide
   // siblings that FB might add later.
   let parent = el.parentElement;
   let depth = 0;
@@ -145,7 +145,7 @@ const SUGGESTED_PATTERNS = [
 
 function checkPostForSuggested(post) {
   // FB renders the "Suggested for you" / "Followed by" label inside a plain <span>
-  // that doesn't always carry dir="auto" — so scan all spans. We filter by length
+  // that doesn't always carry dir="auto" -- so scan all spans. We filter by length
   // (< 80 chars) so this can't accidentally match a post body that mentions one of
   // the trigger phrases.
   const spans = post.querySelectorAll('span');
@@ -173,7 +173,7 @@ function checkPostForSuggested(post) {
 function screenPosts() {
   // We deliberately do NOT cache per-post screening results. The Follow/Join button
   // (and sometimes the "Suggested for you" subtitle) is rendered AFTER the initial
-  // post header hydrates — caching would mark the post safe before those tells
+  // post header hydrates -- caching would mark the post safe before those tells
   // arrive, then skip it forever. The observer is already debounced to one pass per
   // animation frame, so re-screening visible posts each tick is cheap.
   const posts = document.querySelectorAll(`[role="article"]:not([${HIDDEN_ATTR}])`);
@@ -202,7 +202,7 @@ const SECTION_HEADER_TEXT = new Set([
 
 function hideHeaderSections() {
   // Feed modules whose header text matches Reels / Stories. We only hide if the header
-  // sits inside a [role="article"] — that's the module wrapper. We deliberately do NOT
+  // sits inside a [role="article"] -- that's the module wrapper. We deliberately do NOT
   // fall back to <section>, because Facebook wraps the whole feed in a <section> and
   // we'd nuke it.
   const headings = document.querySelectorAll(`h2, h3, span[dir="auto"]`);
@@ -219,7 +219,7 @@ function hideHeaderSections() {
 function hideReels() {
   // CSS already hides the [role="region"] itself (height becomes 0). Walk up from it
   // to find the wrapper that includes the "Reels" header sibling above the region.
-  // The header lives ~3 levels up — we detect it by walking until a parent's height
+  // The header lives ~3 levels up -- we detect it by walking until a parent's height
   // exceeds the (now-zero) region's height by a noticeable margin.
   document.querySelectorAll('[role="region"][aria-label*="Reels" i]').forEach((region) => {
     if (region.closest(`[${HIDDEN_ATTR}]`)) return;
@@ -235,7 +235,7 @@ function hideReels() {
     if (target !== region) hide(target, "reels-module");
   });
 
-  // Left-rail nav entries to Reels — safe because they aren't inside posts.
+  // Left-rail nav entries to Reels -- safe because they aren't inside posts.
   document.querySelectorAll(`a[href$="/reel/"], a[href$="/reels/"], a[href^="https://www.facebook.com/reel/"]`).forEach((a) => {
     const nav = a.closest('[role="navigation"], [role="listitem"], li');
     if (nav) hide(nav, "reels-nav");
@@ -273,8 +273,8 @@ function detectObfuscatedLabel(target) {
 function screenLabeledPostsGlobal() {
   // FB hides "Sponsored" (and sometimes "Suggested for you") behind an
   // aria-labelledby reference whose target contains decoy + visible chars. Our
-  // visible-text walk reconstructs the actual label. Doing this globally — not
-  // just inside [role="article"] — catches sponsored Reels and bare-div Page
+  // visible-text walk reconstructs the actual label. Doing this globally -- not
+  // just inside [role="article"] -- catches sponsored Reels and bare-div Page
   // posts that skip the article wrapper entirely.
   document.querySelectorAll('[aria-labelledby]').forEach((el) => {
     if (el.closest(`[${HIDDEN_ATTR}]`)) return;
@@ -297,7 +297,7 @@ function findSuggestionContainer(btn) {
   // OUTERMOST same-sized wrapper. We need the outer wrapper, not the inner one,
   // because FB stacks several wrapper divs around each post and the margin /
   // separator that creates space between posts often lives on those outer
-  // wrappers — stopping at the inner one leaves visible empty space.
+  // wrappers -- stopping at the inner one leaves visible empty space.
   let el = btn;
   let candidate = null;
   let postHeight = null;
@@ -309,10 +309,10 @@ function findSuggestionContainer(btn) {
         postHeight = rect.height;
         candidate = el.parentElement;
       } else if (rect.height <= postHeight * 1.25) {
-        // Still a same-sized wrapper — keep walking outward.
+        // Still a same-sized wrapper -- keep walking outward.
         candidate = el.parentElement;
       } else {
-        // Height jumped substantially — we've hit a multi-post container.
+        // Height jumped substantially -- we've hit a multi-post container.
         break;
       }
     }
@@ -325,7 +325,7 @@ function hideMutedAuthors() {
   if (mutedSet.size === 0) return;
   // Match the muted name against either aria-label or visible text on any link in
   // the post. To avoid hiding posts because a muted person *commented*, we require
-  // the matched link to sit in the post's top ~100px (header region — name lives
+  // the matched link to sit in the post's top ~100px (header region -- name lives
   // there, comments and replies live further down).
   document.querySelectorAll('a, [role="link"]').forEach((link) => {
     if (link.closest(`[${HIDDEN_ATTR}]`)) return;
@@ -353,19 +353,19 @@ function hideFollowJoinPosts() {
 }
 
 function hideStories() {
-  // Stories tray in the top feed — announced via aria-label or data-pagelet.
+  // Stories tray in the top feed -- announced via aria-label or data-pagelet.
   document.querySelectorAll('[aria-label="Stories"], [aria-label="Stories tray"]').forEach((el) => {
     hide(el, "stories-tray");
   });
   document.querySelectorAll('[data-pagelet*="Stories"]').forEach((el) => hide(el, "stories-pagelet"));
-  // NOTE: we intentionally do NOT hide articles based on /stories/ links — every
+  // NOTE: we intentionally do NOT hide articles based on /stories/ links -- every
   // friend with an active story renders a story-ring link around their avatar inside
   // their normal posts, which would hide all of their posts.
 }
 
 // Leading-edge throttled scheduler. When a mutation arrives we want to scan
 // immediately (so a new post is hidden before the user perceives it), but no more
-// often than every SCAN_INTERVAL_MS — global scans iterate thousands of elements
+// often than every SCAN_INTERVAL_MS -- global scans iterate thousands of elements
 // on a long feed, and running every animation frame caused scroll jank.
 //
 // Behavior: first call after idle runs synchronously; subsequent calls within the
@@ -417,7 +417,7 @@ function scheduleRun() {
 // Per-subtree scanner. When the MutationObserver tells us new content has been
 // added, we run all the hide checks against just that subtree synchronously
 // inside the MO callback. This catches blockable posts the moment they're
-// inserted — whether they're [role="article"] or bare-div page posts — without
+// inserted -- whether they're [role="article"] or bare-div page posts -- without
 // running expensive global scans on every mutation. Late-arriving tells (a
 // Follow button added 500 ms after its parent post) come in as their own
 // addedNodes mutation, so they're caught by the same path.
@@ -551,7 +551,7 @@ function startObserver() {
   if (observer || feedAttachTimer) return;
   // Wait for [role="main"] (FB's feed wrapper) to exist, then give FB a settling
   // window so we don't compete with initial hydration. Once attached, we observe
-  // only the feed — page chrome / sidebars never trigger our scans.
+  // only the feed -- page chrome / sidebars never trigger our scans.
   const tryAttach = () => {
     feedAttachTimer = null;
     if (!enabled) return;
@@ -621,7 +621,7 @@ chrome.storage.onChanged.addListener((changes, area) => {
   if (area !== "local") return;
   if (changes.muted) {
     setMuted(changes.muted.newValue);
-    // A name was removed from the mute list — unhide anything we hid for it.
+    // A name was removed from the mute list -- unhide anything we hid for it.
     document.querySelectorAll(`[${HIDDEN_ATTR}="muted-author"]`).forEach((el) => {
       el.style.removeProperty("display");
       el.removeAttribute(HIDDEN_ATTR);

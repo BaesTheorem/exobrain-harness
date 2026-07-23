@@ -14,25 +14,25 @@ only the timeline does.
 
 ## Pipeline
 
-1. **Transcribe** — whisper.cpp (`whisper-cli`), large-v3, word timestamps:
+1. **Transcribe** -- whisper.cpp (`whisper-cli`), large-v3, word timestamps:
    ```
    ffmpeg -y -i track.mp3 -ar 16000 -ac 1 -c:a pcm_s16le work/audio.wav
    whisper-cli -m <ggml-large-v3.bin> -f work/audio.wav -l en -dtw large.v3 \
        -ojf -of work/whisper --max-len 0
    ```
-2. **Background** — one ffmpeg pass bakes a 16:9 still: the full image centered,
+2. **Background** -- one ffmpeg pass bakes a 16:9 still: the full image centered,
    a blurred/darkened zoom of itself filling the side bars (no black bars), and a
    bottom gradient scrim for text. (See the `background.png` recipe in git log.)
-3. **Align** — `build_ass.py work/whisper.json work/lyrics.txt work/out.ass`
+3. **Align** -- `build_ass.py work/whisper.json work/lyrics.txt work/out.ass`
    also writes `work/timings.json` (per-line start/end + a `finale` flag).
-4. **Render** — `render_video.py work/background.png work/timings.json track.mp3 out.mp4`
+4. **Render** -- `render_video.py work/background.png work/timings.json track.mp3 out.mp4`
    draws each line as a Pillow text sprite (serif, warm white, dark outline; gold
    for finale lines) and composites it over the background with fade in/out, one
    line at a time, piping raw frames to ffmpeg (H.264 + AAC).
 
 ## Inputs
 
-- `work/lyrics.txt` — one on-screen line per line, in order. Blank lines and
+- `work/lyrics.txt` -- one on-screen line per line, in order. Blank lines and
   `[Section headers]` are ignored (no on-screen text during instrumental gaps).
 - A square or any-ratio still image.
 - The audio track.

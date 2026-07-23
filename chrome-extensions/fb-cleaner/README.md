@@ -18,7 +18,7 @@ Click the toolbar icon to open the popup, flip the switch. State is stored in `c
 1. Open `chrome://extensions`.
 2. Toggle **Developer mode** (top right).
 3. Click **Load unpacked** and select this `fb-cleaner/` folder.
-4. Visit facebook.com — reels, stories, and sponsored posts should be gone.
+4. Visit facebook.com -- reels, stories, and sponsored posts should be gone.
 
 ## Notes
 

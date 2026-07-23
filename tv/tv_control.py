@@ -67,7 +67,7 @@ def _connect():
 
 
 def rest_info():
-    """Hit the unauthenticated REST endpoint — works whether TV is paired or not."""
+    """Hit the unauthenticated REST endpoint -- works whether TV is paired or not."""
     env = load_env()
     host = env.get("TV_HOST")
     url = f"http://{host}:8001/api/v2/"
@@ -79,7 +79,7 @@ def rest_info():
 
 
 def is_on():
-    """True if the TV is reachable on its control port — i.e., powered on."""
+    """True if the TV is reachable on its control port -- i.e., powered on."""
     return rest_info() is not None
 
 
@@ -125,7 +125,7 @@ def launch_app(name_or_id):
 
 def pair():
     """Triggers the on-screen approval prompt. User must Allow on the TV."""
-    print("Connecting to TV — APPROVE the prompt on the TV screen now...", flush=True)
+    print("Connecting to TV -- APPROVE the prompt on the TV screen now...", flush=True)
     tv = _connect()
     info = tv.rest_device_info()
     print(f"Paired. Token saved to {TOKEN_FILE}")

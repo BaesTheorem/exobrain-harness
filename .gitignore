@@ -24,7 +24,7 @@ __pycache__/
 *.pyc
 .venv/
 
-# Phone — Google Calendar OAuth credentials + token (secrets)
+# Phone -- Google Calendar OAuth credentials + token (secrets)
 phone/gcp-oauth.keys.json
 phone/gcal-token.json
 
@@ -42,7 +42,7 @@ reddit/data/
 .claude/skills/cybersecurity-bodyguard/scan-results/
 .claude/skills/cybersecurity-bodyguard/cache/
 
-# Claude Bus — secrets + local state
+# Claude Bus -- secrets + local state
 bus/.env
 bus/*.db
 bus/.bus-cursor
@@ -66,10 +66,10 @@ data/solo-dm/
 .claude/skills/solo-dm/data/extensions/*.json
 !.claude/skills/solo-dm/data/extensions/README.md
 
-# Writing-style corpus (raw personal writing — private)
+# Writing-style corpus (raw personal writing -- private)
 writing-style/corpus/
 
-# Claude Bot — private config (guild/channel IDs), local state, venv
+# Claude Bot -- private config (guild/channel IDs), local state, venv
 claude-bot/config.toml
 claude-bot/claudebot.db
 claude-bot/claudebot.db-*
@@ -79,7 +79,7 @@ claude-bot/.ace-cache/
 claude-bot/assets/
 claude-bot/**/__pycache__/
 
-# Scratch / temp extraction (junk — never commit)
+# Scratch / temp extraction (junk -- never commit)
 tmp-cannonballs/
 
 # disposable-email: alias registry (personal) + API secrets
@@ -96,18 +96,18 @@ resume-builder/tailoring/*
 !resume-builder/tailoring/example.json
 !resume-builder/tailoring/example_cover.md
 
-# Scratch images/screenshots — temp working files, never commit
+# Scratch images/screenshots -- temp working files, never commit
 tmp/
-# Generated images (mist-image) — personal, never commit
+# Generated images (mist-image) -- personal, never commit
 mist-image/gallery/
 # Reference face for --ref identity generation: a copyrighted show frame, never commit
 mist-image/mist-reference-face.png
-# Generated + input audio (mist-music) — personal, never commit
+# Generated + input audio (mist-music) -- personal, never commit
 mist-music/out/
-# mist-voice: chatterbox venv + generated audio outputs — large binaries, never commit
+# mist-voice: chatterbox venv + generated audio outputs -- large binaries, never commit
 mist-voice/.venv-chatterbox/
 mist-voice/*.wav
-# Loose audio/video files dropped at repo root — large binaries, never commit
+# Loose audio/video files dropped at repo root -- large binaries, never commit
 /*.mp3
 /*.wav
 /*.mp4
@@ -117,11 +117,11 @@ mist-voice/*.wav
 airdrop-to-console/state.json
 airdrop-to-console/watch.log
 
-# iMessage synced cache (chat.db snapshot + contacts + real names) — never commit
+# iMessage synced cache (chat.db snapshot + contacts + real names) -- never commit
 imessage/cache/
 imessage/logs/
 
-# Wi-Fi diagnostics output (SSID, MAC, gateway, DNS) — never commit
+# Wi-Fi diagnostics output (SSID, MAC, gateway, DNS) -- never commit
 maintenance/wifi-diag-out.txt
 
 # Local-only watcher fleet (personal product/price/tour targets, home ZIP,

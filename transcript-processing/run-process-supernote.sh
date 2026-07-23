@@ -26,7 +26,7 @@ while True:
 ' || { echo "[$(date +%Y%m%d_%H%M%S)] SKIPPED: could not acquire processing lock in 30m" >> /tmp/exobrain-supernote-failures.log; exit 0; }
 
 if ! command -v claude &>/dev/null; then
-    osascript -e 'display notification "Claude CLI not found — cannot process Supernote files" with title "Exobrain ERROR" sound name "Basso"'
+    osascript -e 'display notification "Claude CLI not found -- cannot process Supernote files" with title "Exobrain ERROR" sound name "Basso"'
     # Touch the watched directory so launchd re-triggers when it next checks,
     # rather than silently consuming the WatchPaths event
     touch "$GDRIVE_SUPERNOTE" 2>/dev/null
@@ -42,7 +42,7 @@ if [ ! -d "$SUPERNOTE_DIR" ]; then
 fi
 
 # Bail out if every .note file is already in the processing log with mtime >= file's mtime.
-# Single Python pass — fast even with hundreds of files.
+# Single Python pass -- fast even with hundreds of files.
 /usr/bin/python3 - "$SUPERNOTE_DIR" "$LOG_FILE" <<'PY'
 import json, os, sys
 from datetime import datetime, timezone
@@ -106,8 +106,8 @@ CLAUDE_PID=$!
         kill -TERM $CLAUDE_PID 2>/dev/null
         sleep 5
         kill -KILL $CLAUDE_PID 2>/dev/null
-        echo "[$TIMESTAMP] TIMEOUT after ${TIMEOUT_SEC}s — claude --print killed" >> "$LOG_DIR/exobrain-supernote-failures.log"
-        osascript -e "display notification \"Supernote processor hung — killed after ${TIMEOUT_SEC}s\" with title \"Exobrain ERROR\" sound name \"Basso\""
+        echo "[$TIMESTAMP] TIMEOUT after ${TIMEOUT_SEC}s -- claude --print killed" >> "$LOG_DIR/exobrain-supernote-failures.log"
+        osascript -e "display notification \"Supernote processor hung -- killed after ${TIMEOUT_SEC}s\" with title \"Exobrain ERROR\" sound name \"Basso\""
     fi
 ) &
 KILLER_PID=$!

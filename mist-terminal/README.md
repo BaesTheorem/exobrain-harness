@@ -6,7 +6,7 @@ themed terminal, with a spoken greeting.
 It ties together pieces that already existed (the Ghostty MIST theme, the cloned
 voice). MIST's persona is not injected from a side file: the launcher `cd`s into
 the Exobrain harness, where the harness `CLAUDE.md` (the **Identity & Voice:
-MIST** block) auto-loads as project instructions — the single source of truth
+MIST** block) auto-loads as project instructions -- the single source of truth
 for her affect.
 
 ## What it does
@@ -21,9 +21,9 @@ Double-clicking `~/Desktop/Apps/MIST.app`:
 
 ## Files
 
-- `bin/mist` — the launcher run *inside* the terminal (greeting + banner + `claude`, run from the harness). Usable on its own as a `mist` command.
-- `make-app.sh` — (re)builds `~/Desktop/Apps/MIST.app`. Idempotent. Re-run after editing the launcher. Builds the app icon from the Cloud-form portrait if present.
-- `README.md` — this file.
+- `bin/mist` -- the launcher run *inside* the terminal (greeting + banner + `claude`, run from the harness). Usable on its own as a `mist` command.
+- `make-app.sh` -- (re)builds `~/Desktop/Apps/MIST.app`. Idempotent. Re-run after editing the launcher. Builds the app icon from the Cloud-form portrait if present.
+- `README.md` -- this file.
 
 ## Rebuild / install
 
@@ -31,7 +31,7 @@ Double-clicking `~/Desktop/Apps/MIST.app`:
 mist-terminal/make-app.sh
 ```
 
-The `.app` bundle lives in `~/Desktop/Apps/` (outside this repo, per the apps convention) — `make-app.sh` regenerates it from these tracked files, so nothing app-specific needs committing.
+The `.app` bundle lives in `~/Desktop/Apps/` (outside this repo, per the apps convention) -- `make-app.sh` regenerates it from these tracked files, so nothing app-specific needs committing.
 
 ## Use it as a shell command (optional)
 
@@ -45,7 +45,7 @@ mist
 
 - **Ghostty** 1.3.1 at `/Applications/Ghostty.app` with the MIST theme in `~/.config/ghostty/config`.
 - **Claude Code** CLI (`~/.npm-global/bin/claude`).
-- **mist-voice** for the spoken greeting (optional — the launcher skips it cleanly if absent).
+- **mist-voice** for the spoken greeting (optional -- the launcher skips it cleanly if absent).
 
 ## Privacy / legibility
 

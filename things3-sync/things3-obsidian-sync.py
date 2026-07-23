@@ -208,7 +208,7 @@ def move_project(note_path, new_status):
         log.info(f"Moved folder {project_unit} → {dest}")
         return new_note
     else:
-        # Single file — wrap in a folder
+        # Single file -- wrap in a folder
         folder_name = note_path.stem
         dest_dir = target_parent / folder_name
         dest_dir.mkdir(parents=True, exist_ok=True)

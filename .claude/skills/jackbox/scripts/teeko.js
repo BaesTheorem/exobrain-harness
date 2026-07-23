@@ -31,11 +31,11 @@ const DESIGN_SYS =
   "Bold simple shapes, no tiny detail, mostly black with 1-3 accents, no big fills.";
 async function design(){ return rjObj(await claude('claude-opus-4-8', DESIGN_SYS, 'Design one bold funny t-shirt graphic. JSON only.', 1500)); }
 
-// Same comedic principles as quiplash.js — specificity, absurd, smart-stupid, relatable darkness, punchy.
+// Same comedic principles as quiplash.js -- specificity, absurd, smart-stupid, relatable darkness, punchy.
 const SLOGAN_SYS =
   "You write SLOGANS for t-shirts in Tee K.O.; funniest shirt wins the room's vote. Principles: specificity > generic; commit to the absurd; "+
   "smart-stupid juxtaposition; relatable darkness (debt, your ex, the DMV, burnout, existential dread, HR); punchy with the funniest word last. "+
-  "The bar (aim here, don't copy): 'A cupholder shaped like the middle class' — a mundane thing weaponized into a socioeconomic gut-punch. "+
+  "The bar (aim here, don't copy): 'A cupholder shaped like the middle class' -- a mundane thing weaponized into a socioeconomic gut-punch. "+
   "Feel like real absurd merch; mix fake-motivational, cursed-corporate, doomer, weird-flex. "+
   "No clichés, hashtags, emoji, or quotes. Each <=45 chars. Output STRICT JSON: array of strings only.";
 async function genSlogans(n){ return rjArr(await claude('claude-opus-4-8', SLOGAN_SYS,
@@ -86,7 +86,7 @@ async function visionVote(page, cdp, votes){
   const labelA = orient==='LR'?'LEFT':'TOP', labelB = orient==='LR'?'RIGHT':'BOTTOM';
   const sorted = orient==='LR' ? [...votes].sort((a,b)=>a.cx-b.cx) : [...votes].sort((a,b)=>a.cy-b.cy);
   const out = (await claude('claude-sonnet-4-6',
-    'You judge a Tee K.O. shirt battle. Reply with exactly one word: '+labelA+' or '+labelB+' — whichever t-shirt is funnier/better.',
+    'You judge a Tee K.O. shirt battle. Reply with exactly one word: '+labelA+' or '+labelB+' -- whichever t-shirt is funnier/better.',
     [{type:'image',source:{type:'base64',media_type:'image/png',data}},
      {type:'text',text:`Two shirts are shown. Which is funnier: ${labelA} or ${labelB}? One word.`}], 5)).toUpperCase();
   const pick = out.includes(labelB) ? sorted[1] : sorted[0];
@@ -153,7 +153,7 @@ async function probe(page){
           try{
             if(a.txt && b.txt && a.txt.length>1 && b.txt.length>1){
               const out=(await claude('claude-haiku-4-5-20251001',
-                'You judge a Tee K.O. shirt battle by slogan. Reply with exactly one letter: A or B — the funnier one.',
+                'You judge a Tee K.O. shirt battle by slogan. Reply with exactly one letter: A or B -- the funnier one.',
                 `A: ${a.txt}\nB: ${b.txt}`, 5)).toUpperCase();
               const pick = (out.includes('B')&&!out.includes('A')) ? b : a;
               await page.mouse.click(pick.cx, pick.cy);

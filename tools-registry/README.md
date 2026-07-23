@@ -1,24 +1,24 @@
 # tools-registry
 
-Single source of truth for every tool on this machine — web apps, scheduled jobs/watchers,
-and CLI tools — so the inventory never has to be remembered by hand.
+Single source of truth for every tool on this machine -- web apps, scheduled jobs/watchers,
+and CLI tools -- so the inventory never has to be remembered by hand.
 
 `tools-registry-scan.py` auto-discovers tools from two authoritative on-disk sources:
 
-- **App launchers** — `~/Desktop/Apps/*.app` (parses `Contents/MacOS/launch` for `DIR` + `PORT`)
-- **Scheduled jobs** — `~/Library/LaunchAgents/{com.exobrain,com.mist,com.nightwatch,com.alexhedtke}*.plist`
+- **App launchers** -- `~/Desktop/Apps/*.app` (parses `Contents/MacOS/launch` for `DIR` + `PORT`)
+- **Scheduled jobs** -- `~/Library/LaunchAgents/{com.exobrain,com.mist,com.nightwatch,com.alexhedtke}*.plist`
 
 For each tool it resolves repo dir, git remote, port, schedule, and live status, then writes
 one note per tool into the Obsidian vault's `Tools/` folder. `Tools.base` (vault root) renders
 them with views: Apps, Scheduled Jobs, Running Now, By Repo, All. The folder is wiped and
-rewritten each run (notes are a disposable projection — never hand-edit them).
+rewritten each run (notes are a disposable projection -- never hand-edit them).
 
 CLI-only tools with no launcher and no launchd job are added by hand via the `SUPPLEMENTAL`
 list in the scanner.
 
-It also inventories the **downloaded substrate** those tools run on — language runtimes,
+It also inventories the **downloaded substrate** those tools run on -- language runtimes,
 Homebrew formulae/casks, global Python (`pip list --not-required`) and Node packages, and uv
-tools — into the vault's `Dependencies/` folder, rendered by `Dependencies.base`. Only
+tools -- into the vault's `Dependencies/` folder, rendered by `Dependencies.base`. Only
 top-level/intentional installs are listed (the `brew leaves` / `--not-required` filter), not
 the transitive dependencies underneath them.
 

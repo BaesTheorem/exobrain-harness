@@ -1,6 +1,6 @@
 ---
 name: antivirus
-description: Native macOS LOCAL MACHINE security audit — XProtect state, persistence mechanisms (LaunchAgents/Daemons, login items), network listeners, browser extensions, known-malware paths, and quarantine history on THIS LAPTOP. No third-party AV required. SCOPE IS THE LOCAL MAC, not this repo or the public internet. Use when the user says "antivirus scan", "machine antivirus scan", "macOS security check", "am I infected", "check my machine", "is my Mac compromised", or during a bodyguard incident response. For online/public attack surface use cybersecurity-bodyguard; for repo/codebase privacy use exobrain-audit.
+description: Native macOS LOCAL MACHINE security audit -- XProtect state, persistence mechanisms (LaunchAgents/Daemons, login items), network listeners, browser extensions, known-malware paths, and quarantine history on THIS LAPTOP. No third-party AV required. SCOPE IS THE LOCAL MAC, not this repo or the public internet. Use when the user says "antivirus scan", "machine antivirus scan", "macOS security check", "am I infected", "check my machine", "is my Mac compromised", or during a bodyguard incident response. For online/public attack surface use cybersecurity-bodyguard; for repo/codebase privacy use exobrain-audit.
 ---
 
 # Antivirus (macOS Native Audit)
@@ -24,13 +24,13 @@ Lightweight, install-free security audit of this Mac. Uses only built-in macOS t
 
 No config file. The skill enumerates everything and compares against:
 1. A hard-coded known-bad-path list (common macOS malware install locations)
-2. A "normal for Alex" allowlist below — update this when new legitimate software is installed
+2. A "normal for Alex" allowlist below -- update this when new legitimate software is installed
 
 **Known-good LaunchAgent prefixes:**
-- `com.exobrain.*` — all exobrain harness jobs
-- `com.google.*` — Google Updater, Keystone, Drive
-- `us.zoom.*` — Zoom auto-update
-- `com.apple.*` — Apple system agents
+- `com.exobrain.*` -- all exobrain harness jobs
+- `com.google.*` -- Google Updater, Keystone, Drive
+- `us.zoom.*` -- Zoom auto-update
+- `com.apple.*` -- Apple system agents
 
 **Known-good login items:**
 - Things Helper, BetterTouchTool, Claude, Google Drive, Plaud, Discord
@@ -41,7 +41,7 @@ Anything outside these prefixes should be flagged for review.
 
 Run in parallel where possible. Every phase writes to `/Users/alexhedtke/Exobrain/Areas/Security/av-scans/YYYY-MM-DD.md`.
 
-### Phase 1 — OS protections
+### Phase 1 -- OS protections
 
 ```bash
 csrutil status                                      # SIP
@@ -53,7 +53,7 @@ defaults read /Library/Apple/System/Library/CoreServices/XProtect.bundle/Content
 
 Flag any that are disabled. Firewall off on a personal laptop is a HIGH finding; everything else should be on by default.
 
-### Phase 2 — Persistence enumeration
+### Phase 2 -- Persistence enumeration
 
 ```bash
 ls ~/Library/LaunchAgents/ 2>/dev/null
@@ -68,7 +68,7 @@ Compare each entry against the known-good allowlist above. Investigate unknowns:
 - `codesign -dv <binary>` shows signing identity
 - Unsigned or ad-hoc-signed binaries in user directories are a red flag
 
-### Phase 3 — Known-bad path sweep
+### Phase 3 -- Known-bad path sweep
 
 Check these paths; existence of any is a HIGH finding:
 
@@ -86,7 +86,7 @@ Check these paths; existence of any is a HIGH finding:
 
 Plus: any plist in `~/Library/LaunchAgents/` modified in last 30 days that isn't on the allowlist.
 
-### Phase 4 — Network listeners
+### Phase 4 -- Network listeners
 
 ```bash
 lsof -nP -iTCP -sTCP:LISTEN
@@ -94,7 +94,7 @@ lsof -nP -iTCP -sTCP:LISTEN
 
 Filter out known-good processes (rapportd, ControlCe, sharingd, mDNSResponder, nfsd, AirPlay, Discord IPC on 127.0.0.1, Chrome/Zed localhost). Flag anything binding to `0.0.0.0` or an external interface that you didn't start intentionally.
 
-### Phase 5 — Browser extensions
+### Phase 5 -- Browser extensions
 
 ```bash
 # Chrome
@@ -117,7 +117,7 @@ Flag:
 
 Chrome extension supply-chain compromise is one of the top macOS attack vectors in 2026. Review ruthlessly.
 
-### Phase 6 — Quarantine + recent downloads
+### Phase 6 -- Quarantine + recent downloads
 
 ```bash
 sqlite3 ~/Library/Preferences/com.apple.LaunchServices.QuarantineEventsV2 \
@@ -127,11 +127,11 @@ sqlite3 ~/Library/Preferences/com.apple.LaunchServices.QuarantineEventsV2 \
    ORDER BY LSQuarantineTimeStamp DESC LIMIT 30;"
 ```
 
-Review recent items for anything unexpected. Quarantine ≠ infection — it means macOS flagged a file as user-downloaded. But unexpected entries (from Safari/Chrome when you don't remember downloading anything) are worth checking.
+Review recent items for anything unexpected. Quarantine ≠ infection -- it means macOS flagged a file as user-downloaded. But unexpected entries (from Safari/Chrome when you don't remember downloading anything) are worth checking.
 
-### Phase 7 — Optional deep scan
+### Phase 7 -- Optional deep scan
 
-Only if user requests or Phase 1–6 turns up anomalies.
+Only if user requests or Phase 1-6 turns up anomalies.
 
 **ClamAV:**
 ```bash
@@ -141,9 +141,9 @@ clamscan -r --bell -i ~/Downloads ~/Desktop   # scan likely infection vectors fi
 ```
 
 **Objective-See tools** (recommended for macOS):
-- KnockKnock — one-shot persistence scanner with signature database for known malware
-- BlockBlock — real-time persistence alerts
-- LuLu — outbound firewall (catches data exfiltration)
+- KnockKnock -- one-shot persistence scanner with signature database for known malware
+- BlockBlock -- real-time persistence alerts
+- LuLu -- outbound firewall (catches data exfiltration)
 - Download from https://objective-see.org/tools.html (notarized by Patrick Wardle, ex-NSA)
 
 Do not install these silently; the user decides.
@@ -157,17 +157,17 @@ Write a report to `/Users/alexhedtke/Exobrain/Areas/Security/av-scans/YYYY-MM-DD
 type: av-scan
 date: YYYY-MM-DD
 ---
-# Antivirus scan — YYYY-MM-DD
+# Antivirus scan -- YYYY-MM-DD
 
 ## Summary
 - Status: CLEAN | REVIEW_NEEDED | SUSPICIOUS
 - HIGH findings: N
 - MED findings: N
 
-## Phase 1 — OS protections
+## Phase 1 -- OS protections
 ...
 
-## Phase N — ...
+## Phase N -- ...
 ...
 
 ## Actions
@@ -179,13 +179,13 @@ Create Things 3 tasks for HIGH findings. Bundle MED findings into one review tas
 
 ## Integration
 
-- **cybersecurity-bodyguard** Mode 3 (incident response) should invoke this skill's Phase 1–6 as part of the lockdown checklist.
-- **monthly-review** — add a checklist item to run this skill monthly.
-- **evening-winddown** — do NOT add here; this is not a daily check.
+- **cybersecurity-bodyguard** Mode 3 (incident response) should invoke this skill's Phase 1-6 as part of the lockdown checklist.
+- **monthly-review** -- add a checklist item to run this skill monthly.
+- **evening-winddown** -- do NOT add here; this is not a daily check.
 
 ## Escalation
 
-If HIGH findings appear, do not attempt to remediate silently — walk the user through each finding, confirm it's actually unexpected (vs. legitimate software they forgot about), then decide together whether to quarantine, remove, or investigate further.
+If HIGH findings appear, do not attempt to remediate silently -- walk the user through each finding, confirm it's actually unexpected (vs. legitimate software they forgot about), then decide together whether to quarantine, remove, or investigate further.
 
 For confirmed malware: don't just delete. Preserve the binary and plist in `~/Exobrain/Areas/Security/Incidents/YYYY-MM-DD-av-finding/` for later analysis, then remove persistence mechanisms and reboot.
 

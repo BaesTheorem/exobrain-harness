@@ -29,7 +29,7 @@ fi
 cd "$HARNESS_DIR"
 
 if ! python3 "${SKILL_DIR}/scripts/osint_self_scan.py" --mode full > "$SCAN_OUT"; then
-    osascript -e 'display notification "Weekly bodyguard scan failed — check /tmp/bodyguard-weekly.log" with title "Exobrain URGENT" sound name "Basso"'
+    osascript -e 'display notification "Weekly bodyguard scan failed -- check /tmp/bodyguard-weekly.log" with title "Exobrain URGENT" sound name "Basso"'
     exit 1
 fi
 

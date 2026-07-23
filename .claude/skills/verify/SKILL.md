@@ -50,7 +50,7 @@ VERIFIED: No corrections needed.
 ## Rules
 
 - Do NOT add new information, commentary, or suggestions
-- Do NOT rewrite content — only flag what's wrong and what the fix should be
+- Do NOT rewrite content -- only flag what's wrong and what the fix should be
 - Be specific: quote the exact claim and the exact correction
 - If you find an error, provide the source that proves it wrong
 - Prioritize: factual errors > attribution errors > date errors > spelling > style

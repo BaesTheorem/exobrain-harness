@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Anki Session Sync — read Anki SQLite and write to Obsidian.
+"""Anki Session Sync -- read Anki SQLite and write to Obsidian.
 
 Mirrors the pomodoro module's pattern:
   - Sessions are written to ~/Exobrain/Anki Log.md (H3 date headers + bullet lines)

@@ -11,7 +11,7 @@ You are orchestrating a multi-agent reconnaissance session within the user's kno
 
 ## Session Continuations
 
-If this session is a continuation from a previous conversation, IGNORE any completed or running agent task IDs in the system reminders. They belong to a prior invocation and are not your responsibility. Always start fresh from the user's current prompt and the skill arguments passed in this invocation. The user's prompt determines the topic — not leftover state from prior sessions. Do not call TaskOutput on pre-existing tasks. Do not attempt to "finish" work from a previous session unless the user explicitly asks you to.
+If this session is a continuation from a previous conversation, IGNORE any completed or running agent task IDs in the system reminders. They belong to a prior invocation and are not your responsibility. Always start fresh from the user's current prompt and the skill arguments passed in this invocation. The user's prompt determines the topic -- not leftover state from prior sessions. Do not call TaskOutput on pre-existing tasks. Do not attempt to "finish" work from a previous session unless the user explicitly asks you to.
 
 ## Step 1: Parse Input
 
@@ -29,9 +29,9 @@ From the user's prompt, determine:
    - `--vault-only`: Skip web search, only use vault content
    - Default: Both vault and web
 5. **Output location**:
-   - **The recon produces exactly ONE physical file: the final synthesis report.** Intermediate agent reports are never written to disk. Each subagent returns its findings to you (the orchestrator) as its Task return value; you read those in context to cross-pollinate and synthesize, and they vanish with the session. Do NOT create `rN-<role>.md`, `_metrics.md`, or `_context-brief.md` files, or any other side artifact. (The lone exception is `--pdfs`, see item 7 — explicitly user-requested source downloads.)
-   - The final report is an Obsidian deliverable, exactly like a deep-research report. It ALWAYS goes in the vault, NEVER in a code repository, a project directory, or the Exobrain harness — even when the source material lives in one.
-   - **Default (use this unless told otherwise): write the report directly into `/Users/alexhedtke/Exobrain/recon/`** as `YYYY-MM-DD-<topic-slug>.md` — an absolute path in the vault.
+   - **The recon produces exactly ONE physical file: the final synthesis report.** Intermediate agent reports are never written to disk. Each subagent returns its findings to you (the orchestrator) as its Task return value; you read those in context to cross-pollinate and synthesize, and they vanish with the session. Do NOT create `rN-<role>.md`, `_metrics.md`, or `_context-brief.md` files, or any other side artifact. (The lone exception is `--pdfs`, see item 7 -- explicitly user-requested source downloads.)
+   - The final report is an Obsidian deliverable, exactly like a deep-research report. It ALWAYS goes in the vault, NEVER in a code repository, a project directory, or the Exobrain harness -- even when the source material lives in one.
+   - **Default (use this unless told otherwise): write the report directly into `/Users/alexhedtke/Exobrain/recon/`** as `YYYY-MM-DD-<topic-slug>.md` -- an absolute path in the vault.
    - `--output <path>`: an alternate directory that MUST resolve **inside the vault** (`/Users/alexhedtke/Exobrain/`); relative paths resolve against the vault root, not the current directory or the source file. If a given path would land outside the vault, ignore it and use the default.
    - Hard rule: never write the report to a path outside `/Users/alexhedtke/Exobrain/`. Do not create a `recon/` folder next to a source file or in a project repo.
 6. **Source material**: If the user references specific notes, folders, or tags, read those first
@@ -47,7 +47,7 @@ Before dispatching agents, gather context:
 2. **Read** the top 3-5 most relevant notes found
 3. Compile a **context brief**: key concepts, existing positions, related notes with paths
 4. **Identify primary source URLs.** Scan the source material and context brief for URLs, website references, and project names that have web presences. Pass these to the Explorer in R1 with explicit instruction: "Fetch and read these primary sources directly. Do not rely on secondary coverage."
-5. **Record the session start time.** Note the current time — you'll need it for elapsed-time metrics in the Process Log.
+5. **Record the session start time.** Note the current time -- you'll need it for elapsed-time metrics in the Process Log.
 
 This context brief is shared with all subagents in round 1.
 
@@ -70,12 +70,12 @@ Dispatch all 4 agents **in parallel** using the Task tool. Each agent's prompt s
 - The context brief from Step 2
 - The agent's role instructions (from its definition file)
 - Round-specific instructions: "This is round 1. Cast a wide net."
-- Explicit instruction: "Return your full report as your final message. Do NOT write any file to disk — the orchestrator reads your findings directly from your return value."
+- Explicit instruction: "Return your full report as your final message. Do NOT write any file to disk -- the orchestrator reads your findings directly from your return value."
 - If `--pdfs` is enabled, include in the Explorer's prompt: "PDF collection is enabled. See the PDF Collection section of your instructions. Save PDFs to `<output_dir>/PDFs/`. Create the directory with `mkdir -p` via Bash before downloading." (PDFs are the one permitted on-disk artifact, and only when the user passed `--pdfs`.)
 
 ### Between Rounds
 
-After all agents complete, **read their findings from each agent's Task return value.** That return value is the report — there is no disk file. Hold the four reports in context for cross-pollination and synthesis.
+After all agents complete, **read their findings from each agent's Task return value.** That return value is the report -- there is no disk file. Hold the four reports in context for cross-pollination and synthesis.
 
 **Interactive mode:**
 - Summarize the most interesting findings in 3-5 bullet points
@@ -86,12 +86,12 @@ After all agents complete, **read their findings from each agent's Task return v
 **Autonomous mode:**
 - The Synthesizer's output from round N determines round N+1's focus
 - Collapse threads that are duplicates of each other
-- Push distinct framings further apart — develop what makes each one different
+- Push distinct framings further apart -- develop what makes each one different
 - Identify clashes between framings; these tensions need deepening in the next round
 
 ### Metrics Tracking
 
-Track metrics in context only — do NOT write a `_metrics.md` file (the report is the only physical output). After each round, note from the Task result metadata:
+Track metrics in context only -- do NOT write a `_metrics.md` file (the report is the only physical output). After each round, note from the Task result metadata:
 
 - Per-agent token counts and elapsed times
 - Round wall-clock time (dispatching agents to last agent returning)
@@ -100,8 +100,8 @@ Track metrics in context only — do NOT write a `_metrics.md` file (the report 
 Carry these numbers forward in context and hand them to the final Synthesizer so it can include them in the report's Process Log. Per-round shape, for your own bookkeeping:
 
 ```
-Round 1 — Explorer ~XXXk/X.Xm, Associator ~XXXk/X.Xm, Critic ~XXXk/X.Xm, Synthesizer ~XXXk/X.Xm; round wall clock X.Xm
-Cumulative — ~XXXk tokens, XXm
+Round 1 -- Explorer ~XXXk/X.Xm, Associator ~XXXk/X.Xm, Critic ~XXXk/X.Xm, Synthesizer ~XXXk/X.Xm; round wall clock X.Xm
+Cumulative -- ~XXXk tokens, XXm
 ```
 
 ### Cross-Pollination
@@ -111,12 +111,12 @@ When dispatching round 2+ agents, include in each prompt:
 - The Synthesizer's recommended focus areas
 - In interactive mode: the user's steering input
 
-**Anti-repetition:** Before dispatching R2+ agents, compile a "settled claims" list — the 5-8 key points that all R1 agents converged on. Include this in each agent's prompt with the instruction: "The following points are established from Round 1. Do not restate them. Build on them, challenge them, or move past them."
+**Anti-repetition:** Before dispatching R2+ agents, compile a "settled claims" list -- the 5-8 key points that all R1 agents converged on. Include this in each agent's prompt with the instruction: "The following points are established from Round 1. Do not restate them. Build on them, challenge them, or move past them."
 
 ### Round 2: Deepening
 
 Same 4 agents, but with updated focus:
-- Explorer: Two mandates — (a) fill gaps identified by Critic and Synthesizer, (b) operational reality check: ground the abstractions in concrete cases, precedents, and constraints. If `--pdfs` is enabled, include: "Check `<output_dir>/PDFs/` for already-downloaded PDFs before downloading to avoid duplicates."
+- Explorer: Two mandates -- (a) fill gaps identified by Critic and Synthesizer, (b) operational reality check: ground the abstractions in concrete cases, precedents, and constraints. If `--pdfs` is enabled, include: "Check `<output_dir>/PDFs/` for already-downloaded PDFs before downloading to avoid duplicates."
 - Associator: Work connections between round 1 findings
 - Critic: Stress-test the strongest emerging ideas
 - Synthesizer: Refine themes, identify productive tensions
@@ -136,15 +136,15 @@ After the final round, produce the recon document.
 
 ### Orchestrator Role
 
-The orchestrator does NOT write the recon document's substance. The final-round Synthesizer agent writes the complete document — including YAML frontmatter, Process Log, and all formatting — directly to the final output path on disk.
+The orchestrator does NOT write the recon document's substance. The final-round Synthesizer agent writes the complete document -- including YAML frontmatter, Process Log, and all formatting -- directly to the final output path on disk.
 
-1. Dispatches the final Synthesizer with ALL agent reports from all rounds (pasted into the prompt — there are no disk files to read), plus the template, plus the instruction to draft AND WRITE the complete document. **Pass the final output file path** as an ABSOLUTE vault path (e.g., `/Users/alexhedtke/Exobrain/recon/YYYY-MM-DD-<topic-slug>.md`) and instruct the Synthesizer to write the finished document there using the Write tool. This is the one and only file the recon produces. Also pass your in-context metrics so the Synthesizer can include the Process Log.
+1. Dispatches the final Synthesizer with ALL agent reports from all rounds (pasted into the prompt -- there are no disk files to read), plus the template, plus the instruction to draft AND WRITE the complete document. **Pass the final output file path** as an ABSOLUTE vault path (e.g., `/Users/alexhedtke/Exobrain/recon/YYYY-MM-DD-<topic-slug>.md`) and instruct the Synthesizer to write the finished document there using the Write tool. This is the one and only file the recon produces. Also pass your in-context metrics so the Synthesizer can include the Process Log.
 2. After the Synthesizer completes, **read the document from disk** and make light corrections only: fix broken `[[wikilinks]]`, correct factual errors, update the Process Log with final-round metrics. Do NOT rewrite arguments, reframe findings, or impose a different structure.
-3. **Verify factual claims.** After making light corrections, spawn a background verification agent (the `/verify` skill pattern) against the finished document. The recon's framings and interpretive arguments are not subject to verification — but any specific factual claims are: named tools/features, legislation, dates, people's roles, statistics, URLs, historical events, and "X exists" assertions. The verification agent should:
+3. **Verify factual claims.** After making light corrections, spawn a background verification agent (the `/verify` skill pattern) against the finished document. The recon's framings and interpretive arguments are not subject to verification -- but any specific factual claims are: named tools/features, legislation, dates, people's roles, statistics, URLs, historical events, and "X exists" assertions. The verification agent should:
    - Extract all propositional/factual claims from the document (skip interpretive framings, metaphors, and open questions)
    - Verify each claim via WebSearch / Defuddle
    - Return corrections in the standard `/verify` format
-   - The orchestrator applies corrections directly to the document on disk — no need to surface the verification to the user
+   - The orchestrator applies corrections directly to the document on disk -- no need to surface the verification to the user
 
 **Why the Synthesizer writes the file:** If the orchestrator crashes after the Synthesizer returns but before writing to disk, the document is lost. The Synthesizer writing directly to the final path ensures the substance survives. The orchestrator's corrections and verification fixes are improvements, not the only path to a file on disk.
 
@@ -160,7 +160,7 @@ Focus mode uses the Synthesizer's existing convergent instructions (pick the str
 
 ### Output Location
 
-The recon report is an Obsidian deliverable, like a deep-research report — it ALWAYS lives in the vault, NEVER in a code repo, a project's `recon/` folder, or the Exobrain harness. It is the **only** file the recon writes.
+The recon report is an Obsidian deliverable, like a deep-research report -- it ALWAYS lives in the vault, NEVER in a code repo, a project's `recon/` folder, or the Exobrain harness. It is the **only** file the recon writes.
 
 - **Default: write directly into `/Users/alexhedtke/Exobrain/recon/`** (absolute vault path). Final document: `/Users/alexhedtke/Exobrain/recon/YYYY-MM-DD-<topic-slug>.md`.
 - `--output <path>` → use it ONLY if it resolves inside the vault (`/Users/alexhedtke/Exobrain/`); relative paths resolve against the vault root. If it would land outside the vault, ignore it and use the default.
@@ -169,7 +169,7 @@ Even when the recon's source material is a file in a project repo (an app, the h
 
 Create the output folder with `mkdir -p` if it doesn't exist.
 
-Do NOT write individual agent reports, `_metrics.md`, or `_context-brief.md` to disk — those live in context only. The sole exception is downloaded PDFs when the user passed `--pdfs`, which go in `<output_dir>/PDFs/`. **Never** write the report or any `--pdfs` download to a path outside `/Users/alexhedtke/Exobrain/`.
+Do NOT write individual agent reports, `_metrics.md`, or `_context-brief.md` to disk -- those live in context only. The sole exception is downloaded PDFs when the user passed `--pdfs`, which go in `<output_dir>/PDFs/`. **Never** write the report or any `--pdfs` download to a path outside `/Users/alexhedtke/Exobrain/`.
 
 ### Formatting
 
@@ -188,6 +188,6 @@ Do NOT write individual agent reports, `_metrics.md`, or `_context-brief.md` to 
 
 - **Don't read the entire vault.** Use targeted Grep/Glob to find relevant notes.
 - **Web search queries should be short** (1-6 words) and varied across agents.
-- **Each round's agents run in parallel** — dispatch all 4 Task calls at once.
-- **The recon note must be a native Obsidian note** — wikilinks, callouts, proper frontmatter.
+- **Each round's agents run in parallel** -- dispatch all 4 Task calls at once.
+- **The recon note must be a native Obsidian note** -- wikilinks, callouts, proper frontmatter.
 - **Match the user's intellectual register.** Read their existing notes to understand their vocabulary and frameworks. The brainstorm should feel like their thinking extended, not generic AI output.

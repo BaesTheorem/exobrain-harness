@@ -1,5 +1,5 @@
 #!/bin/bash
-# vault-snapshot.sh — Build a compact snapshot of the Obsidian vault for session-start injection.
+# vault-snapshot.sh -- Build a compact snapshot of the Obsidian vault for session-start injection.
 # Output is written outside the repo (private), and consumed by .claude/hooks/session-start.sh.
 
 set -euo pipefail
@@ -31,7 +31,7 @@ trap 'rm -f "$TMP"' EXIT
     if [ -f "$DASHBOARD" ]; then
         cat "$DASHBOARD"
     else
-        echo "_(missing — $DASHBOARD)_"
+        echo "_(missing -- $DASHBOARD)_"
     fi
     echo ""
     echo "## Active Projects"
@@ -57,7 +57,7 @@ for entry in os.listdir(PROJECTS):
         name = entry[:-3]
         candidates[name] = (full, os.path.getmtime(full))
 
-# Then <Folder>/<Folder>.md — overwrites top-level if same name
+# Then <Folder>/<Folder>.md -- overwrites top-level if same name
 for entry in os.listdir(PROJECTS):
     full = os.path.join(PROJECTS, entry)
     if entry.startswith("."):
@@ -99,19 +99,19 @@ import datetime
 for path, name, mtime, status in rows:
     rel = os.path.relpath(path, os.path.dirname(PROJECTS))
     date_str = datetime.date.fromtimestamp(mtime).isoformat()
-    print(f"- **{name}** — status: {status}")
+    print(f"- **{name}** -- status: {status}")
     print(f"  - Last modified: {date_str}")
     print(f"  - Path: {rel}")
 PY
     else
-        echo "_(Projects directory missing — $PROJECTS_DIR)_"
+        echo "_(Projects directory missing -- $PROJECTS_DIR)_"
     fi
 } > "$TMP"
 
 mv "$TMP" "$OUT"
 trap - EXIT
 
-# Sanity bound — warn if file blows past 4 KB
+# Sanity bound -- warn if file blows past 4 KB
 SIZE=$(stat -f %z "$OUT")
 if [ "$SIZE" -gt 4096 ]; then
     echo "WARN: vault-snapshot.md is ${SIZE} bytes (>4 KB target)" >&2

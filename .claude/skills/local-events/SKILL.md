@@ -12,12 +12,12 @@ Scans multiple sources for Kansas City events in the next 30 days, filtered for 
 **Preferences file**: `/Users/alexhedtke/Documents/Exobrain harness/local-events/local-events-prefs.json`
 
 This file is the source of truth for what Alex likes, dislikes, and how to prioritize events. It contains:
-- `favoriteArtists` — always surface these, send urgent notifications
-- `highInterest` / `mediumInterest` / `lowInterest` — topic keywords for scoring
-- `skip` — never surface these
-- `preferredVenues` — boost events at these locations
-- `constraints` — work schedule awareness, budget sensitivity, max drive time
-- `feedback` — running log of Alex's reactions to surfaced events
+- `favoriteArtists` -- always surface these, send urgent notifications
+- `highInterest` / `mediumInterest` / `lowInterest` -- topic keywords for scoring
+- `skip` -- never surface these
+- `preferredVenues` -- boost events at these locations
+- `constraints` -- work schedule awareness, budget sensitivity, max drive time
+- `feedback` -- running log of Alex's reactions to surfaced events
 
 **Learning loop**: After each run, update the preferences file:
 1. If Alex attended an event (check calendar or transcripts), note it in `feedback` and consider boosting similar events
@@ -77,14 +77,14 @@ Score each discovered event 1-10 using these factors:
 | Factor | Weight | How to score |
 |--------|--------|-------------|
 | Interest match | 3x | High interest keyword = 10, Medium = 6, Low = 3, Skip = 0 (discard) |
-| Favorite artist | — | Auto-10, always surface regardless of other factors |
+| Favorite artist | -- | Auto-10, always surface regardless of other factors |
 | Venue | 1x | Preferred venue = 8, Known good venue = 5, Unknown = 3 |
 | Cost | 1x | Free = 10, < $20 = 7, < $50 = 5, > $50 = 3 |
 | Calendar fit | 2x | No conflict = 10, Tight but doable = 5, Direct conflict = 2 |
 | Accessibility | 3x | Within 10-min walk of KC Streetcar = 10, Walkable/bikeable = 7, <10 min drive = 5, >10 min drive = 2 |
 | Social potential | 1x | Group-friendly / could invite people = 8, Solo = 5 |
 
-**Transit note**: Alex does not have a car. Events on or near the KC Streetcar line are strongly preferred. Events >10 min drive away require rideshare/bus/borrowing a car — flag the transit challenge in the "Why" line and factor it into scoring. The Streetcar runs from River Market through downtown, Union Station, Crown Center, and to UMKC. Venues near this corridor (The Midland, Sprint Center/T-Mobile Center, Union Station, Screenland Armour in North KC) get a big accessibility boost.
+**Transit note**: Alex does not have a car. Events on or near the KC Streetcar line are strongly preferred. Events >10 min drive away require rideshare/bus/borrowing a car -- flag the transit challenge in the "Why" line and factor it into scoring. The Streetcar runs from River Market through downtown, Union Station, Crown Center, and to UMKC. Venues near this corridor (The Midland, Sprint Center/T-Mobile Center, Union Station, Screenland Armour in North KC) get a big accessibility boost.
 
 Only surface events scoring 5+ (weighted average). Always surface favorite artists and high-interest matches regardless of score.
 
@@ -106,7 +106,7 @@ Check major venue calendars for upcoming shows:
 - recordBar: `https://www.therecordbar.com/events`
 - T-Mobile Center: `https://www.t-mobilecenter.com/events`
 
-For each venue, use `defuddle parse "[URL]" -m` (via Bash) to extract clean content from the events page — this strips navigation, ads, and boilerplate, saving 60-80% of tokens vs raw WebFetch. Only fall back to WebFetch if defuddle fails. Extract shows in the next 30 days and cross-reference artist names against the `favoriteArtists` list from the preferences file.
+For each venue, use `defuddle parse "[URL]" -m` (via Bash) to extract clean content from the events page -- this strips navigation, ads, and boilerplate, saving 60-80% of tokens vs raw WebFetch. Only fall back to WebFetch if defuddle fails. Extract shows in the next 30 days and cross-reference artist names against the `favoriteArtists` list from the preferences file.
 
 ### 3. KC Library Events
 - Kansas City Public Library: `https://kclibrary.org/events`
@@ -114,12 +114,12 @@ For each venue, use `defuddle parse "[URL]" -m` (via Bash) to extract clean cont
 - Use Defuddle (`defuddle parse "[URL]" -m`) to fetch and filter for: author talks, tech workshops, maker events, book clubs for genres Alex reads. Fall back to WebFetch only if defuddle fails.
 
 ### 4. r/kansascity Subreddit
-The KC subreddit is a high-signal source — locals post events, festivals, pop-ups, and meetups that don't show up on venue calendars. There's almost always a pinned/recent **"What's Happening This Week [date]"** megathread.
+The KC subreddit is a high-signal source -- locals post events, festivals, pop-ups, and meetups that don't show up on venue calendars. There's almost always a pinned/recent **"What's Happening This Week [date]"** megathread.
 
 - **Megathread**: WebFetch on reddit.com is blocked. Use `curl -sL -A "Mozilla/5.0" "https://www.reddit.com/r/kansascity/search.json?q=%22What%27s%20Happening%20This%20Week%22&restrict_sr=on&sort=new&limit=5"` + jq to find this week's thread URL, then fetch `https://reddit.com/r/kansascity/comments/<id>.json?limit=300&sort=top` and extract body (`.[0].data.children[0].data.selftext`) + comments (`.[1].data.children[] | select(.kind=="t1") | .data.body`).
-- **General sweep**: `curl -sL -A "Mozilla/5.0" "https://www.reddit.com/r/kansascity/new.json?limit=60"` then jq for "Things To Do 📍" flair — catches one-off event posts outside the megathread. Fetch interesting posts via `https://reddit.com/r/kansascity/comments/<id>.json` for body details.
+- **General sweep**: `curl -sL -A "Mozilla/5.0" "https://www.reddit.com/r/kansascity/new.json?limit=60"` then jq for "Things To Do 📍" flair -- catches one-off event posts outside the megathread. Fetch interesting posts via `https://reddit.com/r/kansascity/comments/<id>.json` for body details.
 
-Extract events from the megathread comments + body, score them through the same rubric, and verify dates/links against the original venue before surfacing. Reddit posts often paraphrase or get details slightly wrong — always click through to confirm.
+Extract events from the megathread comments + body, score them through the same rubric, and verify dates/links against the original venue before surfacing. Reddit posts often paraphrase or get details slightly wrong -- always click through to confirm.
 
 ### 5. Web Search Catch-All
 Run broader searches to catch anything the other sources miss:
@@ -128,25 +128,25 @@ Run broader searches to catch anything the other sources miss:
 - `WebSearch`: "Kansas City tech events [current month]"
 - `WebSearch`: "things to do Kansas City this weekend"
 
-WebSearch's synthesized answer text is a lead, not a fact. Treat every event/date/tour claim it produces as unverified until you open the actual listing (`WebFetch`/`defuddle`) and read it. See the primary-source rule in **Verification** — this is doubly true for favorite-artist tour claims.
+WebSearch's synthesized answer text is a lead, not a fact. Treat every event/date/tour claim it produces as unverified until you open the actual listing (`WebFetch`/`defuddle`) and read it. See the primary-source rule in **Verification** -- this is doubly true for favorite-artist tour claims.
 
 ## Verification
 
 ### Favorite-artist tour claims are PRIMARY-SOURCE-ONLY (never from a search summary)
 
-This is the one that has burned us. Any statement about a favorite artist's tour status — "on tour," "not touring," "coming to KC," "skips KC," "nearest date is [city] [date]," a specific date/venue — is a factual claim that MUST be confirmed by *opening and reading a primary source*: the artist's official site/tour page, or a real ticketing/venue listing (Ticketmaster/AXS/the venue's own events page) that shows the actual date.
+This is the one that has burned us. Any statement about a favorite artist's tour status -- "on tour," "not touring," "coming to KC," "skips KC," "nearest date is [city] [date]," a specific date/venue -- is a factual claim that MUST be confirmed by *opening and reading a primary source*: the artist's official site/tour page, or a real ticketing/venue listing (Ticketmaster/AXS/the venue's own events page) that shows the actual date.
 
 - **A WebSearch "answer" is NOT a source.** The synthesized prose WebSearch returns is a small model summarizing snippets and it hallucinates freely (it once invented a whole Heilung North American tour, dates and venues, that every primary source flatly contradicted). Use WebSearch only to find candidate URLs, then `WebFetch`/`defuddle` the actual page and quote *it*. Aggregator prose (Songkick/Bandsintown/Concertful blurbs) also gets read directly, not trusted second-hand.
-- **If you cannot confirm a date on a primary source, do not assert anything about the artist's touring.** The only safe negative is a statement about *your search*, not about the artist: write "no confirmed KC dates found for [artist] this window" — never "[artist]'s back on tour but skips KC" or "[artist]'s nearest is [city]." Those are affirmative tour claims and require the same primary-source proof.
+- **If you cannot confirm a date on a primary source, do not assert anything about the artist's touring.** The only safe negative is a statement about *your search*, not about the artist: write "no confirmed KC dates found for [artist] this window" -- never "[artist]'s back on tour but skips KC" or "[artist]'s nearest is [city]." Those are affirmative tour claims and require the same primary-source proof.
 - **When a direct source (a watcher, an API, the artist's own page) conflicts with a search summary, the direct source wins.** Do not talk yourself out of a correct instrument because a search sounded confident.
 - This applies everywhere the claim can land: the daily note, the `Local Events/` notes, the Discord ping, and the macOS notification.
 
 ### Every event MUST be verified before being surfaced:
-1. **Check the event URL still works** — use `WebFetch` on the event link to confirm it's not 404/cancelled
-2. **Check for cancellation language** — look for "cancelled", "postponed", "rescheduled" on the page
-3. **Cross-reference dates** — if an event date seems wrong or in the past, verify against the source
-4. **Check against Alex's calendar** — use `gcal_list_events` to check for conflicts at the suggested event time
-5. **Deduplicate** — the same event may appear across Meetup, venue sites, and web search results. Consolidate into one entry with the best link (prefer official venue/ticketing link)
+1. **Check the event URL still works** -- use `WebFetch` on the event link to confirm it's not 404/cancelled
+2. **Check for cancellation language** -- look for "cancelled", "postponed", "rescheduled" on the page
+3. **Cross-reference dates** -- if an event date seems wrong or in the past, verify against the source
+4. **Check against Alex's calendar** -- use `gcal_list_events` to check for conflicts at the suggested event time
+5. **Deduplicate** -- the same event may appear across Meetup, venue sites, and web search results. Consolidate into one entry with the best link (prefer official venue/ticketing link)
 
 ## Output Format
 
@@ -154,18 +154,18 @@ This is the one that has burned us. Any statement about a favorite artist's tour
 
 ```markdown
 ### Local Events
-*Next 30 days — updated [today's date]*
+*Next 30 days -- updated [today's date]*
 
 #### 🎵 Favorite Artist Alert
-- **[Artist] at [Venue]** — [Date] [Time] | [Link](url)
+- **[Artist] at [Venue]** -- [Date] [Time] | [Link](url)
   *Tickets: [link if available]*
 
 #### This Week
-- **[Event Name]** — [Venue], [Date] [Time] | [Free/$Price] | [Link](url)
+- **[Event Name]** -- [Venue], [Date] [Time] | [Free/$Price] | [Link](url)
   *Why: [1-line reason this matches Alex's interests]*
 
 #### Coming Up
-- **[Event Name]** — [Venue], [Date] [Time] | [Free/$Price] | [Link](url)
+- **[Event Name]** -- [Venue], [Date] [Time] | [Free/$Price] | [Link](url)
   *Why: [1-line reason]*
 ```
 
@@ -175,7 +175,7 @@ Rules:
 - Favorite artist matches go in the Alert section regardless of date
 - Sort by date within each section
 - Include price if known, "Free" if free, omit if unknown
-- Keep the "Why" line short and specific (not "this seems fun" but "cybersec meetup — good for networking + Sec+ study group potential")
+- Keep the "Why" line short and specific (not "this seems fun" but "cybersec meetup -- good for networking + Sec+ study group potential")
 - Maximum 15 events per update (quality over quantity)
 - If no events match high/medium priority, say so (don't pad with low-priority filler)
 
@@ -209,7 +209,7 @@ osascript -e 'display notification "[Artist] is coming to KC on [date]!" with ti
 
 ## Integration with Other Skills
 
-- **`/daily-briefing`**: The briefing should reference the most recent Local Events scan if there's anything notable today or this weekend (1-2 line callout). It does NOT need to re-run the full scan — just read from the events log.
+- **`/daily-briefing`**: The briefing should reference the most recent Local Events scan if there's anything notable today or this weekend (1-2 line callout). It does NOT need to re-run the full scan -- just read from the events log.
 - Ad-hoc questions like "anything fun happening this weekend?" can be answered by reading the events log.
 - **`/weekly-review`**: Include a "social/fun" section noting which events Alex attended or skipped, and upcoming highlights for next week.
 - **`/capture`**: If Alex mentions wanting to go to something, create a Things 3 task and check if it's already in the events list.

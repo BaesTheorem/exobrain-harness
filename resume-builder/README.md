@@ -65,8 +65,8 @@ burstiness and no AI vocabulary. Keep tailoring truthful.
 
 ## Personal data (gitignored)
 The harness repo is public, so the real resume content and PII are kept out of git:
-- `data/resume_data.json` — real canonical resume (name, contact, work history). **Gitignored.** Rebuild from `data/resume_data.example.json`.
-- `tailoring/*.json` / `tailoring/*.md` — real per-JD files. **Gitignored**, except `tailoring/example.json` and `tailoring/example_cover.md` which ship as templates.
+- `data/resume_data.json` -- real canonical resume (name, contact, work history). **Gitignored.** Rebuild from `data/resume_data.example.json`.
+- `tailoring/*.json` / `tailoring/*.md` -- real per-JD files. **Gitignored**, except `tailoring/example.json` and `tailoring/example_cover.md` which ship as templates.
 
 To set up on a fresh machine: `cp data/resume_data.example.json data/resume_data.json` and fill it in (or restore from the daily backup, which is not size-limited and includes gitignored files).
 
