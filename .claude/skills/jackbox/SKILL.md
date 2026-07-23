@@ -11,15 +11,15 @@ Plays as **AlexsClaude** by default (<=12 chars; signals to friends it's Alex's 
 
 ## Architecture (why it's built this way)
 
-- **One persistent Chrome, many short node calls.** `launch.sh` starts Chrome with `--remote-debugging-port=9222` on a **throwaway profile** (`/tmp/jackbox-chrome-profile`) so the user's real Chrome is never touched. Every script then `connectOverCDP('http://localhost:9222')`, acts, and disconnects with `browser.close()` — which **detaches CDP but leaves Chrome running**. This keeps the game session alive across separate tool calls.
-- **Autopilots are local loops, not turn-by-turn.** A turn-based agent (screenshot → think → click) is too slow for Quiplash voting windows and Tee K.O. phases. The autopilots (`quiplash.js`, `teeko.js`) poll the DOM every 0.6–1s, detect the phase, and act in-process. Launch them with `nohup … & disown` so they survive.
+- **One persistent Chrome, many short node calls.** `launch.sh` starts Chrome with `--remote-debugging-port=9222` on a **throwaway profile** (`/tmp/jackbox-chrome-profile`) so the user's real Chrome is never touched. Every script then `connectOverCDP('http://localhost:9222')`, acts, and disconnects with `browser.close()` -- which **detaches CDP but leaves Chrome running**. This keeps the game session alive across separate tool calls.
+- **Autopilots are local loops, not turn-by-turn.** A turn-based agent (screenshot → think → click) is too slow for Quiplash voting windows and Tee K.O. phases. The autopilots (`quiplash.js`, `teeko.js`) poll the DOM every 0.6-1s, detect the phase, and act in-process. Launch them with `nohup … & disown` so they survive.
 - **The Claude API does the creative/judgment work**, not the loop. Opus 4.8 writes answers/slogans/draws; Haiku judges text votes fast; Sonnet does vision votes.
 
 ## Setup / prerequisites
 
 - Google Chrome installed at `/Applications/Google Chrome.app`.
 - Playwright available to node. `env.sh` resolves it into `NODE_PATH`; if missing: `npm i -g playwright && npx -y playwright@1.60 install chromium`.
-- `ANTHROPIC_API_KEY` — loaded by `env.sh` from the gitignored `phone/.env` (never inlined). Only the autopilots need it; `control.js`/`shot.js`/`join.js` don't.
+- `ANTHROPIC_API_KEY` -- loaded by `env.sh` from the gitignored `phone/.env` (never inlined). Only the autopilots need it; `control.js`/`shot.js`/`join.js` don't.
 
 All node scripts read `NODE_PATH` + `ANTHROPIC_API_KEY` from the environment, so **always `source scripts/env.sh` first**.
 
@@ -62,31 +62,31 @@ Identify the game from the loading flavor text or `control.js peek`: Quiplash 2 
 ## Conventions & hard rules
 
 - **Name:** `AlexsClaude` (so the friend group knows it's the bot).
-- **Quiplash: NEVER use the Safety Quip** (`#quiplash-submit-safetyquip`) — it's half points. Always submit a real full-points answer via `#quiplash-submit-answer`. On API failure, fall back to a real generic answer, never the safety quip.
-- **Don't steal focus.** Never call `page.bringToFront()` — it yanks the Chrome window in front of the user (this was an explicit complaint). The bot plays in its own background window.
-- **Run autopilots in the background**, never foreground — and `disown` so they survive the launching shell exiting.
+- **Quiplash: NEVER use the Safety Quip** (`#quiplash-submit-safetyquip`) -- it's half points. Always submit a real full-points answer via `#quiplash-submit-answer`. On API failure, fall back to a real generic answer, never the safety quip.
+- **Don't steal focus.** Never call `page.bringToFront()` -- it yanks the Chrome window in front of the user (this was an explicit complaint). The bot plays in its own background window.
+- **Run autopilots in the background**, never foreground -- and `disown` so they survive the launching shell exiting.
 
-## Humor (this is the point — keep it good)
+## Humor (this is the point -- keep it good)
 
 The answer/slogan prompts encode what actually wins these games (researched + user-validated):
 - **Specificity > generic** ("Pulling a Beyoncé" > "dancing"); real brands, oddly specific numbers.
 - **Commit to the absurd**; **smart-stupid juxtaposition** (highbrow + idiotic).
-- **Misdirection** — skip the first obvious joke; the 3rd/4th idea wins.
-- **Relatable darkness** — debt, your ex, the DMV, burnout, existential dread, HR.
+- **Misdirection** -- skip the first obvious joke; the 3rd/4th idea wins.
+- **Relatable darkness** -- debt, your ex, the DMV, burnout, existential dread, HR.
 - **Punchy, funniest word last** so it lands when read aloud.
-- **THE BAR** (aim here, don't copy): *"A cupholder shaped like the middle class"* — a mundane object weaponized into a socioeconomic gut-punch. User flagged this as elite; the prompts target that register, not mere quirk.
+- **THE BAR** (aim here, don't copy): *"A cupholder shaped like the middle class"* -- a mundane object weaponized into a socioeconomic gut-punch. User flagged this as elite; the prompts target that register, not mere quirk.
 - Answers use **best-of-N**: Opus brainstorms 5 candidates across techniques and ships only the funniest. Models: answers/draws/slogans = `claude-opus-4-8`; text votes = `claude-haiku-4-5-20251001`; vision votes = `claude-sonnet-4-6`.
 
 ## Drawing (Tee K.O.)
 
-`teeko.js` asks Opus to design a bold, single-subject t-shirt graphic as **normalized stroke paths** (0..1, kept inside 0.12–0.88), then replays them as **real mouse strokes with per-point jitter + segment interpolation** so the lines wobble like a hand drew them (not vector-perfect). It picks the nearest color swatch by sampling palette background colors. Detects a fresh blank canvas (samples the canvas pixels) to handle Tee K.O.'s two-drawings-per-round flow.
+`teeko.js` asks Opus to design a bold, single-subject t-shirt graphic as **normalized stroke paths** (0..1, kept inside 0.12-0.88), then replays them as **real mouse strokes with per-point jitter + segment interpolation** so the lines wobble like a hand drew them (not vector-perfect). It picks the nearest color swatch by sampling palette background colors. Detects a fresh blank canvas (samples the canvas pixels) to handle Tee K.O.'s two-drawings-per-round flow.
 
 ## Gotchas (learned the hard way)
 
 - **`page.screenshot()` HANGS on jackbox.tv** ("waiting for fonts to load"). Use `shot.js` (raw CDP `Page.captureScreenshot`) for vision instead. `control.js` only does a best-effort screenshot with a short timeout.
-- **Fast windows beat slow paths.** Quiplash voting and Tee K.O. phases close in seconds. Keep per-action latency low: text votes use Haiku (~1s), not vision (~3–5s). If votes are missed, the path is too slow, not the detection.
-- **Tee K.O. vote buttons are `awshirt-vote-button`** and are often **text** (the slogan), not images — judge by text. Use the vision fallback only when buttons carry no text.
-- **Verify detection against the live DOM** with `control.js peek` before assuming an autopilot will catch a phase — element ids/classes are game-specific.
+- **Fast windows beat slow paths.** Quiplash voting and Tee K.O. phases close in seconds. Keep per-action latency low: text votes use Haiku (~1s), not vision (~3-5s). If votes are missed, the path is too slow, not the detection.
+- **Tee K.O. vote buttons are `awshirt-vote-button`** and are often **text** (the slogan), not images -- judge by text. Use the vision fallback only when buttons carry no text.
+- **Verify detection against the live DOM** with `control.js peek` before assuming an autopilot will catch a phase -- element ids/classes are game-specific.
 - Background `node … &` inside a backgrounded shell can die when the wrapper exits; use `nohup … & disown` and confirm with `pgrep -fl`.
 
 ## Adding a new game

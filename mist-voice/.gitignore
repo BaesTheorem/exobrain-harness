@@ -6,7 +6,7 @@
 samples/
 demo_mist.wav
 
-# Pretrained PUBLIC model weights (~1.8GB XTTS + whisper) — auto-redownloaded.
+# Pretrained PUBLIC model weights (~1.8GB XTTS + whisper) -- auto-redownloaded.
 models/
 
 # Transient synthesis outputs

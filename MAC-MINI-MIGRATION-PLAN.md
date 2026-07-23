@@ -5,7 +5,7 @@ Move the always-on parts of the exobrain harness to a dedicated Mac Mini so the 
 ## Goal
 
 - One always-on host (Mini) runs all background watchers, scheduled jobs, and the Discord bot.
-- MacBook remains a full client — same vault, same Things 3, same repo — but stops being the heartbeat.
+- MacBook remains a full client -- same vault, same Things 3, same repo -- but stops being the heartbeat.
 - Chat from the phone works whether the laptop is awake or not.
 
 ## Architecture: heartbeat vs. clients
@@ -31,7 +31,7 @@ Rule: **exactly one machine owns the automation.** Both machines can read and ed
 
 ## Hardware
 
-- **Mac Mini M4 base** (16GB / 256GB) — ~$599, ~7W idle. Sufficient for everything below.
+- **Mac Mini M4 base** (16GB / 256GB) -- ~$599, ~7W idle. Sufficient for everything below.
 - Ethernet preferred over Wi-Fi for reliability.
 - UPS optional but nice (a $50 CyberPower keeps it up through brownouts).
 
@@ -49,19 +49,19 @@ Rule: **exactly one machine owns the automation.** Both machines can read and ed
 
 ## What does NOT sync (manual copy required, one-time)
 
-These are gitignored or local-only — copy from MacBook to Mini during setup:
+These are gitignored or local-only -- copy from MacBook to Mini during setup:
 
 - `/Users/alexhedtke/Documents/Exobrain harness/.env` (Withings + other credentials)
 - `~/.plaud/tokens-mcp.json` and `~/.plaud/tokens.json`
 - `~/.config/fitbit/` (Fitbit refresh tokens)
 - `~/.config/withings/` (if present beyond `.env`)
 - Discord bot token (lives in `~/.claude/channels/discord/` per the bot script)
-- `~/.claude/` — global settings, skills, memory directory
-- Any OAuth caches for cloud MCPs (Gmail, Calendar, Drive, MyChart) — re-authorize from Claude.ai if needed
+- `~/.claude/` -- global settings, skills, memory directory
+- Any OAuth caches for cloud MCPs (Gmail, Calendar, Drive, MyChart) -- re-authorize from Claude.ai if needed
 
-**Token refresh caveat:** Fitbit/Withings/Plaud store refresh tokens locally. After migration, refreshing on the Mini invalidates the MacBook's copies — that's fine because the MacBook won't be calling those APIs anymore.
+**Token refresh caveat:** Fitbit/Withings/Plaud store refresh tokens locally. After migration, refreshing on the Mini invalidates the MacBook's copies -- that's fine because the MacBook won't be calling those APIs anymore.
 
-## Launchd jobs — current inventory
+## Launchd jobs -- current inventory
 
 All of these currently run on the MacBook. **Move all to Mini, disable all on MacBook.**
 
@@ -79,11 +79,11 @@ All of these currently run on the MacBook. **Move all to Mini, disable all on Ma
 | `com.exobrain.bodyguard-weekly`             | Weekly bodyguard run                      |
 | `com.exobrain.session-memory-consolidator`  | Session memory consolidation              |
 
-**LAN-bound jobs:** `awair-co2-watcher` polls a device on the home network. Mini will be on the same LAN — confirmed.
+**LAN-bound jobs:** `awair-co2-watcher` polls a device on the home network. Mini will be on the same LAN -- confirmed.
 
 ## Migration steps
 
-### Phase 1 — Set up the Mini (estimate: 2-3 hours)
+### Phase 1 -- Set up the Mini (estimate: 2-3 hours)
 
 1. Initial macOS setup, sign into Apple ID (same as MacBook so iMessage, Things 3, iCloud Drive all work).
 2. Enable **auto-login** for the user account (System Settings → Users & Groups → Automatic login).
@@ -97,7 +97,7 @@ All of these currently run on the MacBook. **Move all to Mini, disable all on Ma
 7. Install Google Drive for Desktop, sign in, set Plaud + Supernote folders to mirror (not stream) so launchd watchers see real files.
 8. Install Obsidian, sign into **Obsidian Sync** (separate account from the Apple ID), connect the remote vault, and wait for it to fully sync. **Important:** verify the vault path matches `/Users/alexhedtke/Exobrain/` exactly (depends on whether you use the same short username).
 
-### Phase 2 — Move the harness (estimate: 1 hour)
+### Phase 2 -- Move the harness (estimate: 1 hour)
 
 1. `git clone` the exobrain harness repo to `~/Documents/Exobrain harness/` on the Mini.
 2. `pip install -r requirements.txt` for any Python deps.
@@ -105,7 +105,7 @@ All of these currently run on the MacBook. **Move all to Mini, disable all on Ma
 4. Run a smoke test: invoke Claude Code on the Mini, ask it to read the Dashboard. Verify all MCPs connect (Plaud, Things 3, Fitbit, Withings, Discord, computer-use).
 5. Re-authorize any cloud MCPs that need it (Gmail, Calendar, Drive, MyChart via claude.ai).
 
-### Phase 3 — Move the heartbeat (estimate: 30 min)
+### Phase 3 -- Move the heartbeat (estimate: 30 min)
 
 1. On the Mini: copy each plist from `~/Library/LaunchAgents/` (per the table above), update any hard-coded paths if usernames differ, then `launchctl bootstrap gui/$(id -u) ~/Library/LaunchAgents/com.exobrain.<job>.plist` for each.
 2. **Important:** per the `launchd_symlinks` rule, the plists must be real file copies in `~/Library/LaunchAgents/`, not symlinks into `~/Documents/`. TCC blocks symlinked plists at login.
@@ -113,18 +113,18 @@ All of these currently run on the MacBook. **Move all to Mini, disable all on Ma
 4. On the **MacBook**: disable all jobs from the same list with `launchctl bootout gui/$(id -u) ~/Library/LaunchAgents/com.exobrain.<job>.plist` (keep the plist files for rollback).
 5. Confirm only the Mini is running each job (`ps aux | grep <watcher>` on both).
 
-### Phase 4 — Verify single-heartbeat (estimate: ongoing for 1 week)
+### Phase 4 -- Verify single-heartbeat (estimate: ongoing for 1 week)
 
 For the first week, watch for duplicate processing:
 
 - Drop a test Plaud .txt into the synced folder. Confirm only one Things 3 task is created.
 - Send a Discord message. Confirm only one bot response.
-- Check `processing-log.json` and the vault for sync-conflict artifacts (Obsidian Sync conflict copies, Drive `(conflict)` suffixes) — none expected.
+- Check `processing-log.json` and the vault for sync-conflict artifacts (Obsidian Sync conflict copies, Drive `(conflict)` suffixes) -- none expected.
 - Compare daily note for any duplicated headings or sections.
 
-## Remote access — phone to Mini
+## Remote access -- phone to Mini
 
-Discord is the only off-network entry point. No tunnel software needed — Discord traffic is outbound from the Mini, so as long as the Mini has internet, the bot works from anywhere your phone has Discord.
+Discord is the only off-network entry point. No tunnel software needed -- Discord traffic is outbound from the Mini, so as long as the Mini has internet, the bot works from anywhere your phone has Discord.
 
 If a future need for SSH / Screen Sharing from outside the home network emerges, revisit Tailscale (free for personal use, install on Mini + MacBook + iPhone, gives stable reachable hostname). Out of scope for the initial migration.
 
@@ -132,8 +132,8 @@ If a future need for SSH / Screen Sharing from outside the home network emerges,
 
 1. **Watchers and schedulers run on Mini only.** MacBook plists stay disabled.
 2. **Discord bot runs on Mini only.** One token, one connection.
-3. **Manual Claude invocations are fine on either machine** — both can run skills, edit the vault, push commits, ask questions.
-4. **Don't run `daily-briefing`, `evening-winddown`, or `weekly-review` on both machines on the same day** — they're idempotent-ish but Obsidian Sync conflicts on the daily note are annoying. Pick one (probably Mini if scheduled, MacBook if manual).
+3. **Manual Claude invocations are fine on either machine** -- both can run skills, edit the vault, push commits, ask questions.
+4. **Don't run `daily-briefing`, `evening-winddown`, or `weekly-review` on both machines on the same day** -- they're idempotent-ish but Obsidian Sync conflicts on the daily note are annoying. Pick one (probably Mini if scheduled, MacBook if manual).
 5. **If the Mini is down**, you can re-enable the MacBook plists as a fallback. Document this in a runbook (TBD).
 
 ## Rollback plan
@@ -155,7 +155,7 @@ No data is destroyed in either direction since everything syncs via Things Cloud
 ## Open questions / TBD
 
 - **Hostname** for the Mini? (Suggest: `mini-heartbeat` or `exobrain-core`.)
-- **iMessage MCP** — works fine on the Mini once signed into the same Apple ID; Messages.app must be open at least once for the chat.db to populate.
+- **iMessage MCP** -- works fine on the Mini once signed into the same Apple ID; Messages.app must be open at least once for the chat.db to populate.
 
 ## To-Do (post-setup, after the Mini is stable)
 
@@ -167,19 +167,19 @@ Deferred work that wants the Mini's headroom (16GB, always-on) or is a natural f
 
 **We already have the dataset, locally:**
 - `mist-voice/samples/raw/mist_supercut.wav` (~335MB clean MIST corpus)
-- `mist-voice/samples/raw/mist_supercut.segments.tsv` (605 curated segments — which spans are clean MIST)
+- `mist-voice/samples/raw/mist_supercut.segments.tsv` (605 curated segments -- which spans are clean MIST)
 - Longer clean takes in `mist-voice/samples/reference/_archive/` (a 27s analytical clip, a 15s monologue, etc.)
 - Source of truth is the private `BaesTheorem/mist-voice-data` repo (git-lfs).
 
-**Why it waits for the Mini / a GPU:** you cannot train on the 8GB M1 Air. The M4 base (16GB) has real headroom to prep the dataset and orchestrate, but XTTS/F5 fine-tuning is CUDA-centric — the fastest path is renting a cloud GPU (vast.ai / RunPod, ~$1–3 for a ~1hr run) and pulling the resulting weights back. The Mini is the always-on box that can drive that unattended.
+**Why it waits for the Mini / a GPU:** you cannot train on the 8GB M1 Air. The M4 base (16GB) has real headroom to prep the dataset and orchestrate, but XTTS/F5 fine-tuning is CUDA-centric -- the fastest path is renting a cloud GPU (vast.ai / RunPod, ~$1-3 for a ~1hr run) and pulling the resulting weights back. The Mini is the always-on box that can drive that unattended.
 
 **Rough recipe (flesh out when picked up):**
 1. Prep dataset: segment the supercut per the TSV into clean utterance WAVs + a transcript manifest (Whisper is already in the mist-voice venv for transcription).
-2. Pick the trainer: XTTS-v2 fine-tune (keeps the current pipeline, most faithful cloner) or F5-TTS (research-grade). Chatterbox venv (`mist-voice/.venv-chatterbox`) stays around regardless — it's the fast + MIT engine we'd want for any future **real-time** GPU voice (e.g. the "Hey MIST" smart-speaker satellite).
+2. Pick the trainer: XTTS-v2 fine-tune (keeps the current pipeline, most faithful cloner) or F5-TTS (research-grade). Chatterbox venv (`mist-voice/.venv-chatterbox`) stays around regardless -- it's the fast + MIT engine we'd want for any future **real-time** GPU voice (e.g. the "Hey MIST" smart-speaker satellite).
 3. Rent GPU, run the fine-tune, evaluate by ear against the current XTTS baseline.
 4. If it wins, wire the fine-tuned model into `say.py`/`serve.py`/`mist-say`, update `mist-voice/README.md`'s "Final voice config" section, and commit.
 
-**Keep, don't retread:** Chatterbox was evaluated and passed on for *cloning fidelity* — don't re-run that A/B. The open lever is fine-tuning, not another zero-shot engine.
+**Keep, don't retread:** Chatterbox was evaluated and passed on for *cloning fidelity* -- don't re-run that A/B. The open lever is fine-tuning, not another zero-shot engine.
 
 ## Estimated total effort
 

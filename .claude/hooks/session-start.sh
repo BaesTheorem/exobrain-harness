@@ -1,5 +1,5 @@
 #!/bin/bash
-# Exobrain session startup hook — date context + system health check
+# Exobrain session startup hook -- date context + system health check
 
 SCRIPT_DIR="$(cd "$(dirname "$0")/../.." && pwd)"
 source "$SCRIPT_DIR/config.sh"
@@ -10,7 +10,7 @@ VAULT="$VAULT_DIR"
 HOUR=$(date +%H)
 if [ "$HOUR" -lt 2 ]; then
   LOGICAL_DATE=$(date -v-1d +"%A, %B %-d, %Y")
-  echo "Date: $(date +"%A, %B %-d, %Y %I:%M %p") — logical day: $LOGICAL_DATE (pre-2AM)"
+  echo "Date: $(date +"%A, %B %-d, %Y %I:%M %p") -- logical day: $LOGICAL_DATE (pre-2AM)"
 else
   echo "Date: $(date +"%A, %B %-d, %Y %I:%M %p")"
 fi
@@ -25,7 +25,7 @@ if [ -f "$JOBSCAN_SENTINEL" ]; then
   MISS_DATE=$(head -1 "$JOBSCAN_SENTINEL" 2>/dev/null)
   PENDING_DAYS=$(( ($(date +%s) - $(stat -f %m "$JOBSCAN_SENTINEL")) / 86400 ))
   echo ""
-  echo "‼️  ACTION FIRST — LinkedIn job lane pending (missed ${MISS_DATE:-recently}, ${PENDING_DAYS}d ago)"
+  echo "‼️  ACTION FIRST -- LinkedIn job lane pending (missed ${MISS_DATE:-recently}, ${PENDING_DAYS}d ago)"
   echo "    The headless daily job scan could not reach the LinkedIn MCP, so that"
   echo "    discovery lane was skipped. Before anything else this session, run the"
   echo "    /job-search LinkedIn lane (search_jobs across rotating angles → JD-read →"
@@ -88,24 +88,24 @@ try:
     now = datetime.now(timezone.utc)
     hours_left = (exp - now).total_seconds() / 3600
     if hours_left < 0:
-        print(f'WARN: Fitbit token expired {-hours_left:.0f}h ago — needs re-auth')
+        print(f'WARN: Fitbit token expired {-hours_left:.0f}h ago -- needs re-auth')
     elif hours_left < 1:
-        print(f'WARN: Fitbit token expires in {hours_left*60:.0f}m — refresh soon')
+        print(f'WARN: Fitbit token expires in {hours_left*60:.0f}m -- refresh soon')
     else:
         print(f'OK: Fitbit token (valid for {hours_left:.0f}h)')
 except Exception as e:
-    print(f'WARN: Fitbit token unreadable — {e}')
+    print(f'WARN: Fitbit token unreadable -- {e}')
 " 2>/dev/null)
   echo "$FITBIT_STATUS"
   if echo "$FITBIT_STATUS" | grep -q "WARN"; then
     ISSUES=$((ISSUES + 1))
   fi
 else
-  echo "WARN: Fitbit token missing — may need re-auth"
+  echo "WARN: Fitbit token missing -- may need re-auth"
   ISSUES=$((ISSUES + 1))
 fi
 
-# Withings credentials — verifies refresh token is present in .mcp.json (preferred)
+# Withings credentials -- verifies refresh token is present in .mcp.json (preferred)
 # or .env. Withings uses a long-lived refresh token; access tokens are minted on
 # demand by the MCP server, so there's no on-disk expiry to inspect here.
 WITHINGS_OK=0
@@ -117,29 +117,29 @@ fi
 if [ "$WITHINGS_OK" -eq 1 ]; then
   echo "OK: Withings credentials (refresh token present)"
 else
-  echo "WARN: Withings refresh token missing — may need re-auth"
+  echo "WARN: Withings refresh token missing -- may need re-auth"
   ISSUES=$((ISSUES + 1))
 fi
 
 # Nest (SDM) refresh-token freshness. The OAuth consent screen is in "Testing"
 # status, so Google expires the refresh token 7 days after it's minted. The
-# refresh path never rewrites token.json, so its mtime IS the mint time — warn
+# refresh path never rewrites token.json, so its mtime IS the mint time -- warn
 # off file age before it silently dies and takes live HVAC + pre-cool with it.
 NEST_TOKEN="$HOME/Documents/claude-home/integrations/nest/token.json"
 if [ -f "$NEST_TOKEN" ]; then
   NEST_AGE_DAYS=$(( ($(date +%s) - $(stat -f %m "$NEST_TOKEN")) / 86400 ))
   DAYS_LEFT=$(( 7 - NEST_AGE_DAYS ))
   if [ "$DAYS_LEFT" -le 0 ]; then
-    echo "WARN: Nest token likely expired (${NEST_AGE_DAYS}d old, >7d) — re-auth: nest-auth.py"
+    echo "WARN: Nest token likely expired (${NEST_AGE_DAYS}d old, >7d) -- re-auth: nest-auth.py"
     ISSUES=$((ISSUES + 1))
   elif [ "$DAYS_LEFT" -le 2 ]; then
-    echo "WARN: Nest token expires in ~${DAYS_LEFT}d — re-auth soon: nest-auth.py"
+    echo "WARN: Nest token expires in ~${DAYS_LEFT}d -- re-auth soon: nest-auth.py"
     ISSUES=$((ISSUES + 1))
   else
     echo "OK: Nest token (valid ~${DAYS_LEFT}d more)"
   fi
 else
-  echo "WARN: Nest token missing — run nest-auth.py to reconnect HVAC"
+  echo "WARN: Nest token missing -- run nest-auth.py to reconnect HVAC"
   ISSUES=$((ISSUES + 1))
 fi
 
@@ -193,7 +193,7 @@ else
   ISSUES=$((ISSUES + 1))
 fi
 
-# iMessage sync — the launchd job snapshots chat.db into imessage/cache/ under a
+# iMessage sync -- the launchd job snapshots chat.db into imessage/cache/ under a
 # stable FDA-granted interpreter so skills read the cache WITHOUT Full Disk Access.
 # It fails SILENTLY if FDA isn't granted to the plist's python3 (exit 2 / "Operation
 # not permitted"), leaving briefings/CRM/winddown reading an empty cache. Check the
@@ -202,7 +202,7 @@ fi
 IMSG_EXIT=$(launchctl list 2>/dev/null | awk '$3 == "com.exobrain.imessage-sync" {print $2}')
 IMSG_CACHE="$HARNESS/imessage/cache/chat.db"
 if [ -z "$IMSG_EXIT" ]; then
-  echo "WARN: launchd imessage-sync not loaded — iMessage data unavailable to skills"
+  echo "WARN: launchd imessage-sync not loaded -- iMessage data unavailable to skills"
   ISSUES=$((ISSUES + 1))
 elif [ "$IMSG_EXIT" != "0" ] && [ "$IMSG_EXIT" != "-" ]; then
   echo "WARN: imessage-sync failing (exit $IMSG_EXIT): likely Full Disk Access not granted to the venv interpreter"
@@ -211,33 +211,33 @@ elif [ "$IMSG_EXIT" != "0" ] && [ "$IMSG_EXIT" != "-" ]; then
   echo "  then: launchctl kickstart -k gui/\$(id -u)/com.exobrain.imessage-sync"
   ISSUES=$((ISSUES + 1))
 elif [ ! -f "$IMSG_CACHE" ]; then
-  echo "WARN: imessage cache snapshot missing — sync has never succeeded (check FDA per imessage/README.md)"
+  echo "WARN: imessage cache snapshot missing -- sync has never succeeded (check FDA per imessage/README.md)"
   ISSUES=$((ISSUES + 1))
 else
   IMSG_AGE=$(( ($(date +%s) - $(stat -f %m "$IMSG_CACHE")) / 3600 ))
   if [ "$IMSG_AGE" -gt 6 ]; then
-    echo "WARN: imessage cache stale (${IMSG_AGE}h old; sync runs every 15m) — check com.exobrain.imessage-sync"
+    echo "WARN: imessage cache stale (${IMSG_AGE}h old; sync runs every 15m) -- check com.exobrain.imessage-sync"
     ISSUES=$((ISSUES + 1))
   else
     echo "OK: imessage-sync (cache ${IMSG_AGE}h fresh)"
   fi
 fi
 
-# Scheduled MIST routines AND com.exobrain jobs — check the LAST EXIT CODE, not
+# Scheduled MIST routines AND com.exobrain jobs -- check the LAST EXIT CODE, not
 # just that the job is loaded. A loaded job that exits nonzero every fire (e.g.
 # 78/EX_CONFIG when headless `claude` can't read the Keychain) is silently dead,
 # and "loaded" alone hides that. launchctl list columns: PID  LAST_EXIT  LABEL.
 # Flag any nonzero. imessage-sync is excluded: it has its own richer check above.
 ROUTINE_FAILS=$(launchctl list 2>/dev/null | awk '$3 ~ /^com\.(mist\.routine|exobrain)\./ && $3 != "com.exobrain.imessage-sync" && $2 != "-" && $2 != "0" {print $3" (exit "$2")"}')
 if [ -n "$ROUTINE_FAILS" ]; then
-  echo "WARN: scheduled routine(s) failing on last run — investigate run-routine logs:"
+  echo "WARN: scheduled routine(s) failing on last run -- investigate run-routine logs:"
   while IFS= read -r line; do
     echo "  FAIL: $line"
   done <<< "$ROUTINE_FAILS"
   ISSUES=$((ISSUES + 1))
 fi
 
-# Watcher health — check for recent failures (last 24h). Suppress the WARN when
+# Watcher health -- check for recent failures (last 24h). Suppress the WARN when
 # processing has succeeded SINCE the failure: the 30-min poll self-recovers
 # transient API errors, and a newer processing-log.json proves recovery.
 for WATCHER in supernote plaud; do
@@ -258,7 +258,7 @@ for WATCHER in supernote plaud; do
   fi
 done
 
-# Session-memory consolidator health — the 23:00 job writes YYYY-MM-DD_DIGEST.md;
+# Session-memory consolidator health -- the 23:00 job writes YYYY-MM-DD_DIGEST.md;
 # if the newest digest is >26h old the consolidator is silently dead (observed
 # 2026-07: three straight nights of failures behind exit 0) and startup context
 # degrades fast. 26h allows for "today's digest doesn't exist until 23:00".
@@ -266,7 +266,7 @@ NEWEST_DIGEST=$(ls -t "$HOME/Exobrain/Claude/"*_DIGEST.md 2>/dev/null | head -1)
 if [ -n "$NEWEST_DIGEST" ]; then
   DIGEST_AGE_H=$(( ($(date +%s) - $(stat -f %m "$NEWEST_DIGEST")) / 3600 ))
   if [ "$DIGEST_AGE_H" -gt 26 ]; then
-    echo "WARN: session-memory digest stale (${DIGEST_AGE_H}h old; consolidator runs 23:00) — check /tmp/exobrain-session-memory-failures.log and /tmp/exobrain-session-memory-last.out"
+    echo "WARN: session-memory digest stale (${DIGEST_AGE_H}h old; consolidator runs 23:00) -- check /tmp/exobrain-session-memory-failures.log and /tmp/exobrain-session-memory-last.out"
     ISSUES=$((ISSUES + 1))
   fi
 fi
@@ -278,7 +278,7 @@ if [ -f "$LOG" ]; then
     TOTAL=$(python3 -c "import json; print(len(json.load(open('$LOG'))))" 2>/dev/null)
     echo "OK: Processing log ($TOTAL entries)"
   else
-    echo "FAIL: Processing log — corrupt JSON"
+    echo "FAIL: Processing log -- corrupt JSON"
     ISSUES=$((ISSUES + 1))
   fi
 else
@@ -286,7 +286,7 @@ else
   ISSUES=$((ISSUES + 1))
 fi
 
-# Discord digest freshness — read last_successful_fetch from JSON (file mtime
+# Discord digest freshness -- read last_successful_fetch from JSON (file mtime
 # can be misleading because a failed fetch may rewrite the file with old data).
 # See discord/README.md for the contract.
 DIGEST="$HARNESS/discord/discord-digest.json"
@@ -307,7 +307,7 @@ try:
     else:
         print(f'WARN: Discord digest stale (last successful fetch {age_h}h ago)')
 except Exception as e:
-    print(f'WARN: Discord digest unreadable — {e}')
+    print(f'WARN: Discord digest unreadable -- {e}')
 " 2>/dev/null)
   echo "$DIGEST_AGE"
   if echo "$DIGEST_AGE" | grep -q "WARN"; then
@@ -323,7 +323,7 @@ echo ""
 if [ "$ISSUES" -eq 0 ]; then
   echo "All systems nominal."
 else
-  echo "$ISSUES issue(s) detected — check above."
+  echo "$ISSUES issue(s) detected -- check above."
 fi
 
 # === SESSION MEMORY ===
@@ -346,7 +346,7 @@ if [ -d "$MEMORY_DIR" ]; then
         cat "$f"
       done <<< "$RECENT_DIGESTS"
     else
-      echo "(none yet — first 11pm consolidator run will generate one)"
+      echo "(none yet -- first 11pm consolidator run will generate one)"
     fi
     echo ""
     echo "=== Recent Session Memory ==="

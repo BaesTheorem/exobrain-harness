@@ -1,6 +1,6 @@
-# Phone — two-way voice calls with Claude (full Exobrain parity)
+# Phone -- two-way voice calls with Claude (full Exobrain parity)
 
-Claude rings your phone and you have a real spoken conversation — and it has
+Claude rings your phone and you have a real spoken conversation -- and it has
 your actual Exobrain tools. Twilio's **ConversationRelay** does speech-to-text
 and text-to-speech; a local server runs a **Claude Agent SDK** session that
 loads the harness `CLAUDE.md`, the project MCP servers, and the skills, so the
@@ -15,7 +15,7 @@ You (phone) <--voice--> Twilio (STT/TTS) <--text/WS--> server.py <--Agent SDK-->
 Loaded via `setting_sources=["project"]` (your `CLAUDE.md`, `.mcp.json`, skills):
 
 - **Things 3** (read + create/update tasks), **Fitbit**, **Withings**
-- **Your Obsidian vault** — read and write notes (`add_dirs` grants access)
+- **Your Obsidian vault** -- read and write notes (`add_dirs` grants access)
 - **Bash, web search/fetch**, and all harness skills
 
 **Known parity gap:** Gmail, Google Calendar, Drive, MyChart, and LinkedIn are
@@ -27,8 +27,8 @@ options explicitly. Until then, phone-Claude can't send email or touch calendar.
 
 A phone line is weakly authenticated (caller ID is spoofable), so:
 
-- **Read-only tools** (`get_/list_/search_/show_`) — always allowed.
-- **Mutating tools** (create/edit/send/delete, plus `Bash`/`Write`/`Edit`) —
+- **Read-only tools** (`get_/list_/search_/show_`) -- always allowed.
+- **Mutating tools** (create/edit/send/delete, plus `Bash`/`Write`/`Edit`) --
   **blocked by a PreToolUse hook until you enter `VOICE_PIN`** on the keypad
   (DTMF) or speak it. The hook fires on every tool regardless of the project
   permission allowlist, so allow-listed write tools can't sneak past it.
@@ -41,25 +41,25 @@ locked (fail-safe).
 
 ## Files
 
-- `server.py` — the conversation brain (FastAPI WebSocket + TwiML endpoint).
-- `call.py` — places an outbound call to your phone.
-- `.env` — real credentials (gitignored). Built from `.env.example`.
-- `requirements.txt` — Python deps.
+- `server.py` -- the conversation brain (FastAPI WebSocket + TwiML endpoint).
+- `call.py` -- places an outbound call to your phone.
+- `.env` -- real credentials (gitignored). Built from `.env.example`.
+- `requirements.txt` -- Python deps.
 
 ## What you (the human) must set up
 
 Claude scaffolded the code, but these steps need a person:
 
-1. **Twilio account** — sign up at console.twilio.com. Grab the **Account SID**
+1. **Twilio account** -- sign up at console.twilio.com. Grab the **Account SID**
    and **Auth Token** from the dashboard. Copy `.env.example` to `.env` and
    fill both in.
-2. **A Twilio phone number** — buy/claim one in the console. Put it in
+2. **A Twilio phone number** -- buy/claim one in the console. Put it in
    `TWILIO_FROM_NUMBER` (E.164, e.g. `+18165551234`).
-3. **Verify your cell** — on a *trial* account, outbound calls only reach
+3. **Verify your cell** -- on a *trial* account, outbound calls only reach
    numbers you've verified (Console → Phone Numbers → Verified Caller IDs).
    Put your cell in `MY_PHONE_NUMBER`. Trial calls also play a short "trial
-   account" preamble before our greeting — upgrade (~$1/mo number) to remove it.
-4. **Anthropic API key** — from console.anthropic.com. This is pay-per-token and
+   account" preamble before our greeting -- upgrade (~$1/mo number) to remove it.
+4. **Anthropic API key** -- from console.anthropic.com. This is pay-per-token and
    separate from the Claude Code subscription. Put it in `ANTHROPIC_API_KEY`.
 
 ## Running it
@@ -77,7 +77,7 @@ cloudflared tunnel --url http://localhost:8080            # terminal 2 (no signu
 # set in .env:  PUBLIC_WS_URL=wss://something.trycloudflare.com/ws
 # then restart the server so /twiml picks up the URL
 
-.venv/bin/python call.py                                  # terminal 3 — your phone rings
+.venv/bin/python call.py                                  # terminal 3 -- your phone rings
 ```
 
 Answer and talk. To do anything that writes, key in your `VOICE_PIN` on the
@@ -104,8 +104,8 @@ PIN. Caller ID is spoofable, so this is defense in depth, not a hard lock.
 ## Latency tuning
 
 The full agent loop is the slow part. Current mitigations in `server.py`:
-- `include_partial_messages=True` — TTS speaks tokens as Claude generates them.
-- `effort="low"` and `skills=None` — less deliberation, smaller prompt.
+- `include_partial_messages=True` -- TTS speaks tokens as Claude generates them.
+- `effort="low"` and `skills=None` -- less deliberation, smaller prompt.
 - The session connects on call setup so MCP boots during the greeting.
 - First reply on a call is slowest (~3s, uncached prompt); later turns are faster
   as the prompt caches. Tool requests add a round trip (a "ToolSearch" step before
@@ -129,4 +129,4 @@ avoid the tool-search round trip.
 - **Privacy:** real credentials and `VOICE_PIN` live only in the gitignored
   `.env`. Conversation context (your vault, tasks, health) is sent to the API
   during a call, same as Claude Code.
-- **Memory:** each call is a fresh agent session — nothing persists between calls.
+- **Memory:** each call is a fresh agent session -- nothing persists between calls.

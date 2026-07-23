@@ -20,7 +20,7 @@ HARNESS_ROOT = Path(__file__).resolve().parents[4]
 DATA_ROOT = HARNESS_ROOT / "data/solo-dm"
 
 # (label, x, y, kind, wiki_slug_or_None)
-# Coordinates are approximate — 0,0 top-left, 1,1 bottom-right.
+# Coordinates are approximate -- 0,0 top-left, 1,1 bottom-right.
 # Coordinates derived in two steps: (1) initial measurements from tight
 # pixel-grid zooms on the specific map.webp (4763x3185), then (2) refined by
 # a local-blob dot-detector (see scripts/snap_markers.py) that searches a

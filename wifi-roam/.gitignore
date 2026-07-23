@@ -1,4 +1,4 @@
-# personal data + build artifacts — never commit
+# personal data + build artifacts -- never commit
 .venv/
 config.json
 state.json

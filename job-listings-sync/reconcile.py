@@ -12,7 +12,7 @@ Triggered when files in Projects/Get new job/Job Listings/ change. Logic:
   Captures rejection-email confirmations.
 
 We intentionally do NOT stamp application_date when status is already
-{applied, rejected, withdrawn, closed, interviewing, offer} — those records
+{applied, rejected, withdrawn, closed, interviewing, offer} -- those records
 either have a real historical date already, or had an unknown date at
 migration time that should not be backfilled with today's date.
 

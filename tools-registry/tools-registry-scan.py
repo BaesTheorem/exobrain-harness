@@ -38,7 +38,7 @@ HB_PY = "/opt/homebrew/bin/python3"
 
 ILLEGAL = re.compile(r'[\\/:#^\[\]|*?"<>]')
 
-# CLI/other tools with no launcher and no launchd job — maintained by hand.
+# CLI/other tools with no launcher and no launchd job -- maintained by hand.
 SUPPLEMENTAL = [
     {"name": "Samsung TV control (tv)", "category": "cli", "repo_dir": os.path.join(HOME, "Documents", "Exobrain harness", "tv"), "notes": "Local WSS control CLI for the living-room Samsung TV (tv/tv)."},
 ]
@@ -176,7 +176,7 @@ def scan_dependencies():
             deps.append({"name": name, "kind": "runtime", "source": "homebrew/system",
                          "version": (ver[0] if ver else ""), "path": path})
 
-    # Homebrew formulae (leaves only — intentionally installed, not transitive deps)
+    # Homebrew formulae (leaves only -- intentionally installed, not transitive deps)
     versions = {}
     for line in run([BREW, "list", "--versions"]).splitlines():
         parts = line.split()
@@ -354,7 +354,7 @@ def scan_project_deps():
             continue
         rel = os.path.relpath(root, PROJECTS_ROOT)
         projects.append({
-            "name": rel.replace(os.sep, " — "),
+            "name": rel.replace(os.sep, " -- "),
             "repo_remote": git_remote(root),
             "venv": ".venv" if os.path.exists(venv_py) else "",
             "language": "+".join(sorted(langs)),

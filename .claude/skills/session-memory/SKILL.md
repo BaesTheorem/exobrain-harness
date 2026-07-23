@@ -19,7 +19,7 @@ Two modes: **save** (end of session) and **load** (start of session). The startu
 
 ## Save Mode
 
-Run this **before ending any session that involved meaningful work** — not for quick one-off questions, but for sessions that processed data, made decisions, created tasks, or discussed plans.
+Run this **before ending any session that involved meaningful work** -- not for quick one-off questions, but for sessions that processed data, made decisions, created tasks, or discussed plans.
 
 Write a session memory file with this structure:
 
@@ -28,7 +28,7 @@ Write a session memory file with this structure:
 date: 2026-04-07
 time: "17:41"
 type: briefing | processing | planning | research | review | conversation
-session_id: <current Claude Code session UUID, if known — see below>
+session_id: <current Claude Code session UUID, if known -- see below>
 covered_through: 2026-04-07T17:40:55-05:00
 ---
 ## Decisions
@@ -44,20 +44,20 @@ covered_through: 2026-04-07T17:40:55-05:00
 - [Task title] (things:///show?id=ID)
 
 ## People Updated
-- [Name] — [what changed: last_contact, new context, new connection]
+- [Name] -- [what changed: last_contact, new context, new connection]
 
 ## Open Threads
 - [Unfinished work, things Alex said he'd do, questions raised but not answered]
 - [Include enough context that next session can pick up without re-reading everything]
 
 ## Active Themes
-- [What Alex is focused on right now — job search, BlueDot prep, specific project]
-- [Emotional context if relevant — stressed, energized, procrastinating]
+- [What Alex is focused on right now -- job search, BlueDot prep, specific project]
+- [Emotional context if relevant -- stressed, energized, procrastinating]
 
 ## Next Session Hint
 - [1-3 bullets: what the next session should prioritize or check on]
 - [e.g., "Follow up on recruiter email from Acme Corp"]
-- [e.g., "BlueDot starts in 6 days — check prep status"]
+- [e.g., "BlueDot starts in 6 days -- check prep status"]
 ```
 
 **Keep it concise.** Each section should be 2-5 bullets max. The goal is a 30-second scan at next session start, not a full transcript.
@@ -66,22 +66,22 @@ covered_through: 2026-04-07T17:40:55-05:00
 
 The 11pm consolidator (`scripts/session-memory-consolidator.sh`) reads these fields to decide whether a session has new activity since its last memory. Always include them when writing a memory:
 
-- **`session_id`**: the current Claude Code session UUID. Find it via the transcript path (`~/.claude/projects/<encoded-cwd>/<uuid>.jsonl`) — typically the most recently modified jsonl in that directory. If you cannot determine it confidently, omit the field; the consolidator will fall back to time-window matching.
+- **`session_id`**: the current Claude Code session UUID. Find it via the transcript path (`~/.claude/projects/<encoded-cwd>/<uuid>.jsonl`) -- typically the most recently modified jsonl in that directory. If you cannot determine it confidently, omit the field; the consolidator will fall back to time-window matching.
 - **`covered_through`**: ISO8601 timestamp of the last message included in this memory. Use the current time (`date -u +%Y-%m-%dT%H:%M:%SZ` or local equivalent) at the moment you write the memory.
 
 If the user keeps interacting with the session after a memory is saved, the consolidator will write a `<HHMM>_delta.md` file covering only the new activity, with `previous_memory` pointing back to the original.
 
 ## Load Mode
 
-The startup hook reads the last 3 session memory files and outputs them. Claude then generates a **Session Context Profile** — a mental model of what matters right now that guides behavior for the rest of the session.
+The startup hook reads the last 3 session memory files and outputs them. Claude then generates a **Session Context Profile** -- a mental model of what matters right now that guides behavior for the rest of the session.
 
 ### Generating the Context Profile
 
 After reading the session memories injected by the startup hook, synthesize them into awareness of:
 
 1. **Continuity**: What was Alex working on? Any open threads to pick up?
-2. **Data freshness**: What data was already pulled today? Don't re-query APIs unnecessarily — check if raw health data is cached in today's daily note (HTML comments) before hitting Fitbit/Withings again.
-3. **People in focus**: Who has Alex been interacting with? If the same person appears across multiple sessions, they're top-of-mind — prioritize their context in any CRM work.
+2. **Data freshness**: What data was already pulled today? Don't re-query APIs unnecessarily -- check if raw health data is cached in today's daily note (HTML comments) before hitting Fitbit/Withings again.
+3. **People in focus**: Who has Alex been interacting with? If the same person appears across multiple sessions, they're top-of-mind -- prioritize their context in any CRM work.
 4. **Emotional read**: Is Alex stressed, energized, procrastinating? Adjust tone and proactivity accordingly.
 5. **Priority alignment**: What are the active themes? Weight everything toward those.
 

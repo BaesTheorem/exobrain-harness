@@ -193,7 +193,7 @@ def prep_reference(path, maxdim=480):
     """Return PNG bytes of a reference image guaranteed under 512x512.
 
     FLUX.2 rejects reference images that are 512px or larger on either side, so we
-    downscale (and normalize to PNG) with macOS `sips` — no Python image deps.
+    downscale (and normalize to PNG) with macOS `sips` -- no Python image deps.
     """
     src = os.path.abspath(os.path.expanduser(path))
     if not os.path.exists(src):

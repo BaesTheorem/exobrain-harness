@@ -317,7 +317,7 @@ def promote(slug: str, cid: int, reason: str, turn_id: int | None) -> None:
     if row is None:
         sys.exit(f"no character id {cid}")
     if row["kind"] != "mook":
-        sys.exit(f"character is {row['kind']}, not a mook — cannot promote")
+        sys.exit(f"character is {row['kind']}, not a mook -- cannot promote")
     conn.execute(
         "UPDATE characters SET kind='named_npc', model_tier='sonnet', "
         "promoted_from_mook=1, promotion_reason=?, promotion_turn_id=? WHERE id=?",

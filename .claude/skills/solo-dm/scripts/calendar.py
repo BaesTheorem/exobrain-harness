@@ -173,7 +173,7 @@ def _load(c: sqlite3.Connection) -> dict:
         "SELECT value FROM world_state WHERE key='in_game_date' LIMIT 1"
     ).fetchone()
     if row is None:
-        sys.exit("no in_game_date in world_state — run 'calendar.py set' first")
+        sys.exit("no in_game_date in world_state -- run 'calendar.py set' first")
     return json.loads(row["value"])
 
 
@@ -223,14 +223,14 @@ def cmd_tendays(slug: str) -> None:
     state = _load(_conn(slug))
     doy = state["day_of_year"]
     if doy in FESTIVAL_DAYS:
-        print(f"Festival day ({FESTIVAL_DAYS[doy]}) — no tenday")
+        print(f"Festival day ({FESTIVAL_DAYS[doy]}) -- no tenday")
         return
     walk = 0
     for name, alt in MONTHS:
         if walk + 1 <= doy <= walk + 30:
             day_in_month = doy - walk
             tenday = (day_in_month - 1) // 10 + 1
-            print(f"{name} ({alt}), tenday {tenday} of 3 — day {day_in_month} of 30")
+            print(f"{name} ({alt}), tenday {tenday} of 3 -- day {day_in_month} of 30")
             return
         walk += 30
         if (walk + 1) in FESTIVAL_DAYS:

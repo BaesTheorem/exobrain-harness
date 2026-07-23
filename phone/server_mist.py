@@ -1,5 +1,5 @@
 """
-MIST-voice phone brain — Twilio Media Streams edition.
+MIST-voice phone brain -- Twilio Media Streams edition.
 
 Same Exobrain brain, PIN security, and caller-trust as server.py, but the audio
 path is fully LOCAL so the voice on the phone is MIST's offline clone:
@@ -10,10 +10,10 @@ path is fully LOCAL so the voice on the phone is MIST's offline clone:
 
 Latency note (measured on this M1): XTTS runs ~1.6-1.8x slower than real-time, so
 MIST starts a turn after a short delay and we sentence-pipeline to keep her
-talking. It is NOT gapless on this hardware — see mist-voice/README.
+talking. It is NOT gapless on this hardware -- see mist-voice/README.
 
 Run:
-    # 1) MIST voice service (XTTS) — separate process, keeps the model resident
+    # 1) MIST voice service (XTTS) -- separate process, keeps the model resident
     ../mist-voice/.venv/bin/python ../mist-voice/scripts/serve.py --port 8087 &
     # 2) this server
     .venv/bin/uvicorn server_mist:app --host 0.0.0.0 --port 8080

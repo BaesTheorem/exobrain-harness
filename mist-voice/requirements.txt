@@ -1,4 +1,4 @@
-# MIST voice — top-level deps. Install into a python3.12 venv.
+# MIST voice -- top-level deps. Install into a python3.12 venv.
 # Full exact lock is in requirements-lock.txt (pip freeze of the working env).
 #
 # HARD-WON VERSION GOTCHAS (June 2026), do not "upgrade" blindly:
@@ -6,7 +6,7 @@
 #    transformers 5.x removed `isin_mps_friendly` that the tortoise layer imports.
 #  - torchcodec is REQUIRED : torch>=2.11 / torchaudio route .save() through it,
 #    so demucs can't write vocals without it. Needs brew ffmpeg present.
-#  - Python 3.14 has no wheels for this stack — use python3.12.
+#  - Python 3.14 has no wheels for this stack -- use python3.12.
 
 coqui-tts==0.27.5
 demucs==4.0.1

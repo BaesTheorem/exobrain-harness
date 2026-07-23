@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Local dashboard for solo-dm — stdlib HTTP server, zero dependencies.
+"""Local dashboard for solo-dm -- stdlib HTTP server, zero dependencies.
 
     python3 webui.py --slug theory-of-magic [--port 8765]
 
@@ -83,7 +83,7 @@ def get_5etools_base() -> str:
 
 def compute_prepared_max(sheet: dict) -> int | None:
     """Auto-compute max prepared spells from class+level+ability. None if class
-    isn't a prepared caster (e.g. sorcerer, bard, warlock — they know spells)."""
+    isn't a prepared caster (e.g. sorcerer, bard, warlock -- they know spells)."""
     cls = (sheet.get("class") or "").strip().lower()
     if cls not in PREPARED_CASTERS:
         return None
@@ -166,7 +166,7 @@ def api_state():
                 world[row["key"]] = json.loads(row["value"])
             except Exception:
                 world[row["key"]] = row["value"]
-        # Quests (proper table — not the dummy strings on the sheet)
+        # Quests (proper table -- not the dummy strings on the sheet)
         quests = []
         for r in c.execute(
             "SELECT id, name, status, beats_json FROM quests "
@@ -428,7 +428,7 @@ def api_inventory_toggle_container(body: dict):
                     children = it.get("contents", []) or []
                     parent[idx:idx+1] = children
                 else:
-                    # Just remove container flag, keep item (rare — contents would be lost)
+                    # Just remove container flag, keep item (rare -- contents would be lost)
                     it.pop("container", None)
                     it.pop("contents", None)
             _inv_save(conn, pc_id, sheet)
@@ -529,7 +529,7 @@ def api_wiki_summary(slug: str):
     Uses `action=parse&section=0` (intro section HTML), strips infoboxes,
     tables, asides/figures, then pulls the first real paragraph. Fandom's
     MediaWiki doesn't have the TextExtracts extension so `prop=extracts`
-    returns nothing — parse-and-scrape is the only path. Cached in memory.
+    returns nothing -- parse-and-scrape is the only path. Cached in memory.
     """
     import urllib.request, urllib.parse, re, html as _html
     slug = (slug or "").strip()
@@ -645,7 +645,7 @@ def api_calendar_structure():
 def _normalize_ig_date(raw):
     """Coerce whatever's in world_state['in_game_date'] into the structured form
     {year, day_of_year, time}. Older campaigns stored a free-form string like
-    '2 Eleasis 1491 DR, ~6:30am (dawn, post-long-rest)' — best-effort parse it."""
+    '2 Eleasis 1491 DR, ~6:30am (dawn, post-long-rest)' -- best-effort parse it."""
     if isinstance(raw, dict):
         return raw
     if isinstance(raw, str) and raw.strip():
@@ -686,8 +686,8 @@ def api_calendar_events_add(body: dict):
     try:
         cid = _campaign_id(c)
         # Two ways to specify the date:
-        #   1) {year, day_of_year}  — direct
-        #   2) {date_str: "15 Flamerule 1491 DR, morning"} — parsed
+        #   1) {year, day_of_year} -- direct
+        #   2) {date_str: "15 Flamerule 1491 DR, morning"} -- parsed
         if "date_str" in body and body["date_str"]:
             parsed = harptos.parse_date_str(body["date_str"])
             year = parsed["year"]
@@ -1011,7 +1011,7 @@ def api_combat_start(body: dict):
 
     Initial enemy/ally tokens are auto-placed clustered on the right; PC on
     the left. The caller (frontend or CLI) is responsible for hydrating
-    monster stats from 5etools — this endpoint just stores what it's given.
+    monster stats from 5etools -- this endpoint just stores what it's given.
     """
     cols = int(body.get("cols") or 20)
     rows = int(body.get("rows") or 14)
@@ -1063,7 +1063,7 @@ def api_combat_end():
 def api_combat_token_add(body: dict):
     state = ws_get("combat") or _combat_default_state()
     if not state.get("active"):
-        return {"ok": False, "error": "no active encounter — start one first"}
+        return {"ok": False, "error": "no active encounter -- start one first"}
     hp_max = int(body.get("hp_max") or body.get("hp") or 1)
     tok = {
         "id": body.get("id") or uuid.uuid4().hex[:8],
@@ -1372,7 +1372,7 @@ def main():
     print(f"=== solo-dm dashboard ===")
     print(f"Campaign: {SLUG}")
     print(f"Vault:    {VAULT_PATH}")
-    print(f"Map file: {mf if mf else '(none — drop an image at ' + VAULT_PATH + '/assets/map.jpg)'}")
+    print(f"Map file: {mf if mf else '(none -- drop an image at ' + VAULT_PATH + '/assets/map.jpg)'}")
     print(f"URL:      http://localhost:{args.port}/")
     print(f"Stop:     Ctrl-C")
     print()

@@ -1,9 +1,9 @@
-"""Instagram reel embedder — tag MIST in a reply to an Instagram post and she
+"""Instagram reel embedder -- tag MIST in a reply to an Instagram post and she
 reposts it so the reel plays inline as a video.
 
 Discord's native Instagram unfurl is broken: it shows a static thumbnail (or
 nothing), never the video. Fletcher's fix is to rewrite the link through an
-embed-fixer frontend — `kkinstagram.com` — whose OpenGraph tags carry the real
+embed-fixer frontend -- `kkinstagram.com` -- whose OpenGraph tags carry the real
 video, so Discord renders a playable inline player. We borrow that mechanism
 (see Fletcher messagefuncs.py `instagram.com` preview block + `instagram_caption`,
 and swag.py `ytdlp_download_function`).
@@ -11,11 +11,11 @@ and swag.py `ytdlp_download_function`).
 Fletcher applies the fix automatically to every Instagram link and runs an
 embed-probe dance to decide whether reposting adds value. Here the trigger is
 explicit instead: Alex (or anyone) replies to a message containing an Instagram
-link and @mentions MIST. No probing needed — he asked, so we post.
+link and @mentions MIST. No probing needed -- he asked, so we post.
 
 Two delivery paths, best first:
   1. If yt-dlp is installed and the reel fits the channel's upload limit, we
-     download it and re-upload the mp4 as a real Discord attachment — plays
+     download it and re-upload the mp4 as a real Discord attachment -- plays
      inline, never depends on a third-party service staying up.
   2. Otherwise we post the kkinstagram link and let Discord unfurl it. We ride
      the post's caption along as message text (the bot embed carries none).
@@ -79,7 +79,7 @@ def _to_proxy(url: str, proxy_domain: str) -> str:
 
 
 async def _fetch_caption(url: str) -> str | None:
-    """The post's caption via yt-dlp metadata (no media download). Optional —
+    """The post's caption via yt-dlp metadata (no media download). Optional --
     returns None if yt-dlp isn't installed or extraction fails. Mirrors
     Fletcher's instagram_caption: kkinstagram's bot embed has no description, so
     we surface the caption as message text above it."""
@@ -98,7 +98,7 @@ async def _fetch_caption(url: str) -> str | None:
         info = await asyncio.wait_for(loop.run_in_executor(None, _extract), timeout=15.0)
         if isinstance(info, dict):
             return info.get("description") or None
-    except Exception as e:  # noqa: BLE001 — best-effort, never block the embed
+    except Exception as e:  # noqa: BLE001 -- best-effort, never block the embed
         log.debug("instagram caption fetch failed: %s", e)
     return None
 
@@ -237,4 +237,4 @@ def setup(ctx: Context) -> None:
     # @mention as conversation. Modules load alphabetically (chatter < instagram),
     # so a plain append would land us after it.
     ctx.handler.message_handlers.insert(0, embed_reel)
-    log.info("instagram reel embedder ready — proxy=%s, reupload=%s", proxy_domain, try_download)
+    log.info("instagram reel embedder ready -- proxy=%s, reupload=%s", proxy_domain, try_download)

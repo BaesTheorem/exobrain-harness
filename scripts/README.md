@@ -17,7 +17,7 @@ The `~/.claude/projects/-Users-alexhedtke-Documents-Exobrain-harness/` path abov
 
 ## Install
 
-Copy plists into `~/Library/LaunchAgents/` as real files — NOT symlinks. macOS TCC blocks login-time loading of symlinks pointing into `~/Documents/`, so a symlinked plist will never run at boot.
+Copy plists into `~/Library/LaunchAgents/` as real files -- NOT symlinks. macOS TCC blocks login-time loading of symlinks pointing into `~/Documents/`, so a symlinked plist will never run at boot.
 
 ```bash
 cp com.exobrain.session-memory-consolidator.plist ~/Library/LaunchAgents/
@@ -27,7 +27,7 @@ launchctl load ~/Library/LaunchAgents/com.exobrain.vault-snapshot.plist
 launchctl list | grep com.exobrain
 ```
 
-After editing a plist, copy it again — the LaunchAgents copy is what launchd actually reads.
+After editing a plist, copy it again -- the LaunchAgents copy is what launchd actually reads.
 
 ## Logs
 

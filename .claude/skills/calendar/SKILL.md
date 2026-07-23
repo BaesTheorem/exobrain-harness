@@ -3,13 +3,13 @@ name: calendar
 description: Best practices and conventions for all Google Calendar interactions. Canonical reference for event creation, flight buffers, overbooking detection, late-night date handling, and calendar verification. Referenced by other skills. Use when you need to check calendar conventions or available MCP tools before interacting with Google Calendar.
 ---
 
-# Google Calendar — Best Practices Reference
+# Google Calendar -- Best Practices Reference
 
 This is the canonical reference for how the Exobrain interacts with Google Calendar. All skills that create, query, or reason about calendar events MUST follow these conventions.
 
 ## MCP Tools
 
-Google Calendar is served by a hosted Claude.com connector (UUID prefix `mcp__32ab4f7e-f9e7-4457-9cb0-d1d0b280c571__`). The short aliases in this table are for documentation readability — call the actual UUID-prefixed tool names.
+Google Calendar is served by a hosted Claude.com connector (UUID prefix `mcp__32ab4f7e-f9e7-4457-9cb0-d1d0b280c571__`). The short aliases in this table are for documentation readability -- call the actual UUID-prefixed tool names.
 
 | Doc alias | Actual tool name | Purpose |
 |-----------|------------------|---------|
@@ -24,7 +24,7 @@ Google Calendar is served by a hosted Claude.com connector (UUID prefix `mcp__32
 
 ### ⚠️ Parameter names (the trap)
 
-The connector uses **camelCase** parameters, NOT the Google Calendar REST API names (`timeMin`/`timeMax`) and NOT snake_case (`start_time`/`end_time`). Unknown-param calls fail silently with `Tool execution failed. You can try again.` — there is no "unknown field" error.
+The connector uses **camelCase** parameters, NOT the Google Calendar REST API names (`timeMin`/`timeMax`) and NOT snake_case (`start_time`/`end_time`). Unknown-param calls fail silently with `Tool execution failed. You can try again.` -- there is no "unknown field" error.
 
 Canonical `list_events` shape:
 
@@ -102,7 +102,7 @@ If a `list_events` call fails opaquely, **first suspect**: param-name drift. Cal
 When called as part of the daily briefing:
 
 1. **Today's events**: `gcal_list_events` for today across all calendars. List each event with time and location. Filter out Guild events (per rule 4).
-2. **Flight buffer check**: Scan the next 14 days for flight events (keywords: flight, airline names, airport codes, "depart", "fly to"). For any flight found, verify that "Be at airport" (2hr before) and "Travel to airport" (1hr before, adjustable) buffer events exist. Create missing buffers via `gcal_create_event` — check for duplicates first.
+2. **Flight buffer check**: Scan the next 14 days for flight events (keywords: flight, airline names, airport codes, "depart", "fly to"). For any flight found, verify that "Be at airport" (2hr before) and "Travel to airport" (1hr before, adjustable) buffer events exist. Create missing buffers via `gcal_create_event` -- check for duplicates first.
 3. **Overbooking check**: Flag back-to-back meetings, no-break stretches, or overstuffed days.
 4. **Return**: Formatted event list for the daily note under `#### Today`.
 

@@ -66,11 +66,11 @@ When presenting iMessage results to the user:
 
 ## Personality & Social Dynamics
 
-Follow the `/crm` skill's mode 9 (Continuous Integration) protocol — enrich `## Context`, `## Connections`, and `## Personality & Dynamics` sections with observations from iMessages. Use specific examples, not vague labels.
+Follow the `/crm` skill's mode 9 (Continuous Integration) protocol -- enrich `## Context`, `## Connections`, and `## Personality & Dynamics` sections with observations from iMessages. Use specific examples, not vague labels.
 
 ## Daily Briefing
 
-When called as part of the daily briefing (produces no briefing output — purely CRM maintenance and action routing):
+When called as part of the daily briefing (produces no briefing output -- purely CRM maintenance and action routing):
 
 1. **Scan last 24h**: `python3 "/Users/alexhedtke/Documents/Exobrain harness/imessage/imessage-reader.py" recent --hours 24 --limit 100`
 2. **CRM last_contact**: For outgoing messages to anyone with a People/ note, update `last_contact` in frontmatter.

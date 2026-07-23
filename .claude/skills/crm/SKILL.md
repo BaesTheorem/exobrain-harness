@@ -175,13 +175,13 @@ When processing transcripts, emails, or calendar events:
 
 ### 9. Karpathy wiki integration (default behavior, not opt-in)
 
-**The canonical schema lives at [[People Note Schema]] — read it before any substantial People-note edit.** This mode is not an "advanced feature." It is the default behavior for every skill that touches a People note.
+**The canonical schema lives at [[People Note Schema]] -- read it before any substantial People-note edit.** This mode is not an "advanced feature." It is the default behavior for every skill that touches a People note.
 
 **When to run:** Every time. `/process-transcript`, `/daily-briefing` (email/iMessage/calendar), `/weekly-review`, `/process-supernote`, `/imessage`, `/discord-digest`, and ad-hoc.
 
 **The integration discipline (mandatory)**:
 
-1. **Read the full note first.** Open Context, Connections, Personality & Dynamics — not just Mentions. Decide where new info belongs.
+1. **Read the full note first.** Open Context, Connections, Personality & Dynamics -- not just Mentions. Decide where new info belongs.
 
 2. **Integrate, don't append.**
    - **Fact updates** → `## Context` (replace stale lines, weave new ones in; each fact appears once).
@@ -194,13 +194,13 @@ When processing transcripts, emails, or calendar events:
 
 4. **Conflicting info wins on recency.** Old: "Works at Acme." New: "Now at StartupX." Update Context, remove the old line; don't keep both.
 
-5. **Cross-reference enrichment.** Transcript A mentions person B → add a Mention to B's note: `- Mentioned by [[A]] (date) — [context]`. If a fact about B emerges, also update B's `## Context`.
+5. **Cross-reference enrichment.** Transcript A mentions person B → add a Mention to B's note: `- Mentioned by [[A]] (date) -- [context]`. If a fact about B emerges, also update B's `## Context`.
 
 6. **Frontmatter discipline.** Update `last_contact` on actual contact (not on indirect mentions). Update `expertise` and other frontmatter when those drift.
 
-**No more "lightweight mode."** Routine pleasantries ("sounds good, see you Tuesday") still update `last_contact` and skip a Mention entry — but if the email reveals anything substantive (new role, location change, relationship shift, project update), integrate it. The bar is "is there new signal?", not "is this a long email?"
+**No more "lightweight mode."** Routine pleasantries ("sounds good, see you Tuesday") still update `last_contact` and skip a Mention entry -- but if the email reveals anything substantive (new role, location change, relationship shift, project update), integrate it. The bar is "is there new signal?", not "is this a long email?"
 
-### 9b. Compaction — keeping People notes sharp
+### 9b. Compaction -- keeping People notes sharp
 
 The wiki only compounds if you compact. Without this, notes degrade into append-only logs and the "wiki" claim becomes aspirational.
 
@@ -246,7 +246,7 @@ Alex runs `/crm integrate [Name]` on the ones he wants refactored, or on his mos
 
 - **`/process-transcript`**: Calls Network scan (mode 8) for every transcript. Updates `last_contact` for anyone Alex spoke with.
 - **`/daily-briefing`**: Scans People/ frontmatter for all overdue contacts. Lists every overdue contact in the briefing and creates a Things 3 task for each (see Task Creation below).
-- **`/weekly-review`**: CRM health summary (total contacts, overdue count, category distribution). Surfaces 1 **potential** contact to initiate with this week and creates a Things 3 task for that outreach. Also runs the **integration audit (mode 11)** — surfaces 3-5 People notes most in need of compaction, with `/crm integrate` recommendations. Does not duplicate overdue surfacing (that's the daily briefing's job).
+- **`/weekly-review`**: CRM health summary (total contacts, overdue count, category distribution). Surfaces 1 **potential** contact to initiate with this week and creates a Things 3 task for that outreach. Also runs the **integration audit (mode 11)** -- surfaces 3-5 People notes most in need of compaction, with `/crm integrate` recommendations. Does not duplicate overdue surfacing (that's the daily briefing's job).
 - Ad-hoc questions like "who should I follow up with?" or "tell me about [person]" can be answered via CRM lookup
 
 ## Task Creation

@@ -288,7 +288,7 @@ public class MistAgent {
 
     // ---- combat reads: skills / hp / inventory / players / threats ----
     // precise-typed reflective invoke (call() matches by arg-count only, which is
-    // ambiguous for overloads taking an enum vs an int — these need exact types).
+    // ambiguous for overloads taking an enum vs an int -- these need exact types).
     static Object callT(Object target, String cls, String method, Class<?>[] types, Object... args) throws Exception {
         return Class.forName(cls).getMethod(method, types).invoke(target, args);
     }
@@ -504,7 +504,7 @@ public class MistAgent {
     // mute [vol] -> set music + sound-effect + area-sound volume (default 0 = silent) via the
     // official API (Client.setMusicVolume / Preferences.set*Volume). Per-instance, no UI needed,
     // works even while the settings tab is locked (tutorial). Pass a value to restore, e.g. mute 100.
-    // read-only volume report (does NOT set) — for verifying the auto-mute daemon
+    // read-only volume report (does NOT set) -- for verifying the auto-mute daemon
     static String vols() {
         try {
             return onClient(() -> {

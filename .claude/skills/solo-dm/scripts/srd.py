@@ -2,7 +2,7 @@
 """SRD lookup for solo-dm.
 
 Reads JSON from data/srd/ (vendored 2014 5e-bits SRD, MIT-licensed) and
-data/extensions/ (user-supplied TCoE/XGtE/homebrew — not vendored).
+data/extensions/ (user-supplied TCoE/XGtE/homebrew -- not vendored).
 
     srd.py lookup monster "goblin"
     srd.py lookup spell "fireball"
@@ -122,7 +122,7 @@ def main() -> None:
         res = lookup(kind, args.name)
         if res is None:
             print(json.dumps({"found": False, "kind": kind, "name": args.name,
-                              "hint": "not in SRD or extensions — narrate as house_rule"}))
+                              "hint": "not in SRD or extensions -- narrate as house_rule"}))
             sys.exit(2)
         print(json.dumps(res, indent=2))
     elif args.cmd == "list":

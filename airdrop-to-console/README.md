@@ -61,10 +61,10 @@ Take a photo on the iPhone → Share → AirDrop → this Mac. Done. It shows up
 
 ## Files
 
-- `watch.py` — the watcher (pure stdlib; macOS `xattr` + `sips`).
-- `com.exobrain.airdrop-console.plist` — launchd agent.
-- `state.json` — runtime state (dedup UUIDs + the dedicated chat id). Gitignored.
-- `watch.log` — launchd stdout/stderr. Gitignored.
+- `watch.py` -- the watcher (pure stdlib; macOS `xattr` + `sips`).
+- `com.exobrain.airdrop-console.plist` -- launchd agent.
+- `state.json` -- runtime state (dedup UUIDs + the dedicated chat id). Gitignored.
+- `watch.log` -- launchd stdout/stderr. Gitignored.
 
 ## Console dependency
 

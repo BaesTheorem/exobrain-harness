@@ -3,7 +3,7 @@ name: things3
 description: Best practices and conventions for all Things 3 interactions. Canonical reference for task creation, deduplication, project backlinks, and task formatting. Referenced by other skills. Use when you need to check Things 3 conventions, task formatting rules, or available MCP tools before interacting with Things 3.
 ---
 
-# Things 3 — Best Practices Reference
+# Things 3 -- Best Practices Reference
 
 This is the canonical reference for how the Exobrain interacts with Things 3. All skills that create, update, or query tasks MUST follow these conventions.
 
@@ -36,8 +36,8 @@ This is the canonical reference for how the Exobrain interacts with Things 3. Al
 
 1. **Duplicate check before every add.** Always call `search_todos` before `add_todo`. If a matching task exists, use `update_todo` to append new context to its notes instead of creating a duplicate. No exceptions.
 
-2. **Inbox is ALWAYS the destination.** Every task created by the Exobrain goes to the Inbox — no exceptions. Alex sorts and prioritizes manually.
-   - **Omit `when` entirely.** Do not pass any value — not `today`, `tomorrow`, `anytime`, `someday`, or any date. ANY value moves the task out of the Inbox.
+2. **Inbox is ALWAYS the destination.** Every task created by the Exobrain goes to the Inbox -- no exceptions. Alex sorts and prioritizes manually.
+   - **Omit `when` entirely.** Do not pass any value -- not `today`, `tomorrow`, `anytime`, `someday`, or any date. ANY value moves the task out of the Inbox.
    - **Omit `list_title` and `list_id` entirely.** Setting these to a project or area also moves the task out of the Inbox.
    - **The API cannot move tasks back to Inbox.** If a task lands outside Inbox by mistake, the only fix is to cancel it and recreate it with no `when`/`list` params.
    - Always include the source (which skill, transcript, email, etc.) and all relevant context in the `notes` field.

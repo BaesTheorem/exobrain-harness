@@ -1,11 +1,11 @@
-# Samsung TV — local control
+# Samsung TV -- local control
 
 Tizen-based Samsung TV control over the LAN (no SmartThings/cloud account).
 Token-paired local WebSocket on port 8002.
 
 ## Setup
 
-1. Find the TV's IP — turn it on, then `dns-sd -B _services._dns-sd._udp local`
+1. Find the TV's IP -- turn it on, then `dns-sd -B _services._dns-sd._udp local`
    (Samsung TUxxxx Crystal UHD doesn't broadcast mDNS by default; SSDP/UPnP
    works too: probe `M-SEARCH * HTTP/1.1` to `239.255.255.250:1900`).
 2. Add to `.env` at harness root:
@@ -56,7 +56,7 @@ Full-screen control surface with live status, hotkeys, and a manual command line
 | `e` | Enter / OK |
 | `1` – `9` | Launch app (Netflix=1, YouTube=2, Prime=3, Plex=4, Disney+=5, Hulu=6, HBO Max=7, AppleTV=8, Spotify=9) |
 | `w` | Wake (WoL) |
-| `o` | Power off — press **twice within 5s** to confirm (deep-sleep warning still applies) |
+| `o` | Power off -- press **twice within 5s** to confirm (deep-sleep warning still applies) |
 | `r` | Force refresh status |
 | `k` | Focus the manual command input (then type `key KEY_X`, `app NAME`, `vol up 3`, etc.) |
 | `q` | Quit |
@@ -77,22 +77,22 @@ On this TV (UN70TU700DBXZA, 2020 Crystal UHD), the relevant setting is
 "Wake on Mobile", or split control vs. WoL into separate toggles.)
 
 Without IP Control / Network Standby, `./tv on` is a no-op when the TV is
-fully off. Verified working — magic packet wakes the TV in ~3s.
+fully off. Verified working -- magic packet wakes the TV in ~3s.
 
 ## Files
 
-- `tv` — CLI entrypoint
-- `tv_control.py` — control module (importable from skills)
-- `token.json` — auth token (gitignored; re-create with `./tv pair`)
-- `state.json` — reserved for future use (gitignored)
+- `tv` -- CLI entrypoint
+- `tv_control.py` -- control module (importable from skills)
+- `token.json` -- auth token (gitignored; re-create with `./tv pair`)
+- `state.json` -- reserved for future use (gitignored)
 
-## ⚠️ `./tv off` is one-way — physical remote required to wake
+## ⚠️ `./tv off` is one-way -- physical remote required to wake
 
 Sending power-off over the WSS API on this TV (UN70TU700DBXZA) puts it into
 a deep-sleep state where ping fails, ports close, and Wake-on-LAN no longer
 works. The physical remote's power button uses a different power path that
 *does* leave the TV WoL-capable. This is a known Samsung TU-series firmware
-quirk — same complaint across Home Assistant / openHAB forums, no public fix
+quirk -- same complaint across Home Assistant / openHAB forums, no public fix
 short of using the SmartThings cloud API or an IR blaster.
 
 `./tv off` now warns and 5-second-countdowns before sending. Use `--force` to
@@ -108,5 +108,5 @@ remote to wake the TV again.
   for status). Control (key send, app launch) goes over WSS on 8002 with
   token auth.
 - **TV must be on to pair.** Pairing exchange happens over the live WS.
-- **Pause/play are no-ops** when no media is playing — sending KEY_PAUSE on
+- **Pause/play are no-ops** when no media is playing -- sending KEY_PAUSE on
   the home screen does nothing visible.

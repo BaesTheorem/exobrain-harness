@@ -3,7 +3,7 @@
 # All shell scripts source this file instead of hardcoding paths.
 #
 # To adapt this system for your own use, update these paths once here.
-# Note: launchd plists and JSON configs cannot source shell variables —
+# Note: launchd plists and JSON configs cannot source shell variables --
 # those must be updated separately (see README "Adapting This System").
 
 # Core directories
@@ -11,7 +11,7 @@ HARNESS_DIR="$HOME/Documents/Exobrain harness"
 VAULT_DIR="$HOME/Exobrain"
 
 # Google Drive sources (require Google Drive for Desktop)
-# Raw data stays in GDrive — backed up, persistent, and replayable
+# Raw data stays in GDrive -- backed up, persistent, and replayable
 GDRIVE_PLAUD="$HOME/My Drive/Plaud"
 GDRIVE_SUPERNOTE="$HOME/My Drive/Supernote/Note"
 GDRIVE_DISCORD="$HOME/My Drive/Discord"
@@ -57,7 +57,7 @@ BACKUP_MIN_FREE_GB=20
 # are silently skipped. node_modules/.venv/caches/history-DB/logs are filtered in
 # backup-exobrain.sh, so listing a whole app dir stays lean. The large/ephemeral
 # Claude dirs (projects/, channels/ except the Discord token, plugins/) are
-# deliberately NOT listed — only the irreplaceable settings + the bot token.
+# deliberately NOT listed -- only the irreplaceable settings + the bot token.
 EXTRA_INCLUDES=(
     ".plaud"                                    # Plaud MCP OAuth token + device IDs
     ".claude/settings.json"                     # global Claude Code settings (bypassPermissions etc.)
@@ -88,5 +88,5 @@ FITBIT_TOKEN="$HOME/Documents/Claude Code/mcp-fitbit-main/.fitbit-token.json"
 # Ensure HOME is set (launchd doesn't set it)
 export HOME="${HOME:-$(dscl . -read /Users/$(whoami) NFSHomeDirectory | awk '{print $2}')}"
 
-# Claude CLI (npm global or local bin — whichever is found)
+# Claude CLI (npm global or local bin -- whichever is found)
 export PATH="/usr/local/bin:/opt/homebrew/bin:$HOME/.npm-global/bin:$HOME/.local/bin:$PATH"

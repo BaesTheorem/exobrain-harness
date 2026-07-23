@@ -9,7 +9,7 @@ Claude checks everything it can automatically, then generates a manual checklist
 
 ## Time window (CRITICAL)
 
-**Weekly reviews always target the previous calendar week — Sunday through Saturday — not the trailing 7 days.**
+**Weekly reviews always target the previous calendar week -- Sunday through Saturday -- not the trailing 7 days.**
 
 - If today is Sunday, "previous calendar week" = the Sun-Sat that just ended yesterday (i.e., 8 days ago through yesterday).
 - If today is any other day (Mon-Sat), "previous calendar week" = the most recent fully-completed Sun-Sat block, which ended last Saturday. Do NOT include any days from the currently-in-progress week.
@@ -27,23 +27,23 @@ Use Gmail MCP (`gmail_search_messages`) to scan the past week's emails.
 
 ### 2. Calendar review
 Use `gcal_list_events` for:
-- **Past leg — the locked Sun-Sat window from above**: What happened? Generate follow-up tasks from past meetings. This is a networking superpower — identify people Alex met and suggest follow-up actions (thank-you notes, shared resources, scheduling next meeting).
-- **Forward leg — next 4 weeks from today**: What's coming? Flag events needing preparation, deadlines approaching, and gaps that could be used for priority work.
+- **Past leg -- the locked Sun-Sat window from above**: What happened? Generate follow-up tasks from past meetings. This is a networking superpower -- identify people Alex met and suggest follow-up actions (thank-you notes, shared resources, scheduling next meeting).
+- **Forward leg -- next 4 weeks from today**: What's coming? Flag events needing preparation, deadlines approaching, and gaps that could be used for priority work.
 
 ### 3. Obsidian notes review
 Read the past 7 daily notes from `/Users/alexhedtke/Exobrain/Daily notes/`.
 - Surface unresolved items, open questions, and incomplete threads
 - Note patterns or recurring themes
 
-### 4. Things 3 — Inbox
+### 4. Things 3 -- Inbox
 Use `get_inbox`. Every item should be associated with an area of responsibility or an active project if possible. Suggest assignments for each.
 
-### 5. Things 3 — Anytime & Upcoming
+### 5. Things 3 -- Anytime & Upcoming
 Check for:
 - Any deadlines this week?
 - Anything that's been procrastinated on? (Flag constructively)
 
-### 6. Things 3 — Someday
+### 6. Things 3 -- Someday
 Review the someday list. Recommend at least 1 item to promote to "anytime" this week. Pick something aligned with current priorities.
 
 ### 7. Active Projects
@@ -62,28 +62,28 @@ Append a dated `Applications` entry to the job hub note (`/Users/alexhedtke/Exob
 ### 8. Health trends
 Read the past 7 days of Health Log notes (`Areas/Health & Fitness/Health Log/YYYY-MM-DD.md`, already written by the daily briefings) for steps, sleep, and zone minutes. Per `/health`, do NOT re-query the Fitbit API for historical data. The only fresh pull is Withings, if a body-comp snapshot is needed: body composition (`withings_get_body_composition` imperial) for latest snapshot, plus `withings_get_measurements` for 7-day weight/body comp trends, and blood pressure if available. Summarize trends and flag concerns.
 
-### 8b. Health concerns — weekly pattern check
+### 8b. Health concerns -- weekly pattern check
 Read the concern dossier notes in `Areas/Health & Fitness/Concerns/` for the list of tracked properties, what to watch for, correlations to flag, and any active experiments or provider recommendations. Then analyze the same past-7-days Health Log notes read in step 8 accordingly. Compare to prior week if data exists (trend arrows). Update the dossier notes with any new findings or experiment results.
 
-### 8c. Electricity & HVAC — weekly cost + schedule review
+### 8c. Electricity & HVAC -- weekly cost + schedule review
 The thorough counterpart to the wind-down's quick pulse. See `/electricity` for the integrations, read paths, rate plan, and cost-split framing. Goal: a real read on where the bill is going and **at least one concrete, actionable recommendation** (or an explicit "stay the course, here's why").
 
 1. **Cost vs. baseline**: from the Energy Log / the Evergy puller's `--json` (now at `~/Documents/claude-home/integrations/evergy`), report the cycle's usage + cost-to-date, projection, and the gap to "typical" (kWh and $, and the % over/under). Note the trend vs. last week.
 2. **Per-floor breakdown**: from the Nest integration (now `~/Documents/claude-home/integrations/nest`), sum the week's cooling hours per floor. Name the cost driver (normally the 3rd floor) and its share. Flag any floor whose runtime jumped.
-3. **The overnight experiment (the main event)**: read the `NIGHTLOG:AUTO` block. Line up the week's nights by **outdoor low** and compare 3rd-floor overnight runtime across nights with *similar* lows. State plainly whether the native schedule is saving energy or whether the cheap nights were just mild — and **say so even when the answer is "not enough spread of lows yet, keep logging."** Don't manufacture a verdict from one or two nights.
+3. **The overnight experiment (the main event)**: read the `NIGHTLOG:AUTO` block. Line up the week's nights by **outdoor low** and compare 3rd-floor overnight runtime across nights with *similar* lows. State plainly whether the native schedule is saving energy or whether the cheap nights were just mild -- and **say so even when the answer is "not enough spread of lows yet, keep logging."** Don't manufacture a verdict from one or two nights.
 4. **Rate-plan check**: with TOU peak 4-8pm (~16% premium), is meaningful load landing in peak? Total summer kWh is usually the bigger lever than time-shifting, so weight recommendations accordingly.
-5. **Recommendation(s)**: 0-2 concrete moves, each with the expected effect framed as **Alex's ~1/3 share** of the bill (it's split three ways). The 3rd-floor early-overnight deep-cool is the biggest lever, but it's his and his housemate's sleep comfort — surface the tradeoff honestly, recommend, don't nag. If a change is worth trying, create a Things 3 task for it (search first to dedup).
+5. **Recommendation(s)**: 0-2 concrete moves, each with the expected effect framed as **Alex's ~1/3 share** of the bill (it's split three ways). The 3rd-floor early-overnight deep-cool is the biggest lever, but it's his and his housemate's sleep comfort -- surface the tradeoff honestly, recommend, don't nag. If a change is worth trying, create a Things 3 task for it (search first to dedup).
 
-### 8d. Budget check — Envelope Budget app
+### 8d. Budget check -- Envelope Budget app
 A real read on how the budget is doing against its priorities, with concrete recommendations. Use the `/finances` skill (read `Areas/Money & Finances/Budget.md` first for the live priorities, then the app).
 
 1. **Pull the snapshot**: `cd ~/Documents/envelope-budget && .venv/bin/python report.py` (read-only). This gives Ready to Assign, reconcile drift, every envelope (available/target/spent), savings + debt progress, recurring charges, and the next-paycheck plan.
-2. **On-track read**: against the priorities in `Budget.md` (emergency fund first, card at minimum, dining capped, liquidity for the job transition) — is he tracking? Call out **overspent envelopes**, anything underfunded that matters, and any **reconcile drift** (a missing/miscategorized transaction to track down).
+2. **On-track read**: against the priorities in `Budget.md` (emergency fund first, card at minimum, dining capped, liquidity for the job transition) -- is he tracking? Call out **overspent envelopes**, anything underfunded that matters, and any **reconcile drift** (a missing/miscategorized transaction to track down).
 3. **The priorities, specifically**: emergency-fund progress this week and the gap to the runway goal; whether dining/discretionary crept past plan (with the number, tied to the savings/debt it competes with); the card payoff reality at the current payment.
 4. **Subscriptions**: flag any new recurring charge or price hike the detector caught; name cut candidates (his call).
-5. **Recommendation(s)**: 0-2 concrete moves, each tied to a priority and the dollars it frees or protects. If a move is worth making (cut a subscription, set aside more, fix a miscategorization), create a Things 3 task (search first to dedup) — but only Alex moves money; advise, don't act on the accounts. Be honest and warm: celebrate real progress, name the hard things, don't nag.
+5. **Recommendation(s)**: 0-2 concrete moves, each tied to a priority and the dollars it frees or protects. If a move is worth making (cut a subscription, set aside more, fix a miscategorization), create a Things 3 task (search first to dedup) -- but only Alex moves money; advise, don't act on the accounts. Be honest and warm: celebrate real progress, name the hard things, don't nag.
 
-### 9. Mood Journal — weekly summary
+### 9. Mood Journal -- weekly summary
 Read `/Users/alexhedtke/Exobrain/Mood Journal.md` and generate the weekly summary:
 - Also read the week's sections of the pomodoro session log (`/Users/alexhedtke/Exobrain/Pomodoro Log.md`) as a focus/productivity input: session counts and total minutes per day feed the Purpose read and the priority-alignment assessment.
 1. Compile daily scores for Mon-Sun (score any unscored days using available data)
@@ -98,7 +98,7 @@ Read `/Users/alexhedtke/Exobrain/Mood Journal.md` and generate the weekly summar
    - Social overload → crash pattern
    - Purpose score chronically low (procrastination/drift signal)
 
-### 10. Network CRM — weekly outreach pick + integration audit
+### 10. Network CRM -- weekly outreach pick + integration audit
 
 **Outreach pick** (1 potential contact):
 1. Scan People/ notes with `category: potential` and `reached_out: false`
@@ -111,7 +111,7 @@ Read `/Users/alexhedtke/Exobrain/Mood Journal.md` and generate the weekly summar
 
 **CRM health summary**: total categorized contacts, number overdue, category distribution.
 
-**Integration audit (Karpathy wiki maintenance — `/crm` mode 11)**:
+**Integration audit (Karpathy wiki maintenance -- `/crm` mode 11)**:
 1. Score every active People note against the compaction triggers in [[People Note Schema]]:
    - Mentions count (>30 = signal)
    - Days since oldest unintegrated Mention
@@ -120,42 +120,42 @@ Read `/Users/alexhedtke/Exobrain/Mood Journal.md` and generate the weekly summar
    - Section order out of canonical sequence
 2. Surface the top **3-5 People notes** most in need of compaction.
 3. For each, name the specific issue ("18 Mentions, 6 from before Mar 26 not lifted into Context") and recommend `/crm integrate [Name]`.
-4. This is the maintenance pass that keeps the wiki actually compounding — without it, notes degrade into append-only logs.
+4. This is the maintenance pass that keeps the wiki actually compounding -- without it, notes degrade into append-only logs.
 
 Note: Overdue active contacts are surfaced daily in the morning briefing. The weekly review's CRM role is (a) expanding the network via potential contacts, and (b) maintaining the wiki integrity of existing notes.
 
 ### 11. Interaction highlights
-Read this week's daily notes and processing log. Compile a single list of notable interaction highlights from all processed transcripts, Supernote pages, iMessages, Discord, and calendar events. Focus on things Alex might want to reflect on or act on during the review — key conversations, commitments made, interesting ideas discussed, relationship moments, unresolved threads.
+Read this week's daily notes and processing log. Compile a single list of notable interaction highlights from all processed transcripts, Supernote pages, iMessages, Discord, and calendar events. Focus on things Alex might want to reflect on or act on during the review -- key conversations, commitments made, interesting ideas discussed, relationship moments, unresolved threads.
 
-### 12. Local Events — weekly scan
-Run `/local-events` (full scan mode) to refresh the events log with upcoming KC events. This is the primary trigger for the local-events skill — there is no separate scheduled task. The daily briefing reads from the log this produces.
+### 12. Local Events -- weekly scan
+Run `/local-events` (full scan mode) to refresh the events log with upcoming KC events. This is the primary trigger for the local-events skill -- there is no separate scheduled task. The daily briefing reads from the log this produces.
 
-### 13. Exobrain Audit — weekly harness check
+### 13. Exobrain Audit -- weekly harness check
 After completing all automated checks above, run the `/exobrain-audit` skill to audit the harness itself: privacy/legibility scan of tracked files, architecture recon, and AI productivity research.
 
 **Invocation:** Invoke the `exobrain-audit` skill. It runs its three phases (Privacy & Legibility, Architecture Recon, AI Productivity Research) and produces a structured findings list.
 
-**Cost note:** Heavy — runs multiple parallel subagents. This runs after all other review steps are complete so it doesn't block the rest of the review.
+**Cost note:** Heavy -- runs multiple parallel subagents. This runs after all other review steps are complete so it doesn't block the rest of the review.
 
-**Output:** Surface the audit findings in the weekly review output. Do NOT auto-apply fixes — present them for Alex to review first. Include a section in the weekly review:
+**Output:** Surface the audit findings in the weekly review output. Do NOT auto-apply fixes -- present them for Alex to review first. Include a section in the weekly review:
 > **Exobrain Audit**: [N] privacy findings, [N] legibility gaps, [N] architecture/efficiency suggestions. See findings below.
 
-### 13b. Harness iteration — close the loop
+### 13b. Harness iteration -- close the loop
 Step 13 *surfaces* problems; this step *fixes* them, so the system compounds instead of just accumulating findings every week. Turn the week's signals into concrete, shipped harness improvements.
 
 **Inputs (what the system got wrong or could do better this week):**
 - The `/exobrain-audit` findings from step 13 (privacy, legibility, architecture/efficiency).
-- **New or edited memory files this week** — each user correction is the system having gotten something wrong; look for repeats that should become a skill/convention change, not just a memory.
+- **New or edited memory files this week** -- each user correction is the system having gotten something wrong; look for repeats that should become a skill/convention change, not just a memory.
 - **Processing-log errors/failures** and any launchd or scheduled-task failures since last review.
 - Any skill output Alex had to **manually fix or redo**, and recurring friction noted in this week's daily notes.
 
-**Produce a prioritized Harness Improvement backlog** — each item: `{symptom → proposed change → file(s) touched → effort → risk}`.
+**Produce a prioritized Harness Improvement backlog** -- each item: `{symptom → proposed change → file(s) touched → effort → risk}`.
 
 **Ship the safe, high-value ones this week** (with Alex's go-ahead): low-risk edits to skills, convention docs, memory, `.gitignore`, README, or notification copy.
-- **Before committing, re-run the privacy/gitignore guard** — no secrets, no real third-party names, no personal data — per the CLAUDE.md Privacy & Legibility rules.
+- **Before committing, re-run the privacy/gitignore guard** -- no secrets, no real third-party names, no personal data -- per the CLAUDE.md Privacy & Legibility rules.
 - Queue anything risky or large as a Things 3 task under the **Exobrain** project rather than forcing it in.
 
-**Log it** — append a dated entry to `Areas/Exobrain/Iteration Log.md` (create if missing): what changed, why, and what was deferred. This keeps the system's evolution traceable and stops the same finding from resurfacing every week.
+**Log it** -- append a dated entry to `Areas/Exobrain/Iteration Log.md` (create if missing): what changed, why, and what was deferred. This keeps the system's evolution traceable and stops the same finding from resurfacing every week.
 
 ## Manual Checklist
 Generate this for Alex to complete:
@@ -188,6 +188,6 @@ Write `### Weekly Review` section in Sunday's daily note containing:
 
 ### Notify
 ```bash
-osascript -e 'display notification "Your weekly review is ready — check Sunday'\''s daily note" with title "Exobrain" sound name "Purr"'
+osascript -e 'display notification "Your weekly review is ready -- check Sunday'\''s daily note" with title "Exobrain" sound name "Purr"'
 ```
 

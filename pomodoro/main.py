@@ -356,7 +356,7 @@ class API:
         content = POMODORO_LOG.read_text() if POMODORO_LOG.exists() else ""
 
         if date_header in content:
-            # Today's section already exists — append within it (within-day stays chronological).
+            # Today's section already exists -- append within it (within-day stays chronological).
             idx = content.index(date_header) + len(date_header)
             next_section = content.find("\n### ", idx)
             if next_section == -1:
@@ -364,14 +364,14 @@ class API:
             else:
                 content = content[:next_section].rstrip() + "\n" + line + "\n" + content[next_section:]
         else:
-            # New day — prepend a section at the top so day headers stay newest-first.
+            # New day -- prepend a section at the top so day headers stay newest-first.
             new_section = date_header + "\n" + line + "\n"
             content = new_section + ("\n" + content.lstrip() if content.strip() else "")
 
         POMODORO_LOG.write_text(content.lstrip())
         self._sync_pomodoro_count()
         self._add_worked_on(obsidian_link)
-        self._schedule(session_id, duration_minutes * 60, "Time's up — take a break", is_break=False)
+        self._schedule(session_id, duration_minutes * 60, "Time's up -- take a break", is_break=False)
         return {'session_id': session_id}
 
     def delete_session(self, session_id):

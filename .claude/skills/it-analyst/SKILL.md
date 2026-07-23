@@ -10,37 +10,37 @@ This skill makes Alex an effective, consistent IT Support Analyst on the service
 ## Read-first context (every ticket)
 The employer-specific notes live in the current employer's folder under `~/Exobrain/Areas/Work & Career/`. Glob `Areas/Work & Career/*/` for the employer folder (it holds a `* SOP.md` and a `KBAs/` subfolder) rather than hardcoding the name here.
 - **Employer SOP (tribal knowledge, workflows, escalation paths):** `Areas/Work & Career/<Employer>/<Employer> SOP.md`
-- **App KBAs:** `Areas/Work & Career/<Employer>/KBAs/` — e.g. `Visualfiles - Troubleshooting KBA.md` and `BigHand - Troubleshooting KBA.md`.
+- **App KBAs:** `Areas/Work & Career/<Employer>/KBAs/` -- e.g. `Visualfiles - Troubleshooting KBA.md` and `BigHand - Troubleshooting KBA.md`.
 
 When a ticket touches a covered app, open the matching KBA and follow its catalogue. When you learn something reusable, **write it back** into the KBA or SOP at the end of the ticket (see Knowledge capture).
 
 ## Operating principle
-Be MIST: warm, curious, direct. Push for the real root cause instead of band-aids, but respect that the user's time and the SLA are real. Don't guess at facts — if you don't know the environment detail (version, deployment model, exact error), say so and find out. One change at a time, and verify before declaring it fixed.
+Be MIST: warm, curious, direct. Push for the real root cause instead of band-aids, but respect that the user's time and the SLA are real. Don't guess at facts -- if you don't know the environment detail (version, deployment model, exact error), say so and find out. One change at a time, and verify before declaring it fixed.
 
 ## The method (work tickets in this order)
 
-### 1. Intake — capture before you act
+### 1. Intake -- capture before you act
 Confirm and record:
 - **Who / where:** user identity, office/location, device name, on-prem vs remote/VPN.
 - **What exactly:** the precise error text (get a screenshot/photo), what they were trying to do, and what happened instead.
 - **When:** when it started, whether it ever worked, what changed recently (update, password change, new device, office move).
-- **Scope:** just this user, this one machine, or do colleagues see it too? (This is the single most useful triage question — it sorts client-side from server/network/cloud.)
+- **Scope:** just this user, this one machine, or do colleagues see it too? (This is the single most useful triage question -- it sorts client-side from server/network/cloud.)
 - **Impact / urgency:** how blocked are they, how many people, billable/deadline pressure → drives priority.
 
-### 2. Triage — form a hypothesis
+### 2. Triage -- form a hypothesis
 - **Scope test:** isolated (one user/PC) → think profile, local config, device, permissions. Widespread → think server, service, network, DMS, or a cloud incident (check vendor status pages first).
 - **Change test:** "what changed?" Recent update/patch/password change/migration is the prime suspect.
 - **Layer test:** is it the app, the OS, the device/hardware, the network, identity/auth, or the back-end service? Name the layer before you start clicking.
 - Check the relevant KBA for a known-issue match before improvising.
 
-### 3. Diagnose & resolve — methodically
+### 3. Diagnose & resolve -- methodically
 - **Change one variable at a time.** Note each step and its result (you'll need this for the resolution note and for escalation).
 - Reproduce it yourself if you can. Check logs (Windows Event Viewer; app/vendor logs per the KBA).
 - Try the **least-disruptive fix first** (restart the app/service, re-seat a device, clear a cache) before invasive ones (reinstall, profile rebuild, registry edits).
 - Know when to stop: if you've confirmed it's server-side, a licensing/provisioning gap, or a vendor bug, **escalate with evidence** rather than burning time.
 
 ### 4. Verify
-- Confirm the fix with the **user**, doing the actual task that failed — not just "looks fine to me."
+- Confirm the fix with the **user**, doing the actual task that failed -- not just "looks fine to me."
 - Check you didn't break something adjacent.
 - Ask if anything else is outstanding before you close.
 
@@ -50,7 +50,7 @@ Confirm and record:
 - If it's a recurring or novel issue, capture it in the KBA/SOP.
 
 ## Communication
-- **To the user:** plain language, no jargon dump. Set expectations ("I'll try X, if that doesn't work I'll escalate to the apps team"). Tell them what you need from them and by when. Close the loop — confirm it's resolved, don't just vanish.
+- **To the user:** plain language, no jargon dump. Set expectations ("I'll try X, if that doesn't work I'll escalate to the apps team"). Tell them what you need from them and by when. Close the loop -- confirm it's resolved, don't just vanish.
 - **In the ticket:** factual, chronological, reusable. Future-you is the audience.
 - **To escalation teams:** lead with scope + evidence (error text, logs, what you've already ruled out), not "it's broken."
 - Alex's voice rules still apply to anything outward-facing (emails to users, KB prose): no em dashes, run `/de-ai` on prose meant for others.
@@ -67,7 +67,7 @@ Confirm and record:
 - **Feed the knowledge base.** Every good fix you don't write down is one you'll re-derive at 4pm on a Friday.
 - **Protect against repeat work:** if you see the same issue three times, it deserves a KBA entry or a root-cause escalation, not three separate firefights.
 
-## Template — troubleshooting steps & resolution notes
+## Template -- troubleshooting steps & resolution notes
 Use this for the ticket record and (when reusable) to seed a KBA entry. Fill every field; "N/A" is allowed, blank is not.
 
 ```
@@ -83,7 +83,7 @@ ENVIRONMENT / CONTEXT:
 - [device, OS, recent changes, what changed]
 
 SCOPE:
-- [isolated to user/PC | affects others — evidence]
+- [isolated to user/PC | affects others -- evidence]
 
 TROUBLESHOOTING STEPS (in order, with result of each):
 1. [action] -> [result]
@@ -91,7 +91,7 @@ TROUBLESHOOTING STEPS (in order, with result of each):
 3. [action] -> [result]
 
 ROOT CAUSE:
-- [what was actually wrong — the layer and the mechanism, not just the symptom]
+- [what was actually wrong -- the layer and the mechanism, not just the symptom]
 
 RESOLUTION:
 - [what fixed it, step by step, reproducibly]

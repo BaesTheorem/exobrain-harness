@@ -42,7 +42,7 @@ def setup(ctx: Context) -> None:
                 continue
             triggers = " / ".join(f"`{t}`" for t in cmd.triggers)
             tag = " *(admin)*" if cmd.admin else ""
-            lines.append(f"{triggers}{tag} — {cmd.description or 'no description'}")
+            lines.append(f"{triggers}{tag} -- {cmd.description or 'no description'}")
         await message.channel.send(q.tag("\n".join(lines), "help"))
 
     @h.command("!ping", description="Check that the bot is alive", cooldown=3.0)

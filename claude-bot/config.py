@@ -7,13 +7,13 @@ are upstream provenance, not the bot's own name).
 Two sources, kept deliberately separate so secrets and private IDs never
 land in tracked files:
 
-  1. The bot token — read from the *existing* Exobrain env file
+  1. The bot token -- read from the *existing* Exobrain env file
      (~/.claude/channels/discord/.env, key DISCORD_BOT_TOKEN), the same
      token the discord-digest fetcher already uses. We reuse it rather
      than copying the secret into this project.
 
   2. Everything else (guild id, admin ids, per-channel overrides, API
-     keys) — read from config.toml in this directory. That file is
+     keys) -- read from config.toml in this directory. That file is
      gitignored because guild/channel IDs are private friend-group data.
      See config.example.toml for the shape.
 """
@@ -69,7 +69,7 @@ def load_owner_username() -> str | None:
 
 
 class Config:
-    """Flat, single-guild config. No per-guild cascade — this bot lives in
+    """Flat, single-guild config. No per-guild cascade -- this bot lives in
     exactly one server. Per-*channel* overrides are still supported via the
     [channel.<id>] tables, resolved by get()."""
 

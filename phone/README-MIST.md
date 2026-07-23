@@ -10,7 +10,7 @@ You (phone) <--audio--> Twilio Media Streams <--mulaw/WS--> server_mist.py
    outbound -> Claude text -> MIST XTTS (TTS service) -> mulaw -> phone
 ```
 
-`server.py` (cloud ConversationRelay voice) is untouched and still works — this
+`server.py` (cloud ConversationRelay voice) is untouched and still works -- this
 is a parallel server you opt into.
 
 ## Architecture: why two services
@@ -18,10 +18,10 @@ is a parallel server you opt into.
 - **The phone venv is Python 3.14**; `audioop` (mu-law transcoding) was removed
   in 3.13, so `server_mist` uses the `audioop-lts` backport.
 - **STT + TTS run in `mist-voice/.venv` (3.12)** as one HTTP service
-  (`mist-voice/scripts/serve.py`) — faster-whisper for `/stt`, XTTS for `/say`.
+  (`mist-voice/scripts/serve.py`) -- faster-whisper for `/stt`, XTTS for `/say`.
   Keeps the heavy models in their own process and out of the phone venv.
 
-## Latency — read this
+## Latency -- read this
 
 Measured on this M1/8GB: XTTS is ~1.6-1.8x slower than real-time and STT adds a
 beat. MIST **starts a turn after a noticeable delay** and we sentence-pipeline so
@@ -32,7 +32,7 @@ resident pressures 8GB RAM. This is the known tradeoff of going local on this bo
 ## Run it
 
 ```bash
-# 1) voice service (XTTS + whisper), from repo root — first run downloads models
+# 1) voice service (XTTS + whisper), from repo root -- first run downloads models
 mist-voice/.venv/bin/python mist-voice/scripts/serve.py --port 8087 &
 
 # 2) the MIST phone server
@@ -53,7 +53,7 @@ cloudflared tunnel --url http://localhost:8080
 
 `/tmp` round-trip test passed: text -> MIST TTS -> mu-law 8kHz frames -> decode
 -> STT returned the sentence near-verbatim. The only unproven layer is the live
-Twilio Media Streams transport — that needs a real call.
+Twilio Media Streams transport -- that needs a real call.
 
 ## Still to verify on a live call
 

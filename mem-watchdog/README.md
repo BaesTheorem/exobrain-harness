@@ -68,9 +68,9 @@ the new code. KeepAlive restarts it on crash but does not re-copy the file.
 
 Live in `~/Library/Application Support/mem-watchdog/` next to the runtime script:
 
-- `mem-watchdog.log` — rolling top-5 snapshot, one line per check
-- `events.log` — warns, kills, and start markers
-- `launchd-stderr.log` — launchd-captured stderr (should stay empty)
+- `mem-watchdog.log` -- rolling top-5 snapshot, one line per check
+- `events.log` -- warns, kills, and start markers
+- `launchd-stderr.log` -- launchd-captured stderr (should stay empty)
 
 The repo `.gitignore` also excludes `*.log` so any stray logs created here while
 testing never get committed (they contain process names/paths incl. the

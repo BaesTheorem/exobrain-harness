@@ -7,14 +7,14 @@ description: Scan Alex's friend group Discord server for events, plans, and acti
 
 Scans Alex's friend group Discord server and summarizes activity so nothing falls through the cracks.
 
-## Friend Group Server — Username Mapping
+## Friend Group Server -- Username Mapping
 
-The username-to-real-name mapping lives in `discord/discord-digest-fetch.py` (gitignored — contains real names). At runtime:
+The username-to-real-name mapping lives in `discord/discord-digest-fetch.py` (gitignored -- contains real names). At runtime:
 
 1. Read the `USERNAME_MAP` dict from `discord/discord-digest-fetch.py`
 2. **For each message**: if the username is in the map, replace with the real name. Otherwise use the Discord display name from the API response and append a `⚠ unresolved: <username>` line at the end of the digest so Alex can map them.
 3. Skip messages from Alex's own username.
-4. Cross-reference resolved names with People/ notes in the Obsidian vault — every friend group member should have one.
+4. Cross-reference resolved names with People/ notes in the Obsidian vault -- every friend group member should have one.
 
 ## Channels Monitored (read-only)
 
@@ -23,15 +23,15 @@ Read channel IDs from `.env` in the harness root:
 - **Musings and advice**: `DISCORD_CHANNEL_MUSINGS`
 - **Hangouts**: `DISCORD_CHANNEL_HANGOUTS`
 
-All channels are set to `requireMention: true` with empty `allowFrom` — the bot reads but never responds.
+All channels are set to `requireMention: true` with empty `allowFrom` -- the bot reads but never responds.
 
 ## How to Scan
 
-1. Read `discord/discord-digest.json` — this is populated by `discord-digest-fetch.py` every 4 hours via launchd. It contains recent messages from all channels with metadata.
+1. Read `discord/discord-digest.json` -- this is populated by `discord-digest-fetch.py` every 4 hours via launchd. It contains recent messages from all channels with metadata.
 2. Filter to messages from the past 24 hours (for daily briefing) or past 7 days (for weekly/standalone)
 3. Apply the username-mapping rule above (real name if mapped, otherwise display name + flag unresolved at digest end)
-4. Skip Alex's messages — he already knows what he said
-5. **Always cross-reference scheduling discussions with Alex's Google Calendar and Things 3** — flag conflicts, don't assume availability
+4. Skip Alex's messages -- he already knows what he said
+5. **Always cross-reference scheduling discussions with Alex's Google Calendar and Things 3** -- flag conflicts, don't assume availability
 
 ## What to Extract
 
@@ -47,7 +47,7 @@ All channels are set to `requireMention: true` with empty `allowFrom` — the bo
 - Plans that need an RSVP from Alex
 
 ### Social Context
-- Who's been active (helps with CRM — these are Alex's closest friends)
+- Who's been active (helps with CRM -- these are Alex's closest friends)
 - Relationship updates, life events mentioned casually
 - Recurring events (Sunday coffee at Messenger Crossroads, weekly drag show at [venue], etc.)
 
@@ -57,7 +57,7 @@ All channels are set to `requireMention: true` with empty `allowFrom` — the bo
 ## Discord
 
 **Hangouts:**
-- [Event name] — [date/time] at [location]. [Who's going]. [Does Alex need to act?]
+- [Event name] -- [date/time] at [location]. [Who's going]. [Does Alex need to act?]
 - [Any open questions or mentions Alex should respond to]
 
 **General:**
@@ -67,13 +67,13 @@ All channels are set to `requireMention: true` with empty `allowFrom` — the bo
 - [Anything interesting shared]
 ```
 
-Keep it concise — 3-5 bullet points max unless there's a lot of activity. If nothing notable happened, just say "Quiet day on Discord."
+Keep it concise -- 3-5 bullet points max unless there's a lot of activity. If nothing notable happened, just say "Quiet day on Discord."
 
 ## Integration
 
 - **`/daily-briefing`**: Calls this skill to generate the Discord section of the morning briefing
 - **`/weekly-review`**: Pulls 7-day Discord activity for the social/community section
-- **`/crm`**: Cross-references Discord usernames with People/ notes — these friends should all have People notes
+- **`/crm`**: Cross-references Discord usernames with People/ notes -- these friends should all have People notes
 - Ad-hoc questions like "what did I miss on Discord?" can be answered by reading the digest
 
 ## Network CRM Integration
@@ -92,4 +92,4 @@ All friend group members should have People/ notes. When Discord activity reveal
 
 ### Personality & Social Dynamics
 
-Follow the `/crm` skill's mode 9 (Continuous Integration) protocol — enrich `## Context`, `## Connections`, and `## Personality & Dynamics` sections with observations from Discord messages. Use specific examples, not vague labels.
+Follow the `/crm` skill's mode 9 (Continuous Integration) protocol -- enrich `## Context`, `## Connections`, and `## Personality & Dynamics` sections with observations from Discord messages. Use specific examples, not vague labels.

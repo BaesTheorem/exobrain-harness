@@ -154,7 +154,7 @@ def render_heatmap(entries: list[dict]) -> list[str]:
                 bg = get_color(score)
                 if score is not None:
                     dt = datetime(year, month, day)
-                    title = f' title="{dt.strftime("%b %d")} — {fmt_score(score)}/5"'
+                    title = f' title="{dt.strftime("%b %d")} -- {fmt_score(score)}/5"'
                     color = "white"
                 else:
                     title = ""

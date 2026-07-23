@@ -39,7 +39,7 @@ Fetched Discord messages (already gitignored). Contains private group conversati
 - `last_attempted_fetch`: ISO-8601 timestamp written at the start of every fetch attempt, regardless of outcome.
 - `last_successful_fetch`: ISO-8601 timestamp written only after a fetch completes without error.
 
-The hook uses `last_successful_fetch` (not file mtime) to detect stale digests — that way a failed fetch that rewrites the file with old data still surfaces as stale. Rebuild the script to write both fields; on success update both, on failure update only `last_attempted_fetch`.
+The hook uses `last_successful_fetch` (not file mtime) to detect stale digests -- that way a failed fetch that rewrites the file with old data still surfaces as stale. Rebuild the script to write both fields; on success update both, on failure update only `last_attempted_fetch`.
 
 ## Tracked Files
 
@@ -61,7 +61,7 @@ The hook uses `last_successful_fetch` (not file mtime) to detect stale digests �
 </dict>
 ```
 
-Or export it via `launchctl setenv` at login. Don't commit either form — the plist with a real token must NOT be checked in. (Currently `com.exobrain.discord-digest.plist` does not inject the token; if the digest is silently empty, this is the first thing to check.)
+Or export it via `launchctl setenv` at login. Don't commit either form -- the plist with a real token must NOT be checked in. (Currently `com.exobrain.discord-digest.plist` does not inject the token; if the digest is silently empty, this is the first thing to check.)
 
 ## Install
 

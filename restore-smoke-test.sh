@@ -1,5 +1,5 @@
 #!/bin/bash
-# restore-smoke-test.sh — post-restore verification for the Exobrain harness.
+# restore-smoke-test.sh -- post-restore verification for the Exobrain harness.
 #
 # "Restore complete" should mean "the system works," not "the procedure finished."
 # This checks the layers a casual glance misses: the automation jobs, the vault,
@@ -23,7 +23,7 @@ warn() { printf '  \033[33mWARN\033[0m %s\n' "$1"; }
 
 echo "== Vault (left to Obsidian Sync; tarball is fallback only) =="
 [ -f "$VAULT_DIR/Dashboard.md" ] && pass "vault present + readable ($VAULT_DIR/Dashboard.md)" \
-  || fail "vault missing or unreadable — check Obsidian Sync, do NOT auto-restore from tarball"
+  || fail "vault missing or unreadable -- check Obsidian Sync, do NOT auto-restore from tarball"
 
 echo "== Harness core files =="
 [ -f "$HARNESS_DIR/.env" ] && grep -q WITHINGS "$HARNESS_DIR/.env" 2>/dev/null \
@@ -33,7 +33,7 @@ if [ -f "$HARNESS_DIR/processing-log.json" ]; then
   python3 -c "import json,sys; json.load(open(sys.argv[1]))" "$HARNESS_DIR/processing-log.json" 2>/dev/null \
     && pass "processing-log.json parses" || fail "processing-log.json is corrupt"
 else
-  warn "processing-log.json absent (fresh start — watchers will re-process recent items)"
+  warn "processing-log.json absent (fresh start -- watchers will re-process recent items)"
 fi
 
 echo "== Toolchain =="
@@ -41,19 +41,19 @@ for b in git gh brew node python3 uv jq rsync; do
   command -v "$b" >/dev/null 2>&1 && pass "$b on PATH" || fail "$b not found"
 done
 command -v python3.12 >/dev/null 2>&1 && pass "python3.12 present (mist-voice)" \
-  || warn "python3.12 missing — mist-voice TTS will not build"
+  || warn "python3.12 missing -- mist-voice TTS will not build"
 command -v claude >/dev/null 2>&1 && pass "claude CLI present" || fail "claude CLI not found"
 
 echo "== Out-of-tree credentials (the backup's known blind spots) =="
 [ -f "$HOME/.claude/settings.json" ] && pass "~/.claude/settings.json present" \
   || fail "~/.claude/settings.json missing (permissions flood; global MCP lost)"
 [ -f "$HOME/.claude/channels/discord/.env" ] && pass "discord bot token present" \
-  || warn "~/.claude/channels/discord/.env missing — claude-bot will not authenticate"
+  || warn "~/.claude/channels/discord/.env missing -- claude-bot will not authenticate"
 [ -f "$HOME/.plaud/tokens-mcp.json" ] && pass "~/.plaud token present" \
-  || warn "~/.plaud token missing — re-auth via mcp__plaud__login"
+  || warn "~/.plaud token missing -- re-auth via mcp__plaud__login"
 [ -f "$HOME/Documents/Claude Code/mcp-fitbit-main/.fitbit-token.json" ] \
   && pass "fitbit MCP token present" \
-  || warn "fitbit MCP token missing (depth-3 backup gap) — health data will not flow until re-auth"
+  || warn "fitbit MCP token missing (depth-3 backup gap) -- health data will not flow until re-auth"
 
 echo "== launchd automation (silent-failure layer) =="
 if command -v launchctl >/dev/null 2>&1; then
@@ -68,7 +68,7 @@ if command -v launchctl >/dev/null 2>&1; then
   [ -z "$badjobs" ] && pass "no jobs in a nonzero last-exit state" \
     || { while IFS= read -r j; do warn "nonzero last exit, eyeball it: $j"; done <<< "$badjobs"; }
   for d in discord maintenance awair; do
-    [ -d "$HOME/.claude/channels/$d" ] || warn "~/.claude/channels/$d missing — its plist will fail to start"
+    [ -d "$HOME/.claude/channels/$d" ] || warn "~/.claude/channels/$d missing -- its plist will fail to start"
   done
 else
   warn "launchctl unavailable"
@@ -76,8 +76,8 @@ fi
 
 echo
 if [ "$fails" -eq 0 ]; then
-  printf '\033[32mSMOKE TEST CLEAN\033[0m — review any WARNs above (cloud re-auths, orphaned plists, gap items).\n'
+  printf '\033[32mSMOKE TEST CLEAN\033[0m -- review any WARNs above (cloud re-auths, orphaned plists, gap items).\n'
 else
-  printf '\033[31m%d FAIL(s)\033[0m — resolve before calling the restore done.\n' "$fails"
+  printf '\033[31m%d FAIL(s)\033[0m -- resolve before calling the restore done.\n' "$fails"
 fi
 exit "$fails"

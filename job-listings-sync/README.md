@@ -16,7 +16,7 @@ job-listings folder and applies two idempotent rules:
    (captures rejection-email confirmations).
 
 It deliberately does **not** backfill `application_date` for notes already in
-`{applied, rejected, withdrawn, closed, interviewing, offer}` — those either
+`{applied, rejected, withdrawn, closed, interviewing, offer}` -- those either
 have a real historical date or carried an unknown date through migration that
 shouldn't be overwritten with today's. Safe to run on every file change.
 
@@ -30,7 +30,7 @@ The listings live in the Obsidian vault, **outside** this repo, at:
 
 That path is hardcoded as `LISTINGS` near the top of `reconcile.py`. A cloner
 must edit it to point at their own vault location. The folder is part of the
-gitignored vault, so it won't be present on a fresh clone — the script logs an
+gitignored vault, so it won't be present on a fresh clone -- the script logs an
 error and exits 1 if the folder is missing.
 
 ## Install (launchd)
@@ -38,7 +38,7 @@ error and exits 1 if the folder is missing.
 `run.sh` is the launchd wrapper (`cd`s into this dir, runs `reconcile.py`).
 `com.exobrain.job-listings-sync.plist` watches the listings folder and also
 fires on a 300s safety interval. Per the harness convention, copy the plist
-into `~/Library/LaunchAgents/` as a **real file** (not a symlink — TCC blocks
+into `~/Library/LaunchAgents/` as a **real file** (not a symlink -- TCC blocks
 symlinks under `~/Documents` from loading at login):
 
 ```bash
@@ -46,5 +46,5 @@ cp com.exobrain.job-listings-sync.plist ~/Library/LaunchAgents/
 launchctl load ~/Library/LaunchAgents/com.exobrain.job-listings-sync.plist
 ```
 
-After editing the plist, copy it again — the LaunchAgents copy is authoritative.
+After editing the plist, copy it again -- the LaunchAgents copy is authoritative.
 Edit the `WatchPaths` and `run.sh` path in the plist to match your own layout.

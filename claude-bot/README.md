@@ -16,12 +16,12 @@ project the architecture is based on.
 
 ## Status
 
-**Phase 1 (skeleton) — runnable.** Core dispatch + `!help` / `!ping` / `!about`.
+**Phase 1 (skeleton) -- runnable.** Core dispatch + `!help` / `!ping` / `!about`.
 Feature phases land as additional modules:
 
 | Phase | Module | Features |
 |-------|--------|----------|
-| 1 ✅ | `modules/core.py` | help, ping, about — proves dispatch |
+| 1 ✅ | `modules/core.py` | help, ping, about -- proves dispatch |
 | 2 ✅ | `modules/fun.py` | `!roll` dice, `!pick`, `!fight`, `!8ball`, `!mock` (offline) |
 | 3 | `modules/moderation.py`, `modules/greeting.py` | reaction roles, lockout gate, role save/restore |
 | 4 | `modules/schedule.py` | reminders, recurring tasks |
@@ -34,15 +34,15 @@ Feature phases land as additional modules:
 
 1. **Enable privileged intents** in the [Discord Developer Portal](https://discord.com/developers/applications)
    → your app → Bot → Privileged Gateway Intents:
-   - **Message Content Intent** — required (read commands/chat)
-   - **Server Members Intent** — required for Phase 3 join/leave features
-   - Presence Intent — leave off
+   - **Message Content Intent** -- required (read commands/chat)
+   - **Server Members Intent** -- required for Phase 3 join/leave features
+   - Presence Intent -- leave off
 2. **Token:** already read from the shared Exobrain env file
-   `~/.claude/channels/discord/.env` (`DISCORD_BOT_TOKEN`) — the same token the
+   `~/.claude/channels/discord/.env` (`DISCORD_BOT_TOKEN`) -- the same token the
    `discord/` digest fetcher uses. The two coexist: the fetcher is REST-only,
    this bot opens the single allowed gateway connection. No change needed.
 3. **Config:** `cp config.example.toml config.toml` and fill in `guild_id` and
-   your `admin_ids`. (`config.toml` is gitignored — it holds private IDs.)
+   your `admin_ids`. (`config.toml` is gitignored -- it holds private IDs.)
 4. **Install & run:**
    ```bash
    python3 -m venv .venv
@@ -53,7 +53,7 @@ Feature phases land as additional modules:
 ## Running as a service (launchd)
 
 For always-on operation, it runs as a LaunchAgent (`com.exobrain.claude-bot`,
-`RunAtLoad` + `KeepAlive` — starts at login, restarts on crash). A copy of the
+`RunAtLoad` + `KeepAlive` -- starts at login, restarts on crash). A copy of the
 plist lives here (`com.exobrain.claude-bot.plist`); the live one is in
 `~/Library/LaunchAgents/` (a real copy, not a symlink).
 

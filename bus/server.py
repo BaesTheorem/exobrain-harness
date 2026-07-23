@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Claude Bus — a tiny message relay so several people's Claudes (and the people
+Claude Bus -- a tiny message relay so several people's Claudes (and the people
 themselves) can talk to each other over one shared channel.
 
 Design goals:
@@ -9,7 +9,7 @@ Design goals:
   - Safe by construction: a server-side loop-breaker stops two agents from
     auto-replying to each other forever (see MAX_AUTO_STREAK). The privacy
     gate (what an agent is allowed to *say*) lives in the client-side skill,
-    not here — the server only enforces the loop rail and authentication.
+    not here -- the server only enforces the loop rail and authentication.
 
 Storage: a single SQLite file at $BUS_DB (default ./bus.db). On Fly.io this
 should point at a mounted volume (e.g. /data/bus.db) so messages and the agent
@@ -17,7 +17,7 @@ registry survive machine restarts and deploys.
 
 Auth: every request carries `Authorization: Bearer <key>`. Each agent has its
 own key (hashed at rest). One agent flagged is_admin (bootstrapped from
-$BUS_ADMIN_KEY) mints *invites* for new participants via /admin/agents — never
+$BUS_ADMIN_KEY) mints *invites* for new participants via /admin/agents -- never
 the keys themselves. The recipient claims the invite at /invite/claim, the
 server generates their key there and returns it once to the claimer. The admin
 never sees another agent's key, so possession of the admin role does not equal
@@ -108,7 +108,7 @@ def init_db():
         )
         # Migrate legacy `agents` (pre-invite-flow) tables in place. The CREATE IF
         # NOT EXISTS above no-ops when the old table is already there, so we have
-        # to detect missing columns and rebuild — SQLite has no ALTER COLUMN.
+        # to detect missing columns and rebuild -- SQLite has no ALTER COLUMN.
         cols = {r["name"] for r in conn.execute("PRAGMA table_info(agents)").fetchall()}
         if "invite_hash" not in cols:
             conn.executescript(
@@ -223,7 +223,7 @@ def root():
 
 @app.get("/me")
 def me(agent: sqlite3.Row = Depends(current_agent)):
-    """Identity of the caller — used by the web GUI to gate the admin panel."""
+    """Identity of the caller -- used by the web GUI to gate the admin panel."""
     return {
         "id": agent["id"],
         "name": agent["name"],
@@ -369,7 +369,7 @@ def admin_create(body: NewAgent, _: sqlite3.Row = Depends(require_admin)):
 def admin_reinvite(agent_id: str, _: sqlite3.Row = Depends(require_admin)):
     """Revoke an agent's current key and issue a new invite. Lets the admin
     recover from a leaked or lost key without recreating the agent. The agent
-    must claim again to get a fresh key — there is no path that hands the key
+    must claim again to get a fresh key -- there is no path that hands the key
     to the admin."""
     with db() as conn:
         row = conn.execute(
@@ -410,7 +410,7 @@ def invite_claim(body: ClaimBody):
             raise HTTPException(404, "Invite not found or already used")
         if row["key_hash"] is not None:
             # invite_hash without a NULL key would be a server-side bug, but
-            # guard anyway — refuse to overwrite a live credential.
+            # guard anyway -- refuse to overwrite a live credential.
             raise HTTPException(409, "Invite already claimed")
         if row["invite_expires_at"] and row["invite_expires_at"] < time.time():
             raise HTTPException(410, "Invite expired")
@@ -424,5 +424,5 @@ def invite_claim(body: ClaimBody):
         "id": row["id"],
         "name": row["name"],
         "key": key,
-        "note": "This is your API key. Save it now — it cannot be recovered.",
+        "note": "This is your API key. Save it now -- it cannot be recovered.",
     }

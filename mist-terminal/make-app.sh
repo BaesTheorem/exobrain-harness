@@ -1,5 +1,5 @@
 #!/bin/zsh
-# Build (or rebuild) MIST.app — a double-clickable launcher that opens Ghostty
+# Build (or rebuild) MIST.app -- a double-clickable launcher that opens Ghostty
 # (MIST theme, from ~/.config/ghostty/config) running mist-terminal/bin/mist.
 # Idempotent: safe to re-run after editing the launcher.
 set -e
@@ -7,7 +7,7 @@ set -e
 HARNESS="/Users/alexhedtke/Documents/Exobrain harness"
 APP="$HOME/Desktop/Apps/MIST.app"
 GHOSTTY="/Applications/Ghostty.app/Contents/MacOS/ghostty"
-ICON_SRC="$HARNESS/.claude/MIST 1.webp"   # Cloud form — fitting for the first Cloud Intelligence
+ICON_SRC="$HARNESS/.claude/MIST 1.webp"   # Cloud form -- fitting for the first Cloud Intelligence
 
 echo "Building $APP ..."
 rm -rf "$APP"

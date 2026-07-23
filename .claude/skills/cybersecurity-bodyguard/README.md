@@ -1,4 +1,4 @@
-# Cybersecurity Bodyguard — Setup
+# Cybersecurity Bodyguard -- Setup
 
 Defensive security skill targeting doxxing, stalking, and targeted harassment.
 The main skill spec is in `SKILL.md`. This README covers **setup** only.
@@ -16,7 +16,7 @@ $EDITOR targets.json
 
 This file is **gitignored**. Never commit it. It contains the PII the skill
 monitors for (your name, emails, phones, aliases, addresses). Entries are
-referenced by key in outputs (e.g., `email[0]`) — the actual values are not
+referenced by key in outputs (e.g., `email[0]`) -- the actual values are not
 echoed back in scan reports.
 
 ### 2. Get a HIBP API key
@@ -47,7 +47,7 @@ there.
 
 ### 4. Create the Obsidian security folder
 
-The skill writes to these vault paths — create them now so later logging
+The skill writes to these vault paths -- create them now so later logging
 doesn't fail:
 
 ```bash
@@ -60,12 +60,12 @@ touch "/Users/alexhedtke/Exobrain/Areas/Security/broker-removals.md"
 
 For serious attack-surface reduction, subscribe to DeleteMe, Optery, or Kanary
 (~$100-130/yr). See `runbooks/data-broker-removal.md#bulk--paid-services`.
-The skill's manual tracking still runs alongside paid services — they catch
+The skill's manual tracking still runs alongside paid services -- they catch
 different brokers.
 
 ### 6. Install the weekly passive scan (launchd)
 
-The harness ships with `com.exobrain.bodyguard-weekly.plist` — install it:
+The harness ships with `com.exobrain.bodyguard-weekly.plist` -- install it:
 
 ```bash
 chmod +x /Users/alexhedtke/Exobrain\ harness/.claude/skills/cybersecurity-bodyguard/scripts/weekly-scan.sh
@@ -82,7 +82,7 @@ To uninstall: `launchctl unload ~/Library/LaunchAgents/com.exobrain.bodyguard-we
 
 ### 7. Exposure audit on staged commits
 
-Already wired into the evening-winddown skill — step 7 of the wind-down runs
+Already wired into the evening-winddown skill -- step 7 of the wind-down runs
 `scripts/exposure_audit.py --staged` before auto-committing. HIGH findings
 (your real name, email, phone, partner info, or any credential shape) block
 the commit. MED findings (employer, usernames, aliases) prompt for confirmation.
@@ -94,9 +94,9 @@ No manual install needed.
 - `SKILL.md`, runbooks, scripts, `targets.example.json`, this README
 
 **Gitignored (via `.gitignore`):**
-- `targets.json` — real PII
-- `.claude/skills/cybersecurity-bodyguard/scan-results/` — runtime scan output
-- `.claude/skills/cybersecurity-bodyguard/cache/` — any cached broker responses
+- `targets.json` -- real PII
+- `.claude/skills/cybersecurity-bodyguard/scan-results/` -- runtime scan output
+- `.claude/skills/cybersecurity-bodyguard/cache/` -- any cached broker responses
 
 All personal data and scan results stay local or in your Obsidian vault. This
 follows the privacy pattern documented in the root `CLAUDE.md`.
@@ -122,4 +122,4 @@ Or explicitly: `/cybersecurity-bodyguard`.
   VictimConnect, EFF).
 - Scan results stay local. No data is sent to any third party other than
   HIBP (breach check), Google (via your WebSearch), and public data-broker
-  indices — all of which you could query yourself.
+  indices -- all of which you could query yourself.

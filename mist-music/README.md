@@ -79,7 +79,7 @@ rather than duplicating the render/transcribe machinery. See `project_midi_tools
 - **OMR is estimation, not magic.** Clean, high-contrast, straight-on scans work best;
   a skewed phone photo of a dense orchestral page will mangle. Use `--keep-xml` to see
   what it recognized and hand-correct the MusicXML if needed.
-- **Basic Pitch is also estimation** — great for monophonic lines and simple polyphony,
+- **Basic Pitch is also estimation** -- great for monophonic lines and simple polyphony,
   fuzzier on dense mixes. It's transcription, not source separation.
 - Nothing here is resident; every model run is a transient subprocess, safe under the
   `mem-watchdog`. Neural generation deliberately runs off-machine.

@@ -428,7 +428,7 @@ def train(minutes=30, goto="::train", food_pct=0.5, style=3):
     return "TRAIN_DONE %dmin | before: %s | after: %s" % (minutes, s0, send("stats"))
 
 # Common OSRS pets follow their owner and read as "interacting with" them, so threats()
-# surfaces them too. Never attack a pet. (Not exhaustive — covers the common skilling/boss pets.)
+# surfaces them too. Never attack a pet. (Not exhaustive -- covers the common skilling/boss pets.)
 PETS = {"phoenix", "heron", "rocky", "beaver", "tangleroot", "baby mole", "rift guardian",
         "giant squirrel", "rock golem", "chompy chick", "vorki", "olmlet", "tzrek-jad",
         "jal-nib-rek", "abyssal orphan", "hellpuppy", "skotos", "smolcano", "youngllef",
@@ -494,7 +494,7 @@ STYLE_NAME = {0: "accurate/Attack", 1: "aggressive/Strength", 2: "defensive/Defe
 def _combat_tab_open():
     """True if the style buttons are on-screen (combat tab is the active side panel).
     A hidden widget RETAINS its last canvas coords, so coords alone give a false positive
-    once the tab has ever been shown — must check the HID flag on the s3 entry."""
+    once the tab has ever been shown -- must check the HID flag on the s3 entry."""
     dump = send("widgetkids 593 0")
     i = dump.find("s3[")
     if i < 0:
@@ -503,7 +503,7 @@ def _combat_tab_open():
     return "HID" not in entry and "-1,-1" not in entry
 
 def setstyle(idx):
-    """Switch attack style. Always opens the combat tab first (idempotent on Alora — clicking
+    """Switch attack style. Always opens the combat tab first (idempotent on Alora -- clicking
     an already-open tab keeps it open), verifies it's open, then clicks the style button.
     0 accurate(Att) 1 aggressive(Str) 2 defensive(Def) 3 controlled(all)."""
     idx = int(idx)

@@ -1,4 +1,4 @@
-"""Pronunciation fixes for XTTS — respell words the model mangles, phonetically.
+"""Pronunciation fixes for XTTS -- respell words the model mangles, phonetically.
 
 XTTS occasionally mispronounces specific words (e.g. "synced" -> "sinsed").
 There's no per-word phoneme input, so we respell the offender to a spelling the

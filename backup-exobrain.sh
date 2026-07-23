@@ -1,14 +1,14 @@
 #!/bin/bash
 # Daily COLLECTIVE backup of everything GitHub doesn't hold, into Google Drive.
 #
-# One archive per run — exobrain-collective-<timestamp>.tar.gz — bundling three
+# One archive per run -- exobrain-collective-<timestamp>.tar.gz -- bundling three
 # top-level trees:
 #   1. Exobrain harness/      the whole harness folder (incl. its own gitignored
 #                             data: .env, .mcp.json, processing-log.json, etc.)
 #   2. Exobrain/              the full Obsidian vault (not a git repo; this is
 #                             its ONLY automated backup)
 #   3. repos-gitignored/<repo>/...  the gitignored files of every sibling repo
-#                             under REPO_SCAN_ROOT — the data GitHub never sees
+#                             under REPO_SCAN_ROOT -- the data GitHub never sees
 #                             (secrets, SQLite DBs, tokens, local state). Code
 #                             itself already lives on GitHub, so it's skipped.
 #
@@ -17,7 +17,7 @@
 #
 # Retention: grandfather-father-son (config.sh KEEP_DAILY/WEEKLY/MONTHLY). A
 # single archive can count toward several tiers at once, so there is exactly one
-# physical copy of each kept archive — no duplication on Drive.
+# physical copy of each kept archive -- no duplication on Drive.
 #
 # Schedule: daily at 2:00 AM via com.exobrain.backup.plist (+ RunAtLoad catch-up).
 #
@@ -100,7 +100,7 @@ HARNESS_BASENAME="$(basename "$HARNESS_DIR")"
 VAULT_PARENT="$(dirname "$VAULT_DIR")"
 VAULT_BASENAME="$(basename "$VAULT_DIR")"
 
-# 1. Harness — whole folder, minus runtime caches. Captures the harness's own
+# 1. Harness -- whole folder, minus runtime caches. Captures the harness's own
 #    gitignored data automatically (tar doesn't honor .gitignore).
 echo "[$(date)] Adding harness: $HARNESS_BASENAME"
 tar -cf "$COLLECTIVE_TAR" \
@@ -115,14 +115,14 @@ tar -cf "$COLLECTIVE_TAR" \
     -C "$HARNESS_PARENT" \
     "$HARNESS_BASENAME"
 
-# 2. Vault — full (it's small and lives in no git repo, so this is its only net).
+# 2. Vault -- full (it's small and lives in no git repo, so this is its only net).
 echo "[$(date)] Adding vault: $VAULT_BASENAME"
 tar -rf "$COLLECTIVE_TAR" \
     --exclude='.DS_Store' \
     -C "$VAULT_PARENT" \
     "$VAULT_BASENAME"
 
-# 2b. Out-of-tree extras — secrets/state that live OUTSIDE the harness, the vault,
+# 2b. Out-of-tree extras -- secrets/state that live OUTSIDE the harness, the vault,
 #     and the git-repo sweep, so nothing else would catch them: the Plaud token,
 #     global ~/.claude settings + the Discord bot token, and a couple of non-git
 #     app auth files. Namespaced under home-extras/ so restore is unambiguous. The

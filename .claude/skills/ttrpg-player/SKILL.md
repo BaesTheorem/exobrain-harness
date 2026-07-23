@@ -1,6 +1,6 @@
 ---
 name: ttrpg-player
-description: Alex's player-side TTRPG assistant (NOT the GM skill). Use when Alex is a player in someone else's campaign — character creation, backstory development via Knife Theory, pre-session tactical prep, in-combat tactics, and post-session character development. Triggers on "I'm playing", "my character", "character creation", "backstory help", "build a character", "knives", "tactical prep", "how should I play this fight", "level up planning", or when Alex references a campaign he plays in (not GMs). If ambiguous whether he's GM or player, ask.
+description: Alex's player-side TTRPG assistant (NOT the GM skill). Use when Alex is a player in someone else's campaign -- character creation, backstory development via Knife Theory, pre-session tactical prep, in-combat tactics, and post-session character development. Triggers on "I'm playing", "my character", "character creation", "backstory help", "build a character", "knives", "tactical prep", "how should I play this fight", "level up planning", or when Alex references a campaign he plays in (not GMs). If ambiguous whether he's GM or player, ask.
 ---
 
 # TTRPG Player Assistant
@@ -17,8 +17,8 @@ For player-side campaigns, look for Alex's PC note (usually named after the char
 
 Both of these live in the vault and should be **read at runtime** rather than duplicated here:
 
-- **7 Tactical Aspects of Combat** (Bilbron Bafflestone): `/Users/alexhedtke/Exobrain/Areas/Adventure & Creativity/TTRPG Campaigns/The Seven Tactical Aspects of Combat.md` — the canonical framework for combat optimization
-- **Tactician tips** (Jerick): `/Users/alexhedtke/Exobrain/Areas/Adventure & Creativity/TTRPG Campaigns/DnD Tactician tips.md` — how to lead a party well without being an asshole
+- **7 Tactical Aspects of Combat** (Bilbron Bafflestone): `/Users/alexhedtke/Exobrain/Areas/Adventure & Creativity/TTRPG Campaigns/The Seven Tactical Aspects of Combat.md` -- the canonical framework for combat optimization
+- **Tactician tips** (Jerick): `/Users/alexhedtke/Exobrain/Areas/Adventure & Creativity/TTRPG Campaigns/DnD Tactician tips.md` -- how to lead a party well without being an asshole
 
 Skim the relevant sections whenever tactical advice is requested.
 
@@ -65,15 +65,15 @@ A top reply to the Knife Theory post (u/TwilightVulpine) argues that framing bac
 - **Offer** hooks (a friend asks for a favor that pulls the party somewhere new)
 - **Reward** the PC (heirlooms that turn out to be valuable, reputations that open doors)
 
-**How Alex should apply this:** When tallying knives, also tag each one with a *non-stabby* use. A missing sibling is a knife, but they're also someone who might send a letter with intel. A favored heirloom is a knife, but it might also be the key to a hidden vault. Hand the GM **multi-purpose backstory elements** — they'll use them for both suffering and reward, and the character will feel more alive.
+**How Alex should apply this:** When tallying knives, also tag each one with a *non-stabby* use. A missing sibling is a knife, but they're also someone who might send a letter with intel. A favored heirloom is a knife, but it might also be the key to a hidden vault. Hand the GM **multi-purpose backstory elements** -- they'll use them for both suffering and reward, and the character will feel more alive.
 
 ### How to help Alex with a new character
 
 1. Read any existing character notes, campaign reference, or session-0 questionnaire.
-2. Draft a backstory skeleton and **tally the knives** explicitly in a list at the bottom (e.g., "Knife count: 7 — mentor (alive, in debt to), dead sister, unknown father, magical phobia, failed duty to temple, stolen heirloom, hidden heresy").
+2. Draft a backstory skeleton and **tally the knives** explicitly in a list at the bottom (e.g., "Knife count: 7 -- mentor (alive, in debt to), dead sister, unknown father, magical phobia, failed duty to temple, stolen heirloom, hidden heresy").
 3. For each knife, add a one-line **non-stabby use** (what this could offer the party or plot, not just what could go wrong).
 4. Flag imbalance: too few knives, too many, all one category, or all "stab-only" with no supportive potential.
-5. Stay on the *character concept* first — mechanics later. Don't optimize a character Alex isn't bought into.
+5. Stay on the *character concept* first -- mechanics later. Don't optimize a character Alex isn't bought into.
 
 ---
 
@@ -85,10 +85,10 @@ A top reply to the Knife Theory post (u/TwilightVulpine) argues that framing bac
 
 1. **Load the character.** Read Alex's PC note in the campaign folder. If missing, ask for class/level/subclass, key feats, notable items, and spell list.
 2. **Load the situation.** What's the encounter, threat level, party composition, terrain, remaining resources?
-3. **Read the relevant section of the 7 Aspects doc.** Don't recite the whole thing — pull the specific aspect that applies (e.g., if the PC is about to be surprised, read Terms of Engagement; if an open-field fight against flyers, read Maneuverability).
-4. **Apply the Tactician playbook** if Alex is positioning advice for the whole party, not just his own turn — share *objectives*, not orders; use in-character framing when the GM dislikes metagame talk.
+3. **Read the relevant section of the 7 Aspects doc.** Don't recite the whole thing -- pull the specific aspect that applies (e.g., if the PC is about to be surprised, read Terms of Engagement; if an open-field fight against flyers, read Maneuverability).
+4. **Apply the Tactician playbook** if Alex is positioning advice for the whole party, not just his own turn -- share *objectives*, not orders; use in-character framing when the GM dislikes metagame talk.
 5. **Flag resource risk.** Is this a Low / Medium / High / Critical threat? Don't burn long-rest or non-renewable resources on a Low fight.
-6. **Give 1–3 concrete options**, not a lecture. Each option should name the specific ability/spell/item and the expected outcome.
+6. **Give 1-3 concrete options**, not a lecture. Each option should name the specific ability/spell/item and the expected outcome.
 
 ### Quick-reference: the 7 Aspects (expand via the full doc)
 
@@ -104,13 +104,13 @@ A top reply to the Knife Theory post (u/TwilightVulpine) argues that framing bac
 
 ### Quick-reference: the Tactician playbook
 
-- **Sailboat retrospective first** — Island (goal), Sails (strengths), Anchor (weaknesses), Rocks (risks), Sun (fun). Know the table before planning.
+- **Sailboat retrospective first** -- Island (goal), Sails (strengths), Anchor (weaknesses), Rocks (risks), Sun (fun). Know the table before planning.
 - **Distinguish negotiables from non-negotiables.** Adapt around PC concepts other players won't change.
 - **Share objectives, not orders.** "We need to split the fight" beats "you cast Fireball at B3".
 - **Spotlight control.** Applaud teammates for wins; own the losses yourself.
 - **Bank account model.** Every push costs social capital. Pick battles.
 - **In-character tactics.** Fold advice into roleplay when the GM values immersion.
-- **Disagree and commit.** If consensus fails, back the plan 100% anyway — modeling it first earns the same treatment back.
+- **Disagree and commit.** If consensus fails, back the plan 100% anyway -- modeling it first earns the same treatment back.
 
 ### Level-up / spell prep checks
 
@@ -119,7 +119,7 @@ When Alex is leveling or refreshing a spell list, run through:
 - Do I have options for **both** open and constrained environments? (Aspect 3)
 - Do I have a **cantrip** for every combat role (damage type variety, different saves, attack rolls, obscurement-proof)? (Aspect 4)
 - Do my concentration spells have **non-redundant** coverage? (Aspect 6)
-- Action / Bonus Action / Reaction / Movement / Summon — can I fill **all five** each round? (Aspect 5)
+- Action / Bonus Action / Reaction / Movement / Summon -- can I fill **all five** each round? (Aspect 5)
 - Do I have an answer for **anti-magic**, **legendary saves**, and the conditions most likely to land on me (Aspect 7 table)?
 
 ---
@@ -130,12 +130,12 @@ When Alex is leveling or refreshing a spell list, run through:
 
 1. Read Alex's PC note and the latest recap/prep for that campaign.
 2. Surface:
-   - **Open knives** from the PC's backstory that haven't been used yet — flag as things to weave into RP.
+   - **Open knives** from the PC's backstory that haven't been used yet -- flag as things to weave into RP.
    - **Unresolved threads** from prior sessions that involve this PC specifically.
-   - **Relationships** with other PCs and NPCs — who does Alex's character owe? who owes him?
-   - **Resource state** — consumables, slots, attunement slots, charges.
-3. Draft 2–3 *roleplay goals* Alex could pursue this session (things his character wants that would move personal arcs forward).
-4. Draft 1–2 *tactical readiness* notes (likely encounters, resource reservation, pre-combat buffs worth pre-casting if the session starts hot).
+   - **Relationships** with other PCs and NPCs -- who does Alex's character owe? who owes him?
+   - **Resource state** -- consumables, slots, attunement slots, charges.
+3. Draft 2-3 *roleplay goals* Alex could pursue this session (things his character wants that would move personal arcs forward).
+4. Draft 1-2 *tactical readiness* notes (likely encounters, resource reservation, pre-combat buffs worth pre-casting if the session starts hot).
 
 ## Mode 4: Post-Session Character Development
 
@@ -144,9 +144,9 @@ When Alex is leveling or refreshing a spell list, run through:
 1. Read the session recap (if the GM's skill produced one) or the Plaud transcript.
 2. Update Alex's PC note with:
    - **New knives forged in play** (a new NPC he now cares about, a debt he just incurred, a secret he just learned)
-   - **Knives the GM has already stabbed with** — cross them off or mark them resolved
-   - **Character growth moments** — quotes, decisions, mannerisms that emerged in play
-   - **Open arcs** — what does this character want next session?
+   - **Knives the GM has already stabbed with** -- cross them off or mark them resolved
+   - **Character growth moments** -- quotes, decisions, mannerisms that emerged in play
+   - **Open arcs** -- what does this character want next session?
 3. If new NPCs or locations got established, add them to the campaign folder so they're ready for next time.
 4. Do **not** create Things 3 tasks from in-fiction content. The only exception is real-life items Alex mentioned at the table (e.g., "I need to buy dice", "text the GM about scheduling").
 

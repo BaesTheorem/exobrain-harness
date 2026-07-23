@@ -1,4 +1,4 @@
-# Awair Element — CO2 watcher + air-quality logger
+# Awair Element -- CO2 watcher + air-quality logger
 
 Polls the Awair Element's local API every 5 minutes via launchd and fires a
 macOS notification **and a Discord DM** when CO2 crosses thresholds during
@@ -31,11 +31,11 @@ DHCP reservation on the router so the cached IP stays valid long-term.
    AWAIR_HOST=AWAIR-ELEM-XXXXXX.local
    ```
 4. (Discord) The watcher DMs Alex via the MIST bot. Two values are needed:
-   - `DISCORD_NOTIFY_CHAT_ID` in the harness `.env` — the bot↔Alex DM channel id.
+   - `DISCORD_NOTIFY_CHAT_ID` in the harness `.env` -- the bot↔Alex DM channel id.
    - `DISCORD_BOT_TOKEN` in `~/.claude/channels/discord/.env` (shared with the
      digest fetcher). If either is missing the watcher logs a skip and still
      fires the macOS notification.
-5. Load the launchd agents (real file copies, not symlinks — see
+5. Load the launchd agents (real file copies, not symlinks -- see
    `feedback_launchd_symlinks`):
    ```
    cp com.exobrain.awair-co2-watcher.plist ~/Library/LaunchAgents/
@@ -58,11 +58,11 @@ Edit constants at the top of `awair-co2-watcher.py`:
 
 ## Files
 
-- `awair-co2-watcher.py` — the polling/alerting script; also appends each reading to `air-log.csv`
-- `awair-rollup.py` — nightly summarizer → `Areas/Health & Fitness/Air Quality Log.md` (rewrites only the `AIR:AUTO` block)
-- `awair-oauth.py` — one-time OAuth login for the Awair *cloud* API (only needed for historical backfill; the local poller needs no token). Reads `AWAIR_CLIENT_ID`, `AWAIR_CLIENT_SECRET`, and optional `AWAIR_REDIRECT_URI` (default `http://localhost:8128/callback`) from the harness `.env`, then writes back `AWAIR_ACCESS_TOKEN` plus `AWAIR_REFRESH_TOKEN` / `AWAIR_TOKEN_EXPIRES_IN` when the server returns them
-- `com.exobrain.awair-co2-watcher.plist` — 5-min poller
-- `com.exobrain.awair-rollup.plist` — nightly rollup (23:55) + RunAtLoad
-- `state.json` — last-notified timestamps + cached `last_ip` (gitignored)
-- `air-log.csv` — per-reading time series, source of truth for the rollup (gitignored: reveals presence patterns)
+- `awair-co2-watcher.py` -- the polling/alerting script; also appends each reading to `air-log.csv`
+- `awair-rollup.py` -- nightly summarizer → `Areas/Health & Fitness/Air Quality Log.md` (rewrites only the `AIR:AUTO` block)
+- `awair-oauth.py` -- one-time OAuth login for the Awair *cloud* API (only needed for historical backfill; the local poller needs no token). Reads `AWAIR_CLIENT_ID`, `AWAIR_CLIENT_SECRET`, and optional `AWAIR_REDIRECT_URI` (default `http://localhost:8128/callback`) from the harness `.env`, then writes back `AWAIR_ACCESS_TOKEN` plus `AWAIR_REFRESH_TOKEN` / `AWAIR_TOKEN_EXPIRES_IN` when the server returns them
+- `com.exobrain.awair-co2-watcher.plist` -- 5-min poller
+- `com.exobrain.awair-rollup.plist` -- nightly rollup (23:55) + RunAtLoad
+- `state.json` -- last-notified timestamps + cached `last_ip` (gitignored)
+- `air-log.csv` -- per-reading time series, source of truth for the rollup (gitignored: reveals presence patterns)
 - Logs: `~/.claude/channels/awair/co2-watcher.log`, `rollup.std{out,err}.log`

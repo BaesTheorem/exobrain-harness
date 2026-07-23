@@ -1,6 +1,6 @@
 ---
 name: cybersecurity-bodyguard
-description: Defensive security partner focused on ONLINE/PUBLIC attack surface — doxxing, stalking, data brokers, credential breaches, and targeted harassment. SCOPE IS THE PUBLIC INTERNET, not this repo or the laptop. Use when the user says "bodyguard", "doxx scan", "OSINT scan", "online privacy scan", "public privacy scan", "threat check", "I'm being harassed", "I think I'm being stalked", "am I being doxxed", "scrub me from the internet", or asks about their public attack surface, data broker presence, credential breaches, or how to respond to a security incident. Also use for pre-flight exposure audits before publishing content. For repo/codebase privacy use exobrain-audit; for laptop/macOS security use antivirus.
+description: Defensive security partner focused on ONLINE/PUBLIC attack surface -- doxxing, stalking, data brokers, credential breaches, and targeted harassment. SCOPE IS THE PUBLIC INTERNET, not this repo or the laptop. Use when the user says "bodyguard", "doxx scan", "OSINT scan", "online privacy scan", "public privacy scan", "threat check", "I'm being harassed", "I think I'm being stalked", "am I being doxxed", "scrub me from the internet", or asks about their public attack surface, data broker presence, credential breaches, or how to respond to a security incident. Also use for pre-flight exposure audits before publishing content. For repo/codebase privacy use exobrain-audit; for laptop/macOS security use antivirus.
 user_invocable: true
 ---
 
@@ -8,9 +8,9 @@ user_invocable: true
 
 Active **defense** against doxxing, stalking, and targeted harassment. This skill does three things:
 
-1. **Passive OSINT self-scan** — what the internet knows about Alex right now
-2. **Outbound exposure audit** — catch PII leaks before they ship
-3. **Incident response** — playbooks for when something is actively going wrong
+1. **Passive OSINT self-scan** -- what the internet knows about Alex right now
+2. **Outbound exposure audit** -- catch PII leaks before they ship
+3. **Incident response** -- playbooks for when something is actively going wrong
 
 ## Config: what to monitor
 
@@ -19,14 +19,14 @@ PII to monitor lives in a gitignored config at `.claude/skills/cybersecurity-bod
 - Legal name + common variants
 - Email addresses (personal, work, throwaway)
 - Phone numbers (current + prior)
-- Physical addresses (current + prior 5 years — stalkers use old addresses)
+- Physical addresses (current + prior 5 years -- stalkers use old addresses)
 - Usernames/handles across platforms
 - Date of birth
-- Partner's name + identifiers (optional — stalkers pivot through family)
+- Partner's name + identifiers (optional -- stalkers pivot through family)
 - Employer name
 - Known aliases and pen names
 
-Never commit this file. Never read it into a response to the user verbatim — refer to entries by key (e.g., "email[0]") when showing scan results.
+Never commit this file. Never read it into a response to the user verbatim -- refer to entries by key (e.g., "email[0]") when showing scan results.
 
 ## Mode 1: Passive OSINT self-scan
 
@@ -36,8 +36,8 @@ Triggered by: "bodyguard scan", "what's public about me", "doxx scan", weekly sc
 
 Run in parallel where possible:
 
-1. **Credential breaches** — query Have I Been Pwned for each email in targets.json. Report new breaches since the last scan (compare against `Security Log.md`).
-2. **Google dorking** — run these searches via WebSearch:
+1. **Credential breaches** -- query Have I Been Pwned for each email in targets.json. Report new breaches since the last scan (compare against `Security Log.md`).
+2. **Google dorking** -- run these searches via WebSearch:
    - `"<full name>" "<city>"` (adjust city from targets)
    - `"<email>"` (each email)
    - `"<phone>"` and `"<phone with dashes>"`
@@ -45,25 +45,25 @@ Run in parallel where possible:
    - `"<full name>" filetype:pdf OR filetype:xlsx OR filetype:csv`
    - `"<full name>" "<employer>"`
    - For each alias/username: `"<alias>"` plus `"<alias>" site:github.com`
-3. **Data broker presence** — check each of:
+3. **Data broker presence** -- check each of:
    - spokeo.com, beenverified.com, whitepages.com, fastpeoplesearch.com, radaris.com, mylife.com, peoplefinders.com, intelius.com, truepeoplesearch.com, familytreenow.com, thatsthem.com
    - For each, WebFetch `https://<site>/...<name-in-their-URL-format>` or run Google search `site:<broker> "<full name>"` and note whether a result exists.
-   - Cross-reference against the takedown tracker (see runbook `data-broker-removal.md`) — flag any site where Alex previously opted out but has reappeared (common — they re-list every 3-6 months).
-4. **GitHub/social leak check** — Google search `"<each email>" site:github.com` and `"<each username>" site:github.com`. Flag any commits in public repos (including this one) that contain PII.
-5. **Reverse image search** (optional, on request) — if Alex provides a profile photo, suggest running TinEye + Google Images manually. Do not download images for him.
-6. **Domain WHOIS** — if Alex owns any domains (check targets.json.domains), WebFetch `https://who.is/whois/<domain>` and flag any personal info that should be behind a privacy proxy.
+   - Cross-reference against the takedown tracker (see runbook `data-broker-removal.md`) -- flag any site where Alex previously opted out but has reappeared (common -- they re-list every 3-6 months).
+4. **GitHub/social leak check** -- Google search `"<each email>" site:github.com` and `"<each username>" site:github.com`. Flag any commits in public repos (including this one) that contain PII.
+5. **Reverse image search** (optional, on request) -- if Alex provides a profile photo, suggest running TinEye + Google Images manually. Do not download images for him.
+6. **Domain WHOIS** -- if Alex owns any domains (check targets.json.domains), WebFetch `https://who.is/whois/<domain>` and flag any personal info that should be behind a privacy proxy.
 
 ### Output
 
 Write findings to `/Users/alexhedtke/Exobrain/Areas/Security/Security Log.md` (create if missing) with today's date as a section header. Format:
 
 ```markdown
-## 2026-04-14 — Passive scan
+## 2026-04-14 -- Passive scan
 
 ### New findings
-- **[HIGH]** beenverified.com — full name + partial address visible
+- **[HIGH]** beenverified.com -- full name + partial address visible
   - Action: [data-broker-removal.md#beenverified]
-- **[MED]** github.com/someuser/repo — email in commit 3fa4b2
+- **[MED]** github.com/someuser/repo -- email in commit 3fa4b2
   - Action: contact repo owner, request scrub + force-push
 
 ### Delta from last scan
@@ -82,18 +82,18 @@ Send a macOS notification summarizing the count per severity.
 
 Triggered by: "check before I post", "exposure audit", "am I leaking anything", or automatically when Alex asks to commit/push to a public repo.
 
-This extends the existing `exobrain-audit` privacy phase. Difference: that skill audits the harness repo; this audits **any outgoing artifact** — social posts, public PRs, blog drafts, images, resumes being sent out, etc.
+This extends the existing `exobrain-audit` privacy phase. Difference: that skill audits the harness repo; this audits **any outgoing artifact** -- social posts, public PRs, blog drafts, images, resumes being sent out, etc.
 
 ### Checks
 
-1. **Staged git changes** — run `git diff --cached` and scan for entries matching anything in targets.json. Also scan for classic leaks: `.env` patterns, API key shapes (`sk-...`, `AIza...`, `AKIA...`, GitHub `ghp_...`), private IPs, home directory paths with full names.
-2. **Images** — if the artifact includes images, run `scripts/exif-strip.py --check <path>`. Report if EXIF contains GPS, device ID, or creator fields. Offer to strip.
-3. **Free-form text** — scan drafts/messages for: full address, phone number, employer + role + location combo (pivot risk), partner's identifying info, real names of non-public people.
-4. **Document metadata** — for PDFs and Office docs, warn if author/title/comments fields are populated with real name. Suggest running `exiftool -all= <file>` before sending.
+1. **Staged git changes** -- run `git diff --cached` and scan for entries matching anything in targets.json. Also scan for classic leaks: `.env` patterns, API key shapes (`sk-...`, `AIza...`, `AKIA...`, GitHub `ghp_...`), private IPs, home directory paths with full names.
+2. **Images** -- if the artifact includes images, run `scripts/exif-strip.py --check <path>`. Report if EXIF contains GPS, device ID, or creator fields. Offer to strip.
+3. **Free-form text** -- scan drafts/messages for: full address, phone number, employer + role + location combo (pivot risk), partner's identifying info, real names of non-public people.
+4. **Document metadata** -- for PDFs and Office docs, warn if author/title/comments fields are populated with real name. Suggest running `exiftool -all= <file>` before sending.
 
 ### Output
 
-Inline findings with line numbers and suggested redactions. Do NOT auto-edit the artifact — surface the findings and let Alex decide.
+Inline findings with line numbers and suggested redactions. Do NOT auto-edit the artifact -- surface the findings and let Alex decide.
 
 ## Mode 3: Incident response
 
@@ -122,20 +122,20 @@ See runbook `doxx-incident-response.md` for full protocol. High level:
 - Do not dox the attacker back. Beyond being wrong, it destroys your legal standing.
 - Do not engage on the attacker's preferred platform. Move everything to channels you control.
 - Do not delete evidence even if it's painful to keep. Archive, then hide, but do not delete.
-- Do not publicize the incident prematurely — it amplifies the attacker's reach. Consider crisis-comms help first.
+- Do not publicize the incident prematurely -- it amplifies the attacker's reach. Consider crisis-comms help first.
 
 ## Runbooks
 
 Detailed playbooks in `runbooks/`:
 
-- `doxx-incident-response.md` — step-by-step response when PII has been publicly posted
-- `stalking-response.md` — physical-safety protocol when a stalker is identified
-- `data-broker-removal.md` — per-broker opt-out procedures and tracker
-- `hardening-checklist.md` — proactive steps (2FA, email aliases, phone number hygiene, etc.)
+- `doxx-incident-response.md` -- step-by-step response when PII has been publicly posted
+- `stalking-response.md` -- physical-safety protocol when a stalker is identified
+- `data-broker-removal.md` -- per-broker opt-out procedures and tracker
+- `hardening-checklist.md` -- proactive steps (2FA, email aliases, phone number hygiene, etc.)
 
 ## Scheduling
 
-- **Weekly** (Sunday morning at 8 AM): launchd runs `scripts/weekly-scan.sh` which invokes Mode 1 (passive OSINT) and appends to Security Log. Install the plist at `com.exobrain.bodyguard-weekly.plist` — see `README.md`.
+- **Weekly** (Sunday morning at 8 AM): launchd runs `scripts/weekly-scan.sh` which invokes Mode 1 (passive OSINT) and appends to Security Log. Install the plist at `com.exobrain.bodyguard-weekly.plist` -- see `README.md`.
 - **Daily** (morning briefing): Quick HIBP check only. Full scan is weekly to avoid rate limits and noise.
 - **On every staged commit**: evening wind-down's git auto-commit step invokes Mode 2 exposure audit before pushing. If HIGH findings are present, the commit is blocked and the user is prompted.
 

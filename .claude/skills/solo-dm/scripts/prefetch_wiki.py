@@ -8,7 +8,7 @@ Writes `wiki_cache: {title, extract, url, fetched_at}` to each marker so the
 dashboard can open the info panel instantly without a live fetch.
 
 Optionally seeds `homebrew_notes` for any marker label found in
-`<DATA_ROOT>/<slug>/homebrew_notes.json` — a flat `{label: note}` map. The
+`<DATA_ROOT>/<slug>/homebrew_notes.json` -- a flat `{label: note}` map. The
 file is gitignored; create one per campaign to seed story-relevant notes.
 """
 from __future__ import annotations
@@ -95,7 +95,7 @@ def main():
     if homebrew:
         print(f"homebrew notes seeded on {seeded} markers (from {len(homebrew)}-entry file)")
     else:
-        print("no homebrew_notes.json found — skipped homebrew seeding")
+        print("no homebrew_notes.json found -- skipped homebrew seeding")
 
 
 if __name__ == "__main__":

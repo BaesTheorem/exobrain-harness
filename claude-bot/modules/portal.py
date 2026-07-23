@@ -1,4 +1,4 @@
-"""Portals — one-off jump links between two channels (Fletcher's `!teleport`).
+"""Portals -- one-off jump links between two channels (Fletcher's `!teleport`).
 
 A "portal" is NOT a mirror. It posts a short message in each of two channels,
 each a clickable Discord jump-link to the other. The classic use: you're chatting
@@ -159,4 +159,4 @@ def setup(ctx: Context) -> None:
 
         ctx.tree.add_command(portal_slash, guilds=[discord.Object(id=g) for g in ctx.config.guild_ids])
 
-    log.info("portal ready — one-off jump links (!portal / !teleport / !tp + /portal)")
+    log.info("portal ready -- one-off jump links (!portal / !teleport / !tp + /portal)")

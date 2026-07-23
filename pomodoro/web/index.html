@@ -433,7 +433,7 @@ let timerSeconds = 25 * 60;
 let totalSeconds = 25 * 60;
 const durationMinutes = 25;
 let interval = null;
-// Wall-clock anchors — counting setInterval ticks alone breaks when the
+// Wall-clock anchors -- counting setInterval ticks alone breaks when the
 // window is minimized (macOS throttles background timers).
 let endTimestamp = null;       // Date.now() when timerSeconds hits 0
 let pausedRemaining = null;    // seconds left when paused; used to re-anchor on resume
@@ -673,7 +673,7 @@ function onTimerComplete() {
     updateButtons();
   } else {
     // Python-side timer already fired the macOS notification.
-    // Counter is reconciled in loadLog() — the session was logged at start_session,
+    // Counter is reconciled in loadLog() -- the session was logged at start_session,
     // so it's already counted; no local increment needed.
     state = 'logging';
     $label.textContent = 'Done!';

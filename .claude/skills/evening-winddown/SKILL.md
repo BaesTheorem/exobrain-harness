@@ -5,9 +5,9 @@ description: Evening wind-down routine that recaps today, scores mood, and prior
 
 # Evening Wind-Down
 
-## Date Handling — CRITICAL
+## Date Handling -- CRITICAL
 
-**Step 0:** Run `date` and lock the target date at the start. If current time is before 2:00 AM, target = previous calendar day; otherwise target = current calendar day. Resolve the daily note filename (e.g., `Wednesday, April 1st, 2026`) once and use it for everything — do NOT re-check the clock if execution crosses midnight.
+**Step 0:** Run `date` and lock the target date at the start. If current time is before 2:00 AM, target = previous calendar day; otherwise target = current calendar day. Resolve the daily note filename (e.g., `Wednesday, April 1st, 2026`) once and use it for everything -- do NOT re-check the clock if execution crosses midnight.
 
 ## Steps
 
@@ -20,14 +20,14 @@ Gather all data in parallel where possible, then present conversationally.
 - How the day actually played out vs the morning briefing plan (read today's daily note for the briefing)
 
 **Tasks**:
-- `get_today` — what's still on today's list? What got completed?
+- `get_today` -- what's still on today's list? What got completed?
 - Check today's daily note for any tasks that were added during the day
 - Flag anything that rolled over (didn't get done and should be rescheduled)
 
 **Health so far**:
-Follow the `/health` skill's **Evening Update** section. Pull today's final Fitbit activity totals and update the Health Log note. Steps vs 15,000 goal — note the gap but don't nag (it's bedtime).
+Follow the `/health` skill's **Evening Update** section. Pull today's final Fitbit activity totals and update the Health Log note. Steps vs 15,000 goal -- note the gap but don't nag (it's bedtime).
 
-**Loki (cat)**: read the **last 7 daily notes** in `Areas/Health & Fitness/Loki Health Log/` (today + the prior 6, by `YYYY-MM-DD.md` filename — don't re-query the API). Pull `weight_lbs` and `visits` from each note's frontmatter and look across the window for **emerging trends**, not just today's snapshot:
+**Loki (cat)**: read the **last 7 daily notes** in `Areas/Health & Fitness/Loki Health Log/` (today + the prior 6, by `YYYY-MM-DD.md` filename -- don't re-query the API). Pull `weight_lbs` and `visits` from each note's frontmatter and look across the window for **emerging trends**, not just today's snapshot:
 - **Weight trajectory**: is the 7-day weight drifting up or down? A steady multi-day slide (or climb) matters more than any single day; ignore single-visit outliers (e.g. a 4.75 lb half-on-the-scale reading).
 - **Visit frequency**: is the daily visit count trending away from her normal band (more frequent could signal urinary/GI issues; much less could signal constipation or that she's avoiding the box)?
 - **Duration**: unusually long average visits can indicate straining.
@@ -37,28 +37,28 @@ Give a one-line status for today (weight + visit count) plus a one-line trend re
 **Pomodoro log**:
 Read today's section from `/Users/alexhedtke/Exobrain/Pomodoro Log.md` (header format `### [[Friday, May 1st, 2026]]` matching the locked target date). If the section exists, capture every `- **HH:MM AM/PM** -- ...` bullet under it and the total session count + minutes. If the section is missing, treat as zero sessions. This feeds the Focus line in step 6.
 
-**Communication**: scan the **full day of message history**, not just the latest message per thread. The `unread` command only surfaces the most recent unread line per chat, which hides earlier asks buried in a thread — always pair it with the full-day `recent` pull and read every message in the window.
-- `python3 "/Users/alexhedtke/Documents/Exobrain harness/imessage/imessage-reader.py" unread` — the set of chats with waiting replies (entry point, not the full picture).
-- `python3 "/Users/alexhedtke/Documents/Exobrain harness/imessage/imessage-reader.py" recent --hours 24 --limit 400` — pull the **whole day** across all conversations and read it in full. Raise `--limit` (or re-run with a wider window) if 400 truncates a busy day — don't stop at the last message in a thread. Read both incoming AND Alex's outgoing messages: incoming for asks/plans to route, outgoing to update CRM `last_contact`.
+**Communication**: scan the **full day of message history**, not just the latest message per thread. The `unread` command only surfaces the most recent unread line per chat, which hides earlier asks buried in a thread -- always pair it with the full-day `recent` pull and read every message in the window.
+- `python3 "/Users/alexhedtke/Documents/Exobrain harness/imessage/imessage-reader.py" unread` -- the set of chats with waiting replies (entry point, not the full picture).
+- `python3 "/Users/alexhedtke/Documents/Exobrain harness/imessage/imessage-reader.py" recent --hours 24 --limit 400` -- pull the **whole day** across all conversations and read it in full. Raise `--limit` (or re-run with a wider window) if 400 truncates a busy day -- don't stop at the last message in a thread. Read both incoming AND Alex's outgoing messages: incoming for asks/plans to route, outgoing to update CRM `last_contact`.
 - Discord scan (last 12 hours)
 
 **Email scan**:
-Follow the `/email` skill's **Evening Winddown** section. Lightweight catch-up since the morning briefing — route new events/tasks, update CRM, skip job alerts.
+Follow the `/email` skill's **Evening Winddown** section. Lightweight catch-up since the morning briefing -- route new events/tasks, update CRM, skip job alerts.
 
 **Route actionable items from iMessage, Discord, Plaud transcripts, Supernote data, and email**:
 - **Tasks**: If a message mentions something Alex needs to do, create a Things 3 task (check for duplicates first). Include context about who asked and when.
 - **Events**: If a message mentions plans with a specific date/time, create a Google Calendar event (clear) or Things inbox task `Review: [event]` (ambiguous).
 - **People notes**: Update People/ notes for anyone mentioned with dated context. Create new People notes for new contacts.
 - **CRM follow-ups**: If someone asked Alex something he hasn't replied to, flag it for tomorrow.
-- **CRM last_contact updates**: For any outgoing iMessages or emails Alex sent today, update `last_contact` in the corresponding People/ note frontmatter to today's date. This is critical for keeping the Network CRM accurate — outgoing communication resets the contact timer.
+- **CRM last_contact updates**: For any outgoing iMessages or emails Alex sent today, update `last_contact` in the corresponding People/ note frontmatter to today's date. This is critical for keeping the Network CRM accurate -- outgoing communication resets the contact timer.
 
 ### 1c. Plaud + Supernote Processing (catch-all safety net)
 
-The launchd watchers (`plaud-watcher`, `supernote-watcher`) and the `check-transcripts` task already process files as they land. Wind-down is the **fallback** for anything they missed — not a nightly re-scan of work already done. Pre-check before invoking the skills so a normal night (everything already processed) costs almost nothing:
+The launchd watchers (`plaud-watcher`, `supernote-watcher`) and the `check-transcripts` task already process files as they land. Wind-down is the **fallback** for anything they missed -- not a nightly re-scan of work already done. Pre-check before invoking the skills so a normal night (everything already processed) costs almost nothing:
 
 1. List source files: the Plaud `.txt` files in `/Users/alexhedtke/My Drive/Plaud/` and the Supernote `.note` files in `/Users/alexhedtke/My Drive/Supernote/Note/` (see `/process-transcript` and `/process-supernote` for the canonical paths).
-2. Read `processing-log.json` and build the set of already-processed IDs. Dedup by `create_time`/title for Plaud and by page-hash for Supernote, **not** just filename (per the Plaud content-dedup rule — the same recording can appear under different filenames).
-3. **Only if** there are source files with no matching log entry, invoke `/process-transcript` and/or `/process-supernote` for those specific files. If everything is already logged, note "Plaud/Supernote: all processed" and move on — do **not** invoke the skills.
+2. Read `processing-log.json` and build the set of already-processed IDs. Dedup by `create_time`/title for Plaud and by page-hash for Supernote, **not** just filename (per the Plaud content-dedup rule -- the same recording can appear under different filenames).
+3. **Only if** there are source files with no matching log entry, invoke `/process-transcript` and/or `/process-supernote` for those specific files. If everything is already logged, note "Plaud/Supernote: all processed" and move on -- do **not** invoke the skills.
 
 This keeps the "never defer to tomorrow" guarantee (genuinely unprocessed files always get caught) while skipping the redundant full re-scan on the common case where the watchers already did the work.
 
@@ -84,15 +84,15 @@ This catches everything Alex writes in Obsidian that isn't captured by Plaud, Su
 Ask Alex directly for a mood score. Keep it lightweight:
 
 > **How was today?** Quick 1-5 + one word for what drove it.
-> (e.g., "4 — productive" or "2 — exhausted")
+> (e.g., "4 -- productive" or "2 -- exhausted")
 
 **Wait for Alex's response.**
 
 If Alex provides a score:
 - Defer to the `/mood` skill for scoring methodology (the `mood` skill is canonical: Alex's self-report anchors Emotional, indirect signals fill in the others, overall is weighted toward the lowest sub-score).
-- **Write the daily note's frontmatter first** (source of truth — `mood_score` + the five facets `mood_emotional`, `mood_energy`, `mood_self_care`, `mood_social`, `mood_purpose`). Then render the Day-score line in the Evening Wind-Down body section from those same values.
+- **Write the daily note's frontmatter first** (source of truth -- `mood_score` + the five facets `mood_emotional`, `mood_energy`, `mood_self_care`, `mood_social`, `mood_purpose`). Then render the Day-score line in the Evening Wind-Down body section from those same values.
 - After writing the body, run `python3 "/Users/alexhedtke/Documents/Exobrain harness/mood-tracker/render-mood-journal.py"` to regenerate `Mood Journal.md` from frontmatter.
-- Confirm with a one-liner: "Logged: 4/5 🟢 — productive. Self-Care flagged (only 8k steps)."
+- Confirm with a one-liner: "Logged: 4/5 🟢 -- productive. Self-Care flagged (only 8k steps)."
 
 If Alex doesn't respond (scheduled task mode):
 - Don't score. Leave it for the morning briefing to infer from signals.
@@ -103,19 +103,19 @@ Read the health concerns config at `.claude/skills/health/health-concerns-config
 
 ### 2c. Electricity & Thermostat (short)
 
-A quick pulse only — the thorough cost review + recommendations live in the weekly review. See `/electricity` for the integrations and read paths.
+A quick pulse only -- the thorough cost review + recommendations live in the weekly review. See `/electricity` for the integrations and read paths.
 
-1. Read the **Energy Log** note (`Areas/Money & Finances/Energy Log.md`) — the scheduled jobs keep its three blocks current; no need to trigger a pull.
+1. Read the **Energy Log** note (`Areas/Money & Finances/Energy Log.md`) -- the scheduled jobs keep its three blocks current; no need to trigger a pull.
 2. Surface at most **two lines**:
-   - **Today vs. typical**: today's kWh/$ against the cycle's "typical" baseline (note Evergy lags ~1 day, so today's number is usually partial — say so).
+   - **Today vs. typical**: today's kWh/$ against the cycle's "typical" baseline (note Evergy lags ~1 day, so today's number is usually partial -- say so).
    - **3rd floor**: today's cooling hours, and flag only a clear **anomaly** (e.g., a floor running far more than usual, or a much higher day than its outdoor low would predict).
-3. If nothing's off, one line: "Energy: tracking $X under/over typical, nothing unusual." Don't lecture about the overnight schedule here — that's the weekly review's job.
+3. If nothing's off, one line: "Energy: tracking $X under/over typical, nothing unusual." Don't lecture about the overnight schedule here -- that's the weekly review's job.
 
 ### 3. Tomorrow Preview
 
 **Calendar**: Use `gcal_list_events` for tomorrow.
 - List events with times
-- Flag early morning events (anything before 9 AM — "alarm recommendation")
+- Flag early morning events (anything before 9 AM -- "alarm recommendation")
 - Flag back-to-back meetings with no breaks
 - Flag travel time needed for in-person events
 - Note open blocks that could be used for priority work
@@ -137,10 +137,10 @@ A quick pulse only — the thorough cost review + recommendations live in the we
 
 ### 4. Rollover & Cleanup
 
-- Any tasks from today that didn't get done — suggest whether to:
+- Any tasks from today that didn't get done -- suggest whether to:
   - **Reschedule** to tomorrow (if still relevant and doable)
   - **Defer** to later this week (if not urgent)
-  - **Drop** (if it's been rolling over repeatedly — flag the pattern)
+  - **Drop** (if it's been rolling over repeatedly -- flag the pattern)
 - If Alex has inbox items that relate to tomorrow's events, surface them
 
 ### 4b. Task Creation for All Actionable Discoveries
@@ -155,7 +155,7 @@ This applies to all sources: iMessages, Discord, Supernote, calendar follow-ups,
 
 ### 5. Things 3 ↔ Obsidian Project Sync (silent)
 
-Run this silently — no output to Alex unless something needs attention.
+Run this silently -- no output to Alex unless something needs attention.
 
 **5a. Run the sync watcher manually** as a catch-all:
 ```bash
@@ -167,13 +167,13 @@ This syncs project status (active/someday/archive), area assignments, and folder
 Scan Things 3 projects (`get_projects`) and for each:
 1. Check if the project's notes field contains an `obsidian://` backlink
 2. If missing, find the Obsidian note by scanning `Projects/` for a note with matching `things_id` in frontmatter
-3. If no note exists, the sync script (5a) should have created one — log a warning if it didn't
+3. If no note exists, the sync script (5a) should have created one -- log a warning if it didn't
 4. Update the Things project's notes field via `update_project` to include the backlink (URL-encode the file path)
 
 **5c. Verify area assignments**:
 Every active/someday project (except Shopping List) should have an `area` property in frontmatter linking to an `Areas/` note. Flag any that are missing.
 
-This is housekeeping — don't mention it in the wind-down output or daily note unless something failed.
+This is housekeeping -- don't mention it in the wind-down output or daily note unless something failed.
 
 ### 5d. Mood Journal Render (silent)
 
@@ -187,11 +187,11 @@ This regenerates `Mood Journal.md` (calendar heatmaps + weekly summaries + daily
 
 ### 6. Write to Daily Note
 
-Append to the **pre-resolved target daily note filename from Step 0**. Do NOT re-derive the date here — use the filename you locked at the start. If the clock has crossed midnight during execution, this is expected; the locked date is correct.
+Append to the **pre-resolved target daily note filename from Step 0**. Do NOT re-derive the date here -- use the filename you locked at the start. If the clock has crossed midnight during execution, this is expected; the locked date is correct.
 
 ```markdown
 ### Evening Wind-Down
-**Day score**: [mood score if provided] [emoji] — [one word]
+**Day score**: [mood score if provided] [emoji] -- [one word]
 - Emotional: [score] | Energy: [score] | Self-Care: [score] | Social: [score] | Purpose: [score]
 
 **Completed**: [count] tasks, [count] events attended
@@ -226,7 +226,7 @@ Commit and push any changes to the Exobrain harness repo:
    - OS/editor junk (`.DS_Store`, `*.swp`, `Thumbs.db`)
    - Large binary files (images, audio, video) that don't belong in version control
    
-   If anything should be ignored, add it to `.gitignore` before committing. If uncertain, mention it to Alex briefly (e.g., "Added `foo.db` to .gitignore — looked like runtime state").
+   If anything should be ignored, add it to `.gitignore` before committing. If uncertain, mention it to Alex briefly (e.g., "Added `foo.db` to .gitignore -- looked like runtime state").
 
 2. **Exposure audit (Mode 2 of cybersecurity-bodyguard)**: After staging, run the pre-commit PII check:
    ```bash
@@ -235,10 +235,10 @@ Commit and push any changes to the Exobrain harness repo:
    ```
    Interpret the exit code:
    - **0** (no findings): proceed to commit
-   - **1** (MED only — employer/username/alias match): show findings to Alex in the wind-down output, ask "Proceed with commit? (y/n)"
-   - **2** (HIGH — real name, email, phone, partner info, secret, SSN/CC shape): **block the commit**. Print findings, surface as URGENT notification, create Things 3 task `SECURITY: review exposure before next commit`. Do NOT push. Exit the wind-down with the commit still staged so Alex can investigate in the morning.
+   - **1** (MED only -- employer/username/alias match): show findings to Alex in the wind-down output, ask "Proceed with commit? (y/n)"
+   - **2** (HIGH -- real name, email, phone, partner info, secret, SSN/CC shape): **block the commit**. Print findings, surface as URGENT notification, create Things 3 task `SECURITY: review exposure before next commit`. Do NOT push. Exit the wind-down with the commit still staged so Alex can investigate in the morning.
    
-   If `targets.json` doesn't exist yet, the script still runs generic secret/PII shape detection — do not skip this step on that basis.
+   If `targets.json` doesn't exist yet, the script still runs generic secret/PII shape detection -- do not skip this step on that basis.
 
 3. **Commit and push**:
 ```bash
@@ -247,18 +247,18 @@ git diff --cached --quiet || git commit -m "Auto-commit: evening wind-down $(dat
 git push
 ```
 
-This is silent housekeeping — don't mention it in the wind-down output unless something was added to .gitignore, an exposure audit finding was surfaced, or the push fails.
+This is silent housekeeping -- don't mention it in the wind-down output unless something was added to .gitignore, an exposure audit finding was surfaced, or the push fails.
 
 ### 8. Notify
 
 ```bash
-osascript -e 'display notification "Evening wind-down ready — tomorrow is planned" with title "Exobrain" sound name "Purr"'
+osascript -e 'display notification "Evening wind-down ready -- tomorrow is planned" with title "Exobrain" sound name "Purr"'
 ```
 
 ## Interaction Style
 
-- **Warm and brief**. Alex is winding down — don't overwhelm.
+- **Warm and brief**. Alex is winding down -- don't overwhelm.
 - Lead with the recap, then mood check, then tomorrow. Natural flow.
 - Don't lecture about missed goals at bedtime. Acknowledge and move on.
 - If something is genuinely urgent for tomorrow, flag it clearly but calmly.
-- Total output should be SHORT — this is a 3-minute check-in, not a weekly review.
+- Total output should be SHORT -- this is a 3-minute check-in, not a weekly review.

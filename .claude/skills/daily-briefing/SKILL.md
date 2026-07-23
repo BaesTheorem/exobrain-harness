@@ -5,11 +5,11 @@ description: Generate a morning briefing with weather, health data, calendar, ta
 
 # Daily Briefing
 
-Lightweight orchestrator that assembles a morning briefing by running domain-specific skills. Each skill owns its own logic — the briefing just sequences them and assembles the output.
+Lightweight orchestrator that assembles a morning briefing by running domain-specific skills. Each skill owns its own logic -- the briefing just sequences them and assembles the output.
 
 Run steps in parallel where there are no dependencies (health + weather + calendar can all run simultaneously, for example).
 
-**MCP readiness (do this before declaring any integration "down").** The Google Calendar, Gmail, Drive, and MyChart tools are **claude.ai-hosted remote MCP servers**. They re-handshake at the start of every session and often are still `connecting` when the briefing fires (especially the 8 AM launchd run). A missing `mcp__claude_ai_*` tool at startup means *not yet connected*, **not** broken. Before you skip calendar or email, call `ToolSearch` for the tool you need (e.g. `google calendar list events`, `gmail search threads`) — ToolSearch **blocks until connecting servers finish**, so it doubles as a wait. Only after a ToolSearch still fails to surface the tool should you flag that integration as unavailable in the briefing. Do not report calendar/email as "down" just because the tool wasn't loaded on the first turn.
+**MCP readiness (do this before declaring any integration "down").** The Google Calendar, Gmail, Drive, and MyChart tools are **claude.ai-hosted remote MCP servers**. They re-handshake at the start of every session and often are still `connecting` when the briefing fires (especially the 8 AM launchd run). A missing `mcp__claude_ai_*` tool at startup means *not yet connected*, **not** broken. Before you skip calendar or email, call `ToolSearch` for the tool you need (e.g. `google calendar list events`, `gmail search threads`) -- ToolSearch **blocks until connecting servers finish**, so it doubles as a wait. Only after a ToolSearch still fails to surface the tool should you flag that integration as unavailable in the briefing. Do not report calendar/email as "down" just because the tool wasn't loaded on the first turn.
 
 ## Steps
 
@@ -24,7 +24,7 @@ Run `python3 "/Users/alexhedtke/Documents/Exobrain harness/weather/get-weather.p
 ### 2. Health
 Follow the `/health` skill's **Morning Snapshot** section. Pull yesterday's Fitbit + Withings data, write the Health Log note, and prepare the `#### Health` summary for the daily note.
 
-Also run the **RHR Illness Canary** check from that skill. If it fires, render the alert at the **top of the briefing**, above `#### Health` and above the schedule — this is the one section that pre-empts everything else because it changes how Alex should plan the day.
+Also run the **RHR Illness Canary** check from that skill. If it fires, render the alert at the **top of the briefing**, above `#### Health` and above the schedule -- this is the one section that pre-empts everything else because it changes how Alex should plan the day.
 
 **Loki (cat):** read the most recent `Areas/Health & Fitness/Loki Health Log/` note (don't re-query the API) and add one `#### Loki` line with her latest weight + yesterday's visit count. Run the **Loki anomaly watch** from the `/health` skill against her ~14-day baseline; if a sustained weight slide or frequency change is flagging, surface it as a watch-item with a vet-weigh-in nudge. If nothing's off, keep it to the single status line. If there's no recent Loki note (puller not set up / no data yet), omit the section silently.
 
@@ -36,7 +36,7 @@ Check Things 3 (`get_today` and `get_upcoming` for next 3 days) but do NOT list 
 - It was **newly created** during this briefing run
 - You have **new context** to add (from email, transcript, etc.)
 - You spot **procrastination** or a **deadline risk**
-Trust Things 3 to surface tasks on its own — Alex checks it independently.
+Trust Things 3 to surface tasks on its own -- Alex checks it independently.
 
 ### 5. Priorities
 Read `/Users/alexhedtke/Exobrain/Dashboard.md`. Note which tasks/events align with priorities. Flag if any priority area has no activity scheduled today.
@@ -45,7 +45,7 @@ Read `/Users/alexhedtke/Exobrain/Dashboard.md`. Note which tasks/events align wi
 Follow the `/email` skill's **Daily Briefing** section. Scan last 24h, route actionable items, process job alerts, and run CRM enrichment on outgoing emails.
 
 ### 7. iMessage
-Follow the `/imessage` skill's **Daily Briefing** section. Scan last 24h for CRM updates and task routing. This step produces no briefing output — it's purely CRM maintenance and action routing.
+Follow the `/imessage` skill's **Daily Briefing** section. Scan last 24h for CRM updates and task routing. This step produces no briefing output -- it's purely CRM maintenance and action routing.
 
 ### 8. Mood
 Follow the `/mood` skill's **Daily Briefing** section. Score yesterday, write the full sub-score breakdown to yesterday's daily note, and return the 1-line summary + mood boost recommendation for today's briefing.
@@ -54,17 +54,17 @@ Follow the `/mood` skill's **Daily Briefing** section. Score yesterday, write th
 Follow the `/job-search` skill's **Daily Briefing** section. If it's a weekday, run tracker maintenance and return the pace check.
 
 ### 10. CRM
-Follow the `/crm` skill's **Network scan** mode (mode 8). Create Things 3 tasks for overdue contacts. Do NOT list overdue contacts in the briefing — Things 3 tasks are sufficient. Only mention a contact if you have new context from email/transcript/calendar.
+Follow the `/crm` skill's **Network scan** mode (mode 8). Create Things 3 tasks for overdue contacts. Do NOT list overdue contacts in the briefing -- Things 3 tasks are sufficient. Only mention a contact if you have new context from email/transcript/calendar.
 
 ### 11. News
 Check if `/Users/alexhedtke/Exobrain/News Briefings/YYYY-MM-DD.md` exists for today.
 - **Does not exist**: Run the full `/news-briefing` skill (all phases).
-- **Already exists**: Read **only the YAML frontmatter** of the note — do NOT load the body. The news-briefing skill writes a `tldr:` field (a 3-bullet YAML array) for exactly this purpose. Extract the frontmatter with e.g. `awk '/^---$/{c++; next} c==1' path.md` and parse the `tldr:` list.
+- **Already exists**: Read **only the YAML frontmatter** of the note -- do NOT load the body. The news-briefing skill writes a `tldr:` field (a 3-bullet YAML array) for exactly this purpose. Extract the frontmatter with e.g. `awk '/^---$/{c++; next} c==1' path.md` and parse the `tldr:` list.
 
 Use the 3 `tldr:` bullets verbatim as the daily note's `#### News` section content. Do not re-summarize the body.
 
 ### 12. Local Events (read-only)
-Do NOT run `/local-events` here — the full scan runs as part of the weekly review on Sundays.
+Do NOT run `/local-events` here -- the full scan runs as part of the weekly review on Sundays.
 Read `/Users/alexhedtke/Documents/Exobrain harness/local-events/local-events-log.json` and surface:
 - Events happening **today** or **this weekend** with status "active" (1-3 lines max)
 - **Favorite Artist Alerts** (always surface these prominently)
@@ -82,7 +82,7 @@ Weather goes FIRST (outside the briefing heading), then content under `### Morni
 > [!warning] ⚠️ RHR elevated 7 bpm above 14-day baseline (3-day streak)
 > Possible illness onset. Consider lightening tomorrow's schedule, hydrating, and protecting sleep tonight.
 
-(Only render the callout when the RHR canary fires. Omit entirely otherwise — do not leave a placeholder.)
+(Only render the callout when the RHR canary fires. Omit entirely otherwise -- do not leave a placeholder.)
 
 #### Health
 - Steps: [value] yesterday (✓ goal) | 7-day avg: [value]
@@ -98,13 +98,13 @@ Weather goes FIRST (outside the briefing heading), then content under `### Morni
 - *[watch-item only if a sustained change is flagging; else omit this line]*
 - Full data: [[Loki Health Log.base|Loki Health Log]]
 
-**Mood yesterday**: 3/5 🟡 — steady day, self-care dipped
+**Mood yesterday**: 3/5 🟡 -- steady day, self-care dipped
 **🎯 Mood boost**: [specific recommendation tied to today's schedule]
 
 #### Today
-- 9:00 AM — Team standup (Zoom)
-- 11:00 AM — 1:1 with [Name]
-- 2:00 PM — Free block
+- 9:00 AM -- Team standup (Zoom)
+- 11:00 AM -- 1:1 with [Name]
+- 2:00 PM -- Free block
 ...
 
 #### New tasks created
@@ -114,9 +114,9 @@ Weather goes FIRST (outside the briefing heading), then content under `### Morni
 
 #### News
 *Full briefing: [[News Briefings/YYYY-MM-DD|Today's news briefing]]*
-- [Top headline — 1 sentence]
-- [Second headline — 1 sentence]
-- [Interest area highlight — 1 sentence]
+- [Top headline -- 1 sentence]
+- [Second headline -- 1 sentence]
+- [Interest area highlight -- 1 sentence]
 (3-5 lines max.)
 
 #### Flags
@@ -126,7 +126,7 @@ Weather goes FIRST (outside the briefing heading), then content under `### Morni
 All briefing subsections use H4 (`####`) to nest under the H3. Do NOT include standalone "Tasks Due", "Upcoming", or "Overdue Contacts" sections.
 
 ### 14. Notify
-Clickable banner that opens the MIST Console chat (per Alex's standing rule — briefings open the Console, not the note). Pass `console` as the 4th arg; if you're running inside a Console session and know its sid, pass `console:<sid>` so the click lands on this exact chat.
+Clickable banner that opens the MIST Console chat (per Alex's standing rule -- briefings open the Console, not the note). Pass `console` as the 4th arg; if you're running inside a Console session and know its sid, pass `console:<sid>` so the click lands on this exact chat.
 ```bash
 mist-voice/bin/mist-notify "Your daily briefing is ready in today's note" "MIST" Purr console
 ```

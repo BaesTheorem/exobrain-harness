@@ -45,11 +45,11 @@ Everything the Flipper captures lives as files on the SD card under `/ext`
   session and can't be hand-used at the same time. It releases on exit.
 - **Text vs binary.** Reads are clean for text-y files (`.sub`, `.ir`, BadUSB
   `.txt`, logs). Binary dumps (`.nfc`/`.rfid`) come back as the CLI renders them
-  — fine for inspection, not guaranteed byte-perfect.
+ -- fine for inspection, not guaranteed byte-perfect.
 - **tx verbs vary by firmware.** `tx-subghz`/`tx-ir` are thin wrappers over
   `raw`. If a firmware names the verb differently, use `raw` and we'll adjust.
 
-## Wireless (Bluetooth LE) — `flipper_ble.py`
+## Wireless (Bluetooth LE) -- `flipper_ble.py`
 
 `flipper_ble.py` drives the Flipper **wirelessly over Bluetooth**, no cable.
 
@@ -68,7 +68,7 @@ Flipper's Bluetooth ON (Settings → Bluetooth → ON).
 
 ### How it works (and why it's not just the USB tool)
 
-The Flipper's BLE serial channel does **not** expose the text CLI — over
+The Flipper's BLE serial channel does **not** expose the text CLI -- over
 Bluetooth it speaks the **protobuf RPC** only. So `flipper_ble.py` is a
 from-scratch, dependency-free RPC client: hand-rolled protobuf wire
 encode/decode (no `protoc`, no protobuf runtime) over the BLE GATT serial
@@ -76,7 +76,7 @@ service via `bleak`. Field numbers come from the official `.proto` definitions
 (flipperdevices/flipperzero-protobuf).
 
 - First run scans for "Flipper <name>"; the device address is cached to
-  `.ble_addr` (gitignored) so later runs connect directly — faster and far more
+  `.ble_addr` (gitignored) so later runs connect directly -- faster and far more
   reliable than re-scanning each time.
 - First connection may prompt a pairing PIN on the Flipper screen; confirm it
   there.

@@ -2,7 +2,7 @@
 // never steals window focus and never misses fast voting windows.
 //  - Writing prompts: Opus brainstorms 5 candidates, ships the funniest (<=45 chars).
 //  - Voting: Sonnet picks the funnier of the two answers.
-// NEVER uses the half-points "Safety Quip" — always submits a real full-points answer.
+// NEVER uses the half-points "Safety Quip" -- always submits a real full-points answer.
 // Needs ANTHROPIC_API_KEY in env. Logs to stdout. Stop by killing the process.
 const { chromium } = require('playwright');
 
@@ -28,7 +28,7 @@ async function claude(model, system, user, maxTokens) {
 
 // Comedic principles distilled from researching what wins Quiplash:
 const ANSWER_SYS =
-  "You are a ringer at Quiplash 2 — the player whose answers the whole room reads aloud and loses it over. " +
+  "You are a ringer at Quiplash 2 -- the player whose answers the whole room reads aloud and loses it over. " +
   "The crowd votes head-to-head, so your answer must beat the other player's. Funny wins, not clever-for-clever's-sake.\n\n" +
   "WHAT WINS (use these, don't just list them):\n" +
   "- SPECIFICITY beats generic. A vivid concrete image wins: 'Pulling a Beyoncé' > 'dancing'. Use real brand names, oddly specific numbers, named places.\n" +
@@ -40,7 +40,7 @@ const ANSWER_SYS =
   "- A confident weird specific noun phrase usually beats a sentence.\n\n" +
   "AVOID: clichés, puns unless genuinely great, anything safe or milquetoast, explaining the joke, hashtags, emoji.\n\n" +
   "THE BAR (aim HERE, do not copy it): 'A cupholder shaped like the middle class.' " +
-  "Why it's elite: a mundane object becomes a socioeconomic gut-punch — the cupholder is shrinking to nothing, like the middle class. " +
+  "Why it's elite: a mundane object becomes a socioeconomic gut-punch -- the cupholder is shrinking to nothing, like the middle class. " +
   "Surreal physical image + a topical/political truth + the devastating idea landing on the final word. " +
   "Reach for that: take an ordinary noun and weaponize it as a metaphor for something we're all quietly grim about (the economy, healthcare, aging, dating apps, work). Don't settle for merely 'quirky'.\n\n" +
   "PROCESS: Silently brainstorm 5 candidates using DIFFERENT techniques above. Then pick the single funniest one to read aloud to a room. " +
@@ -68,7 +68,7 @@ async function genAnswer(prompt) {
 }
 
 async function pickVote(question, a, b) {
-  const sys = "You judge Quiplash answers. Reply with exactly one character: A or B — whichever is funnier. Nothing else.";
+  const sys = "You judge Quiplash answers. Reply with exactly one character: A or B -- whichever is funnier. Nothing else.";
   const user = `Prompt: ${question || '(unknown)'}\nA: ${a}\nB: ${b}\nFunnier?`;
   const out = (await claude(VOTE_MODEL, sys, user, 5)).toUpperCase();
   if (out.includes('A') && !out.includes('B')) return a;

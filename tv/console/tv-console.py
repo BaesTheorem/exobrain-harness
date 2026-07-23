@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-TV Console — full-screen TUI for controlling the Samsung TV.
+TV Console -- full-screen TUI for controlling the Samsung TV.
 Hotkey-driven. Live status. App launcher grid. Recent command log.
 """
 
@@ -126,7 +126,7 @@ class TVConsole(App):
         yield Static(id="hotkeys-panel")
         yield Static(id="apps-panel")
         yield Vertical(Log(id="cmd-log"), id="log-panel")
-        yield Input(placeholder="type a command (key KEY_NAME, app <name>, vol up N) — Enter to send",
+        yield Input(placeholder="type a command (key KEY_NAME, app <name>, vol up N) -- Enter to send",
                     id="cmd-input")
         yield Footer()
 

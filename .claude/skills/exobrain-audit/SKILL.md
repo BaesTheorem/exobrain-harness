@@ -1,6 +1,6 @@
 ---
 name: exobrain-audit
-description: Audit the Exobrain harness REPO itself — scans tracked files for leaked personal data, checks legibility for stranger cloning, analyzes architecture, and surfaces AI productivity ideas. SCOPE IS THIS REPO, not the laptop or the public internet. Use when the user says "audit", "exobrain audit", "harness audit", "repo audit", or "harness privacy scan", or wants to review the health, legibility, and efficiency of the Exobrain harness codebase. For online/public attack surface use cybersecurity-bodyguard; for laptop/macOS security use antivirus.
+description: Audit the Exobrain harness REPO itself -- scans tracked files for leaked personal data, checks legibility for stranger cloning, analyzes architecture, and surfaces AI productivity ideas. SCOPE IS THIS REPO, not the laptop or the public internet. Use when the user says "audit", "exobrain audit", "harness audit", "repo audit", or "harness privacy scan", or wants to review the health, legibility, and efficiency of the Exobrain harness codebase. For online/public attack surface use cybersecurity-bodyguard; for laptop/macOS security use antivirus.
 user_invocable: true
 ---
 
@@ -16,21 +16,21 @@ This is the most critical phase. The Exobrain harness repo is designed to be pub
 
 Run `git ls-files` to get all tracked files, then scan them for:
 
-1. **Other people's real names or identifying info** — full names, phone numbers, email addresses, physical addresses, Discord-to-real-name mappings, transcript speaker corrections. Generic placeholders like `[Name]` or `[Friend]` are fine.
-2. **Alex's private info** — salary, home address/ZIP, health data values, relationship details beyond what's needed for function (cycle data values, mood scores, etc.)
-3. **Name-to-identity mappings** — any table, dict, or config that maps usernames/handles to real people
-4. **API keys, tokens, credentials** — anything that looks like a secret (long random strings, `sk-`, `token:`, `Bearer`, etc.)
-5. **Personal data logs** — mood scores, cycle data entries, event preferences, message content, processing log entries with personal details
+1. **Other people's real names or identifying info** -- full names, phone numbers, email addresses, physical addresses, Discord-to-real-name mappings, transcript speaker corrections. Generic placeholders like `[Name]` or `[Friend]` are fine.
+2. **Alex's private info** -- salary, home address/ZIP, health data values, relationship details beyond what's needed for function (cycle data values, mood scores, etc.)
+3. **Name-to-identity mappings** -- any table, dict, or config that maps usernames/handles to real people
+4. **API keys, tokens, credentials** -- anything that looks like a secret (long random strings, `sk-`, `token:`, `Bearer`, etc.)
+5. **Personal data logs** -- mood scores, cycle data entries, event preferences, message content, processing log entries with personal details
 
 ### Legibility check
 
 Beyond privacy, also check that the repo is **legible to someone who isn't Alex**:
 
-1. **Missing READMEs** — every directory that contains gitignored runtime files should have a README explaining what's missing and how to set it up. Check that these READMEs exist and are accurate.
-2. **Hardcoded paths** — tracked files that hardcode `/Users/alexhedtke/` or other machine-specific paths without explanation. These should either be configurable, documented, or noted in a setup guide.
-3. **Unexplained conventions** — scripts, hooks, or configs that do something non-obvious without comments or docs explaining why. A newcomer should be able to understand the "what" and "why" of each component.
-4. **Missing setup instructions** — could someone clone this repo and get it running? Check for gaps in onboarding: missing dependency lists, undocumented environment variables, MCP servers that need manual setup, etc.
-5. **Stale READMEs** — existing READMEs that reference files, paths, or workflows that no longer exist.
+1. **Missing READMEs** -- every directory that contains gitignored runtime files should have a README explaining what's missing and how to set it up. Check that these READMEs exist and are accurate.
+2. **Hardcoded paths** -- tracked files that hardcode `/Users/alexhedtke/` or other machine-specific paths without explanation. These should either be configurable, documented, or noted in a setup guide.
+3. **Unexplained conventions** -- scripts, hooks, or configs that do something non-obvious without comments or docs explaining why. A newcomer should be able to understand the "what" and "why" of each component.
+4. **Missing setup instructions** -- could someone clone this repo and get it running? Check for gaps in onboarding: missing dependency lists, undocumented environment variables, MCP servers that need manual setup, etc.
+5. **Stale READMEs** -- existing READMEs that reference files, paths, or workflows that no longer exist.
 
 ### How to scan
 
@@ -39,10 +39,10 @@ Spawn 3-4 parallel subagents, each covering a subset of tracked files (split by 
 1. Read every tracked file in its assigned directory tree
 2. Flag any line containing potential personal data with: file path, line number, the content, and why it's flagged
 3. Classify each finding as:
-   - **REMOVE** — data is unnecessary for function, just delete it
-   - **GITIGNORE** — data is needed at runtime but shouldn't be tracked. The file should be added to `.gitignore` and a `README.md` created in the same directory explaining what's missing and how to rebuild it
-   - **LEGIBILITY** — not a privacy issue, but a legibility gap (missing README, unexplained config, hardcoded path, stale docs). Needs documentation or refactoring to make the repo understandable to newcomers.
-   - **FALSE POSITIVE** — looks personal but is actually fine (e.g., a generic example, a public figure's name in context)
+   - **REMOVE** -- data is unnecessary for function, just delete it
+   - **GITIGNORE** -- data is needed at runtime but shouldn't be tracked. The file should be added to `.gitignore` and a `README.md` created in the same directory explaining what's missing and how to rebuild it
+   - **LEGIBILITY** -- not a privacy issue, but a legibility gap (missing README, unexplained config, hardcoded path, stale docs). Needs documentation or refactoring to make the repo understandable to newcomers.
+   - **FALSE POSITIVE** -- looks personal but is actually fine (e.g., a generic example, a public figure's name in context)
 
 ### Reference
 
@@ -53,11 +53,11 @@ The full privacy policy is in CLAUDE.md under "Privacy & Legibility (CRITICAL)".
 Produce a structured findings list:
 ```
 #### Privacy Findings
-- **[SEVERITY]** `path/to/file:line` — [description of what was found]
+- **[SEVERITY]** `path/to/file:line` -- [description of what was found]
   - Action: [REMOVE / GITIGNORE+README / FALSE POSITIVE]
 
 #### Legibility Findings
-- **[SEVERITY]** `path/or/directory` — [what's missing or unclear]
+- **[SEVERITY]** `path/or/directory` -- [what's missing or unclear]
   - Action: [Add README / Add comments / Document in setup guide / Update stale docs]
 ```
 
@@ -73,7 +73,7 @@ Use the `/deep-recon` skill to analyze the Exobrain harness holistically. The go
 
 Pass this to deep-recon (adjust based on any specific concerns Alex raises):
 
-> Analyze the Exobrain harness at `/Users/alexhedtke/Documents/Exobrain harness/` as a complete system. Map out every component — skills, hooks, scheduled tasks, launchd watchers, scripts, MCP integrations, data flows — and how they interact. Then identify:
+> Analyze the Exobrain harness at `/Users/alexhedtke/Documents/Exobrain harness/` as a complete system. Map out every component -- skills, hooks, scheduled tasks, launchd watchers, scripts, MCP integrations, data flows -- and how they interact. Then identify:
 >
 > 1. **Blindspots**: What inputs or scenarios could fall through the cracks? Where are there no error handlers or fallback paths?
 > 2. **Redundancies**: Are any skills/scripts doing overlapping work? Are there duplicate data flows?
@@ -82,7 +82,7 @@ Pass this to deep-recon (adjust based on any specific concerns Alex raises):
 > 5. **Missing connections**: What integrations or data flows are obviously missing given what the system already does?
 > 6. **Fragility**: What would break if a single service went down? Single points of failure?
 >
-> Be specific — cite file paths, line numbers, and concrete examples. Prioritize findings by impact.
+> Be specific -- cite file paths, line numbers, and concrete examples. Prioritize findings by impact.
 
 ### Output
 
@@ -98,12 +98,12 @@ Pass this to deep-research:
 
 > Research the latest developments (last 30 days) in AI-powered personal productivity systems, with a focus on:
 >
-> 1. **Claude Code / Claude-powered setups** — new skills, MCP servers, hooks, automation patterns, prompt engineering techniques people are using
-> 2. **Token efficiency** — strategies for reducing context window usage, smarter caching, progressive disclosure patterns, when to use subagents vs inline
-> 3. **Personal knowledge management** — new approaches to note-taking, CRM, task management, or daily reviews using AI
-> 4. **Multi-agent architectures** — patterns for orchestrating multiple AI agents for personal productivity
-> 5. **New MCP servers or tools** — anything released recently that could plug into an Obsidian + Things 3 + Google Calendar + health tracking stack
-> 6. **Community projects** — interesting open-source projects, blog posts, or forum discussions about AI productivity setups similar to Exobrain
+> 1. **Claude Code / Claude-powered setups** -- new skills, MCP servers, hooks, automation patterns, prompt engineering techniques people are using
+> 2. **Token efficiency** -- strategies for reducing context window usage, smarter caching, progressive disclosure patterns, when to use subagents vs inline
+> 3. **Personal knowledge management** -- new approaches to note-taking, CRM, task management, or daily reviews using AI
+> 4. **Multi-agent architectures** -- patterns for orchestrating multiple AI agents for personal productivity
+> 5. **New MCP servers or tools** -- anything released recently that could plug into an Obsidian + Things 3 + Google Calendar + health tracking stack
+> 6. **Community projects** -- interesting open-source projects, blog posts, or forum discussions about AI productivity setups similar to Exobrain
 >
 > For each finding, assess: How hard would it be to integrate into an existing Obsidian-based harness? What's the expected value? Is it proven or experimental?
 
@@ -126,7 +126,7 @@ Audit reports are too large for daily notes. Write full reports to a dedicated f
 ### Full Report Format (`audits/YYYY-MM-DD-audit.md`)
 
 ```markdown
-# Exobrain Audit — YYYY-MM-DD
+# Exobrain Audit -- YYYY-MM-DD
 
 ## Privacy & Legibility Scan
 [Full findings list with file paths, line numbers, classifications]
@@ -151,7 +151,7 @@ Audit reports are too large for daily notes. Write full reports to a dedicated f
 - **Legibility**: [N] gaps found / Good
 - **Architecture**: [top 2-3 findings, one line each]
 - **Research**: [top 2-3 recommendations, one line each]
-- **Action items**: [count] — see full report
+- **Action items**: [count] -- see full report
 ```
 
 Create Things 3 tasks for any action items that need follow-up (check for duplicates first per `/things3` conventions).

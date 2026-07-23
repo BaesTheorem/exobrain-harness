@@ -1,18 +1,18 @@
 #!/usr/bin/env python3
 """
-tv — CLI for the 2nd-floor Samsung TV ("Mirror of Galadriel").
+tv -- CLI for the 2nd-floor Samsung TV ("Mirror of Galadriel").
 
 Usage:
   tv console                 Launch the full-screen TUI dashboard
   tv status                  Power state + model info
   tv on                      Wake-on-LAN (needs Network Standby enabled on TV)
-  tv off                     Power off (KEY_POWER — see ./tv off warning)
+  tv off                     Power off (KEY_POWER -- see ./tv off warning)
   tv pause                   KEY_PAUSE
   tv play                    KEY_PLAY
   tv mute                    KEY_MUTE
   tv vol up [N]              Volume up N times (default 1)
   tv vol down [N]            Volume down N times (default 1)
-  tv app <name|id>           Launch app: netflix, youtube, prime, plex, disney, hulu, max, spotify, apple — or raw app ID
+  tv app <name|id>           Launch app: netflix, youtube, prime, plex, disney, hulu, max, spotify, apple -- or raw app ID
   tv key <KEY>               Send any KEY_* code (see KEY codes ref)
   tv home                    KEY_HOME
   tv back                    KEY_RETURN
@@ -53,7 +53,7 @@ def cmd_off(args):
     if "--force" not in args and "-f" not in args:
         print("WARNING: WSS power-off puts this TV (Samsung TU7000) into a deep-sleep state where")
         print("WoL stops working and ./tv on cannot wake it. Power back on requires the physical remote.")
-        print("Samsung firmware quirk — see README. Pass --force to skip this prompt.")
+        print("Samsung firmware quirk -- see README. Pass --force to skip this prompt.")
         print()
         try:
             for i in range(5, 0, -1):
@@ -64,7 +64,7 @@ def cmd_off(args):
             print("\naborted")
             sys.exit(1)
     t.power_off()
-    print("Sent KEY_POWER — TV will be unreachable until physically powered on.")
+    print("Sent KEY_POWER -- TV will be unreachable until physically powered on.")
 
 
 def cmd_pause(args):  t.send_key("KEY_PAUSE"); print("paused")

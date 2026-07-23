@@ -1,4 +1,4 @@
-// Reliable screenshot via raw CDP. Use this instead of page.screenshot() — Playwright's
+// Reliable screenshot via raw CDP. Use this instead of page.screenshot() -- Playwright's
 // screenshot waits for fonts to load and HANGS on jackbox.tv. CDP captureScreenshot doesn't.
 // Usage: node shot.js [outfile]   (default /tmp/jb.png).  Read the PNG with vision.
 const { chromium } = require('playwright');

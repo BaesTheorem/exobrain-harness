@@ -5,7 +5,7 @@ description: Multi-agent deep research system for complex questions requiring th
 
 # Deep Research
 
-Multi-agent research system inspired by Anthropic's architecture. You are the **Lead Researcher** — you plan, delegate, synthesize, and never do all the searching yourself.
+Multi-agent research system inspired by Anthropic's architecture. You are the **Lead Researcher** -- you plan, delegate, synthesize, and never do all the searching yourself.
 
 ## When to use this skill
 
@@ -35,17 +35,17 @@ Lead Researcher (you, Opus)
 
 Before spawning any agents, think through:
 
-1. **Query classification** — determine complexity:
+1. **Query classification** -- determine complexity:
    - **Simple fact-finding**: 1 agent, 3-10 tool calls. Skip this skill; just search directly.
    - **Comparison/analysis**: 2-4 subagents, 10-15 tool calls each.
    - **Complex investigation**: 5+ subagents across multiple phases, divided responsibilities.
 
-2. **Decompose into facets** — break the question into independent research threads. Each facet becomes a subagent task. Good decomposition means:
+2. **Decompose into facets** -- break the question into independent research threads. Each facet becomes a subagent task. Good decomposition means:
    - No two agents are searching for the same thing
    - Each agent has a clear, bounded objective
    - Facets collectively cover the full question
 
-3. **Identify source types needed** — academic papers, news articles, official docs, company pages, government records, forums, etc. Explicitly tell agents which source types to prioritize.
+3. **Identify source types needed** -- academic papers, news articles, official docs, company pages, government records, forums, etc. Explicitly tell agents which source types to prioritize.
 
 ## Step 2: Spawn Research Subagents
 
@@ -54,7 +54,7 @@ Launch subagents in parallel using the Agent tool. Each subagent gets a detailed
 ```
 You are a research subagent investigating: [SPECIFIC FACET]
 
-OBJECTIVE: [What to find out — be specific]
+OBJECTIVE: [What to find out -- be specific]
 
 SEARCH STRATEGY:
 - Start with short, broad queries to explore the landscape
@@ -68,7 +68,7 @@ OUTPUT FORMAT:
 Return your findings as structured notes:
 1. Key findings (bulleted, each with source URL)
 2. Confidence level (high/medium/low) for each finding
-3. Gaps — what you couldn't find or verify
+3. Gaps -- what you couldn't find or verify
 4. Surprising or contradictory information encountered
 5. Suggested follow-up queries for areas you couldn't fully cover
 
@@ -115,7 +115,7 @@ Compile findings into a structured report. Adapt the format to the query type:
 ...
 
 ## Analysis
-[Your synthesis — connections between findings, implications, what the data suggests]
+[Your synthesis -- connections between findings, implications, what the data suggests]
 
 ## Gaps & Limitations
 [What couldn't be verified, conflicting sources, areas needing more research]
@@ -141,10 +141,10 @@ After synthesizing, spawn a background verification agent (the `/verify` skill p
 ## Research Best Practices
 
 ### Query strategy (critical)
-- **Start broad, then narrow** — resist the urge to write long, specific queries upfront
-- **Diversify query phrasing** — if "AI governance frameworks 2025" returns thin results, try "artificial intelligence regulation policy comparison", "AI safety policy landscape", etc.
-- **Use domain-specific vocabulary** — search .gov sites for policy, arXiv for papers, SEC filings for company financials
-- **Check dates** — prefer recent sources; flag anything older than 2 years as potentially outdated
+- **Start broad, then narrow** -- resist the urge to write long, specific queries upfront
+- **Diversify query phrasing** -- if "AI governance frameworks 2025" returns thin results, try "artificial intelligence regulation policy comparison", "AI safety policy landscape", etc.
+- **Use domain-specific vocabulary** -- search .gov sites for policy, arXiv for papers, SEC filings for company financials
+- **Check dates** -- prefer recent sources; flag anything older than 2 years as potentially outdated
 
 ### Source quality heuristics
 - **Prefer**: .gov, .edu, academic journals, official company pages, established news outlets, primary documents

@@ -1,6 +1,6 @@
 # Doxx Incident Response
 
-Use when PII has been publicly posted about Alex. Timing matters — the first hour shapes everything downstream.
+Use when PII has been publicly posted about Alex. Timing matters -- the first hour shapes everything downstream.
 
 ## Principle: slow down
 
@@ -21,8 +21,8 @@ mkdir -p "$INCIDENT_DIR/screenshots" "$INCIDENT_DIR/archives"
 For each URL:
 1. **Screenshot the full page** with URL bar + timestamp visible. Use Cmd+Shift+4 then Space to capture the whole window.
 2. **Save the page** via browser File → Save As → Webpage, Complete. Save to `$INCIDENT_DIR/archives/`.
-3. **Archive it externally** — submit to https://archive.org/web/ and https://archive.ph/ . Save the resulting archive URLs. If the original is deleted, these remain as evidence.
-4. **Note the attacker's handle/URL** — do not visit their profile beyond what's needed to document it.
+3. **Archive it externally** -- submit to https://archive.org/web/ and https://archive.ph/ . Save the resulting archive URLs. If the original is deleted, these remain as evidence.
+4. **Note the attacker's handle/URL** -- do not visit their profile beyond what's needed to document it.
 
 **Never** edit, annotate, or crop the original screenshots. Work from copies if you need to redact for sharing.
 
@@ -87,10 +87,10 @@ Create `$INCIDENT_DIR/README.md`:
 - [ ] Other: ...
 
 ## Timeline
-- HH:MM — Discovered
-- HH:MM — Evidence preserved
-- HH:MM — Lockdown complete
-- HH:MM — Platform report filed: [URL]
+- HH:MM -- Discovered
+- HH:MM -- Evidence preserved
+- HH:MM -- Lockdown complete
+- HH:MM -- Platform report filed: [URL]
 - ...
 
 ## Actions taken
@@ -113,33 +113,33 @@ Keep this file updated through the full incident. It becomes the evidence trail 
 
 File reports on every platform hosting the PII. Cite platform-specific policies:
 
-- **Twitter/X**: https://help.twitter.com/forms/private_information — cite "posting private information" policy.
-- **Reddit**: https://www.reddit.com/report — cite "sharing personal and confidential information" (rule against doxxing).
-- **Facebook/Instagram**: https://www.facebook.com/help/contact/144059062408922 — cite "sharing private information."
-- **YouTube**: https://support.google.com/youtube/answer/7582512 — privacy complaint form.
-- **Discord**: https://dis.gd/request — select "Doxxing / Personal info."
+- **Twitter/X**: https://help.twitter.com/forms/private_information -- cite "posting private information" policy.
+- **Reddit**: https://www.reddit.com/report -- cite "sharing personal and confidential information" (rule against doxxing).
+- **Facebook/Instagram**: https://www.facebook.com/help/contact/144059062408922 -- cite "sharing private information."
+- **YouTube**: https://support.google.com/youtube/answer/7582512 -- privacy complaint form.
+- **Discord**: https://dis.gd/request -- select "Doxxing / Personal info."
 - **TikTok**: in-app report → Privacy → Personal information.
-- **Google Search**: https://support.google.com/websearch/troubleshooter/9685456 — "remove personal info from search results." Google now removes doxx content from search even when the source page remains.
+- **Google Search**: https://support.google.com/websearch/troubleshooter/9685456 -- "remove personal info from search results." Google now removes doxx content from search even when the source page remains.
 - **Forum/blog hosts**: identify the hosting provider via `whois` on the domain; file abuse with both the forum and its host. If on WordPress.com / Medium / Substack / Ghost.org, use their abuse forms.
-- **Pastebin**: https://pastebin.com/doc_abuse_faq — usually prompt takedowns.
+- **Pastebin**: https://pastebin.com/doc_abuse_faq -- usually prompt takedowns.
 
 **Template** (adapt per platform):
 
 ```
-Subject: Urgent — doxxing / private information posted without consent
+Subject: Urgent -- doxxing / private information posted without consent
 
 Hello [Platform] Trust & Safety team,
 
 I am writing to report a violation of your [specific policy name] policy.
 On [date], user [@handle] posted the following content at [URL]:
-[brief description of what was posted — do NOT paste the PII itself]
+[brief description of what was posted -- do NOT paste the PII itself]
 
 This content includes my personal information that I have not authorized
-to be shared publicly: [list categories — do not paste the actual values].
+to be shared publicly: [list categories -- do not paste the actual values].
 Its publication is causing direct harm and, if your policy against sharing
 private information is to have effect, requires immediate removal.
 
-Evidence: [archive.org / archive.ph URL] — please prioritize review before
+Evidence: [archive.org / archive.ph URL] -- please prioritize review before
 the original content is altered or deleted.
 
 I request:
@@ -147,7 +147,7 @@ I request:
 2. Review of the posting account for pattern of violations
 3. Confirmation of action taken
 
-I am available at [safe contact — consider a dedicated email for this] for
+I am available at [safe contact -- consider a dedicated email for this] for
 any clarification.
 
 Thank you,
@@ -158,7 +158,7 @@ Thank you,
 
 Even after the source page is removed, cached copies persist in search results for days to weeks. File:
 
-- Google: https://search.google.com/search-console/remove-outdated-content (after source removal) + https://support.google.com/websearch/troubleshooter/9685456 (for doxxing content specifically — this works even while source remains).
+- Google: https://search.google.com/search-console/remove-outdated-content (after source removal) + https://support.google.com/websearch/troubleshooter/9685456 (for doxxing content specifically -- this works even while source remains).
 - Bing: https://www.bing.com/webmasters/tools/contentremoval
 
 ### Data broker takedowns
@@ -175,7 +175,7 @@ File when:
 - Attacker identity known + ongoing
 
 Steps:
-1. **FBI IC3**: https://www.ic3.gov/ — internet crime report. Takes 15 minutes. Creates federal record even if not immediately actioned.
+1. **FBI IC3**: https://www.ic3.gov/ -- internet crime report. Takes 15 minutes. Creates federal record even if not immediately actioned.
 2. **Local PD**: non-emergency line first. Ask for the cyber crimes unit or detective on duty. File a report and get a case number. This is essential for later civil action.
 3. **911**: only if immediate physical threat.
 
@@ -194,16 +194,16 @@ Resources:
 - EFF: https://www.eff.org/issues/online-harassment (not direct representation but guidance + referrals)
 - Local bar association lawyer referral service (usually free 30-min consult)
 
-## Phase 3: Week 1–4
+## Phase 3: Week 1-4
 
-- [ ] Monitor for reappearance on data brokers (they re-list every 3–6 months)
-- [ ] Re-run the bodyguard passive scan weekly — watch for new URLs, derivative posts, and platform migration
-- [ ] Check breach databases weekly — attackers often dump credential sets after doxxing
+- [ ] Monitor for reappearance on data brokers (they re-list every 3-6 months)
+- [ ] Re-run the bodyguard passive scan weekly -- watch for new URLs, derivative posts, and platform migration
+- [ ] Check breach databases weekly -- attackers often dump credential sets after doxxing
 - [ ] Rotate any credentials that appeared in the doxx
 - [ ] Consider a new phone number if yours was posted (T-Mobile / Verizon / AT&T can port-freeze to prevent SIM swaps)
 - [ ] Consider address masking: https://www.usps.com/manage/mail-forwarding.htm + PO Box, or a service like Earth Class Mail
-- [ ] Consider a privacy service: DeleteMe, Optery, Kanary — they automate ongoing broker removals. Costs ~$100/yr. Worth it after any major incident.
-- [ ] Close or harden old accounts — the attacker probably found the doxx by chaining old accounts. Audit with `haveibeenpwned.com` and the passive scan.
+- [ ] Consider a privacy service: DeleteMe, Optery, Kanary -- they automate ongoing broker removals. Costs ~$100/yr. Worth it after any major incident.
+- [ ] Close or harden old accounts -- the attacker probably found the doxx by chaining old accounts. Audit with `haveibeenpwned.com` and the passive scan.
 
 ## Phase 4: Close-out
 
@@ -213,7 +213,7 @@ When the incident is stable (no new activity for 2+ weeks):
 2. Identify root cause: where did the attacker first find Alex's PII? Close that source.
 3. Update `hardening-checklist.md` with any new protections adopted.
 4. Schedule a 90-day follow-up scan to verify nothing resurfaces.
-5. Archive the incident directory — keep it, do not delete.
+5. Archive the incident directory -- keep it, do not delete.
 
 ## When to escalate beyond this runbook
 

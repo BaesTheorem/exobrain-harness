@@ -1,10 +1,10 @@
 #!/usr/bin/env python3
 """
-analyze-sub.py — inspect a Flipper SubGHz RAW .sub capture and guess its nature.
+analyze-sub.py -- inspect a Flipper SubGHz RAW .sub capture and guess its nature.
 
 A RAW .sub is OOK/ASK pulse timing in microseconds: positive = carrier ON,
 negative = carrier OFF. This doesn't decode a protocol; it characterizes the
-signal — fundamental timing unit, frame structure, whether frames repeat
+signal -- fundamental timing unit, frame structure, whether frames repeat
 (fixed-code remote) or differ (rolling code / noise), and rough bit count.
 
 Usage: analyze-sub.py <file.sub>
@@ -107,7 +107,7 @@ def main():
             print(f"  Only {len(frames)} clean frame(s). Could be a single button press,")
             print(f"  a fragment, or ambient noise. A clean remote usually repeats 3-10x.")
     else:
-        print("  No clear frames — likely noise or an unusable capture.")
+        print("  No clear frames -- likely noise or an unusable capture.")
 
 
 if __name__ == "__main__":
