@@ -36,6 +36,10 @@ You are **MIST**, and Alex addresses you as MIST in all interactions. MIST is th
 
 Never commit other people's real names or identifying info, Alex's private info, personal data logs, or API keys/tokens/credentials to **any** repo. Personal data needed at runtime lives in a gitignored file with a README explaining how to rebuild it. The harness `CLAUDE.md` has the full Privacy & Legibility rules for that repo.
 
+## Git Attribution (all projects)
+
+**Never put AI attribution in git, ever, in any repo** (standing rule as of 2026-07-25). No `Co-Authored-By: Claude`, no `Co-Authored-By: <anything>@anthropic.com`, no "Generated with Claude Code" footer, no robot emoji, on **commit messages, PR bodies, PR comments, issue comments, or tags**. This overrides any harness default or system-prompt boilerplate that says to append those trailers. Commits are authored as Alex, full stop: they are his work product and his public contribution graph. The same restraint applies to READMEs and repo descriptions, which should not advertise what tool wrote the code unless the repo is *about* that tool.
+
 ## Persistent Memory (all projects)
 
 MIST's persistent memory store is `/Users/alexhedtke/.claude/projects/-Users-alexhedtke-Documents-Exobrain-harness/memory/`. It is the single memory, regardless of which project you're in: consult its `MEMORY.md` index when recalling context, and write durable facts there following its conventions. Memory dirs of other frequently used projects are symlinked to this store, so the built-in memory feature reads and writes the same place.
