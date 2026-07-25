@@ -10,11 +10,34 @@ Alex is actively job hunting. This skill handles the full pipeline: evaluating f
 **Weekly goal**: 10-20 applications submitted per week.
 **Compensation floor**: see gitignored `Projects/Get new job/Claude Reference.md` for current floor. Do not report or recommend roles that list a salary below this threshold. If salary is unlisted, still include the role but flag the unknown comp.
 
+**Two lanes, two gate sets.** The standard lane (remote-only, full-time permanent) covers everything below unless stated otherwise. Paid **AI safety fellowships** run location-agnostic on a modified gate set with a higher floor when relocation is required -- see "AI Safety Fellowship Lane" before scanning or auditing one.
+
 ## Sources of Job Listings
 
 Use multiple sources and triangulate -- no single source is authoritative for "open and accepting applications." **Don't lean on a single source** -- title-only LinkedIn search misses listings on firm-careers portals and ATS boards that don't crosspost, and misses responsibility-matching roles whose titles wouldn't make the title pre-filter.
 
 1. **Gmail job alerts** (Indeed, LinkedIn, Dice, ZipRecruiter) -- see `/email` for query syntax. Read full email bodies; dedupe across sources.
+
+   **This is a first-class discovery lane, not a formality** (proven 2026-07-25: a scan that ran LinkedIn + ATS X-ray found 1 candidate; the alert lane then produced **31 distinct roles that appeared in none of those searches**, including the day's best find, ABS Kids IT Security Analyst at $85-115K). LinkedIn's alert engine matches on saved-search criteria the MCP `search_jobs` call does not reproduce, so the two lanes surface genuinely different pools. Never treat one as covering the other.
+
+   **Do not confuse this with the tracker Gmail search.** Application confirmations and rejections are tracker maintenance; the *alert* emails are discovery. Running one does not cover the other. Both are required.
+
+   **Method** (alert emails are ~180-350KB of HTML each and will blow up context if read directly):
+   1. `search_threads` with `(from:indeed.com OR from:linkedin.com OR from:dice.com OR from:ziprecruiter.com) (jobs OR "job alert" OR "new jobs" OR recommended) newer_than:4d`, `pageSize` 30.
+   2. `get_thread` on each hit. It will exceed the token cap and auto-save to a file -- that is the intended path, and the error message is cheap. Do **not** try to read the body inline.
+   3. Extract job IDs paired with titles from the saved files:
+   ```python
+   import json,re,glob,os,html
+   for f in sorted(glob.glob('mcp-claude_ai_Gmail-get_thread-*.txt'),key=os.path.getmtime):
+       d=json.load(open(f))
+       for m in d.get('messages',[]):
+           body=m.get('htmlBody') or m.get('plaintextBody') or ''
+           for jid,txt in re.findall(r'/jobs/view/(\d{8,12})[^>]*>\s*([^<]{3,90})',body):
+               print(jid, html.unescape(re.sub(r'\s+',' ',txt)).strip()[:70])
+   ```
+   4. **Each alert email contains ~6 roles, not just the one in the subject line.** Harvest all of them; the subject-line role is often the weakest. Dedupe job IDs across emails (heavy repost overlap) and against the Job Listings folder, apply the title pre-filter, then `get_job_details` on survivors in paced batches of 2-4.
+
+   **Expect heavy decay.** Alerts lag: of 8 roles JD-read on 2026-07-25, three were already "No longer accepting applications" (Ascension, Blackpoint Cyber) or removed entirely (ePlus, invalid job ID). Read the freshest alerts first and don't invest in anything older than ~3 days without confirming it's still open. Also expect the staffing-firm glut here (nTech Workforce's ICAM role was a 12-month W2 contract) -- Gate 2 catches these.
 2. **LinkedIn MCP** (`mcp__linkedin__search_jobs`, `get_job_details`) -- see `/linkedin` for read-only rules and pacing. Good for discovery by keyword + location, and for cross-checking listings found elsewhere. Also the source for hiring-contact lookup (`get_company_employees`) on Strong-Fit roles.
 3. **Google search via WebSearch** (NEW -- added 2026-05-19 after Alex flagged LinkedIn-only blind spot):
    - **X-ray search ATS boards**: `site:boards.greenhouse.io "<keyword>" remote`, `site:jobs.lever.co "<keyword>" remote`, `site:jobs.ashbyhq.com "<keyword>" remote`, `site:apply.workable.com "<keyword>" remote` -- these often surface listings not crossposted to LinkedIn
@@ -24,12 +47,45 @@ Use multiple sources and triangulate -- no single source is authoritative for "o
 4. **Firm careers portals direct** -- the firm's own site is the most reliable signal that a role is still open. Cross-check aggregator hits against the firm portal.
 5. **ATS Boards APIs** (Greenhouse, Lever) -- strongest positive verification path. See mode 1 step 3 below for direct API URLs.
 6. **Alex-provided URLs and pasted postings** -- treat as a starting point, still run the audit + verification.
-7. **80,000 Hours job board** (https://jobs.80000hours.org) -- ALWAYS include in every search (Alex standing instruction 2026-06-17). Aggregates high-impact roles at EA / AI-safety / AI-policy orgs that don't crosspost to LinkedIn or mainstream ATS. Use the board's role-type + location filters; surface ops / IT / security / compliance / analyst roles (US/remote), not just research. Connects to Alex's EA / AI-governance pivot track.
+7. **80,000 Hours job board** (https://jobs.80000hours.org) -- ALWAYS include in every search (Alex standing instruction 2026-06-17). Aggregates high-impact roles at EA / AI-safety / AI-policy orgs that don't crosspost to LinkedIn or mainstream ATS. Surface ops / IT / security / compliance / analyst roles (US/remote), not just research. Connects to Alex's EA / AI-governance pivot track.
+
+   **Query it via Algolia, not the page** (solved 2026-07-25; earlier scans wrongly logged this lane as "JS-rendered, unreadable" and skipped it). The board is a Nuxt SPA, so WebFetch returns only the shell, and a `site:jobs.80000hours.org` X-ray **silently returns Built In results instead of failing** -- that false negative is what made the lane look dry. Its search is Algolia, and the public front-end keys live in the homepage HTML under `window.__NUXT__.config.public` (re-extract if these rotate):
+
+   ```bash
+   curl -s -X POST "https://W6KM1UDIB3-dsn.algolia.net/1/indexes/jobs_prod/query" \
+     -H "X-Algolia-API-Key: d1d7f2c8696e7b36837d5ed337c4a319" \
+     -H "X-Algolia-Application-Id: W6KM1UDIB3" \
+     -H "Content-Type: application/json" \
+     -d '{"query":"information security","hitsPerPage":25,"attributesToRetrieve":["title","company_name","tags_location_80k","tags_location_type","tags_role_type","tags_exp_required","salary","url_external","closes_at"]}'
+   ```
+
+   **Search the IT/ops lane, not just AI safety** (Alex standing instruction 2026-07-25). Free-text queries like `"IT analyst"` are near-useless here -- they return alignment researchers and security *engineers* because that's what dominates the corpus. Use the **facets** instead, which is the structural filter:
+
+   ```bash
+   -d '{"query":"","hitsPerPage":60,
+        "facetFilters":[["tags_skill:Information security","tags_skill:Operations"],
+                        ["tags_role_type:Full-time"],
+                        ["tags_location_type:Remote"]],
+        "attributesToRetrieve":["title","company_name","tags_location_80k","tags_exp_required","salary","url_external"]}'
+   ```
+
+   Facet vocabulary (probe with `"facets":["tags_skill","tags_role_type","tags_location_type"]`): `tags_skill` = Research 344, Software engineering 205, Policy 168, **Operations 166**, **Information security 118**, Strategy, Outreach, Management, Finance, Legal. `tags_role_type` = **Full-time 587**, **Fellowship 66**, Internship 56, Funding 33, Part-time 30, Volunteering 30, Course 16. That combination returns ~59 hits vs the handful keyword search finds.
+
+   **Run the `Fellowship` facet as its own second query** (Alex standing instruction 2026-07-25). Paid AI safety fellowships are now in the pipeline on their own gate set -- see "AI Safety Fellowship Lane" below. Do **not** filter this query to `tags_location_type:Remote`; the lane is location-agnostic and the remote filter drops the in-person and relocation programs that are most of it (only 234 of ~800 listings carry any location-type tag at all).
+
+   **Honest expectation for this lane**: the board carries essentially **no corporate IT-analyst / helpdesk / sysadmin roles** -- 7 IT-lane keyword queries on 2026-07-25 surfaced zero. What it does carry that fits Alex is the **Operations Associate/Coordinator** band and occasional infosec-adjacent analyst roles. Still run it every pass (cheap, one call), but expect ops-track hits rather than IT-track hits, and don't read a dry result as the lane being broken.
+
+   For the standard (non-fellowship) lane, filter on `tags_location_type` containing `Remote` and `tags_location_80k` containing `USA`/`Remote, USA`. **Still verify against the primary posting** -- `url_external` usually points at Greenhouse/Ashby, so hit the ATS API to confirm open + read the real JD. The index blurb is not evidence: on 2026-07-25 the Anthropic AI Security entry looked like a strong entry-level remote-US hit, and the Greenhouse API showed it was a 4-month fixed-term fellowship requiring Python fluency. Under the standard gates that was a gate-2 DQ; under the fellowship lane (added later the same day) it is a **candidate** -- fixed-term is expected there, Python is claimable, and the stipend annualizes well past the floor. Re-audit it on the next pass rather than trusting the old DQ.
 8. **Dice, Indeed, and Hiring.cafe** (ADDED 2026-07-22, Alex standing instruction) -- scan all three directly on every discovery pass, in addition to (not instead of) the Gmail alerts from them. These carry a different employer mix than LinkedIn/ATS X-ray and each other; triangulate.
    - **Dice** (https://www.dice.com) -- tech-heavy board, good for IT/security/identity. Search UI: `https://www.dice.com/jobs?q=<keywords>&location=Remote&filters.postedDate=SEVEN&filters.employmentType=FULLTIME`. Dice is JS-rendered but its search backend is reachable: try the `WebFetch` of the search URL first; if it doesn't return listings, use `WebSearch` `site:dice.com "<responsibility phrase>" remote`. **Watch for the staffing-agency/C2C recruiter glut** -- Dice is dense with corp-to-corp contract reqs and body-shop reposts (the AARATECH / RemoteHunter pattern). Aggressively apply Gate 2 (permanent, no contract/C2C/1099) and the body-shop smell test (tiny firm, req posted by a developer, no real JD).
-   - **Indeed** (https://www.indeed.com) -- largest volume, but **bot-hostile**: WebFetch and curl routinely 403 / return a CAPTCHA wall. Reach it via `WebSearch` `site:indeed.com "<title or responsibility phrase>" remote $75,000` to surface candidate URLs, then verify each on the **employer's own careers page / ATS** rather than trusting the Indeed mirror (Indeed pages also over-report "remote" and go stale). If a role only exists on Indeed and can't be confirmed on a primary source, mark "verification incomplete -- Alex must spot-check."
-   - **Hiring.cafe** (https://hiring.cafe) -- fast aggregator with strong structured filters (remote, salary floor, full-time, posting recency). Best used via its search UI/URL params (e.g. filter Remote + US + min salary $75K + full-time + last 7 days). It's an aggregator, so it points to an underlying source -- **follow through to the primary posting (employer ATS/careers page) and verify there**, same as any aggregator mirror. Good for catching roles that never hit LinkedIn or the big ATS X-ray.
+   - **Indeed** (https://www.indeed.com) -- largest volume, but **bot-hostile**: WebFetch and curl routinely 403 / return a CAPTCHA wall. Reach it via `WebSearch` `site:indeed.com "<title or responsibility phrase>" remote $<comp floor>` (substitute the floor from the gitignored Claude Reference.md) to surface candidate URLs, then verify each on the **employer's own careers page / ATS** rather than trusting the Indeed mirror (Indeed pages also over-report "remote" and go stale). If a role only exists on Indeed and can't be confirmed on a primary source, mark "verification incomplete -- Alex must spot-check."
+   - **Hiring.cafe** (https://hiring.cafe) -- fast aggregator with strong structured filters (remote, salary floor, full-time, posting recency). Best used via its search UI/URL params (e.g. filter Remote + US + min salary at the comp floor + full-time + last 7 days). It's an aggregator, so it points to an underlying source -- **follow through to the primary posting (employer ATS/careers page) and verify there**, same as any aggregator mirror. Good for catching roles that never hit LinkedIn or the big ATS X-ray.
    - All three feed the **same 4-gate filter, dedup, and per-listing-note pipeline** as every other source. Rotate keyword angles across days like the other lanes.
+9. **AI safety fellowship boards + program pages** (ADDED 2026-07-25, Alex standing instruction) -- see "AI Safety Fellowship Lane" below for the gate variant. Two sources, both verified live 2026-07-25:
+   - **80,000 Hours Algolia, `tags_role_type:Fellowship` facet** (source #7 above, second query, no remote filter) -- 66 live entries. This is the highest-yield single call in the lane.
+   - **AISafety.com/jobs** (https://aisafety.com/jobs, alias https://aisafety.careers) -- community-maintained board, 475 jobs + a separate 42-entry "Events & training" section that carries fellowships and residencies, timestamped "last updated" on the page. Server-rendered (~1.1MB HTML), so `curl` + a tag strip works; no JS needed.
+   - **Program pages direct.** Recurring programs open and close on their own cycles and often never hit either board in time. Check these each pass (all verified 200 on 2026-07-25): [MATS](https://www.matsprogram.org), [Anthropic Fellows](https://alignment.anthropic.com/fellows-program), [Constellation Astra](https://www.constellation.org/programs/astra-fellowship), [GovAI opportunities](https://www.governance.ai/opportunities), [Horizon Institute](https://horizonpublicservice.org), [TechCongress](https://www.techcongress.io), [IAPS](https://www.iaps.ai/fellowship), [Pivotal](https://www.pivotal-research.org), [ERA](https://www.erafellowship.org), [LASR Labs](https://www.lasrlabs.org), [Apart Research](https://www.apartresearch.com), [Successif](https://successif.org). RAND's Center on AI, Security, and Technology fellowship exists but its direct URL moves -- reach it through the 80k entry rather than a guessed rand.org path (a guessed one 404'd on 2026-07-25).
+   - **Never state a deadline, stipend, or cohort date from memory.** These change every cycle and are exactly the kind of claim that gets hallucinated. Read the program's own page and quote it, or mark the field unknown.
 
 ### Specific employer boards to watch (warm-connection lane)
 
@@ -87,6 +143,90 @@ For **every** posting that clears the 4 hard gates (not just Strong Fits), resea
 Method: `search_companies` to confirm the company URN (disambiguate look-alikes), then `get_company_employees` across a few title-keyword passes, then `get_person_profile` to enrich the top ~3-5. Cross-reference every name against Alex's People/ notes (`Areas/Relationships & Community/People/`) and CRM for warm-intro paths. Record findings in the listing note: fill `contact` / `contact_url` frontmatter with the single highest-impact target, and list the rest under `## Highest-impact contact` (rename to "## People around this role" when there are several) with **Name | Title | LinkedIn | why-relevant**. For Strong-Fit roles (esp. high comp + remote), continue to mode 1 step 6 (draft outreach + `/crm potential` tasks). For weaker-but-qualifying roles, capturing the contacts on the note is enough -- no outreach task required unless Alex asks.
 
 If the LinkedIn MCP is unavailable, note "contact research pending (LinkedIn MCP unavailable)" on the listing and fall back to the company careers page / company LinkedIn.
+
+## AI Safety Fellowship Lane (gate variant)
+
+Alex's standing instruction (2026-07-25): **paid AI safety fellowships are in the pipeline regardless of location.** They run on a modified gate set because the standard four gates would kill essentially all of them -- fellowships are fixed-term by design (gate 2) and most are in-person in the Bay Area, DC, or London (gate 1). Dropping the lane on those grounds is the failure mode this section exists to prevent. Canonical gate text lives in the gitignored `Projects/Get new job/Claude Reference.md` § "Carve-out: paid AI safety fellowships"; read it at scan time.
+
+**Scope**: paid fellowships, residencies, and visiting-researcher programs in AI safety, AI governance, or AI policy. Adjacent-but-in ("AI security", "emerging tech policy" with a real AI component) counts. Not in scope: unpaid programs, courses, grants/funding calls (80k tags those `Course` and `Funding` separately), and general-purpose policy fellowships with no AI angle.
+
+**The four gates, fellowship variant:**
+
+| # | Standard | Fellowship lane |
+|---|---|---|
+| 1 | Fully remote | **Any location, worldwide.** Remote, in-person, and relocation all qualify. The region/TZ-lock DQ does not apply here. |
+| 2 | Full-time permanent | **Fixed-term is expected and fine** (3-24 months). Still must be full-time and a real cohort seat -- a staffing agency calling a 12-month W2 contract a "fellowship" is still a gate-2 fail. |
+| 3 | At or above the standard floor | **Two floors: the standard floor if the fellowship is remote, the higher relocation floor if it requires moving.** Both values live in the gitignored Claude Reference.md -- read them there, don't inline them here. |
+| 4 | ≥80% of responsibilities | Score against **stated eligibility and the selection bar**, not a responsibilities list. |
+
+**Annualize before comparing.** Stipends are quoted every way imaginable; normalize to a yearly number first:
+- weekly × 52 (Anthropic Fellows posts $3,850/wk → ~$200K/yr, clears both floors comfortably)
+- hourly × 2,080 (10a Labs' Red Teaming Fellowship posts $25-32.50/hr → ~$52-68K/yr, under the standard floor, DQ)
+- program-total ÷ program-months × 12 (AI Alignment Foundation's flat "$12,000 stipend" needs its duration read off the program page before it can be scored at all)
+
+Show the arithmetic in the listing note's `verification_signals` so the number is auditable and not re-derived from scratch next pass.
+
+**Cash only counts toward the floor.** Housing, travel, relocation reimbursement, visa support, and compute credits are genuine value but do not close a comp gap. List them under sweeteners.
+
+**Ranges straddling the floor are a conditional pass, never a silent DQ.** Horizon Fellowship posts a wide band on a DC-metro relocation, and the applicable floor cuts through the middle of it -- the bottom misses, the top clears easily. Surface it, flag the band risk in the note, and confirm the actual placement level before building artifacts. (There is already an open Horizon fit-audit with an Aug 30 date -- check the existing listing note before creating a new one.)
+
+**Gate 4 in practice.** A fellowship's purpose is to train people who don't yet do the work, so "80% of the responsibilities" is the wrong instrument -- it would DQ nearly every one of them, including ones Alex could win. Score the *eligibility criteria* instead, and DQ only on a stated bar he actually fails: PhD or postdoc required, published ML research required, JD/law degree required, current-federal-employee-only, citizenship or clearance he lacks. Read the resume PDF and the Claude Reference's AI-safety credential list at runtime for what he can claim rather than assuming. Directionally: governance, policy, ops, and AI-security fellowships fit; pure ML-alignment-research fellowships generally do not, and saying so is not pessimism.
+
+**Work authorization.** International programs are in scope if they clear the relocation floor, but check sponsorship explicitly and flag it rather than assuming. 80k marks the ones that sponsor as `USA (Confirmed Visas)` / `UK (Confirmed Visas)` in `tags_location_80k`.
+
+**Listing notes**: fellowships get the same per-listing note and Bases row as any other role, plus `role_type: fellowship`, `term_months`, and `relocation` in the frontmatter (see the schema below). They count toward the weekly application goal like any other application.
+
+## Re-Apply on Repost (status-aware dedup)
+
+Alex's standing instruction (2026-07-25): **a role he didn't get is not permanently dead.** Employers repost months later with a fresh req, a new hiring manager, or a changed candidate pool, and he wants those surfaced so he can re-apply. The old blanket rule ("skip any company+role already noted, regardless of status") silently buried exactly these, which is the worst kind of miss: a role already known to fit, thrown away without being shown.
+
+**Dedup decision table** -- when a discovered role matches an existing listing note:
+
+| Existing note `status` | Action |
+|---|---|
+| `candidate`, `applied`, `interviewing` | **Skip.** True duplicate of live activity. |
+| `rejected`, `closed`, `withdrawn` | **Do NOT skip.** Check whether the new posting is genuinely fresh (different LinkedIn job ID, or `posted` date materially newer than the note's `date_added`). If fresh → surface as a **re-apply candidate**. If it's the same stale posting still lingering, skip quietly. |
+| `reapply: true` on the note | **Always surface on any repost**, and check the employer's board directly each pass even absent a hit. Highest priority. |
+
+**Marking a note for re-apply.** Add `reapply: true` to the frontmatter. Set it when the role cleared all 4 gates when found AND the loss was *not* due to a permanent disqualifier. Concretely:
+- **Do mark**: lost to volume/competition ("300+ applicants"), went another direction, req closed or was pulled before decision, timing, or Alex reached interview stage and lost late. Interview-stage losses are the **strongest** re-apply case -- he's a known quantity there and got real traction.
+- **Do NOT mark**: rejected against a bar that won't change (needs 5+ yrs GRC, needs a bachelor's, needs a clearance, named tool he lacks), or the role fails a gate today (comp under floor, hybrid, contract).
+
+**Watchlist behavior.** Every discovery pass, in addition to passive dedup, actively check the careers boards of employers with `reapply: true` notes -- same as the warm-connection lane. A repost won't always reach LinkedIn or the alert emails.
+
+**Respect stated re-interview cooldowns.** Some employers set one explicitly at rejection. Record it as `reinterview_cooldown_months` + `reinterview_eligible: YYYY-MM-DD` and do **not** re-apply before that date -- doing so burns a warm relationship. TRM Labs is the live example (rejected warm, 6-month cooldown, eligible 2026-12-23). Keep watching the board during the cooldown so the re-approach can be timed, but don't submit.
+
+**Search `Archive/` too, not just the Job Listings folder.** Alex moves concluded roles to `Exobrain/Archive/<Company> - <Role>/`, which sits *outside* `Projects/Get new job/Job Listings/`. Any dedup or watchlist sweep that only looks in the Job Listings folder is blind to them -- that is exactly how TRM Labs (final-round, warm rejection, $105-115K) and Coefficient Giving IT Associate ($130.5-155.8K) went missing from the first watchlist pass. Sweep by frontmatter, not by folder:
+```bash
+grep -rl "^type: job-listing" /Users/alexhedtke/Exobrain/ | grep -v "/Job Listings/"
+```
+The `.base` filter was corrected on 2026-07-25 to drop its `file.inFolder(...)` clause and match on `type == "job-listing"` alone, so archived listings now appear in the tracker's All and Re-apply views. The Active view still excludes them by status, so nothing pollutes the working list.
+
+**When surfacing a re-apply candidate**, do not overwrite the old note's history. Keep the original note (it holds the archived JD and the rejection record) and add a dated `## Repost <YYYY-MM-DD>` section with the new apply URL and job ID, flipping `status` back to `candidate` and clearing `applied`. Preserve `rejection_date` -- the prior outcome is context worth carrying into the new cover letter, not something to erase.
+
+## Source Coverage Checklist (run before claiming a scan is "full")
+
+A scan is **not** a full scan until every lane below has either run or been explicitly recorded as skipped-with-reason. Failure mode this exists to stop (recurred 2026-07-25): running 4 LinkedIn angles plus a couple of ATS X-rays, then labeling it a "full scan." That pass missed Indeed, Dice, Hiring.cafe, 80,000 Hours, the niche boards, and the Gmail alerts. The Gmail lane alone then produced ~12 names that appeared in none of the searches, so the gap was not marginal.
+
+| # | Lane | Ran? | Notes |
+|---|---|---|---|
+| 1 | Gmail job alerts (`from:` linkedin/indeed/dice/ziprecruiter, `newer_than:4d`) | | **Distinct from the tracker Gmail search.** Confirmations/rejections are tracker maintenance; the *alert* emails are discovery. Running one does not cover the other. |
+| 2 | LinkedIn MCP, 3-4 rotating angles | | Serial only, human-paced. |
+| 3 | Greenhouse / Lever / Ashby X-ray | | One query per board. Do **not** `OR` two boards into a single query -- the engine drops one half silently. |
+| 4 | Dice | | Discard the C2C/contract/body-shop glut. |
+| 5 | Indeed | | Bot-hostile; verify on the employer ATS. |
+| 6 | Hiring.cafe | | Follow through to the primary posting. |
+| 7 | 80,000 Hours | | Algolia endpoint, see Source #7. |
+| 8 | Niche boards (Himalayas / BuiltIn / RemoteRocketship / WeWorkRemotely / Remotive) | | RemoteRocketship Cloudflare-403s even with a browser UA; surface the URL and mark "Alex must spot-check." |
+| 9 | Warm-connection lane (Claude Reference) | | Per-firm careers portals. |
+| 10 | Re-apply watchlist (`reapply: true` notes) | | Check those employers' boards directly; see "Re-Apply on Repost". |
+| 11 | AI safety fellowships (80k `Fellowship` facet + AISafety.com/jobs + program pages) | | Location-agnostic, modified gates. Do NOT apply the remote filter or the permanent-role gate here. See "AI Safety Fellowship Lane". |
+
+**Report the tally honestly**, including the skipped lanes. A scan that ran 4 of 9 lanes is a partial scan; say so in the hub-note log and to Alex rather than labeling it full. Under-running is recoverable; a false "I checked everything" is not, because it silently retires leads.
+
+**Two search-engine false negatives to distrust** (both cost a lane on 2026-07-25):
+- A `site:` X-ray that returns results from a *different* domain than the one filtered means the filter failed. Treat as "lane did not run," not "lane is dry."
+- WebSearch's prose summary is never evidence for a gate decision. Salary-aggregator pages (ZipRecruiter/Glassdoor medians) answering a specific-company query means the posting was not found. Open the real JD or leave the role unscored.
 
 ## Modes
 
@@ -310,6 +450,9 @@ comp_max: 80000            # USD/yr; null if unlisted
 comp_listed: true
 remote: true
 location: "Remote US"
+role_type: standard        # standard | fellowship -- fellowship triggers the modified gate set
+term_months:               # fellowship only: program length in months; null for standard roles
+relocation: false          # true if the seat requires moving; selects the higher relocation floor in the fellowship lane
 apply_url: "https://..."
 contact: "[Name], Sr Technical Recruiter"
 contact_url: "https://linkedin.com/in/..."
@@ -324,7 +467,7 @@ source: rippling-ats       # short tag: greenhouse, lever, ashby, workday, icims
 ---
 ```
 
-Truthful nulls: omit `comp_min` / `comp_max` if unlisted (set `comp_listed: false`); leave `application_date` blank until Alex submits.
+Truthful nulls: omit `comp_min` / `comp_max` if unlisted (set `comp_listed: false`); leave `application_date` blank until Alex submits. For fellowships, record `comp_min` / `comp_max` as the **annualized** figures (show the arithmetic in `verification_signals`) so the Bases comp sort stays comparable across lanes.
 
 **Always stamp `date_added: <today>` when creating a new listing note** (whether from a scan, an apply, or an "I applied to X" mention). It records when the listing entered the tracker and is write-once: never change it on later edits or when a flat note is promoted to its own folder. (Historical notes were backfilled from earliest known engagement date since the vault has no git history.)
 
@@ -443,7 +586,7 @@ When called as part of the daily briefing (every day, weekends included):
    - For each promising search result: open with `/defuddle` or WebFetch to read the JD directly (no need for separate "verify the title" step -- the page IS the JD).
    - **Staleness check**: Google's index lags real-time. Lever (`jobs.lever.co/*`) silently returns 404 when a listing is removed. If `defuddle` returns empty content or `WebFetch` returns 403, fall back to `curl -sL -A "<browser UA>"` to confirm -- many JS-rendered pages need a real UA, but a 404 page means the listing is dead. Discard 404s.
    - **Cloudflare-protected aggregators**: RemoteRocketship and a few others 1010-block curl with a Cloudflare challenge. Those are not blockers for Alex (he can open them in a browser), so still surface the URL -- just note "verification incomplete, Alex must spot-check JD" in the listing note.
-   - Apply the 4-gate hard requirements (remote / FT permanent / comp at or above the floor (value lives in the gitignored Claude Reference.md) or strong inference / ≥80% strong fit).
+   - Apply the 4-gate hard requirements (remote / FT permanent / comp at or above the floor (value lives in the gitignored Claude Reference.md) or strong inference / ≥80% strong fit). **Exception**: if the hit is a paid AI safety fellowship, switch to the fellowship gate variant instead of DQ'ing it -- see "AI Safety Fellowship Lane".
    - Dedupe against `Projects/Get new job/Job Listings/` folder.
    - Create per-listing notes for survivors with `source: greenhouse` / `source: lever` / `source: company-portal` / etc. as appropriate.
 
@@ -451,8 +594,14 @@ When called as part of the daily briefing (every day, weekends included):
    - Hit all three each pass. Rotate the keyword angle day-to-day like the other lanes (title + responsibility phrases).
    - **Dice**: full-time + remote + last-7-days filter; discard the C2C/contract/body-shop glut hard (Gate 2 + smell test).
    - **Indeed**: bot-hostile -- surface URLs via `WebSearch site:indeed.com`, then verify on the employer's own ATS/careers page; mark "verification incomplete" if only the Indeed mirror exists.
-   - **Hiring.cafe**: use its structured filters (Remote + US + min $75K + full-time + recent); follow through to the primary posting and verify there.
+   - **Hiring.cafe**: use its structured filters (Remote + US + min salary at the comp floor + full-time + recent); follow through to the primary posting and verify there.
    - Same 4-gate filter + dedup against the Job Listings folder. Create per-listing notes for survivors with `source: dice` / `source: indeed` / `source: hiringcafe` (or the underlying employer-ATS tag if the aggregator resolves to one).
+
+2c. **AI safety fellowship scan** (ADDED 2026-07-25 -- see Source #9 and "AI Safety Fellowship Lane" for the gate variant):
+   - One 80k Algolia call on `facetFilters: [["tags_role_type:Fellowship"]]` with **no** location filter, plus a pass over AISafety.com/jobs (including its "Events & training" section). Rotate 2-3 program pages per day from the watchlist in Source #9 rather than hitting all twelve every morning.
+   - Apply the **fellowship gates**, not the standard four: any location; fixed-term OK; annualized comp at or above the standard floor if remote, at or above the relocation floor if it requires moving (both in the gitignored Claude Reference.md); eligibility-based fit. Annualize the stipend before scoring and record the arithmetic.
+   - Dedup against the Job Listings folder and `Archive/` like any other lane. Create per-listing notes for survivors with `role_type: fellowship`, `term_months`, `relocation`, and `source: 80000hours` / `aisafety-com` / `program-page`.
+   - **Deadlines matter more here than in the open market.** Fellowships run on cohort cycles with hard application windows, so capture `closes_at` (80k returns it) or the program page's stated deadline in the note and flag anything closing inside 14 days to Alex the same morning.
 
 3. **LinkedIn discovery scan** (verified workflow -- never skip the JD read or the comp DQ check):
    - Read `/linkedin` first for read-only rules, pacing, and the `references[]` mapping gotcha.
@@ -462,6 +611,7 @@ When called as part of the daily briefing (every day, weekends included):
      - `security analyst` / `cybersecurity analyst`
      - `GRC compliance analyst` / `information security GRC`
      - `IT auditor` / `compliance auditor`
+     - **`Cybersecurity Analyst I` / `Security Analyst I` / `Associate Cybersecurity Analyst` / `Junior Security Analyst`** (Alex standing instruction 2026-07-25 -- explicitly include the numbered/entry-level variants). These are his target band and the plain-keyword searches miss them: "cybersecurity analyst" alone ranks Senior/Principal/Engineer titles above the `I` roles, so the entry tier never surfaces. Pair with `experience_level=entry,associate`. Note this cuts the other way from the title pre-filter: **`I` and `Associate` titles are KEEPS, not drops** -- only `II` needs the JD experience-cap check.
    - Filters: `work_type=remote`, `job_type=full_time`, `date_posted=past_24_hours` (so we don't re-scan yesterday's pool), `sort_by=date`.
    - **Use ONLY job_id→title mappings from each response's `references[]` block.** Discard any job_ids from `job_ids[]` not present in `references[]` -- positional alignment is unreliable. (See [[feedback-linkedin-search-job-id-mapping]].)
    - **Title pre-filter** (before any JD read -- saves MCP budget on guaranteed-decline candidates per [[feedback-entry-level-target]]):
@@ -470,10 +620,10 @@ When called as part of the daily briefing (every day, weekends included):
      - Drop obvious sales/CSM: Account Executive, Customer Success, Solutions Engineer (pre-sales), Sales Engineer, Sales Development Rep
      - Keep: plain Analyst/Administrator/Specialist, Junior/Associate, "I"/"II" (with JD-verify experience cap, see below)
      - For "II" titles: if JD requires ≥6 years specialty tenure, treat as stretch and skip.
-   - Dedupe candidates against the existing `Projects/Get new job/Job Listings/` folder (filename `<Company> - <Role>.md`) -- skip any company+role already noted, regardless of status.
+   - Dedupe candidates against the existing `Projects/Get new job/Job Listings/` folder (filename `<Company> - <Role>.md`) -- **status-aware, NOT blanket-skip. See "Re-Apply on Repost" below.**
    - For each fresh candidate from references[]:
      a. Call `mcp__linkedin__get_job_details` -- **read the actual JD before any fit label**. No title-only audits.
-     b. Apply the 4-gate hard requirements (`feedback-job-hard-requirements`):
+     b. Apply the 4-gate hard requirements (`feedback-job-hard-requirements`) -- or, if the posting is a paid AI safety fellowship, the fellowship variant in "AI Safety Fellowship Lane":
         - Fully remote (JD says remote, not just LinkedIn label -- Cyderes 2026-05-19 was hybrid despite "Remote" label)
         - Full-time permanent (not contract, contract-to-hire, 1099, temp)
         - **Comp at or above the floor listed** (the floor's value lives in the gitignored Claude Reference.md), OR brief market-data check (Glassdoor/Salary.com/ZipRecruiter median for that title) shows strong evidence the role clears the floor -- *if unlisted and you can't reach high confidence in <2 min of research, DQ*
