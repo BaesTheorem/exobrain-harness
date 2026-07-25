@@ -84,7 +84,35 @@ Use multiple sources and triangulate -- no single source is authoritative for "o
 9. **AI safety fellowship boards + program pages** (ADDED 2026-07-25, Alex standing instruction) -- see "AI Safety Fellowship Lane" below for the gate variant. Two sources, both verified live 2026-07-25:
    - **80,000 Hours Algolia, `tags_role_type:Fellowship` facet** (source #7 above, second query, no remote filter) -- 66 live entries. This is the highest-yield single call in the lane.
    - **AISafety.com/jobs** (https://aisafety.com/jobs, alias https://aisafety.careers) -- community-maintained board, 475 jobs + a separate 42-entry "Events & training" section that carries fellowships and residencies, timestamped "last updated" on the page. Server-rendered (~1.1MB HTML), so `curl` + a tag strip works; no JS needed.
-   - **Program pages direct.** Recurring programs open and close on their own cycles and often never hit either board in time. Check these each pass (all verified 200 on 2026-07-25): [MATS](https://www.matsprogram.org), [Anthropic Fellows](https://alignment.anthropic.com/fellows-program), [Constellation Astra](https://www.constellation.org/programs/astra-fellowship), [GovAI opportunities](https://www.governance.ai/opportunities), [Horizon Institute](https://horizonpublicservice.org), [TechCongress](https://www.techcongress.io), [IAPS](https://www.iaps.ai/fellowship), [Pivotal](https://www.pivotal-research.org), [ERA](https://www.erafellowship.org), [LASR Labs](https://www.lasrlabs.org), [Apart Research](https://www.apartresearch.com), [Successif](https://successif.org). RAND's Center on AI, Security, and Technology fellowship exists but its direct URL moves -- reach it through the 80k entry rather than a guessed rand.org path (a guessed one 404'd on 2026-07-25).
+   - **Hardcoded program sources -- check every pass** (Alex standing instruction 2026-07-25; all six verified HTTP 200 on that date). These are first-class sources alongside the 80k board, not a rotation. Do not substitute a board listing for the program's own page: the boards lag cohort openings, and these pages carry the real deadline.
+
+     | Source | URL | Notes |
+     |---|---|---|
+     | GovAI | https://www.governance.ai/opportunities | Runs several distinct programs (DC Fellowship, Research Scholars, Research Fellows, Summer/Winter Fellowships) off one page -- read all of them, don't stop at the first. |
+     | IAPS | https://www.iaps.ai/fellowship | AI Policy Fellowship. |
+     | Horizon Institute | https://horizonpublicservice.org/programs/become-a-fellow | The one with an open fit-audit; wide posted band on a DC-metro relocation, so see the straddling-range rule below. |
+     | Talos Network | https://www.talosnetwork.org/talos-fellowship | EU-focused AI policy fellowship -- check work authorization explicitly. (An earlier guessed `talosfellowship.eu` was dead; this is the live domain.) |
+     | US policy fellowship database (Airtable, via BlueDot) | https://airtable.com/app3AlIYjrAVYhvIe/shr1dGfy6WQfJ5mei/tblD3ExDW2P8mtVlj | 35-row index of recurring US policy fellowships. Treat as a **directory of what to go check**, not a data source. |
+     | RAND CAST | https://www.rand.org/global-and-emerging-risks/centers/ai-security-and-technology/fellows.html | Center on AI, Security, and Technology fellows. This is the canonical path -- do not guess a rand.org URL, an earlier guess 404'd. |
+
+     **Reading the Airtable base** (it is JS-only and bot-hostile -- plain `curl` gets UA-sniffed to Airtable's marketing homepage, and the `readSharedViewData` API 401s without a session cookie). Playwright works; `networkidle` never fires because Airtable long-polls, so wait on `domcontentloaded` plus a fixed delay:
+
+     ```python
+     from playwright.sync_api import sync_playwright
+     with sync_playwright() as p:
+         b = p.chromium.launch()
+         pg = b.new_page(viewport={"width": 1800, "height": 1200})
+         pg.goto(URL, wait_until="domcontentloaded", timeout=60000)
+         pg.wait_for_timeout(12000)
+         rows = []
+         for _ in range(35):                       # grid is virtualized -- scroll to see all 35
+             rows += pg.inner_text("body").split("\n")
+             pg.mouse.wheel(0, 1500); pg.wait_for_timeout(600)
+         b.close()
+     ```
+
+     Only the Name column renders at that viewport; other fields need horizontal scroll or a row click. That's fine for its actual job -- it tells you which programs exist (Horizon, TechCongress x2, RAND CAST, GovAI x4, IAPS, LawAI, AAAS, Scoville, Mirzayan, PIF, White House Fellows, and ~20 more), and you then verify each on its own site.
+   - **Secondary program pages**, worth a rotating 2-3 per pass rather than all every day (verified 200 on 2026-07-25): [MATS](https://www.matsprogram.org), [Anthropic Fellows](https://alignment.anthropic.com/fellows-program), [Constellation Astra](https://www.constellation.org/programs/astra-fellowship), [TechCongress](https://www.techcongress.io), [Pivotal](https://www.pivotal-research.org), [ERA](https://www.erafellowship.org), [LASR Labs](https://www.lasrlabs.org), [Apart Research](https://www.apartresearch.com), [Successif](https://successif.org).
    - **Never state a deadline, stipend, or cohort date from memory.** These change every cycle and are exactly the kind of claim that gets hallucinated. Read the program's own page and quote it, or mark the field unknown.
 
 ### Specific employer boards to watch (warm-connection lane)
@@ -220,7 +248,7 @@ A scan is **not** a full scan until every lane below has either run or been expl
 | 8 | Niche boards (Himalayas / BuiltIn / RemoteRocketship / WeWorkRemotely / Remotive) | | RemoteRocketship Cloudflare-403s even with a browser UA; surface the URL and mark "Alex must spot-check." |
 | 9 | Warm-connection lane (Claude Reference) | | Per-firm careers portals. |
 | 10 | Re-apply watchlist (`reapply: true` notes) | | Check those employers' boards directly; see "Re-Apply on Repost". |
-| 11 | AI safety fellowships (80k `Fellowship` facet + AISafety.com/jobs + program pages) | | Location-agnostic, modified gates. Do NOT apply the remote filter or the permanent-role gate here. See "AI Safety Fellowship Lane". |
+| 11 | AI safety fellowships: 80k `Fellowship` facet + AISafety.com/jobs + the **six hardcoded program sources** (GovAI, IAPS, Horizon, Talos, Airtable policy-fellowship base, RAND CAST) | | Location-agnostic, modified gates. Do NOT apply the remote filter or the permanent-role gate here. All six hardcoded sources run every pass. See "AI Safety Fellowship Lane". |
 
 **Report the tally honestly**, including the skipped lanes. A scan that ran 4 of 9 lanes is a partial scan; say so in the hub-note log and to Alex rather than labeling it full. Under-running is recoverable; a false "I checked everything" is not, because it silently retires leads.
 
@@ -598,7 +626,8 @@ When called as part of the daily briefing (every day, weekends included):
    - Same 4-gate filter + dedup against the Job Listings folder. Create per-listing notes for survivors with `source: dice` / `source: indeed` / `source: hiringcafe` (or the underlying employer-ATS tag if the aggregator resolves to one).
 
 2c. **AI safety fellowship scan** (ADDED 2026-07-25 -- see Source #9 and "AI Safety Fellowship Lane" for the gate variant):
-   - One 80k Algolia call on `facetFilters: [["tags_role_type:Fellowship"]]` with **no** location filter, plus a pass over AISafety.com/jobs (including its "Events & training" section). Rotate 2-3 program pages per day from the watchlist in Source #9 rather than hitting all twelve every morning.
+   - One 80k Algolia call on `facetFilters: [["tags_role_type:Fellowship"]]` with **no** location filter, plus a pass over AISafety.com/jobs (including its "Events & training" section).
+   - **Hit all six hardcoded program sources every pass** (GovAI, IAPS, Horizon, Talos, the Airtable policy-fellowship base, RAND CAST -- table in Source #9). Rotate 2-3 of the secondary program pages on top of that; don't run all of them daily.
    - Apply the **fellowship gates**, not the standard four: any location; fixed-term OK; annualized comp at or above the standard floor if remote, at or above the relocation floor if it requires moving (both in the gitignored Claude Reference.md); eligibility-based fit. Annualize the stipend before scoring and record the arithmetic.
    - Dedup against the Job Listings folder and `Archive/` like any other lane. Create per-listing notes for survivors with `role_type: fellowship`, `term_months`, `relocation`, and `source: 80000hours` / `aisafety-com` / `program-page`.
    - **Deadlines matter more here than in the open market.** Fellowships run on cohort cycles with hard application windows, so capture `closes_at` (80k returns it) or the program page's stated deadline in the note and flag anything closing inside 14 days to Alex the same morning.
