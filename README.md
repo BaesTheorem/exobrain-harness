@@ -320,8 +320,9 @@ Sun 4:00 PM:      weekly-review     -> comprehensive synthesis -> Obsidian + Dis
 
 ```
 Exobrain harness/
-|-- CLAUDE.md                           # System manifest (paths, conventions, priorities)
-|-- CLAUDE.global.md                    # Machine-wide instructions (persona, privacy, epistemics), imported by ~/.claude/CLAUDE.md
+|-- CLAUDE.md                           # Canonical instructions: machine-wide conventions (persona, privacy,
+|                                       #   epistemics) + harness ops (paths, pipelines). Loads in every project
+|                                       #   via the ~/.claude/mist-global.md symlink imported by ~/.claude/CLAUDE.md
 |-- README.md                           # This file
 |-- RESTORE.md                          # Disaster-recovery runbook (pairs with /restore-harness and restore-smoke-test.sh)
 |-- restore-smoke-test.sh               # Verifies the latest backup tarball actually restores

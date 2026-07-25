@@ -112,7 +112,7 @@ for d in -Users-alexhedtke -Users-alexhedtke-Exobrain -Users-alexhedtke-Document
   ln -sfn ~/.claude/projects/-Users-alexhedtke-Documents-Exobrain-harness/memory ~/.claude/projects/$d/memory
 done
 ```
-(`mist-global.md` restores from the tarball as a symlink; if it's missing: `ln -s "$HOME/Documents/Exobrain harness/CLAUDE.global.md" ~/.claude/mist-global.md`. It exists because `@import` paths in `~/.claude/CLAUDE.md` break on spaces.)
+(`mist-global.md` restores from the tarball as a symlink; if it's missing: `ln -s "$HOME/Documents/Exobrain harness/CLAUDE.md" ~/.claude/mist-global.md`. It exists because `@import` paths in `~/.claude/CLAUDE.md` break on spaces. As of 2026-07-25 it points at the harness `CLAUDE.md` itself, which is the single canonical instruction file; the old `CLAUDE.global.md` was merged into it.)
 - From `~/restore-staging/repos-gitignored/<repo>/`: phone GCP keys, bus/.env, disposable-email secrets, tv/token.json, etc. -- rsync these in Phase 5 *after* each repo is cloned, not before, or the clone fails on a non-empty dir.
 - **Older archives (pre-2026-06-21)** have no `home-extras/`: re-auth instead -- Plaud via `mcp__plaud__login`, Fitbit via its OAuth flow, and recreate `~/.claude` globals by hand.
 - **Cloud MCPs** (Gmail, Calendar, Drive, MyChart, LinkedIn, Plaud): not restorable from disk -- reconnect each at claude.ai → Integrations.
