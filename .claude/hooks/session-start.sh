@@ -228,7 +228,12 @@ fi
 # 78/EX_CONFIG when headless `claude` can't read the Keychain) is silently dead,
 # and "loaded" alone hides that. launchctl list columns: PID  LAST_EXIT  LABEL.
 # Flag any nonzero. imessage-sync is excluded: it has its own richer check above.
-ROUTINE_FAILS=$(launchctl list 2>/dev/null | awk '$3 ~ /^com\.(mist\.routine|exobrain)\./ && $3 != "com.exobrain.imessage-sync" && $2 != "-" && $2 != "0" {print $3" (exit "$2")"}')
+# $1 is the PID: a real PID means the job is running RIGHT NOW, so a nonzero
+# last-exit is stale history from a previous run, not a current failure. That
+# false-flagged the long-lived KeepAlive daemons (claude-bot showed a -15 from
+# an earlier restart while happily connected to Discord for days). Periodic jobs
+# are idle between fires with PID "-", so their real failures still surface.
+ROUTINE_FAILS=$(launchctl list 2>/dev/null | awk '$3 ~ /^com\.(mist\.routine|exobrain)\./ && $3 != "com.exobrain.imessage-sync" && $1 == "-" && $2 != "-" && $2 != "0" {print $3" (exit "$2")"}')
 if [ -n "$ROUTINE_FAILS" ]; then
   echo "WARN: scheduled routine(s) failing on last run -- investigate run-routine logs:"
   while IFS= read -r line; do
