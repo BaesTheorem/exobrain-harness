@@ -1,0 +1,36 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>Label</key>
+    <string>com.exobrain.claude-cli-update</string>
+
+    <key>ProgramArguments</key>
+    <array>
+        <string>/bin/bash</string>
+        <string>/Users/alexhedtke/Documents/Exobrain harness/claude-cli-autoupdate.sh</string>
+    </array>
+
+    <!-- Catch-up after power-off: launchd does not reliably refire missed
+         StartCalendarInterval events after a cold boot, so RunAtLoad fires the
+         check on login/boot. `claude update` is idempotent, so an extra run is
+         harmless. -->
+    <key>RunAtLoad</key>
+    <true/>
+
+    <!-- Daily at 4:00 AM (local time). Omitting Weekday makes it daily. -->
+    <key>StartCalendarInterval</key>
+    <dict>
+        <key>Hour</key>
+        <integer>4</integer>
+        <key>Minute</key>
+        <integer>0</integer>
+    </dict>
+
+    <key>StandardOutPath</key>
+    <string>/tmp/exobrain-claude-cli-update.out</string>
+
+    <key>StandardErrorPath</key>
+    <string>/tmp/exobrain-claude-cli-update.err</string>
+</dict>
+</plist>
