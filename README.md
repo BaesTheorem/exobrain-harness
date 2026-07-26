@@ -181,7 +181,7 @@ Local launchd jobs (`com.mist.routine.*`) that run each routine headless: `run-r
 
 Two wrappers gate whether a given fire should actually run:
 - `run-routine-catchup.sh <dir> <HH:MM> [cutoff]` -- for routines where late beats never (the morning briefing). If the laptop was asleep at fire time, it still runs on wake, up to a cutoff hour. A per-day marker plus an atomic lock keep a multi-day sleep to exactly one run.
-- `run-routine-ontime.sh <dir> <HH:MM> [grace=15]` -- for routines where a stale run is worse than none (the wind-down). Fires only within a grace window of the scheduled time; a missed slot is skipped.
+- `run-routine-ontime.sh <dir> <start HH:MM> <end HH:MM>` -- for routines where a stale run is worse than none (the wind-down). The routine may run any time inside the window, so the plist carries a primary fire plus retry fires inside that band; a per-day marker keeps it to one completed run, and a fire outside the window is skipped rather than run late. (A legacy `<HH:MM> [grace-minutes]` form still works.)
 
 `run-routine.sh` also classifies failures: auth/config errors (exit 78, "not logged in") stick as a loud FAIL, known-transient API/network errors retry with backoff and then stay quiet, so one dropped connection doesn't masquerade as a broken routine for days.
 
@@ -191,7 +191,7 @@ These runner scripts and plists ship with the private mist-console repo, not thi
 |---------|----------|---------|
 | `morning-briefing` | 8:00 AM daily (catch-up until 6 PM) | Full `/daily-briefing` -> today's daily note + notification |
 | `afternoon-email-scan` | 2:00 PM daily | Scan Gmail for actionable items, job alerts, CRM mentions |
-| `evening-winddown` | 10:00 PM daily | `/evening-winddown`: day recap, mood check-in, tomorrow planning |
+| `evening-winddown` | 10:00 PM daily (any time 9:00 PM to 11:59 PM; retries at 10:45 and 11:30 if the first attempt fails) | `/evening-winddown`: day recap, mood check-in, tomorrow planning |
 | `local-events-scan` | Thursday 12:00 PM | `/local-events` KC event discovery |
 | `weekly-review` | Sunday 4:00 PM | Full GTD `/weekly-review`, writes to Sunday's daily note |
 
