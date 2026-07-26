@@ -34,9 +34,16 @@ TAILORING SCHEMA (all keys optional):
     "skills_append": {"Security": "extra, truthful, ATS keywords"},
     "experience_bullets": {                  # replace a job's bullets (reorder/polish)
         "clyde": ["bullet 1", "bullet 2", ...]
+    },
+    "title_suffix": {                        # opt-in note appended to a job's title line
+        "clyde": " (IT function outsourced, July 2026)"
     }
   }
 Never add a skill/tool/cert the canonical data does not support. Surgical only.
+
+title_suffix is for TRUTHFUL context only, never for retitling. Its one sanctioned
+use is noting why a role ended, and only on applications with no cover letter field
+(the letter is the better venue when one exists). Off by default; leave it out.
 """
 import argparse, datetime, html, json, os, subprocess, sys, tempfile
 from pathlib import Path
@@ -80,10 +87,26 @@ def _ul(bullets):
     return "<ul>" + "".join(f"<li>{esc(b)}</li>" for b in bullets) + "</ul>"
 
 
+def _with_suffix(title, suffix):
+    """Attach an opt-in note to a role line, after the employer.
+
+    Role lines are "Title | Employer | Dates", so a plain append would strand the
+    note after the dates. Falls back to appending if the line isn't that shape.
+    """
+    if not suffix:
+        return title
+    parts = title.split(" | ")
+    if len(parts) < 3:
+        return title + suffix
+    parts[1] += suffix
+    return " | ".join(parts)
+
+
 def build_resume_html(data, tailor):
     summary = tailor.get("summary", data["summary"])
     skills_append = tailor.get("skills_append", {})
     exp_override = tailor.get("experience_bullets", {})
+    title_suffix = tailor.get("title_suffix", {})
 
     parts = [f'<!DOCTYPE html><html><head><meta charset="utf-8"><style>{RESUME_CSS}</style></head><body>']
     parts.append(f'<h1>{esc(data["name"])}</h1>')
@@ -111,7 +134,8 @@ def build_resume_html(data, tailor):
     parts.append("<h2>Professional Experience</h2>")
     for job in data["experience"]:
         bullets = exp_override.get(job.get("id"), job["bullets"])
-        parts.append(f'<div class="role">{esc(job["title"])}</div>')
+        role_title = _with_suffix(job["title"], title_suffix.get(job.get("id")))
+        parts.append(f'<div class="role">{esc(role_title)}</div>')
         parts.append(_ul(bullets))
 
     parts.append("<h2>Education and Certifications</h2>")
