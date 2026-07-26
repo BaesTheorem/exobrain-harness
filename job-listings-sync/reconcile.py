@@ -17,6 +17,11 @@ either have a real historical date already, or had an unknown date at
 migration time that should not be backfilled with today's date.
 
 Idempotent: safe to run on every file change, or as a periodic safety net.
+
+Scans recursively. Listings get promoted into per-role folders once they have
+artifacts, so a flat glob silently stops seeing them at exactly the point they
+matter most. Non-listing files in those folders (cover letters, interview prep)
+are skipped by the type check in reconcile_file.
 """
 
 from __future__ import annotations
@@ -117,7 +122,7 @@ def main() -> int:
         return 1
     today = date.today().isoformat()
     all_changes: list[str] = []
-    for md in sorted(LISTINGS.glob("*.md")):
+    for md in sorted(LISTINGS.rglob("*.md")):
         all_changes.extend(reconcile_file(md, today))
     if all_changes:
         for line in all_changes:

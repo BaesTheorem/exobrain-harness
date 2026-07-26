@@ -41,10 +41,17 @@ Requires: `playwright` (chromium), `pypdf`, `qpdf`.
   "tag": "ACME",
   "summary": "...override summary (KEEP the 11+/4+ tenure framing)...",
   "skills_append": { "Security": "Additional focus on <truthful ATS keywords>." },
-  "experience_bullets": { "clyde": ["reordered / polished bullet", "..."] }
+  "experience_bullets": { "clyde": ["reordered / polished bullet", "..."] },
+  "title_suffix": { "clyde": " (IT function outsourced, July 2026)" }
 }
 ```
-Job ids for `experience_bullets`: `clyde`, `geeksquad` (see `data/resume_data.json`).
+Job ids for `experience_bullets` and `title_suffix`: `clyde`, `geeksquad` (see `data/resume_data.json`).
+
+`title_suffix` is **off by default** and inserts a short note after the *employer*
+on a role line (`Title | Employer<suffix> | Dates`), not at the end. Its one
+sanctioned use is noting why a role ended, and only for applications with **no
+cover letter field** -- when there is one, the letter is the better venue and the
+resume should stay clean. Truthful context only, never retitling.
 
 **Hard rules (from [[Claude Reference]] "Tailored Resumes"):** surgical edits only.
 Never add a skill/tool/cert the canonical data doesn't support. Don't change titles,
