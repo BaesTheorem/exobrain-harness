@@ -191,7 +191,7 @@ These runner scripts and plists ship with the private mist-console repo, not thi
 |---------|----------|---------|
 | `morning-briefing` | 8:00 AM daily (catch-up until 6 PM) | Full `/daily-briefing` -> today's daily note + notification |
 | `afternoon-email-scan` | 2:00 PM daily | Scan Gmail for actionable items, job alerts, CRM mentions |
-| `evening-winddown` | 10:00 PM daily (any time 9:00 PM to 11:59 PM; retries at 10:45 and 11:30 if the first attempt fails) | `/evening-winddown`: day recap, mood check-in, tomorrow planning |
+| `evening-winddown` | 9:00 PM daily, retrying at 9:45 / 10:30 / 11:15 if an attempt fails (window: 9:00 PM to 11:59 PM) | `/evening-winddown`: day recap, mood check-in, tomorrow planning |
 | `local-events-scan` | Thursday 12:00 PM | `/local-events` KC event discovery |
 | `weekly-review` | Sunday 4:00 PM | Full GTD `/weekly-review`, writes to Sunday's daily note |
 
@@ -305,7 +305,7 @@ Backup (daily 2 AM):
 ```
 8:00 AM daily:    morning-briefing  -> /daily-briefing into today's daily note
 2:00 PM daily:    afternoon-email-scan -> Gmail actionables, job alerts, CRM mentions
-10:00 PM daily:   evening-winddown  -> day recap, mood, tomorrow planning
+9:00 PM daily:    evening-winddown  -> day recap, mood, tomorrow planning
 Thu 12:00 PM:     local-events-scan -> KC event discovery
 Sun 4:00 PM:      weekly-review     -> comprehensive synthesis -> Obsidian + Discord
 ```

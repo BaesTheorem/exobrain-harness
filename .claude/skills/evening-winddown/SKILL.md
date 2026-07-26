@@ -1,6 +1,6 @@
 ---
 name: evening-winddown
-description: Evening wind-down routine that recaps today, scores mood, and prioritizes tomorrow. Use when the user says "wind down", "end of day", "wrap up my day", "what happened today", "plan tomorrow", "evening review", "bedtime", "ready for bed", or when triggered by the 11:59 PM scheduled task.
+description: Evening wind-down routine that recaps today, scores mood, and prioritizes tomorrow. Use when the user says "wind down", "end of day", "wrap up my day", "what happened today", "plan tomorrow", "evening review", "bedtime", "ready for bed", or when triggered by the 9:00 PM scheduled task.
 ---
 
 # Evening Wind-Down
