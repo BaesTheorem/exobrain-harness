@@ -177,11 +177,19 @@ A few additional local-only skills exist on this machine but are git-excluded (p
 
 ### Scheduled Routines (5)
 
-Local launchd jobs (`com.mist.routine.*`) that inject each routine's prompt into the MIST Console via its `run-routine-catchup.sh`, so the results land in the same chat surface the user already reads. The runner supports a catch-up window: if the laptop was asleep at fire time, the routine still runs on wake up to a cutoff hour. These plists ship with the private mist-console repo, not this one.
+Local launchd jobs (`com.mist.routine.*`) that run each routine headless: `run-routine.sh` strips the YAML frontmatter off `~/.claude/scheduled-tasks/<routine>/SKILL.md` and feeds the body to `claude -p` with this directory as the cwd, so `CLAUDE.md`, the persona, and `.mcp.json` all auto-load. Nothing is injected into a chat surface. Output goes to `~/Library/Logs/mist-routines.log`; the user-visible results are whatever the skill writes (daily note, Things 3 tasks, a Discord message, a notification banner).
+
+Two wrappers gate whether a given fire should actually run:
+- `run-routine-catchup.sh <dir> <HH:MM> [cutoff]` -- for routines where late beats never (the morning briefing). If the laptop was asleep at fire time, it still runs on wake, up to a cutoff hour. A per-day marker plus an atomic lock keep a multi-day sleep to exactly one run.
+- `run-routine-ontime.sh <dir> <HH:MM> [grace=15]` -- for routines where a stale run is worse than none (the wind-down). Fires only within a grace window of the scheduled time; a missed slot is skipped.
+
+`run-routine.sh` also classifies failures: auth/config errors (exit 78, "not logged in") stick as a loud FAIL, known-transient API/network errors retry with backoff and then stay quiet, so one dropped connection doesn't masquerade as a broken routine for days.
+
+These runner scripts and plists ship with the private mist-console repo, not this one.
 
 | Routine | Schedule | Purpose |
 |---------|----------|---------|
-| `morning-briefing` | 8:00 AM daily (catch-up until 6 PM) | Full `/daily-briefing` into the Console |
+| `morning-briefing` | 8:00 AM daily (catch-up until 6 PM) | Full `/daily-briefing` -> today's daily note + notification |
 | `afternoon-email-scan` | 2:00 PM daily | Scan Gmail for actionable items, job alerts, CRM mentions |
 | `evening-winddown` | 10:00 PM daily | `/evening-winddown`: day recap, mood check-in, tomorrow planning |
 | `local-events-scan` | Thursday 12:00 PM | `/local-events` KC event discovery |
@@ -293,9 +301,9 @@ Backup (daily 2 AM):
   -> backup-exobrain.sh archives harness + vault + sibling repos' gitignored data to Google Drive
 ```
 
-### Scheduled routines (launchd -> MIST Console)
+### Scheduled routines (launchd -> headless `claude -p`)
 ```
-8:00 AM daily:    morning-briefing  -> /daily-briefing dashboard in the Console
+8:00 AM daily:    morning-briefing  -> /daily-briefing into today's daily note
 2:00 PM daily:    afternoon-email-scan -> Gmail actionables, job alerts, CRM mentions
 10:00 PM daily:   evening-winddown  -> day recap, mood, tomorrow planning
 Thu 12:00 PM:     local-events-scan -> KC event discovery
@@ -625,7 +633,7 @@ chmod +x transcript-processing/run-process-transcript.sh discord/run-discord-dig
 
 ### Step 9: Set Up Scheduled Routines
 
-The recurring routines (morning briefing, afternoon email scan, evening winddown, local-events scan, weekly review) run as `com.mist.routine.*` launchd jobs that inject prompts into the MIST Console (see Scheduled Routines above). Those plists live with the mist-console repo. Without the Console, the equivalent is a launchd/cron job that runs `claude --print "/daily-briefing"` (and the rest) in this directory on the same schedule -- the `job-search/run-job-scan.sh` wrapper is a working template for headless `claude --print` under launchd.
+The recurring routines (morning briefing, afternoon email scan, evening winddown, local-events scan, weekly review) run as `com.mist.routine.*` launchd jobs that feed each routine's prompt to a headless `claude -p` in this directory (see Scheduled Routines above). The runner scripts and plists live with the mist-console repo. To rebuild them from scratch, a launchd/cron job that runs `claude --print "/daily-briefing"` (and the rest) here on the same schedule is the whole idea -- the `job-search/run-job-scan.sh` wrapper is a working template for headless `claude --print` under launchd. Two things to copy from it: `export USER` (launchd doesn't set it, and the Keychain OAuth lookup fails without it) and a log path outside `~/Documents`, which is TCC-protected.
 
 Run each routine once interactively first to pre-approve tool permissions.
 
