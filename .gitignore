@@ -129,3 +129,6 @@ maintenance/wifi-diag-out.txt
 # .claude/commands/bounty.md and the root README note why the dir is absent.
 # (Moved here from .git/info/exclude, which does not survive a re-clone.)
 watchers/
+substack-sync/sync.log
+substack-sync/launchd.out.log
+substack-sync/launchd.err.log
