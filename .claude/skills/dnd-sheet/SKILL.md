@@ -226,6 +226,21 @@ Central map of everything that REPAIRS a broken/starved file or MUTATES source/c
 
 **Riskiest to touch:** the update/bake trio (`additiveMergeSources`, `mergeUpdatedSources`, `bakeSourceData`) -- each has caused a self-perpetuating clobber before; test any change against BOTH a healthy and a deliberately-starved runtime, on both `file://` and hosted-over-http.
 
+## NEVER VERSION-BUMP THE INDEXEDDB (incident 2.155.0 → fixed 2.156.1, 2026-07-28)
+
+**I shipped a data-visibility incident by bumping `indexedDB.open("dnd-sheet", 2)` to `3` to add a store for version history. Do not do this. Do not "just bump it carefully". Adding an object store is not worth it -- put new data in the EXISTING `chars` store under a key prefix.** Two independent failures, one cause:
+
+1. **Older builds are refused outright.** Opening with a version LOWER than the database's current version fails with `VersionError`. Every build before 2.155.0 hardcodes `2`, and **`file://` shares ONE storage origin**, so after running the bad build once, EVERY older copy on that machine opened with no characters. User-visible symptom: *"my characters got deleted"* + *"even older files are broken"* -- data was never touched, just unreachable. You cannot undo this from a later release (IndexedDB has no downgrade), so the older copies stay broken until replaced.
+2. **A blocked upgrade hangs forever.** An upgrade blocks while ANY other copy holds the db open, firing `onblocked` instead of `onsuccess`. `onblocked` was unhandled → the promise never settled → **`await csInit()` in init never returned, so every line of init after it (including the menu wiring) silently never ran.** Symptom: *"the menu no longer works"*. Any `await` in init is a chokepoint: an unsettleable promise there disables the whole app with no console error.
+
+**The shape of the fix (keep all four properties):** open with **NO version argument** (never requests an upgrade); create stores only when the db is genuinely new; land a NEW database on **version 2** (`Math.max(2, ...)`) so no build ever needs an upgrade in either direction (leaving it at 1 makes OLD builds upgrade it, which blocks them instead -- the same bug mirrored); and guarantee the open always settles (`onblocked` + `onerror` + a 4s timeout resolving `null`). `idb()` now resolves `db|null`; every caller's existing `.catch` already handles null. `try{ await csInit(); }catch{}` so storage can never stall init, and `_idbFailed` raises a plain-language notice ("nothing has been deleted") rather than opening blank.
+
+**Version-history storage:** records live in the `chars` store under `dnd-ver::<slot>::<id>` (JSON strings), read straight from IDB and **skipped by `csInit`'s `_cs` hydration** so a long history never sits in memory. `migrateVersionStore()` best-effort copies records out of the short-lived `versions` store for anyone who ran 2.155/2.156.
+
+**Repro seams (both confirmed in Playwright, on the file:// page -- `about:blank` denies IndexedDB with a SecurityError):** open at v3 then request v2 → `VersionError`; hold a connection open then request `version+1` → `onblocked`, never settles. When setting up a db state in a test, first release the page's own connection (`const d = await idb(); d.close(); _idb = null;`) or the setup upgrade blocks on it and the test hangs.
+
+**Ship a `update-note.txt` (critical flag) for anything in this class** -- it bypasses the dismissed-banner state so the fix actually reaches people. Note its documented limit: only builds that already understand the flag will show it.
+
 ## Version history + settings panel structure (SHIPPED 2.155.0, 2026-07-28)
 
 - **Version history** = per-character snapshots in a THIRD IndexedDB store (`idb()` bumped 2→3, store `versions`, keyPath `id`, filtered client-side by `slot` -- no index needed at this volume). Fns near `newSlotId`: `idbVersAll/Put/Del`, `writeVersion(json, meta)`, `maybeSnapshot(json)`, `pruneVersions`, `seedVersions`, `renderVersionList`, `restoreVersion`, `buildVerModal`/`openVersionHistory`. Entry points: ☰ `#btn-verhist` + Character Settings `#btn-verhist-settings`. **The one hook is a single `try{ maybeSnapshot(json) }catch{}` at the end of `save()`** -- `save()` is the funnel, and the try/catch is load-bearing (history must never be able to break saving).
