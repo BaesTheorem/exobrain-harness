@@ -5,7 +5,7 @@
 SCRIPT_DIR="$(cd "$(dirname "$0")/.." && pwd)"
 source "$SCRIPT_DIR/config.sh"
 
-LOG_DIR="/tmp"
+LOG_DIR="$EXOBRAIN_LOG_DIR"
 TIMESTAMP=$(date +%Y%m%d_%H%M%S)
 
 # Serialize plaud/supernote processing: both append to processing-log.json.
@@ -23,7 +23,7 @@ while True:
         if time.time() >= deadline:
             sys.exit(1)
         time.sleep(5)
-' || { echo "[$(date +%Y%m%d_%H%M%S)] SKIPPED: could not acquire processing lock in 30m" >> /tmp/exobrain-plaud-failures.log; exit 0; }
+' || { echo "[$(date +%Y%m%d_%H%M%S)] SKIPPED: could not acquire processing lock in 30m" >> "$EXOBRAIN_LOG_DIR/plaud-failures.log"; exit 0; }
 
 if ! command -v claude &>/dev/null; then
     osascript -e 'display notification "Claude CLI not found -- cannot process transcripts" with title "Exobrain ERROR" sound name "Basso"'
@@ -77,8 +77,8 @@ claude \
     --print \
     --dangerously-skip-permissions \
     -p "Run /process-transcript to check for and process any new Plaud transcripts." \
-    >"$LOG_DIR/exobrain-process-$TIMESTAMP.out" \
-    2>"$LOG_DIR/exobrain-process-$TIMESTAMP.err" &
+    >"$LOG_DIR/process-$TIMESTAMP.out" \
+    2>"$LOG_DIR/process-$TIMESTAMP.err" &
 CLAUDE_PID=$!
 (
     sleep $TIMEOUT_SEC
@@ -86,7 +86,7 @@ CLAUDE_PID=$!
         kill -TERM $CLAUDE_PID 2>/dev/null
         sleep 5
         kill -KILL $CLAUDE_PID 2>/dev/null
-        echo "[$TIMESTAMP] TIMEOUT after ${TIMEOUT_SEC}s -- claude --print killed" >> "$LOG_DIR/exobrain-plaud-failures.log"
+        echo "[$TIMESTAMP] TIMEOUT after ${TIMEOUT_SEC}s -- claude --print killed" >> "$LOG_DIR/plaud-failures.log"
         osascript -e "display notification \"Plaud processor hung -- killed after ${TIMEOUT_SEC}s\" with title \"Exobrain ERROR\" sound name \"Basso\""
     fi
 ) &
@@ -98,23 +98,23 @@ wait $KILLER_PID 2>/dev/null
 
 # claude's stdout was captured to a per-run file; replay it to launchd's
 # StandardOutPath so the running processing history is preserved as before.
-cat "$LOG_DIR/exobrain-process-$TIMESTAMP.out" 2>/dev/null
+cat "$LOG_DIR/process-$TIMESTAMP.out" 2>/dev/null
 
 if [ $EXIT_CODE -ne 0 ]; then
-    ERROR_MSG=$(tail -1 "$LOG_DIR/exobrain-process-$TIMESTAMP.err" 2>/dev/null | head -c 100)
+    ERROR_MSG=$(tail -1 "$LOG_DIR/process-$TIMESTAMP.err" 2>/dev/null | head -c 100)
     # claude --print prints API errors (e.g. "Connection closed mid-response") to
     # stdout, not stderr. When stderr is empty, fall back to the stdout tail so the
     # failure log is never blank (that blank is exactly what made 2026-07-15 hard to diagnose).
-    [ -z "$ERROR_MSG" ] && ERROR_MSG=$(tail -3 "$LOG_DIR/exobrain-process-$TIMESTAMP.out" 2>/dev/null | tr '\n' ' ' | head -c 200)
+    [ -z "$ERROR_MSG" ] && ERROR_MSG=$(tail -3 "$LOG_DIR/process-$TIMESTAMP.out" 2>/dev/null | tr '\n' ' ' | head -c 200)
     osascript -e "display notification \"Transcript processing failed (exit $EXIT_CODE): $ERROR_MSG\" with title \"Exobrain ERROR\" sound name \"Basso\""
 
     # Log the failure for debugging
-    echo "[$TIMESTAMP] FAILED (exit $EXIT_CODE)" >> "$LOG_DIR/exobrain-plaud-failures.log"
-    echo "  detail: $ERROR_MSG" >> "$LOG_DIR/exobrain-plaud-failures.log"
+    echo "[$TIMESTAMP] FAILED (exit $EXIT_CODE)" >> "$LOG_DIR/plaud-failures.log"
+    echo "  detail: $ERROR_MSG" >> "$LOG_DIR/plaud-failures.log"
 fi
 
 # Clean up error file if empty
-[ ! -s "$LOG_DIR/exobrain-process-$TIMESTAMP.err" ] && rm -f "$LOG_DIR/exobrain-process-$TIMESTAMP.err"
+[ ! -s "$LOG_DIR/process-$TIMESTAMP.err" ] && rm -f "$LOG_DIR/process-$TIMESTAMP.err"
 # Drop the per-run stdout copy on success (already replayed above); keep it on
 # failure for post-mortem.
-[ $EXIT_CODE -eq 0 ] && rm -f "$LOG_DIR/exobrain-process-$TIMESTAMP.out"
+[ $EXIT_CODE -eq 0 ] && rm -f "$LOG_DIR/process-$TIMESTAMP.out"

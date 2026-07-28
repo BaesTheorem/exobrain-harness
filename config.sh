@@ -28,6 +28,16 @@ PROCESSING_LOG="$HARNESS_DIR/processing-log.json"
 DISCORD_DIGEST="$HARNESS_DIR/discord/discord-digest.json"
 SESSION_MEMORY_DIR="$VAULT_DIR/Claude"
 
+# Scheduled-job logs. NOT /tmp: macOS reaps files there that go untouched for a
+# few days, so a failure erased its own evidence before anyone read it (found
+# 2026-07-28 chasing exit -9 kills -- the one log that would have explained them
+# was already gone). ~/Library/Logs is the macOS-canonical spot, survives
+# reboots, and shows up in Console.app. Rotated weekly by maintenance/rotate-logs.sh.
+# Locks and scratch files deliberately STAY in /tmp -- reboot-clearing is correct
+# for those. Plists can't source this, so they carry the literal path.
+EXOBRAIN_LOG_DIR="$HOME/Library/Logs/exobrain"
+mkdir -p "$EXOBRAIN_LOG_DIR" 2>/dev/null
+
 # Backup (see backup-exobrain.sh). One collective archive per run bundles the
 # harness, the vault, and every sibling repo's gitignored data into Google
 # Drive. Retention is grandfather-father-son: a single archive can satisfy more

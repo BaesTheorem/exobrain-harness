@@ -15,7 +15,7 @@
 SCRIPT_DIR="$(cd "$(dirname "$0")/.." && pwd)"
 source "$SCRIPT_DIR/config.sh"
 
-LOG_DIR="/tmp"
+LOG_DIR="$EXOBRAIN_LOG_DIR"
 TIMESTAMP=$(date +%Y%m%d_%H%M%S)
 
 if ! command -v claude &>/dev/null; then
@@ -54,8 +54,8 @@ claude \
     --print \
     --dangerously-skip-permissions \
     -p "$PROMPT" \
-    >"$LOG_DIR/exobrain-job-scan-$TIMESTAMP.out" \
-    2>"$LOG_DIR/exobrain-job-scan-$TIMESTAMP.err" &
+    >"$LOG_DIR/job-scan-$TIMESTAMP.out" \
+    2>"$LOG_DIR/job-scan-$TIMESTAMP.err" &
 CLAUDE_PID=$!
 (
     sleep $TIMEOUT_SEC
@@ -63,7 +63,7 @@ CLAUDE_PID=$!
         kill -TERM $CLAUDE_PID 2>/dev/null
         sleep 5
         kill -KILL $CLAUDE_PID 2>/dev/null
-        echo "[$TIMESTAMP] TIMEOUT after ${TIMEOUT_SEC}s -- claude --print killed" >> "$LOG_DIR/exobrain-job-scan-failures.log"
+        echo "[$TIMESTAMP] TIMEOUT after ${TIMEOUT_SEC}s -- claude --print killed" >> "$LOG_DIR/job-scan-failures.log"
         osascript -e "display notification \"Job scan hung -- killed after ${TIMEOUT_SEC}s\" with title \"Exobrain ERROR\" sound name \"Basso\""
     fi
 ) &
@@ -74,14 +74,14 @@ kill $KILLER_PID 2>/dev/null
 wait $KILLER_PID 2>/dev/null
 
 if [ $EXIT_CODE -ne 0 ]; then
-    ERROR_MSG=$(tail -1 "$LOG_DIR/exobrain-job-scan-$TIMESTAMP.err" 2>/dev/null | head -c 100)
+    ERROR_MSG=$(tail -1 "$LOG_DIR/job-scan-$TIMESTAMP.err" 2>/dev/null | head -c 100)
     # claude --print prints API errors (e.g. "Connection closed mid-response") to
     # stdout, not stderr. When stderr is empty, fall back to the stdout tail so the
     # failure log is never blank.
-    [ -z "$ERROR_MSG" ] && ERROR_MSG=$(tail -3 "$LOG_DIR/exobrain-job-scan-$TIMESTAMP.out" 2>/dev/null | tr '\n' ' ' | head -c 200)
+    [ -z "$ERROR_MSG" ] && ERROR_MSG=$(tail -3 "$LOG_DIR/job-scan-$TIMESTAMP.out" 2>/dev/null | tr '\n' ' ' | head -c 200)
     osascript -e "display notification \"Job scan failed (exit $EXIT_CODE): $ERROR_MSG\" with title \"Exobrain ERROR\" sound name \"Basso\""
-    echo "[$TIMESTAMP] FAILED (exit $EXIT_CODE)" >> "$LOG_DIR/exobrain-job-scan-failures.log"
-    echo "  detail: $ERROR_MSG" >> "$LOG_DIR/exobrain-job-scan-failures.log"
+    echo "[$TIMESTAMP] FAILED (exit $EXIT_CODE)" >> "$LOG_DIR/job-scan-failures.log"
+    echo "  detail: $ERROR_MSG" >> "$LOG_DIR/job-scan-failures.log"
 fi
 
 # === LinkedIn-lane sentinel ===
@@ -92,14 +92,14 @@ fi
 #   SKIPPED -> LinkedIn MCP was unreachable; raise the flag (stamp today).
 #   (absent / timeout / crash) -> leave the flag untouched; we can't know.
 SENTINEL="$HARNESS_DIR/job-search/.linkedin-scan-pending"
-MARKER=$(grep -oE 'LINKEDIN_LANE: (RAN|SKIPPED)' "$LOG_DIR/exobrain-job-scan-$TIMESTAMP.out" 2>/dev/null | tail -1)
+MARKER=$(grep -oE 'LINKEDIN_LANE: (RAN|SKIPPED)' "$LOG_DIR/job-scan-$TIMESTAMP.out" 2>/dev/null | tail -1)
 case "$MARKER" in
     *RAN)     rm -f "$SENTINEL" ;;
     *SKIPPED) date +%Y-%m-%d > "$SENTINEL" ;;
 esac
 
 # Clean up empty error/out files
-[ -s "$LOG_DIR/exobrain-job-scan-$TIMESTAMP.err" ] || rm -f "$LOG_DIR/exobrain-job-scan-$TIMESTAMP.err"
-[ -s "$LOG_DIR/exobrain-job-scan-$TIMESTAMP.out" ] || rm -f "$LOG_DIR/exobrain-job-scan-$TIMESTAMP.out"
+[ -s "$LOG_DIR/job-scan-$TIMESTAMP.err" ] || rm -f "$LOG_DIR/job-scan-$TIMESTAMP.err"
+[ -s "$LOG_DIR/job-scan-$TIMESTAMP.out" ] || rm -f "$LOG_DIR/job-scan-$TIMESTAMP.out"
 
 exit 0

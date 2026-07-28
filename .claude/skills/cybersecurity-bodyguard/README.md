@@ -73,7 +73,7 @@ cp /Users/alexhedtke/Exobrain\ harness/com.exobrain.bodyguard-weekly.plist ~/Lib
 launchctl load ~/Library/LaunchAgents/com.exobrain.bodyguard-weekly.plist
 ```
 
-Runs Sundays at 8 AM. Writes scan plan to `/tmp/bodyguard-weekly-YYYYMMDD.json`
+Runs Sundays at 8 AM. Writes scan plan to `~/Library/Logs/exobrain/bodyguard-weekly-YYYYMMDD.json`
 and posts a macOS notification. Open Claude Code and say "ingest bodyguard scan"
 to have it execute the Google dorks via WebSearch and append findings to
 `Security Log.md`.

@@ -28,9 +28,9 @@
     </dict>
 
     <key>StandardOutPath</key>
-    <string>/tmp/exobrain-claude-cli-update.out</string>
+    <string>/Users/alexhedtke/Library/Logs/exobrain/claude-cli-update.out</string>
 
     <key>StandardErrorPath</key>
-    <string>/tmp/exobrain-claude-cli-update.err</string>
+    <string>/Users/alexhedtke/Library/Logs/exobrain/claude-cli-update.err</string>
 </dict>
 </plist>

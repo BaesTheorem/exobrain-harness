@@ -15,10 +15,10 @@
     <integer>900</integer>
 
     <key>StandardOutPath</key>
-    <string>/tmp/exobrain-things3-sync.log</string>
+    <string>/Users/alexhedtke/Library/Logs/exobrain/things3-sync.log</string>
 
     <key>StandardErrorPath</key>
-    <string>/tmp/exobrain-things3-sync.err</string>
+    <string>/Users/alexhedtke/Library/Logs/exobrain/things3-sync.err</string>
 
     <key>RunAtLoad</key>
     <true/>

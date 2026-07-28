@@ -56,4 +56,4 @@ The wrappers expect these env vars from the harness-root `config.sh`:
 | `GDRIVE_SUPERNOTE` | `/Users/alexhedtke/My Drive/Supernote/Note` | Watched Supernote directory |
 | `PROCESSING_LOG` | `$HARNESS_DIR/processing-log.json` | Idempotency log read by the dedup pre-check |
 
-Failure logs land in `/tmp/exobrain-plaud-failures.log` and `/tmp/exobrain-supernote-failures.log`; transient stderr files are written to `/tmp/exobrain-process-<timestamp>.err` and cleaned up if empty.
+Failure logs land in `~/Library/Logs/exobrain/plaud-failures.log` and `~/Library/Logs/exobrain/supernote-failures.log`; transient stderr files are written to `~/Library/Logs/exobrain/process-<timestamp>.err` and cleaned up if empty.

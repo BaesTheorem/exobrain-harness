@@ -17,8 +17,8 @@
         <integer>15</integer>
     </dict>
     <key>StandardOutPath</key>
-    <string>/tmp/tools-registry.log</string>
+    <string>/Users/alexhedtke/Library/Logs/exobrain/tools-registry.log</string>
     <key>StandardErrorPath</key>
-    <string>/tmp/tools-registry.log</string>
+    <string>/Users/alexhedtke/Library/Logs/exobrain/tools-registry.log</string>
 </dict>
 </plist>

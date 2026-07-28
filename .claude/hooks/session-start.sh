@@ -246,7 +246,7 @@ fi
 # processing has succeeded SINCE the failure: the 30-min poll self-recovers
 # transient API errors, and a newer processing-log.json proves recovery.
 for WATCHER in supernote plaud; do
-  FAIL_LOG="/tmp/exobrain-${WATCHER}-failures.log"
+  FAIL_LOG="$HOME/Library/Logs/exobrain/${WATCHER}-failures.log"
   if [ -f "$FAIL_LOG" ]; then
     FAIL_AGE=$(( ($(date +%s) - $(stat -f %m "$FAIL_LOG")) / 3600 ))
     if [ "$FAIL_AGE" -le 24 ]; then
@@ -271,7 +271,7 @@ NEWEST_DIGEST=$(ls -t "$HOME/Exobrain/Claude/"*_DIGEST.md 2>/dev/null | head -1)
 if [ -n "$NEWEST_DIGEST" ]; then
   DIGEST_AGE_H=$(( ($(date +%s) - $(stat -f %m "$NEWEST_DIGEST")) / 3600 ))
   if [ "$DIGEST_AGE_H" -gt 26 ]; then
-    echo "WARN: session-memory digest stale (${DIGEST_AGE_H}h old; consolidator runs 23:00) -- check /tmp/exobrain-session-memory-failures.log and /tmp/exobrain-session-memory-last.out"
+    echo "WARN: session-memory digest stale (${DIGEST_AGE_H}h old; consolidator runs 23:00) -- check ~/Library/Logs/exobrain/session-memory-failures.log and session-memory-last.out"
     ISSUES=$((ISSUES + 1))
   fi
 fi

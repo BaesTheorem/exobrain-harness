@@ -20,10 +20,10 @@
     </array>
 
     <key>StandardOutPath</key>
-    <string>/tmp/exobrain-supernote-watcher.log</string>
+    <string>/Users/alexhedtke/Library/Logs/exobrain/supernote-watcher.log</string>
 
     <key>StandardErrorPath</key>
-    <string>/tmp/exobrain-supernote-watcher.err</string>
+    <string>/Users/alexhedtke/Library/Logs/exobrain/supernote-watcher.err</string>
 
     <!-- Periodic fallback in case WatchPaths misses a trigger
          (e.g., Google Drive mounts after launchd already checked) -->

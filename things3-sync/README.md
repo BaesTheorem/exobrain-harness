@@ -35,8 +35,8 @@ launchctl list | grep com.exobrain.things3-sync
 ```
 
 Logs:
-- `/tmp/exobrain-things3-sync.log` (script output via `logging`)
-- `/tmp/exobrain-things3-sync.err` (launchd stderr)
+- `~/Library/Logs/exobrain/things3-sync.log` (script output via `logging`)
+- `~/Library/Logs/exobrain/things3-sync.err` (launchd stderr)
 
 ## Configuration constants
 

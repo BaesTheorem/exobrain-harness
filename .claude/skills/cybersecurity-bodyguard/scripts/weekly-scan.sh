@@ -2,7 +2,7 @@
 # Weekly bodyguard passive OSINT scan.
 # Triggered by com.exobrain.bodyguard-weekly.plist (Sundays at 8 AM).
 #
-# Writes the raw scan plan/results to /tmp, then posts a macOS notification
+# Writes the raw scan plan/results to ~/Library/Logs/exobrain, then posts a macOS notification
 # inviting Alex to open Claude Code and ingest findings into Security Log.md.
 # The heavy lifting (Google dorks, broker presence) happens in Claude with
 # WebSearch; this script just refreshes HIBP and builds the query plan.
@@ -12,8 +12,10 @@ set -euo pipefail
 # Machine-specific default; override with HARNESS_DIR in the environment
 HARNESS_DIR="${HARNESS_DIR:-/Users/alexhedtke/Documents/Exobrain harness}"
 SKILL_DIR="${HARNESS_DIR}/.claude/skills/cybersecurity-bodyguard"
-SCAN_OUT="/tmp/bodyguard-weekly-$(date +%Y%m%d).json"
-LOG="/tmp/bodyguard-weekly.log"
+LOG_DIR="$HOME/Library/Logs/exobrain"
+mkdir -p "$LOG_DIR"
+SCAN_OUT="${LOG_DIR}/bodyguard-weekly-$(date +%Y%m%d).json"
+LOG="${LOG_DIR}/bodyguard-weekly.log"
 
 exec >>"$LOG" 2>&1
 echo "--- $(date) ---"
@@ -29,7 +31,7 @@ fi
 cd "$HARNESS_DIR"
 
 if ! python3 "${SKILL_DIR}/scripts/osint_self_scan.py" --mode full > "$SCAN_OUT"; then
-    osascript -e 'display notification "Weekly bodyguard scan failed -- check /tmp/bodyguard-weekly.log" with title "Exobrain URGENT" sound name "Basso"'
+    osascript -e 'display notification "Weekly bodyguard scan failed -- check ~/Library/Logs/exobrain/bodyguard-weekly.log" with title "Exobrain URGENT" sound name "Basso"'
     exit 1
 fi
 

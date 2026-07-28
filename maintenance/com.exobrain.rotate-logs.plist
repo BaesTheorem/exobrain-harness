@@ -3,33 +3,32 @@
 <plist version="1.0">
 <dict>
     <key>Label</key>
-    <string>com.exobrain.bodyguard-weekly</string>
+    <string>com.exobrain.rotate-logs</string>
 
     <key>ProgramArguments</key>
     <array>
         <string>/bin/bash</string>
-        <string>/Users/alexhedtke/Documents/Exobrain harness/.claude/skills/cybersecurity-bodyguard/scripts/weekly-scan.sh</string>
+        <string>/Users/alexhedtke/Documents/Exobrain harness/maintenance/rotate-logs.sh</string>
     </array>
 
-    <!-- Weekly: Sunday at 8:00 AM -->
+    <!-- Sundays at 04:00. The laptop is usually asleep then, so launchd runs
+         this on the next wake instead; rotation is not time-critical. -->
     <key>StartCalendarInterval</key>
     <dict>
         <key>Weekday</key>
         <integer>0</integer>
         <key>Hour</key>
-        <integer>8</integer>
+        <integer>4</integer>
         <key>Minute</key>
         <integer>0</integer>
     </dict>
 
     <key>StandardOutPath</key>
-    <string>/Users/alexhedtke/Library/Logs/exobrain/bodyguard-weekly.log</string>
-
+    <string>/Users/alexhedtke/Library/Logs/exobrain/rotate-logs.log</string>
     <key>StandardErrorPath</key>
-    <string>/Users/alexhedtke/Library/Logs/exobrain/bodyguard-weekly.err</string>
+    <string>/Users/alexhedtke/Library/Logs/exobrain/rotate-logs.log</string>
 
-    <!-- Don't re-run if missed (laptop asleep at 8am Sunday) -- just run on next wake -->
-    <key>StartOnMount</key>
+    <key>RunAtLoad</key>
     <false/>
 </dict>
 </plist>

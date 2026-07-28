@@ -15,10 +15,10 @@
     <integer>600</integer>
 
     <key>StandardOutPath</key>
-    <string>/tmp/exobrain-anki-sync.log</string>
+    <string>/Users/alexhedtke/Library/Logs/exobrain/anki-sync.log</string>
 
     <key>StandardErrorPath</key>
-    <string>/tmp/exobrain-anki-sync.err</string>
+    <string>/Users/alexhedtke/Library/Logs/exobrain/anki-sync.err</string>
 
     <key>RunAtLoad</key>
     <true/>
