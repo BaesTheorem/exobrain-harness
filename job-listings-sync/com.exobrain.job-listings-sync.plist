@@ -23,10 +23,10 @@
     <integer>5</integer>
 
     <key>StandardOutPath</key>
-    <string>/tmp/exobrain-job-listings-sync.log</string>
+    <string>/Users/alexhedtke/Library/Logs/exobrain/job-listings-sync.log</string>
 
     <key>StandardErrorPath</key>
-    <string>/tmp/exobrain-job-listings-sync.err</string>
+    <string>/Users/alexhedtke/Library/Logs/exobrain/job-listings-sync.err</string>
 
     <key>RunAtLoad</key>
     <true/>

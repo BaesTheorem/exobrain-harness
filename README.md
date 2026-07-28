@@ -683,8 +683,8 @@ The Withings MCP handles token refresh automatically via `.env`. If auth breaks,
 ### Checking launchd Status
 ```bash
 launchctl list | grep exobrain
-cat /tmp/exobrain-plaud-watcher.log    # stdout
-cat /tmp/exobrain-plaud-watcher.err    # stderr
+cat ~/Library/Logs/exobrain/plaud-watcher.log    # stdout
+cat ~/Library/Logs/exobrain/plaud-watcher.err    # stderr
 ```
 
 ### Checking Scheduled Routine Status
@@ -693,6 +693,23 @@ launchctl list | grep com.mist.routine
 tail -50 ~/Library/Logs/mist-routines.log
 ```
 The session-start hook also flags any `com.exobrain.*` or `com.mist.routine.*` job whose last run exited nonzero.
+
+### Where Scheduled-Job Logs Live
+
+Every `com.exobrain.*` job writes to **`~/Library/Logs/exobrain/`** (`EXOBRAIN_LOG_DIR` in `config.sh`; plists can't source shell variables, so they carry the literal path).
+
+Not `/tmp`: macOS reaps files there that go untouched for a few days, so a failed run can erase its own evidence before anyone reads it. That is precisely what happened chasing a set of exit -9 kills on 2026-07-28 -- the one log that would have explained them was already gone. `~/Library/Logs` is the macOS-canonical spot, survives reboots, and shows up in Console.app.
+
+Locks and scratch files (`/tmp/exobrain-processing.lock`, render temp files) stay in `/tmp` deliberately -- reboot-clearing is correct for those.
+
+`maintenance/rotate-logs.sh` caps growth weekly, since nothing else prunes the directory now.
+
+```bash
+ls -lt ~/Library/Logs/exobrain/          # all job logs, newest first
+tail -50 ~/Library/Logs/exobrain/plaud-watcher.log
+```
+
+**Scheduled jobs on a laptop are best-effort.** When the lid is closed the machine is in Deep Idle, waking for only seconds at a time; launchd defers a missed `StartCalendarInterval` job to the next wake, and if that wake window closes mid-run the job is SIGKILLed (exit -9) having written nothing. A job that "fails" with -9 and an empty log is almost always this, not a code bug. Make such jobs idempotent and able to backfill, and confirm by hand before hunting for a bug that isn't there.
 
 ---
 

@@ -24,10 +24,10 @@
     </array>
 
     <key>StandardOutPath</key>
-    <string>/tmp/exobrain-job-scan.log</string>
+    <string>/Users/alexhedtke/Library/Logs/exobrain/job-scan.log</string>
 
     <key>StandardErrorPath</key>
-    <string>/tmp/exobrain-job-scan.err</string>
+    <string>/Users/alexhedtke/Library/Logs/exobrain/job-scan.err</string>
 
     <key>ThrottleInterval</key>
     <integer>30</integer>

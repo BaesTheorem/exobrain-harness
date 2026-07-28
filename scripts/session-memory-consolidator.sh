@@ -136,8 +136,8 @@ echo "[$(date)] Starting session-memory consolidation"
 # 1200s, matching the other headless runners: 300s guaranteed timeouts on heavy
 # days (13MB+ of transcripts on 2026-07-15) and the job died 3 nights straight.
 TIMEOUT_SEC=1200
-FAIL_LOG="/tmp/exobrain-session-memory-failures.log"
-RUN_OUT="/tmp/exobrain-session-memory-last.out"
+FAIL_LOG="$EXOBRAIN_LOG_DIR/session-memory-failures.log"
+RUN_OUT="$EXOBRAIN_LOG_DIR/session-memory-last.out"
 DIGEST_FILE="$MEMORY_DIR/${TODAY}_DIGEST.md"
 
 # caffeinate: the 23:00 run must survive system sleep (a 2026-07-13 run stalled

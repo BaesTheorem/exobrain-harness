@@ -28,9 +28,9 @@
     </dict>
 
     <key>StandardOutPath</key>
-    <string>/tmp/exobrain-backup.log</string>
+    <string>/Users/alexhedtke/Library/Logs/exobrain/backup.log</string>
 
     <key>StandardErrorPath</key>
-    <string>/tmp/exobrain-backup.err</string>
+    <string>/Users/alexhedtke/Library/Logs/exobrain/backup.err</string>
 </dict>
 </plist>

@@ -16,8 +16,8 @@
     <key>RunAtLoad</key>
     <true/>
     <key>StandardOutPath</key>
-    <string>/tmp/exobrain-discord-digest.log</string>
+    <string>/Users/alexhedtke/.claude/channels/discord/digest-fetch.log</string>
     <key>StandardErrorPath</key>
-    <string>/tmp/exobrain-discord-digest-error.log</string>
+    <string>/Users/alexhedtke/.claude/channels/discord/digest-fetch-error.log</string>
 </dict>
 </plist>

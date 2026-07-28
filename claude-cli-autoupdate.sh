@@ -17,7 +17,9 @@ export PATH="/opt/homebrew/bin:$HOME/.npm-global/bin:/usr/bin:/bin:/usr/sbin:/sb
 
 CLAUDE_BIN="$HOME/.npm-global/bin/claude"
 NOTIFY="/Users/alexhedtke/Documents/Exobrain harness/mist-voice/bin/mist-notify"
-LOG="/tmp/exobrain-claude-cli-update.log"
+LOG_DIR="$HOME/Library/Logs/exobrain"
+mkdir -p "$LOG_DIR"
+LOG="$LOG_DIR/claude-cli-update.log"
 
 ts() { date '+%Y-%m-%d %H:%M:%S'; }
 

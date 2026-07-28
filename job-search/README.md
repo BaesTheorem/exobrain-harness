@@ -26,9 +26,9 @@ Edit `StartCalendarInterval` (Hour/Minute) in both the repo copy and the LaunchA
 then reload as above.
 
 ## Logs
-- `/tmp/exobrain-job-scan.log` / `.err` -- launchd stdout/stderr
-- `/tmp/exobrain-job-scan-<timestamp>.out/.err` -- per-run Claude output
-- `/tmp/exobrain-job-scan-failures.log` -- timeouts and non-zero exits
+- `~/Library/Logs/exobrain/job-scan.log` / `.err` -- launchd stdout/stderr
+- `~/Library/Logs/exobrain/job-scan-<timestamp>.out/.err` -- per-run Claude output
+- `~/Library/Logs/exobrain/job-scan-failures.log` -- timeouts and non-zero exits
 
 ## Caveat: LinkedIn MCP in headless runs
 The LinkedIn MCP is interactively authenticated and may be absent in a launchd run. The scan

@@ -52,7 +52,7 @@ Use a real file copy, not a symlink -- TCC blocks login-time load of plists syml
 Verify:
 ```bash
 launchctl list | grep anki-sync
-tail -f /tmp/exobrain-anki-sync.log
+tail -f ~/Library/Logs/exobrain/anki-sync.log
 ```
 
 ## Behavior notes

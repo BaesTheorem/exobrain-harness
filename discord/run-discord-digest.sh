@@ -14,8 +14,8 @@ printf '%s\n' "$OUTPUT"
 
 if [ $EXIT_CODE -ne 0 ]; then
     TAIL=$(printf '%s\n' "$OUTPUT" | tail -3 | tr '\n' ' ' | head -c 200)
-    echo "[$TIMESTAMP] FAILED (exit $EXIT_CODE)" >> /tmp/exobrain-discord-digest-failures.log
-    echo "  detail: $TAIL" >> /tmp/exobrain-discord-digest-failures.log
+    echo "[$TIMESTAMP] FAILED (exit $EXIT_CODE)" >> "$EXOBRAIN_LOG_DIR/discord-digest-failures.log"
+    echo "  detail: $TAIL" >> "$EXOBRAIN_LOG_DIR/discord-digest-failures.log"
     NOTIFY="$SCRIPT_DIR/mist-voice/bin/mist-notify"
     [ -x "$NOTIFY" ] && "$NOTIFY" "discord-digest failed (exit $EXIT_CODE)" "MIST" Basso console
 fi
