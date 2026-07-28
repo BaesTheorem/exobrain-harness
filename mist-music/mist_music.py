@@ -440,6 +440,157 @@ def cmd_gen(args):
 
 
 # ---------------------------------------------------------------------------
+# sfx: text -> a sound effect (NOT music)
+#
+# Different problem from `gen`. ACE-Step is a *music* model: it wants to give
+# you stable pitch, meter and harmony, which is exactly wrong for a creature
+# snarl or a door creak. These models are trained on recorded environmental
+# audio instead, so they produce aperiodic, noisy, non-tonal material by
+# default -- the thing oscillator-based synthesis structurally can't fake.
+#
+# Backends verified live 2026-07-27 (probe of 9 candidates; audioldm2, tango
+# and stable-audio-open-1.0 were all down/404, so they're deliberately absent):
+#   audiogen    - Meta AudioGen. Purpose-built for sound effects. Best raw
+#                 SFX character, but SHORT (the Space caps out around 10s).
+#   stableaudio - Stable Audio Open. Long-form (up to 47s) foley, the only one
+#                 that covers a full 20s+ cue in one pass.
+#   tangoflux   - fast, clean, good on layered/complex prompts.
+#   mmaudio     - the only one with a seed (reproducible) and a negative prompt
+#                 (useful for steering AWAY from music: "music, melody, tonal").
+# ---------------------------------------------------------------------------
+
+SFX_BACKENDS = {
+    "audiogen":    {"space": "fffiloni/AudioGen",                  "ep": "/infer",           "max": 10.0},
+    "stableaudio": {"space": "artificialguybr/Stable-Audio-Open-Zero", "ep": "/predict",     "max": 47.0},
+    "tangoflux":   {"space": "declare-lab/TangoFlux",              "ep": "/predict",         "max": 30.0},
+    "mmaudio":     {"space": "hkchengrex/MMAudio",                 "ep": "/text_to_audio",   "max": 10.0},
+}
+
+# These models drift toward music if you let them. Pushing back explicitly
+# helps on the two backends that accept a negative prompt.
+SFX_NEGATIVE = "music, melody, singing, rhythm, drums, musical instruments, tonal, harmony"
+
+
+def _sfx_args(backend, prompt, dur, args):
+    """Build the positional arg vector for one backend's endpoint.
+
+    GOTCHA (verified 2026-07-27): stableaudio and tangoflux DECLARE steps and
+    duration as `float` in their gradio schema, but their server code does
+    `range(steps)` on it -- so a float raises a bare `AppError: TypeError` with
+    no message. Trust the traceback, not the published schema: send ints.
+    Guidance/cfg is genuinely a float and is fine either way.
+    """
+    if backend == "audiogen":
+        return [prompt, float(dur)]
+    if backend == "stableaudio":
+        return [prompt, int(dur), int(args.steps), float(args.cfg)]
+    if backend == "tangoflux":
+        return [prompt, int(args.steps), float(args.cfg), int(dur)]
+    if backend == "mmaudio":
+        neg = args.negative if args.negative is not None else SFX_NEGATIVE
+        seed = int(args.seed) if args.seed else -1
+        return [prompt, neg, seed, int(args.steps), float(args.cfg), float(dur)]
+    die(f"unknown sfx backend {backend}")
+
+
+def cmd_sfx(args):
+    try:
+        from gradio_client import Client
+    except ImportError:
+        die("sfx needs gradio_client: "
+            "mist-music/.venv/bin/python -m pip install gradio_client")
+
+    backend = args.backend
+    spec = SFX_BACKENDS[backend]
+    space = args.space or spec["space"]
+    hf_token = os.environ.get("HF_TOKEN") or os.environ.get("HUGGINGFACE_TOKEN")
+
+    dur = float(args.duration)
+    if dur > spec["max"]:
+        log(f"note: {backend} caps at {spec['max']:g}s; asking for {spec['max']:g} "
+            f"(use --takes to build a longer cue, or --backend stableaudio for up to 47s)")
+        dur = spec["max"]
+
+    log(f"connecting to {space} ({backend}) ...")
+    try:
+        client = Client(space, verbose=False, token=hf_token)
+    except Exception as e:  # noqa: BLE001
+        die(f"couldn't reach the SFX Space ({space}): {e}\n"
+            "Free Spaces sleep, queue, or hit ZeroGPU quota. Retry, or pass "
+            "--backend with another engine (see --help).")
+
+    takes = []
+    for i in range(max(1, int(args.takes))):
+        label = f"take {i + 1}/{args.takes}" if args.takes > 1 else "sound"
+        log(f"generating {label} on {backend} ({dur:g}s) ...")
+        try:
+            result = client.predict(*_sfx_args(backend, args.prompt, dur, args),
+                                    api_name=spec["ep"])
+        except SystemExit:
+            raise
+        except Exception as e:  # noqa: BLE001
+            die(f"generation failed: {e}\n"
+                "The free Space may be busy or out of ZeroGPU quota. Retry, or "
+                "try --backend audiogen / stableaudio / tangoflux / mmaudio.")
+        got = _extract_audio(result)
+        if not got:
+            die(f"the Space returned no audio file (got: {result!r}).")
+        takes.append(got)
+
+    stem = args.output or None
+    out_path = ensure_out_path(f"sfx-{backend}", stem, args.dir, ".mp3")
+    os.makedirs(os.path.dirname(out_path), exist_ok=True)
+
+    if len(takes) == 1:
+        _to_mp3(takes[0], out_path)
+    else:
+        _concat_audio(takes, out_path, crossfade=args.crossfade)
+
+    log(f"wrote {out_path}")
+    print(out_path)
+    if not args.no_embed:
+        title = (args.prompt or "sfx").strip().split(",")[0][:60]
+        print(f"\n![{title}]({out_path})")
+    if args.open:
+        run(["open", out_path])
+
+
+def _to_mp3(src, dst):
+    """Spaces hand back wav/flac; the Console plays either, but mp3 keeps the
+    embed small and matches what `gen` writes."""
+    run(["ffmpeg", "-y", "-loglevel", "error", "-i", src,
+         "-codec:a", "libmp3lame", "-b:a", "320k", dst])
+    return dst
+
+
+def _concat_audio(paths, dst, crossfade=0.0):
+    """Stitch takes into one longer cue. These models are short-form, so a long
+    creature cue is several takes butted together; a crossfade hides the seams."""
+    if crossfade and len(paths) > 1:
+        # chain acrossfade pairwise: ((a x b) x c) ...
+        inputs, filt, prev = [], [], None
+        for i, p in enumerate(paths):
+            inputs += ["-i", p]
+        for i in range(1, len(paths)):
+            a = prev or "[0:a]"
+            out = f"[x{i}]"
+            filt.append(f"{a}[{i}:a]acrossfade=d={crossfade}:c1=tri:c2=tri{out}")
+            prev = out
+        run(["ffmpeg", "-y", "-loglevel", "error", *inputs,
+             "-filter_complex", ";".join(filt), "-map", prev,
+             "-codec:a", "libmp3lame", "-b:a", "320k", dst])
+    else:
+        with tempfile.NamedTemporaryFile("w", suffix=".txt", delete=False) as f:
+            for p in paths:
+                f.write(f"file '{os.path.abspath(p)}'\n")
+            lst = f.name
+        run(["ffmpeg", "-y", "-loglevel", "error", "-f", "concat", "-safe", "0",
+             "-i", lst, "-codec:a", "libmp3lame", "-b:a", "320k", dst])
+        os.unlink(lst)
+    return dst
+
+
+# ---------------------------------------------------------------------------
 # play: render + open
 # ---------------------------------------------------------------------------
 
@@ -498,6 +649,30 @@ def build_parser():
     g.add_argument("--no-embed", action="store_true", help="don't print the Console audio-embed line")
     g.add_argument("--open", action="store_true", help="open the result when done")
     g.set_defaults(func=cmd_gen)
+
+    s = sub.add_parser("sfx", help="text -> a sound effect (creature, foley, ambience -- NOT music)")
+    s.add_argument("prompt", help="describe the SOUND, not a genre "
+                   "(e.g. 'huge reptile snarling and gurgling, wet throat clicks, low breath')")
+    s.add_argument("-o", "--output", help="output file (default tmp/audio/sfx-<backend>.mp3)")
+    s.add_argument("--dir", default=AUDIO_EMBED_DIR,
+                   help=f"output dir (default {AUDIO_EMBED_DIR}; Console-servable)")
+    s.add_argument("--backend", choices=sorted(SFX_BACKENDS), default="stableaudio",
+                   help="audiogen = best SFX character but <=10s; stableaudio = up to 47s "
+                        "(default); tangoflux = fast/clean; mmaudio = seeded + negative prompt")
+    s.add_argument("--duration", type=float, default=10.0, help="seconds (clamped per backend)")
+    s.add_argument("--takes", type=int, default=1,
+                   help="generate N takes and stitch them into one longer cue")
+    s.add_argument("--crossfade", type=float, default=0.0,
+                   help="seconds of crossfade between takes (hides the seams)")
+    s.add_argument("--steps", type=int, default=100, help="inference steps (quality vs speed)")
+    s.add_argument("--cfg", type=float, default=7.0, help="guidance: how literally it follows the prompt")
+    s.add_argument("--seed", help="seed for reproducibility (mmaudio only)")
+    s.add_argument("--negative", help="what to steer AWAY from (mmaudio only; "
+                                      "defaults to anti-music terms)")
+    s.add_argument("--space", help="override the HF Space")
+    s.add_argument("--no-embed", action="store_true", help="don't print the Console audio-embed line")
+    s.add_argument("--open", action="store_true", help="open the result when done")
+    s.set_defaults(func=cmd_sfx)
 
     pl = sub.add_parser("play", help="render sheet music and open it")
     pl.add_argument("input")
