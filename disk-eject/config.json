@@ -1,0 +1,51 @@
+{
+  "_comment": "Read fresh on every run -- edit freely, no launchd reload needed.",
+
+  "volume_allowlist": [],
+  "_volume_allowlist": "Empty = act on any external ejectable volume under /Volumes. Add names (e.g. [\"Extreme SSD\"]) to narrow it. Internal and boot disks are refused regardless.",
+
+  "protected_processes": [
+    "kernel_task",
+    "launchd",
+    "logd",
+    "mds",
+    "mds_stores",
+    "mdworker",
+    "mdsync",
+    "mdbulkimport",
+    "corespotlightd",
+    "Spotlight",
+    "fseventsd",
+    "revisiond",
+    "backupd",
+    "backupd-helper",
+    "diskarbitrationd",
+    "storagekitd",
+    "UnmountAssistantAgent",
+    "Finder",
+    "distnoted",
+    "cloudd",
+    "bird",
+    "fileproviderd"
+  ],
+  "_protected_processes": "Never signalled. Spotlight/fseventsd/backupd release on their own once the forced unmount lands; killing them causes reindexing and broken Time Machine state for no benefit.",
+
+  "graceful_handlers": {
+    "rqbit": {
+      "pre": ["'/Users/alexhedtke/Documents/Exobrain harness/disk-eject/handlers/rqbit-pause.sh'"],
+      "pre_timeout": 15,
+      "wait": 20
+    },
+    "Plex Media Server": { "wait": 20 },
+    "VLC": { "wait": 8 },
+    "mpv": { "wait": 8 }
+  },
+  "_graceful_handlers": "Per-process overrides. 'pre' runs before SIGTERM (checkpoint/flush), 'wait' is the grace period in seconds. rqbit gets 20s so it can write out its torrent session state.",
+
+  "default_wait_seconds": 10,
+
+  "_escalation": "SIGTERM -> (if it holds on) diskutil unmount force -> eject. SIGKILL is never sent unless you pass --force. Forced unmount flushes the filesystem and takes the volume away without destroying the app's in-flight state, so it is the better middle rung.",
+
+  "debounce_seconds": 30,
+  "_debounce_seconds": "Finder fires several unmount solicitations per click; only the first is acted on."
+}

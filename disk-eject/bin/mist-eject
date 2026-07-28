@@ -1,0 +1,8 @@
+#!/bin/sh
+# Free a busy external volume and eject it.
+#   mist-eject                    # the mounted external volume
+#   mist-eject "Extreme SSD"      # by name, device node, or /Volumes path
+#   mist-eject --dry-run          # show what would be stopped
+#   mist-eject --force            # allow SIGKILL even mid-transfer
+exec /opt/homebrew/bin/python3 \
+  "/Users/alexhedtke/Documents/Exobrain harness/disk-eject/disk_eject.py" free "$@"
