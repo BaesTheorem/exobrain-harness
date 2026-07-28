@@ -35,7 +35,7 @@ LOG = Path(__file__).resolve().parent / "sync.log"
 NOTIFY = (
     Path(__file__).resolve().parent.parent / "mist-voice" / "bin" / "mist-notify"
 )
-SITE_URL = "https://becomingstronger.org"
+SITE_URL = "https://becomingstronger.github.io"
 NS = {"content": "http://purl.org/rss/1.0/modules/content/"}
 
 
