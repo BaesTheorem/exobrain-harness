@@ -144,7 +144,7 @@ Skills are invoked with `/skill-name` in Claude Code. Each is defined in `.claud
 | `/ttrpg-player` | Player-side TTRPG assistant (NOT the GM skill) -- character creation, Knife Theory backstory, tactical prep | Obsidian campaign folders |
 | `/birth-chart` | Generate printable natal/synastry birth-chart PDF packets from birth data | birth-charts repo (Swiss Ephemeris) |
 | `/human-design` | Generate printable Human Design PDF packets (BodyGraph, Type, Strategy, Authority) | human-design repo |
-| `/bounty` | Claim and complete open-source bounties end to end, as the repo owner | GitHub, bounty-hunter watcher |
+| `/github` | Contribute to open source end to end, as the repo owner -- bounties, security reports, reputation PRs | GitHub, bounty-hunter watcher, Obsidian repo notes |
 | `/dnd-sheet` | Work on the self-contained 5e character sheet web app (single-HTML MPMB replacement) | dnd-character-sheet repo |
 | `/electricity` | Pull and analyze home electricity: Evergy usage/cost + Nest HVAC runtime, writes the Energy Log | Evergy, Nest SDM, Obsidian |
 | `/finances` | Personal-finance partner built around the local Envelope Budget app | Envelope Budget (:5010) |
