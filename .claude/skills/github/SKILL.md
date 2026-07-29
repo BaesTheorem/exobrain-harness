@@ -240,7 +240,7 @@ A heads-up, not a permission request. Keep going. Then create the tracking note
 
 A hard gate in every lane. A single AI-tell in a commit, comment, PR body, or
 advisory under Alex's name can get him flagged and banned. **Run the `/de-ai`
-skill (its §18 "Code Contributions" section) over everything you're about to
+skill (its "Code Contributions" section) over everything you're about to
 push:** the diff, every code comment and docstring, the commit message(s), the
 PR title and description, and any issue or review text. Confirm:
 - Commit style matches `git log --oneline -30`; imperative, no diff-restating
