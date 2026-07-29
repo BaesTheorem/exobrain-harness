@@ -125,7 +125,7 @@ Caught in the wild (Ford cover letter, 2026-07-26): "Your responsibility list re
 The shape to watch for:
 - A time unit or body part standing in for the work: "that was my Tuesday", "my old week", "it lived in my inbox", "I had my hands in it"
 - A document or list being said to "read like" / "sound like" / "look like" something personal
-- Compressing a real claim into a wink: "the record is the point", "that is the whole job in a sentence"
+- Compressing a real claim into a wink: "the record is the point", "that is the whole job in a sentence" (the "is the point" family is banned outright -- see rule 20)
 - Fake-offhand openers doing the work a fact should do: "look,", "here's the thing,", "and yeah,"
 
 Why it fails: the phrase carries no information. Strip the folksiness and there is nothing underneath, which is exactly backwards. Concrete specifics are what make writing sound human; a novel metaphor just sounds like someone performing casualness.
@@ -260,6 +260,39 @@ easiest place for tells to sit unnoticed for months. Apply rules 1-18, plus:
 - Fix real errors while you're in there (broken sentences, wrong file
   references), but don't rewrite working prose just to touch it.
 
+## 20. Never Write "[X] Is the Point"
+
+Banned outright, in every variation, in every surface: chat, prose, commits, code
+comments, docs, PR bodies, headings. No exceptions.
+
+The forms to catch (this list is illustrative, not exhaustive -- kill the shape,
+not just these strings):
+- "the record is the point", "that's the point", "which is the point"
+- "that's the whole point", "the entire point", "the real point"
+- "X is the point, not Y" (doubly bad: it also triggers rule 8's correction pattern)
+- "and that is precisely the point", "kind of the point", "sort of the point"
+- Reordered variants: "the point is X", "the point being X", "that was the point"
+- Near-synonyms doing the same job: "that's the whole idea", "that's the value",
+  "that's what matters here", "that's the thing"
+
+Why it fails: it's a wink instead of a claim. The sentence asserts that something
+matters without saying what it does or who it matters to, so it carries zero
+information while sounding like a conclusion. It also reads as self-congratulation
+-- the writer explaining that their own preceding sentence was insightful. Real
+writing lets the reader decide what the point was.
+
+Fix: delete the clause and check whether anything was lost. Usually nothing was.
+If the sentence genuinely needed to say why something matters, replace it with the
+actual consequence.
+
+- "The audit trail is the point." → "Without the audit trail, nobody can prove who approved the change."
+- "That's the whole point of the queue." → "The queue is what keeps a slow consumer from dropping messages."
+- "It's slow, but that's the point." → "It's slow because it fsyncs every write."
+
+Related: rule 17 lists this under forced folksy compression, and rule 8 covers the
+"not X, it's Y" construction it often rides in on. This rule is stricter than both
+-- rule 17 asks whether a real person says it; here the answer is always no.
+
 ## Overused AI Words to Replace
 
 (Source: [Wikipedia: Signs of AI writing](https://en.wikipedia.org/wiki/Wikipedia:Signs_of_AI_writing))
@@ -294,6 +327,7 @@ easiest place for tells to sit unnoticed for months. Apply rules 1-18, plus:
 - "this is a testament to"
 - "whether you're a beginner or an expert"
 - "at its core"
+- "that's the point" / "X is the point" (see rule 20 -- banned in all forms)
 - "strikes a balance between"
 - "valuable insights"
 - "contributing to"
