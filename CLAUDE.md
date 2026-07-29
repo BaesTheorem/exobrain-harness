@@ -46,7 +46,7 @@ Never commit to **any** repo: other people's real names or identifying info; nam
 
 ## GitHub Contributions (all projects)
 
-**Run `/de-ai` on everything that ships to GitHub**, in any repo, public or private: commit messages, PR bodies and comments, issue comments, release notes, READMEs and other docs, and the repo description itself. The skill is the source of truth for what to strip; don't hand-roll the rules here or work from memory of them. Its §18 "Code Contributions" covers the git-specific surfaces (commit messages, code comments, the diff itself, PR descriptions) and §19 covers repo metadata.
+**Run `/de-ai` on everything that ships to GitHub**, in any repo, public or private: commit messages, PR bodies and comments, issue comments, release notes, READMEs and other docs, and the repo description itself. The skill is the source of truth for what to strip; don't hand-roll the rules here or work from memory of them. Its "Code Contributions" section covers the git-specific surfaces (commit messages, code comments, the diff itself, PR descriptions) and "Repo Metadata" covers descriptions and READMEs.
 
 Two things this setup can't leave to the skill alone:
 

@@ -98,7 +98,7 @@ Make the third paragraph sound more like a startup founder wrote it
 - **Overuse of bold**: Don't bold "key terms" mechanically. Bold sparingly or not at all.
 - **Inline-header lists**: Bullet lists where every item is "**Bold label**: description" scream AI. Use prose or plain bullets.
 - **Title Case in headings**: Use sentence case unless the style guide says otherwise.
-- **Overuse of em dashes**: Covered in rule 6 above.
+- **Overuse of em dashes**: Covered in "Remove Em Dashes" above.
 - **Curly quotes**: Use straight quotes and apostrophes (' and ") unless the platform renders them automatically.
 - **Emoji as formatting**: Don't use emoji as bullet markers or section decorators in prose.
 
@@ -125,12 +125,12 @@ Caught in the wild (Ford cover letter, 2026-07-26): "Your responsibility list re
 The shape to watch for:
 - A time unit or body part standing in for the work: "that was my Tuesday", "my old week", "it lived in my inbox", "I had my hands in it"
 - A document or list being said to "read like" / "sound like" / "look like" something personal
-- Compressing a real claim into a wink: "the record is the point", "that is the whole job in a sentence" (the "is the point" family is banned outright -- see rule 20)
+- Compressing a real claim into a wink: "the record is the point", "that is the whole job in a sentence" (the "is the point" family is banned outright -- see "Never Write '[X] Is the Point'")
 - Fake-offhand openers doing the work a fact should do: "look,", "here's the thing,", "and yeah,"
 
 Why it fails: the phrase carries no information. Strip the folksiness and there is nothing underneath, which is exactly backwards. Concrete specifics are what make writing sound human; a novel metaphor just sounds like someone performing casualness.
 
-Fix: say the literal thing. "I did that work." "I ran the message trace." "Four years of it." Rule 1 (add specific details) is the real cure. If a sentence is reaching for personality, it usually means it is short on facts, so put a fact there instead.
+Fix: say the literal thing. "I did that work." "I ran the message trace." "Four years of it." "Add Specific Details" is the real cure. If a sentence is reaching for personality, it usually means it is short on facts, so put a fact there instead.
 
 Distinguish from genuine voice: a plain fragment ("Four years of it.") or an actual idiom people use ("I do not need to be told twice") is fine. The test is whether you have heard a real person say the phrase. If you invented it just now, cut it.
 
@@ -241,7 +241,7 @@ easiest place for tells to sit unnoticed for months. Apply rules 1-18, plus:
 
 ### The README
 - **The `- **Label** — description` bullet.** The dominant tell in technical
-  READMEs, and rule 13 already bans the inline-header list. When the structure
+  READMEs, and "Fix Formatting Tells" already bans the inline-header list. When the structure
   genuinely earns a label, use `- **Label**: description`.
 - **Don't advertise the tooling.** No "built with Claude Code", no AI-assistant
   badge, no generation note. Exception: the repo is genuinely *about* that tool,
@@ -269,7 +269,7 @@ The forms to catch (this list is illustrative, not exhaustive -- kill the shape,
 not just these strings):
 - "the record is the point", "that's the point", "which is the point"
 - "that's the whole point", "the entire point", "the real point"
-- "X is the point, not Y" (doubly bad: it also triggers rule 8's correction pattern)
+- "X is the point, not Y" (doubly bad: it also triggers the "It's not X. It's Y." correction pattern)
 - "and that is precisely the point", "kind of the point", "sort of the point"
 - Reordered variants: "the point is X", "the point being X", "that was the point"
 - Near-synonyms doing the same job: "that's the whole idea", "that's the value",
@@ -289,9 +289,10 @@ actual consequence.
 - "That's the whole point of the queue." → "The queue is what keeps a slow consumer from dropping messages."
 - "It's slow, but that's the point." → "It's slow because it fsyncs every write."
 
-Related: rule 17 lists this under forced folksy compression, and rule 8 covers the
-"not X, it's Y" construction it often rides in on. This rule is stricter than both
--- rule 17 asks whether a real person says it; here the answer is always no.
+Related: "Cut Forced Folksy Compression" lists this as one of its examples, and
+"Don't use the 'It's not X. It's Y.' correctio pattern" covers the construction it
+often rides in on. This rule is stricter than both -- the folksy-compression test
+asks whether a real person says it; here the answer is always no.
 
 ## Overused AI Words to Replace
 
@@ -327,7 +328,7 @@ Related: rule 17 lists this under forced folksy compression, and rule 8 covers t
 - "this is a testament to"
 - "whether you're a beginner or an expert"
 - "at its core"
-- "that's the point" / "X is the point" (see rule 20 -- banned in all forms)
+- "that's the point" / "X is the point" (see "Never Write '[X] Is the Point'" -- banned in all forms)
 - "strikes a balance between"
 - "valuable insights"
 - "contributing to"
