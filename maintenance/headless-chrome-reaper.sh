@@ -22,11 +22,98 @@
 # in use), nor LinkedIn MCP's chrome-headless-shell (~/.linkedin-mcp, not /tmp),
 # nor Plaud / other Electron apps (different binary, no /tmp profile).
 #
+# SECOND JOB: sweeping orphaned code-sign clones (see sweep_clones below). The
+# kill -9 above is what strands them, so the two belong in the same script.
+#
 # Run by com.exobrain.headless-chrome-reaper (launchd, every 120s).
 
 THRESHOLD_SECS="${REAPER_THRESHOLD_SECS:-600}"   # min age before considered (10 min)
 SAMPLE_SECS="${REAPER_SAMPLE_SECS:-2}"           # CPU-activity sampling window
 CPU_BUSY_DELTA="${REAPER_CPU_BUSY_DELTA:-0.05}"  # cpu-secs over window = "working"
+CLONE_GRACE="${REAPER_CLONE_GRACE_SECS:-300}"    # never touch a clone younger than this
+CLONE_MATCH_TOL="${REAPER_CLONE_MATCH_TOL:-180}" # clone/process age match window
+DRY_RUN="${REAPER_DRY_RUN:-0}"                   # 1 = report sweep targets, delete nothing
+
+# Chrome and Brave clone their own .app bundle at launch to validate the code
+# signature, then delete the clone on a graceful exit. A render that hangs (the
+# --headless=old failure mode this script exists for) never exits gracefully,
+# and neither does anything we kill -9 above, so the clone is stranded forever.
+# Nothing else on the system ever removes one.
+#
+# Each stray is a full app bundle (~2GB logical). APFS shares the underlying
+# blocks so real free space barely moves, but macOS storage reporting bills
+# every clone at full size: 88 strays once presented as 182GB of "System Data"
+# while df showed the disk was fine.
+#
+# Discriminator: a clone's mtime is set within a second or two of the launch it
+# belongs to, so a clone is live iff some running main process of that same app
+# has a matching age. Anything unmatched is an orphan. Matching per-process
+# rather than against the oldest process matters -- a browser that has been up
+# for days would otherwise shield every orphan younger than itself.
+#
+# Do NOT reach for lsof here. It reports no holder even for a live browser's
+# own clone, so it cannot tell live from orphan and would happily delete both.
+CLONE_ROOT="$(dirname "$(getconf DARWIN_USER_TEMP_DIR)")/X"
+
+sweep_clones() {
+  [ -d "$CLONE_ROOT" ] || return 0
+  local now parent appname b live_ages line e s clone m age matched a d swept
+  now=$(date +%s)
+  swept=0
+
+  for parent in "$CLONE_ROOT"/*.code_sign_clone; do
+    [ -d "$parent" ] || continue
+
+    # The clone names its own owner: code_sign_clone.XXXX/Google Chrome.app.bundle
+    appname=""
+    for b in "$parent"/*/*.app.bundle; do
+      [ -e "$b" ] || continue
+      appname=$(basename "$b" .bundle)
+      break
+    done
+    [ -n "$appname" ] || continue
+
+    # Ages of live MAIN processes for this app. Helpers carry --type= and spawn
+    # later than the launch that made the clone, so they are excluded.
+    live_ages=""
+    while IFS= read -r line; do
+      e=$(printf '%s\n' "$line" | awk '{print $1}')
+      s=$(etime_to_secs "$e")
+      live_ages="$live_ages ${s:-0}"
+    done < <(ps -eo etime,command 2>/dev/null \
+             | grep -F "/$appname/Contents/MacOS/" \
+             | grep -v -- " --type=" \
+             | grep -v grep)
+
+    for clone in "$parent"/code_sign_clone.*; do
+      [ -d "$clone" ] || continue
+      m=$(stat -f %m "$clone" 2>/dev/null) || continue
+      age=$((now - m))
+
+      # Too fresh to judge -- a browser may be mid-launch
+      [ "$age" -gt "$CLONE_GRACE" ] || continue
+
+      matched=0
+      for a in $live_ages; do
+        d=$((age - a)); [ "$d" -lt 0 ] && d=$(( -d ))
+        if [ "$d" -le "$CLONE_MATCH_TOL" ]; then matched=1; break; fi
+      done
+      [ "$matched" -eq 1 ] && continue   # belongs to a running process
+
+      if [ "$DRY_RUN" = "1" ]; then
+        printf 'would sweep: %s (age %ss, app %s)\n' "$clone" "$age" "$appname"
+        swept=$((swept+1))
+      elif rm -rf "$clone" 2>/dev/null; then
+        swept=$((swept+1))
+      fi
+    done
+  done
+
+  if [ "$swept" -gt 0 ] && [ "$DRY_RUN" != "1" ]; then
+    printf '%s swept %d orphaned code-sign clone(s)\n' "$(date '+%Y-%m-%dT%H:%M:%S')" "$swept"
+  fi
+  return 0
+}
 
 # Convert ps etime ([[DD-]HH:]MM:SS) to integer seconds.
 etime_to_secs() {
@@ -75,7 +162,9 @@ while IFS= read -r line; do
   candidates="$candidates $pid:$t1"
 done < <(ps -eo pid,etime,time,command)
 
-[ -n "${candidates// }" ] || exit 0
+# No hung processes is the common case, but orphans from earlier runs outlive
+# the process that made them, so the sweep still has to happen.
+[ -n "${candidates// }" ] || { sweep_clones; exit 0; }
 
 # ---- Sample window: let any still-working process accrue CPU ----
 sleep "$SAMPLE_SECS"
@@ -102,3 +191,7 @@ done
 if [ "$killed" -gt 0 ]; then
   printf '%s reaped %d stale headless-chrome / wrapper process(es)\n' "$(date '+%Y-%m-%dT%H:%M:%S')" "$killed"
 fi
+
+# Runs after the kills above, since those are what strand clones in the first
+# place. The grace window means this pass sees them on a later run, not now.
+sweep_clones
