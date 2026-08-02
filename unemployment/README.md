@@ -57,6 +57,15 @@ real Chrome with the URL in argv and then `connect_over_cdp` onto the existing
 page. Reattaching a second time tends to fail with "Browser context management
 is not supported" -- relaunch instead.
 
+**Automated login does not work anyway.** Credentials fill correctly, but
+clicking LOG IN reliably closes the Chrome window (reproduced several times,
+2026-08-02). `open` still launches Chrome and fills the form, which is useful
+for inspecting the page, but expect to sign in by hand:
+
+```bash
+open "https://uinteract.labor.mo.gov/benefits/#/benefits/login"
+```
+
 **Every login texts Alex.** DES sends an account-accessed SMS on each sign-in,
 so don't poll the portal. Idle checking buries the notice that would signal a
 genuinely unauthorized login.
