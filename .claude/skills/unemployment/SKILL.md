@@ -112,12 +112,26 @@ drive the page that already exists. Never `new_page()` against this site.
 `connect_over_cdp` also tends to fail on a second attach with "Browser context
 management is not supported" -- relaunch Chrome instead of reattaching.
 
-**Automated login does not work.** Clicking LOG IN reliably closes the Chrome
-window (reproduced several times on 2026-08-02). Credentials fill fine; the
-click is what kills it. So don't burn time on it. Open the login page with
-`open "https://uinteract.labor.mo.gov/benefits/#/benefits/login"` and let Alex
-sign in himself. The site is plainly not built to be automated, which is
-another reason the human-submits split is the right one.
+**Automated login does not work, and this is deliberate on DES's side.** The
+pattern, established over repeated attempts on 2026-08-02:
+
+- Playwright-launched Chrome -> page blanks to `about:blank`
+- CDP `new_page()` -> blanks
+- Chrome-launched URL, then attach -> renders, and fields fill fine
+- Click LOG IN with CDP attached -> the window closes (3 for 3)
+- Attach to a profile that has already tried this -> window closes on connect
+
+Read together that is an anti-automation control reacting to the debugging
+protocol, not a bug to route around. **Do not try to defeat it** -- no
+System Events keystroke driver, no screenshot-and-click loop, no
+undetected-chromedriver. Evading a security control on a state benefits portal
+is not something to build, and the payoff would only be saving Alex about three
+minutes of clicking.
+
+So the login is manual, always. Use
+`open "https://uinteract.labor.mo.gov/benefits/#/benefits/login"` and hand it to
+Alex. Never drive keystrokes into his everyday Chrome window either; a
+mistargeted password is a genuinely bad failure.
 
 The useful division: MIST does the research (which weeks are open, what the
 work-search evidence is, what the correspondence says) and Alex does the
