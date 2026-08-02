@@ -132,3 +132,10 @@ watchers/
 substack-sync/sync.log
 substack-sync/launchd.out.log
 substack-sync/launchd.err.log
+
+# Unemployment (UInteract) -- browser session, screenshots, and claim data are all personal
+unemployment/.browser-profile/
+unemployment/.chrome-profile/
+unemployment/screenshots/
+unemployment/data/
+unemployment/answers*.json
