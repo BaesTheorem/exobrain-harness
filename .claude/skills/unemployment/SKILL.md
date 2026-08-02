@@ -112,9 +112,16 @@ drive the page that already exists. Never `new_page()` against this site.
 `connect_over_cdp` also tends to fail on a second attach with "Browser context
 management is not supported" -- relaunch Chrome instead of reattaching.
 
-Expect the login click to sometimes close the page target; relaunch rather than
-fighting it. And note the site is plainly not built to be automated, which is
+**Automated login does not work.** Clicking LOG IN reliably closes the Chrome
+window (reproduced several times on 2026-08-02). Credentials fill fine; the
+click is what kills it. So don't burn time on it. Open the login page with
+`open "https://uinteract.labor.mo.gov/benefits/#/benefits/login"` and let Alex
+sign in himself. The site is plainly not built to be automated, which is
 another reason the human-submits split is the right one.
+
+The useful division: MIST does the research (which weeks are open, what the
+work-search evidence is, what the correspondence says) and Alex does the
+clicking.
 
 ### Login sends Alex a text
 
