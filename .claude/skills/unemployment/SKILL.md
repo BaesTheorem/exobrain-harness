@@ -154,27 +154,39 @@ drive the page that already exists. Never `new_page()` against this site.
 `connect_over_cdp` also tends to fail on a second attach with "Browser context
 management is not supported" -- relaunch Chrome instead of reattaching.
 
-**Automated login: the 2026-08-02 "anti-automation control" was a misdiagnosis.**
-That session saw the Chrome window close on every login click and concluded DES
-was killing it. The DES text log refutes that. There is a **successful** login
-notice at 2026-08-02 14:55, in the middle of the automation attempts and four
-hours before Alex signed in himself at 18:49. A server-side bot defense rejects
-credentials; it does not process the login, text a success notice, and then
-close a local browser. The window closing was local -- the `with
-sync_playwright()` block exiting drops the CDP connection, or the renderer
-crashed.
+**Automated login does not work, and it is a deliberate control. This was
+re-tested on 2026-08-03 and confirmed with direct evidence.**
 
-**This changes the diagnosis, not the practice.** Don't build portal login
-automation anyway, for a better reason than the old one: it is now redundant.
-DES texts every claim event to shortcode 36553, and `claim_watch.py` reconstructs
-the whole claim state from those texts -- for free, with no login, and without
-costing Alex the account-accessed SMS that a portal poll would. Scraping a
-fragile Angular app to learn what a text already said is strictly worse.
+A 2026-08-03 session talked itself out of the original conclusion, reasoning that
+a successful login-notice SMS at 2026-08-02 14:55 proved the login had gone
+through and only the local browser died. That was over-reading one ambiguous data
+point (the notice is equally consistent with a manual sign-in) against a
+well-supported conclusion. Don't repeat it. The re-test:
 
-So the login stays manual because there is nothing left worth logging in *for*
-except reading correspondence and submitting, and the second of those is Alex's
-to do regardless. Never drive keystrokes into his everyday Chrome window; a
-mistargeted password is a genuinely bad failure.
+- The login page loads **Google reCAPTCHA** (anchor + bframe iframes, visible in
+  the CDP target list).
+- Chrome spawned with the URL renders fine and stays **stable for 48+ seconds**
+  with no Playwright attached: targets settle at 4 and hold.
+- The instant Playwright issues its **first** command (`locator.count()`), the
+  page dies and the target list drops to **0**. Not after login, not on the
+  second call. The first touch.
+
+Stable untouched, dead on first instrumentation, is an active defense watching
+for the debugging protocol. **Do not try to defeat it** -- no CAPTCHA solving, no
+raw-CDP driver that skips Playwright's injected bindings, no System Events
+keystroke driver, no undetected-chromedriver. Getting past bot detection on a
+state benefits account risks Alex's benefits to save him a few minutes.
+
+Assisted mode does not rescue it either: the kill fires on instrumentation
+regardless of auth state, so "Alex logs in, MIST drives the session" fails the
+same way.
+
+The consolation is that the login is largely redundant. DES texts every claim
+event to shortcode 36553, and `claim_watch.py` reconstructs the claim state from
+those texts for free. What login remains genuinely necessary for is reading
+correspondence bodies and submitting, and Alex does both by hand. Never drive
+keystrokes into his everyday Chrome window; a mistargeted password is a genuinely
+bad failure.
 
 So the login is manual, always. Use
 `open "https://uinteract.labor.mo.gov/benefits/#/benefits/login"` and hand it to

@@ -133,10 +133,17 @@ real Chrome with the URL in argv and then `connect_over_cdp` onto the existing
 page. Reattaching a second time tends to fail with "Browser context management
 is not supported" -- relaunch instead.
 
-**Automated login does not work anyway.** Credentials fill correctly, but
-clicking LOG IN reliably closes the Chrome window (reproduced several times,
-2026-08-02). `open` still launches Chrome and fills the form, which is useful
-for inspecting the page, but expect to sign in by hand:
+**Automated login does not work, and it is a deliberate control** (re-confirmed
+2026-08-03). The login page loads Google reCAPTCHA. Chrome spawned with the URL
+renders and stays stable for 48+ seconds untouched, then dies the instant
+Playwright issues its first command, with the CDP target list dropping to zero.
+Stable untouched, dead on first instrumentation, is an active defense watching
+for the debugging protocol.
+
+Do not try to route around it. That means defeating bot detection on a state
+benefits account, which risks Alex's benefits to save a few minutes of typing.
+Assisted mode does not help either -- the kill fires regardless of auth state, so
+"Alex logs in, then the script drives" fails identically. Sign in by hand:
 
 ```bash
 open "https://uinteract.labor.mo.gov/benefits/#/benefits/login"
