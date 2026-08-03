@@ -86,6 +86,31 @@ a real problem with real options (the MoJobs visit, a resume revision, a
 networking reach-out) that are worth doing *now* if the window is still open,
 and lying about is worth nothing.
 
+## The MCP server
+
+`mcp__uinteract__*` is the primary interface. Zero-dependency stdio server at
+`unemployment/uinteract_mcp.py`, registered in the gitignored `.mcp.json`.
+
+| Tool | Use it for |
+|---|---|
+| `uinteract_weeks` | Which weeks are open, and when each one's money expires |
+| `uinteract_work_search` | A week's evidence, with a shortfall flag against the 3/week minimum |
+| `uinteract_log_activity` | Recording an activity that actually happened |
+| `uinteract_certification_questions` | The questions to hand Alex before he certifies |
+| `uinteract_record_filing` | Marking a week filed, after the portal confirms it |
+| `uinteract_correspondence` | The notice queue and its deadlines |
+| `uinteract_claim_facts` | Dates, phone number, MoJobs and waiver rules |
+| `uinteract_open_login` | Handing Alex the login page (`confirm: true`) |
+
+It has no submit tool and no portal-read tool. Both absences are deliberate; see
+below. It also cannot see Gmail, so application confirmation emails still get
+searched separately, and they outrank anything the vault says.
+
+**The ledger only knows what it is told.** `uinteract_weeks` reports from local
+state, not from DES. If a week Alex actually filed still reads OPEN, the ledger
+is stale, not the claim -- confirm with him and call `uinteract_record_filing`
+rather than telling him he missed a week.
+
 ## Driving the portal
 
 ```bash
@@ -158,16 +183,18 @@ request, so read the queue *before* preparing a week.
 
 ## Routine
 
-1. Check for unread correspondence first, and handle anything with a deadline.
-2. Run `weeks` and work out which weeks are unfiled and what their deadlines are.
-3. Build the work-search evidence for each open week from the sources above.
+1. `uinteract_correspondence` first, and handle anything with a deadline. A
+   fact-finding questionnaire can change the answers on a weekly request.
+2. `uinteract_weeks` for what is open and what expires when.
+3. `uinteract_work_search` per open week, then check Gmail for confirmations it
+   cannot see, and confirm the hints with Alex before `uinteract_log_activity`.
 4. Flag any week short of 3 activities while the window is still open.
-5. Launch the portal, log in, park it on the weekly request.
-6. Hand Alex the specific questions: earnings/self-employment, severance,
-   able-and-available, work refused.
+5. `uinteract_open_login` (`confirm: true`). Alex signs in himself.
+6. `uinteract_certification_questions`, and hand him the answers to confirm:
+   earnings/self-employment, severance, able-and-available, work refused.
 7. He answers and submits.
-8. Verify the week reads as filed, log the outcome in the daily note, and check
-   the repeating Things task.
+8. `uinteract_record_filing` once the week reads as filed on the portal, then log
+   the outcome in the daily note and check the repeating Things task.
 
 ## Related
 
