@@ -1,3 +1,0 @@
-# Reports contain genome data. Never let one land in this repo by accident.
-*.html
-!overlay.html
