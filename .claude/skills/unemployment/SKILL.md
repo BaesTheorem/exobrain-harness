@@ -86,6 +86,23 @@ a real problem with real options (the MoJobs visit, a resume revision, a
 networking reach-out) that are worth doing *now* if the window is still open,
 and lying about is worth nothing.
 
+## The watcher
+
+`claim_watch.py` reconstructs claim state from the DES texts to shortcode 36553
+and escalates on deadlines. Runs 9:30 AM and 6:00 PM via
+`com.exobrain.claim-watch`. Start here before asking Alex anything -- it usually
+already knows.
+
+```bash
+python3 unemployment/claim_watch.py report   # current state, no notifications
+```
+
+It auto-seeds the filing ledger, which is what makes `uinteract_weeks`
+trustworthy. Filing weeks are **inferred** (the confirmation text does not name
+its week), so entries marked `certainty: inferred` are strong evidence, not
+proof. Correspondence notices are the high-value signal: DES flags them
+time-sensitive and they can suspend payment.
+
 ## The MCP server
 
 `mcp__uinteract__*` is the primary interface. Zero-dependency stdio server at
@@ -137,21 +154,27 @@ drive the page that already exists. Never `new_page()` against this site.
 `connect_over_cdp` also tends to fail on a second attach with "Browser context
 management is not supported" -- relaunch Chrome instead of reattaching.
 
-**Automated login does not work, and this is deliberate on DES's side.** The
-pattern, established over repeated attempts on 2026-08-02:
+**Automated login: the 2026-08-02 "anti-automation control" was a misdiagnosis.**
+That session saw the Chrome window close on every login click and concluded DES
+was killing it. The DES text log refutes that. There is a **successful** login
+notice at 2026-08-02 14:55, in the middle of the automation attempts and four
+hours before Alex signed in himself at 18:49. A server-side bot defense rejects
+credentials; it does not process the login, text a success notice, and then
+close a local browser. The window closing was local -- the `with
+sync_playwright()` block exiting drops the CDP connection, or the renderer
+crashed.
 
-- Playwright-launched Chrome -> page blanks to `about:blank`
-- CDP `new_page()` -> blanks
-- Chrome-launched URL, then attach -> renders, and fields fill fine
-- Click LOG IN with CDP attached -> the window closes (3 for 3)
-- Attach to a profile that has already tried this -> window closes on connect
+**This changes the diagnosis, not the practice.** Don't build portal login
+automation anyway, for a better reason than the old one: it is now redundant.
+DES texts every claim event to shortcode 36553, and `claim_watch.py` reconstructs
+the whole claim state from those texts -- for free, with no login, and without
+costing Alex the account-accessed SMS that a portal poll would. Scraping a
+fragile Angular app to learn what a text already said is strictly worse.
 
-Read together that is an anti-automation control reacting to the debugging
-protocol, not a bug to route around. **Do not try to defeat it** -- no
-System Events keystroke driver, no screenshot-and-click loop, no
-undetected-chromedriver. Evading a security control on a state benefits portal
-is not something to build, and the payoff would only be saving Alex about three
-minutes of clicking.
+So the login stays manual because there is nothing left worth logging in *for*
+except reading correspondence and submitting, and the second of those is Alex's
+to do regardless. Never drive keystrokes into his everyday Chrome window; a
+mistargeted password is a genuinely bad failure.
 
 So the login is manual, always. Use
 `open "https://uinteract.labor.mo.gov/benefits/#/benefits/login"` and hand it to
