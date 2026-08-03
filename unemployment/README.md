@@ -8,10 +8,11 @@ live in the `/unemployment` skill; this file covers the code and the local state
 
 | Path | Tracked | What it is |
 |---|---|---|
+| `uinteract_mcp.py` | yes | MCP server: week deadlines, work-search evidence, filing ledger, correspondence |
 | `uinteract.py` | yes | Portal driver: log in, dump claim state, print week deadlines |
 | `.chrome-profile/` | **no** | Chrome profile holding the logged-in session |
 | `screenshots/` | **no** | Page captures (show claim details, SSN fragments, payment info) |
-| `data/` | **no** | Captured claim/wizard state |
+| `data/` | **no** | Filing ledger, work-search activities, correspondence queue |
 | `answers*.json` | **no** | Draft answers to certification questions |
 
 Everything untracked is personal claim data. Nothing in this directory should
@@ -30,7 +31,45 @@ To rebuild on a fresh machine: add those two lines to `.env`, then run
 `python3 unemployment/uinteract.py open`. The Chrome profile regenerates itself
 on first login. Nothing else is needed.
 
-## Usage
+## The MCP server
+
+`uinteract_mcp.py` is a stdio MCP server, zero dependencies, stdlib only. It
+covers everything about the claim that is *not* the portal: which weeks are open
+and when their money expires, the work-search evidence behind each week, the
+filing ledger, and the correspondence queue.
+
+| Tool | What it does |
+|---|---|
+| `uinteract_weeks` | Benefit weeks with 14-day deadlines and filed/open/expired state |
+| `uinteract_work_search` | Assembles a week's evidence from the ledger, job-listing notes, and daily notes; flags a shortfall against the 3/week minimum |
+| `uinteract_log_activity` | Records an activity that actually happened, with a date |
+| `uinteract_certification_questions` | The questions only Alex can answer, with the trap on each |
+| `uinteract_record_filing` | Marks a week filed *after* the portal confirms it |
+| `uinteract_correspondence` | Notice queue with deadlines (add / list / resolve) |
+| `uinteract_claim_facts` | Portal URLs, DES phone, dates, MoJobs and waiver rules |
+| `uinteract_open_login` | Opens the login page for Alex; `confirm: true` required |
+
+Registered in `.mcp.json`, which is **gitignored** -- on a fresh machine, add it
+back by hand:
+
+```json
+"uinteract": {
+  "command": "python3",
+  "args": ["/Users/alexhedtke/Documents/Exobrain harness/unemployment/uinteract_mcp.py"]
+}
+```
+
+Two things it deliberately does not have. There is **no submit tool** (see below),
+and **no tool that reads the portal**. The portal half is unreachable by design,
+not unfinished -- DES blocks automated login, and that boundary is respected
+rather than routed around.
+
+The ledger is local, not a mirror of DES. It only knows what it has been told,
+so `uinteract_record_filing` gets called after seeing a week read as filed on the
+portal, never optimistically. An unseeded ledger will report a genuinely filed
+week as open.
+
+## The portal driver
 
 ```bash
 python3 unemployment/uinteract.py weeks    # week-endings + 14-day deadlines
