@@ -8,6 +8,7 @@ live in the `/unemployment` skill; this file covers the code and the local state
 
 | Path | Tracked | What it is |
 |---|---|---|
+| `claim_watch.py` | yes | Watcher: reconstructs claim state from DES texts, escalates deadlines |
 | `uinteract_mcp.py` | yes | MCP server: week deadlines, work-search evidence, filing ledger, correspondence |
 | `uinteract.py` | yes | Portal driver: log in, dump claim state, print week deadlines |
 | `.chrome-profile/` | **no** | Chrome profile holding the logged-in session |
@@ -30,6 +31,42 @@ UINTERACT_PASSWORD=<the password>
 To rebuild on a fresh machine: add those two lines to `.env`, then run
 `python3 unemployment/uinteract.py open`. The Chrome profile regenerates itself
 on first login. Nothing else is needed.
+
+## The watcher (the part that actually saves money)
+
+DES texts shortcode **36553** on every claim event. Those texts are already in
+Alex's own message database, so the claim state can be reconstructed with no
+login at all. That beats scraping the portal on every axis: it costs nothing, it
+cannot trip anything on the DES side, and it does not generate the
+account-accessed SMS that a portal check would.
+
+```bash
+python3 unemployment/claim_watch.py report   # current claim state
+python3 unemployment/claim_watch.py sync     # parse texts, update the ledger
+python3 unemployment/claim_watch.py check    # sync + notify (the launchd job)
+```
+
+Message shapes it knows, all verified against real traffic:
+
+| Text | Meaning |
+|---|---|
+| `Your Unemployment Insurance claim application has been processed.` | Initial claim accepted |
+| `Weekly Request for Payment week(s) have been filed...` | A filing happened |
+| `Login Notice. Your account was accessed on ...` | Sign-in, for the security trail |
+| `You have N new correspondence(s)... may be time-sensitive.` | **Deadline risk** |
+
+An unrecognized shape is treated as correspondence rather than dropped: a missed
+deadline costs a week's payment, a false banner costs nothing.
+
+**Filing weeks are inferred, not read.** The confirmation text does not name the
+week it covered, so the watcher assigns it to every claimable week that had
+closed by then and was still inside its 14-day window. Entries carry
+`certainty: inferred`, and that distinction matters if a week is ever disputed.
+
+Runs twice daily (9:30 AM, 6:00 PM) via `com.exobrain.claim-watch`. Escalates by
+tier -- silent above 7 days out, a nudge at 4-7, urgent at 1-3, `Basso` at the
+deadline -- and dedups per week per tier so it never nags twice for the same
+thing. Notifications are clickable and open the portal login.
 
 ## The MCP server
 
