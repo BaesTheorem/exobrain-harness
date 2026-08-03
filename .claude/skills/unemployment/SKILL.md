@@ -86,48 +86,6 @@ a real problem with real options (the MoJobs visit, a resume revision, a
 networking reach-out) that are worth doing *now* if the window is still open,
 and lying about is worth nothing.
 
-## The watcher
-
-`claim_watch.py` reconstructs claim state from the DES texts to shortcode 36553
-and escalates on deadlines. Runs 9:30 AM and 6:00 PM via
-`com.exobrain.claim-watch`. Start here before asking Alex anything -- it usually
-already knows.
-
-```bash
-python3 unemployment/claim_watch.py report   # current state, no notifications
-```
-
-It auto-seeds the filing ledger, which is what makes `uinteract_weeks`
-trustworthy. Filing weeks are **inferred** (the confirmation text does not name
-its week), so entries marked `certainty: inferred` are strong evidence, not
-proof. Correspondence notices are the high-value signal: DES flags them
-time-sensitive and they can suspend payment.
-
-## The MCP server
-
-`mcp__uinteract__*` is the primary interface. Zero-dependency stdio server at
-`unemployment/uinteract_mcp.py`, registered in the gitignored `.mcp.json`.
-
-| Tool | Use it for |
-|---|---|
-| `uinteract_weeks` | Which weeks are open, and when each one's money expires |
-| `uinteract_work_search` | A week's evidence, with a shortfall flag against the 3/week minimum |
-| `uinteract_log_activity` | Recording an activity that actually happened |
-| `uinteract_certification_questions` | The questions to hand Alex before he certifies |
-| `uinteract_record_filing` | Marking a week filed, after the portal confirms it |
-| `uinteract_correspondence` | The notice queue and its deadlines |
-| `uinteract_claim_facts` | Dates, phone number, MoJobs and waiver rules |
-| `uinteract_open_login` | Handing Alex the login page (`confirm: true`) |
-
-It has no submit tool and no portal-read tool. Both absences are deliberate; see
-below. It also cannot see Gmail, so application confirmation emails still get
-searched separately, and they outrank anything the vault says.
-
-**The ledger only knows what it is told.** `uinteract_weeks` reports from local
-state, not from DES. If a week Alex actually filed still reads OPEN, the ledger
-is stale, not the claim -- confirm with him and call `uinteract_record_filing`
-rather than telling him he missed a week.
-
 ## Driving the portal
 
 ```bash
@@ -154,39 +112,21 @@ drive the page that already exists. Never `new_page()` against this site.
 `connect_over_cdp` also tends to fail on a second attach with "Browser context
 management is not supported" -- relaunch Chrome instead of reattaching.
 
-**Automated login does not work, and it is a deliberate control. This was
-re-tested on 2026-08-03 and confirmed with direct evidence.**
+**Automated login does not work, and this is deliberate on DES's side.** The
+pattern, established over repeated attempts on 2026-08-02:
 
-A 2026-08-03 session talked itself out of the original conclusion, reasoning that
-a successful login-notice SMS at 2026-08-02 14:55 proved the login had gone
-through and only the local browser died. That was over-reading one ambiguous data
-point (the notice is equally consistent with a manual sign-in) against a
-well-supported conclusion. Don't repeat it. The re-test:
+- Playwright-launched Chrome -> page blanks to `about:blank`
+- CDP `new_page()` -> blanks
+- Chrome-launched URL, then attach -> renders, and fields fill fine
+- Click LOG IN with CDP attached -> the window closes (3 for 3)
+- Attach to a profile that has already tried this -> window closes on connect
 
-- The login page loads **Google reCAPTCHA** (anchor + bframe iframes, visible in
-  the CDP target list).
-- Chrome spawned with the URL renders fine and stays **stable for 48+ seconds**
-  with no Playwright attached: targets settle at 4 and hold.
-- The instant Playwright issues its **first** command (`locator.count()`), the
-  page dies and the target list drops to **0**. Not after login, not on the
-  second call. The first touch.
-
-Stable untouched, dead on first instrumentation, is an active defense watching
-for the debugging protocol. **Do not try to defeat it** -- no CAPTCHA solving, no
-raw-CDP driver that skips Playwright's injected bindings, no System Events
-keystroke driver, no undetected-chromedriver. Getting past bot detection on a
-state benefits account risks Alex's benefits to save him a few minutes.
-
-Assisted mode does not rescue it either: the kill fires on instrumentation
-regardless of auth state, so "Alex logs in, MIST drives the session" fails the
-same way.
-
-The consolation is that the login is largely redundant. DES texts every claim
-event to shortcode 36553, and `claim_watch.py` reconstructs the claim state from
-those texts for free. What login remains genuinely necessary for is reading
-correspondence bodies and submitting, and Alex does both by hand. Never drive
-keystrokes into his everyday Chrome window; a mistargeted password is a genuinely
-bad failure.
+Read together that is an anti-automation control reacting to the debugging
+protocol, not a bug to route around. **Do not try to defeat it** -- no
+System Events keystroke driver, no screenshot-and-click loop, no
+undetected-chromedriver. Evading a security control on a state benefits portal
+is not something to build, and the payoff would only be saving Alex about three
+minutes of clicking.
 
 So the login is manual, always. Use
 `open "https://uinteract.labor.mo.gov/benefits/#/benefits/login"` and hand it to
@@ -218,18 +158,16 @@ request, so read the queue *before* preparing a week.
 
 ## Routine
 
-1. `uinteract_correspondence` first, and handle anything with a deadline. A
-   fact-finding questionnaire can change the answers on a weekly request.
-2. `uinteract_weeks` for what is open and what expires when.
-3. `uinteract_work_search` per open week, then check Gmail for confirmations it
-   cannot see, and confirm the hints with Alex before `uinteract_log_activity`.
+1. Check for unread correspondence first, and handle anything with a deadline.
+2. Run `weeks` and work out which weeks are unfiled and what their deadlines are.
+3. Build the work-search evidence for each open week from the sources above.
 4. Flag any week short of 3 activities while the window is still open.
-5. `uinteract_open_login` (`confirm: true`). Alex signs in himself.
-6. `uinteract_certification_questions`, and hand him the answers to confirm:
-   earnings/self-employment, severance, able-and-available, work refused.
+5. Launch the portal, log in, park it on the weekly request.
+6. Hand Alex the specific questions: earnings/self-employment, severance,
+   able-and-available, work refused.
 7. He answers and submits.
-8. `uinteract_record_filing` once the week reads as filed on the portal, then log
-   the outcome in the daily note and check the repeating Things task.
+8. Verify the week reads as filed, log the outcome in the daily note, and check
+   the repeating Things task.
 
 ## Related
 
