@@ -1,0 +1,18 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <rect width="512" height="512" rx="96" fill="#1f2430"/>
+  <g transform="translate(66 96)">
+    <path d="M190 40 C 150 12, 60 8, 20 28 L 20 292 C 60 272, 150 276, 190 304 Z" fill="#e8e2d2"/>
+    <path d="M190 40 C 230 12, 320 8, 360 28 L 360 292 C 320 272, 230 276, 190 304 Z" fill="#fdf9ec"/>
+    <line x1="190" y1="40" x2="190" y2="304" stroke="#c9c2ae" stroke-width="6"/>
+    <rect x="52" y="80" width="104" height="12" rx="6" fill="#ffe58a"/>
+    <rect x="52" y="116" width="88" height="12" rx="6" fill="#b9b29c"/>
+    <rect x="52" y="152" width="100" height="12" rx="6" fill="#b9b29c"/>
+    <rect x="222" y="80" width="100" height="12" rx="6" fill="#b9b29c"/>
+    <rect x="222" y="116" width="86" height="12" rx="6" fill="#bcdcf5"/>
+    <rect x="222" y="152" width="96" height="12" rx="6" fill="#b9b29c"/>
+    <rect x="52" y="188" width="72" height="12" rx="6" fill="#b9b29c"/>
+    <rect x="222" y="188" width="76" height="12" rx="6" fill="#b9b29c"/>
+    <circle cx="330" cy="60" r="34" fill="#2d5d8f"/>
+    <text x="330" y="72" font-family="Georgia, serif" font-size="40" font-weight="bold" fill="#fff" text-anchor="middle">?</text>
+  </g>
+</svg>

@@ -1,0 +1,181 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Study Bible</title>
+<meta name="description" content="Personal study app for the Skeptic's Annotated Bible and Book of Mormon">
+<meta name="theme-color" content="#1f2430">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icons/icon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="icons/icon-192.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<link rel="stylesheet" href="css/app.css">
+</head>
+<body>
+
+<header id="topbar">
+  <div class="brand" title="Study Bible">
+    <img src="icons/icon.svg" alt="" width="26" height="26">
+    <span class="brand-name">Study&nbsp;Bible</span>
+  </div>
+  <div class="topbar-actions">
+    <button id="btn-split" class="tb" title="Toggle split screen">⿻ <span class="tb-label">Split</span></button>
+    <button id="btn-search" class="tb" title="Search">🔍 <span class="tb-label">Search</span></button>
+    <button id="btn-study" class="tb" title="My highlights and notes">📒 <span class="tb-label">My study</span></button>
+    <button id="btn-settings" class="tb" title="Settings, backup and sync">⚙️</button>
+  </div>
+</header>
+
+<main id="panes" class="single">
+  <!-- Panes are cloned from this template -->
+</main>
+
+<template id="pane-template">
+  <section class="pane">
+    <div class="pane-toolbar">
+      <select class="sel-corpus" title="Collection"></select>
+      <select class="sel-book" title="Book"></select>
+      <select class="sel-chapter" title="Chapter"></select>
+      <span class="pane-toolbar-spacer"></span>
+      <button class="btn-notes tb-sm" title="Toggle annotations">🗒️</button>
+      <button class="btn-prev tb-sm" title="Previous chapter">←</button>
+      <button class="btn-next tb-sm" title="Next chapter">→</button>
+    </div>
+    <div class="pane-scroll">
+      <div class="chapter-body"></div>
+    </div>
+  </section>
+</template>
+
+<!-- Verse action sheet -->
+<div id="verse-actions" hidden>
+  <div class="va-ref"></div>
+  <div class="va-buttons">
+    <button class="hl-dot" data-hl="yellow" title="Yellow highlight"></button>
+    <button class="hl-dot" data-hl="green" title="Green highlight"></button>
+    <button class="hl-dot" data-hl="blue" title="Blue highlight"></button>
+    <button class="hl-dot" data-hl="pink" title="Pink highlight"></button>
+    <button class="hl-dot" data-hl="orange" title="Orange highlight"></button>
+    <button class="hl-dot hl-clear" data-hl="" title="Remove highlight">✕</button>
+    <span class="va-sep"></span>
+    <button id="va-note" title="Add or edit note">📝 Note</button>
+    <button id="va-copy" title="Copy verse">📋</button>
+    <button id="va-close" title="Close">Close</button>
+  </div>
+</div>
+
+<!-- Note editor -->
+<dialog id="note-dialog">
+  <form method="dialog" id="note-form">
+    <h3 id="note-ref">Note</h3>
+    <textarea id="note-text" rows="6" placeholder="Your thoughts on this verse..."></textarea>
+    <div class="dialog-buttons">
+      <button value="delete" id="note-delete" class="danger">Delete</button>
+      <span class="va-sep"></span>
+      <button value="cancel">Cancel</button>
+      <button value="save" class="primary">Save</button>
+    </div>
+  </form>
+</dialog>
+
+<!-- Search -->
+<dialog id="search-dialog">
+  <div class="dialog-head">
+    <h3>Search</h3>
+    <button class="dialog-close" data-close="search-dialog">✕</button>
+  </div>
+  <form id="search-form">
+    <div class="search-row">
+      <input id="search-input" type="search" placeholder="Search text..." autocomplete="off">
+      <select id="search-scope">
+        <option value="all">Everything</option>
+        <option value="bible">Bible</option>
+        <option value="bom">Book of Mormon</option>
+      </select>
+      <button class="primary">Go</button>
+    </div>
+  </form>
+  <div id="search-status"></div>
+  <div id="search-results"></div>
+</dialog>
+
+<!-- My study -->
+<dialog id="study-dialog">
+  <div class="dialog-head">
+    <h3>My study</h3>
+    <button class="dialog-close" data-close="study-dialog">✕</button>
+  </div>
+  <div id="study-list"></div>
+</dialog>
+
+<!-- Settings -->
+<dialog id="settings-dialog">
+  <div class="dialog-head">
+    <h3>Settings</h3>
+    <button class="dialog-close" data-close="settings-dialog">✕</button>
+  </div>
+
+  <section class="settings-section">
+    <h4>Appearance</h4>
+    <label>Theme
+      <select id="set-theme">
+        <option value="auto">Auto</option>
+        <option value="light">Light</option>
+        <option value="dark">Dark</option>
+      </select>
+    </label>
+    <label>Text size
+      <select id="set-fontsize">
+        <option value="15">Small</option>
+        <option value="17" selected>Normal</option>
+        <option value="19">Large</option>
+        <option value="22">Extra large</option>
+      </select>
+    </label>
+  </section>
+
+  <section class="settings-section">
+    <h4>Backup file</h4>
+    <p class="hint">Your highlights and notes live in this browser's IndexedDB. Export a copy so they exist somewhere else too.</p>
+    <div class="btn-row">
+      <button id="btn-export">⬇ Export backup</button>
+      <button id="btn-import">⬆ Import backup</button>
+      <input id="import-file" type="file" accept="application/json" hidden>
+    </div>
+  </section>
+
+  <section class="settings-section">
+    <h4>GitHub Gist sync</h4>
+    <p class="hint">Optional: sync your data to a private GitHub Gist so every device shares the same highlights and notes. Create a fine-grained token with only the <b>gist</b> scope at github.com &rarr; Settings &rarr; Developer settings.</p>
+    <label>Token <input id="set-token" type="password" placeholder="ghp_... or github_pat_..." autocomplete="off"></label>
+    <div class="btn-row">
+      <button id="btn-sync">🔄 Sync now</button>
+      <button id="btn-sync-forget" class="danger">Forget token</button>
+    </div>
+    <p id="sync-status" class="hint"></p>
+  </section>
+
+  <section class="settings-section">
+    <h4>Legend</h4>
+    <div id="legend"></div>
+    <p class="hint">Category markings come from the <a href="https://www.skepticsannotatedbible.com" target="_blank" rel="noopener">Skeptic's Annotated Bible</a> by Steve Wells.</p>
+  </section>
+</dialog>
+
+<div id="toast" hidden></div>
+
+<!-- Shown when data/ has not been built yet -->
+<div id="no-data" hidden>
+  <div class="no-data-card">
+    <h2>No scripture data yet</h2>
+    <p>This app reads from <code>data/</code>, which is built locally and never committed. From the repo root, run:</p>
+    <pre>python3 bible-study/build-data.py</pre>
+    <p>That fetches the Skeptic's Annotated Bible and Book of Mormon (about 20 minutes), then reload this page.</p>
+  </div>
+</div>
+
+<script src="js/app.js"></script>
+</body>
+</html>

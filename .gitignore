@@ -139,3 +139,8 @@ unemployment/.chrome-profile/
 unemployment/screenshots/
 unemployment/data/
 unemployment/answers*.json
+
+# bible-study: scraped Skeptic's Annotated Bible / Book of Mormon content.
+# Steve Wells' annotations are copyrighted, so the dataset is built locally
+# (python3 bible-study/build-data.py) and never committed.
+bible-study/data/
