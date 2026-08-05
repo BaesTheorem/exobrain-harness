@@ -52,7 +52,7 @@ REPO_SCAN_ROOT="$HOME/Documents"
 # Repos whose gitignored data should NOT be swept into the archive (huge
 # regenerable assets, VM images). Skips are logged loudly in the backup log.
 BACKUP_EXCLUDE_REPOS=(
-    "Cannonballs Resurrection"   # 14GB of game/VM assets; tripled the archive and ENOSPC'd the run (2026-07)
+    "Cannonballs-Resurrection"   # 14GB of game/VM assets; tripled the archive and ENOSPC'd the run (2026-07)
 )
 # Per-repo cap on gitignored-data size (MB). Repos over the cap are skipped with
 # a loud log line instead of silently sinking the backup (disk, Drive quota).

@@ -116,14 +116,14 @@ done
 - From `~/restore-staging/repos-gitignored/<repo>/`: phone GCP keys, bus/.env, disposable-email secrets, tv/token.json, etc. -- rsync these in Phase 5 *after* each repo is cloned, not before, or the clone fails on a non-empty dir.
 - **Older archives (pre-2026-06-21)** have no `home-extras/`: re-auth instead -- Plaud via `mcp__plaud__login`, Fitbit via its OAuth flow, and recreate `~/.claude` globals by hand.
 - **Cloud MCPs** (Gmail, Calendar, Drive, MyChart, LinkedIn, Plaud): not restorable from disk -- reconnect each at claude.ai → Integrations.
-- **Stale OAuth that rotates regardless of backup:** Withings refresh token, and the Google `token.json` in envelope-budget / inbox-clone / nest -- expect a 401 on first call and re-auth in browser.
+- **Stale OAuth that rotates regardless of backup:** Withings refresh token, and the Google `token.json` in envelope-budget / inbox-by-gmail-clone / nest -- expect a 401 on first call and re-auth in browser.
 
 ### Phase 5 -- Sibling repos
 ```bash
 cd ~/Documents
-for r in night-watch pocket-dungeon inbox-clone pixel-claude-code opower annas-archive \
+for r in night-watch pocket-dungeon inbox-by-gmail-clone pixel-claude-code opower annas-archive \
   5e-spell-maker claude-home dnd-character-sheet mist-voice-data mist-console chromatic-set \
-  petkit-loki sleep-cycle-pwa claude-phone dating-lab bestagon envelope-budget \
+  petkit-loki sleep-cycle-alarm claude-phone dating-lab bestagon envelope-budget \
   hp1-sorcerers-stone-macos rental-harmony passage kc-library-nyt-pass; do
   gh repo clone "BaesTheorem/$r" || echo "WARN: $r clone failed"
   [ -d ~/restore-staging/repos-gitignored/$r ] && rsync -a ~/restore-staging/repos-gitignored/$r/ ~/Documents/$r/
@@ -166,4 +166,4 @@ launchctl list | grep -E 'exobrain|mist|nightwatch|passage'   # every job: recen
 > The formerly-orphaned job definitions are now committed (2026-06-21): `mist-console/launchd/` (5× `com.mist.routine.*` + `mist-hotkey-agent`), `night-watch/launchd/` (3× `com.nightwatch.*`), and in the harness at `maintenance/` (`headless-chrome-reaper`) and `tools-registry/`. The copy loop above must source plists from those dirs too. (Restoring a pre-2026-06-21 archive? Those bodies won't be in it -- hand-recreate from the list in the recon note, or pull from a machine that still has them.)
 
 ## On completion
-Report what's live vs. still manual (cloud MCP re-auths, stale-OAuth re-auths for envelope-budget/inbox-clone/nest, any orphaned plists not recreated). Recommend writing a `/session-memory`. Remind Alex the vault was left to Sync unless he opted into `--vault-from-backup`.
+Report what's live vs. still manual (cloud MCP re-auths, stale-OAuth re-auths for envelope-budget/inbox-by-gmail-clone/nest, any orphaned plists not recreated). Recommend writing a `/session-memory`. Remind Alex the vault was left to Sync unless he opted into `--vault-from-backup`.
