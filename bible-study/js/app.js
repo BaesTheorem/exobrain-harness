@@ -29,6 +29,7 @@ function loadState() {
     split: false,
     theme: 'auto',
     fontSize: 17,
+    fewerWords: false,
     panes: [
       { corpus: 'bible', slug: 'gen', chapter: 1, notes: true },
       { corpus: 'bom', slug: '1ne', chapter: 1, notes: true },
@@ -814,6 +815,7 @@ function toast(msg) {
 function applyAppearance() {
   document.documentElement.dataset.theme = state.theme;
   document.documentElement.style.setProperty('--fs', state.fontSize + 'px');
+  document.body.classList.toggle('show-fewer', !!state.fewerWords);
 }
 
 function buildLegend() {
@@ -856,6 +858,7 @@ function wireUI() {
   document.getElementById('btn-settings').addEventListener('click', () => {
     document.getElementById('set-theme').value = state.theme;
     document.getElementById('set-fontsize').value = state.fontSize;
+    document.getElementById('set-fewer').selected = !!state.fewerWords;
     document.getElementById('set-token').value = localStorage.getItem('sb-token') || '';
     document.getElementById('settings-dialog').show();
   });
@@ -864,6 +867,9 @@ function wireUI() {
   });
   document.getElementById('set-fontsize').addEventListener('change', e => {
     state.fontSize = +e.target.value; applyAppearance(); saveState();
+  });
+  document.getElementById('set-fewer').addEventListener('change', e => {
+    state.fewerWords = e.target.selected; applyAppearance(); saveState();
   });
   document.getElementById('set-token').addEventListener('change', e => {
     const v = e.target.value.trim();

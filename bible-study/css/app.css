@@ -151,13 +151,17 @@ md-dialog select {
 
 /* rows: verse text + annotation column */
 .row { display: grid; grid-template-columns: 1fr; gap: 4px 18px; margin-bottom: 10px; }
-.pane.show-notes .row.has-note { grid-template-columns: 3fr 2fr; }
+body.show-fewer .pane.show-notes .row.has-note { grid-template-columns: 3fr 2fr; }
 @media (max-width: 700px) {
-  .pane.show-notes .row.has-note { grid-template-columns: 1fr; }
-  .pane.show-notes .cell-note { margin-left: 20px; }
+  body.show-fewer .pane.show-notes .row.has-note { grid-template-columns: 1fr; }
+  body.show-fewer .pane.show-notes .cell-note { margin-left: 20px; }
 }
 
-.pane:not(.show-notes) .cell-note,
+/* paraphrase boxes are opt-in (Settings) and follow the pane's
+   annotations toggle once enabled */
+.cell-note { display: none; }
+body.show-fewer .pane.show-notes .cell-note { display: block; }
+
 .pane:not(.show-notes) .row-marker,
 .pane:not(.show-notes) .footnotes { display: none; }
 
@@ -403,6 +407,7 @@ md-dialog [slot="content"] { color: var(--md-sys-color-on-surface); }
 md-dialog [slot="actions"] { display: flex; width: 100%; gap: 4px; }
 md-outlined-text-field { width: 100%; margin: 6px 0; }
 md-dialog label { display: block; margin: 10px 0; font-size: 14px; }
+.switch-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
 md-dialog label select { margin-left: 8px; }
 .danger { --md-text-button-label-text-color: var(--md-sys-color-error); }
 
