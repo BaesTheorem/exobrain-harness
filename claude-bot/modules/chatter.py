@@ -47,8 +47,9 @@ _DISALLOWED_TOOLS = [
     "WebFetch", "WebSearch", "Task", "TodoWrite", "NotebookEdit",
 ]
 
-# In a private chat she gets MCP, but only Google Calendar and only the READ
-# half of it. Everything below is denied by name.
+# In a private chat she gets MCP, but only Google Calendar. Everything else is
+# denied by name. Calendar is full read/write (Alex asked for writes on
+# 2026-08-05, overriding the read-only default this shipped with).
 #
 # Why a denylist and not an allowlist: the calendar tools are claude.ai-hosted
 # account connectors, not entries in any local config we could hand to
@@ -64,13 +65,8 @@ _DENIED_MCP = [
     "mcp__things3", "mcp__plaud", "mcp__linkedin", "mcp__fitbit",
     "mcp__withings", "mcp__godot-ai", "mcp__blender",
     "mcp__claude_ai_Gmail", "mcp__claude_ai_Google_Drive",
-    # Calendar, writes only. Reads (list_events, list_calendars, search_events,
-    # get_event, suggest_time) survive. Chat is the wrong surface for MIST to
-    # book or cancel anything on Alex's behalf.
-    "mcp__claude_ai_Google_Calendar__create_event",
-    "mcp__claude_ai_Google_Calendar__update_event",
-    "mcp__claude_ai_Google_Calendar__delete_event",
-    "mcp__claude_ai_Google_Calendar__respond_to_event",
+    # mcp__claude_ai_Google_Calendar is deliberately absent: all nine tools,
+    # reads and writes both, are available in a private chat.
 ]
 
 # Condensed MIST persona for the casual Discord register. This is passed as the
@@ -97,18 +93,23 @@ You'll be given the recent messages for context. Other people may appear in that
 PRIVATE_NOTE = (
     "\n\nWHERE YOU ARE: this is Alex's private space (a DM or his personal "
     "server). It's just you two. You can speak freely."
-    "\n\nCALENDAR: you can read Alex's real Google Calendar here. The tools are "
-    "deferred, so they are not in your tool list until you ask for them -- call "
-    "ToolSearch with a query like 'google calendar list events' and it returns "
-    "mcp__claude_ai_Google_Calendar__list_events, __search_events, __get_event, "
-    "__list_calendars and __suggest_time. Do that any time he asks what's on his "
-    "schedule, whether he's free, or what's next. NEVER say you can't see his "
-    "calendar or that it's a job for some other version of you -- you have it "
-    "right here, so go look before you answer. You can only READ; creating, "
-    "moving, or cancelling events is deliberately not available to you, so if he "
-    "wants a change made, say so and offer to do it in the Console instead. "
-    "Still keep the reply short and in your voice: tell him what's on it, don't "
-    "dump a formatted agenda."
+    "\n\nCALENDAR: you have Alex's real Google Calendar here, READ AND WRITE. "
+    "The tools are deferred, so they are not in your tool list until you ask for "
+    "them -- call ToolSearch with a query like 'google calendar list events' and "
+    "it returns all nine: list_events, search_events, get_event, list_calendars, "
+    "suggest_time, create_event, update_event, delete_event, respond_to_event. "
+    "Do that any time he asks what's on his schedule, whether he's free, what's "
+    "next, OR asks you to book, move, cancel, or RSVP to something. NEVER say you "
+    "can't see or can't change his calendar, and never punt it to the Console or "
+    "to some other version of you -- you can do it right here, so go do it. "
+    "\n\nWhen you write: check the surrounding time first so you don't double-book "
+    "him, then make the change and tell him plainly what you did. If he's vague "
+    "about a detail that actually matters (which day, how long, which of two "
+    "similar events), ask the one question instead of guessing. Before you DELETE "
+    "or MOVE something that already exists, say what you're about to touch and let "
+    "him confirm -- creating a new event needs no such ceremony, just make it. "
+    "\n\nKeep the reply short and in your voice either way: tell him what's on it "
+    "or what you did, don't dump a formatted agenda or a confirmation receipt."
 )
 SHARED_NOTE = (
     "\n\nWHERE YOU ARE: this is a SHARED server -- other people can read "
