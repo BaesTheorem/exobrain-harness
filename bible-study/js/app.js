@@ -169,6 +169,8 @@ class Pane {
     catch (e) { toast(`Could not load ${meta.name} (${e.message})`); return; }
     this.corpus = corpus; this.slug = slug; this.chapter = chapter;
     this.render(book);
+    // keep the annotation panel in step with the chapter it came from
+    if (notesPanelPane === this) openNotesPanel(this, null);
     saveState();
     if (verse) {
       this.jumpToVerse(verse);
@@ -207,9 +209,9 @@ class Pane {
       if (b.t === 'summary') {
         frag.push(`<div class="row row-summary">${b.html}</div>`);
       } else if (b.t === 'marker') {
-        const chips = b.cats.map(c =>
-          `<span class="cat-chip cat-${c}" title="${CATS[c] || c}"></span>`).join('');
-        frag.push(`<div class="row row-marker">${chips}<span>${b.ref}</span></div>`);
+        const tags = b.cats.map(c =>
+          `<span class="cat-tag"><span class="cat-chip cat-${c}"></span>${CATS[c] || c}</span>`).join('');
+        frag.push(`<div class="row row-marker">${tags}<span class="marker-ref">${b.ref}</span></div>`);
       } else if (b.t === 'verses') {
         const next = blocks[i + 1];
         const hasNote = next && next.t === 'note';
@@ -290,7 +292,7 @@ class Pane {
       e.preventDefault();
       const target = link.getAttribute('href').slice(1);
       if (/^\d+n$/.test(target)) {
-        openFootnotePopup(this, target);
+        openNotesPanel(this, target);
       } else if (/^\d+$/.test(target)) {
         this.jumpToVerse(+target);
       }
@@ -577,18 +579,38 @@ function refDialogEls() {
   };
 }
 
-async function openFootnotePopup(pane, fnid) {
-  const { dlg, title, content, here, split } = refDialogEls();
+// The annotation panel is a docked split view: scripture stays put, the
+// SAB endnotes for the pane's chapter open beside it (bottom sheet on
+// narrow screens).
+let notesPanelPane = null;
+
+async function openNotesPanel(pane, fnid) {
+  const panel = document.getElementById('notes-panel');
   const book = await loadBook(pane.corpus, pane.slug);
   const ch = book.chapters.find(c => c.c === pane.chapter);
-  const fn = (ch.footnotes || []).find(f => f.id === fnid);
-  if (!fn) return;
-  title.textContent = `Note ${fnid.replace(/n$/, '')} on ${book.name} ${ch.c}`;
-  content.innerHTML = fn.html.replace(/ id="fn-[^"]*"/g, '');
-  here.hidden = true;
-  split.hidden = true;
-  dlg.pendingNav = null;
-  dlg.show();
+  if (!ch || !(ch.footnotes || []).length) return;
+  notesPanelPane = pane;
+  document.getElementById('np-title').textContent = `SAB notes · ${book.name} ${ch.c}`;
+  const frag = [];
+  for (const fn of ch.footnotes) {
+    const num = fn.id.replace(/n$/, '');
+    const html = fn.html.replace(/ id="fn-[^"]*"/g, '');
+    frag.push(`<div class="footnote" data-fn="${fn.id}"><span class="fn-num">${num}.</span><div>${html}</div></div>`);
+  }
+  document.getElementById('np-content').innerHTML = frag.join('');
+  panel.hidden = false;
+  document.getElementById('panes').classList.add('notes-open');
+  const target = fnid && panel.querySelector(`.footnote[data-fn="${fnid}"]`);
+  if (target) {
+    target.scrollIntoView({ block: 'start' });
+    target.classList.remove('flash'); void target.offsetWidth; target.classList.add('flash');
+  }
+}
+
+function closeNotesPanel() {
+  document.getElementById('notes-panel').hidden = true;
+  document.getElementById('panes').classList.remove('notes-open');
+  notesPanelPane = null;
 }
 
 async function openPassagePreview(nav) {
@@ -1006,6 +1028,23 @@ function wireUI() {
     if (nav) { e.preventDefault(); openPassagePreview(nav.dataset.nav); return; }
     const link = e.target.closest('a[href^="#"]');
     if (link) e.preventDefault(); // in-popup anchors have nowhere to go
+  });
+
+  // annotation panel
+  document.getElementById('np-close').addEventListener('click', closeNotesPanel);
+  document.getElementById('np-content').addEventListener('click', e => {
+    const nav = e.target.closest('a[data-nav]');
+    if (nav) { e.preventDefault(); openPassagePreview(nav.dataset.nav); return; }
+    const link = e.target.closest('a[href^="#"]');
+    if (!link) return;
+    e.preventDefault();
+    const target = link.getAttribute('href').slice(1);
+    if (/^\d+n$/.test(target)) {
+      const fn = document.querySelector(`#np-content .footnote[data-fn="${target}"]`);
+      if (fn) { fn.scrollIntoView({ block: 'start' }); fn.classList.add('flash'); }
+    } else if (/^\d+$/.test(target) && notesPanelPane) {
+      notesPanelPane.jumpToVerse(+target);
+    }
   });
 
   document.addEventListener('keydown', e => {

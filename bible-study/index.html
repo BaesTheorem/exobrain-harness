@@ -53,7 +53,15 @@
   </div>
 </header>
 
-<main id="panes" class="single"></main>
+<main id="panes" class="single">
+  <aside id="notes-panel" hidden>
+    <div class="np-head">
+      <span id="np-title">SAB notes</span>
+      <md-icon-button id="np-close" title="Close notes"><svg class="icon"><use href="#i-close"/></svg></md-icon-button>
+    </div>
+    <div id="np-content"></div>
+  </aside>
+</main>
 
 <template id="pane-template">
   <section class="pane">

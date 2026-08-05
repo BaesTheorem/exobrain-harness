@@ -92,10 +92,57 @@ md-icon-button[selected] { color: var(--md-sys-color-primary); }
 }
 #panes.single { grid-template-columns: 1fr; }
 #panes.split { grid-template-columns: 1fr 1fr; }
-#panes.single .pane:nth-child(2) { display: none; }
+#panes.single .pane:nth-of-type(2) { display: none; }
+#panes.single.notes-open { grid-template-columns: 1fr minmax(280px, 380px); }
+#panes.split.notes-open { grid-template-columns: 1fr 1fr minmax(280px, 360px); }
+
+/* docked annotation panel (split view for SAB notes) */
+#notes-panel {
+  order: 10;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  background: var(--md-sys-color-surface-container);
+  border-radius: 16px;
+  overflow: hidden;
+}
+.np-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 8px 8px 16px;
+  font-weight: 600;
+  background: var(--md-sys-color-surface-container-high);
+}
+#np-content {
+  flex: 1;
+  overflow-y: auto;
+  padding: 12px 16px 24px;
+  font-size: 14px;
+  line-height: 1.6;
+  color: var(--md-sys-color-on-surface-variant);
+}
+#np-content .footnote { display: flex; gap: 8px; margin-bottom: 14px; }
+#np-content .fn-num { font-weight: 700; color: var(--md-sys-color-primary); }
+#np-content .footnote.flash { animation: flash 2s ease-out; border-radius: 8px; }
+#np-content blockquote {
+  margin: 6px 0 6px 12px;
+  padding-left: 10px;
+  border-left: 3px solid var(--md-sys-color-outline-variant);
+}
 
 @media (max-width: 860px) {
   #panes.split { grid-template-columns: 1fr; grid-template-rows: 1fr 1fr; }
+  #panes.single.notes-open, #panes.split.notes-open { grid-template-columns: 1fr; }
+  #panes.split.notes-open { grid-template-rows: 1fr 1fr; }
+  #notes-panel {
+    position: fixed;
+    left: 0; right: 0; bottom: 0;
+    height: 46vh;
+    z-index: 55;
+    border-radius: 20px 20px 0 0;
+    box-shadow: 0 -4px 20px rgba(0,0,0,.3);
+  }
 }
 
 .pane {
@@ -198,10 +245,22 @@ body.show-fewer .pane.show-notes .note-refs { display: none; }
   font-size: .82em;
   color: var(--md-sys-color-on-surface-variant);
   display: flex;
-  gap: 4px;
+  gap: 6px;
   align-items: center;
   flex-wrap: wrap;
 }
+.cat-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 2px 9px 2px 6px;
+  border-radius: 9px;
+  background: var(--md-sys-color-surface-container);
+  font-size: 12px;
+  font-weight: 500;
+}
+.cat-tag .cat-chip { margin-right: 0; width: 11px; height: 11px; border-radius: 4px; }
+.marker-ref { margin-left: 2px; }
 
 .cell-note {
   background: var(--md-sys-color-surface-container);
