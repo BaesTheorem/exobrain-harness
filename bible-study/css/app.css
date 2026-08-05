@@ -162,6 +162,26 @@ body.show-fewer .pane.show-notes .row.has-note { grid-template-columns: 3fr 2fr;
 .cell-note { display: none; }
 body.show-fewer .pane.show-notes .cell-note { display: block; }
 
+/* compact endnote chips shown when the paraphrase prose is off */
+.note-refs { display: none; gap: 6px; margin: -2px 0 8px 8px; flex-wrap: wrap; }
+.pane.show-notes .note-refs { display: flex; }
+body.show-fewer .pane.show-notes .note-refs { display: none; }
+.nref {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 22px;
+  height: 22px;
+  border-radius: 11px;
+  padding: 0 7px;
+  background: var(--md-sys-color-secondary-container);
+  color: var(--md-sys-color-on-secondary-container);
+  font-size: 12px;
+  font-weight: 600;
+  text-decoration: none;
+}
+.nref:hover { background: var(--md-sys-color-primary-container); }
+
 .pane:not(.show-notes) .row-marker,
 .pane:not(.show-notes) .footnotes { display: none; }
 

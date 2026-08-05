@@ -214,11 +214,16 @@ class Pane {
         const next = blocks[i + 1];
         const hasNote = next && next.t === 'note';
         frag.push(`<div class="row${hasNote ? ' has-note' : ''}">`);
-        frag.push(`<div class="cell-text">${b.items.map(v => this.verseHTML(v)).join('')}</div>`);
+        frag.push('<div class="cell-text">');
+        frag.push(b.items.map(v => this.verseHTML(v)).join(''));
+        // compact endnote chips keep the apparatus reachable while the
+        // paraphrase prose is switched off
+        if (hasNote) frag.push(noteRefsHTML(next.html));
+        frag.push('</div>');
         if (hasNote) { frag.push(`<div class="cell-note">${next.html}</div>`); i++; }
         frag.push('</div>');
       } else if (b.t === 'note') {
-        frag.push(`<div class="row has-note"><div class="cell-text"></div><div class="cell-note">${b.html}</div></div>`);
+        frag.push(`<div class="row has-note"><div class="cell-text">${noteRefsHTML(b.html)}</div><div class="cell-note">${b.html}</div></div>`);
       }
     }
 
@@ -305,9 +310,20 @@ class Pane {
       if (verse) { selectVerse(verse); openNoteDialog(); }
       return;
     }
+    // a tap that ends or immediately follows a text selection is part of
+    // the selection gesture, not a verse tap
+    if (hadSelectionAtPointerDown || Date.now() - lastSelectionActiveAt < 400) return;
     const verse = e.target.closest('.verse');
     if (verse && verse.closest('.chapter-body') === this.body) selectVerse(verse);
   }
+}
+
+function noteRefsHTML(noteHtml) {
+  const ids = [...noteHtml.matchAll(/href="#(\d+)n"/g)].map(m => m[1]);
+  const uniq = [...new Set(ids)];
+  if (!uniq.length) return '';
+  return `<div class="note-refs">${uniq.map(n =>
+    `<a href="#${n}n" class="nref" title="SAB note ${n}">${n}</a>`).join('')}</div>`;
 }
 
 /* --------------------------------------------- action sheet ------ */
@@ -415,13 +431,32 @@ function applyRanges(el, ranges) {
 
 let pendingSel = null;
 let selTimer = null;
+let pointerIsDown = false;
+let selCheckQueued = false;
+let hadSelectionAtPointerDown = false;
+let lastSelectionActiveAt = 0;
+
+document.addEventListener('pointerdown', () => {
+  pointerIsDown = true;
+  const sel = document.getSelection();
+  hadSelectionAtPointerDown = !!(sel && !sel.isCollapsed);
+}, { capture: true });
+
+document.addEventListener('pointerup', () => {
+  pointerIsDown = false;
+  if (selCheckQueued) { selCheckQueued = false; setTimeout(onSelectionSettled, 60); }
+}, { capture: true });
 
 document.addEventListener('selectionchange', () => {
+  const sel = document.getSelection();
+  if (sel && !sel.isCollapsed) lastSelectionActiveAt = Date.now();
   clearTimeout(selTimer);
-  selTimer = setTimeout(onSelectionSettled, 250);
+  selTimer = setTimeout(onSelectionSettled, 300);
 });
 
 function onSelectionSettled() {
+  // never pop the sheet mid-drag; wait for the finger to lift
+  if (pointerIsDown) { selCheckQueued = true; return; }
   const sel = document.getSelection();
   if (!sel || sel.isCollapsed || sel.rangeCount === 0) {
     if (action && action.mode === 'selection') closeActions();
