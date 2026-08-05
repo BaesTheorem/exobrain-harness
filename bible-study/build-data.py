@@ -227,21 +227,26 @@ def rewrite_href(href, corpus, slug, book_slugs):
     if href.startswith("http://") or href.startswith("https://"):
         return href, None, True
 
+    def frag(f):
+        # keep verse anchors ("#4" -> ":4") so the app can land on the verse
+        fm = re.match(r"^#(\d+)$", f or "")
+        return f":{fm.group(1)}" if fm else ""
+
     m = re.match(r"^(\d+)\.html(#.*)?$", href)
     if m:
-        return "#", f"{corpus}/{slug}/{m.group(1)}", False
+        return "#", f"{corpus}/{slug}/{m.group(1)}{frag(m.group(2))}", False
 
     m = re.match(r"^\.\./([\w]+)/(\d+)\.html(#.*)?$", href)
     if m and m.group(1) in book_slugs:
-        return "#", f"{corpus}/{m.group(1)}/{m.group(2)}", False
+        return "#", f"{corpus}/{m.group(1)}/{m.group(2)}{frag(m.group(3))}", False
 
     m = re.match(r"^/BOM/([\w]+)/(\d+)\.html(#.*)?$", href)
     if m:
-        return "#", f"bom/{m.group(1)}/{m.group(2)}", False
+        return "#", f"bom/{m.group(1)}/{m.group(2)}{frag(m.group(3))}", False
 
     m = re.match(r"^/([\w]+)/(\d+)\.html(#.*)?$", href)
     if m and m.group(1) in dict(BIBLE_BOOKS):
-        return "#", f"bible/{m.group(1)}/{m.group(2)}", False
+        return "#", f"bible/{m.group(1)}/{m.group(2)}{frag(m.group(3))}", False
 
     # everything else (contra/, interp/, says_about/, ...) points at the site
     if href.startswith("/"):

@@ -1,7 +1,7 @@
 /* Service worker: offline-first app shell, cache-as-you-read scripture data. */
 'use strict';
 
-const SHELL_CACHE = 'sb-shell-v1';
+const SHELL_CACHE = 'sb-shell-v2';
 const DATA_CACHE = 'sb-data-v1';
 
 const SHELL = [
@@ -13,6 +13,8 @@ const SHELL = [
   'icons/icon.svg',
   'icons/icon-192.png',
   'icons/icon-512.png',
+  'vendor/md-bundle.js',
+  'vendor/md-tokens.css',
 ];
 
 self.addEventListener('install', e => {

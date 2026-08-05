@@ -1,5 +1,6 @@
 /* Study Bible PWA: split-screen reader for the Skeptic's Annotated
-   Bible and Book of Mormon, with highlights, notes, and backup. */
+   Bible and Book of Mormon, with highlights, notes, and backup.
+   UI is Material Design 3 via vendor/md-bundle.js. */
 'use strict';
 
 const CATS = {
@@ -11,13 +12,15 @@ const CATS = {
 };
 
 const GIST_FILENAME = 'study-bible-backup.json';
+const NOTE_FLAG_SVG = '<svg class="note-flag"><use href="#i-edit"/></svg>';
 
 let manifest = null;
 let panes = [];
 let activePane = 0;
-let selected = null;          // {key, ref, text}
-const bookCache = new Map();  // "corpus/slug" -> book json
-const ann = new Map();        // verse key -> record
+// action sheet context: {mode: 'verse'|'range'|'selection', ...}
+let action = null;
+const bookCache = new Map();
+const ann = new Map();
 
 const state = loadState();
 
@@ -83,7 +86,7 @@ function annFor(key) {
 async function updateAnn(key, changes, meta) {
   let rec = ann.get(key) || { key };
   rec = Object.assign(rec, meta || {}, changes, { updatedAt: Date.now() });
-  rec.deleted = !rec.hl && !rec.note;
+  rec.deleted = !rec.hl && !rec.note && !(rec.ranges && rec.ranges.length);
   ann.set(key, rec);
   await idb.put(rec);
   refreshVerse(key);
@@ -112,6 +115,13 @@ function bookMeta(corpus, slug) {
   return c && c.books.find(b => b.slug === slug);
 }
 
+// nav string: "corpus/slug/chapter" or "corpus/slug/chapter:verse"
+function parseNav(nav) {
+  const [corpus, slug, chv] = nav.split('/');
+  const [chapter, verse] = chv.split(':');
+  return { corpus, slug, chapter: +chapter, verse: verse ? +verse : null };
+}
+
 /* ------------------------------------------------ panes ---------- */
 
 class Pane {
@@ -127,6 +137,7 @@ class Pane {
     this.selChapter = el.querySelector('.sel-chapter');
     this.body = el.querySelector('.chapter-body');
     this.scroll = el.querySelector('.pane-scroll');
+    this.btnNotes = el.querySelector('.btn-notes');
 
     for (const [id, c] of Object.entries(manifest.corpora)) {
       this.selCorpus.add(new Option(c.name, id));
@@ -137,15 +148,13 @@ class Pane {
     };
     this.selBook.onchange = () => this.load(this.corpus, this.selBook.value, 1);
     this.selChapter.onchange = () => this.load(this.corpus, this.slug, +this.selChapter.value);
-    el.querySelector('.btn-prev').onclick = () => this.step(-1);
-    el.querySelector('.btn-next').onclick = () => this.step(1);
-    const btnNotes = el.querySelector('.btn-notes');
-    btnNotes.onclick = () => {
-      this.notes = !this.notes;
+    el.querySelector('.btn-prev').addEventListener('click', () => this.step(-1));
+    el.querySelector('.btn-next').addEventListener('click', () => this.step(1));
+    this.btnNotes.addEventListener('click', () => {
+      this.notes = this.btnNotes.selected;
       this.el.classList.toggle('show-notes', this.notes);
-      btnNotes.classList.toggle('active', this.notes);
       saveState();
-    };
+    });
     el.addEventListener('pointerdown', () => { activePane = this.idx; });
     this.body.addEventListener('click', e => this.onBodyClick(e));
   }
@@ -185,7 +194,7 @@ class Pane {
     const ch = book.chapters.find(c => c.c === this.chapter);
     this.syncSelectors(book);
     this.el.classList.toggle('show-notes', this.notes);
-    this.el.querySelector('.btn-notes').classList.toggle('active', this.notes);
+    this.btnNotes.selected = this.notes;
 
     const frag = [];
     frag.push(`<h2 class="chapter-title">${book.name} ${ch.c}</h2>`);
@@ -213,10 +222,9 @@ class Pane {
     }
 
     if (ch.footnotes && ch.footnotes.length) {
-      frag.push('<div class="footnotes"><h4>Notes</h4>');
+      frag.push('<div class="footnotes"><h4>SAB ENDNOTES</h4>');
       for (const fn of ch.footnotes) {
         const num = fn.id.replace(/n$/, '');
-        // strip embedded anchor ids so two panes never duplicate DOM ids
         const html = fn.html.replace(/ id="fn-[^"]*"/g, '');
         frag.push(`<div class="footnote" data-fn="${fn.id}"><span class="fn-num">${num}.</span><div>${html}</div></div>`);
       }
@@ -224,13 +232,21 @@ class Pane {
     }
 
     this.body.innerHTML = frag.join('');
+
+    // apply selection-range highlights for this chapter
+    const prefix = `${this.corpus}/${this.slug}/${this.chapter}/`;
+    for (const [key, rec] of ann) {
+      if (!rec.deleted && rec.ranges && rec.ranges.length && key.startsWith(prefix)) {
+        refreshVerse(key);
+      }
+    }
   }
 
   verseHTML(v) {
     const key = `${this.corpus}/${this.slug}/${this.chapter}/${v.v}`;
     const rec = annFor(key);
     const hl = rec && rec.hl ? ` hl-${rec.hl}` : '';
-    const flag = rec && rec.note ? '<span class="note-flag">📝</span>' : '';
+    const flag = rec && rec.note ? NOTE_FLAG_SVG : '';
     const num = v.v > 0 ? `<span class="vnum">${v.v}</span>` : '';
     let out = `<p class="verse${hl}" data-key="${key}" data-v="${v.v}">` +
       `${num}${v.html}${flag}</p>`;
@@ -254,11 +270,13 @@ class Pane {
   }
 
   onBodyClick(e) {
+    const sel = document.getSelection();
+    if (sel && !sel.isCollapsed) return; // selection flow owns this
+
     const nav = e.target.closest('a[data-nav]');
     if (nav) {
       e.preventDefault();
-      const [corpus, slug, chapter] = nav.dataset.nav.split('/');
-      this.load(corpus, slug, +chapter);
+      openPassagePreview(nav.dataset.nav);
       return;
     }
     const link = e.target.closest('a[href^="#"]');
@@ -266,58 +284,224 @@ class Pane {
       e.preventDefault();
       const target = link.getAttribute('href').slice(1);
       if (/^\d+n$/.test(target)) {
-        const fn = this.body.querySelector(`.footnote[data-fn="${target}"]`);
-        if (fn) { fn.scrollIntoView({ block: 'center' }); fn.classList.remove('flash'); void fn.offsetWidth; fn.classList.add('flash'); }
+        openFootnotePopup(this, target);
       } else if (/^\d+$/.test(target)) {
         this.jumpToVerse(+target);
       }
       return;
     }
     if (e.target.closest('a')) return;
+
+    const rangeEl = e.target.closest('.rhl');
+    if (rangeEl) {
+      const verse = rangeEl.closest('.verse');
+      selectRange(verse, +rangeEl.dataset.ri);
+      return;
+    }
     const noteEl = e.target.closest('.own-note');
     if (noteEl) {
-      const verse = this.body.querySelector(`.verse[data-key="${noteEl.dataset.notekey}"]`);
-      if (verse) selectVerse(verse);
-      openNoteDialog();
+      const verse = this.body.querySelector(`.verse[data-key="${CSS.escape(noteEl.dataset.notekey)}"]`);
+      if (verse) { selectVerse(verse); openNoteDialog(); }
       return;
     }
     const verse = e.target.closest('.verse');
-    if (verse) selectVerse(verse);
+    if (verse && verse.closest('.chapter-body') === this.body) selectVerse(verse);
   }
 }
 
-/* --------------------------------------------- verse selection --- */
+/* --------------------------------------------- action sheet ------ */
 
-function selectVerse(el) {
-  document.querySelectorAll('.verse.selected').forEach(v => v.classList.remove('selected'));
-  el.classList.add('selected');
-  const key = el.dataset.key;
+function refFor(key) {
   const [corpus, slug, chapter, v] = key.split('/');
   const meta = bookMeta(corpus, slug);
-  const ref = `${meta ? meta.name : slug} ${chapter}:${v}`;
-  selected = { key, ref, text: el.textContent.replace(/^\s*\d+\s*/, '').trim() };
+  return `${meta ? meta.name : slug} ${chapter}:${v}`;
+}
+
+function showActionSheet(mode, ref) {
   const sheet = document.getElementById('verse-actions');
   sheet.querySelector('.va-ref').textContent = ref;
+  sheet.querySelector('.va-mode').textContent =
+    mode === 'range' ? 'highlight' : mode === 'selection' ? 'selection' : '';
+  document.getElementById('va-note').hidden = mode !== 'verse';
+  document.getElementById('va-remove').hidden = mode !== 'range';
+  document.getElementById('va-copy').hidden = mode === 'range';
+  sheet.querySelector('.hl-clear').hidden = mode !== 'verse';
   sheet.hidden = false;
+}
+
+function clearSelectedClasses() {
+  document.querySelectorAll('.verse.selected').forEach(v => v.classList.remove('selected'));
+}
+
+function selectVerse(el) {
+  clearSelectedClasses();
+  el.classList.add('selected');
+  const key = el.dataset.key;
+  action = {
+    mode: 'verse', key, ref: refFor(key),
+    text: el.textContent.replace(/^\s*\d+\s*/, '').trim(),
+  };
+  showActionSheet('verse', action.ref);
+}
+
+function selectRange(verseEl, ri) {
+  clearSelectedClasses();
+  verseEl.classList.add('selected');
+  const key = verseEl.dataset.key;
+  action = { mode: 'range', key, ri, ref: refFor(key) };
+  showActionSheet('range', action.ref);
 }
 
 function closeActions() {
   document.getElementById('verse-actions').hidden = true;
-  document.querySelectorAll('.verse.selected').forEach(v => v.classList.remove('selected'));
-  selected = null;
+  clearSelectedClasses();
+  action = null;
 }
+
+/* --------------------------------------------- range highlights -- */
+
+function collectTextNodes(el) {
+  const out = [];
+  const walker = document.createTreeWalker(el, NodeFilter.SHOW_TEXT, {
+    acceptNode(n) {
+      let p = n.parentElement;
+      while (p && p !== el) {
+        if (p.classList.contains('vnum') || p.classList.contains('note-flag')) {
+          return NodeFilter.FILTER_REJECT;
+        }
+        p = p.parentElement;
+      }
+      return NodeFilter.FILTER_ACCEPT;
+    },
+  });
+  let n;
+  while ((n = walker.nextNode())) out.push(n);
+  return out;
+}
+
+function contentLength(el) {
+  return collectTextNodes(el).reduce((a, n) => a + n.textContent.length, 0);
+}
+
+function absOffset(verse, container, offset) {
+  const probe = document.createRange();
+  probe.selectNodeContents(verse);
+  try { probe.setEnd(container, offset); } catch { return null; }
+  let len = probe.toString().length;
+  const vnum = verse.querySelector('.vnum');
+  if (vnum) len -= Math.min(len, vnum.textContent.length);
+  return Math.max(0, Math.min(len, contentLength(verse)));
+}
+
+function applyRanges(el, ranges) {
+  ranges.forEach((r, ri) => {
+    let pos = 0;
+    for (const node of collectTextNodes(el)) {
+      const ns = pos, ne = pos + node.textContent.length;
+      pos = ne;
+      const s = Math.max(r.s, ns), e = Math.min(r.e, ne);
+      if (s >= e) continue;
+      const range = document.createRange();
+      range.setStart(node, s - ns);
+      range.setEnd(node, e - ns);
+      const span = document.createElement('span');
+      span.className = `rhl rhl-${r.c}`;
+      span.dataset.ri = ri;
+      try { range.surroundContents(span); } catch { /* skip malformed */ }
+    }
+  });
+}
+
+let pendingSel = null;
+let selTimer = null;
+
+document.addEventListener('selectionchange', () => {
+  clearTimeout(selTimer);
+  selTimer = setTimeout(onSelectionSettled, 250);
+});
+
+function onSelectionSettled() {
+  const sel = document.getSelection();
+  if (!sel || sel.isCollapsed || sel.rangeCount === 0) {
+    if (action && action.mode === 'selection') closeActions();
+    pendingSel = null;
+    return;
+  }
+  const range = sel.getRangeAt(0);
+  const cont = range.commonAncestorContainer;
+  const el = cont.nodeType === 1 ? cont : cont.parentElement;
+  const paneEl = el && el.closest && el.closest('.pane');
+  if (!paneEl) return;
+  const verses = [...paneEl.querySelectorAll('.chapter-body .verse')]
+    .filter(v => range.intersectsNode(v));
+  if (!verses.length) return;
+
+  const parts = [];
+  for (const v of verses) {
+    const vr = document.createRange();
+    vr.selectNodeContents(v);
+    const startsBefore = range.compareBoundaryPoints(Range.START_TO_START, vr) <= 0;
+    const endsAfter = range.compareBoundaryPoints(Range.END_TO_END, vr) >= 0;
+    const s = startsBefore ? 0 : absOffset(v, range.startContainer, range.startOffset);
+    const e = endsAfter ? contentLength(v) : absOffset(v, range.endContainer, range.endOffset);
+    if (s === null || e === null || e - s < 1) continue;
+    parts.push({ key: v.dataset.key, s, e, snippet: v.textContent.slice(0, 90) });
+  }
+  if (!parts.length) return;
+  pendingSel = parts;
+  const first = refFor(parts[0].key);
+  const last = parts.length > 1 ? `-${parts[parts.length - 1].key.split('/')[3]}` : '';
+  action = { mode: 'selection' };
+  showActionSheet('selection', first + last);
+}
+
+async function applySelectionHighlight(color) {
+  if (!pendingSel) return;
+  for (const p of pendingSel) {
+    const rec = ann.get(p.key);
+    const ranges = ((rec && rec.ranges) || []).concat([{ s: p.s, e: p.e, c: color }]);
+    await updateAnn(p.key, { ranges }, { ref: refFor(p.key), snippet: p.snippet });
+  }
+  pendingSel = null;
+  document.getSelection().removeAllRanges();
+  closeActions();
+}
+
+async function removeRangeHighlight(key, ri) {
+  const rec = ann.get(key);
+  if (!rec || !rec.ranges) return;
+  const ranges = rec.ranges.filter((_, i) => i !== ri);
+  await updateAnn(key, { ranges });
+}
+
+async function recolorRange(key, ri, color) {
+  const rec = ann.get(key);
+  if (!rec || !rec.ranges || !rec.ranges[ri]) return;
+  const ranges = rec.ranges.map((r, i) => i === ri ? { ...r, c: color } : r);
+  await updateAnn(key, { ranges });
+}
+
+/* --------------------------------------------- verse refresh ----- */
 
 function refreshVerse(key) {
   const rec = annFor(key);
   document.querySelectorAll(`.verse[data-key="${CSS.escape(key)}"]`).forEach(el => {
+    if (el.closest('#ref-content')) return; // previews are static
     el.className = 'verse' + (rec && rec.hl ? ` hl-${rec.hl}` : '') +
       (el.classList.contains('selected') ? ' selected' : '');
+
+    // unwrap old range spans, then reapply
+    el.querySelectorAll('span.rhl').forEach(s => {
+      const parent = s.parentNode;
+      while (s.firstChild) parent.insertBefore(s.firstChild, s);
+      s.remove();
+    });
+    el.normalize();
+    if (rec && rec.ranges && rec.ranges.length) applyRanges(el, rec.ranges);
+
     let flag = el.querySelector('.note-flag');
     if (rec && rec.note && !flag) {
-      flag = document.createElement('span');
-      flag.className = 'note-flag';
-      flag.textContent = '📝';
-      el.appendChild(flag);
+      el.insertAdjacentHTML('beforeend', NOTE_FLAG_SVG);
     } else if ((!rec || !rec.note) && flag) flag.remove();
 
     let noteEl = el.nextElementSibling;
@@ -337,13 +521,69 @@ function refreshVerse(key) {
 /* --------------------------------------------- note dialog ------- */
 
 function openNoteDialog() {
-  if (!selected) return;
+  if (!action || !action.key) return;
   const dlg = document.getElementById('note-dialog');
-  document.getElementById('note-ref').textContent = `Note on ${selected.ref}`;
-  const rec = annFor(selected.key);
+  document.getElementById('note-ref').textContent = `Note on ${action.ref}`;
+  const rec = annFor(action.key);
   document.getElementById('note-text').value = (rec && rec.note) || '';
-  dlg.returnValue = 'cancel';
-  dlg.showModal();
+  dlg.show();
+}
+
+/* --------------------------------------------- popups ------------ */
+
+function refDialogEls() {
+  return {
+    dlg: document.getElementById('ref-dialog'),
+    title: document.getElementById('ref-title'),
+    content: document.getElementById('ref-content'),
+    here: document.getElementById('ref-open-here'),
+    split: document.getElementById('ref-open-split'),
+  };
+}
+
+async function openFootnotePopup(pane, fnid) {
+  const { dlg, title, content, here, split } = refDialogEls();
+  const book = await loadBook(pane.corpus, pane.slug);
+  const ch = book.chapters.find(c => c.c === pane.chapter);
+  const fn = (ch.footnotes || []).find(f => f.id === fnid);
+  if (!fn) return;
+  title.textContent = `Note ${fnid.replace(/n$/, '')} on ${book.name} ${ch.c}`;
+  content.innerHTML = fn.html.replace(/ id="fn-[^"]*"/g, '');
+  here.hidden = true;
+  split.hidden = true;
+  dlg.pendingNav = null;
+  dlg.show();
+}
+
+async function openPassagePreview(nav) {
+  const { dlg, title, content, here, split } = refDialogEls();
+  const { corpus, slug, chapter, verse } = parseNav(nav);
+  const meta = bookMeta(corpus, slug);
+  if (!meta) { toast('That passage is not in your local data'); return; }
+  let book;
+  try { book = await loadBook(corpus, slug); }
+  catch { toast('Could not load passage'); return; }
+  const ch = book.chapters.find(c => c.c === chapter);
+  if (!ch) return;
+  title.textContent = `${book.name} ${chapter}${verse ? ':' + verse : ''}`;
+  const frag = [];
+  for (const b of ch.blocks) {
+    if (b.t !== 'verses') continue;
+    for (const v of b.items) {
+      const num = v.v > 0 ? `<span class="vnum">${v.v}</span>` : '';
+      frag.push(`<p class="verse" data-v="${v.v}">${num}${v.html}</p>`);
+    }
+  }
+  content.innerHTML = frag.join('');
+  here.hidden = false;
+  split.hidden = false;
+  dlg.pendingNav = { corpus, slug, chapter, verse };
+  if (!dlg.open) dlg.show();
+  setTimeout(() => {
+    const target = verse && content.querySelector(`.verse[data-v="${verse}"]`);
+    if (target) { target.scrollIntoView({ block: 'center' }); target.classList.add('flash'); }
+    else content.scrollTop = 0;
+  }, 120);
 }
 
 /* --------------------------------------------- search ------------ */
@@ -389,7 +629,7 @@ async function runSearch(q, scope) {
           }
         }
       }
-      await new Promise(r => setTimeout(r));  // keep UI responsive
+      await new Promise(r => setTimeout(r));
     }
   }
   status.textContent = hits ? `${hits} result${hits === 1 ? '' : 's'}.` : 'No results.';
@@ -410,7 +650,7 @@ function renderStudyList() {
   const list = document.getElementById('study-list');
   const items = [...ann.values()].filter(r => !r.deleted);
   if (!items.length) {
-    list.innerHTML = '<p class="hint">Nothing yet. Tap any verse to highlight it or add a note.</p>';
+    list.innerHTML = '<p class="hint">Nothing yet. Tap a verse, or select some text, to highlight it or add a note.</p>';
     return;
   }
   const order = bookOrderIndex();
@@ -424,10 +664,12 @@ function renderStudyList() {
     const [corpus, slug, chapter, v] = r.key.split('/');
     const div = document.createElement('div');
     div.className = 'study-item';
-    const dot = r.hl ? `<span class="dot" style="background:var(--hl-${r.hl})"></span>` : '';
-    div.innerHTML = `<div class="ref">${dot}${escapeHTML(r.ref || r.key)}</div>` +
+    const dots = [];
+    if (r.hl) dots.push(`<span class="dot" style="background:var(--hl-${r.hl})"></span>`);
+    for (const rg of r.ranges || []) dots.push(`<span class="dot" style="background:var(--hl-${rg.c})"></span>`);
+    div.innerHTML = `<div class="ref">${dots.join('')}${escapeHTML(r.ref || r.key)}</div>` +
       (r.snippet ? `<div class="snippet">${escapeHTML(r.snippet)}</div>` : '') +
-      (r.note ? `<div class="mynote">📝 ${escapeHTML(r.note)}</div>` : '');
+      (r.note ? `<div class="mynote">${escapeHTML(r.note)}</div>` : '');
     div.onclick = () => {
       document.getElementById('study-dialog').close();
       panes[activePane].load(corpus, slug, +chapter, +v);
@@ -586,93 +828,143 @@ function wireUI() {
   const btnSplit = document.getElementById('btn-split');
   const applySplit = () => {
     document.getElementById('panes').className = state.split ? 'split' : 'single';
-    btnSplit.classList.toggle('active', state.split);
+    btnSplit.selected = state.split;
   };
-  btnSplit.onclick = () => { state.split = !state.split; applySplit(); saveState(); };
+  btnSplit.addEventListener('click', () => {
+    state.split = btnSplit.selected;
+    applySplit();
+    saveState();
+  });
   applySplit();
 
-  document.getElementById('btn-search').onclick = () => {
-    document.getElementById('search-dialog').showModal();
-    document.getElementById('search-input').focus();
-  };
-  document.getElementById('search-form').onsubmit = e => {
-    e.preventDefault();
+  document.getElementById('btn-search').addEventListener('click', () => {
+    document.getElementById('search-dialog').show();
+  });
+  document.getElementById('search-go').addEventListener('click', () => {
     runSearch(document.getElementById('search-input').value.trim(),
       document.getElementById('search-scope').value);
-  };
+  });
+  document.getElementById('search-input').addEventListener('keydown', e => {
+    if (e.key === 'Enter') document.getElementById('search-go').click();
+  });
 
-  document.getElementById('btn-study').onclick = () => {
+  document.getElementById('btn-study').addEventListener('click', () => {
     renderStudyList();
-    document.getElementById('study-dialog').showModal();
-  };
+    document.getElementById('study-dialog').show();
+  });
 
-  document.getElementById('btn-settings').onclick = () => {
+  document.getElementById('btn-settings').addEventListener('click', () => {
     document.getElementById('set-theme').value = state.theme;
     document.getElementById('set-fontsize').value = state.fontSize;
     document.getElementById('set-token').value = localStorage.getItem('sb-token') || '';
-    document.getElementById('settings-dialog').showModal();
-  };
-  document.getElementById('set-theme').onchange = e => {
+    document.getElementById('settings-dialog').show();
+  });
+  document.getElementById('set-theme').addEventListener('change', e => {
     state.theme = e.target.value; applyAppearance(); saveState();
-  };
-  document.getElementById('set-fontsize').onchange = e => {
+  });
+  document.getElementById('set-fontsize').addEventListener('change', e => {
     state.fontSize = +e.target.value; applyAppearance(); saveState();
-  };
-  document.getElementById('set-token').onchange = e => {
+  });
+  document.getElementById('set-token').addEventListener('change', e => {
     const v = e.target.value.trim();
     if (v) localStorage.setItem('sb-token', v); else localStorage.removeItem('sb-token');
     setSyncStatus(v ? 'Token saved. Use "Sync now" to test it.' : '');
-  };
-  document.getElementById('btn-sync').onclick = () => gistSync(true);
-  document.getElementById('btn-sync-forget').onclick = () => {
+  });
+  document.getElementById('btn-sync').addEventListener('click', () => gistSync(true));
+  document.getElementById('btn-sync-forget').addEventListener('click', () => {
     localStorage.removeItem('sb-token');
     localStorage.removeItem('sb-gist');
     document.getElementById('set-token').value = '';
     setSyncStatus('Token removed.');
-  };
+  });
 
-  document.getElementById('btn-export').onclick = exportData;
-  document.getElementById('btn-import').onclick = () =>
-    document.getElementById('import-file').click();
-  document.getElementById('import-file').onchange = e => {
+  document.getElementById('btn-export').addEventListener('click', exportData);
+  document.getElementById('btn-import').addEventListener('click', () =>
+    document.getElementById('import-file').click());
+  document.getElementById('import-file').addEventListener('change', e => {
     if (e.target.files[0]) importData(e.target.files[0]);
     e.target.value = '';
-  };
-
-  document.querySelectorAll('.dialog-close').forEach(b => {
-    b.onclick = () => document.getElementById(b.dataset.close).close();
   });
 
-  // verse action sheet
-  const sheet = document.getElementById('verse-actions');
-  sheet.querySelectorAll('.hl-dot').forEach(b => {
-    b.onclick = async () => {
-      if (!selected) return;
-      await updateAnn(selected.key, { hl: b.dataset.hl || null },
-        { ref: selected.ref, snippet: selected.text.slice(0, 90) });
-      if (!b.dataset.hl) closeActions();
-    };
+  document.querySelectorAll('[data-close]').forEach(b => {
+    b.addEventListener('click', () => document.getElementById(b.dataset.close).close());
   });
-  document.getElementById('va-note').onclick = openNoteDialog;
-  document.getElementById('va-copy').onclick = async () => {
-    if (!selected) return;
+
+  // contextual action sheet
+  document.querySelectorAll('#verse-actions .hl-dot').forEach(b => {
+    b.addEventListener('click', async () => {
+      if (!action) return;
+      const color = b.dataset.hl || null;
+      if (action.mode === 'selection') {
+        if (color) await applySelectionHighlight(color);
+      } else if (action.mode === 'range') {
+        if (color) { await recolorRange(action.key, action.ri, color); closeActions(); }
+      } else {
+        await updateAnn(action.key, { hl: color },
+          { ref: action.ref, snippet: (action.text || '').slice(0, 90) });
+        if (!color) closeActions();
+      }
+    });
+  });
+  document.getElementById('va-note').addEventListener('click', openNoteDialog);
+  document.getElementById('va-remove').addEventListener('click', async () => {
+    if (action && action.mode === 'range') {
+      await removeRangeHighlight(action.key, action.ri);
+      closeActions();
+    }
+  });
+  document.getElementById('va-copy').addEventListener('click', async () => {
+    if (!action) return;
+    let text = action.text;
+    if (action.mode === 'selection') text = document.getSelection().toString();
     try {
-      await navigator.clipboard.writeText(`"${selected.text}" (${selected.ref})`);
+      await navigator.clipboard.writeText(`"${text}" (${action.ref || ''})`);
       toast('Copied');
     } catch { toast('Copy blocked by browser'); }
-  };
-  document.getElementById('va-close').onclick = closeActions;
+  });
+  document.getElementById('va-close').addEventListener('click', closeActions);
 
+  // note dialog
   const noteDlg = document.getElementById('note-dialog');
-  noteDlg.addEventListener('close', async () => {
-    if (!selected) return;
-    if (noteDlg.returnValue === 'save') {
+  document.getElementById('note-save').addEventListener('click', async () => {
+    if (action && action.key) {
       const text = document.getElementById('note-text').value.trim();
-      await updateAnn(selected.key, { note: text || null },
-        { ref: selected.ref, snippet: selected.text.slice(0, 90) });
-    } else if (noteDlg.returnValue === 'delete') {
-      await updateAnn(selected.key, { note: null });
+      await updateAnn(action.key, { note: text || null },
+        { ref: action.ref, snippet: (action.text || '').slice(0, 90) });
     }
+    noteDlg.close();
+  });
+  document.getElementById('note-delete').addEventListener('click', async () => {
+    if (action && action.key) await updateAnn(action.key, { note: null });
+    noteDlg.close();
+  });
+  document.getElementById('note-cancel').addEventListener('click', () => noteDlg.close());
+
+  // reference popup
+  const refDlg = document.getElementById('ref-dialog');
+  document.getElementById('ref-close').addEventListener('click', () => refDlg.close());
+  document.getElementById('ref-open-here').addEventListener('click', () => {
+    const n = refDlg.pendingNav;
+    if (n) { refDlg.close(); panes[activePane].load(n.corpus, n.slug, n.chapter, n.verse); }
+  });
+  document.getElementById('ref-open-split').addEventListener('click', () => {
+    const n = refDlg.pendingNav;
+    if (!n) return;
+    refDlg.close();
+    if (!state.split) {
+      state.split = true;
+      document.getElementById('panes').className = 'split';
+      document.getElementById('btn-split').selected = true;
+      saveState();
+    }
+    const other = panes[activePane === 0 ? 1 : 0];
+    other.load(n.corpus, n.slug, n.chapter, n.verse);
+  });
+  document.getElementById('ref-content').addEventListener('click', e => {
+    const nav = e.target.closest('a[data-nav]');
+    if (nav) { e.preventDefault(); openPassagePreview(nav.dataset.nav); return; }
+    const link = e.target.closest('a[href^="#"]');
+    if (link) e.preventDefault(); // in-popup anchors have nowhere to go
   });
 
   document.addEventListener('keydown', e => {
