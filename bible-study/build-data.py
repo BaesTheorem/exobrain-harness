@@ -70,6 +70,29 @@ BOM_BOOKS = [
 
 SAMPLE_BOOKS = ["gen", "jon", "ob", "mk", "1ne", "enos", "alma"]
 
+# canonical chapter counts; the site serves duplicate pages outside these
+# ranges (e.g. /ob/0.html and /jude/9.html repeat chapter 1)
+CANON_CHAPTERS = {
+    "bible": {
+        "gen": 50, "ex": 40, "lev": 27, "num": 36, "dt": 34, "jos": 24,
+        "jg": 21, "ru": 4, "1sam": 31, "2sam": 24, "1kg": 22, "2kg": 25,
+        "1chr": 29, "2chr": 36, "ezra": 10, "neh": 13, "est": 10, "job": 42,
+        "ps": 150, "pr": 31, "ec": 12, "sofs": 8, "is": 66, "jer": 52,
+        "lam": 5, "ezek": 48, "dan": 12, "hos": 14, "jl": 3, "am": 9,
+        "ob": 1, "jon": 4, "mic": 7, "nah": 3, "hab": 3, "zeph": 3,
+        "hag": 2, "zech": 14, "mal": 4, "mt": 28, "mk": 16, "lk": 24,
+        "jn": 21, "acts": 28, "rom": 16, "1cor": 16, "2cor": 13, "gal": 6,
+        "eph": 6, "phil": 4, "col": 4, "1th": 5, "2th": 3, "1tim": 6,
+        "2tim": 4, "tit": 3, "philem": 1, "heb": 13, "jas": 5, "1pet": 5,
+        "2pet": 3, "1jn": 5, "2jn": 1, "3jn": 1, "jude": 1, "rev": 22,
+    },
+    "bom": {
+        "1ne": 22, "2ne": 33, "jacob": 7, "enos": 1, "jarom": 1, "omni": 1,
+        "words": 1, "mosiah": 29, "alma": 63, "hel": 16, "3ne": 30,
+        "4ne": 1, "mormon": 9, "ether": 15, "moroni": 10,
+    },
+}
+
 # category icon filename stem -> category code used by the app
 ICON_TO_CAT = {
     "abs": "a", "inj": "i", "cr": "v", "int": "int", "contra": "c",
@@ -126,13 +149,33 @@ class Node:
         return "".join(parts)
 
 
+BLOCK_TAGS = {"p", "div", "blockquote", "ol", "ul", "h1", "h2", "h3", "h4", "h5", "h6", "table", "li"}
+P_BOUNDARY = {"div", "blockquote", "li", "td", "th", "ol", "ul"}
+
+
 class TreeBuilder(HTMLParser):
     def __init__(self):
         super().__init__(convert_charrefs=True)
         self.root = Node("root")
         self.stack = [self.root]
 
+    def _autoclose(self, closing, boundary):
+        """Close an open <closing> element the way browsers do, e.g. a new
+        block tag implicitly ends an open <p>. The site's pages rely on
+        this (unclosed p/span around verse boundaries)."""
+        for i in range(len(self.stack) - 1, 0, -1):
+            t = self.stack[i].tag
+            if t == closing:
+                del self.stack[i:]
+                return
+            if t in boundary:
+                return
+
     def handle_starttag(self, tag, attrs):
+        if tag in BLOCK_TAGS:
+            self._autoclose("p", P_BOUNDARY)
+        if tag == "li":
+            self._autoclose("li", {"ol", "ul"})
         node = Node(tag, attrs)
         self.stack[-1].children.append(node)
         if tag not in VOID_TAGS:
@@ -388,6 +431,9 @@ def discover_chapters(first_page_html, corpus, slug):
         int(m)
         for m in re.findall(re.escape(prefix) + r"(\d+)\.html", first_page_html)
     }
+    cap = CANON_CHAPTERS.get(corpus, {}).get(slug)
+    if cap:
+        nums = {n for n in nums if 1 <= n <= cap}
     return sorted(nums) if nums else [1]
 
 

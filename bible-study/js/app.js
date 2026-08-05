@@ -231,8 +231,9 @@ class Pane {
     const rec = annFor(key);
     const hl = rec && rec.hl ? ` hl-${rec.hl}` : '';
     const flag = rec && rec.note ? '<span class="note-flag">📝</span>' : '';
+    const num = v.v > 0 ? `<span class="vnum">${v.v}</span>` : '';
     let out = `<p class="verse${hl}" data-key="${key}" data-v="${v.v}">` +
-      `<span class="vnum">${v.v}</span>${v.html}${flag}</p>`;
+      `${num}${v.html}${flag}</p>`;
     if (rec && rec.note) out += `<div class="own-note" data-notekey="${key}">${escapeHTML(rec.note)}</div>`;
     return out;
   }
