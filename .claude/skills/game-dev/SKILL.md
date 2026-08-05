@@ -20,7 +20,16 @@ bash .claude/skills/game-dev/scripts/gamedev.sh stop all
 
 `start` auto-detects the Godot project by walking up from the cwd, then checking one level down (repos often keep the project in a `game/` subdir). Pass a path as the third argument to override.
 
-**The MCP tools only appear after a Claude Code restart** following install. If `status` says UP but no `mcp__godot-ai__*` tools exist in this session, that is the cause. You can still verify a server by speaking JSON-RPC to it directly (HTTP POST to `127.0.0.1:8000/mcp`, or a stdio subprocess for blender), which is how to test without burning a restart.
+### Order matters: bootstrap BEFORE the session starts
+
+The two servers attach differently, and it changes the startup order:
+
+- **blender is stdio.** Claude spawns `uvx blender-mcp` on demand, so its tools are present regardless of whether Blender was open at session start. Start Blender whenever; only the *socket* needs to be up before a tool call.
+- **godot-ai is HTTP.** Claude tries to reach `127.0.0.1:8000` once, at session start. If the editor was not already running, the server does not exist yet, the connection is dropped, and **no `mcp__godot-ai__*` tools exist for the whole session.** Starting the editor afterward does not backfill them.
+
+So: **run the bootstrap first, then start or restart Claude Code.** If you are mid-session without godot tools, `start godot` then restart.
+
+Do not trust `claude mcp list` here. It spawns a fresh connection check, so it happily reports godot-ai as Connected while the current session has none of its tools. The only real test is whether `mcp__godot-ai__*` tools exist in the session. To verify a server without burning a restart, speak JSON-RPC to it directly (HTTP POST to `127.0.0.1:8000/mcp`, or a stdio subprocess for blender).
 
 ## The toolchain
 
@@ -66,6 +75,7 @@ Engine control is the mature part of this ecosystem. The *design* layer is mostl
 - The godot-ai Python server **outlives a force-quit editor** and keeps holding 8000/9500. An open port therefore does NOT mean an editor is attached. Readiness requires port AND process. `status` reports this third state as STALE, and `start godot` re-attaches to it.
 - Never launch an app in the background and return immediately: the script exiting can take the still-initializing editor down with it. Wait for the process, not the port.
 - macOS App Nap parks occluded Godot windows in the AppKit event loop (a 2% CPU zombie that looks like a hang). The bootstrap sets `NSAppSleepDisabled`; diagnose suspected stalls with `sample <pid>`.
+- An HTTP-transport MCP server that was down at session start stays absent for the whole session even after it comes up, because the client does not retry. A stdio server does not have this problem. This is why the bootstrap runs before the session, not after.
 
 ## Not installed, deliberately
 
