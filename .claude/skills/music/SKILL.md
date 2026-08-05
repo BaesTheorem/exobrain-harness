@@ -104,7 +104,7 @@ saved. `render`/`transcribe` default to `mist-music/out/` (gitignored).
 
 - Gotcha: serving audio needs the Console's `/file` allowlist (extended to audio
   in `app.py`), which only loads on a **Console restart**. Manual restart:
-  `kill -9 $(/usr/sbin/lsof -nP -iTCP:5014 -sTCP:LISTEN -t); open ~/Desktop/Apps/"MIST Console.app"`
+  `kill -9 $(/usr/sbin/lsof -nP -iTCP:5014 -sTCP:LISTEN -t); open /Applications/"MIST Console.app"`
   (AppKit swallows plain SIGTERM → use `-9`). Since the shutdown fix, closing the
   window fully stops the server, so a plain relaunch already reloads code.
 

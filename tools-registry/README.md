@@ -5,7 +5,7 @@ and CLI tools -- so the inventory never has to be remembered by hand.
 
 `tools-registry-scan.py` auto-discovers tools from two authoritative on-disk sources:
 
-- **App launchers** -- `~/Desktop/Apps/*.app` (parses `Contents/MacOS/launch` for `DIR` + `PORT`)
+- **App launchers** -- `/Applications/*.app` (parses `Contents/MacOS/launch` for `DIR` + `PORT`)
 - **Scheduled jobs** -- `~/Library/LaunchAgents/{com.exobrain,com.mist,com.nightwatch,com.alexhedtke}*.plist`
 
 For each tool it resolves repo dir, git remote, port, schedule, and live status, then writes

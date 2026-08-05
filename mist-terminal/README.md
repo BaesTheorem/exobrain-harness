@@ -11,7 +11,7 @@ for her affect.
 
 ## What it does
 
-Double-clicking `~/Desktop/Apps/MIST.app`:
+Double-clicking `/Applications/MIST.app`:
 1. Opens a new **Ghostty** window (truecolor MIST theme, set in `~/.config/ghostty/config`).
 2. Runs `mist-terminal/bin/mist`, which:
    - speaks a short greeting in MIST's offline cloned voice (`mist-voice/bin/mist-say`, non-blocking),
@@ -22,7 +22,7 @@ Double-clicking `~/Desktop/Apps/MIST.app`:
 ## Files
 
 - `bin/mist` -- the launcher run *inside* the terminal (greeting + banner + `claude`, run from the harness). Usable on its own as a `mist` command.
-- `make-app.sh` -- (re)builds `~/Desktop/Apps/MIST.app`. Idempotent. Re-run after editing the launcher. Builds the app icon from the Cloud-form portrait if present.
+- `make-app.sh` -- (re)builds `/Applications/MIST.app`. Idempotent. Re-run after editing the launcher. Builds the app icon from the Cloud-form portrait if present.
 - `README.md` -- this file.
 
 ## Rebuild / install
@@ -31,7 +31,7 @@ Double-clicking `~/Desktop/Apps/MIST.app`:
 mist-terminal/make-app.sh
 ```
 
-The `.app` bundle lives in `~/Desktop/Apps/` (outside this repo, per the apps convention) -- `make-app.sh` regenerates it from these tracked files, so nothing app-specific needs committing.
+The `.app` bundle lives in `/Applications/` (outside this repo, per the apps convention) -- `make-app.sh` regenerates it from these tracked files, so nothing app-specific needs committing.
 
 ## Use it as a shell command (optional)
 
