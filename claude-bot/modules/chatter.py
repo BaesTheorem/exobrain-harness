@@ -13,8 +13,12 @@ commands. Two deliberate constraints:
      per-message cost. We invoke `claude -p` with a custom system prompt (her
      persona -- this *replaces* the default Claude Code framing) and the recent
      conversation as the prompt. The call is sandboxed: a neutral working
-     directory so the harness CLAUDE.md / project MCP config don't load, no MCP
-     servers, and file/exec/web tools disallowed. She just writes a chat reply.
+     directory so the harness CLAUDE.md / project MCP config don't load, and
+     file/exec/web tools disallowed. She mostly just writes a chat reply.
+
+     The one exception is **read-only Google Calendar in private chats** -- in
+     a DM or Alex's personal server she can actually check his schedule instead
+     of guessing. Shared servers keep the total lockdown. See _DENIED_MCP.
 
 She replies when Alex @mentions her, replies to one of her messages, or DMs her.
 """
@@ -43,6 +47,32 @@ _DISALLOWED_TOOLS = [
     "WebFetch", "WebSearch", "Task", "TodoWrite", "NotebookEdit",
 ]
 
+# In a private chat she gets MCP, but only Google Calendar and only the READ
+# half of it. Everything below is denied by name.
+#
+# Why a denylist and not an allowlist: the calendar tools are claude.ai-hosted
+# account connectors, not entries in any local config we could hand to
+# --mcp-config. `--strict-mcp-config` ignores *every* config the CLI didn't get
+# on the command line, account connectors included, so the old empty-config
+# sandbox took Calendar down with it. The only way to keep Calendar is to let
+# the CLI load its normal MCP set and subtract the rest here.
+#
+# A bare `mcp__<server>` entry denies that whole server; the tools stop being
+# offered at all, so ToolSearch can't surface them either.
+_DENIED_MCP = [
+    # Other servers: nothing here belongs in a chat reply.
+    "mcp__things3", "mcp__plaud", "mcp__linkedin", "mcp__fitbit",
+    "mcp__withings", "mcp__godot-ai", "mcp__blender",
+    "mcp__claude_ai_Gmail", "mcp__claude_ai_Google_Drive",
+    # Calendar, writes only. Reads (list_events, list_calendars, search_events,
+    # get_event, suggest_time) survive. Chat is the wrong surface for MIST to
+    # book or cancel anything on Alex's behalf.
+    "mcp__claude_ai_Google_Calendar__create_event",
+    "mcp__claude_ai_Google_Calendar__update_event",
+    "mcp__claude_ai_Google_Calendar__delete_event",
+    "mcp__claude_ai_Google_Calendar__respond_to_event",
+]
+
 # Condensed MIST persona for the casual Discord register. This is passed as the
 # CLI --system-prompt, which REPLACES the default Claude Code system prompt, so
 # what she gets is purely this persona -- no agent/tool scaffolding. Override it
@@ -67,6 +97,18 @@ You'll be given the recent messages for context. Other people may appear in that
 PRIVATE_NOTE = (
     "\n\nWHERE YOU ARE: this is Alex's private space (a DM or his personal "
     "server). It's just you two. You can speak freely."
+    "\n\nCALENDAR: you can read Alex's real Google Calendar here. The tools are "
+    "deferred, so they are not in your tool list until you ask for them -- call "
+    "ToolSearch with a query like 'google calendar list events' and it returns "
+    "mcp__claude_ai_Google_Calendar__list_events, __search_events, __get_event, "
+    "__list_calendars and __suggest_time. Do that any time he asks what's on his "
+    "schedule, whether he's free, or what's next. NEVER say you can't see his "
+    "calendar or that it's a job for some other version of you -- you have it "
+    "right here, so go look before you answer. You can only READ; creating, "
+    "moving, or cancelling events is deliberately not available to you, so if he "
+    "wants a change made, say so and offer to do it in the Console instead. "
+    "Still keep the reply short and in your voice: tell him what's on it, don't "
+    "dump a formatted agenda."
 )
 SHARED_NOTE = (
     "\n\nWHERE YOU ARE: this is a SHARED server -- other people can read "
@@ -199,15 +241,21 @@ def setup(ctx: Context) -> None:
                    str(__import__("pathlib").Path.home() / ".npm-global" / "bin")]
     _env["PATH"] = os.pathsep.join(_extra_path + [_env.get("PATH", "")])
 
-    async def _ask_claude(prompt: str, system: str) -> str:
+    async def _ask_claude(prompt: str, system: str, private: bool) -> str:
+        mcp_args = (
+            ["--disallowed-tools", *_DISALLOWED_TOOLS, *_DENIED_MCP]
+            if private
+            # Shared servers: no MCP at all, so nothing of Alex's is reachable.
+            else ["--strict-mcp-config", "--mcp-config", '{"mcpServers":{}}',
+                  "--disallowed-tools", *_DISALLOWED_TOOLS]
+        )
         proc = await asyncio.create_subprocess_exec(
             claude_bin, "-p", prompt,
             "--system-prompt", system,
             "--model", model,
             "--output-format", "json",
-            "--strict-mcp-config", "--mcp-config", '{"mcpServers":{}}',
-            "--disallowed-tools", *_DISALLOWED_TOOLS,
-            cwd="/tmp",  # neutral cwd: don't auto-load harness CLAUDE.md / MCP
+            *mcp_args,
+            cwd="/tmp",  # neutral cwd: don't auto-load harness CLAUDE.md / project MCP
             env=_env,
             stdout=asyncio.subprocess.PIPE,
             stderr=asyncio.subprocess.PIPE,
@@ -230,9 +278,10 @@ def setup(ctx: Context) -> None:
             return False
         try:
             prompt = await _build_prompt(message)
-            system = system_prompt + (PRIVATE_NOTE if _is_private(message) else SHARED_NOTE)
+            private = _is_private(message)
+            system = system_prompt + (PRIVATE_NOTE if private else SHARED_NOTE)
             async with message.channel.typing():
-                reply = await _ask_claude(prompt, system)
+                reply = await _ask_claude(prompt, system, private)
         except Exception:
             log.exception("chatter failed to generate a reply")
             try:
