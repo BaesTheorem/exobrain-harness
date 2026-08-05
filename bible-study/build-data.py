@@ -344,8 +344,8 @@ MARKER_REF_RE = re.compile(r"^[\s\d:,;.\-–and]+$")
 # typos the id attribute, e.g. <a is="8">, which sanitizes to a bare <a>)
 _ANCH = r"<a(?![^>]*href)[^>]*>"
 VERSE_MARKER_RE = re.compile(
-    r"(?:" + _ANCH + r"\s*)?<sup>\s*(?:" + _ANCH + r"\s*)?(?:</a>\s*)?"
-    r"(?:\d+[:.])?(\d+)\s*(?:" + _ANCH + r"\s*</a>\s*|</a>\s*)?</sup>(?:\s*</a>)?"
+    r"(?:" + _ANCH + r"\s*)?<sup>\s*(?:" + _ANCH + r"\s*)?(?:</a>\s*)?(?:<span>\s*)?"
+    r"(?:\d+[:.]|[:.])?(\d+)\s*(?:</span>\s*)?(?:" + _ANCH + r"\s*</a>\s*|</a>\s*)?</sup>(?:\s*</a>)?"
     r'|(?:<b>\s*)?<a id="fn-\d[^"]*">\s*(?:\d+[:.])?(\d+)\s*</a>(?:\s*</b>)?'
     # number only in the anchor id, no visible text: <sup><a id="10"></a></sup>
     r'|<sup>\s*<a id="fn-(\d+)[^"]*">\s*</a>\s*</sup>'
