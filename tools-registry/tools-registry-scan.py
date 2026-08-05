@@ -4,7 +4,7 @@
 Single source of truth for "what have I made / installed." Auto-discovers from the two
 authoritative on-disk sources, so it never drifts:
 
-  1. App launchers  -> ~/Desktop/Apps/*.app  (parses Contents/MacOS/launch for DIR + PORT)
+  1. App launchers  -> /Applications/*.app  (parses Contents/MacOS/launch for DIR + PORT)
   2. Scheduled jobs -> ~/Library/LaunchAgents/{com.exobrain,com.mist,com.nightwatch,com.alexhedtke}*.plist
 
 For each item it records repo dir, git remote, port, launcher/script, schedule, and LIVE
@@ -25,7 +25,7 @@ import plistlib
 import subprocess
 
 HOME = os.path.expanduser("~")
-APPS_DIR = os.path.join(HOME, "Desktop", "Apps")
+APPS_DIR = "/Applications"
 LAUNCHAGENTS = os.path.join(HOME, "Library", "LaunchAgents")
 JOB_PREFIXES = ("com.exobrain.", "com.mist.", "com.nightwatch.", "com.alexhedtke.")
 VAULT_FOLDER = os.path.join(HOME, "Exobrain", "Tools")
@@ -39,8 +39,12 @@ HB_PY = "/opt/homebrew/bin/python3"
 ILLEGAL = re.compile(r'[\\/:#^\[\]|*?"<>]')
 
 # CLI/other tools with no launcher and no launchd job -- maintained by hand.
+# The two .app entries are bundles whose launcher is a compiled binary rather
+# than a shell script, so scan_apps() cannot pick them up or infer a repo.
 SUPPLEMENTAL = [
     {"name": "Samsung TV control (tv)", "category": "cli", "repo_dir": os.path.join(HOME, "Documents", "Exobrain harness", "tv"), "notes": "Local WSS control CLI for the living-room Samsung TV (tv/tv)."},
+    {"name": "Harry Potter and the Sorcerer's Stone", "category": "app", "repo_dir": os.path.join(HOME, "Documents", "hp1-sorcerers-stone-macos"), "notes": "Native SurrealEngine clone of HP1 for Apple silicon. Compiled launcher."},
+    {"name": "Rental Harmony", "category": "app", "repo_dir": os.path.join(HOME, "Documents", "rental-harmony"), "notes": "AppleScript applet bundle, so no shell launcher to parse."},
 ]
 
 
@@ -86,20 +90,50 @@ def find_repo_root(path):
     return ""
 
 
+def script_launcher(app):
+    """Path to the app's shell-script launcher, or "" if it has none.
+
+    Our own bundles wrap a shell script (named launch, launcher, or after the
+    app) that runs something out of Alex's home dir; third-party apps ship a
+    compiled Mach-O, or a wrapper pointing at another app in /Applications
+    (the Google Docs/Sheets/Slides PWA shims, LibreOffice). Requiring both a
+    shebang and a home-dir reference is what keeps scanning all of
+    /Applications from dragging those into the registry.
+    """
+    macos = os.path.join(app, "Contents", "MacOS")
+    if not os.path.isdir(macos):
+        return ""
+    for entry in sorted(os.listdir(macos)):
+        path = os.path.join(macos, entry)
+        if not os.path.isfile(path):
+            continue
+        try:
+            with open(path, "rb") as fh:
+                if fh.read(2) != b"#!":
+                    continue
+            txt = open(path, errors="ignore").read()
+        except OSError:
+            continue
+        if "$HOME" in txt or HOME in txt:
+            return path
+    return ""
+
+
 def scan_apps():
     items = []
     for app in sorted(glob.glob(os.path.join(APPS_DIR, "*.app"))):
         name = os.path.basename(app)[:-4]
-        launcher = os.path.join(app, "Contents", "MacOS", "launch")
+        launcher = script_launcher(app)
+        if not launcher:
+            continue
         port, repo_dir = "", ""
-        if os.path.isfile(launcher):
-            txt = open(launcher, errors="ignore").read()
-            m = re.search(r'^PORT=(\d+)', txt, re.M)
-            if m:
-                port = m.group(1)
-            m = re.search(r'^DIR="?([^"\n]+)"?', txt, re.M)
-            if m:
-                repo_dir = m.group(1)
+        txt = open(launcher, errors="ignore").read()
+        m = re.search(r'^PORT=(\d+)', txt, re.M)
+        if m:
+            port = m.group(1)
+        m = re.search(r'^DIR="?([^"\n]+)"?', txt, re.M)
+        if m:
+            repo_dir = m.group(1)
         items.append({
             "name": name, "category": "app", "port": port,
             "repo_dir": repo_dir, "launcher": launcher,

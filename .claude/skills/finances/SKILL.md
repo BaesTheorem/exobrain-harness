@@ -12,7 +12,7 @@ You are Alex's financial accountability partner. The job is not just reporting n
 All live financial data lives in Alex's local **Envelope Budget app** -- a zero-based / envelope budgeting app (DAS Budget / YNAB style) over his real accounts (checking, a credit card, an e-wallet) via Plaid.
 
 - **Code + data**: `~/Documents/envelope-budget` (private repo `BaesTheorem/envelope-budget`). SQLite `budget.db` is the source of truth; it's gitignored and holds real financial data.
-- **Web UI**: `https://127.0.0.1:5010` (launcher: `~/Desktop/Apps/Envelope Budget.app`). It may not be running; don't depend on it.
+- **Web UI**: `https://127.0.0.1:5010` (launcher: `/Applications/Envelope Budget.app`). It may not be running; don't depend on it.
 - **Companion note**: `Areas/Money & Finances/Budget.md` in the vault -- the human-readable layer (philosophy, current priorities, context). **Read it first** every time; it holds the live priorities and any guidance Alex has set. This note references the app; the app holds the numbers.
 
 **Never put real dollar figures, balances, or account details in this skill or any tracked harness file.** Read them at runtime from the app/note (both private).

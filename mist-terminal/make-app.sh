@@ -5,7 +5,7 @@
 set -e
 
 HARNESS="/Users/alexhedtke/Documents/Exobrain harness"
-APP="$HOME/Desktop/Apps/MIST.app"
+APP="/Applications/MIST.app"
 GHOSTTY="/Applications/Ghostty.app/Contents/MacOS/ghostty"
 ICON_SRC="$HARNESS/.claude/MIST 1.webp"   # Cloud form -- fitting for the first Cloud Intelligence
 
@@ -64,4 +64,4 @@ fi
 
 # Refresh Finder/Dock icon cache for this bundle.
 touch "$APP"
-echo "Done. Double-click ~/Desktop/Apps/MIST.app, or run mist-terminal/bin/mist directly."
+echo "Done. Double-click /Applications/MIST.app, or run mist-terminal/bin/mist directly."
