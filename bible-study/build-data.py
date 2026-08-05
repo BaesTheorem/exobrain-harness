@@ -340,10 +340,15 @@ MARKER_REF_RE = re.compile(r"^[\s\d:,;.\-–and]+$")
 # them several ways: <sup><a id>N</a></sup>, <a id><sup>N</sup></a>, bare
 # <sup>N</sup>, <sup><a id></a>N</sup>, and ids with stray punctuation
 # like "2:". One pattern covers all of them.
+# an anchor that is a verse-number wrapper, never a link (the site also
+# typos the id attribute, e.g. <a is="8">, which sanitizes to a bare <a>)
+_ANCH = r"<a(?![^>]*href)[^>]*>"
 VERSE_MARKER_RE = re.compile(
-    r'(?:<a id="fn-[^"]*">\s*)?<sup>\s*(?:<a id="fn-[^"]*">\s*)?(?:</a>\s*)?'
-    r"(?:\d+[:.])?(\d+)\s*(?:</a>\s*)?</sup>(?:\s*</a>)?"
+    r"(?:" + _ANCH + r"\s*)?<sup>\s*(?:" + _ANCH + r"\s*)?(?:</a>\s*)?"
+    r"(?:\d+[:.])?(\d+)\s*(?:" + _ANCH + r"\s*</a>\s*|</a>\s*)?</sup>(?:\s*</a>)?"
     r'|(?:<b>\s*)?<a id="fn-\d[^"]*">\s*(?:\d+[:.])?(\d+)\s*</a>(?:\s*</b>)?'
+    # number only in the anchor id, no visible text: <sup><a id="10"></a></sup>
+    r'|<sup>\s*<a id="fn-(\d+)[^"]*">\s*</a>\s*</sup>'
 )
 
 # literal "p>" fragments left in the text where the site broke a tag
@@ -420,9 +425,9 @@ def parse_chapter(html, corpus, slug, book_slugs):
                             verses[-1]["html"] += "<br>" + lead
                         else:
                             verses.append({"v": 0, "html": lead})
-                    for j in range(1, len(parts), 3):
-                        num = int(parts[j] if parts[j] is not None else parts[j + 1])
-                        verses.append({"v": num, "html": clean_fragment(parts[j + 2])})
+                    for j in range(1, len(parts), 4):
+                        num = int(next(g for g in parts[j:j + 3] if g is not None))
+                        verses.append({"v": num, "html": clean_fragment(parts[j + 3])})
                 if verses:
                     blocks_out.append({"t": "verses", "items": verses})
 
@@ -435,6 +440,15 @@ def parse_chapter(html, corpus, slug, book_slugs):
                 "id": fid,
                 "html": serialize(li, corpus, slug, book_slugs).strip(),
             })
+
+    # number recovery: an unnumbered fragment sitting exactly between
+    # verse N and N+2 is the missing N+1 (the site sometimes drops markers)
+    items = [v for b in blocks_out if b["t"] == "verses" for v in b["items"]]
+    for i, v in enumerate(items):
+        if v["v"] == 0 and 0 < i < len(items) - 1:
+            prev, nxt = items[i - 1]["v"], items[i + 1]["v"]
+            if prev > 0 and nxt == prev + 2:
+                v["v"] = prev + 1
 
     if not any(b["t"] == "verses" for b in blocks_out):
         return None
