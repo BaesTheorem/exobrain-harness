@@ -30,6 +30,7 @@ function loadState() {
     theme: 'auto',
     fontSize: 17,
     fewerWords: false,
+    headingOpen: false,
     panes: [
       { corpus: 'bible', slug: 'gen', chapter: 1, notes: true },
       { corpus: 'bom', slug: '1ne', chapter: 1, notes: true },
@@ -152,12 +153,33 @@ class Pane {
     el.querySelector('.btn-prev').addEventListener('click', () => this.step(-1));
     el.querySelector('.btn-next').addEventListener('click', () => this.step(1));
     this.btnNotes.addEventListener('click', () => {
-      this.notes = this.btnNotes.selected;
+      this.notes = !this.notes;
+      this.btnNotes.selected = this.notes;
       this.el.classList.toggle('show-notes', this.notes);
       saveState();
     });
     el.addEventListener('pointerdown', () => { activePane = this.idx; });
     this.body.addEventListener('click', e => this.onBodyClick(e));
+
+    // swipe left/right on touch screens to change chapters; guarded so
+    // scrolling and text selection never trigger it
+    this.swipe = null;
+    this.scroll.addEventListener('touchstart', e => {
+      this.swipe = e.touches.length === 1
+        ? { x: e.touches[0].clientX, y: e.touches[0].clientY, t: Date.now() }
+        : null;
+    }, { passive: true });
+    this.scroll.addEventListener('touchend', e => {
+      const s = this.swipe;
+      this.swipe = null;
+      if (!s || Date.now() - s.t > 600) return;
+      const sel = document.getSelection();
+      if (sel && !sel.isCollapsed) return;
+      const t = e.changedTouches[0];
+      const dx = t.clientX - s.x, dy = t.clientY - s.y;
+      if (Math.abs(dx) < 60 || Math.abs(dx) < 2 * Math.abs(dy)) return;
+      this.step(dx < 0 ? 1 : -1);
+    }, { passive: true });
   }
 
   async load(corpus, slug, chapter, verse) {
@@ -200,8 +222,10 @@ class Pane {
     this.btnNotes.selected = this.notes;
 
     const frag = [];
-    frag.push(`<h2 class="chapter-title">${book.name} ${ch.c}</h2>`);
-    if (ch.heading) frag.push(`<div class="chapter-heading">${ch.heading}</div>`);
+    const chev = ch.heading
+      ? `<svg class="icon chev"><use href="#i-expand"/></svg>` : '';
+    frag.push(`<h2 class="chapter-title${ch.heading ? ' has-heading' : ''}${state.headingOpen ? ' open' : ''}">${book.name} ${ch.c}${chev}</h2>`);
+    if (ch.heading) frag.push(`<div class="chapter-heading"${state.headingOpen ? '' : ' hidden'}>${ch.heading}</div>`);
 
     const blocks = ch.blocks;
     for (let i = 0; i < blocks.length; i++) {
@@ -278,6 +302,16 @@ class Pane {
   }
 
   onBodyClick(e) {
+    const title = e.target.closest('.chapter-title.has-heading');
+    if (title) {
+      state.headingOpen = !state.headingOpen;
+      saveState();
+      document.querySelectorAll('.chapter-title.has-heading').forEach(t =>
+        t.classList.toggle('open', state.headingOpen));
+      document.querySelectorAll('.chapter-heading').forEach(h =>
+        h.hidden = !state.headingOpen);
+      return;
+    }
     const sel = document.getSelection();
     if (sel && !sel.isCollapsed) return; // selection flow owns this
 
@@ -890,7 +924,9 @@ function wireUI() {
     btnSplit.selected = state.split;
   };
   btnSplit.addEventListener('click', () => {
-    state.split = btnSplit.selected;
+    // own the state; reading the component's selected here races its
+    // internal toggle
+    state.split = !state.split;
     applySplit();
     saveState();
   });
