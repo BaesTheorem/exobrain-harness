@@ -103,8 +103,7 @@ ICON_TO_CAT = {
 
 ALLOWED_TAGS = {
     "p", "blockquote", "i", "b", "em", "strong", "sup", "sub",
-    "span", "a", "br", "ol", "ul", "li", "h4", "h5", "table",
-    "tr", "td", "th",
+    "span", "a", "br", "ol", "ul", "li", "h4", "h5",
 }
 ALLOWED_SPAN_CLASSES = {
     "a", "c", "sci", "i", "v", "int", "interp", "pr", "w", "l", "s",
@@ -337,17 +336,22 @@ def chapter_url(corpus, slug, n):
 
 MARKER_REF_RE = re.compile(r"^[\s\d:,;.\-–and]+$")
 
+# Verse-number markers as they appear in sanitized html. The site writes
+# them several ways: <sup><a id>N</a></sup>, <a id><sup>N</sup></a>, bare
+# <sup>N</sup>, <sup><a id></a>N</sup>, and ids with stray punctuation
+# like "2:". One pattern covers all of them.
+VERSE_MARKER_RE = re.compile(
+    r'(?:<a id="fn-[^"]*">\s*)?<sup>\s*(?:<a id="fn-[^"]*">\s*)?(?:</a>\s*)?'
+    r"(?:\d+[:.])?(\d+)\s*(?:</a>\s*)?</sup>(?:\s*</a>)?"
+    r'|(?:<b>\s*)?<a id="fn-\d[^"]*">\s*(?:\d+[:.])?(\d+)\s*</a>(?:\s*</b>)?'
+)
 
-def remove_node(root, target):
-    """Detach target from wherever it sits under root (may be nested)."""
-    stack = [root]
-    while stack:
-        n = stack.pop()
-        if target in n.children:
-            n.children.remove(target)
-            return True
-        stack.extend(c for c in n.children if isinstance(c, Node))
-    return False
+# literal "p>" fragments left in the text where the site broke a tag
+STRAY_TAG_RE = re.compile(r"(?:^|(?<=\s))/?p&gt;\s*")
+
+
+def clean_fragment(s):
+    return STRAY_TAG_RE.sub(" ", s).strip()
 
 
 def parse_chapter(html, corpus, slug, book_slugs):
@@ -387,26 +391,38 @@ def parse_chapter(html, corpus, slug, book_slugs):
                     if html_note:
                         blocks_out.append({"t": "note", "html": html_note})
             elif "text" in cls:
-                verses = []
-                for p in div.children:
-                    if not isinstance(p, Node) or p.tag != "p":
-                        continue
-                    vnum = None
-                    sups = p.find_all("sup")
-                    if sups:
-                        anchors = sups[0].find_all("a")
-                        if anchors and anchors[0].attrs.get("id", "").isdigit():
-                            vnum = int(anchors[0].attrs["id"])
-                            # drop the number itself; the app renders it
-                            remove_node(p, sups[0])
-                    html_v = serialize(p, corpus, slug, book_slugs).strip()
-                    if not html_v:
-                        continue
-                    if vnum is None and verses:
-                        # continuation paragraph of the previous verse
-                        verses[-1]["html"] += "<br>" + html_v
+                # group the div's content into paragraph-sized chunks; some
+                # chapters put verses directly in the div with no <p> at all
+                chunks = []
+                acc = Node("p")
+                for child in div.children:
+                    if isinstance(child, Node) and child.tag == "p":
+                        if acc.children:
+                            chunks.append(acc)
+                            acc = Node("p")
+                        chunks.append(child)
                     else:
-                        verses.append({"v": vnum or 0, "html": html_v})
+                        acc.children.append(child)
+                if acc.children:
+                    chunks.append(acc)
+
+                verses = []
+                for p in chunks:
+                    html_p = serialize(p, corpus, slug, book_slugs).strip()
+                    if not html_p:
+                        continue
+                    # split on verse-number markers; text before the first
+                    # marker continues the previous verse
+                    parts = VERSE_MARKER_RE.split(html_p)
+                    lead = clean_fragment(parts[0])
+                    if lead:
+                        if verses:
+                            verses[-1]["html"] += "<br>" + lead
+                        else:
+                            verses.append({"v": 0, "html": lead})
+                    for j in range(1, len(parts), 3):
+                        num = int(parts[j] if parts[j] is not None else parts[j + 1])
+                        verses.append({"v": num, "html": clean_fragment(parts[j + 2])})
                 if verses:
                     blocks_out.append({"t": "verses", "items": verses})
 
