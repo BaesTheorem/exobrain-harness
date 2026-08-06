@@ -1,6 +1,6 @@
 ---
 name: chess
-description: Play annotated chess against Maia (human-like engine at rating levels 1100-1900) directly in chat, with Stockfish move annotations and a themed board image per move. Use when the user says "let's play chess", "chess game", "play chess", gives a chess move in a running game (e4, Nf3, O-O), asks for analysis of a position, a hint, the PGN, or wants to change difficulty. Also covers the MIST Chess stack (En Croissant, engine roster, Frank Castle theme).
+description: Play annotated chess against Maia (human-like engine at rating levels 1100-1900) directly in chat, with Stockfish move annotations and a board image per move. Use when the user says "let's play chess", "chess game", "play chess", gives a chess move in a running game (e4, Nf3, O-O), asks for analysis of a position, a hint, the PGN, or wants to change difficulty. Also covers the MIST Chess stack (the MIST Chess app, En Croissant, engine roster).
 ---
 
 # Chess (annotated play mode)
@@ -34,7 +34,10 @@ or `/tmp`.
 
 Game state persists in `mist-chess/games/<id>.json`, so a game survives
 across sessions. Default `--id` is `game`; use a fresh id per new game
-("morning", "lunch") so history is kept.
+("morning", "lunch") so history is kept. **The MIST Chess app (below)
+uses the same files**: a game started in the app can be continued in
+chat and vice versa. If the app is open while chat plays the same game,
+its view is stale until the game is reopened there.
 
 ## Play flow in chat
 
@@ -70,13 +73,14 @@ engine lines unprompted; `analyze` is for when Alex asks.
 
 ## The rest of the stack
 
-- **En Croissant** (`/Applications/en-croissant.app`): GUI for longer
-  games and database work. Engine roster is pre-registered: "The
-  Punisher" (Stockfish 18, full strength) and "Frank Castle 1100-1900"
-  (Maia bands) with skull avatars. Re-register any time with
+- **MIST Chess.app** (`/Applications`, port 5024): native board UI over
+  the same harness (click-to-move, live grading, post-mortem, hint,
+  analysis, PGN). Server: `app/server.py`; rebuild the bundle with
+  `app/make-app.sh`. Registered in the vault Tools registry.
+- **En Croissant** (`/Applications/en-croissant.app`): GUI for deep
+  analysis and database work. Engine roster pre-registered: "Stockfish
+  18" (full strength) and "Maia 1100-1900". Re-register any time with
   `python3 ~/Documents/mist-chess/encroissant/install-config.py`.
-- **Frank Castle theme**: assets and manual En Croissant appearance
-  steps in `mist-chess/theme/frank-castle/README.md`.
 - Engines: `/opt/homebrew/bin/stockfish` (18), `/opt/homebrew/bin/lc0`
   (0.32.1, Metal backend), Maia nets in `mist-chess/engines/maia/`.
 - Stockfish runs are capped small (Threads 2, Hash 128) on purpose: 8GB
