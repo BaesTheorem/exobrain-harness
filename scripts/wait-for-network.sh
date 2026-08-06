@@ -29,7 +29,13 @@ ATTEMPT=0
 
 while :; do
     ATTEMPT=$((ATTEMPT + 1))
-    if curl -sf --max-time 8 -o /dev/null "https://${HOST}"; then
+    # No -f here. We are testing DNS + TCP + TLS, not the endpoint's opinion of
+    # us: -f treats any HTTP >= 400 as failure, so probing api.anthropic.com
+    # (401 unauthenticated) never succeeded and the consolidator skipped itself
+    # for the full 300s on a healthy network. Any HTTP response at all proves
+    # the network works; curl still exits nonzero on resolve/connect/TLS failure
+    # (6, 7, 35), which is exactly what we want to retry on.
+    if curl -s --max-time 8 -o /dev/null "https://${HOST}"; then
         [ "$ATTEMPT" -gt 1 ] && \
             echo "[$(date '+%Y-%m-%dT%H:%M:%S%z')] network ready after ${ATTEMPT} attempts"
         exit 0
