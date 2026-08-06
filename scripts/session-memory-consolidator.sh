@@ -17,6 +17,14 @@ TODAY="$(date +%Y-%m-%d)"
 
 mkdir -p "$MEMORY_DIR"
 
+# The 23:00 fire often lands right as the Mac wakes, before DNS answers, and
+# `claude` dies instantly with ENOTFOUND (7 nights between 2026-07-18 and
+# 2026-08-04). Wait for a usable network before spending a headless run on it.
+if ! "$SCRIPT_DIR/scripts/wait-for-network.sh" api.anthropic.com 300; then
+    echo "[$(date)] No network after 300s. Skipping consolidation."
+    exit 0
+fi
+
 # Prune old memory files. Sessions/deltas: 14 days. Digests: 30 days.
 # Uses mtime, which is fine since these files are write-once (deltas are
 # separate files; the day's digest is the only one that gets overwritten,

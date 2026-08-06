@@ -121,25 +121,29 @@ else
   ISSUES=$((ISSUES + 1))
 fi
 
-# Nest (SDM) refresh-token freshness. The OAuth consent screen is in "Testing"
-# status, so Google expires the refresh token 7 days after it's minted. The
-# refresh path never rewrites token.json, so its mtime IS the mint time -- warn
-# off file age before it silently dies and takes live HVAC + pre-cool with it.
+# Nest (SDM) auth health. This used to warn off token.json's mtime on the
+# theory that a "Testing"-status consent screen expires the refresh token after
+# 7 days. That predicted a dead token at 11 days on 2026-08-05; a live SDM call
+# returned all 4 devices, so the heuristic was just wrong and cried wolf daily.
+# Check the OUTCOME instead: nest-poll runs every 300s and rewrites
+# nest-data.json only on a successful authenticated fetch, so that file's mtime
+# is proof the token worked recently. Stale data = real breakage (expired token,
+# dead poller, no network); token age on its own is not.
 NEST_TOKEN="$HOME/Documents/claude-home/integrations/nest/token.json"
-if [ -f "$NEST_TOKEN" ]; then
-  NEST_AGE_DAYS=$(( ($(date +%s) - $(stat -f %m "$NEST_TOKEN")) / 86400 ))
-  DAYS_LEFT=$(( 7 - NEST_AGE_DAYS ))
-  if [ "$DAYS_LEFT" -le 0 ]; then
-    echo "WARN: Nest token likely expired (${NEST_AGE_DAYS}d old, >7d) -- re-auth: nest-auth.py"
-    ISSUES=$((ISSUES + 1))
-  elif [ "$DAYS_LEFT" -le 2 ]; then
-    echo "WARN: Nest token expires in ~${DAYS_LEFT}d -- re-auth soon: nest-auth.py"
+NEST_DATA="$HOME/Documents/claude-home/integrations/nest/nest-data.json"
+if [ ! -f "$NEST_TOKEN" ]; then
+  echo "WARN: Nest token missing -- run nest-auth.py to reconnect HVAC"
+  ISSUES=$((ISSUES + 1))
+elif [ -f "$NEST_DATA" ]; then
+  NEST_DATA_AGE_M=$(( ($(date +%s) - $(stat -f %m "$NEST_DATA")) / 60 ))
+  if [ "$NEST_DATA_AGE_M" -gt 60 ]; then
+    echo "WARN: Nest data stale (${NEST_DATA_AGE_M}m old; nest-poll runs every 5m) -- check token (nest-auth.py) and com.exobrain.nest-poll"
     ISSUES=$((ISSUES + 1))
   else
-    echo "OK: Nest token (valid ~${DAYS_LEFT}d more)"
+    echo "OK: Nest auth (successful poll ${NEST_DATA_AGE_M}m ago)"
   fi
 else
-  echo "WARN: Nest token missing -- run nest-auth.py to reconnect HVAC"
+  echo "WARN: Nest data missing -- nest-poll has never succeeded"
   ISSUES=$((ISSUES + 1))
 fi
 
