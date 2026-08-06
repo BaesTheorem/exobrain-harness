@@ -297,10 +297,13 @@ done < <(ls -t "$BACKUP_DIR"/exobrain-collective-*.tar.gz 2>/dev/null)
 
 # Transitional cleanup: the previous harness-only job left exobrain-harness-*
 # archives. The collective archive supersedes them; keep only the newest one as
-# a cushion and retire the rest.
+# a cushion and retire the rest. The legacy archives are all gone now, so ls
+# matches nothing and exits 1; under pipefail that fails the whole pipeline and
+# set -e killed the run right before "Backup complete." -- every successful
+# backup reported exit 1. Guarded, same as the KEEP_DAILY ls above.
 ls -t "$BACKUP_DIR"/exobrain-harness-*.tar.gz 2>/dev/null | tail -n +2 | while IFS= read -r old; do
     echo "[$(date)] Retiring legacy harness-only backup: $old"
     rm -f "$old"
-done
+done || true
 
 echo "[$(date)] Backup complete."
