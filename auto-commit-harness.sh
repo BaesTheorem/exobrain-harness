@@ -51,6 +51,16 @@ done < <(git status --porcelain | awk '/^\?\?/{print substr($0,4)}')
 git add -A
 git commit -q -m "Auto-commit: daily sync $(date '+%Y-%m-%d %H:%M')" || exit 0
 
+# The 23:30 fire often lands on wake, before DNS is up, and the push died with
+# "Could not resolve host: github.com" while the commit itself had succeeded.
+# Wait for the network first. If it never comes, leave the commit sitting local
+# and let tomorrow's run push it -- that is not worth an URGENT banner, which is
+# reserved for a push that failed with a working network (auth, conflict, hook).
+if ! "$REPO/scripts/wait-for-network.sh" github.com 300; then
+	echo "$(date): committed locally, no network to push; next run will send it"
+	exit 0
+fi
+
 if ! git push -q; then
 	[ -x "$NOTIFY" ] && "$NOTIFY" "Nightly auto-commit push failed" "MIST URGENT" Basso "$REPO"
 	exit 0
