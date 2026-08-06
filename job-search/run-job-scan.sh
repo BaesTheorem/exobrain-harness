@@ -23,6 +23,16 @@ if ! command -v claude &>/dev/null; then
     exit 1
 fi
 
+# 09:00 is often slept through, and launchd fires the catch-up run the instant
+# the Mac wakes, before DNS answers. Three scans died that way (7/28, 8/04,
+# 8/05) and nobody saw it, because the failure is logged here and the job still
+# exits 0. Generic host on purpose: this scan hits a dozen job boards, so what
+# matters is that the internet is up, not one specific endpoint.
+if ! "$SCRIPT_DIR/scripts/wait-for-network.sh" cloudflare.com 300; then
+    echo "[$(date)] No network after 300s. Skipping job scan." >> "$LOG_DIR/job-scan-failures.log"
+    exit 0
+fi
+
 # cd to harness dir so the project CLAUDE.md (persona + skill context) auto-loads
 cd "$HARNESS_DIR"
 
