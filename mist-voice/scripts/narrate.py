@@ -16,6 +16,45 @@ import os, sys, re, io, argparse, subprocess, tempfile, urllib.request, json, wa
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 PORT = int(os.environ.get("MIST_PORT", "8087"))
 
+# XTTS has no idea what to do with an emoji or a kaomoji. It burns a whole
+# synthesis call on the face and vocalizes garbage. MIST's written voice is full
+# of both, so they come out before anything reaches the model.
+EMOJI = re.compile(
+    "["
+    "\U0001F000-\U0001FAFF"   # pictographs, emoticons, transport, supplemental
+    "\U0001F3FB-\U0001F3FF"   # skin-tone modifiers
+    "☀-➿"           # misc symbols + dingbats (✨ ✅ ➡)
+    "⬀-⯿"
+    "←-⇿"           # arrows
+    "⌀-⏿"           # misc technical
+    "︀-️"           # variation selectors
+    "‍"                  # zero-width joiner
+    "]+")
+
+# A kaomoji is a short parenthetical with no real words in it. Anything longer
+# than this, or containing an actual ASCII word, is a genuine aside and stays.
+_FACE_MAX = 15
+_ASCII_FACE = re.compile(r"^[<>ovOTxX^;:=\-_.,'\"`\s]+$")
+# Stray arms that live outside the parens: ╯︵ ┻━┻ and ┬─┬ノ.
+_FACE_PARTS = re.compile(r"[─-╿゠-ヿ︰-﹏]+")
+
+def strip_faces(text):
+    """Drop emoji and kaomoji, keeping ordinary parentheticals intact."""
+    text = EMOJI.sub(" ", text)
+
+    def drop(m):
+        inner = m.group(1)
+        if len(inner) > _FACE_MAX:
+            return m.group(0)                      # "(it plays by default)"
+        if _ASCII_FACE.match(inner):
+            return " "                             # "(o.o)"  "(>_<)"
+        if any(ord(c) > 127 for c in inner):
+            return " "                             # "(ə_e)"  "(◠▽◠)"
+        return m.group(0)                          # "(e.g.)"  "(1)"
+
+    text = re.sub(r"\(([^()]*)\)", drop, text)
+    return _FACE_PARTS.sub(" ", text)
+
 def strip_markdown(md):
     """Markdown -> speakable prose. Drop syntax, keep sentences and paragraph breaks."""
     md = re.sub(r"```.*?```", "", md, flags=re.S)          # code fences
@@ -28,6 +67,7 @@ def strip_markdown(md):
     md = re.sub(r"[*_~]{1,3}", "", md)                      # emphasis
     md = re.sub(r"\|", " ", md)                             # table pipes
     md = re.sub(r"^[-:\s]+$", "", md, flags=re.M)           # table rules / hr
+    md = strip_faces(md)
     md = re.sub(r"[ \t]+", " ", md)
     md = re.sub(r"\n{2,}", "\n\n", md)
     return md.strip()
@@ -70,7 +110,10 @@ def main():
 
     raw = sys.stdin.read() if args.input == "-" else open(args.input, encoding="utf-8").read()
     sents = sentences(strip_markdown(raw))
-    sents = [s for s in sents if s != "" or True]  # keep pause markers
+    # A stripped-out face can leave a fragment with nothing sayable in it ("!").
+    # Synthesizing those costs a call and comes back as noise. "" is the
+    # paragraph-pause marker, so it stays.
+    sents = [s for s in sents if s == "" or re.search(r"\w", s)]
 
     try:
         urllib.request.urlopen(f"http://127.0.0.1:{PORT}/health", timeout=5)
