@@ -35,6 +35,24 @@ The `/job-search` skill owns the per-listing folder convention; the builder just
 writes wherever `--out` points (default stays Downloads for ad-hoc one-offs).
 Requires: `playwright` (chromium), `pypdf`, `qpdf`.
 
+### Cover letter markdown: start at the date line, end at the name
+
+`build.py cover` renders a **letterhead automatically** from the `name` and
+`contact` fields in `data/resume_data.json` (see `build.py:165`). It does this
+unconditionally, on every cover letter.
+
+So the `.md` you pass to `--md` must contain only the letter itself, from the date
+line down, and its signature block should be **the name alone**:
+
+```markdown
+Best,
+Alex Hedtke
+```
+
+**Do not put the contact line (phone / email / LinkedIn / GitHub) in the signature.**
+The letterhead already carries it, and repeating it prints the whole block twice on a
+one-page letter. `tailoring/example_cover.md` shows the correct shape.
+
 ## Tailoring schema (`tailoring/<company>.json`, all keys optional)
 ```json
 {
