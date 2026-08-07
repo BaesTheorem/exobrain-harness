@@ -1,0 +1,264 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>MIST Radar</title>
+<style>
+  :root {
+    --bg: #111318;
+    --surface: #1b1e24;
+    --surface-2: #22262e;
+    --hairline: #2e3340;
+    --text: #e3e2e6;
+    --muted: #9aa0a6;
+    --accent: #a8c7fa;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; border-radius: 0; }
+  html, body { height: 100%; }
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: -apple-system, "SF Pro Text", "Helvetica Neue", sans-serif;
+    -webkit-user-select: none;
+    user-select: none;
+    overflow: hidden;
+  }
+  .mono { font-family: "SF Mono", ui-monospace, Menlo, monospace; }
+
+  header {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 14px 16px;
+    border-bottom: 1px solid var(--hairline);
+    background: var(--surface);
+  }
+  header h1 { font-size: 15px; font-weight: 600; letter-spacing: .02em; }
+  header .status { font-size: 11px; color: var(--muted); }
+
+  .view { display: none; height: calc(100% - 49px); }
+  .view.active { display: flex; flex-direction: column; }
+
+  /* ---- picker ---- */
+  #picker .hint {
+    padding: 12px 16px; font-size: 12px; line-height: 1.5; color: var(--muted);
+    border-bottom: 1px solid var(--hairline);
+  }
+  #picker .auto-row {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 12px 16px; cursor: pointer;
+    background: var(--surface-2);
+    border-bottom: 1px solid var(--hairline);
+  }
+  #picker .auto-row:hover { background: #262b35; }
+  #picker .auto-row .label { font-size: 13px; font-weight: 600; }
+  #picker .auto-row .sub { font-size: 11px; color: var(--muted); margin-top: 2px; }
+  #device-list { overflow-y: auto; flex: 1; }
+  .dev-row {
+    display: grid;
+    grid-template-columns: 1fr auto;
+    gap: 2px 12px;
+    padding: 10px 16px;
+    border-bottom: 1px solid var(--hairline);
+    cursor: pointer;
+    align-items: center;
+  }
+  .dev-row:hover { background: var(--surface); }
+  .dev-name { font-size: 13px; font-weight: 500; }
+  .dev-name .chip {
+    font-size: 10px; font-weight: 600; color: var(--bg);
+    background: var(--accent); padding: 1px 5px; margin-left: 6px;
+    vertical-align: 1px;
+  }
+  .dev-id { font-size: 10px; color: var(--muted); }
+  .dev-rssi { font-size: 13px; text-align: right; }
+  .dev-bar { grid-column: 1 / -1; height: 2px; background: var(--hairline); }
+  .dev-bar > div { height: 100%; background: var(--accent); }
+
+  /* ---- tracker ---- */
+  #tracker { align-items: center; justify-content: center; text-align: center; gap: 10px; padding: 20px; }
+  #face {
+    font-size: 64px; line-height: 1.6;
+    font-family: "SF Pro Text", "Hiragino Sans", sans-serif;
+    white-space: nowrap;
+  }
+  #zone-label { font-size: 22px; font-weight: 700; letter-spacing: .01em; }
+  #trend {
+    font-size: 12px; font-weight: 600; padding: 3px 10px;
+    border: 1px solid var(--hairline); color: var(--muted);
+  }
+  #readout { font-size: 13px; color: var(--muted); }
+  #big-bar { width: 70%; max-width: 320px; height: 4px; background: var(--hairline); margin-top: 6px; }
+  #big-bar > div { height: 100%; }
+  #target-line { font-size: 11px; color: var(--muted); margin-top: 14px; }
+  #back {
+    margin-top: 10px; padding: 8px 18px; font-size: 12px; font-weight: 600;
+    background: none; border: 1px solid var(--hairline); color: var(--text); cursor: pointer;
+  }
+  #back:hover { background: var(--surface); }
+
+  @media (prefers-reduced-motion: no-preference) {
+    #face, #zone-label, .dev-bar > div, #big-bar > div { transition: color .3s, width .3s; }
+  }
+</style>
+</head>
+<body>
+<header>
+  <h1>MIST Radar</h1>
+  <div class="status mono" id="status">starting…</div>
+</header>
+
+<div class="view active" id="picker">
+  <div class="hint">
+    Hold your phone right next to the Mac for a second. The strongest row at
+    the top is almost certainly it (iPhones advertise anonymously, so no name
+    shows). Tap it to lock on, then walk.
+  </div>
+  <div class="auto-row" onclick="startAuto()">
+    <div>
+      <div class="label">Auto-track strongest Apple device</div>
+      <div class="sub">Survives the iPhone rotating its Bluetooth address</div>
+    </div>
+    <div class="mono" style="color: var(--accent)">&rsaquo;</div>
+  </div>
+  <div id="device-list"></div>
+</div>
+
+<div class="view" id="tracker">
+  <div id="face">(o.o)</div>
+  <div id="zone-label">Searching…</div>
+  <div id="trend">steady</div>
+  <div class="mono" id="readout"></div>
+  <div id="big-bar"><div></div></div>
+  <div class="mono" id="target-line"></div>
+  <button id="back" onclick="stopTracking()">&lsaquo; Back to device list</button>
+</div>
+
+<script>
+  // MIST's canonical faces, hottest to coldest, keyed by smoothed RSSI floor.
+  const ZONES = [
+    { min: -45,  face: "(>‿<)",       label: "RIGHT HERE!!",  color: "#ffb4ab" },
+    { min: -55,  face: "(◠▽◠)", label: "So close!", color: "#ffb4ab" },
+    { min: -65,  face: "(ˆωˆ)", label: "Close",     color: "#f5c97b" },
+    { min: -72,  face: "(o.o)",            label: "Warmer…",  color: "#dfc880" },
+    { min: -80,  face: "(ə_e)",       label: "Lukewarm",      color: "#a8c7fa" },
+    { min: -88,  face: "(ó﹏ò)", label: "Far",       color: "#8e9bb1" },
+    { min: -999, face: "(>_<)",            label: "Cold",          color: "#8e9bb1" },
+  ];
+  const LOST = { face: "(;﹏;)", label: "Lost it…", color: "#9aa0a6" };
+  const LOST_AFTER_SEC = 8;
+  const AUTO_SWITCH_DB = 6; // auto mode: new device must beat current by this much
+
+  let mode = "picker";       // picker | locked | auto
+  let targetId = null;
+
+  const $ = (id) => document.getElementById(id);
+  const pct = (ema) => Math.max(2, Math.min(100, Math.round((ema + 95) / 55 * 100)));
+  const meters = (ema) => {
+    const d = Math.pow(10, (-59 - ema) / 22);
+    return d < 10 ? d.toFixed(1) : Math.round(d);
+  };
+  const zoneFor = (ema) => ZONES.find((z) => ema >= z.min);
+
+  function startTracking(id) { targetId = id; mode = "locked"; show("tracker"); }
+  function startAuto()       { targetId = null; mode = "auto"; show("tracker"); }
+  function stopTracking()    { targetId = null; mode = "picker"; show("picker"); }
+  function show(view) {
+    document.querySelectorAll(".view").forEach((v) => v.classList.remove("active"));
+    $(view).classList.add("active");
+  }
+
+  function renderPicker(devices) {
+    const list = $("device-list");
+    list.innerHTML = "";
+    for (const d of devices) {
+      const row = document.createElement("div");
+      row.className = "dev-row";
+      row.onclick = () => startTracking(d.id);
+      const name = d.name
+        ? escapeHtml(d.name)
+        : (d.apple ? "Apple device" : "Unknown device");
+      row.innerHTML =
+        `<div class="dev-name">${name}${d.apple ? '<span class="chip">APPLE</span>' : ""}` +
+        `<div class="dev-id mono">${d.id.slice(0, 8)}</div></div>` +
+        `<div class="dev-rssi mono">${Math.round(d.ema)} dBm</div>` +
+        `<div class="dev-bar"><div style="width:${pct(d.ema)}%"></div></div>`;
+      list.appendChild(row);
+    }
+  }
+
+  function pickAutoTarget(devices) {
+    const apples = devices.filter((d) => d.apple && d.age < LOST_AFTER_SEC);
+    if (!apples.length) return null;
+    const current = apples.find((d) => d.id === targetId);
+    const best = apples[0]; // already sorted by ema desc
+    if (!current || best.ema > current.ema + AUTO_SWITCH_DB) return best;
+    return current;
+  }
+
+  function renderTracker(devices) {
+    let target = null;
+    if (mode === "auto") {
+      target = pickAutoTarget(devices);
+      if (target) targetId = target.id;
+    } else {
+      target = devices.find((d) => d.id === targetId) || null;
+    }
+
+    const lost = !target || target.age > LOST_AFTER_SEC;
+    const z = lost ? LOST : zoneFor(target.ema);
+    $("face").textContent = z.face;
+    $("face").style.color = z.color;
+    $("zone-label").textContent = z.label;
+    $("zone-label").style.color = z.color;
+
+    if (lost) {
+      $("trend").textContent = mode === "auto" ? "waiting for a signal" : "no signal";
+      $("readout").textContent =
+        mode === "auto"
+          ? "Scanning for Apple devices…"
+          : "Phone may have rotated its address. Try Auto mode.";
+      $("big-bar").firstElementChild.style.width = "0%";
+      $("target-line").textContent = "";
+      return;
+    }
+
+    const t = target.trend;
+    $("trend").textContent = t > 1 ? "▲ getting warmer" : t < -1 ? "▼ getting colder" : "steady";
+    $("trend").style.color = t > 1 ? "#ffb4ab" : t < -1 ? "#a8c7fa" : "var(--muted)";
+    $("readout").textContent = `${Math.round(target.ema)} dBm · roughly ${meters(target.ema)} m`;
+    const bar = $("big-bar").firstElementChild;
+    bar.style.width = pct(target.ema) + "%";
+    bar.style.background = z.color;
+    $("target-line").textContent =
+      (mode === "auto" ? "AUTO · " : "") +
+      (target.name ? target.name + " · " : "") + target.id.slice(0, 8);
+  }
+
+  function escapeHtml(s) {
+    return s.replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+  }
+
+  async function tick() {
+    if (!window.pywebview || !window.pywebview.api) return;
+    try {
+      const state = await window.pywebview.api.get_state();
+      $("status").textContent = state.status + " · " + state.devices.length + " devices";
+      if (mode === "picker") renderPicker(state.devices);
+      else renderTracker(state.devices);
+    } catch (e) {
+      $("status").textContent = "api error";
+    }
+  }
+
+  let polling = false;
+  function startPolling() {
+    if (polling) return;
+    polling = true;
+    tick();
+    setInterval(tick, 500);
+  }
+  window.addEventListener("pywebviewready", startPolling);
+  // Fallback if the ready event fired before this script attached.
+  setTimeout(startPolling, 1500);
+</script>
+</body>
+</html>
