@@ -35,6 +35,22 @@ iPhones advertise BLE anonymously (no name, rotating random address every
 Distance readout is a rough log-distance estimate from RSSI. Treat it as
 vibes; the faces are the real instrument.
 
+Device names: shown when a device advertises one (`adv.local_name`), falling
+back to macOS's cached name for known/paired devices. iPhones advertise
+anonymously, so most Apple gear stays nameless by design.
+
+## Direction sweep
+
+A Mac has a single antenna and no magnetometer, so real angle-of-arrival is
+impossible. The sweep approximates it with body shielding: stand still, tap
+Start, rotate slowly clockwise one full turn (10-15s) holding the Mac in
+front of you, tap Done. Assuming uniform rotation, each RSSI sample maps to
+an angle; after circular smoothing (±25°) the peak is roughly the direction
+you were facing when pointed at the phone, drawn as an arrow relative to
+your starting heading. A sanity check (trough should sit opposite the peak,
+spread ≥ 4 dB) flags noisy sweeps for a redo. Indoors, multipath can still
+lie to you; it's a hint, not a compass.
+
 ## Run
 
 - App: `/Applications/MIST Radar.app` (shell launcher that execs
