@@ -46,16 +46,24 @@ else
 fi
 
 # Plaud folder (in Google Drive)
-if [ -d "$HOME/My Drive/Plaud" ]; then
+# `[ -d ]` only stats, which TCC still allows after a Claude Code upgrade
+# invalidates the Google Drive grant. List instead, so a blocked readdir fails loudly.
+if ls "$HOME/My Drive/Plaud" >/dev/null 2>&1; then
   echo "OK: Plaud folder"
+elif [ -d "$HOME/My Drive/Plaud" ]; then
+  echo "FAIL: Plaud folder unreadable -- grant this Claude Code binary access to Google Drive"
+  ISSUES=$((ISSUES + 1))
 else
   echo "FAIL: Plaud folder missing (Google Drive not mounted?)"
   ISSUES=$((ISSUES + 1))
 fi
 
 # Supernote folder
-if [ -d "$GDRIVE_SUPERNOTE" ]; then
+if ls "$GDRIVE_SUPERNOTE" >/dev/null 2>&1; then
   echo "OK: Supernote folder"
+elif [ -d "$GDRIVE_SUPERNOTE" ]; then
+  echo "FAIL: Supernote folder unreadable -- grant this Claude Code binary access to Google Drive"
+  ISSUES=$((ISSUES + 1))
 else
   echo "FAIL: Supernote folder not accessible"
   ISSUES=$((ISSUES + 1))
