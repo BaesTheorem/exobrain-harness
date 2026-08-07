@@ -89,11 +89,27 @@
   #big-bar { width: 70%; max-width: 320px; height: 4px; background: var(--hairline); margin-top: 6px; }
   #big-bar > div { height: 100%; }
   #target-line { font-size: 11px; color: var(--muted); margin-top: 14px; }
-  #back {
-    margin-top: 10px; padding: 8px 18px; font-size: 12px; font-weight: 600;
+  .btn {
+    padding: 8px 18px; font-size: 12px; font-weight: 600;
     background: none; border: 1px solid var(--hairline); color: var(--text); cursor: pointer;
   }
-  #back:hover { background: var(--surface); }
+  .btn:hover { background: var(--surface); }
+  .btn.primary { border-color: var(--accent); color: var(--accent); }
+  #tracker-buttons { display: flex; gap: 8px; margin-top: 10px; }
+
+  /* ---- direction sweep overlay ---- */
+  #sweep {
+    display: none; position: fixed; inset: 49px 0 0 0;
+    background: var(--bg); z-index: 10;
+    flex-direction: column; align-items: center; justify-content: center;
+    gap: 14px; padding: 24px; text-align: center;
+  }
+  #sweep.active { display: flex; }
+  #sweep .title { font-size: 15px; font-weight: 700; }
+  #sweep .body { font-size: 12px; line-height: 1.6; color: var(--muted); max-width: 300px; }
+  #sweep .live { font-size: 13px; }
+  #sweep-dial line, #sweep-dial circle { shape-rendering: geometricPrecision; }
+  #sweep .buttons { display: flex; gap: 8px; }
 
   @media (prefers-reduced-motion: no-preference) {
     #face, #zone-label, .dev-bar > div, #big-bar > div { transition: color .3s, width .3s; }
@@ -129,7 +145,35 @@
   <div class="mono" id="readout"></div>
   <div id="big-bar"><div></div></div>
   <div class="mono" id="target-line"></div>
-  <button id="back" onclick="stopTracking()">&lsaquo; Back to device list</button>
+  <div id="tracker-buttons">
+    <button class="btn" onclick="stopTracking()">&lsaquo; Device list</button>
+    <button class="btn primary" onclick="openSweep()">◎ Direction sweep</button>
+  </div>
+</div>
+
+<div id="sweep">
+  <div class="title" id="sweep-title">Direction sweep</div>
+  <div class="body" id="sweep-body">
+    Stand still and hold the Mac in front of you. Tap Start, then rotate
+    slowly in place <b>to your right (clockwise)</b>, one full turn in about
+    10&ndash;15 seconds, ending where you started. Then tap Done. Your body
+    blocks the signal, so it peaks when you face the phone.
+  </div>
+  <svg id="sweep-dial" width="180" height="180" viewBox="0 0 180 180" style="display:none">
+    <circle cx="90" cy="90" r="70" fill="none" stroke="#2e3340" stroke-width="1"/>
+    <line x1="90" y1="20" x2="90" y2="30" stroke="#9aa0a6" stroke-width="1"/>
+    <text x="90" y="14" fill="#9aa0a6" font-size="9" text-anchor="middle">START FACING</text>
+    <line id="sweep-arrow" x1="90" y1="90" x2="90" y2="30" stroke="#ffb4ab" stroke-width="2"/>
+    <circle id="sweep-arrow-tip" cx="90" cy="30" r="4" fill="#ffb4ab"/>
+    <circle cx="90" cy="90" r="3" fill="#e3e2e6"/>
+    <text x="90" y="106" fill="#9aa0a6" font-size="9" text-anchor="middle">YOU</text>
+  </svg>
+  <div class="live mono" id="sweep-live"></div>
+  <div class="buttons">
+    <button class="btn primary" id="sweep-start" onclick="startSweep()">Start</button>
+    <button class="btn" id="sweep-done" onclick="finishSweep()" style="display:none">Done, full turn</button>
+    <button class="btn" onclick="closeSweep()">Close</button>
+  </div>
 </div>
 
 <script>
@@ -149,6 +193,10 @@
 
   let mode = "picker";       // picker | locked | auto
   let targetId = null;
+  let lastTarget = null;     // most recent non-lost tracked device
+  // Direction sweep: assumes a steady clockwise full turn between Start and
+  // Done; body shielding makes RSSI peak roughly when facing the phone.
+  const sweep = { state: "idle", t0: 0, samples: [] };
 
   const $ = (id) => document.getElementById(id);
   const pct = (ema) => Math.max(2, Math.min(100, Math.round((ema + 95) / 55 * 100)));
@@ -204,6 +252,7 @@
     }
 
     const lost = !target || target.age > LOST_AFTER_SEC;
+    lastTarget = lost ? null : target;
     const z = lost ? LOST : zoneFor(target.ema);
     $("face").textContent = z.face;
     $("face").style.color = z.color;
@@ -233,6 +282,107 @@
       (target.name ? target.name + " · " : "") + target.id.slice(0, 8);
   }
 
+  // ---- direction sweep ----
+
+  function openSweep() {
+    sweep.state = "ready";
+    sweep.samples = [];
+    $("sweep").classList.add("active");
+    $("sweep-title").textContent = "Direction sweep";
+    $("sweep-body").style.display = "";
+    $("sweep-dial").style.display = "none";
+    $("sweep-live").textContent = "";
+    const start = $("sweep-start");
+    start.style.display = "";
+    start.textContent = "Start";
+    $("sweep-done").style.display = "none";
+  }
+
+  function startSweep() {
+    sweep.state = "sweeping";
+    sweep.t0 = performance.now() / 1000;
+    sweep.samples = [];
+    $("sweep-body").style.display = "none";
+    $("sweep-dial").style.display = "none";
+    $("sweep-start").style.display = "none";
+    $("sweep-done").style.display = "";
+    $("sweep-title").textContent = "Rotating… keep it slow and steady";
+  }
+
+  function finishSweep() {
+    sweep.state = "result";
+    $("sweep-done").style.display = "none";
+    const start = $("sweep-start");
+    start.style.display = "";
+    start.textContent = "Sweep again";
+
+    const t0 = sweep.t0;
+    const T = performance.now() / 1000 - t0;
+    const s = sweep.samples;
+    if (T < 5 || s.length < 8) {
+      $("sweep-title").textContent = "Too quick to read";
+      $("sweep-body").style.display = "";
+      $("sweep-body").innerHTML =
+        "That turn was too fast (or the signal dropped out). Try again, " +
+        "rotating over 10&ndash;15 seconds.";
+      $("sweep-live").textContent = "";
+      return;
+    }
+
+    // Map each sample to an angle assuming uniform rotation, then smooth
+    // circularly (±25°) and take the max.
+    const pts = s.map((p) => ({ a: ((p.t - t0) / T) * 360, ema: p.ema }));
+    const smoothAt = (a) => {
+      const near = pts.filter((p) => {
+        const d = Math.abs(((p.a - a + 540) % 360) - 180);
+        return d <= 25;
+      });
+      return near.reduce((sum, p) => sum + p.ema, 0) / near.length;
+    };
+    let peak = { a: 0, v: -Infinity }, trough = { a: 0, v: Infinity };
+    for (let a = 0; a < 360; a += 5) {
+      const v = smoothAt(a);
+      if (v > peak.v) peak = { a, v };
+      if (v < trough.v) trough = { a, v };
+    }
+    // Sanity check: the trough should sit roughly opposite the peak.
+    const opposite = Math.abs(((trough.a - (peak.a + 180) + 540) % 360) - 180);
+    const clean = opposite <= 60 && peak.v - trough.v >= 4;
+
+    const rad = (peak.a * Math.PI) / 180;
+    const x = 90 + 60 * Math.sin(rad), y = 90 - 60 * Math.cos(rad);
+    $("sweep-arrow").setAttribute("x2", x);
+    $("sweep-arrow").setAttribute("y2", y);
+    $("sweep-arrow-tip").setAttribute("cx", x);
+    $("sweep-arrow-tip").setAttribute("cy", y);
+    $("sweep-dial").style.display = "";
+
+    $("sweep-title").textContent = "Phone is roughly " + directionPhrase(peak.a);
+    $("sweep-body").style.display = "";
+    $("sweep-body").innerHTML =
+      `Strongest signal about <b>${Math.round(peak.a)}&deg; clockwise</b> from ` +
+      "where you started facing." +
+      (clean
+        ? ""
+        : "<br>That sweep looked noisy (walls and furniture bounce the signal); " +
+          "a slower re-sweep would firm it up.");
+    $("sweep-live").textContent = "";
+  }
+
+  function closeSweep() {
+    sweep.state = "idle";
+    $("sweep").classList.remove("active");
+  }
+
+  function directionPhrase(deg) {
+    const names = [
+      "straight ahead", "ahead, to your right", "to your right",
+      "behind you, to the right", "behind you", "behind you, to the left",
+      "to your left", "ahead, to your left",
+    ];
+    return names[Math.round(((deg % 360) / 45)) % 8];
+  }
+
   function escapeHtml(s) {
     return s.replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
   }
@@ -244,6 +394,13 @@
       $("status").textContent = state.status + " · " + state.devices.length + " devices";
       if (mode === "picker") renderPicker(state.devices);
       else renderTracker(state.devices);
+      if (sweep.state === "sweeping") {
+        const now = performance.now() / 1000;
+        if (lastTarget) sweep.samples.push({ t: now, ema: lastTarget.ema });
+        $("sweep-live").textContent =
+          `${(now - sweep.t0).toFixed(0)}s · ` +
+          (lastTarget ? `${Math.round(lastTarget.ema)} dBm` : "signal lost…");
+      }
     } catch (e) {
       $("status").textContent = "api error";
     }

@@ -95,8 +95,13 @@ class Radar:
             d["ema"] += alpha * (adv.rssi - d["ema"])
             d["rssi"] = adv.rssi
             d["last"] = now
+            # Advertised name wins; fall back to macOS's cached name for
+            # known/paired devices (iPhones advertise anonymously, so most
+            # Apple gear shows no name at all).
             if adv.local_name:
                 d["name"] = adv.local_name
+            elif device.name and not d["name"]:
+                d["name"] = device.name
             if adv.manufacturer_data and APPLE_COMPANY_ID in adv.manufacturer_data:
                 d["apple"] = True
             d["hist"].append((now, d["ema"]))
