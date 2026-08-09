@@ -34,14 +34,24 @@ The watcher picks the target chat by intent, in priority order:
    into that chat for 5 minutes; `/photos` forces them into the dedicated photos
    chat instead; `/here off` clears the claim. (These are Console-local commands,
    intercepted client-side, never sent to MIST.)
-2. **Recency.** Absent a claim, if any chat was active within the last **120s**,
-   you're clearly working in it, so the photo joins that chat.
-3. **Dedicated chat.** Otherwise it goes to a pinned **📷 iPhone Photos** chat,
-   recreated automatically if you delete it (or if it gets too large and hits the
-   context gate).
+2. **The chat on screen.** Absent a claim, the photo joins whichever chat the
+   Console is currently showing. The front-end POSTs its active chat id to
+   `/active-chat` on every tab switch, on window focus, and on a 30s heartbeat;
+   the watcher uses that id if the report is under **90s** old.
+3. **Recency.** If the Console can't say what's on screen (it's closed, or it's an
+   older build without `/active-chat`), fall back to the most recently active chat
+   within **120s**.
+4. **Dedicated chat.** Otherwise a pinned **📷 iPhone Photos** chat, recreated
+   automatically if you delete it (or if it gets too large and hits the context
+   gate).
 
-So: mid-conversation photos land in the conversation; photos you grab while away
-land in the photos chat; and `/here` / `/photos` override either way.
+So: photos land in the chat you're looking at; photos you grab while the Console
+is closed land in the photos chat; and `/here` / `/photos` override either way.
+
+Why the heartbeat matters: recency alone counts *agent output*, not your
+attention, so with two chats open it routes to whichever one happens to be mid
+turn rather than the one you're typing in. The heartbeat also expires on its own,
+so a chat that was on screen hours ago can't capture a photo you take today.
 
 ## Install
 
