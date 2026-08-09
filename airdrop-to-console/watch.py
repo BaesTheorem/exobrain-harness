@@ -3,8 +3,9 @@
 
 Fires (via launchd WatchPaths on ~/Downloads, plus an interval fallback) whenever
 Downloads changes. Picks out ONLY images that arrived via AirDrop, moves them out
-of Downloads into the Console's image dir, and injects each one into a dedicated
-pinned "iPhone Photos" chat in the MIST Console so MIST can see it.
+of Downloads into the Console's image dir, and injects each one into a MIST
+Console chat so MIST can see it -- by default the one you have on screen, else a
+dedicated pinned "iPhone Photos" chat. See resolve_target for the full order.
 
 How we know a file is from AirDrop: macOS tags received files with the
 com.apple.quarantine xattr, whose third ';'-separated field is the agent that put
@@ -31,9 +32,14 @@ ARCHIVE = os.path.join(HARNESS, "tmp", "images", "airdrop")
 STATE_PATH = os.path.join(HARNESS, "airdrop-to-console", "state.json")
 CONSOLE = "http://127.0.0.1:5014"
 CHAT_TITLE = "\U0001F4F7 iPhone Photos"  # 📷
-# If some chat was active within this many seconds, the photo joins it (you're
-# clearly working there); otherwise it goes to the dedicated photos chat. A
-# manual /here or /photos claim in the Console overrides this either way.
+# How fresh the Console's "this chat is on screen" report has to be to count.
+# The front-end re-reports every 30s, so anything older than a couple of missed
+# beats means the Console isn't running and we fall back to recency.
+ACTIVE_WINDOW = 90
+# Recency fallback, used only when the Console can't say what's on screen (older
+# build, or it's closed): if some chat saw activity within this many seconds, the
+# photo joins it. Note this counts agent output, not attention, so it picks the
+# wrong chat when a second chat is mid turn -- hence ACTIVE_WINDOW above.
 RECENCY_WINDOW = 120
 
 IMG_EXTS = {".heic", ".heif", ".jpg", ".jpeg", ".png", ".gif", ".webp"}
@@ -156,6 +162,17 @@ def get_claim():
     return c if c and c.get("target") else None
 
 
+def focused_session_id(window=ACTIVE_WINDOW):
+    """The chat currently on screen in the Console, if it's still reporting in."""
+    try:
+        _, a = _req("GET", "/active-chat", timeout=6)
+    except Exception:
+        return None          # older Console build without the endpoint
+    if not a or not a.get("sid"):
+        return None
+    return a["sid"] if a.get("age", 1e9) <= window else None
+
+
 def recent_session_id(window=RECENCY_WINDOW):
     """The most-recently-active chat, if it was active within `window` seconds."""
     try:
@@ -172,7 +189,8 @@ def recent_session_id(window=RECENCY_WINDOW):
 
 
 def resolve_target(state):
-    """Where should this photo land? Manual claim > recency > dedicated chat."""
+    """Where should this photo land?
+    Manual claim > the chat on screen > recency > dedicated chat."""
     claim = get_claim()
     if claim:
         tgt = claim["target"]
@@ -180,7 +198,10 @@ def resolve_target(state):
             return ensure_session(state)
         if session_exists(tgt):
             return tgt
-        # the claimed chat was deleted -> fall through to recency/dedicated
+        # the claimed chat was deleted -> fall through to the rest
+    fid = focused_session_id()
+    if fid and session_exists(fid):
+        return fid
     rid = recent_session_id()
     if rid:
         return rid
