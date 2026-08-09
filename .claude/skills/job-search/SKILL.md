@@ -168,6 +168,28 @@ Do NOT hand-build resume/cover-letter HTML per JD anymore. Use the reusable buil
 - Canonical resume content lives in `resume-builder/data/resume_data.json` (source of truth). Tailoring rules are still surgical-only per [[Claude Reference]]; the builder does not relax them.
 - The builder bakes in the document-side ATS / AI-screening defenses (clean metadata, selectable single-column text, human filename, no Skia/Chrome fingerprint). The **prose** defense is still yours: run `/de-ai` on every tailored summary/bullet and cover letter. Full rationale: [[ATS & AI-Screening Playbook]] (`Projects/Get new job/`). Read it before tailoring.
 
+## JD Scorecard Simulation (run before any tailoring)
+
+Before writing a tailored resume or cover letter, have the model **predict the rubric the screener will score against**, then write to that rubric. This runs in mode 1 (audit) to sharpen the verdict and in mode 3 (cover letter) as a required input.
+
+**The prompt** (feed it the full JD text plus the current resume PDF contents):
+
+> Based on this resume and this job description, produce the scorecard a screener would most likely generate, across four attributes: **details** (logistics -- location, work authorization, availability, comp band, start date), **qualifications** (credentials, degree, certs, years of experience), **skills** (tools, platforms, technical and process competencies), and **traits** (working style and soft skills the JD names or implies). For each attribute, list what the JD asks for, how the resume currently answers it, and a gap severity. Then flag every JD attribute as either **required/knockout** or **nice-to-have**, quoting the JD line that makes it one or the other.
+
+Then: rewrite only what the scorecard says is weak, within the surgical tailoring rules in [[Claude Reference]]. Do not invent experience to fill a gap; an honest gap goes in `## Gaps` on the listing note.
+
+**What the output feeds:**
+- **Knockouts drive the verdict.** A missing required/knockout attribute is a predicted auto-reject -- say so in the fit report and recommend skip or a targeted warm-intro path instead of a cold application. This is the cheapest possible filter and it runs before any package work.
+- **Nice-to-haves drive tailoring priority.** They tell you which of Alex's real experience to surface first, and in what order.
+- **The skills column populates `## ATS keywords`** on the listing note -- ordered by scorecard weight, not as a flat list.
+- **The traits column is prose guidance, never resume content.** Alex's resume has no place to assert traits, and stuffing trait language produces exactly the generic prose that fails the human 20-second read. Demonstrate a trait through a concrete accomplishment bullet or don't address it.
+
+**Provenance and limits -- state these if the method ever comes up:**
+- The four categories are a **heuristic frame**, not a leaked artifact. They came from a 2026-08 social-media video (Beverly Dines) claiming to have obtained a real rubric from "one of the largest ATSs in the world." That claim is **unsourced and unverified** -- do not repeat it as fact anywhere, and do not let a downstream agent treat the categories as ground truth about any specific vendor. The frame earns its place because every JD really does separate required from optional, not because the provenance checks out.
+- The same video also cited a "May 2026 study of 197,000 resumes" showing white-text keyword injection manipulates early-stage filtering. **Treat as zero evidence** -- no author, no venue, malformed statistic, and it contradicts the claim made 30 seconds earlier in the same video that no data supports injection working.
+- **The video's fallback advice -- white-text keyword stuffing -- is explicitly rejected here.** PDF parsing strips color, so the screener sees hidden text in plain sight; it is detected, penalized, and prevalent enough (~1-10% per Greenhouse/ManpowerGroup) that recruiters look for it. Same verdict as prompt injection: own-goal. See [[ATS & AI-Screening Playbook]].
+- This is a **content** lever only. It does nothing for document parseability, which is the #1 actual auto-fail cause. The builder owns that half and neither substitutes for the other.
+
 ## Contact Research (MANDATORY for every qualifying JD)
 
 For **every** posting that clears the 4 hard gates (not just Strong Fits), research the people around the role and record them on the listing note. This is required at audit time, in scan mode, in the apply pipeline, and in the daily-briefing scan -- any time a listing note is created or promoted. Read `/linkedin` first (READ-ONLY, human-paced; never send or connect). For each qualifying JD, identify and capture:
@@ -321,6 +343,8 @@ When Alex shares a job posting URL or text, evaluate fit:
 
    **Reporting**: When agents return verified-open roles, the verification_signals frontmatter must include the apply-form check explicitly: e.g., "Apply form loaded successfully on Greenhouse 2026-05-08 with active Submit button." If the apply form check was not performed, the role is "verification incomplete" -- not "verified open."
 
+3b. **Run the scorecard simulation** (see "JD Scorecard Simulation" above). Do this before writing the fit report, because the knockout flags decide the verdict: a required/knockout attribute Alex cannot answer is a predicted auto-reject, and the honest recommendation is skip-or-warm-intro rather than a cold application. Carry the skills column into `## ATS keywords` on the listing note.
+
 4. **Output a fit report**:
    ```
    ## [Job Title] -- [Company]
@@ -330,16 +354,19 @@ When Alex shares a job posting URL or text, evaluate fit:
 
    ### Fit Score: [Strong Fit / Moderate Fit / Weak Fit / Skip]
 
+   **Knockouts**:
+   - [Each required/knockout attribute from the scorecard, marked met or unmet. "None unmet" if clean.]
+
    **Matches**:
    - [Bullet each matching qualification with Alex's relevant experience]
 
    **Gaps**:
-   - [Bullet each gap -- note if it's learnable vs. hard blocker]
+   - [Bullet each gap -- note if it's learnable vs. hard blocker, and whether the scorecard called it required or nice-to-have]
 
    **Red Flags**:
    - [Any concerns]
 
-   **Verdict**: [1-2 sentence recommendation: apply, apply with caveats, or skip with reason]
+   **Verdict**: [1-2 sentence recommendation: apply, apply with caveats, or skip with reason. Any unmet knockout must be named here.]
    ```
 
 5. If the verdict is "apply" or "apply with caveats," ask if Alex wants a cover letter and/or company research.
@@ -401,7 +428,7 @@ Generate an ATS-compliant, tailored cover letter:
 - Keep to one page (~300-400 words)
 
 **Tailoring Process**:
-1. Extract the top 5-7 keywords/phrases from the job posting (these are what ATS scans for)
+1. **Required input**: the scorecard from "JD Scorecard Simulation" above. If the audit already produced one, reuse it; if this mode is entered cold, run it first. Then extract the top 5-7 keywords/phrases from the posting, **ordered by scorecard weight** -- knockout attributes first, nice-to-haves after. Every knockout Alex genuinely meets must appear somewhere in the letter.
 2. Map each to a concrete example from Alex's experience
 3. Mirror the company's language and values (from research if available)
 4. Structure:
@@ -532,7 +559,7 @@ Truthful nulls: omit `comp_min` / `comp_max` if unlisted (set `comp_listed: fals
 <1-2 sentence outreach angle>
 
 ## ATS keywords
-<comma-separated list of the top JD keywords this role hits>
+<comma-separated list of the top JD keywords this role hits, ordered by scorecard weight -- knockout attributes first, then nice-to-haves. Mark unmet knockouts with (UNMET).>
 
 ## Notes
 <freeform -- interview prep, follow-up reminders, cold-outreach status, etc.>
