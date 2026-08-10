@@ -33,6 +33,24 @@ if [ -f "$JOBSCAN_SENTINEL" ]; then
   echo "      rm \"$JOBSCAN_SENTINEL\""
 fi
 
+# === PENDING ACTION: Gmail job-alert lane backfill ===
+# Same mechanism as the LinkedIn sentinel above, raised when the headless scan
+# couldn't reach the claude.ai Gmail connector. Alert emails decay in ~3 days,
+# so this lane rots fast when it silently misses.
+GMAILSCAN_SENTINEL="$HARNESS/job-search/.gmail-scan-pending"
+if [ -f "$GMAILSCAN_SENTINEL" ]; then
+  GM_MISS_DATE=$(head -1 "$GMAILSCAN_SENTINEL" 2>/dev/null)
+  GM_PENDING_DAYS=$(( ($(date +%s) - $(stat -f %m "$GMAILSCAN_SENTINEL")) / 86400 ))
+  echo ""
+  echo "‼️  ACTION FIRST -- Gmail job-alert lane pending (missed ${GM_MISS_DATE:-recently}, ${GM_PENDING_DAYS}d ago)"
+  echo "    The headless daily job scan could not reach the claude.ai Gmail MCP, so"
+  echo "    the alert-email discovery lane (the pipeline's highest-yield lane) was"
+  echo "    skipped. Run it early this session per the skill's Gmail method"
+  echo "    (search_threads newer_than:4d → get_thread → harvest ALL roles per email"
+  echo "    → gates → listing notes), then clear it:"
+  echo "      rm \"$GMAILSCAN_SENTINEL\""
+fi
+
 # === SYSTEM HEALTH ===
 echo ""
 ISSUES=0

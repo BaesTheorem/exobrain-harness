@@ -8,7 +8,7 @@ description: Job search assistant -- audit postings for fit, research companies/
 Alex is actively job hunting. This skill handles the full pipeline: evaluating fit, researching the company, tailoring cover letters, and tracking application volume.
 
 **Weekly goal**: 10-20 applications submitted per week.
-**Compensation floor**: see gitignored `Projects/Get new job/Claude Reference.md` for current floor. Do not report or recommend roles that list a salary below this threshold. If salary is unlisted, still include the role but flag the unknown comp.
+**Compensation floor**: see gitignored `Projects/Get new job/Claude Reference.md` for the current floor. **Band rule (Alex 2026-08-10): a listed salary range passes gate 3 if the floor falls anywhere within it.** DQ only when the TOP of the band is below the floor. A band whose bottom is under the floor is a pass-with-flag: surface it and note the risk that the offer lands below the floor. A single listed number must meet the floor outright. If salary is unlisted, still include the role but flag the unknown comp.
 
 **Two lanes, two gate sets.** The standard lane (remote-only, full-time permanent) covers everything below unless stated otherwise. Paid **AI safety fellowships** run location-agnostic on a modified gate set with a higher floor when relocation is required -- see "AI Safety Fellowship Lane" before scanning or auditing one.
 
@@ -245,6 +245,7 @@ Alex's standing instruction (2026-07-25): **a role he didn't get is not permanen
 |---|---|
 | `candidate`, `applied`, `interviewing` | **Skip.** True duplicate of live activity. |
 | `rejected`, `closed`, `withdrawn` | **Do NOT skip.** Check whether the new posting is genuinely fresh (different LinkedIn job ID, or `posted` date materially newer than the note's `date_added`). If fresh → surface as a **re-apply candidate**. If it's the same stale posting still lingering, skip quietly. |
+| `skipped` (near-miss note) | **Skip unless materially changed.** Re-surface only if the fresh posting's stated requirements or comp differ from what the note's `## Why skipped` recorded (e.g. the years bar dropped, the band moved). Same req, same bar → skip without re-reading the JD; that's the note's whole job. |
 | `reapply: true` on the note | **Always surface on any repost**, and check the employer's board directly each pass even absent a hit. Highest priority. |
 
 **Marking a note for re-apply.** Add `reapply: true` to the frontmatter. Set it when the role cleared all 4 gates when found AND the loss was *not* due to a permanent disqualifier. Concretely:
@@ -392,7 +393,7 @@ When Alex provides a list of companies to investigate for open positions:
 4. **Every reported role MUST include**:
    - Job title and company
    - Location (and remote/hybrid status)
-   - Salary if listed (flag if below the comp floor, whose value lives in the gitignored Claude Reference.md; omit if unlisted but note it)
+   - Salary if listed (band rule: DQ only if the band's top is below the comp floor, whose value lives in the gitignored Claude Reference.md; flag band risk when the bottom is below the floor; omit if unlisted but note it)
    - A direct link to the posting -- preferably the firm's own careers portal, not just a job board mirror
    - A brief fit assessment (1-2 lines: why it matches, any notable gaps)
    - Verification method (e.g., "confirmed on firm portal 2026-04-01" or "LinkedIn ID 43xxxxx, posted March 2026")
@@ -467,7 +468,7 @@ Weekly application tracking via email confirmations:
    **Pace check**: [If behind, calculate how many per remaining days to hit 10]
    ```
 5. Append the summary to today's daily note under a `## Job Search` section
-6. Append the same summary to the job hub note (`Projects/Get new job.md`) under `## Job Search Log` as a dated `Applications` entry
+6. Append the same summary to the job hub note (`Projects/Get new job/Get new job.md`) under `## Job Search Log` as a dated `Applications` entry
 7. If behind pace (fewer than ~1.5/day average to hit 10), flag it proactively
 
 ### 5. Full Pipeline: `/job-search apply [URL or pasted posting]`
@@ -489,6 +490,8 @@ Every researched, audited, or scanned job listing **MUST get a dedicated note** 
 
 - `/job-search audit`: create a note for every audited posting (any verdict -- Strong, Moderate, Weak, or Skip; status reflects the verdict)
 - `/job-search scan`: create a note for every reported role (skip the dead/aggregator section)
+- **Any discovery scan (daily or full): create a note for near-misses too** (ADDED 2026-08-10). A role that passed gates 1-2 and cost a full JD read but died on gate 3 or 4 gets a note with `status: skipped`, `declined: true`, and a `## Why skipped` section stating the exact failed bar (quote the JD line). Purpose: tomorrow's scan dedups against it instead of re-reading the same JD, and Alex can see what's being killed and overrule. Roles killed on the title pre-filter or before a JD read do NOT get notes -- only ones that consumed real evaluation.
+- **Contradictory-requirements rule** (ADDED 2026-08-10, the Terumo pattern): when poster-side screening filters contradict the JD body's own stated requirements (e.g. LinkedIn screener demands 6+ years while the JD's Education and Experience section says 2-6), that is a **surface-with-flag, Alex's call** -- not a silent DQ. Create the note as `status: candidate` with the contradiction spelled out under `## Gaps`, and flag it in the scan report.
 - `/job-search apply`: create a note as part of the pipeline; set `applied: true` + `application_date` when Alex confirms submission
 - `/job-search research`: update the contact, posted date, verification status on the existing note (or create one if research preceded an audit)
 - Alex says "I applied to X": set `applied: true`, `application_date: <today>`, `status: applied`
@@ -507,7 +510,7 @@ Every researched, audited, or scanned job listing **MUST get a dedicated note** 
 type: job-listing
 company: <string>
 role: <string>
-status: candidate          # candidate | applied | interviewing | rejected | offer | withdrawn | closed
+status: candidate          # candidate | applied | interviewing | rejected | offer | withdrawn | closed | skipped
 applied: false             # boolean -- used as the .base checkbox
 comp_min: 65000            # USD/yr; null if unlisted
 comp_max: 80000            # USD/yr; null if unlisted
@@ -576,7 +579,7 @@ Truthful nulls: omit `comp_min` / `comp_max` if unlisted (set `comp_listed: fals
 
 The `.base` lives at `Projects/Get new job/Job Listings.base` (sibling of the folder, not inside). It must filter on `file.inFolder("Projects/Get new job/Job Listings")` and `type == "job-listing"`. Standard views to include:
 
-- **Active**: `applied == false AND declined != true AND status not in (closed, withdrawn, rejected)`, sorted by comp DESC
+- **Active**: `applied == false AND declined != true AND status not in (closed, withdrawn, rejected, skipped)`, sorted by comp DESC
 - **Applied**: `applied == true`, sorted by `application_date` DESC
 - **All**: ungrouped, all listings, sorted by file.name ASC
 
@@ -596,7 +599,7 @@ For interviewing/offer/withdrawn transitions, Alex updates `status` manually -- 
 
 ## Job Hub Note -- "Get new job"
 
-**Path**: `/Users/alexhedtke/Exobrain/Projects/Get new job.md`
+**Path**: `/Users/alexhedtke/Exobrain/Projects/Get new job/Get new job.md`
 
 This note is the one-stop dashboard for all job hunting activity. **Every job-search action must append a log entry to this note** (after the existing Things 3 data / Notes section). Don't touch the existing task sections -- only append below them.
 
@@ -650,7 +653,7 @@ When called as part of the daily briefing (every day, weekends included):
    - For each promising search result: open with `/defuddle` or WebFetch to read the JD directly (no need for separate "verify the title" step -- the page IS the JD).
    - **Staleness check**: Google's index lags real-time. Lever (`jobs.lever.co/*`) silently returns 404 when a listing is removed. If `defuddle` returns empty content or `WebFetch` returns 403, fall back to `curl -sL -A "<browser UA>"` to confirm -- many JS-rendered pages need a real UA, but a 404 page means the listing is dead. Discard 404s.
    - **Cloudflare-protected aggregators**: RemoteRocketship and a few others 1010-block curl with a Cloudflare challenge. Those are not blockers for Alex (he can open them in a browser), so still surface the URL -- just note "verification incomplete, Alex must spot-check JD" in the listing note.
-   - Apply the 4-gate hard requirements (remote / FT permanent / comp at or above the floor (value lives in the gitignored Claude Reference.md) or strong inference / ≥80% strong fit). **Exception**: if the hit is a paid AI safety fellowship, switch to the fellowship gate variant instead of DQ'ing it -- see "AI Safety Fellowship Lane".
+   - Apply the 4-gate hard requirements (remote / FT permanent / comp band reaching the floor per the band rule (value lives in the gitignored Claude Reference.md) or strong inference / ≥80% strong fit). **Exception**: if the hit is a paid AI safety fellowship, switch to the fellowship gate variant instead of DQ'ing it -- see "AI Safety Fellowship Lane".
    - Dedupe against `Projects/Get new job/Job Listings/` folder.
    - Create per-listing notes for survivors with `source: greenhouse` / `source: lever` / `source: company-portal` / etc. as appropriate.
 
@@ -691,7 +694,7 @@ When called as part of the daily briefing (every day, weekends included):
      b. Apply the 4-gate hard requirements (`feedback-job-hard-requirements`) -- or, if the posting is a paid AI safety fellowship, the fellowship variant in "AI Safety Fellowship Lane":
         - Fully remote (JD says remote, not just LinkedIn label -- Cyderes 2026-05-19 was hybrid despite "Remote" label)
         - Full-time permanent (not contract, contract-to-hire, 1099, temp)
-        - **Comp at or above the floor listed** (the floor's value lives in the gitignored Claude Reference.md), OR brief market-data check (Glassdoor/Salary.com/ZipRecruiter median for that title) shows strong evidence the role clears the floor -- *if unlisted and you can't reach high confidence in <2 min of research, DQ*
+        - **Comp band reaches the floor** (band rule, Alex 2026-08-10: a listed range passes if the floor falls anywhere within it -- DQ only when the band's top is below the floor; a bottom under the floor is a pass-with-flag. The floor's value lives in the gitignored Claude Reference.md), OR brief market-data check (Glassdoor/Salary.com/ZipRecruiter median for that title) shows strong evidence the role's band reaches the floor -- *if unlisted and you can't reach high confidence in <2 min of research, DQ*
         - Strong fit ≥80% (no failed JD hard reqs -- degree, years, named tools, clearance, bilingual -- AND ≥80% of top responsibilities/qualifications match Alex's resume)
      c. Create a per-listing note **only** if all 4 gates pass. Use the schema in "Per-Listing Notes & Bases Tracker" above. Set `verified: true` and record the comp-evidence inference (if applicable) in `verification_signals`.
    - Pacing: no numerical cap, but follow `/linkedin` qualitative rules -- batch JD reads in small groups (2-4 per turn) with reasoning between, vary keyword angles day-to-day, no tight loops. The natural ceiling is "I've exhausted reasonable search angles," not an arbitrary count.
@@ -706,7 +709,7 @@ When called as part of the daily briefing (every day, weekends included):
 7. **Return for briefing** (per `feedback-briefing-compact` -- jobs/contacts go to Things 3, not the briefing body):
    - Under `#### New tasks created`: any Things 3 tasks created during this run (cold outreach, advance-to-package, etc.) with `things:///show?id=ID` deep links.
    - Under `#### Flags`: only mention job-search items if exceptional -- behind pace mid-week, interview today, or a stand-out Strong Fit posting that warrants same-day action. The candidate count goes here ("3 new verified candidates added to tracker -- see Bases for triage") not the candidate list itself.
-   - Append a `## Job Search Log` entry to the hub note (`Projects/Get new job.md`) summarizing: scan counts (titles searched / JD-verified / passed all gates), new candidate names with apply URLs, declined names with one-line reason. Be honest about counts -- don't pad the survivor list.
+   - Append a `## Job Search Log` entry to the hub note (`Projects/Get new job/Get new job.md`) summarizing: scan counts (titles searched / JD-verified / passed all gates), new candidate names with apply URLs, declined names with one-line reason. Be honest about counts -- don't pad the survivor list.
 
 ## Proactive Behaviors
 
