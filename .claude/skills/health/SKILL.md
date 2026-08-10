@@ -173,6 +173,24 @@ If `fired` is false, the briefing omits the alert. **Do not nag**: when the stre
 
 **Skin temp data unavailability**: if the Fitbit API returns no skin temp data for last night (device wasn't worn, or device doesn't support it), do not fire -- never fall back to RHR-only, since RHR alone has too many false positives from stress.
 
+> [!warning] The canary is currently INERT. Alex switched from the Charge 5 to a **Versa 2** around 2026-08-01, and the Versa 2 does not produce skin temperature. Since the rules above forbid firing without the skin-temp confirmer, this detector cannot fire at all on the current device. Do not present it as active. Decision on how to resolve is pending with Alex as of 2026-08-10.
+
+**Device capability, measured 2026-08-10** (not taken from spec sheets -- Fitbit's docs say "Versa series" without naming the Versa 2, and that claim does not hold here):
+
+| Stream | Charge 5 (through ~7/31) | Versa 2 (8/4 onward) |
+|---|---|---|
+| Steps / distance / calories | yes | yes |
+| Resting HR | yes | yes |
+| Sleep + stages | yes | yes |
+| HRV (`dailyRmssd`) | yes | yes |
+| Breathing rate | yes | yes |
+| **Skin temp** | yes | **no** |
+| **SpO2** | yes through 7/9, then stopped | **no** |
+
+The discriminating test: on 8/7 and 8/9 the Versa 2 recorded 8h12m and 10h of sleep and produced HRV and breathing rate from those sessions, so the band was worn and the optical sensor worked, and both nights clear the 3-hour minimum for a temp reading. No skin temp came out. In June the Charge 5 produced skin temp on every night it recorded. This is a capability gap, not a wear or sync gap.
+
+**Do not substitute breathing rate as the illness confirmer without re-validating it.** It was tested against the 8/9 illness episode and failed: breathing rate was 18.0 on 8/7 and 16.4 on 8/9 against a ~17 baseline, and HRV *rose* on the sick day. Worse, 8/8 -- the night the RHR peaked at 82 -- has no HRV or breathing rate at all, because at 3h47m it was too short for Fitbit to compute either. Short nights are what illness onset produces, so these confirmers drop out exactly when needed. A canary rebuilt on them would be a detector that cannot fail.
+
 **Confounders** to mention in the message when relevant:
 - Hard workout in the past 24h (check `get_exercises`) -- exercise can elevate next-day RHR
 - Heavy alcohol the prior evening -- note from the daily note if mentioned
