@@ -63,6 +63,25 @@ Health Log notes may include additional frontmatter properties for tracking spec
 - **Raw numbers only**: No units in frontmatter. Units go in display text.
 - `Health Log.base` at the vault root renders all notes as filterable/sortable views.
 
+### Band not worn vs. band not synced
+
+Absent Fitbit data has two very different causes and they look identical on the day. Getting this wrong writes false history: on 2026-08-10 a reconnect flushed nine days of buffered data and revealed that 8/4--8/9 had all been logged as "band off" when the band was on the whole time. 8/7 was recorded as **115 steps**; it was actually **9,297 steps and 6.45 miles**, the best day of the month.
+
+**The discriminators, in order of reliability:**
+
+1. **`distances[activity=tracker]` in `get_daily_activity_summary`.** Non-zero means the wrist recorded it. Zero with a non-zero `total` means the phone recorded it and the band did not.
+2. **Presence of the `restingHeartRate` field.** A worn band always produces one. Its absence is strong evidence of non-wear; its presence is proof of wear.
+3. Heart-rate zone minutes are **not** a discriminator. Both cases return 1,440 minutes "Out of Range" with zero elevated-zone minutes, because that is also what a genuinely unexerted worn day returns.
+
+**Trap: `get_activity_timeseries` with `resourcePath: "tracker/distance"` returns TOTAL distance, not tracker distance.** It will not discriminate. You must read `distances[activity=tracker]` out of the per-day `get_daily_activity_summary`.
+
+**The honest position when data is absent.** You cannot distinguish non-wear from non-sync from absence alone -- only the *arrival* of data settles it. So:
+- Record what the API returned, flag it as provisional, and say which explanation the tracker-distance and RHR checks favor.
+- Never write "band off, day N" as settled fact across a multi-day gap. Write "no data, N days" and name the leading hypothesis.
+- **When a gap ends, re-pull the whole gap and correct the notes.** Set `backfilled: true` and put a correction block at the top of each amended note rather than silently overwriting -- the original reasoning is worth keeping next to the correction.
+
+Fitbit's daily rollup is also **not stable before roughly noon**. A same-morning "the value did not revise" reading is not evidence of anything.
+
 ## Morning Snapshot
 
 Called by the daily briefing. Pulls **yesterday's** data and writes/updates the Health Log note.
@@ -78,8 +97,10 @@ Called by the daily briefing. Pulls **yesterday's** data and writes/updates the 
 - `get_sleep_by_date_range` (last night) → sleep score, duration. Use today's date for the query -- Fitbit records sleep under the wake-up date.
 - `get_activity_timeseries` (past 7 days) → step trend for comparison
 
-**Withings** (only if a weigh-in occurred yesterday):
+**Withings** — always call `withings_get_measurements`, never `withings_get_weight` alone:
 - `withings_get_measurements` with yesterday's date as both startDate and endDate → check which measurement types were actually recorded
+- **Do not gate this call on "did a weigh-in happen."** Alex owns a BPM Connect as well as the scale, and blood-pressure readings arrive independently of weigh-ins. Querying weight only will silently miss them. On 2026-08-07 he took the BP baseline Talkiatry had asked for; because the routine only checked weight, every log from 8/2 to 8/9 kept reporting it as overdue, escalating to "23 days overdue," while the reading sat in the account. Found on 2026-08-10.
+- BP measure types: **9 = diastolic, 10 = systolic, 11 = heart pulse**. Weight is 1.
 - **Only include fields that were actually measured on that date.** The `withings_get_body_composition` tool silently combines the latest weight with the latest body comp even if they're from different dates -- do NOT trust its output blindly. Use `withings_get_measurements` with date filtering to verify which types were recorded.
 - Common pattern: a quick weigh-in records only weight (type 1), while a full body scan records weight + fat mass (5) + muscle (76) + bone (88) + hydration (77) + visceral fat (170). Only include fields that have a measurement on that specific date.
 - If no weigh-in yesterday: **omit all Withings fields** from the Health Log note. Never carry forward stale Withings data from a prior date.
