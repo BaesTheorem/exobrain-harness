@@ -11,6 +11,17 @@ Sync logic:
 - Completed/cancelled/trashed → Projects/Archive/<name>/ with status: archive
 - New projects get Obsidian notes auto-created
 - Area assignments are synced from Things to Obsidian frontmatter
+
+INVARIANTS (do not break these in an edit):
+  - Things is the source of truth for status; Obsidian is the mirror. Sync
+    direction never reverses.
+  - Never delete a vault note. Status changes MOVE notes between Projects/,
+    Someday/, and Archive/; deletion is not an outcome this script can have.
+  - Rewrite only the frontmatter keys this script owns (status, area,
+    things_id) via update_frontmatter_field; body text and Alex's other
+    frontmatter pass through untouched (tests/test_things3_sync.py).
+  - Runs unattended every 15 minutes under launchd: fail quietly to the log,
+    never interactively, and never half-move (copy then remove).
 """
 
 import sqlite3
@@ -97,7 +108,7 @@ def parse_frontmatter(filepath):
     try:
         text = filepath.read_text(encoding="utf-8")
     except Exception:
-        return None, text if 'text' in dir() else ""
+        return None, ""
 
     m = re.match(r"^---\n(.*?\n)---\n", text, re.DOTALL)
     if not m:
@@ -122,7 +133,9 @@ def update_frontmatter_field(text, key, new_value):
     fm_block = m.group(2)
     pattern = re.compile(rf"^{re.escape(key)}:.*$", re.MULTILINE)
     if pattern.search(fm_block):
-        fm_block = pattern.sub(f"{key}: {new_value}", fm_block)
+        # Function repl: a plain string here would have backslashes in
+        # new_value reparsed as regex escapes (corrupts on \0, crashes on \).
+        fm_block = pattern.sub(lambda _m: f"{key}: {new_value}", fm_block)
     else:
         fm_block += f"{key}: {new_value}\n"
 

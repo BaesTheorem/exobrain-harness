@@ -161,6 +161,10 @@ Each has a README plus a memory entry with the gotchas; read those before deep w
 - **Images** (`mist-image/`, [[project_mist_image]]) -- run `mist-image/bin/mist-image "<prompt>"` whenever Alex asks for an image. Cloud GPU, so it never touches this 8GB machine's RAM. Then emit a markdown image of the saved path in your reply so the Console renders it inline, and say where it saved. Keys come from the gitignored harness `.env`.
 - **MIST Console** (`mist-console/README.md`, [[project_mist_console]]) -- the desktop chat surface, in a separate **private** repo (`~/Documents/mist-console`). It runs `claude` in the harness cwd, so this file auto-loads and no side-file persona is needed.
 
+## Quality Gates
+
+Python edits in this repo are checked automatically: a PostToolUse hook runs ruff + pyright + the module-boundary checker on every file you edit and feeds errors back. Fix what it reports; if a finding is intentional, `noqa` it with a reason. The rules and their rationale live in `pyproject.toml`; boundaries in `checks/check_boundaries.py` (top-level dirs are islands that don't import each other's internals). Run `pytest tests/` after touching any function the tests cover (they're fast); files with an `INVARIANTS` block in the module docstring state constraints an edit must not break.
+
 ## Session Memory
 
 Before ending any **significant session** (processed data, made decisions, created tasks, discussed plans), write a session memory file per the `/session-memory` skill. This enables cross-session continuity -- the next session's startup hook will read the last 3 session memories and use them to prioritize what data to pull and how deep to go. Skip this for trivial interactions (quick lookups, one-off questions).

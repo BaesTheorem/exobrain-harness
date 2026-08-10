@@ -54,3 +54,9 @@ reportMissingModuleSource = "none"
 # Agents copy-paste attribute names; keep these loud.
 reportUndefinedVariable = "error"
 reportCallIssue = "error"
+# claude-bot needs its own module-resolution root: from the repo root, the
+# unrelated discord/ tool directory shadows the discord.py library as a
+# namespace package, and every discord.* attribute reads as an error.
+executionEnvironments = [
+    { root = "claude-bot" },
+]

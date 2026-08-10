@@ -10,6 +10,16 @@ Usage:
     python3 imessage-reader.py search "keyword" [--days N]
     python3 imessage-reader.py unread
     python3 imessage-reader.py dump [--hours N] [--limit N]
+
+INVARIANTS (do not break these in an edit):
+  - Strictly read-only against chat.db; prefer the synced cache snapshot so
+    Claude never needs Full Disk Access (see the DB resolution order below).
+  - Apple timestamps are nanoseconds since 2001-01-01 UTC. The conversion
+    helpers are characterization-tested (tests/test_imessage_reader.py);
+    change behavior there and the tests must change deliberately with it.
+  - KNOWN BROKEN, do not build on them: `search` and name-based `chat`
+    return empty results silently. Only `recent` and phone-number `chat`
+    are reliable query paths.
 """
 
 import json

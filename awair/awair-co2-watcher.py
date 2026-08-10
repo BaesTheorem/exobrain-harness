@@ -12,6 +12,14 @@ Config:
   - harness .env (AWAIR_HOST, DISCORD_NOTIFY_CHAT_ID)
   - ~/.claude/channels/discord/.env (DISCORD_BOT_TOKEN)
 Tunable constants below.
+
+INVARIANTS (do not break these in an edit):
+  - Log first, alert second: every successful poll appends to air-log.csv,
+    including quiet-hours readings. Alerting logic must never gate logging.
+  - air-log.csv is append-only with a stable column order; other tools chart
+    it, so schema changes need a migration, not an in-place reorder.
+  - No notifications outside ACTIVE_HOUR_START..END, and hysteresis state
+    lives in state.json; both exist to stop 3am banner spam.
 """
 
 import json
