@@ -66,7 +66,6 @@ result = {
     "daily_forecast": [],
 }
 
-import numpy as np
 from datetime import datetime, timedelta
 
 base_date = datetime.now().replace(hour=0, minute=0, second=0, microsecond=0)

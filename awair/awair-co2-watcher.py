@@ -21,7 +21,7 @@ import socket
 import subprocess
 import sys
 import urllib.request
-from datetime import datetime, timezone
+from datetime import datetime
 from pathlib import Path
 
 HARNESS_DIR = Path(__file__).resolve().parent.parent

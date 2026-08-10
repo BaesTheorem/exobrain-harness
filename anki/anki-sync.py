@@ -18,8 +18,7 @@ Stdlib only.
 import re
 import sqlite3
 import sys
-import time
-from datetime import datetime, timedelta
+from datetime import datetime
 from pathlib import Path
 
 ANKI_DB = Path.home() / "Library/Application Support/Anki2/User 1/collection.anki2"

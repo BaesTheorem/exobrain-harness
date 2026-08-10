@@ -9,7 +9,7 @@ Track-A candidate to replace XTTS-v2 (scripts/say.py). Same reference clip
 (samples/reference/06_need_your_help.wav), permissive license, emotion dial.
 First run downloads the Chatterbox weights (~1GB) from HuggingFace.
 """
-import os, sys, argparse, subprocess
+import sys, argparse, subprocess
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent

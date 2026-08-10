@@ -74,7 +74,7 @@ def sync_obsidian(data, party_name=None):
     now = datetime.now().strftime("%B %d, %Y at %I:%M %p")
 
     lines = []
-    lines.append(f"<< [[Dashboard]] >>")
+    lines.append("<< [[Dashboard]] >>")
     lines.append(f"[Open Sailboat Retro](http://localhost:{PORT})")
     lines.append("")
     lines.append(f"*Last synced: {now}*")

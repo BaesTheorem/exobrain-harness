@@ -17,7 +17,7 @@ import sqlite3
 import os
 import sys
 import argparse
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 # DB source resolution (so Claude never needs Full Disk Access):
@@ -120,7 +120,7 @@ def apple_ts_to_datetime(ts):
         seconds = ts / 1_000_000_000
         # Timestamps are UTC-based; convert to local for display
         utc_dt = APPLE_EPOCH + timedelta(seconds=seconds)
-        local_offset = datetime.now() - datetime.utcnow()
+        local_offset = datetime.now() - datetime.now(timezone.utc).replace(tzinfo=None)
         return utc_dt + local_offset
     except (OverflowError, OSError):
         return None
@@ -128,7 +128,7 @@ def apple_ts_to_datetime(ts):
 
 def utc_cutoff_ts(hours=0, days=0):
     """Get an Apple-epoch nanosecond timestamp for N hours/days ago (UTC)."""
-    cutoff = datetime.utcnow() - timedelta(hours=hours, days=days)
+    cutoff = datetime.now(timezone.utc).replace(tzinfo=None) - timedelta(hours=hours, days=days)
     return int((cutoff - APPLE_EPOCH).total_seconds() * 1_000_000_000)
 
 
@@ -259,7 +259,7 @@ def _row_text(row):
 def list_chats(limit=30):
     """List recent chats with last message date."""
     conn = get_db()
-    query = f"""
+    query = """
         SELECT
             c.ROWID,
             c.chat_identifier,
@@ -380,7 +380,7 @@ def get_unread():
         chats[cid]["messages"].append(row)
 
     unanswered = []
-    for cid, data in chats.items():
+    for data in chats.values():
         last_msg = data["messages"][-1]
         if not last_msg["is_from_me"]:
             unanswered.append({

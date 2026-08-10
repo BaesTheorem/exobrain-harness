@@ -1,0 +1,56 @@
+# Repo-wide lint/type config. Not a package: this repo is a collection of
+# independent scripts and small apps, each with its own venv where needed.
+# These settings feed the post-edit hook (.claude/hooks/post-edit-check.sh),
+# which runs ruff + pyright on every file an agent edits.
+
+[tool.ruff]
+target-version = "py311"
+extend-exclude = [
+    "tmp",
+    "**/.venv",
+    "**/venv",
+    "**/node_modules",
+]
+
+[tool.ruff.lint]
+# Deliberately small, high-signal set. The hook feeds errors straight back to
+# an agent mid-edit; every rule here must be worth interrupting for.
+#   F      pyflakes (undefined names, unused imports, redefinitions)
+#   E4/7/9 pycodestyle errors that indicate real mistakes, not style
+#   B      bugbear (mutable defaults, unreachable code, silent exceptions)
+#   SLF    private-member access across module boundaries (the Liskov rule)
+#   TID25  banned APIs (one blessed way to do repo-wide things)
+select = ["F", "E4", "E7", "E9", "B", "SLF", "TID25"]
+
+# B008: function-call-in-default is idiomatic in some CLI/arg patterns here.
+# E401/E701/E702/E731/E741: compact one-file scripts are a repo idiom;
+# semicolons and one-line defs are not mistakes worth interrupting an agent.
+# E402: scripts routinely sys.path.insert() before local imports.
+ignore = ["B008", "E401", "E701", "E702", "E731", "E741", "E402"]
+
+[tool.ruff.lint.flake8-tidy-imports.banned-api]
+"os.system".msg = "Use subprocess.run([...], check=...) so failures surface instead of vanishing."
+"datetime.datetime.utcnow".msg = "Naive UTC timestamps caused the Plaud mis-tagged-Z bug. Use datetime.now(timezone.utc)."
+"datetime.datetime.utcfromtimestamp".msg = "Naive UTC timestamps. Use datetime.fromtimestamp(ts, tz=timezone.utc)."
+
+[tool.ruff.lint.per-file-ignores]
+# Tests may reach into internals; that is what characterization tests are for.
+"tests/**" = ["SLF001"]
+
+[tool.pyright]
+typeCheckingMode = "basic"
+exclude = [
+    "tmp",
+    "**/.venv",
+    "**/venv",
+    "**/node_modules",
+    "**/__pycache__",
+]
+# Each script's third-party deps live in its own venv, which pyright cannot
+# see from the repo root. Import resolution is therefore off; pyright still
+# catches undefined names, bad call signatures, and type errors in local code.
+reportMissingImports = "none"
+reportMissingModuleSource = "none"
+# Agents copy-paste attribute names; keep these loud.
+reportUndefinedVariable = "error"
+reportCallIssue = "error"

@@ -45,7 +45,7 @@ title_suffix is for TRUTHFUL context only, never for retitling. Its one sanction
 use is noting why a role ended, and only on applications with no cover letter field
 (the letter is the better venue when one exists). Off by default; leave it out.
 """
-import argparse, datetime, html, json, os, subprocess, sys, tempfile
+import argparse, datetime, html, json, os, subprocess, tempfile
 from pathlib import Path
 
 HERE = Path(__file__).resolve().parent
@@ -213,8 +213,8 @@ def _clean_metadata(src, dst, title, author):
     })
     # Remove the XMP packet (parallel metadata mirror) so it can't contradict DocInfo.
     try:
-        if "/Metadata" in writer._root_object:
-            del writer._root_object["/Metadata"]
+        if "/Metadata" in writer._root_object:  # noqa: SLF001 (pypdf has no public API to drop the XMP packet)
+            del writer._root_object["/Metadata"]  # noqa: SLF001
     except Exception:
         pass
     tmp = dst + ".tmp"

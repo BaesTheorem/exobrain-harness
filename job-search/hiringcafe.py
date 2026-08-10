@@ -66,7 +66,6 @@ def gate(hit, max_age_days):
     if "Full Time" not in commitment:
         return False, "gate2 not full-time (%s)" % commitment
 
-    lo = v.get("yearly_min_compensation")
     hi = v.get("yearly_max_compensation")
     if not v.get("is_compensation_transparent") or hi is None:
         return False, "gate3 comp unlisted -> DQ by default"

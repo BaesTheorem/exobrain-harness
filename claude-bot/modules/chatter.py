@@ -265,7 +265,7 @@ def setup(ctx: Context) -> None:
             out, err = await asyncio.wait_for(proc.communicate(), timeout=timeout)
         except asyncio.TimeoutError:
             proc.kill()
-            raise RuntimeError("claude CLI timed out")
+            raise RuntimeError("claude CLI timed out") from None
         if proc.returncode != 0:
             raise RuntimeError(f"claude CLI exited {proc.returncode}: {err.decode()[:300]}")
         data = json.loads(out.decode())

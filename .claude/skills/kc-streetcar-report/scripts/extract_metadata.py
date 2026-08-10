@@ -13,7 +13,7 @@ import sys
 import json
 import math
 from PIL import Image
-from PIL.ExifTags import TAGS, GPSTAGS
+from PIL.ExifTags import GPSTAGS
 
 # KC Streetcar stations: (name, latitude, longitude)
 # Coordinates are approximate, based on cross-street positions along Main St.
@@ -63,7 +63,7 @@ def dms_to_dd(dms, ref):
 
 def extract_metadata(image_path):
     img = Image.open(image_path)
-    exif = img._getexif()
+    exif = img._getexif()  # noqa: SLF001 (public getexif() returns a different shape; legacy dict API intended)
     result = {
         "station": None,
         "station_distance_m": None,

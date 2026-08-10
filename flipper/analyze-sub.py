@@ -95,17 +95,17 @@ def main():
         dominant = lc.most_common(1)[0]
         repeat_ratio = dominant[1] / len(frames)
         approx_bits = dominant[0] // 2
-        print(f"\n== Verdict ==")
+        print("\n== Verdict ==")
         if len(frames) >= 3 and repeat_ratio >= 0.5:
             print(f"  Looks like a REPEATING remote: {dominant[1]} frames of ~{dominant[0]} edges")
             print(f"  (~{approx_bits} bits/frame). Consistent repeats ⇒ likely a")
-            print(f"  FIXED-CODE remote (cloneable/replayable). Rolling codes change each frame.")
+            print("  FIXED-CODE remote (cloneable/replayable). Rolling codes change each frame.")
         elif len(frames) >= 3 and repeat_ratio < 0.5:
             print(f"  {len(frames)} frames but INCONSISTENT lengths ⇒ either a rolling code,")
-            print(f"  a noisy/partial capture, or multiple overlapping signals.")
+            print("  a noisy/partial capture, or multiple overlapping signals.")
         else:
             print(f"  Only {len(frames)} clean frame(s). Could be a single button press,")
-            print(f"  a fragment, or ambient noise. A clean remote usually repeats 3-10x.")
+            print("  a fragment, or ambient noise. A clean remote usually repeats 3-10x.")
     else:
         print("  No clear frames -- likely noise or an unusable capture.")
 

@@ -63,7 +63,7 @@ def day_of_year(month_idx: int, day: int) -> int:
     """1-indexed day of the year given a (0-indexed month, 1-indexed day-in-month).
     Accounts for festivals sitting between months."""
     total = 0
-    for i in range(month_idx):
+    for _i in range(month_idx):
         total += 30
         # festival AFTER this month?
         if (total + 1) in FESTIVAL_DAYS:
@@ -114,7 +114,7 @@ def format_date(state: dict) -> str:
         return f"{FESTIVAL_DAYS[doy]} {year} DR, {time}"
     # walk through months + festivals
     walk = 0
-    for m_idx, (name, _) in enumerate(MONTHS):
+    for _m_idx, (name, _) in enumerate(MONTHS):
         block_start = walk + 1
         block_end = walk + 30
         if block_start <= doy <= block_end:

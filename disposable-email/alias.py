@@ -22,7 +22,7 @@ Usage:
 Reading the verification email is MIST's job at runtime (Gmail MCP); `read` just
 emits the exact `to:<alias> newer_than:1d` query to hand to search_threads.
 """
-import sys, os, json, time, datetime, re
+import sys, os, json, datetime, re
 
 BASE_EMAIL = "alex.hedtke@gmail.com"
 BASE_USER, BASE_DOMAIN = BASE_EMAIL.split("@")

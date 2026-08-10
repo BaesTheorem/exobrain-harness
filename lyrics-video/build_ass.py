@@ -91,7 +91,7 @@ if not anchor_idx:
     sys.exit("No alignment anchors found. whisper heard nothing matching the lyrics.")
 
 # interpolate between anchors for unmatched lyric words
-for a0, a1 in zip(anchor_idx, anchor_idx[1:]):
+for a0, a1 in zip(anchor_idx, anchor_idx[1:], strict=False):
     if a1 - a0 <= 1:
         continue
     s0 = times[a0][1]      # end of left anchor
@@ -112,7 +112,7 @@ for k in range(last + 1, len(lyr_words)):
 # ---------- collapse to per-line start/end ----------
 line_start = {}
 line_end   = {}
-for (n, li), (s, e) in zip(lyr_words, times):
+for (_word, li), (s, e) in zip(lyr_words, times, strict=False):
     if li not in line_start or s < line_start[li]:
         line_start[li] = s
     if li not in line_end or e > line_end[li]:
@@ -191,7 +191,7 @@ while i < N:
         cad = min(2.4, max(1.4, (hi - anchor - 0.3) / len(run)))
         st = [anchor + k * cad for k in range(len(run))]
 
-    for li, s in zip(run, st):
+    for li, s in zip(run, st, strict=False):
         line_start[li] = s
         line_end[li] = s + 1.8
     i = j

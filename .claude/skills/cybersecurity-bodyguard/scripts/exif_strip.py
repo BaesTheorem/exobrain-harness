@@ -46,7 +46,6 @@ def read_exif(path: Path) -> dict[str, object]:
     raw = img.getexif()
     if not raw:
         return {}
-    tag_map = {v: k for k, v in ExifTags.TAGS.items()}  # name -> id, inverted below
     tags = {}
     for tag_id, value in raw.items():
         name = ExifTags.TAGS.get(tag_id, f"tag_{tag_id}")

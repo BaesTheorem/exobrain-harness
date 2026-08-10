@@ -167,8 +167,8 @@ def launch_vanilla():
     if not cp:
         return "NO_RUNELITE_CLIENT: run the RuneLite launcher once to populate %s" % RL_REPO
     sanitize_jx_creds()  # strip empty JX_* lines so the client uses the session instead of the login screen
-    env = dict(os.environ)
     jx = read_jx_creds()
+    env = dict(os.environ)
     env.update(jx)  # credentials.properties wins over stale shell env
     cmd = [JAVA, "-javaagent:%s" % AGENT_JAR, "-cp", cp,
            "-XX:+DisableAttachMechanism", "-Xmx768m", "-Xss2m", "-XX:CompileThreshold=1500",
@@ -188,7 +188,6 @@ def launch_vanilla():
 def launch():
     if pid():
         return "ALREADY_RUNNING pid=%d" % pid()
-    env = dict(os.environ)
     cmd = [JAVA,
            "-javaagent:%s" % AGENT_JAR,
            "--add-exports", "java.desktop/com.apple.eawt=ALL-UNNAMED",

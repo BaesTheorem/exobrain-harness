@@ -38,7 +38,7 @@ class Command:
     min_args: int = 0
     cooldown: float = 0.0          # seconds between uses, per user
     hidden: bool = False
-    _last_used: dict[int, float] = field(default_factory=dict, repr=False)
+    last_used: dict[int, float] = field(default_factory=dict, repr=False)
 
 
 class Context:
@@ -146,13 +146,13 @@ class Handler:
 
         if cmd.cooldown:
             now = time.monotonic()
-            last = cmd._last_used.get(message.author.id, 0.0)
+            last = cmd.last_used.get(message.author.id, 0.0)
             if now - last < cmd.cooldown:
                 wait = cmd.cooldown - (now - last)
                 await message.add_reaction("⏳")
                 log.debug("rate-limited %s for %s (%.1fs left)", message.author, cmd.triggers[0], wait)
                 return True
-            cmd._last_used[message.author.id] = now
+            cmd.last_used[message.author.id] = now
 
         try:
             await cmd.fn(message, args, ctx)

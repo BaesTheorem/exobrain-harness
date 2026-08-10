@@ -89,7 +89,7 @@ def main():
             msg = send(token, channel_id, piece)
         except urllib.error.HTTPError as exc:
             body = exc.read().decode(errors="replace")
-            raise SystemExit(f"HTTP {exc.code} from Discord: {body}")
+            raise SystemExit(f"HTTP {exc.code} from Discord: {body}") from exc
         print(f"sent {msg['id']} ({len(piece)} chars)")
 
 

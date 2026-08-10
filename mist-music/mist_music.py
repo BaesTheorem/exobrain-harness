@@ -569,7 +569,7 @@ def _concat_audio(paths, dst, crossfade=0.0):
     if crossfade and len(paths) > 1:
         # chain acrossfade pairwise: ((a x b) x c) ...
         inputs, filt, prev = [], [], None
-        for i, p in enumerate(paths):
+        for p in paths:
             inputs += ["-i", p]
         for i in range(1, len(paths)):
             a = prev or "[0:a]"

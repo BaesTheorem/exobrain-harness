@@ -10,7 +10,6 @@ with TV_MAC from .env. The MAC must be reachable via L2 broadcast on the LAN.
 """
 
 import json
-import os
 import socket
 import sys
 from pathlib import Path

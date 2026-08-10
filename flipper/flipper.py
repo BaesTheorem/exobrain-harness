@@ -75,7 +75,7 @@ class Flipper:
         # fresh open right after a previous session can land mid-reset
         # ("Device not configured", Errno 6). Retry the open a few times.
         last = None
-        for attempt in range(retries):
+        for _attempt in range(retries):
             try:
                 self.ser = serial.Serial(port, baud, timeout=timeout,
                                          dsrdtr=False, rtscts=False)
