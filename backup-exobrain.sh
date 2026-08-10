@@ -28,6 +28,12 @@
 #   - The archive is built uncompressed in a local temp dir (fast, keeps Drive
 #     from syncing a half-written file), verified, then gzipped and moved to
 #     Drive only once it's known-good.
+#   - Landing the file in the Drive folder is not the same as the backup
+#     existing. The run blocks (still caffeinated) until Drive stamps the
+#     com.google.drivefs.item-id xattr confirming the upload, and treats a
+#     timeout as a failed backup: rescue the bytes locally, alert, skip the
+#     prune. Before this, five runs between 2026-07-20 and 2026-08-07 reported
+#     "Backup complete." while Drive had reverted the archive to 0 bytes.
 
 set -euo pipefail
 
@@ -54,6 +60,19 @@ if ! declare -p EXTRA_INCLUDES >/dev/null 2>&1; then EXTRA_INCLUDES=(); fi
 if ! declare -p BACKUP_EXCLUDE_REPOS >/dev/null 2>&1; then BACKUP_EXCLUDE_REPOS=(); fi
 BACKUP_REPO_MAX_MB="${BACKUP_REPO_MAX_MB:-2048}"
 BACKUP_MIN_FREE_GB="${BACKUP_MIN_FREE_GB:-20}"
+BACKUP_SYNC_TIMEOUT_MIN="${BACKUP_SYNC_TIMEOUT_MIN:-45}"
+BACKUP_RESCUE_DIR="${BACKUP_RESCUE_DIR:-$HOME/Exobrain backup rescue}"
+
+# Google Drive stamps this xattr on a file once its content upload has actually
+# landed in the cloud -- the value is the real Drive file id. Absent means the
+# bytes are still local-only. Verified 2026-08-10: a fresh 40MB file had no
+# xattr for 18s while uploading and gained it the moment the upload completed,
+# and across eight archives the only one missing it was the one Drive had
+# reverted to 0 bytes. Do NOT substitute file size here: the mount reports the
+# local size for a file whose cloud copy is an empty husk, which is exactly how
+# the 08-07 loss went unnoticed.
+DRIVE_SYNCED_XATTR='com.google.drivefs.item-id#S'
+drive_item_id() { xattr -p "$DRIVE_SYNCED_XATTR" "$1" 2>/dev/null; }
 
 TIMESTAMP=$(date +%Y%m%d_%H%M%S)
 ARCHIVE_NAME="exobrain-collective-$TIMESTAMP.tar.gz"
@@ -65,7 +84,13 @@ CACHE_RE='(^|/)(\.venv|venv|node_modules|__pycache__|\.next|\.nuxt|\.parcel-cach
 
 fail() {
     echo "[$(date)] ERROR: $1" >&2
-    osascript -e "display notification \"$1\" with title \"Exobrain URGENT\" sound name \"Basso\"" 2>/dev/null || true
+    # Clickable banner (opens the folder the failure is about) when mist-notify is
+    # available; bare osascript can't carry a click target, so it's the fallback.
+    if [ -x "$SCRIPT_DIR/mist-voice/bin/mist-notify" ]; then
+        "$SCRIPT_DIR/mist-voice/bin/mist-notify" "$1" "Exobrain URGENT" Basso "${2:-$BACKUP_DIR}" 2>/dev/null || true
+    else
+        osascript -e "display notification \"$1\" with title \"Exobrain URGENT\" sound name \"Basso\"" 2>/dev/null || true
+    fi
     exit 1
 }
 
@@ -227,7 +252,41 @@ tar -tzf "$WORK/$ARCHIVE_NAME" >/dev/null 2>&1 || fail "collective archive is co
 # Move the verified, complete file onto Drive (so Drive never syncs a partial).
 mv -f "$WORK/$ARCHIVE_NAME" "$ARCHIVE_PATH"
 BACKUP_SIZE=$(du -h "$ARCHIVE_PATH" | cut -f1)
-echo "[$(date)] Backup verified: $ARCHIVE_PATH ($BACKUP_SIZE)"
+echo "[$(date)] Archive staged on Drive: $ARCHIVE_PATH ($BACKUP_SIZE)"
+
+# --- Block until Google Drive confirms the upload ------------------------------
+# Landing the file in the Drive folder is NOT the backup succeeding; it only
+# queues an upload. We are still inside the caffeinate re-exec at this point, so
+# staying here holds the Mac awake and online for the transfer instead of handing
+# it back to the darkwake cycle mid-upload -- which is the whole bug.
+echo "[$(date)] Waiting for Drive to confirm upload (timeout ${BACKUP_SYNC_TIMEOUT_MIN}m)..."
+SYNC_DEADLINE=$(( $(date +%s) + BACKUP_SYNC_TIMEOUT_MIN * 60 ))
+ITEM_ID=""
+while :; do
+    ITEM_ID="$(drive_item_id "$ARCHIVE_PATH")"
+    [ -n "$ITEM_ID" ] && break
+    [ "$(date +%s)" -ge "$SYNC_DEADLINE" ] && break
+    sleep 15
+done
+
+if [ -z "$ITEM_ID" ]; then
+    # Drive never took the bytes. The file sitting in the Drive folder is a husk:
+    # the mount reports its full local size, but the cloud copy is empty. Rescue
+    # the content off Drive before that local cache is evicted, then fail loudly
+    # -- and do it BEFORE the prune below, so a doomed archive can never cause an
+    # older good one to be deleted.
+    echo "[$(date)] WARN: Drive did not confirm upload within ${BACKUP_SYNC_TIMEOUT_MIN}m; rescuing locally" >&2
+    mkdir -p "$BACKUP_RESCUE_DIR"
+    if cp "$ARCHIVE_PATH" "$BACKUP_RESCUE_DIR/$ARCHIVE_NAME.tmp" \
+       && mv -f "$BACKUP_RESCUE_DIR/$ARCHIVE_NAME.tmp" "$BACKUP_RESCUE_DIR/$ARCHIVE_NAME"; then
+        echo "[$(date)] Rescued to: $BACKUP_RESCUE_DIR/$ARCHIVE_NAME" >&2
+        fail "backup did NOT reach Google Drive; rescued copy at $BACKUP_RESCUE_DIR" "$BACKUP_RESCUE_DIR"
+    else
+        rm -f "$BACKUP_RESCUE_DIR/$ARCHIVE_NAME.tmp" 2>/dev/null || true
+        fail "backup did NOT reach Google Drive AND the local rescue copy failed -- today has no backup"
+    fi
+fi
+echo "[$(date)] Upload confirmed by Drive (item $ITEM_ID)"
 
 # --- Optional secondary copy to an off-Google destination ---------------------
 # Google Drive is both the backup target AND a primary data source, so a single
@@ -248,6 +307,29 @@ if [ -n "$LOCAL_BACKUP_DIR" ]; then
         echo "[$(date)] WARN: LOCAL_BACKUP_DIR set but not present: $LOCAL_BACKUP_DIR (skipping)" >&2
     fi
 fi
+
+# --- Drop husks before ranking for retention ----------------------------------
+# An archive Drive reverted still sits in the folder at its full apparent size,
+# so the retention tiers below would happily count it as one of the kept dailies
+# and delete a real backup to make room for it. Our own archive is confirmed
+# synced by now, so anything else missing the xattr is a husk from a prior run.
+# Only removed once a rescue copy is known to exist -- otherwise the husk's local
+# content may be the last copy of that day, so keep it and say so.
+while IFS= read -r f; do
+    [ "$f" = "$ARCHIVE_PATH" ] && continue
+    [ -n "$(drive_item_id "$f")" ] && continue
+    if [ -f "$BACKUP_RESCUE_DIR/${f##*/}" ]; then
+        echo "[$(date)] Removing husk (never uploaded; rescued copy exists): $f"
+        rm -f "$f"
+    else
+        # No rescue copy, so its local bytes may be the last copy of that day and
+        # deleting it is not on the table. Rename it out of the *.tar.gz glob
+        # instead: that frees the retention slot it would otherwise take from a
+        # real backup, without destroying anything.
+        echo "[$(date)] WARN: $f never reached Drive and has no rescue copy; parking it as .UNUPLOADED" >&2
+        mv -f "$f" "$f.UNUPLOADED" 2>/dev/null || true
+    fi
+done < <(ls -t "$BACKUP_DIR"/exobrain-collective-*.tar.gz 2>/dev/null)
 
 # --- Prune with grandfather-father-son retention ------------------------------
 # Single-copy GFS: compute the union of archives needed by the daily, weekly,

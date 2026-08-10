@@ -60,6 +60,21 @@ BACKUP_REPO_MAX_MB=2048
 # Abort a run early if the local staging volume has less than this much free.
 BACKUP_MIN_FREE_GB=20
 
+# Google Drive uploads the finished archive asynchronously, and it gives up fast:
+# roughly four retries over five minutes, then it reverts the cloud file to zero
+# bytes and drops the local content in "Lost and Found". Overnight the Mac
+# darkwakes for 2-45 seconds at a time, so those retries routinely all land while
+# the network is still down, and the day's backup ends up a 0-byte husk in Drive
+# while the log says "Backup complete." (five times between 2026-07-20 and
+# 2026-08-07; the 08-07 archive was lost outright). The run now holds caffeinate
+# and blocks until Drive confirms the upload. Minutes to wait before giving up; a
+# 5GB archive normally lands in about five.
+BACKUP_SYNC_TIMEOUT_MIN=45
+# Where an archive that verified locally but never reached Drive gets parked, so
+# the day's backup still exists somewhere. Only written when an upload fails, so
+# it costs no disk in the normal case.
+BACKUP_RESCUE_DIR="$HOME/Exobrain backup rescue"
+
 # Out-of-tree files/dirs captured verbatim under a home-extras/ namespace in the
 # archive. These are secrets + local state that live OUTSIDE the harness, the
 # vault, and the git-repo sweep (either above $HOME/Documents, or not git repos),
