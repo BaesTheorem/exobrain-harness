@@ -45,9 +45,27 @@ The hook uses `last_successful_fetch` (not file mtime) to detect stale digests -
 
 | File | Purpose |
 |------|---------|
+| `discord-send.py` | Post a message to a channel as MIST (outbound half of the digest fetcher) |
 | `run-discord-digest.sh` | launchd wrapper for discord-digest-fetch.py |
 | `com.exobrain.discord-digest.plist` | launchd timer for the digest fetcher (runs every 4 hours) |
 | `README.md` | This file |
+
+### `discord-send.py`
+
+The digest fetcher only reads. This is the write path, used by routines that
+deliver to a channel instead of a notification banner (the evening wind-down
+recap and its mood question, for example).
+
+```bash
+python3 discord/discord-send.py <channel_id> "message text"
+python3 discord/discord-send.py <channel_id> --file path/to/message.txt
+```
+
+REST-only, like the fetcher, so it does not compete for the single gateway
+connection `claude-bot/` holds open. It reads the token from
+`~/.claude/channels/discord/.env` directly rather than the environment, so it
+works from a plain shell with no launchd plumbing. Input over Discord's 2000
+character cap is split on paragraph boundaries and sent as consecutive messages.
 
 ## `DISCORD_BOT_TOKEN`
 
