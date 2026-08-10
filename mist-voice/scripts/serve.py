@@ -9,6 +9,14 @@ latents, and synthesizes on request -- no 28s reload per call.
   GET  /health                                -> {"ok": true, "device": ...}
 
 Used by the `mist-say` CLI and (later) the phone audio path.
+
+INVARIANTS (do not break these in an edit):
+  - The model loads ONCE at startup; nothing may reload it per request
+    (that is the 28s penalty this service exists to avoid).
+  - Synthesis is slower than real time on this machine. Callers pre-render;
+    never add a code path that promises live/streaming speech.
+  - Default port 8087 is baked into mist-say and the phone path; change it
+    everywhere or not at all.
 """
 import os, glob, io, argparse, wave
 os.environ.setdefault("COQUI_TOS_AGREED", "1")
@@ -58,6 +66,7 @@ def synth(text, speed=1.0):
     # full reference set each time, all default XTTS sampling params.
     from pronounce import fix_pronunciation
     text = fix_pronunciation(text)
+    assert MODEL is not None, "synth() called before load_model()"
     wav = MODEL.tts(text=text, speaker_wav=REFS, language="en", speed=speed)
     import numpy as np
     pcm = (np.clip(np.asarray(wav, dtype="float32"), -1, 1) * 32767).astype("<i2").tobytes()

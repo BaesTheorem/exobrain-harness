@@ -8,6 +8,15 @@ Usage:
 
 Outputs one PNG per page: page_0.png, page_1.png, etc.
 Prints JSON summary to stdout for Claude to parse.
+
+INVARIANTS (do not break these in an edit):
+  - stdout is machine-parsed JSON only. Diagnostics go to stderr; a stray
+    print() breaks the watcher that consumes this.
+  - UnsupportedFileFormat after a Supernote firmware update means the file
+    signature bumped: upgrade supernotelib, the .note file is not corrupt.
+  - pageHashes are only comparable within one supernotelib version; renderer
+    upgrades change hashes for identical ink, so a hash mismatch alone must
+    not trigger reprocessing after an upgrade.
 """
 
 import hashlib

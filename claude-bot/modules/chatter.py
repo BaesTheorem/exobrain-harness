@@ -21,6 +21,14 @@ commands. Two deliberate constraints:
      of guessing. Shared servers keep the total lockdown. See _DENIED_MCP.
 
 She replies when Alex @mentions her, replies to one of her messages, or DMs her.
+
+INVARIANTS (do not break these in an edit):
+  - Owner-only replies. Any change that could make her answer a non-owner in
+    a shared server is wrong, whatever else it fixes.
+  - The claude CLI call stays sandboxed: neutral cwd (never the harness repo,
+    or CLAUDE.md + project MCP load into every reply) and tools denied.
+  - The calendar exception stays read-only and private-context-only (DM or
+    Alex's personal server). Shared servers keep the total lockdown.
 """
 
 from __future__ import annotations
