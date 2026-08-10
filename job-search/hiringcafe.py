@@ -87,6 +87,12 @@ def gate(hit, max_age_days):
         age = (time.time() * 1000 - ms) / 86_400_000
         if age > max_age_days:
             return False, "stale (%d days old)" % age
+
+    # Band rule (Alex 2026-08-10): a range containing the floor passes; a bottom
+    # under the floor is a pass-with-flag so the offer risk is visible downstream.
+    lo = v.get("yearly_min_compensation")
+    if lo is not None and lo < COMP_FLOOR:
+        return True, "PASS (BAND-STRADDLE: bottom $%s under floor)" % f"{int(lo):,}"
     return True, "PASS"
 
 
@@ -115,14 +121,14 @@ def main():
                                  h.get("job_information", {}).get("title"),
                                  v.get("company_name"))
             if ok:
-                survivors.append((label, v, h.get("apply_url")))
+                survivors.append((label, v, h.get("apply_url"), why))
             elif args.show_declines:
                 print("   x %-62s %s" % (label[:62], why))
 
     print("\n%d survivor(s) of %d unique postings" % (len(survivors), len(seen)))
-    for label, v, url in survivors:
+    for label, v, url, why in survivors:
         print("-" * 72)
-        print(label)
+        print(label if why == "PASS" else "%s  [%s]" % (label, why))
         print("  $%s - $%s | %s | %s yrs+ | posted %s"
               % (f"{int(v.get('yearly_min_compensation') or 0):,}",
                  f"{int(v.get('yearly_max_compensation') or 0):,}",
