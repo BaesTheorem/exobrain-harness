@@ -172,7 +172,7 @@ def main():
     log.info("starting (allow-duplicates patch: %s)", patched)
     radar = Radar()
     radar.run_in_thread()
-    window = webview.create_window(
+    webview.create_window(
         "MIST Radar",
         url=os.path.join(APP_DIR, "ui.html"),
         js_api=radar,

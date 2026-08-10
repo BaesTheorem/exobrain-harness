@@ -171,8 +171,8 @@ def main():
     c.commit()
     c.close()
     print(f"Added {added} markers. Total on map: {len(existing)}.")
-    print(f"Adjust by: (1) clicking markers to open wiki, (2) right-click to delete + re-add, or")
-    print(f"(3) edit world_state.map_markers directly for bulk fixes.")
+    print("Adjust by: (1) clicking markers to open wiki, (2) right-click to delete + re-add, or")
+    print("(3) edit world_state.map_markers directly for bulk fixes.")
 
 
 if __name__ == "__main__":

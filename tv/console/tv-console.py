@@ -15,7 +15,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 import tv_control as t
 
 from textual.app import App, ComposeResult
-from textual.containers import Horizontal, Vertical, Grid
+from textual.containers import Vertical
 from textual.widgets import Static, Footer, Input, Log
 from textual.binding import Binding
 from textual.reactive import reactive
@@ -153,7 +153,7 @@ class TVConsole(App):
     def render_apps(self):
         rows = []
         line = []
-        for label, key, hk in APP_CHOICES:
+        for label, _key, hk in APP_CHOICES:
             line.append(f"[bold]{hk}[/] {label}")
             if len(line) == 3:
                 rows.append("   ".join(line))
@@ -283,7 +283,7 @@ class TVConsole(App):
             self._safe(f"app: {key}", lambda: t.launch_app(key))
         return action
 
-    for label, key, hk in APP_CHOICES:
+    for _label, key, _hk in APP_CHOICES:
         locals()[f"action_launch_{key}"] = _make_app_action(key)
 
     # ---------- Manual command input ----------

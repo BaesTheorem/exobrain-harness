@@ -17,7 +17,6 @@ import sqlite3
 import os
 import re
 import shutil
-import json
 import logging
 from datetime import datetime
 from pathlib import Path
@@ -60,7 +59,7 @@ def query_things_db():
     areas = {}
     for row in conn.execute("SELECT uuid, title FROM TMArea"):
         title = row["title"]
-        if title.lstrip("☀️🌙⚙️👥⚕️🧬🧠❤️🏠💰✨🔥💼 ").strip():
+        if title.lstrip("☀️🌙⚙️👥⚕️🧬🧠❤️🏠💰✨🔥💼 ").strip():  # noqa: B005 (char-set strip is intended, not prefix removal)
             # Strip emoji prefix to get clean name
             clean = re.sub(r"^[\U0001f300-\U0001fad6\u2600-\u27bf\ufe0f\u200d\u2764\u2b50\u26a1\u2699\u267b\U0001fa7a]+\s*", "", title).strip()
             areas[row["uuid"]] = clean

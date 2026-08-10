@@ -6,7 +6,7 @@ ffmpeg for H.264 + AAC encoding. Sidesteps the need for a libass/drawtext ffmpeg
 
 Usage: render_video.py <background.png> <timings.json> <audio> <out.mp4>
 """
-import sys, json, subprocess, textwrap
+import sys, json, subprocess
 import numpy as np
 from PIL import Image, ImageDraw, ImageFont
 

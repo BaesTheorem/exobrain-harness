@@ -5,7 +5,7 @@ readable transcript. CPU int8 -- fine on M1/8GB.
 
 Usage: transcribe.py <audio.wav> [--model distil-medium.en]
 """
-import sys, json, argparse
+import sys, argparse
 from pathlib import Path
 from faster_whisper import WhisperModel
 

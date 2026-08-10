@@ -18,7 +18,6 @@ Stdlib only.
 """
 
 import calendar
-import os
 import sys
 from datetime import date, datetime, timedelta
 from pathlib import Path
@@ -194,7 +193,7 @@ def render_weekly_summaries(entries: list[dict]) -> list[str]:
         lines.append(f"| Category | {' | '.join(day_labels)} | Avg |")
         lines.append("|" + "|".join(["----------"] + ["-----"] * 7 + ["-----"]) + "|")
 
-        def cell(day_offset: int, key: str) -> str:
+        def cell(day_offset: int, key: str, ws=ws, week_entries=week_entries) -> str:
             target_iso = (ws + timedelta(days=day_offset)).strftime("%Y-%m-%d")
             for e in week_entries:
                 if e["date"] == target_iso:

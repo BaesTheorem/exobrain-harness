@@ -4,7 +4,6 @@ A Things 3-styled pomodoro timer that logs sessions to Obsidian.
 """
 
 import webview
-import json
 import sqlite3
 import os
 import re

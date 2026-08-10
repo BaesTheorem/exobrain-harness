@@ -424,7 +424,7 @@ def run_daemon(cfg):
     mgr.setDelegate_(delegate)
     mgr.requestWhenInUseAuthorization()
     log("daemon up; requesting Location authorization")
-    delegate._maybe_start(mgr)
+    delegate._maybe_start(mgr)  # noqa: SLF001 (renaming would change the PyObjC selector mapping)
     NSRunLoop.currentRunLoop().run()
 
 

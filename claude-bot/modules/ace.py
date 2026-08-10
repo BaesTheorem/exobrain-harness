@@ -116,7 +116,7 @@ def setup(ctx: Context) -> None:
         except asyncio.TimeoutError:
             proc.kill()
             shutil.rmtree(tmp, ignore_errors=True)
-            raise RuntimeError("render timed out")
+            raise RuntimeError("render timed out") from None
         if proc.returncode != 0 or not out_path.exists():
             shutil.rmtree(tmp, ignore_errors=True)
             raise RuntimeError(f"render failed ({proc.returncode}): {err.decode()[-300:]}")

@@ -17,7 +17,6 @@ from __future__ import annotations
 import argparse
 import json
 import mimetypes
-import os
 import re
 import sqlite3
 import sys
@@ -447,7 +446,7 @@ def api_inventory_rename(body: dict):
     if conn is None:
         return {"ok": False, "error": "no PC"}
     inv = sheet.setdefault("inventory", [])
-    for it, parent in _inv_walk(inv):
+    for it, _parent in _inv_walk(inv):
         if it.get("id") == item_id:
             if new_name is not None:
                 it["name"] = new_name
@@ -606,7 +605,7 @@ def api_calendar_structure():
         # Festival, if any, sits AFTER this month (between month N and N+1).
         # Walk like calendar.day_of_year does to find this month's start doy.
         total = 0
-        for i in range(idx):
+        for _i in range(idx):
             total += 30
             if (total + 1) in harptos.FESTIVAL_DAYS:
                 total += 1
@@ -1369,12 +1368,12 @@ def main():
     (Path(VAULT_PATH) / "assets").mkdir(parents=True, exist_ok=True)
 
     mf = find_map_file()
-    print(f"=== solo-dm dashboard ===")
+    print("=== solo-dm dashboard ===")
     print(f"Campaign: {SLUG}")
     print(f"Vault:    {VAULT_PATH}")
     print(f"Map file: {mf if mf else '(none -- drop an image at ' + VAULT_PATH + '/assets/map.jpg)'}")
     print(f"URL:      http://localhost:{args.port}/")
-    print(f"Stop:     Ctrl-C")
+    print("Stop:     Ctrl-C")
     print()
 
     server = ThreadingHTTPServer(("127.0.0.1", args.port), Handler)

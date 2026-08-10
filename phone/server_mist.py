@@ -29,7 +29,6 @@ import base64
 import asyncio
 import audioop
 import urllib.request
-from pathlib import Path
 
 from dotenv import load_dotenv
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect
@@ -38,7 +37,7 @@ from claude_agent_sdk import ResultMessage, StreamEvent
 
 # Reuse the brain, security gate, and config from the ConversationRelay server.
 from server import (
-    start_agent, ALLOWED_CALLERS, VOICE_PIN, PUBLIC_WS_URL,
+    start_agent, VOICE_PIN, PUBLIC_WS_URL,
 )
 
 load_dotenv()

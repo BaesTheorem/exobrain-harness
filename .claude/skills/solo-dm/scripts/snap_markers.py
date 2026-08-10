@@ -10,7 +10,7 @@ from __future__ import annotations
 import argparse, json, sqlite3, math, sys
 from collections import deque
 from pathlib import Path
-from PIL import Image, ImageDraw, ImageFont
+from PIL import Image, ImageDraw
 import numpy as np
 
 HARNESS_ROOT = Path(__file__).resolve().parents[4]
@@ -113,9 +113,6 @@ def main():
 
     vis = im_full.convert('RGB').copy()
     draw = ImageDraw.Draw(vis, 'RGBA')
-    try: font = ImageFont.truetype('/System/Library/Fonts/Helvetica.ttc', 18)
-    except: font = ImageFont.load_default()
-
     updated = []; n_snap = n_skip = 0
     for m in markers:
         if m.get('kind') == 'region':
