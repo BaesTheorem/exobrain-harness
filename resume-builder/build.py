@@ -37,9 +37,18 @@ TAILORING SCHEMA (all keys optional):
     },
     "title_suffix": {                        # opt-in note appended to a job's title line
         "clyde": " (IT function outsourced, July 2026)"
-    }
+    },
+    "leadership": [                          # replace the Leadership and Community entries
+        {"title": "Role | Org | Dates", "bullets": ["..."]}
+    ]
   }
 Never add a skill/tool/cert the canonical data does not support. Surgical only.
+
+"leadership" is a full replacement for the Leadership and Community section, for roles
+where community/nonprofit work carries the application instead of sitting at the bottom
+as garnish (the EA / policy / research lane). Entries must be truthful and already
+documented in [[Claude Reference]]; this hook reorders and surfaces, it does not invent.
+Per that note, never use it to tie Guild of the Rose to security, IT, or technical claims.
 
 title_suffix is for TRUTHFUL context only, never for retitling. Its one sanctioned
 use is noting why a role ended, and only on applications with no cover letter field
@@ -145,9 +154,10 @@ def build_resume_html(data, tailor):
         parts.append(f'<div class="role">{esc(ed["title"])}</div>')
         parts.append(_ul(ed["bullets"]))
 
-    if data.get("leadership"):
+    leadership = tailor.get("leadership", data.get("leadership"))
+    if leadership:
         parts.append("<h2>Leadership and Community</h2>")
-        for ld in data["leadership"]:
+        for ld in leadership:
             parts.append(f'<div class="role">{esc(ld["title"])}</div>')
             parts.append(_ul(ld["bullets"]))
 
