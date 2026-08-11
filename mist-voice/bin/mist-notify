@@ -3,30 +3,137 @@
 #   mist-notify "Inbox is over five. Want me to triage it?"
 #   mist-notify "Build failed." "Exobrain URGENT" Basso
 #   mist-notify "New transcript processed" "MIST" Purr "obsidian://open?vault=Exobrain&file=Daily%20notes/..."
+#   mist-notify "Restock is live" "Gatorade watch" Purr "https://prod.example/item" \
+#       --image /tmp/product.png --action "Buy now=https://prod.example/item/buy" --group watchers
+#   mist-notify "Want me to triage the inbox?" "MIST" Purr "console:i_abc123" --reply
 #
-# 4th arg is the click target the banner opens. It can be:
+# Positional args (all optional after the message):
+#   1 message   2 title (MIST)   3 sound (Purr; "none" = silent)   4 link
+# The link is what a banner click opens:
 #   - "console"        -> raise the MIST Console (its current chat). Use for briefings/triage.
 #   - "console:<sid>"  -> raise the Console AND switch to that chat (the chat that produced this).
 #   - a URL/scheme  (https://, http://localhost:5014, obsidian://, things:///...)  -> opened directly
 #   - a file path or app name                                                      -> opened with `open`
 #   - omitted                                                                      -> defaults to the MIST Console (current chat)
-# Every notification is clickable and lands on the app/source it came from.
 #
-# Uses terminal-notifier (clickable). Falls back to osascript if it's missing,
-# and to a silent notification if the MIST voice service isn't running.
+# Full-featured flags (delivered by MIST Notifier.app; silently dropped when
+# only the terminal-notifier fallback is available):
+#   --subtitle "text"        smaller second line under the title
+#   --image /path.png        thumbnail attachment on the banner
+#   --reply [sid]            inline "Reply" button; the typed text is injected into
+#                            the Console chat <sid> (default: the link's console:<sid>,
+#                            else the active chat). Works with the Console closed;
+#                            the helper boots it and retries.
+#   --action "Label=target"  extra button (up to 3). target uses link semantics,
+#                            plus "cmd:<shell>" to run a command.
+#   --group <id>             notification-center stacking group (threadIdentifier)
+#   --id <id>                stable identifier: reposting replaces the banner in place
+#   --urgency passive|active|timeSensitive
+#   --no-voice               skip the spoken line for this one notification
+#
+# Delivery order: MIST Notifier.app (native banners: MIST name + icon, buttons,
+# reply, images) -> terminal-notifier -> osascript. Every banner is clickable and
+# lands on the app/source it came from. Each notification is appended to
+# ~/Library/Logs/exobrain/notifications-history.jsonl (the Console's bell panel
+# reads it).
 set -euo pipefail
 DIR="$(cd "$(dirname "$0")/.." && pwd)"
-MSG="${1:?usage: mist-notify \"message\" [title] [sound] [link]}"
-TITLE="${2:-MIST}"
-SOUND="${3:-Purr}"
-LINK="${4:-}"
+MSG="${1:?usage: mist-notify \"message\" [title] [sound] [link] [--flags]}"
+shift
 
-# Default click target: bring up the MIST Console (MIST's home surface).
+TITLE="MIST"; SOUND="Purr"; LINK=""
+SUBTITLE=""; IMAGE=""; GROUP=""; NID=""; URGENCY=""
+REPLY=0; REPLY_SID=""; NOVOICE=0
+ACTIONS=()
+POSN=0
+while [ $# -gt 0 ]; do
+  case "$1" in
+    --subtitle) SUBTITLE="${2:-}"; shift 2;;
+    --image)    IMAGE="${2:-}"; shift 2;;
+    --group)    GROUP="${2:-}"; shift 2;;
+    --id)       NID="${2:-}"; shift 2;;
+    --urgency)  URGENCY="${2:-}"; shift 2;;
+    --action)   ACTIONS+=("${2:-}"); shift 2;;
+    --no-voice) NOVOICE=1; shift;;
+    --reply)
+      REPLY=1
+      if [ $# -gt 1 ] && [[ "${2:-}" != --* ]]; then REPLY_SID="$2"; shift; fi
+      shift;;
+    *)
+      case $POSN in
+        0) TITLE="$1";;
+        1) SOUND="$1";;
+        2) LINK="$1";;
+      esac
+      POSN=$((POSN+1)); shift;;
+  esac
+done
+
 CONSOLE_BUNDLE="com.exobrain.mist-console"
 CONSOLE_PORT="5014"
+HELPER="/Applications/MIST Notifier.app"
+HISTORY="$HOME/Library/Logs/exobrain/notifications-history.jsonl"
 
-if command -v terminal-notifier >/dev/null 2>&1; then
-  args=(-title "$TITLE" -message "$MSG" -sound "$SOUND")
+# Compose the spec + history line in python so nothing needs shell-escaping.
+SPEC="$(MSG="$MSG" TITLE="$TITLE" SOUND="$SOUND" LINK="$LINK" SUBTITLE="$SUBTITLE" \
+        IMAGE="$IMAGE" GROUP="$GROUP" NID="$NID" URGENCY="$URGENCY" REPLY="$REPLY" \
+        REPLY_SID="$REPLY_SID" ACTIONS="$(IFS=$'\x1f'; echo "${ACTIONS[*]:-}")" \
+        python3 - <<'PY'
+import json, os
+e = os.environ.get
+spec = {"title": e("TITLE"), "body": e("MSG"), "sound": e("SOUND") or "default",
+        "link": e("LINK") or ""}
+for k, env in (("subtitle", "SUBTITLE"), ("image", "IMAGE"), ("group", "GROUP"),
+               ("id", "NID"), ("urgency", "URGENCY")):
+    if e(env):
+        spec[k] = e(env)
+if e("REPLY") == "1":
+    spec["reply"] = {"sid": e("REPLY_SID") or None}
+acts = []
+for a in (e("ACTIONS") or "").split("\x1f"):
+    if a and "=" in a:
+        label, target = a.split("=", 1)
+        acts.append({"label": label, "target": target})
+if acts:
+    spec["actions"] = acts[:3]
+print(json.dumps(spec))
+PY
+)"
+
+log_history() {  # $1 = delivery route
+  ( mkdir -p "$(dirname "$HISTORY")"
+    VIA="$1" SPEC="$SPEC" python3 - <<'PY' >> "$HISTORY"
+import json, os, time
+spec = json.loads(os.environ["SPEC"])
+spec["ts"] = time.time()
+spec["via"] = os.environ["VIA"]
+print(json.dumps(spec))
+PY
+  ) 2>/dev/null || true
+}
+
+DELIVERED=""
+if [ -d "$HELPER" ]; then
+  SPECF="$(mktemp /tmp/mist-notify.XXXXXX)"
+  printf '%s' "$SPEC" > "$SPECF"
+  if open -n -a "$HELPER" --args post "$SPECF" 2>/dev/null; then
+    # The helper writes $SPECF.result; give it a few seconds. "ok" means the
+    # banner is out; "pending"/"denied" (permission) or a timeout falls back.
+    for _ in $(seq 1 50); do
+      [ -f "$SPECF.result" ] && break
+      sleep 0.1
+    done
+    if grep -q '"ok": *true' "$SPECF.result" 2>/dev/null; then
+      DELIVERED="notifier"
+    fi
+  fi
+  rm -f "$SPECF" "$SPECF.result" 2>/dev/null || true
+fi
+
+if [ -z "$DELIVERED" ] && command -v terminal-notifier >/dev/null 2>&1; then
+  args=(-title "$TITLE" -message "$MSG")
+  [ -n "$SUBTITLE" ] && args+=(-subtitle "$SUBTITLE")
+  case "$SOUND" in none|silent|"") ;; *) args+=(-sound "$SOUND");; esac
   if [ -z "$LINK" ] || [ "$LINK" = "console" ]; then
     # Raise the Console to its current chat.
     args+=(-execute "open -b $CONSOLE_BUNDLE")
@@ -40,18 +147,23 @@ if command -v terminal-notifier >/dev/null 2>&1; then
   else
     args+=(-execute "open $(printf '%q' "$LINK")")
   fi
-  terminal-notifier "${args[@]}" >/dev/null 2>&1 || true
-else
-  # No terminal-notifier: osascript banners can't carry a click action, so the
-  # link is best-effort lost here, but the notification still fires.
-  osascript -e "display notification \"${MSG//\"/\\\"}\" with title \"${TITLE//\"/\\\"}\" sound name \"$SOUND\"" || true
+  terminal-notifier "${args[@]}" >/dev/null 2>&1 && DELIVERED="terminal-notifier" || true
 fi
+
+if [ -z "$DELIVERED" ]; then
+  # Last resort: osascript banners can't carry a click action, so the link is
+  # best-effort lost here, but the notification still fires.
+  osascript -e "display notification \"${MSG//\"/\\\"}\" with title \"${TITLE//\"/\\\"}\" sound name \"$SOUND\"" \
+    && DELIVERED="osascript" || DELIVERED="failed"
+fi
+
+log_history "$DELIVERED"
 
 # Speak it in MIST's voice (non-blocking so it doesn't hold up the caller),
 # unless voice notifications are muted. Mute switch (either works):
 #   touch ~/.mist-voice-muted        (or)   export MIST_VOICE_MUTED=1
 # Un-mute: rm ~/.mist-voice-muted . The clickable banner above still fires
 # regardless; only the spoken voice is suppressed.
-if [ ! -f "$HOME/.mist-voice-muted" ] && [ "${MIST_VOICE_MUTED:-0}" != "1" ]; then
+if [ "$NOVOICE" != "1" ] && [ ! -f "$HOME/.mist-voice-muted" ] && [ "${MIST_VOICE_MUTED:-0}" != "1" ]; then
   ( "$DIR/bin/mist-say" "$MSG" >/dev/null 2>&1 || true ) &
 fi
