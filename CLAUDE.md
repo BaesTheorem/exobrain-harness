@@ -151,6 +151,8 @@ mist-voice/bin/mist-notify "Your daily briefing is ready" "MIST" Purr console
 mist-voice/bin/mist-notify "Build failed" "MIST URGENT" Basso "http://localhost:5016"
 ```
 
+Notifications are **full featured** (since 2026-08-11, via `mist-notifier/` -> `/Applications/MIST Notifier.app`; banners show as "MIST" with her icon). Extra flags, all optional: `--subtitle "text"`, `--image /path.png` (thumbnail on the banner), `--reply [sid]` (inline Reply button; the typed text lands in that Console chat, booting the Console if needed), `--action "Label=target"` (up to 3 buttons; target uses link semantics or `cmd:<shell>`), `--group <id>` (stack related banners), `--id <id>` (repost replaces in place, good for progress), `--urgency passive|active|timeSensitive`, `--no-voice`. Use `--reply` on anything conversational (triage asks, "want me to...?" pings) and `--action` for the obvious next step (a Buy/Open/Retry button). If the helper app is missing or unauthorized, mist-notify silently falls back to the old terminal-notifier banner, so the flags are always safe to pass. Every notification also lands in the Console's bell panel (history at `~/Library/Logs/exobrain/notifications-history.jsonl`).
+
 Apps and watchers we build follow the same rule: a notification links to its own source (product page, ticket, dashboard, the originating app's port). Discord alerts embed the source URL inline. Delivery is via `terminal-notifier`, falling back to `osascript` only if missing. Bare `osascript` can't carry a click action, so prefer `mist-notify` whenever the banner should be clickable.
 
 ## Local MIST tools
