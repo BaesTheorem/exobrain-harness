@@ -100,9 +100,29 @@ mkdir -p "$BACKUP_DIR"
 # RunAtLoad fires this on every login/boot to catch up after a power-off, but we
 # don't want duplicate backups during ordinary logins. Skip if a collective
 # archive newer than 20h already exists (20h < 24h so the 2 AM run is never
-# suppressed). Runs in an `if` so a no-match grep doesn't trip set -e.
-if find "$BACKUP_DIR" -name 'exobrain-collective-*.tar.gz' -mmin -1200 -print -quit 2>/dev/null | grep -q .; then
-    echo "[$(date)] Recent collective backup exists (<20h old); skipping."
+# suppressed).
+#
+# Age comes from the FILENAME timestamp, never mtime. Google Drive rewrites the
+# mtime of files it re-materializes, so a stale archive can look minutes old: on
+# 2026-08-10 Drive stamped the 08-07 archive with 16:12, and the 08-11 02:00 run
+# read that as a 10h-old backup and skipped -- 08-11 got no backup at all.
+newest_archive_age_secs() {
+    local newest="" f base stamp ep now
+    now=$(date +%s)
+    for f in "$BACKUP_DIR"/exobrain-collective-*.tar.gz; do
+        [ -e "$f" ] || continue
+        base="${f##*/}"
+        stamp="${base#exobrain-collective-}"
+        stamp="${stamp%.tar.gz}"           # YYYYMMDD_HHMMSS
+        ep=$(date -j -f "%Y%m%d_%H%M%S" "$stamp" +%s 2>/dev/null) || continue
+        if [ -z "$newest" ] || [ "$ep" -gt "$newest" ]; then newest="$ep"; fi
+    done
+    [ -n "$newest" ] || { echo ""; return; }
+    echo $(( now - newest ))
+}
+AGE_SECS="$(newest_archive_age_secs)"
+if [ -n "$AGE_SECS" ] && [ "$AGE_SECS" -lt 72000 ]; then
+    echo "[$(date)] Recent collective backup exists ($((AGE_SECS / 3600))h old); skipping."
     exit 0
 fi
 
@@ -120,6 +140,27 @@ WORK="$(mktemp -d "${TMPDIR:-/tmp}/exobrain-backup.XXXXXX")"
 trap 'rm -rf "$WORK"' EXIT
 COLLECTIVE_TAR="$WORK/collective.tar"
 
+# The backup reads a live filesystem, so a file can disappear between the moment
+# it lands in the file list and the moment tar reads it -- a running app doing an
+# atomic write through a .tmp file is enough (mist-console's
+# data/sessions.json.tmp.<pid> killed the 2026-08-11 run). bsdtar 3.5.3 has no
+# --ignore-failed-read, and it exits 1 for the whole archive over that one file.
+# Those files are transient partial writes; nothing is lost by skipping them.
+# Tolerate exactly that error, log every skip, and still fail on anything else.
+run_tar() {
+    local err="$WORK/tar.err" rc=0
+    tar "$@" 2>"$err" || rc=$?
+    if [ "$rc" -ne 0 ] && [ -s "$err" ] \
+       && ! grep -qEv 'Cannot stat: No such file or directory|Error exit delayed from previous errors\.' "$err"; then
+        sed 's/^/[vanished mid-backup, skipped] /' "$err" >&2
+        rc=0
+    elif [ "$rc" -ne 0 ]; then
+        cat "$err" >&2
+    fi
+    rm -f "$err"
+    return "$rc"
+}
+
 HARNESS_PARENT="$(dirname "$HARNESS_DIR")"
 HARNESS_BASENAME="$(basename "$HARNESS_DIR")"
 VAULT_PARENT="$(dirname "$VAULT_DIR")"
@@ -128,7 +169,7 @@ VAULT_BASENAME="$(basename "$VAULT_DIR")"
 # 1. Harness -- whole folder, minus runtime caches. Captures the harness's own
 #    gitignored data automatically (tar doesn't honor .gitignore).
 echo "[$(date)] Adding harness: $HARNESS_BASENAME"
-tar -cf "$COLLECTIVE_TAR" \
+run_tar -cf "$COLLECTIVE_TAR" \
     --exclude='__pycache__' \
     --exclude='*.pyc' \
     --exclude='.DS_Store' \
@@ -142,7 +183,7 @@ tar -cf "$COLLECTIVE_TAR" \
 
 # 2. Vault -- full (it's small and lives in no git repo, so this is its only net).
 echo "[$(date)] Adding vault: $VAULT_BASENAME"
-tar -rf "$COLLECTIVE_TAR" \
+run_tar -rf "$COLLECTIVE_TAR" \
     --exclude='.DS_Store' \
     -C "$VAULT_PARENT" \
     "$VAULT_BASENAME"
@@ -168,7 +209,7 @@ EXTRA_LIST="$WORK/extras.list"
 if [ -s "$EXTRA_LIST" ]; then
     extra_count=$(wc -l < "$EXTRA_LIST" | tr -d ' ')
     echo "[$(date)]   + home-extras ($extra_count files)"
-    tar -rf "$COLLECTIVE_TAR" -s "|^|home-extras/|" -C "$HOME" -T "$EXTRA_LIST"
+    run_tar -rf "$COLLECTIVE_TAR" -s "|^|home-extras/|" -C "$HOME" -T "$EXTRA_LIST"
 fi
 
 # 3. Every sibling repo's gitignored data, namespaced under repos-gitignored/.
@@ -230,7 +271,7 @@ while IFS= read -r gitdir; do
     count=$(wc -l < "$list" | tr -d ' ')
     echo "[$(date)]   + $name ($count files)"
     # -s prepends the namespace so repos can't collide on a shared relative path.
-    tar -rf "$COLLECTIVE_TAR" -s "|^|repos-gitignored/$name/|" -C "$repo" -T "$list"
+    run_tar -rf "$COLLECTIVE_TAR" -s "|^|repos-gitignored/$name/|" -C "$repo" -T "$list"
     rm -f "$list"
 done < <(find "$REPO_SCAN_ROOT" -maxdepth 2 -type d -name .git 2>/dev/null)
 
