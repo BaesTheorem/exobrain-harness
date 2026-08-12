@@ -144,6 +144,37 @@ See `/crm` skill modes 9 + 9b for the full Karpathy-wiki discipline (integrate n
 
 Notify on user-visible outputs (briefings, items needing review, inbox >5, errors). Silent for Plaud/Supernote routine processing.
 
+**Never ask for approval in text alone** (Alex's standing rule, 2026-08-12). Any time you stop and wait on Alex to approve or deny an action (a force push, an outward-facing send, a delete, anything hard to reverse), write the ask in chat *and* fire a banner carrying the decision as buttons, so it reaches him when he is away from the window. Every chat's environment already has `$MIST_CONSOLE_SESSION` and `$MIST_CONSOLE_URL`, so the buttons can answer straight back into the chat that asked:
+
+```bash
+approve_btn() {  # usage: approve_btn "Label" "text to send back"
+  printf '%s=cmd:/usr/bin/curl -sS -X POST %s/notify-reply -H '"'"'Content-Type: application/json'"'"' -d '"'"'%s'"'"'' \
+    "$1" "$MIST_CONSOLE_URL" "$(python3 -c 'import json,sys;print(json.dumps({"sid":sys.argv[1],"text":sys.argv[2]}))' "$MIST_CONSOLE_SESSION" "$2")"
+}
+mist-voice/bin/mist-notify "Force-push over main? It rewrites 3 pushed commits." "MIST needs a decision" Purr \
+  "console:$MIST_CONSOLE_SESSION" --urgency timeSensitive \
+  --action "$(approve_btn Approve 'Approved: force-push.')" \
+  --action "$(approve_btn Deny 'Denied: leave main alone.')"
+```
+
+Then stop and wait. Whichever button Alex taps arrives as his next message. This is for decisions **you** chose to escalate; the Console raises its own banner for blocking permission cards (`bridge.py` `_notify_permission`), so don't hand-roll those.
+
+**Coming out of plan mode, ask about permission mode before executing** (2026-08-12). Approving a plan is not the same as approving the way it gets carried out. So when `ExitPlanMode` is approved, do not start work: post the mode question with a banner whose buttons set it, then wait. New chats always open in bypass (`DEFAULT_PERMISSION_MODE`), and a switch is scoped to that one chat, so this is the moment to choose deliberately.
+
+```bash
+mode_btn() {  # usage: mode_btn "Label" bypassPermissions|acceptEdits|default
+  printf '%s=cmd:/usr/bin/curl -sS -X POST %s/sessions/%s/permission -H '"'"'Content-Type: application/json'"'"' -d '"'"'{"mode":"%s"}'"'"'; /usr/bin/curl -sS -X POST %s/notify-reply -H '"'"'Content-Type: application/json'"'"' -d '"'"'{"sid":"%s","text":"Permission mode set to %s. Go ahead."}'"'"'' \
+    "$1" "$MIST_CONSOLE_URL" "$MIST_CONSOLE_SESSION" "$2" "$MIST_CONSOLE_URL" "$MIST_CONSOLE_SESSION" "$2"
+}
+mist-voice/bin/mist-notify "Plan approved. Which permission mode should I execute in?" "MIST" Purr \
+  "console:$MIST_CONSOLE_SESSION" \
+  --action "$(mode_btn 'Bypass' bypassPermissions)" \
+  --action "$(mode_btn 'Accept edits' acceptEdits)" \
+  --action "$(mode_btn 'Ask each time' default)"
+```
+
+Setting the mode puts the backend dormant on purpose; the follow-up `notify-reply` send revives it under the new mode with `--resume`, so context carries over. Order matters: mode first, then the send.
+
 **Every notification must be clickable and open the app/source it came from** (Alex's standing rule, 2026-06-29). `mist-voice/bin/mist-notify "msg" "title" Sound <link>` takes the click target as its 4th arg; always pass it. Valid targets: `console` (raise the MIST Console, or `console:<sid>` for an exact chat) -- **use this for briefings and triage**; any `open`-able URL or scheme (`obsidian://`, `things:///show?id=`, `http://localhost:<port>`, `https://`); or a file path or app name. Omitting it defaults to `console`.
 
 ```bash
