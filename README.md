@@ -394,6 +394,13 @@ Exobrain harness/
 |   |-- run-discord-digest.sh           # launchd wrapper for Discord digest
 |   |-- com.exobrain.discord-digest.plist  # Discord digest timer (4h interval)
 |
+|-- scheduler/                          # Friend-group event scheduler runtime (/group-scheduler skill)
+|   |-- README.md
+|   |-- ics_freebusy.py                 # Opt-in calendar feeds (ICS) -> busy intervals only; titles discarded at parse
+|   |-- feeds.example.json              # Template for feeds.json (git-ignored; friends' secret ICS URLs)
+|   |-- freebusy-cache.json             # Cached busy blocks per person (git-ignored)
+|   |-- events/                         # (gitignored) in-flight event state: candidates, RSVPs, status
+|
 |-- bus/                               # "Claude Bus" relay (FastAPI + SQLite, deploy to Fly.io)
 |   |-- README.md, protocol.md
 |   |-- server.py                       # The relay: auth, store, loop rail

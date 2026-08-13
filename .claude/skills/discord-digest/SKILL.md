@@ -41,6 +41,11 @@ All channels are set to `requireMention: true` with empty `allowFrom` -- the bot
 - Venue details, costs, logistics
 - Create a Things 3 task or calendar event for anything Alex hasn't responded to yet
 
+### Availability Signals (feeds `/group-scheduler`)
+- Statements about when someone is or isn't free: travel ("out of town next weekend"), standing constraints ("I work Saturdays now"), preferences ("weeknights are hard for me"), recovery/health windows
+- Route each to that person's People note `## Availability` section via `/group-scheduler` mode 4 (avail) -- classify as Persistent / One-off / Prefers per [[People Note Schema]], with `(Discord, YYYY-MM-DD)` provenance
+- If an open scheduler proposal exists (`scheduler/events/*.json` with `status: proposed`), treat replies newer than its `posted_at` as RSVPs and hand them to `/group-scheduler` mode 3 (track)
+
 ### Questions & Mentions
 - Direct @mentions of Alex (username from `DISCORD_ALEX_USERNAME` in `.env`, or his Discord user ID)
 - Questions asked to the group that Alex hasn't answered
@@ -74,6 +79,7 @@ Keep it concise -- 3-5 bullet points max unless there's a lot of activity. If no
 - **`/daily-briefing`**: Calls this skill to generate the Discord section of the morning briefing
 - **`/weekly-review`**: Pulls 7-day Discord activity for the social/community section
 - **`/crm`**: Cross-references Discord usernames with People/ notes -- these friends should all have People notes
+- **`/group-scheduler`**: Availability signals and RSVP replies found during a scan get routed there (see Availability Signals above)
 - Ad-hoc questions like "what did I miss on Discord?" can be answered by reading the digest
 
 ## Network CRM Integration

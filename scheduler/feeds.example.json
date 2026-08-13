@@ -1,0 +1,15 @@
+{
+  "_readme": "Copy to feeds.json (gitignored) and fill in real people. Keys under 'people' must match the person's People-note filename (without .md). Only free/busy is ever cached; event titles are discarded at parse time.",
+  "timezone": "America/Chicago",
+  "people": {
+    "[Friend Name]": {
+      "url": "https://calendar.google.com/calendar/ical/[id]/private-[token]/basic.ics",
+      "timezone": "America/Chicago",
+      "note": "optional freeform: which calendar this is, when they shared it"
+    },
+    "[Friend With Apple Calendar]": {
+      "url": "webcal://p123-caldav.icloud.com/published/2/[token]",
+      "note": "webcal:// URLs are rewritten to https:// automatically"
+    }
+  }
+}
