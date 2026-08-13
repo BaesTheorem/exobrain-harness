@@ -140,3 +140,9 @@ unemployment/.chrome-profile/
 unemployment/screenshots/
 unemployment/data/
 unemployment/answers*.json
+
+# Group scheduler runtime (friends' calendar feed URLs, cached free/busy,
+# in-flight event state) -- personal, never commit. Template + code are tracked.
+scheduler/feeds.json
+scheduler/freebusy-cache.json
+scheduler/events/

@@ -211,6 +211,7 @@ The wiki only compounds if you compact. Without this, notes degrade into append-
 - ✅ closed Follow-ups sitting > 30 days
 - Duplicate section headers (e.g., two `## Mentions`)
 - Section order doesn't match [[People Note Schema]]
+- `## Availability` **One-off** lines whose window has passed (prune them)
 
 **How to compact**:
 1. Read the full note.
@@ -219,6 +220,7 @@ The wiki only compounds if you compact. Without this, notes degrade into append-
 4. Replace stale Context lines with current ones.
 5. Remove ✅ Follow-ups older than 30 days.
 6. Reorder sections to match the canonical schema.
+7. `## Availability` is special (see [[People Note Schema]]): **Persistent** and **Prefers** lines are exempt from 30-day pruning and only leave when superseded. Prune **One-off** lines once their window has passed. A scheduling constraint spotted in Mentions gets *promoted* into Availability (with provenance), not pruned away -- that section exists precisely because Mentions expire.
 
 ### 10. Integrate: `/crm integrate [name]`
 
