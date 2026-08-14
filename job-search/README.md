@@ -4,7 +4,8 @@ Daily unattended discovery scan for the `/job-search` skill.
 
 - **`run-job-scan.sh`** -- launchd wrapper. Runs `claude --print` headless with the daily
   discovery prompt across every lane that works unattended: Gmail job alerts (if the
-  claude.ai connector is reachable), `hiringcafe.py` + `indeed.py` scripted lanes,
+  claude.ai connector is reachable), `hiringcafe.py` + `indeed.py` + `nicheboards.py` +
+  `ats-watchlist.py` + `usajobs.py` scripted lanes,
   Greenhouse/Lever X-ray (Ashby/Workable dropped 2026-08-10 -- chronic wrong-domain false
   negatives, and hiring.cafe covers those ATS inventories), 80,000 Hours Algolia, LinkedIn
   (if the MCP is reachable), and the warm-connection + re-apply watchlists. Applies the 4
@@ -18,6 +19,22 @@ Daily unattended discovery scan for the `/job-search` skill.
   on failure (added 2026-08-10: half the 7/21-8/10 runs died on "Connection closed
   mid-response" with no retry and no visible trace), and a clickable `mist-notify` failure
   banner pointing at the failed attempt's log.
+- **`nicheboards.py`** (added 2026-08-14) -- niche-board lane through the boards' own data
+  paths instead of Google X-ray (whose lagged index + silent wrong-domain results kept the
+  lane looking dry). Himalayas public JSON API (search param ignored, `limit` silently
+  capped at 20 -- both handled), Remotive API, WeWorkRemotely RSS (no salary in feed, so
+  its hits surface as LEADS, never survivors), BuiltIn server-rendered scrape. Applies the
+  gates on structured fields; prints survivors / leads / declines.
+- **`ats-watchlist.py`** (added 2026-08-14) -- polls the full live posting list of every
+  employer that has ever gotten a `type: job-listing` note (tracker + Archive), straight
+  from the Greenhouse/Lever/Ashby public APIs, and diffs against the previous snapshot.
+  Zero index lag; covers postings that never crosspost. First poll per board is a baseline.
+  State (snapshot + employer list) is gitignored under `state/` -- it reveals where Alex
+  applies. Pin extra boards in `state/watchlist-extra.json`.
+- **`usajobs.py`** (added 2026-08-14) -- official federal API, remote-only public-hiring-path
+  search with mechanical comp gating. Needs `USAJOBS_API_KEY` + `USAJOBS_EMAIL` in the
+  harness `.env` (free key: https://developer.usajobs.gov/apirequest/); without them it
+  prints instructions and exits 0 so the headless scan logs the lane as skipped, not failed.
 - **`com.exobrain.job-scan.plist`** -- source copy of the launchd job. Runs daily at 09:00
   (deliberately staggered after the other morning jobs).
   The live copy is a **real file** at `~/Library/LaunchAgents/com.exobrain.job-scan.plist`

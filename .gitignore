@@ -146,3 +146,8 @@ unemployment/answers*.json
 scheduler/feeds.json
 scheduler/freebusy-cache.json
 scheduler/events/
+
+# job-search: ATS watchlist snapshots + employer list (personal -- reveals where
+# Alex applies). See job-search/state/README.md for rebuild.
+job-search/state/*
+!job-search/state/README.md
