@@ -60,10 +60,18 @@ one-page letter. `tailoring/example_cover.md` shows the correct shape.
   "summary": "...override summary (KEEP the 11+/4+ tenure framing)...",
   "skills_append": { "Security": "Additional focus on <truthful ATS keywords>." },
   "experience_bullets": { "clyde": ["reordered / polished bullet", "..."] },
-  "title_suffix": { "clyde": " (IT function outsourced, July 2026)" }
+  "title_suffix": { "clyde": " (IT function outsourced, July 2026)" },
+  "leadership_include": ["ea_kc"]
 }
 ```
 Job ids for `experience_bullets` and `title_suffix`: `clyde`, `geeksquad` (see `data/resume_data.json`).
+
+`leadership_include` switches on a canonical Leadership entry carrying `"optional": true`,
+by id. Those entries are real and documented, they are just irrelevant to most JDs, so they
+stay off unless the employer or the role makes them relevant. Currently: `ea_kc` (Effective
+Altruism Kansas City) for the EA / nonprofit / AI-policy lane. This adds nothing new, it only
+reveals what the canonical data already holds, so the surgical-tailoring rules still hold.
+It costs about four lines, so trim bullets elsewhere to keep the two-page layout.
 
 `title_suffix` is **off by default** and inserts a short note after the *employer*
 on a role line (`Title | Employer<suffix> | Dates`), not at the end. Its one
