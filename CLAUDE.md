@@ -176,7 +176,7 @@ mist-voice/bin/mist-notify "Plan approved. Which permission mode should I execut
 
 Setting the mode puts the backend dormant on purpose; the follow-up `notify-reply` send revives it under the new mode with `--resume`, so context carries over. Order matters: mode first, then the send.
 
-**Every notification must be clickable and open the app/source it came from** (Alex's standing rule, 2026-06-29). `mist-voice/bin/mist-notify "msg" "title" Sound <link>` takes the click target as its 4th arg; always pass it. Valid targets: `console` (raise the MIST Console, or `console:<sid>` for an exact chat) -- **use this for briefings and triage**; any `open`-able URL or scheme (`obsidian://`, `things:///show?id=`, `http://localhost:<port>`, `https://`); or a file path or app name. Omitting it defaults to `console`.
+**Every notification must be clickable and open the app/source it came from** (Alex's standing rule, 2026-06-29). `mist-voice/bin/mist-notify "msg" "title" Sound <link>` takes the click target as its 4th arg; always pass it. Valid targets: `console` (raise the MIST Console, or `console:<sid>` for an exact chat) -- **use this for briefings and triage**; any `open`-able URL or scheme (`obsidian://`, `things:///show?id=`, `http://localhost:<port>`, `https://`); or a file path or app name. Omitting the link, or passing bare `console`, auto-upgrades to `console:$MIST_CONSOLE_SESSION` when fired from inside a Console chat, so a click lands on the chat that produced the notification; `console!` forces the Console's current chat instead. Headless callers (launchd, cron) have no session and get the plain Console raise.
 
 ```bash
 mist-voice/bin/mist-notify "Your daily briefing is ready" "MIST" Purr console

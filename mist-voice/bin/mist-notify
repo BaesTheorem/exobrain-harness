@@ -14,7 +14,11 @@
 #   - "console:<sid>"  -> raise the Console AND switch to that chat (the chat that produced this).
 #   - a URL/scheme  (https://, http://localhost:5014, obsidian://, things:///...)  -> opened directly
 #   - a file path or app name                                                      -> opened with `open`
-#   - omitted                                                                      -> defaults to the MIST Console (current chat)
+#   - omitted                                                                      -> defaults to the MIST Console; when fired
+#     from inside a Console chat ($MIST_CONSOLE_SESSION set), "console" and the
+#     omitted default both auto-upgrade to that chat, so a click always lands on
+#     the conversation the notification came from. Pass "console!" to force the
+#     Console's current chat without the upgrade.
 #
 # Full-featured flags (delivered by MIST Notifier.app; silently dropped when
 # only the terminal-notifier fallback is available):
@@ -68,6 +72,18 @@ while [ $# -gt 0 ]; do
       POSN=$((POSN+1)); shift;;
   esac
 done
+
+# A notification's click should land on the chat that produced it. Every shell a
+# Console chat spawns carries $MIST_CONSOLE_SESSION, so an omitted link or a bare
+# "console" is really "this chat": upgrade it to console:<sid>. Headless callers
+# (launchd watchers, cron) have no sid and keep the plain Console raise; /focus
+# no-ops if the sid is gone, so a stale env var degrades to the same. "console!"
+# opts out (current chat on purpose, e.g. a banner about the Console itself).
+if [ "$LINK" = "console!" ]; then
+  LINK="console"
+elif { [ -z "$LINK" ] || [ "$LINK" = "console" ]; } && [ -n "${MIST_CONSOLE_SESSION:-}" ]; then
+  LINK="console:$MIST_CONSOLE_SESSION"
+fi
 
 CONSOLE_BUNDLE="com.exobrain.mist-console"
 CONSOLE_PORT="5014"
