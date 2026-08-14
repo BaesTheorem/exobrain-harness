@@ -72,7 +72,12 @@ BACKUP_RESCUE_DIR="${BACKUP_RESCUE_DIR:-$HOME/Exobrain backup rescue}"
 # local size for a file whose cloud copy is an empty husk, which is exactly how
 # the 08-07 loss went unnoticed.
 DRIVE_SYNCED_XATTR='com.google.drivefs.item-id#S'
-drive_item_id() { xattr -p "$DRIVE_SYNCED_XATTR" "$1" 2>/dev/null; }
+# Empty output means "Drive has not confirmed this file yet", which is the normal
+# state on every poll before the upload lands. The `|| true` is load-bearing under
+# `set -e`: xattr exits 1 when the attribute is absent, so without it the very
+# first poll of the wait loop below killed the whole script silently, with no
+# stderr and no banner. That is exactly what happened 2026-08-11 through 08-14.
+drive_item_id() { xattr -p "$DRIVE_SYNCED_XATTR" "$1" 2>/dev/null || true; }
 
 TIMESTAMP=$(date +%Y%m%d_%H%M%S)
 ARCHIVE_NAME="exobrain-collective-$TIMESTAMP.tar.gz"
@@ -138,6 +143,13 @@ fi
 # --- Build the archive in a local temp dir ------------------------------------
 WORK="$(mktemp -d "${TMPDIR:-/tmp}/exobrain-backup.XXXXXX")"
 trap 'rm -rf "$WORK"' EXIT
+
+# Every deliberate failure path here calls fail(), which logs and raises a banner.
+# An *undeliberate* one (a `set -e` trip on a command nobody expected to return
+# non-zero) used to exit 1 with a completely empty log, which is how a dead backup
+# went unnoticed for four days. Report those with the same volume, naming the line
+# so the next one takes minutes instead of an evening.
+trap 'rc=$?; [ $rc -ne 0 ] && fail "backup died unexpectedly at line $LINENO (exit $rc); see backup.log"' ERR
 COLLECTIVE_TAR="$WORK/collective.tar"
 
 # The backup reads a live filesystem, so a file can disappear between the moment
