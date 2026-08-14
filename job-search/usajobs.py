@@ -15,9 +15,16 @@ The API is free but keyed: request a key at https://developer.usajobs.gov/apireq
 Without a key the script prints instructions and exits 0 so the headless scan
 treats the lane as skipped-with-reason rather than failed.
 
-Gates applied mechanically: RemoteIndicator=True (server-side), full-time
-schedule, comp band rule against the floor after annualizing per-hour rates.
-Title pre-filter matches the other lanes.
+Two passes per query (Alex standing instruction 2026-08-14):
+  - REMOTE: RemoteIndicator=True nationwide, gated at the standard floor.
+  - LOCAL:  LocationName + Radius around Kansas City, gated at the ONSITE
+    floor. Alex's onsite floor is binary on any office requirement -- one day
+    a week or five both trigger it (see feedback_onsite_floor memory) -- and
+    every local federal seat carries at least some onsite, so the higher floor
+    applies to the whole pass.
+
+Other gates match the rest of the pipeline: full-time schedule, comp band rule
+after annualizing per-hour rates, title pre-filter.
 
 Usage:
     python3 usajobs.py "IT specialist" "security analyst" --days 7
@@ -30,13 +37,23 @@ import re
 import urllib.parse
 import urllib.request
 
-COMP_FLOOR = 75_000  # standard-lane floor; see gitignored Claude Reference.md
+COMP_FLOOR = 75_000    # standard remote floor; see gitignored Claude Reference.md
+ONSITE_FLOOR = 103_000  # any office requirement at all triggers this, binary
+LOCAL_LOCATION = "Kansas City, Missouri"
+LOCAL_RADIUS_MILES = 30
 
 ENV_PATH = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), ".env")
 
 DROP = re.compile(
     r"\b(senior|sr\.?|lead|principal|staff|manager|director|chief|architect|"
     r"supervisory|supvy)\b", re.I)
+# USAJOBS keyword matching is loose (an "information technology" query returns
+# transportation program roles), so require an in-lane title like other lanes.
+KEEP = re.compile(
+    r"\b(analyst|it support|it operations|it specialist|helpdesk|help desk|"
+    r"service desk|security|identity|iam|grc|compliance|administrator|"
+    r"information technology|m365|intune|endpoint|desktop support|"
+    r"technical support)\b", re.I)
 
 
 def env_creds():
@@ -51,16 +68,21 @@ def env_creds():
     return creds.get("USAJOBS_API_KEY"), creds.get("USAJOBS_EMAIL")
 
 
-def search(key, email, query, days):
-    params = urllib.parse.urlencode({
+def search(key, email, query, days, local=False):
+    p = {
         "Keyword": query,
-        "RemoteIndicator": "True",
         "HiringPath": "public",
         "DatePosted": str(days),
         "SortField": "opendate",
         "SortDirection": "desc",
         "ResultsPerPage": "100",
-    })
+    }
+    if local:
+        p["LocationName"] = LOCAL_LOCATION
+        p["Radius"] = str(LOCAL_RADIUS_MILES)
+    else:
+        p["RemoteIndicator"] = "True"
+    params = urllib.parse.urlencode(p)
     req = urllib.request.Request(
         "https://data.usajobs.gov/api/search?" + params,
         headers={"Host": "data.usajobs.gov",
@@ -85,17 +107,24 @@ def annual_band(remuneration):
     return lo, hi
 
 
-def gate(d):
-    sched = [s.get("Name", "") for s in d.get("PositionSchedule") or []]
-    if sched and not any("full" in s.lower() for s in sched):
-        return False, "gate2 %s" % ",".join(sched)
+def gate(d, floor):
+    # PositionSchedule Name often carries tour-of-duty prose ("Monday-Friday
+    # 8:00am...") or is empty; the Code is the reliable field (1 = full-time).
+    # Gate only on an explicit non-full-time code -- an absent/unparseable
+    # schedule is not evidence of part-time.
+    codes = [str(s.get("Code", "")) for s in d.get("PositionSchedule") or []]
+    names = " ".join(s.get("Name", "") for s in d.get("PositionSchedule") or [])
+    if codes and "1" not in codes and "full" not in names.lower():
+        return False, "gate2 schedule codes %s" % ",".join(codes)
     lo, hi = annual_band(d.get("PositionRemuneration"))
     if hi is None:
         return False, "gate3 comp unlisted"
-    if hi < COMP_FLOOR:
-        return False, "gate3 band tops out at $%s" % f"{int(hi):,}"
-    if lo is not None and lo < COMP_FLOOR:
-        return True, "BAND-STRADDLE: bottom $%s under floor" % f"{int(lo):,}"
+    if hi < floor:
+        return False, "gate3 band tops out at $%s (floor $%s)" % (
+            f"{int(hi):,}", f"{floor:,}")
+    if lo is not None and lo < floor:
+        return True, "BAND-STRADDLE: bottom $%s under $%s floor" % (
+            f"{int(lo):,}", f"{floor:,}")
     return True, ""
 
 
@@ -112,39 +141,46 @@ def main():
         print("then add USAJOBS_API_KEY=... and USAJOBS_EMAIL=... to the harness .env")
         return
 
-    print("floor $%s | max age %dd | remote-only, public hiring path\n"
-          % (f"{COMP_FLOOR:,}", args.days))
+    print("remote floor $%s | LOCAL (%s, %dmi) onsite floor $%s | max age %dd\n"
+          % (f"{COMP_FLOOR:,}", LOCAL_LOCATION, LOCAL_RADIUS_MILES,
+             f"{ONSITE_FLOOR:,}", args.days))
 
     seen, survivors = set(), []
+    passes = [("remote", False, COMP_FLOOR), ("LOCAL", True, ONSITE_FLOOR)]
     for q in args.queries:
-        try:
-            d = search(key, email, q, args.days)
-        except OSError as e:
-            print("== %-30s LANE DID NOT RUN: %s" % ('"%s"' % q, e))
-            continue
-        items = d.get("SearchResult", {}).get("SearchResultItems", [])
-        print("== %-30s %d hits" % ('"%s"' % q, len(items)))
-        for it in items:
-            desc = it.get("MatchedObjectDescriptor", {})
-            jid = it.get("MatchedObjectId")
-            title = desc.get("PositionTitle", "")
-            if jid in seen or DROP.search(title):
+        for pass_name, local, floor in passes:
+            try:
+                d = search(key, email, q, args.days, local=local)
+            except OSError as e:
+                print("== %-30s %-6s LANE DID NOT RUN: %s"
+                      % ('"%s"' % q, pass_name, e))
                 continue
-            seen.add(jid)
-            ok, note = gate(desc)
-            if not ok:
-                continue
-            lo, hi = annual_band(desc.get("PositionRemuneration"))
-            close = (desc.get("ApplicationCloseDate") or "")[:10]
-            survivors.append((title, desc.get("OrganizationName", ""),
-                              lo, hi, close, desc.get("PositionURI", ""), note))
+            items = d.get("SearchResult", {}).get("SearchResultItems", [])
+            print("== %-30s %-6s %d hits" % ('"%s"' % q, pass_name, len(items)))
+            for it in items:
+                desc = it.get("MatchedObjectDescriptor", {})
+                jid = it.get("MatchedObjectId")
+                title = desc.get("PositionTitle", "")
+                if jid in seen or DROP.search(title) or not KEEP.search(title):
+                    continue
+                seen.add(jid)
+                ok, note = gate(desc, floor)
+                if not ok:
+                    continue
+                lo, hi = annual_band(desc.get("PositionRemuneration"))
+                close = (desc.get("ApplicationCloseDate") or "")[:10]
+                survivors.append((pass_name, title,
+                                  desc.get("OrganizationName", ""), lo, hi, close,
+                                  desc.get("PositionLocationDisplay", ""),
+                                  desc.get("PositionURI", ""), note))
 
     print("\n%d survivor(s) of %d unique postings" % (len(survivors), len(seen)))
-    for title, org, lo, hi, close, url, note in survivors:
+    for pass_name, title, org, lo, hi, close, loc, url, note in survivors:
         print("-" * 72)
-        print("%s @ %s%s" % (title, org, ("  [%s]" % note) if note else ""))
-        print("  $%s - $%s | closes %s"
-              % (f"{int(lo or 0):,}", f"{int(hi or 0):,}", close or "?"))
+        print("[%s] %s @ %s%s"
+              % (pass_name, title, org, ("  [%s]" % note) if note else ""))
+        print("  $%s - $%s | %s | closes %s"
+              % (f"{int(lo or 0):,}", f"{int(hi or 0):,}", loc, close or "?"))
         print("  %s" % url)
     if survivors:
         print("\nNote: federal postings close on hard deadlines and often require "
