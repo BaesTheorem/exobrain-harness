@@ -41,7 +41,7 @@ Use multiple sources and triangulate -- no single source is authoritative for "o
 2. **LinkedIn MCP** (`mcp__linkedin__search_jobs`, `get_job_details`) -- see `/linkedin` for read-only rules and pacing. Good for discovery by keyword + location, and for cross-checking listings found elsewhere. Also the source for hiring-contact lookup (`get_company_employees`) on Strong-Fit roles.
 3. **Google search via WebSearch** (NEW -- added 2026-05-19 after Alex flagged LinkedIn-only blind spot):
    - **X-ray search ATS boards**: `site:boards.greenhouse.io "<keyword>" remote`, `site:jobs.lever.co "<keyword>" remote`, `site:jobs.ashbyhq.com "<keyword>" remote`, `site:apply.workable.com "<keyword>" remote` -- these often surface listings not crossposted to LinkedIn
-   - **Niche remote job boards**: `site:remoterocketship.com`, `site:himalayas.app`, `site:builtin.com`, `site:weworkremotely.com`, `site:remotive.com` -- different employer mix
+   - **Niche remote job boards -- do NOT X-ray these anymore** (superseded 2026-08-14): Himalayas, BuiltIn, WeWorkRemotely, and Remotive are now queried through their own data paths by `Exobrain harness/job-search/nicheboards.py` (see Source #10 below). Google's index of these boards lags and its `site:` filters silently return other domains, which is what kept logging the lane as dry. Only RemoteRocketship still needs the browser (Cloudflare-walled); surface its URLs for Alex to spot-check.
    - **Firm careers portals**: search by responsibility keyword without site filter to surface direct-to-employer postings (`"phishing remediation" "remote" careers`)
    - **Search by JD responsibility keywords, NOT just titles** (the killer feature -- see "Responsibility-keyword search" below). Alex's title-only filter misses roles whose JDs match his daily work but whose titles he'd otherwise skip.
 4. **Firm careers portals direct** -- the firm's own site is the most reliable signal that a role is still open. Cross-check aggregator hits against the firm portal.
@@ -123,6 +123,21 @@ Use multiple sources and triangulate -- no single source is authoritative for "o
      Only the Name column renders at that viewport; other fields need horizontal scroll or a row click. That's fine for its actual job -- it tells you which programs exist (Horizon, TechCongress x2, RAND CAST, GovAI x4, IAPS, LawAI, AAAS, Scoville, Mirzayan, PIF, White House Fellows, and ~20 more), and you then verify each on its own site.
    - **Secondary program pages**, worth a rotating 2-3 per pass rather than all every day (verified 200 on 2026-07-25): [MATS](https://www.matsprogram.org), [Anthropic Fellows](https://alignment.anthropic.com/fellows-program), [Constellation Astra](https://www.constellation.org/programs/astra-fellowship), [TechCongress](https://www.techcongress.io), [Pivotal](https://www.pivotal-research.org), [ERA](https://www.erafellowship.org), [LASR Labs](https://www.lasrlabs.org), [Apart Research](https://www.apartresearch.com), [Successif](https://successif.org).
    - **Never state a deadline, stipend, or cohort date from memory.** These change every cycle and are exactly the kind of claim that gets hallucinated. Read the program's own page and quote it, or mark the field unknown.
+
+10. **Niche boards via direct data paths** (ADDED 2026-08-14, replacing the Google X-ray of these boards) -- run `python3 "Exobrain harness/job-search/nicheboards.py" "<angle1>" "<angle2>" --days 3` every discovery pass. One script, four boards, no search engine in the loop. Verified data paths (2026-08-14):
+   - **Himalayas** -- documented public JSON API at `himalayas.app/jobs/api?offset=&limit=`, ~99K jobs, newest-first, full structured fields (salary + period, employmentType, locationRestrictions, pubDate, expiryDate, applicationLink). Two gotchas baked into the script: the `search` param is **ignored** (filtering is client-side), and the API silently caps `limit` at 20, so offset must advance by the actual page size or you skip 4 of every 5 jobs.
+   - **Remotive** -- documented API at `remotive.com/api/remote-jobs?search=`, working search param. Salary is freeform text, parsed best-effort; expect thin, mixed-quality results.
+   - **WeWorkRemotely** -- plain RSS per category. The "all other" slug is `all-other-remote-jobs` (NOT `remote-all-other-remote-jobs`, which 301s). RSS carries no salary, so WWR hits can never pass gate 3 mechanically -- they surface as **LEADS**.
+   - **BuiltIn** -- server-rendered search page (`builtin.com/jobs/remote?search=`) with a browser UA; job cards carry `data-builtin-track-job-id`. Cards rarely show comp -- **LEADS**.
+
+   The script pre-applies the gates on structured fields (band rule included) and the title pre-filter, then prints three buckets: **survivors** (gated pass -- verify on the employer ATS like any aggregator hit), **leads** (pass except comp unlisted -- a JD read decides, per the unlisted-comp rule), and declines. Himalayas is a firehose (hundreds of postings per hour), so keep `--days` small (1-3) and treat its `TRUNCATED` warning as a real coverage gap, not noise.
+
+11. **ATS-direct watchlist** (ADDED 2026-08-14 -- the anti-search-engine lane) -- run `python3 "Exobrain harness/job-search/ats-watchlist.py"` every discovery pass. Polls the **full live posting list** of every employer we have ever tracked, straight from the ATS APIs (Greenhouse `boards-api.greenhouse.io/v1/boards/<board>/jobs`, Lever `api.lever.co/v0/postings/<board>`, Ashby `api.ashbyhq.com/posting-api/job-board/<org>`), and diffs against yesterday's snapshot. Zero index lag; a posting that never crossposts anywhere surfaces the morning it goes up.
+   - The watchlist **builds itself** from every `type: job-listing` note (Job Listings folder AND `Archive/`), so it automatically covers the re-apply watchlist (`reapply: true` employers are in the tracker by construction). Pin extra boards in `job-search/state/watchlist-extra.json` (`{"<ats>:<board>": {"why": "..."}}`) -- e.g. a warm-connection employer with no note yet.
+   - First poll of a board is a **baseline** (counts only); the new-posting diff starts on the second run. State lives in the gitignored `job-search/state/` (the employer list reveals where Alex applies -- keep it out of the public repo).
+   - New postings are pre-filtered by title but NOT gated -- each still needs the JD read + 4 gates + dedup before a note is written. A board that 404s may mean the company left that ATS; check where its careers page points now before deleting the listing-note reference.
+
+12. **USAJOBS** (ADDED 2026-08-14) -- run `python3 "Exobrain harness/job-search/usajobs.py" "<angle1>" "<angle2>" --days 7` every discovery pass. The official federal API (`data.usajobs.gov/api/search`), free but keyed: `USAJOBS_API_KEY` + `USAJOBS_EMAIL` in the harness `.env` (request at https://developer.usajobs.gov/apirequest/). Without a key the script prints instructions and exits 0 -- report the lane as skipped-with-reason, never as failed. Why this lane earns its slot: federal remote IT/security postings mostly never reach commercial boards, many accept experience in lieu of a degree, and Public Trust eligibility (which Alex has) is a common bar. The script filters server-side to remote + public hiring path and gates comp mechanically (annualizing hourly bands). Federal postings close on **hard deadlines** and usually want the USAJOBS-profile resume format -- capture the close date on the note and flag anything closing inside 14 days.
 
 ### Specific employer boards to watch (warm-connection lane)
 
@@ -277,10 +292,12 @@ A scan is **not** a full scan until every lane below has either run or been expl
 | 5 | Indeed | | Bot-hostile; verify on the employer ATS. |
 | 6 | Hiring.cafe | | Follow through to the primary posting. |
 | 7 | 80,000 Hours | | Algolia endpoint, see Source #7. |
-| 8 | Niche boards (Himalayas / BuiltIn / RemoteRocketship / WeWorkRemotely / Remotive) | | RemoteRocketship Cloudflare-403s even with a browser UA; surface the URL and mark "Alex must spot-check." |
+| 8 | Niche boards via `nicheboards.py` (Himalayas API / Remotive API / WWR RSS / BuiltIn scrape) | | Direct data paths, NOT Google X-ray (superseded 2026-08-14). Survivors verify on the employer ATS; LEADS need a JD read for comp. RemoteRocketship stays browser-only; surface the URL and mark "Alex must spot-check." |
 | 9 | Warm-connection lane (Claude Reference) | | Per-firm careers portals. |
-| 10 | Re-apply watchlist (`reapply: true` notes) | | Check those employers' boards directly; see "Re-Apply on Repost". |
+| 10 | Re-apply watchlist (`reapply: true` notes) | | Largely absorbed by lane 12's automatic employer coverage, but still check for reposts on boards OUTSIDE the three polled ATSes (Workday, iCIMS, SuccessFactors, company-native pages). |
 | 11 | AI safety fellowships: 80k `Fellowship` facet + AISafety.com/jobs + the **six hardcoded program sources** (GovAI, IAPS, Horizon, Talos, Airtable policy-fellowship base, RAND CAST) | | Location-agnostic, modified gates. Do NOT apply the remote filter or the permanent-role gate here. All six hardcoded sources run every pass. See "AI Safety Fellowship Lane". |
+| 12 | ATS-direct watchlist via `ats-watchlist.py` | | Polls every tracked employer's Greenhouse/Lever/Ashby board and diffs. First run per board is a baseline; new postings still need JD read + gates + dedup. |
+| 13 | USAJOBS via `usajobs.py` | | Keyed lane; if the key is missing the script says so and exits 0 -- report skipped-with-reason. Federal deadlines are hard; flag anything closing inside 14 days. |
 
 **Report the tally honestly**, including the skipped lanes. A scan that ran 4 of 9 lanes is a partial scan; say so in the hub-note log and to Alex rather than labeling it full. Under-running is recoverable; a false "I checked everything" is not, because it silently retires leads.
 
@@ -641,14 +658,12 @@ When called as part of the daily briefing (every day, weekends included):
 
 1. **Tracker maintenance**: The canonical tracker is the `Job Listings` Bases file at `/Users/alexhedtke/Exobrain/Projects/Get new job/Job Listings.base` plus the per-listing notes in `Projects/Get new job/Job Listings/`. Search Gmail for new application confirmations and rejection emails since the last entry. For each new confirmation: if a listing note already exists for that company+role, set `applied: true`, `status: applied`, and `application_date: <today>`. If no note exists, create one per the schema in the "Per-Listing Notes & Bases Tracker" section above. For rejections: set `status: rejected` and `rejection_date: <date>`.
 
-2. **Google/WebSearch discovery scan** (NEW -- added 2026-05-19 to fix LinkedIn-only blind spot):
-   - Rotate 2-3 Google X-ray searches per day across ATS boards and niche remote boards. Suggested rotation (alternate which to skip):
+2. **Google/WebSearch discovery scan** (added 2026-05-19; NARROWED 2026-08-14 -- the niche boards moved to their direct data paths in `nicheboards.py`, so never X-ray Himalayas/BuiltIn/WWR/Remotive anymore):
+   - Rotate 1-2 Google X-ray searches per day across the ATS boards only. Suggested rotation (alternate which to skip):
      - `site:boards.greenhouse.io "<responsibility phrase>" remote` -- pick a different responsibility phrase each day (Entra ID, phishing remediation, access provisioning, M365 admin, compromised account, Intune endpoint, etc.)
      - `site:jobs.lever.co "<responsibility phrase>" remote`
      - `site:jobs.ashbyhq.com "<keyword>" remote`
-     - `site:remoterocketship.com "IT analyst" OR "security analyst" OR "compliance analyst"`
-     - `site:himalayas.app "IT analyst" remote "$<comp floor>"` (substitute the comp floor from the gitignored Claude Reference.md)
-     - `site:builtin.com "compliance analyst" OR "security analyst" remote`
+   - The X-ray's remaining job is discovering employers NOT yet in the tracker; once a company gets a listing note, `ats-watchlist.py` polls its whole board daily and the X-ray adds nothing for it.
    - Vary which responsibility phrase you search each day (see "Responsibility-keyword search" in Sources section). Rotating across days makes the activity pattern look like a human exploring rather than a script.
    - For each promising search result: open with `/defuddle` or WebFetch to read the JD directly (no need for separate "verify the title" step -- the page IS the JD).
    - **Staleness check**: Google's index lags real-time. Lever (`jobs.lever.co/*`) silently returns 404 when a listing is removed. If `defuddle` returns empty content or `WebFetch` returns 403, fall back to `curl -sL -A "<browser UA>"` to confirm -- many JS-rendered pages need a real UA, but a 404 page means the listing is dead. Discard 404s.
@@ -663,6 +678,11 @@ When called as part of the daily briefing (every day, weekends included):
    - **Indeed**: bot-hostile -- surface URLs via `WebSearch site:indeed.com`, then verify on the employer's own ATS/careers page; mark "verification incomplete" if only the Indeed mirror exists.
    - **Hiring.cafe**: use its structured filters (Remote + US + min salary at the comp floor + full-time + recent); follow through to the primary posting and verify there.
    - Same 4-gate filter + dedup against the Job Listings folder. Create per-listing notes for survivors with `source: dice` / `source: indeed` / `source: hiringcafe` (or the underlying employer-ATS tag if the aggregator resolves to one).
+
+2b2. **Niche boards + ATS watchlist + USAJOBS scripted lanes** (ADDED 2026-08-14 -- see Sources #10-12 for the per-board gotchas):
+   - `python3 "Exobrain harness/job-search/nicheboards.py" "<angle1>" "<angle2>" --days 3` -- rotate angles like the other lanes. Survivors: verify on the employer ATS, then the normal note pipeline. Leads (comp unlisted): spend a JD read only when the title is squarely in-lane; the unlisted-comp DQ still applies after the read.
+   - `python3 "Exobrain harness/job-search/ats-watchlist.py"` -- new postings since yesterday's snapshot across every tracked employer's Greenhouse/Lever/Ashby board. Each new posting: JD read, 4 gates, status-aware dedup, note. Report polled/failed/baselined counts honestly in the hub log.
+   - `python3 "Exobrain harness/job-search/usajobs.py" "IT specialist" "security analyst" --days 7` -- skips itself with instructions if the API key is absent; log the lane as skipped-with-reason in that case.
 
 2c. **AI safety fellowship scan** (ADDED 2026-07-25 -- see Source #9 and "AI Safety Fellowship Lane" for the gate variant):
    - One 80k Algolia call on `facetFilters: [["tags_role_type:Fellowship"]]` with **no** location filter, plus a pass over AISafety.com/jobs (including its "Events & training" section).
