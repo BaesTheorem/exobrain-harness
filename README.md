@@ -130,7 +130,7 @@ Skills are invoked with `/skill-name` in Claude Code. Each is defined in `.claud
 | `/local-events` | Discover upcoming KC events. Searches Meetup, venue calendars, library listings. | WebSearch, GCal, Things 3 |
 | `/deep-research` | Multi-agent deep research for complex questions. Spawns parallel subagents, synthesizes cited report. | WebSearch, WebFetch |
 | `/verify` | Background fact-checker -- runs silently after research tasks to catch errors | WebSearch, WebFetch |
-| `/news-briefing` | Comprehensive news intelligence briefing with bias analysis, blind spot detection, and prediction market cross-referencing | WebSearch, WebFetch |
+| `/news-briefing` | Comprehensive news intelligence briefing with bias analysis, blind spot detection, DC policy tracking, and prediction market cross-referencing | WebSearch, WebFetch |
 | `/de-ai` | Strip AI-generated patterns from text to sound human | None (text transformation only) |
 | `/whimsy` | Gamified whimsy point tracking with tiered rewards and anti-whimsy deductions | Obsidian daily notes |
 | `/antivirus` | Native macOS LOCAL machine security audit -- XProtect state, persistence, network listeners, browser extensions, quarantine history | Built-in macOS tooling |
