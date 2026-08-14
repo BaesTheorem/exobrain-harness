@@ -38,11 +38,17 @@ TAILORING SCHEMA (all keys optional):
     "title_suffix": {                        # opt-in note appended to a job's title line
         "clyde": " (IT function outsourced, July 2026)"
     },
+    "leadership_include": ["ea_kc"],         # switch on an optional canonical entry
     "leadership": [                          # replace the Leadership and Community entries
         {"title": "Role | Org | Dates", "bullets": ["..."]}
     ]
   }
 Never add a skill/tool/cert the canonical data does not support. Surgical only.
+
+"leadership_include" switches on a canonical Leadership entry marked "optional": true,
+by id. Those entries are real and documented, they just aren't relevant to most JDs, so
+they stay off unless the employer or the role makes them relevant (ea_kc for the EA,
+nonprofit, and AI-policy lane). Nothing here is invented; the entry already exists.
 
 "leadership" is a full replacement for the Leadership and Community section, for roles
 where community/nonprofit work carries the application instead of sitting at the bottom
@@ -111,6 +117,18 @@ def _with_suffix(title, suffix):
     return " | ".join(parts)
 
 
+def _leadership(data, include):
+    """Canonical Leadership entries, minus the opt-in ones this JD didn't ask for.
+
+    An entry marked "optional": true stays off unless its id appears in the tailoring
+    file's "leadership_include". That keeps community work in the canonical data (so it
+    is never re-derived from scratch) while the default resume stays the length it was.
+    """
+    include = set(include)
+    return [ld for ld in data.get("leadership", [])
+            if not ld.get("optional") or ld.get("id") in include]
+
+
 def build_resume_html(data, tailor):
     summary = tailor.get("summary", data["summary"])
     skills_append = tailor.get("skills_append", {})
@@ -154,7 +172,7 @@ def build_resume_html(data, tailor):
         parts.append(f'<div class="role">{esc(ed["title"])}</div>')
         parts.append(_ul(ed["bullets"]))
 
-    leadership = tailor.get("leadership", data.get("leadership"))
+    leadership = tailor.get("leadership") or _leadership(data, tailor.get("leadership_include", []))
     if leadership:
         parts.append("<h2>Leadership and Community</h2>")
         for ld in leadership:
