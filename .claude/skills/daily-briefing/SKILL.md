@@ -57,11 +57,18 @@ Follow the `/job-search` skill's **Daily Briefing** section. If it's a weekday, 
 Follow the `/crm` skill's **Network scan** mode (mode 8). Create Things 3 tasks for overdue contacts. Do NOT list overdue contacts in the briefing -- Things 3 tasks are sufficient. Only mention a contact if you have new context from email/transcript/calendar.
 
 ### 11. News
-Check if `/Users/alexhedtke/Exobrain/News Briefings/YYYY-MM-DD.md` exists for today.
-- **Does not exist**: Run the full `/news-briefing` skill (all phases).
-- **Already exists**: Read **only the YAML frontmatter** of the note -- do NOT load the body. The news-briefing skill writes a `tldr:` field (a 3-bullet YAML array) for exactly this purpose. Extract the frontmatter with e.g. `awk '/^---$/{c++; next} c==1' path.md` and parse the `tldr:` list.
+**Run the full `/news-briefing` skill, all phases, every time this briefing runs.** That means all 4 gathering subagents (global+interest, DC policy, KC local, prediction markets) plus Lead Editor synthesis. It is roughly 3 minutes of wall clock and ~150k tokens, and that is the cost of the briefing, not an optional extra.
 
-Use the 3 `tldr:` bullets verbatim as the daily note's `#### News` section content. Do not re-summarize the body.
+Three things that are **not** reasons to skip it, because each has been tried:
+- Today's `News Briefings/YYYY-MM-DD.md` already exists. Run anyway and overwrite it; take the `tldr:` from the note you just wrote, not the old one.
+- Context or token pressure. If context is genuinely tight, the news run stays and something else gives.
+- It's a scheduled 8 AM launchd run rather than Alex asking. Same skill either way.
+
+The only acceptable degradation is a substantive one: if a gathering agent comes back empty (search down, source unreachable), write the sections you do have and say plainly in the note which beat failed.
+
+Invoke `/news-briefing` **directly in this session** via the Skill tool. Do NOT wrap it in a general-purpose subagent -- the skill spawns its own gathering subagents, and grandchildren can't address a wrapper parent, so the run deadlocks and never writes the note.
+
+Use 3-5 bullets drawn from the fresh briefing's `tldr:` and Washington section as the daily note's `#### News` content.
 
 ### 12. Local Events (read-only)
 Do NOT run `/local-events` here -- the full scan runs as part of the weekly review on Sundays.
@@ -116,6 +123,7 @@ Weather goes FIRST (outside the briefing heading), then content under `### Morni
 *Full briefing: [[News Briefings/YYYY-MM-DD|Today's news briefing]]*
 - [Top headline -- 1 sentence]
 - [Second headline -- 1 sentence]
+- [Washington: what moved and what stage it's at -- 1 sentence. Omit if nothing binding moved.]
 - [Interest area highlight -- 1 sentence]
 (3-5 lines max.)
 

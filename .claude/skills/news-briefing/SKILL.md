@@ -1,25 +1,26 @@
 ---
 name: news-briefing
-description: Comprehensive news intelligence briefing with bias analysis, blind spot detection, prediction market cross-referencing, and epistemic hygiene. Writes a cited, beautiful report to Obsidian. Use when the user asks for "news", "news briefing", "what's happening in the world", "headlines", "catch me up on news", "news report", or when triggered by the daily briefing.
+description: Comprehensive news intelligence briefing with bias analysis, blind spot detection, DC/federal policy tracking, prediction market cross-referencing, and epistemic hygiene. Writes a cited, beautiful report to Obsidian. Use when the user asks for "news", "news briefing", "news rollup", "what's happening in the world", "headlines", "catch me up on news", "news report", "what's Congress doing", "what came out of DC", or when triggered by the daily briefing.
 ---
 
 # News Briefing
 
-A personalized intelligence briefing that goes beyond headlines. Analyzes how stories are framed across the political spectrum, surfaces blind spots, cross-references prediction markets, and fact-checks key claims -- all with citations.
+A personalized intelligence briefing that goes beyond headlines. Analyzes how stories are framed across the political spectrum, tracks what the federal government actually did, surfaces blind spots, cross-references prediction markets, and fact-checks key claims -- all with citations.
 
 **Output**: Standalone note in `/Users/alexhedtke/Exobrain/News Briefings/YYYY-MM-DD.md`
-**Target length**: Under a 10-minute read (~2,000-2,500 words)
+**Target length**: Under a 12-minute read (~2,400-3,000 words). Washington is compressed, scannable lines, not another Top Stories block -- if the briefing is running long, trim analysis depth on stories 4+ before you trim DC coverage.
 **Reference**: Read `[[Alex's Tastes]]` (`/Users/alexhedtke/Exobrain/Alex's Tastes.md`) for personalization context.
 
 ## Architecture
 
-You are the **Lead Editor** (Opus). You delegate gathering to 3 subagents, then perform all analysis and synthesis yourself. Phase 2 analysis (bias, framing, blind spots, fact-checking) does NOT need separate subagents -- you have the gathered data and can analyze it directly during synthesis.
+You are the **Lead Editor** (Opus). You delegate gathering to 4 subagents, then perform all analysis and synthesis yourself. Phase 2 analysis (bias, framing, blind spots, fact-checking) does NOT need separate subagents -- you have the gathered data and can analyze it directly during synthesis.
 
 ```
 Lead Editor (Opus)
     │
-    ├── Gathering (3 parallel subagents)
+    ├── Gathering (4 parallel subagents)
     │   ├── Main news agent (global + interest areas) -- sonnet
+    │   ├── DC policy agent (Congress, White House, agencies, courts) -- sonnet
     │   ├── KC local agent -- haiku
     │   └── Prediction markets agent -- haiku
     │
@@ -31,12 +32,12 @@ Lead Editor (Opus)
 
 - **Defuddle all web pages.** Subagents must use `npx @anthropic/defuddle@latest "[URL]"` (via Bash) instead of raw WebFetch when reading article content. This strips navigation, ads, and boilerplate, often cutting page tokens by 60-80%. Only fall back to WebFetch if defuddle fails.
 - **KC local and prediction markets use `model: "haiku"`** -- these are structured data-gathering tasks that don't need Sonnet's reasoning.
-- **Main news agent uses `model: "sonnet"`** -- framing comparison requires noting subtle editorial choices.
+- **Main news and DC policy agents use `model: "sonnet"`** -- framing comparison and reading procedural posture off a bill or docket both require noting subtle distinctions.
 - **Trim before returning.** Subagents should return structured summaries, not raw article text. Each story should be 5-10 lines max in the subagent output.
 
 ## Phase 1: News Gathering
 
-Launch all 3 subagents in parallel.
+Launch all 4 subagents in parallel.
 
 ### Agent 1: Main News (global + interest areas)
 
@@ -65,6 +66,8 @@ CATEGORY B -- INTEREST AREAS (find 3-5 stories not already in Category A):
 
 Search specialized sources: CSET Georgetown, GovAI, Schneier on Security, KrebsOnSecurity, EA Forum, LessWrong, congress.gov for new legislation.
 
+A separate agent owns the general Washington beat. Cover AI/cyber policy here as the subject-matter story it is, and leave floor schedules, approps, nominations, and unrelated rulemaking to that agent.
+
 OUTPUT FORMAT (structured, concise -- 5-10 lines per story max):
 For each story:
 1. Headline / topic (neutral framing)
@@ -75,7 +78,65 @@ For each story:
 6. Why it matters to someone in AI governance + cybersecurity (for Interest stories)
 ```
 
-### Agent 2: Kansas City Local
+### Agent 2: DC Policy (general federal government)
+
+`model: "sonnet"`, `subagent_type: "general-purpose"`
+
+```
+You are a Washington policy research agent. Cover what the federal government actually
+DID in the last 24-48 hours -- across all issue areas, not just the ones the reader
+already follows. This is the general DC beat: the reader wants to know what moved in
+Congress, the White House, the agencies, and the courts even when it is outside his
+interests.
+
+USE DEFUDDLE: When reading any web page, run:
+  npx @anthropic/defuddle@latest "[URL]"
+Only use WebFetch as a fallback.
+
+PRIMARY SOURCES FIRST -- these are the record, and a news write-up about a bill is not
+a substitute for the bill:
+- congress.gov -- bills introduced/reported/passed, roll call votes, the week's floor schedule
+- federalregister.gov -- proposed and final rules, comment deadlines, executive orders
+- whitehouse.gov/presidential-actions -- EOs, memoranda, proclamations, nominations sent
+- supremecourt.gov and courtlistener.com -- opinions, cert grants, injunctions against
+  federal action
+- gao.gov, cbo.gov -- scores, reports, appropriations status
+- opm.gov and USAJOBS policy announcements -- federal workforce, hiring authorities,
+  RIF/return-to-office actions
+
+THEN reporting for context and contest: Politico, Roll Call, Government Executive,
+Federal News Network, The Hill, plus at least one outlet each from the political left
+and right so the Lead Editor has framing to compare.
+
+FIND 4-6 developments. Spread them across beats -- do NOT return six versions of the
+same fight. Aim for coverage of:
+1. Legislative -- what passed, what is scheduled, what died, notable votes
+2. Executive -- EOs, agency memos, personnel and nominations
+3. Regulatory -- proposed/final rules, open comment periods, enforcement actions
+4. Judicial -- rulings that constrain or enable federal action
+5. Fiscal -- appropriations, CR/shutdown deadlines, debt limit, major spending
+6. Federal workforce and civil service -- staffing, hiring, agency reorganizations
+
+STAGE, DON'T HYPE. A bill being introduced is nearly meaningless; a bill getting a
+committee markup or a floor vote is not. For every item, state exactly where it sits in
+the process and what has to happen next for it to bind anyone. Kill anything that is
+purely a press release, a floor speech, or a proposal with no procedural vehicle.
+
+OUTPUT FORMAT (5-10 lines per item):
+1. What happened (neutral, one line)
+2. Beat (legislative / executive / regulatory / judicial / fiscal / workforce)
+3. Vehicle and stage: bill or docket number, chamber or agency, exact procedural
+   posture (introduced / marked up / passed chamber / final rule / effective date /
+   enjoined). Link the primary source.
+4. Who it binds and when it takes effect (or "nothing binds yet")
+5. Next procedural step and its date, if one is scheduled
+6. Contested? Note the disagreement and cite one outlet from each side, with their
+   exact headline text
+7. Any deadline a member of the public can act on (comment period close, enrollment
+   window, filing date)
+```
+
+### Agent 3: Kansas City Local
 
 `model: "haiku"`, `subagent_type: "general-purpose"`
 
@@ -98,7 +159,7 @@ For each story:
 3. Why it matters locally
 ```
 
-### Agent 3: Prediction Markets
+### Agent 4: Prediction Markets
 
 `model: "haiku"`, `subagent_type: "general-purpose"`
 
@@ -115,6 +176,9 @@ ALWAYS CHECK (regardless of today's headlines):
 - AI regulation / AI timeline markets
 - Major geopolitical events (active conflicts, treaties)
 - Economic indicators (recession probability, Fed rate decisions)
+- Washington process markets: government shutdown / CR passage by date, whether a named
+  bill becomes law this session, cabinet and judicial confirmations, Fed chair and
+  agency-head appointments
 
 Also search: "polymarket trending", "metaculus active questions"
 
@@ -141,7 +205,15 @@ After all agents return, **you** (Opus) perform the analysis and write the brief
    - Labor, housing, healthcare stories the algorithm won't surface
    - Stories from the political right or left with genuine signal
 
-3. **Epistemic hygiene** -- For the top 3-5 claims in today's news:
+3. **DC stage check** -- Before writing the Washington section, sort what the DC agent
+   returned by how binding it is: in effect now > passed and awaiting signature/effective
+   date > cleared one chamber or a committee > proposed with a scheduled next step >
+   announced with no vehicle. Lead with the binding end. Cut anything in the last bucket
+   unless the announcement itself is the news. If an item is enjoined or stayed, say so
+   in the same breath as what it would otherwise do -- a rule that a court has blocked
+   is not a rule that is operating.
+
+4. **Epistemic hygiene** -- For the top 3-5 claims in today's news:
    - Cross-reference with prediction market data (news implies certainty but markets show uncertainty?)
    - Flag misleading statistics, correlation-as-causation, or narrative ahead of evidence
    - Note when "breaking news" is a repackaged older story
@@ -200,6 +272,23 @@ tldr:
 
 ---
 
+## Washington
+*What the federal government actually did, across all issue areas.*
+
+(3-5 items, ordered most-binding first. Include beats Alex doesn't follow -- that is the
+point of the section.)
+
+- **[What happened]** -- [1-2 sentences, neutral].
+  **Stage:** [bill/docket no.] -- [exact procedural posture]. [Binds whom, effective when,
+  or "nothing binds yet"]. **Next:** [step + date, or "nothing scheduled"].
+  [*Contested:* one line on the disagreement, if there is one.]
+  [Primary source](url) | [Coverage](url)
+
+> **Deadlines you could act on:** [comment period closing, enrollment window, filing
+> date -- with the date and link. Omit the line if there are none.]
+
+---
+
 ## Kansas City
 
 (2-4 stories)
@@ -243,6 +332,8 @@ tldr:
 - **Neutral voice** in summaries. Editorial framing goes in the analysis sections.
 - Full framing table for top 3-5 stories; 1-line framing note for the rest.
 - **Prediction markets**: Include URL, current odds, and trend. If no market exists, say so -- that itself is information.
+- **Washington items state their stage, always.** Never write "Congress is moving to X" or "the administration will Y" without the vehicle and its exact posture. Introduced is not passed, proposed is not final, final is not in effect, and in effect is not un-enjoined. If you can't establish the stage from a primary source, drop the item rather than smoothing over it.
+- **Don't filter Washington down to Alex's interests.** AI and cyber policy already have their own section. This one exists to catch the federal actions that touch him without announcing themselves -- tax, health coverage, unemployment and labor rules, student loans, benefits, consumer finance, federal hiring.
 - **Trim ruthlessly** to stay under 10 minutes. Top 3-5 get deep analysis; the rest get 1-2 sentences.
 - Personalize: connect stories to Alex's priorities (AI governance, job search, Sec+ study) explicitly.
 - Use `[[wikilinks]]` to link to relevant Obsidian notes.
@@ -250,12 +341,15 @@ tldr:
 ## Integration
 
 ### Daily Briefing
+The daily briefing runs **all phases of this skill, every single day** -- 4 gathering subagents plus Lead Editor synthesis. There is no compact mode, no single-WebSearch fallback, and no "today's note already exists so skip it" path. See Deduplication below for the one case that looks like an exception and isn't.
+
 When called from `/daily-briefing`, add a 3-5 line summary to the daily note under `#### News`:
 ```markdown
 #### News
 *Full briefing: [[News Briefings/YYYY-MM-DD|Today's news briefing]]*
 - [Top headline 1 -- 1 sentence]
 - [Top headline 2 -- 1 sentence]
+- [Washington item, if anything binding moved -- 1 sentence]
 - [Interest area highlight -- 1 sentence]
 - [Blind spot or prediction market callout if notable]
 ```
@@ -269,8 +363,10 @@ osascript -e 'display notification "News briefing ready -- [N] stories covered" 
 ## Deduplication
 
 Before writing, check if `/Users/alexhedtke/Exobrain/News Briefings/YYYY-MM-DD.md` already exists:
-- Standalone: ask Alex if he wants to regenerate or skip.
-- From daily briefing: skip and just write the daily note summary from the existing briefing.
+- **Standalone**: ask Alex if he wants to regenerate or skip.
+- **From daily briefing**: an existing file does not stop the run. Gather and synthesize in full, then overwrite the note with the fresh briefing and take the `tldr:` from what you just wrote. Dedup applies to the *file*, not to the work.
+
+The daily briefing is usually the day's first run, so this rarely costs anything. When it does (Alex ran `/news-briefing` by hand an hour earlier), the rerun is still correct: overnight wire copy, floor action, and market odds all move, and a stale tldr in the daily note is exactly the failure this rule exists to prevent.
 
 ## Future: Part 2 -- Audio/Podcast Version
 *Not yet implemented.* TTS conversion to self-hosted podcast RSS feed. See project memory for details.
