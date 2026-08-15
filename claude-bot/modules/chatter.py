@@ -136,8 +136,15 @@ def setup(ctx: Context) -> None:
         log.info("chatter module disabled in config")
         return
 
-    claude_bin = shutil.which("claude") or str(
-        __import__("pathlib").Path.home() / ".npm-global" / "bin" / "claude"
+    # Under launchd PATH is minimal, so which() often misses and we fall back to
+    # a known home. Try the native installer location before the npm prefix --
+    # the 2026-08-15 update migrated the install and deleted the npm binary.
+    _home = __import__("pathlib").Path.home()
+    claude_bin = shutil.which("claude") or next(
+        (str(p) for p in (_home / ".local" / "bin" / "claude",
+                          _home / ".npm-global" / "bin" / "claude")
+         if os.access(p, os.X_OK)),
+        str(_home / ".local" / "bin" / "claude"),
     )
 
     owner = cfg.get("owner_username") or load_owner_username()
@@ -247,6 +254,7 @@ def setup(ctx: Context) -> None:
     # PATH is minimal, so guarantee the usual bin dirs are present.
     _env = dict(os.environ)
     _extra_path = ["/opt/homebrew/bin", "/usr/local/bin",
+                   str(__import__("pathlib").Path.home() / ".local" / "bin"),
                    str(__import__("pathlib").Path.home() / ".npm-global" / "bin")]
     _env["PATH"] = os.pathsep.join(_extra_path + [_env.get("PATH", "")])
 

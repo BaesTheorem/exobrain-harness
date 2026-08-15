@@ -5,7 +5,7 @@
 HARNESS="/Users/alexhedtke/Documents/Exobrain harness"
 
 # Make sure the claude binary + homebrew tools are reachable regardless of how we were launched.
-export PATH="$HOME/.npm-global/bin:/opt/homebrew/bin:/usr/local/bin:$PATH"
+export PATH="$HOME/.local/bin:$HOME/.npm-global/bin:/opt/homebrew/bin:/usr/local/bin:$PATH"
 
 # --- Spoken greeting in MIST's cloned voice (non-blocking; cold-starts the voice service if down) ---
 GREETINGS=(
