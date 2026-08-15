@@ -107,6 +107,8 @@ Make the third paragraph sound more like a startup founder wrote it
 - Only keep "quietly" when it describes a literal low-volume sound ("she spoke quietly").
 - Same treatment for the sibling hype-adverbs that smuggle in praise or false ease: "effortlessly", "seamlessly", "simply", "elegantly", "gracefully". Cut them or replace with a concrete claim about what actually happens.
 - Fix: state the thing plainly. "quietly tracks heart rate" → "tracks heart rate". "quietly wins the comparison" → "wins the comparison" or, better, say *why* it wins.
+- **"Honest/honestly" as virtue framing is the same tell** (added 2026-08-15 after it shipped on three published pages): "the honest answer", "the honest gaps", "Method, honestly", "graded honestly", "an honest ranking". The writer is awarding themselves candor instead of demonstrating it. If the content is candid, that shows; the label adds nothing. Fix: delete the word, or replace the sentence with the concrete thing that makes it candid ("the honest advice is advocacy" → "the strongest move is advocacy"; "Method, honestly" → "Method and limits"). Keep "honest" only when it modifies someone else's conduct as a factual claim ("an honest broker", "honest weights and measures").
+- Watch the adjacent understatement-wink family too: "quiet site", "a small but mighty", "unassuming". State what it is instead.
 
 ## 15. Remove Vague Attributions
 - "Experts argue", "Industry reports suggest", "Observers have cited", "Some critics argue" -- these are weasel phrases
