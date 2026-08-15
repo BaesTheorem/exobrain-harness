@@ -27,9 +27,11 @@ from datetime import datetime
 HERE = os.path.dirname(os.path.abspath(__file__))
 
 # --- tunables (override via env) -------------------------------------------
-CHECK_SECS = float(os.environ.get("MEMWD_CHECK_SECS", "60"))
-WARN_GB = float(os.environ.get("MEMWD_WARN_GB", "5.0"))      # notify at this RSS
+CHECK_SECS = float(os.environ.get("MEMWD_CHECK_SECS", "20"))
+WARN_GB = float(os.environ.get("MEMWD_WARN_GB", "5.0"))      # notify at this footprint
 KILL_GB = float(os.environ.get("MEMWD_KILL_GB", "12.0"))     # auto-kill above this
+EMERGENCY_GB = float(os.environ.get("MEMWD_EMERGENCY_GB", "16.0"))  # kill on FIRST read above this
+SWAP_WARN_GB = float(os.environ.get("MEMWD_SWAP_WARN_GB", "5.5"))   # notify when swap used exceeds this
 SUSTAINED_CHECKS = int(os.environ.get("MEMWD_SUSTAINED", "2"))  # consecutive reads over KILL_GB before killing
 TOP_N = int(os.environ.get("MEMWD_TOP_N", "5"))             # how many to log each tick
 WARN_THROTTLE_SECS = float(os.environ.get("MEMWD_WARN_THROTTLE", "600"))  # re-warn per pid at most this often
@@ -107,23 +109,77 @@ def _notify(title, message):
             pass
 
 
+def _top_mem_gb():
+    """Per-pid memory from `top` (tracks phys footprint incl. COMPRESSED pages).
+
+    ps RSS only counts resident uncompressed pages, so a leaking process whose
+    stale garbage gets compressed can reach tens of GB of real footprint while
+    RSS stays under 1GB -- exactly how the 2026-08-14 34GB MIST Console balloon
+    slid past every RSS-based tick. top's MEM column matches Activity Monitor's
+    Memory column closely (validated against /usr/bin/footprint) and covers all
+    processes in one unprivileged call.
+    """
+    out = subprocess.run(
+        ["top", "-l", "1", "-o", "mem", "-n", "30", "-stats", "pid,mem,command"],
+        capture_output=True, text=True, check=False, timeout=30,
+    ).stdout
+    mem = {}
+    mult = {"K": 1.0 / (1024 * 1024), "M": 1.0 / 1024, "G": 1.0, "B": 1.0 / (1024 ** 3)}
+    for line in out.splitlines():
+        parts = line.split(None, 2)
+        if len(parts) < 3 or not parts[0].isdigit():
+            continue
+        raw = parts[1].rstrip("+-")
+        if not raw or raw[-1] not in mult:
+            continue
+        try:
+            mem[int(parts[0])] = float(raw[:-1]) * mult[raw[-1]]
+        except ValueError:
+            continue
+    return mem
+
+
+def swap_used_gb():
+    out = subprocess.run(["sysctl", "-n", "vm.swapusage"],
+                         capture_output=True, text=True, check=False).stdout
+    # "total = 7168.00M  used = 6005.06M  free = 1162.94M  (encrypted)"
+    try:
+        used = out.split("used =")[1].split()[0]
+        val = float(used.rstrip("MG"))
+        return val / 1024.0 if used.endswith("M") else val
+    except (IndexError, ValueError):
+        return 0.0
+
+
 def snapshot():
-    """Return list of (pid, rss_gb, comm, command) sorted desc by rss."""
+    """Return list of (pid, gb, comm, metric) sorted desc by max(rss, footprint)."""
     out = subprocess.run(
         ["ps", "-axo", "pid=,rss=,comm="],
         capture_output=True, text=True, check=False,
     ).stdout
-    rows = []
+    rss = {}
+    comms = {}
     for line in out.splitlines():
         parts = line.split(None, 2)
         if len(parts) < 3:
             continue
         try:
             pid = int(parts[0])
-            rss_kb = int(parts[1])
+            rss[pid] = int(parts[1]) / 1024.0 / 1024.0
         except ValueError:
             continue
-        rows.append((pid, rss_kb / 1024.0 / 1024.0, parts[2]))
+        comms[pid] = parts[2]
+    try:
+        topmem = _top_mem_gb()
+    except Exception:
+        topmem = {}
+    rows = []
+    for pid, gb in rss.items():
+        fp = topmem.get(pid, 0.0)
+        if fp > gb:
+            rows.append((pid, fp, comms.get(pid, "?"), "footprint"))
+        else:
+            rows.append((pid, gb, comms.get(pid, "?"), "rss"))
     rows.sort(key=lambda r: r[1], reverse=True)
     return rows
 
@@ -163,31 +219,48 @@ def kill(pid, label):
         _log(EVENT_FILE, "KILLED pid={} {} (gone before SIGKILL)".format(pid, label))
 
 
+_last_swap_warn = [0.0]
+
+
 def tick():
     rows = snapshot()
     if not rows:
         return
     top = rows[:TOP_N]
     _log(LOG_FILE, "top: " + " | ".join(
-        "{:.1f}G {}({})".format(gb, comm, pid) for pid, gb, comm in top))
+        "{:.1f}G[{}] {}({})".format(gb, metric[0], comm, pid)
+        for pid, gb, comm, metric in top))
 
     now = time.time()
+    swap = swap_used_gb()
+    if swap >= SWAP_WARN_GB and now - _last_swap_warn[0] >= 3600:
+        _last_swap_warn[0] = now
+        _log(EVENT_FILE, "SWAP-HIGH {:.1f}GB used; top: ".format(swap) + " | ".join(
+            "{:.1f}G[{}] {}({})".format(gb, metric[0], comm, pid)
+            for pid, gb, comm, metric in top))
+        _notify("MIST: memory watchdog",
+                "Swap is at {:.0f}GB; the machine is under memory pressure".format(swap))
+
     seen_pids = set()
-    for pid, gb, comm in rows:
+    for pid, gb, comm, metric in rows:
         if pid == _own_pid:
             continue
         if gb < WARN_GB:
             break  # rows are sorted desc; nothing below this matters
         seen_pids.add(pid)
         cmd = full_command(pid)
-        label = "{} rss={:.1f}GB cmd={}".format(comm, gb, cmd)
+        label = "{} {}={:.1f}GB cmd={}".format(comm, metric, gb, cmd)
 
         if gb >= KILL_GB:
             _over_kill_streak[pid] = _over_kill_streak.get(pid, 0) + 1
             streak = _over_kill_streak[pid]
-            _log(EVENT_FILE, "OVER-KILL-THRESH pid={} {:.1f}GB streak={} {}"
-                 .format(pid, gb, streak, comm))
-            if AUTO_KILL and not is_protected(comm, cmd) and streak >= SUSTAINED_CHECKS:
+            _log(EVENT_FILE, "OVER-KILL-THRESH pid={} {:.1f}GB[{}] streak={} {}"
+                 .format(pid, gb, metric, streak, comm))
+            # A fast balloon can hit tens of GB inside one interval and freeze
+            # the machine before a sustained streak can accumulate, so past
+            # EMERGENCY_GB one reading is enough.
+            enough = streak >= SUSTAINED_CHECKS or gb >= EMERGENCY_GB
+            if AUTO_KILL and not is_protected(comm, cmd) and enough:
                 _notify("MIST: memory watchdog",
                         "Killing {} at {:.0f}GB before it freezes the machine".format(comm, gb))
                 _log(EVENT_FILE, "ACTION kill {}".format(label))
@@ -211,8 +284,8 @@ def tick():
 
 
 def main():
-    _log(EVENT_FILE, "watchdog start (warn={}GB kill={}GB sustained={} auto_kill={} every {}s)"
-         .format(WARN_GB, KILL_GB, SUSTAINED_CHECKS, AUTO_KILL, CHECK_SECS))
+    _log(EVENT_FILE, "watchdog start v2: footprint-aware (warn={}GB kill={}GB emergency={}GB swap-warn={}GB sustained={} auto_kill={} every {}s)"
+         .format(WARN_GB, KILL_GB, EMERGENCY_GB, SWAP_WARN_GB, SUSTAINED_CHECKS, AUTO_KILL, CHECK_SECS))
     while True:
         try:
             tick()
