@@ -3,18 +3,31 @@
 # falls back to the cold-start CLI. Plays through speakers by default.
 #   mist-say "Good morning, Alex."
 #   mist-say --no-play "save only" -o /tmp/x.wav
+#
+# Global mute: `touch ~/.mist-voice-muted` (or export MIST_VOICE_MUTED=1)
+# suppresses playback for every caller, so nothing comes out of the speakers
+# unbidden. Rendering still happens, so --no-play/-o workflows are unaffected.
+# Un-mute with `rm ~/.mist-voice-muted`; --force overrides for one call.
 set -euo pipefail
 DIR="$(cd "$(dirname "$0")/.." && pwd)"
 PORT="${MIST_PORT:-8087}"
-PLAY=1; OUT="$DIR/out.wav"; TEXT=""
+PLAY=1; FORCE=0; WANTFILE=0; OUT="$DIR/out.wav"; TEXT=""
 while [ $# -gt 0 ]; do
   case "$1" in
-    --no-play) PLAY=0; shift;;
-    -o) OUT="$2"; shift 2;;
+    --no-play) PLAY=0; WANTFILE=1; shift;;
+    --force) FORCE=1; shift;;
+    -o) OUT="$2"; WANTFILE=1; shift 2;;
     *) TEXT="$1"; shift;;
   esac
 done
-[ -z "$TEXT" ] && { echo "usage: mist-say [\"text\"] [-o out.wav] [--no-play]"; exit 1; }
+[ -z "$TEXT" ] && { echo "usage: mist-say [\"text\"] [-o out.wav] [--no-play] [--force]"; exit 1; }
+
+if [ "$FORCE" != 1 ] && { [ -f "$HOME/.mist-voice-muted" ] || [ "${MIST_VOICE_MUTED:-0}" = 1 ]; }; then
+  PLAY=0
+  # Nobody wanted a file, only the sound. Synthesizing would cold-start XTTS
+  # (~28s and a lot of RAM on an 8GB machine) to produce something discarded.
+  [ "$WANTFILE" = 1 ] || exit 0
+fi
 
 if curl -sf "http://127.0.0.1:$PORT/health" >/dev/null 2>&1; then
   curl -sf -X POST "http://127.0.0.1:$PORT/say" \
