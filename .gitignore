@@ -151,3 +151,6 @@ scheduler/events/
 # Alex applies). See job-search/state/README.md for rebuild.
 job-search/state/*
 !job-search/state/README.md
+
+# Compiled EventKit helper (rebuilt on demand by reminders/add-reminder)
+reminders/.build/

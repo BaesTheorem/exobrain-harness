@@ -1,0 +1,15 @@
+#!/bin/bash
+# Thin wrapper around mkreminder.swift -- rebuilds the binary when the source
+# is newer, then passes every argument straight through.
+set -euo pipefail
+
+here="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+src="$here/mkreminder.swift"
+bin="$here/.build/mkreminder"
+
+if [[ ! -x "$bin" || "$src" -nt "$bin" ]]; then
+  mkdir -p "$here/.build"
+  swiftc -O "$src" -o "$bin"
+fi
+
+exec "$bin" "$@"
