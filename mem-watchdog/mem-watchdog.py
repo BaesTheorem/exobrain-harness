@@ -14,6 +14,13 @@ SUSTAINED_CHECKS consecutive reads) kills anything over KILL_GB that is not on
 the protected list. The point is twofold: catch the machine before it dies, and
 record the exact offender's name + command so the guessing ends.
 
+Stateless search tools (EXPENDABLE) get a fast lane: killed on the FIRST read
+over EXPENDABLE_KILL_GB, no streak, no banner. Claude Code shadows `grep` with
+its embedded ugrep, whose DFA regex engine has no memory cap: a counted-repeat
+pattern like `.{0,60}(a|b).{0,60}` grows ~100MB/s without terminating (observed
+12-14GB before the streak path caught it, swamping the machine into swap).
+Killing a grep mid-search loses nothing, so speed wins over certainty here.
+
 Stdlib only, system python (3.9). No third-party deps so launchd never breaks on
 a missing venv.
 """
@@ -36,6 +43,11 @@ SUSTAINED_CHECKS = int(os.environ.get("MEMWD_SUSTAINED", "2"))  # consecutive re
 TOP_N = int(os.environ.get("MEMWD_TOP_N", "5"))             # how many to log each tick
 WARN_THROTTLE_SECS = float(os.environ.get("MEMWD_WARN_THROTTLE", "600"))  # re-warn per pid at most this often
 AUTO_KILL = os.environ.get("MEMWD_AUTO_KILL", "1") != "0"   # set 0 to warn-only
+EXPENDABLE_KILL_GB = float(os.environ.get("MEMWD_EXPENDABLE_KILL_GB", "3.0"))
+# Stateless search tools: safe to kill instantly, nothing to lose but a search.
+EXPENDABLE = tuple(
+    n for n in os.environ.get("MEMWD_EXPENDABLE", "ugrep,bfs").split(",") if n
+)
 LOG_MAX_BYTES = int(os.environ.get("MEMWD_LOG_MAX", str(5 * 1024 * 1024)))
 
 LOG_FILE = os.path.join(HERE, "mem-watchdog.log")
@@ -245,11 +257,21 @@ def tick():
     for pid, gb, comm, metric in rows:
         if pid == _own_pid:
             continue
-        if gb < WARN_GB:
+        if gb < min(WARN_GB, EXPENDABLE_KILL_GB):
             break  # rows are sorted desc; nothing below this matters
         seen_pids.add(pid)
         cmd = full_command(pid)
         label = "{} {}={:.1f}GB cmd={}".format(comm, metric, gb, cmd)
+
+        # Fast lane: a ballooning search tool dies on first sight, silently
+        # (its parent session sees the failed command; a banner would be spam).
+        if AUTO_KILL and gb >= EXPENDABLE_KILL_GB and os.path.basename(comm) in EXPENDABLE:
+            _log(EVENT_FILE, "ACTION kill-expendable {}".format(label))
+            kill(pid, comm)
+            _over_kill_streak.pop(pid, None)
+            continue
+        if gb < WARN_GB:
+            continue
 
         if gb >= KILL_GB:
             _over_kill_streak[pid] = _over_kill_streak.get(pid, 0) + 1
@@ -284,8 +306,8 @@ def tick():
 
 
 def main():
-    _log(EVENT_FILE, "watchdog start v2: footprint-aware (warn={}GB kill={}GB emergency={}GB swap-warn={}GB sustained={} auto_kill={} every {}s)"
-         .format(WARN_GB, KILL_GB, EMERGENCY_GB, SWAP_WARN_GB, SUSTAINED_CHECKS, AUTO_KILL, CHECK_SECS))
+    _log(EVENT_FILE, "watchdog start v3: expendable fast lane (warn={}GB kill={}GB emergency={}GB expendable={}@{}GB swap-warn={}GB sustained={} auto_kill={} every {}s)"
+         .format(WARN_GB, KILL_GB, EMERGENCY_GB, ",".join(EXPENDABLE), EXPENDABLE_KILL_GB, SWAP_WARN_GB, SUSTAINED_CHECKS, AUTO_KILL, CHECK_SECS))
     while True:
         try:
             tick()

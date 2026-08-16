@@ -18,6 +18,13 @@ which process did it. This makes sure that never happens silently again.
   stays above `KILL_GB` (default 12GB) for 2 consecutive checks, unless it is on
   the protected list (kernel_task, WindowServer, Finder, the watchdog itself,
   etc.). At 12GB on an 8GB machine a process is unambiguously a runaway.
+- **fast-kills stateless search tools** (`EXPENDABLE`, default `ugrep,bfs`) on
+  the FIRST read above `EXPENDABLE_KILL_GB` (default 3GB), no streak, no
+  notification. Claude Code shadows `grep`/`find` with its embedded
+  ugrep/bfs, and ugrep's DFA regex engine has no memory cap: a counted-repeat
+  pattern like `.{0,60}(a|b).{0,60}` grows ~100MB/s and never terminates
+  (first seen 2026-08-14, hit 14GB before the streak path fired). A killed
+  search loses nothing, so these die on sight.
 
 Every warn/kill is recorded in `events.log` with the offender's full command, so
 the exact culprit is always identifiable after the fact.
@@ -32,6 +39,8 @@ the exact culprit is always identifiable after the fact.
 | `MEMWD_SUSTAINED` | 2 | consecutive over-threshold reads before killing |
 | `MEMWD_AUTO_KILL` | 1 | set `0` for warn-only (no killing) |
 | `MEMWD_TOP_N` | 5 | how many processes to log each tick |
+| `MEMWD_EXPENDABLE` | `ugrep,bfs` | comma list of comm names killed on first read over the expendable threshold |
+| `MEMWD_EXPENDABLE_KILL_GB` | 3.0 | instant-kill threshold for `MEMWD_EXPENDABLE` |
 
 ## Install / manage
 
