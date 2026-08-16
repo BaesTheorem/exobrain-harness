@@ -1,0 +1,59 @@
+{
+  "shop": {
+    "name": "Rich Forever Barbershop (Midtown)",
+    "umbrella_business_id": 1096259,
+    "address": "3845 Main St, Kansas City, MO 64111",
+    "phone": "+18164776262",
+    "website": "https://richforeverbarber.com/",
+    "note": "Booth-rental umbrella venue: the shop has no calendar of its own. Each barber below is a separate Booksy business, sets their own prices, and is booked independently."
+  },
+  "haircut_request": "2 faded to 3 on sides and back, scissors on top",
+  "interval_weeks": 6,
+  "barbers": [
+    {
+      "business_id": 1787073,
+      "name": "Razor Nick (Nick Becerra)",
+      "service_name": "Haircut",
+      "service_variant_id": 21191025,
+      "price": "$35.00",
+      "duration_min": 30,
+      "url": "1787073_razor-nick_barber-shop_20722_kansas-city"
+    },
+    {
+      "business_id": 1842256,
+      "name": "Xay.Sliced.eem (XayTheBarber)",
+      "service_name": "Haircut",
+      "service_variant_id": 21857743,
+      "price": "$35.00",
+      "duration_min": 40,
+      "url": "1842256_xay-sliced-eem_barber-shop_20722_kansas-city"
+    },
+    {
+      "business_id": 830705,
+      "name": "Fully Blendz (Jaime Maldonado)",
+      "service_name": "Adult hair cut",
+      "service_variant_id": 14257693,
+      "price": "$40.00",
+      "duration_min": 35,
+      "url": "830705_fully-blendz_barber-shop_20722_kansas-city"
+    },
+    {
+      "business_id": 1159975,
+      "name": "Dmilly Cutz (Dejah Miller)",
+      "service_name": "Men's Haircut no facial hair",
+      "service_variant_id": 16321466,
+      "price": "$40.00",
+      "duration_min": 45,
+      "url": "1159975_dmilly-cutz_barber-shop_20722_kansas-city"
+    },
+    {
+      "business_id": 1335772,
+      "name": "TROY RICHFOREVER (Troy Dickerson)",
+      "service_name": "Haircut (BEARD NOT INCLUDED)",
+      "service_variant_id": 17067252,
+      "price": "$40.00",
+      "duration_min": 45,
+      "url": "1335772_troy-richforever_barber-shop_20722_kansas-city"
+    }
+  ]
+}

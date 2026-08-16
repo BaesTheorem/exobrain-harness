@@ -158,3 +158,6 @@ job-search/state/*
 
 # Compiled EventKit helper (rebuilt on demand by reminders/add-reminder)
 reminders/.build/
+
+# Haircut history is a personal log; the cadence rebuilds from the last entry.
+barber/state.json
