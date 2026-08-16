@@ -33,21 +33,52 @@ the only piece with the Google Calendar MCP and therefore the only piece that
 can honour "fit it wherever I'm open". MIST picks a slot, files a Things task,
 and sends a notification that deep-links to the barber's Booksy page.
 
-## The one thing that is not automated, and why
+## Which barber gets picked
 
-**MIST cannot complete the booking.** Booksy requires a customer account with a
-verified phone number to confirm an appointment, and there isn't one. Some
-barbers also have prepayment enabled. So the automation runs right up to the
-confirmation screen and hands over a one-tap link. The last tap is Alex's.
+Alex's rule: **the highest-rated barber available in the window**, not the
+earliest opening. Every Midtown barber sits at a flat 5.0, so stars alone
+cannot separate them — review count is what actually decides, and ranking on
+stars alone would silently fall back to config order while looking like it
+ranked. `booksy.best_slot()` sorts by barber first and time second.
 
-This is a smaller loss than it sounds: availability here is not scarce. A
-sample of the Aug 28–Sep 2 window returned **642 open slots** across five
-barbers, most days open 9:00–18:30. There is no race to win, so nothing is lost
-by a human confirming.
+Current order: Dmilly Cutz (82) → Troy (35) → Fully Blendz (22) → Razor Nick
+(14) → Xay (1). Refresh the counts in `config.json` when they drift.
 
-If Alex creates a Booksy account and wants full unattended booking, the flow to
-extend is `POST /drafts/create` → `POST /drafts/{uuid}/timeslots` → confirm,
-with an authenticated session. `booksy.py` deliberately stops before that step.
+## Auth: a saved session, not stored credentials
+
+Booksy has no public auth API, and its login runs in an isolated microfrontend
+iframe that can demand an SMS code. Rather than scrape a bearer token or store
+a password, `login.py` opens a real browser window once, Alex logs in by hand,
+and the session persists in a gitignored Chromium profile
+(`.booksy-profile/`). Every later booking reuses it.
+
+No password, token, or SMS code is ever read, stored, or logged by this repo.
+
+```bash
+python3 login.py            # one time; log in when the window opens
+python3 login.py --check    # is the saved session still good?
+```
+
+When the session lapses, `book.py` fails with "session expired" and the fix is
+to re-run `login.py`.
+
+## Booking
+
+```bash
+python3 book.py --barber 1159975 --at "2026-08-29 11:00"            # dry run
+python3 book.py --barber 1159975 --at "2026-08-29 11:00" --confirm  # real
+```
+
+Dry run is the default because confirming spends real money. Before it clicks
+confirm, `book.py` re-reads the on-screen summary and matches the time, day,
+and price against what was asked for — if Booksy shifted the slot (someone took
+it between draft and confirm), it aborts rather than buying the wrong
+appointment. Every run drops screenshots in `steps/`.
+
+Booking drives the real UI rather than a guessed confirm endpoint: it is the
+path Booksy actually supports, and it carries whatever prepayment or policy
+step a given barber has enabled. Cancellation is free up to an hour before, so
+an auto-booked slot is cheap to move.
 
 ## Booksy API notes
 

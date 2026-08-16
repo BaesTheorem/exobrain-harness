@@ -161,3 +161,7 @@ reminders/.build/
 
 # Haircut history is a personal log; the cadence rebuilds from the last entry.
 barber/state.json
+
+# Booksy login session (browser profile). Never commit a live session.
+barber/.booksy-profile/
+barber/steps/

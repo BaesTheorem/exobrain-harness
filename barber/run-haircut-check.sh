@@ -6,9 +6,9 @@
 # is the only piece that can see Alex's Google Calendar (via the Calendar MCP)
 # and so is the only piece that can honour "fit it wherever I'm open".
 #
-# MIST cannot complete the booking: Booksy requires an account with a verified
-# phone, and Alex does not have one. So the run ends at a notification with the
-# picked slot and a one-tap deep link into the barber's Booksy page.
+# Alex has authorised booking outright, so the run books the slot itself using
+# the saved Booksy session (see login.py) and tells him afterwards. Changes are
+# free up to an hour before the visit, so an auto-booked slot is cheap to move.
 #
 # Managed by launchd: com.exobrain.haircut-check (daily, 10:00 local)
 
@@ -58,25 +58,30 @@ Do this:
    "Walk" as soft (moveable); treat everything else as hard busy. Leave 30 minutes of
    travel either side -- the shop is about 10 minutes from him.
 
-3. Pick the single best slot: closest to the due date, in a comfortable gap (not wedged
-   between two commitments), and prefer a barber he has been to before. His history is in
-   ${SCRIPT_DIR}/state.json.
+3. Pick the slot. Alex's rule is the HIGHEST RATED barber available in the window, not the
+   earliest opening. Every barber is 5.0, so review count is the real tiebreak; config.json
+   is already sorted best-first and booksy.best_slot() applies exactly this rule. Among
+   slots with the best available barber, take the one nearest the due date that sits in a
+   comfortable gap rather than wedged between two commitments.
 
-4. Notify him, clickable straight through to that barber's Booksy page so one tap starts
-   the booking:
-     "${HARNESS}/mist-voice/bin/mist-notify" "<slot, barber, price>" "Haircut due" Glass "<booking url>"
-   Use --reply so he can answer, and keep the message to one line.
+4. Book it:
+     cd "${SCRIPT_DIR}" && python3 book.py --barber <business_id> --at "YYYY-MM-DD HH:MM" --confirm
+   If it exits non-zero, do NOT retry blindly -- read steps/*.png and say what happened.
+   A "session expired" error means Alex must re-run login.py; tell him that specifically.
 
-5. Add a Things 3 task in the Inbox: "Book haircut -- <day> <time> with <barber>" with the
-   Booksy URL and the cut description in the notes. Do NOT set a `when` date; Alex schedules
-   his own tasks.
+5. Record it and put it on his calendar:
+     cd "${SCRIPT_DIR}" && python3 schedule.py record --date <YYYY-MM-DD> --barber "<name>"
+   Then create the Google Calendar event at the booked time, 30 minutes long, location
+   "Rich Forever Barbershop, 3845 Main St, Kansas City, MO 64111", with the cut description
+   in the notes.
 
-6. Mark the cycle so he is not nudged twice:
-     cd "${SCRIPT_DIR}" && python3 schedule.py mark-notified
+6. Tell him, clickable through to the barber's Booksy page so he can change it if he wants:
+     "${HARNESS}/mist-voice/bin/mist-notify" "<day, time, barber, price>" "Haircut booked" Glass "<booking url>"
+   Use --reply. One line. Say it is booked, not that it needs booking.
 
-Do not attempt to complete the Booksy booking yourself and do not create a Booksy account.
-Alex has no account and it needs phone verification. The last tap is his.
-After he confirms, the booking gets recorded with: python3 schedule.py record --date <YYYY-MM-DD> --barber "<name>"
+If booking fails for any reason, fall back to notifying him with the slot you picked and the
+booking URL so he can finish it by hand, and say plainly that the automation could not.
+Never report a booking as done unless book.py exited 0 and printed a confirmation.
 PROMPTEOF
 
 RUN_OUT="$(mktemp)"
