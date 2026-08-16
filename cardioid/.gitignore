@@ -1,0 +1,6 @@
+# compiled binary
+cardioid
+
+# renders, except the README sample
+*.png
+!sample.png
