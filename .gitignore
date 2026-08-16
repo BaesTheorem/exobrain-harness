@@ -165,3 +165,6 @@ barber/state.json
 # Booksy login session (browser profile). Never commit a live session.
 barber/.booksy-profile/
 barber/steps/
+
+# Live Booksy session token, captured from the browser. Never commit.
+barber/.booksy-session.json

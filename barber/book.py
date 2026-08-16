@@ -27,6 +27,7 @@ import argparse
 import json
 import re
 import sys
+import urllib.request
 from datetime import datetime
 from pathlib import Path
 
@@ -34,15 +35,13 @@ from pathlib import Path
 # safety-critical logic and must stay unit-testable without a browser (the
 # test runner's interpreter has no playwright).
 
+import session
+from browser import PROFILE_DIR, launch_profile
+
 HERE = Path(__file__).resolve().parent
-PROFILE_DIR = HERE / ".booksy-profile"
 STEPS_DIR = HERE / "steps"
 CONFIG_PATH = HERE / "config.json"
-
-UA = (
-    "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 "
-    "(KHTML, like Gecko) Chrome/128.0.0.0 Safari/537.36"
-)
+BOOKINGS_URL = "https://us.booksy.com/core/v2/customer_api/me/bookings"
 
 
 class BookingError(RuntimeError):
@@ -64,6 +63,48 @@ def _shot(page, name: str) -> None:
 
 def _text(page) -> str:
     return re.sub(r"\n{3,}", "\n\n", page.evaluate("() => document.body.innerText") or "")
+
+
+def normalise(text: str) -> str:
+    """Fold the punctuation Booksy renders differently from its own API.
+
+    The service menu comes back from the API with a typographic apostrophe
+    ("Men's Haircut") while config files and humans use a straight one. Matching
+    raw strings silently fails to find the service and looks like the button is
+    missing.
+    """
+    swaps = {"’": "'", "‘": "'", "“": '"', "”": '"', "–": "-", "—": "-"}
+    for bad, good in swaps.items():
+        text = text.replace(bad, good)
+    return re.sub(r"\s+", " ", text).strip().lower()
+
+
+def list_bookings() -> list[dict]:
+    """Every appointment on the account, straight from Booksy."""
+    req = urllib.request.Request(BOOKINGS_URL, headers=session.api_headers())
+    try:
+        with urllib.request.urlopen(req, timeout=30) as resp:
+            return json.loads(resp.read()).get("bookings") or []
+    except Exception as exc:  # noqa: BLE001 - caller treats this as "unverified"
+        raise BookingError(f"could not read bookings: {type(exc).__name__}") from exc
+
+
+def find_booking(business_id: int, when: datetime) -> str | None:
+    """The booking matching this slot, if the server actually has one.
+
+    This exists because page text is not evidence. An earlier version decided
+    a booking had succeeded by looking for the word "booked"/"appointment" in
+    the final screen -- and the deposit/payment screen contains both, so a
+    flow that never completed reported success. Only the account's own
+    booking list settles it.
+    """
+    for booking in list_bookings():
+        appt = booking.get("appointment") or booking
+        biz = (appt.get("business") or {}).get("id")
+        start = appt.get("booked_from") or ""
+        if biz == business_id and start.startswith(when.strftime("%Y-%m-%dT%H:%M")):
+            return f"{start} at {(appt.get('business') or {}).get('name')} ({appt.get('total')})"
+    return None
 
 
 def verify_summary(summary: str, barber: dict, when: datetime) -> list[str]:
@@ -110,12 +151,10 @@ def book(business_id: int, when: datetime, confirm: bool) -> int:
     calls: list[tuple[int, str, str | None]] = []
 
     with sync_playwright() as p:
-        ctx = p.chromium.launch_persistent_context(
-            str(PROFILE_DIR),
-            headless=True,
-            user_agent=UA,
-            viewport={"width": 1280, "height": 1800},
-        )
+        ctx = launch_profile(p, headless=True)
+        # The profile itself is never logged in -- hCaptcha blocks automated
+        # login. Inject the session Alex established by hand instead.
+        ctx.add_cookies(session.playwright_cookies())
         page = ctx.pages[0] if ctx.pages else ctx.new_page()
         page.on(
             "request",
@@ -133,53 +172,91 @@ def book(business_id: int, when: datetime, confirm: bool) -> int:
                 raise BookingError("session expired; re-run: python3 login.py")
 
             # Service rows carry the Book buttons, in menu order after the header.
+            # Booksy renders a mobile and a desktop copy of the menu, so the
+            # same service appears twice and only one copy is visible. Clicking
+            # the hidden twin times out with a confusing "not visible" error.
             buttons = page.locator('button:has-text("Book")')
+            wanted = normalise(barber["service_name"])
             target = None
             for i in range(buttons.count()):
-                row = buttons.nth(i).locator(
-                    "xpath=ancestor::*[self::li or self::div][1]"
-                )
+                button = buttons.nth(i)
+                if not button.is_visible():
+                    continue
+                # The service name and the Book button live in different
+                # columns; only the enclosing <li> holds both. The nearest div
+                # ancestor contains just price/duration/Book, so matching on it
+                # never sees the name.
+                row = button.locator("xpath=ancestor::li[1]")
                 try:
-                    if barber["service_name"].lower() in row.inner_text(timeout=2000).lower():
-                        target = buttons.nth(i)
+                    if wanted in normalise(row.inner_text(timeout=2000)):
+                        target = button
                         break
                 except Exception:  # noqa: BLE001 - some rows have no readable text
                     continue
             if target is None:
                 raise BookingError(f"could not find a Book button for {barber['service_name']!r}")
 
+            target.scroll_into_view_if_needed(timeout=10000)
             target.click(timeout=15000)
-            page.wait_for_timeout(7000)
+            page.wait_for_timeout(8000)
             _shot(page, "2-booking-panel")
 
-            # Pick the day, then the time.
-            for label in (f"{when:%-d}", f"{when:%B %-d}"):
-                try:
-                    page.get_by_role("button", name=re.compile(rf"^{re.escape(label)}$")).first.click(
-                        timeout=6000
-                    )
+            # The whole booking UI lives in the widget-2024 iframe. Reading or
+            # clicking on the main frame silently does nothing here.
+            frame = None
+            for _ in range(20):
+                frame = next((f for f in page.frames if "widget-2024" in f.url), None)
+                if frame:
                     break
-                except Exception:  # noqa: BLE001 - calendar markup varies
-                    continue
-            page.wait_for_timeout(4000)
+                page.wait_for_timeout(1000)
+            if frame is None:
+                raise BookingError("booking widget iframe never appeared")
+
+            # Booksy opens an add-ons upsell over the date picker. It intercepts
+            # every click until dismissed, which looks like a dead calendar.
+            if "Add-ons available" in (frame.evaluate("() => document.body.innerText") or ""):
+                for sel in ['button:has-text("Continue")', 'button:has-text("Skip")']:
+                    try:
+                        frame.locator(sel).last.click(timeout=6000)
+                        print("dismissed the add-ons step")
+                        break
+                    except Exception:  # noqa: BLE001 - label varies
+                        continue
+                page.wait_for_timeout(4000)
+
+            # The date strip is a 7-day Swiper; the target is usually past its
+            # end, so open the month calendar instead of trying to swipe.
+            day_label = f"{when:%-d}"
+            try:
+                frame.locator('[data-testid="calendar-toggle"]').first.click(timeout=8000)
+                page.wait_for_timeout(3000)
+                frame.get_by_text(day_label, exact=True).first.click(timeout=8000)
+                print(f"picked {when:%B %-d} from the month calendar")
+            except Exception as exc:  # noqa: BLE001 - fall back to the day strip
+                print(f"month calendar unavailable ({type(exc).__name__}); trying the day strip")
+                try:
+                    frame.get_by_text(day_label, exact=True).first.click(timeout=8000)
+                except Exception as exc2:
+                    raise BookingError(f"could not select {when:%B %-d}") from exc2
+            page.wait_for_timeout(5000)
             _shot(page, "3-date-picked")
 
             picked = False
-            for label in (f"{when:%-I:%M %p}", f"{when:%H:%M}", f"{when:%-I:%M}"):
+            for label in (f"{when:%-I:%M %p}", f"{when:%H:%M}"):
                 try:
-                    page.get_by_text(label, exact=True).first.click(timeout=6000)
+                    frame.get_by_text(label, exact=True).first.click(timeout=8000)
                     picked = True
-                    print(f"selected time via label {label!r}")
+                    print(f"selected {label}")
                     break
-                except Exception:  # noqa: BLE001 - time chips vary by locale
+                except Exception:  # noqa: BLE001 - chip format varies
                     continue
             if not picked:
                 raise BookingError(f"{when:%-I:%M %p} was not offered; slot may be gone")
 
-            page.wait_for_timeout(5000)
+            page.wait_for_timeout(4000)
             _shot(page, "4-summary")
 
-            summary = _text(page)
+            summary = frame.evaluate("() => document.body.innerText") or ""
             problems = verify_summary(summary, barber, when)
             if problems:
                 for problem in problems:
@@ -192,28 +269,40 @@ def book(business_id: int, when: datetime, confirm: bool) -> int:
                 return 0
 
             for sel in [
+                'button:has-text("Continue")',
                 'button:has-text("Confirm")',
                 'button:has-text("Book appointment")',
                 'button:has-text("Book now")',
             ]:
                 try:
-                    page.locator(sel).first.click(timeout=8000)
-                    print(f"confirmed via {sel}")
+                    frame.locator(sel).last.click(timeout=8000)
+                    print(f"advanced via {sel}")
                     break
                 except Exception:  # noqa: BLE001 - button label varies
                     continue
-            page.wait_for_timeout(9000)
-            _shot(page, "5-confirmed")
+            page.wait_for_timeout(7000)
+            _shot(page, "5-after-continue")
 
-            after = _text(page)
-            booked = any(
-                w in after.lower() for w in ("booked", "confirmed", "see you", "appointment")
-            )
-            print("\n--- result ---")
-            print(after[:900])
-            if not booked:
-                raise BookingError("no confirmation text found; check steps/5-confirmed.png")
-            print("\nBooked.")
+            # The final step is its own screen; confirm there too.
+            for sel in ['button:has-text("Confirm")', 'button:has-text("Book")']:
+                try:
+                    frame.locator(sel).last.click(timeout=6000)
+                    print(f"confirmed via {sel}")
+                    break
+                except Exception:  # noqa: BLE001 - may already be booked
+                    continue
+            page.wait_for_timeout(9000)
+            _shot(page, "6-confirmed")
+
+            print("\n--- verifying against the server ---")
+            actual = find_booking(business_id, when)
+            if actual is None:
+                raise BookingError(
+                    "no matching booking exists on the account. The flow did not "
+                    "complete (a deposit/card step usually causes this). "
+                    "See steps/6-confirmed.png"
+                )
+            print(f"Booked: {actual}")
             return 0
         finally:
             (STEPS_DIR / "calls.json").write_text(
