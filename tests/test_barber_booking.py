@@ -18,6 +18,9 @@ BARBER = Path(__file__).resolve().parent.parent / "barber"
 
 
 def _load(name: str, filename: str):
+    # book.py imports its sibling browser.py, so the package dir must be importable.
+    if str(BARBER) not in sys.path:
+        sys.path.insert(0, str(BARBER))
     spec = importlib.util.spec_from_file_location(name, BARBER / filename)
     assert spec and spec.loader
     mod = importlib.util.module_from_spec(spec)
