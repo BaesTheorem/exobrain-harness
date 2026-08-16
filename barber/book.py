@@ -66,17 +66,28 @@ def _text(page) -> str:
 
 
 def normalise(text: str) -> str:
-    """Fold the punctuation Booksy renders differently from its own API.
+    """Reduce a service name to just its words, lowercased.
 
-    The service menu comes back from the API with a typographic apostrophe
-    ("Men's Haircut") while config files and humans use a straight one. Matching
-    raw strings silently fails to find the service and looks like the button is
-    missing.
+    Booksy's service names disagree with themselves on punctuation in ways
+    that silently break matching and look like a missing button: a typographic
+    apostrophe in "Men's Haircut", a stray space in "(BEARD NOT INCLUDED )".
+    Comparing only the alphanumeric words sidesteps the whole category instead
+    of patching each variant as it turns up.
     """
-    swaps = {"’": "'", "‘": "'", "“": '"', "”": '"', "–": "-", "—": "-"}
-    for bad, good in swaps.items():
-        text = text.replace(bad, good)
-    return re.sub(r"\s+", " ", text).strip().lower()
+    return " ".join(re.sub(r"[^0-9a-z]+", " ", text.lower()).split())
+
+
+def visited_before(barber_name: str) -> bool:
+    """Has Alex had a cut from this barber before, per the recorded history?
+
+    Booksy asks this on the review screen and the honest answer matters: some
+    barbers price or gate returning clients differently.
+    """
+    state_path = HERE / "state.json"
+    if not state_path.exists():
+        return False
+    history = json.loads(state_path.read_text()).get("history") or []
+    return any(entry.get("barber") == barber_name for entry in history)
 
 
 def list_bookings() -> list[dict]:
@@ -107,29 +118,44 @@ def find_booking(business_id: int, when: datetime) -> str | None:
     return None
 
 
+BOOKING_DATE_RE = re.compile(
+    r"\b(Mon|Tue|Wed|Thu|Fri|Sat|Sun)[a-z]*,?\s+"
+    r"(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)[a-z]*\s+(\d{1,2})\b"
+)
+
+
 def verify_summary(summary: str, barber: dict, when: datetime) -> list[str]:
     """Cross-check the confirmation screen against what we asked for.
 
-    Returns the list of mismatches; empty means safe to confirm. Booksy can
-    silently shift a booking (a slot taken between draft and confirm), and a
-    blind click would buy the wrong appointment.
+    Returns the list of mismatches; empty means safe to confirm.
+
+    This must read the *chosen* booking, not merely find the wanted values
+    somewhere on screen. The first version searched the whole page for the day
+    number and the time, which a month calendar grid (every day 1-31) and a
+    slot list (every open time) satisfy trivially -- so it passed while the
+    booking underneath had silently reverted to the draft's default date.
+    Anchor on the summary's own "Weekday, Mon D" line and fail closed if that
+    line is missing.
     """
     problems = []
-    blob = summary.lower()
 
-    # Time, in either 24h or 12h form.
-    h24 = f"{when:%H:%M}"
-    h12 = f"{when:%-I:%M}".lower()
-    if h24 not in blob and h12 not in blob:
-        problems.append(f"time {h24} not on the confirmation screen")
+    match = BOOKING_DATE_RE.search(summary)
+    if not match:
+        problems.append("no booking date line found on the confirmation screen")
+    else:
+        found = f"{match.group(1)}, {match.group(2)} {int(match.group(3))}"
+        wanted = f"{when:%a}, {when:%b} {when.day}"
+        if found != wanted:
+            problems.append(f"booking shows {found!r}, wanted {wanted!r}")
 
-    # Day number, guarding against a date silently rolling.
-    if str(when.day) not in blob:
-        problems.append(f"day {when.day} not on the confirmation screen")
+    # The time must appear next to that date line, not merely in the slot list.
+    tail = summary[match.end() : match.end() + 120] if match else ""
+    h12 = f"{when:%-I:%M %p}"
+    if h12.lower() not in tail.lower():
+        problems.append(f"time {h12} not shown with the booking date")
 
-    # Price, so a service swap does not slip through.
     price = barber["price"].replace("$", "").split(".")[0]
-    if price not in blob:
+    if price not in summary:
         problems.append(f"price ${price} not on the confirmation screen")
 
     return problems
@@ -224,20 +250,35 @@ def book(business_id: int, when: datetime, confirm: bool) -> int:
                         continue
                 page.wait_for_timeout(4000)
 
-            # The date strip is a 7-day Swiper; the target is usually past its
-            # end, so open the month calendar instead of trying to swipe.
-            day_label = f"{when:%-d}"
-            try:
-                frame.locator('[data-testid="calendar-toggle"]').first.click(timeout=8000)
-                page.wait_for_timeout(3000)
-                frame.get_by_text(day_label, exact=True).first.click(timeout=8000)
-                print(f"picked {when:%B %-d} from the month calendar")
-            except Exception as exc:  # noqa: BLE001 - fall back to the day strip
-                print(f"month calendar unavailable ({type(exc).__name__}); trying the day strip")
-                try:
-                    frame.get_by_text(day_label, exact=True).first.click(timeout=8000)
-                except Exception as exc2:
-                    raise BookingError(f"could not select {when:%B %-d}") from exc2
+            # The date strip is a 7-day Swiper, so a target two weeks out needs
+            # the month calendar. That grid also renders the adjacent months'
+            # spill-over days with the SAME number, marked -inactive. Clicking
+            # the first matching "29" hits July 29, does nothing, and leaves
+            # the draft on its default date -- while the slot list still looks
+            # right, because the default day has the same times free. Pick the
+            # cell by availability class, not by text order.
+            frame.locator('[data-testid="calendar-toggle"]').first.click(timeout=10000)
+            page.wait_for_timeout(3500)
+            clicked = frame.evaluate(
+                """(day) => {
+                    const cards = [...document.querySelectorAll('[data-testid="calendar-card"]')];
+                    const live = cards.filter(c => {
+                        const cls = (c.className || '').toString();
+                        if (/-not-available|-inactive|-empty/.test(cls)) return false;
+                        return c.textContent.trim() === String(day);
+                    });
+                    if (!live.length) return false;
+                    live[0].click();
+                    return true;
+                }""",
+                when.day,
+            )
+            if not clicked:
+                raise BookingError(
+                    f"{when:%B %-d} is not selectable in the calendar "
+                    "(fully booked, closed, or outside the booking window)"
+                )
+            print(f"picked {when:%B %-d} from the month calendar")
             page.wait_for_timeout(5000)
             _shot(page, "3-date-picked")
 
@@ -254,44 +295,91 @@ def book(business_id: int, when: datetime, confirm: bool) -> int:
                 raise BookingError(f"{when:%-I:%M %p} was not offered; slot may be gone")
 
             page.wait_for_timeout(4000)
-            _shot(page, "4-summary")
+            _shot(page, "4-slot-selected")
 
-            summary = frame.evaluate("() => document.body.innerText") or ""
-            problems = verify_summary(summary, barber, when)
-            if problems:
-                for problem in problems:
-                    print(f"  MISMATCH: {problem}")
-                raise BookingError("confirmation screen does not match the requested slot")
-            print("confirmation screen matches the requested slot")
-
-            if not confirm:
-                print("\ndry run: stopping before confirm. Re-run with --confirm to book.")
-                return 0
-
-            for sel in [
-                'button:has-text("Continue")',
-                'button:has-text("Confirm")',
-                'button:has-text("Book appointment")',
-                'button:has-text("Book now")',
-            ]:
+            # Advance to the booking-details screen BEFORE verifying. The
+            # picker screen has no "Weekday, Mon D" summary line -- it only
+            # shows a calendar grid and a slot list, which is precisely why an
+            # earlier version could "verify" a date the flow had already
+            # reverted. The details screen is the first place the chosen
+            # booking is stated, and the last place before money moves.
+            for sel in ['button:has-text("Continue")', 'button:has-text("Next")']:
                 try:
                     frame.locator(sel).last.click(timeout=8000)
                     print(f"advanced via {sel}")
                     break
                 except Exception:  # noqa: BLE001 - button label varies
                     continue
-            page.wait_for_timeout(7000)
-            _shot(page, "5-after-continue")
+            page.wait_for_timeout(8000)
 
-            # The final step is its own screen; confirm there too.
-            for sel in ['button:has-text("Confirm")', 'button:has-text("Book")']:
-                try:
-                    frame.locator(sel).last.click(timeout=6000)
-                    print(f"confirmed via {sel}")
-                    break
-                except Exception:  # noqa: BLE001 - may already be booked
+            # Booksy asks first-time clients "Have you used the services of X
+            # before?" on the review screen. The modal sits over Confirm & Book
+            # and swallows the click, so the run looks like it confirmed and
+            # nothing is booked. Answer it from the recorded history.
+            answer = "Yes" if visited_before(barber["name"]) else "No"
+            try:
+                if "before?" in (frame.evaluate("() => document.body.innerText") or ""):
+                    frame.get_by_role("button", name=answer, exact=True).first.click(timeout=6000)
+                    print(f"answered the returning-client prompt: {answer}")
+                    page.wait_for_timeout(4000)
+            except Exception as exc:  # noqa: BLE001 - prompt is not always shown
+                print(f"  (no returning-client prompt: {type(exc).__name__})")
+
+            _shot(page, "5-booking-details")
+
+            summary = frame.evaluate("() => document.body.innerText") or ""
+            problems = verify_summary(summary, barber, when)
+            if problems:
+                for problem in problems:
+                    print(f"  MISMATCH: {problem}")
+                raise BookingError("booking details do not match the requested slot")
+            print("booking details match the requested slot")
+
+            deposit = "deposit" in summary.lower() or "add card" in summary.lower()
+            if deposit:
+                print("  note: this barber wants a deposit/card before confirming")
+
+            if not confirm:
+                print("\ndry run: verified, stopping before confirm. Use --confirm to book.")
+                return 0
+
+            # Match the real button exactly. A loose has-text("Confirm") also
+            # matches copy in the cancellation-policy panel, and .last picked
+            # that instead -- the run reported "confirmed" having clicked
+            # nothing that books.
+            confirmed = False
+            for sel in [
+                'button:has-text("Confirm & Book")',
+                'button:has-text("Confirm and Book")',
+                'button:has-text("Book appointment")',
+            ]:
+                button = frame.locator(sel)
+                if button.count() == 0:
                     continue
-            page.wait_for_timeout(9000)
+                try:
+                    button.first.click(timeout=8000)
+                    print(f"clicked {sel}")
+                    confirmed = True
+                    break
+                except Exception:  # noqa: BLE001 - try the next label
+                    continue
+            if not confirmed:
+                raise BookingError("could not find the Confirm & Book button")
+
+            page.wait_for_timeout(5000)
+
+            # The returning-client prompt can appear after Confirm & Book and
+            # blocks completion until answered.
+            try:
+                if "before?" in (frame.evaluate("() => document.body.innerText") or ""):
+                    answer = "Yes" if visited_before(barber["name"]) else "No"
+                    frame.get_by_role("button", name=answer, exact=True).first.click(timeout=6000)
+                    print(f"answered the returning-client prompt: {answer}")
+                    page.wait_for_timeout(8000)
+            except Exception as exc:  # noqa: BLE001 - prompt is optional
+                print(f"  (returning-client prompt: {type(exc).__name__})")
+
+            page.wait_for_timeout(6000)
             _shot(page, "6-confirmed")
 
             print("\n--- verifying against the server ---")
