@@ -48,30 +48,53 @@ DMILLY = {
 WHEN = datetime(2026, 8, 29, 11, 0)
 
 
+GOOD = "Your booking details\nSat, Aug 29 • 11:00 AM\nDmilly Cutz\nMen's Haircut\n$40.00"
+
+
 def test_matching_summary_passes(book):
-    summary = "Dmilly Cutz\nSat, August 29\n11:00 AM\nMen's Haircut\n$40.00"
-    assert book.verify_summary(summary, DMILLY, WHEN) == []
-
-
-def test_twelve_hour_summary_passes(book):
-    assert book.verify_summary("August 29 at 11:00 AM — $40.00", DMILLY, WHEN) == []
+    assert book.verify_summary(GOOD, DMILLY, WHEN) == []
 
 
 def test_wrong_time_is_caught(book):
     """Booksy shifting us to another slot must abort, not confirm."""
-    problems = book.verify_summary("August 29\n2:30 PM\n$40.00", DMILLY, WHEN)
-    assert any("time" in p for p in problems)
+    bad = "Your booking details\nSat, Aug 29 • 2:30 PM\n$40.00"
+    assert any("time" in p for p in book.verify_summary(bad, DMILLY, WHEN))
 
 
 def test_wrong_day_is_caught(book):
-    problems = book.verify_summary("August 30\n11:00 AM\n$40.00", DMILLY, WHEN)
-    assert any("day" in p for p in problems)
+    bad = "Your booking details\nSun, Aug 30 • 11:00 AM\n$40.00"
+    assert any("wanted" in p for p in book.verify_summary(bad, DMILLY, WHEN))
+
+
+def test_reverted_date_is_caught(book):
+    """The real regression: the flow silently fell back to the draft default.
+
+    Aug 18 was the draft's default day, and the old check passed because the
+    month-calendar grid contained a "29" somewhere on the page.
+    """
+    reverted = (
+        "Select Date & Time\nAugust 2026\n"
+        + " ".join(str(d) for d in range(1, 32))  # the calendar grid
+        + "\n9:00 AM 10:00 AM 11:00 AM 12:00 PM\n"  # the slot list
+        + "Your booking details\nTue, Aug 18 • 11:00 AM\n$40.00"
+    )
+    problems = book.verify_summary(reverted, DMILLY, WHEN)
+    assert problems, "a reverted booking date must never verify"
+    assert any("Aug 18" in p for p in problems)
+
+
+def test_calendar_grid_alone_does_not_verify(book):
+    """Day numbers and slot times on screen are not a booking."""
+    grid_only = (
+        "August 2026\n" + " ".join(str(d) for d in range(1, 32)) + "\n11:00 AM\n$40.00"
+    )
+    assert book.verify_summary(grid_only, DMILLY, WHEN)
 
 
 def test_wrong_price_is_caught(book):
     """A silent service swap costs money and must abort."""
-    problems = book.verify_summary("August 29\n11:00 AM\n$100.00", DMILLY, WHEN)
-    assert any("price" in p for p in problems)
+    bad = "Your booking details\nSat, Aug 29 • 11:00 AM\n$100.00"
+    assert any("price" in p for p in book.verify_summary(bad, DMILLY, WHEN))
 
 
 def test_empty_summary_is_caught(book):
