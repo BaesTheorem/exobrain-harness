@@ -56,6 +56,7 @@ processing-log.json
 discord/discord-digest.json
 awair/state.json
 awair/air-log.csv
+.claude/hooks/state/
 tv/token.json
 tv/state.json
 vault-migration-report.md
