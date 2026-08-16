@@ -387,10 +387,15 @@ try:
         sys.exit(0)
     dt = datetime.fromisoformat(ts.replace('Z', '+00:00'))
     age_h = int((datetime.now(timezone.utc) - dt).total_seconds() / 3600)
-    if age_h <= 24:
+    # The job fires every 4h, so 24h of grace let three consecutive failures read
+    # as OK -- on 2026-08-16 this printed 'OK ... 20h ago' for a digest that had
+    # been dead since the previous afternoon. 12h is three missed cycles, which
+    # still tolerates a normal overnight sleep gap (launchd does not fire while
+    # the Mac is asleep, it catches up on wake).
+    if age_h <= 12:
         print(f'OK: Discord digest (last successful fetch {age_h}h ago)')
     else:
-        print(f'WARN: Discord digest stale (last successful fetch {age_h}h ago)')
+        print(f'WARN: Discord digest stale ({age_h}h old; job runs every 4h) -- check com.exobrain.discord-digest and ~/Library/Logs/exobrain/discord-digest-failures.log')
 except Exception as e:
     print(f'WARN: Discord digest unreadable -- {e}')
 " 2>/dev/null)
