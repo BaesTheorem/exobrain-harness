@@ -253,6 +253,56 @@ else
   fi
 fi
 
+# Full Disk Access on the claude CLI binary. TCC identifies this binary by PATH
+# (it is a bare Mach-O with no bundle -- `Info.plist=not bound` -- so tccd records
+# identifier_type=Path), and the path carries the version: .../claude/versions/2.1.233.
+# So every CLI upgrade mints a NEW identity and silently drops the grant. The symptom
+# is a rash of "<version> would like to access data from other apps" dialogs, because
+# without FDA each app container Claude touches prompts separately (per client→target
+# pair) instead of once. Only warn if a grant existed BEFORE and broke -- Alex may
+# deliberately not want FDA on the CLI, and this must not nag him into it.
+FDA_STATE="$HARNESS/.claude/hooks/state/fda-claude-path"
+FDA_CANARY="$HOME/Library/Application Support/com.apple.TCC"
+
+# Resolve the live binary from the process ancestry (never pin the path -- the CLI
+# has moved install locations before), falling back to whatever `claude` is on PATH.
+CLAUDE_BIN=""
+FDA_PID=$PPID
+for _ in 1 2 3 4 5 6; do
+  [ -z "$FDA_PID" ] && break
+  [ "$FDA_PID" -le 1 ] 2>/dev/null && break
+  FDA_COMM=$(ps -o comm= -p "$FDA_PID" 2>/dev/null)
+  case "$FDA_COMM" in
+    */claude|*/claude/versions/*) CLAUDE_BIN="$FDA_COMM"; break ;;
+  esac
+  FDA_PID=$(ps -o ppid= -p "$FDA_PID" 2>/dev/null | tr -d ' ')
+done
+[ -z "$CLAUDE_BIN" ] && CLAUDE_BIN=$(command -v claude 2>/dev/null)
+[ -n "$CLAUDE_BIN" ] && CLAUDE_BIN=$(python3 -c "import os,sys; print(os.path.realpath(sys.argv[1]))" "$CLAUDE_BIN" 2>/dev/null)
+
+# Probe FDA directly rather than reading TCC.db (which needs FDA itself). Listing
+# the TCC dir's CONTENTS is the test; `ls -d` on it succeeds without FDA, so the -d
+# call is only the exists-check that keeps a missing dir from reading as "denied".
+if [ -n "$CLAUDE_BIN" ] && ls -d "$FDA_CANARY" >/dev/null 2>&1; then
+  if ls "$FDA_CANARY" >/dev/null 2>&1; then
+    mkdir -p "$(dirname "$FDA_STATE")"
+    echo "$CLAUDE_BIN" > "$FDA_STATE"
+  elif [ -f "$FDA_STATE" ]; then
+    FDA_OLD=$(cat "$FDA_STATE" 2>/dev/null)
+    if [ "$FDA_OLD" != "$CLAUDE_BIN" ]; then
+      echo "WARN: Full Disk Access grant went stale on the claude CLI upgrade -- expect a wave of \"would like to access data from other apps\" popups"
+      echo "  Was: $FDA_OLD"
+      echo "  Now: $CLAUDE_BIN"
+      echo "  Fix: System Settings → Privacy & Security → Full Disk Access → remove the old entry, then + → ⌘⇧G → paste the 'Now' path → toggle ON"
+      echo "  (TCC keys this bare binary by path, so the grant cannot follow a version bump)"
+      ISSUES=$((ISSUES + 1))
+    else
+      echo "WARN: Full Disk Access was revoked on the claude CLI ($CLAUDE_BIN) -- re-add it under Privacy & Security → Full Disk Access, or delete $FDA_STATE to stop this check"
+      ISSUES=$((ISSUES + 1))
+    fi
+  fi
+fi
+
 # Scheduled MIST routines AND com.exobrain jobs -- check the LAST EXIT CODE, not
 # just that the job is loaded. A loaded job that exits nonzero every fire (e.g.
 # 78/EX_CONFIG when headless `claude` can't read the Keychain) is silently dead,
