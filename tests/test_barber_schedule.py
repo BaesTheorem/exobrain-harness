@@ -94,6 +94,44 @@ def test_record_resets_the_cycle(tmp_path, monkeypatch):
     assert state["history"][-1]["barber"] == "Razor Nick"
 
 
+def test_pending_appointment_silences_the_daily_job(tmp_path, monkeypatch):
+    """The bootstrap case: no history, but a cut is already booked."""
+    mod = load_schedule(tmp_path, monkeypatch, {"last_haircut": None, "pending": "2026-08-29"})
+    assert not mod.status(date(2026, 8, 17)).should_act
+    assert not mod.status(date(2026, 8, 29)).should_act  # the day itself
+
+
+def test_job_wakes_again_after_the_appointment_passes(tmp_path, monkeypatch):
+    mod = load_schedule(tmp_path, monkeypatch, {"last_haircut": None, "pending": "2026-08-29"})
+    st = mod.status(date(2026, 8, 30))
+    assert st.should_act
+    assert st.reason == "no haircut on record yet"
+
+
+def test_pending_does_not_suppress_a_later_due_cycle(tmp_path, monkeypatch):
+    """A spent appointment must not silence the next cycle forever."""
+    mod = load_schedule(
+        tmp_path, monkeypatch, {"last_haircut": "2026-08-29", "pending": "2026-08-29"}
+    )
+    # Next due 2026-10-10; inside the lead window and the appointment is past.
+    st = mod.status(date(2026, 10, 1))
+    assert st.should_act
+    assert st.due == date(2026, 10, 10)
+
+
+def test_record_clears_the_pending_appointment(tmp_path, monkeypatch):
+    mod = load_schedule(
+        tmp_path,
+        monkeypatch,
+        {"last_haircut": None, "pending": "2026-08-29", "pending_barber": "Razor Nick"},
+    )
+    mod.main(["record", "--date", "2026-08-29", "--barber", "Razor Nick"])
+    state = json.loads((tmp_path / "state.json").read_text())
+    assert state["pending"] is None
+    assert "pending_barber" not in state
+    assert state["last_haircut"] == "2026-08-29"
+
+
 def test_search_window_never_starts_in_the_past(tmp_path, monkeypatch):
     mod = load_schedule(tmp_path, monkeypatch, {"last_haircut": "2026-06-01"})
     today = date(2026, 8, 16)

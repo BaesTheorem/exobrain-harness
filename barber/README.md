@@ -78,8 +78,13 @@ python3 booksy.py slots --date 2026-08-29         # open times that day
 python3 booksy.py slots --from A --to B --json    # machine-readable
 
 python3 schedule.py status                        # where the cadence stands
-python3 schedule.py record --date 2026-08-29 --barber "Razor Nick"
+python3 schedule.py pending --date 2026-08-29 --barber "Razor Nick"
+python3 schedule.py record  --date 2026-08-29 --barber "Razor Nick"
 ```
+
+`pending` marks an appointment as lined up and silences the daily job until the
+day after it happens — otherwise, with nothing on record, the job would nudge
+every single morning about a haircut that is already on the calendar.
 
 `record` is the one to run after each cut — it resets the 6-week clock and
 re-arms the nudge. The clock runs from the last *completed* haircut, not the
