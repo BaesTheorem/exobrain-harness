@@ -35,9 +35,17 @@ fi
 # 09:00 is often slept through, and launchd fires the catch-up run the instant
 # the Mac wakes, before DNS answers. Three scans died that way (7/28, 8/04,
 # 8/05) and nobody saw it, because the failure is logged here and the job still
-# exits 0. Generic host on purpose: this scan hits a dozen job boards, so what
-# matters is that the internet is up, not one specific endpoint.
-if ! "$SCRIPT_DIR/scripts/wait-for-network.sh" cloudflare.com 300; then
+# exits 0.
+#
+# 2026-08-16: switched from cloudflare.com to api.anthropic.com. The old comment
+# argued for a generic host because the scan hits a dozen job boards, but that
+# had it backwards: the API is the hard prerequisite, since nothing runs at all
+# if claude itself can't reach it, and it is the endpoint that actually keeps
+# failing (ENOTFOUND on 7/27, 7/28, 8/04, 8/05, 8/16). Cloudflare was answering
+# on those mornings while the API was not, so the gate passed and the run died
+# anyway. Probing the API is also safe now: wait-for-network.sh dropped its -f
+# flag, so a 401 from an unauthenticated probe counts as reachable.
+if ! "$SCRIPT_DIR/scripts/wait-for-network.sh" api.anthropic.com 300; then
     echo "[$(date)] No network after 300s. Skipping job scan." >> "$LOG_DIR/job-scan-failures.log"
     exit 0
 fi
