@@ -69,7 +69,19 @@ BACKUP_MIN_FREE_GB=20
 # 2026-08-07; the 08-07 archive was lost outright). The run now holds caffeinate
 # and blocks until Drive confirms the upload. Minutes to wait before giving up; a
 # 5GB archive normally lands in about five.
-BACKUP_SYNC_TIMEOUT_MIN=45
+# How long the backup waits for Drive to confirm the upload before declaring
+# failure. This must survive a lid-closed weekend night: caffeinate -s only
+# holds the Mac awake on AC power, so on battery the upload progresses in
+# darkwake slivers and finishes whenever Alex wakes the machine -- 8-10h after
+# the 2 AM fire on a slow morning (observed 2026-08-16: staged 04:19, confirmed
+# ~noon). A precautionary local rescue copy is taken at BACKUP_RESCUE_AFTER_MIN
+# regardless, so the long deadline risks no data. The uplink has measured as low
+# as ~1 Mbps, which alone puts a 5.5GB upload past 12h, so the deadline also
+# covers a slow-but-moving awake upload. Ceiling: deadline + ~2.5h build must
+# stay under 24h, or the still-running job makes launchd skip the next 2 AM
+# fire and a whole day goes unbacked. 16h from a 2 AM start ends at 6 PM.
+BACKUP_SYNC_TIMEOUT_MIN=960
+BACKUP_RESCUE_AFTER_MIN=45
 # Where an archive that verified locally but never reached Drive gets parked, so
 # the day's backup still exists somewhere. Only written when an upload fails, so
 # it costs no disk in the normal case.
