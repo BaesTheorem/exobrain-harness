@@ -1,0 +1,27 @@
+#!/bin/bash
+# After a plan is approved: ask which permission mode to execute in, with
+# banner buttons that set it. Fire this when ExitPlanMode is approved, then
+# stop and wait; do not start work until Alex picks.
+#   mist-ask-mode ["message override"]
+#
+# Each button first sets the chat's permission mode (which puts the backend
+# dormant on purpose), then POSTs a notify-reply that revives it under the new
+# mode with --resume. Order matters: mode first, then the send.
+# MIST_ASK_DRYRUN=1 prints the mist-notify argv instead of posting.
+set -euo pipefail
+DIR="$(cd "$(dirname "$0")" && pwd)"
+MSG="${1:-Plan approved. Which permission mode should I execute in?}"
+: "${MIST_CONSOLE_SESSION:?mist-ask-mode needs a Console chat (MIST_CONSOLE_SESSION unset)}"
+: "${MIST_CONSOLE_URL:?MIST_CONSOLE_URL unset}"
+
+mode_btn() {  # usage: mode_btn "Label" bypassPermissions|acceptEdits|default
+  printf '%s=cmd:/usr/bin/curl -sS -X POST %s/sessions/%s/permission -H '"'"'Content-Type: application/json'"'"' -d '"'"'{"mode":"%s"}'"'"'; /usr/bin/curl -sS -X POST %s/notify-reply -H '"'"'Content-Type: application/json'"'"' -d '"'"'{"sid":"%s","text":"Permission mode set to %s. Go ahead."}'"'"'' \
+    "$1" "$MIST_CONSOLE_URL" "$MIST_CONSOLE_SESSION" "$2" "$MIST_CONSOLE_URL" "$MIST_CONSOLE_SESSION" "$2"
+}
+
+ARGS=("$MSG" "MIST" Purr "console:$MIST_CONSOLE_SESSION"
+  --action "$(mode_btn 'Bypass' bypassPermissions)"
+  --action "$(mode_btn 'Accept edits' acceptEdits)"
+  --action "$(mode_btn 'Ask each time' default)")
+if [ "${MIST_ASK_DRYRUN:-0}" = "1" ]; then printf '%s\n' "${ARGS[@]}"; exit 0; fi
+exec "$DIR/mist-notify" "${ARGS[@]}"
