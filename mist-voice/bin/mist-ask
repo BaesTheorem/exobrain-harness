@@ -1,0 +1,37 @@
+#!/bin/bash
+# Ask Alex for a decision with a banner whose buttons answer back into this chat.
+#   mist-ask "Force-push over main? It rewrites 3 pushed commits." \
+#       "Approve=Approved: force-push." "Deny=Denied: leave main alone."
+#
+# Each "Label=reply text" pair becomes a banner button; tapping it POSTs the
+# reply text to this chat's /notify-reply, so the answer arrives as Alex's next
+# message. Requires a Console chat ($MIST_CONSOLE_SESSION / $MIST_CONSOLE_URL,
+# present in every shell a Console chat spawns). Trailing args after the pairs
+# pass through to mist-notify (e.g. --group, --no-voice).
+#
+# After firing this, stop and wait: the tapped button is the next user message.
+# Limitation: a single quote in the reply text breaks the embedded cmd; keep
+# replies to plain words.
+# MIST_ASK_DRYRUN=1 prints the mist-notify argv instead of posting.
+set -euo pipefail
+DIR="$(cd "$(dirname "$0")" && pwd)"
+MSG="${1:?usage: mist-ask \"question\" \"Label=reply text\" [\"Label=reply text\" ...] [mist-notify flags]}"
+shift
+: "${MIST_CONSOLE_SESSION:?mist-ask needs a Console chat (MIST_CONSOLE_SESSION unset)}"
+: "${MIST_CONSOLE_URL:?MIST_CONSOLE_URL unset}"
+
+btn() {  # "Label=reply text" -> a mist-notify --action value that answers back
+  local label="${1%%=*}" reply="${1#*=}" payload
+  payload="$(python3 -c 'import json,sys;print(json.dumps({"sid":sys.argv[1],"text":sys.argv[2]}))' \
+    "$MIST_CONSOLE_SESSION" "$reply")"
+  printf '%s=cmd:/usr/bin/curl -sS -X POST %s/notify-reply -H '"'"'Content-Type: application/json'"'"' -d '"'"'%s'"'"'' \
+    "$label" "$MIST_CONSOLE_URL" "$payload"
+}
+
+ARGS=("$MSG" "MIST needs a decision" Purr "console:$MIST_CONSOLE_SESSION" --urgency timeSensitive)
+while [ $# -gt 0 ] && [[ "$1" == *=* && "$1" != --* ]]; do
+  ARGS+=(--action "$(btn "$1")")
+  shift
+done
+if [ "${MIST_ASK_DRYRUN:-0}" = "1" ]; then printf '%s\n' "${ARGS[@]}" "$@"; exit 0; fi
+exec "$DIR/mist-notify" "${ARGS[@]}" "$@"
