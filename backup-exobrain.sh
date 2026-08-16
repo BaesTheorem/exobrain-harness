@@ -30,10 +30,15 @@
 #     Drive only once it's known-good.
 #   - Landing the file in the Drive folder is not the same as the backup
 #     existing. The run blocks (still caffeinated) until Drive stamps the
-#     com.google.drivefs.item-id xattr confirming the upload, and treats a
-#     timeout as a failed backup: rescue the bytes locally, alert, skip the
-#     prune. Before this, five runs between 2026-07-20 and 2026-08-07 reported
-#     "Backup complete." while Drive had reverted the archive to 0 bytes.
+#     com.google.drivefs.item-id xattr confirming the upload. Before this,
+#     five runs between 2026-07-20 and 2026-08-07 reported "Backup complete."
+#     while Drive had reverted the archive to 0 bytes.
+#   - The wait has two clocks: a rescue checkpoint (45m; copy the bytes off the
+#     mount as insurance, keep waiting) and a failure deadline (16h; alert,
+#     skip the prune). They are far apart because caffeinate cannot hold a
+#     battery, lid-closed Mac awake, so an overnight upload legitimately
+#     completes whenever the machine next really wakes. The next run reconciles
+#     anything Drive confirmed after a past run gave up.
 
 set -euo pipefail
 
@@ -60,7 +65,8 @@ if ! declare -p EXTRA_INCLUDES >/dev/null 2>&1; then EXTRA_INCLUDES=(); fi
 if ! declare -p BACKUP_EXCLUDE_REPOS >/dev/null 2>&1; then BACKUP_EXCLUDE_REPOS=(); fi
 BACKUP_REPO_MAX_MB="${BACKUP_REPO_MAX_MB:-2048}"
 BACKUP_MIN_FREE_GB="${BACKUP_MIN_FREE_GB:-20}"
-BACKUP_SYNC_TIMEOUT_MIN="${BACKUP_SYNC_TIMEOUT_MIN:-45}"
+BACKUP_SYNC_TIMEOUT_MIN="${BACKUP_SYNC_TIMEOUT_MIN:-600}"
+BACKUP_RESCUE_AFTER_MIN="${BACKUP_RESCUE_AFTER_MIN:-45}"
 BACKUP_RESCUE_DIR="${BACKUP_RESCUE_DIR:-$HOME/Exobrain backup rescue}"
 
 # Google Drive stamps this xattr on a file once its content upload has actually
@@ -100,6 +106,36 @@ fail() {
 }
 
 mkdir -p "$BACKUP_DIR"
+
+# --- Reconcile late-confirmed uploads from prior runs --------------------------
+# A run that times out waiting for Drive is not the last word: on battery with
+# the lid closed, caffeinate cannot hold the Mac awake (-s works on AC only),
+# so the upload routinely completes hours later once the machine really wakes.
+# That leaves behind (a) rescue copies whose Drive twin is now confirmed, and
+# (b) .UNUPLOADED-parked archives that did land after all. Clean both up here,
+# BEFORE the freshness guard's early exit, so a kickstart heals the state.
+for f in "$BACKUP_RESCUE_DIR"/exobrain-collective-*.tar.gz; do
+    [ -e "$f" ] || continue
+    TWIN="$BACKUP_DIR/${f##*/}"
+    if [ -f "$TWIN" ] && [ -n "$(drive_item_id "$TWIN")" ]; then
+        echo "[$(date)] Drive later confirmed ${f##*/}; dropping its rescue copy"
+        rm -f "$f"
+    fi
+done
+for f in "$BACKUP_DIR"/exobrain-collective-*.tar.gz.UNUPLOADED; do
+    [ -e "$f" ] || continue
+    [ -n "$(drive_item_id "$f")" ] || continue
+    UNPARKED="${f%.UNUPLOADED}"
+    if [ -e "$UNPARKED" ]; then
+        # Same-day twin already lives in the retention glob, so this parked copy
+        # is a confirmed-on-Drive duplicate of the same snapshot; reclaim it.
+        echo "[$(date)] Parked ${f##*/} is on Drive but duplicates ${UNPARKED##*/}; removing it"
+        rm -f "$f"
+    else
+        echo "[$(date)] Parked ${f##*/} did upload after all; returning it to retention"
+        mv -f "$f" "$UNPARKED"
+    fi
+done
 
 # --- Freshness guard ----------------------------------------------------------
 # RunAtLoad fires this on every login/boot to catch up after a power-off, but we
@@ -312,34 +348,66 @@ echo "[$(date)] Archive staged on Drive: $ARCHIVE_PATH ($BACKUP_SIZE)"
 # queues an upload. We are still inside the caffeinate re-exec at this point, so
 # staying here holds the Mac awake and online for the transfer instead of handing
 # it back to the darkwake cycle mid-upload -- which is the whole bug.
-echo "[$(date)] Waiting for Drive to confirm upload (timeout ${BACKUP_SYNC_TIMEOUT_MIN}m)..."
-SYNC_DEADLINE=$(( $(date +%s) + BACKUP_SYNC_TIMEOUT_MIN * 60 ))
+# Two clocks, deliberately far apart. The RESCUE clock (default 45m) is the
+# data-safety one: if Drive hasn't confirmed by then, copy the bytes off the
+# mount as insurance against cache eviction, but KEEP waiting. The DEADLINE
+# clock (default 10h) is the failure one: caffeinate -s cannot hold a battery,
+# lid-closed Mac awake, so a weekend-night upload legitimately finishes hours
+# late, whenever the machine really wakes. Before this split, the single 45m
+# deadline turned every such night into a false "backup failed" (08-14, 08-16)
+# whose archive was in fact fully uploaded by morning.
+echo "[$(date)] Waiting for Drive to confirm upload (rescue copy at ${BACKUP_RESCUE_AFTER_MIN}m, deadline ${BACKUP_SYNC_TIMEOUT_MIN}m)..."
+WAIT_START=$(date +%s)
+SYNC_DEADLINE=$(( WAIT_START + BACKUP_SYNC_TIMEOUT_MIN * 60 ))
+RESCUE_AT=$(( WAIT_START + BACKUP_RESCUE_AFTER_MIN * 60 ))
+RESCUED=""
 ITEM_ID=""
 while :; do
     ITEM_ID="$(drive_item_id "$ARCHIVE_PATH")"
     [ -n "$ITEM_ID" ] && break
-    [ "$(date +%s)" -ge "$SYNC_DEADLINE" ] && break
+    NOW=$(date +%s)
+    [ "$NOW" -ge "$SYNC_DEADLINE" ] && break
+    if [ -z "$RESCUED" ] && [ "$NOW" -ge "$RESCUE_AT" ]; then
+        echo "[$(date)] Not confirmed after ${BACKUP_RESCUE_AFTER_MIN}m; taking precautionary rescue copy and continuing to wait" >&2
+        mkdir -p "$BACKUP_RESCUE_DIR"
+        if cp "$ARCHIVE_PATH" "$BACKUP_RESCUE_DIR/$ARCHIVE_NAME.tmp" \
+           && mv -f "$BACKUP_RESCUE_DIR/$ARCHIVE_NAME.tmp" "$BACKUP_RESCUE_DIR/$ARCHIVE_NAME"; then
+            RESCUED="$BACKUP_RESCUE_DIR/$ARCHIVE_NAME"
+            echo "[$(date)] Rescue copy: $RESCUED" >&2
+        else
+            rm -f "$BACKUP_RESCUE_DIR/$ARCHIVE_NAME.tmp" 2>/dev/null || true
+            echo "[$(date)] WARN: precautionary rescue copy failed; will retry at deadline" >&2
+        fi
+    fi
     sleep 15
 done
 
 if [ -z "$ITEM_ID" ]; then
-    # Drive never took the bytes. The file sitting in the Drive folder is a husk:
-    # the mount reports its full local size, but the cloud copy is empty. Rescue
-    # the content off Drive before that local cache is evicted, then fail loudly
-    # -- and do it BEFORE the prune below, so a doomed archive can never cause an
-    # older good one to be deleted.
-    echo "[$(date)] WARN: Drive did not confirm upload within ${BACKUP_SYNC_TIMEOUT_MIN}m; rescuing locally" >&2
-    mkdir -p "$BACKUP_RESCUE_DIR"
-    if cp "$ARCHIVE_PATH" "$BACKUP_RESCUE_DIR/$ARCHIVE_NAME.tmp" \
-       && mv -f "$BACKUP_RESCUE_DIR/$ARCHIVE_NAME.tmp" "$BACKUP_RESCUE_DIR/$ARCHIVE_NAME"; then
-        echo "[$(date)] Rescued to: $BACKUP_RESCUE_DIR/$ARCHIVE_NAME" >&2
-        fail "backup did NOT reach Google Drive; rescued copy at $BACKUP_RESCUE_DIR" "$BACKUP_RESCUE_DIR"
+    # Drive never took the bytes inside the long window. The file in the Drive
+    # folder may be a husk (mount reports full local size over an empty cloud
+    # copy), so make sure a rescue copy exists, then fail loudly -- BEFORE the
+    # prune below, so a doomed archive can never cause a good one's deletion.
+    if [ -z "$RESCUED" ]; then
+        mkdir -p "$BACKUP_RESCUE_DIR"
+        if cp "$ARCHIVE_PATH" "$BACKUP_RESCUE_DIR/$ARCHIVE_NAME.tmp" \
+           && mv -f "$BACKUP_RESCUE_DIR/$ARCHIVE_NAME.tmp" "$BACKUP_RESCUE_DIR/$ARCHIVE_NAME"; then
+            RESCUED="$BACKUP_RESCUE_DIR/$ARCHIVE_NAME"
+        else
+            rm -f "$BACKUP_RESCUE_DIR/$ARCHIVE_NAME.tmp" 2>/dev/null || true
+        fi
+    fi
+    if [ -n "$RESCUED" ]; then
+        echo "[$(date)] Rescued to: $RESCUED" >&2
+        fail "backup did NOT reach Google Drive within $((BACKUP_SYNC_TIMEOUT_MIN / 60))h; rescued copy at $BACKUP_RESCUE_DIR" "$BACKUP_RESCUE_DIR"
     else
-        rm -f "$BACKUP_RESCUE_DIR/$ARCHIVE_NAME.tmp" 2>/dev/null || true
         fail "backup did NOT reach Google Drive AND the local rescue copy failed -- today has no backup"
     fi
 fi
 echo "[$(date)] Upload confirmed by Drive (item $ITEM_ID)"
+if [ -n "$RESCUED" ]; then
+    echo "[$(date)] Upload confirmed after the rescue checkpoint; dropping now-redundant rescue copy"
+    rm -f "$RESCUED"
+fi
 
 # --- Optional secondary copy to an off-Google destination ---------------------
 # Google Drive is both the backup target AND a primary data source, so a single
