@@ -60,6 +60,7 @@ MIST's persistent memory store is `/Users/alexhedtke/.claude/projects/-Users-ale
 
 - **The trigger is repetition or scale, not difficulty.** Three of anything, or one thing you will plausibly want again, is enough. A five-line shell pipeline counts as automation.
 - **Deterministic beats generated.** When a real tool exists (`git`, `jq`, `rg`, `ffmpeg`, an API, a parser), use it instead of asking a model to eyeball the same thing. Save the model for judgment, prose, and ambiguity.
+- **Look for APIs and MCP servers relevant to the task before starting it.** Search the connected MCP servers (ToolSearch), the tools registry, and the service's own API before scraping a page, hand-copying data, or rebuilding an integration that already exists. A structured interface beats eyeballing output, and one usually exists.
 - **The exception is genuine one-offs where the script costs more than the work.** Say so out loud when you skip automating, so the choice is visible instead of silent. And per [[feedback_delete_oneoffs]], delete a throwaway script after use rather than leaving it to rot.
 - **Fix the generator, not the output.** If a projection, briefing, or note is wrong, correct the thing that produces it so it stays fixed.
 
