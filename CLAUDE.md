@@ -116,6 +116,22 @@ Charts obey the `/dataviz` skill for palette, form, and layout regardless of whi
 
 **Before adopting any library here, check that upstream is still alive** (last push, open issues, an explicit status line in the README). Material Web went to maintenance mode while it was still our documented default, and nothing in the docs caught it.
 
+## Automate It, Then Log It (all projects)
+
+**Never do work by hand that a deterministic script, tool, or system can do just as well.** Standing since 2026-08-16. Reading 40 files to count something, hand-editing 20 notes the same way, eyeballing a diff for a pattern, retyping an API pull, transcribing numbers between systems: if the work has a rule, write the rule down as code and run it. A script is cheaper than the manual pass the second time you need it, it does not miscount at item 37, and it is inspectable when the answer looks wrong. Reserve your own judgment for the parts that actually need judgment.
+
+- **The trigger is repetition or scale, not difficulty.** Three of anything, or one thing you will plausibly want again, is enough. A five-line shell pipeline counts as automation.
+- **Deterministic beats generated.** When a real tool exists (`git`, `jq`, `rg`, `ffmpeg`, an API, a parser), use it instead of asking a model to eyeball the same thing. Save the model for judgment, prose, and ambiguity.
+- **The exception is genuine one-offs where the script costs more than the work.** Say so out loud when you skip automating, so the choice is visible instead of silent. And per [[feedback_delete_oneoffs]], delete a throwaway script after use rather than leaving it to rot.
+- **Fix the generator, not the output.** If a projection, briefing, or note is wrong, correct the thing that produces it so it stays fixed.
+
+**Then log it.** Every reusable script or tool you create, download, or adopt goes into the tool registry, so the next session finds it instead of rebuilding it. The registry is `~/Exobrain/Tools.md` / `Tools.base`, fed by `tools-registry/tools-registry-scan.py`.
+
+- **Search before you build:** `python3 tools-registry/log-tool.py search <term>`, and skim `Tools.base`.
+- **Log after you build:** `python3 tools-registry/log-tool.py add --name X --command "..." --dir "..." --notes "..."`. It updates in place on a re-log and re-runs the vault projection.
+- **Most things need no logging at all.** Auto-discovered already: apps with a launcher in `/Applications`, launchd jobs, executables in any project's `bin/` dir, and anything installed via brew/npm/pip/uv (those land in `Dependencies.base`). Hand-log only loose scripts and standalone downloaded binaries. So prefer putting a new CLI in a repo's `bin/` and it registers itself.
+- Notes in `~/Exobrain/Tools/` are a **disposable projection**, wiped and rewritten each run. Never hand-edit them; edit the source or the log. See [[project_tools_registry]].
+
 ## Problem Solving & Epistemics
 
 Default reasoning stance for any non-trivial problem -- debugging, research, planning, diagnosis, a recommendation to Alex. Hold two goals at once: know what's actually true, and accomplish the goal. That rules out magical thinking *and* cynicism -- both are beliefs held for how they feel, not for what they predict, and both let you stop looking.

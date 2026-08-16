@@ -3,18 +3,40 @@
 Single source of truth for every tool on this machine -- web apps, scheduled jobs/watchers,
 and CLI tools -- so the inventory never has to be remembered by hand.
 
-`tools-registry-scan.py` auto-discovers tools from two authoritative on-disk sources:
+`tools-registry-scan.py` auto-discovers tools from three authoritative on-disk sources:
 
 - **App launchers** -- `/Applications/*.app` (parses `Contents/MacOS/launch` for `DIR` + `PORT`)
 - **Scheduled jobs** -- `~/Library/LaunchAgents/{com.exobrain,com.mist,com.nightwatch,com.alexhedtke}*.plist`
+- **CLI entry points** -- executables in any `bin/` dir under a `~/Documents` project (depth ≤ 3)
 
 For each tool it resolves repo dir, git remote, port, schedule, and live status, then writes
 one note per tool into the Obsidian vault's `Tools/` folder. `Tools.base` (vault root) renders
-them with views: Apps, Scheduled Jobs, Running Now, By Repo, All. The folder is wiped and
-rewritten each run (notes are a disposable projection -- never hand-edit them).
+them with views: Apps, Scheduled Jobs, CLI Tools & Scripts, Running Now, By Repo, All. The
+folder is wiped and rewritten each run (notes are a disposable projection -- never hand-edit
+them).
 
-CLI-only tools with no launcher and no launchd job are added by hand via the `SUPPLEMENTAL`
-list in the scanner.
+## The hand-logged layer
+
+Loose scripts outside a `bin/` dir, and standalone downloaded binaries, are the only things
+auto-discovery misses. They live in `cli-tools.json`, maintained through `log-tool.py`:
+
+```
+python3 tools-registry/log-tool.py search pdf          # before building anything
+python3 tools-registry/log-tool.py list
+python3 tools-registry/log-tool.py add --name pdf-split.py \
+    --command "python3 pdf/pdf-split.py <in.pdf>" \
+    --dir "~/Documents/Exobrain harness" --notes "Split a PDF by page ranges."
+python3 tools-registry/log-tool.py remove --name pdf-split.py
+```
+
+`add` updates in place when the name already exists, keeps the original `added` date, sorts
+the JSON by name, and re-runs the scan so the vault reflects the change immediately. Manual
+entries win over auto-discovery on a name collision, which is how you attach real notes to a
+`bin/` executable.
+
+The registry only pays off if it is consulted, so the rule in `CLAUDE.md` ("Automate It, Then
+Log It") is the other half of this directory: search before writing a new script, log after
+writing one.
 
 It also inventories the **downloaded substrate** those tools run on -- language runtimes,
 Homebrew formulae/casks, global Python (`pip list --not-required`) and Node packages, and uv

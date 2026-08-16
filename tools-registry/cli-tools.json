@@ -1,0 +1,140 @@
+[
+  {
+    "name": "add-reminder",
+    "command": "reminders/add-reminder \"Title\" --due \"2026-08-20 09:00\" --repeat daily",
+    "repo_dir": "~/Documents/Exobrain harness",
+    "source": "built",
+    "added": "2026-08-16",
+    "notes": "Create Apple Reminders, including repeating ones (EventKit via mkreminder.swift). AppleScript cannot set recurrence."
+  },
+  {
+    "name": "check_boundaries.py",
+    "command": "python3 checks/check_boundaries.py <files>",
+    "repo_dir": "~/Documents/Exobrain harness",
+    "source": "built",
+    "added": "2026-08-16",
+    "notes": "Module-boundary checker for the harness (top-level dirs are islands). Runs automatically in the post-edit quality-gate hook."
+  },
+  {
+    "name": "defuddle",
+    "command": "npx defuddle-cli parse <url> -m",
+    "repo_dir": "",
+    "source": "installed",
+    "added": "2026-08-16",
+    "notes": "Web page -> clean markdown. Use instead of WebFetch for ordinary pages; see the /defuddle skill."
+  },
+  {
+    "name": "discord-digest-fetch.py",
+    "command": "python3 discord/discord-digest-fetch.py",
+    "repo_dir": "~/Documents/Exobrain harness",
+    "source": "built",
+    "added": "2026-08-16",
+    "notes": "Pull the friend-group Discord digest. Backs the /discord-digest skill and the com.exobrain.discord-digest job."
+  },
+  {
+    "name": "exposure_audit.py",
+    "command": "python3 .claude/skills/cybersecurity-bodyguard/scripts/exposure_audit.py",
+    "repo_dir": "~/Documents/Exobrain harness",
+    "source": "built",
+    "added": "2026-08-16",
+    "notes": "Scan tracked files for leaked personal data (IP/MAC shapes, names, credentials) before anything ships. Used by /exobrain-audit and /cybersecurity-bodyguard."
+  },
+  {
+    "name": "Harry Potter and the Sorcerer's Stone",
+    "category": "app",
+    "command": "",
+    "repo_dir": "~/Documents/hp1-sorcerers-stone-macos",
+    "source": "built",
+    "added": "2026-06-19",
+    "notes": "Native SurrealEngine clone of HP1 for Apple silicon. Compiled launcher, so scan_apps() cannot infer its repo."
+  },
+  {
+    "name": "imessage-reader.py",
+    "command": "python3 imessage/imessage-reader.py recent | chat <phone-number>",
+    "repo_dir": "~/Documents/Exobrain harness",
+    "source": "built",
+    "added": "2026-08-16",
+    "notes": "Read iMessages from the local chat.db. Only `recent` and phone-number `chat` work; `search` and name-based `chat` return empty."
+  },
+  {
+    "name": "imessage-send.py",
+    "command": "python3 imessage/imessage-send.py <recipient> \"text\"",
+    "repo_dir": "~/Documents/Exobrain harness",
+    "source": "built",
+    "added": "2026-08-16",
+    "notes": "Send an iMessage. Always sign outbound messages \"-MIST (Alex's assistant)\"."
+  },
+  {
+    "name": "mid2mp3 / mp32mid",
+    "command": "mid2mp3 <file.mid> | mp32mid <file.mp3>",
+    "repo_dir": "~/.local/bin",
+    "source": "built",
+    "added": "2026-06-24",
+    "notes": "MIDI <-> audio conversion. mp32mid needs Basic Pitch with ONNX."
+  },
+  {
+    "name": "mist-progress",
+    "command": "mist-progress run --label \"<what it is>\" -- <command>",
+    "repo_dir": "~/Documents/mist-console",
+    "source": "built",
+    "added": "2026-08-16",
+    "notes": "Live progress bar in the MIST Console. Wrap ANY download/upload/install/clone that takes more than a few seconds. Also start/set/done for progress you compute yourself."
+  },
+  {
+    "name": "narrate.py",
+    "command": "mist-voice/.venv/bin/python mist-voice/scripts/narrate.py <note.md> -o <out.mp3>",
+    "repo_dir": "~/Documents/Exobrain harness",
+    "source": "built",
+    "added": "2026-08-16",
+    "notes": "Narrate a note or piped text in Alex's cloned MIST voice. Slower than real time, so pre-render only. Needs serve.py running."
+  },
+  {
+    "name": "Rental Harmony",
+    "category": "app",
+    "command": "",
+    "repo_dir": "~/Documents/rental-harmony",
+    "source": "built",
+    "added": "2026-06-19",
+    "notes": "AppleScript applet bundle, so there is no shell launcher for scan_apps() to parse."
+  },
+  {
+    "name": "supernote-parser.py",
+    "command": "python3 transcript-processing/supernote-parser.py <note.note>",
+    "repo_dir": "~/Documents/Exobrain harness",
+    "source": "built",
+    "added": "2026-08-16",
+    "notes": "Extract PNG pages from a Supernote .note file for vision OCR. A firmware signature bump raises UnsupportedFileFormat -- upgrade supernotelib."
+  },
+  {
+    "name": "tools-registry-scan.py",
+    "command": "python3 tools-registry/tools-registry-scan.py",
+    "repo_dir": "~/Documents/Exobrain harness",
+    "source": "built",
+    "added": "2026-08-16",
+    "notes": "Rebuilds this whole registry (Tools, Dependencies, Project Dependencies). Runs daily at 07:15 via com.exobrain.tools-registry."
+  },
+  {
+    "name": "tv",
+    "command": "tv/tv <command>",
+    "repo_dir": "~/Documents/Exobrain harness",
+    "source": "built",
+    "added": "2026-06-19",
+    "notes": "Local WSS control CLI for the living-room Samsung TV."
+  },
+  {
+    "name": "vendor-sync.sh",
+    "command": "~/Documents/material-design/bin/vendor-sync.sh",
+    "repo_dir": "~/Documents/material-design",
+    "source": "built",
+    "added": "2026-08-16",
+    "notes": "Refresh the vendored UI libraries (Beer CSS, mdui, material-color-utilities, Material Symbols) pinned in vendor.json."
+  },
+  {
+    "name": "wait-for-network.sh",
+    "command": "scripts/wait-for-network.sh && <command>",
+    "repo_dir": "~/Documents/Exobrain harness",
+    "source": "built",
+    "added": "2026-08-16",
+    "notes": "Gate any launchd job that hits the network. Jobs that fire on wake before DNS is up fail with ENOTFOUND without it."
+  }
+]
