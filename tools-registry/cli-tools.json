@@ -8,6 +8,14 @@
     "notes": "Create Apple Reminders, including repeating ones (EventKit via mkreminder.swift). AppleScript cannot set recurrence."
   },
   {
+    "name": "barber-booksy",
+    "command": "python3 booksy.py slots --from A --to B",
+    "repo_dir": "/Users/alexhedtke/Documents/Exobrain harness/barber",
+    "source": "built",
+    "added": "2026-08-16",
+    "notes": "Reads live Booksy availability for Rich Forever Midtown barbers (booth-rental umbrella venue: each barber is a separate Booksy business). Read-only; booking needs an account. Paired with schedule.py (6-week cadence) and launchd com.exobrain.haircut-check."
+  },
+  {
     "name": "check_boundaries.py",
     "command": "python3 checks/check_boundaries.py <files>",
     "repo_dir": "~/Documents/Exobrain harness",
