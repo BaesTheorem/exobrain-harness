@@ -6,13 +6,16 @@ authoritative on-disk sources, so it never drifts:
 
   1. App launchers  -> /Applications/*.app  (parses Contents/MacOS/launch for DIR + PORT)
   2. Scheduled jobs -> ~/Library/LaunchAgents/{com.exobrain,com.mist,com.nightwatch,com.alexhedtke}*.plist
+  3. CLI entry points -> executables in any ~/Documents/*/bin (and */*/bin) directory
 
 For each item it records repo dir, git remote, port, launcher/script, schedule, and LIVE
 status (port listening / job loaded). Emits one note per tool into the vault "Tools/" folder,
 which "Tools.base" renders. Idempotent: the folder is wiped and rewritten each run.
 
-Known gap: CLI-only tools with no .app launcher and no launchd job (e.g. tv/tv,
-imessage-reader) are not auto-discovered yet. Extend SUPPLEMENTAL below to include them.
+Loose scripts that live outside a bin/ dir, plus third-party CLIs worth remembering, are
+logged by hand in cli-tools.json. Add to it with log-tool.py rather than editing the JSON
+directly, and search it before writing a new script -- the point of the registry is that
+work already automated once never gets redone by hand.
 
 Usage:  python3 tools-registry-scan.py
 """
@@ -38,14 +41,9 @@ HB_PY = "/opt/homebrew/bin/python3"
 
 ILLEGAL = re.compile(r'[\\/:#^\[\]|*?"<>]')
 
-# CLI/other tools with no launcher and no launchd job -- maintained by hand.
-# The two .app entries are bundles whose launcher is a compiled binary rather
-# than a shell script, so scan_apps() cannot pick them up or infer a repo.
-SUPPLEMENTAL = [
-    {"name": "Samsung TV control (tv)", "category": "cli", "repo_dir": os.path.join(HOME, "Documents", "Exobrain harness", "tv"), "notes": "Local WSS control CLI for the living-room Samsung TV (tv/tv)."},
-    {"name": "Harry Potter and the Sorcerer's Stone", "category": "app", "repo_dir": os.path.join(HOME, "Documents", "hp1-sorcerers-stone-macos"), "notes": "Native SurrealEngine clone of HP1 for Apple silicon. Compiled launcher."},
-    {"name": "Rental Harmony", "category": "app", "repo_dir": os.path.join(HOME, "Documents", "rental-harmony"), "notes": "AppleScript applet bundle, so no shell launcher to parse."},
-]
+# Hand-logged CLI tools and scripts: the ones with no launcher, no launchd job, and no
+# bin/ entry point, plus third-party CLIs worth remembering. Written by log-tool.py.
+MANUAL_LOG = os.path.join(os.path.dirname(os.path.abspath(__file__)), "cli-tools.json")
 
 
 def port_live(port):
@@ -186,6 +184,66 @@ def scan_jobs(loaded):
     return items
 
 
+def scan_cli():
+    """Executables in any ~/Documents project's bin/ dir -- our CLI entry points.
+
+    Every MIST CLI (mist-say, mist-image, mist-progress, mist-eject, ...) ships as an
+    executable in a repo's bin/, so this catches them without anyone maintaining a list.
+    """
+    items = []
+    for dirpath, dirnames, _ in os.walk(PROJECTS_ROOT):
+        depth = dirpath[len(PROJECTS_ROOT):].count(os.sep)
+        if depth >= 3:
+            dirnames[:] = []
+        dirnames[:] = [d for d in dirnames
+                       if d not in PRUNE and not d.startswith(".") and "venv" not in d]
+        if os.path.basename(dirpath) != "bin":
+            continue
+        repo = find_repo_root(dirpath) or os.path.dirname(dirpath)
+        for entry in sorted(os.listdir(dirpath)):
+            path = os.path.join(dirpath, entry)
+            if entry.startswith(".") or not os.path.isfile(path) or not os.access(path, os.X_OK):
+                continue
+            items.append({
+                "name": entry, "category": "cli", "port": "",
+                "repo_dir": repo, "launcher": path, "source": "built",
+                "command": path.replace(HOME, "~"),
+            })
+    return items
+
+
+def load_manual():
+    """Hand-logged tools from cli-tools.json (see log-tool.py)."""
+    try:
+        entries = json.load(open(MANUAL_LOG))
+    except Exception as e:
+        print(f"WARN: could not read {MANUAL_LOG}: {e}")
+        return []
+    items = []
+    for e in entries:
+        repo = os.path.expanduser(e.get("repo_dir", "") or "")
+        items.append({
+            "name": e["name"], "category": e.get("category", "cli"), "port": "",
+            "repo_dir": repo, "launcher": "", "command": e.get("command", ""),
+            "source": e.get("source", "built"), "added": e.get("added", ""),
+            "notes": e.get("notes", ""),
+        })
+    return items
+
+
+def merge(*groups):
+    """Concatenate scan results, first occurrence of a name wins."""
+    out, seen = [], set()
+    for group in groups:
+        for item in group:
+            key = item["name"].lower()
+            if key in seen:
+                continue
+            seen.add(key)
+            out.append(item)
+    return out
+
+
 def run(cmd):
     try:
         return subprocess.run(cmd, capture_output=True, text=True, timeout=90).stdout
@@ -291,11 +349,17 @@ def write_note(item):
         f"repo_remote: {yaml_str(git_remote(item.get('repo_dir', '')))}",
         f"launcher: {yaml_str(item.get('launcher'))}",
         f"schedule: {yaml_str(item.get('schedule'))}",
+        f"command: {yaml_str(item.get('command'))}",
+        f"source: {yaml_str(item.get('source') or 'built')}",
+        f"added: {yaml_str(item.get('added'))}",
         "---",
     ]
     body = []
     if item.get("notes"):
         body.append(item["notes"])
+        body.append("")
+    if item.get("command"):
+        body.append(f"```\n{item['command']}\n```")
         body.append("")
     if item.get("port"):
         body.append(f"Local URL: http://localhost:{item['port']}/")
@@ -429,13 +493,15 @@ def main():
     # Built tools (apps + scheduled jobs + cli)
     wipe(VAULT_FOLDER)
     loaded = loaded_labels()
-    items = scan_apps() + scan_jobs(loaded) + SUPPLEMENTAL
+    # Manual entries come first so a hand-written note wins over the bare bin/ discovery.
+    items = merge(load_manual(), scan_apps(), scan_jobs(loaded), scan_cli())
     for it in items:
         write_note(it)
     apps = sum(1 for i in items if i["category"] == "app")
     jobs = sum(1 for i in items if i["category"] == "scheduled-job")
+    clis = sum(1 for i in items if i["category"] == "cli")
     live = sum(1 for i in items if i.get("live"))
-    print(f"Synced {len(items)} tools ({apps} apps, {jobs} jobs, {len(SUPPLEMENTAL)} cli) -> {VAULT_FOLDER}")
+    print(f"Synced {len(items)} tools ({apps} apps, {jobs} jobs, {clis} cli) -> {VAULT_FOLDER}")
     print(f"Live right now: {live}")
 
     # Downloaded substrate (runtimes, brew, npm, pip, uv)
