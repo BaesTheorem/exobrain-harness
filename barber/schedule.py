@@ -12,12 +12,16 @@ INVARIANTS (an edit must not break these):
   noticing.
 - Exactly one nudge per cycle. `notified_cycle` is compared against the due
   date, so re-running the job the same week does not re-notify.
+- An appointment already lined up (`pending`) suppresses the job until the
+  day after it happens. Without this the daily job re-nudges every morning
+  for a haircut that is already on the calendar.
 
 Usage:
     python3 schedule.py status                  # human-readable
     python3 schedule.py check                   # exit 0 = act now, 1 = nothing to do
     python3 schedule.py window                  # the date range to search
     python3 schedule.py mark-notified
+    python3 schedule.py pending --date 2026-08-29 [--barber "Razor Nick"]
     python3 schedule.py record --date 2026-08-29 [--barber "Razor Nick"]
 """
 
@@ -49,6 +53,7 @@ class Status:
     notified_cycle: date | None
     should_act: bool
     reason: str
+    pending: date | None = None
 
 
 def _load(path: Path, default: dict) -> dict:
@@ -58,7 +63,10 @@ def _load(path: Path, default: dict) -> dict:
 
 
 def load_state() -> dict:
-    return _load(STATE_PATH, {"last_haircut": None, "notified_cycle": None, "history": []})
+    return _load(
+        STATE_PATH,
+        {"last_haircut": None, "notified_cycle": None, "pending": None, "history": []},
+    )
 
 
 def save_state(state: dict) -> None:
@@ -77,18 +85,30 @@ def status(today: date | None = None) -> Status:
     notified = (
         date.fromisoformat(state["notified_cycle"]) if state.get("notified_cycle") else None
     )
+    pending = date.fromisoformat(state["pending"]) if state.get("pending") else None
+
+    # An appointment already lined up settles the question, whether or not
+    # there is any history. Stay quiet until the day after it happens.
+    if pending is not None and pending >= today:
+        due = (last + timedelta(weeks=interval_weeks())) if last else None
+        days = (due - today).days if due else None
+        return Status(last, due, days, notified, False, f"appointment on {pending}", pending)
 
     if last is None:
-        return Status(None, None, None, notified, True, "no haircut on record yet")
+        return Status(None, None, None, notified, True, "no haircut on record yet", pending)
 
     due = last + timedelta(weeks=interval_weeks())
     days_until = (due - today).days
 
     if days_until > LEAD_DAYS:
-        return Status(last, due, days_until, notified, False, f"not due for {days_until} days")
+        return Status(
+            last, due, days_until, notified, False, f"not due for {days_until} days", pending
+        )
     if notified == due:
-        return Status(last, due, days_until, notified, False, "already nudged for this cycle")
-    return Status(last, due, days_until, notified, True, f"due in {days_until} days")
+        return Status(
+            last, due, days_until, notified, False, "already nudged for this cycle", pending
+        )
+    return Status(last, due, days_until, notified, True, f"due in {days_until} days", pending)
 
 
 def search_window(today: date | None = None) -> tuple[date, date]:
@@ -109,6 +129,8 @@ def search_window(today: date | None = None) -> tuple[date, date]:
 def _cmd_status(_: argparse.Namespace) -> int:
     st = status()
     print(f"last haircut : {st.last_haircut or '(none recorded)'}")
+    if st.pending:
+        print(f"appointment  : {st.pending}")
     print(f"interval     : {interval_weeks()} weeks")
     print(f"due          : {st.due or '(as soon as possible)'}")
     if st.days_until_due is not None:
@@ -143,12 +165,25 @@ def _cmd_mark_notified(_: argparse.Namespace) -> int:
     return 0
 
 
+def _cmd_pending(args: argparse.Namespace) -> int:
+    when = date.fromisoformat(args.date)
+    state = load_state()
+    state["pending"] = when.isoformat()
+    if args.barber:
+        state["pending_barber"] = args.barber
+    save_state(state)
+    print(f"appointment noted for {when}; the daily job stays quiet until then")
+    return 0
+
+
 def _cmd_record(args: argparse.Namespace) -> int:
     when = date.fromisoformat(args.date) if args.date else date.today()
     state = load_state()
     state["last_haircut"] = when.isoformat()
-    # A fresh cycle deserves a fresh nudge.
+    # A fresh cycle deserves a fresh nudge, and the appointment is spent.
     state["notified_cycle"] = None
+    state["pending"] = None
+    state.pop("pending_barber", None)
     entry = {"date": when.isoformat()}
     if args.barber:
         entry["barber"] = args.barber
@@ -168,6 +203,11 @@ def main(argv: list[str] | None = None) -> int:
     sub.add_parser("mark-notified", help="record that this cycle was nudged").set_defaults(
         func=_cmd_mark_notified
     )
+
+    pend = sub.add_parser("pending", help="note an appointment that is lined up")
+    pend.add_argument("--date", required=True, help="YYYY-MM-DD")
+    pend.add_argument("--barber")
+    pend.set_defaults(func=_cmd_pending)
 
     rec = sub.add_parser("record", help="record a completed haircut")
     rec.add_argument("--date", help="YYYY-MM-DD (default: today)")
