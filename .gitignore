@@ -14,6 +14,9 @@
 .claude/session-memories/
 # session memories also land at repo root; keep both ignored (personal context)
 session-memories/
+# a session once wrote to the singular path by mistake; ignore it too so the
+# auto-commit can never sweep personal context into the public repo
+session-memory/
 .claude/worktrees/
 
 # OS files
