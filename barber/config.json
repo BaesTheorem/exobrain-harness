@@ -17,7 +17,9 @@
       "service_variant_id": 21191025,
       "price": "$35.00",
       "duration_min": 30,
-      "url": "1787073_razor-nick_barber-shop_20722_kansas-city"
+      "url": "1787073_razor-nick_barber-shop_20722_kansas-city",
+      "stars": 5.0,
+      "reviews": 14
     },
     {
       "business_id": 1842256,
@@ -26,7 +28,9 @@
       "service_variant_id": 21857743,
       "price": "$35.00",
       "duration_min": 40,
-      "url": "1842256_xay-sliced-eem_barber-shop_20722_kansas-city"
+      "url": "1842256_xay-sliced-eem_barber-shop_20722_kansas-city",
+      "stars": 5.0,
+      "reviews": 1
     },
     {
       "business_id": 830705,
@@ -35,7 +39,9 @@
       "service_variant_id": 14257693,
       "price": "$40.00",
       "duration_min": 35,
-      "url": "830705_fully-blendz_barber-shop_20722_kansas-city"
+      "url": "830705_fully-blendz_barber-shop_20722_kansas-city",
+      "stars": 5.0,
+      "reviews": 22
     },
     {
       "business_id": 1159975,
@@ -44,7 +50,9 @@
       "service_variant_id": 16321466,
       "price": "$40.00",
       "duration_min": 45,
-      "url": "1159975_dmilly-cutz_barber-shop_20722_kansas-city"
+      "url": "1159975_dmilly-cutz_barber-shop_20722_kansas-city",
+      "stars": 5.0,
+      "reviews": 82
     },
     {
       "business_id": 1335772,
@@ -53,7 +61,10 @@
       "service_variant_id": 17067252,
       "price": "$40.00",
       "duration_min": 45,
-      "url": "1335772_troy-richforever_barber-shop_20722_kansas-city"
+      "url": "1335772_troy-richforever_barber-shop_20722_kansas-city",
+      "stars": 5.0,
+      "reviews": 35
     }
-  ]
+  ],
+  "ranking": "Highest rated wins. All barbers sit at 5.0, so review count is the real tiebreak. Refresh with: python3 booksy.py ratings --update"
 }

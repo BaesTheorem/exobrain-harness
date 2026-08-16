@@ -68,10 +68,23 @@ class Barber:
     price: str
     duration_min: int
     url: str
+    stars: float = 0.0
+    reviews: int = 0
 
     @property
     def booking_url(self) -> str:
         return f"https://booksy.com/en-us/{self.url}"
+
+    @property
+    def rank_key(self) -> tuple[float, int]:
+        """Sort key for "best rated first".
+
+        Every Midtown barber currently sits at a flat 5.0, so stars alone
+        cannot separate them and review count is what actually decides. Sorting
+        on stars alone would silently fall back to config order and look like
+        it was ranking when it was not.
+        """
+        return (self.stars, self.reviews)
 
 
 @dataclass(frozen=True)
@@ -93,8 +106,30 @@ class Slot:
 
 
 def load_barbers(path: Path = CONFIG_PATH) -> list[Barber]:
+    """Barbers, best-rated first."""
     cfg = json.loads(path.read_text())
-    return [Barber(**b) for b in cfg["barbers"]]
+    barbers = [Barber(**b) for b in cfg["barbers"]]
+    return sorted(barbers, key=lambda b: b.rank_key, reverse=True)
+
+
+def best_slot(slots: list[Slot], busy: list[tuple[datetime, datetime]] | None = None) -> Slot | None:
+    """Pick the slot with the best-rated barber, earliest date wins ties.
+
+    Alex's rule: always take the highest-rated barber available in the window.
+    So rank by barber first and date second -- not the other way round, or a
+    marginally earlier slot would keep beating a better barber.
+    """
+    free = [s for s in slots if not _conflicts(s, busy or [])]
+    if not free:
+        return None
+    return min(free, key=lambda s: (-s.barber.rank_key[0], -s.barber.rank_key[1], s.start))
+
+
+def _conflicts(slot: Slot, busy: list[tuple[datetime, datetime]], travel_min: int = 30) -> bool:
+    """Does this slot collide with a busy block, allowing travel either side?"""
+    start = slot.start - timedelta(minutes=travel_min)
+    end = slot.end + timedelta(minutes=travel_min)
+    return any(start < b_end and b_start < end for b_start, b_end in busy)
 
 
 def _headers() -> dict[str, str]:
