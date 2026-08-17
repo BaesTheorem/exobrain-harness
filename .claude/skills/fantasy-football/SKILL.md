@@ -15,6 +15,21 @@ below traces to a source in `references/evidence.md`. Claims marked UNVERIFIED
 were not confirmable against a primary source. Do not launder them into
 confident advice.
 
+## Live league data
+
+`fantasy/bin/ff` in the harness reads the real league over the ESPN API
+(read-only). Use it before answering anything that depends on current state:
+
+- `ff standings` — table with the bye (top 2) and playoff (top 6) cutlines
+- `ff roster` — Chaos Legion's current roster
+- `ff raw --views mMatchup,mRoster,kona_player_info` — raw API for new features
+- `ff refresh` — re-pull ESPN cookies from Chrome when auth expires (401/403)
+
+Credentials live in the gitignored `fantasy/espn-credentials.json`; details and
+the known two-teams-one-account quirk are in `fantasy/README.md`. The tool never
+writes to ESPN. Extend it (waiver opportunity ranking, TD-regression scan,
+projected-margin for the variance rule) rather than scraping the site by hand.
+
 ## The living document
 
 **`~/Exobrain/Areas/Adventure & Creativity/Fantasy Football/Fantasy Football Playbook.md`**
