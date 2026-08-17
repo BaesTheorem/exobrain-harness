@@ -253,15 +253,30 @@ else
   fi
 fi
 
-# Full Disk Access on the claude CLI binary. TCC identifies this binary by PATH
-# (it is a bare Mach-O with no bundle -- `Info.plist=not bound` -- so tccd records
-# identifier_type=Path), and the path carries the version: .../claude/versions/2.1.233.
-# So every CLI upgrade mints a NEW identity and silently drops the grant. The symptom
-# is a rash of "<version> would like to access data from other apps" dialogs, because
-# without FDA each app container Claude touches prompts separately (per client→target
-# pair) instead of once. Only warn if a grant existed BEFORE and broke -- Alex may
-# deliberately not want FDA on the CLI, and this must not nag him into it.
-FDA_STATE="$HARNESS/.claude/hooks/state/fda-claude-path"
+# Full Disk Access. TCC judges the RESPONSIBLE process (the top-level thing that
+# launched the tree), not necessarily the binary doing the read, so this check has
+# TWO subjects and must not mix them:
+#
+#   - launchd routines and bare shells: responsible = the claude CLI binary. It is
+#     a bare Mach-O with no bundle (`Info.plist=not bound`), so tccd records
+#     identifier_type=Path, and the path carries the version
+#     (.../claude/versions/2.1.233). Every CLI upgrade mints a NEW identity and
+#     silently drops the grant.
+#   - MIST Console chats: responsible = /Applications/MIST Console.app. A stable
+#     bundle identity that survives CLI upgrades, so granting the app is strictly
+#     the more durable fix for anything the Console runs.
+#
+# Keying both on the claude path produced a false alarm on 2026-08-17: a launchd
+# routine (responsible = the granted claude binary) recorded success at 14:06, and
+# a Console chat (responsible = the ungranted Console app) read that same state an
+# hour later as "grant revoked." Same binary, different responsible app, opposite
+# answers. State is now per-subject.
+#
+# The symptom of missing FDA is a rash of "would like to access data from other
+# apps" dialogs, because without it each app container Claude touches prompts
+# separately (per client→target pair) instead of once. Only warn if a grant existed
+# BEFORE and broke -- Alex may deliberately not want FDA here, and this must not
+# nag him into it.
 FDA_CANARY="$HOME/Library/Application Support/com.apple.TCC"
 
 # Resolve the live binary from the process ancestry (never pin the path -- the CLI
@@ -283,21 +298,35 @@ done
 # Probe FDA directly rather than reading TCC.db (which needs FDA itself). Listing
 # the TCC dir's CONTENTS is the test; `ls -d` on it succeeds without FDA, so the -d
 # call is only the exists-check that keeps a missing dir from reading as "denied".
-if [ -n "$CLAUDE_BIN" ] && ls -d "$FDA_CANARY" >/dev/null 2>&1; then
+# Pick the identity TCC will actually judge for THIS session, and track its state
+# separately. MIST_CONSOLE_SESSION is exported by the Console to every chat it spawns.
+if [ -n "$MIST_CONSOLE_SESSION" ]; then
+  FDA_SUBJECT="/Applications/MIST Console.app"
+  FDA_LABEL="the MIST Console app"
+  FDA_STATE="$HARNESS/.claude/hooks/state/fda-console-app"
+  FDA_FIX="System Settings → Privacy & Security → Full Disk Access → + → ⌘⇧G → /Applications/MIST Console.app → toggle ON, then quit and reopen the Console"
+else
+  FDA_SUBJECT="$CLAUDE_BIN"
+  FDA_LABEL="the claude CLI"
+  FDA_STATE="$HARNESS/.claude/hooks/state/fda-claude-path"
+  FDA_FIX="System Settings → Privacy & Security → Full Disk Access → remove the old entry, then + → ⌘⇧G → paste the 'Now' path → toggle ON"
+fi
+
+if [ -n "$FDA_SUBJECT" ] && ls -d "$FDA_CANARY" >/dev/null 2>&1; then
   if ls "$FDA_CANARY" >/dev/null 2>&1; then
     mkdir -p "$(dirname "$FDA_STATE")"
-    echo "$CLAUDE_BIN" > "$FDA_STATE"
+    echo "$FDA_SUBJECT" > "$FDA_STATE"
   elif [ -f "$FDA_STATE" ]; then
     FDA_OLD=$(cat "$FDA_STATE" 2>/dev/null)
-    if [ "$FDA_OLD" != "$CLAUDE_BIN" ]; then
+    if [ "$FDA_OLD" != "$FDA_SUBJECT" ]; then
       echo "WARN: Full Disk Access grant went stale on the claude CLI upgrade -- expect a wave of \"would like to access data from other apps\" popups"
       echo "  Was: $FDA_OLD"
-      echo "  Now: $CLAUDE_BIN"
-      echo "  Fix: System Settings → Privacy & Security → Full Disk Access → remove the old entry, then + → ⌘⇧G → paste the 'Now' path → toggle ON"
+      echo "  Now: $FDA_SUBJECT"
+      echo "  Fix: $FDA_FIX"
       echo "  (TCC keys this bare binary by path, so the grant cannot follow a version bump)"
       ISSUES=$((ISSUES + 1))
     else
-      echo "WARN: Full Disk Access was revoked on the claude CLI ($CLAUDE_BIN) -- re-add it under Privacy & Security → Full Disk Access, or delete $FDA_STATE to stop this check"
+      echo "WARN: Full Disk Access was revoked on $FDA_LABEL ($FDA_SUBJECT) -- re-add it under Privacy & Security → Full Disk Access, or delete $FDA_STATE to stop this check"
       ISSUES=$((ISSUES + 1))
     fi
   fi
