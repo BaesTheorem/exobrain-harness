@@ -17,12 +17,23 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 HARNESS="$(cd "$SCRIPT_DIR/.." && pwd)"
 
-CLAUDE_BIN="$(command -v claude)"
 TIMEOUT_SEC=600
 
 if ! python3 "$SCRIPT_DIR/schedule.py" check > /dev/null; then
     echo "[$(date)] $(python3 "$SCRIPT_DIR/schedule.py" check || true) -- nothing to do."
     exit 0
+fi
+
+# launchd runs with a minimal PATH (/usr/bin:/bin:/usr/sbin:/sbin) that does not
+# include ~/.local/bin, where the Claude CLI lives. This used to resolve above the
+# schedule gate, so `command -v claude` came back empty, set -e killed the script
+# before it printed anything, and every single daily run failed with a bare exit 1
+# and two empty log files. Resolve rather than pin the path: the binary already
+# moved once (npm-global -> ~/.local/bin) and will move again.
+export PATH="$HOME/.local/bin:/opt/homebrew/bin:$PATH"
+if ! CLAUDE_BIN="$(command -v claude)"; then
+    echo "[$(date)] claude CLI not found on PATH ($PATH). Cannot book; will retry tomorrow."
+    exit 1
 fi
 
 # launchd fires missed jobs the instant the Mac wakes, before Wi-Fi and DNS are
