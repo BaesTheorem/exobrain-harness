@@ -1,0 +1,309 @@
+#!/usr/bin/env python3
+"""Full-text search over Claude Code chat transcripts.
+
+INVARIANTS:
+- The index lives OUTSIDE any repo (~/.claude/chat-search-index.db): transcript
+  text is personal data and must never be committed.
+- Indexing is incremental by (mtime, size); a changed file is fully re-indexed
+  (transcripts are append-only, but partial offsets are not worth the fragility).
+- Reads transcripts only; never writes to ~/.claude/projects.
+
+Usage:
+  chat-search <query...>              search (auto-updates the index first)
+  chat-search --index                 just (re)build the index
+  chat-search --session <sid> [query] show messages from one session
+  Options: --project P  --role user|assistant  --since YYYY-MM-DD
+           --until YYYY-MM-DD  --limit N  -C N (context messages)
+           --all (include subagent sidechains)  --no-update
+"""
+
+import argparse
+import json
+import os
+import re
+import sqlite3
+import sys
+from pathlib import Path
+
+PROJECTS_DIR = Path.home() / ".claude" / "projects"
+DB_PATH = Path.home() / ".claude" / "chat-search-index.db"
+HOME_SLUG = "-" + str(Path.home()).strip("/").replace("/", "-")
+
+SCHEMA = """
+CREATE TABLE IF NOT EXISTS files (
+    id INTEGER PRIMARY KEY,
+    path TEXT UNIQUE NOT NULL,
+    mtime REAL NOT NULL,
+    size INTEGER NOT NULL
+);
+CREATE TABLE IF NOT EXISTS messages (
+    id INTEGER PRIMARY KEY,
+    file_id INTEGER NOT NULL REFERENCES files(id),
+    session_id TEXT,
+    project TEXT,
+    role TEXT,
+    ts TEXT,
+    sidechain INTEGER NOT NULL DEFAULT 0,
+    seq INTEGER,
+    text TEXT
+);
+CREATE INDEX IF NOT EXISTS idx_msg_file ON messages(file_id);
+CREATE INDEX IF NOT EXISTS idx_msg_session ON messages(session_id, seq);
+CREATE VIRTUAL TABLE IF NOT EXISTS msg_fts USING fts5(
+    text, content='messages', content_rowid='id', tokenize='porter unicode61'
+);
+"""
+
+SKIP_PREFIXES = ("<system-reminder", "<local-command", "<command-name",
+                 "<task-notification", "Caveat: The messages below")
+
+
+def project_name(dirname: str) -> str:
+    """-Users-alexhedtke-Documents-Exobrain-harness -> Documents-Exobrain-harness"""
+    name = dirname
+    if name.startswith(HOME_SLUG):
+        name = name[len(HOME_SLUG):]
+    return name.strip("-") or "home"
+
+
+def extract_text(record: dict) -> str | None:
+    """Pull human-readable text out of a transcript record, or None to skip."""
+    rtype = record.get("type")
+    if rtype == "summary":
+        return record.get("summary") or None
+    if rtype not in ("user", "assistant"):
+        return None
+    if record.get("isMeta"):
+        return None
+    msg = record.get("message")
+    if not isinstance(msg, dict):
+        return None
+    content = msg.get("content")
+    if isinstance(content, str):
+        parts = [content]
+    elif isinstance(content, list):
+        parts = [item.get("text", "") for item in content
+                 if isinstance(item, dict) and item.get("type") == "text"]
+    else:
+        return None
+    text = "\n".join(p for p in parts if p).strip()
+    if not text or text.startswith(SKIP_PREFIXES):
+        return None
+    return text
+
+
+def index_one(db: sqlite3.Connection, path: Path, project: str) -> int:
+    """(Re)index a single transcript file. Returns messages indexed."""
+    stat = path.stat()
+    row = db.execute("SELECT id, mtime, size FROM files WHERE path = ?",
+                     (str(path),)).fetchone()
+    if row and row[1] == stat.st_mtime and row[2] == stat.st_size:
+        return 0
+    if row:
+        file_id = row[0]
+        old = db.execute("SELECT id, text FROM messages WHERE file_id = ?",
+                         (file_id,)).fetchall()
+        for mid, text in old:
+            db.execute("INSERT INTO msg_fts(msg_fts, rowid, text) "
+                       "VALUES('delete', ?, ?)", (mid, text))
+        db.execute("DELETE FROM messages WHERE file_id = ?", (file_id,))
+        db.execute("UPDATE files SET mtime = ?, size = ? WHERE id = ?",
+                   (stat.st_mtime, stat.st_size, file_id))
+    else:
+        cur = db.execute("INSERT INTO files(path, mtime, size) VALUES(?,?,?)",
+                         (str(path), stat.st_mtime, stat.st_size))
+        file_id = cur.lastrowid
+
+    count = 0
+    seq = 0
+    with open(path, encoding="utf-8", errors="replace") as f:
+        for line in f:
+            try:
+                record = json.loads(line)
+            except json.JSONDecodeError:
+                continue
+            text = extract_text(record)
+            if text is None:
+                continue
+            seq += 1
+            role = "summary" if record.get("type") == "summary" \
+                else record["message"]["role"]
+            cur = db.execute(
+                "INSERT INTO messages(file_id, session_id, project, role, ts,"
+                " sidechain, seq, text) VALUES(?,?,?,?,?,?,?,?)",
+                (file_id, record.get("sessionId") or path.stem, project, role,
+                 record.get("timestamp"),
+                 1 if record.get("isSidechain") else 0, seq, text))
+            db.execute("INSERT INTO msg_fts(rowid, text) VALUES(?, ?)",
+                       (cur.lastrowid, text))
+            count += 1
+    return count
+
+
+def update_index(db: sqlite3.Connection, verbose: bool = False) -> tuple[int, int]:
+    """Scan all transcript files; reindex changed ones. Returns (files, msgs)."""
+    files_done = msgs_done = 0
+    on_disk = set()
+    for proj_dir in sorted(PROJECTS_DIR.iterdir()):
+        if not proj_dir.is_dir():
+            continue
+        project = project_name(proj_dir.name)
+        for path in sorted(proj_dir.glob("*.jsonl")):
+            on_disk.add(str(path))
+            n = index_one(db, path, project)
+            if n:
+                files_done += 1
+                msgs_done += n
+                if verbose:
+                    print(f"  indexed {path.name} ({project}): {n} msgs",
+                          file=sys.stderr)
+    # Drop entries for deleted transcript files.
+    for (path, file_id) in db.execute("SELECT path, id FROM files").fetchall():
+        if path not in on_disk:
+            old = db.execute("SELECT id, text FROM messages WHERE file_id = ?",
+                             (file_id,)).fetchall()
+            for mid, text in old:
+                db.execute("INSERT INTO msg_fts(msg_fts, rowid, text) "
+                           "VALUES('delete', ?, ?)", (mid, text))
+            db.execute("DELETE FROM messages WHERE file_id = ?", (file_id,))
+            db.execute("DELETE FROM files WHERE id = ?", (file_id,))
+    db.commit()
+    return files_done, msgs_done
+
+
+def fts_query(raw: str) -> str:
+    """Turn free text into a safe FTS5 query: quote each term, AND them."""
+    terms = re.findall(r"\S+", raw)
+    return " ".join('"{}"'.format(t.replace('"', '""')) for t in terms)
+
+
+def fmt_ts(ts: str | None) -> str:
+    return (ts or "????-??-??")[:16].replace("T", " ")
+
+
+def truncate(text: str, limit: int = 400) -> str:
+    text = re.sub(r"\s+", " ", text).strip()
+    return text[:limit] + ("…" if len(text) > limit else "")
+
+
+def show_context(db: sqlite3.Connection, session_id: str, seq: int, n: int):
+    rows = db.execute(
+        "SELECT role, ts, text FROM messages WHERE session_id = ? "
+        "AND seq BETWEEN ? AND ? ORDER BY seq", (session_id, seq - n, seq + n))
+    for role, ts, text in rows:
+        print(f"    [{fmt_ts(ts)}] {role}: {truncate(text, 300)}")
+
+
+def cmd_search(db: sqlite3.Connection, args) -> None:
+    where = ["msg_fts MATCH ?"]
+    params: list = [fts_query(" ".join(args.query))]
+    if not args.all:
+        where.append("m.sidechain = 0")
+    if args.project:
+        where.append("m.project LIKE ?")
+        params.append(f"%{args.project}%")
+    if args.role:
+        where.append("m.role = ?")
+        params.append(args.role)
+    if args.since:
+        where.append("m.ts >= ?")
+        params.append(args.since)
+    if args.until:
+        where.append("m.ts <= ?")
+        params.append(args.until + "T23:59:59Z")
+    sql = (
+        "SELECT m.session_id, m.project, m.role, m.ts, m.seq, "
+        "snippet(msg_fts, 0, '\033[1;33m', '\033[0m', '…', 40) "
+        "FROM msg_fts JOIN messages m ON m.id = msg_fts.rowid "
+        f"WHERE {' AND '.join(where)} ORDER BY m.ts DESC LIMIT ?")
+    params.append(args.limit)
+    try:
+        rows = db.execute(sql, params).fetchall()
+    except sqlite3.OperationalError as e:
+        sys.exit(f"query error: {e}")
+    if not rows:
+        print("no matches")
+        return
+    last_session = None
+    for session_id, project, role, ts, seq, snip in rows:
+        if session_id != last_session:
+            print(f"\n\033[1;36m{project}\033[0m  session {session_id}")
+            print(f"  resume: claude --resume {session_id}")
+            last_session = session_id
+        snip = re.sub(r"\s+", " ", snip).strip()
+        print(f"  [{fmt_ts(ts)}] \033[1m{role}\033[0m: {snip}")
+        if args.context:
+            show_context(db, session_id, seq, args.context)
+    print(f"\n{len(rows)} match(es)")
+
+
+def cmd_session(db: sqlite3.Connection, args) -> None:
+    where = ["session_id LIKE ?"]
+    params: list = [args.session + "%"]
+    if args.query:
+        where.append("text LIKE ?")
+        params.append(f"%{' '.join(args.query)}%")
+    rows = db.execute(
+        "SELECT role, ts, text FROM messages "
+        f"WHERE {' AND '.join(where)} ORDER BY seq", params).fetchall()
+    if not rows:
+        print("no messages found for that session")
+        return
+    for role, ts, text in rows:
+        print(f"[{fmt_ts(ts)}] {role}:\n{text}\n")
+
+
+def main() -> None:
+    parser = argparse.ArgumentParser(
+        description="Search Claude Code chat transcripts.")
+    parser.add_argument("query", nargs="*", help="search terms (ANDed)")
+    parser.add_argument("--index", action="store_true",
+                        help="update the index and exit")
+    parser.add_argument("--no-update", action="store_true",
+                        help="search the existing index without updating")
+    parser.add_argument("--session", metavar="SID",
+                        help="print messages from one session (prefix ok)")
+    parser.add_argument("--project", help="filter by project substring")
+    parser.add_argument("--role", choices=["user", "assistant", "summary"])
+    parser.add_argument("--since", metavar="YYYY-MM-DD")
+    parser.add_argument("--until", metavar="YYYY-MM-DD")
+    parser.add_argument("--limit", type=int, default=25)
+    parser.add_argument("-C", "--context", type=int, default=0, metavar="N",
+                        help="show N messages of context around each hit")
+    parser.add_argument("--all", action="store_true",
+                        help="include subagent sidechain messages")
+    args = parser.parse_args()
+
+    if not PROJECTS_DIR.is_dir():
+        sys.exit(f"transcripts dir not found: {PROJECTS_DIR}")
+    db = sqlite3.connect(DB_PATH)
+    db.executescript(SCHEMA)
+
+    first_run = db.execute("SELECT COUNT(*) FROM files").fetchone()[0] == 0
+    if args.index or not args.no_update:
+        if first_run:
+            print("first run: building index (this can take a minute)…",
+                  file=sys.stderr)
+        nfiles, nmsgs = update_index(db, verbose=args.index)
+        if args.index or nfiles:
+            print(f"index updated: {nfiles} file(s), {nmsgs} message(s)",
+                  file=sys.stderr)
+    if args.index:
+        total = db.execute("SELECT COUNT(*) FROM messages").fetchone()[0]
+        print(f"total indexed messages: {total}", file=sys.stderr)
+        return
+
+    if args.session:
+        cmd_session(db, args)
+    elif args.query:
+        cmd_search(db, args)
+    else:
+        parser.print_help()
+    db.close()
+
+
+if __name__ == "__main__":
+    try:
+        main()
+    except (KeyboardInterrupt, BrokenPipeError):
+        os._exit(130)
