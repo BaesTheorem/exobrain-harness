@@ -17,45 +17,98 @@ confident advice.
 
 ---
 
-## 0. Alex's league (confirmed 2026-08-16)
+## 0. Alex's league: "Roll for First Down" (full settings, 2026-08-16)
 
-Run by a friend of Alex Hedtke. **Snake draft, not yet scheduled. Head-to-head points,
-FULL PPR.**
+ESPN. Run by a friend of Alex Hedtke. **12 teams, snake, full PPR head-to-head points.**
+Draft not yet scheduled. **Draft order randomized one hour before the draft**, so
+slot cannot be planned for. **90 seconds per pick.**
 
 | Setting | Value |
 |---|---|
-| Roster | 16 total (9 starters, 7 bench, 1 IR) |
-| Offense starters | 7: QB, RB, RB, WR, WR, TE, FLEX (ESPN default shape) |
-| Required | 1 D/ST, 1 K |
-| League size | **UNKNOWN — ask before building a draft board** |
+| Roster | 16 (9 starters, 7 bench, 1 IR) |
+| Starters | QB, RB, RB, WR, WR, TE, FLEX, D/ST, K |
+| Position maximums | RB 8, WR 8, QB 4, TE 3, D/ST 3, K 3 |
+| **Waivers** | **Reset weekly to inverse order of standings. NOT FAAB.** 1-day period |
+| Regular season | 14 weeks, 1 week per matchup, **no tie breakers** |
+| Playoffs | **6 of 12 teams**, all rounds 1 week (weeks 15/16/17), **top 2 get byes** |
+| Seeding tiebreak | Total points for |
+| Reseeding | Off |
+| Keepers | None, either year. Pure redraft |
+| Trades | No limit, deadline Dec 2 2026, 1-day review, **5 votes to veto** |
+| **Lineup protection** | **OFF** |
+| Lineup locks | Individually at each player's gametime |
 
-**What this format implies, using §2-§4:**
+### The two settings that matter most
 
-- **Full PPR is the WR-friendly end of the spectrum.** Sharp's data: RB12 produces
-  56.4% of RB1's output and lands **below WR24**, while WR12 is at 71.7%. WR
-  value catches RB at the RB4 spot and never looks back. Lean receiver, and treat
-  pass-catching backs as materially more valuable than their rushing volume alone
-  suggests.
-- **One QB slot, so wait.** Not superflex. QB scoring declines near-linearly by
-  rank (Lee & Liu), QB6 historically returns ~72% of QB1's output, and Rounds 2-7
-  NFL draft capital produced 4 QB1 seasons in 90 tries. Late QB is well supported
-  here.
-- **Both K and D/ST are required starters, which is where the herding edge is.**
-  Draft them in the final two rounds and stream. When the room starts its K/DST
-  run, do not follow: take the skill player they skipped. This is a documented,
-  reproducible behavioral inefficiency and this format guarantees it fires.
-- **The IR slot is free value most managers waste.** It lets Alex stash a
-  high-upside injured player without paying a bench spot. Check league rules for
-  which designations qualify (ESPN typically requires OUT/IR status, not
-  questionable).
-- **7 bench spots is generous**, which supports constant bottom-of-roster churn
-  on small FAAB/waiver bids (§4) rather than hoarding handcuffs (§4, handcuffing).
-- **Only 2 RB + 1 FLEX starting.** Combined with full PPR, this weakens the case
-  for early RB volume beyond the genuinely elite tier.
+**1. The first-round bye is worth roughly double the championship.** All playoff
+rounds are one week, so a bye removes an entire coin flip. Using the §1 model of a
+53% team: winning three single-week rounds is 0.53³ = **14.9%**. Winning two is
+0.53² = **28.1%**. Seeding top-2 out of 12 is close to a **2x multiplier on title
+odds**, and it is the highest-leverage regular-season goal in this league by a
+wide margin. Note 6 of 12 teams make the playoffs, so merely qualifying is close
+to a coin flip and is not the thing to optimize. **Play for the bye, not the
+berth.** Since the seeding tiebreaker is total points for, raw points matter
+independently of record.
 
-**Still needed before a draft board:** league size (8/10/12/14 changes
-replacement level and scarcity), draft slot once known, and whether the FLEX
-allows TE. Ask for these rather than assuming.
+**2. Waivers are reverse-standings priority, not FAAB, which inverts §4's bidding
+advice.** The FAAB dead-zone guidance does not apply here. What applies instead:
+
+- **Priority resets every week based on standings, so hoarding it is worthless.**
+  There is no cost to using your claim. A manager "saving" waiver priority in a
+  resetting-priority league is making a free mistake. Claim every week there is
+  anyone worth claiming.
+- **Winning gives you bad priority.** This is a rich-get-poorer mechanic: the
+  better Alex's record, the further back he sits. He cannot count on the wire to
+  fix roster holes in the second half of the season.
+- **Therefore Zero RB is structurally weaker in this league than the research
+  implies.** Zero RB's entire mechanism is mining the waiver wire for RBs while
+  others paid draft capital (§3). That mechanism is throttled here by
+  reverse-standings priority *and* by 192 players rostered across 12 teams of 16.
+  Combined with the market having already arbitraged the strategy, do not run it.
+- **Early-season claims are the cheap ones.** Priority is most favorable before he
+  climbs the standings, and Week 1-4 breakouts are where the wire actually
+  produces starters.
+
+### The rest of the format read
+
+- **Full PPR is the WR-friendly extreme.** RB12 produces 56.4% of RB1's output and
+  lands **below WR24**; WR12 is at 71.7%. WR value catches RB at the RB4 spot and
+  never looks back. Lean receiver. Pass-catching backs gain real value, since
+  every reception is a full point.
+- **One QB slot, so wait on QB.** Not superflex. QB scoring declines near-linearly
+  by rank, QB6 returns ~72% of QB1, and NFL Rounds 2-7 produced 4 QB1 seasons in
+  90 tries. Nothing here justifies early QB.
+- **Required K and D/ST guarantee the herding edge fires** (§3). Both go in the
+  last two rounds, then stream. When the room starts its run, sit still and take
+  the skill player they skipped.
+- **Kicker scoring is distance-weighted** (0-39 = 3, 40-49 = 4, 50-59 = 5, 60+ = 6,
+  miss = -1). Still stream, but favor strong legs on offenses that stall in field
+  goal range, and prefer domes/good weather in the late weeks.
+- **D/ST scores on yards allowed *and* points allowed**, with harsh negatives
+  (-7 at 550+ yards). Stream against weak offenses; avoid defenses facing
+  high-total games regardless of reputation.
+- **Lineup Protection is OFF and players lock individually at gametime.** An
+  inactive starter scores zero and nothing saves Alex from it. Two consequences:
+  a checklist before the first kickoff every week is worth real points, and
+  because locks are individual he can wait on late-window and Monday players to
+  make information-rich decisions. This is free edge in a casual league.
+- **The IR slot** stashes an injured high-upside player without spending a bench
+  spot. ESPN typically requires OUT/IR designation, not questionable.
+- **7 bench spots plus no-limit acquisitions** supports constant bottom-of-roster
+  churn over hoarding handcuffs (§4).
+- **5 votes to veto in a 12-team league is a high bar**, so this is a trade-friendly
+  league. Trade deadline is Dec 2, 2026.
+- **No keepers**, so there is zero future value to protect. Rookies and young
+  players are worth only their 2026 production.
+- **90 seconds per pick means the board must be built beforehand.** Boris Chen's
+  free tier clustering (§5) is the right tool: at 90 seconds Alex needs to read a
+  tier, not evaluate a player.
+- **Slot is randomized one hour prior**, so the §3 draft-slot discussion is
+  informational only. Prepare for all 12 slots or, better, prepare tiers that are
+  slot-agnostic.
+- **Playoff weeks are 15, 16, 17.** Playoff-weeks strength of schedule is the one
+  SOS use case the research could not rule out, though it remains UNVERIFIED. Do
+  not weight it heavily; preseason SOS is dead (§2).
 
 ---
 
