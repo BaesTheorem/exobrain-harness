@@ -168,3 +168,6 @@ barber/steps/
 
 # Live Booksy session token, captured from the browser. Never commit.
 barber/.booksy-session.json
+
+# Fantasy football -- ESPN session cookies (espn_s2 + SWID)
+fantasy/espn-credentials.json
