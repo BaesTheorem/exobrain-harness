@@ -1,0 +1,245 @@
+#!/usr/bin/env python3
+"""ff -- read-only ESPN fantasy league client for "Roll for First Down" (LMAO).
+
+Reads Alex's league via the ESPN Fantasy v3 API using session cookies stored in
+fantasy/espn-credentials.json (gitignored). Everything here is READ-ONLY: this
+tool never sets a lineup, makes a claim, or proposes a trade. It surfaces the
+numbers the playbook's decision rules need, then Alex (with MIST) decides.
+
+The strategy behind every subcommand lives in the skill and the playbook note:
+  ~/.claude/skills/fantasy-football/SKILL.md
+  ~/Exobrain/Areas/Adventure & Creativity/Fantasy Football/Fantasy Football Playbook.md
+
+INVARIANTS:
+- Read-only. No POST/PUT to ESPN, ever. If a write feature is wanted, it goes in
+  a separate, clearly-named tool with its own confirmation gate.
+- Credentials come only from the gitignored JSON. Never hardcode, never print
+  them, never commit them.
+
+Refreshing credentials when they expire (ESPN cookies last ~1 year but rotate on
+password change / logout): run `ff refresh` to re-pull from Chrome, or paste new
+values into fantasy/espn-credentials.json by hand.
+"""
+import json
+import os
+import sys
+import argparse
+import urllib.request
+import urllib.error
+
+HERE = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+CREDS = os.path.join(HERE, "espn-credentials.json")
+BASE = "https://lm-api-reads.fantasy.espn.com/apis/v3/games/ffl"
+
+POS = {1: "QB", 2: "RB", 3: "WR", 4: "TE", 5: "K", 16: "D/ST"}
+LINEUP_SLOTS = {  # ESPN lineupSlotId -> label; 20 bench, 21 IR, 23 flex
+    0: "QB", 2: "RB", 4: "WR", 6: "TE", 16: "D/ST", 17: "K",
+    20: "BE", 21: "IR", 23: "FLEX",
+}
+
+
+def load_creds():
+    if not os.path.exists(CREDS):
+        sys.exit(
+            "No credentials at fantasy/espn-credentials.json.\n"
+            "Run `ff refresh` to pull them from Chrome, or see fantasy/README.md."
+        )
+    c = json.load(open(CREDS))
+    for k in ("league_id", "season", "espn_s2", "SWID"):
+        if not c.get(k):
+            sys.exit(f"Credential file is missing '{k}'. See fantasy/README.md.")
+    return c
+
+
+def api(creds, path="", views=()):
+    url = f"{BASE}/seasons/{creds['season']}/segments/0/leagues/{creds['league_id']}{path}"
+    if views:
+        url += "?" + "&".join(f"view={v}" for v in views)
+    req = urllib.request.Request(
+        url,
+        headers={
+            "Cookie": f"espn_s2={creds['espn_s2']}; SWID={creds['SWID']}",
+            "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7)",
+            "Accept": "application/json",
+        },
+    )
+    try:
+        with urllib.request.urlopen(req, timeout=30) as r:
+            return json.load(r)
+    except urllib.error.HTTPError as e:
+        if e.code in (401, 403):
+            sys.exit(
+                "ESPN rejected the cookies (auth expired). Run `ff refresh` to "
+                "re-pull from Chrome while logged into ESPN."
+            )
+        sys.exit(f"ESPN HTTP {e.code}: {e.reason}")
+    except urllib.error.URLError as e:
+        sys.exit(f"Network error reaching ESPN: {e.reason}")
+
+
+def my_team_id(creds, data):
+    """Return Alex's team id.
+
+    Prefer the pinned team_id in the credential file, because the SWID owns more
+    than one team in this league (id 8 'Alex's Awesome Team', the ESPN default,
+    plus id 12 'Chaos Legion', the one Alex actually named). Owner-matching alone
+    is ambiguous here, so the pin is authoritative; owner-match is the fallback.
+    """
+    pinned = creds.get("team_id")
+    if pinned is not None:
+        for t in data.get("teams", []):
+            if t["id"] == pinned:
+                return pinned
+    swid = creds["SWID"]
+    owned = [t["id"] for t in data.get("teams", []) if swid in (t.get("owners") or [])]
+    if len(owned) == 1:
+        return owned[0]
+    if len(owned) > 1:
+        sys.exit(
+            f"SWID owns multiple teams {owned}; set \"team_id\" in "
+            "fantasy/espn-credentials.json to disambiguate."
+        )
+    return None
+
+
+def team_name(t):
+    n = (t.get("name") or "").strip()
+    if n:
+        return n
+    loc, nick = t.get("location", ""), t.get("nickname", "")
+    return f"{loc} {nick}".strip() or f"Team {t['id']}"
+
+
+# ---- subcommands -----------------------------------------------------------
+
+def cmd_standings(creds, args):
+    data = api(creds, views=("mTeam", "mSettings"))
+    teams = sorted(
+        data["teams"],
+        key=lambda t: (-(t["record"]["overall"]["wins"]),
+                       -(t["record"]["overall"]["pointsFor"])),
+    )
+    mine = my_team_id(creds, data)
+    print(f"{data['settings']['name']} -- standings\n")
+    print(f"{'#':>2}  {'Team':<26} {'W-L':>6} {'PF':>8} {'PA':>8}")
+    for i, t in enumerate(teams, 1):
+        r = t["record"]["overall"]
+        star = " <- LMAO" if t["id"] == mine else ""
+        bye = "  [bye]" if i <= 2 else ("  [playoff]" if i <= 6 else "")
+        print(f"{i:>2}  {team_name(t):<26} {r['wins']:>2}-{r['losses']:<3} "
+              f"{r['pointsFor']:>8.1f} {r['pointsAgainst']:>8.1f}{star}{bye}")
+    print("\nTop 2 seeds get a first-round bye. That is the goal (see playbook).")
+
+
+def _roster(data, team_id):
+    for t in data["teams"]:
+        if t["id"] == team_id:
+            return t.get("roster", {}).get("entries", [])
+    return []
+
+
+def cmd_roster(creds, args):
+    data = api(creds, views=("mRoster", "mTeam"))
+    tid = my_team_id(creds, data)
+    if tid is None:
+        sys.exit("Could not identify your team from the SWID. Check credentials.")
+    entries = _roster(data, tid)
+    starters = [e for e in entries if e["lineupSlotId"] not in (20, 21)]
+    bench = [e for e in entries if e["lineupSlotId"] == 20]
+    ir = [e for e in entries if e["lineupSlotId"] == 21]
+    print("Chaos Legion (LMAO) -- roster\n")
+
+    def line(e):
+        p = e["playerPoolEntry"]["player"]
+        slot = LINEUP_SLOTS.get(e["lineupSlotId"], "?")
+        pos = POS.get(p.get("defaultPositionId"), "?")
+        inj = p.get("injuryStatus", "ACTIVE")
+        flag = "" if inj in ("ACTIVE", None) else f"  ({inj})"
+        return f"  {slot:<5} {p['fullName']:<24} {pos:<5}{flag}"
+
+    for e in sorted(starters, key=lambda e: e["lineupSlotId"]):
+        print(line(e))
+    print("  --- bench ---")
+    for e in bench:
+        print(line(e))
+    if ir:
+        print("  --- IR ---")
+        for e in ir:
+            print(line(e))
+
+
+def cmd_raw(creds, args):
+    """Dump a raw view for debugging / building new subcommands."""
+    views = tuple(args.views.split(",")) if args.views else ("mSettings",)
+    print(json.dumps(api(creds, views=views), indent=2)[:args.limit])
+
+
+def cmd_refresh(creds_ignored, args):
+    """Re-pull ESPN cookies from Chrome and rewrite the credential file."""
+    import subprocess
+    import hashlib
+    import sqlite3
+    import shutil
+    from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes
+
+    cdb = os.path.expanduser(
+        "~/Library/Application Support/Google/Chrome/Default/Cookies")
+    tmp = "/tmp/ff_ck.db"
+    shutil.copy(cdb, tmp)
+    pw = subprocess.check_output(
+        ["security", "find-generic-password", "-w", "-s", "Chrome Safe Storage"]).strip()
+    key = hashlib.pbkdf2_hmac("sha1", pw, b"saltysalt", 1003, 16)
+
+    def dec(v):
+        if v[:3] in (b"v10", b"v11"):
+            c = Cipher(algorithms.AES(key), modes.CBC(b" " * 16)).decryptor()
+            d = c.update(v[3:]) + c.finalize()
+            d = d[:-d[-1]]
+            try:
+                return d.decode()
+            except UnicodeDecodeError:
+                return d[32:].decode(errors="replace")
+        return v.decode(errors="replace")
+
+    con = sqlite3.connect(tmp)
+    got = {}
+    for name, ev in con.execute(
+        "SELECT name, encrypted_value FROM cookies "
+        "WHERE host_key LIKE '%espn.com%' AND name IN ('espn_s2','SWID')"
+    ):
+        got[name] = dec(ev)
+    os.remove(tmp)
+    if "espn_s2" not in got or "SWID" not in got:
+        sys.exit("Could not find ESPN cookies in Chrome. Log into espn.com first.")
+    existing = json.load(open(CREDS)) if os.path.exists(CREDS) else {
+        "league_id": 45635023, "season": 2026}
+    existing.update(espn_s2=got["espn_s2"], SWID=got["SWID"])
+    json.dump(existing, open(CREDS, "w"), indent=2)
+    os.chmod(CREDS, 0o600)
+    print("Refreshed espn_s2 + SWID from Chrome. Verifying...")
+    d = api(existing, views=("mSettings",))
+    print("OK:", d["settings"]["name"], "-", d["settings"]["size"], "teams")
+
+
+def main():
+    ap = argparse.ArgumentParser(prog="ff", description="Read-only ESPN fantasy client (LMAO).")
+    sub = ap.add_subparsers(dest="cmd", required=True)
+    sub.add_parser("standings", help="league standings with bye/playoff cutlines")
+    sub.add_parser("roster", help="Alex's current roster")
+    sub.add_parser("refresh", help="re-pull ESPN cookies from Chrome")
+    raw = sub.add_parser("raw", help="dump a raw API view (for debugging)")
+    raw.add_argument("--views", default="mSettings", help="comma-separated ESPN views")
+    raw.add_argument("--limit", type=int, default=4000)
+    args = ap.parse_args()
+
+    creds = None if args.cmd == "refresh" else load_creds()
+    {
+        "standings": cmd_standings,
+        "roster": cmd_roster,
+        "raw": cmd_raw,
+        "refresh": cmd_refresh,
+    }[args.cmd](creds, args)
+
+
+if __name__ == "__main__":
+    main()
