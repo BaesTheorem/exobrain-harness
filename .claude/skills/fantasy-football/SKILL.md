@@ -15,11 +15,41 @@ below traces to a source in `references/evidence.md`. Claims marked UNVERIFIED
 were not confirmable against a primary source. Do not launder them into
 confident advice.
 
+## The living document
+
+**`~/Exobrain/Areas/Adventure & Creativity/Fantasy Football/Fantasy Football Playbook.md`**
+
+That note is the operational source of truth for the current season. **Read it at
+the start of any fantasy task**, because it holds the current state (draft date,
+draft slot, roster, league observations, season log) that this skill deliberately
+does not duplicate.
+
+**Keep it current.** Write back to it whenever something is learned or decided:
+
+- Draft date or slot gets set, or any league setting changes
+- A draft happens (record the roster and the reasoning)
+- A rule here meets reality and does not survive (correct the rule in the note,
+  do not just log the outcome)
+- Anything on its **Open questions** list gets answered
+- A useful observation about a specific leaguemate's tendencies
+- Weekly decisions worth remembering, in the **Season log**
+
+Update its `updated:` frontmatter field when writing. This skill holds the
+durable evidence; the note holds this season. When the two disagree about a
+league setting, the note wins.
+
+The research report behind all of it is
+`~/Exobrain/Research/Fantasy Football Winning Strategy.md`.
+
 ---
 
 ## 0. Alex's league: "Roll for First Down" (full settings, 2026-08-16)
 
-ESPN. Run by a friend of Alex Hedtke. **12 teams, snake, full PPR head-to-head points.**
+Mirrored in the playbook note above. If a setting changes, fix it in **both**, and
+treat the note as authoritative.
+
+ESPN, run by a friend of Alex's (name in the playbook note, not here).
+**12 teams, snake, full PPR head-to-head points.**
 Draft not yet scheduled. **Draft order randomized one hour before the draft**, so
 slot cannot be planned for. **90 seconds per pick.**
 
@@ -552,7 +582,9 @@ automatic edge over a motivated field.
 
 Full sourcing, confidence levels, and every unverified claim are in
 `references/evidence.md`. The vault report is at
-`~/Exobrain/Research/Fantasy Football Winning Strategy.md`.
+`~/Exobrain/Research/Fantasy Football Winning Strategy.md`, and the living
+season playbook is at
+`~/Exobrain/Areas/Adventure & Creativity/Fantasy Football/Fantasy Football Playbook.md`.
 
 Standing caveats:
 - Academic work on **season-long redraft is thin**. The rigorous math (Hunter et
