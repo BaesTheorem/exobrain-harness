@@ -1,0 +1,13 @@
+#!/bin/sh
+# Re-point the Claude CLI's TCC grants at the path its latest auto-update moved it to.
+#   mist-tcc-carry            # carry grants forward
+#   mist-tcc-carry --check    # report only (exit 1 = grants pending)
+#   mist-tcc-carry --prune    # also drop rows for uninstalled versions
+#
+# Runs under the DEDICATED interpreter, not homebrew python3: reading TCC.db needs
+# Full Disk Access, and TCC keys that grant to the interpreter's path. A private
+# copy at a path we own means the grant is made once and never goes stale, whereas
+# granting FDA to the shared /opt/homebrew python would hand it to every script on
+# the machine. Same pattern as imessage/.venv/bin/mist-imessage-python3.
+DIR=$(cd "$(dirname "$0")/.." && pwd)
+exec "$DIR/.venv/bin/mist-tcc-python3" "$DIR/tcc_carry_forward.py" "$@"
