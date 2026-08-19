@@ -1,0 +1,46 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>Label</key>
+    <string>com.exobrain.tcc-carry-forward</string>
+
+    <!-- Invoke the dedicated interpreter DIRECTLY rather than the bin/ wrapper.
+         Reading TCC.db needs Full Disk Access, and for a launchd job TCC judges
+         the executable launchd itself started -- so going through the /bin/sh
+         wrapper would demand FDA on /bin/sh, which is unthinkable. Naming the
+         interpreter here makes mist-tcc-python3 the identity that holds the
+         grant. -->
+    <key>ProgramArguments</key>
+    <array>
+        <string>/Users/alexhedtke/Documents/Exobrain harness/maintenance/.venv/bin/mist-tcc-python3</string>
+        <string>/Users/alexhedtke/Documents/Exobrain harness/maintenance/tcc_carry_forward.py</string>
+        <string>--prune</string>
+    </array>
+
+    <!-- Fire the moment the CLI's auto-updater drops a new versioned binary in
+         here, so the grants are already re-pointed before the next launchd
+         routine (or Alex) trips a permission prompt. The session-start hook runs
+         the same script, but only covers interactive sessions -- routines that
+         fire overnight would otherwise hit the popups first.
+
+         WatchPaths on the DIRECTORY, not on a version file: the whole problem is
+         that the filename changes every release, so there is no stable file to
+         watch. Directory mutation is the event we actually care about. -->
+    <key>WatchPaths</key>
+    <array>
+        <string>/Users/alexhedtke/.local/share/claude/versions</string>
+    </array>
+
+    <key>StandardOutPath</key>
+    <string>/Users/alexhedtke/Library/Logs/exobrain/tcc-carry-forward.log</string>
+    <key>StandardErrorPath</key>
+    <string>/Users/alexhedtke/Library/Logs/exobrain/tcc-carry-forward.log</string>
+
+    <!-- Also run once at load, so installing this immediately reconciles
+         whatever the last upgrade already broke. Idempotent, so a no-op run is
+         free. -->
+    <key>RunAtLoad</key>
+    <true/>
+</dict>
+</plist>

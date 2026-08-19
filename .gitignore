@@ -171,3 +171,6 @@ barber/.booksy-session.json
 
 # Fantasy football -- ESPN session cookies (espn_s2 + SWID)
 fantasy/espn-credentials.json
+
+# Dedicated FDA-granted interpreter (built locally, see maintenance/README.md)
+maintenance/.venv/

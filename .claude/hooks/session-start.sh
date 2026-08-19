@@ -332,6 +332,23 @@ if [ -n "$FDA_SUBJECT" ] && ls -d "$FDA_CANARY" >/dev/null 2>&1; then
   fi
 fi
 
+# Re-point the CLI's OTHER TCC grants (Documents, Drive, Things/System Events
+# automation, app-data) at the new versioned path. Same root cause as the FDA
+# check above -- TCC keys this bare binary by path -- but unlike FDA these live in
+# the USER database, so they can be carried forward without root instead of
+# re-approved by hand every time the CLI auto-updates. The grant's stored code
+# requirement is version-independent (Anthropic's Developer ID), and the script
+# refuses to move any grant onto a binary that fails it. Idempotent and silent
+# when there is nothing to do; see maintenance/README.md.
+TCC_CARRY_OUT=$("$HARNESS/maintenance/bin/mist-tcc-carry" 2>&1)
+case "$TCC_CARRY_OUT" in
+  OK:*) : ;;                       # nothing to carry -- stay quiet
+  Carried*) echo "$TCC_CARRY_OUT" | sed 's/^/  /' ; echo "OK: TCC grants carried forward past the CLI upgrade" ;;
+  *) echo "WARN: TCC carry-forward could not run -- expect repeat permission popups"
+     echo "$TCC_CARRY_OUT" | sed 's/^/  /'
+     ISSUES=$((ISSUES + 1)) ;;
+esac
+
 # Scheduled MIST routines AND com.exobrain jobs -- check the LAST EXIT CODE, not
 # just that the job is loaded. A loaded job that exits nonzero every fire (e.g.
 # 78/EX_CONFIG when headless `claude` can't read the Keychain) is silently dead,
