@@ -13,7 +13,7 @@
          grant. -->
     <key>ProgramArguments</key>
     <array>
-        <string>/Users/alexhedtke/Documents/Exobrain harness/maintenance/.venv/bin/mist-tcc-python3</string>
+        <string>/Users/alexhedtke/Documents/Exobrain harness/maintenance/venv/bin/mist-tcc-python3</string>
         <string>/Users/alexhedtke/Documents/Exobrain harness/maintenance/tcc_carry_forward.py</string>
         <string>--prune</string>
     </array>

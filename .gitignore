@@ -173,4 +173,4 @@ barber/.booksy-session.json
 fantasy/espn-credentials.json
 
 # Dedicated FDA-granted interpreter (built locally, see maintenance/README.md)
-maintenance/.venv/
+maintenance/venv/

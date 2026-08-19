@@ -10,4 +10,4 @@
 # granting FDA to the shared /opt/homebrew python would hand it to every script on
 # the machine. Same pattern as imessage/.venv/bin/mist-imessage-python3.
 DIR=$(cd "$(dirname "$0")/.." && pwd)
-exec "$DIR/.venv/bin/mist-tcc-python3" "$DIR/tcc_carry_forward.py" "$@"
+exec "$DIR/venv/bin/mist-tcc-python3" "$DIR/tcc_carry_forward.py" "$@"

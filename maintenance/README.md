@@ -131,11 +131,13 @@ Homebrew python (which would hand FDA to every script on the machine).
 1. Build the interpreter (gitignored):
    ```bash
    cd maintenance
-   python3.12 -m venv --copies .venv
-   cp .venv/bin/python3.12 .venv/bin/mist-tcc-python3
+   python3.12 -m venv --copies venv
+   cp venv/bin/python3.12 venv/bin/mist-tcc-python3
    ```
+   `venv/`, not the usual `.venv/`: Finder hides dot-directories, so the Full
+   Disk Access file picker in step 2 cannot browse to a binary inside one.
 2. **System Settings → Privacy & Security → Full Disk Access** → **+** →
-   **⌘⇧G** → `maintenance/.venv/bin/mist-tcc-python3` → toggle ON.
+   **⌘⇧G** → `maintenance/venv/bin/mist-tcc-python3` → toggle ON.
 3. Only then load the agent:
    ```bash
    launchctl bootstrap gui/$(id -u) ~/Library/LaunchAgents/com.exobrain.tcc-carry-forward.plist
