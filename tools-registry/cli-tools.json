@@ -89,6 +89,14 @@
     "notes": "Live progress bar in the MIST Console. Wrap ANY download/upload/install/clone that takes more than a few seconds. Also start/set/done for progress you compute yourself."
   },
   {
+    "name": "musictheory-2008",
+    "command": "python3 tools/serve.py",
+    "repo_dir": "/Users/alexhedtke/Documents/musictheory-2008",
+    "source": "built",
+    "added": "2026-08-19",
+    "notes": "Local mirror of musictheory.net circa 2008-12-02, rebuilt from the Internet Archive. Flash trainers run via vendored Ruffle (WASM). Serves on :8008; must be served, not opened via file:// (WASM is blocked on file origins). Private repo BaesTheorem/musictheory-2008."
+  },
+  {
     "name": "narrate.py",
     "command": "mist-voice/.venv/bin/python mist-voice/scripts/narrate.py <note.md> -o <out.mp3>",
     "repo_dir": "~/Documents/Exobrain harness",
