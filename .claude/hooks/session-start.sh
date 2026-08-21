@@ -253,34 +253,33 @@ else
   fi
 fi
 
-# Full Disk Access. TCC judges the RESPONSIBLE process (the top-level thing that
-# launched the tree), not necessarily the binary doing the read, so this check has
-# TWO subjects and must not mix them:
+# TCC state (Full Disk Access + the carried user-database grants).
 #
-#   - launchd routines and bare shells: responsible = the claude CLI binary. It is
-#     a bare Mach-O with no bundle (`Info.plist=not bound`), so tccd records
-#     identifier_type=Path, and the path carries the version
-#     (.../claude/versions/2.1.233). Every CLI upgrade mints a NEW identity and
-#     silently drops the grant.
-#   - MIST Console chats: responsible = /Applications/MIST Console.app. A stable
-#     bundle identity that survives CLI upgrades, so granting the app is strictly
-#     the more durable fix for anything the Console runs.
+# READ THE REPORT FILE. NEVER PROBE TCC FROM HERE. This hook used to test FDA by
+# listing ~/Library/Application Support/com.apple.TCC and then run mist-tcc-carry
+# inline. Both read FDA-protected paths, and inside a hook the process TCC judges
+# is the RESPONSIBLE one -- the claude CLI, which since 2.1.234 sits at
+# auth_value=0, an explicit "Don't Allow". So each probe raised the "would like to
+# access data from other apps" dialog: the very popup this subsystem exists to
+# suppress, roughly five a day by 2026-08-21.
 #
-# Keying both on the claude path produced a false alarm on 2026-08-17: a launchd
-# routine (responsible = the granted claude binary) recorded success at 14:06, and
-# a Console chat (responsible = the ungranted Console app) read that same state an
-# hour later as "grant revoked." Same binary, different responsible app, opposite
-# answers. State is now per-subject.
+# Clicking Allow could never fix it. That dialog grants
+# kTCCServiceSystemPolicyAppData, while TCC.db is gated on
+# kTCCServiceSystemPolicyAllFiles, so the read still failed and the dialog came
+# back next session. A button that cannot work is worse than no button.
 #
-# The symptom of missing FDA is a rash of "would like to access data from other
-# apps" dialogs, because without it each app container Claude touches prompts
-# separately (per client→target pair) instead of once. Only warn if a grant existed
-# BEFORE and broke -- Alex may deliberately not want FDA here, and this must not
-# nag him into it.
-FDA_CANARY="$HOME/Library/Application Support/com.apple.TCC"
+# The launchd job (com.exobrain.tcc-carry-forward) has no such problem: launchd
+# starts maintenance/venv/bin/mist-tcc-python3 directly, so that binary's OWN FDA
+# grant applies, the read is silent, and it leaves the verdict in the report file.
+# It fires on WatchPaths over the versions directory, so it has normally already
+# run by the time a session starts; the kickstart below is only for a cold or
+# stale report, and is deliberately fire-and-forget.
+TCC_REPORT="$HARNESS/.claude/hooks/state/tcc-report"
+TCC_JOB="com.exobrain.tcc-carry-forward"
 
 # Resolve the live binary from the process ancestry (never pin the path -- the CLI
-# has moved install locations before), falling back to whatever `claude` is on PATH.
+# has moved install locations before), falling back to whatever `claude` is on
+# PATH. Reading ps and a symlink target touches nothing TCC protects.
 CLAUDE_BIN=""
 FDA_PID=$PPID
 for _ in 1 2 3 4 5 6; do
@@ -295,59 +294,77 @@ done
 [ -z "$CLAUDE_BIN" ] && CLAUDE_BIN=$(command -v claude 2>/dev/null)
 [ -n "$CLAUDE_BIN" ] && CLAUDE_BIN=$(python3 -c "import os,sys; print(os.path.realpath(sys.argv[1]))" "$CLAUDE_BIN" 2>/dev/null)
 
-# Probe FDA directly rather than reading TCC.db (which needs FDA itself). Listing
-# the TCC dir's CONTENTS is the test; `ls -d` on it succeeds without FDA, so the -d
-# call is only the exists-check that keeps a missing dir from reading as "denied".
-# Pick the identity TCC will actually judge for THIS session, and track its state
-# separately. MIST_CONSOLE_SESSION is exported by the Console to every chat it spawns.
-if [ -n "$MIST_CONSOLE_SESSION" ]; then
-  FDA_SUBJECT="/Applications/MIST Console.app"
-  FDA_LABEL="the MIST Console app"
-  FDA_STATE="$HARNESS/.claude/hooks/state/fda-console-app"
-  FDA_FIX="System Settings → Privacy & Security → Full Disk Access → + → ⌘⇧G → /Applications/MIST Console.app → toggle ON, then quit and reopen the Console"
-else
-  FDA_SUBJECT="$CLAUDE_BIN"
-  FDA_LABEL="the claude CLI"
-  FDA_STATE="$HARNESS/.claude/hooks/state/fda-claude-path"
-  FDA_FIX="System Settings → Privacy & Security → Full Disk Access → remove the old entry, then + → ⌘⇧G → paste the 'Now' path → toggle ON"
-fi
+tcc_field() { sed -n "s/^$1=//p" "$TCC_REPORT" 2>/dev/null; }
 
-if [ -n "$FDA_SUBJECT" ] && ls -d "$FDA_CANARY" >/dev/null 2>&1; then
-  if ls "$FDA_CANARY" >/dev/null 2>&1; then
-    mkdir -p "$(dirname "$FDA_STATE")"
-    echo "$FDA_SUBJECT" > "$FDA_STATE"
-  elif [ -f "$FDA_STATE" ]; then
-    FDA_OLD=$(cat "$FDA_STATE" 2>/dev/null)
-    if [ "$FDA_OLD" != "$FDA_SUBJECT" ]; then
-      echo "WARN: Full Disk Access grant went stale on the claude CLI upgrade -- expect a wave of \"would like to access data from other apps\" popups"
-      echo "  Was: $FDA_OLD"
-      echo "  Now: $FDA_SUBJECT"
-      echo "  Fix: $FDA_FIX"
-      echo "  (TCC keys this bare binary by path, so the grant cannot follow a version bump)"
-      ISSUES=$((ISSUES + 1))
-    else
-      echo "WARN: Full Disk Access was revoked on $FDA_LABEL ($FDA_SUBJECT) -- re-add it under Privacy & Security → Full Disk Access, or delete $FDA_STATE to stop this check"
-      ISSUES=$((ISSUES + 1))
-    fi
+TCC_STALE=""
+if [ ! -f "$TCC_REPORT" ]; then
+  TCC_STALE="no report yet"
+else
+  TCC_AGE=$(( ($(date +%s) - $(tcc_field generated_at 2>/dev/null || echo 0)) / 3600 ))
+  TCC_SEEN=$(tcc_field claude_path)
+  if [ "$TCC_AGE" -gt 12 ] 2>/dev/null; then
+    TCC_STALE="report is ${TCC_AGE}h old"
+  elif [ -n "$CLAUDE_BIN" ] && [ "$TCC_SEEN" != "$CLAUDE_BIN" ]; then
+    TCC_STALE="report describes $(basename "$TCC_SEEN"), running $(basename "$CLAUDE_BIN")"
   fi
 fi
 
-# Re-point the CLI's OTHER TCC grants (Documents, Drive, Things/System Events
-# automation, app-data) at the new versioned path. Same root cause as the FDA
-# check above -- TCC keys this bare binary by path -- but unlike FDA these live in
-# the USER database, so they can be carried forward without root instead of
-# re-approved by hand every time the CLI auto-updates. The grant's stored code
-# requirement is version-independent (Anthropic's Developer ID), and the script
-# refuses to move any grant onto a binary that fails it. Idempotent and silent
-# when there is nothing to do; see maintenance/README.md.
-TCC_CARRY_OUT=$("$HARNESS/maintenance/bin/mist-tcc-carry" 2>&1)
-case "$TCC_CARRY_OUT" in
-  OK:*) : ;;                       # nothing to carry -- stay quiet
-  Carried*) echo "$TCC_CARRY_OUT" | sed 's/^/  /' ; echo "OK: TCC grants carried forward past the CLI upgrade" ;;
-  *) echo "WARN: TCC carry-forward could not run -- expect repeat permission popups"
-     echo "$TCC_CARRY_OUT" | sed 's/^/  /'
-     ISSUES=$((ISSUES + 1)) ;;
-esac
+if [ -n "$TCC_STALE" ]; then
+  # Fire and forget. Waiting would buy nothing: this session's grants are already
+  # fixed at exec time, so the fresh verdict is for the NEXT session to read.
+  launchctl kickstart -k "gui/$(id -u)/$TCC_JOB" >/dev/null 2>&1
+  echo "OK: TCC report refreshing in the background ($TCC_STALE)"
+else
+  # Which identity does TCC judge for THIS session? The Console is a real .app
+  # with a stable bundle id, so its grant survives CLI upgrades; a bare-shell or
+  # launchd session is judged by the versioned CLI path, which does not.
+  # MIST_CONSOLE_SESSION is exported by the Console to every chat it spawns.
+  if [ -n "$MIST_CONSOLE_SESSION" ]; then
+    TCC_FDA=$(tcc_field console_fda)
+    TCC_SUBJECT="the MIST Console app"
+    TCC_FIX="System Settings -> Privacy & Security -> Full Disk Access -> /Applications/MIST Console.app -> toggle ON, then quit and reopen the Console"
+  else
+    TCC_FDA=$(tcc_field claude_fda)
+    TCC_SUBJECT="the claude CLI ($(basename "${CLAUDE_BIN:-unknown}"))"
+    TCC_FIX="System Settings -> Privacy & Security -> Full Disk Access -> toggle ON the $(basename "${CLAUDE_BIN:-claude}") entry (add it with + -> Cmd-Shift-G -> ${CLAUDE_BIN:-?}), and delete the dead older-version rows while you are there"
+  fi
+
+  case "$TCC_FDA" in
+    allowed)
+      echo "OK: Full Disk Access held by $TCC_SUBJECT" ;;
+    denied)
+      # An explicit "Don't Allow", not merely unasked -- so this is not nagging
+      # Alex toward a permission he declined, it is telling him why a dialog he
+      # cannot dismiss keeps returning.
+      echo "WARN: Full Disk Access is DENIED for $TCC_SUBJECT -- expect repeat \"access data from other apps\" popups that Allow cannot silence"
+      echo "  Fix: $TCC_FIX"
+      echo "  (TCC keys the bare CLI binary by path, so this recurs on every version bump)"
+      ISSUES=$((ISSUES + 1)) ;;
+    unset|"")
+      : ;;   # never asked; stay quiet, Alex may not want it
+    *)
+      echo "WARN: Full Disk Access state for $TCC_SUBJECT reads '$TCC_FDA'"
+      ISSUES=$((ISSUES + 1)) ;;
+  esac
+
+  # Surface a denied CLI even from a Console chat. Two reasons: every scheduled
+  # routine runs under the bare CLI identity (the 21:00 and 23:00 popups on
+  # 2026-08-20 were exactly that), and tccd's own AUTHREQ_ATTRIBUTION lines show
+  # com.anthropic.claude-code as the responsible process inside Console sessions
+  # too, so the Console's grant is not the blanket cover it looks like.
+  if [ -n "$MIST_CONSOLE_SESSION" ] && [ "$(tcc_field claude_fda)" = "denied" ]; then
+    echo "WARN: Full Disk Access is DENIED for the claude CLI ($(basename "${CLAUDE_BIN:-unknown}")) -- scheduled routines will keep raising \"access data from other apps\" popups"
+    echo "  Fix: System Settings -> Privacy & Security -> Full Disk Access -> toggle ON $(basename "${CLAUDE_BIN:-claude}"), and delete the dead older-version rows"
+    ISSUES=$((ISSUES + 1))
+  fi
+
+  TCC_PENDING=$(tcc_field user_grants_pending)
+  if [ "${TCC_PENDING:-0}" -gt 0 ] 2>/dev/null; then
+    echo "WARN: $TCC_PENDING TCC grant(s) not yet carried past the CLI upgrade"
+    echo "  Fix: maintenance/bin/mist-tcc-carry"
+    ISSUES=$((ISSUES + 1))
+  fi
+fi
 
 # Scheduled MIST routines AND com.exobrain jobs -- check the LAST EXIT CODE, not
 # just that the job is loaded. A loaded job that exits nonzero every fire (e.g.
