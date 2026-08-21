@@ -35,11 +35,17 @@ INVARIANTS
   - NEVER pin the CLI's path. It has moved install locations before
     (npm-global -> ~/.local); always resolve it live.
   - Back up TCC.db before the first write of a run.
-  - Idempotent: a run with nothing to do writes nothing and exits 0.
+  - Idempotent: a run with nothing to do changes no grant and exits 0.
+  - NEVER let the session-start hook read a TCC database itself. Inside a hook
+    the responsible process is the claude CLI, which is FDA-denied, so the read
+    raises the exact popup this whole subsystem exists to suppress. Every run
+    leaves its verdict in STATE_FILE; the hook reads only that.
 
 Full Disk Access (kTCCServiceSystemPolicyAllFiles) lives in the SYSTEM
-database at /Library/..., which needs root, so it cannot be carried here.
-`--check` reports when it looks stale so the session-start hook can say so.
+database at /Library/..., and writing it needs root, so it cannot be carried
+here -- Alex has to flip that toggle by hand after each CLI bump. Reading it is
+another matter: the dedicated interpreter holds FDA, so every run records the
+CLI's current verdict in STATE_FILE and `--check` prints it.
 
 Usage:
     tcc_carry_forward.py            # carry grants forward, print what changed
@@ -61,7 +67,21 @@ import time
 from pathlib import Path
 
 USER_TCC_DB = Path.home() / "Library/Application Support/com.apple.TCC/TCC.db"
+SYSTEM_TCC_DB = Path("/Library/Application Support/com.apple.TCC/TCC.db")
 BACKUP_DIR = Path.home() / "Library/Logs/exobrain/tcc-backups"
+
+# Where this script leaves its verdict for the session-start hook to read.
+# The hook MUST NOT look at either TCC database itself -- see write_report().
+STATE_FILE = Path(__file__).resolve().parent.parent / ".claude/hooks/state/tcc-report"
+
+# The Console is a real .app with a stable bundle id, so its FDA grant survives
+# CLI upgrades. Worth reporting next to the CLI's, since it is the durable fix.
+CONSOLE_CLIENT = "com.exobrain.mist-console"
+
+# TCC's auth_value vocabulary. 0 is an explicit "Don't Allow", which is NOT the
+# same as never having been asked -- the distinction matters, because only the
+# former means Alex is being re-prompted for something already decided.
+AUTH_VALUES = {0: "denied", 1: "unknown", 2: "allowed", 3: "limited"}
 
 # A client path we are willing to treat as "the Claude CLI, some version".
 # Anchored on the versions directory the native installer owns, so a stray
@@ -248,6 +268,62 @@ def prune_dead(conn: sqlite3.Connection, live: Path) -> list[str]:
     return dead
 
 
+def read_fda(client: str) -> str:
+    """Full Disk Access verdict for `client`, read from the SYSTEM database.
+
+    Only this script can ask. It runs under `maintenance/venv/bin/mist-tcc-python3`,
+    which holds FDA in its own right; the claude CLI it reports on generally does
+    not. That asymmetry is the entire reason this function exists here rather than
+    in the hook -- see write_report().
+    """
+    try:
+        conn = sqlite3.connect(f"file:{SYSTEM_TCC_DB}?mode=ro", uri=True)
+    except sqlite3.OperationalError:
+        return "unreadable"
+    try:
+        row = conn.execute(
+            "SELECT auth_value FROM access"
+            " WHERE service = 'kTCCServiceSystemPolicyAllFiles' AND client = ?",
+            (client,),
+        ).fetchone()
+    except sqlite3.DatabaseError:
+        return "unreadable"
+    finally:
+        conn.close()
+    if row is None:
+        return "unset"
+    return AUTH_VALUES.get(row[0], str(row[0]))
+
+
+def write_report(live: Path, held: int, pending: int) -> None:
+    """Leave the TCC verdict somewhere the session-start hook can read for free.
+
+    WHY THIS FILE EXISTS. The hook used to probe FDA by listing
+    ~/Library/Application Support/com.apple.TCC and by running this script inline.
+    Both read FDA-protected paths, and inside a hook the process TCC judges is the
+    *responsible* one -- the claude CLI, which since 2.1.234 is auth_value=0,
+    explicitly denied. So each probe tripped the "would like to access data from
+    other apps" dialog: the very popup this subsystem exists to prevent. Worse,
+    clicking Allow could not help. That dialog grants kTCCServiceSystemPolicyAppData,
+    while TCC.db is gated on kTCCServiceSystemPolicyAllFiles, so the read still
+    failed and the dialog returned on the next session -- five a day by 2026-08-21.
+
+    The launchd job has no such problem: launchd starts mist-tcc-python3 directly,
+    so that binary's own FDA grant applies and the read is silent. Hence the split.
+    The hook reads THIS FILE and nothing else.
+    """
+    fields = {
+        "generated_at": str(int(time.time())),
+        "claude_path": str(live),
+        "claude_fda": read_fda(str(live)),
+        "console_fda": read_fda(CONSOLE_CLIENT),
+        "user_grants_held": str(held),
+        "user_grants_pending": str(pending),
+    }
+    STATE_FILE.parent.mkdir(parents=True, exist_ok=True)
+    STATE_FILE.write_text("".join(f"{k}={v}\n" for k, v in fields.items()))
+
+
 def backup_db() -> Path:
     BACKUP_DIR.mkdir(parents=True, exist_ok=True)
     dest = BACKUP_DIR / f"TCC.db.{time.strftime('%Y%m%d-%H%M%S')}"
@@ -286,14 +362,24 @@ def main() -> int:
         held = {g.key for g in grants if g.client == str(live)}
         donors = pick_donors(grants, str(live))
         pending = {k: g for k, g in donors.items() if k not in held}
+        # Written on every path, including the no-op ones: a run that finds
+        # nothing to do is exactly when the hook still needs a fresh verdict.
+        write_report(live, len(held), len(pending))
 
         if args.check:
+            fda = read_fda(str(live))
+            if fda == "denied":
+                print(f"WARN: Full Disk Access is DENIED for claude {live.name}")
+                print("  Every FDA-protected read under this CLI raises an "
+                      '"access data from other apps" dialog that Allow cannot silence.')
             if pending:
                 print(f"WARN: {len(pending)} TCC grant(s) lost to the CLI upgrade at {live.name}")
                 for g in sorted(pending.values(), key=str):
                     print(f"  missing: {g}")
                 print("  Fix: maintenance/bin/mist-tcc-carry")
                 return 1
+            if fda == "denied":
+                return 1  # not "intact" -- Alex has a toggle to flip
             print(f"OK: TCC grants intact for claude {live.name}")
             return 0
 
@@ -304,6 +390,9 @@ def main() -> int:
         backup = backup_db()
         carried, refused = carry_forward(conn, live, donors, held)
         dead = prune_dead(conn, live) if args.prune else []
+        # Re-stamp with the post-work counts; the earlier call described the
+        # state we found, not the state we leave behind.
+        write_report(live, len(held) + len(carried), len(pending) - len(carried))
 
     if carried:
         print(f"Carried {len(carried)} grant(s) forward to claude {live.name}:")
