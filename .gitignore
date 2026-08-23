@@ -174,3 +174,9 @@ fantasy/espn-credentials.json
 
 # Dedicated FDA-granted interpreter (built locally, see maintenance/README.md)
 maintenance/venv/
+
+# iOS sideload refresher: holds an Apple team ID and local repo paths.
+# Rebuild from ios-sideload/apps.example.json (see that dir's README).
+ios-sideload/apps.json
+# Tracks what is currently installed on the phone; regenerates itself.
+ios-sideload/state.json
