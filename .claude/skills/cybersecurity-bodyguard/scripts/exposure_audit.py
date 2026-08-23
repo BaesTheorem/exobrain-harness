@@ -9,10 +9,17 @@ to chain in pre-commit / pre-push hooks:
 
     python3 exposure_audit.py --staged || { echo "Blocked: HIGH PII leak"; exit 1; }
 
+--staged and --path only ever see the *current* worktree. A secret that was
+committed once and deleted in the next commit passes both while staying
+readable forever in the object store, so --history scans every blob reachable
+from every ref. Run it before making a repo public, not just before a commit.
+
 Usage:
     python3 exposure_audit.py --staged           # audit git staged changes
     python3 exposure_audit.py --path FILE_OR_DIR # audit a path
     python3 exposure_audit.py --stdin            # read text from stdin
+    python3 exposure_audit.py --history          # audit all blobs in git history
+    python3 exposure_audit.py --history --repo ~/src/foo   # ...of another repo
 """
 from __future__ import annotations
 
@@ -21,6 +28,7 @@ import json
 import re
 import subprocess
 import sys
+import tempfile
 from pathlib import Path
 
 SKILL_DIR = Path(__file__).resolve().parent.parent
@@ -40,6 +48,12 @@ SECRET_PATTERNS = [
     ("jwt", r"\beyJ[A-Za-z0-9_\-]+\.eyJ[A-Za-z0-9_\-]+\.[A-Za-z0-9_\-]+\b"),
     ("bearer_header", r"(?i)\bauthorization:\s*bearer\s+[A-Za-z0-9\-_\.]{20,}"),
 ]
+
+# Files we never scan as text. Shared by --path and --history so the two modes
+# agree on what counts as scannable.
+BINARY_SUFFIXES = {
+    ".png", ".jpg", ".jpeg", ".gif", ".pdf", ".zip", ".mp4", ".mp3",
+}
 
 # Shapes of PII we flag even without a targets.json match
 GENERIC_PII_PATTERNS = [
@@ -112,6 +126,88 @@ def get_staged_changes() -> list[tuple[str, str]]:
     return changes
 
 
+def _git(repo: Path, *argv: str, binary: bool = False, stdin=None):
+    """Run a git command inside `repo`. Returns CompletedProcess."""
+    return subprocess.run(
+        ["git", "-C", str(repo), *argv],
+        capture_output=True,
+        check=True,
+        stdin=stdin,
+        **({} if binary else {"text": True, "errors": "replace"}),
+    )
+
+
+def iter_history_blobs(repo: Path, max_bytes: int):
+    """
+    Yield (blob_sha, path, text) for every blob reachable from any ref.
+
+    Deduplicated by blob SHA, so an unchanged file across 500 commits is read
+    once. Uses a single `git cat-file --batch` process fed from a temp file --
+    feeding it from a pipe we also read would deadlock once the pipe fills.
+    """
+    listing = _git(repo, "rev-list", "--objects", "--all").stdout
+    # `rev-list --objects` prints "<sha>" for commits/trees and "<sha> <path>"
+    # for blobs, which is where we get a human-meaningful path for free.
+    paths: dict[str, str] = {}
+    for line in listing.splitlines():
+        sha, _, path = line.partition(" ")
+        if path and sha not in paths:
+            paths[sha] = path
+
+    wanted = [
+        sha for sha, path in paths.items()
+        if Path(path).suffix.lower() not in BINARY_SUFFIXES
+    ]
+    if not wanted:
+        return
+
+    with tempfile.TemporaryDirectory() as tmp:
+        sha_file = Path(tmp) / "shas"
+        sha_file.write_text("".join(f"{s}\n" for s in wanted))
+        with sha_file.open("rb") as fh:
+            out: bytes = _git(repo, "cat-file", "--batch", binary=True, stdin=fh).stdout
+
+    pos = 0
+    while pos < len(out):
+        eol = out.find(b"\n", pos)
+        if eol == -1:
+            break
+        header = out[pos:eol].decode("utf-8", "replace").split()
+        pos = eol + 1
+        if len(header) < 3 or header[1] != "blob":
+            # "<sha> missing" has no payload; nothing to skip past.
+            continue
+        sha, size = header[0], int(header[2])
+        payload = out[pos:pos + size]
+        pos += size + 1  # trailing newline git appends after the payload
+        if size > max_bytes or b"\0" in payload[:8192]:
+            continue
+        yield sha, paths[sha], payload.decode("utf-8", "replace")
+
+
+def scan_history(
+    repo: Path,
+    target_patterns: list[tuple[str, re.Pattern]],
+    max_bytes: int,
+) -> list[dict]:
+    """
+    Scan every blob in history. Findings are deduplicated on
+    (category, path, line, snippet) so a secret that sat unchanged at the same
+    spot across many commits reports once rather than once per revision.
+    """
+    findings: list[dict] = []
+    seen: set[tuple] = set()
+    for sha, path, text in iter_history_blobs(repo, max_bytes):
+        for finding in scan_text(text, target_patterns):
+            key = (finding["category"], path, finding["line"], finding["snippet"])
+            if key in seen:
+                continue
+            seen.add(key)
+            finding["file"] = f"{path}@{sha[:10]}"
+            findings.append(finding)
+    return findings
+
+
 def scan_text(
     text: str,
     target_patterns: list[tuple[str, re.Pattern]],
@@ -157,7 +253,7 @@ def scan_path(path: Path, target_patterns: list[tuple[str, re.Pattern]]) -> list
     out: list[dict] = []
     files = [path] if path.is_file() else [p for p in path.rglob("*") if p.is_file()]
     for f in files:
-        if f.suffix in {".png", ".jpg", ".jpeg", ".gif", ".pdf", ".zip", ".mp4", ".mp3"}:
+        if f.suffix.lower() in BINARY_SUFFIXES:
             continue
         try:
             text = f.read_text(errors="replace")
@@ -175,6 +271,11 @@ def main() -> int:
     g.add_argument("--staged", action="store_true")
     g.add_argument("--path")
     g.add_argument("--stdin", action="store_true")
+    g.add_argument("--history", action="store_true",
+                   help="scan every blob reachable from every ref")
+    parser.add_argument("--repo", default=".", help="repo for --history (default: cwd)")
+    parser.add_argument("--max-blob-bytes", type=int, default=2_000_000,
+                        help="skip history blobs larger than this (default: 2MB)")
     parser.add_argument("--format", choices=["text", "json"], default="text")
     args = parser.parse_args()
 
@@ -189,6 +290,14 @@ def main() -> int:
                 findings.append(f)
     elif args.path:
         findings = scan_path(Path(args.path), target_patterns)
+    elif args.history:
+        try:
+            findings = scan_history(
+                Path(args.repo).expanduser(), target_patterns, args.max_blob_bytes
+            )
+        except subprocess.CalledProcessError as exc:
+            print(f"[!!] git failed in {args.repo}: {exc.stderr}".rstrip(), file=sys.stderr)
+            return 3
     else:
         findings = scan_text(sys.stdin.read(), target_patterns)
 
