@@ -73,6 +73,14 @@
     "notes": "Send an iMessage. Always sign outbound messages \"-MIST (Alex's assistant)\"."
   },
   {
+    "name": "ios-sideload-refresh",
+    "command": "ios-sideload/refresh.py",
+    "repo_dir": "/Users/alexhedtke/Documents/Exobrain harness/ios-sideload",
+    "source": "built",
+    "added": "2026-08-23",
+    "notes": "Rebuilds and wirelessly reinstalls free-team iOS sideloads before their 7-day provisioning profiles expire. --status/--discover/--force/--quiet. launchd com.exobrain.ios-sideload-refresh, 10:30 and 20:30."
+  },
+  {
     "name": "mid2mp3 / mp32mid",
     "command": "mid2mp3 <file.mid> | mp32mid <file.mp3>",
     "repo_dir": "~/.local/bin",
