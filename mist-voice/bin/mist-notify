@@ -1,5 +1,6 @@
 #!/bin/bash
-# Show a CLICKABLE macOS notification AND speak it in MIST's voice.
+# Show a CLICKABLE macOS notification. Silent by default; pass --voice to also
+# speak it in MIST's voice.
 #   mist-notify "Inbox is over five. Want me to triage it?"
 #   mist-notify "Build failed." "Exobrain URGENT" Basso
 #   mist-notify "New transcript processed" "MIST" Purr "obsidian://open?vault=Exobrain&file=Daily%20notes/..."
@@ -33,7 +34,11 @@
 #   --group <id>             notification-center stacking group (threadIdentifier)
 #   --id <id>                stable identifier: reposting replaces the banner in place
 #   --urgency passive|active|timeSensitive
-#   --no-voice               skip the spoken line for this one notification
+#   --voice                  ALSO speak the message aloud. Off by default:
+#                            watchers fire unattended and a banner should not
+#                            make noise in a room Alex may not be in.
+#   --no-voice               accepted and ignored (voice is already off).
+#                            Kept so existing callers do not break.
 #
 # Delivery order: MIST Notifier.app (native banners: MIST name + icon, buttons,
 # reply, images) -> terminal-notifier -> osascript. Every banner is clickable and
@@ -47,7 +52,7 @@ shift
 
 TITLE="MIST"; SOUND="Purr"; LINK=""
 SUBTITLE=""; IMAGE=""; GROUP=""; NID=""; URGENCY=""
-REPLY=0; REPLY_SID=""; NOVOICE=0
+REPLY=0; REPLY_SID=""; VOICE=0
 ACTIONS=()
 POSN=0
 while [ $# -gt 0 ]; do
@@ -58,7 +63,8 @@ while [ $# -gt 0 ]; do
     --id)       NID="${2:-}"; shift 2;;
     --urgency)  URGENCY="${2:-}"; shift 2;;
     --action)   ACTIONS+=("${2:-}"); shift 2;;
-    --no-voice) NOVOICE=1; shift;;
+    --voice)    VOICE=1; shift;;
+    --no-voice) VOICE=0; shift;;
     --reply)
       REPLY=1
       if [ $# -gt 1 ] && [[ "${2:-}" != --* ]]; then REPLY_SID="$2"; shift; fi
@@ -175,11 +181,15 @@ fi
 
 log_history "$DELIVERED"
 
-# Speak it in MIST's voice (non-blocking so it doesn't hold up the caller),
-# unless voice notifications are muted. Mute switch (either works):
+# Speaking is opt-in via --voice (non-blocking so it doesn't hold up the
+# caller). It used to be the default, which meant every scheduled watcher read
+# itself aloud whether or not anyone was there to hear it; Alex turned that off
+# on 2026-08-23. The banner is the notification, the voice is a garnish.
+#
+# The global mute still applies on top and covers mist-say too:
 #   touch ~/.mist-voice-muted        (or)   export MIST_VOICE_MUTED=1
-# Un-mute: rm ~/.mist-voice-muted . The clickable banner above still fires
-# regardless; only the spoken voice is suppressed.
-if [ "$NOVOICE" != "1" ] && [ ! -f "$HOME/.mist-voice-muted" ] && [ "${MIST_VOICE_MUTED:-0}" != "1" ]; then
+# Un-mute: rm ~/.mist-voice-muted . The clickable banner always fires either
+# way; only the spoken line is affected.
+if [ "$VOICE" = "1" ] && [ ! -f "$HOME/.mist-voice-muted" ] && [ "${MIST_VOICE_MUTED:-0}" != "1" ]; then
   ( "$DIR/bin/mist-say" "$MSG" >/dev/null 2>&1 || true ) &
 fi
