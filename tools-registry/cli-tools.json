@@ -8,6 +8,14 @@
     "notes": "Create Apple Reminders, including repeating ones (EventKit via mkreminder.swift). AppleScript cannot set recurrence."
   },
   {
+    "name": "arctic-shift-scan",
+    "command": "python3 reddit/arctic-shift-scan.py --sub kansascity --days 7",
+    "repo_dir": "reddit/",
+    "source": "built",
+    "added": "2026-08-23",
+    "notes": "Full-subreddit post scan via Arctic Shift archive API (no Reddit creds). Writes reddit/data/kc-events-scan.json: all posts + megathread comment trees. Feeds /local-events. Staleness asserted on newest-post age, never HTTP 200. Recon: vault recon/2026-08-23-reddit-access-paths.md"
+  },
+  {
     "name": "barber-booksy",
     "command": "python3 booksy.py slots --from A --to B",
     "repo_dir": "/Users/alexhedtke/Documents/Exobrain harness/barber",
@@ -71,6 +79,14 @@
     "source": "built",
     "added": "2026-08-16",
     "notes": "Send an iMessage. Always sign outbound messages \"-MIST (Alex's assistant)\"."
+  },
+  {
+    "name": "inbox-iphone-build-install",
+    "command": "./scripts/build-install.sh",
+    "repo_dir": "/Users/alexhedtke/Documents/inbox-by-gmail-clone/ios",
+    "source": "built",
+    "added": "2026-08-23",
+    "notes": "Builds the native Inbox iPhone app (SwiftUI Gmail client) and pushes it to the paired iPhone over the devicectl tunnel. Free-team signing expires every 7 days; re-run this when the app stops launching. Phone must be unlocked and on USB or same network."
   },
   {
     "name": "ios-sideload-refresh",

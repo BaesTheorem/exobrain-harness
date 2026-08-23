@@ -114,12 +114,19 @@ For each venue, use `defuddle parse "[URL]" -m` (via Bash) to extract clean cont
 - Use Defuddle (`defuddle parse "[URL]" -m`) to fetch and filter for: author talks, tech workshops, maker events, book clubs for genres Alex reads. Fall back to WebFetch only if defuddle fails.
 
 ### 4. r/kansascity Subreddit
-The KC subreddit is a high-signal source -- locals post events, festivals, pop-ups, and meetups that don't show up on venue calendars. There's almost always a pinned/recent **"What's Happening This Week [date]"** megathread.
+The KC subreddit surfaces peer-chatter events (pop-ups, festivals, word-of-mouth plans) that venue calendars and Meetup structurally cannot carry. Direct reddit.com `.json`/`.rss` access is dead (unauth 403 since mid-2026; NEVER retry RSS, a burst causes a durable edge block). The transport is the Arctic Shift archive API via the owning module:
 
-- **Megathread**: WebFetch on reddit.com is blocked. Use `curl -sL -A "Mozilla/5.0" "https://www.reddit.com/r/kansascity/search.json?q=%22What%27s%20Happening%20This%20Week%22&restrict_sr=on&sort=new&limit=5"` + jq to find this week's thread URL, then fetch `https://reddit.com/r/kansascity/comments/<id>.json?limit=300&sort=top` and extract body (`.[0].data.children[0].data.selftext`) + comments (`.[1].data.children[] | select(.kind=="t1") | .data.body`).
-- **General sweep**: `curl -sL -A "Mozilla/5.0" "https://www.reddit.com/r/kansascity/new.json?limit=60"` then jq for "Things To Do 📍" flair -- catches one-off event posts outside the megathread. Fetch interesting posts via `https://reddit.com/r/kansascity/comments/<id>.json` for body details.
+```bash
+python3 reddit/arctic-shift-scan.py --sub kansascity --days 7
+```
 
-Extract events from the megathread comments + body, score them through the same rubric, and verify dates/links against the original venue before surfacing. Reddit posts often paraphrase or get details slightly wrong -- always click through to confirm.
+This writes `reddit/data/kc-events-scan.json` (gitignored): **every** post from the window (title, selftext, flair, score, permalink) plus full comment trees for any "What's Happening This Week" megathreads it detects. ~306 posts/week typical.
+
+Judgment happens here, not in the script: read the snapshot and scan **all** posts for potential events, not just "Things To Do 📍" flair (event announcements also hide under Discussion, Bars/Nightlife, Food and Drink). Score candidates through the same rubric.
+
+- **Check `status` first.** `"ok"` = proceed. `"stale"` = Arctic Shift's ingestion has lagged >48h; log it, skip the source this run, notify only if it persists across 2+ runs. `"blocked"` = network/API failure; silent-skip per watcher discipline.
+- Reddit posts paraphrase and get details wrong -- verify dates/links against the venue before surfacing, and megathread comments need corroboration before becoming action items (tour-dates rule).
+- Background: vault `recon/2026-08-23-reddit-access-paths.md`. Arctic Shift is one volunteer's tolerated archive; if it dies, old.reddit.com HTML (with `--compressed` + browser UA) is the independent fallback surface.
 
 ### 5. Web Search Catch-All
 Run broader searches to catch anything the other sources miss:
