@@ -1,0 +1,31 @@
+{
+  "_comment": [
+    "Copy to apps.json and edit. The real file is gitignored because it holds",
+    "an Apple team ID and local repo paths.",
+    "",
+    "thresholdDays  refresh when fewer than this many days remain (7-day life,",
+    "               so 2 leaves several scheduled attempts of slack).",
+    "deviceUdid     optional. Omit to use whichever paired iPhone answers;",
+    "               set it if more than one device is ever paired.",
+    "",
+    "Per app:",
+    "  dir          working directory the build command runs in",
+    "  build        argv of an existing signed-device build script in that repo.",
+    "               It must sign for a real device, not the simulator.",
+    "  searchRoot   where to hunt for the built .app (defaults to dir)",
+    "  env          extra environment for the build, e.g. DEVELOPMENT_TEAM",
+    "  alwaysInstall  reinstall even if the app is absent from the phone.",
+    "               Default is to leave deleted apps deleted."
+  ],
+  "thresholdDays": 2,
+  "apps": [
+    {
+      "name": "Example App",
+      "bundleId": "com.example.app",
+      "dir": "~/Documents/example-app/ios",
+      "build": ["scripts/build.sh", "--device"],
+      "searchRoot": "~/Documents/example-app/ios/build",
+      "env": { "DEVELOPMENT_TEAM": "XXXXXXXXXX" }
+    }
+  ]
+}

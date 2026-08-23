@@ -102,6 +102,21 @@ step is GUI-only (Xcode > Settings > Accounts, needs the user's password/2FA).
 A free personal team signs 7-day sideloads; distribution needs the paid
 program.
 
+**Renewing a 7-day sideload before it dies** is not just "rebuild it". Two
+caches will hand back the expiring profile while reporting success:
+
+- Xcode reuses a cached profile from `~/Library/Developer/Xcode/UserData/
+  Provisioning Profiles/` as long as it is still technically valid, so a
+  rebuild on day 5 re-signs with the profile that dies on day 7. Delete that
+  bundle's cached profile first and `-allowProvisioningUpdates` mints a fresh
+  one, restarting the clock from now.
+- An up-to-date product skips the codesign step entirely, leaving the old
+  profile embedded. Delete the built `.app` so signing has to re-run.
+
+Verify by reading `ExpirationDate` out of the built app's
+`embedded.mobileprovision` before installing, rather than trusting BUILD
+SUCCEEDED. `ios-sideload/refresh.py` in the harness automates all of this.
+
 ## Vendored binary frameworks
 
 Interrogate before trusting:
@@ -152,7 +167,14 @@ xcrun devicectl device info details --device <UDID> \
 ```
 
 `transportType: localNetwork` plus `tunnelState: connected` means installs
-will land. Requirements: same LAN, Developer Mode still on, and the phone
+will land. Do NOT read that state from `devicectl list devices`: the listing
+reports a cached `disconnected` for a phone that answers fine, because the
+tunnel is only raised on demand. Asking for device details is what raises it,
+so that call is the real reachability test.
+
+`devicectl` subcommands take `--json-output <path>`, which is worth using over
+parsing the text: `device info apps` then gives a `builtByDeveloper` flag that
+separates sideloads from App Store apps cleanly. Requirements: same LAN, Developer Mode still on, and the phone
 unlocked with the screen awake (a locked phone refuses the developer-disk-image
 handshake). Wireless changes delivery, not signing, so a free personal team
 still expires after 7 days and needs a reinstall. Reaching a phone that is not
