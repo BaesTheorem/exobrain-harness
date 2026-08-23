@@ -141,6 +141,23 @@ Trust This Computer, then Settings > Privacy & Security > Developer Mode > on
 Devices window time to prepare. First launch of a personal-team app needs
 Settings > General > VPN & Device Management > Trust.
 
+**Wireless install (no cable).** After the first USB pairing, tick "Connect
+via network" in Xcode > Window > Devices and Simulators. Every devicectl
+command above then works over WiFi with nothing plugged in, and the pairing
+survives reboots. Check the transport before blaming the network:
+
+```bash
+xcrun devicectl device info details --device <UDID> \
+  | grep -iE "transportType|tunnelState|developerModeStatus"
+```
+
+`transportType: localNetwork` plus `tunnelState: connected` means installs
+will land. Requirements: same LAN, Developer Mode still on, and the phone
+unlocked with the screen awake (a locked phone refuses the developer-disk-image
+handshake). Wireless changes delivery, not signing, so a free personal team
+still expires after 7 days and needs a reinstall. Reaching a phone that is not
+on your LAN means TestFlight, which means the paid program.
+
 **Local backend for on-device testing:** the phone cannot reach the Mac's
 `127.0.0.1`; bind the server to `0.0.0.0`, point the app at the Mac's LAN IP
 (`ipconfig getifaddr en0`), and keep phone + Mac on the same WiFi.
