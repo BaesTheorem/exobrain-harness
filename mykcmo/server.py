@@ -1,14 +1,22 @@
 """myKCMO MCP server: Kansas City, MO 311 service requests over stdio.
 
-Read/track/stats against the city's open-data portal (Socrata SODA API,
-dataset d4px-6rwg, the live myKCMO 311 feed since March 2021). Submitting a
-new request is NOT automated: the myKCMO web form is gated behind reCAPTCHA
-by design, so `report_issue_info` returns the official channels instead.
+Two halves:
+- READ (data.kcmo.org, Socrata dataset d4px-6rwg): search, track, stats over
+  the live myKCMO 311 feed since March 2021.
+- WRITE (webrai.mycivicapps.com): file a real 311 request. The city web form
+  has a soft anti-spam gate (optional reCAPTCHA v3, else a distorted-text
+  image captcha). We take the image path with a human (MIST) reading the
+  captcha via vision, so submitting is a three-step, agent-in-the-loop flow:
+  get_report_subtypes -> prepare_311_report (returns a captcha image to read)
+  -> submit_311_report (with the read answer). See webrai.py and README for
+  why this is scoped to Alex's own, human-confirmed, one-at-a-time requests.
 
 INVARIANTS:
-- Read-only against data.kcmo.org; no tool ever POSTs anywhere.
+- Read tools are read-only against data.kcmo.org.
 - All SoQL string literals pass through _soql_str (single quotes doubled).
 - Status matching is case-insensitive (the dataset mixes "resolved"/"Resolved").
+- report_submit.php is hit only by submit_311_report, only after a human read
+  the captcha and the caller passed confirm=True.
 """
 
 import json
@@ -17,6 +25,7 @@ import urllib.parse
 import urllib.request
 from datetime import datetime
 
+import webrai
 from mcp.server import MCPServer
 
 DATASET = "d4px-6rwg"  # 311 Call Center Reported Issues (March 2021 - present)
@@ -274,11 +283,256 @@ def report_issue_info() -> dict:
         ),
         "phone": "311 from inside the city, or 816-513-1313",
         "notes": (
-            "Submissions need the web form, app, or a call; they are "
-            "captcha-gated so MIST cannot file them directly. Save the case "
-            "number from the confirmation: get_311_request tracks it here "
-            "once it appears in the open-data feed (2-7 day lag)."
+            "MIST CAN file directly via list_report_categories -> "
+            "get_report_subtypes -> prepare_311_report -> submit_311_report. "
+            "Those channels are the manual fallback. Save the returned work "
+            "order id: get_311_request tracks it once it reaches the "
+            "open-data feed (2-7 day lag)."
         ),
+    }
+
+
+# ---------------------------------------------------------------------------
+# WRITE side: file a real 311 request via the city web form.
+#
+# Flow (agent-in-the-loop; MIST reads the captcha, Alex confirms):
+#   1. list_report_categories()          -> pick a report type
+#   2. get_report_subtypes(type)         -> pick a sub_type, learn the rules
+#   3. prepare_311_report(...)           -> returns a captcha image PATH
+#      MIST reads that image with vision to get the answer, confirms w/ Alex
+#   4. submit_311_report(pending_id, answer, confirm=True) -> work order id
+#
+# _PENDING holds one report's session + payload between steps 3 and 4. In
+# process only (the server is long-lived per session); nothing hits disk.
+# ---------------------------------------------------------------------------
+
+_PENDING: dict[str, dict] = {}
+_CAPTCHA_DIR = os.environ.get(
+    "MYKCMO_CAPTCHA_DIR",
+    os.path.expanduser("~/Documents/Exobrain harness/tmp/images"),
+)
+
+
+def _contact_defaults() -> dict:
+    return {
+        "first_name": os.environ.get("MYKCMO_CONTACT_FIRST", ""),
+        "last_name": os.environ.get("MYKCMO_CONTACT_LAST", ""),
+        "email": os.environ.get("MYKCMO_CONTACT_EMAIL", ""),
+        "phone": os.environ.get("MYKCMO_CONTACT_PHONE", ""),
+    }
+
+
+@mcp.tool()
+def list_report_categories() -> list[str]:
+    """List the report types Kansas City accepts (pothole, illegal dumping,
+    streetlights, etc.). Pass one of these to get_report_subtypes and
+    prepare_311_report.
+    """
+    return sorted(webrai.REPORT_TYPES)
+
+
+@mcp.tool()
+def get_report_subtypes(report_type: str) -> dict:
+    """For a report type (label like "A Pothole" or a raw "10871_x" value),
+    return its sub-types, the template kind, whether a location/description is
+    required, and any disclaimer text. Only "Standard" template types can be
+    auto-filed here; custom "form_type" types need the app/web form.
+    """
+    info = webrai.fetch_subtypes(report_type)
+    info["auto_submittable"] = info["template"].lower() == "standard"
+    if not info["auto_submittable"]:
+        info["note"] = (
+            "This type uses a custom form (template != Standard); file it via "
+            "the web form or myKCMO app. report_issue_info() has the links."
+        )
+    return info
+
+
+@mcp.tool()
+def prepare_311_report(
+    report_type: str,
+    description: str,
+    sub_type: str = "",
+    address: str = "",
+    latitude: str = "",
+    longitude: str = "",
+    first_name: str = "",
+    last_name: str = "",
+    email: str = "",
+    phone: str = "",
+    share_options: str = "private",
+) -> dict:
+    """Stage a real 311 request and fetch its captcha for MIST to read.
+
+    Does NOT submit anything. It validates the type, geocodes `address` (or
+    uses explicit latitude/longitude), opens a session, downloads the image
+    captcha, and returns a `pending_id`, the `captcha_image_path` (a JPEG
+    MIST must Read to solve), and a `review` summary of exactly what will be
+    filed. Contact fields fall back to MYKCMO_CONTACT_* env vars.
+
+    Next: Read captcha_image_path, then call submit_311_report(pending_id,
+    captcha_answer, confirm=True) after Alex confirms the review.
+    """
+    info = webrai.fetch_subtypes(report_type)
+    if info["template"].lower() != "standard":
+        raise ValueError(
+            f"{info['label']!r} uses a {info['template']!r} form, not auto-"
+            "submittable. Use the web form / app (report_issue_info)."
+        )
+    if info["subtypes"] and not sub_type:
+        raise ValueError(
+            f"{info['label']!r} needs a sub_type. Options: "
+            + ", ".join(f"{s['name']}={s['id']}" for s in info["subtypes"])
+        )
+    # Normalize a sub_type given by name to its id.
+    if sub_type:
+        for s in info["subtypes"]:
+            if sub_type == s["id"] or sub_type.lower() == s["name"].lower():
+                sub_type = s["id"]
+                break
+
+    location = None
+    if info["location_required"]:
+        if latitude and longitude:
+            location = {
+                "address": address,
+                "lat": str(latitude),
+                "lon": str(longitude),
+                "city": "Kansas City",
+                "state": "MO",
+                "zip": "",
+            }
+        elif address:
+            location = webrai.geocode(address)
+        else:
+            raise ValueError(
+                f"{info['label']!r} requires a location; pass address or "
+                "latitude+longitude."
+            )
+
+    contact = _contact_defaults()
+    contact.update(
+        {
+            k: v
+            for k, v in {
+                "first_name": first_name,
+                "last_name": last_name,
+                "email": email,
+                "phone": phone,
+            }.items()
+            if v
+        }
+    )
+    if not contact["email"]:
+        raise ValueError(
+            "A contact email is required (pass email= or set "
+            "MYKCMO_CONTACT_EMAIL). KC uses it to send the case confirmation."
+        )
+
+    opener = webrai.new_session()
+    os.makedirs(_CAPTCHA_DIR, exist_ok=True)
+    pending_id = webrai.captcha_id()
+    img_path = os.path.join(_CAPTCHA_DIR, f"kc_311_captcha_{pending_id}.jpg")
+    cap_uid = webrai.open_captcha(opener, img_path)
+
+    payload = webrai.build_payload(
+        report_type=info["report_type"],
+        sub_type=sub_type,
+        description=description,
+        location=location,
+        first_name=contact["first_name"],
+        last_name=contact["last_name"],
+        email=contact["email"],
+        phone=contact["phone"],
+        template=info["template"],
+        location_required=info["location_required"],
+        description_required=info["description_required"],
+        captcha_answer="",  # filled at submit
+        unique_captcha_id=cap_uid,
+        share_options=share_options,
+    )
+    _PENDING[pending_id] = {"opener": opener, "payload": payload, "label": info["label"]}
+
+    return {
+        "pending_id": pending_id,
+        "captcha_image_path": img_path,
+        "action_needed": (
+            "Read captcha_image_path to solve the captcha, confirm the review "
+            "with Alex, then call submit_311_report(pending_id, captcha_answer, "
+            "confirm=True)."
+        ),
+        "review": {
+            "type": info["label"],
+            "sub_type": sub_type,
+            "description": description,
+            "location": (location or {}).get("address", "(none)"),
+            "coordinates": (
+                f"{location['lat']},{location['lon']}" if location else "(none)"
+            ),
+            "contact": f"{contact['first_name']} {contact['last_name']} "
+            f"<{contact['email']}> {contact['phone']}".strip(),
+            "visibility": share_options,
+            "disclaimer": info["disclaimer"] or None,
+        },
+    }
+
+
+@mcp.tool()
+def submit_311_report(
+    pending_id: str,
+    captcha_answer: str,
+    confirm: bool = False,
+) -> dict:
+    """File the report staged by prepare_311_report. This creates a REAL 311
+    case with Kansas City. Requires confirm=True (get Alex's OK first) and the
+    captcha_answer MIST read from the prepared captcha image.
+
+    On a wrong captcha it re-fetches a new captcha and returns its path with
+    retry=True (read it and call again). On success returns the work order id.
+    """
+    if not confirm:
+        raise ValueError(
+            "Refusing to file: this creates a real city 311 case. Confirm with "
+            "Alex, then call again with confirm=True."
+        )
+    state = _PENDING.get(pending_id)
+    if not state:
+        raise ValueError(
+            "Unknown or expired pending_id. Call prepare_311_report again."
+        )
+    payload = dict(state["payload"])
+    payload["custom_captcha"] = captcha_answer.strip()
+    result = webrai.submit(state["opener"], payload)
+
+    if result["ok"]:
+        _PENDING.pop(pending_id, None)
+        return {
+            "ok": True,
+            "work_order_id": result["work_order_id"],
+            "type": state["label"],
+            "message": result["message"]
+            or "Report submitted to Kansas City 311.",
+            "track_with": "get_311_request (appears in the feed in 2-7 days)",
+        }
+
+    if result["captcha_failed"]:
+        # Bad captcha: mint a fresh one on the same session for another read.
+        img_path = os.path.join(_CAPTCHA_DIR, f"kc_311_captcha_{pending_id}.jpg")
+        new_uid = webrai.open_captcha(state["opener"], img_path)
+        payload["unique_captcha_id"] = new_uid
+        state["payload"] = payload
+        return {
+            "ok": False,
+            "retry": True,
+            "captcha_image_path": img_path,
+            "message": "Captcha was wrong; read the new image and resubmit.",
+        }
+
+    return {
+        "ok": False,
+        "retry": False,
+        "error": result["error"] or "Submission failed.",
+        "raw": result["raw"],
     }
 
 
