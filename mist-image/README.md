@@ -41,7 +41,7 @@ including from scheduled/launchd calls.
 1. Sign in at https://auth.pollinations.ai and create a token.
 2. Add to `.env`: `POLLINATIONS_API_KEY=...`
 
-**Cloudflare Workers AI (more reliable, ~100k/day, FLUX.1-schnell):**
+**Cloudflare Workers AI (more reliable, ~100k/day, FLUX.2 klein; FLUX.1-schnell fallback):**
 1. Free Cloudflare account → note your Account ID.
 2. Create an API token with the **Workers AI** permission.
 3. Add to `.env`: `CF_ACCOUNT_ID=...` and `CF_API_TOKEN=...`
