@@ -16,6 +16,7 @@ This file is the source of truth for what Alex likes, dislikes, and how to prior
 - `highInterest` / `mediumInterest` / `lowInterest` -- topic keywords for scoring
 - `skip` -- never surface these
 - `preferredVenues` -- boost events at these locations
+- `antiVenues` -- never surface events held at these venues, regardless of topic score (e.g. the Kansas City Zoo)
 - `constraints` -- work schedule awareness, budget sensitivity, max drive time
 - `feedback` -- running log of Alex's reactions to surfaced events
 
