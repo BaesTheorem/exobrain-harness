@@ -21,8 +21,10 @@ pollinations.
 
 Backends
   pollinations  free, needs a free key. FLUX-based.
-  cloudflare    Cloudflare Workers AI. FLUX.1-schnell for text-to-image; FLUX.2
-                (klein) for --ref reference-conditioned generation. Needs env:
+  cloudflare    Cloudflare Workers AI. FLUX.2 (klein) for text-to-image and for
+                --ref reference-conditioned generation; FLUX.1-schnell as the
+                text-to-image fallback (fixed 1024px -- its strict schema
+                rejects width/height/seed). Needs env:
                   CF_ACCOUNT_ID, CF_API_TOKEN
 """
 import argparse
@@ -156,6 +158,10 @@ def gen_pollinations(prompt, width, height, seed, model):
 
 
 def gen_cloudflare(prompt, width, height, seed, model):
+    """flux-1-schnell (JSON contract). Its schema is strict: width/height/seed are
+    rejected as "unevaluated properties", so requested sizes and seeds cannot be
+    honored here -- output is the model's native 1024px square. Kept as the
+    fallback for when the flux-2 multipart path is down."""
     acct = os.environ.get("CF_ACCOUNT_ID")
     token = os.environ.get("CF_API_TOKEN")
     if not (acct and token):
@@ -164,9 +170,9 @@ def gen_cloudflare(prompt, width, height, seed, model):
         )
     cf_model = model if "/" in model else "@cf/black-forest-labs/flux-1-schnell"
     url = f"https://api.cloudflare.com/client/v4/accounts/{acct}/ai/run/{cf_model}"
-    payload = {"prompt": prompt, "width": width, "height": height}
-    if seed is not None:
-        payload["seed"] = seed
+    if (width, height) != (1024, 1024) or seed is not None:
+        log("note: flux-1-schnell's strict schema ignores width/height/seed; output is 1024px square")
+    payload = {"prompt": prompt}
     req = urllib.request.Request(
         url,
         data=json.dumps(payload).encode(),
@@ -322,7 +328,19 @@ def main():
     else:
         log(f"{backend}: \"{prompt}\" ({width}x{height}{seedlog})")
         if backend == "cloudflare":
-            body, ct = gen_cloudflare(prompt, width, height, args.seed, args.model)
+            # flux-1-schnell's schema no longer accepts width/height/seed, so
+            # text-to-image goes through the flux-2 multipart contract (which
+            # does), unless the caller explicitly picked a non-flux-2 model.
+            explicit_other = "/" in args.model and "flux-2" not in args.model
+            if explicit_other:
+                body, ct = gen_cloudflare(prompt, width, height, args.seed, args.model)
+            else:
+                try:
+                    body, ct = gen_cloudflare_flux2(
+                        prompt, width, height, args.seed, args.model, [], args.steps)
+                except SystemExit as e:
+                    log(f"flux-2 path failed ({e}); falling back to flux-1-schnell")
+                    body, ct = gen_cloudflare(prompt, width, height, args.seed, args.model)
         else:
             body, ct = gen_pollinations(prompt, width, height, args.seed, args.model)
 
