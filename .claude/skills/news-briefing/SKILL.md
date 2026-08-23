@@ -30,7 +30,7 @@ Lead Editor (Opus)
 
 ## Token Efficiency Rules
 
-- **Defuddle all web pages.** Subagents must use `npx @anthropic/defuddle@latest "[URL]"` (via Bash) instead of raw WebFetch when reading article content. This strips navigation, ads, and boilerplate, often cutting page tokens by 60-80%. Only fall back to WebFetch if defuddle fails.
+- **Defuddle all web pages.** Subagents must use `defuddle parse "[URL]" --md` (via Bash) instead of raw WebFetch when reading article content. The binary is installed globally at `~/.npm-global/bin/defuddle`; do NOT invoke it via `npx @anthropic/defuddle` (no such package, 404s silently and drops every agent back to unverified search snippets). This strips navigation, ads, and boilerplate, often cutting page tokens by 60-80%. Only fall back to WebFetch if defuddle fails.
 - **KC local and prediction markets use `model: "haiku"`** -- these are structured data-gathering tasks that don't need Sonnet's reasoning.
 - **Main news and DC policy agents use `model: "sonnet"`** -- framing comparison and reading procedural posture off a bill or docket both require noting subtle distinctions.
 - **Trim before returning.** Subagents should return structured summaries, not raw article text. Each story should be 5-10 lines max in the subagent output.
@@ -47,7 +47,7 @@ Launch all 4 subagents in parallel.
 You are a news research agent. Find today's top news stories across two categories.
 
 USE DEFUDDLE: When reading any web page, run:
-  npx @anthropic/defuddle@latest "[URL]"
+  defuddle parse "[URL]" --md
 This extracts clean article text and saves tokens. Only use WebFetch as a fallback.
 
 CATEGORY A -- GLOBAL/NATIONAL (find 6-8 stories):
@@ -90,7 +90,7 @@ Congress, the White House, the agencies, and the courts even when it is outside 
 interests.
 
 USE DEFUDDLE: When reading any web page, run:
-  npx @anthropic/defuddle@latest "[URL]"
+  defuddle parse "[URL]" --md
 Only use WebFetch as a fallback.
 
 PRIMARY SOURCES FIRST -- these are the record, and a news write-up about a bill is not
@@ -145,7 +145,7 @@ You are a local news research agent for Kansas City, Missouri/Kansas.
 Find today's top 3-5 KC-area news stories.
 
 USE DEFUDDLE: When reading any web page, run:
-  npx @anthropic/defuddle@latest "[URL]"
+  defuddle parse "[URL]" --md
 Only use WebFetch as a fallback.
 
 SEARCH: "Kansas City news today [date]", "KC news [date]"
