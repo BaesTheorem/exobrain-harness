@@ -1,0 +1,14 @@
+#!/bin/sh
+# Launch the myKCMO MCP server (stdio). Registered with:
+#   claude mcp add --scope user mykcmo -- "<this file>"
+# Optional env (from the gitignored harness .env, sourced below):
+#   MYKCMO_SOCRATA_APP_TOKEN  raises Socrata rate limits (works fine without)
+#   MYKCMO_HOME_LAT/LON       default point for nearby_311_requests
+DIR="$(cd "$(dirname "$0")/.." && pwd)"
+HARNESS="$(cd "$DIR/.." && pwd)"
+if [ -f "$HARNESS/.env" ]; then
+    set -a
+    . "$HARNESS/.env"
+    set +a
+fi
+exec "$DIR/.venv/bin/python" "$DIR/server.py"
