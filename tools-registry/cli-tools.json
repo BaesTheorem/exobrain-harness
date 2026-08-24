@@ -64,6 +64,22 @@
     "notes": "Scan tracked files for leaked personal data (IP/MAC shapes, names, credentials) before anything ships. Used by /exobrain-audit and /cybersecurity-bodyguard."
   },
   {
+    "name": "fantasy consensus judge",
+    "command": "python3 fantasy/consensus.py && python3 fantasy/draftbot/grade.py --judge both",
+    "repo_dir": "fantasy",
+    "source": "built",
+    "added": "2026-08-24",
+    "notes": "The self-grading-loop fix: builds draftbot/consensus.json from CBS + FFToday full-PPR season projections (sources the bot never drafts on; FFToday LeagueID=190 = full PPR, verified) and grades the open draft room under both boards. The number to read is the rank gap: ~0 = robust build, large positive = our board flatters us. FIREWALL: vor.py must never read consensus.json."
+  },
+  {
+    "name": "fantasy disagreement ledger",
+    "command": "python3 fantasy/ledger.py list|add|settle",
+    "repo_dir": "fantasy",
+    "source": "built",
+    "added": "2026-08-24",
+    "notes": "Registers board-vs-consensus disagreements as predictions (A outscores B) and settles them with actual ESPN season points (kona actuals: seasonId+source 0+split 0; positive control = season 2025 returns Gibbs 366.9). Settle weekly in season. Only settled results may flow back into the board; also the designated judge for the parked elite-bias correction in vor.py (VOR_BIAS_STRENGTH, default 0 after a negative experiment)."
+  },
+  {
     "name": "fantasy draft examiner",
     "command": "python3 fantasy/examiner.py --live",
     "repo_dir": "fantasy",

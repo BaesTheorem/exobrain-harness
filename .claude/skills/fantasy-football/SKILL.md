@@ -118,6 +118,28 @@ the preseason, and `vor.json` is gitignored derived data.
 how thin a position has actually become; there is no tier awareness; and there is
 no model of what will still be there at the next pick.
 
+### The judge is not the board
+
+`grade.py` scores rosters on the same projections the board drafts from, so
+alone it measures execution, never board error. The fix is standing:
+
+- **Grade every drafted room twice**: `python3 fantasy/consensus.py` (CBS +
+  FFToday full-PPR averages; FFToday `LeagueID=190` is full PPR) then
+  `grade.py --judge both`. Read the **rank gap**; ~0 is robust, large positive
+  means the board flatters us. First measurement (2026-08-24): our #3 was the
+  judge's #8, driven by the Barkley call and a WR tail our board rates 14-28
+  positional ranks rosier than consensus.
+- **FIREWALL: `vor.py` never reads `consensus.json`.** A judge the drafter
+  ingests stops being a judge.
+- **Register disagreements, settle with reality**: `fantasy/ledger.py` holds
+  board-vs-consensus calls as predictions; `ledger.py settle` scores them with
+  actual ESPN season points weekly in season. Only settled results may change
+  how the board is built.
+- **The elite-bias correction is parked at strength 0** (`VOR_BIAS_STRENGTH`
+  in `vor.py`): shrinking elite projections toward published reality graded
+  worse under the consensus judge because all projection sources share the
+  same elite optimism. Only the ledger can justify enabling it.
+
 ### Verification discipline
 
 Measure the **result, not the action**. Two bugs shipped because success was

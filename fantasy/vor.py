@@ -43,6 +43,64 @@ POS = {1: "QB", 2: "RB", 3: "WR", 4: "TE", 5: "K", 16: "D/ST"}
 # the receiver-friendly extreme (RB12 returns 56.4% of RB1 and lands below WR24).
 REPLACEMENT = {"QB": 13, "RB": 30, "WR": 34, "TE": 14, "K": 13, "D/ST": 13}
 
+# Elite projections are systematically too high, and by a measured amount:
+# Fantasy Football Analytics' 2019-2024 bias study (skill evidence, §5) has
+# RB1-5 missing their season projections by ~55 points, WR1-5 by ~31, TE1-5 by
+# ~23, and QB6-10 by ~42.
+#
+# OFF BY DEFAULT after a negative experiment (2026-08-24): drafting on the
+# corrected board graded WORSE under the independent consensus judge at both
+# full and half strength (avg rank 2.56 -> 2.67 / 2.70 across 312 sim rooms).
+# The likely reason is instructive: the correction moves the board toward
+# reality, but the judge is built from other projections that share the same
+# industry-wide elite optimism (CBS has Gibbs at 387), so the only instrument
+# able to validate this correction is actual season results. Revisit via the
+# disagreement ledger once real games exist; do not re-enable on projections
+# alone. ELITE_BIAS: pos -> (first_rank, last_rank, points_over_projected).
+ELITE_BIAS = {
+    "RB": (1, 5, 55.0),
+    "WR": (1, 5, 31.0),
+    "TE": (1, 5, 23.0),
+    "QB": (6, 10, 42.0),
+}
+BIAS_STRENGTH = float(os.environ.get("VOR_BIAS_STRENGTH", "0.0"))
+
+
+def debias(pos, curve):
+    """Shrink a positional projection curve by the published elite bias.
+
+    Flat correction inside the band; past the band it decays linearly to zero
+    at the position's replacement rank (replacement players are projected
+    fine, so the correction must vanish there and the baseline stays put); a
+    3-rank ramp on a leading edge (QB's band starts at 6).
+
+    Then a strict-monotonicity pass. Several curves (QB especially) are
+    flatter than the correction is tall, so a corrected rank-6 can land below
+    an uncorrected rank-7. A plain running minimum would clamp whole stretches
+    to one value and erase the Ringer's ordering inside them, so ties are
+    broken by forcing each rank at least EPS below the one above it.
+    """
+    band = ELITE_BIAS.get(pos)
+    if not band or not curve or BIAS_STRENGTH == 0:
+        return curve
+    lo, hi, mean = band
+    repl = REPLACEMENT.get(pos, hi + 10)
+    eps = 0.5
+    out = []
+    for i, val in enumerate(curve, start=1):
+        if lo <= i <= hi:
+            w = 1.0
+        elif i < lo:
+            w = max(0.0, 1.0 - (lo - i) / 3.0)
+        elif i < repl:
+            w = (repl - i) / (repl - hi)
+        else:
+            w = 0.0
+        out.append(val - BIAS_STRENGTH * mean * w)
+    for i in range(1, len(out)):
+        out[i] = min(out[i], out[i - 1] - eps)
+    return out
+
 
 def norm(s):
     s = unicodedata.normalize("NFKD", s).replace("’", "").replace("'", "").lower()
@@ -192,6 +250,7 @@ def main():
         curve[pos] = sorted(
             (v["proj"] for v in espn.values() if v["pos"] == pos), reverse=True
         )
+        curve[pos] = debias(pos, curve[pos])
 
     def at(pos, k):
         """Projection of the k-th best player at a position (1-indexed, clamped)."""

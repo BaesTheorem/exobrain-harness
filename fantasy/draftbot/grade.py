@@ -139,16 +139,30 @@ def read_picks():
     return picks
 
 
-def main():
-    data = json.loads(VOR.read_text())
-    base = data["baseline"]
-    proj = {
-        k: (v["pos"], v["vor"] + base.get(v["pos"], 0.0))
-        for k, v in data["players"].items()
+def load_judge(which):
+    """A judging board: {norm_name: (pos, points)}.
+
+    'us' is the drafting board itself and can only measure execution.
+    'consensus' is CBS + FFToday (sources the bot never drafts on), the fix
+    for the self-grading loop: a rank that drops when the judge changes is a
+    board problem, not a drafting problem.
+    """
+    if which == "us":
+        data = json.loads(VOR.read_text())
+        base = data["baseline"]
+        return {
+            k: (v["pos"], v["vor"] + base.get(v["pos"], 0.0))
+            for k, v in data["players"].items()
+        }
+    con = HERE / "consensus.json"
+    if not con.exists():
+        sys.exit("no consensus.json; run fantasy/consensus.py first")
+    return {
+        k: (v["pos"], v["pts"]) for k, v in json.loads(con.read_text()).items()
     }
 
-    picks = read_picks()
 
+def standings(picks, proj):
     from collections import defaultdict
 
     rosters = defaultdict(list)
@@ -164,32 +178,53 @@ def main():
             rosters[team].append(proj[key])
             named[team].append((p["pick"], p["name"], *proj[key]))
         else:
-            missing.append(f"{team}: {p['name']!r} not on the value board")
-
+            missing.append(f"{team}: {p['name']!r} not on this board")
     table = sorted(
         ((t, lineup_points(ps), len(ps)) for t, ps in rosters.items()),
         key=lambda x: -x[1],
     )
-    print(f"picks read: {len(picks)}   teams: {len(rosters)}")
-    print(f"\n{'':>2} {'projected starters':>18}  team")
-    for i, (name, pts, n) in enumerate(table, 1):
-        tag = " <-- Chaos Legion" if "Chaos" in name else ""
-        print(f"{i:>2} {pts:>18.1f}  {name} ({n} picks){tag}")
+    return table, named, missing
 
-    # Comparing our build against the teams that beat us is the only way the
-    # standings number turns into a lesson. A rank without the winning roster
-    # next to it says we lost, not what to change.
-    if "--rosters" in sys.argv:
-        top = int(sys.argv[sys.argv.index("--rosters") + 1])
-        for name, pts, _ in table[:top]:
-            print(f"\n{name}  ({pts:.1f})")
-            for pick, who, pos, pp in sorted(named[name], key=lambda r: -r[3]):
-                print(f"  pk{pick:>4}  {pos:<5} {who:<24} {pp:>6.1f}")
 
-    if missing:
-        print("\nexcluded from grades:")
-        for m in missing:
-            print("  " + m)
+def main():
+    judges = ["us"]
+    if "--judge" in sys.argv:
+        arg = sys.argv[sys.argv.index("--judge") + 1]
+        judges = ["us", "consensus"] if arg == "both" else [arg]
+
+    picks = read_picks()
+    print(f"picks read: {len(picks)}")
+
+    ranks = {}
+    for which in judges:
+        table, named, missing = standings(picks, load_judge(which))
+        print(f"\n== judged by: {which} ==")
+        print(f"{'':>2} {'projected starters':>18}  team")
+        for i, (name, pts, n) in enumerate(table, 1):
+            tag = " <-- Chaos Legion" if "Chaos" in name else ""
+            if "Chaos" in name:
+                ranks[which] = i
+            print(f"{i:>2} {pts:>18.1f}  {name} ({n} picks){tag}")
+
+        # Comparing our build against the teams that beat us is the only way
+        # the standings number turns into a lesson.
+        if "--rosters" in sys.argv:
+            top = int(sys.argv[sys.argv.index("--rosters") + 1])
+            for name, pts, _ in table[:top]:
+                print(f"\n{name}  ({pts:.1f})")
+                for pick, who, pos, pp in sorted(named[name], key=lambda r: -r[3]):
+                    print(f"  pk{pick:>4}  {pos:<5} {who:<24} {pp:>6.1f}")
+        if missing:
+            print("excluded from this judge's grades:")
+            for m in missing:
+                print("  " + m)
+
+    if len(ranks) == 2:
+        gap = ranks["consensus"] - ranks["us"]
+        print(
+            f"\nrank gap (consensus - us): {gap:+d}"
+            "  [~0 = robust build; large positive = the board flatters us]"
+        )
 
 
 if __name__ == "__main__":
