@@ -215,7 +215,10 @@ def bot_pick(avail, roster, order, i, policy):
                 continue
             if pos == "QB" and rd < policy.get("qbNotBefore", 0):
                 continue
-            floor = max(0.0, floors.get(pos, 0.0))
+            # Unclamped: below replacement, the best survivor is still the true
+            # cost of waiting. Clamping at zero hid how thin a drained position
+            # had become (README "still open"; swept 2026-08-24, worst 6 -> 4).
+            floor = floors.get(pos, 0.0)
             s = -(p["vor"] - floor) - p["vor"] * 0.001
             # Bench balance: once the starters exist, each additional player at
             # an already-deep position is worth less than the same value at a

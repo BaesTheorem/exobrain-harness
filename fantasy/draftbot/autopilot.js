@@ -219,8 +219,8 @@
    * replacement QB. Scoring on value over replacement is why the 1.01 mock spent
    * pick 27 on Josh Allen.
    *
-   * The floor never drops below replacement, because a replacement-level player
-   * is available for nothing by definition. */
+   * The floor follows the board all the way down, including below replacement:
+   * see floorFor. */
   const nextAvailable = (board, nextPick) => {
     const bags = {};
     for (const c of board) {
@@ -249,7 +249,12 @@
   const floorFor = (p, floors) => {
     const bag = floors && floors[p.pos];
     if (!bag || !bag.length) return 0;
-    return Math.max(0, bag[0].vor);
+    /* No clamp at replacement. Late in a draft the best survivor at a drained
+     * position is genuinely below replacement, and clamping to zero hides
+     * exactly that thinness: a positive player at the drained position should
+     * outscore an equal one at a deep position. Swept at 40 seeds x 13 seats
+     * vs the clamped rule (2026-08-24): same average rank, worst seat 6 -> 4. */
+    return bag[0].vor;
   };
 
   /* Lower is better. null == not draftable right now. */

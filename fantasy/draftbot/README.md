@@ -130,10 +130,10 @@ and it is why the bye parser is tested against a fixture with known byes.
 
 ## Still open
 
-- **Dynamic VOR.** Replacement level is static. Late in a draft the real
-  replacement is the best player actually left, not a preseason baseline.
 - **Tier awareness.** VOR ranks players; it does not notice when the last member
-  of a tier is about to leave the board before the next turn.
+  of a tier is about to leave the board before the next turn. (The former
+  "dynamic VOR" item is closed: the VONA floor now follows the board below
+  replacement instead of clamping at zero, swept 2026-08-24, worst seat 6 -> 4.)
 - **No opponent model.** It does not reason about what will still be there at the
   next pick, which is the other half of a snake draft.
 
