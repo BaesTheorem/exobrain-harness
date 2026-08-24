@@ -32,13 +32,21 @@ CONFIG = {
     "rounds": 16,
     "starters": 9,  # QB RB RB WR WR TE FLEX D/ST K
     "maxQB": 1,  # stream the position; a QB2 is a wasted bench slot
-    "maxTE": 2,
+    "maxTE": 1,  # a 2nd TE simulated worse than the WR/RB taken instead, all seats
     "maxRB": 6,
     "maxWR": 8,
     "startRB": 2,  # required starting slots that must be filled
     "startTE": 1,
-    "dstRoundsLeft": 1,  # D/ST only when <=1 round remains after this pick
-    "kRoundsLeft": 0,  # K only in the final round
+    # One round AHEAD of the room's late K/D/ST run, not the final rounds.
+    # Every observed room (ESPN AUTO and the human-ADP model both) drains the
+    # startable defenses in rounds 12-13 and kickers in round 14; waiting past
+    # the run leaves a ~0-value defense, while the round-11 alternative pick is
+    # a bench lottery ticket. Simulated across 13 seats x 10 rooms x both
+    # opponent models (fantasy/sim.py): this pair took #1 finishes from ~75%
+    # to ~90%. Streaming in-season stays the plan; this just stops donating
+    # draft-day points.
+    "dstRoundsLeft": 5,  # D/ST from round 11
+    "kRoundsLeft": 3,  # K from round 13
     # A player whose ADP sits right at the next pick is a coin flip. 0 takes ADP
     # at face value; raising it assumes players go earlier than ADP says, which
     # makes every position look scarcer and pulls picks forward.
