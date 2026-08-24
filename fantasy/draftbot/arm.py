@@ -54,6 +54,7 @@ CONFIG = {
     "freeBye": 8,  # Alex's idle week in a 13-team league: a free bye
     "freeByeBonus": 5,
     "byeStackPenalty": 6,
+    "benchBalance": 8,  # surplus bench at one position scores worse; see score()
     "queueDepth": 18,
     "pollMs": 250,
     # ESPN's player list is windowed to ~32 rows. Each pick sweeps the open

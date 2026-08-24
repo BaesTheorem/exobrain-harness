@@ -293,6 +293,15 @@
      * class of accident as the all-defenses-tie-at--1000 bug. */
     let s = -(vor - floor) - vor * 0.001;
 
+    /* Bench balance: once the starters exist, another player at an already-deep
+     * position is worth less than the same value at a thin one, because the
+     * bench's job is covering an absence. ESPN's report card caught the
+     * violation as a D on a roster that finished RB4/WR8 with Tony Pollard as
+     * the second RB. */
+    if (r.total >= CFG.starters - 2 && (p.pos === 'RB' || p.pos === 'WR')) {
+      s += CFG.benchBalance * Math.max(0, r[p.pos] - 2);
+    }
+
     /* Bye spreading, while the starting nine are still being filled. Week 8 is
      * free: the league has 13 teams, so one sits idle each week and Alex's idle
      * week is 8. A player on a Week 8 bye costs him no game he could lose. */

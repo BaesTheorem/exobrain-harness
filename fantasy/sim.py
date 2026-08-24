@@ -205,6 +205,13 @@ def bot_pick(avail, roster, order, i, policy):
                 continue
             floor = max(0.0, floors.get(pos, 0.0))
             s = -(p["vor"] - floor) - p["vor"] * 0.001
+            # Bench balance: once the starters exist, each additional player at
+            # an already-deep position is worth less than the same value at a
+            # thin one, because the bench's job is covering an absence.
+            bb = policy.get("benchBalance", 0.0)
+            if bb and total >= cfg["starters"] - 2 and pos in ("RB", "WR"):
+                starts = {"RB": 2, "WR": 2}[pos]
+                s += bb * max(0, counts.get(pos, 0) - starts)
             if total < cfg["starters"] and p["bye"]:
                 if p["bye"] == cfg["freeBye"]:
                     s -= cfg["freeByeBonus"]
@@ -215,7 +222,17 @@ def bot_pick(avail, roster, order, i, policy):
     return best or auto_pick(avail, roster)
 
 
-def lineup_points(roster):
+def lineup_points(roster, depth_weight=0.0):
+    """Optimal starters, plus optionally a depth term.
+
+    The starter total is what the league's points-for tiebreak rewards. The
+    depth term prices the bench the way it actually gets used: the best
+    remaining RB/WR/TE is the player who steps into the lineup when a starter
+    sits, so his projection, discounted, is the insurance value the pure
+    starter metric cannot see. ESPN's report card graded two same-policy
+    rosters A and D apart almost entirely on this: the D roster's RB room was
+    Kyren Williams and then Tony Pollard.
+    """
     pool = sorted(roster, key=lambda p: -p["proj"])
     used, total = set(), 0.0
     for pos, n in {"QB": 1, "RB": 2, "WR": 2, "TE": 1, "D/ST": 1, "K": 1}.items():
@@ -230,8 +247,17 @@ def lineup_points(roster):
                 break
     for ix, p in enumerate(pool):
         if ix not in used and p["pos"] in FLEX:
+            used.add(ix)
             total += p["proj"]
             break
+    if depth_weight:
+        # best bench RB and best bench WR/TE: the two actual injury outs
+        for want in (("RB",), ("WR", "TE")):
+            for ix, p in enumerate(pool):
+                if ix not in used and p["pos"] in want:
+                    total += depth_weight * p["proj"]
+                    used.add(ix)
+                    break
     return total
 
 
@@ -251,7 +277,8 @@ def run(seat, policy, seed=0, model="auto"):
             p = auto_pick(avail, rosters[s], rd, rng)
         rosters[s].append(p)
         avail.remove(p)
-    scores = {s: lineup_points(r) for s, r in rosters.items()}
+    dw = policy.get("depthWeight", 0.0)
+    scores = {s: lineup_points(r, dw) for s, r in rosters.items()}
     rank = sorted(scores, key=lambda s: -scores[s]).index(seat) + 1
     return rank, scores[seat], rosters[seat]
 
