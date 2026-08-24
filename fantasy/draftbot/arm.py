@@ -39,6 +39,10 @@ CONFIG = {
     "startTE": 1,
     "dstRoundsLeft": 1,  # D/ST only when <=1 round remains after this pick
     "kRoundsLeft": 0,  # K only in the final round
+    # A player whose ADP sits right at the next pick is a coin flip. 0 takes ADP
+    # at face value; raising it assumes players go earlier than ADP says, which
+    # makes every position look scarcer and pulls picks forward.
+    "adpCushion": 0,
     "freeBye": 8,  # Alex's idle week in a 13-team league: a free bye
     "freeByeBonus": 5,
     "byeStackPenalty": 6,
@@ -61,7 +65,13 @@ def build_board():
     subprocess.run([sys.executable, str(VOR_BUILDER)], check=True)
     data = json.loads(VOR.read_text())
     return {
-        k: {"name": v["name"], "pos": v["pos"], "vor": v["vor"], "bye": v["bye"]}
+        k: {
+            "name": v["name"],
+            "pos": v["pos"],
+            "vor": v["vor"],
+            "adp": v["adp"],
+            "bye": v["bye"],
+        }
         for k, v in data["players"].items()
     }
 
@@ -71,7 +81,13 @@ def load_board():
         return build_board()
     data = json.loads(VOR.read_text())
     return {
-        k: {"name": v["name"], "pos": v["pos"], "vor": v["vor"], "bye": v["bye"]}
+        k: {
+            "name": v["name"],
+            "pos": v["pos"],
+            "vor": v["vor"],
+            "adp": v["adp"],
+            "bye": v["bye"],
+        }
         for k, v in data["players"].items()
     }
 

@@ -128,6 +128,7 @@
     };
     counts.total = g(/(\d+)\/\d+ Players/);
     counts.round = g(/RND (\d+) OF/);
+    counts.pick = g(/ON THE CLOCK: PICK (\d+)/);
     counts.lastRound = g(/RND \d+ OF (\d+)/);
     return counts;
   };
@@ -160,17 +161,79 @@
 
   const CAP = { QB: 'maxQB', RB: 'maxRB', WR: 'maxWR', TE: 'maxTE' };
 
-  /* Lower is better. null == not draftable right now. */
-  const score = (p, r, byes) => {
-    const left = (r.lastRound || CFG.rounds) - r.round;
+  /* The roster panel's team dropdown is the one select carrying exactly the
+   * league's teams, and its selected option is Alex's. That gives both the team
+   * count and which seat is his without hardcoding either. */
+  const leagueInfo = () => {
+    const sel = [...document.querySelectorAll('select')].find(
+      (x) =>
+        x.options.length >= 4 &&
+        ![...x.options].some((o) =>
+          /All Pos\.|All NFL Teams|All Rounds|Projected|Season|seconds|minutes/.test(
+            o.text
+          )
+        )
+    );
+    if (!sel) return null;
+    const mine = [...sel.options].find((o) => o.value === sel.value);
+    return { teams: sel.options.length, myTeam: mine ? mine.text : null };
+  };
 
+  /* Which pick number is Alex's next one. Snake order, derived from where this
+   * pick falls rather than from a configured draft slot, because the real
+   * league randomizes the slot an hour before the draft. */
+  const nextPickNumber = (r, teams) => {
+    if (!r.pick || !r.round || !teams) return Infinity;
+    const inRound = r.pick - (r.round - 1) * teams;
+    const slot = r.round % 2 === 1 ? inRound : teams - inRound + 1;
+    if (slot < 1 || slot > teams) return Infinity;
+    const last = r.lastRound || CFG.rounds;
+    for (let rd = r.round + 1; rd <= last; rd++) {
+      const n = (rd - 1) * teams + (rd % 2 === 1 ? slot : teams - slot + 1);
+      if (n > r.pick) return n;
+    }
+    return Infinity; /* no next turn: this pick is the last one */
+  };
+
+  /* Value over NEXT AVAILABLE rather than over replacement.
+   *
+   * Replacement level says what a player is worth. It does not say what the
+   * PICK is worth, because a pick's real cost is the player it gives up. If the
+   * second-best quarterback will still be sitting there in four rounds, taking
+   * the best one now buys only the gap between them, not his whole value over a
+   * replacement QB. Scoring on value over replacement is why the 1.01 mock spent
+   * pick 27 on Josh Allen.
+   *
+   * The floor never drops below replacement, because a replacement-level player
+   * is available for nothing by definition. */
+  const nextAvailable = (board, nextPick) => {
+    const best = {};
+    for (const c of board) {
+      if (!c.v || !c.pos) continue;
+      if (!(c.v.adp > nextPick + CFG.adpCushion)) continue; /* likely gone */
+      if (best[c.pos] === undefined || c.v.vor > best[c.pos]) best[c.pos] = c.v.vor;
+    }
+    for (const k in best) best[k] = Math.max(0, best[k]);
+    return best;
+  };
+
+  /* Lower is better. null == not draftable right now. */
+  const score = (p, r, byes, floors) => {
+    const left = (r.lastRound || CFG.rounds) - r.round;
+    const vor = p.v ? p.v.vor : -30 - p.espn * 0.05;
+
+    /* K and D/ST go in the last two rounds and are then streamed: both have the
+     * worst weekly projection accuracy of any position, so paying earlier buys
+     * noise. Offsetting by value still picks the BEST one -- a flat constant
+     * left every defense tied, which quietly handed the choice to whatever order
+     * ESPN happened to render. */
     if (p.pos === 'D/ST') {
       if (r.DST >= 1) return null;
-      return left <= CFG.dstRoundsLeft ? -1000 : null;
+      return left <= CFG.dstRoundsLeft ? -1000 - vor : null;
     }
     if (p.pos === 'K') {
       if (r.K >= 1) return null;
-      return left <= CFG.kRoundsLeft ? -900 : null;
+      return left <= CFG.kRoundsLeft ? -900 - vor : null;
     }
 
     /* Reserve a pick for every unfilled STARTING slot. Value over replacement
@@ -189,8 +252,8 @@
 
     /* Unvalued players sit below replacement, ordered by ESPN's own rank, so
      * they are only ever taken when nothing valued is legal. */
-    const vor = p.v ? p.v.vor : -30 - p.espn * 0.05;
-    let s = -vor;
+    const floor = floors && floors[p.pos] !== undefined ? floors[p.pos] : 0;
+    let s = -(vor - floor);
 
     /* Bye spreading, while the starting nine are still being filled. Week 8 is
      * free: the league has 13 teams, so one sits idle each week and Alex's idle
@@ -309,8 +372,11 @@
     const before = r.total;
 
     const board = await scanBoard(isDraft, openPositions(r));
+    const info = leagueInfo();
+    const nextPick = nextPickNumber(r, info && info.teams);
+    const floors = nextAvailable(board, nextPick);
     const cands = board
-      .map((p) => ({ p, s: score(p, r, byes) }))
+      .map((p) => ({ p, s: score(p, r, byes, floors) }))
       .filter((x) => x.s !== null)
       .sort((a, b) => a.s - b.s);
 
@@ -331,8 +397,11 @@
     L(
       'CLICK ' + label +
         ' vor=' + (win.p.v ? win.p.v.vor : 'n/a') +
+        ' floor=' + (floors[win.p.pos] === undefined ? '-' : floors[win.p.pos].toFixed(1)) +
+        ' vona=' + (-win.s).toFixed(1) +
+        ' adp=' + (win.p.v ? win.p.v.adp : '?') +
+        ' next=' + (nextPick === Infinity ? 'none' : nextPick) +
         ' bye=' + win.p.bye +
-        ' score=' + win.s.toFixed(1) +
         ' board=' + board.length
     );
 
@@ -408,6 +477,9 @@
     const r = roster();
     const byes = myByes();
     const positions = openPositions(r);
+    const info = leagueInfo();
+    const nextPick = nextPickNumber(r, info && info.teams);
+    let floors = {};
     const perPos = Math.max(2, Math.ceil(depth / Math.max(1, positions.length)));
     const before = queueRows().length;
     const tried = [];
@@ -416,8 +488,10 @@
       if (!setPosFilter(pos)) continue;
       await wait(CFG.filterDelay);
       await scrollListTop();
-      const best = candidates(isQueue)
-        .map((c) => ({ p: c, s: score(c, r, byes) }))
+      const here = candidates(isQueue);
+      floors = Object.assign(floors, nextAvailable(here, nextPick));
+      const best = here
+        .map((c) => ({ p: c, s: score(c, r, byes, floors) }))
         .filter((x) => x.s !== null)
         .sort((a, b) => a.s - b.s)
         .slice(0, perPos);
@@ -463,6 +537,9 @@
   M.candidates = candidates;
   M.scanBoard = scanBoard;
   M.openPositions = openPositions;
+  M.nextAvailable = nextAvailable;
+  M.nextPickNumber = nextPickNumber;
+  M.leagueInfo = leagueInfo;
   M.myByes = myByes;
   M.roster = roster;
   M.values = VALUES;
