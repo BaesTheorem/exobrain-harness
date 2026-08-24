@@ -184,6 +184,8 @@ fantasy/draftbot/board_ranks.json
 fantasy/draftbot/vor.json
 # room_history.json is a captured mock-draft pick log, used to calibrate sim.py.
 fantasy/draftbot/room_history.json
+# ecr.json caches FantasyPros expert-consensus ranks; refresh with examiner.py --refresh
+fantasy/draftbot/ecr.json
 fantasy/draftbot/cmd.json
 fantasy/draftbot/result.json
 fantasy/draftbot/state.json
