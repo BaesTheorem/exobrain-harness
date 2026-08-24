@@ -179,20 +179,35 @@
     return { teams: sel.options.length, myTeam: mine ? mine.text : null };
   };
 
-  /* Which pick number is Alex's next one. Snake order, derived from where this
-   * pick falls rather than from a configured draft slot, because the real
-   * league randomizes the slot an hour before the draft. */
+  /* The horizon: the next pick at which the board will actually have changed.
+   *
+   * Snake order, derived from where this pick falls rather than from a
+   * configured slot, because the league randomizes the slot an hour before the
+   * draft.
+   *
+   * Consecutive picks of Alex's own are skipped. At the turn he owns both sides
+   * of it, so nobody drafts in between and passing on a player costs nothing --
+   * every candidate correctly scores about zero, which makes the first pick of
+   * the pair a coin flip. What he is really choosing there is the PAIR, so both
+   * halves are scored against the next turn where other teams get to pick. */
   const nextPickNumber = (r, teams) => {
     if (!r.pick || !r.round || !teams) return Infinity;
     const inRound = r.pick - (r.round - 1) * teams;
     const slot = r.round % 2 === 1 ? inRound : teams - inRound + 1;
     if (slot < 1 || slot > teams) return Infinity;
     const last = r.lastRound || CFG.rounds;
+
+    const mine = [];
     for (let rd = r.round + 1; rd <= last; rd++) {
       const n = (rd - 1) * teams + (rd % 2 === 1 ? slot : teams - slot + 1);
-      if (n > r.pick) return n;
+      if (n > r.pick) mine.push(n);
     }
-    return Infinity; /* no next turn: this pick is the last one */
+    let prev = r.pick;
+    for (const n of mine) {
+      if (n > prev + 1) return n; /* other teams pick before this one */
+      prev = n;
+    }
+    return Infinity; /* every remaining pick is his own, or none are left */
   };
 
   /* Value over NEXT AVAILABLE rather than over replacement.
@@ -207,14 +222,27 @@
    * The floor never drops below replacement, because a replacement-level player
    * is available for nothing by definition. */
   const nextAvailable = (board, nextPick) => {
-    const best = {};
+    const bags = {};
     for (const c of board) {
       if (!c.v || !c.pos) continue;
       if (!(c.v.adp > nextPick + CFG.adpCushion)) continue; /* likely gone */
-      if (best[c.pos] === undefined || c.v.vor > best[c.pos]) best[c.pos] = c.v.vor;
+      (bags[c.pos] = bags[c.pos] || []).push({ name: c.label, vor: c.v.vor });
     }
-    for (const k in best) best[k] = Math.max(0, best[k]);
-    return best;
+    for (const k in bags) bags[k].sort((a, b) => b.vor - a.vor);
+    return bags;
+  };
+
+  /* What passing on this player actually gets you at the next turn.
+   *
+   * He must be excluded from his own floor. When a player IS the best survivor
+   * at his position -- which is exactly what happens at a position the room is
+   * ignoring -- comparing him to himself scores him at zero and buries the best
+   * available man on the board. Passing on him gets you the NEXT one down. */
+  const floorFor = (p, floors) => {
+    const bag = floors && floors[p.pos];
+    if (!bag || !bag.length) return 0;
+    const alt = bag.find((x) => x.name !== p.label);
+    return Math.max(0, alt ? alt.vor : 0);
   };
 
   /* Lower is better. null == not draftable right now. */
@@ -252,7 +280,7 @@
 
     /* Unvalued players sit below replacement, ordered by ESPN's own rank, so
      * they are only ever taken when nothing valued is legal. */
-    const floor = floors && floors[p.pos] !== undefined ? floors[p.pos] : 0;
+    const floor = floorFor(p, floors);
     let s = -(vor - floor);
 
     /* Bye spreading, while the starting nine are still being filled. Week 8 is
@@ -397,7 +425,7 @@
     L(
       'CLICK ' + label +
         ' vor=' + (win.p.v ? win.p.v.vor : 'n/a') +
-        ' floor=' + (floors[win.p.pos] === undefined ? '-' : floors[win.p.pos].toFixed(1)) +
+        ' floor=' + floorFor(win.p, floors).toFixed(1) +
         ' vona=' + (-win.s).toFixed(1) +
         ' adp=' + (win.p.v ? win.p.v.adp : '?') +
         ' next=' + (nextPick === Infinity ? 'none' : nextPick) +
@@ -538,6 +566,7 @@
   M.scanBoard = scanBoard;
   M.openPositions = openPositions;
   M.nextAvailable = nextAvailable;
+  M.floorFor = floorFor;
   M.nextPickNumber = nextPickNumber;
   M.leagueInfo = leagueInfo;
   M.myByes = myByes;
