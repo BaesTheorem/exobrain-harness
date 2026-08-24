@@ -64,6 +64,14 @@
     "notes": "Scan tracked files for leaked personal data (IP/MAC shapes, names, credentials) before anything ships. Used by /exobrain-audit and /cybersecurity-bodyguard."
   },
   {
+    "name": "fantasy draft simulator",
+    "command": "python3 fantasy/sim.py --seeds 10 --model human",
+    "repo_dir": "/Users/alexhedtke/Documents/Exobrain harness/fantasy",
+    "source": "built",
+    "added": "2026-08-24",
+    "notes": "Offline 13-seat draft sim vs calibrated opponents (ESPN AUTO rank-list bots or crowd-ADP humans). Grades optimal starting lineups on ESPN projections, same scale as draftbot/grade.py. Policy knobs via --policy JSON. Mirrors autopilot.js scoring; keep in sync."
+  },
+  {
     "name": "fantasy vor board",
     "command": "python3 fantasy/vor.py",
     "repo_dir": "/Users/alexhedtke/Documents/Exobrain harness/fantasy",
