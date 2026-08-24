@@ -132,6 +132,16 @@ def op_click(page, text):
     return {"clicked": text, "text": visible_text(page)[:1500]}
 
 
+def is_ours(url):
+    """True for pages that could be the lobby or the draft room.
+
+    The lobby opens ad-exchange sync tabs (sync.inmobi.com and friends) with
+    window.open, which look exactly like the draft room to a follow-the-newest
+    rule. Following one blinds every later command.
+    """
+    return "espn.com" in url or url.startswith("about:")
+
+
 def op_pages(page, arg):
     ctx = page.context
     return {
@@ -143,6 +153,7 @@ def op_pages(page, arg):
 OPS = {
     "ping": lambda page, arg: {"pong": True, "url": page.url},
     "pages": op_pages,
+    "switch": None,  # bound in main(), needs the active-page cell
     "shot": lambda page, arg: {"shot": str(SHOT)},
     "dom": op_dom,
     "search": op_search,
@@ -167,13 +178,36 @@ def main():
 
         # Follow the newest tab. ESPN opens the draft room via window.open(),
         # and a driver pinned to the first page would keep polling the lobby.
+        # But the lobby ALSO spawns ad-exchange sync tabs (sync.inmobi.com and
+        # friends), and following one of those points every command at a blank
+        # page that then closes under us. Only ESPN tabs count as the room.
         active = {"page": page}
 
         def on_page(new_page):
-            log(f"new tab: {new_page.url!r} -- following it")
+            try:
+                new_page.wait_for_load_state("domcontentloaded", timeout=8000)
+            except Exception:
+                pass
+            url = new_page.url
+            if not is_ours(url):
+                log(f"new tab: {url!r} -- not ESPN, ignoring")
+                return
+            log(f"new tab: {url!r} -- following it")
             active["page"] = new_page
 
         ctx.on("page", on_page)
+
+        def op_switch(_page, arg):
+            """Point the driver at an open tab whose URL contains `arg`."""
+            alive = [p for p in ctx.pages if not p.is_closed()]
+            for cand in reversed(alive):
+                if arg in cand.url:
+                    active["page"] = cand
+                    cand.bring_to_front()
+                    return {"switched": cand.url}
+            return {"error": f"no open tab matching {arg!r}", "open": [p.url for p in alive]}
+
+        OPS["switch"] = op_switch
 
         page.goto(URL, wait_until="domcontentloaded", timeout=90000)
         log(f"opened {URL}")
@@ -185,7 +219,8 @@ def main():
                 if not alive:
                     log("all pages closed; exiting")
                     return
-                page = active["page"] = alive[-1]
+                ours = [p for p in alive if is_ours(p.url)]
+                page = active["page"] = (ours or alive)[-1]
                 log(f"active page was closed; fell back to {page.url!r}")
 
             try:

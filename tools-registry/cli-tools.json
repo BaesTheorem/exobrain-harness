@@ -64,6 +64,22 @@
     "notes": "Scan tracked files for leaked personal data (IP/MAC shapes, names, credentials) before anything ships. Used by /exobrain-audit and /cybersecurity-bodyguard."
   },
   {
+    "name": "fantasy draft examiner",
+    "command": "python3 fantasy/examiner.py --live",
+    "repo_dir": "fantasy",
+    "source": "built",
+    "added": "2026-08-24",
+    "notes": "Outside audit of the autopilot's picks against FantasyPros ECR (100+ experts), the one yardstick the bot and its sim do not share. --live audits the draft actually open in driver.py (reads Pick History, rebuilds the board at each of our picks); without it, replays a simulated draft for --seat. Most flags in a 1-QB league are 'consensus would take a QB2' and are dismissible; a flag naming a skill player is the real signal. --refresh re-pulls ECR on draft morning."
+  },
+  {
+    "name": "fantasy draft scoreboard",
+    "command": "python3 fantasy/draftbot/grade.py --rosters 3",
+    "repo_dir": "fantasy/draftbot",
+    "source": "built",
+    "added": "2026-08-24",
+    "notes": "Grades every team in the open ESPN draft room on projected optimal starters, same ESPN projections the VOR board uses. Reads Pick History (full names, deduped on pick number). --rosters N prints the top N rosters so a rank turns into a lesson. Known bias: it measures what the bot optimizes, so pair it with examiner.py --live. Run BEFORE navigating away; practice leagues 404 on the ESPN API."
+  },
+  {
     "name": "fantasy draft simulator",
     "command": "python3 fantasy/sim.py --seeds 10 --model human",
     "repo_dir": "/Users/alexhedtke/Documents/Exobrain harness/fantasy",
@@ -72,12 +88,36 @@
     "notes": "Offline 13-seat draft sim vs calibrated opponents (ESPN AUTO rank-list bots or crowd-ADP humans). Grades optimal starting lineups on ESPN projections, same scale as draftbot/grade.py. Policy knobs via --policy JSON. Mirrors autopilot.js scoring; keep in sync."
   },
   {
+    "name": "fantasy draft supervisor",
+    "command": "python3 fantasy/draftbot/supervise.py 12",
+    "repo_dir": "fantasy/draftbot",
+    "source": "built",
+    "added": "2026-08-24",
+    "notes": "Single owner of the driver cmd channel while a draft runs: polls the armed autopilot, logs each new pick to supervise.log, and drives a MIST Console progress bar off roster count. Start it right after 'arm.py arm' and read supervise.log instead of polling arm.py, so nothing races on result.json. Exits at 16/16."
+  },
+  {
     "name": "fantasy vor board",
     "command": "python3 fantasy/vor.py",
     "repo_dir": "/Users/alexhedtke/Documents/Exobrain harness/fantasy",
     "source": "built",
     "added": "2026-08-24",
     "notes": "Builds draftbot/vor.json: value-over-replacement fantasy board from ESPN 2026 projections (league-scored full PPR) crossed with The Ringer's positional ranks. Replacement = QB13/RB30/WR34/TE14 for the 13-team league. Rebuild the MORNING OF the draft; output is gitignored derived data."
+  },
+  {
+    "name": "gridpoint-build-install",
+    "command": "~/Documents/gridpoint/scripts/build-install.sh",
+    "repo_dir": "~/Documents/gridpoint",
+    "source": "built",
+    "added": "2026-08-24",
+    "notes": "Signed build + wireless install of the Gridpoint weather app to the iPhone. Verifies embedded profile expiry before install."
+  },
+  {
+    "name": "gridpoint-monitor",
+    "command": "python3 ~/Documents/gridpoint/monitor/weather_monitor.py",
+    "repo_dir": "~/Documents/gridpoint/monitor",
+    "source": "built",
+    "added": "2026-08-24",
+    "notes": "Logs NWS + Open-Meteo forecasts and KMKC obs to SQLite every 30 min (launchd com.exobrain.weather-monitor). score.py = per-source accuracy report."
   },
   {
     "name": "Harry Potter and the Sorcerer's Stone",

@@ -102,14 +102,12 @@ def lineup_points(players):
     return total
 
 
-def main():
-    data = json.loads(VOR.read_text())
-    base = data["baseline"]
-    proj = {
-        k: (v["pos"], v["vor"] + base.get(v["pos"], 0.0))
-        for k, v in data["players"].items()
-    }
+def read_picks():
+    """Every pick in the room, deduplicated, each tagged with its fantasy team.
 
+    Shared with the live ECR audit (`../examiner.py --live`), which needs the
+    same board reconstruction: who was taken, by whom, in what order.
+    """
     res = send(JS)
     if not res.get("ok"):
         sys.exit(f"driver error: {res.get('error')}")
@@ -127,7 +125,7 @@ def main():
 
     # Team names come from the room itself: every cell that repeats across rows
     # and is not a player-details string is a fantasy team.
-    from collections import Counter, defaultdict
+    from collections import Counter
 
     freq = Counter()
     for p in picks:
@@ -135,17 +133,36 @@ def main():
             if c and not c[0].isdigit() and c != p["details"]:
                 freq[c] += 1
     teams = [t for t, n in freq.items() if n >= 3]
+    for p in picks:
+        p["team"] = team_of(p["cells"], teams)
+    picks.sort(key=lambda p: p["pick"])
+    return picks
+
+
+def main():
+    data = json.loads(VOR.read_text())
+    base = data["baseline"]
+    proj = {
+        k: (v["pos"], v["vor"] + base.get(v["pos"], 0.0))
+        for k, v in data["players"].items()
+    }
+
+    picks = read_picks()
+
+    from collections import defaultdict
 
     rosters = defaultdict(list)
+    named = defaultdict(list)
     missing = []
     for p in picks:
-        team = team_of(p["cells"], teams)
+        team = p["team"]
         if not team:
             missing.append(f"no team cell: {p['cells']!r:.80}")
             continue
         key = norm(p["name"])
         if key in proj:
             rosters[team].append(proj[key])
+            named[team].append((p["pick"], p["name"], *proj[key]))
         else:
             missing.append(f"{team}: {p['name']!r} not on the value board")
 
@@ -158,6 +175,17 @@ def main():
     for i, (name, pts, n) in enumerate(table, 1):
         tag = " <-- Chaos Legion" if "Chaos" in name else ""
         print(f"{i:>2} {pts:>18.1f}  {name} ({n} picks){tag}")
+
+    # Comparing our build against the teams that beat us is the only way the
+    # standings number turns into a lesson. A rank without the winning roster
+    # next to it says we lost, not what to change.
+    if "--rosters" in sys.argv:
+        top = int(sys.argv[sys.argv.index("--rosters") + 1])
+        for name, pts, _ in table[:top]:
+            print(f"\n{name}  ({pts:.1f})")
+            for pick, who, pos, pp in sorted(named[name], key=lambda r: -r[3]):
+                print(f"  pk{pick:>4}  {pos:<5} {who:<24} {pp:>6.1f}")
+
     if missing:
         print("\nexcluded from grades:")
         for m in missing:
