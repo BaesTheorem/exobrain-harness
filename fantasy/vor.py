@@ -88,6 +88,42 @@ def espn_rank(player):
     return int(ppr.get("rank") or 9999)
 
 
+def sleeper_projections():
+    """Second, independent projection source: Sleeper's public API (no auth).
+
+    The blend exists because no single projection source wins consistently,
+    while a simple average across sources grades top-3 at every position every
+    year (see the skill, §5). ESPN and Sleeper disagree by 30+ points on real
+    players (Gibbs 364.9 vs 331.4 in Aug 2026), which is exactly the disagreement
+    averaging is for. Failure here must never block a draft-morning rebuild, so
+    any error returns {} and the board falls back to ESPN alone, loudly.
+    """
+    url = (
+        "https://api.sleeper.app/projections/nfl/2026?season_type=regular"
+        "&position[]=QB&position[]=RB&position[]=WR&position[]=TE"
+        "&position[]=K&position[]=DEF&order_by=pts_ppr"
+    )
+    try:
+        req = urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0"})
+        with urllib.request.urlopen(req, timeout=30) as r:
+            data = json.load(r)
+    except Exception as exc:  # noqa: BLE001 - any failure means "no second source"
+        print(f"WARNING: Sleeper projections unavailable ({exc}); ESPN-only board")
+        return {}
+    out = {}
+    for entry in data:
+        pl = entry.get("player") or {}
+        pts = (entry.get("stats") or {}).get("pts_ppr")
+        if pts is None:
+            continue
+        if pl.get("position") == "DEF":
+            name = f"{pl.get('last_name', '')} D/ST"
+        else:
+            name = f"{pl.get('first_name', '')} {pl.get('last_name', '')}"
+        out[norm(name)] = float(pts)
+    return out
+
+
 def season_projection(player):
     """2026 full-season projection: statSourceId 1 (projected), split 0 (season)."""
     for s in player.get("stats", []):
@@ -126,13 +162,20 @@ def main():
         {"X-Fantasy-Filter": json.dumps(filt)},
     )
 
+    sleeper = sleeper_projections()
+
     espn = {}
+    blended = 0
     for entry in raw:
         p = entry["player"]
         pos = POS.get(p.get("defaultPositionId"))
         proj = season_projection(p)
         if not pos or proj is None:
             continue
+        sl = sleeper.get(norm(p["fullName"]))
+        if sl is not None:
+            proj = (proj + sl) / 2.0
+            blended += 1
         espn[norm(p["fullName"])] = {
             "pos": pos,
             "proj": round(proj, 1),
@@ -211,6 +254,10 @@ def main():
         print(f"  {pos:<5} {REPLACEMENT[pos]:>3}th = {baseline[pos]:>6.1f}")
     missing_adp = sum(1 for v in out.values() if v["adp"] >= 9999)
     print(f"ADP present for {len(out) - missing_adp}/{len(out)} players")
+    print(
+        f"projections blended ESPN+Sleeper for {blended}/{len(espn)} players"
+        + ("" if sleeper else "  (SLEEPER DOWN, ESPN ONLY)")
+    )
 
     print("\ntop 30 by value over replacement:")
     top = sorted(out.values(), key=lambda v: -v["vor"])[:30]

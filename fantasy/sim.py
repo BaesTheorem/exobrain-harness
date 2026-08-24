@@ -21,25 +21,37 @@ import argparse
 import json
 import pathlib
 import random
+import sys
 
 HERE = pathlib.Path(__file__).resolve().parent
 VOR = HERE / "draftbot" / "vor.json"
 
 TEAMS = 13
 ROUNDS = 16
+
+# The autopilot's live config is the single source of truth. A hand-copied CFG
+# here silently drifted (this file kept the old K/D/ST punt after arm.py was
+# tuned), which made "default policy" sim runs measure a policy nobody ships.
+sys.path.insert(0, str(HERE / "draftbot"))
+import arm  # noqa: E402
+
 CFG = {
-    "maxQB": 1,
-    "maxTE": 2,
-    "maxRB": 6,
-    "maxWR": 8,
-    "startRB": 2,
-    "startTE": 1,
-    "dstRoundsLeft": 1,
-    "kRoundsLeft": 0,
-    "freeBye": 8,
-    "freeByeBonus": 5,
-    "byeStackPenalty": 6,
-    "starters": 9,
+    k: arm.CONFIG[k]
+    for k in (
+        "maxQB",
+        "maxTE",
+        "maxRB",
+        "maxWR",
+        "startRB",
+        "startTE",
+        "dstRoundsLeft",
+        "kRoundsLeft",
+        "freeBye",
+        "freeByeBonus",
+        "byeStackPenalty",
+        "starters",
+        "benchBalance",
+    )
 }
 AUTO_CAPS = {"QB": 2, "RB": 8, "WR": 8, "TE": 3, "K": 1, "D/ST": 1}
 FLEX = ("RB", "WR", "TE")
@@ -208,7 +220,7 @@ def bot_pick(avail, roster, order, i, policy):
             # Bench balance: once the starters exist, each additional player at
             # an already-deep position is worth less than the same value at a
             # thin one, because the bench's job is covering an absence.
-            bb = policy.get("benchBalance", 0.0)
+            bb = policy.get("benchBalance", cfg["benchBalance"])
             if bb and total >= cfg["starters"] - 2 and pos in ("RB", "WR"):
                 starts = {"RB": 2, "WR": 2}[pos]
                 s += bb * max(0, counts.get(pos, 0) - starts)
