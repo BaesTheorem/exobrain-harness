@@ -1,0 +1,58 @@
+{
+ "entries": [
+  {
+   "id": 1,
+   "date": "2026-08-24",
+   "a": "De'Zhaun Stribling",
+   "b": "Chris Godwin",
+   "claim": "board took Stribling at pk117 over Godwin (ECR gap 68; consensus judge also prefers Godwin 185.8 vs 160.5)",
+   "basis": "ESPN+Sleeper projection vs ECR + CBS/FFT",
+   "status": "open"
+  },
+  {
+   "id": 2,
+   "date": "2026-08-24",
+   "a": "Saquon Barkley",
+   "b": "CeeDee Lamb",
+   "claim": "board took Barkley at pk10 over Lamb; consensus has Barkley RB9 (259.5) vs our RB4 (294.4)",
+   "basis": "the Barkley-at-the-wheel bet",
+   "status": "open"
+  },
+  {
+   "id": 3,
+   "date": "2026-08-24",
+   "a": "Kyren Williams",
+   "b": "DeVonta Smith",
+   "claim": "board took Kyren at pk36 over Smith (ECR gap 20)",
+   "basis": "Ringer #33 vs consensus 42",
+   "status": "open"
+  },
+  {
+   "id": 4,
+   "date": "2026-08-24",
+   "a": "Josh Downs",
+   "b": "Chris Godwin",
+   "claim": "board took Downs at pk114 over Godwin (ECR gap 15)",
+   "basis": "same WR-tail optimism cluster",
+   "status": "open"
+  },
+  {
+   "id": 5,
+   "date": "2026-08-24",
+   "a": "Jonathon Brooks",
+   "b": "Christian Watson",
+   "claim": "board took Brooks at pk88 over Watson (ECR gap 29)",
+   "basis": "RB depth vs consensus WR",
+   "status": "open"
+  },
+  {
+   "id": 6,
+   "date": "2026-08-24",
+   "a": "Jordyn Tyson",
+   "b": "Kayshon Boutte",
+   "claim": "WR-tail inflation marker: board rates Tyson WR56/Nailor WR59/Boutte WR63 vs consensus WR72/73/91; if these bench WRs bust as consensus expects, the 'WR waits well' conclusion weakens",
+   "basis": "board tail vs consensus tail (intra-board sanity pair)",
+   "status": "open"
+  }
+ ]
+}
