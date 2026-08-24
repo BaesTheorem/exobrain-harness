@@ -120,7 +120,7 @@ Make the third paragraph sound more like a startup founder wrote it
 
 ## 17. Cut Forced Folksy Compression
 
-The tell: a small invented metaphor, dropped in to *sound* casual and lived-in, that no actual person says out loud. It is the failure mode of trying to be human rather than being specific, and it is worse than plain corporate writing because it draws attention to itself.
+The tell: a small invented metaphor, dropped in to *sound* casual and lived-in, that no actual person says. It is the failure mode of trying to be human rather than being specific, and it is worse than plain corporate writing because it draws attention to itself.
 
 Caught in the wild (Ford cover letter, 2026-07-26): "Your responsibility list reads like my old week." Nobody describes their job as "my old week." Fixed to "I did most of what is on your responsibility list."
 
@@ -296,6 +296,32 @@ Related: "Cut Forced Folksy Compression" lists this as one of its examples, and
 often rides in on. This rule is stricter than both -- the folksy-compression test
 asks whether a real person says it; here the answer is always no.
 
+## 21. Never Write "Out Loud" for "Explicitly"
+
+Banned in every surface unless someone is literally speaking. Added 2026-08-23.
+
+The tell: "out loud" attached to a verb that produces text, not sound. "Say so out
+loud when you skip a step", "flag it out loud", "name the tradeoff out loud", "wonder
+out loud whether", "call it out loud in the PR". Nobody is talking. The writer means
+*explicitly*, and swapped in a two-word gesture that sounds folksy and lived-in.
+
+It is the "Cut Forced Folksy Compression" failure mode in miniature: the phrase adds
+no information, only a performance of casualness, and it reads as AI because models
+reach for it whenever a sentence needs an adverb with some warmth in it.
+
+Fix: use the plain word, or delete the modifier.
+- "Say so out loud." → "Say so explicitly." / "Say so."
+- "Flag the assumption out loud." → "Write the assumption down." / "State the assumption."
+- "I'll wonder out loud here." → "Here's what I'm unsure about."
+- "Name it out loud in the commit message." → "Name it in the commit message."
+
+Keep it only for actual speech: "she read the line out loud", "say that out loud and
+hear how it lands", an audio briefing spoken aloud. The test is whether sound waves
+are involved. If the output is text, the phrase is wrong.
+
+Watch the same shape in its relatives: "put a name to it", "say the quiet part", "on
+the record" used to mean nothing more than "explicitly".
+
 ## Overused AI Words to Replace
 
 (Source: [Wikipedia: Signs of AI writing](https://en.wikipedia.org/wiki/Wikipedia:Signs_of_AI_writing))
@@ -331,6 +357,7 @@ asks whether a real person says it; here the answer is always no.
 - "whether you're a beginner or an expert"
 - "at its core"
 - "that's the point" / "X is the point" (see "Never Write '[X] Is the Point'" -- banned in all forms)
+- "out loud" when nobody is speaking (see "Never Write 'Out Loud' for 'Explicitly'" -- use "explicitly" or cut it)
 - "strikes a balance between"
 - "valuable insights"
 - "contributing to"

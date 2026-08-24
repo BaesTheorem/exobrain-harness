@@ -13,7 +13,7 @@ This is the canonical reference for how the Exobrain interacts with LinkedIn via
 
 - **Allowed**: search and lookup tools (`search_*`, `get_*`)
 - **Forbidden**: any action that creates content, sends messages, or modifies Alex's network
-- **If Alex needs to send a message or connection request**: draft it for him as text, and tell him to send it manually from the LinkedIn UI. Never invoke a write tool, even if Alex asks -- confirm out loud that he wants it manual, then hand off the draft.
+- **If Alex needs to send a message or connection request**: draft it for him as text, and tell him to send it manually from the LinkedIn UI. Never invoke a write tool, even if Alex asks -- confirm explicitly that he wants it manual, then hand off the draft.
 
 | Status | Tools |
 |--------|-------|
