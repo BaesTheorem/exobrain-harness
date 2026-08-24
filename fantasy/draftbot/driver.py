@@ -150,9 +150,17 @@ def op_pages(page, arg):
     }
 
 
+def op_reload(page, arg):
+    """Reload the active page. The recovery for a hung draft room ('Loading
+    your draft' while the clock runs) is reload + re-arm, proven 2026-08-24."""
+    page.reload(wait_until="domcontentloaded", timeout=60000)
+    return {"reloaded": page.url}
+
+
 OPS = {
     "ping": lambda page, arg: {"pong": True, "url": page.url},
     "pages": op_pages,
+    "reload": op_reload,
     "switch": None,  # bound in main(), needs the active-page cell
     "shot": lambda page, arg: {"shot": str(SHOT)},
     "dom": op_dom,
