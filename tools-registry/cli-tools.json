@@ -80,6 +80,14 @@
     "notes": "Registers board-vs-consensus disagreements as predictions (A outscores B) and settles them with actual ESPN season points (kona actuals: seasonId+source 0+split 0; positive control = season 2025 returns Gibbs 366.9). Settle weekly in season. Only settled results may flow back into the board; also the designated judge for the parked elite-bias correction in vor.py (VOR_BIAS_STRENGTH, default 0 after a negative experiment)."
   },
   {
+    "name": "fantasy divergence signoff",
+    "command": "python3 fantasy/signoff.py report|keep|correct|status",
+    "repo_dir": "fantasy",
+    "source": "built",
+    "added": "2026-08-24",
+    "notes": "Pre-draft gate: no counter-consensus pick without a signature. Compares board vs FantasyPros ECR POSITIONAL ranks (so 1-QB structural timing never flags), lists material gaps; each gets 'keep --thesis' (auto-registers a ledger bet) or 'correct' (vor.py re-slots to ECR rank at next build). vor.py warns on unsigned divergences at build; 'status' exits nonzero if any remain = draft-morning gate. Overrides in gitignored fantasy/board-overrides.json."
+  },
+  {
     "name": "fantasy draft examiner",
     "command": "python3 fantasy/examiner.py --live",
     "repo_dir": "fantasy",
