@@ -180,3 +180,9 @@ maintenance/venv/
 ios-sideload/apps.json
 # Tracks what is currently installed on the phone; regenerates itself.
 ios-sideload/state.json
+
+# Third-party fantasy rankings pulled at runtime (The Ringer). Derived data,
+# includes their editorial copy verbatim -- regenerate with ringer_board.py,
+# never commit to this public repo.
+fantasy/ringer_board*.json
+fantasy/draft-sheet.html
