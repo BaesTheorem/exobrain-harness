@@ -11,7 +11,11 @@ Protocol
     state.json   refreshed every poll: on-the-clock, my roster, timer text
     shot.png     latest screenshot
 
-Ops: ping, shot, dom, search, draft, queue, raw_click, eval
+Ops: ping, shot, dom, search, draft, click, eval, pages, switch
+
+The active page follows the newest tab. ESPN's mock draft lobby opens the draft
+room with window.open(), so a driver pinned to ctx.pages[0] sits on the lobby
+watching nothing while the draft runs in a window it cannot see.
 """
 
 import json
@@ -128,8 +132,17 @@ def op_click(page, text):
     return {"clicked": text, "text": visible_text(page)[:1500]}
 
 
+def op_pages(page, arg):
+    ctx = page.context
+    return {
+        "active": page.url,
+        "all": [p.url for p in ctx.pages if not p.is_closed()],
+    }
+
+
 OPS = {
     "ping": lambda page, arg: {"pong": True, "url": page.url},
+    "pages": op_pages,
     "shot": lambda page, arg: {"shot": str(SHOT)},
     "dom": op_dom,
     "search": op_search,
@@ -151,10 +164,30 @@ def main():
             args=["--window-size=1700,1060"],
         )
         page = ctx.pages[0] if ctx.pages else ctx.new_page()
+
+        # Follow the newest tab. ESPN opens the draft room via window.open(),
+        # and a driver pinned to the first page would keep polling the lobby.
+        active = {"page": page}
+
+        def on_page(new_page):
+            log(f"new tab: {new_page.url!r} -- following it")
+            active["page"] = new_page
+
+        ctx.on("page", on_page)
+
         page.goto(URL, wait_until="domcontentloaded", timeout=90000)
         log(f"opened {URL}")
 
         while True:
+            page = active["page"]
+            if page.is_closed():
+                alive = [p for p in ctx.pages if not p.is_closed()]
+                if not alive:
+                    log("all pages closed; exiting")
+                    return
+                page = active["page"] = alive[-1]
+                log(f"active page was closed; fell back to {page.url!r}")
+
             try:
                 STATE.write_text(json.dumps(snapshot(page), indent=1))
                 page.screenshot(path=str(SHOT))
