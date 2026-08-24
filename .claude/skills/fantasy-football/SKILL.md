@@ -1,6 +1,6 @@
 ---
 name: fantasy-football
-description: Evidence-based fantasy football partner for Alex's season-long redraft league. Draft prep and live draft support, weekly lineup and waiver decisions, trade evaluation, and league analysis grounded in what the data actually shows predicts winning. Use when Alex mentions fantasy football, his league, a draft or mock draft, ADP, waivers or FAAB, start/sit, a trade offer, a player's value, "who should I start", "should I take X or Y", "is this trade fair", or wants help preparing for or running his fantasy season.
+description: Evidence-based fantasy football partner for Alex's season-long redraft league. Draft prep and live draft support, weekly lineup and waiver decisions, trade evaluation, and league analysis grounded in what the data actually shows predicts winning. Use when Alex mentions fantasy football, his league, a draft or mock draft, ADP, waivers or FAAB, start/sit, a trade offer, a player's value, "who should I start", "should I take X or Y", "is this trade fair", "join this draft", "drive my draft", "run the autopilot", or wants help preparing for, automating, or running his fantasy season.
 ---
 
 # Fantasy Football
@@ -29,6 +29,79 @@ Credentials live in the gitignored `fantasy/espn-credentials.json`; details and
 the known two-teams-one-account quirk are in `fantasy/README.md`. The tool never
 writes to ESPN. Extend it (waiver opportunity ranking, TD-regression scan,
 projected-margin for the variance rule) rather than scraping the site by hand.
+
+## Draft mode: the autopilot
+
+`fantasy/draftbot/` drafts a full roster in the ESPN draft room against a ranked
+board. Where `ff` is read-only by invariant, **this one writes** — it clicks the
+draft button. Keep that boundary intact; never add pick-making to `ff`.
+
+**Never be in the per-pick loop.** The clock is 30 seconds in mocks and 90 live,
+and bot teams pick in about a second. A round trip out to Claude costs 20-60
+seconds and can never keep up. So the agent runs *inside* the ESPN page on a
+250ms timer and picks in milliseconds; supervise **between** picks, not during
+them. This is the whole design, and violating it is how the first attempt failed.
+
+```sh
+python3 driver.py &     # holds a logged-in browser; reads url.txt
+python3 arm.py board    # rebuild ranks from ../ringer_board.json
+python3 arm.py arm      # inject and start the autopilot
+python3 arm.py queue N  # fill the ESPN queue (autopilot also self-fills)
+python3 arm.py status   # roster counts, picks made, recent log
+python3 arm.py off      # stop picking, leave the queue as a floor
+python3 watch.py        # stream picks, one event per line
+```
+
+`arm.py` and `watch.py` share one command channel — **never run both at once**,
+they race on `result.json`. `state.json` is written independently, so read that
+for a race-free look at the room.
+
+### Pre-draft checklist, in order
+
+Everything must be armed and tested **before** the room opens. Building it
+against a live clock is how picks get lost.
+
+1. **Be in the draft room before it opens.** Absence is not falling behind, it is
+   ESPN drafting your whole team. It made 73 picks in ~90 seconds on 2026-08-24
+   because every team was flagged AUTO. Entering clears the flag on *upcoming*
+   picks only; what is already drafted is gone.
+2. **Exactly one connection per team.** If the bot drives, Alex must not open the
+   draft room in his own browser, or ESPN bumps one session with "Duplicate
+   Connection" and the bot goes blind against a frozen board. He watches the
+   bot's window instead.
+3. **The queue cannot be preloaded.** ESPN silently ignores queue clicks before
+   the draft starts — the click lands and nothing happens. The autopilot fills it
+   in the first seconds after the clock starts, and only while not on the clock.
+4. Confirm `arm.py status` reports the right round and a nonzero ranked count.
+
+### Known flaws — check these before trusting a roster
+
+It scores on **raw overall board rank**, which is wrong in three ways:
+
+- **Takes a QB too early** for a one-QB league (§3 says wait).
+- **Never selects a tight end** until a reservation rule forces one in the last
+  rounds, by which point only replacement-level TEs remain.
+- **Ignores bye weeks entirely**, so starters cluster on one week.
+
+**The fix for all three is value over replacement**, not more hand-tuned
+constants: compare each player to roughly the 13th-best at his own position
+rather than to the field. Add bye spreading as a separate tiebreak. Until that
+lands, read the final roster for these three failure modes specifically.
+
+### Verification discipline
+
+Measure the **result, not the action**. Two bugs shipped because success was
+checked at the wrong layer: a pick logged "Mike Evans" while drafting a different
+player, and a queue filler reported 21 adds when ESPN had accepted zero. Both
+reported intent.
+
+- Confirm the **roster count grew** after every pick, never that a click fired.
+- Identify a row as the largest ancestor of an action button still containing
+  exactly one action button. Walking a fixed number of parents and parsing by
+  field position breaks on ESPN's markup.
+- When a check's failure mode is a quiet zero, **run a known-good fixture through
+  it**. A kicker count silently read 0 forever because there is no word boundary
+  between the `3` of `TE2/3` and the `K` in the run-together limits string.
 
 ## The living document
 
@@ -503,6 +576,9 @@ where the cheap back already has real touches.** Roughly 4x the hit rate.
 Per the automate-it rule: prefer pulling Alex's league via API and computing
 answers over eyeballing a website. Sleeper is the easiest target if he has a
 choice of platform.
+
+For the two local tools built against ESPN, see **Live league data** (`ff`, read
+only) and **Draft mode** (`draftbot`, the only thing here that writes).
 
 ### Projections reality check
 
