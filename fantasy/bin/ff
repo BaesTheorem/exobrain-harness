@@ -80,10 +80,11 @@ def api(creds, path="", views=()):
 def my_team_id(creds, data):
     """Return Alex's team id.
 
-    Prefer the pinned team_id in the credential file, because the SWID owns more
-    than one team in this league (id 8 'Alex's Awesome Team', the ESPN default,
-    plus id 12 'Chaos Legion', the one Alex actually named). Owner-matching alone
-    is ambiguous here, so the pin is authoritative; owner-match is the fallback.
+    Prefer the pinned team_id in the credential file. The SWID briefly owned two
+    teams here (id 8 'Alex's Awesome Team', the ESPN default, plus id 12 'Chaos
+    Legion'); id 8 was deleted 2026-08-23, so owner-matching would now succeed on
+    its own. The pin stays because ESPN can recreate a default team, and it costs
+    nothing. Owner-match remains the fallback.
     """
     pinned = creds.get("team_id")
     if pinned is not None:

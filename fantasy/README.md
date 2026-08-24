@@ -55,14 +55,19 @@ espn.com there). To rebuild or refresh:
 ESPN cookies last roughly a year but rotate on password change or logout. When
 `ff` reports auth rejected (HTTP 401/403), run `ff refresh`.
 
-## Known league quirk
+## Known league quirks
 
-Alex's SWID owns **two** teams in this league: id 8 "Alex's Awesome Team" (the
-ESPN default name) and id 12 "Chaos Legion" (the one he named). This is unusual
--- normally one account owns one team -- and is probably a mid-setup artifact of
-a league still filling its 12 slots (only ~4 human accounts joined as of
-2026-08-16). `team_id` is pinned to 12 so the tool always means Chaos Legion. If
-the duplicate gets cleaned up, this note and the pin can go.
+**Duplicate team: resolved 2026-08-23.** Alex's SWID briefly owned two teams here,
+id 8 "Alex's Awesome Team" (the ESPN default name) and id 12 "Chaos Legion". Id 8
+has since been deleted. The `team_id` pin in the credential file still resolves
+to 12 and is harmless, so it stays as belt-and-braces against the default team
+reappearing.
+
+**Odd league size.** The league grew to **13 teams** on/around 2026-08-23, so
+ESPN's generated schedule carries 14 slots per week and one team has no opponent
+each week. In the raw `mMatchup` view that shows up as a matchup with `home` set
+and `away` absent, which is a real bye and not a parsing error. Anything that
+walks the schedule has to tolerate a missing side.
 
 ## Privacy
 

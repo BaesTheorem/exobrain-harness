@@ -146,6 +146,14 @@
     "notes": "AppleScript applet bundle, so there is no shell launcher for scan_apps() to parse."
   },
   {
+    "name": "ringer_board",
+    "command": "python3 fantasy/ringer_board.py --format ppr",
+    "repo_dir": "/Users/alexhedtke/Documents/Exobrain harness",
+    "source": "built",
+    "added": "2026-08-23",
+    "notes": "Extracts The Ringer's preseason fantasy football rankings (full-PPR/half/superflex/dynasty) from the page's embedded Next.js payload: rank, positional rank, auction value, bye, per-expert ranks + spread, analyst blurb. Their published Google Sheet is half-PPR and stale; this pulls the live board. Re-run before draft day."
+  },
+  {
     "name": "supernote-parser.py",
     "command": "python3 transcript-processing/supernote-parser.py <note.note>",
     "repo_dir": "~/Documents/Exobrain harness",
