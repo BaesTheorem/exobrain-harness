@@ -172,6 +172,21 @@ barber/.booksy-session.json
 # Fantasy football -- ESPN session cookies (espn_s2 + SWID)
 fantasy/espn-credentials.json
 
+# Draft autopilot runtime. profile/ is a logged-in Chrome profile holding live
+# ESPN/Disney session cookies; url.txt carries Alex's memberId GUID;
+# board_ranks.json is derived from The Ringer's rankings (see the playbook note).
+fantasy/draftbot/profile/
+fantasy/draftbot/url.txt
+fantasy/draftbot/board_ranks.json
+fantasy/draftbot/cmd.json
+fantasy/draftbot/result.json
+fantasy/draftbot/state.json
+fantasy/draftbot/shot.png
+fantasy/draftbot/driver.log
+fantasy/draftbot/driver.out
+fantasy/draftbot/probe-out/
+fantasy/draftbot/probe.log
+
 # Dedicated FDA-granted interpreter (built locally, see maintenance/README.md)
 maintenance/venv/
 

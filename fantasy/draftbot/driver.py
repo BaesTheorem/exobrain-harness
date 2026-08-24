@@ -1,0 +1,196 @@
+"""Long-running ESPN draft-room driver.
+
+Holds one Playwright browser open in a persistent profile so the Disney SSO
+login survives restarts (log in by hand once; it is good for the real draft
+too). MIST talks to it through files, because each of her shell calls is a
+separate process and a 30-second pick clock leaves no time to boot a browser.
+
+Protocol
+    cmd.json     {"id": <int>, "op": "<name>", "arg": "<string>"}   written by MIST
+    result.json  {"id": <int>, "ok": bool, "data": ...}             written by driver
+    state.json   refreshed every poll: on-the-clock, my roster, timer text
+    shot.png     latest screenshot
+
+Ops: ping, shot, dom, search, draft, queue, raw_click, eval
+"""
+
+import json
+import pathlib
+import time
+import traceback
+
+from playwright.sync_api import sync_playwright
+
+HERE = pathlib.Path(__file__).resolve().parent
+PROFILE = HERE / "profile"
+CMD = HERE / "cmd.json"
+RESULT = HERE / "result.json"
+STATE = HERE / "state.json"
+SHOT = HERE / "shot.png"
+LOG = HERE / "driver.log"
+
+URL = (HERE / "url.txt").read_text().strip()
+
+
+def log(msg):
+    with LOG.open("a") as fh:
+        fh.write(f"{time.strftime('%H:%M:%S')} {msg}\n")
+        fh.flush()
+
+
+def visible_text(page):
+    try:
+        return page.evaluate("() => document.body.innerText")
+    except Exception:
+        return ""
+
+
+def snapshot(page):
+    """Cheap poll of the things that decide the next action."""
+    txt = visible_text(page)
+    logged_in = "Enter your email" not in txt and "MyDisney" not in txt
+    return {
+        "ts": time.strftime("%H:%M:%S"),
+        "url": page.url,
+        "logged_in": logged_in,
+        "text": txt[:4000],
+    }
+
+
+def op_dom(page, arg):
+    """Dump interactive elements so selectors can be written against reality."""
+    out = []
+    for sel in ["button", "[role=button]", "input", "a[href*=draft]"]:
+        for el in page.query_selector_all(sel)[:60]:
+            try:
+                if not el.is_visible():
+                    continue
+                out.append(
+                    {
+                        "sel": sel,
+                        "text": (el.inner_text() or "").strip()[:60],
+                        "class": (el.get_attribute("class") or "")[:80],
+                        "placeholder": el.get_attribute("placeholder"),
+                    }
+                )
+            except Exception:
+                pass
+    return out
+
+
+def op_search(page, name):
+    """Type a player name into the draft-room search box."""
+    box = None
+    for sel in [
+        "input[placeholder*='Search']",
+        "input[placeholder*='search']",
+        "input[type='text']",
+    ]:
+        el = page.query_selector(sel)
+        if el and el.is_visible():
+            box = el
+            break
+    if not box:
+        return {"error": "no search box found"}
+    box.click()
+    box.fill("")
+    box.type(name, delay=20)
+    page.wait_for_timeout(1200)
+    return {"typed": name, "text": visible_text(page)[:2500]}
+
+
+def op_draft(page, name):
+    """Search for a player, then hit the draft control on their row."""
+    op_search(page, name)
+    page.wait_for_timeout(600)
+    for label in ["Draft", "DRAFT", "Select", "Pick"]:
+        btn = page.query_selector(f"button:has-text('{label}')")
+        if btn and btn.is_visible():
+            btn.click()
+            page.wait_for_timeout(900)
+            # ESPN usually raises a confirm modal
+            for conf in ["Confirm", "Yes", "Draft Player", "OK"]:
+                c = page.query_selector(f"button:has-text('{conf}')")
+                if c and c.is_visible():
+                    c.click()
+                    page.wait_for_timeout(800)
+                    break
+            return {"drafted": name, "via": label, "text": visible_text(page)[:1500]}
+    return {"error": "no draft button", "text": visible_text(page)[:2500]}
+
+
+def op_click(page, text):
+    el = page.query_selector(f"text={text}")
+    if not el:
+        return {"error": f"no element matching {text!r}"}
+    el.click()
+    page.wait_for_timeout(900)
+    return {"clicked": text, "text": visible_text(page)[:1500]}
+
+
+OPS = {
+    "ping": lambda page, arg: {"pong": True, "url": page.url},
+    "shot": lambda page, arg: {"shot": str(SHOT)},
+    "dom": op_dom,
+    "search": op_search,
+    "draft": op_draft,
+    "click": op_click,
+    "eval": lambda page, arg: page.evaluate(arg),
+}
+
+
+def main():
+    PROFILE.mkdir(exist_ok=True)
+    last_id = -1
+    beat = 0
+    with sync_playwright() as pw:
+        ctx = pw.chromium.launch_persistent_context(
+            str(PROFILE),
+            headless=False,
+            viewport={"width": 1680, "height": 1020},
+            args=["--window-size=1700,1060"],
+        )
+        page = ctx.pages[0] if ctx.pages else ctx.new_page()
+        page.goto(URL, wait_until="domcontentloaded", timeout=90000)
+        log(f"opened {URL}")
+
+        while True:
+            try:
+                STATE.write_text(json.dumps(snapshot(page), indent=1))
+                page.screenshot(path=str(SHOT))
+            except Exception as exc:
+                log(f"snapshot failed: {exc}")
+
+            if CMD.exists():
+                try:
+                    cmd = json.loads(CMD.read_text())
+                except Exception:
+                    cmd = None
+                if cmd and cmd.get("id") != last_id:
+                    last_id = cmd["id"]
+                    op = cmd.get("op", "ping")
+                    log(f"cmd {last_id}: {op} {cmd.get('arg', '')!r}")
+                    try:
+                        data = OPS[op](page, cmd.get("arg", ""))
+                        res = {"id": last_id, "ok": True, "data": data}
+                    except Exception as exc:
+                        res = {
+                            "id": last_id,
+                            "ok": False,
+                            "error": str(exc),
+                            "tb": traceback.format_exc()[-900:],
+                        }
+                    try:
+                        page.screenshot(path=str(SHOT))
+                    except Exception:
+                        pass
+                    RESULT.write_text(json.dumps(res, indent=1, default=str))
+
+            beat += 1
+            if beat % 20 == 0:
+                log(f"alive beat={beat}")
+            time.sleep(1.5)
+
+
+if __name__ == "__main__":
+    main()
