@@ -44,10 +44,11 @@ them. This is the whole design, and violating it is how the first attempt failed
 
 ```sh
 python3 driver.py &     # holds a logged-in browser; reads url.txt
-python3 arm.py board    # rebuild ranks from ../ringer_board.json
+python3 arm.py board    # rebuild vor.json -- do this the MORNING OF the draft
 python3 arm.py arm      # inject and start the autopilot
 python3 arm.py queue N  # fill the ESPN queue (autopilot also self-fills)
 python3 arm.py status   # roster counts, picks made, recent log
+python3 peek.py         # the actual roster with byes; safe mid-pick
 python3 arm.py off      # stop picking, leave the queue as a floor
 python3 watch.py        # stream picks, one event per line
 ```
@@ -61,6 +62,9 @@ for a race-free look at the room.
 Everything must be armed and tested **before** the room opens. Building it
 against a live clock is how picks get lost.
 
+0. **Rebuild the board that morning**: `python3 fantasy/vor.py` (or `arm.py
+   board`). It pulls live ESPN projections and needs the Ringer board re-pulled
+   first via `ringer_board.py`.
 1. **Be in the draft room before it opens.** Absence is not falling behind, it is
    ESPN drafting your whole team. It made 73 picks in ~90 seconds on 2026-08-24
    because every team was flagged AUTO. Entering clears the flag on *upcoming*
@@ -72,21 +76,47 @@ against a live clock is how picks get lost.
 3. **The queue cannot be preloaded.** ESPN silently ignores queue clicks before
    the draft starts — the click lands and nothing happens. The autopilot fills it
    in the first seconds after the clock starts, and only while not on the clock.
-4. Confirm `arm.py status` reports the right round and a nonzero ranked count.
+4. Confirm `arm.py status` reports the right round and a nonzero valued count.
+5. **Arm once, before the room opens.** Re-arming mid-draft wipes the in-page log
+   and pick history (the roster is read from the page, so nothing real is lost,
+   but the diagnostics are).
+6. A **practice draft can be paused** from the League Manager tab, which makes
+   mocks the place to fix things. The live draft will not wait.
 
-### Known flaws — check these before trusting a roster
+### It scores on value over replacement
 
-It scores on **raw overall board rank**, which is wrong in three ways:
+Fixed on 2026-08-24, replacing raw board rank. Rank compares a player to the
+whole field; a pick is decided by how much better he is than the man you could
+have at that position anyway. Ranking on the field is why the first two mocks
+took a QB in round 4 and never took a tight end.
 
-- **Takes a QB too early** for a one-QB league (§3 says wait).
-- **Never selects a tight end** until a reservation rule forces one in the last
-  rounds, by which point only replacement-level TEs remain.
-- **Ignores bye weeks entirely**, so starters cluster on one week.
+`fantasy/vor.py` splits the work by what each source is good at. **The Ringer**
+decides *who* is the best player at a position; **ESPN's 2026 projections**,
+which come back already scored in this league's full-PPR settings, decide *how
+much* a WR3 is worth against an RB5. Value is the player's slot on his position's
+projection curve minus the replacement slot (QB13, RB30, WR34, TE14 — starters,
+flex weighted to WR).
 
-**The fix for all three is value over replacement**, not more hand-tuned
-constants: compare each player to roughly the 13th-best at his own position
-rather than to the field. Add bye spreading as a separate tiebreak. Until that
-lands, read the final roster for these three failure modes specifically.
+This reproduces §3's positional rules without hand-tuned constants, which is why
+it is the right fix:
+
+- **QB waits by itself.** The curve is a cliff at Josh Allen then nearly flat:
+  QB2 to QB10 spans only 30 points across a season. No "don't draft a QB before
+  round N" rule is needed, and none is used.
+- **A tight end finally competes.** The elite TEs price near 83 VOR against a
+  14th TE who is dreadful, so one gets taken while one still exists.
+- **The receiver lean falls out of the curve** rather than a bonus constant.
+
+Byes are a tiebreak only, never a reason to reach: a small penalty for stacking a
+week already on the roster, and a small bonus for Week 8, free because the league
+has 13 teams and Alex's idle week is 8.
+
+**Rebuild the board on draft morning** (`arm.py board`). Both inputs move through
+the preseason, and `vor.json` is gitignored derived data.
+
+**Still open:** replacement level is static, so late in a draft it understates
+how thin a position has actually become; there is no tier awareness; and there is
+no model of what will still be there at the next pick.
 
 ### Verification discipline
 
@@ -96,12 +126,22 @@ player, and a queue filler reported 21 adds when ESPN had accepted zero. Both
 reported intent.
 
 - Confirm the **roster count grew** after every pick, never that a click fired.
-- Identify a row as the largest ancestor of an action button still containing
-  exactly one action button. Walking a fixed number of parents and parsing by
-  field position breaks on ESPN's markup.
+- Take each player's name from **that row's own player anchor**, never by scanning
+  page text for a name. Both earlier schemes (walking a fixed number of parents,
+  then matching names across a blob of text) resolved rows to the wrong player.
+- **Log the size of the board actually scored on every pick.** ESPN's table keeps
+  only ~32 of ~190 rows in the DOM and `innerText` returns '' for anything without
+  a layout box, so the bot silently scored a pool of 1 to 19 players and called it
+  the board for two mocks. One `board=N` in the pick log would have caught it on
+  the first pick. **Use `textContent`, and sweep ESPN's position filter** so every
+  position's best available players are in the window by construction — otherwise
+  a kicker, ranked past 200, is never visible and the last round finds no
+  candidate.
 - When a check's failure mode is a quiet zero, **run a known-good fixture through
   it**. A kicker count silently read 0 forever because there is no word boundary
   between the `3` of `TE2/3` and the `K` in the run-together limits string.
+- **Any metric that is quietly a subset is the dangerous kind.** A pool of 19 and
+  a pool of 190 both produce a confident pick and a plausible-looking roster.
 
 ## The living document
 
