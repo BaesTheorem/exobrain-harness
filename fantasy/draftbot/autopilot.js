@@ -234,15 +234,22 @@
 
   /* What passing on this player actually gets you at the next turn.
    *
-   * He must be excluded from his own floor. When a player IS the best survivor
-   * at his position -- which is exactly what happens at a position the room is
-   * ignoring -- comparing him to himself scores him at zero and buries the best
-   * available man on the board. Passing on him gets you the NEXT one down. */
+   * A player who will himself survive to the next turn IS his own floor: taking
+   * him now gains nothing over taking him later, so he scores ~0 and the pick
+   * goes to someone who will actually be gone. ESPN's draft report cards caught
+   * the violation as "reaches" -- Mike Evans taken 35 picks ahead of his ADP
+   * while scarcer players sat -- after an earlier patch excluded each player
+   * from his own floor. That exclusion misread the real bug of that night,
+   * which was the back-to-back-turn horizon, fixed separately. With a correct
+   * horizon, self-inclusion is the right rule, and "the best survivor scores
+   * zero" is not a bug: it is the strategy saying wait.
+   *
+   * The bag is sorted best-first, so [0] is the strongest man expected to still
+   * be there, whoever he is. */
   const floorFor = (p, floors) => {
     const bag = floors && floors[p.pos];
     if (!bag || !bag.length) return 0;
-    const alt = bag.find((x) => x.name !== p.label);
-    return Math.max(0, alt ? alt.vor : 0);
+    return Math.max(0, bag[0].vor);
   };
 
   /* Lower is better. null == not draftable right now. */
@@ -281,7 +288,10 @@
     /* Unvalued players sit below replacement, ordered by ESPN's own rank, so
      * they are only ever taken when nothing valued is legal. */
     const floor = floorFor(p, floors);
-    let s = -(vor - floor);
+    /* The vor sliver breaks ties. Late in a draft everyone survives and every
+     * vona is ~0; without it the pick falls to sort order, which is the same
+     * class of accident as the all-defenses-tie-at--1000 bug. */
+    let s = -(vor - floor) - vor * 0.001;
 
     /* Bye spreading, while the starting nine are still being filled. Week 8 is
      * free: the league has 13 teams, so one sits idle each week and Alex's idle
@@ -426,7 +436,8 @@
       'CLICK ' + label +
         ' vor=' + (win.p.v ? win.p.v.vor : 'n/a') +
         ' floor=' + floorFor(win.p, floors).toFixed(1) +
-        ' vona=' + (-win.s).toFixed(1) +
+        ' vona=' + ((win.p.v ? win.p.v.vor : 0) - floorFor(win.p, floors)).toFixed(1) +
+        ' score=' + (-win.s).toFixed(1) +
         ' adp=' + (win.p.v ? win.p.v.adp : '?') +
         ' next=' + (nextPick === Infinity ? 'none' : nextPick) +
         ' bye=' + win.p.bye +
