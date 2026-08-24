@@ -236,9 +236,12 @@ advice.** The FAAB dead-zone guidance does not apply here. What applies instead:
 - **One QB slot, so wait on QB.** Not superflex. QB scoring declines near-linearly
   by rank, QB6 returns ~72% of QB1, and NFL Rounds 2-7 produced 4 QB1 seasons in
   90 tries. Nothing here justifies early QB.
-- **Required K and D/ST guarantee the herding edge fires** (§3). Both go in the
-  last two rounds, then stream. When the room starts its run, sit still and take
-  the skill player they skipped.
+- **Required K and D/ST guarantee the herding edge fires** (§3), and the punt
+  has a measured limit (2026-08-24): observed rooms drain all startable defenses
+  in rounds 12-13 and kickers in round 14, so waiting to the final two rounds
+  donates ~35-40 projected points. **Take the best D/ST at round 11 and K at
+  round 13, one round ahead of the run, then stream in-season.** Never mid-round
+  capital, and never chase a run that starts earlier than that.
 - **Kicker scoring is distance-weighted** (0-39 = 3, 40-49 = 4, 50-59 = 5, 60+ = 6,
   miss = -1). Still stream, but favor strong legs on offenses that stall in field
   goal range, and prefer domes/good weather in the late weeks.
