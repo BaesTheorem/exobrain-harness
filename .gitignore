@@ -182,6 +182,8 @@ fantasy/draftbot/board_ranks.json
 # The Ringer's positional ranks. Derived, and stale within days -- rebuild it
 # with `python3 fantasy/vor.py` on draft morning.
 fantasy/draftbot/vor.json
+# room_history.json is a captured mock-draft pick log, used to calibrate sim.py.
+fantasy/draftbot/room_history.json
 fantasy/draftbot/cmd.json
 fantasy/draftbot/result.json
 fantasy/draftbot/state.json

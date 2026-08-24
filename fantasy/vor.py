@@ -78,9 +78,14 @@ def adp(player):
     a = own.get("averageDraftPosition")
     if a and a > 0:
         return round(a, 1)
+    return float(espn_rank(player))
+
+
+def espn_rank(player):
+    """ESPN's own PPR draft rank: the list AUTO teams actually draft from."""
     ranks = player.get("draftRanksByRankType") or {}
     ppr = ranks.get("PPR") or {}
-    return float(ppr.get("rank") or 9999)
+    return int(ppr.get("rank") or 9999)
 
 
 def season_projection(player):
@@ -134,6 +139,7 @@ def main():
             "bye": byes.get(p.get("proTeamId"), 0),
             "name": p["fullName"],
             "adp": adp(p),
+            "espnRank": espn_rank(p),
             "injured": bool(p.get("injured")),
         }
 
@@ -182,6 +188,7 @@ def main():
             "posRank": k,
             "vor": round(vor, 1),
             "adp": e["adp"],
+            "espnRank": e["espnRank"],
             "bye": r["bye"] if r and r.get("bye") else e["bye"],
             "rank": r["rank"] if r else None,
             "injured": e["injured"],
