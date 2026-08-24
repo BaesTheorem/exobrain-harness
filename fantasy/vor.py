@@ -66,6 +66,23 @@ def get(url, creds, extra=None):
         sys.exit(f"ESPN HTTP {e.code}: {e.reason}. Try `bin/ff refresh`.")
 
 
+def adp(player):
+    """Where the crowd actually takes him, not where ESPN ranks him.
+
+    Real ADP off ESPN's own leagues. It is what makes value-over-next-available
+    possible: without it there is no way to ask who will still be there at the
+    next turn, and value over replacement alone will happily spend an early pick
+    on a player nobody else was going to take for another two rounds.
+    """
+    own = player.get("ownership") or {}
+    a = own.get("averageDraftPosition")
+    if a and a > 0:
+        return round(a, 1)
+    ranks = player.get("draftRanksByRankType") or {}
+    ppr = ranks.get("PPR") or {}
+    return float(ppr.get("rank") or 9999)
+
+
 def season_projection(player):
     """2026 full-season projection: statSourceId 1 (projected), split 0 (season)."""
     for s in player.get("stats", []):
@@ -116,6 +133,8 @@ def main():
             "proj": round(proj, 1),
             "bye": byes.get(p.get("proTeamId"), 0),
             "name": p["fullName"],
+            "adp": adp(p),
+            "injured": bool(p.get("injured")),
         }
 
     # ESPN's projection curve per position: the value of the Nth-best at that spot.
@@ -162,8 +181,10 @@ def main():
             "pos": pos,
             "posRank": k,
             "vor": round(vor, 1),
+            "adp": e["adp"],
             "bye": r["bye"] if r and r.get("bye") else e["bye"],
             "rank": r["rank"] if r else None,
+            "injured": e["injured"],
             "src": src,
         }
 
@@ -181,13 +202,16 @@ def main():
     print("replacement level (projected points):")
     for pos in ("QB", "RB", "WR", "TE", "K", "D/ST"):
         print(f"  {pos:<5} {REPLACEMENT[pos]:>3}th = {baseline[pos]:>6.1f}")
+    missing_adp = sum(1 for v in out.values() if v["adp"] >= 9999)
+    print(f"ADP present for {len(out) - missing_adp}/{len(out)} players")
+
     print("\ntop 30 by value over replacement:")
     top = sorted(out.values(), key=lambda v: -v["vor"])[:30]
     for i, v in enumerate(top, 1):
         rk = f"#{v['rank']}" if v["rank"] else "--"
         print(
             f"{i:>2}. {v['vor']:>6.1f}  {v['name']:<24}{v['pos']:<6}"
-            f"posRk{v['posRank']:<4}Ringer{rk:<6}bye{v['bye']}"
+            f"posRk{v['posRank']:<4}Ringer{rk:<6}adp{v['adp']:<7}bye{v['bye']}"
         )
 
 
