@@ -81,7 +81,7 @@ This is the core ritual. **Every player action runs through these steps in this 
 
 ### Per-player-action
 
-1. **Classify.** Say out loud: "That's a [check / attack / save / narrative / social]."
+1. **Classify.** State explicitly: "That's a [check / attack / save / narrative / social]."
 2. **Set the target number and reasoning** -- BEFORE rolling. If Alex's narration earned a Rule-of-Cool adjustment (creative framing, leveraged prep, clever use of environment), decide the adjustment NOW and log it.
 3. **Commit:**
    ```

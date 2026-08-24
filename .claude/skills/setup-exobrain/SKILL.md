@@ -122,7 +122,7 @@ If all three round-trip, the ports are bound correctly. If one fails, fix that b
 - **stack-profile:** notes=Notion(connector), tasks=Todoist(connector), calendar=Google(connector), capture=manual, health=none, tier=1, persona="Iris".
 - **Smoke test:** create a Todoist task, add a Journal row, generate a one-paragraph briefing from their real calendar. Done in minutes, no filesystem, no scripts.
 
-## Honesty and limits (say these out loud)
+## Honesty and limits (say these explicitly)
 
 - **Tier 2 automation needs an always-on computer** you can run on with a scheduler. A browser-only user cannot have unattended watchers or scheduled briefings, and you should say so instead of implying otherwise.
 - **Some ports need paid services or OAuth** (Notion API, health APIs, a smart recorder). Name the cost/step before the user hits it.
