@@ -64,7 +64,11 @@ against a live clock is how picks get lost.
 
 0. **Rebuild the board that morning**: `python3 fantasy/vor.py` (or `arm.py
    board`). It pulls live ESPN projections and needs the Ringer board re-pulled
-   first via `ringer_board.py`.
+   first via `ringer_board.py`. Then run `python3 fantasy/signoff.py status`:
+   it exits nonzero while any board-vs-ECR divergence is unsigned, and Alex's
+   standing rule (2026-08-24) is that **no counter-consensus pick reaches the
+   draft without a signed thesis**. `keep --thesis` registers the bet in the
+   ledger; `correct` re-slots the player to consensus on the next build.
 1. **Be in the draft room before it opens.** Absence is not falling behind, it is
    ESPN drafting your whole team. It made 73 picks in ~90 seconds on 2026-08-24
    because every team was flagged AUTO. Entering clears the flag on *upcoming*

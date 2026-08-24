@@ -274,10 +274,40 @@ def main():
         for i, (_, k) in enumerate(ranked, 1):
             espn_pos_rank[k] = i
 
+    # Signed dispositions from the pre-draft divergence sign-off (signoff.py):
+    # a "consensus" player is re-slotted at his ECR positional rank, so the
+    # board only diverges from the market where Alex has signed a thesis.
+    overrides = {}
+    ov_path = os.path.join(HERE, "board-overrides.json")
+    if os.path.exists(ov_path):
+        overrides = json.load(open(ov_path))
+    ecr_slot = {}
+    ecr_path = os.path.join(HERE, "draftbot", "ecr.json")
+    if os.path.exists(ecr_path):
+        bypos = {}
+        for kk, vv in json.load(open(ecr_path)).items():
+            bypos.setdefault(vv["pos"], []).append((vv["ecr"], kk))
+        for _pos, lst in bypos.items():
+            for i, (_, kk) in enumerate(sorted(lst), 1):
+                ecr_slot[kk] = i
+    corrections_wanted = {
+        k for k, d in overrides.items() if d.get("action") == "consensus"
+    }
+    if corrections_wanted and not ecr_slot:
+        sys.exit(
+            "board-overrides.json has consensus corrections but draftbot/"
+            "ecr.json is missing; run examiner.py --refresh first"
+        )
+
+    corrected = 0
     for key, e in espn.items():
         r = ringer.get(key)
         pos = e["pos"]
-        if r and r.get("pos") == pos and r.get("pos_rank"):
+        if key in corrections_wanted and key in ecr_slot:
+            k = ecr_slot[key]
+            src = "signoff-consensus"
+            corrected += 1
+        elif r and r.get("pos") == pos and r.get("pos_rank"):
             k = r["pos_rank"]
             src = "ringer"
         else:
@@ -308,6 +338,30 @@ def main():
         )
 
     print(f"players: {len(out)}   from ESPN projections + {len(ringer)} Ringer ranks")
+    if corrected:
+        print(f"signed consensus corrections applied: {corrected}")
+    if ecr_slot:
+        # Draft-morning gate: surface any divergence nobody has signed, so a
+        # source update cannot smuggle a new counter-consensus bet onto the
+        # board. signoff.py status exits nonzero on the same condition.
+        unsigned = []
+        sys.path.insert(0, HERE)
+        from signoff import GAP as gap_min  # noqa: PLC0415 -- one source of truth for thresholds
+        from signoff import RANGE as rng  # noqa: PLC0415
+
+        for key, v in out.items():
+            th = ecr_slot.get(key)
+            if th is None or key in overrides:
+                continue
+            gap = abs(th - v["posRank"])
+            if gap >= gap_min.get(v["pos"], 5) and min(th, v["posRank"]) <= rng.get(
+                v["pos"], 40
+            ):
+                unsigned.append(f"{v['name']} ({v['pos']} ours {v['posRank']} ecr {th})")
+        if unsigned:
+            print(f"WARNING: {len(unsigned)} UNSIGNED divergences -- run signoff.py:")
+            for u in unsigned[:15]:
+                print("  " + u)
     print("replacement level (projected points):")
     for pos in ("QB", "RB", "WR", "TE", "K", "D/ST"):
         print(f"  {pos:<5} {REPLACEMENT[pos]:>3}th = {baseline[pos]:>6.1f}")

@@ -97,3 +97,72 @@ def test_ledger_settle_scores_sides(tmp_path, monkeypatch, capsys):
     assert "board right 1, wrong 1, pending 0" in outp
     data = json.loads((tmp_path / "ledger.json").read_text())
     assert data["entries"][0]["a_pts"] == 200.0
+
+
+signoff = load_script("fantasy/signoff.py")
+
+
+def _fixture_boards(tmp_path, monkeypatch):
+    vor_data = {"players": {
+        "bigreach": {"name": "Big Reach", "pos": "WR", "posRank": 10,
+                     "vor": 50.0, "adp": 40.0},
+        "agreed": {"name": "Agreed Guy", "pos": "WR", "posRank": 20,
+                   "vor": 20.0, "adp": 80.0},
+        "deeppass": {"name": "Deep Pass", "pos": "WR", "posRank": 90,
+                     "vor": -40.0, "adp": 200.0},
+    }}
+    # Positional rank comes from ordering, so the fixture needs a full field:
+    # filler WRs occupy every other slot and our three land at exactly the
+    # ECR pos-ranks their ecr values name (30, 21, 80).
+    ecr_data = {
+        "bigreach": {"name": "Big Reach", "pos": "WR", "ecr": 30},
+        "agreed": {"name": "Agreed Guy", "pos": "WR", "ecr": 21},
+        "deeppass": {"name": "Deep Pass", "pos": "WR", "ecr": 80},
+    }
+    for i in range(1, 101):
+        if i not in (30, 21, 80):
+            ecr_data[f"filler{i}"] = {"name": f"Filler {i}", "pos": "WR", "ecr": i}
+    (tmp_path / "vor.json").write_text(json.dumps(vor_data))
+    (tmp_path / "ecr.json").write_text(json.dumps(ecr_data))
+    monkeypatch.setattr(signoff, "VOR", tmp_path / "vor.json")
+    monkeypatch.setattr(signoff, "ECR", tmp_path / "ecr.json")
+    monkeypatch.setattr(signoff, "OVERRIDES", tmp_path / "overrides.json")
+
+
+def test_signoff_flags_material_gaps_only(tmp_path, monkeypatch):
+    _fixture_boards(tmp_path, monkeypatch)
+    rows = signoff.divergences()
+    names = [r["name"] for r in rows]
+    # ECR pos-ranks derive from ecr ordering: bigreach WR2 vs ours WR10.
+    assert "Big Reach" in names
+    assert "Agreed Guy" not in names          # gap 1, immaterial
+    assert "Deep Pass" not in names           # outside draftable range
+
+
+def test_signoff_correct_roundtrip(tmp_path, monkeypatch, capsys):
+    _fixture_boards(tmp_path, monkeypatch)
+
+    class A:
+        name, date = "Big Reach", "2026-08-24"
+
+    signoff.cmd_correct(A)
+    ov = json.loads((tmp_path / "overrides.json").read_text())
+    assert ov["bigreach"]["action"] == "consensus"
+    # status must now be clean (the one material divergence is signed)
+    signoff.cmd_status(None)
+    assert "all material divergences signed" in capsys.readouterr().out
+
+
+def test_signoff_keep_registers_ledger_bet(tmp_path, monkeypatch, capsys):
+    _fixture_boards(tmp_path, monkeypatch)
+    calls = []
+    monkeypatch.setattr(signoff.subprocess, "run",
+                        lambda cmd, **kw: calls.append(cmd))
+
+    class A:
+        name, thesis, vs, date = "Big Reach", "we believe", None, "2026-08-24"
+
+    signoff.cmd_keep(A)
+    ov = json.loads((tmp_path / "overrides.json").read_text())
+    assert ov["bigreach"]["thesis"] == "we believe"
+    assert calls and "ledger.py" in str(calls[0][1])
