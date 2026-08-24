@@ -12,10 +12,19 @@
  * largest ancestor of an action button that still contains only ONE action
  * button, which holds regardless of how many wrapper divs ESPN adds.
  *
- * Placeholders substituted by arm.py: __RANKS__, __CONFIG__
+ * Scoring is value over replacement, not overall board rank. Rank compares a
+ * player to the whole field; a pick is actually decided by how much better he is
+ * than the man you could have at his own position anyway. Ranking on the field
+ * is why the 2026-08-24 mock took a QB in round 4 and never took a tight end.
+ * VALUES carries a precomputed vor per player (see ../vor.py).
+ *
+ * arm.py substitutes two placeholder tokens below (the value table and the
+ * config). They are deliberately not named in this comment: the substitution is
+ * a plain string replace, so a token spelled out here gets the whole value blob
+ * injected into it too, doubling the payload.
  */
 (() => {
-  const RANKS = __RANKS__;
+  const VALUES = __VALUES__;
   const CFG = __CONFIG__;
 
   if (window.__mist) {
@@ -53,52 +62,54 @@
   const isAction = (b) => /Button--(draft|queue)/i.test(cls(b));
   const isDraft = (b) => /Button--draft/i.test(cls(b));
 
-  /* Largest ancestor still containing exactly one action button == the row. */
-  const rowOf = (btn) => {
-    let last = btn;
-    let node = btn.parentElement;
-    while (node) {
-      const n = [...node.querySelectorAll('button')].filter(isAction).length;
-      if (n !== 1) return last;
-      last = node;
-      node = node.parentElement;
-    }
-    return last;
-  };
+  const isQueue = (b) => /Button--queue/i.test(cls(b));
 
   const POS_RE = /^(QB|RB|WR|TE|K|D\/ST|WRCB)$/;
 
-  const parseRow = (btn) => {
-    const row = rowOf(btn);
-    if (!row) return null;
-    const parts = row.innerText
-      .split('\n')
-      .map((s) => s.trim())
-      .filter(Boolean);
-    if (!parts.length) return null;
+  /* Every player row that is in the DOM, whether or not it is on screen.
+   *
+   * This is THE thing that has to be right. ESPN's fixed-data-table keeps all
+   * ~200 available players in the DOM but only gives a layout box to the dozen
+   * currently scrolled into view, and `innerText` returns '' for any element
+   * without one. Reading innerText therefore made the bot score a pool of 1 to
+   * 19 players and treat it as the whole board: on 2026-08-24 it took the only
+   * candidate it could see at 1.01, then spent round 6 on a 19-VOR receiver.
+   * `textContent` does not care about layout, so it sees all of them.
+   *
+   * Names come straight off the row's own player anchor, so there is no
+   * substring scanning across a blob of page text and no way to resolve a row
+   * to some other player standing next to it -- which is how pick 78 of the
+   * first mock drafted Jaylen Warren while logging "Mike Evans". */
+  const ROW_SEL = '.fixedDataTableRowLayout_rowWrapper';
+  const txt = (el) => ((el && el.textContent) || '').trim();
 
-    const espn = parseInt(parts[0], 10) || 999;
-    let pos = (parts.find((p) => POS_RE.test(p)) || '').replace('WRCB', 'WR');
-
-    /* Name = the ranked player whose name appears in this row. Falls back to
-     * the longest non-token line so unranked players are still draftable. */
-    const flat = norm(row.innerText);
-    let name = null;
-    let rank = null;
-    for (const key in RANKS) {
-      if (key.length >= 8 && flat.includes(key)) {
-        if (rank === null || RANKS[key] < rank) {
-          rank = RANKS[key];
-          name = key;
-        }
-      }
+  const cellMatching = (row, re) => {
+    for (const el of row.querySelectorAll('span,div,td')) {
+      const t = txt(el);
+      if (re.test(t)) return t;
     }
-    const label =
-      parts.find((p) => /[a-z]/.test(p) && p.length > 3 && !POS_RE.test(p)) ||
-      parts[1] ||
-      '?';
+    return '';
+  };
 
-    return { btn, row, espn, pos, name, rank, label };
+  const candidates = (want) => {
+    const out = [];
+    for (const row of document.querySelectorAll(ROW_SEL)) {
+      const label = txt(row.querySelector('.player-news'));
+      if (!label) continue;
+      const btn = [...row.querySelectorAll('button')].filter(isAction).find(want);
+      if (!btn) continue;
+      const v = VALUES[norm(label)] || null;
+      out.push({
+        btn,
+        row,
+        label,
+        v,
+        pos: v ? v.pos : cellMatching(row, POS_RE).replace('WRCB', 'WR'),
+        bye: v ? v.bye : 0,
+        espn: parseInt(cellMatching(row, /^\d{1,3}$/), 10) || 999,
+      });
+    }
+    return out;
   };
 
   /* Limits render as one run-together string: "QB2/4RB6/8WR4/8TE2/3K1/3D/ST1/3".
@@ -121,10 +132,37 @@
     return counts;
   };
 
+  /* Bye weeks already on the roster, read from the roster panel's BYE column.
+   * Byes are a within-tier tiebreak, never a reason to reach past a tier. */
+  const myByes = () => {
+    const b = document.body.innerText;
+    const end = b.indexOf('Roster Limits');
+    const counts = {};
+    if (end < 0) return counts;
+    const start = b.lastIndexOf('POS', end);
+    if (start < 0) return counts;
+    const lines = b
+      .slice(start, end)
+      .split('\n')
+      .map((x) => x.trim())
+      .filter(Boolean);
+    for (let i = 0; i < lines.length - 2; i++) {
+      if (!/^(QB|RB|WR|TE|FLEX|D\/ST|K|BE|IR)$/.test(lines[i])) continue;
+      const nm = lines[i + 1];
+      const by = lines[i + 2];
+      if (nm && nm !== 'Empty' && /^\d+$/.test(by)) {
+        const w = parseInt(by, 10);
+        counts[w] = (counts[w] || 0) + 1;
+      }
+    }
+    return counts;
+  };
+
+  const CAP = { QB: 'maxQB', RB: 'maxRB', WR: 'maxWR', TE: 'maxTE' };
+
   /* Lower is better. null == not draftable right now. */
-  const score = (p, r) => {
+  const score = (p, r, byes) => {
     const left = (r.lastRound || CFG.rounds) - r.round;
-    const base = p.rank !== null ? p.rank : p.espn + CFG.unrankedPenalty;
 
     if (p.pos === 'D/ST') {
       if (r.DST >= 1) return null;
@@ -134,10 +172,10 @@
       if (r.K >= 1) return null;
       return left <= CFG.kRoundsLeft ? -900 : null;
     }
-    /* Required STARTING slots, not just K and D/ST. Ranking on overall board
-     * position never forces a TE (they rank poorly by design) and under-rates
-     * the 2nd RB once the RB pool thins, so a pure-rank bot can finish unable
-     * to field a legal lineup. Reserve a pick for every unfilled starter. */
+
+    /* Reserve a pick for every unfilled STARTING slot. Value over replacement
+     * fixes the old "never drafts a TE" failure on its own, but this still has
+     * to hold or a run on the last kickers can leave the lineup illegal. */
     const need = {
       RB: Math.max(0, CFG.startRB - r.RB),
       TE: Math.max(0, CFG.startTE - r.TE),
@@ -145,24 +183,112 @@
       K: Math.max(0, 1 - r.K),
     };
     const mustFill = need.RB + need.TE + need['D/ST'] + need.K;
-    const picksLeft = left + 1;
-    if (picksLeft <= mustFill && !need[p.pos]) return null;
+    if (left + 1 <= mustFill && !need[p.pos]) return null;
 
-    if (p.pos === 'QB' && r.QB >= CFG.maxQB) return null;
-    if (p.pos === 'TE' && r.TE >= CFG.maxTE) return null;
-    if (p.pos === 'RB' && r.RB >= CFG.maxRB) return null;
-    if (p.pos === 'WR' && r.WR >= CFG.maxWR) return null;
+    if (CAP[p.pos] && r[p.pos] >= CFG[CAP[p.pos]]) return null;
 
-    /* Best-player-available for the first few rounds. The roster-shape bonus
-     * exists to stop the RB6/WR4 ending we got on 2026-08-24, which is a
-     * late-round failure. Applying it at 1.01 would reorder the top of the
-     * board, where consensus rank is the most reliable signal we have. */
-    let s = base;
-    if (r.round > CFG.bpaRounds) {
-      if (p.pos === 'WR' && r.WR < CFG.wantWR) s -= CFG.wrBonus;
-      if (p.pos === 'RB' && r.RB < CFG.wantRB) s -= CFG.rbBonus;
+    /* Unvalued players sit below replacement, ordered by ESPN's own rank, so
+     * they are only ever taken when nothing valued is legal. */
+    const vor = p.v ? p.v.vor : -30 - p.espn * 0.05;
+    let s = -vor;
+
+    /* Bye spreading, while the starting nine are still being filled. Week 8 is
+     * free: the league has 13 teams, so one sits idle each week and Alex's idle
+     * week is 8. A player on a Week 8 bye costs him no game he could lose. */
+    if (r.total < CFG.starters && p.bye) {
+      if (p.bye === CFG.freeBye) s -= CFG.freeByeBonus;
+      else s += CFG.byeStackPenalty * (byes[p.bye] || 0);
     }
     return s;
+  };
+
+  const wait = (ms) => new Promise((res) => setTimeout(res, ms));
+
+  /* ESPN's list is windowed: about 32 rows exist in the DOM at a time out of
+   * ~190 available, and the window follows the scroll position. Scoring only
+   * the window means the best player on the board is invisible unless somebody
+   * happens to have scrolled there, and it means a kicker -- ranked past 200 --
+   * can never be seen at all, so the last round finds NO CANDIDATE.
+   *
+   * The fix is ESPN's own position filter. Filtering to one position and
+   * scrolling to the top puts that position's best available players inside the
+   * window by construction, so scanning position by position gives a board that
+   * is complete where it matters, at every position, for one dropdown change
+   * each. */
+  const listMain = () =>
+    document.querySelector('.fixedDataTableLayout_main') ||
+    document.querySelector('.fixedDataTableLayout_rowsContainer');
+
+  const posSelect = () =>
+    [...document.querySelectorAll('select')].find((sel) =>
+      [...sel.options].some((o) => o.text === 'All Pos.')
+    );
+
+  const setPosFilter = (label) => {
+    const sel = posSelect();
+    if (!sel) return false;
+    const opt = [...sel.options].find((o) => o.text === label);
+    if (!opt) return false;
+    const setter = Object.getOwnPropertyDescriptor(
+      window.HTMLSelectElement.prototype,
+      'value'
+    ).set;
+    setter.call(sel, opt.value);
+    sel.dispatchEvent(new Event('change', { bubbles: true }));
+    return true;
+  };
+
+  const scrollListTop = async () => {
+    const main = listMain();
+    if (!main) return;
+    let last = null;
+    for (let i = 0; i < CFG.scrollSteps; i++) {
+      main.dispatchEvent(
+        new WheelEvent('wheel', { deltaY: -4000, bubbles: true, cancelable: true })
+      );
+      await wait(CFG.scrollDelay);
+      const first = (candidates(() => true)[0] || {}).label || '';
+      if (first && first === last) return; /* window stopped moving: at the top */
+      last = first;
+    }
+  };
+
+  /* One filtered, scrolled-to-top sweep per position we are still allowed to
+   * draft. Returns the union, keyed by name so a player seen twice counts once. */
+  const scanBoard = async (want, positions) => {
+    const found = new Map();
+    for (const pos of positions) {
+      if (!setPosFilter(pos)) continue;
+      await wait(CFG.filterDelay);
+      await scrollListTop();
+      for (const c of candidates(want)) {
+        if (!found.has(c.label)) found.set(c.label, Object.assign({ filter: pos }, c));
+      }
+    }
+    return [...found.values()];
+  };
+
+  /* Buttons go stale when the window recycles rows, so a winner chosen during
+   * the scan cannot simply be clicked. Go back to where he was and find him
+   * again by name. */
+  const relocate = async (want, cand) => {
+    if (!setPosFilter(cand.filter)) return null;
+    await wait(CFG.filterDelay);
+    await scrollListTop();
+    return candidates(want).find((c) => c.label === cand.label) || null;
+  };
+
+  /* Which positions are worth a sweep: the ones a pick could legally go to. */
+  const openPositions = (r) => {
+    const left = (r.lastRound || CFG.rounds) - r.round;
+    const out = [];
+    if (r.QB < CFG.maxQB) out.push('QB');
+    if (r.RB < CFG.maxRB) out.push('RB');
+    if (r.WR < CFG.maxWR) out.push('WR');
+    if (r.TE < CFG.maxTE) out.push('TE');
+    if (r.DST < 1 && left <= CFG.dstRoundsLeft) out.push('D/ST');
+    if (r.K < 1 && left <= CFG.kRoundsLeft) out.push('K');
+    return out;
   };
 
   const clickConfirm = () => {
@@ -174,23 +300,76 @@
     });
   };
 
+  const onTheClock = () =>
+    [...document.querySelectorAll('button')].some(isDraft);
+
+  const makePick = async () => {
+    const r = roster();
+    const byes = myByes();
+    const before = r.total;
+
+    const board = await scanBoard(isDraft, openPositions(r));
+    const cands = board
+      .map((p) => ({ p, s: score(p, r, byes) }))
+      .filter((x) => x.s !== null)
+      .sort((a, b) => a.s - b.s);
+
+    if (!cands.length) {
+      L('NO CANDIDATE (round ' + r.round + ', scanned ' + board.length + ')');
+      return;
+    }
+
+    const win = cands[0];
+    const label = win.p.label + ' [' + win.p.pos + ']';
+    const live = await relocate(isDraft, win.p);
+    if (!live) {
+      L('LOST ROW ' + label + ' after scan -- retrying next tick');
+      return;
+    }
+
+    live.btn.click();
+    L(
+      'CLICK ' + label +
+        ' vor=' + (win.p.v ? win.p.v.vor : 'n/a') +
+        ' bye=' + win.p.bye +
+        ' score=' + win.s.toFixed(1) +
+        ' board=' + board.length
+    );
+
+    await wait(CFG.confirmDelay);
+    clickConfirm();
+    await wait(CFG.verifyDelay);
+
+    /* Verify the ROSTER grew, never that a click fired. Two shipped bugs
+     * reported intent: a pick logged one player while drafting another, and a
+     * queue filler reported 21 adds against zero accepted. */
+    const after = roster();
+    const grew = after.total > before;
+    L(
+      (grew ? 'OK   ' : 'FAIL ') + label +
+        '  roster ' + before + '->' + after.total +
+        '  (QB' + after.QB + ' RB' + after.RB + ' WR' + after.WR +
+        ' TE' + after.TE + ' K' + after.K + ' DST' + after.DST + ')'
+    );
+    if (grew) M.picks.push({ at: stamp(), player: win.p.label, pos: win.p.pos });
+    setPosFilter('All Pos.');
+  };
+
   const tick = () => {
     if (M.busy || !M.enabled) return;
-
-    const drafts = [...document.querySelectorAll('button')].filter(isDraft);
 
     /* ESPN silently ignores queue clicks until the draft is live, so the queue
      * cannot be preloaded. Fill it once the clock starts -- it is the
      * zero-latency floor if the autopilot ever misses a turn. Only ever while
      * we are NOT on the clock: drafting outranks stocking the backup. */
-    if (!drafts.length) {
+    if (!onTheClock()) {
       if (!M.queueDone && !/--:--/.test(document.body.innerText)) {
         M.queueDone = true;
         M.busy = true;
         M.fillQueue(CFG.queueDepth)
-          .then((r) => {
-            L('auto-queue added ' + r.added);
-            if (!r.added) M.queueDone = false; /* not live yet; retry */
+          .then((res) => {
+            L('auto-queue added ' + res.added);
+            if (!res.added) M.queueDone = false; /* not live yet; retry */
             M.busy = false;
           })
           .catch((e) => {
@@ -203,50 +382,11 @@
     }
 
     M.busy = true;
-    try {
-      const r = roster();
-      const before = r.total;
-      const cands = drafts
-        .map(parseRow)
-        .filter(Boolean)
-        .map((p) => ({ p, s: score(p, r) }))
-        .filter((x) => x.s !== null)
-        .sort((a, b) => a.s - b.s);
-
-      if (!cands.length) {
-        L('NO CANDIDATE (round ' + r.round + ', ' + drafts.length + ' buttons)');
+    makePick()
+      .catch((e) => L('ERR ' + e.message))
+      .finally(() => {
         M.busy = false;
-        return;
-      }
-
-      const win = cands[0];
-      const label = win.p.label + ' [' + win.p.pos + ']';
-      win.p.btn.click();
-      L('CLICK ' + label + ' rank=' + win.p.rank + ' espn=' + win.p.espn + ' score=' + win.s);
-
-      setTimeout(() => {
-        clickConfirm();
-        setTimeout(() => {
-          const after = roster();
-          const grew = after.total > before;
-          L(
-            (grew ? 'OK   ' : 'FAIL ') +
-              label +
-              '  roster ' +
-              before +
-              '->' +
-              after.total +
-              '  (QB' + after.QB + ' RB' + after.RB + ' WR' + after.WR +
-              ' TE' + after.TE + ' K' + after.K + ' DST' + after.DST + ')'
-          );
-          if (grew) M.picks.push({ at: stamp(), player: win.p.label, pos: win.p.pos });
-          M.busy = false;
-        }, CFG.verifyDelay);
-      }, CFG.confirmDelay);
-    } catch (e) {
-      L('ERR ' + e.message);
-      M.busy = false;
-    }
+      });
   };
 
   /* Fill the queue as the zero-latency floor: if the clock ever beats the
@@ -260,32 +400,40 @@
       .map((s) => s.trim())
       .filter((s) => /^[A-Z]\.\s|^[A-Z][a-z]+ /.test(s));
 
+  /* Queue the best few at each open position. This clicks inside each sweep
+   * rather than scanning first and relocating per player: relocation costs a
+   * filter change and a scroll each, which is fine for the ONE pick that
+   * matters and absurd thirty times over. */
   M.fillQueue = async (depth) => {
     const r = roster();
-    const cands = [...document.querySelectorAll('button')]
-      .filter((b) => /Button--queue/i.test(cls(b)))
-      .map(parseRow)
-      .filter(Boolean)
-      .map((p) => ({ p, s: score(p, r) }))
-      .filter((x) => x.s !== null)
-      .sort((a, b) => a.s - b.s)
-      .slice(0, depth);
-
+    const byes = myByes();
+    const positions = openPositions(r);
+    const perPos = Math.max(2, Math.ceil(depth / Math.max(1, positions.length)));
     const before = queueRows().length;
-    for (const c of cands) {
-      c.p.btn.click();
-      await new Promise((res) => setTimeout(res, 240));
+    const tried = [];
+
+    for (const pos of positions) {
+      if (!setPosFilter(pos)) continue;
+      await wait(CFG.filterDelay);
+      await scrollListTop();
+      const best = candidates(isQueue)
+        .map((c) => ({ p: c, s: score(c, r, byes) }))
+        .filter((x) => x.s !== null)
+        .sort((a, b) => a.s - b.s)
+        .slice(0, perPos);
+      for (const c of best) {
+        c.p.btn.click();
+        tried.push(c.p.label);
+        await wait(200);
+      }
     }
-    await new Promise((res) => setTimeout(res, 800));
+    setPosFilter('All Pos.');
+    await wait(600);
+
     const after = queueRows();
     const added = after.length - before;
-    L('QUEUE fill: tried ' + cands.length + ', added ' + added);
-    return {
-      tried: cands.map((c) => c.p.label),
-      added: added,
-      queueNow: after.slice(0, 40),
-      ok: added > 0,
-    };
+    L('QUEUE fill: tried ' + tried.length + ', added ' + added);
+    return { tried, added, queueNow: after.slice(0, 40), ok: added > 0 };
   };
 
   M.clearQueue = () => {
@@ -309,7 +457,17 @@
     };
   };
 
+  /* Exposed so the scoring can be exercised against fixtures from outside the
+     page. A check whose failure mode is a silent zero needs a positive control. */
+  M.score = score;
+  M.candidates = candidates;
+  M.scanBoard = scanBoard;
+  M.openPositions = openPositions;
+  M.myByes = myByes;
+  M.roster = roster;
+  M.values = VALUES;
+
   M.timer = setInterval(tick, CFG.pollMs);
-  L('ARMED  poll=' + CFG.pollMs + 'ms  ranked=' + Object.keys(RANKS).length);
+  L('ARMED  poll=' + CFG.pollMs + 'ms  valued=' + Object.keys(VALUES).length);
   return 'ARMED';
 })();
