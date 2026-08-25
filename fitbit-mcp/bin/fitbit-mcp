@@ -1,0 +1,22 @@
+#!/bin/sh
+# Launch the Fitbit MCP server (stdio). Registered with:
+#   claude mcp add --scope user fitbit -- "<this file>"
+# Secrets come from the gitignored harness .env, sourced below:
+#   FITBIT_CLIENT_ID, FITBIT_CLIENT_SECRET
+# The OAuth token lives in ../.fitbit-token.json (gitignored, written by the
+# server itself). See ../FORK.md for what diverges from upstream.
+DIR="$(cd "$(dirname "$0")/.." && pwd)"
+HARNESS="$(cd "$DIR/.." && pwd)"
+if [ -f "$HARNESS/.env" ]; then
+    set -a
+    . "$HARNESS/.env"
+    set +a
+fi
+if [ ! -f "$DIR/build/index.js" ]; then
+    echo "fitbit-mcp: build/ is missing. Run: cd '$DIR' && npm ci && npm run build" >&2
+    exit 1
+fi
+NODE="$(command -v node || true)"
+[ -x "$NODE" ] || NODE=/opt/homebrew/bin/node
+[ -x "$NODE" ] || { echo "fitbit-mcp: no node on PATH and /opt/homebrew/bin/node is missing" >&2; exit 1; }
+exec "$NODE" "$DIR/build/index.js"
