@@ -107,7 +107,6 @@ EXTRA_INCLUDES=(
     ".claude/statusline-command.sh"
     ".claude/channels/discord/.env"             # Discord bot token (channels/ is otherwise excluded)
     ".claude/channels/discord/access.json"
-    "Documents/Claude Code/mcp-fitbit-main"     # Fitbit MCP: .env + token + build (NOT a git repo)
     "Documents/ytmusic-manager/browser.json"    # YT Music auth (not a git repo)
     "Documents/osrs-companion/credentials.json" # OSRS agent auth (not a git repo)
     "Documents/home-assistant/config"           # HA hand-built config (history DB excluded below)
@@ -120,7 +119,7 @@ EXTRA_INCLUDES=(
 LOCAL_BACKUP_DIR=""
 
 # External dependencies (outside the harness)
-FITBIT_TOKEN="$HOME/Documents/Claude Code/mcp-fitbit-main/.fitbit-token.json"
+FITBIT_TOKEN="$HARNESS_DIR/fitbit-mcp/.fitbit-token.json"
 
 # Ensure HOME is set (launchd doesn't set it)
 export HOME="${HOME:-$(dscl . -read /Users/$(whoami) NFSHomeDirectory | awk '{print $2}')}"
