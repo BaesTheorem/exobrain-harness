@@ -107,12 +107,42 @@ def build_tiers(players: list[dict]) -> dict[str, list[list[dict]]]:
             continue
         labels = kmeans_1d([float(value(p) or 0) for p in pool], ntiers)
         tiers: list[list[dict]] = []
-        for p, lab in zip(pool, labels):
+        for p, lab in zip(pool, labels, strict=True):
             while len(tiers) <= lab:
                 tiers.append([])
             tiers[lab].append(p)
         out[pos] = [t for t in tiers if t]
     return out
+
+
+def _norm_name(s: str) -> str:
+    import re
+    import unicodedata
+
+    s = unicodedata.normalize("NFKD", s).replace("’", "").replace("'", "")
+    s = re.sub(r"\b(jr|sr|ii|iii|iv)\b", "", s.lower())
+    return re.sub(r"[^a-z]", "", s)
+
+
+def _load_opportunity() -> dict:
+    """TD-regression flags from the 2025 volume overlay, if it has been built
+    (fantasy/opportunity.py). BUY = heavy volume with TD-shorted results,
+    SELL = TD-inflated on modest volume. Volume repeats; touchdowns do not
+    (last-year TDs -> next-year TDs R² = 0.079)."""
+    path = Path(__file__).resolve().parent / "draftbot" / "opportunity.json"
+    if not path.exists():
+        return {}
+    out = {}
+    for rec in json.loads(path.read_text()).values():
+        if rec.get("flag"):
+            out[_norm_name(rec["name"])] = rec["flag"]
+    return out
+
+
+_OPPORTUNITY = _load_opportunity()
+
+
+_FLAG_CLASS = {"W8": "w8", "BUY": "buy", "SELL": "sell"}
 
 
 def flags(p: dict) -> list[str]:
@@ -121,6 +151,9 @@ def flags(p: dict) -> list[str]:
         f.append("W8")
     if (p.get("expert_spread") or 0) >= SPLIT_AT:
         f.append(f"SPLIT {p['expert_spread']}")
+    td = _OPPORTUNITY.get(_norm_name(p.get("name", "")))
+    if td:
+        f.append(td)
     return f
 
 
@@ -153,6 +186,8 @@ tr:nth-child(even){background:var(--sf2)}
 .fl{font-size:9px;letter-spacing:.4px}
 .w8{color:var(--ok);font-weight:700}
 .sp{color:var(--hi)}
+.buy{color:var(--ok);font-weight:700;border:1px solid var(--ok);padding:0 2px}
+.sell{color:var(--hi);font-weight:700;border:1px solid var(--hi);padding:0 2px}
 .two{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:10px}
 .vor{margin-top:10px;border:1px solid var(--out);background:var(--sf)}
 .vor table{font-size:11px}
@@ -171,7 +206,7 @@ def render_html(tiers, players, meta) -> str:
         for p in tier:
             fl = flags(p)
             fs = " ".join(
-                f'<span class="{"w8" if f == "W8" else "sp"}">{html.escape(f)}</span>'
+                f'<span class="{_FLAG_CLASS.get(f, "sp")}">{html.escape(f)}</span>'
                 for f in fl
             )
             out.append(
@@ -217,7 +252,10 @@ replacement), from The Ringer's full-PPR board. {ROUNDS} rounds,
 {TEAMS * ROUNDS} picks, ~{round(90 * 60 / (TEAMS * ROUNDS))}s per pick.
 <span class="w8">W8</span> = NFL bye in week 8, which is your idle week, so it is
 free (tiebreak only). <span class="sp">SPLIT</span> = the three analysts disagree
-by {SPLIT_AT}+ places, so expect them to slide.</p>
+by {SPLIT_AT}+ places, so expect them to slide.
+<span class="buy">BUY</span> = heavy 2025 volume, TD-shorted: the points come
+back. <span class="sell">SELL</span> = TDs on modest volume: they will not
+repeat (TD YoY R&sup2; = 0.08).</p>
 
 <div class="rules">
 <div><b>Take the tier, not the player.</b> Ask only: will anyone in this tier survive to my next turn?</div>

@@ -167,6 +167,52 @@ def my_next_pick(order, i):
     return None
 
 
+def survival(adp, pick):
+    """P(a player with this ADP is still available at `pick`).
+
+    Logistic approximation of the normal CDF; sigma calibrated on a real ESPN
+    room (2026-08-24, 160 picks): mean |actual - adp| ran 0.15-0.24 x ADP,
+    which back-converts to sigma ~= 0.22 x ADP with a floor for the top picks.
+    """
+    sigma = max(3.5, 0.22 * adp)
+    z = (pick - adp) / sigma
+    return 1.0 - 1.0 / (1.0 + pow(2.718281828, -1.702 * z))
+
+
+def expected_floors(avail, next_pick):
+    """Expected BEST vor per position at our next turn.
+
+    The shipped floor is a threshold: a player with adp past the next pick
+    counts fully, anyone else not at all. Chase Brown (ADP 22.5, our picks
+    23 and 30) was a coin flip the threshold scored as certainty; this prices
+    him as one: E[best] = sum vor_i * s_i * prod(1 - s_j) over players sorted
+    best-first, s = survival probability.
+
+    STUDY ONLY, off by default (policy {"survivalFloor": true} enables). A/B
+    at 312 rooms x sigma in {0.10, 0.15, 0.22} against the threshold floor
+    (2026-08-24): a wash on average (avg rank 1.85-1.87 vs 1.88, behind
+    17.3-18.0 vs 18.0, firsts 197-202 vs 203) and the tail worsened at the
+    wheel (worst 8 -> 11 at two of three sigmas; the marginal pick was
+    Bowers over Jefferson at seat 13). Not ported to autopilot.js: no
+    measured gain buys no draft-day complexity.
+    """
+    bags = {}
+    for p in avail:
+        bags.setdefault(p["pos"], []).append(p)
+    floors = {}
+    for pos, players in bags.items():
+        players.sort(key=lambda p: -p["vor"])
+        e, alive = 0.0, 1.0
+        for p in players:
+            s = survival(p["adp"], next_pick)
+            e += p["vor"] * s * alive
+            alive *= 1.0 - s
+            if alive < 1e-4:
+                break
+        floors[pos] = e
+    return floors
+
+
 def bot_pick(avail, roster, order, i, policy):
     cfg = dict(CFG)
     cfg.update({k: v for k, v in policy.items() if k in CFG})
@@ -181,12 +227,16 @@ def bot_pick(avail, roster, order, i, policy):
     nxt = my_next_pick(order, i)
     next_pick = (nxt + 1) if nxt is not None else 10**9
 
-    # floors: best VOR at each position among players surviving past next pick
-    floors = {}
-    for p in avail:
-        if p["adp"] > next_pick:
-            if p["vor"] > floors.get(p["pos"], float("-inf")):
-                floors[p["pos"]] = p["vor"]
+    if policy.get("survivalFloor"):
+        floors = expected_floors(avail, next_pick)
+    else:
+        # Threshold floor, mirroring autopilot.js: best VOR at each position
+        # among players whose ADP says they survive past our next pick.
+        floors = {}
+        for p in avail:
+            if p["adp"] > next_pick:
+                if p["vor"] > floors.get(p["pos"], float("-inf")):
+                    floors[p["pos"]] = p["vor"]
 
     need = {
         "RB": max(0, cfg["startRB"] - counts.get("RB", 0)),

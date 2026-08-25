@@ -120,6 +120,14 @@
     "notes": "Single owner of the driver cmd channel while a draft runs: polls the armed autopilot, logs each new pick to supervise.log, and drives a MIST Console progress bar off roster count. Start it right after 'arm.py arm' and read supervise.log instead of polling arm.py, so nothing races on result.json. Exits at 16/16."
   },
   {
+    "name": "fantasy opportunity overlay",
+    "command": "python3 fantasy/opportunity.py",
+    "repo_dir": "fantasy",
+    "source": "built",
+    "added": "2026-08-24",
+    "notes": "2025 volume metrics (tgt/g, touch/g, target share, wopr, snap pct) + TD-regression flags via nflreadpy: BUY = heavy volume TD-shorted (Lamb 9 tgt/g 3 TD), SELL = TD-inflated on modest volume (Henderson 10 TD 46% snaps). Writes draftbot/opportunity.json; tier_sheet.py renders the flags on draft-sheet.html. Advisory only: a BUY is a thesis candidate for signoff.py keep, the bot never reads it. Rebuild before the draft after any late-preseason data update."
+  },
+  {
     "name": "fantasy vor board",
     "command": "python3 fantasy/vor.py",
     "repo_dir": "/Users/alexhedtke/Documents/Exobrain harness/fantasy",
