@@ -94,13 +94,14 @@ As of the **2026-06-21 backup fixes**, the items that used to be missing are now
 ```bash
 # home-extras/ restores everything the git sweep + harness/vault trees miss:
 #   ~/.plaud; global ~/.claude settings + CLAUDE.md + global .mcp.json + Discord
-#   bot token (channels/discord/.env); the whole Fitbit MCP at
-#   "Documents/Claude Code/mcp-fitbit-main" (a non-git vendored copy -- .env, token,
-#   and build/ come back, node_modules does not); ytmusic browser.json; osrs
+#   bot token (channels/discord/.env); ytmusic browser.json; osrs
 #   credentials.json; home-assistant config.
+# The Fitbit MCP is no longer here: it lives in the harness tree at
+# "Exobrain harness/fitbit-mcp", so the harness tarball restores it (including
+# .fitbit-token.json and build/). Only node_modules is excluded.
 rsync -a ~/restore-staging/home-extras/ "$HOME/"
-# Fitbit MCP needs its deps reinstalled (node_modules was excluded to stay lean):
-( cd "$HOME/Documents/Claude Code/mcp-fitbit-main" && npm install )   # build/index.js is already restored
+# Fitbit MCP needs its deps reinstalled (node_modules is excluded to stay lean):
+( cd "$HOME/Documents/Exobrain harness/fitbit-mcp" && npm ci )   # build/index.js is already restored
 ```
 As of the **2026-07-03 Global MIST additions**, `home-extras/` also carries `~/.claude.json` (user-scope MCP servers incl. fitbit/withings creds), MIST's persistent memory store (`.claude/projects/-Users-alexhedtke-Documents-Exobrain-harness/memory/`), and the `~/.claude/mist-global.md` symlink. Two symlinks must be recreated by hand (they can't ride in the file list):
 ```bash

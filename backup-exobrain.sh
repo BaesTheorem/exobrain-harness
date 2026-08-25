@@ -221,6 +221,7 @@ run_tar -cf "$COLLECTIVE_TAR" \
     --exclude='__pycache__' \
     --exclude='*.pyc' \
     --exclude='.DS_Store' \
+    --exclude='node_modules' \
     --exclude="$HARNESS_BASENAME/.claude/projects" \
     --exclude="$HARNESS_BASENAME/.claude/channels" \
     --exclude="$HARNESS_BASENAME/.claude/worktrees" \

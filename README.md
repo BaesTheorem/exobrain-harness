@@ -255,8 +255,8 @@ Persistent cross-session memory in `.claude/projects/.../memory/`. ~225 files to
 | **LinkedIn** | Local (linkedin-scraper-mcp) | Read-only profile/company/job lookups for job-search and CRM | Browser session (never sends messages) |
 | **MyChart** | Claude Desktop managed (hosted by [OpenRecord](https://github.com/Fan-Pier-Labs/openrecord)) | Full MyChart patient portal: meds, labs, imaging, vitals, messages, billing, insurance, referrals, preventive care, care team, immunizations, visits, documents, emergency contacts, refill requests (35+ tools, read + write) | MyChart credentials + TOTP (session auto-renews) |
 
-**Fitbit MCP location**: `/Users/alexhedtke/Documents/Claude Code/mcp-fitbit-main/`
-**Fitbit token**: `/Users/alexhedtke/Documents/Claude Code/mcp-fitbit-main/.fitbit-token.json` (auto-refreshed)
+**Fitbit MCP location**: `/Users/alexhedtke/Documents/Exobrain harness/fitbit-mcp/` (patched fork, see `fitbit-mcp/FORK.md`)
+**Fitbit token**: `/Users/alexhedtke/Documents/Exobrain harness/fitbit-mcp/.fitbit-token.json` (auto-refreshed)
 **Withings tokens**: `/Users/alexhedtke/Documents/Exobrain harness/.env` (auto-refreshed)
 **MyChart MCP**: Hosted at `openrecord.fanpierlabs.com` ([source](https://github.com/Fan-Pier-Labs/openrecord)). Currently using hosted version; plan to self-host later (Railway one-click or AWS Fargate). Credentials configured via OpenRecord web UI, MCP URL added to Claude Desktop. Supports multiple MyChart instances (pass `instance` param to target specific hospitals).
 
@@ -539,14 +539,16 @@ uv tool install things-mcp
 ### Step 3: Install Fitbit MCP Server
 
 ```bash
-cd ~/Documents/"Claude Code"
-git clone <fitbit-mcp-repo-url> mcp-fitbit-main
-cd mcp-fitbit-main
-npm install
+cd "$HOME/Documents/Exobrain harness/fitbit-mcp"
+npm ci
 npm run build
 ```
 
-Create `.env` with your Fitbit OAuth2 credentials:
+The server ships in this repo as a patched fork (`fitbit-mcp/FORK.md` covers what
+diverges from upstream and why it must not be blindly rebased). `build/` and
+`node_modules/` are untracked, so a fresh clone needs the two commands above.
+
+Add your Fitbit OAuth2 credentials to the harness `.env` (not the server's own):
 ```
 FITBIT_CLIENT_ID=your_client_id
 FITBIT_CLIENT_SECRET=your_client_secret
@@ -566,12 +568,8 @@ In the harness root (this file is git-ignored):
       "args": ["-m", "uv", "tool", "run", "things-mcp"]
     },
     "fitbit": {
-      "command": "node",
-      "args": ["/path/to/mcp-fitbit-main/build/index.js"],
-      "env": {
-        "FITBIT_CLIENT_ID": "your_id",
-        "FITBIT_CLIENT_SECRET": "your_secret"
-      }
+      "command": "/path/to/Exobrain harness/fitbit-mcp/bin/fitbit-mcp",
+      "args": []
     },
     "withings": {
       "command": "npx",

@@ -51,7 +51,7 @@ echo "== Out-of-tree credentials (the backup's known blind spots) =="
   || warn "~/.claude/channels/discord/.env missing -- claude-bot will not authenticate"
 [ -f "$HOME/.plaud/tokens-mcp.json" ] && pass "~/.plaud token present" \
   || warn "~/.plaud token missing -- re-auth via mcp__plaud__login"
-[ -f "$HOME/Documents/Claude Code/mcp-fitbit-main/.fitbit-token.json" ] \
+[ -f "$HOME/Documents/Exobrain harness/fitbit-mcp/.fitbit-token.json" ] \
   && pass "fitbit MCP token present" \
   || warn "fitbit MCP token missing (depth-3 backup gap) -- health data will not flow until re-auth"
 
