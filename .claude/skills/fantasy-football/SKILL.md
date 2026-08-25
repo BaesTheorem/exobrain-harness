@@ -62,13 +62,32 @@ for a race-free look at the room.
 Everything must be armed and tested **before** the room opens. Building it
 against a live clock is how picks get lost.
 
-0. **Rebuild the board that morning**: `python3 fantasy/vor.py` (or `arm.py
-   board`). It pulls live ESPN projections and needs the Ringer board re-pulled
-   first via `ringer_board.py`. Then run `python3 fantasy/signoff.py status`:
-   it exits nonzero while any board-vs-ECR divergence is unsigned, and Alex's
-   standing rule (2026-08-24) is that **no counter-consensus pick reaches the
-   draft without a signed thesis**. `keep --thesis` registers the bet in the
-   ledger; `correct` re-slots the player to consensus on the next build.
+0. **The draft-morning sequence, in this exact order** (each later step
+   consumes the one before it; running out of order builds the board on stale
+   sources):
+
+   ```sh
+   python3 fantasy/ringer_board.py          # 1. re-pull the Ringer board
+   python3 fantasy/examiner.py --refresh    # 2. re-pull FantasyPros ECR
+   python3 fantasy/opportunity.py           # 3. 2025 volume + BUY/SELL flags
+   python3 fantasy/vor.py                   # 4. build the board (or arm.py board)
+   python3 fantasy/signoff.py status        # 5. THE GATE -- must exit clean
+   python3 fantasy/tier_sheet.py            # 6. regen draft-sheet.html w/ flags
+   ```
+
+   Step 5 exits nonzero while any board-vs-ECR divergence is unsigned. Alex's
+   standing rule (2026-08-24): **no counter-consensus pick reaches the draft
+   without a signed thesis.** Source drift overnight can surface new
+   divergences; each gets `signoff.py keep --thesis` (registers the bet in
+   the ledger) or `correct` (re-slots to consensus; rebuild the board after
+   correcting, then re-run the gate). A BUY flag from step 3 is exactly the
+   kind of thesis a keep wants. Alex signs; MIST never signs for him.
+
+   Also that morning: re-pull the league schedule to confirm the Week 8 idle
+   week survived any late team change, and second-screen `draft-sheet.html`.
+   **After the draft, before navigating away**: `draftbot/grade.py --judge
+   both` (practice leagues 404 later; the live league keeps) and
+   `examiner.py --live` for the audit trail.
 1. **Be in the draft room before it opens.** Absence is not falling behind, it is
    ESPN drafting your whole team. It made 73 picks in ~90 seconds on 2026-08-24
    because every team was flagged AUTO. Entering clears the flag on *upcoming*
