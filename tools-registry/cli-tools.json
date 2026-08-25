@@ -40,6 +40,14 @@
     "notes": "Turns Pete Walker's CPTSD book into a 22-card Major Arcana deck. deck.json = single source of truth (scenes, wound/gift/practice text, seeds); gen_art.py paints via mist-image (FLUX.2 klein, 832x1248), compose.py builds 900x1500 cards + 3x5in deck PDF + 6-up letter print sheets at 2.75x4.75 tarot trim + overview grid, guide.py emits the vault companion note (Areas/Emotions & Wellbeing/CPTSD Tarot.md). Re-run gen_art.py to fill missing art only; edit deck.json then rerun compose+guide to revise. Extend with minor arcana = add cards to deck.json (suits would be the 4Fs)."
   },
   {
+    "name": "dedup-lookup",
+    "command": "python3 job-search/dedup-lookup.py \"<company or title>\" | --stats",
+    "repo_dir": "/Users/alexhedtke/Documents/Exobrain harness/job-search",
+    "source": "built",
+    "added": "2026-08-25",
+    "notes": "Status-aware job-listing dedup across Job Listings/ and Archive/. Indexes ~331 notes by frontmatter type: job-listing, reports status/reapply/date_added so the Re-Apply on Repost table can be applied instead of blanket-skipping. --stats shows status counts and every reapply:true watchlist employer."
+  },
+  {
     "name": "defuddle",
     "command": "npx defuddle-cli parse <url> -m",
     "repo_dir": "",
