@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+  <key>Label</key><string>com.exobrain.post-brew-heal</string>
+  <key>ProgramArguments</key>
+  <array>
+    <string>/bin/bash</string>
+    <string>/Users/alexhedtke/Documents/Exobrain harness/maintenance/post-brew-heal.sh</string>
+  </array>
+  <!-- Fires on any brew install/upgrade/uninstall, whoever ran it. -->
+  <key>WatchPaths</key>
+  <array><string>/opt/homebrew/Cellar</string></array>
+  <!-- A brew run touches the Cellar repeatedly; coalesce the burst. -->
+  <key>ThrottleInterval</key><integer>600</integer>
+  <!-- Daily backstop in case a change lands while the watch is not loaded. -->
+  <key>StartCalendarInterval</key>
+  <dict><key>Hour</key><integer>7</integer><key>Minute</key><integer>40</integer></dict>
+  <key>StandardOutPath</key><string>/Users/alexhedtke/Library/Logs/exobrain/post-brew-heal.log</string>
+  <key>StandardErrorPath</key><string>/Users/alexhedtke/Library/Logs/exobrain/post-brew-heal.log</string>
+</dict>
+</plist>
