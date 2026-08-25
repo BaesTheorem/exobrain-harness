@@ -166,3 +166,25 @@ def test_signoff_keep_registers_ledger_bet(tmp_path, monkeypatch, capsys):
     ov = json.loads((tmp_path / "overrides.json").read_text())
     assert ov["bigreach"]["thesis"] == "we believe"
     assert calls and "ledger.py" in str(calls[0][1])
+
+
+try:
+    opportunity = load_script("fantasy/opportunity.py")
+except ModuleNotFoundError:  # nflreadpy lives in system python, not pytest's venv
+    opportunity = None
+
+
+@pytest.mark.skipif(opportunity is None, reason="nflreadpy not importable here")
+def test_td_regression_flags():
+    assert opportunity is not None
+    f = opportunity.flag_for
+    # The motivating cases from the 2025 data.
+    assert f("WR", 9.0, 9.1, 3) == "BUY"        # CeeDee Lamb profile
+    assert f("RB", 2.5, 13.1, 10) == "SELL"     # TreVeyon Henderson profile
+    assert f("WR", 6.0, 6.0, 9) == "SELL"       # Jauan Jennings profile
+    assert f("RB", 3.5, 20.8, 4) == "BUY"       # Bucky Irving profile
+    # Mid-volume, mid-TD: priced right, no flag.
+    assert f("WR", 6.8, 6.8, 6) is None
+    assert f("RB", 2.0, 14.5, 8) is None
+    # QBs are never flagged.
+    assert f("QB", 0.5, 8.0, 2) is None
