@@ -1,0 +1,9 @@
+node_modules
+.vscode
+build
+.env
+.mcp.json
+.fitbit-token.json
+.claude
+coverage
+*.tgz

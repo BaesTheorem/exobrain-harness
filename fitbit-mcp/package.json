@@ -1,0 +1,73 @@
+{
+  "name": "mcp-fitbit",
+  "version": "1.0.1",
+  "type": "module",
+  "main": "./build/index.js",
+  "bin": {
+    "mcp-fitbit": "./build/index.js"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/TheDigitalNinja/mcp-fitbit.git"
+  },
+  "homepage": "https://TheDigital.Ninja",
+  "bugs": {
+    "url": "https://github.com/TheDigitalNinja/mcp-fitbit/issues"
+  },
+  "scripts": {
+    "test": "vitest run",
+    "test:ui": "vitest --ui",
+    "test:coverage": "vitest run --coverage",
+    "build": "tsc",
+    "start": "node build/index.js",
+    "dev": "npm run build && npx @modelcontextprotocol/inspector node build/index.js",
+    "lint": "eslint src/**/*.ts --ignore-pattern src/**/*.test.ts",
+    "lint:fix": "eslint src/**/*.ts --fix",
+    "format": "prettier --write src/**/*.ts",
+    "format:check": "prettier --check src/**/*.ts",
+    "prepublishOnly": "npm run build && npm run test && npm run lint",
+    "prepack": "npm run build"
+  },
+  "keywords": [
+    "mcp",
+    "fitbit",
+    "fitbit-api",
+    "mcp-server",
+    "claude",
+    "model-context-protocol",
+    "health-data",
+    "fitness-tracking",
+    "ai-assistant",
+    "typescript"
+  ],
+  "author": "Russell \"TheDigitalNinja\" Perkins",
+  "license": "MIT",
+  "description": "Model Context Protocol (MCP) server for accessing Fitbit health and fitness data. Connect AI assistants like Claude to your Fitbit data for personalized health insights.",
+  "files": [
+    "build/",
+    "README.md",
+    "LICENSE"
+  ],
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.11.0",
+    "@types/express": "^5.0.1",
+    "dotenv": "^16.5.0",
+    "express": "^5.1.0",
+    "open": "^10.1.2",
+    "simple-oauth2": "^5.1.0",
+    "zod": "^3.24.3"
+  },
+  "devDependencies": {
+    "@eslint/js": "^9.27.0",
+    "@types/node": "^22.15.3",
+    "@types/simple-oauth2": "^5.0.7",
+    "@typescript-eslint/eslint-plugin": "^8.32.1",
+    "@typescript-eslint/parser": "^8.32.1",
+    "@vitest/coverage-v8": "^3.1.4",
+    "@vitest/ui": "^3.1.4",
+    "eslint": "^9.27.0",
+    "prettier": "^3.5.3",
+    "typescript": "^5.8.3",
+    "vitest": "^3.1.4"
+  }
+}
