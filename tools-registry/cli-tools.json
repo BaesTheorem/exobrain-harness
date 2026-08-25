@@ -233,6 +233,14 @@
     "notes": "Narrate a note or piped text in Alex's cloned MIST voice. Slower than real time, so pre-render only. Needs serve.py running."
   },
   {
+    "name": "Open in Google Calendar (.ics handler)",
+    "command": "./install-gcal-opener.sh",
+    "repo_dir": "/Users/alexhedtke/Documents/ic-to-gcal",
+    "source": "built",
+    "added": "2026-08-25",
+    "notes": "Builds ~/Applications/Open in Google Calendar.app and registers it as the default .ics handler, so calendar invites open in Google Calendar instead of Apple Calendar. Self-contained: the installer inlines a full RFC 5545 parser (line unfolding, TZID to UTC, all-day, DURATION without DTEND, RRULE, VALARM skipping). 1-5 events open pre-filled create pages, 6+ opens the import page. Private repo BaesTheorem/ic-to-gcal."
+  },
+  {
     "name": "Rental Harmony",
     "category": "app",
     "command": "",
