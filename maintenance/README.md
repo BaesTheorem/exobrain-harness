@@ -150,3 +150,36 @@ triggering the exact popup it exists to remove. The plist invokes the
 interpreter directly rather than the `bin/` wrapper for the same reason -- for a
 launchd job TCC judges the executable launchd started, and going through the
 `#!/bin/sh` wrapper would demand FDA on `/bin/sh`.
+
+## Post-Homebrew self-heal (`post-brew-heal.sh`)
+
+Unattended `brew upgrade` runs break harness systems three distinct ways,
+all observed at once on 2026-08-25:
+
+1. **dyld** -- venv `--copies` python stubs hard-reference the versioned
+   Cellar framework path (`Cellar/python@3.12/3.12.13/...`), which brew
+   deletes on every patch bump. Killed `imessage-sync` and
+   `tcc-carry-forward`. `bin/heal-python-stubs.sh` re-copies the stub and
+   rewrites the reference to the version-stable `/opt/homebrew/opt/...`
+   path, so this class cannot recur within a python minor series.
+2. **launchd LWCR** -- any job whose `Program` is a brew binary
+   (`/opt/homebrew/bin/python3`) fails `EX_CONFIG` /
+   `OS_REASON_CODESIGNING` after brew replaces that binary, until the job
+   is re-bootstrapped. Took down six watchers.
+3. **Ordinary crashes during the swap** -- e.g. the 5etools node server;
+   these self-recover, but the canary verifies.
+
+`com.exobrain.post-brew-heal` (plist tracked here, real copy in
+`~/Library/LaunchAgents`) fires on **WatchPaths=/opt/homebrew/Cellar**, so
+it runs within about a minute of any brew change no matter who ran brew,
+with a 7:40 AM daily backstop. It heals the stubs, re-bootstraps any job
+stuck in the LWCR states, canaries every known venv, checks brew
+python3/node spawn, reinstalls Playwright's chromium when a package bump
+orphans the browser cache, and notifies only when something was healed or
+stays broken.
+
+**TCC caveat**: a *rebuilt* stub carries a new ad-hoc signature; macOS
+then treats it as a different program and its FDA row must be removed and
+re-added by hand (toggling is not enough). The heal notification says so.
+This is one-time per python minor series now that stubs link via the
+stable opt path.

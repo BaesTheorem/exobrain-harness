@@ -18,8 +18,16 @@ The fix decouples **reading** from **consuming**:
   `com.exobrain.imessage-sync` launchd agent every 15 minutes. It takes a
   consistent snapshot of `chat.db` (sqlite online-backup API, WAL-safe) into
   `cache/chat.db`, caches a `contacts.json` phone→name map, and writes
-  `sync-status.json`. You grant FDA to that binary **once** and it survives
-  every future Claude Code, Homebrew, and CLT update.
+  `sync-status.json`. The FDA grant survives Claude Code and CLT updates, and
+  (since 2026-08-25) Homebrew *patch* bumps too: the interpreter is relinked to
+  the version-stable `/opt/homebrew/opt/python@3.12/...` framework path by
+  `maintenance/bin/heal-python-stubs.sh`, so brew replacing the Cellar keg no
+  longer touches this binary. Only a *minor*-version move (python@3.12 going
+  away entirely) forces a rebuild, and a rebuilt binary has a new ad-hoc
+  signature, which macOS treats as a different program: the FDA row must then
+  be removed and re-added by hand. `maintenance/post-brew-heal.sh` (launchd
+  WatchPaths on the Cellar) detects breakage, heals the stub, and notifies
+  about the one manual step.
 - **`imessage-reader.py`** (the consuming half) reads `cache/chat.db` -- an ordinary
   file, **no FDA needed**. Claude never touches the protected path.
 
