@@ -274,6 +274,14 @@
     "notes": "Extract PNG pages from a Supernote .note file for vision OCR. A firmware signature bump raises UnsupportedFileFormat -- upgrade supernotelib."
   },
   {
+    "name": "talify.py",
+    "command": "python3 job-search/talify.py [--days 3]",
+    "repo_dir": "/Users/alexhedtke/Documents/Exobrain harness/job-search",
+    "source": "built",
+    "added": "2026-08-26",
+    "notes": "Missouri Talify (missouri.talify.com, the jobs.mo.gov front-end) discovery lane. /jobs.json Ransack API; two passes: remote at standard floor (expected-dry, board held 1 remote job at build), KC-local at onsite floor via reduced server pre-filter + client-side band rule from detail pages. compensation_max_gteq is silently ignored by the server; only min_gteq works."
+  },
+  {
     "name": "tools-registry-scan.py",
     "command": "python3 tools-registry/tools-registry-scan.py",
     "repo_dir": "~/Documents/Exobrain harness",
