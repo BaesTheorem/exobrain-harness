@@ -31,6 +31,24 @@ Daily unattended discovery scan for the `/job-search` skill.
   Zero index lag; covers postings that never crosspost. First poll per board is a baseline.
   State (snapshot + employer list) is gitignored under `state/` -- it reveals where Alex
   applies. Pin extra boards in `state/watchlist-extra.json`.
+- **`workday.py`** (added 2026-08-26) -- the Workday half of the ATS-direct lane. `ats-watchlist.py`
+  covers Greenhouse/Lever/Ashby; a large share of mid-market and enterprise employers host on
+  Workday instead, and those postings often never crosspost. Polls each tenant's unauthenticated
+  CXS endpoint (`/wday/cxs/<tenant>/<site>/jobs`), diffs against the last snapshot, then fetches
+  each in-lane posting's detail page -- which carries the comp band in the JD, the real start
+  date, the full JD text for the note's archive callout, and `canApply`/`posted`, the ATS's own
+  answer to "still accepting applications" (the apply-flow signal the skill demands, not the
+  weaker "listing page renders"). So survivors arrive gated on all four gates and already
+  verified. Board list self-builds from `type: job-listing` notes (tracker + `Archive/`), same as
+  `ats-watchlist.py`; pin a specific filtered board with
+  `--add "<board URL>" --why "..."`. **A board URL's query params are gates 1 and 2 applied
+  server-side**, so pinning a hand-filtered board is one command. Facet IDs are opaque per-tenant
+  GUIDs and never portable between employers -- `--add` prints each one's resolved human label and
+  open count as the positive control. Two gate bugs caught on the first live run and fixed:
+  gating remote on the literal word "remote" silently killed a whole employer's inventory (Cigna
+  posts remote reqs as "United States Work at Home"), and the location field contradicts the title
+  often enough that a hybrid/onsite marker in either field now decides gate 1 (CrowdStrike lists
+  "Analyst I ... (Hybrid, St Louis)" under location "USA - Remote").
 - **`usajobs.py`** (added 2026-08-14) -- official federal API, remote-only public-hiring-path
   search with mechanical comp gating. Needs `USAJOBS_API_KEY` + `USAJOBS_EMAIL` in the
   harness `.env` (free key: https://developer.usajobs.gov/apirequest/); without them it
