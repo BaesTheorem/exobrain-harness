@@ -8,6 +8,14 @@
     "notes": "Create Apple Reminders, including repeating ones (EventKit via mkreminder.swift). AppleScript cannot set recurrence."
   },
   {
+    "name": "ai-bill-scan",
+    "command": "python3 congress/ai_bill_scan.py /tmp/billstatus/*.zip -o /tmp/ai-bills.json",
+    "repo_dir": "/Users/alexhedtke/Documents/Exobrain harness/congress",
+    "source": "built",
+    "added": "2026-08-26",
+    "notes": "Scans govinfo BILLSTATUS bulk zips for a whole Congress and returns every AI-related bill plus a per-member index (sponsor/cosponsor, party, date, bucket). Primary-source whip lists without an API key or rate limit. Zips: https://www.govinfo.gov/bulkdata/BILLSTATUS/119/{s,hr}/BILLSTATUS-119-{s,hr}.zip"
+  },
+  {
     "name": "arctic-shift-scan",
     "command": "python3 reddit/arctic-shift-scan.py --sub kansascity --days 7",
     "repo_dir": "reddit/",
@@ -296,5 +304,13 @@
     "source": "built",
     "added": "2026-08-16",
     "notes": "Gate any launchd job that hits the network. Jobs that fire on wake before DNS is up fail with ENOTFOUND without it."
+  },
+  {
+    "name": "workday.py",
+    "command": "python3 job-search/workday.py",
+    "repo_dir": "job-search",
+    "source": "built",
+    "added": "2026-08-26",
+    "notes": "Workday-direct job discovery lane. Polls each tenant CXS API, diffs vs snapshot, gates all 4 gates mechanically (comp parsed from JD, canApply verified). --add pins a filtered board URL. Sibling of ats-watchlist.py (Greenhouse/Lever/Ashby)."
   }
 ]

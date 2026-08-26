@@ -141,6 +141,29 @@ Use multiple sources and triangulate -- no single source is authoritative for "o
 
    **Honest expectation for this lane (measured 2026-08-14, key live):** the federal remote market has collapsed under the return-to-office mandate -- `RemoteIndicator=True` with NO other filters returned **32 postings across the entire federal government** (vs 10,000+ unfiltered), nearly all physicians/radiologists/immigration judges, zero IT-series. The param was instrument-checked (positive control: same query without it returned 146 for one keyword), so a 0-survivor day here is the market, not a bug. Keep the lane (one API call, and agency exceptions or a policy change would reopen it overnight); just never read its dryness as breakage, same as the 80k IT-lane expectation. The LOCAL pass has its own measured squeeze (first read-through, 2026-08-14, 4-for-4): KC postings clearing the $103K onsite floor are GS-13/14, whose Selective Placement Factors and conjunctive specialized-experience blocks are senior-specialist walls Alex fails honestly, while the grades he could clear (GS-9/11/12 customer-support 2210s) top out under the floor. Expect thin local yield; the realistic local hit is an SPF-free customer-support 2210 at GS-13, or a GS-12 whose band top clears $103K (band rule).
 
+13. **Workday-direct boards** (ADDED 2026-08-26) -- run `python3 "Exobrain harness/job-search/workday.py"` every discovery pass. Sibling of lane 11 against the ATS that lane cannot see: `ats-watchlist.py` covers Greenhouse/Lever/Ashby, but a large share of mid-market and enterprise employers host on Workday, and those postings frequently never crosspost. Every Workday tenant exposes an unauthenticated JSON endpoint behind the SPA:
+
+    ```
+    list    POST https://<host>/wday/cxs/<tenant>/<site>/jobs
+            {"appliedFacets": {...}, "limit": 20, "offset": N, "searchText": ""}
+    detail  GET  https://<host>/wday/cxs/<tenant>/<site><externalPath>
+    ```
+
+    Like lane 11, the watchlist **builds itself** from every `type: job-listing` note (tracker AND `Archive/`), so Workday employers already in the tracker are polled free and their reposts surface -- this is the concrete fix for the gap lane 10 names ("check boards OUTSIDE the three polled ATSes (Workday, iCIMS, SuccessFactors...)"). Pin a specific board, with filters, using `--add`.
+
+    Why this lane is unusually cheap per posting:
+    - **A board URL's query params ARE gates 1 and 2, applied server-side.** A filtered URL (`?Location_Country=<US>&timeType=<Full time>&locations=<Remote, USA>`) returns an already-filtered set instead of the employer's whole req list. `--add "<url>"` parses those params straight out of the URL, so pinning a recruiter-shared or hand-filtered board takes one command.
+    - **The detail endpoint carries the comp band in the JD**, so gate 3 is mechanical (band rule + hourly annualization) with no browser.
+    - **`canApply` / `posted` are the ATS's own answer to "still open."** That is the apply-flow signal the verification section demands, not the "listing page renders" signal it warns about -- so a Workday survivor arrives already verified, and the detail call also returns the full JD for the note's archive callout.
+
+    **Facet IDs are opaque per-tenant GUIDs and are NOT portable between employers.** Never hand-copy one board's GUID onto another tenant. `--add` resolves and prints each facet's human label plus its open count, which is the positive control that the filter means what the URL implied -- run it and read the labels before trusting a pinned board.
+
+    Two gate bugs found and fixed on the first live run (2026-08-26), both worth knowing because they generalize to any ATS lane:
+    - **The location field is a coarse bucket, not the truth.** Gating remote on the literal word "remote" silently killed an employer's entire remote inventory: Cigna posts every remote req as "United States Work at Home". The regex now covers work-at-home / work-from-home / telecommute / home-based / WFH / virtual / anywhere.
+    - **Title and location contradict each other, and the title wins.** CrowdStrike's "Analyst I, Falcon Complete GovCloud (Hybrid, St Louis)" sits under location "USA - Remote". A hybrid/onsite marker in *either* field is now a gate-1 decline with the contradiction quoted.
+
+    Survivors still need status-aware dedup and a listing note; `--full` re-gates everything instead of only the diff, and first poll of a board is a baseline.
+
 ### Specific employer boards to watch (warm-connection lane)
 
 Some employers get scanned directly on every discovery pass because Alex has an inside referral path there -- a warm intro is worth more than cold volume, so these clear a lower bar than the open market. **The specific employers, their careers-portal URLs, the referral context, and any per-employer gate exceptions live in the gitignored `Projects/Get new job/Claude Reference.md` under "Warm-Connection Watch Lane" -- read it at the start of every scan and scan each firm listed there on top of the open-market search.** Employer identities and referral details are kept out of this file because the repo is public.
@@ -300,8 +323,9 @@ A scan is **not** a full scan until every lane below has either run or been expl
 | 11 | AI safety fellowships: 80k `Fellowship` facet + AISafety.com/jobs + the **six hardcoded program sources** (GovAI, IAPS, Horizon, Talos, Airtable policy-fellowship base, RAND CAST) | | Location-agnostic, modified gates. Do NOT apply the remote filter or the permanent-role gate here. All six hardcoded sources run every pass. See "AI Safety Fellowship Lane". |
 | 12 | ATS-direct watchlist via `ats-watchlist.py` | | Polls every tracked employer's Greenhouse/Lever/Ashby board and diffs. First run per board is a baseline; new postings still need JD read + gates + dedup. |
 | 13 | USAJOBS via `usajobs.py` (remote pass + LOCAL KC pass) | | Keyed lane; if the key is missing the script says so and exits 0 -- report skipped-with-reason. Remote pass gates at the standard floor, local pass at the onsite floor. Federal deadlines are hard; flag anything closing inside 14 days. |
+| 14 | Workday-direct via `workday.py` | | Polls every pinned + auto-discovered Workday tenant and diffs. Covers the ATS lane 11 can't see. Survivors arrive with comp gated and `canApply` verified, but still need dedup + a note. |
 
-**Report the tally honestly**, including the skipped lanes. A scan that ran 4 of 9 lanes is a partial scan; say so in the hub-note log and to Alex rather than labeling it full. Under-running is recoverable; a false "I checked everything" is not, because it silently retires leads.
+**Report the tally honestly**, including the skipped lanes. A scan that ran 4 of the lanes below is a partial scan; say so in the hub-note log and to Alex rather than labeling it full. Under-running is recoverable; a false "I checked everything" is not, because it silently retires leads.
 
 **Two search-engine false negatives to distrust** (both cost a lane on 2026-07-25):
 - A `site:` X-ray that returns results from a *different* domain than the one filtered means the filter failed. Treat as "lane did not run," not "lane is dry."
@@ -685,6 +709,7 @@ When called as part of the daily briefing (every day, weekends included):
    - `python3 "Exobrain harness/job-search/nicheboards.py" "<angle1>" "<angle2>" --days 3` -- rotate angles like the other lanes. Survivors: verify on the employer ATS, then the normal note pipeline. Leads (comp unlisted): spend a JD read only when the title is squarely in-lane; the unlisted-comp DQ still applies after the read.
    - `python3 "Exobrain harness/job-search/ats-watchlist.py"` -- new postings since yesterday's snapshot across every tracked employer's Greenhouse/Lever/Ashby board. Each new posting: JD read, 4 gates, status-aware dedup, note. Report polled/failed/baselined counts honestly in the hub log.
    - `python3 "Exobrain harness/job-search/usajobs.py" "IT specialist" "security analyst" --days 7` -- skips itself with instructions if the API key is absent; log the lane as skipped-with-reason in that case.
+   - `python3 "Exobrain harness/job-search/workday.py"` (see Source #13) -- new postings across every pinned + auto-discovered Workday tenant. Survivors come pre-gated on all four gates with `canApply` verified and the JD already fetched, so they go straight to status-aware dedup and a note; LEADS have no comp in the JD and need the usual judgment call. Report polled/failed/baselined counts honestly. To pin a new board Alex hands over, `--add "<board URL with its filters>"` and read back the resolved facet labels before trusting it.
 
 2c. **AI safety fellowship scan** (ADDED 2026-07-25 -- see Source #9 and "AI Safety Fellowship Lane" for the gate variant):
    - One 80k Algolia call on `facetFilters: [["tags_role_type:Fellowship"]]` with **no** location filter, plus a pass over AISafety.com/jobs (including its "Events & training" section).
