@@ -5,7 +5,7 @@ Daily unattended discovery scan for the `/job-search` skill.
 - **`run-job-scan.sh`** -- launchd wrapper. Runs `claude --print` headless with the daily
   discovery prompt across every lane that works unattended: Gmail job alerts (if the
   claude.ai connector is reachable), `hiringcafe.py` + `indeed.py` + `nicheboards.py` +
-  `ats-watchlist.py` + `usajobs.py` scripted lanes,
+  `ats-watchlist.py` + `workday.py` + `usajobs.py` + `talify.py` scripted lanes,
   Greenhouse/Lever X-ray (Ashby/Workable dropped 2026-08-10 -- chronic wrong-domain false
   negatives, and hiring.cafe covers those ATS inventories), 80,000 Hours Algolia, LinkedIn
   (if the MCP is reachable), and the warm-connection + re-apply watchlists. Applies the 4
@@ -52,6 +52,18 @@ Daily unattended discovery scan for the `/job-search` skill.
   Boards for warm-connection employers are pinned with `--warm`: their rows carry a WARM REFERRAL tag
   in every bucket, and their off-lane titles are listed instead of dropped, since a referral is worth
   more than a title match. It grants no gate exception on its own.
+- **`talify.py`** (added 2026-08-26) -- Missouri's state talent board at missouri.talify.com
+  (the jobs.mo.gov front-end; apply flows route through app.jobs.mo.gov). Rails/Turbo but
+  server-rendered: `/jobs.json` returns `{"html": <20 cards>, "next_page": N}` and takes
+  Ransack params. Two passes: remote at the standard floor (expected-dry -- the whole board
+  held one remote job at build time) and KC-metro local at the onsite floor, which is the
+  lane's actual value. The comp threshold normalizes across pay types (hourly/monthly/annual
+  encodings of one floor return the identical set), but `compensation_max_gteq` is silently
+  ignored -- not Ransack-whitelisted, it returns the unfiltered board, first spotted when a
+  Food Service Worker "cleared" a $103K filter -- so the band rule runs client-side: server
+  pre-filter at a reduced min, then gate each detail page's band top at the real floor.
+  Detail pages are HTML-only (`.json` answers 406). Off-lane KC titles that cleared the comp
+  pre-filter are printed for overrule rather than silently dropped.
 - **`usajobs.py`** (added 2026-08-14) -- official federal API, remote-only public-hiring-path
   search with mechanical comp gating. Needs `USAJOBS_API_KEY` + `USAJOBS_EMAIL` in the
   harness `.env` (free key: https://developer.usajobs.gov/apirequest/); without them it
