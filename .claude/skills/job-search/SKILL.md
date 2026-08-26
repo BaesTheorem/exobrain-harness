@@ -162,6 +162,8 @@ Use multiple sources and triangulate -- no single source is authoritative for "o
     - **The location field is a coarse bucket, not the truth.** Gating remote on the literal word "remote" silently killed an employer's entire remote inventory: Cigna posts every remote req as "United States Work at Home". The regex now covers work-at-home / work-from-home / telecommute / home-based / WFH / virtual / anywhere.
     - **Title and location contradict each other, and the title wins.** CrowdStrike's "Analyst I, Falcon Complete GovCloud (Hybrid, St Louis)" sits under location "USA - Remote". A hybrid/onsite marker in *either* field is now a gate-1 decline with the contradiction quoted.
 
+    **Warm-referral boards**: pin with `--add ... --warm` when the employer is in the warm-connection lane. Those rows print a `** WARM REFERRAL **` tag in every bucket (including declines, so Alex can overrule a gate he'd never overrule cold), and their **off-lane titles are listed rather than silently dropped** -- at an employer where Alex has an inside path, a referral outweighs a title match, so he triages those himself. Marking a board warm does NOT create a remote-gate exception; that still needs Alex's explicit per-firm opt-in, same as the documented one. Identities and referral context live in the gitignored vault reference, never here.
+
     Survivors still need status-aware dedup and a listing note; `--full` re-gates everything instead of only the diff, and first poll of a board is a baseline.
 
 ### Specific employer boards to watch (warm-connection lane)

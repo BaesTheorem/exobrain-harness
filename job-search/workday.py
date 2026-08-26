@@ -295,6 +295,7 @@ def cmd_add(args) -> None:
     board = parse_board_url(args.url)
     key = "%s/%s" % (board["tenant"], board["site"])
     board["why"] = args.why or "added manually"
+    board["warm"] = bool(args.warm)
     board["added"] = dt.date.today().isoformat()
     jobs = poll(board)
     labels = facet_labels(board)
@@ -336,6 +337,9 @@ def main() -> None:
     ap = argparse.ArgumentParser()
     ap.add_argument("--add", dest="url", help="pin a board URL (filters included)")
     ap.add_argument("--why", help="note why this board is on the watchlist")
+    ap.add_argument("--warm", action="store_true",
+                    help="mark as a warm-referral employer (see the vault "
+                         "Claude Reference warm-connection lane)")
     ap.add_argument("--list", action="store_true", help="show boards and exit")
     ap.add_argument("--full", action="store_true",
                     help="gate every in-lane posting, not just new ones")
@@ -373,6 +377,7 @@ def main() -> None:
                 failures.append((key, "%s: %s" % (type(e).__name__, str(e)[:70])))
 
     targets, baselined = [], 0
+    warm_offlane: list[tuple[str, str]] = []
     for key, jobs in sorted(snap.items()):
         first_poll = key not in prev
         if first_poll and not args.full:
@@ -383,6 +388,11 @@ def main() -> None:
                 continue
             if in_lane(j["title"]):
                 targets.append((key, jid, j))
+            elif boards[key].get("warm"):
+                # No silent caps: at a warm-referral employer an off-lane title
+                # is worth Alex seeing anyway, because a referral is worth more
+                # than a title match. Surfaced as a count + list, not dropped.
+                warm_offlane.append((key, j["title"]))
 
     print("polled %d ok, %d failed, %d baselined (diff starts next run)"
           % (len(snap), len(failures), baselined))
@@ -446,7 +456,8 @@ def main() -> None:
         print("=" * 72)
         for key, j, d, why in rows:
             print("-" * 72)
-            print("[%s] %s" % (key, d["title"] or j["title"]))
+            tag = "  ** WARM REFERRAL **" if boards[key].get("warm") else ""
+            print("[%s] %s%s" % (key, d["title"] or j["title"], tag))
             print("  %s | %s | req %s | started %s"
                   % (d["loc"] or j["loc"], d["time_type"], d["req"], d["start"]))
             print("  comp: %s -- %s" % (band(d), why))
@@ -460,7 +471,14 @@ def main() -> None:
     print("DECLINED (%d)" % len(declines))
     print("=" * 72)
     for key, j, why, _d in declines:
-        print("  [%s] %-52s %s" % (key, j["title"][:52], why))
+        tag = " ** WARM **" if boards[key].get("warm") else ""
+        print("  [%s]%s %-52s %s" % (key, tag, j["title"][:52], why))
+
+    if warm_offlane:
+        print("\nOFF-LANE TITLES AT WARM-REFERRAL EMPLOYERS (%d) -- shown because a"
+              " referral outweighs a title match; Alex triages:" % len(warm_offlane))
+        for key, title in warm_offlane:
+            print("  [%s] %s" % (key, title))
 
     save(SNAPSHOT, snap)
     print("\nsnapshot written: %s" % SNAPSHOT)

@@ -49,6 +49,9 @@ Daily unattended discovery scan for the `/job-search` skill.
   posts remote reqs as "United States Work at Home"), and the location field contradicts the title
   often enough that a hybrid/onsite marker in either field now decides gate 1 (CrowdStrike lists
   "Analyst I ... (Hybrid, St Louis)" under location "USA - Remote").
+  Boards for warm-connection employers are pinned with `--warm`: their rows carry a WARM REFERRAL tag
+  in every bucket, and their off-lane titles are listed instead of dropped, since a referral is worth
+  more than a title match. It grants no gate exception on its own.
 - **`usajobs.py`** (added 2026-08-14) -- official federal API, remote-only public-hiring-path
   search with mechanical comp gating. Needs `USAJOBS_API_KEY` + `USAJOBS_EMAIL` in the
   harness `.env` (free key: https://developer.usajobs.gov/apirequest/); without them it
