@@ -9,18 +9,26 @@ This is the canonical reference for how the Exobrain interacts with Google Calen
 
 ## MCP Tools
 
-Google Calendar is served by a hosted Claude.com connector (UUID prefix `mcp__32ab4f7e-f9e7-4457-9cb0-d1d0b280c571__`). The short aliases in this table are for documentation readability -- call the actual UUID-prefixed tool names.
+Google Calendar is served by a hosted Claude.com connector, prefix `mcp__claude_ai_Google_Calendar__`. The short aliases in this table are for documentation readability -- call the actual prefixed tool names.
+
+> [!warning] The prefix changed, and the old one was a trap
+> This table used to document a UUID prefix (`mcp__32ab4f7e-f9e7-4457-9cb0-d1d0b280c571__`). That name is **dead**. Because `ToolSearch select:` on a nonexistent name returns the same "No matching deferred tools found" as a genuinely absent server, a session following the stale doc would conclude the connector was DOWN and write that into the briefing. It did exactly that twice on 2026-08-26.
+>
+> So: if `select:` comes back empty, **re-search by keyword** (`+calendar`) before declaring anything down. A keyword search finds the tools under whatever name they currently carry. Never report a connector unavailable on the strength of a `select:` miss alone.
 
 | Doc alias | Actual tool name | Purpose |
 |-----------|------------------|---------|
-| `gcal_list_events` | `mcp__32ab4f7e-...__list_events` | List events for a date or date range |
-| `gcal_create_event` | `mcp__32ab4f7e-...__create_event` | Create a new event |
-| `gcal_update_event` | `mcp__32ab4f7e-...__update_event` | Update an existing event |
-| `gcal_delete_event` | `mcp__32ab4f7e-...__delete_event` | Delete an event |
-| `gcal_get_event` | `mcp__32ab4f7e-...__get_event` | Get a specific event by ID |
-| `gcal_suggest_time` | `mcp__32ab4f7e-...__suggest_time` | Suggest free slots |
-| `gcal_list_calendars` | `mcp__32ab4f7e-...__list_calendars` | List all calendars |
-| `gcal_respond_to_event` | `mcp__32ab4f7e-...__respond_to_event` | RSVP to an event |
+| `gcal_list_events` | `mcp__claude_ai_Google_Calendar__list_events` | List events for a date or date range |
+| `gcal_search_events` | `mcp__claude_ai_Google_Calendar__search_events` | Keyword/topic search on the primary calendar |
+| `gcal_create_event` | `mcp__claude_ai_Google_Calendar__create_event` | Create a new event |
+| `gcal_update_event` | `mcp__claude_ai_Google_Calendar__update_event` | Update an existing event |
+| `gcal_delete_event` | `mcp__claude_ai_Google_Calendar__delete_event` | Delete an event |
+| `gcal_get_event` | `mcp__claude_ai_Google_Calendar__get_event` | Get a specific event by ID |
+| `gcal_suggest_time` | `mcp__claude_ai_Google_Calendar__suggest_time` | Suggest free slots |
+| `gcal_list_calendars` | `mcp__claude_ai_Google_Calendar__list_calendars` | List all calendars |
+| `gcal_respond_to_event` | `mcp__claude_ai_Google_Calendar__respond_to_event` | RSVP to an event |
+
+`list_events` is for time-bounded listing. For an open-ended keyword or topic search, the connector requires `search_events` instead.
 
 ### ⚠️ Parameter names (the trap)
 
@@ -32,17 +40,20 @@ Canonical `list_events` shape:
 list_events(
   startTime: "2026-04-05T00:00:00-05:00",   # NOT time_min, NOT start_time, NOT timeMin
   endTime:   "2026-04-12T00:00:00-05:00",   # NOT time_max, NOT end_time, NOT timeMax
-  pageSize: 50,                              # default 250, max 2500
+  pageSize: 25,                              # default 100, max 250 (NOT 2500)
   orderBy: "startTime",                      # optional: default | startTime | startTimeDesc | lastModified
-  fullText: "optional keyword",              # free-form search across title/desc/location/attendees
-  eventTypeFilter: ["default", "focusTime"], # optional array
+  fullText: "optional keyword",              # free-form AND search across title/desc/location/attendees
+  eventType: ["DEFAULT", "FOCUS_TIME"],      # optional array, UPPERCASE enum
+  calendarId: "someone@example.com",         # optional, default primary; resolve via list_calendars
   timeZone: "America/Chicago"                # optional
 )
 ```
 
+`eventType` values are the uppercase enum (`DEFAULT`, `OUT_OF_OFFICE`, `FOCUS_TIME`, `WORKING_LOCATION`, `BIRTHDAY`, `FROM_GMAIL`). The old lowercase `eventTypeFilter: ["default", "focusTime"]` form is **deprecated** and the camelCase values were never right.
+
 Canonical `create_event` / `update_event`: use `startTime` and `endTime` the same way.
 
-If a `list_events` call fails opaquely, **first suspect**: param-name drift. Call `ToolSearch` with `select:mcp__32ab4f7e-f9e7-4457-9cb0-d1d0b280c571__list_events` to re-verify the live schema.
+If a `list_events` call fails opaquely, **first suspect**: param-name drift. Re-verify the live schema with `ToolSearch select:mcp__claude_ai_Google_Calendar__list_events`, and if that returns nothing, fall back to a `+calendar` keyword search -- the prefix may have changed again.
 
 ## Best Practices
 
