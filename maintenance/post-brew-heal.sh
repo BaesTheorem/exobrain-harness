@@ -32,7 +32,15 @@ healed=(); broken=()
 out=$("$HARNESS/maintenance/bin/heal-python-stubs.sh" 2>&1); rc=$?
 echo "$out"
 if echo "$out" | grep -q "^healed"; then healed+=("python stubs relinked"); fi
-if [ $rc -ne 0 ] || echo "$out" | grep -q "STILL BROKEN"; then broken+=("python stub heal failed"); fi
+# rc=2 is not a dyld break. A rebuilt stub has a new ad-hoc cdhash, so its TCC
+# row no longer matches and only a human can re-add it in System Settings.
+# Keep it distinct so the notification can say what to actually do.
+if [ "$rc" -eq 2 ] || echo "$out" | grep -q "TCC_REGRANT_NEEDED"; then
+  tcc_regrant=$(echo "$out" | sed -n 's/^TCC_REGRANT_NEEDED: //p')
+  broken+=("TCC grant stale for ${tcc_regrant:-the FDA stubs}")
+elif [ "$rc" -ne 0 ] || echo "$out" | grep -q "STILL BROKEN"; then
+  broken+=("python stub heal failed")
+fi
 
 # -- 2. launchd jobs stuck on a replaced binary (LWCR class) ---------------
 UID_N=$(id -u)
@@ -97,9 +105,23 @@ fi
 
 # -- 5. summary ------------------------------------------------------------
 echo "healed: ${healed[*]:-none} | broken: ${broken[*]:-none}"
+# The banner click must land somewhere that explains itself. "console" only
+# raised whatever chat happened to be open, which told Alex nothing about the
+# brew problem, so the default target is the log. A stable --id means a repeat
+# replaces the banner in place instead of stacking another identical one.
+FDA_PANE="x-apple.systempreferences:com.apple.preference.security?Privacy_DocumentsFolder"
 if [ ${#broken[@]} -gt 0 ]; then
-  "$NOTIFY" "After a Homebrew change: ${broken[*]}. Healed: ${healed[*]:-nothing}. Log: post-brew-heal.log" "Brew update broke something" "" "console" 2>/dev/null
+  "$NOTIFY" "After a Homebrew change: ${broken[*]}. Healed: ${healed[*]:-nothing}." \
+    "Brew update broke something" "" "$LOG" \
+    --subtitle "Click to open post-brew-heal.log" \
+    --action "Open log=$LOG" \
+    --action "Privacy settings=$FDA_PANE" \
+    --action "Ask MIST to fix=console" \
+    --group brew-heal --id brew-heal --urgency active 2>/dev/null
 elif [ ${#healed[@]} -gt 0 ]; then
-  "$NOTIFY" "Homebrew changed and everything self-healed: ${healed[*]}" "Brew update absorbed" "" "console" 2>/dev/null
+  "$NOTIFY" "Homebrew changed and everything self-healed: ${healed[*]}" \
+    "Brew update absorbed" "" "$LOG" \
+    --subtitle "Click to open post-brew-heal.log" \
+    --group brew-heal --id brew-heal 2>/dev/null
 fi
 exit 0
