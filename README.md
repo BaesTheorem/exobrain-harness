@@ -128,6 +128,7 @@ Skills are invoked with `/skill-name` in Claude Code. Each is defined in `.claud
 | `/TTRPG-campaign-manager` | D&D session prep (Lazy DM style), recap from transcripts, campaign lore queries | Obsidian campaign folders |
 | `/job-search` | Audit job postings for fit, research companies/people, tailor cover letters, track applications | Gmail, Things 3, Obsidian, WebSearch |
 | `/local-events` | Discover upcoming KC events. Searches Meetup, venue calendars, library listings. | WebSearch, GCal, Things 3 |
+| `/luma` | Manage Luma events for the EA KC calendar -- create, clone, update, cancel, guest lists via the cookie-auth write lane | `bin/luma` |
 | `/deep-research` | Multi-agent deep research for complex questions. Spawns parallel subagents, synthesizes cited report. | WebSearch, WebFetch |
 | `/verify` | Background fact-checker -- runs silently after research tasks to catch errors | WebSearch, WebFetch |
 | `/news-briefing` | Comprehensive news intelligence briefing with bias analysis, blind spot detection, DC policy tracking, and prediction market cross-referencing | WebSearch, WebFetch |
