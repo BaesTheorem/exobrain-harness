@@ -83,6 +83,13 @@ def _raw_line(nodes: list[dict[str, Any]]) -> str:
     return json.dumps({"url": "https://www.facebook.com/api/graphql/", "body": body})
 
 
+def _raw_line_direct(node: dict[str, Any]) -> str:
+    """A standalone single-story response: the post sits at data.node directly,
+    not inside a feed edge. This shape once dropped every post it delivered."""
+    body = json.dumps({"data": {"node": node}})
+    return json.dumps({"url": "https://www.facebook.com/api/graphql/", "body": body})
+
+
 def _parse_fixture(tmp: Path, raw_lines: list[str]) -> dict[str, dict[str, Any]]:
     """Point config at a tempdir, write a raw dump, run parse_target, load it."""
     config.ROOT = tmp
@@ -116,6 +123,16 @@ def test_extraction_from_comet_shape() -> None:
     assert rec["text"] == "caption twenty twenty-one"
 
 
+def test_direct_single_story_node() -> None:
+    """A post delivered as data.node (no feed edge) must still be extracted."""
+    with tempfile.TemporaryDirectory() as d:
+        posts = _parse_fixture(
+            Path(d), [_raw_line_direct(_node("999", 133, 20, "top meme of the year", "2026-02-14"))]
+        )
+    assert set(posts) == {"999"}, "the direct single-story post must be captured"
+    assert posts["999"]["reactions"] == 133
+
+
 def test_comment_reactions_not_counted_as_post() -> None:
     with tempfile.TemporaryDirectory() as d:
         posts = _parse_fixture(Path(d), [_raw_line([_node("222", 5, 0, "low", "2020-01-01")])])
@@ -141,6 +158,7 @@ def test_max_merge_and_years() -> None:
 def _run() -> int:
     for t in (
         test_extraction_from_comet_shape,
+        test_direct_single_story_node,
         test_comment_reactions_not_counted_as_post,
         test_max_merge_and_years,
     ):
