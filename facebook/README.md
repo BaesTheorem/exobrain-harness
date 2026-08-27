@@ -51,7 +51,13 @@ fb crawl dank-ea-memes                      # resume, walking further back (defa
 fb crawl dank-ea-memes --minutes 15         # a shorter burst
 fb parse dank-ea-memes                      # offline: raw -> ranked posts (safe to re-run)
 fb report dank-ea-memes --top 25 --per-year 10
+fb authors dank-ea-memes --top 5            # author leaderboards: peak + cumulative, per year
 ```
+
+`fb authors` scores each author two ways in every year and all time: **peak**
+(their single most-reacted meme) and **cumulative** (total reactions across all
+their memes). Anonymous group posts are excluded. Writes `authors.md` +
+`authors.json` to `report/<target>/`.
 
 `crawl` -> `parse` -> `report`. Re-crawl adds history; re-parse and re-report any
 time without touching the browser. Reports land in `report/<target>/`:

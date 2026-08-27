@@ -186,6 +186,83 @@ def build(name: str, top_n: int, per_year: int) -> int:
     return 0
 
 
+# Facebook's group anonymous-posting feature collapses many different people
+# under one label, so it can't be treated as a single author.
+ANON_AUTHORS = {"anonymous member", "anonymous", "anonymous participant"}
+
+
+def _author_rows(posts: list[dict[str, Any]], year: int | None) -> list[dict[str, Any]]:
+    """Aggregate posts by named author within a year (None = all time)."""
+    agg: dict[str, dict[str, Any]] = {}
+    for p in posts:
+        if year is not None and p.get("year") != year:
+            continue
+        name = ((p.get("author") or {}).get("name") or "").strip()
+        if not name or name.lower() in ANON_AUTHORS:
+            continue
+        rx = p.get("reactions") or 0
+        a = agg.setdefault(name, {"author": name, "peak": 0, "total": 0, "posts": 0, "best": None})
+        a["total"] += rx
+        a["posts"] += 1
+        if rx >= a["peak"]:
+            a["peak"] = rx
+            a["best"] = {"reactions": rx, "text": p.get("text", ""), "permalink": p.get("permalink", "")}
+    return list(agg.values())
+
+
+def _rank(rows: list[dict[str, Any]], key: str, n: int) -> list[dict[str, Any]]:
+    # Tie-break peak by cumulative and vice versa, so ties resolve sensibly.
+    second = "total" if key == "peak" else "peak"
+    return sorted(rows, key=lambda r: (r[key], r[second]), reverse=True)[:n]
+
+
+def build_authors(name: str, top_n: int) -> int:
+    """Two author leaderboards (peak single meme, cumulative reactions) for all
+    time and each year. Writes report/<target>/authors.md + authors.json."""
+    target, _ = config.resolve_target(name)
+    posts = _load_posts(target)
+    anon = sum(
+        1
+        for p in posts
+        if ((p.get("author") or {}).get("name") or "").strip().lower() in ANON_AUTHORS
+        or not ((p.get("author") or {}).get("name") or "").strip()
+    )
+    years = sorted({p["year"] for p in posts if isinstance(p.get("year"), int)}, reverse=True)
+    buckets: list[tuple[str, int | None]] = []
+    buckets.append(("All time", None))
+    for y in years:
+        buckets.append((str(y), y))
+
+    lines = [
+        f"# {name} -- author leaderboards",
+        "",
+        "**Peak** = the author's single most-reacted meme. **Cumulative** = total "
+        "reactions across all their memes. Anonymous posts are excluded "
+        f"({anon} of {len(posts)} posts).",
+        "",
+    ]
+    out: dict[str, Any] = {"target": name, "anonymous_excluded": anon, "total_posts": len(posts), "buckets": {}}
+    for label, yr in buckets:
+        rows = _author_rows(posts, yr)
+        peak = _rank(rows, "peak", top_n)
+        cumulative = _rank(rows, "total", top_n)
+        out["buckets"][label] = {"peak": peak, "cumulative": cumulative}
+        lines += [f"## {label}", "", "**By peak (single best meme):**", "", "| # | Author | Best | Posts |", "| ---: | :--- | ---: | ---: |"]
+        lines += [f"| {i} | {r['author']} | {r['peak']} | {r['posts']} |" for i, r in enumerate(peak, 1)]
+        lines += ["", "**By cumulative reactions:**", "", "| # | Author | Total | Posts | Best |", "| ---: | :--- | ---: | ---: | ---: |"]
+        lines += [f"| {i} | {r['author']} | {r['total']} | {r['posts']} | {r['peak']} |" for i, r in enumerate(cumulative, 1)]
+        lines += [""]
+
+    target.report.mkdir(parents=True, exist_ok=True)
+    (target.report / "authors.md").write_text("\n".join(lines), encoding="utf-8")
+    (target.report / "authors.json").write_text(json.dumps(out, ensure_ascii=False, indent=2), encoding="utf-8")
+    print(
+        f"Wrote {(target.report / 'authors.md').relative_to(config.ROOT)} "
+        f"({len(posts)} posts, {anon} anonymous excluded, {len(years)} years)."
+    )
+    return 0
+
+
 def main(argv: list[str] | None = None) -> int:
     ap = argparse.ArgumentParser(description=__doc__)
     ap.add_argument("target", help="target name")
@@ -193,6 +270,14 @@ def main(argv: list[str] | None = None) -> int:
     ap.add_argument("--per-year", type=int, default=10, help="top-N within each year")
     args = ap.parse_args(argv)
     return build(args.target, args.top, args.per_year)
+
+
+def authors_main(argv: list[str] | None = None) -> int:
+    ap = argparse.ArgumentParser(description="Author leaderboards: peak and cumulative reactions.")
+    ap.add_argument("target", help="target name")
+    ap.add_argument("--top", type=int, default=5, help="leaderboard size (default 5)")
+    args = ap.parse_args(argv)
+    return build_authors(args.target, args.top)
 
 
 if __name__ == "__main__":
