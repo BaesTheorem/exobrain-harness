@@ -1,0 +1,113 @@
+#!/usr/bin/env python3
+"""fb -- general-purpose, read-only Facebook toolkit CLI.
+
+Drives a logged-in browser via exported cookies and reads the feed's GraphQL.
+Works on any group/page/profile via named targets.
+
+  fb status                         cookie + target + data health
+  fb find-group <query>             list your groups matching <query> (+ URLs)
+  fb targets                        list known targets
+  fb crawl <target> [--url URL]     scroll & capture the feed (resumable)
+  fb parse <target>                 parse raw dumps into ranked posts
+  fb report <target> [--top N]      build top-N + by-year reports with images
+
+Read-only: never reacts, comments, or posts.
+"""
+
+from __future__ import annotations
+
+import sys
+from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+
+
+def _cmd_status() -> int:
+    from fbtools import config
+
+    h = config.cookie_health()
+    print("Cookies:", "OK" if h["ok"] else "PROBLEM")
+    for k, v in h.items():
+        if k != "ok":
+            print(f"  {k}: {v}")
+    targets = config.list_targets()
+    print(f"\nTargets ({len(targets)}):")
+    for name in sorted(targets):
+        t = config.Target(name)
+        raw = len(list(t.raw.glob('raw-*.jsonl'))) if t.raw.exists() else 0
+        parsed = sum(1 for _ in t.posts_file.open()) if t.posts_file.exists() else 0
+        print(f"  {name}: {raw} crawl session(s), {parsed} parsed post(s)")
+    return 0
+
+
+def _cmd_find_group(query: str, headless: bool) -> int:
+    from fbtools.session import CheckpointError, FacebookSession
+
+    q = query.lower()
+    try:
+        with FacebookSession(headless=headless) as fb:
+            groups = fb.discover_groups()
+    except CheckpointError as e:
+        print(e)
+        return 2
+    matches = [g for g in groups if q in g["name"].lower()] if query else groups
+    if not matches:
+        print(f"No groups matched {query!r}. Found {len(groups)} groups total.")
+        for g in groups:
+            print(f"  {g['name']}  ->  {g['url']}")
+        return 1
+    print(f"Matched {len(matches)} group(s):")
+    for g in matches:
+        print(f"  {g['name']}  ->  {g['url']}")
+    return 0
+
+
+def _cmd_targets() -> int:
+    from fbtools import config
+
+    targets = config.list_targets()
+    if not targets:
+        print("No targets yet. Set one with: fb crawl <name> --url <feed URL>")
+        return 0
+    for name in sorted(targets):
+        print(f"  {name}: {targets[name]}")
+    return 0
+
+
+def main(argv: list[str]) -> int:
+    if not argv:
+        print(__doc__)
+        return 0
+    cmd, rest = argv[0], argv[1:]
+    if cmd in ("-h", "--help", "help"):
+        print(__doc__)
+        return 0
+    if cmd == "status":
+        return _cmd_status()
+    if cmd == "targets":
+        return _cmd_targets()
+    if cmd == "find-group":
+        headless = "--headless" in rest
+        rest = [a for a in rest if a != "--headless"]
+        if not rest:
+            print("usage: fb find-group <query> [--headless]")
+            return 1
+        return _cmd_find_group(rest[0], headless)
+    if cmd == "crawl":
+        from fbtools.crawl import main as crawl_main
+
+        return crawl_main(rest)
+    if cmd == "parse":
+        from fbtools.parse import main as parse_main
+
+        return parse_main(rest)
+    if cmd == "report":
+        from fbtools.report import main as report_main
+
+        return report_main(rest)
+    print(f"unknown command: {cmd}\n{__doc__}")
+    return 1
+
+
+if __name__ == "__main__":
+    raise SystemExit(main(sys.argv[1:]))
