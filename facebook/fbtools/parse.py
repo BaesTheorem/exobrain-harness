@@ -82,26 +82,29 @@ def _as_count(val: Any) -> int | None:
     return None
 
 
-def _iter_feed_nodes(obj: Any) -> list[dict[str, Any]]:
-    """Yield each post node from any feed container in the response.
+def _iter_post_nodes(obj: Any) -> list[dict[str, Any]]:
+    """Yield every post node in the response, wherever it sits.
 
-    Modern (Comet) Facebook delivers posts as `<something>_feed.edges[].node`
-    (e.g. group_feed, news_feed). We collect the edge nodes wherever a feed
-    container appears, which covers both the initial load and scroll pagination.
+    Facebook (Comet) delivers group posts in TWO shapes during a scroll, and a
+    parser that only reads one silently drops the other:
+      1. feed-edge nodes: `<something>_feed.edges[].node` (group_feed, ...)
+      2. standalone single-story responses: `data.node` directly, which is how
+         individually-fetched posts arrive -- and empirically where the
+         highest-reaction posts showed up.
+    Both shapes are just a dict carrying `comet_sections` plus a string
+    `post_id`, so collect structurally on that rather than by container. Dedup
+    downstream (by post id, max reactions) absorbs the overlap when a post
+    appears in both shapes. Nodes without their own UFI renderer (e.g. a shared
+    story's inner preview) yield no reactions and are dropped in _record_from_node.
     """
     nodes: list[dict[str, Any]] = []
     stack: list[Any] = [obj]
     while stack:
         cur = stack.pop()
         if isinstance(cur, dict):
-            for k, v in cur.items():
-                if (k == "feed" or k.endswith("_feed")) and isinstance(v, dict):
-                    edges = v.get("edges")
-                    if isinstance(edges, list):
-                        for e in edges:
-                            if isinstance(e, dict) and isinstance(e.get("node"), dict):
-                                nodes.append(e["node"])
-                stack.append(v)
+            if isinstance(cur.get("comet_sections"), dict) and isinstance(cur.get("post_id"), str):
+                nodes.append(cur)
+            stack.extend(cur.values())
         elif isinstance(cur, list):
             stack.extend(cur)
     return nodes
@@ -261,7 +264,7 @@ def parse_target(name: str) -> int:
                 except json.JSONDecodeError:
                     continue
                 for obj in _iter_json_objects(rec.get("body", "")):
-                    for node in _iter_feed_nodes(obj):
+                    for node in _iter_post_nodes(obj):
                         r = _record_from_node(node)
                         if r is None:
                             continue
