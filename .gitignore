@@ -214,3 +214,12 @@ ios-sideload/state.json
 # never commit to this public repo.
 fantasy/ringer_board*.json
 fantasy/draft-sheet.html
+
+# Facebook toolkit: EVERYTHING personal stays local. Session cookies are live
+# credentials; the browser profile holds the logged-in session; target URLs and
+# crawl data are private groups full of real people's names, faces, and posts.
+# Only the code + README are tracked. See facebook/README.md.
+facebook/secrets/
+facebook/.profile/
+facebook/data/
+facebook/report/
