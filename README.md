@@ -338,7 +338,7 @@ Exobrain harness/
 |-- auto-commit-harness.sh              # Daily auto-commit of harness changes (with gitignore audit)
 |-- MAC-MINI-MIGRATION-PLAN.md          # Plan to move always-on automation to a dedicated Mac Mini (laptop becomes a client)
 |-- .mcp.json                           # MCP server configs + Fitbit credentials (git-ignored)
-|-- .env                                # Shared local secrets: Withings tokens, AWAIR_HOST, TV_HOST/TV_MAC (git-ignored)
+|-- .env                                # Shared local secrets: Withings tokens, AWAIR_HOST, TV_HOST/TV_MAC, LUMA_AUTH_SESSION_KEY (git-ignored)
 |-- .gitignore
 |-- processing-log.json                 # Transaction log of all processed items (git-ignored)
 |-- requirements.txt                    # Python dependencies

@@ -1,0 +1,373 @@
+#!/usr/bin/env python3
+"""Luma event management CLI (cookie-auth write lane, works on the free plan).
+
+Talks to the same api.luma.com endpoints the Luma web app uses, authenticated
+by the LUMA_AUTH_SESSION_KEY browser cookie stored in the harness .env.
+
+INVARIANTS:
+- /event/create rejects partial payloads with a bare 400 and no field detail;
+  always send the full template (build_event_payload) and vary values only.
+- Descriptions live in description_mirror (ProseMirror JSON); the plain
+  description field is write-nothing / read-null.
+- start_at is UTC on the wire, always; the event's timezone is a separate field.
+- /event/admin/cancel-event requires should_refund; omitting it is the same
+  silent 400.
+- Host is api.luma.com; the old api.lu.ma host rejects create with the
+  identical bare 400, so never "fix" the host back.
+"""
+
+import argparse
+import json
+import os
+import re
+import sys
+import urllib.error
+import urllib.parse
+import urllib.request
+from datetime import datetime, timezone
+from pathlib import Path
+from zoneinfo import ZoneInfo
+
+API = "https://api.luma.com"
+PAGE = "https://luma.com"
+DEFAULT_CALENDAR = "cal-fBh86BiGcw6yiHW"  # Kansas City Effective Altruism
+DEFAULT_TZ = "America/Chicago"
+ENV_PATH = Path(__file__).resolve().parent.parent / ".env"
+# Cloudflare rejects python-urllib's default UA with error 1010; send a browser one.
+UA = ("Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 "
+      "(KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36")
+
+GEO_KEYS = (
+    "type", "place_id", "address", "full_address", "short_address",
+    "city_state", "city", "region", "region_short", "country",
+    "country_code", "place_coordinate",
+)
+
+
+def session_key() -> str:
+    key = os.environ.get("LUMA_AUTH_SESSION_KEY")
+    if not key and ENV_PATH.exists():
+        for line in ENV_PATH.read_text().splitlines():
+            if line.startswith("LUMA_AUTH_SESSION_KEY="):
+                key = line.split("=", 1)[1].strip()
+    if not key:
+        sys.exit(
+            "No LUMA_AUTH_SESSION_KEY in env or harness .env.\n"
+            "Grab it from a logged-in browser: DevTools > Application > "
+            "Cookies > https://luma.com > luma.auth-session-key"
+        )
+    return key
+
+
+def request(path: str, *, params: dict | None = None, body: dict | None = None,
+            authed: bool = True) -> dict:
+    url = API + path
+    if params:
+        url += "?" + urllib.parse.urlencode(params)
+    data = json.dumps(body).encode() if body is not None else None
+    headers = {"User-Agent": UA}
+    if body is not None:
+        headers["Content-Type"] = "application/json"
+    if authed:
+        headers["Cookie"] = "luma.auth-session-key=" + session_key()
+    req = urllib.request.Request(url, data=data, headers=headers)
+    try:
+        with urllib.request.urlopen(req) as resp:
+            return json.load(resp)
+    except urllib.error.HTTPError as e:
+        detail = e.read().decode(errors="replace")[:300]
+        hint = ""
+        if e.code == 400 and "Invalid request" in detail:
+            hint = ("\n(Luma's validator is silent: a bare 400 means a missing/"
+                    "malformed field somewhere in the payload.)")
+        if e.code == 401 or (e.code == 403 and "1010" in detail):
+            hint = "\n(Session cookie likely expired or UA blocked: re-copy the cookie from the browser.)"
+        sys.exit(f"HTTP {e.code} on {path}: {detail}{hint}")
+
+
+def parse_start(s: str, tz: str) -> str:
+    if re.match(r"^\d{4}-\d{2}-\d{2}T", s):  # already ISO; Z or offset required
+        dt = datetime.fromisoformat(s.replace("Z", "+00:00"))
+    else:
+        dt = datetime.strptime(s, "%Y-%m-%d %H:%M").replace(tzinfo=ZoneInfo(tz))
+    dt = dt.astimezone(timezone.utc)
+    return dt.strftime("%Y-%m-%dT%H:%M:%S.000Z")
+
+
+def parse_duration(s: str) -> str:
+    m = re.fullmatch(r"(?:(\d+)h)?(?:(\d+)m)?", s.strip())
+    if not m or not m.group(0):
+        sys.exit(f"Bad duration {s!r}; use forms like 2h, 90m, 1h30m")
+    h, mins = int(m.group(1) or 0), int(m.group(2) or 0)
+    out = "PT"
+    if h:
+        out += f"{h}H"
+    if mins:
+        out += f"{mins}M"
+    return out if out != "PT" else "PT1H"
+
+
+def prosemirror(text: str) -> dict:
+    paras = [p.strip().replace("\n", " ") for p in text.split("\n\n") if p.strip()]
+    return {
+        "type": "doc",
+        "content": [
+            {"type": "paragraph", "content": [{"type": "text", "text": p}]}
+            for p in paras
+        ] or [{"type": "paragraph"}],
+    }
+
+
+def calendar_events(period: str, limit: int, calendar: str) -> list[dict]:
+    d = request("/calendar/get-items", authed=False, params={
+        "calendar_api_id": calendar, "period": period, "pagination_limit": limit,
+    })
+    return [e["event"] for e in d.get("entries", [])]
+
+
+def find_event(ref: str, calendar: str) -> dict:
+    """Resolve an evt- id, luma.com URL, or bare slug to a calendar event."""
+    ref = ref.rstrip("/").split("/")[-1]
+    for period in ("future", "past"):
+        for ev in calendar_events(period, 50, calendar):
+            if ref in (ev["api_id"], ev["url"]):
+                return ev
+    sys.exit(f"Event {ref!r} not found on calendar {calendar} (checked 50 future + 50 past)")
+
+
+def page_data(slug: str) -> dict:
+    req = urllib.request.Request(
+        f"{PAGE}/{slug}",
+        headers={"User-Agent": UA, "Cookie": "luma.auth-session-key=" + session_key()},
+    )
+    with urllib.request.urlopen(req) as resp:
+        html = resp.read().decode(errors="replace")
+    m = re.search(r'<script id="__NEXT_DATA__" type="application/json">(.*?)</script>', html, re.S)
+    if not m:
+        return {}
+    props = json.loads(m.group(1))["props"]["pageProps"]
+    return props.get("initialData", {}).get("data", {})
+
+
+def build_event_payload(*, name: str, start_at: str, duration: str, tz: str,
+                        calendar: str, visibility: str, desc_mirror: dict,
+                        geo: dict | None, coordinate: dict | None,
+                        cover_url: str | None, capacity: int | None) -> dict:
+    return {
+        "name": name,
+        "start_at": start_at,
+        "duration_interval": duration,
+        "timezone": tz,
+        "calendar_api_id": calendar,
+        "visibility": visibility,
+        "description_mirror": desc_mirror,
+        "location_type": "offline" if geo else "tbd",
+        "geo_address_visibility": "public",
+        "geo_address_json": geo,
+        "coordinate": coordinate,
+        "ticket_types": [{
+            "type": "free", "currency": None, "cents": None, "min_cents": None,
+            "is_flexible": False, "require_approval": False, "is_hidden": False,
+            "ethereum_token_requirements": [],
+        }],
+        "max_capacity": capacity,
+        "waitlist_status": "disabled",
+        "calendar_to_submit_to_api_id": None,
+        "grant_manage_access": False,
+        "_calendar_requires_manage_access": False,
+        "supports_members_only": False,
+        "zoom_meeting_url": None, "zoom_meeting_id": None,
+        "zoom_meeting_password": None, "zoom_session_type": None,
+        "zoom_creation_method": None,
+        "cover_url": cover_url,
+        "theme_meta": {"theme": "legacy"},
+        "tint_color": "#146AEB",
+        "font_title": "ivy-mode",
+    }
+
+
+def venue_from_event(ev: dict) -> tuple[dict | None, dict | None]:
+    g = ev.get("geo_address_info")
+    if not g:
+        return None, None
+    return {k: g[k] for k in GEO_KEYS if k in g}, ev.get("coordinate")
+
+
+def print_created(result: dict) -> None:
+    print(f"created  {result['api_id']}")
+    print(f"page     {PAGE}/{result['url']}")
+    print(f"manage   {PAGE}/event/manage/{result['api_id']}")
+
+
+def cmd_whoami(args: argparse.Namespace) -> None:
+    u = request("/user")["user"]
+    for k in ("name", "username", "email", "api_id", "timezone"):
+        if u.get(k):
+            print(f"{k:9} {u[k]}")
+
+
+def cmd_events(args: argparse.Namespace) -> None:
+    tz = ZoneInfo(DEFAULT_TZ)
+    evs = calendar_events("past" if args.past else "future", args.limit, args.calendar)
+    for ev in evs:
+        local = datetime.fromisoformat(ev["start_at"].replace("Z", "+00:00")).astimezone(tz)
+        print(f"{local:%Y-%m-%d %a %I:%M%p}  {ev['name']}  [{ev['api_id']} | {PAGE}/{ev['url']}]")
+    if not evs:
+        print("(no events)")
+
+
+def cmd_create(args: argparse.Namespace) -> None:
+    geo = coordinate = None
+    cover = args.cover
+    if args.venue_from:
+        src = find_event(args.venue_from, args.calendar)
+        geo, coordinate = venue_from_event(src)
+        cover = cover or src.get("cover_url")
+        print(f"venue    {geo['address'] if geo else '(none on source)'} (from {src['name']})")
+    payload = build_event_payload(
+        name=args.name,
+        start_at=parse_start(args.start, args.timezone),
+        duration=parse_duration(args.duration),
+        tz=args.timezone,
+        calendar=args.calendar,
+        visibility=args.visibility,
+        desc_mirror=prosemirror(args.desc or ""),
+        geo=geo, coordinate=coordinate, cover_url=cover,
+        capacity=args.capacity,
+    )
+    print_created(request("/event/create", body=payload))
+
+
+def cmd_clone(args: argparse.Namespace) -> None:
+    src = find_event(args.source, args.calendar)
+    geo, coordinate = venue_from_event(src)
+    start = datetime.fromisoformat(src["start_at"].replace("Z", "+00:00"))
+    end = datetime.fromisoformat(src["end_at"].replace("Z", "+00:00"))
+    minutes = int((end - start).total_seconds() // 60)
+    desc_mirror = None
+    pd = page_data(src["url"])
+    for holder in (pd.get("event", {}), pd):
+        if isinstance(holder.get("description_mirror"), dict):
+            desc_mirror = holder["description_mirror"]
+            break
+    if desc_mirror is None:
+        print("note: source description not readable; cloning without it", file=sys.stderr)
+        desc_mirror = prosemirror("")
+    payload = build_event_payload(
+        name=args.name or src["name"],
+        start_at=parse_start(args.start, src.get("timezone") or DEFAULT_TZ),
+        duration=parse_duration(f"{minutes}m"),
+        tz=src.get("timezone") or DEFAULT_TZ,
+        calendar=args.calendar,
+        visibility=args.visibility or src.get("visibility", "public"),
+        desc_mirror=desc_mirror,
+        geo=geo, coordinate=coordinate,
+        cover_url=src.get("cover_url"),
+        capacity=None,
+    )
+    print(f"cloning  {src['name']} ({src['api_id']}) -> {args.start}")
+    print_created(request("/event/create", body=payload))
+
+
+def cmd_update(args: argparse.Namespace) -> None:
+    body: dict = {"event_api_id": args.event}
+    if args.name:
+        body["name"] = args.name
+    if args.start:
+        body["start_at"] = parse_start(args.start, args.timezone)
+    if args.duration:
+        body["duration_interval"] = parse_duration(args.duration)
+    if args.desc:
+        body["description_mirror"] = prosemirror(args.desc)
+    if args.capacity is not None:
+        body["max_capacity"] = args.capacity or None
+    if args.visibility:
+        body["visibility"] = args.visibility
+    if len(body) == 1:
+        sys.exit("Nothing to update; pass at least one field flag.")
+    ev = request("/event/admin/update", body=body).get("event", {})
+    print(f"updated  {ev.get('api_id', args.event)}  name={ev.get('name')}  start={ev.get('start_at')}")
+
+
+def cmd_cancel(args: argparse.Namespace) -> None:
+    d = request("/event/admin/cancel-event", body={
+        "event_api_id": args.event, "should_refund": args.refund,
+    })
+    print(f"cancelled {args.event} (task {d.get('task_id', '?')})")
+
+
+def cmd_guests(args: argparse.Namespace) -> None:
+    cursor = None
+    n = 0
+    while True:
+        params = {"event_api_id": args.event}
+        if cursor:
+            params["pagination_cursor"] = cursor
+        d = request("/event/admin/get-guests", params=params)
+        for entry in d.get("entries", []):
+            u = entry.get("user", entry)
+            n += 1
+            print(f"{u.get('name') or '(no name)'}  x{entry.get('num_tickets_registered', 1)}")
+        cursor = d.get("next_cursor")
+        if not cursor or not d.get("has_more", True):
+            break
+    print(f"({n} guests)")
+
+
+def main() -> None:
+    ap = argparse.ArgumentParser(prog="luma", description=__doc__.splitlines()[0])
+    ap.add_argument("--calendar", default=DEFAULT_CALENDAR, help="calendar api id")
+    sub = ap.add_subparsers(dest="cmd", required=True)
+
+    sub.add_parser("whoami", help="verify the session cookie").set_defaults(fn=cmd_whoami)
+
+    p = sub.add_parser("events", help="list calendar events")
+    p.add_argument("--past", action="store_true")
+    p.add_argument("--limit", type=int, default=20)
+    p.set_defaults(fn=cmd_events)
+
+    p = sub.add_parser("create", help="create an event")
+    p.add_argument("--name", required=True)
+    p.add_argument("--start", required=True, help="'YYYY-MM-DD HH:MM' local, or ISO UTC")
+    p.add_argument("--duration", default="2h")
+    p.add_argument("--desc", help="plain text; blank line = new paragraph")
+    p.add_argument("--venue-from", help="evt id / URL of an event whose venue to reuse")
+    p.add_argument("--visibility", default="public", choices=["public", "private"])
+    p.add_argument("--capacity", type=int)
+    p.add_argument("--cover", help="lumacdn cover image URL")
+    p.add_argument("--timezone", default=DEFAULT_TZ)
+    p.set_defaults(fn=cmd_create)
+
+    p = sub.add_parser("clone", help="copy an existing event to a new date")
+    p.add_argument("source", help="evt id / URL to clone")
+    p.add_argument("--start", required=True, help="'YYYY-MM-DD HH:MM' local, or ISO UTC")
+    p.add_argument("--name")
+    p.add_argument("--visibility", choices=["public", "private"])
+    p.set_defaults(fn=cmd_clone)
+
+    p = sub.add_parser("update", help="edit an existing event")
+    p.add_argument("event", help="evt api id")
+    p.add_argument("--name")
+    p.add_argument("--start")
+    p.add_argument("--duration")
+    p.add_argument("--desc")
+    p.add_argument("--capacity", type=int, help="0 = unlimited")
+    p.add_argument("--visibility", choices=["public", "private"])
+    p.add_argument("--timezone", default=DEFAULT_TZ)
+    p.set_defaults(fn=cmd_update)
+
+    p = sub.add_parser("cancel", help="cancel an event")
+    p.add_argument("event", help="evt api id")
+    p.add_argument("--refund", action="store_true", help="refund paid tickets")
+    p.set_defaults(fn=cmd_cancel)
+
+    p = sub.add_parser("guests", help="list an event's guests")
+    p.add_argument("event", help="evt api id")
+    p.set_defaults(fn=cmd_guests)
+
+    args = ap.parse_args()
+    args.fn(args)
+
+
+if __name__ == "__main__":
+    main()
