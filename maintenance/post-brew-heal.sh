@@ -51,7 +51,16 @@ for p in "$HOME"/Library/LaunchAgents/com.exobrain.*.plist "$HOME"/Library/Launc
   if echo "$info" | grep -qE "last exit code = 78|OS_REASON_CODESIGNING|OS_REASON_DYLD"; then
     echo "re-bootstrapping $label"
     launchctl bootout "gui/$UID_N/$label" 2>/dev/null
-    if launchctl bootstrap "gui/$UID_N" "$p" 2>/dev/null; then
+    # bootout returns before launchd finishes tearing the service down; an
+    # immediate bootstrap can race it and fail (took claude-bot down for 9h on
+    # 2026-08-27). Retry with a settle delay before declaring it broken.
+    ok=0
+    for attempt in 1 2 3; do
+      sleep $((attempt * 2))
+      if launchctl bootstrap "gui/$UID_N" "$p" 2>/dev/null; then ok=1; break; fi
+      echo "  bootstrap attempt $attempt failed for $label; retrying"
+    done
+    if [ "$ok" -eq 1 ]; then
       healed+=("$label re-bootstrapped")
     else
       broken+=("$label failed to bootstrap")
