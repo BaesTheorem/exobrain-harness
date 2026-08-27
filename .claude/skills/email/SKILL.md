@@ -9,15 +9,23 @@ This is the canonical reference for how the Exobrain interacts with Gmail. All s
 
 ## MCP Tools
 
-| Tool | Purpose |
-|------|---------|
-| `gmail_search_messages` | Search emails with Gmail query syntax |
-| `gmail_read_message` | Read a specific message by ID |
-| `gmail_read_thread` | Read a full email thread |
-| `gmail_create_draft` | Create a draft reply or new email |
-| `gmail_get_profile` | Get account profile info |
-| `gmail_list_labels` | List all Gmail labels |
-| `gmail_list_drafts` | List existing drafts |
+Gmail is served by a hosted Claude.com connector, prefix `mcp__claude_ai_Gmail__`. The aliases below are for readability -- call the actual prefixed names.
+
+> [!warning] These aliases were never real tool names
+> Until 2026-08-26 this table listed bare aliases (`gmail_search_messages`, `gmail_get_profile`) with no real names anywhere, and two of them had no live counterpart at all. A session that took the table literally found nothing and reported Gmail DOWN. Same defect as the calendar skill's dead UUID prefix, same day, same consequence: a briefing that skipped the email scan entirely.
+>
+> If a `select:` lookup returns nothing, **re-search by keyword** (`+gmail`) before declaring the connector unavailable.
+
+| Doc alias | Actual tool name | Purpose |
+|-----------|------------------|---------|
+| `gmail_search_messages` | `mcp__claude_ai_Gmail__search_threads` | Search with Gmail query syntax (returns THREADS, not messages) |
+| `gmail_read_message` | `mcp__claude_ai_Gmail__get_message` | Read a specific message by ID |
+| `gmail_read_thread` | `mcp__claude_ai_Gmail__get_thread` | Read a full email thread |
+| `gmail_create_draft` | `mcp__claude_ai_Gmail__create_draft` | Create a draft reply or new email |
+| `gmail_list_labels` | `mcp__claude_ai_Gmail__list_labels` | List all Gmail labels |
+| `gmail_list_drafts` | `mcp__claude_ai_Gmail__list_drafts` | List existing drafts |
+
+There is **no** `gmail_get_profile` equivalent on this connector; drop that step rather than hunting for it. Send/reply/forward (`send_message`, `reply`, `forward`) exist but are governed by the outward-facing rules below -- never fire one without explicit confirmation.
 
 ## Best Practices
 
