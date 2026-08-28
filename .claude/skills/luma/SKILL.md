@@ -11,14 +11,16 @@ Canonical reference for working with Luma. Everything here was verified live aga
 
 Luma's official developer API is paywalled (Luma Plus), but the web app itself talks to `api.luma.com` authenticated by nothing more than the browser session cookie. `bin/luma` drives those same endpoints, so full write access works on the free plan.
 
-- **Calendar**: Kansas City Effective Altruism, `cal-fBh86BiGcw6yiHW` (the CLI's default; override with `--calendar`).
+- **Calendars**: Kansas City Effective Altruism, `cal-fBh86BiGcw6yiHW`, is the CLI's default and the only id named in source. Alex has other calendars (a personal one among them); their ids live in the harness `.env` as `LUMA_CALENDARS=name=cal-xxx,other=cal-yyy` because a bare `cal-` id lets anyone read that calendar's whole event list unauthenticated, and this repo is public. `bin/luma calendars` prints the known names. **Do not assume an event is on the KC EA calendar** -- if a named event isn't there, ask which calendar rather than editing a similarly-named one.
+- **Selecting a calendar**: `--calendar` takes a name (`personal`), a `cal-` api id, or any luma.com calendar URL, and works either before or after the subcommand.
 - **Auth**: `LUMA_AUTH_SESSION_KEY` in the harness `.env` (gitignored). It is the user's `luma.auth-session-key` browser cookie and grants the whole account -- treat like a password, never commit, never echo into committed files.
 
 ## The CLI
 
 ```bash
 bin/luma whoami                 # cookie health check (run first when anything 401/403s)
-bin/luma events [--past] [--limit N]
+bin/luma calendars               # known calendar names (builtins + .env)
+bin/luma events [--past] [--limit N] [--calendar NAME|cal-id|URL]
 bin/luma create --name X --start "YYYY-MM-DD HH:MM" [--duration 2h] [--desc TEXT] \
     [--venue-from EVT] [--visibility public|private] [--capacity N] [--cover URL]
 bin/luma clone EVT --start "YYYY-MM-DD HH:MM" [--name X] [--visibility V]
@@ -27,7 +29,7 @@ bin/luma cancel EVT [--refund]
 bin/luma guests EVT
 ```
 
-Times are entered in America/Chicago local ("2026-09-20 11:00"); the CLI converts to the UTC wire format. `EVT` accepts an `evt-` api id, a full luma.com URL, or a bare event slug.
+Every subcommand accepts `--calendar`; without it they act on KC EA. Times are entered in America/Chicago local ("2026-09-20 11:00"); the CLI converts to the UTC wire format. `EVT` accepts an `evt-` api id, a full luma.com URL, or a bare event slug.
 
 `clone` is the workhorse for recurring-style events: it copies name, venue, duration, cover, timezone, and the rich description from the source event.
 
@@ -48,6 +50,7 @@ Host is **`api.luma.com`**. The legacy `api.lu.ma` host still serves some reads 
 |---|---|
 | `GET /user` | Auth check; returns the logged-in user |
 | `GET /calendar/get-items?calendar_api_id=&period=future\|past&pagination_limit=` | **No auth needed** on public calendars; full event objects incl. venue blocks |
+| (none found) | There is no endpoint that lists *your* calendars. `calendar/list`, `user/get-calendars`, `calendar/list-user-calendars`, `home/get-calendars` all 404. Calendar ids have to be supplied by hand, hence `LUMA_CALENDARS`. |
 | `GET /calendar/get?api_id=` | Calendar metadata; no auth needed |
 | `GET /ics/get?entity=calendar&id=` | iCal feed; no auth needed |
 | `POST /event/create` | Whole event in one request; see payload rules below |
