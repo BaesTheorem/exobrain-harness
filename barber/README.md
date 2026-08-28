@@ -59,6 +59,12 @@ python3 login.py            # one time; log in when the window opens
 python3 login.py --check    # is the saved session still good?
 ```
 
+`--check` tests the token in `.booksy-session.json` first, because that is
+what `book.py` and `cancel.py` actually authenticate with — the browser
+profile is never logged in by design, and an earlier version that probed only
+the profile reported "not logged in" while bookings worked fine. Only if the
+session file is dead does it fall back to probing the profile.
+
 When the session lapses, `book.py` fails with "session expired" and the fix is
 to re-run `login.py`.
 
@@ -79,6 +85,27 @@ Booking drives the real UI rather than a guessed confirm endpoint: it is the
 path Booksy actually supports, and it carries whatever prepayment or policy
 step a given barber has enabled. Cancellation is free up to an hour before, so
 an auto-booked slot is cheap to move.
+
+## Cancelling
+
+```bash
+python3 cancel.py --barber 1335772 --at "2026-08-29 11:00"            # dry run
+python3 cancel.py --barber 1335772 --at "2026-08-29 11:00" --confirm  # real
+```
+
+Same philosophy as booking: drive the real UI, verify against the server. The
+appointment page (`/account/appointment/{uid}`) lives on the main frame — no
+widget iframe — but the flow is three screens deep and only the last one acts:
+CANCEL opens a reason survey, submitting that opens a "Prefer to reschedule?"
+retention modal, and its "Cancel appointment" button is what actually cancels.
+The first live run stopped at the retention modal and the server check
+correctly reported nothing had been cancelled — page text is not evidence for
+cancellation either. Success means the booking no longer shows an active
+status in `/me/bookings`.
+
+To reschedule: book the new slot first, then cancel the old one, so there is
+never a moment with zero appointments. Then update the calendar event and
+`schedule.py pending --date <new>`.
 
 ## Booksy API notes
 

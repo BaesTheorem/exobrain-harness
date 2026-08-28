@@ -129,9 +129,36 @@ def profile_in_use() -> int | None:
     return pids[0] if pids else None
 
 
+def session_file_identity() -> dict | None:
+    """Who the extracted session file authenticates as, or None.
+
+    This is the check that matters: book.py and cancel.py authenticate with
+    the token from .booksy-session.json, not with the browser profile. An
+    earlier version of --check only probed the profile, which is never logged
+    in by design, so it reported "not logged in" while bookings worked fine.
+    """
+    import json
+    import urllib.request
+
+    import session
+
+    try:
+        req = urllib.request.Request(ME_ENDPOINT, headers=session.api_headers())
+        with urllib.request.urlopen(req, timeout=30) as resp:
+            return json.loads(resp.read())
+    except Exception:  # noqa: BLE001 - missing file or dead token both mean "no"
+        return None
+
+
 def check() -> int:
+    identity = session_file_identity()
+    if identity:
+        print(f"{describe(identity)} (via .booksy-session.json, the token bookings use)")
+        return 0
+    print("session file dead or missing; falling back to the browser profile...")
+
     if not PROFILE_DIR.exists():
-        print("no saved session; run: python3 login.py")
+        print("no saved session; run: python3 login.py, then python3 extract_session.py")
         return 1
 
     pid = profile_in_use()
