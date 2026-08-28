@@ -43,7 +43,7 @@ mkdir -p "$EXOBRAIN_LOG_DIR" 2>/dev/null
 # Drive. Retention is grandfather-father-son: a single archive can satisfy more
 # than one tier, so nothing is stored twice. Tune the counts here.
 BACKUP_DIR="$HOME/My Drive/Exobrain backups"
-KEEP_DAILY=7      # last N daily archives
+KEEP_DAILY=3      # last N daily archives
 KEEP_WEEKLY=4     # newest archive of each of the last N ISO weeks
 KEEP_MONTHLY=6    # newest archive of each of the last N calendar months
 # Where to discover sibling git repos whose gitignored data should be backed up
