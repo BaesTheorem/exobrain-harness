@@ -37,6 +37,11 @@ ENV_PATH = Path(__file__).resolve().parent.parent / ".env"
 UA = ("Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 "
       "(KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36")
 
+# Only the public community calendar is named inline. Personal calendar ids stay
+# in the gitignored .env, since a bare cal- id exposes that calendar's whole
+# event list to an unauthenticated reader and this repo is public.
+BUILTIN_CALENDARS = {"kcea": DEFAULT_CALENDAR}
+
 GEO_KEYS = (
     "type", "place_id", "address", "full_address", "short_address",
     "city_state", "city", "region", "region_short", "country",
@@ -46,12 +51,18 @@ GEO_KEYS = (
 )
 
 
-def session_key() -> str:
-    key = os.environ.get("LUMA_AUTH_SESSION_KEY")
-    if not key and ENV_PATH.exists():
+def env_value(key: str) -> str | None:
+    """Read a key from the process env, falling back to the harness .env."""
+    val = os.environ.get(key)
+    if not val and ENV_PATH.exists():
         for line in ENV_PATH.read_text().splitlines():
-            if line.startswith("LUMA_AUTH_SESSION_KEY="):
-                key = line.split("=", 1)[1].strip()
+            if line.startswith(key + "="):
+                val = line.split("=", 1)[1].strip()
+    return val or None
+
+
+def session_key() -> str:
+    key = env_value("LUMA_AUTH_SESSION_KEY")
     if not key:
         sys.exit(
             "No LUMA_AUTH_SESSION_KEY in env or harness .env.\n"
@@ -118,6 +129,31 @@ def prosemirror(text: str) -> dict:
             for p in paras
         ] or [{"type": "paragraph"}],
     }
+
+
+def calendar_map() -> dict[str, str]:
+    """Builtin calendar names plus LUMA_CALENDARS from .env ("name=cal-x,other=cal-y")."""
+    named = dict(BUILTIN_CALENDARS)
+    for pair in (env_value("LUMA_CALENDARS") or "").split(","):
+        name, _, cal_id = pair.partition("=")
+        if name.strip() and cal_id.strip():
+            named[name.strip().lower()] = cal_id.strip()
+    return named
+
+
+def resolve_calendar(ref: str) -> str:
+    """Accept a cal- api id, any luma.com calendar URL, or a name from calendar_map()."""
+    ref = ref.strip()
+    found = re.search(r"cal-[A-Za-z0-9]+", ref)
+    if found:
+        return found.group(0)
+    named = calendar_map()
+    if ref.lower() in named:
+        return named[ref.lower()]
+    sys.exit(
+        f"Unknown calendar {ref!r}. Known names: {', '.join(sorted(named))}.\n"
+        "Add more to the harness .env as LUMA_CALENDARS=name=cal-xxx,other=cal-yyy"
+    )
 
 
 def calendar_events(period: str, limit: int, calendar: str) -> list[dict]:
@@ -206,6 +242,12 @@ def cmd_whoami(args: argparse.Namespace) -> None:
     for k in ("name", "username", "email", "api_id", "timezone"):
         if u.get(k):
             print(f"{k:9} {u[k]}")
+
+
+def cmd_calendars(_args: argparse.Namespace) -> None:
+    for name, cal_id in sorted(calendar_map().items()):
+        default = "  (default)" if cal_id == DEFAULT_CALENDAR else ""
+        print(f"{name:12} {cal_id}{default}")
 
 
 def cmd_events(args: argparse.Namespace) -> None:
@@ -327,18 +369,26 @@ def cmd_guests(args: argparse.Namespace) -> None:
 
 
 def main() -> None:
-    ap = argparse.ArgumentParser(prog="luma", description=__doc__.splitlines()[0])
-    ap.add_argument("--calendar", default=DEFAULT_CALENDAR, help="calendar api id")
+    ap = argparse.ArgumentParser(prog="luma", description=(__doc__ or "").splitlines()[0])
+    ap.add_argument("--calendar", default=DEFAULT_CALENDAR,
+                    help="calendar name, cal- api id, or luma.com calendar URL")
     sub = ap.add_subparsers(dest="cmd", required=True)
 
-    sub.add_parser("whoami", help="verify the session cookie").set_defaults(fn=cmd_whoami)
+    # Same flag on every subcommand so it reads naturally after the verb.
+    # SUPPRESS keeps an unpassed subcommand flag from clobbering the global one.
+    cal_opt = argparse.ArgumentParser(add_help=False)
+    cal_opt.add_argument("--calendar", default=argparse.SUPPRESS,
+                         help="calendar name, cal- api id, or luma.com calendar URL")
 
-    p = sub.add_parser("events", help="list calendar events")
+    sub.add_parser("whoami", help="verify the session cookie").set_defaults(fn=cmd_whoami)
+    sub.add_parser("calendars", help="list known calendar names").set_defaults(fn=cmd_calendars)
+
+    p = sub.add_parser("events", help="list calendar events", parents=[cal_opt])
     p.add_argument("--past", action="store_true")
     p.add_argument("--limit", type=int, default=20)
     p.set_defaults(fn=cmd_events)
 
-    p = sub.add_parser("create", help="create an event")
+    p = sub.add_parser("create", help="create an event", parents=[cal_opt])
     p.add_argument("--name", required=True)
     p.add_argument("--start", required=True, help="'YYYY-MM-DD HH:MM' local, or ISO UTC")
     p.add_argument("--duration", default="2h")
@@ -350,14 +400,14 @@ def main() -> None:
     p.add_argument("--timezone", default=DEFAULT_TZ)
     p.set_defaults(fn=cmd_create)
 
-    p = sub.add_parser("clone", help="copy an existing event to a new date")
+    p = sub.add_parser("clone", help="copy an existing event to a new date", parents=[cal_opt])
     p.add_argument("source", help="evt id / URL to clone")
     p.add_argument("--start", required=True, help="'YYYY-MM-DD HH:MM' local, or ISO UTC")
     p.add_argument("--name")
     p.add_argument("--visibility", choices=["public", "private"])
     p.set_defaults(fn=cmd_clone)
 
-    p = sub.add_parser("update", help="edit an existing event")
+    p = sub.add_parser("update", help="edit an existing event", parents=[cal_opt])
     p.add_argument("event", help="evt api id")
     p.add_argument("--venue-from", help="evt id / URL of an event whose venue to copy")
     p.add_argument("--name")
@@ -369,16 +419,18 @@ def main() -> None:
     p.add_argument("--timezone", default=DEFAULT_TZ)
     p.set_defaults(fn=cmd_update)
 
-    p = sub.add_parser("cancel", help="cancel an event")
+    p = sub.add_parser("cancel", help="cancel an event", parents=[cal_opt])
     p.add_argument("event", help="evt api id")
     p.add_argument("--refund", action="store_true", help="refund paid tickets")
     p.set_defaults(fn=cmd_cancel)
 
-    p = sub.add_parser("guests", help="list an event's guests")
+    p = sub.add_parser("guests", help="list an event's guests", parents=[cal_opt])
     p.add_argument("event", help="evt api id")
     p.set_defaults(fn=cmd_guests)
 
     args = ap.parse_args()
+    if hasattr(args, "calendar"):
+        args.calendar = resolve_calendar(args.calendar)
     args.fn(args)
 
 
