@@ -37,7 +37,7 @@
     "repo_dir": "/Users/alexhedtke/Documents/Exobrain harness/barber",
     "source": "built",
     "added": "2026-08-16",
-    "notes": "Reads live Booksy availability for Rich Forever Midtown barbers (booth-rental umbrella venue: each barber is a separate Booksy business). Read-only; booking needs an account. Paired with schedule.py (6-week cadence) and launchd com.exobrain.haircut-check."
+    "notes": "Reads live Booksy availability for Rich Forever Midtown barbers (booth-rental umbrella venue: each barber is a separate Booksy business). book.py books and cancel.py cancels (both dry-run by default, server-verified via /me/bookings). schedule.py owns the 6-week cadence; launchd com.exobrain.haircut-check. login.py --check now tests the session file token, the one bookings actually use. Alex prefers weekday appointments."
   },
   {
     "name": "check_boundaries.py",
