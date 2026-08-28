@@ -1,4 +1,0 @@
-#!/bin/sh
-# Google Places API (New) CLI. Thin shim so the tools registry auto-discovers it
-# and so `places` works from anywhere; the implementation lives in places/.
-exec /usr/bin/python3 "$(dirname "$0")/../places/places.py" "$@"
