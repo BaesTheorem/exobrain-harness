@@ -42,7 +42,21 @@ mkdir -p "$EXOBRAIN_LOG_DIR" 2>/dev/null
 # harness, the vault, and every sibling repo's gitignored data into Google
 # Drive. Retention is grandfather-father-son: a single archive can satisfy more
 # than one tier, so nothing is stored twice. Tune the counts here.
-BACKUP_DIR="$HOME/My Drive/Exobrain backups"
+#
+# Upload path (2026-08-28): the archive is staged in BACKUP_STAGING_DIR (local,
+# outside both ~/Documents and the DriveFS mount) and pushed by
+# backup/drive-upload.py through the Drive API's resumable-upload protocol into
+# the Drive folder named BACKUP_DRIVE_FOLDER_NAME. DriveFS is no longer part of
+# the pipeline: its background sync reverts a queued multi-GB upload when the
+# Mac sleeps through its retries (five incidents 2026-07-20 .. 2026-08-28).
+# OAuth: client id/secret in the harness .env (GOOGLE_OAUTH_CLIENT_ID/SECRET,
+# reused from the claude-nest GCP project); refresh token gitignored at
+# "$BACKUP_STAGING_DIR/.drive-token.json" (mint: backup/drive-upload.py auth).
+BACKUP_STAGING_DIR="$HOME/Exobrain backup staging"
+BACKUP_DRIVE_FOLDER_NAME="Exobrain backups"
+# How many uploaded archives to keep locally in the staging dir as off-cloud
+# redundancy (newest first). Un-uploaded archives are never deleted.
+BACKUP_LOCAL_KEEP=1
 KEEP_DAILY=3      # last N daily archives
 KEEP_WEEKLY=4     # newest archive of each of the last N ISO weeks
 KEEP_MONTHLY=6    # newest archive of each of the last N calendar months
@@ -60,32 +74,12 @@ BACKUP_REPO_MAX_MB=2048
 # Abort a run early if the local staging volume has less than this much free.
 BACKUP_MIN_FREE_GB=20
 
-# Google Drive uploads the finished archive asynchronously, and it gives up fast:
-# roughly four retries over five minutes, then it reverts the cloud file to zero
-# bytes and drops the local content in "Lost and Found". Overnight the Mac
-# darkwakes for 2-45 seconds at a time, so those retries routinely all land while
-# the network is still down, and the day's backup ends up a 0-byte husk in Drive
-# while the log says "Backup complete." (five times between 2026-07-20 and
-# 2026-08-07; the 08-07 archive was lost outright). The run now holds caffeinate
-# and blocks until Drive confirms the upload. Minutes to wait before giving up; a
-# 5GB archive normally lands in about five.
-# How long the backup waits for Drive to confirm the upload before declaring
-# failure. This must survive a lid-closed weekend night: caffeinate -s only
-# holds the Mac awake on AC power, so on battery the upload progresses in
-# darkwake slivers and finishes whenever Alex wakes the machine -- 8-10h after
-# the 2 AM fire on a slow morning (observed 2026-08-16: staged 04:19, confirmed
-# ~noon). A precautionary local rescue copy is taken at BACKUP_RESCUE_AFTER_MIN
-# regardless, so the long deadline risks no data. The uplink has measured as low
-# as ~1 Mbps, which alone puts a 5.5GB upload past 12h, so the deadline also
-# covers a slow-but-moving awake upload. Ceiling: deadline + ~2.5h build must
-# stay under 24h, or the still-running job makes launchd skip the next 2 AM
-# fire and a whole day goes unbacked. 16h from a 2 AM start ends at 6 PM.
+# Per-run deadline for the resumable upload, in minutes. Hitting it is a pause,
+# not a failure: the session state is saved and the resume agent (every 30 min)
+# or the next 2 AM run continues from the last server-acked byte. The deadline
+# exists only so a run can't straddle its own next fire; the uplink has measured
+# as low as ~1 Mbps, which puts a 5.5GB upload past 12h, so it stays generous.
 BACKUP_SYNC_TIMEOUT_MIN=960
-BACKUP_RESCUE_AFTER_MIN=45
-# Where an archive that verified locally but never reached Drive gets parked, so
-# the day's backup still exists somewhere. Only written when an upload fails, so
-# it costs no disk in the normal case.
-BACKUP_RESCUE_DIR="$HOME/Exobrain backup rescue"
 
 # Out-of-tree files/dirs captured verbatim under a home-extras/ namespace in the
 # archive. These are secrets + local state that live OUTSIDE the harness, the
@@ -107,6 +101,7 @@ EXTRA_INCLUDES=(
     ".claude/statusline-command.sh"
     ".claude/channels/discord/.env"             # Discord bot token (channels/ is otherwise excluded)
     ".claude/channels/discord/access.json"
+    "Exobrain backup staging/.drive-token.json" # Drive-API uploader refresh token (circular but harmless; makes a restored machine's uploader work immediately)
     "Documents/ytmusic-manager/browser.json"    # YT Music auth (not a git repo)
     "Documents/osrs-companion/credentials.json" # OSRS agent auth (not a git repo)
     "Documents/home-assistant/config"           # HA hand-built config (history DB excluded below)

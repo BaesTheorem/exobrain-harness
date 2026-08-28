@@ -29,6 +29,8 @@ Apple ID · Google account · GitHub · **Obsidian Sync account** (separate from
    ```
    If Drive won't materialize: download the tarball from drive.google.com in a browser instead.
 
+   Note: since 2026-08-28 new archives are uploaded via the Drive API (`backup/drive-upload.py`), not DriveFS, so on the *old* machine the newest archive also sits locally in `~/Exobrain backup staging/`. On Drive they live in the same `Exobrain backups/` folder either way, and browser download always works. The uploader's refresh token rides in the archive at `home-extras/Exobrain backup staging/.drive-token.json`.
+
 ## Phase 1 -- System foundation
 
 ```bash

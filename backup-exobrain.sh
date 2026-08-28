@@ -15,30 +15,42 @@
 # Why "collective": one tarball is one atomic restore point. Pull it down, untar,
 # and the harness + vault + every repo's private data come back together.
 #
-# Retention: grandfather-father-son (config.sh KEEP_DAILY/WEEKLY/MONTHLY). A
-# single archive can count toward several tiers at once, so there is exactly one
-# physical copy of each kept archive -- no duplication on Drive.
+# Retention: grandfather-father-son (config.sh KEEP_DAILY/WEEKLY/MONTHLY),
+# applied CLOUD-SIDE via the Drive API (backup/drive-upload.py prune). A single
+# archive can count toward several tiers at once, so there is exactly one
+# physical copy of each kept archive. Locally, the newest uploaded archive is
+# kept in the staging dir as off-cloud redundancy (BACKUP_LOCAL_KEEP).
 #
-# Schedule: daily at 2:00 AM via com.exobrain.backup.plist (+ RunAtLoad catch-up).
+# Schedule: daily at 2:00 AM via com.exobrain.backup.plist (+ RunAtLoad
+# catch-up), plus com.exobrain.backup-resume.plist every 30 min to finish any
+# interrupted upload as soon as the Mac is really awake.
+#
+# UPLOAD PATH (rewritten 2026-08-28): the archive is staged in a LOCAL dir and
+# pushed through the Drive API's resumable-upload protocol by
+# backup/drive-upload.py. It never touches the DriveFS mount. History: five
+# separate data-loss incidents (2026-07-20 .. 2026-08-28) all traced to DriveFS
+# background sync on a battery Mac that sleeps -- Drive retries a queued upload
+# a few times, every retry lands in a 45s darkwake sliver with no network, and
+# it then reverts the cloud file to 0 bytes and dumps the local content in
+# "Lost and Found". The xattr-polling babysitter that used to live here could
+# detect that but not prevent it, and a reboot killed the babysitter itself.
+# A resumable API session survives all of it: the session URI is valid for
+# ~a week, each chunk resumes from the last server-acked byte, and sleep,
+# process death, or reboot merely pauses progress. Confirmation is the API's
+# md5Checksum matching the local file, not xattr divination.
 #
 # Notes / constraints:
 #   - Runs under /bin/bash (macOS bash 3.2): no associative arrays, no mapfile.
 #   - bsdtar (libarchive) is the system tar: supports -r (append to an
 #     uncompressed archive), -T (files-from), and -s (name substitution).
-#   - The archive is built uncompressed in a local temp dir (fast, keeps Drive
-#     from syncing a half-written file), verified, then gzipped and moved to
-#     Drive only once it's known-good.
-#   - Landing the file in the Drive folder is not the same as the backup
-#     existing. The run blocks (still caffeinated) until Drive stamps the
-#     com.google.drivefs.item-id xattr confirming the upload. Before this,
-#     five runs between 2026-07-20 and 2026-08-07 reported "Backup complete."
-#     while Drive had reverted the archive to 0 bytes.
-#   - The wait has two clocks: a rescue checkpoint (45m; copy the bytes off the
-#     mount as insurance, keep waiting) and a failure deadline (16h; alert,
-#     skip the prune). They are far apart because caffeinate cannot hold a
-#     battery, lid-closed Mac awake, so an overnight upload legitimately
-#     completes whenever the machine next really wakes. The next run reconciles
-#     anything Drive confirmed after a past run gave up.
+#   - The archive is built uncompressed in a local temp dir, verified, then
+#     gzipped and moved to the staging dir only once it's known-good.
+#   - The uploader is fed to python3 via stdin (never `python3 script.py`):
+#     under launchd, bash in this job provably has TCC access to ~/Documents
+#     (tar has read it nightly for months) but a python child may not, and the
+#     stdin trick means python never opens a file under ~/Documents itself.
+#     Everything python touches (staging dir, token, ledger) lives in $HOME
+#     outside ~/Documents.
 
 set -euo pipefail
 
@@ -47,47 +59,32 @@ source "$SCRIPT_DIR/config.sh"
 
 # Keep the Mac awake for the whole run: backups take hours, and system sleep
 # mid-tar stalls or corrupts them ("Interrupted system call", 2026-07). Re-exec
-# once under caffeinate; the guard env var prevents a loop.
+# once under caffeinate; the guard env var prevents a loop. (On battery this is
+# best-effort only -- caffeinate -s holds wake on AC power alone -- but the
+# resumable upload no longer depends on staying awake.)
 if [ -z "${EXOBRAIN_CAFFEINATED:-}" ] && command -v caffeinate >/dev/null 2>&1; then
     export EXOBRAIN_CAFFEINATED=1
     exec caffeinate -is "$0" "$@"
 fi
 
 # --- Settings (with safe fallbacks if config.sh predates these vars) ----------
-BACKUP_DIR="${BACKUP_DIR:-$HOME/My Drive/Exobrain backups}"
 KEEP_DAILY="${KEEP_DAILY:-7}"
 KEEP_WEEKLY="${KEEP_WEEKLY:-4}"
 KEEP_MONTHLY="${KEEP_MONTHLY:-6}"
 REPO_SCAN_ROOT="${REPO_SCAN_ROOT:-$HOME/Documents}"
 LOCAL_BACKUP_DIR="${LOCAL_BACKUP_DIR:-}"
-# EXTRA_INCLUDES is an array in config.sh; default to empty if config predates it.
 if ! declare -p EXTRA_INCLUDES >/dev/null 2>&1; then EXTRA_INCLUDES=(); fi
 if ! declare -p BACKUP_EXCLUDE_REPOS >/dev/null 2>&1; then BACKUP_EXCLUDE_REPOS=(); fi
 BACKUP_REPO_MAX_MB="${BACKUP_REPO_MAX_MB:-2048}"
 BACKUP_MIN_FREE_GB="${BACKUP_MIN_FREE_GB:-20}"
 BACKUP_SYNC_TIMEOUT_MIN="${BACKUP_SYNC_TIMEOUT_MIN:-960}"
-BACKUP_RESCUE_AFTER_MIN="${BACKUP_RESCUE_AFTER_MIN:-45}"
-BACKUP_RESCUE_DIR="${BACKUP_RESCUE_DIR:-$HOME/Exobrain backup rescue}"
-
-# Google Drive stamps this xattr on a file once its content upload has actually
-# landed in the cloud -- the value is the real Drive file id. Absent means the
-# bytes are still local-only. Verified 2026-08-10: a fresh 40MB file had no
-# xattr for 18s while uploading and gained it the moment the upload completed,
-# and across eight archives the only one missing it was the one Drive had
-# reverted to 0 bytes. Do NOT substitute file size here: the mount reports the
-# local size for a file whose cloud copy is an empty husk, which is exactly how
-# the 08-07 loss went unnoticed.
-DRIVE_SYNCED_XATTR='com.google.drivefs.item-id#S'
-# Empty output means "Drive has not confirmed this file yet", which is the normal
-# state on every poll before the upload lands. The `|| true` is load-bearing under
-# `set -e`: xattr exits 1 when the attribute is absent, so without it the very
-# first poll of the wait loop below killed the whole script silently, with no
-# stderr and no banner. That is exactly what happened 2026-08-11 through 08-14.
-drive_item_id() { xattr -p "$DRIVE_SYNCED_XATTR" "$1" 2>/dev/null || true; }
+BACKUP_STAGING_DIR="${BACKUP_STAGING_DIR:-$HOME/Exobrain backup staging}"
+BACKUP_LOCAL_KEEP="${BACKUP_LOCAL_KEEP:-1}"
+BACKUP_DRIVE_FOLDER_NAME="${BACKUP_DRIVE_FOLDER_NAME:-Exobrain backups}"
+LEDGER="$BACKUP_STAGING_DIR/uploaded.log"
 
 TIMESTAMP=$(date +%Y%m%d_%H%M%S)
 ARCHIVE_NAME="exobrain-collective-$TIMESTAMP.tar.gz"
-ARCHIVE_PATH="$BACKUP_DIR/$ARCHIVE_NAME"
 
 # Regenerable junk to keep OUT of the per-repo gitignored capture. These are
 # caches/builds, never irreplaceable data, and (in node_modules' case) huge.
@@ -98,79 +95,92 @@ fail() {
     # Clickable banner (opens the folder the failure is about) when mist-notify is
     # available; bare osascript can't carry a click target, so it's the fallback.
     if [ -x "$SCRIPT_DIR/mist-voice/bin/mist-notify" ]; then
-        "$SCRIPT_DIR/mist-voice/bin/mist-notify" "$1" "Exobrain URGENT" Basso "${2:-$BACKUP_DIR}" 2>/dev/null || true
+        "$SCRIPT_DIR/mist-voice/bin/mist-notify" "$1" "Exobrain URGENT" Basso "${2:-$BACKUP_STAGING_DIR}" 2>/dev/null || true
     else
         osascript -e "display notification \"$1\" with title \"Exobrain URGENT\" sound name \"Basso\"" 2>/dev/null || true
     fi
     exit 1
 }
 
-mkdir -p "$BACKUP_DIR"
+# The uploader (see header for why stdin). Exit 75 = deadline hit with state
+# kept, i.e. "made progress, resume later" -- not a data-loss failure.
+run_uploader() {
+    EXOBRAIN_HARNESS_DIR="$SCRIPT_DIR" \
+    BACKUP_STAGING_DIR="$BACKUP_STAGING_DIR" \
+    BACKUP_DRIVE_FOLDER_NAME="$BACKUP_DRIVE_FOLDER_NAME" \
+    BACKUP_SYNC_TIMEOUT_MIN="$BACKUP_SYNC_TIMEOUT_MIN" \
+    KEEP_DAILY="$KEEP_DAILY" KEEP_WEEKLY="$KEEP_WEEKLY" KEEP_MONTHLY="$KEEP_MONTHLY" \
+    /usr/bin/python3 - "$@" < "$SCRIPT_DIR/backup/drive-upload.py"
+}
 
-# --- Reconcile late-confirmed uploads from prior runs --------------------------
-# A run that times out waiting for Drive is not the last word: on battery with
-# the lid closed, caffeinate cannot hold the Mac awake (-s works on AC only),
-# so the upload routinely completes hours later once the machine really wakes.
-# That leaves behind (a) rescue copies whose Drive twin is now confirmed, and
-# (b) .UNUPLOADED-parked archives that did land after all. Clean both up here,
-# BEFORE the freshness guard's early exit, so a kickstart heals the state.
-for f in "$BACKUP_RESCUE_DIR"/exobrain-collective-*.tar.gz; do
-    [ -e "$f" ] || continue
-    TWIN="$BACKUP_DIR/${f##*/}"
-    if [ -f "$TWIN" ] && [ -n "$(drive_item_id "$TWIN")" ]; then
-        echo "[$(date)] Drive later confirmed ${f##*/}; dropping its rescue copy"
-        rm -f "$f"
+mkdir -p "$BACKUP_STAGING_DIR"
+
+# --- Single-instance lock -------------------------------------------------------
+# The 2 AM job, the RunAtLoad catch-up, and the 30-min resume agent all run this
+# script; only one may work at a time (two concurrent uploads of the same file
+# would fight over the session state). /tmp clears on reboot, so a lock orphaned
+# by a crash-without-reboot is detected by pid liveness.
+LOCK_DIR="/tmp/exobrain-backup.lock"
+if ! mkdir "$LOCK_DIR" 2>/dev/null; then
+    OTHER_PID="$(cat "$LOCK_DIR/pid" 2>/dev/null || true)"
+    if [ -n "$OTHER_PID" ] && kill -0 "$OTHER_PID" 2>/dev/null; then
+        exit 0   # another instance is live; it owns the work
     fi
-done
-for f in "$BACKUP_DIR"/exobrain-collective-*.tar.gz.UNUPLOADED; do
+    rm -rf "$LOCK_DIR"
+    mkdir "$LOCK_DIR" 2>/dev/null || exit 0
+fi
+echo $$ > "$LOCK_DIR/pid"
+trap 'rm -rf "$LOCK_DIR"' EXIT
+
+# --- Finish any interrupted upload BEFORE anything else -------------------------
+# A staged archive absent from the ledger is an upload a prior run didn't finish
+# (deadline, reboot). The resumable session picks up at the server-acked offset;
+# if the session aged out (~1 week) the uploader starts it over. This runs before
+# the freshness guard so a kickstart heals state instead of "skipping" past it,
+# which is exactly how the 2026-08-28 reverted archive stayed unnoticed all day.
+for f in "$BACKUP_STAGING_DIR"/exobrain-collective-*.tar.gz; do
     [ -e "$f" ] || continue
-    [ -n "$(drive_item_id "$f")" ] || continue
-    UNPARKED="${f%.UNUPLOADED}"
-    if [ -e "$UNPARKED" ]; then
-        # Same-day twin already lives in the retention glob, so this parked copy
-        # is a confirmed-on-Drive duplicate of the same snapshot; reclaim it.
-        echo "[$(date)] Parked ${f##*/} is on Drive but duplicates ${UNPARKED##*/}; removing it"
-        rm -f "$f"
-    else
-        echo "[$(date)] Parked ${f##*/} did upload after all; returning it to retention"
-        mv -f "$f" "$UNPARKED"
+    if ! grep -qF "$(basename "$f")" "$LEDGER" 2>/dev/null; then
+        echo "[$(date)] Unfinished upload from a prior run: $(basename "$f"); resuming"
+        rc=0; run_uploader upload "$f" || rc=$?
+        if [ "$rc" -eq 75 ]; then
+            echo "[$(date)] Upload deadline hit; progress saved, a later run resumes" >&2
+            exit 0
+        elif [ "$rc" -ne 0 ]; then
+            fail "resuming upload of $(basename "$f") failed (exit $rc); bytes safe in staging"
+        fi
     fi
 done
 
 # --- Freshness guard ----------------------------------------------------------
-# RunAtLoad fires this on every login/boot to catch up after a power-off, but we
-# don't want duplicate backups during ordinary logins. Skip if a collective
-# archive newer than 20h already exists (20h < 24h so the 2 AM run is never
-# suppressed).
-#
-# Age comes from the FILENAME timestamp, never mtime. Google Drive rewrites the
-# mtime of files it re-materializes, so a stale archive can look minutes old: on
-# 2026-08-10 Drive stamped the 08-07 archive with 16:12, and the 08-11 02:00 run
-# read that as a 10h-old backup and skipped -- 08-11 got no backup at all.
-newest_archive_age_secs() {
-    local newest="" f base stamp ep now
+# RunAtLoad + the resume agent fire this often; skip building a new archive if a
+# CONFIRMED upload newer than 20h exists (20h < 24h so the 2 AM run is never
+# suppressed). Freshness comes from the ledger of md5-verified uploads -- never
+# from files sitting in a folder. The old mount-glob check counted a reverted
+# husk as a fresh backup (2026-08-28) and skipped the whole day.
+newest_upload_age_secs() {
+    local newest="" name stamp ep now
     now=$(date +%s)
-    for f in "$BACKUP_DIR"/exobrain-collective-*.tar.gz; do
-        [ -e "$f" ] || continue
-        base="${f##*/}"
-        stamp="${base#exobrain-collective-}"
+    [ -f "$LEDGER" ] || { echo ""; return; }
+    while IFS=$'\t' read -r _ name _ _; do
+        stamp="${name#exobrain-collective-}"
         stamp="${stamp%.tar.gz}"           # YYYYMMDD_HHMMSS
         ep=$(date -j -f "%Y%m%d_%H%M%S" "$stamp" +%s 2>/dev/null) || continue
         if [ -z "$newest" ] || [ "$ep" -gt "$newest" ]; then newest="$ep"; fi
-    done
+    done < "$LEDGER"
     [ -n "$newest" ] || { echo ""; return; }
     echo $(( now - newest ))
 }
-AGE_SECS="$(newest_archive_age_secs)"
+AGE_SECS="$(newest_upload_age_secs)"
 if [ -n "$AGE_SECS" ] && [ "$AGE_SECS" -lt 72000 ]; then
-    echo "[$(date)] Recent collective backup exists ($((AGE_SECS / 3600))h old); skipping."
+    [ -n "${BACKUP_QUIET:-}" ] || echo "[$(date)] Recent confirmed backup exists ($((AGE_SECS / 3600))h old); skipping."
     exit 0
 fi
 
 # --- Free-space preflight ------------------------------------------------------
-# The archive is staged locally (tar, then its gzip) before moving to Drive, so
-# a full disk kills the run mid-write (observed 2026-07: ENOSPC at 21.6GB). Fail
-# fast and loud instead; an exact pre-gzip check runs later.
+# The archive is staged locally (tar, then its gzip) before uploading, so a full
+# disk kills the run mid-write (observed 2026-07: ENOSPC at 21.6GB). Fail fast
+# and loud instead; an exact pre-gzip check runs later.
 AVAIL_GB=$(( $(df -k "${TMPDIR:-/tmp}" | awk 'NR==2 {print $4}') / 1048576 ))
 if [ "$AVAIL_GB" -lt "$BACKUP_MIN_FREE_GB" ]; then
     fail "backup aborted: ${AVAIL_GB}GB free on staging volume, need ${BACKUP_MIN_FREE_GB}GB"
@@ -178,7 +188,7 @@ fi
 
 # --- Build the archive in a local temp dir ------------------------------------
 WORK="$(mktemp -d "${TMPDIR:-/tmp}/exobrain-backup.XXXXXX")"
-trap 'rm -rf "$WORK"' EXIT
+trap 'rm -rf "$WORK"; rm -rf "$LOCK_DIR"' EXIT
 
 # Every deliberate failure path here calls fail(), which logs and raises a banner.
 # An *undeliberate* one (a `set -e` trip on a command nobody expected to return
@@ -324,7 +334,7 @@ while IFS= read -r gitdir; do
     rm -f "$list"
 done < <(find "$REPO_SCAN_ROOT" -maxdepth 2 -type d -name .git 2>/dev/null)
 
-# --- Compress, verify, then publish to Drive ----------------------------------
+# --- Compress, verify, then stage locally --------------------------------------
 # Exact space check: the gzip output is strictly smaller than the tar, so free
 # space >= tar size guarantees the compress step cannot hit ENOSPC.
 TAR_BYTES=$(stat -f %z "$COLLECTIVE_TAR")
@@ -339,75 +349,24 @@ rm -f "$COLLECTIVE_TAR"
 [ -s "$WORK/$ARCHIVE_NAME" ] || fail "collective archive missing or empty"
 tar -tzf "$WORK/$ARCHIVE_NAME" >/dev/null 2>&1 || fail "collective archive is corrupted"
 
-# Move the verified, complete file onto Drive (so Drive never syncs a partial).
-mv -f "$WORK/$ARCHIVE_NAME" "$ARCHIVE_PATH"
-BACKUP_SIZE=$(du -h "$ARCHIVE_PATH" | cut -f1)
-echo "[$(date)] Archive staged on Drive: $ARCHIVE_PATH ($BACKUP_SIZE)"
+STAGED="$BACKUP_STAGING_DIR/$ARCHIVE_NAME"
+mv -f "$WORK/$ARCHIVE_NAME" "$STAGED"
+BACKUP_SIZE=$(du -h "$STAGED" | cut -f1)
+echo "[$(date)] Archive staged locally: $STAGED ($BACKUP_SIZE)"
 
-# --- Block until Google Drive confirms the upload ------------------------------
-# Landing the file in the Drive folder is NOT the backup succeeding; it only
-# queues an upload. We are still inside the caffeinate re-exec at this point, so
-# staying here holds the Mac awake and online for the transfer instead of handing
-# it back to the darkwake cycle mid-upload -- which is the whole bug.
-# Two clocks, deliberately far apart. The RESCUE clock (default 45m) is the
-# data-safety one: if Drive hasn't confirmed by then, copy the bytes off the
-# mount as insurance against cache eviction, but KEEP waiting. The DEADLINE
-# clock (default 10h) is the failure one: caffeinate -s cannot hold a battery,
-# lid-closed Mac awake, so a weekend-night upload legitimately finishes hours
-# late, whenever the machine really wakes. Before this split, the single 45m
-# deadline turned every such night into a false "backup failed" (08-14, 08-16)
-# whose archive was in fact fully uploaded by morning.
-echo "[$(date)] Waiting for Drive to confirm upload (rescue copy at ${BACKUP_RESCUE_AFTER_MIN}m, deadline ${BACKUP_SYNC_TIMEOUT_MIN}m)..."
-WAIT_START=$(date +%s)
-SYNC_DEADLINE=$(( WAIT_START + BACKUP_SYNC_TIMEOUT_MIN * 60 ))
-RESCUE_AT=$(( WAIT_START + BACKUP_RESCUE_AFTER_MIN * 60 ))
-RESCUED=""
-ITEM_ID=""
-while :; do
-    ITEM_ID="$(drive_item_id "$ARCHIVE_PATH")"
-    [ -n "$ITEM_ID" ] && break
-    NOW=$(date +%s)
-    [ "$NOW" -ge "$SYNC_DEADLINE" ] && break
-    if [ -z "$RESCUED" ] && [ "$NOW" -ge "$RESCUE_AT" ]; then
-        echo "[$(date)] Not confirmed after ${BACKUP_RESCUE_AFTER_MIN}m; taking precautionary rescue copy and continuing to wait" >&2
-        mkdir -p "$BACKUP_RESCUE_DIR"
-        if cp "$ARCHIVE_PATH" "$BACKUP_RESCUE_DIR/$ARCHIVE_NAME.tmp" \
-           && mv -f "$BACKUP_RESCUE_DIR/$ARCHIVE_NAME.tmp" "$BACKUP_RESCUE_DIR/$ARCHIVE_NAME"; then
-            RESCUED="$BACKUP_RESCUE_DIR/$ARCHIVE_NAME"
-            echo "[$(date)] Rescue copy: $RESCUED" >&2
-        else
-            rm -f "$BACKUP_RESCUE_DIR/$ARCHIVE_NAME.tmp" 2>/dev/null || true
-            echo "[$(date)] WARN: precautionary rescue copy failed; will retry at deadline" >&2
-        fi
-    fi
-    sleep 15
-done
-
-if [ -z "$ITEM_ID" ]; then
-    # Drive never took the bytes inside the long window. The file in the Drive
-    # folder may be a husk (mount reports full local size over an empty cloud
-    # copy), so make sure a rescue copy exists, then fail loudly -- BEFORE the
-    # prune below, so a doomed archive can never cause a good one's deletion.
-    if [ -z "$RESCUED" ]; then
-        mkdir -p "$BACKUP_RESCUE_DIR"
-        if cp "$ARCHIVE_PATH" "$BACKUP_RESCUE_DIR/$ARCHIVE_NAME.tmp" \
-           && mv -f "$BACKUP_RESCUE_DIR/$ARCHIVE_NAME.tmp" "$BACKUP_RESCUE_DIR/$ARCHIVE_NAME"; then
-            RESCUED="$BACKUP_RESCUE_DIR/$ARCHIVE_NAME"
-        else
-            rm -f "$BACKUP_RESCUE_DIR/$ARCHIVE_NAME.tmp" 2>/dev/null || true
-        fi
-    fi
-    if [ -n "$RESCUED" ]; then
-        echo "[$(date)] Rescued to: $RESCUED" >&2
-        fail "backup did NOT reach Google Drive within $((BACKUP_SYNC_TIMEOUT_MIN / 60))h; rescued copy at $BACKUP_RESCUE_DIR" "$BACKUP_RESCUE_DIR"
-    else
-        fail "backup did NOT reach Google Drive AND the local rescue copy failed -- today has no backup"
-    fi
-fi
-echo "[$(date)] Upload confirmed by Drive (item $ITEM_ID)"
-if [ -n "$RESCUED" ]; then
-    echo "[$(date)] Upload confirmed after the rescue checkpoint; dropping now-redundant rescue copy"
-    rm -f "$RESCUED"
+# --- Upload via the Drive API ---------------------------------------------------
+# Chunked resumable upload; confirmation is the API returning an md5Checksum that
+# matches the local file. Exit 75 means the per-run deadline passed with the
+# session state saved -- the resume agent (or the next 2 AM run) continues from
+# the last acked byte, so this is a pause, not a failure. The staged local file
+# IS the rescue copy; nothing is deleted until the cloud md5 matches.
+echo "[$(date)] Uploading to Drive folder '$BACKUP_DRIVE_FOLDER_NAME' (deadline ${BACKUP_SYNC_TIMEOUT_MIN}m)..."
+rc=0; run_uploader upload "$STAGED" || rc=$?
+if [ "$rc" -eq 75 ]; then
+    echo "[$(date)] Upload deadline hit; progress saved, a later run resumes" >&2
+    exit 0
+elif [ "$rc" -ne 0 ]; then
+    fail "upload of $ARCHIVE_NAME failed (exit $rc); bytes safe in $BACKUP_STAGING_DIR"
 fi
 
 # --- Optional secondary copy to an off-Google destination ---------------------
@@ -418,7 +377,7 @@ fi
 # for a complete archive.
 if [ -n "$LOCAL_BACKUP_DIR" ]; then
     if [ -d "$LOCAL_BACKUP_DIR" ]; then
-        if cp "$ARCHIVE_PATH" "$LOCAL_BACKUP_DIR/$ARCHIVE_NAME.tmp" \
+        if cp "$STAGED" "$LOCAL_BACKUP_DIR/$ARCHIVE_NAME.tmp" \
            && mv -f "$LOCAL_BACKUP_DIR/$ARCHIVE_NAME.tmp" "$LOCAL_BACKUP_DIR/$ARCHIVE_NAME"; then
             echo "[$(date)] Secondary copy: $LOCAL_BACKUP_DIR/$ARCHIVE_NAME"
         else
@@ -430,84 +389,23 @@ if [ -n "$LOCAL_BACKUP_DIR" ]; then
     fi
 fi
 
-# --- Drop husks before ranking for retention ----------------------------------
-# An archive Drive reverted still sits in the folder at its full apparent size,
-# so the retention tiers below would happily count it as one of the kept dailies
-# and delete a real backup to make room for it. Our own archive is confirmed
-# synced by now, so anything else missing the xattr is a husk from a prior run.
-# Only removed once a rescue copy is known to exist -- otherwise the husk's local
-# content may be the last copy of that day, so keep it and say so.
+# --- Retention ------------------------------------------------------------------
+# Cloud: grandfather-father-son via the API (covers archives from the old DriveFS
+# path too -- same folder, and the uploader uses the full drive scope so it sees
+# them). Local: keep the newest BACKUP_LOCAL_KEEP uploaded archives in staging as
+# off-cloud redundancy; never delete a staged archive absent from the ledger.
+run_uploader prune --daily "$KEEP_DAILY" --weekly "$KEEP_WEEKLY" --monthly "$KEEP_MONTHLY"
+
+kept=0
 while IFS= read -r f; do
-    [ "$f" = "$ARCHIVE_PATH" ] && continue
-    [ -n "$(drive_item_id "$f")" ] && continue
-    if [ -f "$BACKUP_RESCUE_DIR/${f##*/}" ]; then
-        echo "[$(date)] Removing husk (never uploaded; rescued copy exists): $f"
-        rm -f "$f"
-    else
-        # No rescue copy, so its local bytes may be the last copy of that day and
-        # deleting it is not on the table. Rename it out of the *.tar.gz glob
-        # instead: that frees the retention slot it would otherwise take from a
-        # real backup, without destroying anything.
-        echo "[$(date)] WARN: $f never reached Drive and has no rescue copy; parking it as .UNUPLOADED" >&2
-        mv -f "$f" "$f.UNUPLOADED" 2>/dev/null || true
+    if ! grep -qF "$(basename "$f")" "$LEDGER" 2>/dev/null; then
+        continue   # not confirmed uploaded; keep unconditionally
     fi
-done < <(ls -t "$BACKUP_DIR"/exobrain-collective-*.tar.gz 2>/dev/null)
-
-# --- Prune with grandfather-father-son retention ------------------------------
-# Single-copy GFS: compute the union of archives needed by the daily, weekly,
-# and monthly tiers, then delete everything else. Archives are listed newest
-# first, so the first one seen for any week/month is that period's newest.
-KEEP_LIST="$WORK/keep.txt"
-: > "$KEEP_LIST"
-
-# Daily: newest KEEP_DAILY archives.
-ls -t "$BACKUP_DIR"/exobrain-collective-*.tar.gz 2>/dev/null \
-    | head -n "$KEEP_DAILY" >> "$KEEP_LIST" || true
-
-# Weekly / monthly: newest archive per ISO week / per calendar month.
-seen_weeks=" "
-seen_months=" "
-wk_count=0
-mo_count=0
-while IFS= read -r f; do
-    base="${f##*/}"
-    ymd="${base#exobrain-collective-}"
-    ymd="${ymd%%_*}"   # YYYYMMDD
-    wk=$(date -j -f "%Y%m%d" "$ymd" "+%G-%V" 2>/dev/null) || continue
-    mo=$(date -j -f "%Y%m%d" "$ymd" "+%Y-%m" 2>/dev/null) || continue
-    case "$seen_weeks" in *" $wk "*) : ;; *)
-        if [ "$wk_count" -lt "$KEEP_WEEKLY" ]; then
-            echo "$f" >> "$KEEP_LIST"
-            seen_weeks="$seen_weeks$wk "
-            wk_count=$((wk_count + 1))
-        fi ;;
-    esac
-    case "$seen_months" in *" $mo "*) : ;; *)
-        if [ "$mo_count" -lt "$KEEP_MONTHLY" ]; then
-            echo "$f" >> "$KEEP_LIST"
-            seen_months="$seen_months$mo "
-            mo_count=$((mo_count + 1))
-        fi ;;
-    esac
-done < <(ls -t "$BACKUP_DIR"/exobrain-collective-*.tar.gz 2>/dev/null)
-
-# Delete any collective archive not in the keep set.
-while IFS= read -r f; do
-    if ! grep -Fxq "$f" "$KEEP_LIST"; then
-        echo "[$(date)] Pruning: $f"
-        rm -f "$f"
+    kept=$((kept + 1))
+    if [ "$kept" -gt "$BACKUP_LOCAL_KEEP" ]; then
+        echo "[$(date)] Dropping older local staged copy (confirmed on Drive): ${f##*/}"
+        rm -f "$f" "$f.driveupload.json"
     fi
-done < <(ls -t "$BACKUP_DIR"/exobrain-collective-*.tar.gz 2>/dev/null)
-
-# Transitional cleanup: the previous harness-only job left exobrain-harness-*
-# archives. The collective archive supersedes them; keep only the newest one as
-# a cushion and retire the rest. The legacy archives are all gone now, so ls
-# matches nothing and exits 1; under pipefail that fails the whole pipeline and
-# set -e killed the run right before "Backup complete." -- every successful
-# backup reported exit 1. Guarded, same as the KEEP_DAILY ls above.
-ls -t "$BACKUP_DIR"/exobrain-harness-*.tar.gz 2>/dev/null | tail -n +2 | while IFS= read -r old; do
-    echo "[$(date)] Retiring legacy harness-only backup: $old"
-    rm -f "$old"
-done || true
+done < <(ls -t "$BACKUP_STAGING_DIR"/exobrain-collective-*.tar.gz 2>/dev/null)
 
 echo "[$(date)] Backup complete."

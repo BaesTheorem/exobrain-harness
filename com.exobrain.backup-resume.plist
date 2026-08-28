@@ -1,0 +1,37 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>Label</key>
+    <string>com.exobrain.backup-resume</string>
+
+    <!-- Finish an interrupted backup upload as soon as the Mac is really
+         awake, instead of waiting for the next 2 AM fire. Runs the same
+         script as com.exobrain.backup: the /tmp lock keeps instances from
+         overlapping, the resume pass continues any staged-but-unconfirmed
+         upload from the last server-acked byte, and the ledger freshness
+         guard makes the common no-work case exit in under a second.
+         BACKUP_QUIET suppresses the routine "skipping" log line so 48 runs a
+         day don't drown backup.log. -->
+    <key>ProgramArguments</key>
+    <array>
+        <string>/bin/bash</string>
+        <string>/Users/alexhedtke/Documents/Exobrain harness/backup-exobrain.sh</string>
+    </array>
+
+    <key>EnvironmentVariables</key>
+    <dict>
+        <key>BACKUP_QUIET</key>
+        <string>1</string>
+    </dict>
+
+    <key>StartInterval</key>
+    <integer>1800</integer>
+
+    <key>StandardOutPath</key>
+    <string>/Users/alexhedtke/Library/Logs/exobrain/backup.log</string>
+
+    <key>StandardErrorPath</key>
+    <string>/Users/alexhedtke/Library/Logs/exobrain/backup.err</string>
+</dict>
+</plist>
