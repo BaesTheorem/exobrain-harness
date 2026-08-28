@@ -16,6 +16,14 @@
     "notes": "Scans govinfo BILLSTATUS bulk zips for a whole Congress and returns every AI-related bill plus a per-member index (sponsor/cosponsor, party, date, bucket). Primary-source whip lists without an API key or rate limit. Zips: https://www.govinfo.gov/bulkdata/BILLSTATUS/119/{s,hr}/BILLSTATUS-119-{s,hr}.zip"
   },
   {
+    "name": "app-shell build-app",
+    "command": "app-shell/build-app.sh \"Name\" slug http://127.0.0.1:PORT/ launchd.label [--plist P] [--log P] [--icon P.icns] [--bundle-id ID] [--health URL]",
+    "repo_dir": "/Users/alexhedtke/Documents/Exobrain harness/app-shell",
+    "source": "built",
+    "added": "2026-08-27",
+    "notes": "Builds /Applications/<Name>.app native WKWebView wrapper for a local web app (pywebview, shared venv, launchd kickstart, TCC-safe). Used by The Priory.app and Trawl.app."
+  },
+  {
     "name": "arctic-shift-scan",
     "command": "python3 reddit/arctic-shift-scan.py --sub kansascity --days 7",
     "repo_dir": "reddit/",
