@@ -223,6 +223,3 @@ facebook/secrets/
 facebook/.profile/
 facebook/data/
 facebook/report/
-
-# Places API response cache (paid API -- cached payloads, not secrets)
-places/cache/
