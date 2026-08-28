@@ -152,6 +152,14 @@
     "notes": "Builds draftbot/vor.json: value-over-replacement fantasy board from ESPN 2026 projections (league-scored full PPR) crossed with The Ringer's positional ranks. Replacement = QB13/RB30/WR34/TE14 for the 13-team league. Rebuild the MORNING OF the draft; output is gitignored derived data."
   },
   {
+    "name": "fb",
+    "command": "facebook/bin/fb",
+    "repo_dir": "facebook",
+    "source": "built",
+    "added": "2026-08-27",
+    "notes": "General read-only Facebook toolkit. Cookie-auth headed browser (Playwright) + GraphQL capture; works on any group/page/profile via named targets. Subcommands: status, find-group <q>, crawl <target> [--url] [--minutes] [--headless], parse <target>, report <target> [--top N] [--per-year N]. crawl->parse->report; outputs top-N + by-year with images. All cookies/data/reports gitignored. Scroll reaches ~8-10mo of group history per session; deep history needs looped sessions or GraphQL cursor-replay (not built)."
+  },
+  {
     "name": "gridpoint-build-install",
     "command": "~/Documents/gridpoint/scripts/build-install.sh",
     "repo_dir": "~/Documents/gridpoint",
@@ -247,6 +255,14 @@
     "source": "built",
     "added": "2026-08-25",
     "notes": "Builds ~/Applications/Open in Google Calendar.app and registers it as the default .ics handler, so calendar invites open in Google Calendar instead of Apple Calendar. Self-contained: the installer inlines a full RFC 5545 parser (line unfolding, TZID to UTC, all-day, DURATION without DTEND, RRULE, VALARM skipping). 1-5 events open pre-filled create pages, 6+ opens the import page. Private repo BaesTheorem/ic-to-gcal."
+  },
+  {
+    "name": "priory",
+    "command": "~/Documents/the-priory/bin/priory <status|ingest|feeds-load|serve|embed-warmup>",
+    "repo_dir": "/Users/alexhedtke/Documents/the-priory",
+    "source": "built",
+    "added": "2026-08-27",
+    "notes": "The Priory news aggregator CLI (deterministic Ground News + Base Rate Times clone). Web UI on 127.0.0.1:5025. Postgres 17 db 'priory'. See FORK.md for divergence from upstream MuckScraper."
   },
   {
     "name": "Rental Harmony",
