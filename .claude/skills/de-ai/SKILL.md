@@ -102,11 +102,13 @@ Make the third paragraph sound more like a startup founder wrote it
 - **Curly quotes**: Use straight quotes and apostrophes (' and ") unless the platform renders them automatically.
 - **Emoji as formatting**: Don't use emoji as bullet markers or section decorators in prose.
 
-## 14. Kill Metaphorical "Quietly" (and Hype Adverbs)
+## 14. Kill Metaphorical "Quietly" / Redundant "Silently" (and Hype Adverbs)
 - Never use "quietly" as a metaphor: "quietly wins", "quietly tracks your sleep", "quietly the best option", "the app quietly does X". It fakes understated insight and reads as slightly sycophantic. It's a dead AI tell.
 - Only keep "quietly" when it describes a literal low-volume sound ("she spoke quietly").
 - Same treatment for the sibling hype-adverbs that smuggle in praise or false ease: "effortlessly", "seamlessly", "simply", "elegantly", "gracefully". Cut them or replace with a concrete claim about what actually happens.
 - Fix: state the thing plainly. "quietly tracks heart rate" → "tracks heart rate". "quietly wins the comparison" → "wins the comparison" or, better, say *why* it wins.
+- **"Silently" when it adds nothing is the same tell** (added 2026-08-28). Cut it whenever the absence of a signal is already established, already obvious, or beside the point: "silently did nothing", "silently fails to load", "it silently ignores the flag", "the rule silently applies". The adverb is doing tone work, not information work, and it pads a plain verb into something that sounds like a discovered insight. Fix: delete it. "silently did nothing" → "did nothing".
+- **Keep "silently" only when "no signal was emitted" is the new, load-bearing claim** and you have not already said so. "The script fails silently" is legitimate and technically precise: no error, no log, no non-zero exit. The test is whether removing the word loses information. If the surrounding sentences already described the missing output, it loses nothing, so cut it.
 - **"Honest/honestly" as virtue framing is the same tell** (added 2026-08-15 after it shipped on three published pages): "the honest answer", "the honest gaps", "Method, honestly", "graded honestly", "an honest ranking". The writer is awarding themselves candor instead of demonstrating it. If the content is candid, that shows; the label adds nothing. Fix: delete the word, or replace the sentence with the concrete thing that makes it candid ("the honest advice is advocacy" → "the strongest move is advocacy"; "Method, honestly" → "Method and limits"). Keep "honest" only when it modifies someone else's conduct as a factual claim ("an honest broker", "honest weights and measures").
 - Watch the adjacent understatement-wink family too: "quiet site", "a small but mighty", "unassuming". State what it is instead.
 
