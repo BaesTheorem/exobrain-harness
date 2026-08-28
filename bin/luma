@@ -40,7 +40,9 @@ UA = ("Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 "
 GEO_KEYS = (
     "type", "place_id", "address", "full_address", "short_address",
     "city_state", "city", "region", "region_short", "country",
-    "country_code", "place_coordinate",
+    "country_code", "place_coordinate", "sublocality",
+    # The venue note ("we'll have a table sign") lives here, not on the event.
+    "description",
 )
 
 
@@ -283,10 +285,20 @@ def cmd_update(args: argparse.Namespace) -> None:
         body["max_capacity"] = args.capacity or None
     if args.visibility:
         body["visibility"] = args.visibility
+    if args.venue_from:
+        src = find_event(args.venue_from, args.calendar)
+        geo, coordinate = venue_from_event(src)
+        if not geo:
+            sys.exit(f"No venue on source event {src['name']}")
+        body["geo_address_json"] = geo
+        body["coordinate"] = coordinate
+        body["geo_address_visibility"] = "public"
     if len(body) == 1:
         sys.exit("Nothing to update; pass at least one field flag.")
     ev = request("/event/admin/update", body=body).get("event", {})
-    print(f"updated  {ev.get('api_id', args.event)}  name={ev.get('name')}  start={ev.get('start_at')}")
+    venue = (ev.get("geo_address_info") or {}).get("address", "")
+    print(f"updated  {ev.get('api_id', args.event)}  name={ev.get('name')}  "
+          f"start={ev.get('start_at')}  venue={venue}")
 
 
 def cmd_cancel(args: argparse.Namespace) -> None:
@@ -347,6 +359,7 @@ def main() -> None:
 
     p = sub.add_parser("update", help="edit an existing event")
     p.add_argument("event", help="evt api id")
+    p.add_argument("--venue-from", help="evt id / URL of an event whose venue to copy")
     p.add_argument("--name")
     p.add_argument("--start")
     p.add_argument("--duration")
