@@ -1,0 +1,299 @@
+#!/usr/bin/env python3
+"""Push game files wirelessly to an Anbernic RG35XX-family handheld (stock OS).
+
+Talks to the dufs server that WiFi_Push_ON.sh starts on the device (port 8035,
+serving the card's ROMS partition). Finds the device by cached IP or a LAN
+scan, infers the destination Roms/<SYSTEM>/ folder from the file extension,
+streams the upload with progress, and verifies it landed via sha256.
+
+Usage:
+  push-rom game.gba                 push, inferring the system folder
+  push-rom game.zip --system MAME   push to an explicit system folder
+  push-rom --list                   list system folders on the card
+  push-rom --list GBA               list files in one system folder
+"""
+
+from __future__ import annotations
+
+import argparse
+import concurrent.futures
+import hashlib
+import http.client
+import json
+import socket
+import subprocess
+import sys
+import time
+import urllib.parse
+from pathlib import Path
+from typing import NoReturn
+
+PORT = 8035
+CACHE = Path.home() / ".cache" / "push-rom-device.json"
+CHUNK = 1 << 20
+
+# Extension -> candidate stock-OS folder names, matched case-insensitively
+# against the folders actually present on the card. First hit wins.
+EXT_SYSTEMS: dict[str, list[str]] = {
+    "gba": ["GBA"],
+    "gb": ["GB"],
+    "gbc": ["GBC"],
+    "sgb": ["SGB", "GB"],
+    "sfc": ["SFC", "SNES"],
+    "smc": ["SFC", "SNES"],
+    "nes": ["FC", "NES"],
+    "fds": ["FDS", "FC"],
+    "md": ["MD", "GENESIS", "MEGADRIVE"],
+    "gen": ["MD", "GENESIS", "MEGADRIVE"],
+    "smd": ["MD", "GENESIS", "MEGADRIVE"],
+    "32x": ["32X"],
+    "gg": ["GG", "GAMEGEAR"],
+    "sms": ["MS", "SMS", "MASTERSYSTEM"],
+    "z64": ["N64"],
+    "n64": ["N64"],
+    "v64": ["N64"],
+    "nds": ["NDS"],
+    "pce": ["PCE", "PCENGINE"],
+    "ngp": ["NGP"],
+    "ngc": ["NGPC", "NGP"],
+    "ws": ["WS", "WSC", "WONDERSWAN"],
+    "wsc": ["WSC", "WS", "WONDERSWAN"],
+    "chd": ["PS", "PS1", "PSX"],
+    "pbp": ["PS", "PS1", "PSX"],
+    "cue": ["PS", "PS1", "PSX"],
+    "iso": ["PSP"],
+    "cso": ["PSP"],
+    "a26": ["A26", "ATARI", "ATARI2600"],
+    "lnx": ["LYNX"],
+    "vb": ["VB", "VIRTUALBOY"],
+}
+AMBIGUOUS_NOTE = {
+    "chd": "assumed PS1; pass --system if this is Sega CD / Dreamcast / etc.",
+    "cue": "assumed PS1; pass --system if this is Sega CD / etc.",
+    "iso": "assumed PSP; pass --system if this is PS1 / etc.",
+    "zip": "zip is ambiguous (arcade? zipped ROM?); pass --system explicitly",
+}
+
+
+def log(msg: str) -> None:
+    print(msg, flush=True)
+
+
+def die(msg: str, code: int = 1) -> NoReturn:
+    print(f"push-rom: {msg}", file=sys.stderr)
+    sys.exit(code)
+
+
+def http_request(
+    ip: str,
+    method: str,
+    path: str,
+    body: bytes | None = None,
+    timeout: float = 10.0,
+) -> tuple[int, bytes]:
+    conn = http.client.HTTPConnection(ip, PORT, timeout=timeout)
+    try:
+        conn.request(method, path, body=body)
+        resp = conn.getresponse()
+        return resp.status, resp.read()
+    finally:
+        conn.close()
+
+
+def is_device(ip: str, timeout: float = 1.5) -> bool:
+    try:
+        status, _ = http_request(ip, "GET", "/__dufs__/health", timeout=timeout)
+        return status == 200
+    except OSError:
+        return False
+
+
+def local_subnet_ips() -> list[str]:
+    """IPs on the en0 /24 (assumes home-LAN sized subnet)."""
+    try:
+        out = subprocess.run(
+            ["ipconfig", "getifaddr", "en0"],
+            capture_output=True,
+            text=True,
+            timeout=5,
+            check=False,
+        ).stdout.strip()
+    except OSError:
+        out = ""
+    if not out:
+        return []
+    base = out.rsplit(".", 1)[0]
+    me = out
+    return [f"{base}.{i}" for i in range(1, 255) if f"{base}.{i}" != me]
+
+
+def port_open(ip: str) -> bool:
+    try:
+        with socket.create_connection((ip, PORT), timeout=0.4):
+            return True
+    except OSError:
+        return False
+
+
+def discover(explicit_ip: str | None) -> str:
+    if explicit_ip:
+        if not is_device(explicit_ip):
+            die(
+                f"nothing answering on {explicit_ip}:{PORT} -- is the device "
+                "awake with APPS > WiFi_Push_ON run?"
+            )
+        return explicit_ip
+
+    if CACHE.exists():
+        try:
+            cached = json.loads(CACHE.read_text()).get("ip", "")
+        except (json.JSONDecodeError, OSError):
+            cached = ""
+        if cached and is_device(cached):
+            return cached
+
+    log("scanning LAN for the device...")
+    candidates = local_subnet_ips()
+    if not candidates:
+        die("couldn't determine the local subnet (is en0 up?)")
+    hits: list[str] = []
+    with concurrent.futures.ThreadPoolExecutor(max_workers=64) as pool:
+        for ip, opened in zip(candidates, pool.map(port_open, candidates), strict=True):
+            if opened:
+                hits.append(ip)
+    hits = [ip for ip in hits if is_device(ip)]
+    if not hits:
+        die(
+            f"no device found on the LAN with port {PORT} open.\n"
+            "  On the handheld: WiFi on, then APPS > WiFi_Push_ON.\n"
+            "  (A closed lid means asleep means unreachable.)"
+        )
+    ip = hits[0]
+    CACHE.parent.mkdir(parents=True, exist_ok=True)
+    CACHE.write_text(json.dumps({"ip": ip, "at": time.time()}))
+    log(f"found device at {ip}")
+    return ip
+
+
+def listing(ip: str, path: str) -> list[str]:
+    enc = urllib.parse.quote(path)
+    status, body = http_request(ip, "GET", f"{enc}?simple")
+    if status != 200:
+        die(f"listing {path} failed with HTTP {status}")
+    return [line for line in body.decode("utf-8", "replace").splitlines() if line]
+
+
+def resolve_system(ip: str, ext: str, explicit: str | None) -> str:
+    dirs = listing(ip, "/Roms/")
+    by_lower = {d.rstrip("/").lower(): d.rstrip("/") for d in dirs}
+    if explicit:
+        real = by_lower.get(explicit.lower())
+        if real:
+            return real
+        enc = urllib.parse.quote(f"/Roms/{explicit}")
+        status, _ = http_request(ip, "MKCOL", enc)
+        if status not in (200, 201):
+            die(f"couldn't create Roms/{explicit} (HTTP {status})")
+        log(f"created new system folder Roms/{explicit}")
+        return explicit
+    candidates = EXT_SYSTEMS.get(ext)
+    if not candidates:
+        die(
+            f"don't know where .{ext} files go; pass --system.\n"
+            f"  Folders on the card: {', '.join(sorted(by_lower.values()))}",
+            2,
+        )
+    for cand in candidates:
+        real = by_lower.get(cand.lower())
+        if real:
+            if ext in AMBIGUOUS_NOTE:
+                log(f"note: {AMBIGUOUS_NOTE[ext]}")
+            return real
+    die(
+        f"no folder for .{ext} (tried {', '.join(candidates)}); pass --system.\n"
+        f"  Folders on the card: {', '.join(sorted(by_lower.values()))}",
+        2,
+    )
+
+
+def upload(ip: str, file: Path, dest_dir: str) -> None:
+    size = file.stat().st_size
+    dest = f"/Roms/{dest_dir}/{file.name}" if dest_dir else f"/{file.name}"
+    enc = urllib.parse.quote(dest)
+    sha = hashlib.sha256()
+    sent = 0
+    last_pct = -1
+
+    conn = http.client.HTTPConnection(ip, PORT, timeout=30)
+    try:
+        conn.putrequest("PUT", enc)
+        conn.putheader("Content-Length", str(size))
+        conn.endheaders()
+        with file.open("rb") as fh:
+            while chunk := fh.read(CHUNK):
+                conn.send(chunk)
+                sha.update(chunk)
+                sent += len(chunk)
+                pct = sent * 100 // size if size else 100
+                if pct != last_pct and (size > 5 * CHUNK or pct == 100):
+                    print(f"\r  {file.name}: {pct}%", end="", flush=True)
+                    last_pct = pct
+        if last_pct != -1:
+            print()
+        resp = conn.getresponse()
+        resp.read()
+        if resp.status not in (200, 201, 204):
+            die(f"upload failed with HTTP {resp.status}")
+    finally:
+        conn.close()
+
+    status, body = http_request(ip, "GET", f"{enc}?hash", timeout=60.0)
+    if status == 200 and body.decode("ascii", "replace").strip() == sha.hexdigest():
+        log(f"pushed {file.name} -> {dest} ({size:,} bytes, sha256 verified)")
+        return
+    status, _ = http_request(ip, "HEAD", enc)
+    if status == 200:
+        log(f"pushed {file.name} -> {dest} ({size:,} bytes; hash check unavailable)")
+    else:
+        die(f"upload verification failed for {dest}")
+
+
+def main() -> None:
+    ap = argparse.ArgumentParser(description=(__doc__ or "").splitlines()[0])
+    ap.add_argument("files", nargs="*", type=Path, help="game files to push")
+    ap.add_argument("--system", "-s", help="destination folder under Roms/")
+    ap.add_argument("--ip", help="device IP (skips discovery)")
+    ap.add_argument(
+        "--list",
+        nargs="?",
+        const="",
+        metavar="SYSTEM",
+        help="list system folders, or files in one system folder",
+    )
+    args = ap.parse_args()
+
+    if args.list is None and not args.files:
+        ap.print_help()
+        sys.exit(2)
+
+    ip = discover(args.ip)
+
+    if args.list is not None:
+        path = f"/Roms/{args.list}/" if args.list else "/Roms/"
+        for name in sorted(listing(ip, path), key=str.lower):
+            log(name)
+        return
+
+    for file in args.files:
+        if not file.is_file():
+            die(f"{file} is not a file")
+        ext = file.suffix.lstrip(".").lower()
+        dest_dir = resolve_system(ip, ext, args.system)
+        upload(ip, file, dest_dir)
+
+    log("done. If the game doesn't show on-device, re-enter that system's "
+        "game list (stock rescans on entry), or reboot the device.")
+
+
+if __name__ == "__main__":
+    main()
