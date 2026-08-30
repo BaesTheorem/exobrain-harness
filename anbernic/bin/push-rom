@@ -1,77 +1,65 @@
 #!/usr/bin/env python3
 """Push game files wirelessly to an Anbernic RG35XX-family handheld (stock OS).
 
-Talks to the dufs server that WiFi_Push_ON.sh starts on the device (port 8035,
-serving the card's ROMS partition). Finds the device by cached IP or a LAN
-scan, infers the destination Roms/<SYSTEM>/ folder from the file extension,
-streams the upload with progress, and verifies it landed via sha256.
+The stock OS has no file transfer of its own, but it ships a full SSH service.
+The community "Temporary SSH Server" app (installed once into the OS card's
+Roms/APPS/) turns it on: SSH on port 22, root/root, while the app is on screen.
+
+This tool drives that. It installs a dedicated key on first use (so later
+pushes need no password), discovers where the games card's Roms folder lives
+(handling a two-card OS/games split), infers the Roms/<SYSTEM>/ subfolder from
+the file extension, streams the upload with progress, and verifies it landed
+via a remote sha256.
 
 Usage:
-  push-rom game.gba                 push, inferring the system folder
-  push-rom game.zip --system MAME   push to an explicit system folder
-  push-rom --list                   list system folders on the card
-  push-rom --list GBA               list files in one system folder
+  push-rom --setup --ip 192.168.0.21   first time: install key, find games card
+  push-rom game.gba                     push, inferring the system folder
+  push-rom disc.chd --system PS         push to an explicit system folder
+  push-rom --list                       list system folders on the games card
+  push-rom --list GBA                   list files in one system folder
 """
 
 from __future__ import annotations
 
 import argparse
-import concurrent.futures
 import hashlib
-import http.client
 import json
-import socket
+import os
+import shlex
 import subprocess
 import sys
-import time
-import urllib.parse
 from pathlib import Path
 from typing import NoReturn
 
-PORT = 8035
-CACHE = Path.home() / ".cache" / "push-rom-device.json"
+CONFIG_DIR = Path.home() / ".config" / "push-rom"
+CONFIG = CONFIG_DIR / "config.json"
+KEYFILE = CONFIG_DIR / "id_ed25519"
+KNOWN_HOSTS = CONFIG_DIR / "known_hosts"
+DEFAULT_PASS = os.environ.get("PUSH_ROM_PASS", "root")
+USER = "root"
 CHUNK = 1 << 20
 
 # Extension -> candidate stock-OS folder names, matched case-insensitively
 # against the folders actually present on the card. First hit wins.
 EXT_SYSTEMS: dict[str, list[str]] = {
-    "gba": ["GBA"],
-    "gb": ["GB"],
-    "gbc": ["GBC"],
-    "sgb": ["SGB", "GB"],
-    "sfc": ["SFC", "SNES"],
-    "smc": ["SFC", "SNES"],
-    "nes": ["FC", "NES"],
-    "fds": ["FDS", "FC"],
-    "md": ["MD", "GENESIS", "MEGADRIVE"],
-    "gen": ["MD", "GENESIS", "MEGADRIVE"],
-    "smd": ["MD", "GENESIS", "MEGADRIVE"],
-    "32x": ["32X"],
-    "gg": ["GG", "GAMEGEAR"],
-    "sms": ["MS", "SMS", "MASTERSYSTEM"],
-    "z64": ["N64"],
-    "n64": ["N64"],
-    "v64": ["N64"],
-    "nds": ["NDS"],
-    "pce": ["PCE", "PCENGINE"],
-    "ngp": ["NGP"],
-    "ngc": ["NGPC", "NGP"],
-    "ws": ["WS", "WSC", "WONDERSWAN"],
-    "wsc": ["WSC", "WS", "WONDERSWAN"],
-    "chd": ["PS", "PS1", "PSX"],
-    "pbp": ["PS", "PS1", "PSX"],
-    "cue": ["PS", "PS1", "PSX"],
-    "iso": ["PSP"],
-    "cso": ["PSP"],
-    "a26": ["A26", "ATARI", "ATARI2600"],
-    "lnx": ["LYNX"],
-    "vb": ["VB", "VIRTUALBOY"],
+    "gba": ["GBA"], "gb": ["GB"], "gbc": ["GBC"], "sgb": ["SGB", "GB"],
+    "sfc": ["SFC", "SNES"], "smc": ["SFC", "SNES"],
+    "nes": ["FC", "NES"], "fds": ["FDS", "FC"],
+    "md": ["MD", "GENESIS", "MEGADRIVE"], "gen": ["MD", "GENESIS", "MEGADRIVE"],
+    "smd": ["MD", "GENESIS", "MEGADRIVE"], "32x": ["32X", "THIRTYTWOX"],
+    "gg": ["GG", "GAMEGEAR"], "sms": ["MS", "SMS", "MASTERSYSTEM"],
+    "z64": ["N64"], "n64": ["N64"], "v64": ["N64"],
+    "nds": ["NDS"], "pce": ["PCE", "PCENGINE"],
+    "ngp": ["NGP"], "ngc": ["NGPC", "NGP"],
+    "ws": ["WS", "WSC", "WONDERSWAN"], "wsc": ["WSC", "WS", "WONDERSWAN"],
+    "chd": ["PS", "PS1", "PSX"], "pbp": ["PS", "PS1", "PSX"], "cue": ["PS", "PS1", "PSX"],
+    "iso": ["PSP"], "cso": ["PSP"],
+    "a26": ["A26", "ATARI", "ATARI2600"], "lnx": ["LYNX"], "vb": ["VB", "VIRTUALBOY"],
 }
 AMBIGUOUS_NOTE = {
     "chd": "assumed PS1; pass --system if this is Sega CD / Dreamcast / etc.",
     "cue": "assumed PS1; pass --system if this is Sega CD / etc.",
     "iso": "assumed PSP; pass --system if this is PS1 / etc.",
-    "zip": "zip is ambiguous (arcade? zipped ROM?); pass --system explicitly",
 }
 
 
@@ -84,203 +72,246 @@ def die(msg: str, code: int = 1) -> NoReturn:
     sys.exit(code)
 
 
-def http_request(
-    ip: str,
-    method: str,
-    path: str,
-    body: bytes | None = None,
-    timeout: float = 10.0,
-) -> tuple[int, bytes]:
-    conn = http.client.HTTPConnection(ip, PORT, timeout=timeout)
-    try:
-        conn.request(method, path, body=body)
-        resp = conn.getresponse()
-        return resp.status, resp.read()
-    finally:
-        conn.close()
-
-
-def is_device(ip: str, timeout: float = 1.5) -> bool:
-    try:
-        status, _ = http_request(ip, "GET", "/__dufs__/health", timeout=timeout)
-        return status == 200
-    except OSError:
-        return False
-
-
-def local_subnet_ips() -> list[str]:
-    """IPs on the en0 /24 (assumes home-LAN sized subnet)."""
-    try:
-        out = subprocess.run(
-            ["ipconfig", "getifaddr", "en0"],
-            capture_output=True,
-            text=True,
-            timeout=5,
-            check=False,
-        ).stdout.strip()
-    except OSError:
-        out = ""
-    if not out:
-        return []
-    base = out.rsplit(".", 1)[0]
-    me = out
-    return [f"{base}.{i}" for i in range(1, 255) if f"{base}.{i}" != me]
-
-
-def port_open(ip: str) -> bool:
-    try:
-        with socket.create_connection((ip, PORT), timeout=0.4):
-            return True
-    except OSError:
-        return False
-
-
-def discover(explicit_ip: str | None) -> str:
-    if explicit_ip:
-        if not is_device(explicit_ip):
-            die(
-                f"nothing answering on {explicit_ip}:{PORT} -- is the device "
-                "awake with APPS > WiFi_Push_ON run?"
-            )
-        return explicit_ip
-
-    if CACHE.exists():
+def load_config() -> dict[str, str]:
+    if CONFIG.exists():
         try:
-            cached = json.loads(CACHE.read_text()).get("ip", "")
+            return json.loads(CONFIG.read_text())
         except (json.JSONDecodeError, OSError):
-            cached = ""
-        if cached and is_device(cached):
-            return cached
+            return {}
+    return {}
 
-    log("scanning LAN for the device...")
-    candidates = local_subnet_ips()
+
+def save_config(cfg: dict[str, str]) -> None:
+    CONFIG_DIR.mkdir(parents=True, exist_ok=True)
+    CONFIG.write_text(json.dumps(cfg, indent=2))
+
+
+def ssh_opts() -> list[str]:
+    return [
+        "-i", str(KEYFILE),
+        "-o", "IdentitiesOnly=yes",
+        "-o", "StrictHostKeyChecking=accept-new",
+        "-o", f"UserKnownHostsFile={KNOWN_HOSTS}",
+        "-o", "ConnectTimeout=8",
+    ]
+
+
+def run_ssh(ip: str, remote_cmd: str, *, check: bool = True) -> tuple[int, str]:
+    """Run a shell command on the device over key auth. Returns (rc, stdout)."""
+    argv = ["ssh", *ssh_opts(), "-o", "BatchMode=yes", f"{USER}@{ip}", remote_cmd]
+    proc = subprocess.run(argv, capture_output=True, text=True, check=False)
+    if check and proc.returncode != 0:
+        die(f"ssh command failed (rc {proc.returncode}): {remote_cmd}\n{proc.stderr.strip()}")
+    return proc.returncode, proc.stdout
+
+
+def key_works(ip: str) -> bool:
+    if not KEYFILE.exists():
+        return False
+    rc, _ = run_ssh(ip, "true", check=False)
+    return rc == 0
+
+
+def ensure_keypair() -> None:
+    if KEYFILE.exists():
+        return
+    CONFIG_DIR.mkdir(parents=True, exist_ok=True)
+    subprocess.run(
+        ["ssh-keygen", "-t", "ed25519", "-N", "", "-f", str(KEYFILE), "-C", "push-rom"],
+        check=True, capture_output=True,
+    )
+    KEYFILE.chmod(0o600)
+
+
+def install_key(ip: str) -> None:
+    """Copy our public key to the device, feeding the default password via expect."""
+    ensure_keypair()
+    log(f"installing push-rom's key on {ip} (one time)...")
+    expect_script = f"""
+set timeout 25
+spawn ssh-copy-id -i {shlex.quote(str(KEYFILE) + ".pub")} \
+  -o IdentitiesOnly=yes -o StrictHostKeyChecking=accept-new \
+  -o UserKnownHostsFile={shlex.quote(str(KNOWN_HOSTS))} {USER}@{ip}
+expect {{
+  -re "(?i)password:" {{ send "{DEFAULT_PASS}\\r"; exp_continue }}
+  -re "(?i)yes/no" {{ send "yes\\r"; exp_continue }}
+  eof
+}}
+catch wait result
+exit [lindex $result 3]
+"""
+    proc = subprocess.run(["expect", "-"], input=expect_script, text=True,
+                          capture_output=True, check=False)
+    if not key_works(ip):
+        detail = (proc.stdout + proc.stderr).strip()[-400:]
+        die("couldn't install the SSH key. Is the Temporary SSH Server app "
+            f"on screen on the device, and is {ip} correct?\n{detail}")
+
+
+def ensure_conn(ip: str) -> None:
+    if key_works(ip):
+        return
+    install_key(ip)
+
+
+def discover_roms_base(ip: str) -> str:
+    """Find the games card's Roms folder, preferring the non-OS (TF2) card."""
+    _, out = run_ssh(ip, "find /mnt -maxdepth 2 -type d -iname roms 2>/dev/null")
+    candidates = [line.strip() for line in out.splitlines() if line.strip()]
     if not candidates:
-        die("couldn't determine the local subnet (is en0 up?)")
-    hits: list[str] = []
-    with concurrent.futures.ThreadPoolExecutor(max_workers=64) as pool:
-        for ip, opened in zip(candidates, pool.map(port_open, candidates), strict=True):
-            if opened:
-                hits.append(ip)
-    hits = [ip for ip in hits if is_device(ip)]
-    if not hits:
-        die(
-            f"no device found on the LAN with port {PORT} open.\n"
-            "  On the handheld: WiFi on, then APPS > WiFi_Push_ON.\n"
-            "  (A closed lid means asleep means unreachable.)"
-        )
-    ip = hits[0]
-    CACHE.parent.mkdir(parents=True, exist_ok=True)
-    CACHE.write_text(json.dumps({"ip": ip, "at": time.time()}))
-    log(f"found device at {ip}")
-    return ip
+        die("couldn't find any Roms folder under /mnt on the device. Is the "
+            "games card inserted? Try --roms-base to set it by hand.")
+    if len(candidates) == 1:
+        return candidates[0]
+    # Two-card split: /mnt/mmc is the OS card (TF1); prefer anything else.
+    non_os = [c for c in candidates if not c.startswith("/mnt/mmc")]
+    chosen = non_os[0] if non_os else candidates[0]
+    log(f"found Roms folders: {', '.join(candidates)}")
+    log(f"using games card: {chosen}")
+    return chosen
 
 
-def listing(ip: str, path: str) -> list[str]:
-    enc = urllib.parse.quote(path)
-    status, body = http_request(ip, "GET", f"{enc}?simple")
-    if status != 200:
-        die(f"listing {path} failed with HTTP {status}")
-    return [line for line in body.decode("utf-8", "replace").splitlines() if line]
+def resolve_base(ip: str, cfg: dict[str, str]) -> str:
+    base = cfg.get("roms_base")
+    if base:
+        return base
+    base = discover_roms_base(ip)
+    cfg["roms_base"] = base
+    save_config(cfg)
+    return base
 
 
-def resolve_system(ip: str, ext: str, explicit: str | None) -> str:
-    dirs = listing(ip, "/Roms/")
-    by_lower = {d.rstrip("/").lower(): d.rstrip("/") for d in dirs}
+def list_dir(ip: str, path: str) -> list[str]:
+    _, out = run_ssh(ip, f"ls -1 {shlex.quote(path)} 2>/dev/null")
+    return [line for line in out.splitlines() if line]
+
+
+def resolve_system(ip: str, base: str, ext: str, explicit: str | None) -> str:
+    folders = list_dir(ip, base)
+    by_lower = {f.lower(): f for f in folders}
     if explicit:
         real = by_lower.get(explicit.lower())
         if real:
             return real
-        enc = urllib.parse.quote(f"/Roms/{explicit}")
-        status, _ = http_request(ip, "MKCOL", enc)
-        if status not in (200, 201):
-            die(f"couldn't create Roms/{explicit} (HTTP {status})")
-        log(f"created new system folder Roms/{explicit}")
+        run_ssh(ip, f"mkdir -p {shlex.quote(base + '/' + explicit)}")
+        log(f"created new system folder {explicit}")
         return explicit
     candidates = EXT_SYSTEMS.get(ext)
     if not candidates:
-        die(
-            f"don't know where .{ext} files go; pass --system.\n"
-            f"  Folders on the card: {', '.join(sorted(by_lower.values()))}",
-            2,
-        )
+        die(f"don't know where .{ext} files go; pass --system.\n"
+            f"  Folders on the card: {', '.join(sorted(by_lower.values()))}", 2)
     for cand in candidates:
         real = by_lower.get(cand.lower())
         if real:
             if ext in AMBIGUOUS_NOTE:
                 log(f"note: {AMBIGUOUS_NOTE[ext]}")
             return real
-    die(
-        f"no folder for .{ext} (tried {', '.join(candidates)}); pass --system.\n"
-        f"  Folders on the card: {', '.join(sorted(by_lower.values()))}",
-        2,
-    )
+    die(f"no folder for .{ext} (tried {', '.join(candidates)}); pass --system.\n"
+        f"  Folders on the card: {', '.join(sorted(by_lower.values()))}", 2)
 
 
-def upload(ip: str, file: Path, dest_dir: str) -> None:
+def upload(ip: str, base: str, file: Path, sysdir: str, *, dry_run: bool) -> None:
     size = file.stat().st_size
-    dest = f"/Roms/{dest_dir}/{file.name}" if dest_dir else f"/{file.name}"
-    enc = urllib.parse.quote(dest)
+    remote = f"{base}/{sysdir}/{file.name}"
+    if dry_run:
+        log(f"[dry-run] would push {file.name} -> {remote} ({size:,} bytes)")
+        return
+    run_ssh(ip, f"mkdir -p {shlex.quote(base + '/' + sysdir)}")
+
+    # Stream the file to a remote `cat`, so any filename is safe (no scp quoting).
+    argv = ["ssh", *ssh_opts(), "-o", "BatchMode=yes", f"{USER}@{ip}",
+            f"cat > {shlex.quote(remote)}"]
+    proc = subprocess.Popen(argv, stdin=subprocess.PIPE)
     sha = hashlib.sha256()
     sent = 0
-    last_pct = -1
+    last = -1
+    assert proc.stdin is not None
+    with file.open("rb") as fh:
+        while chunk := fh.read(CHUNK):
+            proc.stdin.write(chunk)
+            sha.update(chunk)
+            sent += len(chunk)
+            pct = sent * 100 // size if size else 100
+            if pct != last and (size > 5 * CHUNK or pct == 100):
+                print(f"\r  {file.name}: {pct}%", end="", flush=True)
+                last = pct
+    proc.stdin.close()
+    if last != -1:
+        print()
+    if proc.wait() != 0:
+        die(f"upload failed for {remote}")
 
-    conn = http.client.HTTPConnection(ip, PORT, timeout=30)
-    try:
-        conn.putrequest("PUT", enc)
-        conn.putheader("Content-Length", str(size))
-        conn.endheaders()
-        with file.open("rb") as fh:
-            while chunk := fh.read(CHUNK):
-                conn.send(chunk)
-                sha.update(chunk)
-                sent += len(chunk)
-                pct = sent * 100 // size if size else 100
-                if pct != last_pct and (size > 5 * CHUNK or pct == 100):
-                    print(f"\r  {file.name}: {pct}%", end="", flush=True)
-                    last_pct = pct
-        if last_pct != -1:
-            print()
-        resp = conn.getresponse()
-        resp.read()
-        if resp.status not in (200, 201, 204):
-            die(f"upload failed with HTTP {resp.status}")
-    finally:
-        conn.close()
-
-    status, body = http_request(ip, "GET", f"{enc}?hash", timeout=60.0)
-    if status == 200 and body.decode("ascii", "replace").strip() == sha.hexdigest():
-        log(f"pushed {file.name} -> {dest} ({size:,} bytes, sha256 verified)")
+    rc, out = run_ssh(ip, f"sha256sum {shlex.quote(remote)} 2>/dev/null", check=False)
+    remote_hash = out.split()[0] if out.split() else ""
+    if rc == 0 and remote_hash == sha.hexdigest():
+        log(f"pushed {file.name} -> {remote} ({size:,} bytes, sha256 verified)")
         return
-    status, _ = http_request(ip, "HEAD", enc)
-    if status == 200:
-        log(f"pushed {file.name} -> {dest} ({size:,} bytes; hash check unavailable)")
+    rc, out = run_ssh(ip, f"stat -c %s {shlex.quote(remote)} 2>/dev/null", check=False)
+    if rc == 0 and out.strip() == str(size):
+        log(f"pushed {file.name} -> {remote} ({size:,} bytes; size verified, no sha256 on device)")
     else:
-        die(f"upload verification failed for {dest}")
+        die(f"upload verification failed for {remote}")
+
+
+def get_ip(args: argparse.Namespace, cfg: dict[str, str]) -> str:
+    ip = args.ip or cfg.get("ip")
+    if not ip:
+        die("no device IP known. Run: push-rom --setup --ip <device-ip>\n"
+            "  (the device shows its IP on screen when the SSH app is open)")
+    if args.ip and cfg.get("ip") != args.ip:
+        cfg["ip"] = args.ip
+        save_config(cfg)
+    return ip
+
+
+def cmd_setup(args: argparse.Namespace, cfg: dict[str, str]) -> None:
+    ip = args.ip or cfg.get("ip")
+    if not ip:
+        die("pass --ip <device-ip> (shown on the device when the SSH app is open)")
+    cfg["ip"] = ip
+    save_config(cfg)
+    ensure_conn(ip)
+    log("SSH key works.")
+    base = args.roms_base or discover_roms_base(ip)
+    cfg["roms_base"] = base
+    save_config(cfg)
+    folders = sorted(list_dir(ip, base), key=str.lower)
+    log(f"games card Roms folder: {base}")
+    log(f"systems present ({len(folders)}): {', '.join(folders) or '(none yet)'}")
+    log("setup done. Now: push-rom <file>")
 
 
 def main() -> None:
     ap = argparse.ArgumentParser(description=(__doc__ or "").splitlines()[0])
     ap.add_argument("files", nargs="*", type=Path, help="game files to push")
     ap.add_argument("--system", "-s", help="destination folder under Roms/")
-    ap.add_argument("--ip", help="device IP (skips discovery)")
-    ap.add_argument(
-        "--list",
-        nargs="?",
-        const="",
-        metavar="SYSTEM",
-        help="list system folders, or files in one system folder",
-    )
+    ap.add_argument("--ip", help="device IP (cached after first use)")
+    ap.add_argument("--roms-base", help="absolute path to the games Roms folder")
+    ap.add_argument("--setup", action="store_true", help="install key + find games card")
+    ap.add_argument("--list", nargs="?", const="", metavar="SYSTEM",
+                    help="list system folders, or files in one system folder")
+    ap.add_argument("--dry-run", action="store_true", help="show actions without uploading")
     args = ap.parse_args()
+
+    cfg = load_config()
+    if args.roms_base:
+        cfg["roms_base"] = args.roms_base
+
+    if args.setup:
+        cmd_setup(args, cfg)
+        return
 
     if args.list is None and not args.files:
         ap.print_help()
         sys.exit(2)
 
-    ip = discover(args.ip)
+    ip = get_ip(args, cfg)
+    ensure_conn(ip)
+    base = resolve_base(ip, cfg)
 
     if args.list is not None:
-        path = f"/Roms/{args.list}/" if args.list else "/Roms/"
-        for name in sorted(listing(ip, path), key=str.lower):
+        path = f"{base}/{args.list}" if args.list else base
+        for name in sorted(list_dir(ip, path), key=str.lower):
             log(name)
         return
 
@@ -288,11 +319,12 @@ def main() -> None:
         if not file.is_file():
             die(f"{file} is not a file")
         ext = file.suffix.lstrip(".").lower()
-        dest_dir = resolve_system(ip, ext, args.system)
-        upload(ip, file, dest_dir)
+        sysdir = resolve_system(ip, base, ext, args.system)
+        upload(ip, base, file, sysdir, dry_run=args.dry_run)
 
-    log("done. If the game doesn't show on-device, re-enter that system's "
-        "game list (stock rescans on entry), or reboot the device.")
+    if not args.dry_run:
+        log("done. If a game doesn't show up, re-enter that system's list on the "
+            "device (it rescans on entry), or reboot.")
 
 
 if __name__ == "__main__":
