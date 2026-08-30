@@ -1,43 +1,64 @@
 # Anbernic wireless ROM push
 
 Wireless game-file transfer for an Anbernic RG35XX-family handheld running the
-**stock OS**, which has no built-in network transfer. Two halves:
+**stock OS**, which has no file transfer of its own, no open network port, and
+no USB drive mode (verified: the device presents nothing but charging over
+USB-C, and nothing listens on any TCP port).
 
-- **`card/APPS/`** goes on the device's SD card once. `WiFi_Push_ON.sh` starts
-  a [dufs](https://github.com/sigoden/dufs) file server (port 8035) serving the
-  ROMS partition; `WiFi_Push_OFF.sh` stops it. Stock OS runs `.sh` files
-  dropped in `Roms/APPS/` straight from its APPS menu, which is the whole
-  trick. The server binary is copied to `/tmp` before launch because FAT cards
-  can be mounted noexec.
-- **`bin/push-rom`** runs on the Mac. Finds the device (cached IP, else LAN
-  scan for port 8035 + dufs health check), infers the `Roms/<SYSTEM>/` folder
-  from the file extension (validated against the folders actually on the
-  card), streams the upload, and verifies it with a server-side sha256.
+The stock OS *does* ship a full SSH service. It's just turned off. So:
 
-## One-time setup
+- **On the device (one-time):** install the community **Temporary SSH Server**
+  app into the OS card's `Roms/APPS/`. Launching it from the APPS menu runs
+  `systemctl start ssh.service`, exposing SSH on port 22 (user `root`, pass
+  `root`) while the app is on screen. The app is by G.R.H, from
+  [cbepx-me/Anbernic-H700-RG-xx-StockOS-Modification](https://github.com/cbepx-me/Anbernic-H700-RG-xx-StockOS-Modification);
+  `fetch-payload.sh` pulls it (it isn't vendored here).
+- **On the Mac:** `bin/push-rom` drives it over SSH. First run installs a
+  dedicated key (so later pushes need no password), finds the games card's
+  Roms folder (handles a two-card OS/games split by targeting the non-OS card),
+  infers the `Roms/<SYSTEM>/` folder from the file extension, streams the
+  upload with progress, and verifies it with a remote sha256.
 
-1. `./fetch-binaries.sh` (binaries are not committed; this pulls dufs v0.46.0
-   for arm64 + arm32 devices and a darwin build for local testing)
-2. Put the SD card in the Mac and copy **the contents of `card/APPS/`** into
-   the card's `Roms/APPS/` folder (two scripts + the `wifipush` folder).
-3. Eject, boot the device, connect it to WiFi (Settings > Network Settings).
+## Why SSH and not a custom server
+
+Stock has no way in from cold: no listening service to push to, and no USB mass
+storage. Any wireless path therefore needs the device to *start* something, and
+the one capable thing already installed is `sshd`. Using it means no foreign
+binary on the device, exact path control (so games land on the games card, not
+the OS card), and a plain root shell for setup and debugging.
+
+## One-time setup (needs the OS card written once)
+
+Getting the app onto the card is the one unavoidable manual step, because stock
+offers no way in until SSH is running. Any single write to the OS card does it:
+a borrowed SD reader, a friend's PC, or a phone + USB-C microSD reader.
+
+1. `./fetch-payload.sh` — stages the app under `card/APPS/Temporary_SSH_Server/`.
+2. Copy that whole `Temporary_SSH_Server` folder into the **OS card's**
+   `Roms/APPS/` folder. The OS card (TF1) is the one that boots the device;
+   stock reads the APPS menu from it (`/mnt/mmc/Roms/APPS/`). Games still go to
+   the games card, over the network.
+3. Card back in, boot, connect to WiFi (Settings > Network Settings).
 
 ## Every time
 
-On the device: APPS menu > `WiFi_Push_ON`. Then:
+On the device: APPS menu > **Temporary SSH Server**. It shows the device IP on
+screen. Then, on the Mac:
 
 ```
-push-rom game.gba                 # push, system folder inferred
-push-rom disc.chd --system PS     # explicit system folder
-push-rom --list                   # what system folders exist
-push-rom --list GBA               # what's in one of them
+push-rom --setup --ip 192.168.0.21   # first time only: key + find games card
+push-rom game.gba                    # system folder inferred
+push-rom disc.chd --system PS        # explicit system folder
+push-rom --list                      # what system folders exist
+push-rom --list GBA                  # what's in one of them
+push-rom game.gba --dry-run          # show what it would do
 ```
 
-If a pushed game doesn't appear, re-enter that system's game list (stock
-rescans on entry) or reboot. A closed lid usually means the device is asleep
-or off, so the server won't answer. `WiFi_Push_OFF` stops the server; so does
-powering off.
+The IP and games-Roms path are cached in `~/.config/push-rom/config.json`
+after setup; the dedicated key lives beside it. If a pushed game doesn't
+appear, re-enter that system's list on the device (it rescans on entry) or
+reboot. The SSH app must be on screen for the device to answer.
 
-No auth on the server: it only runs when launched by hand, on the home LAN,
-serving a game card. Debug log lands on the card at
-`Roms/APPS/wifipush/wifipush.log`.
+`root:root` over SSH on the home LAN, only while the app is open, is the same
+posture the community app ships with. `PUSH_ROM_PASS` overrides the password if
+you change it on the device.
