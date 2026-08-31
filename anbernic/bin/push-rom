@@ -12,11 +12,12 @@ the file extension, streams the upload with progress, and verifies it landed
 via a remote sha256.
 
 Usage:
-  push-rom --setup --ip 192.168.0.21   first time: install key, find games card
+  push-rom --setup --ip 192.168.0.21   first time: install key, find both cards
   push-rom game.gba                     push, inferring the system folder
   push-rom disc.chd --system PS         push to an explicit system folder
+  push-rom game.gba --card os           push to the OS card instead of games
   push-rom --list                       list system folders on the games card
-  push-rom --list GBA                   list files in one system folder
+  push-rom --list GBA --card os         list a system folder on the OS card
 """
 
 from __future__ import annotations
@@ -154,31 +155,42 @@ def ensure_conn(ip: str) -> None:
     install_key(ip)
 
 
-def discover_roms_base(ip: str) -> str:
-    """Find the games card's Roms folder, preferring the non-OS (TF2) card."""
+def discover_roms_bases(ip: str, cfg: dict[str, str]) -> str:
+    """Find Roms folders on both cards; return the games one, remember both."""
     _, out = run_ssh(ip, "find /mnt -maxdepth 2 -type d -iname roms 2>/dev/null")
     candidates = [line.strip() for line in out.splitlines() if line.strip()]
     if not candidates:
         die("couldn't find any Roms folder under /mnt on the device. Is the "
             "games card inserted? Try --roms-base to set it by hand.")
-    if len(candidates) == 1:
-        return candidates[0]
-    # Two-card split: /mnt/mmc is the OS card (TF1); prefer anything else.
+    # Two-card split: /mnt/mmc is the OS card (TF1); games prefer anything else.
+    os_side = [c for c in candidates if c.startswith("/mnt/mmc")]
     non_os = [c for c in candidates if not c.startswith("/mnt/mmc")]
     chosen = non_os[0] if non_os else candidates[0]
-    log(f"found Roms folders: {', '.join(candidates)}")
-    log(f"using games card: {chosen}")
+    if len(candidates) > 1:
+        log(f"found Roms folders: {', '.join(candidates)}")
+        log(f"games card: {chosen}")
+    cfg["roms_base"] = chosen
+    if os_side:
+        cfg["os_roms_base"] = os_side[0]
+    save_config(cfg)
     return chosen
 
 
-def resolve_base(ip: str, cfg: dict[str, str]) -> str:
+def resolve_base(ip: str, cfg: dict[str, str], card: str, override: str | None) -> str:
+    if override:
+        return override
+    if card == "os":
+        base = cfg.get("os_roms_base")
+        if not base:
+            discover_roms_bases(ip, cfg)
+            base = cfg.get("os_roms_base")
+        if not base:
+            die("no OS-card Roms folder found (expected under /mnt/mmc)")
+        return base
     base = cfg.get("roms_base")
     if base:
         return base
-    base = discover_roms_base(ip)
-    cfg["roms_base"] = base
-    save_config(cfg)
-    return base
+    return discover_roms_bases(ip, cfg)
 
 
 def list_dir(ip: str, path: str) -> list[str]:
@@ -272,11 +284,16 @@ def cmd_setup(args: argparse.Namespace, cfg: dict[str, str]) -> None:
     save_config(cfg)
     ensure_conn(ip)
     log("SSH key works.")
-    base = args.roms_base or discover_roms_base(ip)
-    cfg["roms_base"] = base
-    save_config(cfg)
+    if args.roms_base:
+        cfg["roms_base"] = args.roms_base
+        save_config(cfg)
+        base = args.roms_base
+    else:
+        base = discover_roms_bases(ip, cfg)
     folders = sorted(list_dir(ip, base), key=str.lower)
     log(f"games card Roms folder: {base}")
+    if cfg.get("os_roms_base"):
+        log(f"OS card Roms folder: {cfg['os_roms_base']} (target it with --card os)")
     log(f"systems present ({len(folders)}): {', '.join(folders) or '(none yet)'}")
     log("setup done. Now: push-rom <file>")
 
@@ -286,7 +303,10 @@ def main() -> None:
     ap.add_argument("files", nargs="*", type=Path, help="game files to push")
     ap.add_argument("--system", "-s", help="destination folder under Roms/")
     ap.add_argument("--ip", help="device IP (cached after first use)")
-    ap.add_argument("--roms-base", help="absolute path to the games Roms folder")
+    ap.add_argument("--card", choices=["games", "os"], default="games",
+                    help="which SD card to target (default: games)")
+    ap.add_argument("--roms-base", help="absolute path to a Roms folder "
+                    "(one-off override; persists only with --setup)")
     ap.add_argument("--setup", action="store_true", help="install key + find games card")
     ap.add_argument("--list", nargs="?", const="", metavar="SYSTEM",
                     help="list system folders, or files in one system folder")
@@ -294,8 +314,6 @@ def main() -> None:
     args = ap.parse_args()
 
     cfg = load_config()
-    if args.roms_base:
-        cfg["roms_base"] = args.roms_base
 
     if args.setup:
         cmd_setup(args, cfg)
@@ -307,7 +325,7 @@ def main() -> None:
 
     ip = get_ip(args, cfg)
     ensure_conn(ip)
-    base = resolve_base(ip, cfg)
+    base = resolve_base(ip, cfg, args.card, args.roms_base)
 
     if args.list is not None:
         path = f"{base}/{args.list}" if args.list else base
