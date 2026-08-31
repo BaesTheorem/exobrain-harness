@@ -1,23 +1,32 @@
 #!/bin/sh
-# Download the community "Temporary SSH Server" stock-OS app into card/APPS/.
-# Not committed (it's someone else's work); this pulls it on demand.
-#
+# Download the community stock-OS apps this tool rides on (not committed):
+#   Temporary SSH Server   - primary lane (push-rom drives sshd)
+#   Temporary SAMBA Server - backup lane (Finder smb:// if SSH misbehaves)
 # Source: github.com/cbepx-me/Anbernic-H700-RG-xx-StockOS-Modification (by G.R.H).
-# That app just runs `systemctl start ssh.service` on the stock OS, exposing
-# SSH on port 22 (root/root) while it's on screen. push-rom drives the rest.
+#
+# Install FLAT, matching how these apps ship on the card (each app's .sh sits
+# at APPS root; res/ and Imgs/ are shared folders that get merged):
+#   <app>.sh             -> OS card  Roms/APPS/
+#   <app>/res/*.png      -> merged into  Roms/APPS/res/
+#   <app>/Imgs/<app>.png -> Roms/APPS/Imgs/   (the menu icon)
 set -eu
 
 DIR="$(cd "$(dirname "$0")" && pwd)"
-APP="$DIR/card/APPS/Temporary_SSH_Server"
-BASE="https://raw.githubusercontent.com/cbepx-me/Anbernic-H700-RG-xx-StockOS-Modification/main/Temporary_SSH_Server"
-mkdir -p "$APP/res"
+REPO="https://raw.githubusercontent.com/cbepx-me/Anbernic-H700-RG-xx-StockOS-Modification/main"
 
-curl -sfL "$BASE/Temporary_SSH_Server.sh" -o "$APP/Temporary_SSH_Server.sh"
-for f in noconn-0 noconn-2 noconn-3 sshtmp-0 sshtmp-2 sshtmp-3; do
-  curl -sfL "$BASE/res/$f.png" -o "$APP/res/$f.png"
-done
-chmod +x "$APP/Temporary_SSH_Server.sh"
+fetch_app() {
+  name="$1"; shift
+  app="$DIR/card/APPS/$name"
+  mkdir -p "$app/res" "$app/Imgs"
+  curl -sfL "$REPO/$name/$name.sh" -o "$app/$name.sh"
+  curl -sfL "$REPO/$name/Imgs/$name.png" -o "$app/Imgs/$name.png"
+  for f in "$@"; do
+    curl -sfL "$REPO/$name/res/$f.png" -o "$app/res/$f.png"
+  done
+  chmod +x "$app/$name.sh"
+  echo "staged: $name"
+}
 
-echo "SSH app staged at: $APP"
-echo "One-time install: copy the whole 'Temporary_SSH_Server' folder into the"
-echo "OS card's  Roms/APPS/  folder (the OS card is the one that boots, TF1)."
+fetch_app Temporary_SSH_Server noconn-0 noconn-2 noconn-3 sshtmp-0 sshtmp-2 sshtmp-3
+fetch_app Temporary_SAMBA_Server noconn-0 noconn-2 noconn-3 sambatmp-0 sambatmp-2 sambatmp-3
+echo "Staged under card/APPS/. Install flat into the OS card's Roms/APPS/ (see header)."

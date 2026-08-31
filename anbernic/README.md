@@ -33,12 +33,16 @@ Getting the app onto the card is the one unavoidable manual step, because stock
 offers no way in until SSH is running. Any single write to the OS card does it:
 a borrowed SD reader, a friend's PC, or a phone + USB-C microSD reader.
 
-1. `./fetch-payload.sh` — stages the app under `card/APPS/Temporary_SSH_Server/`.
-2. Copy that whole `Temporary_SSH_Server` folder into the **OS card's**
-   `Roms/APPS/` folder. The OS card (TF1) is the one that boots the device;
-   stock reads the APPS menu from it (`/mnt/mmc/Roms/APPS/`). Games still go to
-   the games card, over the network.
-3. Card back in, boot, connect to WiFi (Settings > Network Settings).
+1. `./fetch-payload.sh` — stages both apps (SSH, plus SAMBA as a backup lane)
+   under `card/APPS/`.
+2. Install **flat** on the **OS card** (TF1, the one that boots; stock reads
+   the APPS menu from `/mnt/mmc/Roms/APPS/`), matching the card's convention:
+   each app's `.sh` goes into `Roms/APPS/` itself, its `res/*.png` merge into
+   the shared `Roms/APPS/res/`, and its `Imgs/<app>.png` menu icon goes into
+   `Roms/APPS/Imgs/`. Games still go to the games card, over the network.
+3. Run `dot_clean -m` on the card's APPS folder if copying from a Mac (the
+   `._*` droppings would show up as phantom menu entries), eject, card back
+   in, boot, connect to WiFi (Settings > Network Settings).
 
 ## Every time
 
