@@ -294,6 +294,14 @@ done
 [ -z "$CLAUDE_BIN" ] && CLAUDE_BIN=$(command -v claude 2>/dev/null)
 [ -n "$CLAUDE_BIN" ] && CLAUDE_BIN=$(python3 -c "import os,sys; print(os.path.realpath(sys.argv[1]))" "$CLAUDE_BIN" 2>/dev/null)
 
+# What a NEW session would launch, which is what the report describes. Distinct
+# from CLAUDE_BIN above: this session may have started before the last upgrade,
+# so the running binary and the one on PATH legitimately differ, and comparing
+# the report against the running binary would call it stale forever.
+CLAUDE_STABLE="$HOME/.local/share/claude/stable/claude"
+CLAUDE_LINKED=$(command -v claude 2>/dev/null)
+[ -n "$CLAUDE_LINKED" ] && CLAUDE_LINKED=$(python3 -c "import os,sys; print(os.path.realpath(sys.argv[1]))" "$CLAUDE_LINKED" 2>/dev/null)
+
 tcc_field() { sed -n "s/^$1=//p" "$TCC_REPORT" 2>/dev/null; }
 
 TCC_STALE=""
@@ -304,8 +312,8 @@ else
   TCC_SEEN=$(tcc_field claude_path)
   if [ "$TCC_AGE" -gt 12 ] 2>/dev/null; then
     TCC_STALE="report is ${TCC_AGE}h old"
-  elif [ -n "$CLAUDE_BIN" ] && [ "$TCC_SEEN" != "$CLAUDE_BIN" ]; then
-    TCC_STALE="report describes $(basename "$TCC_SEEN"), running $(basename "$CLAUDE_BIN")"
+  elif [ -n "$CLAUDE_LINKED" ] && [ "$TCC_SEEN" != "$CLAUDE_LINKED" ]; then
+    TCC_STALE="report describes $TCC_SEEN, claude resolves to $CLAUDE_LINKED"
   fi
 fi
 
@@ -325,8 +333,19 @@ else
     TCC_FIX="System Settings -> Privacy & Security -> Full Disk Access -> /Applications/MIST Console.app -> toggle ON, then quit and reopen the Console"
   else
     TCC_FDA=$(tcc_field claude_fda)
-    TCC_SUBJECT="the claude CLI ($(basename "${CLAUDE_BIN:-unknown}"))"
-    TCC_FIX="System Settings -> Privacy & Security -> Full Disk Access -> toggle ON the $(basename "${CLAUDE_BIN:-claude}") entry (add it with + -> Cmd-Shift-G -> ${CLAUDE_BIN:-?}), and delete the dead older-version rows while you are there"
+    TCC_SUBJECT="the claude CLI"
+    TCC_FIX="System Settings -> Privacy & Security -> Full Disk Access -> + -> Cmd-Shift-G -> $CLAUDE_STABLE -> toggle ON. Granted once, it holds across every release, so delete the leftover version-numbered rows while you are there."
+  fi
+
+  # Is the stable pin actually in effect? Full Disk Access is granted to
+  # $CLAUDE_STABLE and to nothing else, so a `claude` that resolves anywhere
+  # else is running without it -- which is how the popups start. The installer
+  # rewriting the ~/.local/bin symlink back to a versioned path is the way this
+  # breaks; com.exobrain.claude-stable-path normally repairs it within seconds.
+  if [ -n "$CLAUDE_LINKED" ] && [ "$CLAUDE_LINKED" != "$CLAUDE_STABLE" ]; then
+    echo "WARN: claude resolves to $CLAUDE_LINKED, not the FDA-granted stable path"
+    echo "  Fix: maintenance/claude-stable-path.sh --now"
+    ISSUES=$((ISSUES + 1))
   fi
 
   case "$TCC_FDA" in
@@ -341,7 +360,15 @@ else
       echo "  (TCC keys the bare CLI binary by path, so this recurs on every version bump)"
       ISSUES=$((ISSUES + 1)) ;;
     unset|"")
-      : ;;   # never asked; stay quiet, Alex may not want it
+      # Used to stay quiet on the theory that Alex may not want the grant. That
+      # theory died with the versioned paths: unset now means the ONE durable
+      # grant was never made, and the dialogs it prevents come back per app-data
+      # directory any routine touches.
+      if [ -z "$MIST_CONSOLE_SESSION" ]; then
+        echo "WARN: Full Disk Access has never been granted to $TCC_SUBJECT"
+        echo "  Fix: $TCC_FIX"
+        ISSUES=$((ISSUES + 1))
+      fi ;;
     *)
       echo "WARN: Full Disk Access state for $TCC_SUBJECT reads '$TCC_FDA'"
       ISSUES=$((ISSUES + 1)) ;;
@@ -352,9 +379,10 @@ else
   # 2026-08-20 were exactly that), and tccd's own AUTHREQ_ATTRIBUTION lines show
   # com.anthropic.claude-code as the responsible process inside Console sessions
   # too, so the Console's grant is not the blanket cover it looks like.
-  if [ -n "$MIST_CONSOLE_SESSION" ] && [ "$(tcc_field claude_fda)" = "denied" ]; then
-    echo "WARN: Full Disk Access is DENIED for the claude CLI ($(basename "${CLAUDE_BIN:-unknown}")) -- scheduled routines will keep raising \"access data from other apps\" popups"
-    echo "  Fix: System Settings -> Privacy & Security -> Full Disk Access -> toggle ON $(basename "${CLAUDE_BIN:-claude}"), and delete the dead older-version rows"
+  CLI_FDA=$(tcc_field claude_fda)
+  if [ -n "$MIST_CONSOLE_SESSION" ] && { [ "$CLI_FDA" = "denied" ] || [ "$CLI_FDA" = "unset" ]; }; then
+    echo "WARN: Full Disk Access is $(if [ "$CLI_FDA" = denied ]; then echo DENIED; else echo UNGRANTED; fi) for the claude CLI -- scheduled routines will keep raising \"access data from other apps\" popups"
+    echo "  Fix: System Settings -> Privacy & Security -> Full Disk Access -> + -> Cmd-Shift-G -> $CLAUDE_STABLE -> toggle ON (survives every release; delete the leftover version-numbered rows)"
     ISSUES=$((ISSUES + 1))
   fi
 

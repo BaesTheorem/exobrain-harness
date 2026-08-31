@@ -1,0 +1,35 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>Label</key>
+    <string>com.exobrain.claude-stable-path</string>
+
+    <key>ProgramArguments</key>
+    <array>
+        <string>/bin/bash</string>
+        <string>/Users/alexhedtke/Documents/Exobrain harness/maintenance/claude-stable-path.sh</string>
+    </array>
+
+    <!-- Two paths, because an update moves both and either one can land first:
+         the new versioned binary appears in versions/, and the installer then
+         rewrites the ~/.local/bin symlink back to it. Watching only the first
+         leaves a window where `claude` resolves to the versioned path again. -->
+    <key>WatchPaths</key>
+    <array>
+        <string>/Users/alexhedtke/.local/share/claude/versions</string>
+        <string>/Users/alexhedtke/.local/bin/claude</string>
+    </array>
+
+    <!-- Reconcile at login too: an update that lands while the machine is asleep
+         still fires WatchPaths on wake, but a cold boot after a reinstall might
+         not. The script is idempotent, so an extra run costs a checksum. -->
+    <key>RunAtLoad</key>
+    <true/>
+
+    <key>StandardOutPath</key>
+    <string>/Users/alexhedtke/Library/Logs/exobrain/claude-stable-path.out</string>
+    <key>StandardErrorPath</key>
+    <string>/Users/alexhedtke/Library/Logs/exobrain/claude-stable-path.out</string>
+</dict>
+</plist>
