@@ -66,3 +66,13 @@ reboot. The SSH app must be on screen for the device to answer.
 `root:root` over SSH on the home LAN, only while the app is open, is the same
 posture the community app ships with. `PUSH_ROM_PASS` overrides the password if
 you change it on the device.
+
+## Field notes (RG35XXSP, stock 64-bit firmware)
+
+- The SSH app's UI dies instantly on this firmware (in its button-input loop),
+  but only after `systemctl enable ssh.service` has run, so the crash is
+  cosmetic and one launch is enough forever: `ssh.service` stays enabled and
+  sshd answers on every boot from then on (verified across a reboot). Turn it
+  off with `systemctl disable ssh` over SSH if wanted.
+- Mounts: OS card (TF1) at `/mnt/mmc`, games card (TF2) at `/mnt/sdcard`.
+- The device's clock and locale can be wildly wrong; it doesn't affect pushes.
