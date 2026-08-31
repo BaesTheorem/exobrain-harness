@@ -19,8 +19,24 @@ export PATH="/opt/homebrew/bin:$HOME/.local/bin:$HOME/.npm-global/bin:/usr/bin:/
 # Resolve rather than pin. On 2026-08-15 the 2.1.233 update migrated the install
 # from the npm prefix to the native ~/.local/bin location and deleted the old
 # binary, which broke every caller that had the npm path baked in.
-CLAUDE_BIN="$(command -v claude)"
-CLAUDE_BIN="${CLAUDE_BIN:-$HOME/.local/bin/claude}"
+# Run the update through the INSTALLER'S OWN binary, not through whatever
+# `claude` resolves to. Since 2026-08-31 `claude` points at the stable copy at
+# ~/.local/share/claude/stable/claude (see maintenance/claude-stable-path.sh --
+# it is what keeps Full Disk Access from dying every release), and the native
+# updater reasons about its own install location. Handing it a copy outside the
+# versions tree is asking for a refusal, so aim it at the real thing and let the
+# WatchPaths job refresh the stable copy afterward.
+newest_versioned() {
+  local dir="$HOME/.local/share/claude/versions" newest
+  newest=$(ls "$dir" 2>/dev/null | sort -t. -k1,1n -k2,2n -k3,3n | tail -1)
+  [ -n "$newest" ] && [ -x "$dir/$newest" ] && echo "$dir/$newest"
+}
+
+CLAUDE_BIN="$(newest_versioned)"
+if [ -z "$CLAUDE_BIN" ]; then
+  CLAUDE_BIN="$(command -v claude)"
+  CLAUDE_BIN="${CLAUDE_BIN:-$HOME/.local/bin/claude}"
+fi
 NOTIFY="/Users/alexhedtke/Documents/Exobrain harness/mist-voice/bin/mist-notify"
 LOG_DIR="$HOME/Library/Logs/exobrain"
 mkdir -p "$LOG_DIR"
@@ -41,6 +57,12 @@ if ! "$CLAUDE_BIN" update >>"$LOG" 2>&1; then
   echo "$(ts) native update failed, trying npm" >>"$LOG"
   npm update -g @anthropic-ai/claude-code >>"$LOG" 2>&1
 fi
+
+# Refresh the stable path before re-resolving. The WatchPaths job
+# (com.exobrain.claude-stable-path) normally beats us to it, but it sleeps 5s to
+# let the installer finish, and running it here directly closes the race so the
+# version we report is the version `claude` actually runs.
+"$HOME/Documents/Exobrain harness/maintenance/claude-stable-path.sh" --now >>"$LOG" 2>&1 || true
 
 # Re-resolve: an update that migrates install methods moves the binary out from
 # under us, so the pre-update path may no longer exist.

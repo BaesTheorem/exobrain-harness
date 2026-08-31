@@ -34,6 +34,9 @@ INVARIANTS
     approved by hand for an older version of this same binary.
   - NEVER pin the CLI's path. It has moved install locations before
     (npm-global -> ~/.local); always resolve it live.
+  - Treat the stable path as the live identity when `claude` resolves there.
+    Grants written to a versioned path die at the next release; the whole point
+    of maintenance/claude-stable-path.sh is that they no longer have to.
   - Back up TCC.db before the first write of a run.
   - Idempotent: a run with nothing to do changes no grant and exits 0.
   - NEVER let the session-start hook read a TCC database itself. Inside a hook
@@ -83,10 +86,16 @@ CONSOLE_CLIENT = "com.exobrain.mist-console"
 # former means Alex is being re-prompted for something already decided.
 AUTH_VALUES = {0: "denied", 1: "unknown", 2: "allowed", 3: "limited"}
 
-# A client path we are willing to treat as "the Claude CLI, some version".
-# Anchored on the versions directory the native installer owns, so a stray
-# row for an unrelated binary can never be picked up as a donor.
-CLAUDE_VERSION_RE = re.compile(r"/claude/versions/[^/]+$")
+# A client path we are willing to treat as "the Claude CLI". Two shapes: the
+# versions directory the native installer owns, and the stable copy
+# claude-stable-path.sh maintains beside it. Anchored on both so a stray row for
+# an unrelated binary can never be picked up as a donor.
+#
+# The stable path is where grants are supposed to LIVE now -- it is the target
+# `~/.local/bin/claude` resolves to, so it is the identity tccd sees. The
+# versioned rows are only donors for whatever the last upgrade stranded, and
+# once the stable path holds everything they stop mattering entirely.
+CLAUDE_VERSION_RE = re.compile(r"/claude/(?:versions/[^/]+|stable/claude)$")
 
 # Services we deliberately do not touch. AllFiles lives in the system DB and
 # needs root; listing it here keeps it out of the "missing" noise and into the

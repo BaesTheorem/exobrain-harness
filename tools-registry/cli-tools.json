@@ -48,6 +48,14 @@
     "notes": "Module-boundary checker for the harness (top-level dirs are islands). Runs automatically in the post-edit quality-gate hook."
   },
   {
+    "name": "claude-stable-path",
+    "command": "maintenance/claude-stable-path.sh --now",
+    "repo_dir": "/Users/alexhedtke/Documents/Exobrain harness",
+    "source": "built",
+    "added": "2026-08-31",
+    "notes": "Pins the auto-updating claude CLI to one unchanging path (~/.local/share/claude/stable/claude) so its TCC grants, above all Full Disk Access, stop dying every release. Runs on WatchPaths via com.exobrain.claude-stable-path."
+  },
+  {
     "name": "CPTSD Tarot Pipeline",
     "command": "python3 ~/Documents/cptsd-tarot/bin/gen_art.py && python3 ~/Documents/cptsd-tarot/bin/compose.py && python3 ~/Documents/cptsd-tarot/bin/guide.py",
     "repo_dir": "/Users/alexhedtke/Documents/cptsd-tarot",
