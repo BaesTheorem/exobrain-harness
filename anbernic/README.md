@@ -50,11 +50,12 @@ On the device: APPS menu > **Temporary SSH Server**. It shows the device IP on
 screen. Then, on the Mac:
 
 ```
-push-rom --setup --ip 192.168.0.21   # first time only: key + find games card
-push-rom game.gba                    # system folder inferred
+push-rom --setup --ip 192.168.0.21   # first time only: key + find both cards
+push-rom game.gba                    # system folder inferred, games card
 push-rom disc.chd --system PS        # explicit system folder
+push-rom game.gba --card os          # target the OS card instead
 push-rom --list                      # what system folders exist
-push-rom --list GBA                  # what's in one of them
+push-rom --list GBA --card os        # inspect the OS card's copy
 push-rom game.gba --dry-run          # show what it would do
 ```
 
