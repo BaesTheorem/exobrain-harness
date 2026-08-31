@@ -71,9 +71,13 @@ you change it on the device.
 ## Field notes (RG35XXSP, stock 64-bit firmware)
 
 - The SSH app's UI dies instantly on this firmware (in its button-input loop),
-  but only after `systemctl enable ssh.service` has run, so the crash is
-  cosmetic and one launch is enough forever: `ssh.service` stays enabled and
-  sshd answers on every boot from then on (verified across a reboot). Turn it
-  off with `systemctl disable ssh` over SSH if wanted.
+  but only after starting sshd, so a launch still arms SSH for that boot.
+- A bare `systemctl enable ssh` does NOT persist: the firmware's boot script
+  `/mnt/mod/ctrl/autostart` stops and disables sshd at every boot unless
+  `global.ssh=1` is present in `/mnt/mod/ctrl/configs/system.cfg`. Adding that
+  line is the vendor-supported way to make sshd start on every boot (verified:
+  up ~35s after a cold reboot, no app launch). Remove the line to turn it off.
 - Mounts: OS card (TF1) at `/mnt/mmc`, games card (TF2) at `/mnt/sdcard`.
+  The rootfs is plain read-write ext4, so /root (and the installed key)
+  persists across reboots.
 - The device's clock and locale can be wildly wrong; it doesn't affect pushes.
