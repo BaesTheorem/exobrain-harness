@@ -9,7 +9,8 @@ Protocol
     cmd.json     {"id": <int>, "op": "<name>", "arg": "<string>"}   written by MIST
     result.json  {"id": <int>, "ok": bool, "data": ...}             written by driver
     state.json   refreshed every poll: on-the-clock, my roster, timer text
-    shot.png     latest screenshot
+    shot.png     screenshot, taken only by the `shot` op (a capture makes the
+                 headful window flash, so it is never taken on the poll beat)
 
 Ops: ping, shot, dom, search, draft, click, eval, pages, switch
 
@@ -150,6 +151,18 @@ def op_pages(page, arg):
     }
 
 
+def op_shot(page, arg):
+    """Screenshot on demand only.
+
+    A headful Chromium repaints visibly every time Playwright captures it, so
+    the old every-poll screenshot made the window flash on a 1.5s beat for as
+    long as the driver ran (reported 2026-09-02). Nothing reads shot.png but a
+    human, so it is taken when a human asks.
+    """
+    page.screenshot(path=str(SHOT))
+    return {"shot": str(SHOT)}
+
+
 def op_reload(page, arg):
     """Reload the active page. The recovery for a hung draft room ('Loading
     your draft' while the clock runs) is reload + re-arm, proven 2026-08-24."""
@@ -162,7 +175,7 @@ OPS = {
     "pages": op_pages,
     "reload": op_reload,
     "switch": None,  # bound in main(), needs the active-page cell
-    "shot": lambda page, arg: {"shot": str(SHOT)},
+    "shot": op_shot,
     "dom": op_dom,
     "search": op_search,
     "draft": op_draft,
@@ -233,7 +246,6 @@ def main():
 
             try:
                 STATE.write_text(json.dumps(snapshot(page), indent=1))
-                page.screenshot(path=str(SHOT))
             except Exception as exc:
                 log(f"snapshot failed: {exc}")
 
@@ -256,10 +268,6 @@ def main():
                             "error": str(exc),
                             "tb": traceback.format_exc()[-900:],
                         }
-                    try:
-                        page.screenshot(path=str(SHOT))
-                    except Exception:
-                        pass
                     RESULT.write_text(json.dumps(res, indent=1, default=str))
 
             beat += 1

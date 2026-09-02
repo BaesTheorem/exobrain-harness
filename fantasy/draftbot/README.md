@@ -20,7 +20,7 @@ waits on one is structurally too slow. The agent runs inside the ESPN page on a
 | File | Role |
 |---|---|
 | `../vor.py` | Builds `vor.json`: ESPN 2026 projections + The Ringer's positional ranks -> value over replacement |
-| `driver.py` | Holds one Playwright browser in a persistent profile. Talks over `cmd.json` / `result.json`, publishes `state.json` + `shot.png` |
+| `driver.py` | Holds one Playwright browser in a persistent profile. Talks over `cmd.json` / `result.json`, publishes `state.json` every 1.5s; `shot.png` only on the `shot` op (capturing a headful window makes it flash) |
 | `autopilot.js` | Runs in the page. Scans the board, scores, clicks, verifies |
 | `arm.py` | Deploys the autopilot, fills the queue, reports status |
 | `watch.py` | Streams new pick events, one per stdout line |
