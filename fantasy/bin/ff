@@ -169,10 +169,75 @@ def cmd_roster(creds, args):
             print(line(e))
 
 
+def cmd_draft(creds, args):
+    """Draft status straight from ESPN: when, what kind, who has joined.
+
+    The playbook's draft date comes from the commissioner's messages; this is
+    the thing the room will actually obey. A None date this close to the season
+    is a flag to raise, because ESPN autodrafts every absent team the moment
+    the room opens.
+    """
+    import datetime
+    data = api(creds, views=("mSettings", "mTeam"))
+    s = data["settings"]
+    ds = s.get("draftSettings", {})
+    dd = data.get("draftDetail", {})
+    st = data.get("status", {})
+    when = ds.get("date")
+    when_s = (datetime.datetime.fromtimestamp(when / 1000).strftime("%A %B %-d, %Y %-I:%M %p")
+              if when else "NOT SCHEDULED in ESPN")
+    state = "DONE" if dd.get("drafted") else ("IN PROGRESS" if dd.get("inProgress") else "not started")
+    print(f"{s['name']} -- draft\n")
+    print(f"  date     {when_s}")
+    print(f"  type     {ds.get('type')}, {ds.get('timePerSelection')}s per pick")
+    print(f"  order    {ds.get('orderType')}")
+    print(f"  teams    {st.get('teamsJoined')} joined of {s.get('size')}")
+    print(f"  status   {state}")
+    if not when and not dd.get("drafted"):
+        print("\nNo draft time is set. Ask the commissioner. ESPN autodrafts any team "
+              "that is not in the room when it opens.")
+
+
+def cmd_schedule(creds, args):
+    """Idle weeks per team. With an odd team count one team sits out each week.
+
+    Exists because the board gives a free-bye bonus to Alex's idle week, and a
+    late team change regenerates the whole schedule. Run it on draft morning.
+    """
+    data = api(creds, views=("mMatchup", "mTeam", "mSettings"))
+    names = {t["id"]: team_name(t) for t in data["teams"]}
+    reg = data["settings"].get("scheduleSettings", {}).get("matchupPeriodCount", 14)
+    idle = {}
+    for m in data.get("schedule", []):
+        if m["matchupPeriodId"] > reg:
+            continue
+        if "home" not in m or "away" not in m:
+            side = m.get("home") or m.get("away")
+            idle.setdefault(side["teamId"], []).append(m["matchupPeriodId"])
+    mine = my_team_id(creds, data)
+    print(f"{data['settings']['name']} -- {len(names)} teams, {reg} regular-season weeks\n")
+    if not idle:
+        print("No idle weeks: every team has an opponent every week.")
+        return
+    for tid, ws in sorted(idle.items(), key=lambda kv: kv[1]):
+        star = " <- LMAO" if tid == mine else ""
+        print(f"  week {', '.join(map(str, ws)):<6} {names[tid]}{star}")
+    mine_ws = idle.get(mine, [])
+    print(f"\nChaos Legion idle: week {mine_ws or 'none'}. vor.py's free-bye bonus assumes week 8.")
+    if mine_ws != [8]:
+        print("WARNING: that is not week 8. Fix the free-bye week in vor.py and the playbook.")
+
+
 def cmd_raw(creds, args):
     """Dump a raw view for debugging / building new subcommands."""
     views = tuple(args.views.split(",")) if args.views else ("mSettings",)
-    print(json.dumps(api(creds, views=views), indent=2)[:args.limit])
+    out = json.dumps(api(creds, views=views), indent=2)
+    if args.limit and len(out) > args.limit:
+        print(out[:args.limit])
+        print(f"\n[ff raw: truncated at {args.limit} of {len(out)} chars, so this is not "
+              "valid JSON. Pass --limit 0 for all of it.]", file=sys.stderr)
+    else:
+        print(out)
 
 
 def cmd_refresh(creds_ignored, args):
@@ -227,16 +292,20 @@ def main():
     sub = ap.add_subparsers(dest="cmd", required=True)
     sub.add_parser("standings", help="league standings with bye/playoff cutlines")
     sub.add_parser("roster", help="Alex's current roster")
+    sub.add_parser("draft", help="draft date, type, and status from ESPN")
+    sub.add_parser("schedule", help="idle week per team (odd team count)")
     sub.add_parser("refresh", help="re-pull ESPN cookies from Chrome")
     raw = sub.add_parser("raw", help="dump a raw API view (for debugging)")
     raw.add_argument("--views", default="mSettings", help="comma-separated ESPN views")
-    raw.add_argument("--limit", type=int, default=4000)
+    raw.add_argument("--limit", type=int, default=4000, help="chars to print; 0 = all")
     args = ap.parse_args()
 
     creds = None if args.cmd == "refresh" else load_creds()
     {
         "standings": cmd_standings,
         "roster": cmd_roster,
+        "draft": cmd_draft,
+        "schedule": cmd_schedule,
         "raw": cmd_raw,
         "refresh": cmd_refresh,
     }[args.cmd](creds, args)
