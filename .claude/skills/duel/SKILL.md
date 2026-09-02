@@ -1,6 +1,6 @@
 ---
 name: duel
-description: "Play Yu-Gi-Oh! against Alex in EDOPro, live, with MIST picking a deck from her roster and making every decision from this session; afterwards, review the game log to tune her decks and coach Alex. Use when Alex says 'duel me', 'let's duel', 'play yugioh', 'play against you', 'sit down at EDOPro', 'rematch', 'new duel', 'reconnect the bot', names a deck or format he wants to face, asks why the bot played something, or says 'review the game', 'coach me', 'how did I play', 'what should I have done', 'tune your deck', 'how's your record'."
+description: "Play Yu-Gi-Oh! against Alex in EDOPro, live, with MIST picking a deck from her roster and making every decision from this session; afterwards, review the game log to tune her decks and coach Alex. Use when Alex says 'duel me', 'let's duel', 'play yugioh', 'play against you', 'sit down at EDOPro', 'rematch', 'new duel', 'reconnect the bot', names a deck or format he wants to face, asks why the bot played something, or says 'review the game', 'coach me', 'how did I play', 'what should I have done', 'what was in my hand', 'tune your deck', 'how's your record'."
 metadata:
   repo: "/Users/alexhedtke/Documents/mist-windbot (local-only, no remote; read its README first)"
   client: "/Applications/ProjectIgnis (EDOPro)"
@@ -173,6 +173,10 @@ result before anything else**, from your point of view:
 $B/mist-duel-cli result win|loss|draw --note "surrendered at 2800 facing lethal"
 ```
 
+That also **archives the client's replay** next to the log. Do it before the
+next game starts: EDOPro overwrites `_LastReplay.yrpX` every duel, and that
+file is the only full-information record of the one just played.
+
 Then offer a review. Don't force it; he may just want another game. If he does
 want one, or you noticed something in your own play, that's the next section.
 
@@ -185,15 +189,27 @@ done", "tune your deck", "how's your record", or your own itch after a game.
 $B/mist-duel-review digest            # the last duel, turn by turn (or a log name)
 $B/mist-duel-review list              # every logged duel: deck, turns, result
 $B/mist-duel-review stats             # per-deck record, fallback rate
+$B/mist-duel-replay hands             # both hands and set cards at every turn, from the replay
+$B/mist-duel-replay events            # the whole game as the engine saw it
 $B/mist-coach                         # archives the client replay, then the digest
 ```
 
-The digest is deterministic and it is honest about what it is: **your seat,
-not a referee's.** Alex's hand is only a count. Anything he did between two of
-your decisions shows up as a diff ("his Zombie Master appeared", "Mirror Force
-went to his grave") attributed to the moment you next looked, not to when it
-happened. Reason from those observations. Say "looks like" for inferences. Do
-not invent a narrative for the parts you couldn't see. Read the whole digest
+Two records exist, and they differ in what they can know:
+
+- **The decision log** is your seat. Alex's hand is a count, his face-downs
+  are blanks, and anything he did between two of your decisions shows up as a
+  diff ("his Zombie Master appeared") attributed to the moment you next
+  looked. Reason from those observations; say "looks like" for inferences.
+- **The replay** is the referee's. Alex's EDOPro is the host, it runs the
+  engine, and the replay it writes is the engine's own message stream before
+  any masking: both hands, every set card, every draw, in order. When it is
+  archived, the digest prints `ALEX HAND (replay)` and his set cards under
+  each turn header, and `mist-duel-replay hands` gives the same at every
+  phase. Then you know what he held, and the coaching can say so.
+
+The digest's `full information:` line tells you which situation you are in.
+With a replay, judge the play he actually had available. Without one, do not
+invent a narrative for what you couldn't see. Either way, read the whole thing
 before writing a word; the review is a judgment call, so it happens here, in
 this session, not in a side call.
 
@@ -230,9 +246,11 @@ missing; dated entries, newest first) so it accumulates. The shape:
    board looked like, what he did, what you'd have done, and *why in terms of
    this game*. Concrete beats general. "Zombie Master into two set cards after
    my MST had already shown I was holding removal" beats "play around traps".
-3. Before judging a key turn, **ask what he was holding.** You couldn't see his
-   hand, and the play that looks wrong from your seat is sometimes forced. His
-   answer changes the coaching; don't skip it.
+3. Before judging a key turn, **ask what he was thinking**, and if there is no
+   replay, what he was holding. With the replay you already know the hand, so
+   the question becomes the useful one: what did he see, what was he playing
+   around, what did he think you had. A play that looks wrong from the board
+   is sometimes right for his read, and the coaching is about the read.
 4. One thing he did well, only if it's real.
 5. The single habit for next game. One. He'll remember one.
 
