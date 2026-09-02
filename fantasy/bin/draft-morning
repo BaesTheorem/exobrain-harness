@@ -1,0 +1,34 @@
+#!/bin/sh
+# draft-morning -- the pre-draft sequence, in the only order that works.
+#
+# Each step consumes the one before it (the board is built from the Ringer pull
+# and the ECR pull; the sheet is built from the board), so running them by hand
+# out of order builds on stale sources. This script is the order. It stops at
+# the sign-off gate: while any board-vs-consensus divergence is unsigned, the
+# gate exits nonzero, Alex signs with `signoff.py keep --thesis` or `correct`,
+# and the script is simply run again (a full pass is under a minute).
+#
+# Usage: fantasy/bin/draft-morning        # from anywhere; paths are absolute
+set -e
+FANTASY="$(cd "$(dirname "$0")/.." && pwd)"
+cd "$FANTASY"
+
+step() { printf '\n=== %s\n' "$*"; }
+
+step "1/9  draft status, from ESPN itself";        bin/ff draft
+step "2/9  schedule: idle week per team";          bin/ff schedule
+step "3/9  The Ringer board";                      python3 ringer_board.py
+step "4/9  FantasyPros ECR (+ a seat-5 sim audit)"; python3 examiner.py --refresh
+step "5/9  2025 volume + BUY/SELL flags";          python3 opportunity.py
+step "6/9  value-over-replacement board";          python3 vor.py | sed -n '1,12p'
+step "7/9  THE GATE: unsigned divergences"
+if ! python3 signoff.py status; then
+    printf '\nGATE FAILED. Sign each divergence (signoff.py keep --thesis / correct),\n'
+    printf 'then run this script again so the board is rebuilt on the signatures.\n'
+    exit 1
+fi
+step "8/9  tier sheet (draft-sheet.html)";         python3 tier_sheet.py
+step "9/9  consensus judge for the post-draft grade (never read by the board)"
+python3 consensus.py || printf 'WARN: consensus pull failed; grade.py --judge both will use the cached one\n'
+
+printf '\nAll clear. Second-screen fantasy/draft-sheet.html, start driver.py, arm before the room opens.\n'

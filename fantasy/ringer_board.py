@@ -14,6 +14,9 @@ import json
 import re
 import subprocess
 import sys
+from pathlib import Path
+
+HERE = Path(__file__).resolve().parent
 
 FORMATS = ("ppr", "half-ppr", "zero-ppr", "superflex", "dynasty-all")
 
@@ -61,7 +64,7 @@ def main() -> None:
     ap = argparse.ArgumentParser()
     ap.add_argument("--slug", default="2026-preseason")
     ap.add_argument("--format", default="ppr", choices=FORMATS)
-    ap.add_argument("--out", default="fantasy/ringer_board.json")
+    ap.add_argument("--out", default=str(HERE / "ringer_board.json"))
     args = ap.parse_args()
 
     rows = players(fetch(args.slug))

@@ -27,6 +27,8 @@ import html
 import json
 from pathlib import Path
 
+HERE = Path(__file__).resolve().parent
+
 # Alex's league: 13 teams, 9 starters (QB/RB/RB/WR/WR/TE/FLEX/DST/K), 16 rounds.
 TEAMS = 13
 ROUNDS = 16
@@ -129,7 +131,7 @@ def _load_opportunity() -> dict:
     (fantasy/opportunity.py). BUY = heavy volume with TD-shorted results,
     SELL = TD-inflated on modest volume. Volume repeats; touchdowns do not
     (last-year TDs -> next-year TDs R² = 0.079)."""
-    path = Path(__file__).resolve().parent / "draftbot" / "opportunity.json"
+    path = HERE / "draftbot" / "opportunity.json"
     if not path.exists():
         return {}
     out = {}
@@ -284,8 +286,8 @@ repeat (TD YoY R&sup2; = 0.08).</p>
 
 def main() -> None:
     ap = argparse.ArgumentParser()
-    ap.add_argument("--board", default="fantasy/ringer_board.json")
-    ap.add_argument("--out", default="fantasy/draft-sheet.html")
+    ap.add_argument("--board", default=str(HERE / "ringer_board.json"))
+    ap.add_argument("--out", default=str(HERE / "draft-sheet.html"))
     args = ap.parse_args()
 
     meta = json.loads(Path(args.board).read_text())

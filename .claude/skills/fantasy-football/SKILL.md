@@ -62,32 +62,35 @@ for a race-free look at the room.
 Everything must be armed and tested **before** the room opens. Building it
 against a live clock is how picks get lost.
 
-0. **The draft-morning sequence, in this exact order** (each later step
-   consumes the one before it; running out of order builds the board on stale
-   sources):
+0. **The draft-morning sequence is one command**: `fantasy/bin/draft-morning`.
+   It runs, in the only order that works (each step consumes the one before
+   it, so running by hand out of order builds the board on stale sources):
 
-   ```sh
-   python3 fantasy/ringer_board.py          # 1. re-pull the Ringer board
-   python3 fantasy/examiner.py --refresh    # 2. re-pull FantasyPros ECR
-   python3 fantasy/opportunity.py           # 3. 2025 volume + BUY/SELL flags
-   python3 fantasy/vor.py                   # 4. build the board (or arm.py board)
-   python3 fantasy/signoff.py status        # 5. THE GATE -- must exit clean
-   python3 fantasy/tier_sheet.py            # 6. regen draft-sheet.html w/ flags
+   ```
+   ff draft            # draft date/status straight from ESPN
+   ff schedule         # idle week per team; warns if Alex's is not week 8
+   ringer_board.py     # re-pull the Ringer board
+   examiner.py --refresh   # re-pull FantasyPros ECR
+   opportunity.py      # 2025 volume + BUY/SELL flags
+   vor.py              # build the board
+   signoff.py status   # THE GATE -- the script stops here if it fails
+   tier_sheet.py       # regen draft-sheet.html with flags
+   consensus.py        # refresh the post-draft judge (firewalled from the board)
    ```
 
-   Step 5 exits nonzero while any board-vs-ECR divergence is unsigned. Alex's
+   The gate exits nonzero while any board-vs-ECR divergence is unsigned. Alex's
    standing rule (2026-08-24): **no counter-consensus pick reaches the draft
    without a signed thesis.** Source drift overnight can surface new
-   divergences; each gets `signoff.py keep --thesis` (registers the bet in
-   the ledger) or `correct` (re-slots to consensus; rebuild the board after
-   correcting, then re-run the gate). A BUY flag from step 3 is exactly the
-   kind of thesis a keep wants. Alex signs; MIST never signs for him.
+   divergences (six appeared between 08-24 and 09-02); each gets
+   `signoff.py keep --thesis` (registers the bet in the ledger) or `correct`
+   (re-slots to consensus). Then run the script again, so the board is rebuilt
+   on the signatures. A BUY flag from `opportunity.py` is exactly the kind of
+   thesis a keep wants. Alex signs; MIST never signs for him.
 
-   Also that morning: re-pull the league schedule to confirm the Week 8 idle
-   week survived any late team change, and second-screen `draft-sheet.html`.
-   **After the draft, before navigating away**: `draftbot/grade.py --judge
-   both` (practice leagues 404 later; the live league keeps) and
-   `examiner.py --live` for the audit trail.
+   Also that morning: second-screen `draft-sheet.html`, start `driver.py`,
+   arm before the room opens. **After the draft, before navigating away**:
+   `draftbot/grade.py --judge both` (practice leagues 404 later; the live
+   league keeps) and `examiner.py --live` for the audit trail.
 1. **Be in the draft room before it opens.** Absence is not falling behind, it is
    ESPN drafting your whole team. It made 73 picks in ~90 seconds on 2026-08-24
    because every team was flagged AUTO. Entering clears the flag on *upcoming*
@@ -137,9 +140,18 @@ has 13 teams and Alex's idle week is 8.
 **Rebuild the board on draft morning** (`arm.py board`). Both inputs move through
 the preseason, and `vor.json` is gitignored derived data.
 
+**What it already models, so nobody rebuilds it:** value over *next available*
+(`vona` in `autopilot.js`): a player who will survive to the next turn on ESPN
+crowd ADP is his own floor, so the pick goes to the man who will not. That is
+the "what will still be there" half of a snake draft, at the crowd-average
+level. Two mock-tested refinements lost under measurement and are parked:
+survival curves (`sim.py --policy survivalFloor`, a wash at 312 rooms) and
+the elite-bias shrink (`VOR_BIAS_STRENGTH`, worse under the consensus judge).
+
 **Still open:** replacement level is static, so late in a draft it understates
-how thin a position has actually become; there is no tier awareness; and there is
-no model of what will still be there at the next pick.
+how thin a position has actually become; there is no tier awareness (the sheet
+has tiers, the bot does not); and the opponent model is crowd ADP, not this
+room's tendencies.
 
 ### The judge is not the board
 
@@ -222,9 +234,10 @@ Mirrored in the playbook note above. If a setting changes, fix it in **both**, a
 treat the note as authoritative.
 
 ESPN, run by a friend of Alex's (name in the playbook note, not here).
-**12 teams, snake, full PPR head-to-head points.**
-Draft not yet scheduled. **Draft order randomized one hour before the draft**, so
-slot cannot be planned for. **90 seconds per pick.**
+**13 teams** (12 until 2026-08-23), **snake, full PPR head-to-head points.**
+Live draft targeted for Labor Day weekend 2026; **check `ff draft` for what
+ESPN actually has set**. **Draft order randomized one hour before the draft**,
+so slot cannot be planned for. **90 seconds per pick.**
 
 | Setting | Value |
 |---|---|
@@ -233,7 +246,8 @@ slot cannot be planned for. **90 seconds per pick.**
 | Position maximums | RB 8, WR 8, QB 4, TE 3, D/ST 3, K 3 |
 | **Waivers** | **Reset weekly to inverse order of standings. NOT FAAB.** 1-day period |
 | Regular season | 14 weeks, 1 week per matchup, **no tie breakers** |
-| Playoffs | **6 of 12 teams**, all rounds 1 week (weeks 15/16/17), **top 2 get byes** |
+| **Idle weeks** | Odd team count, so one team sits each week. **Alex's is Week 8** (`ff schedule`) |
+| Playoffs | **6 of 13 teams**, all rounds 1 week (weeks 15/16/17), **top 2 get byes** |
 | Seeding tiebreak | Total points for |
 | Reseeding | Off |
 | Keepers | None, either year. Pure redraft |
@@ -246,9 +260,9 @@ slot cannot be planned for. **90 seconds per pick.**
 **1. The first-round bye is worth roughly double the championship.** All playoff
 rounds are one week, so a bye removes an entire coin flip. Using the §1 model of a
 53% team: winning three single-week rounds is 0.53³ = **14.9%**. Winning two is
-0.53² = **28.1%**. Seeding top-2 out of 12 is close to a **2x multiplier on title
+0.53² = **28.1%**. Seeding top-2 out of 13 is close to a **2x multiplier on title
 odds**, and it is the highest-leverage regular-season goal in this league by a
-wide margin. Note 6 of 12 teams make the playoffs, so merely qualifying is close
+wide margin. Note 6 of 13 teams make the playoffs, so merely qualifying is close
 to a coin flip and is not the thing to optimize. **Play for the bye, not the
 berth.** Since the seeding tiebreaker is total points for, raw points matter
 independently of record.
@@ -266,7 +280,7 @@ advice.** The FAAB dead-zone guidance does not apply here. What applies instead:
 - **Therefore Zero RB is structurally weaker in this league than the research
   implies.** Zero RB's entire mechanism is mining the waiver wire for RBs while
   others paid draft capital (§3). That mechanism is throttled here by
-  reverse-standings priority *and* by 192 players rostered across 12 teams of 16.
+  reverse-standings priority *and* by 208 players rostered across 13 teams of 16.
   Combined with the market having already arbitraged the strategy, do not run it.
 - **Early-season claims are the cheap ones.** Priority is most favorable before he
   climbs the standings, and Week 1-4 breakouts are where the wire actually
@@ -280,7 +294,11 @@ advice.** The FAAB dead-zone guidance does not apply here. What applies instead:
   every reception is a full point.
 - **One QB slot, so wait on QB.** Not superflex. QB scoring declines near-linearly
   by rank, QB6 returns ~72% of QB1, and NFL Rounds 2-7 produced 4 QB1 seasons in
-  90 tries. Nothing here justifies early QB.
+  90 tries. Nothing here justifies early QB. The one QB shape worth a tiebreak:
+  **a rushing yard is worth 2.5x a passing yard here** (0.10 vs 0.04, verified
+  against the league's scoring items 2026-09-02) and a rushing TD 1.5x a passing
+  TD (6 vs 4). ESPN's projections already price that in, so it is not a board
+  input; between two QBs at the same value, take the legs.
 - **Required K and D/ST guarantee the herding edge fires** (§3), and the punt
   has a measured limit (2026-08-24): observed rooms drain all startable defenses
   in rounds 12-13 and kickers in round 14, so waiting to the final two rounds
@@ -302,7 +320,7 @@ advice.** The FAAB dead-zone guidance does not apply here. What applies instead:
   spot. ESPN typically requires OUT/IR designation, not questionable.
 - **7 bench spots plus no-limit acquisitions** supports constant bottom-of-roster
   churn over hoarding handcuffs (§4).
-- **5 votes to veto in a 12-team league is a high bar**, so this is a trade-friendly
+- **5 votes to veto in a 13-team league is a high bar**, so this is a trade-friendly
   league. Trade deadline is Dec 2, 2026.
 - **No keepers**, so there is zero future value to protect. Rookies and young
   players are worth only their 2026 production.
@@ -310,7 +328,7 @@ advice.** The FAAB dead-zone guidance does not apply here. What applies instead:
   free tier clustering (§5) is the right tool: at 90 seconds Alex needs to read a
   tier, not evaluate a player.
 - **Slot is randomized one hour prior**, so the §3 draft-slot discussion is
-  informational only. Prepare for all 12 slots or, better, prepare tiers that are
+  informational only. Prepare for all 13 slots or, better, prepare tiers that are
   slot-agnostic.
 - **Playoff weeks are 15, 16, 17.** Playoff-weeks strength of schedule is the one
   SOS use case the research could not rule out, though it remains UNVERIFIED. Do
@@ -540,6 +558,20 @@ themselves flag it as possibly a one-season artifact needing replication.
 FTN claims teams from the first three slots post "win rates 20-30% higher." That
 article cites **no source, no methodology**, and shows structural signs of
 low-effort SEO content. **Do not repeat that figure.**
+
+### Within-tier tiebreaks, in order
+
+When two players sit in the same tier and the board is a coin flip, and only
+then. None of these ever moves a player up a tier.
+
+1. **Alex's idle week.** A player whose NFL bye is Week 8 costs nothing (§0).
+   The bot applies this one; the rest are Alex's at the table.
+2. **Legs, for quarterbacks.** Rushing yards pay 2.5x passing yards here and
+   rushing production is less touchdown-dependent than passing production.
+3. **Who he would rather watch.** Four months of Sundays in a format that is
+   ~80% luck. A within-tier pick costs nothing measurable and buys the season.
+   (The Ringer's 2025 "how to win your league" column is the source; the rest
+   of that column either matched this skill or lost to its evidence.)
 
 ### Stacking: genuinely contested, present both sides
 

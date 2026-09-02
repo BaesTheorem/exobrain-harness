@@ -1,9 +1,29 @@
 # fantasy
 
-Read-only client for Alex's ESPN fantasy league **"Roll for First Down"** (his
-team: **Chaos Legion**, abbrev **LMAO**). Strategy lives in the
-`/fantasy-football` skill and the vault playbook; this dir is just the data
-access layer.
+Tooling for Alex's ESPN fantasy league **"Roll for First Down"** (his team:
+**Chaos Legion**, abbrev **LMAO**). Strategy lives in the `/fantasy-football`
+skill and the vault playbook; this dir is the data layer, the draft board, and
+the audits that keep the board honest.
+
+## Map
+
+Draft-morning pipeline, in the order `bin/draft-morning` runs it:
+
+| Script | Reads | Writes | Job |
+|---|---|---|---|
+| `bin/ff draft`, `bin/ff schedule` | ESPN | stdout | Draft date/status; idle week per team (13 teams, one sits weekly) |
+| `ringer_board.py` | The Ringer | `ringer_board.json` | Editorial positional ranks (who is best at a position) |
+| `examiner.py --refresh` | FantasyPros | `draftbot/ecr.json` | Expert consensus ranks, the outside yardstick |
+| `opportunity.py` | nflreadpy (2025) | `draftbot/opportunity.json` | Volume metrics and TD-regression BUY/SELL flags |
+| `vor.py` | ESPN + Sleeper projections, Ringer, overrides | `draftbot/vor.json` | The board: value over replacement on this league's scoring |
+| `signoff.py status` | board, ECR, `board-overrides.json` | exit code | **The gate.** Unsigned board-vs-consensus divergences block the draft |
+| `tier_sheet.py` | board, opportunity | `draft-sheet.html` | Printable tiers (exact 1-D k-means on value) with flags |
+| `consensus.py` | CBS + FFToday | `draftbot/consensus.json` | Independent judge for post-draft grading. **Never read by `vor.py`** |
+
+Around the draft: `sim.py` (offline 13-seat simulator, mirrors the autopilot's
+scoring), `ledger.py` (board-vs-consensus bets, settled with real season
+points), and `draftbot/` (the autopilot itself, the only thing here that
+**writes** to ESPN; see its README).
 
 ## Tool
 
@@ -15,8 +35,10 @@ with Alex.
 ```
 ff standings     # league table with bye (top 2) and playoff (top 6) cutlines
 ff roster        # Chaos Legion's current roster
+ff draft         # draft date, clock, order rule, teams joined, started/done
+ff schedule      # idle week per team; warns if Alex's is not week 8
 ff refresh       # re-pull ESPN cookies from Chrome (when auth expires)
-ff raw --views mMatchup,mRoster   # raw API dump for building new subcommands
+ff raw --views mMatchup,mRoster --limit 0   # raw API dump (default limit 4000 chars, truncated JSON warns on stderr)
 ```
 
 ## Credentials (gitignored, not in the repo)
