@@ -95,6 +95,23 @@ def fetch(county: str, month: int, start: int, end: int, cache: Path) -> dict[in
     return dict(sorted(series.items()))
 
 
+def fit_trend(x: np.ndarray, y: np.ndarray) -> tuple[float, np.ndarray, np.ndarray]:
+    """OLS trend plus the 95% confidence band on the fitted line.
+
+    A century of one month's temperature is mostly year-to-year noise, so a bare
+    slope invites a reader to see a trend that the data cannot support. The band
+    is what makes "this could be flat" visible.
+    """
+    (slope, intercept), cov = np.polyfit(x, y, 1, cov=True)
+    line = slope * x + intercept
+    resid = y - line
+    s_err = np.sqrt((resid**2).sum() / (len(x) - 2))
+    sxx = ((x - x.mean()) ** 2).sum()
+    # t(0.975) at ~100 points; 1.98 rather than the normal 1.96
+    band = 1.98 * s_err * np.sqrt(1 / len(x) + (x - x.mean()) ** 2 / sxx)
+    return slope, line, band, 1.98 * np.sqrt(cov[0, 0])
+
+
 def centered_rolling(values: np.ndarray, window: int) -> np.ndarray:
     """Centered rolling mean, NaN where the full window doesn't fit."""
     out = np.full(values.shape, np.nan)
@@ -109,8 +126,7 @@ def draw(years, temps, mode, title, subtitle, month_name, out_path):
     x = np.asarray(years, dtype=float)
     y = np.asarray(temps, dtype=float)
 
-    slope, intercept = np.polyfit(x, y, 1)
-    trend = slope * x + intercept
+    slope, trend, band, slope_ci = fit_trend(x, y)
     mean = y.mean()
     smooth = centered_rolling(y, 11)
 
@@ -129,8 +145,11 @@ def draw(years, temps, mode, title, subtitle, month_name, out_path):
 
     ax.plot(x, y, color=c["annual"], linewidth=1.3, alpha=0.75, zorder=2,
             label=f"{month_name} average, single year")
+    ax.fill_between(x, trend - band, trend + band, color=c["trend"], alpha=0.16,
+                    linewidth=0, zorder=1)
     ax.plot(x, trend, color=c["trend"], linewidth=1.8, linestyle=(0, (5, 3)), zorder=3,
-            label=f"Linear trend  {slope * 10:+.2f}°F per decade")
+            label=(f"Linear trend  {slope * 10:+.2f} ± {slope_ci * 10:.2f}°F per decade"
+                   "\n(dashed line, 95% band)"))
     ax.plot(x, smooth, color=c["smooth"], linewidth=2.6, zorder=4,
             label="11-year running mean")
 
@@ -152,7 +171,8 @@ def draw(years, temps, mode, title, subtitle, month_name, out_path):
     ax.yaxis.set_major_formatter(lambda v, _: f"{v:.0f}°F")
     ax.set_xlabel("")
 
-    ax.set_title(title, color=c["ink"], fontsize=16, fontweight="bold", loc="left", pad=26)
+    ax.set_title(title, color=c["ink"], fontsize=16 if len(title) <= 90 else 14,
+                 fontweight="bold", loc="left", pad=26)
     ax.annotate(
         subtitle, xy=(0, 1), xycoords="axes fraction", xytext=(0, 12),
         textcoords="offset points", color=c["secondary"], fontsize=10.5, va="bottom",
@@ -172,7 +192,6 @@ def draw(years, temps, mode, title, subtitle, month_name, out_path):
     fig.tight_layout(rect=(0, 0.03, 1, 1))
     fig.savefig(out_path, facecolor=c["surface"])
     plt.close(fig)
-    return slope, mean, smooth
 
 
 def main() -> None:
@@ -201,22 +220,28 @@ def main() -> None:
 
     # Headline states what the numbers actually show, so it stays honest when
     # the script is pointed at another county or month.
-    span = float(np.polyfit(years, temps, 1)[0]) * len(years)
+    xa, ya = np.asarray(years, dtype=float), np.asarray(temps, dtype=float)
+    slope, _, _, slope_ci = fit_trend(xa, ya)
     spread = max(temps) - min(temps)
+    # If the confidence interval straddles zero, the fitted slope is not evidence
+    # of a direction and the headline must not imply one.
+    finding = (f"{slope * len(years):+.1f}°F of trend" if abs(slope) > slope_ci
+               else "no detectable trend")
     title = (f"{len(years)} {month_name}s in {args.place}: {spread:.0f}°F between the "
-             f"warmest and the coolest, {span:+.1f}°F of trend")
+             f"warmest and the coolest, {finding}")
     subtitle = (f"Average {month_name} temperature, {years[0]}-{years[-1]} · period mean "
                 f"{statistics.mean(temps):.1f}°F · NOAA nClimGrid, {args.county}")
 
     for mode in ("light", "dark"):
         out = args.outdir / f"{stem}-{mode}.png"
-        slope, mean, smooth = draw(years, temps, mode, title, subtitle, month_name, out)
+        draw(years, temps, mode, title, subtitle, month_name, out)
         print(f"wrote {out}")
 
     first30 = statistics.mean(temps[:30])
     last30 = statistics.mean(temps[-30:])
-    print(f"\n{month_name} average, {years[0]}-{years[-1]}: {mean:.2f}°F")
-    print(f"  trend           {slope * 10:+.2f}°F/decade ({slope * len(years):+.2f}°F over the period)")
+    print(f"\n{month_name} average, {years[0]}-{years[-1]}: {ya.mean():.2f}°F")
+    verdict = "significant" if abs(slope) > slope_ci else "not distinguishable from zero"
+    print(f"  trend           {slope * 10:+.2f} ± {slope_ci * 10:.2f}°F/decade  ({verdict})")
     print(f"  first 30 years  {first30:.2f}°F   last 30 years  {last30:.2f}°F   ({last30 - first30:+.2f})")
     print(f"  warmest         {years[temps.index(max(temps))]}  {max(temps):.1f}°F")
     print(f"  coolest         {years[temps.index(min(temps))]}  {min(temps):.1f}°F")
