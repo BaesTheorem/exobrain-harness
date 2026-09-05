@@ -257,12 +257,12 @@
     "notes": "Live progress bar in the MIST Console. Wrap ANY download/upload/install/clone that takes more than a few seconds. Also start/set/done for progress you compute yourself."
   },
   {
-    "name": "monthly-temp-history",
-    "command": "./monthly-temp-history.py [--county MO-095] [--month 9] [--start 1926] [--end 2025]",
+    "name": "monthly-climate-history",
+    "command": "./monthly-climate-history.py [--variable tavg|dewpoint|humidity] [--month N] [--county MO-095] [--start YYYY] [--end YYYY]",
     "repo_dir": "weather",
     "source": "built",
     "added": "2026-09-05",
-    "notes": "Charts 100+ years of one month's average temperature for any US county from NOAA NCEI Climate at a Glance (nClimGrid county series). PEP 723 script, runs via uv, no venv. Writes light + dark PNGs plus the source CSV to weather/out/. Defaults to Kansas City (Jackson County MO) September. County codes are ST-FIPS3, e.g. MO-095, KS-209. Cross-validated r=0.97 against GHCN station USW00013988."
+    "notes": "Charts a month's long-run climate history for any US county/point. tavg from NOAA nClimGrid county series (1895+); dewpoint and humidity from ERA5 via Open-Meteo (1940+, since nClimGrid has no moisture variables). PEP 723 script, runs via uv, no venv. Writes light + dark PNGs plus source CSV to weather/out/. Trend line carries a 95% band and the headline says 'no detectable trend' when the interval straddles zero. Renamed from monthly-temp-history 2026-09-05."
   },
   {
     "name": "musictheory-2008",
