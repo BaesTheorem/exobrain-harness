@@ -35,6 +35,7 @@ from __future__ import annotations
 import argparse
 import json
 import sys
+import time
 import urllib.error
 import urllib.request
 import uuid
@@ -49,6 +50,10 @@ API = "https://us.booksy.com/core/v2/customer_api"
 # The public key the Booksy web widget ships with; not a secret or a credential.
 WEB_API_KEY = "web-e3d812bf-d7a2-445d-ab38-55589ae6a121"
 TIMEOUT = 30
+# Booksy rate-limits a fast sweep; pace day requests and retry a stalled one.
+RETRY_ATTEMPTS = 3
+RETRY_BACKOFF = 2.0
+REQUEST_PACING = 0.4
 # Booksy caps how far ahead a draft may look; keep requests inside it.
 MAX_LEAD_DAYS = 90
 
@@ -149,17 +154,29 @@ def _headers() -> dict[str, str]:
 
 
 def _post(path: str, body: dict, headers: dict[str, str]) -> dict:
+    """POST to Booksy, retrying a stalled request, and never raising a bare error.
+
+    Every failure leaves here as a BooksyError. A read timeout arrives as a
+    plain TimeoutError, which is not a URLError -- left uncaught it escapes the
+    per-barber handler in slots_in_range and kills an entire sweep, instead of
+    degrading into the one warning that call site is written to collect.
+    """
     req = urllib.request.Request(
         API + path, data=json.dumps(body).encode(), headers=headers, method="POST"
     )
-    try:
-        with urllib.request.urlopen(req, timeout=TIMEOUT) as resp:
-            return json.loads(resp.read() or b"{}")
-    except urllib.error.HTTPError as exc:
-        detail = exc.read()[:200].decode("utf-8", "replace")
-        raise BooksyError(f"{path} -> HTTP {exc.code}: {detail}") from exc
-    except urllib.error.URLError as exc:
-        raise BooksyError(f"{path} -> {exc.reason}") from exc
+    for attempt in range(1, RETRY_ATTEMPTS + 1):
+        try:
+            with urllib.request.urlopen(req, timeout=TIMEOUT) as resp:
+                return json.loads(resp.read() or b"{}")
+        except urllib.error.HTTPError as exc:
+            detail = exc.read()[:200].decode("utf-8", "replace")
+            raise BooksyError(f"{path} -> HTTP {exc.code}: {detail}") from exc
+        except (TimeoutError, urllib.error.URLError) as exc:
+            reason = getattr(exc, "reason", exc)
+            if attempt == RETRY_ATTEMPTS:
+                raise BooksyError(f"{path} -> {reason}") from exc
+            time.sleep(RETRY_BACKOFF * attempt)
+    raise BooksyError(f"{path} -> gave up after {RETRY_ATTEMPTS} attempts")
 
 
 def open_draft(barber: Barber) -> tuple[str, dict[str, str]]:
@@ -246,6 +263,7 @@ def slots_in_range(
                 slots.extend(day_slots(barber, day))
             except BooksyError as exc:
                 warnings.append(f"{barber.name} {iso_day}: slots unavailable ({exc})")
+            time.sleep(REQUEST_PACING)
     return sorted(slots, key=lambda s: (s.start, s.barber.name)), warnings
 
 
