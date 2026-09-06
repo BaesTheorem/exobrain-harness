@@ -27,6 +27,7 @@ All commands below are in `~/Documents/mist-windbot/bin/`. Use `B=~/Documents/mi
 ```
 $B/mist-duel-roster pick                 # a deck from the default format, not the last one played
 $B/mist-duel-roster pick --format "2005.4 GOAT"
+$B/mist-duel-roster pick --format "2010.03 TCG Edison"
 $B/mist-duel-roster pick --style aggro
 $B/mist-duel-roster list                 # everything on the roster
 ```
@@ -72,12 +73,16 @@ Give him exactly this, every time; the time limit is the one people forget:
 
 1. Load his deck in the deck editor. His two for the pre-Xyz format are
    `Zombie World (2011.03 Pre-Xyz)` and `Gravekeepers (2011.03 Pre-Xyz)`. There
-   are similarly named older decks; the parenthetical matters.
+   are similarly named older decks; the parenthetical matters. For Edison he
+   builds one in the editor with `2010.03 TCG Edison` selected; the cards that
+   play with 2010 text show up there as `(Pre-Errata)`.
 2. Multiplayer, Host. **Forbidden list: the one `pick` printed** (for the
    default roster that is `2011.03 TCG Pre-Xyz`). **Time limit: 0.** A
    considered answer from you takes 10-30 s and a whole turn a minute or two; a
    3-minute clock will time you out mid-turn, and it timed *him* out once while
-   he stepped away.
+   he stepped away. **Allowed cards: Any** whenever `pick` says so (Edison and
+   GOAT point at pre-errata prints that EDOPro scopes as unofficial; under
+   OCG/TCG the host rejects the deck, his and yours).
 3. Port 7911, no password. Master Rule doesn't affect legality, but on the old
    shared-field-zone rule **activating a Field Spell destroys the opponent's**.
    Say so if either deck runs one.
