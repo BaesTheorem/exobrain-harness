@@ -66,6 +66,15 @@ python3 flipper_ble.py ping                           # confirm RPC link
 Requires `bleak` (`pip install --break-system-packages bleak`) and the
 Flipper's Bluetooth ON (Settings → Bluetooth → ON).
 
+**Running it from the MIST Console, Claude Code, or any terminal without a
+Bluetooth usage key gets python killed by TCC** (SIGABRT, exit 134, a
+`namespace: TCC` report in `~/Library/Logs/DiagnosticReports`, nothing on
+stderr). Use `bin/flipper-ble <same args>` there: it runs `flipper_ble.py`
+inside `/Applications/Flipper BLE.app`, a bundle that carries
+`NSBluetoothAlwaysUsageDescription`, on the `.venv` interpreter (uv-managed
+CPython 3.13.5 with bleak, at a path brew upgrades do not move, so the TCC grant
+does not go stale). It builds the bundle on first use; `--rebuild` regenerates it.
+
 ### How it works (and why it's not just the USB tool)
 
 The Flipper's BLE serial channel does **not** expose the text CLI -- over
@@ -91,8 +100,9 @@ service via `bleak`. Field numbers come from the official `.proto` definitions
 
 Curated `.ir` files worth keeping next to the toolkit, each with a provenance
 header (where the capture came from, what the buttons do per the vendor manual).
-Push one to the device with `python3 flipper/flipper.py write flipper/ir/<file>.ir
-/ext/infrared/<file>.ir` (USB) and it shows up under Infrared > Saved Remotes.
+Push one to the device with `flipper/bin/flipper-ble write flipper/ir/<file>.ir
+/ext/infrared/<file>.ir` (Bluetooth) or the same arguments to `flipper.py write`
+(USB), and it shows up under Infrared > Saved Remotes.
 
 - `AMI_Jukebox_Full.ir`: the Rowe/AMI 4-channel jukebox handheld (RC5, system
   0x14). All 17 buttons, including FUTURE, which the NGX Mini service manual

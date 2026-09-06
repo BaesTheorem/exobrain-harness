@@ -75,6 +75,15 @@ hand-rolled, dependency-free RPC client (wire codec built from the official
 `flipperzero-protobuf` field numbers). First connect may prompt a pairing PIN on
 the Flipper; device address is cached to `flipper/.ble_addr` for fast reconnect.
 
+**From a Claude session, call `flipper/bin/flipper-ble <args>` instead of
+`python3 flipper/flipper_ble.py <args>`.** CoreBluetooth is TCC-gated on the
+responsible app, and the MIST Console (like most terminals) lacks the Bluetooth
+usage key, so bare python is SIGABRT'd (exit 134, no stderr) before it can scan.
+The wrapper runs the same script inside `/Applications/Flipper BLE.app`, which
+carries the key, on `flipper/.venv` (uv CPython 3.13.5 + bleak, a path brew
+upgrades never move). It builds the bundle on first use and says what to run if
+the venv is missing.
+
 ### Wireless remote: the model for driving ANY app/function
 
 The BLE link has **no text CLI** and the RPC exposes **no per-feature methods**
