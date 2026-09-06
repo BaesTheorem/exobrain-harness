@@ -1,0 +1,114 @@
+Filetype: IR signals file
+Version: 1
+#
+# AMI / Rowe jukebox IR remote (the 4-channel handheld, Rowe part 21958306 and clones).
+# Protocol RC5, system 0x14 (20 = CD player), 36 kHz. Every button is a distinct command.
+# Source: Flipper-IRDB Miscellaneous/AMI/AMI_Jukebox_Full.ir (added 2022-07-17, commit d3d9461f).
+# Button functions per the Rowe/AMI NGX Mini service manual, page 10 ("Button Functionality on
+# the IR Remote Transmitter"): REJECT cancels the playing selection (hold 4 s = reject all);
+# POWER toggles lights/LCD/bill acceptor/card reader; CH1..CH4 +/- are zone volumes;
+# PLAY/PAUSE; AP ON/OFF toggles the programmed Autoplay; FUTURE "is used to give a remote
+# credit"; VID SEL enables/disables video selections. Operators can enable/disable remote
+# options under IR Remote Setup in the operator screens.
+#
+name: POWER
+type: parsed
+protocol: RC5
+address: 14 00 00 00
+command: 0C 00 00 00
+# 
+name: Reject
+type: parsed
+protocol: RC5
+address: 14 00 00 00
+command: 36 00 00 00
+# 
+name: Play
+type: parsed
+protocol: RC5
+address: 14 00 00 00
+command: 30 00 00 00
+# 
+name: Pause
+type: parsed
+protocol: RC5
+address: 14 00 00 00
+command: 35 00 00 00
+# 
+name: Ch1_Vol_Up
+type: parsed
+protocol: RC5
+address: 14 00 00 00
+command: 0B 00 00 00
+# 
+name: Ch1_Vol_Dn
+type: parsed
+protocol: RC5
+address: 14 00 00 00
+command: 28 00 00 00
+# 
+name: Ch2_Vol_Up
+type: parsed
+protocol: RC5
+address: 14 00 00 00
+command: 11 00 00 00
+# 
+name: Ch2_Vol_Dn
+type: parsed
+protocol: RC5
+address: 14 00 00 00
+command: 23 00 00 00
+# 
+name: Ch3_Vol_Up
+type: parsed
+protocol: RC5
+address: 14 00 00 00
+command: 10 00 00 00
+# 
+name: Ch3_Vol_Dn
+type: parsed
+protocol: RC5
+address: 14 00 00 00
+command: 22 00 00 00
+# 
+name: Ch4_Vol_Up
+type: parsed
+protocol: RC5
+address: 14 00 00 00
+command: 3B 00 00 00
+# 
+name: Ch4_Vol_Dn
+type: parsed
+protocol: RC5
+address: 14 00 00 00
+command: 37 00 00 00
+# 
+name: AP_On
+type: parsed
+protocol: RC5
+address: 14 00 00 00
+command: 2B 00 00 00
+# 
+name: AP_Off
+type: parsed
+protocol: RC5
+address: 14 00 00 00
+command: 1C 00 00 00
+# 
+name: Future
+type: parsed
+protocol: RC5
+address: 14 00 00 00
+command: 2C 00 00 00
+# 
+name: Vid_Sel
+type: parsed
+protocol: RC5
+address: 14 00 00 00
+command: 12 00 00 00
+# 
+name: Input_Sel
+type: parsed
+protocol: RC5
+address: 14 00 00 00
+command: 0D 00 00 00
