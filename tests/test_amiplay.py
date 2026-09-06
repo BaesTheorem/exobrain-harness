@@ -135,3 +135,12 @@ def test_artist_sort_keys(session):
     client.artist(5, 23184, media="songs", sort="popularity")
     url = t.calls[0][1]
     assert "sortBy=song.popularity" in url and "sortOrder=desc" in url and "mediaType=songs" in url
+
+
+def test_result_code_table_has_purchase_codes():
+    from amiplay.api import RESULT_CODES
+    # Verified live: a well-formed purchase with an empty wallet returns 10.
+    assert RESULT_CODES[10] == "INSUFFICIENT_BALANCE"
+    assert RESULT_CODES[24] == "INVALID_LOCATION_ID"
+    assert RESULT_CODES[59] == "INVALID_PURCHASE"
+    assert RESULT_CODES[34] == "ACCOUNT_NOT_VALIDATED"
