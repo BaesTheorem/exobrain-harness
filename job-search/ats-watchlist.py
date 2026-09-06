@@ -44,7 +44,17 @@ SNAPSHOT = os.path.join(STATE_DIR, "ats-snapshot.json")
 EXTRA = os.path.join(STATE_DIR, "watchlist-extra.json")
 
 # Boards that are aggregator middlemen, not employers -- polling them is noise.
-BLOCKLIST = {"lever:jobgether", "greenhouse:jobgether"}
+# Plus boards that have been retired by the employer: these 404 on every poll and
+# cost a failed-board slot per run. Confirmed 404 daily 2026-09-02 through 2026-09-06.
+BLOCKLIST = {
+    "lever:jobgether",
+    "greenhouse:jobgether",
+    "greenhouse:boldbusiness",
+    "greenhouse:m2",
+    "greenhouse:openly",
+    "greenhouse:underdogfantasy",
+    "lever:hopper",
+}
 
 TOKEN_PATTERNS = [
     ("greenhouse", re.compile(r"boards(?:-api)?\.greenhouse\.io/(?:v1/boards/)?([a-z0-9]+)")),
