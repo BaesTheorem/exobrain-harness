@@ -1,0 +1,14 @@
+#!/usr/bin/env python3
+"""ami-play: unofficial CLI for the AMI Play jukebox app (find bars, browse the catalog,
+watch the play queue, and queue songs from the terminal). Run `ami-play -h` for commands.
+"""
+
+import sys
+from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+
+from amiplay.cli import main  # noqa: E402
+
+if __name__ == "__main__":
+    sys.exit(main())

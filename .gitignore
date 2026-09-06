@@ -225,3 +225,7 @@ facebook/data/
 facebook/report/
 weather/out/
 uv.lock
+
+# AMI Play CLI -- login token, device UUID, checked-in venue (see ami-play/secrets/README.md)
+ami-play/secrets/*
+!ami-play/secrets/README.md
