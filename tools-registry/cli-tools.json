@@ -368,5 +368,13 @@
     "source": "built",
     "added": "2026-08-26",
     "notes": "Workday-direct job discovery lane. Polls each tenant CXS API, diffs vs snapshot, gates all 4 gates mechanically (comp parsed from JD, canApply verified). --add pins a filtered board URL. Sibling of ats-watchlist.py (Greenhouse/Lever/Ashby)."
+  },
+  {
+    "name": "yt-transcript",
+    "command": "bin/yt-transcript <url|id> [--timestamps] [--lang es] [--auto] [--list-langs] [-o out.md]",
+    "repo_dir": "/Users/alexhedtke/Documents/Exobrain harness",
+    "source": "built",
+    "added": "2026-09-06",
+    "notes": "YouTube captions as clean text via yt-dlp. Prefers human subtitles, falls back to auto-captions. The cleanup is the point: raw auto-captions carry inline karaoke tags (<00:00:01.500><c>word</c>) and a rolling 2-line window that repeats every line verbatim, so a bare yt-dlp dump is ~2x the tokens and reads like a stutter. Verified 4000 raw VTT lines -> 295 clean. Exit 2 = no captions in that language, 3 = fetch blocked. If YouTube throws a bot check, yt-dlp wants a JS runtime: brew install deno."
   }
 ]

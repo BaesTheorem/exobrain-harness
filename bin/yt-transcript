@@ -1,0 +1,273 @@
+#!/usr/bin/env python3
+"""yt-transcript: pull a YouTube video's captions as clean, readable text.
+
+Wraps the yt-dlp already on this machine. The value it adds over a bare
+`yt-dlp --write-auto-subs` is the cleanup, because raw YouTube auto-captions
+are close to unusable as model input:
+
+  * Every cue carries inline karaoke timing (`<00:00:01.500><c>word</c>`),
+    so a naive strip leaves the text littered with tag debris.
+  * Auto-captions use a rolling two-line window, so each cue repeats the
+    previous cue's last line verbatim. Concatenating cues roughly doubles
+    the token count and reads like a stutter.
+
+So this dedups consecutive repeated lines and strips the tags, and prefers
+real human-authored subtitles over auto-generated ones when both exist.
+
+  yt-transcript <url|id>                  # clean text, human subs preferred
+  yt-transcript <url|id> --auto           # skip straight to auto-captions
+  yt-transcript <url|id> --lang es        # a different language
+  yt-transcript <url|id> --timestamps     # keep [mm:ss] cue markers
+  yt-transcript <url|id> --list-langs     # what captions exist at all
+  yt-transcript <url|id> -o out.md        # write instead of printing
+
+Exits 2 when no captions exist in the requested language, 3 when YouTube
+blocks the fetch (see the JS-runtime note in the failure message).
+"""
+
+from __future__ import annotations
+
+import argparse
+import json
+import re
+import subprocess
+import sys
+import tempfile
+from pathlib import Path
+
+# Inline cue payload: <00:00:01.500> timing marks and <c.colorE5E5E5>word</c>
+# span wrappers that YouTube sprinkles through auto-caption text.
+_TAG_RE = re.compile(r"<[^>]+>")
+_CUE_TIMING_RE = re.compile(
+    r"^(?P<start>\d{2}:\d{2}:\d{2}\.\d{3})\s+-->\s+\d{2}:\d{2}:\d{2}\.\d{3}"
+)
+# WebVTT cues may be preceded by an identifier line and metadata blocks we
+# never want in the prose output.
+_VTT_NOISE_PREFIXES = ("WEBVTT", "Kind:", "Language:", "NOTE", "STYLE", "REGION")
+
+
+def run_ytdlp(args: list[str]) -> subprocess.CompletedProcess[str]:
+    """Invoke yt-dlp, capturing both streams as text."""
+    return subprocess.run(
+        ["yt-dlp", *args],
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+
+
+def parse_vtt(raw: str, keep_timestamps: bool) -> str:
+    """Turn WebVTT into prose, dropping tags and rolling-window repeats.
+
+    Dedup is against the last kept line only. That is deliberate: a genuine
+    repeated phrase later in the video should survive, while the adjacent
+    duplication the rolling window creates should not.
+    """
+    lines: list[str] = []
+    current_stamp: str | None = None
+    pending_stamp: str | None = None
+
+    for raw_line in raw.splitlines():
+        line = raw_line.strip()
+        if not line:
+            continue
+
+        timing = _CUE_TIMING_RE.match(line)
+        if timing:
+            current_stamp = timing.group("start")
+            pending_stamp = current_stamp
+            continue
+
+        if line.startswith(_VTT_NOISE_PREFIXES):
+            continue
+        # A bare digit line is a cue identifier, not speech.
+        if line.isdigit():
+            continue
+
+        text = _TAG_RE.sub("", line).strip()
+        if not text:
+            continue
+        # Auto-captions HTML-escape a small set of characters.
+        text = (
+            text.replace("&nbsp;", " ")
+            .replace("&amp;", "&")
+            .replace("&lt;", "<")
+            .replace("&gt;", ">")
+            .replace("&#39;", "'")
+            .replace("&quot;", '"')
+        )
+        text = re.sub(r"\s+", " ", text).strip()
+        if not text:
+            continue
+
+        if lines and text == lines[-1].split("] ", 1)[-1]:
+            continue
+
+        if keep_timestamps and pending_stamp:
+            # HH:MM:SS.mmm -> [MM:SS], or [H:MM:SS] past the hour mark.
+            hh, mm, rest = pending_stamp.split(":")
+            ss = rest.split(".")[0]
+            stamp = f"{int(hh)}:{mm}:{ss}" if int(hh) else f"{mm}:{ss}"
+            lines.append(f"[{stamp}] {text}")
+            pending_stamp = None
+        else:
+            lines.append(text)
+
+    _ = current_stamp
+    return "\n".join(lines)
+
+
+def list_langs(target: str) -> int:
+    """Print the caption tracks the video actually offers."""
+    proc = run_ytdlp(["--list-subs", "--skip-download", target])
+    if proc.returncode != 0:
+        sys.stderr.write(proc.stderr or "yt-dlp --list-subs failed\n")
+        return 3
+    sys.stdout.write(proc.stdout)
+    return 0
+
+
+def fetch_subs(target: str, lang: str, auto: bool, workdir: Path) -> Path | None:
+    """Download one caption track as VTT. Returns the file, or None."""
+    flag = "--write-auto-subs" if auto else "--write-subs"
+    proc = run_ytdlp(
+        [
+            "--skip-download",
+            flag,
+            "--sub-langs",
+            f"{lang}.*",
+            "--sub-format",
+            "vtt/best",
+            "--convert-subs",
+            "vtt",
+            "-o",
+            str(workdir / "v.%(ext)s"),
+            target,
+        ]
+    )
+    found = sorted(workdir.glob("v*.vtt"))
+    if found:
+        return found[0]
+    # No file and a non-zero exit means the fetch itself failed, which is a
+    # different problem from "this video has no Spanish captions".
+    if proc.returncode != 0:
+        stderr = (proc.stderr or "").strip()
+        if stderr:
+            sys.stderr.write(stderr + "\n")
+        return None
+    return None
+
+
+def fetch_metadata(target: str) -> dict[str, str]:
+    """Best-effort title/uploader/date header. Never fatal."""
+    proc = run_ytdlp(
+        [
+            "--skip-download",
+            "--print",
+            "%(title)s\n%(uploader)s\n%(upload_date)s\n%(webpage_url)s",
+            target,
+        ]
+    )
+    if proc.returncode != 0:
+        return {}
+    parts = proc.stdout.strip().splitlines()
+    if len(parts) < 4:
+        return {}
+    title, uploader, date, url = parts[0], parts[1], parts[2], parts[3]
+    if len(date) == 8 and date.isdigit():
+        date = f"{date[:4]}-{date[4:6]}-{date[6:]}"
+    return {"title": title, "uploader": uploader, "date": date, "url": url}
+
+
+def main() -> int:
+    ap = argparse.ArgumentParser(
+        prog="yt-transcript",
+        description="YouTube captions as clean text, via yt-dlp.",
+    )
+    ap.add_argument("target", help="video URL or bare video ID")
+    ap.add_argument("--lang", default="en", help="caption language (default: en)")
+    ap.add_argument(
+        "--auto",
+        action="store_true",
+        help="go straight to auto-captions, skipping human subtitles",
+    )
+    ap.add_argument(
+        "--timestamps",
+        action="store_true",
+        help="prefix each line with its [mm:ss] cue start",
+    )
+    ap.add_argument("--list-langs", action="store_true", help="list caption tracks and exit")
+    ap.add_argument("--json", action="store_true", help="emit JSON with metadata")
+    ap.add_argument("--no-header", action="store_true", help="omit the title/uploader header")
+    ap.add_argument("-o", "--output", help="write here instead of stdout")
+    args = ap.parse_args()
+
+    if not shutil_which("yt-dlp"):
+        sys.stderr.write("yt-transcript: yt-dlp not found (brew install yt-dlp)\n")
+        return 3
+
+    if args.list_langs:
+        return list_langs(args.target)
+
+    with tempfile.TemporaryDirectory(prefix="yt-transcript-") as tmp:
+        workdir = Path(tmp)
+        source = "auto-captions"
+        vtt: Path | None = None
+
+        if not args.auto:
+            vtt = fetch_subs(args.target, args.lang, auto=False, workdir=workdir)
+            if vtt:
+                source = "human subtitles"
+
+        if vtt is None:
+            for stale in workdir.glob("v*.vtt"):
+                stale.unlink()
+            vtt = fetch_subs(args.target, args.lang, auto=True, workdir=workdir)
+            source = "auto-captions"
+
+        if vtt is None:
+            sys.stderr.write(
+                f"yt-transcript: no '{args.lang}' captions found.\n"
+                f"  Try: yt-transcript {args.target} --list-langs\n"
+                "  If yt-dlp reported a bot check, YouTube wants a JS runtime:\n"
+                "    brew install deno   (then yt-dlp picks it up automatically)\n"
+            )
+            return 2
+
+        text = parse_vtt(vtt.read_text(encoding="utf-8", errors="replace"), args.timestamps)
+
+    if not text.strip():
+        sys.stderr.write("yt-transcript: caption file parsed to nothing\n")
+        return 2
+
+    meta = {} if args.no_header else fetch_metadata(args.target)
+
+    if args.json:
+        payload = {**meta, "source": source, "lang": args.lang, "transcript": text}
+        out = json.dumps(payload, ensure_ascii=False, indent=2)
+    elif meta:
+        header = (
+            f"# {meta['title']}\n\n"
+            f"**{meta['uploader']}** · {meta['date']} · {source}\n"
+            f"{meta['url']}\n\n---\n\n"
+        )
+        out = header + text
+    else:
+        out = text
+
+    if args.output:
+        Path(args.output).write_text(out + "\n", encoding="utf-8")
+        sys.stderr.write(f"yt-transcript: wrote {args.output} ({source})\n")
+    else:
+        sys.stdout.write(out + "\n")
+    return 0
+
+
+def shutil_which(name: str) -> str | None:
+    from shutil import which
+
+    return which(name)
+
+
+if __name__ == "__main__":
+    sys.exit(main())
