@@ -45,7 +45,7 @@ BUILTIN_CALENDARS = {"kcea": DEFAULT_CALENDAR}
 GEO_KEYS = (
     "type", "place_id", "address", "full_address", "short_address",
     "city_state", "city", "region", "region_short", "country",
-    "country_code", "place_coordinate", "sublocality",
+    "country_code", "place_coordinate", "sublocality", "apple_maps_place_id",
     # The venue note ("we'll have a table sign") lives here, not on the event.
     "description",
 )
@@ -224,6 +224,35 @@ def build_event_payload(*, name: str, start_at: str, duration: str, tz: str,
     }
 
 
+def google_place_id(query: str) -> str:
+    """Find a Google place_id for a free-text venue query.
+
+    Luma's web venue picker calls Google's Places JS SDK with a browser-restricted
+    key we can't reuse, so we take the place id from Google's own map embed, which
+    serves it in plain HTML for an address query.
+    """
+    if query.startswith("ChIJ"):
+        return query
+    url = ("https://maps.google.com/maps?output=embed&q="
+           + urllib.parse.quote(query))
+    req = urllib.request.Request(url, headers={"User-Agent": UA})
+    with urllib.request.urlopen(req) as resp:
+        html = resp.read().decode(errors="replace")
+    ids = re.findall(r"ChIJ[A-Za-z0-9_-]{10,}", html)
+    if not ids:
+        sys.exit(f"No Google place found for {query!r}; try a fuller address.")
+    return ids[0]
+
+
+def venue_from_query(query: str, note: str = "") -> tuple[dict, dict]:
+    """Resolve free text (or a ChIJ place id) into Luma's geo_address_json block."""
+    d = request("/maps/resolve-place-id", body={"place_id": google_place_id(query)})
+    info = d["address_info"]
+    geo = {k: info[k] for k in GEO_KEYS if k in info}
+    geo["description"] = note
+    return geo, d["coordinate"]
+
+
 def venue_from_event(ev: dict) -> tuple[dict | None, dict | None]:
     g = ev.get("geo_address_info")
     if not g:
@@ -263,7 +292,10 @@ def cmd_events(args: argparse.Namespace) -> None:
 def cmd_create(args: argparse.Namespace) -> None:
     geo = coordinate = None
     cover = args.cover
-    if args.venue_from:
+    if args.venue:
+        geo, coordinate = venue_from_query(args.venue, args.venue_note or "")
+        print(f"venue    {geo['address']}")
+    elif args.venue_from:
         src = find_event(args.venue_from, args.calendar)
         geo, coordinate = venue_from_event(src)
         cover = cover or src.get("cover_url")
@@ -327,13 +359,25 @@ def cmd_update(args: argparse.Namespace) -> None:
         body["max_capacity"] = args.capacity or None
     if args.visibility:
         body["visibility"] = args.visibility
-    if args.venue_from:
-        src = find_event(args.venue_from, args.calendar)
-        geo, coordinate = venue_from_event(src)
-        if not geo:
-            sys.exit(f"No venue on source event {src['name']}")
+    if args.venue_from or args.venue:
+        if args.venue_from:
+            src = find_event(args.venue_from, args.calendar)
+            geo, coordinate = venue_from_event(src)
+            if not geo:
+                sys.exit(f"No venue on source event {src['name']}")
+            if args.venue_note is not None:
+                geo["description"] = args.venue_note
+        else:
+            note = args.venue_note
+            if note is None:
+                # A venue move keeps the standing note ("we'll have a table sign")
+                # unless the caller replaces it.
+                old = find_event(args.event, args.calendar).get("geo_address_info") or {}
+                note = old.get("description", "")
+            geo, coordinate = venue_from_query(args.venue, note)
         body["geo_address_json"] = geo
         body["coordinate"] = coordinate
+        body["location_type"] = "offline"
         body["geo_address_visibility"] = "public"
     if len(body) == 1:
         sys.exit("Nothing to update; pass at least one field flag.")
@@ -341,6 +385,13 @@ def cmd_update(args: argparse.Namespace) -> None:
     venue = (ev.get("geo_address_info") or {}).get("address", "")
     print(f"updated  {ev.get('api_id', args.event)}  name={ev.get('name')}  "
           f"start={ev.get('start_at')}  venue={venue}")
+
+
+def cmd_venue(args: argparse.Namespace) -> None:
+    geo, coordinate = venue_from_query(args.query)
+    print(f"place_id  {geo['place_id']}")
+    print(f"address   {geo['full_address']}")
+    print(f"coords    {coordinate['latitude']}, {coordinate['longitude']}")
 
 
 def cmd_cancel(args: argparse.Namespace) -> None:
@@ -394,6 +445,8 @@ def main() -> None:
     p.add_argument("--duration", default="2h")
     p.add_argument("--desc", help="plain text; blank line = new paragraph")
     p.add_argument("--venue-from", help="evt id / URL of an event whose venue to reuse")
+    p.add_argument("--venue", help="venue name + address, or a Google ChIJ place id")
+    p.add_argument("--venue-note", help="note shown under the address")
     p.add_argument("--visibility", default="public", choices=["public", "private"])
     p.add_argument("--capacity", type=int)
     p.add_argument("--cover", help="lumacdn cover image URL")
@@ -410,6 +463,8 @@ def main() -> None:
     p = sub.add_parser("update", help="edit an existing event", parents=[cal_opt])
     p.add_argument("event", help="evt api id")
     p.add_argument("--venue-from", help="evt id / URL of an event whose venue to copy")
+    p.add_argument("--venue", help="venue name + address, or a Google ChIJ place id")
+    p.add_argument("--venue-note", help="note shown under the address (default: keep current)")
     p.add_argument("--name")
     p.add_argument("--start")
     p.add_argument("--duration")
@@ -418,6 +473,10 @@ def main() -> None:
     p.add_argument("--visibility", choices=["public", "private"])
     p.add_argument("--timezone", default=DEFAULT_TZ)
     p.set_defaults(fn=cmd_update)
+
+    p = sub.add_parser("venue", help="preview how a venue query resolves")
+    p.add_argument("query", help="venue name + address, or a Google ChIJ place id")
+    p.set_defaults(fn=cmd_venue)
 
     p = sub.add_parser("cancel", help="cancel an event", parents=[cal_opt])
     p.add_argument("event", help="evt api id")
