@@ -86,3 +86,14 @@ service via `bleak`. Field numbers come from the official `.proto` definitions
 - **Large file reads can be flaky** over BLE (known firmware transfer bug). Small
   files, listings, info, and writes are solid. For bulk SD pulls, use USB.
 - Single session and BLE range (~10 m) caveats from the USB tool still apply.
+
+## IR files -- `ir/`
+
+Curated `.ir` files worth keeping next to the toolkit, each with a provenance
+header (where the capture came from, what the buttons do per the vendor manual).
+Push one to the device with `python3 flipper/flipper.py write flipper/ir/<file>.ir
+/ext/infrared/<file>.ir` (USB) and it shows up under Infrared > Saved Remotes.
+
+- `AMI_Jukebox_Full.ir`: the Rowe/AMI 4-channel jukebox handheld (RC5, system
+  0x14). All 17 buttons, including FUTURE, which the NGX Mini service manual
+  documents as "used to give a remote credit". From Flipper-IRDB.

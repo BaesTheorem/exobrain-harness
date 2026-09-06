@@ -7,3 +7,7 @@ sd-backup/
 *.png
 
 .ble_addr
+
+# ir/ holds files from public databases (Flipper-IRDB) with provenance headers,
+# not captures of Alex's own remotes, so it is tracked.
+!ir/*.ir
