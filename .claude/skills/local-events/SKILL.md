@@ -93,10 +93,17 @@ Only surface events scoring 5+ (weighted average). Always surface favorite artis
 
 Search these sources in parallel where possible.
 
-### 1. Meetup.com (via web search)
-Search for upcoming KC meetups matching interests:
-- `WebSearch`: "site:meetup.com Kansas City AI" / "cybersecurity" / "tech" / "board games" / "DnD"
-- Also search: "meetup.com Kansas City events this month"
+### 1. Meetup.com (via the `meetup` CLI)
+Meetup is read through the harness's own CLI (`/meetup` skill, `meetup/README.md`), not WebSearch. It hits the site's GraphQL endpoint directly, needs no login, and returns normalized JSON:
+
+```bash
+meetup/bin/meetup events --days 30 --type physical --limit 0 --json     # the whole in-person feed near KC
+meetup/bin/meetup search "<keyword>" --days 30 --limit 15 --json         # per interest keyword, relevance-ranked
+```
+
+Run `events` once for the full window (it is the same feed the site shows for KC) and score every record against the preferences file. Then run `search` for the high-interest keywords (AI, cybersecurity, board games, D&D, effective altruism, rationality, philosophy) to catch anything the feed ranked low. Meetup's keyword search is fuzzy and semantic, so read titles before trusting a hit, and prefer the default relevance sort over `--sort date` for keywords.
+
+Record mapping: id `meetup-{id}`, name = `title`, date = `start[:10]`, time from `start`/`end`, venue = `venue.name` + `venue.address`, `url` as the link. `going` is Yes RSVPs (social proof). `online: true` events have no venue and pass every radius filter; skip them unless the preferences ask for online events. `free` means no fee collected through Meetup, so events with external tickets still read as free. For a description or "how to find us" before deciding, `meetup/bin/meetup event <id>`.
 
 ### 2. KC Venue Calendars (via Defuddle)
 Check major venue calendars for upcoming shows:

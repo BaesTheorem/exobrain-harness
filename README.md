@@ -127,8 +127,9 @@ Skills are invoked with `/skill-name` in Claude Code. Each is defined in `.claud
 | `/claude-bus` | Talk to friends' Claudes (and the friends themselves) over the shared Claude Bus relay -- coordinate plans, relay messages | `bus/busclient.py`, Dashboard, GCal, Things 3 |
 | `/TTRPG-campaign-manager` | D&D session prep (Lazy DM style), recap from transcripts, campaign lore queries | Obsidian campaign folders |
 | `/job-search` | Audit job postings for fit, research companies/people, tailor cover letters, track applications | Gmail, Things 3, Obsidian, WebSearch |
-| `/local-events` | Discover upcoming KC events. Searches Meetup, venue calendars, library listings. | WebSearch, GCal, Things 3 |
+| `/local-events` | Discover upcoming KC events. Searches Meetup, venue calendars, library listings, r/kansascity. | `meetup/bin/meetup`, Defuddle, Arctic Shift, WebSearch, GCal, Things 3 |
 | `/luma` | Manage Luma events for the EA KC calendar -- create, clone, update, cancel, guest lists via the cookie-auth write lane | `bin/luma` |
+| `/meetup` | Search and browse meetup.com events and groups, read event details, RSVP through the cookie-auth lane | `meetup/bin/meetup` |
 | `/deep-research` | Multi-agent deep research for complex questions. Spawns parallel subagents, synthesizes cited report. | WebSearch, WebFetch |
 | `/verify` | Background fact-checker -- runs silently after research tasks to catch errors | WebSearch, WebFetch |
 | `/news-briefing` | Comprehensive news intelligence briefing with bias analysis, blind spot detection, DC policy tracking, and prediction market cross-referencing | WebSearch, WebFetch |
