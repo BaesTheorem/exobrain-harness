@@ -16,6 +16,7 @@ This file is the source of truth for what Alex likes, dislikes, and how to prior
 - `highInterest` / `mediumInterest` / `lowInterest` -- topic keywords for scoring
 - `skip` -- never surface these
 - `preferredVenues` -- boost events at these locations
+- `instagramAccounts` -- venue and promoter handles the Instagram lane reads (source 5); add a handle when Alex reacts well to a venue, fix or drop one the scan marks `missing`
 - `antiVenues` -- never surface events held at these venues, regardless of topic score. Animal-welfare motivated: captive-animal entertainment (zoos, aquariums, petting zoos, animal circuses, marine parks) is blocked as a category via `skip` keywords too. Wildlife sanctuaries, rehab centers, and conservation events stay allowed, and an event that merely has animals present (Renfest falconry) is not blocked.
 - `constraints` -- work schedule awareness, budget sensitivity, max drive time
 - `feedback` -- running log of Alex's reactions to surfaced events
@@ -24,7 +25,7 @@ This file is the source of truth for what Alex likes, dislikes, and how to prior
 1. If Alex attended an event (check calendar or transcripts), note it in `feedback` and consider boosting similar events
 2. If Alex explicitly said they didn't like an event type, add it to `skip` or downgrade its interest tier
 3. If Alex mentions a new artist, genre, hobby, or interest, add it to the appropriate tier
-4. If a new venue gets repeated positive reactions, add it to `preferredVenues`
+4. If a new venue gets repeated positive reactions, add it to `preferredVenues` and its Instagram handle (from the venue's own website) to `instagramAccounts`
 5. Keep `feedback` trimmed to the last 20 entries (oldest roll off)
 
 Also read `[[Favorite artists]]` from the vault each run to catch any manual additions Alex makes there.
@@ -60,6 +61,7 @@ This JSON file tracks every event previously surfaced, so the same event is not 
 - Meetup: `meetup-{event_id or slug}`
 - Venue calendar: `venue-{venue_slug}-{date}-{sanitized_name}`
 - Library: `lib-{library_slug}-{date}-{sanitized_name}`
+- Instagram: `ig-{shortcode}` (the post that announced it)
 - Web search: `web-{date}-{sanitized_name}`
 
 **Workflow**:
@@ -136,7 +138,24 @@ Judgment happens here, not in the script: read the snapshot and scan **all** pos
 - Reddit posts paraphrase and get details wrong -- verify dates/links against the venue before surfacing, and megathread comments need corroboration before becoming action items (tour-dates rule).
 - Background: vault `recon/2026-08-23-reddit-access-paths.md`. Arctic Shift is one volunteer's tolerated archive; if it dies, old.reddit.com HTML (with `--compressed` + browser UA) is the independent fallback surface.
 
-### 5. Web Search Catch-All
+### 5. Instagram (via the `ig` CLI)
+Venues and promoters announce pop-ups, one-off shows, and flyer-only events on Instagram first and sometimes only there. The harness reads them through its own toolkit (`instagram/README.md`), which drives a real Chromium with Alex's logged-in session and captures what the profile page loads. No anonymous path exists, so this lane depends on `instagram/secrets/cookies.txt` being current (`ig status` says).
+
+```bash
+instagram/bin/ig scan --days 14 --media      # every account in instagramAccounts -> instagram/data/kc-events-scan.json
+instagram/bin/ig posts <handle> --days 14    # one account, when you need to look closer
+```
+
+The account list is `instagramAccounts` in the preferences file; the learning loop adds and prunes it (a venue Alex reacts to well gets its handle added, a handle marked `missing` in the snapshot gets checked against the venue's website and fixed or dropped).
+
+Read the snapshot, not the network. Every post carries `caption`, `alt_text`, and `taken_at`. **`alt_text` is Instagram's own transcription of flyer text** ("May be an image of text that says 'SAT OCT 3 DOORS 7PM'"), so read it as carefully as the caption: for a flyer post it is usually the only place the date is. When alt text says "image of text" but the detail is cut off, open the saved image under `instagram/data/media/<account>/<code>.jpg` and read it with vision. Posts are 14 days of announcements, so an event's date is in the future relative to `taken_at`, never the post date itself.
+
+- **Check `status` first.** `"ok"` = proceed. `"partial"` = Instagram throttled mid-run; use what was read, note which accounts were skipped, and do not re-run this session (a cooldown is active). `"blocked"` = nothing read; log it, skip the source, and surface a cookie-refresh reminder only if `errors` mentions login or the cooldown persists across 2+ runs.
+- Record mapping: id `ig-{shortcode}`, source `instagram`, `url` as the link. Event name, date, time, and venue come from the caption and alt text; the account is the venue unless the caption names another place.
+- Instagram captions abbreviate and omit years. Resolve dates against the post date, verify anything ambiguous on the venue's own site or ticket link before surfacing, and apply the favorite-artist primary-source rule to any tour claim.
+- Never re-run the scan to "get more": one page load per account per run is the budget. Deeper history is tomorrow's run.
+
+### 6. Web Search Catch-All
 Run broader searches to catch anything the other sources miss:
 - `WebSearch`: "Kansas City events [current month] [year]"
 - `WebSearch`: "Kansas City concerts [current month] [year]"

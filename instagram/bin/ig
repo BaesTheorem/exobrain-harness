@@ -1,0 +1,161 @@
+#!/usr/bin/env python3
+"""ig -- read-only Instagram toolkit CLI.
+
+Borrows the logged-in Chrome session and reads the same web endpoints the
+instagram.com front end calls. Paced, budgeted, and it backs off hard: one
+429 ends the run and starts a cooldown.
+
+  ig status                       cookies + cooldown + account list health
+  ig cookies --from-chrome        export instagram.com cookies out of Chrome
+  ig accounts                     list the accounts a scan will read
+  ig posts <user> [--days N]      recent posts for one account (--json for records)
+  ig scan [--days N] [--media]    every account -> data/kc-events-scan.json
+      both take --transport browser|http (browser default) and --headed
+  ig cooldown [--clear]           show or clear the throttle cooldown
+
+Read-only: never likes, follows, comments, or posts.
+"""
+
+from __future__ import annotations
+
+import argparse
+import json
+import sys
+from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+
+from igtools import config  # noqa: E402
+
+
+def cmd_status(_a) -> int:
+    h = config.cookie_health()
+    print("Cookies:", "OK" if h["ok"] else ("EXPIRED" if h["expired"] else "MISSING" if not h["present"] else "INCOMPLETE"))
+    if h["present"]:
+        print("  names:", ", ".join(h["names"]))
+        print("  sessionid expires:", h["sessionid_expires"] or "unknown")
+    until = config.cooldown_until()
+    print("Cooldown:", f"active until {until.astimezone().strftime('%Y-%m-%d %H:%M %Z')}" if until else "none")
+    accts = config.load_accounts()
+    src = "prefs" if config.PREFS.exists() and "instagramAccounts" in config.PREFS.read_text() else "accounts.example.json"
+    print(f"Accounts: {len(accts)} (from {src})")
+    print("Chrome UA:", config.user_agent())
+    if config.SCAN_OUT.exists():
+        snap = json.loads(config.SCAN_OUT.read_text())
+        print(f"Last scan: {snap.get('generated_at')} status={snap.get('status')} posts={snap.get('posts_total')}")
+    return 0 if h["ok"] else 1
+
+
+def cmd_cookies(a) -> int:
+    if not a.from_chrome:
+        print("nothing to do; pass --from-chrome (or drop a cookies.txt in secrets/)", file=sys.stderr)
+        return 2
+    jar = config.import_cookies_from_chrome()
+    if not jar.ok:
+        print("exported, but no sessionid/csrftoken found: is Chrome logged in to instagram.com?", file=sys.stderr)
+        return 1
+    exp = jar.expiry("sessionid")
+    print(f"ok: {len(jar.values)} instagram.com cookies -> {config.COOKIES.relative_to(config.ROOT)}")
+    print("sessionid expires:", exp.astimezone().strftime("%Y-%m-%d") if exp else "unknown")
+    return 0
+
+
+def cmd_accounts(a) -> int:
+    for h in config.load_accounts(Path(a.accounts) if a.accounts else None):
+        print(h)
+    return 0
+
+
+def cmd_posts(a) -> int:
+    from igtools import fetch
+    from igtools import session as sess
+
+    try:
+        if a.transport == "http":
+            s = sess.Session.open(force=a.force)
+            summary, posts = fetch.posts(s, a.username, since_days=a.days)
+        else:
+            from igtools import browser
+
+            with browser.BrowserSession(headless=not a.headed, force=a.force) as b:
+                summary, posts = b.posts(a.username, since_days=a.days)
+    except sess.NotFound:
+        print(f"@{a.username}: not found", file=sys.stderr)
+        return 1
+    except (RuntimeError, sess.Throttled) as exc:
+        print(f"error: {exc}", file=sys.stderr)
+        return 1
+    if a.json:
+        print(json.dumps({"account": summary, "posts": posts}, indent=2, ensure_ascii=False))
+        return 0
+    print(f"@{summary['username']} ({summary.get('full_name')}) followers={summary.get('followers')} posts_in_window={len(posts)}")
+    for p in posts:
+        cap = (p.get("caption") or "").replace("\n", " ")
+        print(f"- {(p.get('taken_at') or 'undated')[:16]} {p['url']}")
+        if cap:
+            print(f"    {cap[:220]}")
+        if p.get("alt_text"):
+            print(f"    [alt] {p['alt_text'][:220]}")
+    return 0
+
+
+def cmd_scan(a) -> int:
+    from igtools import scan
+
+    accts = config.load_accounts(Path(a.accounts) if a.accounts else None)
+    if a.only:
+        accts = [h for h in accts if h in {x.lstrip('@').lower() for x in a.only}]
+    snap = scan.run(accts, since_days=a.days, media=a.media, force=a.force, quiet=a.json, transport=a.transport, headless=not a.headed, merge=bool(a.only))
+    if a.json:
+        print(json.dumps(snap, indent=2, ensure_ascii=False))
+    else:
+        ok = [x for x in snap["accounts"] if x["status"] == "ok"]
+        print(f"status={snap['status']} accounts_ok={len(ok)}/{len(accts)} posts={snap['posts_total']} transport={snap['transport']}")
+        for e in snap["errors"]:
+            print("  !", e)
+        print("->", config.SCAN_OUT)
+    return 0 if snap["status"] in ("ok", "partial") else 1
+
+
+def cmd_cooldown(a) -> int:
+    if a.clear:
+        config.clear_cooldown()
+        print("cooldown cleared")
+        return 0
+    until = config.cooldown_until()
+    if until:
+        print("active until", until.astimezone().strftime("%Y-%m-%d %H:%M %Z"))
+        print(json.loads(config.COOLDOWN.read_text()).get("reason", ""))
+    else:
+        print("none")
+    return 0
+
+
+def _transport_flags(p: argparse.ArgumentParser) -> None:
+    p.add_argument("--transport", choices=("browser", "http"), default="browser", help="browser = real Chromium page load (default); http = raw endpoint calls")
+    p.add_argument("--headed", action="store_true", help="show the browser window (browser transport only)")
+
+
+def main(argv: list[str] | None = None) -> int:
+    ap = argparse.ArgumentParser(prog="ig", description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
+    sub = ap.add_subparsers(dest="cmd", required=True)
+
+    sub.add_parser("status").set_defaults(fn=cmd_status)
+    p = sub.add_parser("cookies"); p.add_argument("--from-chrome", action="store_true"); p.set_defaults(fn=cmd_cookies)
+    p = sub.add_parser("accounts"); p.add_argument("--accounts", help="JSON file instead of the prefs list"); p.set_defaults(fn=cmd_accounts)
+    p = sub.add_parser("posts")
+    p.add_argument("username"); p.add_argument("--days", type=int, default=14); p.add_argument("--json", action="store_true"); p.add_argument("--force", action="store_true")
+    _transport_flags(p); p.set_defaults(fn=cmd_posts)
+    p = sub.add_parser("scan")
+    p.add_argument("--days", type=int, default=14); p.add_argument("--media", action="store_true", help="download the first image of each post")
+    p.add_argument("--accounts", help="JSON file instead of the prefs list"); p.add_argument("--only", nargs="+", help="restrict to these handles (merges into the existing snapshot)")
+    p.add_argument("--force", action="store_true", help="ignore an active cooldown"); p.add_argument("--json", action="store_true")
+    _transport_flags(p); p.set_defaults(fn=cmd_scan)
+    p = sub.add_parser("cooldown"); p.add_argument("--clear", action="store_true"); p.set_defaults(fn=cmd_cooldown)
+
+    a = ap.parse_args(argv)
+    return a.fn(a)
+
+
+if __name__ == "__main__":
+    sys.exit(main())
