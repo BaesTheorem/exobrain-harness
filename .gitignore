@@ -229,3 +229,7 @@ uv.lock
 # AMI Play CLI -- login token, device UUID, checked-in venue (see ami-play/secrets/README.md)
 ami-play/secrets/*
 !ami-play/secrets/README.md
+
+# Meetup CLI -- browser session cookie (see meetup/secrets/README.md)
+meetup/secrets/*
+!meetup/secrets/README.md
