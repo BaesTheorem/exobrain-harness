@@ -233,3 +233,10 @@ ami-play/secrets/*
 # Meetup CLI -- browser session cookie (see meetup/secrets/README.md)
 meetup/secrets/*
 !meetup/secrets/README.md
+
+# Instagram toolkit -- borrowed browser session + scan snapshots + downloaded
+# flyers stay local. Only code, README, and the seed account list are tracked.
+instagram/secrets/*
+!instagram/secrets/README.md
+instagram/data/
+instagram/.profile/

@@ -1,0 +1,32 @@
+{
+  "_comment": "Seed list of Kansas City venue and event-promoter accounts. The live list is `instagramAccounts` in local-events/local-events-prefs.json (gitignored); this file is the fallback and the starting point for a fresh install.",
+  "accounts": [
+    "recordbar",
+    "knuckleheadskc",
+    "thetrumankc",
+    "uptowntheaterkc",
+    "kcstarlight",
+    "tmobilecenter",
+    "themidland",
+    "straycatfilmcenter",
+    "armourtheater",
+    "madridtheatre",
+    "lemonadeparkkc",
+    "do816",
+    "thepitchkc",
+    "visitkc",
+    "kccrossroads",
+    "unionstationkc",
+    "nelsonatkins",
+    "kclibrary",
+    "boulevard_beer",
+    "theshipkc",
+    "kcmoparks",
+    "therinokc",
+    "millsrecords",
+    "grinders_kc",
+    "thegranada",
+    "thebottleneck",
+    "libertyhallinc"
+  ]
+}
