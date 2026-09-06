@@ -315,11 +315,11 @@
   },
   {
     "name": "sab-build-modules",
-    "command": "python3 sab/build-modules.py",
+    "command": "git checkout android && python3 sab/build-modules.py",
     "repo_dir": "/Users/alexhedtke/Documents/bible-study",
     "source": "built",
     "added": "2026-09-06",
-    "notes": "Turns the scraped Skeptic's Annotated Bible JSON (sab/data) into three SWORD modules (SABKJV Bible, SAB commentary, SABBoM general book) via osis2mod/xml2gbs and writes the bundle the AndBible fork installs on first launch (app/src/main/assets/sab). Needs brew install sword. --books gen,1ne for a quick run, --osis-only to skip the tools."
+    "notes": "Lives on the android branch of bible-study (an AndBible fork). Turns the scraped Skeptic's Annotated Bible JSON into three SWORD modules (SABKJV Bible, SAB commentary, SABBoM general book) via osis2mod/xml2gbs and writes the bundle the fork installs on first launch. Needs brew install sword. --books gen,1ne for a quick run, --osis-only to skip the tools. main is the iOS app; the modules have no iPhone reader (PocketSword is gone from the App Store)."
   },
   {
     "name": "supernote-parser.py",
