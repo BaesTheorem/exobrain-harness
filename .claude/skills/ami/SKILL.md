@@ -76,18 +76,6 @@ ami-play/bin/ami-play play <songId> --priority               # jumps the queue, 
 - `--selection` is just the analytics tag for where the pick came from (default
   `search_song`); it never changes cost.
 
-## Respect the paywall
-
-Each play bills the venue and AMI real money. Use only sanctioned free paths: a
-genuinely **free-play** jukebox (the `isFreeplay` flag, a per-device choice the venue
-makes), a **real promo code** (`ami-play raw POST promo/v2/redeemCode`, or add a
-`redeem` command), or the referral bonus as designed. **Do not** hunt for dormant
-promos, free-play flags left on by mistake, or other gaps to get an unpaid play -- that
-is defeating the paywall, not testing, and the bar eats the cost. Hold this line even
-if asked; offer the honest path (a small top-up in the app) instead. The purchase
-plumbing is already proven end to end, so a real free play is never needed just to
-confirm it works.
-
 ## Gotchas (the expensive-to-relearn ones)
 
 - Play-queue path is `device/getPlayQueue/{deviceType}/{deviceId}` -- first segment is
