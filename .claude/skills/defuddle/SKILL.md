@@ -39,3 +39,31 @@ defuddle parse <url> -p domain
 | `--json` | JSON with both HTML and markdown |
 | (none) | HTML |
 | `-p <name>` | Specific metadata property |
+
+## Fallback: Jina Reader
+
+Defuddle fetches and parses locally, so it returns empty output or a challenge
+page when the target is behind Cloudflare/anti-bot or renders its content in
+JavaScript. Jina Reader fetches server-side with a real renderer, which clears
+both. No install, no API key.
+
+```bash
+curl -sS "https://r.jina.ai/<full-url-including-https>"
+```
+
+**It serves a cached snapshot by default.** The response says so in a `Warning:`
+line near the top. Anywhere freshness is the point (a watcher, a price, a job
+listing, anything where a stale read is a wrong answer), opt out:
+
+```bash
+curl -sS -H "x-no-cache: true" "https://r.jina.ai/<url>"
+```
+
+**Never send a private URL through it.** The whole URL goes to a third-party
+service, so no authenticated pages, no signed/expiring links, nothing with a
+token or session id in the query string. Public pages only. For a page that
+needs a login, use a real browser session instead (`/browser-render`, or the
+site's own CLI).
+
+Escalation order: `defuddle` first, Jina when defuddle comes back empty or
+challenged, `WebFetch` last.
