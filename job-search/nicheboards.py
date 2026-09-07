@@ -32,8 +32,13 @@ import argparse
 import concurrent.futures
 import datetime as dt
 import html
+import http.client
+import io
 import json
 import re
+import sys
+import time
+import urllib.error
 import urllib.parse
 import urllib.request
 
@@ -63,13 +68,56 @@ WWR_CATEGORIES = [
     "all-other-remote-jobs",  # NOT remote-all-other-remote-jobs; that slug 301s
 ]
 
-HIMALAYAS_ROW_CAP = 4000  # hard cap per run; truncation is logged, never silent
+HIMALAYAS_ROW_CAP = 6000  # hard cap per run; truncation is logged, never silent.
+# A normal 3-day window is ~3,900 rows (2026-09-07), so 4,000 was brushing the cap.
+
+# Himalayas sits behind Cloudflare rate limiting (measured 2026-09-07): ~100
+# requests inside a 10s window returns 429 with `Cf-Mitigated: challenge`, no
+# Retry-After, and the block clears after ~25s. Ten concurrent pages at ~25
+# req/s tripped it around page 160 every run, which surfaced first as a read
+# timeout and then, once retries existed, as a 10-page coverage gap. Pace under
+# the threshold and, if a 429 still lands, wait out the measured recovery
+# instead of retrying into it. Do not raise the wave size.
+HIMALAYAS_WAVE = 5      # concurrent pages per wave (100 rows)
+HIMALAYAS_PAUSE = 1.0   # seconds between waves  -> ~5 req/s
+RATE_LIMIT_WAIT = 30    # seconds to wait on a 429 without Retry-After
 
 
-def _get(url, timeout=30):
-    req = urllib.request.Request(url, headers={"User-Agent": UA})
-    with urllib.request.urlopen(req, timeout=timeout) as r:
-        return r.read().decode("utf-8", "replace")
+# Errors a single fetch can raise that mean "try again", not "the lane is dead":
+# URLError and socket timeouts are OSError; IncompleteRead / RemoteDisconnected
+# come from http.client and are not.
+FETCH_ERRORS = (OSError, http.client.HTTPException)
+
+
+def _get(url, timeout=30, attempts=3):
+    """GET with retry and backoff.
+
+    One stalled read used to take the whole Himalayas lane down: ten pages
+    fetched concurrently, one of them hit the 30s read timeout, `ex.map`
+    re-raised it, and the lane printed DID NOT RUN over 199 good pages
+    (2026-09-07). The API measured 0.3s a page minutes later, so the failure
+    was transient; the fix is to absorb it.
+    """
+    last: Exception | None = None
+    for i in range(attempts):
+        try:
+            req = urllib.request.Request(url, headers={"User-Agent": UA})
+            with urllib.request.urlopen(req, timeout=timeout) as r:
+                return r.read().decode("utf-8", "replace")
+        except urllib.error.HTTPError as e:  # before FETCH_ERRORS: it is an OSError too
+            last = e
+            if i < attempts - 1:
+                after = e.headers.get("Retry-After") if e.code == 429 else None
+                if e.code == 429:
+                    time.sleep(float(after) if after and after.isdigit() else RATE_LIMIT_WAIT)
+                else:
+                    time.sleep(2 * (i + 1))
+        except FETCH_ERRORS as e:
+            last = e
+            if i < attempts - 1:
+                time.sleep(2 * (i + 1))
+    assert last is not None
+    raise last
 
 
 def title_ok(title):
@@ -121,22 +169,33 @@ def himalayas(cutoff):
     # day of the firehose is ~200 pages (verified 2026-08-14). Pages are
     # offset-addressable, so fetch them in concurrent waves and stop after the
     # first wave that crosses the cutoff -- sequential fetching took minutes.
+    #
+    # Returns (rows, truncated, gaps). A page that fails all retries becomes a
+    # gap (offset, reason) instead of an exception: it is a hole in coverage
+    # the caller prints, not a reason to lose the other 199 pages.
     page = 20
-    wave = 10  # pages per wave -> 200 rows per wave
+    wave = HIMALAYAS_WAVE
 
-    def fetch(offset):
-        d = json.loads(_get(
-            "https://himalayas.app/jobs/api?offset=%d&limit=%d" % (offset, page)))
-        return d.get("jobs", [])
+    def fetch(offset) -> tuple[int, list | None, str | None]:
+        """(offset, jobs, error): jobs is None when the page failed all retries."""
+        try:
+            d = json.loads(_get(
+                "https://himalayas.app/jobs/api?offset=%d&limit=%d" % (offset, page)))
+        except (*FETCH_ERRORS, ValueError) as e:
+            return offset, None, "%s: %s" % (type(e).__name__, str(e)[:60])
+        return offset, d.get("jobs", []), None
 
-    rows, offset = [], 0
+    rows, offset, gaps = [], 0, []
     with concurrent.futures.ThreadPoolExecutor(max_workers=wave) as ex:
         while offset < HIMALAYAS_ROW_CAP:
             pages = list(ex.map(fetch, range(offset, offset + page * wave, page)))
             done = False
-            for jobs in pages:
+            for off, jobs, err in pages:
+                if jobs is None:
+                    gaps.append((off, err or "unknown error"))
+                    continue
                 if not jobs:
-                    return rows, False
+                    return rows, False, gaps
                 for j in jobs:
                     pub = j.get("pubDate")
                     when = (dt.datetime.fromtimestamp(pub, dt.timezone.utc)
@@ -146,9 +205,10 @@ def himalayas(cutoff):
                         break
                     rows.append(j)
                 if done:
-                    return rows, False
+                    return rows, False, gaps
             offset += page * wave
-    return rows, True
+            time.sleep(HIMALAYAS_PAUSE)
+    return rows, True, gaps
 
 
 def gate_himalayas(j):
@@ -256,6 +316,10 @@ def builtin(query):
 # --------------------------------------------------------------------- main
 
 def main():
+    # Line-buffered even when piped to a file: a run killed mid-lane must leave
+    # the per-board lines behind, not zero bytes (same fix as workday.py).
+    if isinstance(sys.stdout, io.TextIOWrapper):
+        sys.stdout.reconfigure(line_buffering=True)
     ap = argparse.ArgumentParser()
     ap.add_argument("queries", nargs="+")
     ap.add_argument("--days", type=int, default=3, help="max posting age")
@@ -280,10 +344,14 @@ def main():
 
     # Himalayas: one firehose pull, client-side filter (search param is ignored)
     try:
-        rows, truncated = himalayas(cutoff)
-        print("== himalayas       %d rows in window%s"
+        rows, truncated, gaps = himalayas(cutoff)
+        print("== himalayas       %d rows in window%s%s"
               % (len(rows), " (TRUNCATED at %d -- shrink --days)" % HIMALAYAS_ROW_CAP
-                 if truncated else ""))
+                 if truncated else "",
+                 " -- %d page(s) FAILED after retries: COVERAGE GAP" % len(gaps)
+                 if gaps else ""))
+        for off, why in gaps:
+            print("   ! page at offset %d not read: %s" % (off, why))
         for j in rows:
             if not title_ok(j.get("title", "")):
                 continue
@@ -299,7 +367,7 @@ def main():
                    if j.get("maxSalary") else "unlisted")
             sort_hit("himalayas", "%s | %s" % (label, sal),
                      j.get("applicationLink"), verdict, note)
-    except OSError as e:
+    except FETCH_ERRORS as e:
         print("== himalayas       LANE DID NOT RUN: %s" % e)
 
     # Remotive: search param works, one call per query

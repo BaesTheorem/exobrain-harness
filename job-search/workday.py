@@ -42,9 +42,12 @@ import argparse
 import concurrent.futures
 import datetime as dt
 import html
+import io
 import json
 import os
 import re
+import sys
+import time
 import urllib.parse
 import urllib.request
 
@@ -60,6 +63,23 @@ BOARDS = os.path.join(STATE_DIR, "workday-boards.json")
 SNAPSHOT = os.path.join(STATE_DIR, "workday-snapshot.json")
 
 PAGE = 20  # Workday silently caps `limit` at 20, same trap as the Himalayas API
+
+# Crawl bounds (added 2026-09-07 after an unfiltered auto-discovered board hung
+# the lane). CVS Health reports total=19016 at ~0.75s a page: a whole-tenant
+# crawl is ~950 sequential requests, and `with ThreadPoolExecutor` cannot exit
+# until it finishes. Boards are newest-first (verified on wd1 and wd5 tenants),
+# so the diff only ever needs the front of the list: cap the pages, cap the
+# wall clock, and on an incremental poll stop once a run of full pages is
+# entirely postings the snapshot already holds. Every early exit is printed.
+MAX_PAGES = 100       # 2,000 postings newest-first, per board per run
+BOARD_DEADLINE = 120  # seconds of wall clock per board before returning what we have
+KNOWN_STREAK = 2      # consecutive full all-known pages => everything behind is older
+STALE_DAYS = 45       # merged-snapshot entries unseen this long age out
+# "Posted Today" / "Posted Yesterday" / "Posted 3 Days Ago"; not "Posted 14 Days
+# Ago" and not "Posted 30+ Days Ago". A known req id carrying one of these when
+# the snapshot last saw it as 30+ is a repost -- the re-apply signal this lane
+# exists to catch, so it is surfaced instead of deduped away.
+RECENT = re.compile(r"posted (today|yesterday|[1-7] days? ago)", re.I)
 
 # Query params that are NOT facets. Anything else in a board URL is passed
 # through to appliedFacets, so a tenant's custom facet works without a code edit.
@@ -79,7 +99,7 @@ DROP = re.compile(
     r"engineer (iii|iv|v)|vp|vice president|chief|supervisory|"
     r"epic|cerner|workday|oracle|salesforce|dynamics 365|mainframe|sap|zendesk|"
     r"pre-?sales|sales engineer|solutions engineer|account executive|"
-    r"customer success)\b", re.I)
+    r"customer success|sales)\b", re.I)
 KEEP = re.compile(
     r"\b(analyst|it support|it operations|it specialist|helpdesk|help desk|"
     r"service desk|security|identity|iam|grc|compliance|administrator|"
@@ -95,6 +115,19 @@ REMOTE = re.compile(
 # bucket and routinely says "Remote" for a seat the title marks hybrid or
 # city-bound (CrowdStrike "Analyst I ... (Hybrid, St Louis)" under "USA - Remote").
 HYBRID = re.compile(r"\bhybrid\b|\bon-?site\b|\bin-?office\b", re.I)
+# A remote seat in another country is still gate 1 for a US candidate, and the
+# location field says so in the tenant's own words ("Canada - Remote AB",
+# "Mexico - Remote") or CrowdStrike's 3-letter title codes ("(Remote, GBR)").
+# The first fixed run (2026-09-07) let 1 of 3 survivors and 9 of 24 leads
+# through on this alone. "United States" must NOT match: keep to other
+# countries and Canadian provinces.
+NON_US = re.compile(
+    r"\b(canada|canadian|alberta|ontario|quebec|british columbia|mexico|"
+    r"united kingdom|\buk\b|england|scotland|ireland|brazil|japan|romania|"
+    r"india|israel|australia|germany|france|spain|netherlands|poland|"
+    r"singapore|malaysia|philippines|china|saudi|dubai|emirates|"
+    r"latam|emea|apac|gbr|mex|bra|jpn|rou|ind|isr|aus|deu|fra|esp|nld|pol|"
+    r"sgp|mys|phl|chn|can)\b", re.I)
 
 # "$54,661.00 - $85,842.89 per year", "$28.50/hr", "between $80,000 and $95,000".
 MONEY = r"\$\s?([\d,]+(?:\.\d{2})?)"
@@ -137,22 +170,54 @@ def cxs(board: dict, suffix: str = "") -> str:
         board["host"], board["tenant"], board["site"], suffix)
 
 
-def poll(board: dict) -> dict:
-    """Every posting on one board under its pinned facets: {reqId: {...}}."""
-    out, offset, total = {}, 0, None
-    while total is None or offset < total:
+def poll(board: dict, known: set | None = None) -> tuple[dict, dict]:
+    """Newest-first crawl of one board under its pinned facets.
+
+    Returns ({reqId: {...}}, meta) where meta = {pages, total, stopped}.
+    `stopped` is "end of board" for a complete crawl and a printed reason
+    otherwise (page cap, deadline, or caught-up-with-snapshot). `known` is the
+    set of req ids the previous snapshot holds for this board; None or empty
+    means a baseline, which crawls to the cap.
+
+    `total` is read from page one only. wd5 tenants (Cigna and 11 others
+    measured 2026-09-07) return total=0 on every later page while still
+    returning postings, and re-reading it each page silently truncated every
+    unfiltered board to 40 postings for the lane's first two weeks.
+    """
+    out: dict[str, dict] = {}
+    meta = {"pages": 0, "total": None, "stopped": "end of board"}
+    offset, total, streak = 0, None, 0
+    started = time.monotonic()
+    # Faceted boards come back in mixed order (R1's pinned board interleaves
+    # 3-day-old and 30+-day-old reqs), so the caught-up early stop only applies
+    # to unfiltered boards, whose newest-first order was verified across pages.
+    can_catch_up = bool(known) and not (board.get("facets") or board.get("search"))
+    while True:
+        if meta["pages"] >= MAX_PAGES:
+            meta["stopped"] = ("TRUNCATED at the %d-page cap -- board is larger than "
+                               "the crawl; newest %d postings covered" % (MAX_PAGES, len(out)))
+            break
+        if time.monotonic() - started > BOARD_DEADLINE:
+            meta["stopped"] = ("TRUNCATED at the %ds deadline after %d pages"
+                               % (BOARD_DEADLINE, meta["pages"]))
+            break
         d = _req(cxs(board, "/jobs"), {
             "appliedFacets": board.get("facets") or {},
             "limit": PAGE, "offset": offset,
             "searchText": board.get("search") or "",
         })
-        total = d.get("total", 0)
+        meta["pages"] += 1
+        if total is None:
+            total = d.get("total") or 0
+            meta["total"] = total
         page = d.get("jobPostings", [])
         if not page:
             break
+        page_keys = []
         for j in page:
             bullets = j.get("bulletFields") or []
             key = bullets[0] if bullets else j.get("externalPath", "")
+            page_keys.append(key)
             out[key] = {
                 "title": j.get("title", ""),
                 "loc": j.get("locationsText", ""),
@@ -162,7 +227,18 @@ def poll(board: dict) -> dict:
                                             j.get("externalPath", "")),
             }
         offset += len(page)
-    return out
+        if can_catch_up:
+            if len(page) == PAGE and known is not None and all(k in known for k in page_keys):
+                streak += 1
+                if streak >= KNOWN_STREAK:
+                    meta["stopped"] = ("caught up: %d consecutive pages already in the "
+                                       "snapshot, everything behind them is older" % streak)
+                    break
+            else:
+                streak = 0
+        if len(page) < PAGE or (total and offset >= total):
+            break
+    return out, meta
 
 
 def facet_labels(board: dict) -> dict:
@@ -227,6 +303,31 @@ def gate_comp(lo: float | None, hi: float | None) -> tuple[str, str]:
     return "pass", "clears floor"
 
 
+def gate(j: dict, d: dict) -> tuple[str, str]:
+    """Gates 1-3 on a listing row plus its detail page.
+
+    Returns ("pass" | "lead" | "decline", why). Gate 4 (fit) is a JD read
+    and stays with the human. Order matters: the ATS's own open/closed
+    answer first, then employment type, then the location tests from most
+    to least specific (a hybrid marker or a foreign country in either field
+    beats a coarse "Remote" bucket), then comp under the band rule.
+    """
+    if d["can_apply"] is False or d["posted"] is False:
+        return "decline", "ATS says not accepting applications"
+    if d["time_type"] and "full" not in d["time_type"].lower():
+        return "decline", "gate 2: %s" % d["time_type"]
+    where = d["loc"] or j["loc"]
+    title = d["title"] or j["title"]
+    if HYBRID.search(title) or HYBRID.search(where):
+        return "decline", 'gate 1: hybrid/onsite marker in "%s | %s"' % (title, where)
+    if NON_US.search(title) or NON_US.search(where):
+        return "decline", 'gate 1: non-US seat in "%s | %s"' % (title, where)
+    if not REMOTE.search(where):
+        return "decline", "gate 1: %s" % where
+    verdict, why = gate_comp(d["lo"], d["hi"])
+    return verdict, ("gate 3: %s" % why) if verdict == "decline" else why
+
+
 def detail(board: dict, path: str) -> dict:
     d = _req(cxs(board, path))
     info = d.get("jobPostingInfo", {}) or {}
@@ -258,6 +359,43 @@ def save(path: str, obj: dict) -> None:
     os.makedirs(STATE_DIR, exist_ok=True)
     with open(path, "w", encoding="utf-8") as f:
         json.dump(obj, f, indent=1)
+
+
+def merge_snapshot(prev: dict, snap: dict) -> dict:
+    """Union of what this run saw with what the snapshot already held.
+
+    A bounded crawl never reaches the back of a big board, so overwriting the
+    snapshot with just this run's pages would forget older postings and report
+    them as new on the next run. Entries carry `last_seen` and age out after
+    STALE_DAYS so closed reqs leave the file. A board that failed this run
+    keeps its previous entry untouched: the old code dropped it, which turned
+    the next successful poll into a baseline and lost every posting that went
+    up in between.
+    """
+    today = dt.date.today()
+    stamp = today.isoformat()
+    merged: dict = {}
+    for key, jobs in snap.items():
+        keep = {}
+        for jid, j in prev.get(key, {}).items():
+            seen = j.get("last_seen") or stamp  # legacy entries had no stamp
+            try:
+                age = (today - dt.date.fromisoformat(seen)).days
+            except ValueError:
+                age = 0
+            if age <= STALE_DAYS:
+                keep[jid] = j
+        for jid, j in jobs.items():
+            keep[jid] = {**j, "last_seen": stamp}
+        merged[key] = keep
+    for key, jobs in prev.items():
+        if key not in merged and not key.startswith("__"):
+            merged[key] = jobs
+    merged["__meta__"] = {"written": stamp,
+                          "crawl": "v2: newest-first, %d-page cap, %ds deadline, "
+                                   "caught-up early stop, %d-day aging"
+                                   % (MAX_PAGES, BOARD_DEADLINE, STALE_DAYS)}
+    return merged
 
 
 def discover_vault() -> dict:
@@ -297,9 +435,11 @@ def cmd_add(args) -> None:
     board["why"] = args.why or "added manually"
     board["warm"] = bool(args.warm)
     board["added"] = dt.date.today().isoformat()
-    jobs = poll(board)
+    jobs, meta = poll(board)
     labels = facet_labels(board)
     print("board  %s  (%s)" % (key, board["host"]))
+    if meta["stopped"] != "end of board":
+        print("   crawl: %s" % meta["stopped"])
     print("facets pinned from the URL:")
     if board["facets"]:
         for param, vals in board["facets"].items():
@@ -347,6 +487,10 @@ def main() -> None:
                     help="only report postings started within N days (0 = any)")
     ap.add_argument("--workers", type=int, default=6)
     args = ap.parse_args()
+    # Line-buffered even when piped to a file: a run killed by a timeout must
+    # leave the header and per-board lines behind, not zero bytes.
+    if isinstance(sys.stdout, io.TextIOWrapper):
+        sys.stdout.reconfigure(line_buffering=True)
 
     if args.url:
         return cmd_add(args)
@@ -365,18 +509,25 @@ def main() -> None:
           % (f"{COMP_FLOOR:,}", len(boards), len(load(BOARDS))))
 
     prev = load(SNAPSHOT)
+    prev.pop("__meta__", None)
     snap: dict[str, dict] = {}
+    metas: dict[str, dict] = {}
     failures: list[tuple[str, str]] = []
     with concurrent.futures.ThreadPoolExecutor(max_workers=args.workers) as ex:
-        futs = {ex.submit(poll, b): key for key, b in boards.items()}
+        # --full re-gates everything, so it must also crawl everything (to the
+        # cap): with the snapshot passed in, a caught-up board would stop at
+        # two pages and "full" would mean the newest 40.
+        futs = {ex.submit(poll, b, None if args.full else set(prev.get(key, {}))): key
+                for key, b in boards.items()}
         for fut in concurrent.futures.as_completed(futs):
             key = futs[fut]
             try:
-                snap[key] = fut.result()
+                snap[key], metas[key] = fut.result()
             except Exception as e:  # noqa: BLE001 -- one dead tenant must not kill the sweep
                 failures.append((key, "%s: %s" % (type(e).__name__, str(e)[:70])))
 
     targets, baselined = [], 0
+    reposts: set[tuple[str, str]] = set()
     warm_offlane: list[tuple[str, str]] = []
     for key, jobs in sorted(snap.items()):
         first_poll = key not in prev
@@ -384,8 +535,13 @@ def main() -> None:
             baselined += 1
             continue
         for jid, j in jobs.items():
-            if not args.full and jid in prev.get(key, {}):
-                continue
+            old = prev.get(key, {}).get(jid)
+            if old is not None and not args.full:
+                if (RECENT.search(j["posted_label"])
+                        and not RECENT.search(old.get("posted_label", ""))):
+                    reposts.add((key, jid))
+                else:
+                    continue
             if in_lane(j["title"]):
                 targets.append((key, jid, j))
             elif boards[key].get("warm"):
@@ -398,7 +554,14 @@ def main() -> None:
           % (len(snap), len(failures), baselined))
     for key, err in failures:
         print("   ! %-28s %s" % (key, err))
-    print("in-lane postings to gate: %d\n" % len(targets))
+    for key in sorted(metas):
+        m = metas[key]
+        if m["stopped"] != "end of board":
+            print("   ~ %-28s %d pages, %d postings%s -- %s"
+                  % (key, m["pages"], len(snap[key]),
+                     " of %d" % m["total"] if m["total"] else "", m["stopped"]))
+    print("in-lane postings to gate: %d (%d repost%s)\n"
+          % (len(targets), len(reposts), "" if len(reposts) == 1 else "s"))
 
     cutoff = (dt.date.today() - dt.timedelta(days=args.days)) if args.days else None
     survivors, leads, declines = [], [], []
@@ -410,38 +573,23 @@ def main() -> None:
             try:
                 d = fut.result()
             except Exception as e:  # noqa: BLE001 -- a dead detail page is not fatal
-                declines.append((key, j, "detail fetch failed: %s"
+                declines.append((key, jid, j, "detail fetch failed: %s"
                                  % type(e).__name__, None))
                 continue
-            row = (key, j, d)
+            row = (key, jid, j, d)
             if cutoff and d["start"]:
                 try:
                     if dt.date.fromisoformat(d["start"]) < cutoff:
                         continue
                 except ValueError:
                     pass
-            if d["can_apply"] is False or d["posted"] is False:
-                declines.append((key, j, "ATS says not accepting applications", d))
-                continue
-            if d["time_type"] and "full" not in d["time_type"].lower():
-                declines.append((key, j, "gate 2: %s" % d["time_type"], d))
-                continue
-            where = d["loc"] or j["loc"]
-            title = d["title"] or j["title"]
-            if HYBRID.search(title) or HYBRID.search(where):
-                declines.append((key, j, "gate 1: hybrid/onsite marker in \"%s | %s\""
-                                 % (title, where), d))
-                continue
-            if not REMOTE.search(where):
-                declines.append((key, j, "gate 1: %s" % where, d))
-                continue
-            verdict, why = gate_comp(d["lo"], d["hi"])
+            verdict, why = gate(j, d)
             if verdict == "pass":
                 survivors.append((*row, why))
             elif verdict == "lead":
                 leads.append((*row, why))
             else:
-                declines.append((key, j, "gate 3: %s" % why, d))
+                declines.append((key, jid, j, why, d))
 
     def band(d):
         if d["lo"] is None:
@@ -454,9 +602,11 @@ def main() -> None:
         print("=" * 72)
         print("%s (%d)" % (header, len(rows)))
         print("=" * 72)
-        for key, j, d, why in rows:
+        for key, jid, j, d, why in rows:
             print("-" * 72)
             tag = "  ** WARM REFERRAL **" if boards[key].get("warm") else ""
+            if (key, jid) in reposts:
+                tag += "  ** REPOST -- re-apply candidate **"
             print("[%s] %s%s" % (key, d["title"] or j["title"], tag))
             print("  %s | %s | req %s | started %s"
                   % (d["loc"] or j["loc"], d["time_type"], d["req"], d["start"]))
@@ -470,9 +620,18 @@ def main() -> None:
     print("=" * 72)
     print("DECLINED (%d)" % len(declines))
     print("=" * 72)
-    for key, j, why, _d in declines:
+    for key, jid, j, why, _d in declines:
         tag = " ** WARM **" if boards[key].get("warm") else ""
+        if (key, jid) in reposts:
+            tag += " ** REPOST **"
         print("  [%s]%s %-52s %s" % (key, tag, j["title"][:52], why))
+
+    if reposts:
+        print("\nREPOSTS (%d) -- a req id the snapshot already held, back at the top"
+              " of its board with a fresh date. Re-apply signal; see the row's"
+              " verdict above:" % len(reposts))
+        for key, jid in sorted(reposts):
+            print("  [%s] %s  (%s)" % (key, snap[key][jid]["title"], jid))
 
     if warm_offlane:
         print("\nOFF-LANE TITLES AT WARM-REFERRAL EMPLOYERS (%d) -- shown because a"
@@ -480,7 +639,7 @@ def main() -> None:
         for key, title in warm_offlane:
             print("  [%s] %s" % (key, title))
 
-    save(SNAPSHOT, snap)
+    save(SNAPSHOT, merge_snapshot(prev, snap))
     print("\nsnapshot written: %s" % SNAPSHOT)
 
 

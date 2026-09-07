@@ -24,7 +24,15 @@ Daily unattended discovery scan for the `/job-search` skill.
   lane looking dry). Himalayas public JSON API (search param ignored, `limit` silently
   capped at 20 -- both handled), Remotive API, WeWorkRemotely RSS (no salary in feed, so
   its hits surface as LEADS, never survivors), BuiltIn server-rendered scrape. Applies the
-  gates on structured fields; prints survivors / leads / declines.
+  gates on structured fields; prints survivors / leads / declines. Fetches retry three times
+  with backoff (2026-09-07): one stalled read among ten concurrent Himalayas pages used to
+  re-raise out of `ex.map` and print DID NOT RUN over 199 good pages. A page that still fails
+  after retries is reported as a coverage gap with its offset, and the lane continues. The
+  retries then exposed the real cause: Himalayas sits behind Cloudflare rate limiting (~100
+  requests in a 10s window returns 429 `Cf-Mitigated: challenge`, no Retry-After, clears in ~25s),
+  which ten concurrent pages at ~25 req/s tripped around page 160 on every run. The crawl now
+  paces at 5 concurrent pages with a 1s pause per wave (~5 req/s) and waits 30s on a 429; the row
+  cap is 6,000 because a normal 3-day window is ~3,900 rows and 4,000 was brushing it.
 - **`ats-watchlist.py`** (added 2026-08-14) -- polls the full live posting list of every
   employer that has ever gotten a `type: job-listing` note (tracker + Archive), straight
   from the Greenhouse/Lever/Ashby public APIs, and diffs against the previous snapshot.
@@ -52,6 +60,21 @@ Daily unattended discovery scan for the `/job-search` skill.
   Boards for warm-connection employers are pinned with `--warm`: their rows carry a WARM REFERRAL tag
   in every bucket, and their off-lane titles are listed instead of dropped, since a referral is worth
   more than a title match. It grants no gate exception on its own.
+  **Crawl bounds (2026-09-07).** Boards found in the vault carry no facets, so they are polled
+  whole, and CVS Health (total=19016, ~0.75s a page) turned that into a ~950-request crawl that
+  hung the lane past the 40-minute scan timeout with zero bytes of output. Boards are
+  newest-first on both wd1 and wd5 tenants (verified across pages), so the diff only needs the
+  front of the list: `poll()` now caps at `MAX_PAGES`, caps wall clock at `BOARD_DEADLINE`, and on
+  an incremental poll of an unfiltered board stops after `KNOWN_STREAK` consecutive full pages of
+  req ids the snapshot already holds. Every early exit is printed per board, never silent. Two
+  latent bugs fell out of the same probe: `total` was re-read from every page and wd5 tenants
+  return `total=0` on every page after the first, which had silently truncated every unfiltered
+  board to 40 postings since the lane was built; and a board that failed one run was dropped from
+  the snapshot, so its next successful poll became a baseline and lost the postings in between.
+  The snapshot is now a merge (union of prev and this run, `last_seen` stamped, aged out after
+  `STALE_DAYS`), and a known req id that comes back with a fresh "Posted Today" label after the
+  snapshot last saw it at 30+ days is printed as a **REPOST**, the re-apply signal this lane
+  exists for. stdout is line-buffered so a killed run leaves evidence.
 - **`talify.py`** (added 2026-08-26) -- Missouri's state talent board at missouri.talify.com
   (the jobs.mo.gov front-end; apply flows route through app.jobs.mo.gov). Rails/Turbo but
   server-rendered: `/jobs.json` returns `{"html": <20 cards>, "next_page": N}` and takes
