@@ -63,9 +63,11 @@ com.exobrain.niu-kqi` and let it prompt again.
   in the README; anything else goes through `cmd` as an explicit experiment Alex asked
   for, one number at a time, with the scooter stationary. Never send `factory-reset`
   unless he says those words.
-- **Status is untested until it isn't.** As of 2026-09-06 nothing had run against the real
-  scooter. Bits marked `(?)` in `BITS` are guesses. When a live reading contradicts a
-  label, fix the label in the repo (generator, not output) and commit.
+- **Tested and working** end to end against the real KQi Air (2026-09-06): the BLE-20
+  password handshake, status reads, and settings writes (`kqi clock` was the first write).
+  Max speed reads 320 = 32.0 km/h (its 20 mph cap), speeds are km/h times ten, `bms_soc_rt`
+  is battery percent. Bits still marked `(?)` in `BITS` need a toggle to confirm; when a
+  live reading contradicts a label, fix it in the repo (generator, not output) and commit.
 - **Headlight:** no on/off command exists in the app; say so instead of guessing. The
   physical button (double tap) does it.
 - **Frame family** is picked from the service UUID (BLE 10/20 = 20-byte AES frames,
