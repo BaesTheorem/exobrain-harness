@@ -26,14 +26,17 @@ com.exobrain.niu-kqi` and let it prompt again.
 
 ## Preconditions (check these before blaming the code)
 
-1. **Credentials.** `kqi status` needs `secrets/scooter.json`, produced once by
-   `kqi login <account>` then `kqi setup`. Login needs Alex's NIU password; it is
-   prompted in a terminal (or `--password-stdin`). Never ask him to paste it in chat if a
-   terminal is an option. The cloud only gives the Bluetooth password for a vehicle bound
-   to his account, and the KQi Air is bound.
+1. **Credentials.** `kqi status` needs `secrets/scooter.json`. It is already set up and
+   the login token is long-lived, so normally just run commands. To rebuild it:
+   `kqi login <account>` (needs Alex's NIU password; prompt in a terminal or
+   `--password-stdin`, never chat), then `kqi setup --mac auto` with the scooter on.
+   The KQi Air is a kick scooter and is NOT bound to the cloud account; its password comes
+   from `v5/device/bluetooth_secret` by MAC, which any logged-in account can fetch.
+   `kqi mac` prints the real MAC (macOS hides it from scans; the tool connects briefly and
+   reads it from `system_profiler`). Its BLE name is "NIU Link D840", MAC ends in D8:40.
 2. **The scooter is on and within range.** It does not advertise when off. `kqi find` shows
-   what matched (name, MAC in the advertisement, or the NIU service UUID) and remembers
-   the CoreBluetooth address; `kqi scan` lists everything nearby when `find` sees nothing.
+   what matched and remembers the CoreBluetooth address; `kqi scan` lists everything nearby
+   when `find` sees nothing; `kqi probe` dumps its GATT with no credentials.
 3. **First contact may need the button.** If the connection drops right after connecting,
    the app's own wording is "Need 3 Press key": press the scooter's power button three
    times, then retry.
