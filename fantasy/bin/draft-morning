@@ -47,5 +47,14 @@ else
     printf 'WARN: no iCloud Drive dir; AirDrop fantasy/draft-sheet.html to the phone by hand\n'
 fi
 
-printf '\nAll clear. Sheet is on the phone. Alex drafts in the ESPN room himself,\n'
-printf 'so the autopilot stays OFF: do not start driver.py and do not arm.\n'
+printf '\nAll clear. Sheet is on the phone.\n\n'
+printf 'The autopilot drives (decided 2026-09-07, replacing the 09-06 stand-down).\n'
+printf 'Pre-draft sequence, in order:\n'
+printf '  1. cp draftbot/live-draft-url.txt draftbot/url.txt\n'
+printf '  2. caffeinate -dimsu python3 draftbot/driver.py &   # Mac must not sleep\n'
+printf '  3. python3 draftbot/enter.py                        # clicks/reloads in\n'
+printf '  4. python3 draftbot/supervise.py 12                 # only ONCE inside\n\n'
+printf 'Alex must NOT open the draft room himself: one connection per team, and\n'
+printf 'a second session bumps the bot. He watches the bot window instead.\n'
+printf 'Do not start supervise.py early -- a room that has not opened reads as\n'
+printf '"Loading your draft", which is a hang marker, and it will loop on it.\n'

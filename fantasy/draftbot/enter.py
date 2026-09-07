@@ -95,7 +95,14 @@ def main():
     print(f"navigating to {url}")
     send("goto", url, wait=90)
 
-    clicked = False
+    # Two ways in, and which one you get depends on how you arrived. Joining
+    # from the mock lobby lands you inside. A live league draft, reached by its
+    # own URL, sits on "Loading your draft" until the clock hits -- there is no
+    # button to press, so the door opens by reloading, not by clicking. Do both:
+    # click anything enter-shaped if it appears, and reload on a slow beat
+    # otherwise.
+    RELOAD_EVERY = 10  # iterations of ~3s, so roughly every 30 seconds
+    spins = 0
     while time.time() < deadline:
         txt = page_text()
         if in_room(txt):
@@ -105,11 +112,15 @@ def main():
         got = res.get("data") if res.get("ok") else None
         if got:
             print(f"{time.strftime('%H:%M:%S')} {got}")
-            clicked = True
             time.sleep(4)
             continue
-        if not clicked:
-            print(f"{time.strftime('%H:%M:%S')} waiting for the room to open...")
+        spins += 1
+        if spins % RELOAD_EVERY == 0:
+            print(f"{time.strftime('%H:%M:%S')} still closed; reloading")
+            send("reload", "", wait=60)
+            time.sleep(5)
+            continue
+        print(f"{time.strftime('%H:%M:%S')} waiting for the room to open...")
         time.sleep(3)
     else:
         sys.exit("never got into the draft room before the deadline")
