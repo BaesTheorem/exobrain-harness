@@ -173,10 +173,12 @@ barber/.booksy-session.json
 fantasy/espn-credentials.json
 
 # Draft autopilot runtime. profile/ is a logged-in Chrome profile holding live
-# ESPN/Disney session cookies; url.txt carries Alex's memberId GUID;
+# ESPN/Disney session cookies; url.txt and live-draft-url.txt carry Alex's
+# memberId GUID;
 # board_ranks.json is derived from The Ringer's rankings (see the playbook note).
 fantasy/draftbot/profile/
 fantasy/draftbot/url.txt
+fantasy/draftbot/live-draft-url.txt
 fantasy/draftbot/board_ranks.json
 # vor.json is the value-over-replacement board: ESPN projections merged with
 # The Ringer's positional ranks. Derived, and stale within days -- rebuild it
