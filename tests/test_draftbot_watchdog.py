@@ -82,3 +82,47 @@ def test_every_marker_fires_and_healthy_text_clears_all(state):
         assert supervise.hung() == marker, f"{marker!r} did not fire"
     state(HEALTHY_ROOM)
     assert supervise.hung() is None
+
+
+# --- enter.py: the door into the draft room -------------------------------
+#
+# A live league draft opens behind an "Enter The Draft" button. Nothing
+# happens until it is clicked, and an unclicked one costs whole rounds to
+# ESPN's autodrafter, so both detectors here are load-bearing.
+
+enter = load_script("fantasy/draftbot/enter.py")
+
+WAITING_ROOM = (
+    "Pro 14-Team H2H Points PPR Mock Waiting Room\n"
+    "Return to Mock Draft Lobby\n"
+    "This league uses standard ESPN League Settings.\n"
+    "Draft Type: Snake\nScoring Type: Points-Per-Reception\n"
+    "League Size: 14\nPlayer Universe: NFL\n"
+    "The draft room is now open!\nEnter The Draft\n"
+)
+
+DRAFT_ROOM = (
+    "ESPN Fantasy Football Draft - Roll for First Down\n"
+    "Sound\nDraft Help\nRND 5 OF 16\n00:29\n"
+    "ON THE CLOCK: PICK 58\n"
+)
+
+
+def test_waiting_room_is_not_the_draft_room():
+    """The whole bug: the room-open banner is NOT arrival."""
+    assert enter.in_room(WAITING_ROOM) is False
+
+
+def test_draft_room_is_recognized():
+    assert enter.in_room(DRAFT_ROOM) is True
+
+
+def test_enter_labels_cover_the_observed_button():
+    """The button seen live on 2026-09-07 must be one we click."""
+    assert "Enter The Draft" in enter.ENTER_LABELS
+
+
+def test_in_room_markers_do_not_match_a_waiting_room():
+    """Positive control both ways: no marker may leak into the waiting room."""
+    for marker in enter.IN_ROOM_MARKERS:
+        assert marker not in WAITING_ROOM, f"{marker!r} false-positives"
