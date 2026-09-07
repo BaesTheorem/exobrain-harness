@@ -15,20 +15,37 @@ cd "$FANTASY"
 
 step() { printf '\n=== %s\n' "$*"; }
 
-step "1/9  draft status, from ESPN itself";        bin/ff draft
-step "2/9  schedule: idle week per team";          bin/ff schedule
-step "3/9  The Ringer board";                      python3 ringer_board.py
-step "4/9  FantasyPros ECR (+ a seat-5 sim audit)"; python3 examiner.py --refresh
-step "5/9  2025 volume + BUY/SELL flags";          python3 opportunity.py
-step "6/9  value-over-replacement board";          python3 vor.py | sed -n '1,12p'
-step "7/9  THE GATE: unsigned divergences"
+step "1/10  draft status, from ESPN itself";        bin/ff draft
+step "2/10  schedule: idle week per team";          bin/ff schedule
+step "3/10  The Ringer board";                      python3 ringer_board.py
+step "4/10  FantasyPros ECR (+ a seat-5 sim audit)"; python3 examiner.py --refresh
+step "5/10  2025 volume + BUY/SELL flags";          python3 opportunity.py
+step "6/10  value-over-replacement board";          python3 vor.py | sed -n '1,12p'
+step "7/10  THE GATE: unsigned divergences"
 if ! python3 signoff.py status; then
     printf '\nGATE FAILED. Sign each divergence (signoff.py keep --thesis / correct),\n'
     printf 'then run this script again so the board is rebuilt on the signatures.\n'
     exit 1
 fi
-step "8/9  tier sheet (draft-sheet.html)";         python3 tier_sheet.py
-step "9/9  consensus judge for the post-draft grade (never read by the board)"
+step "8/10  tier sheet (draft-sheet.html)";        python3 tier_sheet.py
+step "9/10  consensus judge for the post-draft grade (never read by the board)"
 python3 consensus.py || printf 'WARN: consensus pull failed; grade.py --judge both will use the cached one\n'
 
-printf '\nAll clear. Second-screen fantasy/draft-sheet.html, start driver.py, arm before the room opens.\n'
+# The 2026 draft is being run from Alex's phone at a cookout rather than off a
+# printout at the desk, so the sheet has to reach the phone. iCloud Drive's root
+# shows up in the Files app; the file is self-contained HTML and opens offline,
+# which matters because the venue's wifi is not ours. Copy last, so the phone
+# always gets the sheet the gate actually signed off on.
+step "10/10 push the sheet to iCloud Drive (opens in Files on the phone)"
+ICLOUD="$HOME/Library/Mobile Documents/com~apple~CloudDocs"
+if [ -d "$ICLOUD" ]; then
+    cp draft-sheet.html "$ICLOUD/draft-sheet.html"
+    printf 'copied -> %s/draft-sheet.html\n' "$ICLOUD"
+    printf 'On the phone: Files > iCloud Drive > draft-sheet.html. Open it BEFORE\n'
+    printf 'leaving, so it is cached and does not need the venue wifi.\n'
+else
+    printf 'WARN: no iCloud Drive dir; AirDrop fantasy/draft-sheet.html to the phone by hand\n'
+fi
+
+printf '\nAll clear. Sheet is on the phone. Alex drafts in the ESPN room himself,\n'
+printf 'so the autopilot stays OFF: do not start driver.py and do not arm.\n'
