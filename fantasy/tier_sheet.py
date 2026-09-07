@@ -199,6 +199,26 @@ tr:nth-child(even){background:var(--sf2)}
 .slots i{font-style:normal;color:var(--dim);font-weight:400}
 @media print{body{padding:0;background:#fff;font-size:10px}
 .cols{grid-template-columns:repeat(4,1fr)}h2{background:#000}}
+/* Phone. The 2026 draft is being run from Alex's phone at a cookout, not off a
+   printout, so the four-column print layout has to collapse or it renders as an
+   unreadable zoomed-out wall. Sticky h2 keeps the position label on screen while
+   scrolling a long column at the room's real ~28s pace. */
+@media (max-width:700px){
+body{padding:8px;font-size:15px;line-height:1.4}
+h1{font-size:19px}
+h2{font-size:13px;padding:7px 9px;position:sticky;top:0;z-index:2}
+.sub{font-size:13px}
+.rules{grid-template-columns:1fr}
+.rules div{border-right:0}
+.cols,.two{grid-template-columns:1fr;gap:14px}
+.thead{font-size:12px;padding:5px 9px}
+td{padding:5px 9px}
+.tm{font-size:12px}
+.fl{font-size:11px}
+.vor table{font-size:14px}
+.vor td{padding:4px 9px}
+.slots span{padding:7px 12px}
+}
 """
 
 
@@ -247,6 +267,7 @@ def render_html(tiers, players, meta) -> str:
     right = "</tr>".join(vr_rows[half:-1]) + "</tr>" if len(vr_rows) > half + 1 else ""
 
     return f"""<!doctype html><html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Draft sheet {meta["slug"]}</title><style>{CSS}</style></head><body>
 <h1>Chaos Legion draft sheet &middot; full PPR &middot; {TEAMS} teams</h1>
 <p class="sub">Tiers = optimal 1-D k-means over auction value (value over
@@ -264,7 +285,8 @@ repeat (TD YoY R&sup2; = 0.08).</p>
 <div><b>Never chase a run.</b> When K/DST/QB start flying, take the skill player they skipped.</div>
 <div><b>Wait on QB.</b> Elite QB is worth +$22 over replacement. Elite RB is +$52.</div>
 <div><b>TE: top two or wait.</b> $37, $34, then a cliff to $21. The middle is a trap.</div>
-<div><b>K and DST in the last two rounds.</b> Worst weekly projection accuracy of any position.</div>
+<div><b>DST round 11, K round 13.</b> One round ahead of the run. Rooms drain startable
+DSTs in 12-13 and kickers in 14, so the pure last-two-rounds punt costs ~35-40 projected points.</div>
 <div><b>Stack RB/WR past your starters.</b> Surplus there cashes in. Surplus QB/TE/K/DST is dead weight.</div>
 </div>
 

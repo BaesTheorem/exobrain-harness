@@ -84,8 +84,16 @@ against a live clock is how picks get lost.
    divergences (six appeared between 08-24 and 09-02); each gets
    `signoff.py keep --thesis` (registers the bet in the ledger) or `correct`
    (re-slots to consensus). Then run the script again, so the board is rebuilt
-   on the signatures. A BUY flag from `opportunity.py` is exactly the kind of
-   thesis a keep wants. Alex signs; MIST never signs for him.
+   on the signatures. **Check the sign of the gap before reaching for a
+   disposition.** `signoff.py` computes `gap = theirs - ours`, positive meaning
+   our board is *higher* on the player than consensus. A BUY flag from
+   `opportunity.py` argues the player is *underpriced*, so it only supports
+   `keep` on a **positive** gap. On a **negative** gap the board is fading a
+   player the volume evidence says to buy, and the coherent disposition is
+   `correct`. (Corrected 2026-09-06: this line previously read "a BUY flag is
+   exactly the kind of thesis a keep wants" with no direction test, which would
+   have signed Irving and Robinson as bets against our own overlay.)
+   Alex signs; MIST never signs for him.
 
    Also that morning: second-screen `draft-sheet.html`, start `driver.py`,
    arm before the room opens. **After the draft, before navigating away**:
