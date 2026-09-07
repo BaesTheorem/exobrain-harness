@@ -51,7 +51,17 @@ def main():
     if not res.get("ok"):
         sys.exit(f"error: {res.get('error')}")
     d = res["data"]
-    print(f"round {d['round']}   {d['limits']}   on the clock: {d['onClock']}")
+    # The roster panel is only there when the page is actually a draft room. A
+    # room that has dropped its connection, or one still painting after a
+    # reload, returns no rows -- and this used to die on d['limits'] with a
+    # KeyError at exactly the moment something had gone wrong, which is the
+    # moment it most needed to say so. Report the state instead of crashing.
+    if not isinstance(d, dict) or not d.get("rows"):
+        print("no roster panel on this page -- not in a draft room, or the room "
+              "has dropped/is still loading. Check `send.py shot`.")
+        return
+    print(f"round {d.get('round', '?')}   {d.get('limits', '')}   "
+          f"on the clock: {d.get('onClock')}")
     byes = {}
     for r in d["rows"]:
         if r["player"] == "Empty":
