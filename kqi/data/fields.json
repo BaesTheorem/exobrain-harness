@@ -1,0 +1,1502 @@
+{
+ "can": {},
+ "generic": {
+  "alarm_cmd": {
+   "code": "40001D",
+   "len": 4,
+   "type": "U32"
+  },
+  "bd_module_ver": {
+   "code": "10004E",
+   "len": 8,
+   "type": "UTF-8"
+  },
+  "ble_mac": {
+   "code": "4000A9",
+   "len": 8,
+   "type": "HEX"
+  },
+  "bms_accumulated_c_energy": {
+   "code": "330002",
+   "len": 2,
+   "type": "U16"
+  },
+  "bms_accumulated_dc_energy": {
+   "code": "330001",
+   "len": 2,
+   "type": "U16"
+  },
+  "bms_bat_sta_rt": {
+   "code": "31001D",
+   "len": 2,
+   "type": "U16"
+  },
+  "bms_bat_to_cap": {
+   "code": "310017",
+   "len": 2,
+   "type": "U16"
+  },
+  "bms_c_cont": {
+   "code": "310018",
+   "len": 2,
+   "type": "U16"
+  },
+  "bms_c_cur_rt": {
+   "code": "31001A",
+   "len": 2,
+   "type": "U16"
+  },
+  "bms_dc_fl_t_rt": {
+   "code": "31001E",
+   "len": 1,
+   "type": "U8"
+  },
+  "bms_doop_dc_count": {
+   "code": "330003",
+   "len": 2,
+   "type": "U16"
+  },
+  "bms_extreme_c_timer": {
+   "code": "330005",
+   "len": 2,
+   "type": "U16"
+  },
+  "bms_extreme_dc_timer": {
+   "code": "330004",
+   "len": 2,
+   "type": "U16"
+  },
+  "bms_h_ver": {
+   "code": "310003",
+   "len": 1,
+   "type": "U8"
+  },
+  "bms_h_ver_n": {
+   "code": "31003D",
+   "len": 8,
+   "type": "UTF-8"
+  },
+  "bms_long_life_soc": {
+   "code": "31005F",
+   "len": 1,
+   "type": "U8"
+  },
+  "bms_p_pwrd": {
+   "code": "310004",
+   "len": 4,
+   "type": "UTF-8"
+  },
+  "bms_rated_vlt": {
+   "code": "310016",
+   "len": 1,
+   "type": "U8"
+  },
+  "bms_s_ver": {
+   "code": "310002",
+   "len": 1,
+   "type": "U8"
+  },
+  "bms_s_ver_n": {
+   "code": "31003C",
+   "len": 8,
+   "type": "UTF-8"
+  },
+  "bms_self_disc_rt": {
+   "code": "330000",
+   "len": 2,
+   "type": "U16"
+  },
+  "bms_sn_id": {
+   "code": "310006",
+   "len": 16,
+   "type": "UTF-8"
+  },
+  "bms_soc_rt": {
+   "code": "31001C",
+   "len": 1,
+   "type": "U8"
+  },
+  "bms_soh_rt": {
+   "code": "31004C",
+   "len": 1,
+   "type": "U8"
+  },
+  "car_sta": {
+   "code": "40004E",
+   "len": 4,
+   "type": "U32"
+  },
+  "db_aging_test_accon_time_sum_s": {
+   "code": "100088",
+   "len": 4,
+   "type": "U32"
+  },
+  "db_aging_test_time_sum_s": {
+   "code": "100087",
+   "len": 4,
+   "type": "U32"
+  },
+  "db_avg_energy_consumption_per_kilometer_trip": {
+   "code": "100012",
+   "len": 4,
+   "type": "U32"
+  },
+  "db_badge_id": {
+   "code": "1000D8",
+   "len": 2,
+   "type": "U16"
+  },
+  "db_bat2_soc": {
+   "code": "10000B",
+   "len": 1,
+   "type": "U8"
+  },
+  "db_bat_soc": {
+   "code": "100006",
+   "len": 1,
+   "type": "U8"
+  },
+  "db_brightness_precent": {
+   "code": "10003B",
+   "len": 1,
+   "type": "U8"
+  },
+  "db_cam_errcode": {
+   "code": "100090",
+   "len": 1,
+   "type": "U8"
+  },
+  "db_cam_remote_cmd": {
+   "code": "1000E4",
+   "len": 1,
+   "type": "U8"
+  },
+  "db_cfg_status": {
+   "code": "100053",
+   "len": 4,
+   "type": "U32"
+  },
+  "db_cfg_status2": {
+   "code": "100081",
+   "len": 4,
+   "type": "U32"
+  },
+  "db_consumption_this_day": {
+   "code": "100093",
+   "len": 1,
+   "type": "U8"
+  },
+  "db_crash_acc_x_threshold": {
+   "code": "100070",
+   "len": 4,
+   "type": "F32"
+  },
+  "db_crash_acc_y_threshold": {
+   "code": "100071",
+   "len": 4,
+   "type": "F32"
+  },
+  "db_crash_fall_time_threshold": {
+   "code": "100072",
+   "len": 2,
+   "type": "U16"
+  },
+  "db_dbcmd": {
+   "code": "100052",
+   "len": 2,
+   "type": "U16"
+  },
+  "db_dbcmd2": {
+   "code": "100048",
+   "len": 2,
+   "type": "U16"
+  },
+  "db_dc_cur": {
+   "code": "100005",
+   "len": 1,
+   "type": "U8"
+  },
+  "db_decorative_led_blue": {
+   "code": "10003F",
+   "len": 1,
+   "type": "U8"
+  },
+  "db_decorative_led_brightness2": {
+   "code": "1000AA",
+   "len": 1,
+   "type": "U8"
+  },
+  "db_decorative_led_green": {
+   "code": "10003E",
+   "len": 1,
+   "type": "U8"
+  },
+  "db_decorative_led_red": {
+   "code": "10003D",
+   "len": 1,
+   "type": "U8"
+  },
+  "db_ecu_cmd": {
+   "code": "1000E2",
+   "len": 1,
+   "type": "U8"
+  },
+  "db_energy_consumption_perc": {
+   "code": "1000A5",
+   "len": 1,
+   "type": "U8"
+  },
+  "db_energy_consumption_wh": {
+   "code": "1000A6",
+   "len": 4,
+   "type": "U32"
+  },
+  "db_enter_safe_mode": {
+   "code": "100049",
+   "len": 2,
+   "type": "U16"
+  },
+  "db_f_code": {
+   "code": "10000A",
+   "len": 1,
+   "type": "U8"
+  },
+  "db_face_name1": {
+   "code": "1000EB",
+   "len": 24,
+   "type": "UTF-8"
+  },
+  "db_face_name2": {
+   "code": "1000EC",
+   "len": 24,
+   "type": "UTF-8"
+  },
+  "db_face_name3": {
+   "code": "1000ED",
+   "len": 24,
+   "type": "UTF-8"
+  },
+  "db_face_name4": {
+   "code": "1000EE",
+   "len": 24,
+   "type": "UTF-8"
+  },
+  "db_face_name5": {
+   "code": "1000EF",
+   "len": 24,
+   "type": "UTF-8"
+  },
+  "db_file_cam_id": {
+   "code": "1000E3",
+   "len": 4,
+   "type": "U32"
+  },
+  "db_full_c_t": {
+   "code": "100007",
+   "len": 1,
+   "type": "U8"
+  },
+  "db_func_conf": {
+   "code": "100050",
+   "len": 4,
+   "type": "U32"
+  },
+  "db_func_conf2": {
+   "code": "100080",
+   "len": 4,
+   "type": "U32"
+  },
+  "db_gears": {
+   "code": "100001",
+   "len": 1,
+   "type": "U8"
+  },
+  "db_heading": {
+   "code": "100036",
+   "len": 1,
+   "type": "U8"
+  },
+  "db_hw_ver": {
+   "code": "10004D",
+   "len": 8,
+   "type": "UTF-8"
+  },
+  "db_island_notification": {
+   "code": "1000EA",
+   "len": 128,
+   "type": "HEX"
+  },
+  "db_lap_group_status": {
+   "code": "100078",
+   "len": 1,
+   "type": "U8"
+  },
+  "db_last_charge_time": {
+   "code": "100094",
+   "len": 4,
+   "type": "U32"
+  },
+  "db_lcd_cmd": {
+   "code": "100077",
+   "len": 1,
+   "type": "U8"
+  },
+  "db_left_menu_list": {
+   "code": "1000E5",
+   "len": 4,
+   "type": "U32"
+  },
+  "db_left_menu_set": {
+   "code": "1000E6",
+   "len": 12,
+   "type": "HEX"
+  },
+  "db_media_key_func_set": {
+   "code": "1000CC",
+   "len": 1,
+   "type": "U8"
+  },
+  "db_mileage": {
+   "code": "100003",
+   "len": 4,
+   "type": "U32"
+  },
+  "db_module_accon_time_s": {
+   "code": "10008A",
+   "len": 4,
+   "type": "U32"
+  },
+  "db_module_reboot_cnt": {
+   "code": "100086",
+   "len": 4,
+   "type": "U32"
+  },
+  "db_navigation_distance": {
+   "code": "100029",
+   "len": 2,
+   "type": "U16"
+  },
+  "db_navigation_rate": {
+   "code": "100025",
+   "len": 1,
+   "type": "S8"
+  },
+  "db_navigation_remain_mileage": {
+   "code": "100027",
+   "len": 2,
+   "type": "U16"
+  },
+  "db_navigation_remain_min": {
+   "code": "100028",
+   "len": 2,
+   "type": "U16"
+  },
+  "db_navigation_text_turn_information": {
+   "code": "100026",
+   "len": 2,
+   "type": "U16"
+  },
+  "db_overspeed_alarm_volume_level": {
+   "code": "100058",
+   "len": 1,
+   "type": "U8"
+  },
+  "db_password_display": {
+   "code": "10003A",
+   "len": 1,
+   "type": "U8"
+  },
+  "db_pet_backgrond_id": {
+   "code": "1000BF",
+   "len": 2,
+   "type": "U16"
+  },
+  "db_pet_backgrond_ota_rate": {
+   "code": "1000C1",
+   "len": 1,
+   "type": "U8"
+  },
+  "db_pet_finish_backgrond_id1": {
+   "code": "1000D0",
+   "len": 2,
+   "type": "U16"
+  },
+  "db_pet_finish_backgrond_id2": {
+   "code": "1000D1",
+   "len": 2,
+   "type": "U16"
+  },
+  "db_pet_finish_backgrond_id3": {
+   "code": "1000D2",
+   "len": 2,
+   "type": "U16"
+  },
+  "db_pet_finish_backgrond_id4": {
+   "code": "1000D3",
+   "len": 2,
+   "type": "U16"
+  },
+  "db_pet_finish_id1": {
+   "code": "1000D4",
+   "len": 2,
+   "type": "U16"
+  },
+  "db_pet_finish_id2": {
+   "code": "1000D5",
+   "len": 2,
+   "type": "U16"
+  },
+  "db_pet_finish_id3": {
+   "code": "1000D6",
+   "len": 2,
+   "type": "U16"
+  },
+  "db_pet_finish_id4": {
+   "code": "1000D7",
+   "len": 2,
+   "type": "U16"
+  },
+  "db_pet_id": {
+   "code": "1000C0",
+   "len": 2,
+   "type": "U16"
+  },
+  "db_pet_ota_rate": {
+   "code": "1000C2",
+   "len": 1,
+   "type": "U8"
+  },
+  "db_power_on_pwd": {
+   "code": "100057",
+   "len": 4,
+   "type": "U32"
+  },
+  "db_power_on_pwd2_expire_timestamp": {
+   "code": "100074",
+   "len": 4,
+   "type": "HEX"
+  },
+  "db_power_on_pwd3_expire_timestamp": {
+   "code": "100075",
+   "len": 4,
+   "type": "HEX"
+  },
+  "db_power_on_pwd_2": {
+   "code": "100059",
+   "len": 4,
+   "type": "U32"
+  },
+  "db_power_on_pwd_3": {
+   "code": "10005A",
+   "len": 4,
+   "type": "U32"
+  },
+  "db_power_on_pwd_4": {
+   "code": "10005B",
+   "len": 4,
+   "type": "U32"
+  },
+  "db_power_on_pwd_5": {
+   "code": "10005C",
+   "len": 4,
+   "type": "U32"
+  },
+  "db_power_on_pwd_expire_timestamp": {
+   "code": "100073",
+   "len": 4,
+   "type": "HEX"
+  },
+  "db_protcol_ver": {
+   "code": "100051",
+   "len": 4,
+   "type": "U32"
+  },
+  "db_rcu_bsd_degree": {
+   "code": "1000B8",
+   "len": 1,
+   "type": "U8"
+  },
+  "db_rcu_command": {
+   "code": "1000B5",
+   "len": 4,
+   "type": "U32"
+  },
+  "db_rcu_light_percent": {
+   "code": "1000B9",
+   "len": 1,
+   "type": "U8"
+  },
+  "db_rcu_rcw_length": {
+   "code": "1000B7",
+   "len": 2,
+   "type": "U16"
+  },
+  "db_rcu_state": {
+   "code": "1000B6",
+   "len": 1,
+   "type": "U8"
+  },
+  "db_reboot_cnt": {
+   "code": "100085",
+   "len": 4,
+   "type": "U32"
+  },
+  "db_regen": {
+   "code": "100095",
+   "len": 1,
+   "type": "U8"
+  },
+  "db_rot_disp_set": {
+   "code": "1000AB",
+   "len": 1,
+   "type": "U8"
+  },
+  "db_scooter_health_score": {
+   "code": "1000A8",
+   "len": 1,
+   "type": "U8"
+  },
+  "db_sentry_mode": {
+   "code": "1000A9",
+   "len": 1,
+   "type": "U8"
+  },
+  "db_sentry_mode_notice_text": {
+   "code": "1000BB",
+   "len": 48,
+   "type": "UTF-8"
+  },
+  "db_smt_result1": {
+   "code": "10008B",
+   "len": 4,
+   "type": "U32"
+  },
+  "db_smt_result2": {
+   "code": "10008C",
+   "len": 4,
+   "type": "U32"
+  },
+  "db_sn": {
+   "code": "100046",
+   "len": 16,
+   "type": "UTF-8"
+  },
+  "db_spe_vcb_state2": {
+   "code": "1000DC",
+   "len": 4,
+   "type": "U32"
+  },
+  "db_speed": {
+   "code": "100002",
+   "len": 1,
+   "type": "U8"
+  },
+  "db_status": {
+   "code": "100000",
+   "len": 2,
+   "type": "U16"
+  },
+  "db_status2": {
+   "code": "10000C",
+   "len": 2,
+   "type": "U16"
+  },
+  "db_status3": {
+   "code": "100035",
+   "len": 4,
+   "type": "U32"
+  },
+  "db_status4": {
+   "code": "100076",
+   "len": 4,
+   "type": "U32"
+  },
+  "db_status5": {
+   "code": "10008F",
+   "len": 4,
+   "type": "U32"
+  },
+  "db_status6": {
+   "code": "1000D9",
+   "len": 4,
+   "type": "U32"
+  },
+  "db_sw_ver": {
+   "code": "10004C",
+   "len": 8,
+   "type": "UTF-8"
+  },
+  "db_this_accon_time_s": {
+   "code": "100089",
+   "len": 4,
+   "type": "U32"
+  },
+  "db_this_trip_avg_speed": {
+   "code": "100032",
+   "len": 2,
+   "type": "U16"
+  },
+  "db_this_trip_mileage": {
+   "code": "100018",
+   "len": 4,
+   "type": "U32"
+  },
+  "db_this_trip_time": {
+   "code": "100031",
+   "len": 4,
+   "type": "U32"
+  },
+  "db_total_soc": {
+   "code": "10000D",
+   "len": 1,
+   "type": "U8"
+  },
+  "db_track_status": {
+   "code": "10007C",
+   "len": 1,
+   "type": "U8"
+  },
+  "db_traffic_light_distance": {
+   "code": "1000CA",
+   "len": 2,
+   "type": "U16"
+  },
+  "db_traffic_light_go_straight_array": {
+   "code": "1000E9",
+   "len": 4,
+   "type": "U32"
+  },
+  "db_traffic_light_left_array": {
+   "code": "1000E7",
+   "len": 4,
+   "type": "U32"
+  },
+  "db_traffic_light_right_array": {
+   "code": "1000E8",
+   "len": 4,
+   "type": "U32"
+  },
+  "db_ui_size": {
+   "code": "10008E",
+   "len": 1,
+   "type": "U8"
+  },
+  "db_usrdef_max_num": {
+   "code": "10006C",
+   "len": 1,
+   "type": "U8"
+  },
+  "db_usrdef_voice1": {
+   "code": "10005D",
+   "len": 4,
+   "type": "HEX"
+  },
+  "db_usrdef_voice10": {
+   "code": "100066",
+   "len": 4,
+   "type": "HEX"
+  },
+  "db_usrdef_voice11": {
+   "code": "100067",
+   "len": 4,
+   "type": "HEX"
+  },
+  "db_usrdef_voice12": {
+   "code": "100068",
+   "len": 4,
+   "type": "HEX"
+  },
+  "db_usrdef_voice13": {
+   "code": "100069",
+   "len": 4,
+   "type": "HEX"
+  },
+  "db_usrdef_voice14": {
+   "code": "10006A",
+   "len": 4,
+   "type": "HEX"
+  },
+  "db_usrdef_voice15": {
+   "code": "10006B",
+   "len": 4,
+   "type": "HEX"
+  },
+  "db_usrdef_voice2": {
+   "code": "10005E",
+   "len": 4,
+   "type": "HEX"
+  },
+  "db_usrdef_voice3": {
+   "code": "10005F",
+   "len": 4,
+   "type": "HEX"
+  },
+  "db_usrdef_voice4": {
+   "code": "100060",
+   "len": 4,
+   "type": "HEX"
+  },
+  "db_usrdef_voice5": {
+   "code": "100061",
+   "len": 4,
+   "type": "HEX"
+  },
+  "db_usrdef_voice6": {
+   "code": "100062",
+   "len": 4,
+   "type": "HEX"
+  },
+  "db_usrdef_voice7": {
+   "code": "100063",
+   "len": 4,
+   "type": "HEX"
+  },
+  "db_usrdef_voice8": {
+   "code": "100064",
+   "len": 4,
+   "type": "HEX"
+  },
+  "db_usrdef_voice9": {
+   "code": "100065",
+   "len": 4,
+   "type": "HEX"
+  },
+  "db_volume_level": {
+   "code": "100055",
+   "len": 1,
+   "type": "U8"
+  },
+  "db_volume_level_max": {
+   "code": "100054",
+   "len": 1,
+   "type": "U8"
+  },
+  "db_wifi_rssi": {
+   "code": "100091",
+   "len": 1,
+   "type": "S8"
+  },
+  "db_wink_disp_set": {
+   "code": "1000AC",
+   "len": 1,
+   "type": "U8"
+  },
+  "db_wink_key_func_set": {
+   "code": "1000CB",
+   "len": 1,
+   "type": "U8"
+  },
+  "ecu_app_random_num": {
+   "code": "440017",
+   "len": 4,
+   "type": "U32"
+  },
+  "ecu_battery": {
+   "code": "400039",
+   "len": 2,
+   "type": "U16"
+  },
+  "ecu_bt_blekey_signal_threshold": {
+   "code": "440016",
+   "len": 2,
+   "type": "S16"
+  },
+  "ecu_bt_blekey_signal_threshold2": {
+   "code": "44001F",
+   "len": 2,
+   "type": "S16"
+  },
+  "ecu_bt_car_state": {
+   "code": "44002D",
+   "len": 4,
+   "type": "U32"
+  },
+  "ecu_bt_cmd": {
+   "code": "440004",
+   "len": 4,
+   "type": "U32"
+  },
+  "ecu_bt_current_device_hash": {
+   "code": "44002A",
+   "len": 2,
+   "type": "U16"
+  },
+  "ecu_bt_delect_device_hash": {
+   "code": "440029",
+   "len": 2,
+   "type": "U16"
+  },
+  "ecu_bt_reboot_count": {
+   "code": "440028",
+   "len": 4,
+   "type": "U32"
+  },
+  "ecu_bt_signal": {
+   "code": "440003",
+   "len": 2,
+   "type": "S16"
+  },
+  "ecu_bt_signal_threshold_dm": {
+   "code": "44002E",
+   "len": 2,
+   "type": "U16"
+  },
+  "ecu_bt_slave_mac_1": {
+   "code": "440006",
+   "len": 8,
+   "type": "HEX"
+  },
+  "ecu_bt_slave_mac_2": {
+   "code": "440007",
+   "len": 8,
+   "type": "HEX"
+  },
+  "ecu_bt_status": {
+   "code": "440005",
+   "len": 4,
+   "type": "U32"
+  },
+  "ecu_bt_status2": {
+   "code": "44002C",
+   "len": 4,
+   "type": "U32"
+  },
+  "ecu_bt_t_mac": {
+   "code": "440020",
+   "len": 8,
+   "type": "HEX"
+  },
+  "ecu_bt_usrdef_voice_id1": {
+   "code": "440021",
+   "len": 2,
+   "type": "U16"
+  },
+  "ecu_bt_usrdef_voice_id2": {
+   "code": "440022",
+   "len": 2,
+   "type": "U16"
+  },
+  "ecu_bt_usrdef_voice_id3": {
+   "code": "440023",
+   "len": 2,
+   "type": "U16"
+  },
+  "ecu_bt_usrdef_voice_id4": {
+   "code": "440024",
+   "len": 2,
+   "type": "U16"
+  },
+  "ecu_bt_usrdef_voice_id5": {
+   "code": "440025",
+   "len": 2,
+   "type": "U16"
+  },
+  "ecu_bt_usrdef_voice_id6": {
+   "code": "440026",
+   "len": 2,
+   "type": "U16"
+  },
+  "ecu_bt_usrdef_voice_id7": {
+   "code": "440027",
+   "len": 2,
+   "type": "U16"
+  },
+  "ecu_bt_ver": {
+   "code": "440000",
+   "len": 8,
+   "type": "UTF-8"
+  },
+  "ecu_car_parameter": {
+   "code": "400118",
+   "len": 2,
+   "type": "U16"
+  },
+  "ecu_cfg2": {
+   "code": "400109",
+   "len": 4,
+   "type": "U32"
+  },
+  "ecu_cmd2": {
+   "code": "400108",
+   "len": 4,
+   "type": "U32"
+  },
+  "ecu_foc_ebs_level_set": {
+   "code": "400123",
+   "len": 1,
+   "type": "U8"
+  },
+  "ecu_foc_func_set": {
+   "code": "400125",
+   "len": 4,
+   "type": "U32"
+  },
+  "ecu_foc_high_speed_ratio": {
+   "code": "40012D",
+   "len": 1,
+   "type": "U8"
+  },
+  "ecu_foc_low_speed_ratio": {
+   "code": "40012F",
+   "len": 1,
+   "type": "U8"
+  },
+  "ecu_foc_mid_speed_ratio": {
+   "code": "40012E",
+   "len": 1,
+   "type": "U8"
+  },
+  "ecu_foc_sport_plus_response_time_set": {
+   "code": "400124",
+   "len": 1,
+   "type": "U8"
+  },
+  "ecu_gps_catche_flag": {
+   "code": "400131",
+   "len": 1,
+   "type": "U8"
+  },
+  "ecu_gps_catche_id": {
+   "code": "400132",
+   "len": 4,
+   "type": "U32"
+  },
+  "ecu_hard_ver": {
+   "code": "400004",
+   "len": 8,
+   "type": "UTF-8"
+  },
+  "ecu_nospeed_auto_close_time": {
+   "code": "40010E",
+   "len": 4,
+   "type": "U32"
+  },
+  "ecu_soft_ver": {
+   "code": "400003",
+   "len": 8,
+   "type": "UTF-8"
+  },
+  "ecu_state": {
+   "code": "40004D",
+   "len": 4,
+   "type": "U32"
+  },
+  "ecu_state2": {
+   "code": "40009E",
+   "len": 4,
+   "type": "U32"
+  },
+  "ecu_state3": {
+   "code": "400133",
+   "len": 4,
+   "type": "U32"
+  },
+  "ecu_total_power_consumption": {
+   "code": "400130",
+   "len": 4,
+   "type": "U32"
+  },
+  "emcu_back_wheel_pressure": {
+   "code": "410013",
+   "len": 2,
+   "type": "U16"
+  },
+  "emcu_back_wheel_pressure_h": {
+   "code": "410019",
+   "len": 2,
+   "type": "U16"
+  },
+  "emcu_back_wheel_pressure_l": {
+   "code": "41001A",
+   "len": 2,
+   "type": "U16"
+  },
+  "emcu_back_wheel_status": {
+   "code": "410015",
+   "len": 2,
+   "type": "U16"
+  },
+  "emcu_back_wheel_temperature": {
+   "code": "410014",
+   "len": 1,
+   "type": "S8"
+  },
+  "emcu_back_wheel_update_timstamp": {
+   "code": "41001F",
+   "len": 4,
+   "type": "U32"
+  },
+  "emcu_bms_charge_power_max": {
+   "code": "41002E",
+   "len": 2,
+   "type": "U16"
+  },
+  "emcu_bms_end_soc_set": {
+   "code": "410026",
+   "len": 1,
+   "type": "U8"
+  },
+  "emcu_car_state": {
+   "code": "410024",
+   "len": 4,
+   "type": "U32"
+  },
+  "emcu_cfg": {
+   "code": "410027",
+   "len": 4,
+   "type": "U32"
+  },
+  "emcu_cfg2": {
+   "code": "410035",
+   "len": 4,
+   "type": "U32"
+  },
+  "emcu_cfg2_cmd1": {
+   "code": "410033",
+   "len": 4,
+   "type": "U32"
+  },
+  "emcu_cmd": {
+   "code": "410004",
+   "len": 4,
+   "type": "U32"
+  },
+  "emcu_exdevice_state": {
+   "code": "410008",
+   "len": 4,
+   "type": "U32"
+  },
+  "emcu_foc_master_cfg": {
+   "code": "41002B",
+   "len": 1,
+   "type": "U8"
+  },
+  "emcu_foc_master_curve": {
+   "code": "41002A",
+   "len": 10,
+   "type": "HEX"
+  },
+  "emcu_foc_master_name": {
+   "code": "41002C",
+   "len": 20,
+   "type": "UTF-8"
+  },
+  "emcu_foc_usrmode_type": {
+   "code": "410029",
+   "len": 1,
+   "type": "U8"
+  },
+  "emcu_front_wheel_pressure": {
+   "code": "41000F",
+   "len": 2,
+   "type": "U16"
+  },
+  "emcu_front_wheel_pressure_h": {
+   "code": "410017",
+   "len": 2,
+   "type": "U16"
+  },
+  "emcu_front_wheel_pressure_l": {
+   "code": "410018",
+   "len": 2,
+   "type": "U16"
+  },
+  "emcu_front_wheel_status": {
+   "code": "410011",
+   "len": 2,
+   "type": "U16"
+  },
+  "emcu_front_wheel_temperature": {
+   "code": "410010",
+   "len": 1,
+   "type": "S8"
+  },
+  "emcu_front_wheel_update_timstamp": {
+   "code": "41001E",
+   "len": 4,
+   "type": "U32"
+  },
+  "emcu_func_list": {
+   "code": "41001D",
+   "len": 4,
+   "type": "U32"
+  },
+  "emcu_func_list2": {
+   "code": "410038",
+   "len": 4,
+   "type": "U32"
+  },
+  "emcu_guard_param": {
+   "code": "410039",
+   "len": 1,
+   "type": "U8"
+  },
+  "emcu_learn_to_ride_max_speed": {
+   "code": "410031",
+   "len": 1,
+   "type": "U8"
+  },
+  "emcu_learn_to_ride_mileage": {
+   "code": "41002F",
+   "len": 4,
+   "type": "U32"
+  },
+  "emcu_learn_to_ride_time": {
+   "code": "410030",
+   "len": 4,
+   "type": "U32"
+  },
+  "emcu_qc_charge_power_set": {
+   "code": "410025",
+   "len": 2,
+   "type": "U16"
+  },
+  "emcu_rcu_set": {
+   "code": "41002D",
+   "len": 1,
+   "type": "U8"
+  },
+  "emcu_vehicle_auto_off_time_s": {
+   "code": "410037",
+   "len": 2,
+   "type": "U16"
+  },
+  "emcu_vehicle_auto_off_type_set": {
+   "code": "410036",
+   "len": 1,
+   "type": "U8"
+  },
+  "foc_cmd2": {
+   "code": "400112",
+   "len": 1,
+   "type": "U8"
+  },
+  "foc_func_list": {
+   "code": "200037",
+   "len": 4,
+   "type": "U32"
+  },
+  "foc_id": {
+   "code": "200001",
+   "len": 1,
+   "type": "U8"
+  },
+  "foc_mode": {
+   "code": "200002",
+   "len": 16,
+   "type": "UTF-8"
+  },
+  "foc_sn": {
+   "code": "200003",
+   "len": 16,
+   "type": "UTF-8"
+  },
+  "lcu_cmd": {
+   "code": "40001C",
+   "len": 2,
+   "type": "U16"
+  },
+  "lcu_hard_ver": {
+   "code": "700001",
+   "len": 8,
+   "type": "UTF-8"
+  },
+  "lcu_soft_ver": {
+   "code": "700000",
+   "len": 8,
+   "type": "UTF-8"
+  },
+  "nfc_card_id_1": {
+   "code": "47000A",
+   "len": 4,
+   "type": "HEX"
+  },
+  "nfc_card_id_2": {
+   "code": "47000B",
+   "len": 4,
+   "type": "HEX"
+  },
+  "nfc_card_id_3": {
+   "code": "47000C",
+   "len": 4,
+   "type": "HEX"
+  },
+  "nfc_card_id_4": {
+   "code": "47000D",
+   "len": 4,
+   "type": "HEX"
+  },
+  "nfc_card_id_5": {
+   "code": "47000E",
+   "len": 4,
+   "type": "HEX"
+  },
+  "nfc_cfg": {
+   "code": "470003",
+   "len": 4,
+   "type": "U32"
+  },
+  "nfc_child_bond_state": {
+   "code": "470007",
+   "len": 4,
+   "type": "U32"
+  },
+  "nfc_cmd": {
+   "code": "470004",
+   "len": 2,
+   "type": "U16"
+  },
+  "nfc_state": {
+   "code": "470005",
+   "len": 4,
+   "type": "U32"
+  },
+  "qc_charge_outpower_max": {
+   "code": "35001B",
+   "len": 2,
+   "type": "U16"
+  },
+  "shaking_value": {
+   "code": "400016",
+   "len": 1,
+   "type": "U8"
+  },
+  "timestamp": {
+   "code": "40004F",
+   "len": 4,
+   "type": "U32"
+  },
+  "utc": {
+   "code": "40000B",
+   "len": 4,
+   "type": "S32"
+  },
+  "v35_alarm_state": {
+   "code": "4000BB",
+   "len": 4,
+   "type": "U32"
+  }
+ },
+ "kconfig": {
+  "db_k_cmd": {
+   "code": "11000F",
+   "len": 1,
+   "type": "U8"
+  },
+  "db_k_estimated_mileage": {
+   "code": "11000D",
+   "len": 2,
+   "type": "U16"
+  },
+  "db_k_f_code": {
+   "code": "110006",
+   "len": 1,
+   "type": "U8"
+  },
+  "db_k_function_cfg": {
+   "code": "11000E",
+   "len": 4,
+   "type": "U32"
+  },
+  "db_k_function_status": {
+   "code": "110005",
+   "len": 4,
+   "type": "U32"
+  },
+  "db_k_hw_ver": {
+   "code": "110003",
+   "len": 8,
+   "type": "UTF-8"
+  },
+  "db_k_navigation_distance": {
+   "code": "11000B",
+   "len": 2,
+   "type": "U16"
+  },
+  "db_k_navigation_name": {
+   "code": "11000C",
+   "len": 32,
+   "type": "UTF-8"
+  },
+  "db_k_navigation_rate": {
+   "code": "110007",
+   "len": 1,
+   "type": "U8"
+  },
+  "db_k_navigation_remain_mileage": {
+   "code": "110009",
+   "len": 2,
+   "type": "U16"
+  },
+  "db_k_navigation_remain_min": {
+   "code": "11000A",
+   "len": 2,
+   "type": "U16"
+  },
+  "db_k_navigation_text_turn_information": {
+   "code": "110008",
+   "len": 2,
+   "type": "U16"
+  },
+  "db_k_power_on_pwd_1": {
+   "code": "110015",
+   "len": 4,
+   "type": "U32"
+  },
+  "db_k_power_on_pwd_2": {
+   "code": "110016",
+   "len": 4,
+   "type": "U32"
+  },
+  "db_k_power_on_pwd_3": {
+   "code": "110017",
+   "len": 4,
+   "type": "U32"
+  },
+  "db_k_pwd1_expire_timestamp": {
+   "code": "110018",
+   "len": 4,
+   "type": "HEX"
+  },
+  "db_k_pwd2_expire_timestamp": {
+   "code": "110019",
+   "len": 4,
+   "type": "HEX"
+  },
+  "db_k_pwd3_expire_timestamp": {
+   "code": "11001A",
+   "len": 4,
+   "type": "HEX"
+  },
+  "db_k_realtime_status": {
+   "code": "110004",
+   "len": 4,
+   "type": "U32"
+  },
+  "db_k_security_log": {
+   "code": "11001C",
+   "len": 64,
+   "type": "HEX"
+  },
+  "db_k_sn": {
+   "code": "110001",
+   "len": 16,
+   "type": "UTF-8"
+  },
+  "db_k_sw_ver": {
+   "code": "110002",
+   "len": 8,
+   "type": "UTF-8"
+  },
+  "db_k_timestamp": {
+   "code": "11001B",
+   "len": 4,
+   "type": "U32"
+  },
+  "foc_k_accelerator_ad": {
+   "code": "210006",
+   "len": 2,
+   "type": "U16"
+  },
+  "foc_k_assist_def_max_speed": {
+   "code": "21003E",
+   "len": 2,
+   "type": "U16"
+  },
+  "foc_k_assist_max_speed": {
+   "code": "21003D",
+   "len": 2,
+   "type": "U16"
+  },
+  "foc_k_automatic_shutdown_en": {
+   "code": "21002C",
+   "len": 1,
+   "type": "U8"
+  },
+  "foc_k_brake1_ad": {
+   "code": "210007",
+   "len": 2,
+   "type": "U16"
+  },
+  "foc_k_brake2_ad": {
+   "code": "210008",
+   "len": 2,
+   "type": "U16"
+  },
+  "foc_k_cmd": {
+   "code": "210016",
+   "len": 2,
+   "type": "U16"
+  },
+  "foc_k_decorative_light_cmd": {
+   "code": "210013",
+   "len": 6,
+   "type": "HEX"
+  },
+  "foc_k_decorative_light_mode": {
+   "code": "210012",
+   "len": 1,
+   "type": "U8"
+  },
+  "foc_k_def_max_speed": {
+   "code": "21003C",
+   "len": 2,
+   "type": "U16"
+  },
+  "foc_k_function_status1": {
+   "code": "21000F",
+   "len": 4,
+   "type": "U32"
+  },
+  "foc_k_gears": {
+   "code": "210009",
+   "len": 1,
+   "type": "U8"
+  },
+  "foc_k_h_ver": {
+   "code": "210003",
+   "len": 8,
+   "type": "UTF-8"
+  },
+  "foc_k_lighting_control_status": {
+   "code": "21000A",
+   "len": 4,
+   "type": "U32"
+  },
+  "foc_k_max_speed": {
+   "code": "21003B",
+   "len": 2,
+   "type": "U16"
+  },
+  "foc_k_no_zero_start": {
+   "code": "21002B",
+   "len": 2,
+   "type": "U16"
+  },
+  "foc_k_realtime_status1": {
+   "code": "210010",
+   "len": 4,
+   "type": "U32"
+  },
+  "foc_k_rt_speed": {
+   "code": "21000B",
+   "len": 2,
+   "type": "U16"
+  },
+  "foc_k_s_ver": {
+   "code": "210002",
+   "len": 8,
+   "type": "UTF-8"
+  },
+  "foc_k_sn": {
+   "code": "210004",
+   "len": 16,
+   "type": "UTF-8"
+  },
+  "foc_k_throttle_mode_set": {
+   "code": "210029",
+   "len": 1,
+   "type": "U8"
+  }
+ }
+}

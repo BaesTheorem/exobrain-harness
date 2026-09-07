@@ -1,0 +1,68 @@
+#!/bin/sh
+# kqi: run kqi_ble.py inside the "NIU KQi" app bundle.
+#
+# CoreBluetooth is gated by TCC on the *responsible* app. Run bare from the MIST
+# Console, Claude, or a terminal whose Info.plist lacks
+# NSBluetoothAlwaysUsageDescription, python is SIGABRT'd (exit 134, a
+# "namespace: TCC" report in ~/Library/Logs/DiagnosticReports) before bleak gets
+# a byte out. Launching through an app bundle that carries the key makes the
+# bundle the responsible process: the first run prompts once for Bluetooth,
+# every later run just works. Same pattern as flipper/bin/flipper-ble.
+#
+#   kqi login you@example.com   # NIU cloud (no Bluetooth needed)
+#   kqi setup                   # fetch the scooter's BLE password
+#   kqi status | lock | unlock | read foc_k_gears | write foc_k_max_speed 200
+#   kqi --rebuild scan          # rebuild the bundle, then run
+#
+# Builds "/Applications/NIU KQi.app" on first use. The interpreter is kqi/.venv
+# (uv-managed CPython at a path that does not move on brew upgrades, with bleak
+# and cryptography installed), so the TCC grant does not go stale.
+set -e
+DIR=$(cd "$(dirname "$0")/.." && pwd)
+APP="/Applications/NIU KQi.app"
+PY="$DIR/.venv/bin/python"
+
+build_app() {
+  rm -rf "$APP"
+  mkdir -p "$APP/Contents/MacOS"
+  cat > "$APP/Contents/MacOS/launch" <<LAUNCH
+#!/bin/zsh
+# NIU KQi.app: runs kqi_ble.py so TCC attributes Bluetooth to this bundle.
+LOG="\$1"; WD="\$2"; shift 2
+cd "\$WD" || exit 1
+"$PY" "$DIR/kqi_ble.py" "\$@" >"\$LOG.out" 2>"\$LOG.err"
+echo \$? >"\$LOG.rc"
+LAUNCH
+  chmod +x "$APP/Contents/MacOS/launch"
+  cat > "$APP/Contents/Info.plist" <<PLIST
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+  <key>CFBundleName</key><string>NIU KQi</string>
+  <key>CFBundleDisplayName</key><string>NIU KQi</string>
+  <key>CFBundleExecutable</key><string>launch</string>
+  <key>CFBundleIdentifier</key><string>com.exobrain.niu-kqi</string>
+  <key>CFBundlePackageType</key><string>APPL</string>
+  <key>CFBundleVersion</key><string>1.0</string>
+  <key>CFBundleShortVersionString</key><string>1.0</string>
+  <key>LSUIElement</key><true/>
+  <key>NSBluetoothAlwaysUsageDescription</key>
+  <string>NIU KQi talks to your NIU KQi Air scooter over Bluetooth LE to read its status and control it.</string>
+</dict>
+</plist>
+PLIST
+  codesign -s - --force --deep "$APP" 2>/dev/null || true
+}
+
+if [ "$1" = "--rebuild" ]; then shift; build_app; fi
+[ -d "$APP" ] || build_app
+[ -x "$PY" ] || { echo "kqi: $PY missing; run: uv venv --python 3.13.5 '$DIR/.venv' && uv pip install --python '$PY' bleak cryptography" >&2; exit 1; }
+
+LOG=$(mktemp "${TMPDIR:-/tmp}/kqi.XXXXXX")
+open -n -W -a "$APP" --args "$LOG" "$PWD" "$@"
+cat "$LOG.out" 2>/dev/null || true
+cat "$LOG.err" >&2 2>/dev/null || true
+rc=$(cat "$LOG.rc" 2>/dev/null || echo 1)
+rm -f "$LOG" "$LOG.out" "$LOG.err" "$LOG.rc"
+exit "$rc"
