@@ -170,10 +170,20 @@ def op_reload(page, arg):
     return {"reloaded": page.url}
 
 
+def op_goto(page, arg):
+    """Navigate the active page to a URL. url.txt is only read at import, so
+    without this the only way to change page was to restart the browser (and a
+    restart races the persistent profile lock: the second launch lands in
+    'Opening in existing browser session' and dies)."""
+    page.goto(arg, wait_until="domcontentloaded", timeout=90000)
+    return {"url": page.url}
+
+
 OPS = {
     "ping": lambda page, arg: {"pong": True, "url": page.url},
     "pages": op_pages,
     "reload": op_reload,
+    "goto": op_goto,
     "switch": None,  # bound in main(), needs the active-page cell
     "shot": op_shot,
     "dom": op_dom,
