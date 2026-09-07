@@ -28,11 +28,28 @@ NOTIFY = HERE.parent.parent / "mist-voice" / "bin" / "mist-notify"
 BAR = "draftbot-mock"
 ROSTER_SIZE = 16
 
-# The seat-9 room hung on this banner while the clock ran and ESPN autodrafted
-# eight rounds. The recovery (reload, then re-arm) is proven and takes ~30s, so
-# it is automated: two consecutive sightings trigger it. state.json is written
-# by the driver on its own clock, so reading it races nothing.
-HANG_MARKER = "Loading your draft"
+# Ways the draft room dies, each seen for real. The recovery (reload, then
+# re-arm) is proven and takes ~30s, so it is automated: two consecutive
+# sightings trigger it. state.json is written by the driver on its own clock,
+# so reading it races nothing.
+#
+#   "Loading your draft"  -- seat-9 room hung on this banner while the clock ran
+#                            and ESPN autodrafted eight rounds (2026-08-24).
+#   "Connection Failed"   -- the room drops its socket to the draft server and
+#                            does NOT come back. Found 2026-09-07: the autopilot
+#                            polled a dead page in silence for 23 minutes while
+#                            the draft ran on without it. Retry does nothing;
+#                            only a reload clears it.
+HANG_MARKERS = (
+    "Loading your draft",
+    "Connection Failed",
+    "Multiple attempts to connect",
+)
+
+# A room that has gone blank renders no visible text at all -- the failure has
+# no marker to match, so it needs its own test. Anything this short is not a
+# draft room. (The wedged page measured 0 characters for 90s straight.)
+MIN_ROOM_TEXT = 200
 
 
 def send(js, wait=30):
@@ -69,18 +86,31 @@ def note(line):
 
 
 def hung():
+    """Why the room looks dead, or None if it looks fine.
+
+    Returns the reason so the log and the banner can name it: a silent
+    auto-recovery that does not say what it recovered from is how a recurring
+    failure stays invisible.
+    """
     try:
-        return HANG_MARKER in json.loads(STATE.read_text()).get("text", "")
+        txt = json.loads(STATE.read_text()).get("text", "")
     except Exception:
-        return False
+        return None
+    for marker in HANG_MARKERS:
+        if marker in txt:
+            return marker
+    if len(txt.strip()) < MIN_ROOM_TEXT:
+        return "blank page"
+    return None
 
 
-def recover():
+def recover(reason="unknown"):
     """Reload the room and re-arm the autopilot. ~30 seconds, picks resume."""
-    note(f"HANG: '{HANG_MARKER}' persisted; reloading and re-arming")
+    note(f"HANG: '{reason}' persisted; reloading and re-arming")
     try:
         subprocess.run(
-            [str(NOTIFY), "Draft room hung; auto-recovering (reload + re-arm)",
+            [str(NOTIFY), f"Draft room died ({reason}); auto-recovering "
+                          "(reload + re-arm)",
              "MIST draftbot", "default", "console"],
             check=False, capture_output=True, timeout=15,
         )
@@ -98,6 +128,19 @@ def recover():
     note(f"re-arm: {(r.stdout or r.stderr).strip()[:120]}")
 
 
+def escalate(msg):
+    """Loud, urgent notification. Used when auto-recovery is not working."""
+    note(f"ESCALATE: {msg}")
+    try:
+        subprocess.run(
+            [str(NOTIFY), msg, "MIST draftbot", "default", "console",
+             "--urgency", "timeSensitive"],
+            check=False, capture_output=True, timeout=15,
+        )
+    except Exception:
+        pass
+
+
 def main():
     interval = float(sys.argv[1]) if len(sys.argv) > 1 else 15.0
     LOG.write_text("")
@@ -107,13 +150,22 @@ def main():
     seen = 0
     idle = 0
     hang_polls = 0
+    recoveries = 0
     while True:
-        if hung():
+        reason = hung()
+        if reason:
             hang_polls += 1
             if hang_polls >= 2:
-                bar("set", detail="room hung; reloading + re-arming")
-                recover()
+                bar("set", detail=f"room died ({reason}); reloading + re-arming")
+                recover(reason)
+                recoveries += 1
                 hang_polls = 0
+                # A room that keeps dying is not recovering, and on a live
+                # clock every failed round is ESPN autodrafting for us. Say so
+                # loudly rather than looping quietly forever.
+                if recoveries in (3, 6, 10):
+                    escalate(f"draft room has died {recoveries}x "
+                             f"(latest: {reason}) -- may need a human")
                 continue
         else:
             hang_polls = 0
