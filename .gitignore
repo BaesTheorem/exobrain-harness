@@ -240,3 +240,7 @@ instagram/secrets/*
 !instagram/secrets/README.md
 instagram/data/
 instagram/.profile/
+
+# NIU KQi scooter CLI credentials (see kqi/secrets/README.md)
+kqi/secrets/*
+!kqi/secrets/README.md
