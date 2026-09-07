@@ -1,0 +1,269 @@
+#!/usr/bin/env python3
+"""drive-fetch: read a Google Drive file's bytes through the API, bypassing DriveFS.
+
+Exists because on-demand hydration in the DriveFS mount wedges. Any read of a
+not-yet-downloaded ("dataless") file then fails with OSError errno 11,
+`Resource deadlock avoided` (EDEADLK), and it fails machine-wide: one item stuck
+in the macOS File Provider pending set blocks downloads for the whole domain.
+The wedge has recurred six times since 2026-08-10 and has been continuously
+present for stretches of ~11 days, so every Drive-fed pipeline (Plaud
+transcripts, Supernote, backups) needs a way around it that does not depend on
+the mount working. It is not a file-corruption or parser bug, and restarting
+Google Drive or killing fileproviderd does not fix it -- don't burn time there.
+
+The trick that makes a path-based tool possible: DriveFS stamps each file with
+the Drive item id in the `com.google.drivefs.item-id#S` xattr, which is pure
+metadata and therefore readable even while the file's content is unhydrated.
+So a local path resolves to a file id with no name search and no parent walk,
+and the API serves the bytes.
+
+Integrity is checked, not assumed. Drive returns an md5 for every binary file;
+this compares it against the md5 of what actually landed and fails loudly on a
+mismatch. That matters because the previous workaround (base64 through an MCP
+tool, decoded by hand) had a silent-corruption failure mode, and these files
+are transcripts that get written into the vault.
+
+  drive-fetch PATH                  # bytes to stdout
+  drive-fetch PATH -o out.txt       # write to a file
+  drive-fetch PATH --cache          # write under the cache dir, print the path
+  drive-fetch --id FILE_ID -o out   # skip xattr resolution
+  drive-fetch PATH --info           # name/size/md5/mimeType, fetch nothing
+  drive-fetch PATH --check          # is this path dataless? (exit 0 = dataless)
+
+Auth reuses the backup uploader's Drive-scope refresh token in
+`~/Exobrain backup staging/.drive-token.json` (the module-boundary rule keeps
+`bin/` from importing `backup/`, hence the small amount of repeated token code).
+Google installed-app refresh tokens do not rotate, so refreshing here does not
+invalidate the backup job's token; only the short-lived access token is
+rewritten, atomically, preserving every other key in the file.
+
+Exits 2 when the path has no Drive item-id xattr (not in a DriveFS mount),
+3 on an md5 or size mismatch, 4 for a Google-native doc (needs an export
+format, not a raw download).
+"""
+
+from __future__ import annotations
+
+import argparse
+import hashlib
+import json
+import os
+import subprocess
+import sys
+import time
+import urllib.error
+import urllib.parse
+import urllib.request
+from pathlib import Path
+
+HARNESS_DIR = Path(__file__).resolve().parent.parent
+STAGING_DIR = Path(
+    os.environ.get("BACKUP_STAGING_DIR", str(Path.home() / "Exobrain backup staging"))
+)
+TOKEN_FILE = STAGING_DIR / ".drive-token.json"
+CACHE_DIR = Path.home() / "Library" / "Caches" / "exobrain" / "drive-fetch"
+
+TOKEN_URL = "https://oauth2.googleapis.com/token"
+API = "https://www.googleapis.com/drive/v3"
+ITEM_ID_XATTR = "com.google.drivefs.item-id#S"
+NATIVE_PREFIX = "application/vnd.google-apps."
+
+
+# --- credentials --------------------------------------------------------------
+
+
+def load_env_file(path: Path) -> dict[str, str]:
+    env: dict[str, str] = {}
+    if path.exists():
+        for line in path.read_text().splitlines():
+            line = line.strip()
+            if line and not line.startswith("#") and "=" in line:
+                k, _, v = line.partition("=")
+                env[k.strip()] = v.strip()
+    return env
+
+
+def client_creds() -> tuple[str, str]:
+    env = load_env_file(HARNESS_DIR / ".env")
+    cid = os.environ.get("GOOGLE_OAUTH_CLIENT_ID") or env.get("GOOGLE_OAUTH_CLIENT_ID", "")
+    sec = os.environ.get("GOOGLE_OAUTH_CLIENT_SECRET") or env.get("GOOGLE_OAUTH_CLIENT_SECRET", "")
+    if not cid or not sec:
+        sys.exit("GOOGLE_OAUTH_CLIENT_ID / GOOGLE_OAUTH_CLIENT_SECRET missing (harness .env)")
+    return cid, sec
+
+
+def access_token() -> str:
+    """Return a valid access token, refreshing if it expires within 5 minutes."""
+    if not TOKEN_FILE.exists():
+        sys.exit(
+            f"No Drive token at {TOKEN_FILE}; run `backup/drive-upload.py auth` once first"
+        )
+    tok = json.loads(TOKEN_FILE.read_text())
+    exp_raw = tok.get("expires_at", 0)
+    exp = float(exp_raw) if isinstance(exp_raw, (int, float)) else 0.0
+    at = str(tok.get("access_token", "") or "")
+    if at and exp - time.time() > 300:
+        return at
+
+    cid, sec = client_creds()
+    body = urllib.parse.urlencode(
+        {
+            "client_id": cid,
+            "client_secret": sec,
+            "refresh_token": str(tok["refresh_token"]),
+            "grant_type": "refresh_token",
+        }
+    ).encode()
+    req = urllib.request.Request(TOKEN_URL, data=body, method="POST")
+    with urllib.request.urlopen(req, timeout=60) as resp:
+        data = json.loads(resp.read())
+    tok["access_token"] = data["access_token"]
+    tok["expires_at"] = time.time() + float(data.get("expires_in", 3600))
+    STAGING_DIR.mkdir(parents=True, exist_ok=True)
+    tmp = TOKEN_FILE.with_suffix(".json.tmp")
+    tmp.write_text(json.dumps(tok, indent=2))
+    tmp.chmod(0o600)
+    tmp.replace(TOKEN_FILE)
+    return str(tok["access_token"])
+
+
+# --- local path -> drive id ---------------------------------------------------
+
+
+def item_id_for(path: Path) -> str:
+    """Read the DriveFS item-id xattr. Works on dataless files: metadata only."""
+    if not path.exists():
+        sys.exit(f"No such file: {path}")
+    try:
+        out = subprocess.run(
+            ["/usr/bin/xattr", "-p", ITEM_ID_XATTR, str(path)],
+            capture_output=True,
+            text=True,
+            check=True,
+        )
+    except subprocess.CalledProcessError:
+        sys.exit(
+            f"[2] No {ITEM_ID_XATTR} xattr on {path}\n"
+            "    Not inside a Google Drive mount, or DriveFS has not stamped it yet."
+        )
+    return out.stdout.strip()
+
+
+def is_dataless(path: Path) -> bool:
+    """True when the file has a nonzero size but no allocated blocks on disk.
+
+    This is the cheap diagnosis for the hydration wedge, and it carries its own
+    positive control: a materialized file in the same folder reports blocks > 0,
+    so the test can demonstrably return both answers.
+    """
+    st = path.stat()
+    return st.st_size > 0 and st.st_blocks == 0
+
+
+# --- drive api ----------------------------------------------------------------
+
+
+def api_get(url: str, token: str) -> bytes:
+    req = urllib.request.Request(url, headers={"Authorization": f"Bearer {token}"})
+    try:
+        with urllib.request.urlopen(req, timeout=300) as resp:
+            data = resp.read()
+            assert isinstance(data, bytes)
+            return data
+    except urllib.error.HTTPError as e:
+        detail = e.read().decode("utf-8", "replace")[:400]
+        sys.exit(f"Drive API {e.code} on {url}\n{detail}")
+
+
+def metadata(file_id: str, token: str) -> dict[str, object]:
+    fields = "id,name,size,md5Checksum,mimeType,modifiedTime"
+    url = f"{API}/files/{urllib.parse.quote(file_id)}?fields={urllib.parse.quote(fields)}"
+    return json.loads(api_get(url, token))
+
+
+def download(file_id: str, token: str) -> bytes:
+    url = f"{API}/files/{urllib.parse.quote(file_id)}?alt=media"
+    return api_get(url, token)
+
+
+def verify(blob: bytes, meta: dict[str, object]) -> None:
+    """Fail loudly on any size or md5 disagreement with Drive's own record."""
+    want_size = meta.get("size")
+    if want_size is not None and int(str(want_size)) != len(blob):
+        sys.exit(f"[3] Size mismatch: Drive says {want_size}, got {len(blob)}")
+    want_md5 = meta.get("md5Checksum")
+    if want_md5:
+        got = hashlib.md5(blob).hexdigest()
+        if got != str(want_md5):
+            sys.exit(f"[3] md5 mismatch: Drive says {want_md5}, got {got}")
+
+
+def write_atomic(dest: Path, blob: bytes) -> None:
+    dest.parent.mkdir(parents=True, exist_ok=True)
+    tmp = dest.with_name(dest.name + ".partial")
+    tmp.write_bytes(blob)
+    tmp.replace(dest)
+
+
+def main() -> int:
+    ap = argparse.ArgumentParser(
+        description="Fetch a Drive file's bytes via the API, bypassing a wedged DriveFS mount."
+    )
+    src = ap.add_mutually_exclusive_group(required=True)
+    src.add_argument("path", nargs="?", type=Path, help="path inside a Google Drive mount")
+    src.add_argument("--id", dest="file_id", help="Drive file id, skipping xattr resolution")
+    ap.add_argument("-o", "--out", type=Path, help="write here instead of stdout")
+    ap.add_argument(
+        "--cache",
+        action="store_true",
+        help=f"write under {CACHE_DIR} and print the path",
+    )
+    ap.add_argument("--info", action="store_true", help="print metadata only, fetch nothing")
+    ap.add_argument(
+        "--check",
+        action="store_true",
+        help="report whether PATH is dataless; exit 0 if it is, 1 if materialized",
+    )
+    args = ap.parse_args()
+
+    if args.check:
+        if not args.path:
+            sys.exit("--check needs a PATH")
+        dataless = is_dataless(args.path)
+        st = args.path.stat()
+        state = "dataless (unhydrated)" if dataless else "materialized"
+        print(f"{state}: {st.st_size} bytes, {st.st_blocks} blocks  {args.path}")
+        return 0 if dataless else 1
+
+    file_id = args.file_id or item_id_for(args.path)
+    token = access_token()
+    meta = metadata(file_id, token)
+
+    if args.info:
+        print(json.dumps(meta, indent=2))
+        return 0
+
+    mime = str(meta.get("mimeType", ""))
+    if mime.startswith(NATIVE_PREFIX):
+        sys.exit(
+            f"[4] {meta.get('name')!r} is a Google-native doc ({mime}).\n"
+            "    Raw download does not apply; it needs an export format."
+        )
+
+    blob = download(file_id, token)
+    verify(blob, meta)
+
+    if args.cache:
+        dest = CACHE_DIR / f"{file_id}-{meta.get('name', 'file')}"
+        write_atomic(dest, blob)
+        print(dest)
+    elif args.out:
+        write_atomic(args.out, blob)
+        print(f"{len(blob)} bytes -> {args.out}", file=sys.stderr)
+    else:
+        sys.stdout.buffer.write(blob)
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())
