@@ -25,10 +25,38 @@ confident advice.
 - `ff raw --views mMatchup,mRoster,kona_player_info` — raw API for new features
 - `ff refresh` — re-pull ESPN cookies from Chrome when auth expires (401/403)
 
-Credentials live in the gitignored `fantasy/espn-credentials.json`; details and
-the known two-teams-one-account quirk are in `fantasy/README.md`. The tool never
-writes to ESPN. Extend it (waiver opportunity ranking, TD-regression scan,
-projected-margin for the variance rule) rather than scraping the site by hand.
+`fantasy/bin/espn` (added 2026-09-07) is the in-season sibling: same
+credentials, same read-only invariant, plus ESPN's public NFL API. It is the
+weekly routine in §4 made executable, so reach for it before reasoning from
+memory or opening the site:
+
+- `espn check` — the pre-kickoff checklist: OUT/IR/bye/questionable starters,
+  empty slots, the best bench fix for each, bench players out-projecting a
+  starter, lock order, and the projected margin with the variance rule
+- `espn matchup` — both lineups with weekly projections and actuals, margin,
+  favorite/underdog call (§4 variance rule needs this number first)
+- `espn fa --pos RB --sort trend` — the wire with projection, %owned, 7-day
+  ownership change, ADP; `--waivers` for players still in the 1-day window
+- `espn stream --pos DST|K` — free-agent streamers with the opponent's (D/ST)
+  or own (K) implied total from the spread and total, plus weather/dome
+- `espn player <name>` / `espn news <name>` — card with ownership, weekly log,
+  and Rotowire news; use `player` before any trade or waiver opinion
+- `espn teams` — standings **with waiver priority** (the number that matters
+  in a reverse-standings league) and move counts per team
+- `espn activity` — who added/dropped whom (leaguemate tendencies for the
+  playbook); `--pending` for claims in flight
+- `espn draft --picks` — the live pick feed and post-draft recap, `--mine`
+- `espn nfl` — the slate with kickoffs in Central time, lines, implied totals
+- `espn injuries` — the NFL report scoped to the roster by default
+- `espn scoreboard`, `espn schedule`, `espn settings`, `espn raw`
+
+Every subcommand takes `--json`, so new analysis scripts should consume that
+rather than re-implementing the API. Credentials live in the gitignored
+`fantasy/espn-credentials.json`; details, the known two-teams-one-account
+quirk, and the ESPN API gotchas (which host 403s, which view accepts
+`filterIds`) are in `fantasy/README.md`. Neither tool writes to ESPN. Extend
+them (TD-regression scan, trade-log-vs-standings study) rather than scraping
+the site by hand.
 
 ## Draft mode: the autopilot
 
@@ -705,8 +733,9 @@ Per the automate-it rule: prefer pulling Alex's league via API and computing
 answers over eyeballing a website. Sleeper is the easiest target if he has a
 choice of platform.
 
-For the two local tools built against ESPN, see **Live league data** (`ff`, read
-only) and **Draft mode** (`draftbot`, the only thing here that writes).
+For the three local tools built against ESPN, see **Live league data** (`ff`
+and `espn`, read only) and **Draft mode** (`draftbot`, the only thing here that
+writes).
 
 ### Projections reality check
 
@@ -763,7 +792,9 @@ Ranked by how confidently the evidence says to skip it:
   disagreements. Say so.
 - **Automate the recurring stuff.** League pulls, waiver scans, and roster
   analysis belong in a script against the platform API, not in repeated manual
-  lookups. Log anything reusable to the tools registry.
+  lookups. `espn check`, `espn matchup`, `espn fa`, and `espn stream` already
+  cover the weekly routine; build on their `--json` output. Log anything
+  reusable to the tools registry.
 
 ---
 

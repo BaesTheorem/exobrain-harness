@@ -25,7 +25,7 @@ scoring), `ledger.py` (board-vs-consensus bets, settled with real season
 points), and `draftbot/` (the autopilot itself, the only thing here that
 **writes** to ESPN; see its README).
 
-## Tool
+## Tool 1: `bin/ff`
 
 `bin/ff` -- Python, stdlib + `cryptography` (already on the system python). Runs
 against the ESPN Fantasy v3 read API. **Read-only by invariant**: it never sets a
@@ -40,6 +40,62 @@ ff schedule      # idle week per team; warns if Alex's is not week 8
 ff refresh       # re-pull ESPN cookies from Chrome (when auth expires)
 ff raw --views mMatchup,mRoster --limit 0   # raw API dump (default limit 4000 chars, truncated JSON warns on stderr)
 ```
+
+## Tool 2: `bin/espn`
+
+The in-season sibling of `ff`, built 2026-09-07. Same credential file, same
+read-only invariant, plus the cookie-free public NFL API for the slate. Every
+subcommand takes `--json` (for other scripts) and `--fresh` (bypass the caches
+in gitignored `.cache/`: NFL schedule and the player index for a day, the 9 MB
+injury report for 30 minutes).
+
+```
+espn teams                 # every team: record, owner initials, WAIVER PRIORITY, moves
+espn team [--team X]       # a roster with opponent, kickoff, status, weekly projection
+espn matchup [--week N]    # both lineups, projected margin, and the variance rule
+espn check                 # pre-kickoff checklist: OUT/bye/empty slots, bench upgrades, lock order
+espn scoreboard            # every matchup this week, projected and actual
+espn fa --pos RB           # free agents + waivers: projection, %owned, 7-day trend, ADP
+espn player <name|id>      # card: status, ownership, projections, weekly log, news
+espn news <name>           # the player's news feed (Rotowire via ESPN)
+espn activity [--pending]  # adds/drops/waivers/trades; pending claims
+espn draft [--picks|--mine]  # order, status, every pick as it happens
+espn schedule              # a team's H2H schedule and results (ff schedule = idle weeks)
+espn settings              # scoring table by stat, lineup, waivers, playoffs, trades
+espn nfl [--week N]        # NFL slate: kickoffs (CT), lines, implied totals, weather, TV
+espn injuries [--all|--team KC|--pos RB]   # injury report, default scoped to the roster
+espn stream --pos DST|K    # streamers with opponent/own implied totals and weather
+espn raw --views mMatchup --period 3 --filter '{...}'   # any view, any filter
+```
+
+Code lives in `espncli/` (`client.py` transport + helpers, `cli.py` commands,
+`statmap.py` stat ids). Tests: `pytest tests/test_espncli.py` (fixture-driven,
+no network; the lineup check is tested against a planted-bad roster because
+its failure mode is a quiet "all OK").
+
+### API facts that cost time to learn (2026-09-07)
+
+- **`site.api.espn.com` answers 403 to non-browser clients** (Akamai).
+  `site.web.api.espn.com` serves the same routes and does not. The fantasy
+  host `lm-api-reads` is unaffected.
+- **Fetching players by id needs `view=kona_playercard`.** `kona_player_info`
+  returns HTTP 400 for `filterIds`, and the `/players` path ignores the
+  filter entirely and returns the whole pool.
+- **`sortAppliedStatTotalForScoringPeriodId` is ignored**, so `fa` pulls a
+  pool sorted by ownership and sorts client-side.
+- **Weekly projections exist only for the current scoring period.** A future
+  `--week` shows the roster with no projections; that is ESPN, not a bug.
+- **`rosterForCurrentScoringPeriod` is keyed to the requested period**, so a
+  past week's matchup shows the lineup that actually played.
+- **The injury report is ~9 MB** and the edge cuts it off mid-body about one
+  time in three; the client retries and caches it for 30 minutes.
+- **`X-Fantasy-Filter` stat trimming** (`filterStatsForTopScoringPeriodIds`)
+  works and is what keeps the wire query small. Codes: `00S` season actual,
+  `10S` season projection, `11SW` week projection, `01SW` week actual.
+- **Activity feed semantics are unverified.** The league had no transactions
+  when this was built; the message-field mapping (178/180 add, 179/239 drop,
+  181/244 trade) follows the espn-api package. Check it against the first
+  real move.
 
 ## Credentials (gitignored, not in the repo)
 

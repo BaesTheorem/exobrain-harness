@@ -1,0 +1,16 @@
+#!/usr/bin/env python3
+"""espn: read-only CLI for Alex's ESPN fantasy league and the NFL slate
+(matchup, lineup check, waiver wire, players, news, activity, draft,
+schedule, settings, NFL scores/odds/weather, injuries, streamers, raw API).
+Run `espn -h` for commands. Sibling of `ff`; see fantasy/README.md.
+"""
+
+import sys
+from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+
+from espncli.cli import main  # noqa: E402
+
+if __name__ == "__main__":
+    sys.exit(main())
