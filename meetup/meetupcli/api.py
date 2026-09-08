@@ -474,8 +474,10 @@ class MeetupClient:
     def group(self, urlname: str, upcoming: int = 5) -> Json | None:
         return self.gql(Q_GROUP, {"urlname": urlname, "first": upcoming}).get("groupByUrlname")
 
-    def group_events(self, urlname: str, *, past: bool = False, limit: int = 20) -> list[Json]:
-        variables = {"urlname": urlname, "status": "PAST" if past else "ACTIVE", "sort": "DESC" if past else "ASC"}
+    def group_events(self, urlname: str, *, past: bool = False, status: str | None = None,
+                     limit: int = 20) -> list[Json]:
+        variables = {"urlname": urlname, "status": status or ("PAST" if past else "ACTIVE"),
+                     "sort": "DESC" if past else "ASC"}
         return self._nodes(self._pages(Q_GROUP_EVENTS, variables, ("groupByUrlname", "events"), limit))
 
     def group_search(self, query: str, lat: float, lon: float, *, radius: float | None = None, limit: int = 20) -> list[Json]:

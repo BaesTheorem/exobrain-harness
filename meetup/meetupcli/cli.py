@@ -374,7 +374,8 @@ def cmd_group(args: argparse.Namespace) -> int:
 
 def cmd_group_events(args: argparse.Namespace) -> int:
     name = parse_group_ref(args.ref)
-    nodes = make_client().group_events(name, past=args.past, limit=args.limit)
+    nodes = make_client().group_events(name, past=args.past,
+                                       status="DRAFT" if args.drafts else None, limit=args.limit)
     events = [normalize_event(n) for n in nodes]
     if args.json:
         emit_json(events)
@@ -699,6 +700,7 @@ def build_parser() -> argparse.ArgumentParser:
     s = sub.add_parser("group-events", parents=[common], help="a group's upcoming (or --past) events")
     s.add_argument("ref", help="group urlname or meetup.com group URL")
     s.add_argument("--past", action="store_true", help="most recent past events instead")
+    s.add_argument("--drafts", action="store_true", help="unpublished drafts instead (organizer view)")
     s.add_argument("--limit", type=int, default=20)
     s.set_defaults(func=cmd_group_events)
 
@@ -753,6 +755,7 @@ def build_parser() -> argparse.ArgumentParser:
 
     s = sub.add_parser("venues", parents=[common, location], help="search Meetup's venue records (organizer use)")
     s.add_argument("query", nargs="+")
+    s.add_argument("--limit", type=int, default=10, help="how many venues to show (default 10)")
     s.set_defaults(func=cmd_venues)
 
     s = sub.add_parser("create-venue", parents=[common], help="register a venue Meetup does not have, or has stale")
