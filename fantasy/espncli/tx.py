@@ -89,6 +89,31 @@ class EspnWriter:
         return {"from": SLOT.get(frm, frm), "to": SLOT.get(to_slot, to_slot),
                 "verified": now == to_slot, "now": SLOT.get(now, now), "response": resp}
 
+    def swap(self, in_id: int, out_id: int, dry_run: bool = False) -> dict[str, Any]:
+        """Bench player in, starter out, in ONE transaction.
+
+        ESPN validates the roster after the whole transaction, so the two
+        LINEUP items have to travel together: a lone "bench to WR" is rejected
+        while the slot is occupied, and a lone "WR to bench" leaves the slot
+        empty if the second call fails.
+        """
+        out_slot, in_slot = self.slot_of(out_id), self.slot_of(in_id)
+        if out_slot is None or in_slot is None:
+            raise EspnError("both players must be on the roster")
+        if in_slot != BENCH:
+            raise EspnError("the incoming player must be on the bench")
+        body = self._base("ROSTER")
+        body["items"] = [
+            {"playerId": out_id, "type": "LINEUP", "fromLineupSlotId": out_slot, "toLineupSlotId": BENCH},
+            {"playerId": in_id, "type": "LINEUP", "fromLineupSlotId": BENCH, "toLineupSlotId": out_slot},
+        ]
+        if dry_run:
+            return {"dry_run": body}
+        resp = self._post(body)
+        now_in, now_out = self.slot_of(in_id), self.slot_of(out_id)
+        return {"slot": SLOT.get(out_slot, out_slot), "verified": now_in == out_slot and now_out == BENCH,
+                "in_now": SLOT.get(now_in, now_in), "out_now": SLOT.get(now_out, now_out), "response": resp}
+
     # ---- adds and claims -------------------------------------------------
 
     def claim(self, player_id: int, drop_id: int | None = None, waiver: bool = True,

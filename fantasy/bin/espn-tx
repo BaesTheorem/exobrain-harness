@@ -3,6 +3,7 @@
 
     espn-tx ir "Jordyn Tyson"                 # bench -> IR slot
     espn-tx move "Player" --to BE|IR|FLEX|RB  # any slot move
+    espn-tx swap "Chris Godwin" --for "Christian Watson"   # bench player in, starter out, one transaction
     espn-tx claim "Chris Brooks" [--drop "X"] # waiver claim (or free-agent add with --fa)
     espn-tx pending                           # this team's pending claims
     espn-tx cancel <transaction id>
@@ -27,6 +28,7 @@ def main() -> int:
     sub = ap.add_subparsers(dest="cmd", required=True)
     p = sub.add_parser("ir"); p.add_argument("name", nargs="+")
     p = sub.add_parser("move"); p.add_argument("name", nargs="+"); p.add_argument("--to", required=True)
+    p = sub.add_parser("swap"); p.add_argument("name", nargs="+"); p.add_argument("--for", dest="out", nargs="+", required=True)
     p = sub.add_parser("claim"); p.add_argument("name", nargs="+"); p.add_argument("--drop", nargs="*")
     p.add_argument("--fa", action="store_true", help="free-agent add instead of a waiver claim")
     sub.add_parser("pending")
@@ -50,6 +52,10 @@ def main() -> int:
         if to is None:
             sys.exit(f"unknown slot {args.to}; one of {sorted(SLOT_BY_NAME)} BE IR")
         res = w.move(hit["id"], to, dry_run=args.dry_run)
+    elif args.cmd == "swap":
+        out = api.resolve_one(" ".join(args.out))
+        print(f"  for {out['name']} (id {out['id']}, {out.get('pos')})")
+        res = w.swap(hit["id"], out["id"], dry_run=args.dry_run)
     else:
         drop = api.resolve_one(" ".join(args.drop))["id"] if args.drop else None
         res = w.claim(hit["id"], drop, waiver=not args.fa, dry_run=args.dry_run)
