@@ -38,6 +38,19 @@
     enabled: true,
   });
 
+  /* Swallow the keyboard reload. Alex refreshed the bot window twice in the
+   * first six minutes of the 2026 live draft; a reload throws this whole
+   * script away. The supervisor re-arms, but the guard costs nothing. */
+  if (!window.__mistNoReload) {
+    window.__mistNoReload = true;
+    window.addEventListener('keydown', (e) => {
+      const k = (e.key || '').toLowerCase();
+      if (((e.metaKey || e.ctrlKey) && k === 'r') || e.key === 'F5') {
+        e.preventDefault(); e.stopPropagation();
+      }
+    }, true);
+  }
+
   const stamp = () => new Date().toLocaleTimeString();
   const L = (msg) => {
     M.log.push(stamp() + '  ' + msg);
@@ -397,10 +410,15 @@
   const openPositions = (r) => {
     const left = (r.lastRound || CFG.rounds) - r.round;
     const out = [];
-    if (r.QB < CFG.maxQB) out.push('QB');
+    /* Order matters: fillQueue inserts in this order, and ESPN's autopick
+     * drafts the TOP of the queue when the clock beats us. QB last, so a
+     * missed clock in round 1-4 never spends the pick on a quarterback the
+     * board would have waited on. (Found 2026-09-07, ten minutes before the
+     * live draft, with five QBs sitting at the head of the queue.) */
     if (r.RB < CFG.maxRB) out.push('RB');
     if (r.WR < CFG.maxWR) out.push('WR');
     if (r.TE < CFG.maxTE) out.push('TE');
+    if (r.QB < CFG.maxQB) out.push('QB');
     if (r.DST < 1 && left <= CFG.dstRoundsLeft) out.push('D/ST');
     if (r.K < 1 && left <= CFG.kRoundsLeft) out.push('K');
     return out;

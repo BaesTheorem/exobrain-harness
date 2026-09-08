@@ -171,6 +171,8 @@ barber/.booksy-session.json
 
 # Fantasy football -- ESPN session cookies (espn_s2 + SWID)
 fantasy/espn-credentials.json
+# espn CLI day-old caches of public ESPN data (NFL schedule, player index)
+fantasy/.cache/
 
 # Draft autopilot runtime. profile/ is a logged-in Chrome profile holding live
 # ESPN/Disney session cookies; url.txt and live-draft-url.txt carry Alex's
@@ -242,3 +244,9 @@ instagram/secrets/*
 !instagram/secrets/README.md
 instagram/data/
 instagram/.profile/
+# Live-draft runtime records: they name the other teams and their picks.
+fantasy/draftbot/room_picks.log
+fantasy/draftbot/room_picks.jsonl
+fantasy/draftbot/bot_log.txt
+fantasy/draftbot/room_feed.out
+fantasy/draftbot/live-draft.log
