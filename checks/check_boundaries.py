@@ -119,8 +119,10 @@ def check_file(path: Path, exports: dict[str, set[str]]) -> list[str]:
                         f"with a reason in checks/check_boundaries.py."
                     )
 
-        # 2. sys.path pointed at a sibling island.
-        if isinstance(node, ast.Call):
+        # 2. sys.path pointed at a sibling island. Tests are exempt: a characterization
+        #    test loads the island it covers by path on purpose (pyproject exempts
+        #    tests/ from SLF001 for the same reason).
+        if isinstance(node, ast.Call) and my_island != "tests":
             func = ast.unparse(node.func) if hasattr(ast, "unparse") else ""
             if func in ("sys.path.insert", "sys.path.append"):
                 arg_src = ast.unparse(node.args[-1]) if node.args else ""
