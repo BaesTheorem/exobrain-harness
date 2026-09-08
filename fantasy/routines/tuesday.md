@@ -19,12 +19,18 @@ Follow `fantasy/routines/COMMON.md` first.
    have touches beat clean handcuffs; touchdowns on thin volume are a sell,
    heavy volume with bad touchdown luck is a buy. No second QB or TE. Drop the
    lowest-value bench player (role first, then season projection) to make
-   room; never drop a starter. File up to two claims, best first:
+   room; never drop a starter. From week 5 on, value every player by a 50/50
+   blend of his preseason projection and his season-to-date points per game
+   (Harstad: that naive blend beat either input alone in 4 of 5 position
+   buckets), not by either one by itself. File up to two claims, best first:
    `fantasy/bin/espn-tx claim "<name>" --drop "<bench player>"` (no `--drop`
    when a slot is open), confirming `"verified": true`. If nothing beats the
    bench, say so and file nothing. Week 7 is Daniels' bye: that week, claim a
    streaming QB instead (the IR slot and a drop make room).
-4. **Trades, from week 3 on.** Scan rival rosters (`fantasy/bin/espn team
+4. **Trades, from week 3 on.** The edge is a leaguemate's recency and
+   endowment bias, so timing is the input: buy a volume player after a bad
+   week or two, sell a thin-volume touchdown scorer after a big one. Scan
+   rival rosters (`fantasy/bin/espn team
    --team "<name>" --json`) for buy-low targets (heavy volume, bad touchdown
    luck) and our sell-high candidates (touchdowns on thin volume). Write up to
    two concrete proposals to the Season log with the volume evidence, then put
