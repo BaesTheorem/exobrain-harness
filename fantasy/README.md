@@ -73,6 +73,28 @@ Code lives in `espncli/` (`client.py` transport + helpers, `cli.py` commands,
 no network; the lineup check is tested against a planted-bad roster because
 its failure mode is a quiet "all OK").
 
+## Tool 3: `bin/espn-tx` (the one that writes)
+
+Lineup moves and waiver claims over ESPN's transactions endpoint, added
+2026-09-07 to put Jordyn Tyson on IR and file the first two waiver claims.
+`ff` and `espn` stay read-only by invariant; `espncli/tx.py` is the only module
+that POSTs and this is the only command that imports it. Every write verifies
+the result with a read (the roster slot changed, the claim is listed as
+pending) and exits nonzero if the read-back disagrees.
+
+```
+espn-tx ir "Jordyn Tyson"                 # bench -> IR slot
+espn-tx move "Player" --to BE|IR|FLEX|RB  # any slot move
+espn-tx claim "Chris Brooks" [--drop "X"] # waiver claim; --fa for a free-agent add
+espn-tx pending                           # this team's pending claims
+espn-tx cancel <transaction id>
+espn-tx --dry-run ...                     # print the payload, send nothing
+```
+
+The payload shape ESPN's web client uses is documented at the top of
+`espncli/tx.py`. Writes go to `lm-api-writes.fantasy.espn.com` (the reads host
+is a different hostname); the same `espn_s2` + `SWID` cookies authorize both.
+
 ### API facts that cost time to learn (2026-09-07)
 
 - **`site.api.espn.com` answers 403 to non-browser clients** (Akamai).

@@ -58,6 +58,12 @@ quirk, and the ESPN API gotchas (which host 403s, which view accepts
 them (TD-regression scan, trade-log-vs-standings study) rather than scraping
 the site by hand.
 
+**Writes go through `fantasy/bin/espn-tx` and nothing else** (added
+2026-09-07): `ir`, `move`, `claim`, `pending`, `cancel`. It verifies every
+write with a read-back and exits nonzero when the roster or the pending list
+does not show the change. Use it when Alex asks for a lineup move or a claim;
+never bolt writing onto `ff` or `espn`.
+
 ## Draft mode: the autopilot
 
 `fantasy/draftbot/` drafts a full roster in the ESPN draft room against a ranked
@@ -144,6 +150,29 @@ against a live clock is how picks get lost.
    but the diagnostics are).
 6. A **practice draft can be paused** from the League Manager tab, which makes
    mocks the place to fix things. The live draft will not wait.
+
+### Live-draft rules (2026-09-07, slot 3, 16 for 16, #1 of 13 under both judges)
+
+- **Nobody touches the bot's window, ever.** A refresh throws the autopilot
+  away and the page looks healthy afterwards. The supervisor re-arms on a
+  missing autopilot now, but the window should be hidden before the room
+  opens. Alex reads the supervisor's feed (MIST relays it), nothing else.
+- **`supervise.py` is the only channel owner from the room opening to the
+  last pick.** Anything else that needs an eval (a queue fix, a DOM probe)
+  pauses it with `SIGSTOP`, runs, and `SIGCONT`s it; two writers race on
+  `result.json`. Restarting the supervisor is safe at any time.
+- **The queue floor is filled RB/WR/TE/QB.** ESPN drafts the top of the queue
+  on a missed clock. Check the head of the queue before the room opens.
+- **The league API is blind during a live draft** (zero picks, empty rosters
+  until ESPN marks it done). The room's Pick History panel is the live source
+  and the supervisor reads it into `room_picks.log`; `recap.py` turns that
+  into the playbook record. `grade.py` clicks the tab, so it is post-draft
+  only.
+- **The room's K/D/ST run can start in round 7.** The round-11/13 rule still
+  landed the best remaining at each; one room is not evidence to move it.
+- **Post-draft, in order:** `grade.py --judge both`, `examiner.py --live`,
+  `recap.py`, pull `mDraftDetail` for the autopick flags, write the vault
+  record, register the counter-consensus picks in the ledger.
 
 ### It scores on value over replacement
 
