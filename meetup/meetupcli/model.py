@@ -145,7 +145,7 @@ def normalize_event(n: Json) -> Json:
             "url": group_url(g.get("urlname")),
         } if g else None,
     }
-    for key in ("description", "howToFindUs", "isAttending", "isSaved", "myRsvp", "shortUrl"):
+    for key in ("description", "howToFindUs", "isAttending", "isSaved", "myRsvp", "myGuests", "shortUrl"):
         if key in n:
             rec[key] = n[key]
     if "eventHosts" in n:

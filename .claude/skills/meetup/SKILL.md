@@ -62,17 +62,21 @@ Home is Kansas City, MO; `--near PLACE`, `--lat/--lon`, and `--radius MILES` mov
 
 ## Login lane (cookie)
 
-`whoami`, `my-events`, `my-groups`, `rsvp`, and `save` need Alex's browser cookie, stored via
-`meetup auth set` (steps in `meetup/secrets/README.md`). Exit status 3 means no cookie or a
-rejected one; tell Alex to re-copy it, don't retry.
+`whoami`, `my-events`, `my-calendar`, `my-groups`, `rsvp`, and `save` use Alex's browser
+cookie. `meetup auth import` pulls it out of Chrome through yt-dlp (no Keychain prompt on this
+machine; verified 2026-09-07). `meetup auth set` takes a pasted header instead. Exit status 3
+means no cookie or a rejected one: re-run `auth import`, don't retry the command.
 
+- **`my-events` is what he RSVP'd to** (yes or waitlist); `--past` is what he went to.
+  **`my-calendar` is every upcoming event in his groups**, RSVP or not (the site's "your
+  groups" view). Never present a calendar row as a plan he made.
+- `my-groups` shows active memberships; `--all` adds dead and blocked ones. His organizer
+  role shows on `kc_rat_ea`.
 - **Never RSVP, save, or join on Alex's behalf unless he asked for that specific action** in
   this conversation. `rsvp` asks for confirmation and refuses non-interactive runs without
   `--yes`; pass `--yes` only after his explicit go-ahead.
-- **As of 2026-09-06 the cookie lane is unverified**: no cookie has been provided, so those
-  commands are written from the schema and untested. First real use is a test: `whoami`,
-  then `my-events`, then an `rsvp` on something he'd attend anyway. Record what you learn in
-  [[project_meetup_cli]].
+- `rsvp` and `save` have not been run on a real event yet (as of 2026-09-07). First real use
+  is a test on something he'd attend anyway; record what you learn in [[project_meetup_cli]].
 - Alex organizes **KC Rationality and Effective Altruism** (`kc_rat_ea`, private, no
   upcoming events as of 2026-09-06) and pays for a Meetup organizer plan. Organizer-side
   mutations (`createEvent`, `editEvent`, `announceEvent`) exist on the endpoint and are

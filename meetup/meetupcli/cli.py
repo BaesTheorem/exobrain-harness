@@ -102,10 +102,17 @@ def print_events(events: list[Json], header: str | None = None) -> None:
         return
     for ev in events:
         flags = []
-        if ev.get("isAttending") or ev.get("myRsvp") == "YES":
-            flags.append("you're going")
-        elif ev.get("myRsvp") == "WAITLIST":
+        my = ev.get("myRsvp")
+        over = ev.get("status") == "PAST"
+        guests = f" +{ev['myGuests']}" if ev.get("myGuests") else ""
+        if my == "ATTENDED" or (over and my == "YES"):
+            flags.append("you went" + guests)
+        elif ev.get("isAttending") or my in ("YES", "YES_PENDING_PAYMENT"):
+            flags.append("you're going" + guests)
+        elif my == "WAITLIST":
             flags.append("waitlisted")
+        elif my == "NO_SHOW":
+            flags.append("no-show")
         if ev.get("isSaved"):
             flags.append("saved")
         if ev.get("status") and ev["status"] not in ("ACTIVE", "PAST"):
@@ -175,6 +182,7 @@ def print_groups(groups: list[Json], header: str | None = None) -> None:
             f"rated {g['rating']:.1f} ({g.get('ratings')})" if g.get("rating") else None,
             "private" if g.get("private") else None,
             str(g["myRole"]).lower().replace("_", " ") if g.get("myRole") else ("member" if g.get("isMember") else None),
+            str(g["myStatus"]).lower().replace("_", " ") if g.get("myStatus") not in (None, "ACTIVE", "LEADER") else None,
             g.get("url"),
         ]
         print(f"{str(g.get('id') or ''):<10} {g.get('name')}  ({g.get('urlname')})")
@@ -418,16 +426,25 @@ def cmd_my_events(args: argparse.Namespace) -> int:
     if args.json:
         emit_json(events)
     else:
-        print_events(events, header="Your past events:" if args.past else "Your upcoming events:")
+        print_events(events, header="Events you went to (newest first):" if args.past else "Your upcoming RSVPs:")
+    return 0
+
+
+def cmd_my_calendar(args: argparse.Namespace) -> int:
+    events = [normalize_event(n) for n in make_client().my_calendar(limit=args.limit)]
+    if args.json:
+        emit_json(events)
+    else:
+        print_events(events, header="Upcoming events in your groups (RSVP'd or not):")
     return 0
 
 
 def cmd_my_groups(args: argparse.Namespace) -> int:
-    groups = [normalize_group(n) for n in make_client().my_groups(limit=args.limit)]
+    groups = [normalize_group(n) for n in make_client().my_groups(limit=args.limit, include_inactive=args.all)]
     if args.json:
         emit_json(groups)
     else:
-        print_groups(groups, header="Your groups:")
+        print_groups(groups, header="All memberships, including dead and blocked groups:" if args.all else "Your groups:")
     return 0
 
 
@@ -467,6 +484,13 @@ def cmd_auth(args: argparse.Namespace) -> int:
     if args.action == "clear":
         print("cookie removed" if store.clear_cookie() else "no stored cookie")
         return 0
+    if args.action == "import":
+        try:
+            header = store.import_cookie_from_browser(args.browser)
+        except RuntimeError as e:
+            raise MeetupError(str(e), auth=True) from None
+        path = store.save_cookie(header)
+        print(f"imported {header.count('=')} meetup.com cookies from {args.browser} into {path} (mode 0600)")
     if args.action == "set":
         if args.from_file:
             text = open(args.from_file, encoding="utf-8").read()
@@ -569,12 +593,17 @@ def build_parser() -> argparse.ArgumentParser:
     s = sub.add_parser("whoami", parents=[common], help="who the stored cookie logs in as")
     s.set_defaults(func=cmd_whoami)
 
-    s = sub.add_parser("my-events", parents=[common], help="events you have RSVP'd to")
-    s.add_argument("--past", action="store_true")
+    s = sub.add_parser("my-events", parents=[common], help="events you RSVP'd to (yes or waitlist)")
+    s.add_argument("--past", action="store_true", help="events you went to, newest first")
     s.add_argument("--limit", type=int, default=20)
     s.set_defaults(func=cmd_my_events)
 
+    s = sub.add_parser("my-calendar", parents=[common], help="upcoming events across your groups, RSVP'd or not")
+    s.add_argument("--limit", type=int, default=30)
+    s.set_defaults(func=cmd_my_calendar)
+
     s = sub.add_parser("my-groups", parents=[common], help="groups you belong to")
+    s.add_argument("--all", action="store_true", help="include dead and blocked memberships too")
     s.add_argument("--limit", type=int, default=50)
     s.set_defaults(func=cmd_my_groups)
 
@@ -590,9 +619,11 @@ def build_parser() -> argparse.ArgumentParser:
     s.add_argument("--unsave", action="store_true")
     s.set_defaults(func=cmd_save)
 
-    s = sub.add_parser("auth", help="store, check, or clear the login cookie")
-    s.add_argument("action", choices=["set", "status", "clear"])
-    s.add_argument("--from-file", metavar="PATH", help="read the cookie header from a file instead of stdin")
+    s = sub.add_parser("auth", help="import, paste, check, or clear the login cookie")
+    s.add_argument("action", choices=["import", "set", "status", "clear"],
+                   help="import = read it out of a browser profile (yt-dlp); set = paste a Cookie header")
+    s.add_argument("--browser", default="chrome", choices=store.BROWSERS, help="for import: which browser profile (default chrome)")
+    s.add_argument("--from-file", metavar="PATH", help="for set: read the cookie header from a file instead of stdin")
     s.set_defaults(func=cmd_auth)
 
     s = sub.add_parser("raw", help="run any GraphQL operation against gql2 (prints data as JSON)")
