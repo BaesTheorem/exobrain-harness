@@ -103,13 +103,16 @@ def hung():
         txt = st.get("text", "")
     except Exception:
         return None
-    # A swipe-back or a stray click can walk the window off the draft page;
-    # the page it lands on is healthy text, so the markers never fire.
-    if "/draft" not in (st.get("url") or "/draft"):
-        return "wrong page"
     for marker in HANG_MARKERS:
         if marker in txt:
             return marker
+    # A swipe-back or a stray click can walk the window off the draft page;
+    # the page it lands on is healthy text, so the markers never fire. Checked
+    # after the markers (a banner is the more specific diagnosis) and only for
+    # a real web URL, so fixtures and a still-booting driver are not flagged.
+    url = st.get("url") or ""
+    if url.startswith("http") and "/draft" not in url:
+        return "wrong page"
     if len(txt.strip()) < MIN_ROOM_TEXT:
         return "blank page"
     return None
