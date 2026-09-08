@@ -5,6 +5,7 @@
     espn-tx move "Player" --to BE|IR|FLEX|RB  # any slot move
     espn-tx swap "Chris Godwin" --for "Christian Watson"   # bench player in, starter out, one transaction
     espn-tx claim "Chris Brooks" [--drop "X"] # waiver claim (or free-agent add with --fa)
+    espn-tx trade "Watson" "Nailor" --for "George Pickens" --with "Ayahuasca Rodgers"   # send a trade offer
     espn-tx pending                           # this team's pending claims
     espn-tx cancel <transaction id>
 
@@ -31,6 +32,8 @@ def main() -> int:
     p = sub.add_parser("swap"); p.add_argument("name", nargs="+"); p.add_argument("--for", dest="out", nargs="+", required=True)
     p = sub.add_parser("claim"); p.add_argument("name", nargs="+"); p.add_argument("--drop", nargs="*")
     p.add_argument("--fa", action="store_true", help="free-agent add instead of a waiver claim")
+    p = sub.add_parser("trade"); p.add_argument("give", nargs="+"); p.add_argument("--for", dest="get", nargs="+", required=True)
+    p.add_argument("--with", dest="team", required=True, help="the other team's name (or part of it)")
     sub.add_parser("pending")
     p = sub.add_parser("cancel"); p.add_argument("id")
     args = ap.parse_args()
@@ -44,6 +47,16 @@ def main() -> int:
     if args.cmd == "cancel":
         print(json.dumps(w.cancel(args.id), indent=1)[:800])
         return 0
+    if args.cmd == "trade":
+        data = api.league("mTeam")
+        other = api.resolve_team(data, args.team)
+        give = [api.resolve_one(n) for n in args.give]
+        get = [api.resolve_one(n) for n in args.get]
+        print(f"offer to {other.get('name') or other}: give {[g['name'] for g in give]}, get {[g['name'] for g in get]}")
+        res = w.propose_trade([g["id"] for g in give], [g["id"] for g in get], int(other["id"]), dry_run=args.dry_run)
+        out = json.dumps(res, indent=1, default=str)
+        print(out if len(out) < 1500 else out[:1500] + "\n...")
+        return 0 if args.dry_run or res.get("verified") else 1
     hit = api.resolve_one(" ".join(args.name))
     print(f"{hit['name']} (id {hit['id']}, {hit.get('pos')})")
     if args.cmd in ("ir", "move"):

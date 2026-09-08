@@ -31,6 +31,14 @@ Follow `fantasy/routines/COMMON.md` first.
    them to Alex: `mist-voice/bin/mist-ask "Trade idea: <give> for <get> with
    <team>. <one-line why>. Send it?" "Send=send this offer" "Skip=skip"`.
    Never send an offer yourself. Incoming offers are the incident routine's.
+   **Standing offer (from 2026-09-07):** Watson + Nailor for George Pickens
+   to Ayahuasca Rodgers. ESPN offers expire after two days. If it is no longer
+   pending (`fantasy/bin/espn-tx pending` shows no TRADE_PROPOSAL from us) and
+   both Watson and Nailor are still ours and Pickens is still theirs, re-send
+   it: `fantasy/bin/espn-tx trade "Christian Watson" "Jalen Nailor" --for
+   "George Pickens" --with "Ayahuasca Rodgers"`. This one re-send is the only
+   offer you send without asking; Alex approved it on 2026-09-07. Stop if the
+   playbook's Season log says he withdrew it.
 5. **Tendencies.** `fantasy/bin/espn activity --json` since last Tuesday: who
    is active, who never touches an autopicked roster (that roster is the
    wire's feeder). Update the playbook's league observations, not just the log.
