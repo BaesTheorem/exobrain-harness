@@ -2,8 +2,10 @@
 """roster-watch: notice what happens to Chaos Legion between MIST's scheduled runs.
 
 Every 30 minutes from launchd (com.exobrain.roster-watch). Diffs the roster's
-injury statuses, our pending claims, and pending transactions aimed at the
-team (a trade offer) against the last run. Anything new is appended to
+injury statuses, our pending claims, pending transactions aimed at the team
+(a trade offer), the players on fantasy/watchlist.json (status, ownership,
+which fantasy team holds them), and the rosters of watched teams against
+the last run. Anything new is appended to
 fantasy/.cache/incidents.jsonl, announced with a clickable banner, and, when
 it needs judgment (a starter going out, an IR designation, a trade offer, a
 processed claim), handed to the fantasy-incident routine, which runs headless
@@ -27,6 +29,7 @@ FANTASY = HERE.parent
 sys.path.insert(0, str(FANTASY))
 STATE = FANTASY / ".cache" / "roster-watch.json"
 INCIDENTS = FANTASY / ".cache" / "incidents.jsonl"
+WATCHLIST = FANTASY / "watchlist.json"
 NOTIFY = FANTASY.parent / "mist-voice" / "bin" / "mist-notify"
 RUNNER = pathlib.Path("/Users/alexhedtke/Documents/mist-console/run-routine.sh")
 ROUTINE_LOG = pathlib.Path.home() / "Library" / "Logs" / "mist-routines.log"
@@ -107,6 +110,36 @@ def main() -> int:
                            "from": "PENDING", "to": "processed (see roster)", "judgment": True})
             seen.pop(tid)
 
+    # 3. The watch list: players we are tracking anywhere in the league, and teams
+    #    whose roster moves matter (an absent manager showing up).
+    wl = load(WATCHLIST, {"players": [], "teams": []})
+    wstate = st.setdefault("watch", {})
+    ids = [p["id"] for p in wl.get("players", [])]
+    cards = {c["player"]["id"]: c for c in api.player_cards(ids)} if ids else {}
+    for wp in wl.get("players", []):
+        c = cards.get(wp["id"])
+        if not c:
+            continue
+        pl = c["player"]
+        cur = {"status": pl.get("injuryStatus") or "", "team": c.get("onTeamId") or 0,
+               "owned": round((pl.get("ownership") or {}).get("percentOwned") or 0.0, 1)}
+        prev = wstate.get(str(wp["id"]))
+        if prev and not st.get("first_run"):
+            if prev["status"] != cur["status"]:
+                events.append({"kind": "watch_status", "player": wp["name"], "from": prev["status"] or "healthy",
+                               "to": cur["status"] or "healthy", "why": wp["why"], "judgment": False})
+            if prev["team"] != cur["team"]:
+                events.append({"kind": "watch_owner", "player": wp["name"], "from_team": prev["team"], "to_team": cur["team"],
+                               "why": wp["why"], "trigger": wp["trigger"], "judgment": True})
+        wstate[str(wp["id"])] = cur
+    rosters = {str(t["id"]): sorted(e["playerId"] for e in (t.get("roster") or {}).get("entries", [])) for t in data["teams"]}
+    prev_r = st.setdefault("rosters", {})
+    for wt in wl.get("teams", []):
+        key = str(wt["id"])
+        if key in prev_r and prev_r[key] != rosters.get(key):
+            events.append({"kind": "watched_team_moved", "team": wt["name"], "why": wt["why"], "judgment": True})
+    st["rosters"] = rosters
+
     st["status"] = statuses
     st["first_run"] = False
     if not events:
@@ -133,6 +166,12 @@ def main() -> int:
             heads.append("trade offer received")
         elif ev["kind"] == "waiver_result":
             heads.append("waiver claim processed")
+        elif ev["kind"] == "watch_status":
+            heads.append(f"watch: {ev['player']} {ev['from']} -> {ev['to']}")
+        elif ev["kind"] == "watch_owner":
+            heads.append(f"watch: {ev['player']} changed hands")
+        elif ev["kind"] == "watched_team_moved":
+            heads.append(f"{ev['team']} made a roster move")
         else:
             heads.append(ev["kind"].replace("_", " ") + (f": {ev.get('player')}" if ev.get("player") else ""))
     judgment = any(ev.get("judgment") for ev in events)
