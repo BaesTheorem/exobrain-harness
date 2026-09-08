@@ -22,6 +22,16 @@ Follow `fantasy/routines/COMMON.md` first.
    (deep-threat receivers, big-play backs). Within 3 points either way, the
    higher projection starts. Swap only when the projection gap is under 3 and
    the variance profiles clearly differ; do not churn.
+   **Idle week (week 8), or any week ESPN shows no opponent:** there is no
+   game to win, only Points For (the seeding tiebreak) to bank. Start the
+   highest-projection lineup with no variance adjustment.
+   **The bye race, from week 9:** `fantasy/bin/ff standings` marks the top-2
+   cutline. If we are tied in record with the #2 seed, or within one game of
+   it, Points For is the likely decider, so weight expected points over the
+   variance rule: take the variance trade only when the win-probability gain
+   is clearly larger than the projected points it costs. If we hold a top-2
+   seed by more than a game with two weeks left, floor everywhere.
 5. Write one Season log line: date, opponent, projected margin, what changed
-   and why ("no changes" is a valid entry).
+   and why ("no changes" is a valid entry), and from week 9 the bye-race
+   position (games and points ahead of or behind the #2 line).
 6. Notify Alex only if something changed.

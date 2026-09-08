@@ -7,6 +7,10 @@ Follow `fantasy/routines/COMMON.md` first.
    (record, points for, and WAIVER PRIORITY, which resets weekly by reverse
    standings). Season log line: score, opponent, record, points-for rank,
    waiver priority, and one sentence on what decided it, judged as process.
+   Then the bye race, which is the season's actual objective (a top-2 seed
+   skips a single-week round and is worth about 1.9x the title odds of a
+   3-6 seed): `fantasy/bin/ff standings` shows the cutline; log games and
+   points ahead of or behind the #2 seed, and name the teams we are racing.
 2. **Ledger.** `python3 fantasy/ledger.py settle`; note the running score in
    the Season log. Only settled ledger results may change how the board is
    built next year.
@@ -20,7 +24,10 @@ Follow `fantasy/routines/COMMON.md` first.
    heavy volume with bad touchdown luck is a buy. No second QB or TE. Drop the
    lowest-value bench player (role first, then season projection) to make
    room; never drop a starter. From week 5 on, value every player by a 50/50
-   blend of his preseason projection and his season-to-date points per game
+   blend of his preseason projection and his season-to-date points per game,
+   weighting weeks 1-14 fully and weeks 15-17 at half (the bye is earned in
+   the regular season, so a player who only returns for the playoffs is a
+   half-value asset)
    (Harstad: that naive blend beat either input alone in 4 of 5 position
    buckets), not by either one by itself. File up to two claims, best first:
    `fantasy/bin/espn-tx claim "<name>" --drop "<bench player>"` (no `--drop`
