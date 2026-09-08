@@ -20,6 +20,18 @@ INVARIANTS:
 - ``self.memberEvents`` is the calendar of upcoming events across the member's groups (every
   edge comes back ``isAttending: false``). What the member RSVP'd to lives under
   ``self.rsvps`` behind an ``RsvpFilter``.
+- ``createEvent`` defaults here to ``publishStatus: DRAFT``. A draft is absent from the
+  group's ``status: ACTIVE`` listing (what the group page and members see) and notifies
+  nobody, but it is *not* access-controlled: an anonymous caller that asks for
+  ``status: DRAFT`` by name gets the id and title back, with ``venue`` nulled. Treat a draft
+  as unannounced, not as secret.
+- ``suggestVenues`` ranks by fuzzy name, not distance, so a chain's first hit is often the
+  wrong branch (``Minskys Pizza`` returns Lenexa and Overland Park before the KC one), and
+  its records are member-entered and go stale (its ``Pawn and Pint`` still carries the old
+  Southwest Blvd address). Check the address on the hit you pick, and ``createVenue`` a fresh
+  one when it disagrees with the real address.
+- ``announceEvent`` emails the group and is deliberately not implemented; see the note above
+  the organizer mutations.
 """
 
 from __future__ import annotations
@@ -224,6 +236,55 @@ mutation Save($input: SaveEventInput!) {
 M_UNSAVE = """
 mutation Unsave($input: UnsaveEventInput!) {
   unsaveEvent(input: $input) { errors { code field message } event { id isSaved } }
+}
+"""
+
+# -- organizer writes ------------------------------------------------------------------------
+# announceEvent exists on the endpoint and emails the whole group. It is deliberately NOT
+# wired up here: a blast needs the user's explicit go-ahead for that specific send, which a
+# CLI flag cannot represent honestly. Publishing a draft is the furthest this client goes.
+
+Q_SUGGEST_VENUES = """
+query SuggestVenues($query: String!, $lat: Float!, $lon: Float!, $radius: Float, $first: Int) {
+  suggestVenues(query: $query, lat: $lat, lon: $lon, radius: $radius, first: $first) {
+    edges { node { id name address city state postalCode lat lon } }
+  }
+}
+"""
+
+M_CREATE_VENUE = """
+mutation CreateVenue($input: CreateVenueInput!) {
+  createVenue(input: $input) {
+    errors { code field message }
+    didYouMean { id name address city state postalCode }
+    venue { id name address city state postalCode lat lon }
+  }
+}
+"""
+
+EVENT_WRITE_RESULT = """
+fragment EventWriteResult on Event {
+  id title dateTime endTime duration eventUrl status
+  venue { id name address city state postalCode }
+  group { urlname }
+}
+"""
+
+M_CREATE_EVENT = EVENT_WRITE_RESULT + """
+mutation CreateEvent($input: CreateEventInput!) {
+  createEvent(input: $input) { errors { code field message } event { ...EventWriteResult } }
+}
+"""
+
+M_PUBLISH_DRAFT = EVENT_WRITE_RESULT + """
+mutation PublishEventDraft($input: PublishEventDraftInput!) {
+  publishEventDraft(input: $input) { errors { code field message } event { ...EventWriteResult } }
+}
+"""
+
+M_DELETE_EVENT = """
+mutation DeleteEvent($input: DeleteEventInput!) {
+  deleteEvent(input: $input) { errors { code field message } success }
 }
 """
 
@@ -511,3 +572,51 @@ class MeetupClient:
         if save:
             return self._mutate(M_SAVE, "saveEvent", {"input": {"eventId": event_id}})
         return self._mutate(M_UNSAVE, "unsaveEvent", {"input": {"eventId": event_id}})
+
+    # -- organizer writes ------------------------------------------------------------------
+
+    def suggest_venues(self, query: str, lat: float, lon: float, *, radius: float = 25.0, limit: int = 10) -> list[Json]:
+        """Meetup's own venue autocomplete. Read-only, but needs the cookie."""
+        data = self.gql(
+            Q_SUGGEST_VENUES,
+            {"query": query, "lat": lat, "lon": lon, "radius": radius, "first": limit},
+            authed=True,
+        )
+        return self._nodes(((data.get("suggestVenues") or {}).get("edges")) or [])
+
+    def create_venue(self, name: str, address: str, city: str, state: str, *,
+                     country: str = "us", group_id: str | None = None) -> Json:
+        """Register a venue. Use when suggest_venues has no hit, or its hit is stale."""
+        payload = _clean({
+            "name": name, "address": address, "city": city, "state": state,
+            "country": country, "groupId": group_id,
+        })
+        return self._mutate(M_CREATE_VENUE, "createVenue", {"input": payload})
+
+    def create_event(self, group_urlname: str, title: str, description: str, start: str, *,
+                     duration: str | None = None, venue_id: str | None = None,
+                     how_to_find_us: str | None = None, publish: bool = False,
+                     self_rsvp: bool = False) -> Json:
+        """Create one event. Defaults to a DRAFT, which members cannot see and which sends
+        no notification; pass publish=True only on the user's explicit say-so."""
+        payload = _clean({
+            "groupUrlname": group_urlname,
+            "title": title,
+            "description": description,
+            "startDateTime": start,
+            "duration": duration,
+            "venueId": venue_id,
+            "howToFindUs": how_to_find_us,
+            "publishStatus": "PUBLISHED" if publish else "DRAFT",
+            "selfRsvp": self_rsvp,
+        })
+        return self._mutate(M_CREATE_EVENT, "createEvent", {"input": payload})
+
+    def publish_draft(self, event_id: str) -> Json:
+        """Flip a DRAFT to PUBLISHED. This makes it member-visible; gate it on the user."""
+        return self._mutate(M_PUBLISH_DRAFT, "publishEventDraft", {"input": {"eventId": event_id}})
+
+    def delete_event(self, event_id: str, *, series: bool = False) -> Json:
+        payload = _clean({"eventId": event_id, "updateSeries": series or None})
+        return self._mutate(M_DELETE_EVENT, "deleteEvent", {"input": payload})
+

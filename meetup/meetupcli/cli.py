@@ -10,6 +10,7 @@ Exit status: 0 ok, 1 server/transport error, 2 usage error, 3 login needed or re
 from __future__ import annotations
 
 import argparse
+from pathlib import Path
 import json
 import sys
 import textwrap
@@ -524,6 +525,85 @@ def cmd_save(args: argparse.Namespace) -> int:
     return 0
 
 
+def cmd_venues(args: argparse.Namespace) -> int:
+    client = make_client()
+    lat, lon, label = resolve_location(client, args)
+    rows = client.suggest_venues(" ".join(args.query), lat, lon,
+                                 radius=args.radius or 25.0, limit=args.limit)
+    if args.json:
+        emit_json(rows)
+        return 0
+    print(f"{len(rows)} venue(s) near {label}:")
+    for v in rows:
+        where = ", ".join(x for x in (v.get("address"), v.get("city"), v.get("state")) if x)
+        print(f"  {v['id']:12} {v.get('name')}  |  {where} {v.get('postalCode') or ''}".rstrip())
+    if rows:
+        print("\n  Meetup's venue records are member-entered and can be stale: check the address\n"
+              "  against the real one before using an id, and prefer `create-venue` when it differs.")
+    return 0
+
+
+def cmd_create_venue(args: argparse.Namespace) -> int:
+    result = make_client().create_venue(args.name, args.address, args.city, args.state,
+                                        country=args.country, group_id=args.group_id)
+    if args.json:
+        emit_json(result)
+        return 0
+    v = result.get("venue") or {}
+    print(f"venue {v.get('id')}: {v.get('name')} | {v.get('address')}, {v.get('city')} {v.get('state')}")
+    for d in result.get("didYouMean") or []:
+        print(f"  did you mean {d.get('id')}: {d.get('name')} | {d.get('address')}")
+    return 0
+
+
+def cmd_create_event(args: argparse.Namespace) -> int:
+    description = Path(args.desc_file).read_text() if args.desc_file else args.desc
+    if not description:
+        raise MeetupError("an event needs a description: pass --desc or --desc-file")
+    if args.publish:
+        print(f"{args.title} · {args.start} · group {args.group}")
+        confirm("PUBLISH this event now? Members of the group can see published events.", args.yes)
+    result = make_client().create_event(
+        args.group, args.title, description, args.start,
+        duration=args.duration, venue_id=args.venue,
+        how_to_find_us=args.how_to_find_us, publish=args.publish,
+    )
+    if args.json:
+        emit_json(result)
+        return 0
+    ev = result.get("event") or {}
+    print(f"{str(ev.get('status') or '?').lower()}: {ev.get('title')} · {ev.get('dateTime')} · {ev.get('eventUrl')}")
+    return 0
+
+
+def cmd_publish(args: argparse.Namespace) -> int:
+    event_id = parse_event_ref(args.ref)
+    client = make_client()
+    node = client.event(event_id)
+    if node:
+        ev = normalize_event(node)
+        print(f"{ev['title']} · {fmt_when(ev['start'])} · {fmt_where(ev)}")
+    confirm("Publish this draft? It becomes visible to the whole group.", args.yes)
+    result = client.publish_draft(event_id)
+    if args.json:
+        emit_json(result)
+        return 0
+    ev = result.get("event") or {}
+    print(f"published: {ev.get('title')} · {ev.get('eventUrl')}")
+    return 0
+
+
+def cmd_delete_event(args: argparse.Namespace) -> int:
+    event_id = parse_event_ref(args.ref)
+    confirm(f"Delete event {event_id}?", args.yes)
+    result = make_client().delete_event(event_id, series=args.series)
+    if args.json:
+        emit_json(result)
+    else:
+        print(f"event {event_id} deleted" if result.get("success") else f"delete returned {result}")
+    return 0
+
+
 def cmd_auth(args: argparse.Namespace) -> int:
     if args.action == "clear":
         print("cookie removed" if store.clear_cookie() else "no stored cookie")
@@ -670,6 +750,44 @@ def build_parser() -> argparse.ArgumentParser:
     s.add_argument("ref", help="event id or URL")
     s.add_argument("--unsave", action="store_true")
     s.set_defaults(func=cmd_save)
+
+    s = sub.add_parser("venues", parents=[common, location], help="search Meetup's venue records (organizer use)")
+    s.add_argument("query", nargs="+")
+    s.set_defaults(func=cmd_venues)
+
+    s = sub.add_parser("create-venue", parents=[common], help="register a venue Meetup does not have, or has stale")
+    s.add_argument("--name", required=True)
+    s.add_argument("--address", required=True)
+    s.add_argument("--city", required=True)
+    s.add_argument("--state", required=True)
+    s.add_argument("--country", default="us")
+    s.add_argument("--group-id", dest="group_id", help="scope the venue to one group")
+    s.set_defaults(func=cmd_create_venue)
+
+    s = sub.add_parser("create-event", parents=[common],
+                       help="create a group event (a DRAFT unless --publish; drafts notify nobody)")
+    s.add_argument("group", help="group urlname, e.g. kc_rat_ea")
+    s.add_argument("--title", required=True)
+    s.add_argument("--start", required=True, metavar="WHEN", help="local start, 'YYYY-MM-DDTHH:MM'")
+    s.add_argument("--desc", help="description text")
+    s.add_argument("--desc-file", dest="desc_file", help="read the description from a file")
+    s.add_argument("--duration", help="ISO-8601 duration, e.g. PT2H")
+    s.add_argument("--venue", help="Meetup venue id (see `venues`)")
+    s.add_argument("--how-to-find-us", dest="how_to_find_us")
+    s.add_argument("--publish", action="store_true", help="publish immediately instead of drafting (asks first)")
+    s.add_argument("--yes", action="store_true", help="skip the confirmation prompt")
+    s.set_defaults(func=cmd_create_event)
+
+    s = sub.add_parser("publish", parents=[common], help="publish a draft event (asks first)")
+    s.add_argument("ref", help="event id or URL")
+    s.add_argument("--yes", action="store_true", help="skip the confirmation prompt")
+    s.set_defaults(func=cmd_publish)
+
+    s = sub.add_parser("delete-event", parents=[common], help="delete an event (asks first)")
+    s.add_argument("ref", help="event id or URL")
+    s.add_argument("--series", action="store_true", help="delete the whole recurring series")
+    s.add_argument("--yes", action="store_true", help="skip the confirmation prompt")
+    s.set_defaults(func=cmd_delete_event)
 
     s = sub.add_parser("auth", help="import, paste, check, or clear the login cookie")
     s.add_argument("action", choices=["import", "set", "status", "clear"],
