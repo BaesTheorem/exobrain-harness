@@ -1,0 +1,65 @@
+#!/usr/bin/env python3
+"""espn-tx: the ONLY ESPN command here that writes. Lineup moves and claims.
+
+    espn-tx ir "Jordyn Tyson"                 # bench -> IR slot
+    espn-tx move "Player" --to BE|IR|FLEX|RB  # any slot move
+    espn-tx claim "Chris Brooks" [--drop "X"] # waiver claim (or free-agent add with --fa)
+    espn-tx pending                           # this team's pending claims
+    espn-tx cancel <transaction id>
+
+Every write verifies the result with a read. --dry-run prints the payload.
+"""
+
+import argparse
+import json
+import sys
+from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+
+from espncli.client import IR, SLOT_BY_NAME, Espn  # noqa: E402
+from espncli.tx import EspnWriter  # noqa: E402
+
+
+def main() -> int:
+    ap = argparse.ArgumentParser()
+    ap.add_argument("--dry-run", action="store_true")
+    sub = ap.add_subparsers(dest="cmd", required=True)
+    p = sub.add_parser("ir"); p.add_argument("name", nargs="+")
+    p = sub.add_parser("move"); p.add_argument("name", nargs="+"); p.add_argument("--to", required=True)
+    p = sub.add_parser("claim"); p.add_argument("name", nargs="+"); p.add_argument("--drop", nargs="*")
+    p.add_argument("--fa", action="store_true", help="free-agent add instead of a waiver claim")
+    sub.add_parser("pending")
+    p = sub.add_parser("cancel"); p.add_argument("id")
+    args = ap.parse_args()
+
+    api = Espn()
+    w = EspnWriter(api)
+    if args.cmd == "pending":
+        for t in w.pending():
+            print(json.dumps({k: t.get(k) for k in ("id", "type", "status", "scoringPeriodId", "items")}, indent=1))
+        return 0
+    if args.cmd == "cancel":
+        print(json.dumps(w.cancel(args.id), indent=1)[:800])
+        return 0
+    hit = api.resolve_one(" ".join(args.name))
+    print(f"{hit['name']} (id {hit['id']}, {hit.get('pos')})")
+    if args.cmd in ("ir", "move"):
+        want = "IR" if args.cmd == "ir" else args.to.upper()
+        to = {"IR": IR, "BE": 20}.get(want, SLOT_BY_NAME.get(want))
+        if to is None:
+            sys.exit(f"unknown slot {args.to}; one of {sorted(SLOT_BY_NAME)} BE IR")
+        res = w.move(hit["id"], to, dry_run=args.dry_run)
+    else:
+        drop = api.resolve_one(" ".join(args.drop))["id"] if args.drop else None
+        res = w.claim(hit["id"], drop, waiver=not args.fa, dry_run=args.dry_run)
+    out = json.dumps(res, indent=1, default=str)
+    print(out if len(out) < 1500 else out[:1500] + "\n...")
+    if not args.dry_run and not res.get("verified"):
+        print("NOT VERIFIED: the read-back does not show the change.", file=sys.stderr)
+        return 1
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())
