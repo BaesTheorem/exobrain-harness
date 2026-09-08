@@ -116,6 +116,24 @@ Install or reinstall: copy `com.exobrain.lineup-watch.plist` to
 `~/Library/LaunchAgents/` (a real copy, not a symlink) and `launchctl bootstrap
 gui/$(id -u)` it. Logs: `~/Library/Logs/exobrain/lineup-watch.log`.
 
+## Tool 5: `bin/roster-watch` (launchd, every 30 minutes)
+
+Diffs the roster's injury statuses, our pending claims, and pending
+transactions aimed at the team against the last run. New events go to
+`.cache/incidents.jsonl`, a banner, and (when judgment is needed) the
+`fantasy-incident` routine via the Console's `run-routine.sh`. Install like
+`lineup-watch` with `com.exobrain.roster-watch.plist`.
+
+## The season on autopilot: `routines/`
+
+`routines/COMMON.md` plus `lineup.md`, `tuesday.md`, and `incident.md` are
+the prompts for the headless Claude runs (Fable, via the MIST Console's
+routine runner; the scheduled `~/.claude/scheduled-tasks/fantasy-*` notes
+only point at these files, so the prompts are versioned here). `lineup-watch
+--fix` and `roster-watch` are the deterministic layer underneath. The whole
+arrangement, with its standing limits, is written up in the playbook's
+"Season operations" section.
+
 ### API facts that cost time to learn (2026-09-07)
 
 - **`site.api.espn.com` answers 403 to non-browser clients** (Akamai).

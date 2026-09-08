@@ -64,6 +64,15 @@ write with a read-back and exits nonzero when the roster or the pending list
 does not show the change. Use it when Alex asks for a lineup move or a claim;
 never bolt writing onto `ff` or `espn`.
 
+**The season runs on autopilot (since 2026-09-07).** Two launchd watchers
+(`lineup-watch --fix`, `roster-watch`) and three Fable routines
+(`fantasy-lineup` daily + Sunday, `fantasy-tuesday`, `fantasy-incident` on
+demand) run the playbook's in-season protocol; the prompts are in
+`fantasy/routines/` and each run invokes this skill first and writes back to
+the playbook. In an interactive session, do the same: invoke this skill, read
+the Season log before advising, and record decisions there. Do not build a
+second scheduler; change the prompts or the watchers.
+
 **The lock-window watcher is already running** (`fantasy/bin/lineup-watch`
 under launchd `com.exobrain.lineup-watch`, every 15 minutes, since
 2026-09-07): it pings Alex only when a starter with a problem is inside 75

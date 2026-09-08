@@ -1,0 +1,152 @@
+#!/usr/bin/env python3
+"""roster-watch: notice what happens to Chaos Legion between MIST's scheduled runs.
+
+Every 30 minutes from launchd (com.exobrain.roster-watch). Diffs the roster's
+injury statuses, our pending claims, and pending transactions aimed at the
+team (a trade offer) against the last run. Anything new is appended to
+fantasy/.cache/incidents.jsonl, announced with a clickable banner, and, when
+it needs judgment (a starter going out, an IR designation, a trade offer, a
+processed claim), handed to the fantasy-incident routine, which runs headless
+Claude on Fable through the Console's routine runner. Silence means nothing
+changed.
+
+    roster-watch [--dry-run] [--no-routine]
+"""
+
+from __future__ import annotations
+
+import argparse
+import json
+import pathlib
+import subprocess
+import sys
+import time
+
+HERE = pathlib.Path(__file__).resolve().parent
+FANTASY = HERE.parent
+sys.path.insert(0, str(FANTASY))
+STATE = FANTASY / ".cache" / "roster-watch.json"
+INCIDENTS = FANTASY / ".cache" / "incidents.jsonl"
+NOTIFY = FANTASY.parent / "mist-voice" / "bin" / "mist-notify"
+RUNNER = pathlib.Path("/Users/alexhedtke/Documents/mist-console/run-routine.sh")
+ROUTINE_LOG = pathlib.Path.home() / "Library" / "Logs" / "mist-routines.log"
+ROSTER_URL = "https://fantasy.espn.com/football/team?leagueId=45635023&teamId=12"
+LEAGUE_URL = "https://fantasy.espn.com/football/league?leagueId=45635023"
+NEEDS_JUDGMENT = {"OUT", "DOUBTFUL", "INJURY_RESERVE", "SUSPENSION"}
+
+
+def load(path: pathlib.Path, default):
+    try:
+        return json.loads(path.read_text())
+    except Exception:
+        return default
+
+
+def main() -> int:
+    ap = argparse.ArgumentParser()
+    ap.add_argument("--dry-run", action="store_true")
+    ap.add_argument("--no-routine", action="store_true", help="record and notify, but do not start the incident routine")
+    args = ap.parse_args()
+
+    from espncli.client import Espn  # noqa: PLC0415
+    api = Espn()
+    team_id = int(api.creds["team_id"])
+    data = api.league("mTeam", "mRoster", "mPendingTransactions")
+    stamp = time.strftime("%Y-%m-%d %H:%M")
+    st = load(STATE, {"status": {}, "pending": {}, "first_run": True})
+    events: list[dict] = []
+
+    # 1. Injury status per rostered player (starters flagged).
+    statuses, starters = {}, set()
+    for e in api.roster_entries(data, team_id):
+        p = e["playerPoolEntry"]["player"]
+        statuses[str(p["id"])] = {"name": p["fullName"], "status": p.get("injuryStatus") or "",
+                                  "slot": e.get("lineupSlotId")}
+        if e.get("lineupSlotId") not in (20, 21):
+            starters.add(str(p["id"]))
+    for pid, cur in statuses.items():
+        prev = st["status"].get(pid)
+        if prev is None:
+            continue  # new to the roster; the claim result covers it
+        if prev.get("status") != cur["status"]:
+            events.append({"kind": "status", "player": cur["name"], "from": prev.get("status") or "healthy",
+                           "to": cur["status"] or "healthy", "starter": pid in starters,
+                           "judgment": cur["status"] in NEEDS_JUDGMENT and pid in starters
+                                       or cur["status"] == "INJURY_RESERVE"})
+    for pid in list(st["status"]):
+        if pid not in statuses:
+            events.append({"kind": "left_roster", "player": st["status"][pid]["name"], "judgment": False})
+    for pid, cur in statuses.items():
+        if pid not in st["status"] and not st.get("first_run"):
+            events.append({"kind": "joined_roster", "player": cur["name"], "judgment": False})
+
+    # 2. Pending transactions: our claims (status changes) and anything aimed at us.
+    pend = data.get("pendingTransactions") or []
+    seen = st["pending"]
+    now_ids = set()
+    for t in pend:
+        tid = t.get("id"); now_ids.add(tid)
+        mine = t.get("teamId") == team_id
+        aimed = any(i.get("toTeamId") == team_id or i.get("fromTeamId") == team_id for i in t.get("items", []))
+        if tid not in seen:
+            if not mine and aimed:
+                events.append({"kind": "trade_offer" if "TRADE" in str(t.get("type", "")) else "incoming_transaction",
+                               "from_team": t.get("teamId"), "type": t.get("type"), "status": t.get("status"),
+                               "items": t.get("items"), "id": tid, "judgment": True})
+            seen[tid] = {"type": t.get("type"), "status": t.get("status"), "mine": mine}
+        elif seen[tid].get("status") != t.get("status"):
+            events.append({"kind": "waiver_result" if mine else "transaction_update", "id": tid,
+                           "type": t.get("type"), "from": seen[tid].get("status"), "to": t.get("status"),
+                           "items": t.get("items"), "judgment": mine})
+            seen[tid]["status"] = t.get("status")
+    for tid in list(seen):
+        if tid not in now_ids and seen[tid].get("mine") and seen[tid].get("status") == "PENDING":
+            # A claim that vanished from pending was processed (executed or failed);
+            # the roster diff above says which. Hand it to the routine to log.
+            events.append({"kind": "waiver_result", "id": tid, "type": seen[tid].get("type"),
+                           "from": "PENDING", "to": "processed (see roster)", "judgment": True})
+            seen.pop(tid)
+
+    st["status"] = statuses
+    st["first_run"] = False
+    if not events:
+        print(f"{stamp} no change ({len(statuses)} rostered, {len(pend)} pending)")
+        if not args.dry_run:
+            STATE.parent.mkdir(parents=True, exist_ok=True); STATE.write_text(json.dumps(st, indent=1))
+        return 0
+
+    for ev in events:
+        ev.update({"ts": stamp, "handled": False})
+        print(f"{stamp} EVENT {json.dumps(ev)[:300]}")
+    if args.dry_run:
+        return 0
+    with INCIDENTS.open("a") as fh:
+        for ev in events:
+            fh.write(json.dumps(ev) + "\n")
+    STATE.write_text(json.dumps(st, indent=1))
+
+    heads = []
+    for ev in events:
+        if ev["kind"] == "status":
+            heads.append(f"{ev['player']}: {ev['from']} -> {ev['to']}" + (" (starter)" if ev.get("starter") else ""))
+        elif ev["kind"] == "trade_offer":
+            heads.append("trade offer received")
+        elif ev["kind"] == "waiver_result":
+            heads.append("waiver claim processed")
+        else:
+            heads.append(ev["kind"].replace("_", " ") + (f": {ev.get('player')}" if ev.get("player") else ""))
+    judgment = any(ev.get("judgment") for ev in events)
+    msg = "; ".join(heads)[:200] + (". MIST is on it." if judgment and not args.no_routine else "")
+    link = LEAGUE_URL if any(ev["kind"] == "trade_offer" for ev in events) else ROSTER_URL
+    subprocess.run([str(NOTIFY), msg, "MIST roster watch", "default", link, "--group", "roster-watch",
+                    "--action", "Ask MIST=console"], check=False, capture_output=True, timeout=20)
+    if judgment and not args.no_routine and RUNNER.exists():
+        with ROUTINE_LOG.open("a") as logf:
+            subprocess.Popen(["/bin/bash", str(RUNNER), "fantasy-incident"], stdout=logf, stderr=logf,
+                             start_new_session=True)
+        print(f"{stamp} started fantasy-incident routine")
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())

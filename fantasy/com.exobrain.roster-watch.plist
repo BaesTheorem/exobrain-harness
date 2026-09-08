@@ -3,22 +3,21 @@
 <plist version="1.0">
 <dict>
 	<key>Label</key>
-	<string>com.exobrain.lineup-watch</string>
+	<string>com.exobrain.roster-watch</string>
 	<key>ProgramArguments</key>
 	<array>
 		<string>/opt/homebrew/bin/python3</string>
-		<string>/Users/alexhedtke/Documents/Exobrain harness/fantasy/bin/lineup-watch</string>
-		<string>--fix</string>
+		<string>/Users/alexhedtke/Documents/Exobrain harness/fantasy/bin/roster-watch</string>
 	</array>
 	<key>WorkingDirectory</key>
 	<string>/Users/alexhedtke/Documents/Exobrain harness/fantasy</string>
 	<key>StartInterval</key>
-	<integer>900</integer>
+	<integer>1800</integer>
 	<key>RunAtLoad</key>
 	<true/>
 	<key>StandardOutPath</key>
-	<string>/Users/alexhedtke/Library/Logs/exobrain/lineup-watch.log</string>
+	<string>/Users/alexhedtke/Library/Logs/exobrain/roster-watch.log</string>
 	<key>StandardErrorPath</key>
-	<string>/Users/alexhedtke/Library/Logs/exobrain/lineup-watch-error.log</string>
+	<string>/Users/alexhedtke/Library/Logs/exobrain/roster-watch-error.log</string>
 </dict>
 </plist>

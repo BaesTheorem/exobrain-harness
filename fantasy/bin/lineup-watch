@@ -10,7 +10,13 @@ window's edge and once more as a final call, and it notifies definite problems
 clock. A clean lineup produces one log line and no banner. State lives in
 fantasy/.cache/lineup-watch.json so a problem is not re-announced every run.
 
-    lineup-watch [--window 75] [--final 20] [--dry-run] [--force]
+With --fix (the launchd job passes it) it also repairs the definite problems
+itself through the write lane, one verified swap at a time: OUT, IR, bye,
+suspension, and empty slots on sight; DOUBTFUL and a QUESTIONABLE starter
+whose weekly projection ESPN has zeroed inside the window. A QUESTIONABLE
+starter still projected to play is never auto-swapped; that is a ping.
+
+    lineup-watch [--window 75] [--final 20] [--fix] [--dry-run] [--force]
 """
 
 from __future__ import annotations
@@ -21,14 +27,18 @@ import pathlib
 import subprocess
 import sys
 import time
+import re
 from datetime import datetime, timezone
 
 HERE = pathlib.Path(__file__).resolve().parent
 FANTASY = HERE.parent
+sys.path.insert(0, str(FANTASY))
 STATE = FANTASY / ".cache" / "lineup-watch.json"
 NOTIFY = FANTASY.parent / "mist-voice" / "bin" / "mist-notify"
 ROSTER_URL = "https://fantasy.espn.com/football/team?leagueId=45635023&teamId=12"
 DEFINITE = {"OUT", "EMPTY", "INJURY_RESERVE", "SUSPENSION", "BYE", "DOUBTFUL"}
+FIX_ON_SIGHT = {"OUT", "EMPTY", "INJURY_RESERVE", "SUSPENSION", "BYE"}
+FIX_IN_WINDOW = {"DOUBTFUL"}
 
 
 def check(retries: int = 3) -> dict:
@@ -40,6 +50,58 @@ def check(retries: int = 3) -> dict:
             return json.loads(r.stdout)
         time.sleep(20 * (i + 1))
     raise SystemExit(f"espn check failed: {r.stderr.strip()[:300]}")
+
+
+def team_projections() -> dict:
+    """Weekly projection per rostered player name, from espn team --json."""
+    r = subprocess.run([sys.executable, str(HERE / "espn"), "team", "--json"],
+                       capture_output=True, text=True, timeout=180)
+    if r.returncode != 0:
+        return {}
+    return {row["name"]: row.get("proj") or 0.0 for row in json.loads(r.stdout).get("roster", [])}
+
+
+def fixable(p: dict, mins: float | None, window: int, projs: dict) -> bool:
+    """Should --fix repair this problem right now?"""
+    kind = p.get("kind")
+    if not re.search(r"swap in (.+?) \(", p.get("fix") or ""):
+        return False
+    if kind in FIX_ON_SIGHT:
+        return True
+    in_window = mins is not None and 0 < mins <= window
+    if kind in FIX_IN_WINDOW:
+        return in_window
+    if kind == "QUESTIONABLE":
+        return in_window and (projs.get(p.get("player"), 1.0) or 0.0) <= 0.0
+    return False
+
+
+def apply_fix(p: dict, dry: bool) -> str | None:
+    """Swap the suggested bench player in for the problem starter. Returns a
+    description on success, None on failure. Verified by the write lane's own
+    roster read-back, never by the request status."""
+    m = re.search(r"swap in (.+?) \(", p.get("fix") or "")
+    if not m:
+        return None
+    incoming, outgoing = m.group(1).strip(), p.get("player")
+    if dry:
+        return f"DRY-RUN would swap {incoming} in for {outgoing} ({p.get('kind')})"
+    from espncli.client import Espn  # noqa: PLC0415 -- only the fix path needs the client
+    from espncli.tx import EspnWriter  # noqa: PLC0415
+    api = Espn()
+    w = EspnWriter(api)
+    if p.get("kind") == "EMPTY":
+        # Nothing to bench: move the bench player into the empty slot directly.
+        from espncli.client import SLOT_BY_NAME  # noqa: PLC0415
+        slot = SLOT_BY_NAME.get(str(p.get("slot", "")).upper())
+        if slot is None:
+            return None
+        res = w.move(api.resolve_one(incoming)["id"], slot)
+        return f"{incoming} into the empty {p.get('slot')} slot (verified)" if res.get("verified") else None
+    res = w.swap(api.resolve_one(incoming)["id"], api.resolve_one(outgoing)["id"])
+    if not res.get("verified"):
+        return None
+    return f"{outgoing} ({p.get('kind')}) to the bench, {incoming} in at {res.get('slot')} (verified)"
 
 
 def load_state() -> dict:
@@ -71,10 +133,44 @@ def main() -> int:
     ap.add_argument("--final", type=int, default=20, help="minutes before lock for the final call")
     ap.add_argument("--dry-run", action="store_true")
     ap.add_argument("--force", action="store_true", help="ping every current problem now (test)")
+    ap.add_argument("--fix", action="store_true", help="repair definite problems through the write lane")
     args = ap.parse_args()
 
     d = check()
     now = datetime.now(timezone.utc)
+    if args.fix and d.get("problems"):
+        projs = team_projections()
+        for _ in range(4):  # one verified swap per pass, then look again
+            locks_now = {}
+            for row in d.get("lock_order", []):
+                try:
+                    locks_now[row["player"]] = datetime.fromisoformat(row["kickoff"])
+                except (KeyError, ValueError):
+                    pass
+            todo = None
+            for p in d.get("problems", []):
+                kick = locks_now.get(p.get("player"))
+                mins = (kick - now).total_seconds() / 60 if kick else None
+                if kick and mins is not None and mins <= 0:
+                    continue  # locked; nothing can be done
+                if fixable(p, mins, args.window, projs):
+                    todo = p
+                    break
+            if not todo:
+                break
+            done = apply_fix(todo, args.dry_run)
+            stamp = time.strftime("%Y-%m-%d %H:%M")
+            if done:
+                print(f"{stamp} FIXED {done}")
+                if not args.dry_run:
+                    notify(f"Lineup fixed: {done}", final=False, dry=False,
+                           ident=f"lineup-fix-{(todo.get('player') or '').replace(' ', '-')}")
+                if args.dry_run:
+                    break
+                d = check()
+            else:
+                print(f"{stamp} FIX FAILED for {todo.get('player')} ({todo.get('kind')}); falling through to a ping")
+                break
     locks = {}
     for row in d.get("lock_order", []):
         try:
