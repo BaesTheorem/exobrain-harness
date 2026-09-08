@@ -15,6 +15,32 @@ below traces to a source in `references/evidence.md`. Claims marked UNVERIFIED
 were not confirmable against a primary source. Do not launder them into
 confident advice.
 
+## The playbook governs every judgment call
+
+**`~/Exobrain/Areas/Adventure & Creativity/Fantasy Football/Fantasy Football Playbook.md`**
+is the decision document for the current season; this skill is the evidence
+behind it. Before any judgment call (a lineup, a start/sit, a waiver claim, a
+drop, a trade offer or response, an IR move, a streamer, advice to Alex), open
+the playbook and apply its rule for that call. Cite the rule you applied. If
+the playbook has no rule for the situation, decide from the evidence here,
+then **write the new rule into the playbook** in the section it belongs to,
+so the next call does not have to reason from scratch. When the two disagree,
+the playbook wins; if that is because the playbook is stale, fix the playbook.
+
+Where each call lives in the playbook:
+
+| Call | Playbook section |
+|---|---|
+| Lineup, start/sit, flex, questionable starters | *The variance rule*; *Season operations* rules 1-3 (never a zero, per-game variance with the Points For caveat, idle week) |
+| Waiver claims and drops | *Waivers: reverse standings, resets weekly*; *Season operations* rules 4-5 (regular-season weighting, front-loaded aggression) |
+| Trades, offers in or out | *Trades*; *Season operations* standing limits (Alex's tap required); *Contested, deliberately unresolved* (stacking) |
+| IR, handcuffs, K and D/ST streaming | *Roster management* |
+| The season objective and how to weigh a week | *The strategic thesis: play for the bye*; *Set expectations first* |
+| Current roster, pending claims, pending offers | *Season operations*, the roster-state paragraph |
+| What has already been decided and why | *Season log* (newest first) |
+| What is still unknown | *Open questions* |
+| League settings when a tool and memory disagree | *League at a glance* (the note wins) |
+
 ## Live league data
 
 `fantasy/bin/ff` in the harness reads the real league over the ESPN API
@@ -285,9 +311,10 @@ reported intent.
 **`~/Exobrain/Areas/Adventure & Creativity/Fantasy Football/Fantasy Football Playbook.md`**
 
 That note is the operational source of truth for the current season. **Read it at
-the start of any fantasy task**, because it holds the current state (draft date,
-draft slot, roster, league observations, season log) that this skill deliberately
-does not duplicate.
+the start of any fantasy task and again before every judgment call** (the
+section map is at the top of this skill), because it holds the current state
+(roster, pending moves, league observations, season log) and the decided
+rules that this skill deliberately does not duplicate.
 
 **Keep it current.** Write back to it whenever something is learned or decided:
 
@@ -823,6 +850,10 @@ Ranked by how confidently the evidence says to skip it:
 
 ## 7. How to answer Alex
 
+- **The playbook first, for every judgment call.** Open the section from the
+  map at the top of this skill, apply its rule, and say which rule you
+  applied. If there is no rule, decide from the evidence here and write the
+  rule into the playbook before answering.
 - **Confirm format first.** Scoring (PPR/half/standard), league size, roster slots,
   superflex, waiver system. Half this document's advice inverts on these.
 - **Lead with opportunity metrics.** Target share, routes, snap share, touch share.
