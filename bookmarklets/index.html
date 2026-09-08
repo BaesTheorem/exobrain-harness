@@ -1,0 +1,117 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Bookmarklets</title>
+<style>
+  :root {
+    color-scheme: light dark;
+    --surface: #fdfcf8;
+    --surface-container: #f2efe7;
+    --on-surface: #1b1b17;
+    --on-surface-variant: #47483f;
+    --outline: #78786d;
+    --outline-variant: #c9c7ba;
+    --primary: #4c662b;
+    --on-primary: #ffffff;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --surface: #13140e;
+      --surface-container: #1f201a;
+      --on-surface: #e4e3d9;
+      --on-surface-variant: #c7c8b9;
+      --outline: #918f84;
+      --outline-variant: #47483f;
+      --primary: #b1d18a;
+      --on-primary: #1f3701;
+    }
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    padding: 48px 24px;
+    background: var(--surface);
+    color: var(--on-surface);
+    font: 400 15px/1.6 system-ui, -apple-system, "Segoe UI", sans-serif;
+  }
+  main { max-width: 720px; margin: 0 auto; }
+  h1 { font-size: 28px; font-weight: 400; margin: 0 0 4px; letter-spacing: 0; }
+  p.sub { color: var(--on-surface-variant); margin: 0 0 40px; }
+  section {
+    border: 1px solid var(--outline-variant);
+    background: var(--surface-container);
+    padding: 20px;
+    margin-bottom: 16px;
+  }
+  h2 { font-size: 18px; font-weight: 500; margin: 0 0 6px; }
+  section p { color: var(--on-surface-variant); margin: 0 0 16px; }
+  a.bm {
+    display: inline-block;
+    padding: 10px 20px;
+    border: 1px solid var(--outline);
+    color: var(--primary);
+    text-decoration: none;
+    font-weight: 500;
+    cursor: grab;
+  }
+  a.bm:hover { background: color-mix(in srgb, var(--primary) 10%, transparent); }
+  code {
+    font: 400 13px/1.5 ui-monospace, SFMono-Regular, Menlo, monospace;
+    color: var(--on-surface-variant);
+  }
+  details { margin-top: 14px; }
+  summary { cursor: pointer; color: var(--on-surface-variant); font-size: 13px; }
+  details pre {
+    white-space: pre-wrap;
+    word-break: break-all;
+    border: 1px solid var(--outline-variant);
+    padding: 12px;
+    margin: 10px 0 0;
+    font: 400 12px/1.5 ui-monospace, SFMono-Regular, Menlo, monospace;
+    color: var(--on-surface-variant);
+  }
+  footer { color: var(--on-surface-variant); font-size: 13px; margin-top: 32px; }
+</style>
+</head>
+<body>
+<main>
+  <h1>Bookmarklets</h1>
+  <p class="sub">Drag a button to the bookmarks bar. The link text becomes the bookmark name, so the emoji reads as its icon.</p>
+
+  <section>
+    <h2>Wayback Machine</h2>
+    <p>Opens the newest archived snapshot of the page you are on, in a new tab. If you are already looking at an archived page, it goes to that URL's full capture calendar instead.</p>
+    <a class="bm" id="wayback" href="#">🕰️ Wayback</a>
+    <details>
+      <summary>Source</summary>
+      <pre id="wayback-src"></pre>
+    </details>
+  </section>
+
+  <section>
+    <h2>Save Page Now</h2>
+    <p>Asks the Wayback Machine to archive the current page right now. Useful before a listing, a posting, or a news story can change under you.</p>
+    <a class="bm" id="save" href="#">💾 Archive This</a>
+    <details>
+      <summary>Source</summary>
+      <pre id="save-src"></pre>
+    </details>
+  </section>
+
+  <footer>Lives in <code>Exobrain harness/bookmarklets/index.html</code>.</footer>
+</main>
+<script>
+  // Assigned via JS so the raw javascript: text survives editors and linters intact.
+  var BM = {
+    wayback: "javascript:(function(){var u=location.href,m=u.match(/^https?:\\/\\/web\\.archive\\.org\\/web\\/[^\\/]+\\/(https?:.+)$/);window.open(m?'https://web.archive.org/web/*/'+m[1]:'https://web.archive.org/web/2/'+u,'_blank');})()",
+    save: "javascript:(function(){window.open('https://web.archive.org/save/'+location.href,'_blank');})()"
+  };
+  for (var id in BM) {
+    document.getElementById(id).href = BM[id];
+    document.getElementById(id + "-src").textContent = BM[id];
+  }
+</script>
+</body>
+</html>
