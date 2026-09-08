@@ -198,6 +198,17 @@ query MyGroups($first: Int, $after: String, $filter: MembershipsFilter) {
 }
 """
 
+Q_PAYMENTS = """
+query Payments($first: Int, $after: String, $filter: PaymentHistoryFilter) {
+  self {
+    paymentsHistory(first: $first, after: $after, filter: $filter) {
+      pageInfo { hasNextPage endCursor }
+      edges { node { id creationDate amount currency invoiceNumber status url } }
+    }
+  }
+}
+"""
+
 M_RSVP = """
 mutation Rsvp($input: RsvpInput!) {
   rsvp(input: $input) { errors { code field message } rsvp { id status guestsCount } }
@@ -459,6 +470,31 @@ class MeetupClient:
                 node["myStatus"] = meta.get("status")
                 out.append(node)
         return out
+
+    PAYMENT_LANES = ["MEMBER", "ORGANIZER"]
+
+    def payments(self, *, limit: int = 200, lane: str | None = None) -> list[Json]:
+        """Paid invoices on the account, oldest first.
+
+        The unfiltered connection has answered with the organizer lane only, so both lanes are
+        swept and merged by id unless ``lane`` pins one.
+        """
+        lanes = [lane] if lane else self.PAYMENT_LANES
+        by_id: dict[str, Json] = {}
+        for one in lanes:
+            variables = {"filter": {"subscriptionType": one}}
+            for node in self._nodes(
+                self._pages(Q_PAYMENTS, variables, ("self", "paymentsHistory"), limit, authed=True)
+            ):
+                by_id.setdefault(str(node.get("id")), node)
+        return sorted(by_id.values(), key=lambda n: str(n.get("creationDate") or ""))
+
+    def invoice_page(self, url: str) -> str:
+        """The hosted invoice page for a payment, as HTML. Public capability URL, no cookie."""
+        status, body = self._transport("GET", url, None, {"User-Agent": UA})
+        if status != 200:
+            raise MeetupError(f"invoice fetch failed with HTTP {status}")
+        return body.decode("utf-8", "replace")
 
     def _mutate(self, mutation: str, key: str, variables: Json) -> Json:
         result = self.gql(mutation, variables, authed=True).get(key) or {}

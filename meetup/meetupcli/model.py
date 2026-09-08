@@ -5,6 +5,7 @@ Nothing here touches the network, so all of it is covered by tests/test_meetupcl
 
 from __future__ import annotations
 
+import html
 import re
 from datetime import datetime, timedelta
 from typing import Any
@@ -199,3 +200,54 @@ def normalize_group(n: Json) -> Json:
         last = [e["node"] for e in past.get("edges") or [] if e.get("node")]
         rec["lastEvent"] = {"id": last[0].get("id"), "title": last[0].get("title"), "start": last[0].get("dateTime")} if last else None
     return rec
+
+# -- payments --------------------------------------------------------------------------------
+
+# Meetup bills through Taxamo, whose hosted invoice carries fields the GraphQL record does not:
+# the human invoice number, the period the payment covers, and the order date. The page is plain
+# HTML, so the parse is a handful of anchored regexes over the tag-stripped text. Amounts appear
+# in two shapes depending on the invoice's vintage: "US$ 98.94" on the old ones, "98.94 USD" on
+# the new.
+_MONEY = r"(?:US\$\s*([\d,]+\.\d\d)|([\d,]+\.\d\d)\s*USD)"
+_INV_FIELDS = {
+    "invoiceNo": r"Invoice # ?: ([A-Za-z0-9\-]+)",
+    "billingCycle": r"Billing cycle: (.+?) Order date:",
+    "orderDate": r"Order date: (.+?) Order number:",
+    "orderNumber": r"Order number: ([A-Za-z0-9\-]+)",
+    "product": r"Summary Meetup Meetup (Subscription: .+?)\s+(?:US\$|[\d,]+\.\d\d\s*USD)",
+}
+
+
+def invoice_text(page: str) -> str:
+    """Tag-stripped, whitespace-collapsed text of a Taxamo invoice page."""
+    return re.sub(r"\s+", " ", html.unescape(re.sub(r"<[^>]+>", " ", page)).replace("\xa0", " ")).strip()
+
+
+def parse_invoice(page: str) -> Json:
+    """The fields Meetup's hosted invoice adds on top of the payment record."""
+    text = invoice_text(page)
+    out: Json = {k: (m.group(1).strip() if (m := re.search(p, text)) else None)
+                 for k, p in _INV_FIELDS.items()}
+
+    def money(pattern: str) -> float | None:
+        m = re.search(pattern, text)
+        return float((m.group(1) or m.group(2)).replace(",", "")) if m else None
+
+    out["total"] = money(r"Total\s+" + _MONEY)
+    out["discount"] = money(r"Discount\s*\(\s*" + _MONEY + r"\s*\)")
+    return out
+
+
+def normalize_payment(n: Json) -> Json:
+    """A paid invoice, flattened. ``amount`` is dollars; the API reports cents."""
+    cents = n.get("amount")
+    return {
+        "id": n.get("id"),
+        "date": (n.get("creationDate") or "")[:10] or None,
+        "creationDate": n.get("creationDate"),
+        "amount": round(cents / 100, 2) if isinstance(cents, int) else None,
+        "currency": n.get("currency"),
+        "orderNumber": n.get("invoiceNumber"),
+        "status": n.get("status"),
+        "url": n.get("url"),
+    }

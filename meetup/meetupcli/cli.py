@@ -19,7 +19,15 @@ from zoneinfo import ZoneInfo
 
 from meetupcli import store
 from meetupcli.api import MeetupClient, MeetupError
-from meetupcli.model import normalize_event, normalize_group, parse_event_ref, parse_group_ref, window
+from meetupcli.model import (
+    normalize_event,
+    normalize_group,
+    normalize_payment,
+    parse_event_ref,
+    parse_group_ref,
+    parse_invoice,
+    window,
+)
 
 Json = dict[str, Any]
 
@@ -448,6 +456,42 @@ def cmd_my_groups(args: argparse.Namespace) -> int:
     return 0
 
 
+def cmd_payments(args: argparse.Namespace) -> int:
+    client = make_client()
+    rows = [normalize_payment(n) for n in client.payments(limit=args.limit, lane=args.lane)]
+    if args.invoices:
+        for row in rows:
+            if row["url"]:
+                row.update(parse_invoice(client.invoice_page(row["url"])))
+    if args.since:
+        rows = [r for r in rows if (r["date"] or "") >= args.since]
+
+    if args.json:
+        emit_json(rows)
+        return 0
+    if not rows:
+        print("No payments on this account.")
+        return 0
+
+    print("Paid Meetup invoices, oldest first:\n")
+    for r in rows:
+        amount = f"${r['amount']:,.2f}" if r["amount"] is not None else "?"
+        line = f"  {r['date'] or '?':<11} {amount:>10}  {r['orderNumber'] or ''}"
+        if r.get("invoiceNo"):
+            line += f"  invoice {r['invoiceNo']}"
+        print(line)
+        if r.get("billingCycle"):
+            covers = f"covers {r['billingCycle']}"
+            if r.get("product"):
+                covers += f" ({r['product']})"
+            print(f"              {covers}")
+        if r.get("discount"):
+            print(f"              discount of ${r['discount']:,.2f} applied")
+    total = sum(r["amount"] or 0 for r in rows)
+    print(f"\n  {len(rows)} payment(s), ${total:,.2f} total")
+    return 0
+
+
 def cmd_rsvp(args: argparse.Namespace) -> int:
     event_id = parse_event_ref(args.ref)
     going = args.answer == "yes"
@@ -606,6 +650,14 @@ def build_parser() -> argparse.ArgumentParser:
     s.add_argument("--all", action="store_true", help="include dead and blocked memberships too")
     s.add_argument("--limit", type=int, default=50)
     s.set_defaults(func=cmd_my_groups)
+
+    s = sub.add_parser("payments", parents=[common], help="paid invoices on your account")
+    s.add_argument("--invoices", action="store_true",
+                   help="also fetch each hosted invoice for its number, billing period and total")
+    s.add_argument("--since", metavar="YYYY-MM-DD", help="only payments on or after this date")
+    s.add_argument("--lane", choices=["MEMBER", "ORGANIZER"], help="one subscription lane (default: both)")
+    s.add_argument("--limit", type=int, default=200, help="max payments per lane (default 200)")
+    s.set_defaults(func=cmd_payments)
 
     s = sub.add_parser("rsvp", parents=[common], help="RSVP yes or no to an event (asks first)")
     s.add_argument("ref", help="event id or URL")
