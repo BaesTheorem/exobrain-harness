@@ -30,5 +30,16 @@ autonomously; you decide, act, and record. Work from the harness directory
    Silence means nothing changed. No em dashes anywhere.
 6. Judge process, not outcome. A loss to a 150-point week is variance, not a
    reason to change a rule; a rule changes only when its reasoning failed.
+7. Yardsticks from the research (`~/Exobrain/Research/Fantasy Football Winning
+   Strategy.md`, the evidence behind the skill): a home league is ~80% luck,
+   and one extra point per week of lineup edge is worth about +0.7% title
+   odds. So a move that gains under a point a week is not worth churn,
+   friction, or a favor; a move that gains three is worth pursuing hard.
+   Never cite ESPN's trade "fairness" grade or any trade analyzer: none has
+   published calibration. Reason from volume. Ignore strength of schedule
+   (one team in six years repeated as stingiest against a position; playoff
+   weeks 15-17 SOS is unverified and gets no weight); for kickers and
+   defenses use implied totals and weather (`espn stream`), not opponents'
+   reputations.
 7. Finish with a one-paragraph plain-text summary of what you did (it lands in
    the routine log).
