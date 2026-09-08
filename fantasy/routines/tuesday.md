@@ -52,6 +52,11 @@ Follow `fantasy/routines/COMMON.md` first. If today is not Tuesday, stop.
    "George Pickens" --with "Ayahuasca Rodgers"`. This one re-send is the only
    offer you send without asking; Alex approved it on 2026-09-07. Stop if the
    playbook's Season log says he withdrew it.
+   **Watch list.** `fantasy/watchlist.json` is the set of players and teams
+   roster-watch tracks between runs, each with a `why` and a `trigger`.
+   Review it: act on any trigger that has fired (the incidents file shows
+   watch events), remove entries that no longer matter, add the week's new
+   buy-low and sell-high candidates with their triggers, and bump `updated`.
 5. **Tendencies.** `fantasy/bin/espn activity --json` since last Tuesday: who
    is active, who never touches an autopicked roster (that roster is the
    wire's feeder). Update the playbook's league observations, not just the log.

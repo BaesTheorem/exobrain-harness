@@ -1,0 +1,129 @@
+{
+ "updated": "2026-09-07",
+ "players": [
+  {
+   "id": 4426354,
+   "name": "George Pickens",
+   "pos": "WR",
+   "nfl": 6,
+   "why": "the standing offer's target (Watson + Nailor); the manager has never been in the room",
+   "trigger": "any roster move by Ayahuasca Rodgers means the manager is active: re-send the offer if expired and ping Alex",
+   "added": "2026-09-07"
+  },
+  {
+   "id": 4596448,
+   "name": "Bucky Irving",
+   "pos": "RB",
+   "nfl": 27,
+   "why": "BUY flag (volume, unlucky on TDs); Irving-for-Stevenson was dead even on ESPN's screen",
+   "trigger": "after week 2, if his touches hold at 15+ a game and his owner is 0-2, put the offer to Alex",
+   "added": "2026-09-07"
+  },
+  {
+   "id": 4241389,
+   "name": "CeeDee Lamb",
+   "pos": "WR",
+   "nfl": 6,
+   "why": "BUY flag: 9.0 targets a game, 25% share, 3 TDs last year; on Goedel, Escher, Butkus",
+   "trigger": "two touchdown-less weeks on maintained volume: week-3 buy-low candidate",
+   "added": "2026-09-07"
+  },
+  {
+   "id": 4262921,
+   "name": "Justin Jefferson",
+   "pos": "WR",
+   "nfl": 16,
+   "why": "BUY flag: 8.3 targets, 31% share, 2 TDs; on Waiting for Gordon",
+   "trigger": "same trigger as Lamb; price will be high, needs a two-for-one",
+   "added": "2026-09-07"
+  },
+  {
+   "id": 16737,
+   "name": "Mike Evans",
+   "pos": "WR",
+   "nfl": 25,
+   "why": "BUY flag: 7.8 targets, 24% share, 3 TDs; on Goedel, Escher, Butkus",
+   "trigger": "a quiet start makes him the cheapest of the BUY receivers",
+   "added": "2026-09-07"
+  },
+  {
+   "id": 4569587,
+   "name": "Wan'Dale Robinson",
+   "pos": "WR",
+   "nfl": 10,
+   "why": "BUY flag: 8.8 targets, 30% share; on The Winners (the league's weakest roster)",
+   "trigger": "a losing owner with a volume receiver is the ideal week-3 counterpart",
+   "added": "2026-09-07"
+  },
+  {
+   "id": 3149687,
+   "name": "Chris Brooks",
+   "pos": "RB",
+   "nfl": 9,
+   "why": "our first waiver claim; Green Bay backfield with Jacobs on the exempt list",
+   "trigger": "if the claim fails, watch his snap share; 50%+ makes him a free-agent add",
+   "added": "2026-09-07"
+  },
+  {
+   "id": 4429023,
+   "name": "MarShawn Lloyd",
+   "pos": "RB",
+   "nfl": 9,
+   "why": "the other Packers back, on Goedel, Escher, Butkus",
+   "trigger": "whichever of Lloyd and Brooks gets the touches is the buy; the other is noise",
+   "added": "2026-09-07"
+  },
+  {
+   "id": 4047365,
+   "name": "Josh Jacobs",
+   "pos": "RB",
+   "nfl": 9,
+   "why": "commissioner's exempt list (charged, denies); on The Oprah Winfreys",
+   "trigger": "reinstatement with the role intact = buy-low from a frustrated owner; ask Alex",
+   "added": "2026-09-07"
+  },
+  {
+   "id": 4569559,
+   "name": "Devaughn Vele",
+   "pos": "WR",
+   "nfl": 18,
+   "why": "our backup waiver claim; best free-agent receiver by projection",
+   "trigger": "if both claims fail he is the first free-agent add",
+   "added": "2026-09-07"
+  },
+  {
+   "id": 3886598,
+   "name": "Jauan Jennings",
+   "pos": "WR",
+   "nfl": 16,
+   "why": "free agent with the most volume on the wire (6.0 targets on 82% snaps) despite a SELL flag on 9 TDs",
+   "trigger": "a week of 8+ targets: claim as depth, volume beats the flag",
+   "added": "2026-09-07"
+  },
+  {
+   "id": 4568490,
+   "name": "RJ Harvey",
+   "pos": "RB",
+   "nfl": 7,
+   "why": "ours; SELL flag (12 TDs on 42% snaps)",
+   "trigger": "a two-touchdown game: sell high the following Tuesday",
+   "added": "2026-09-07"
+  },
+  {
+   "id": 4880281,
+   "name": "Jordyn Tyson",
+   "pos": "WR",
+   "nfl": 18,
+   "why": "ours, IR designated to return (hamstring, ~mid-October)",
+   "trigger": "when his practice window opens, decide activation on the role, not the injury",
+   "added": "2026-09-07"
+  }
+ ],
+ "teams": [
+  {
+   "id": 14,
+   "name": "Ayahuasca Rodgers",
+   "why": "absent manager; any roster move means the standing offer can land"
+  }
+ ]
+}
