@@ -77,12 +77,38 @@ means no cookie or a rejected one: re-run `auth import`, don't retry the command
   `--yes`; pass `--yes` only after his explicit go-ahead.
 - `rsvp` and `save` have not been run on a real event yet (as of 2026-09-07). First real use
   is a test on something he'd attend anyway; record what you learn in [[project_meetup_cli]].
-- Alex organizes **KC Rationality and Effective Altruism** (`kc_rat_ea`, private, no
-  upcoming events as of 2026-09-06) and pays for a Meetup organizer plan. Organizer-side
-  mutations (`createEvent`, `editEvent`, `announceEvent`) exist on the endpoint and are
-  **not built**; if he wants Meetup events created from the terminal, that is the next
-  piece, and `announceEvent` emails members, so it needs the same per-send approval rule as
-  Luma blasts.
+- Alex organizes **KC Rationality and Effective Altruism** (`kc_rat_ea`, private, 622
+  members) and pays for a Meetup organizer plan.
+
+## Organizer writes
+
+`create-event`, `publish`, `create-venue`, `delete-event`, and `venues` cover the organizer
+lane. `create-event` makes a **draft** unless `--publish`; publishing is its own prompted
+step. `announceEvent` emails the whole group and is deliberately not implemented, same
+per-send approval rule as Luma blasts.
+
+- **Publishing is the gate, drafting is not.** A draft reaches no member, no group page, and
+  no mail, so drafting a batch and reading it back costs nothing. Publishing is visible to
+  all 622 members at once and cannot be unsent, so it needs Alex's explicit go-ahead.
+- **A draft is unannounced, not private.** Anyone querying the group for `status: DRAFT` by
+  name gets the id and title back (`venue` comes back null). Fine for mirroring listings
+  already public elsewhere; not a place to park anything private.
+- **Never take a venue from search without checking its address.** `venues` ranks by fuzzy
+  name over distance, and its records are member-entered and go stale. Both bit on the KC EA
+  calendar: the KC `Minskys Pizza` is the third hit behind Lenexa and Overland Park, and the
+  first `Pawn and Pint` hit still carries the Southwest Blvd address the venue moved away
+  from. Search the short distinctive word (`Pawn`, not `Pawn and Pint`) since punctuation in
+  the stored name (`Pawn & Pint`) hides better records, and confirm the street address
+  against Google before using an id.
+
+## Mirroring Luma onto Meetup
+
+`bin/luma-to-meetup` (harness root) syncs the KC EA Luma calendar to `kc_rat_ea`. Luma is the
+source of truth; the script only creates, never edits or deletes, so hand edits on the Meetup
+side survive. Each listing opens with a link back to its Luma page. Runs are idempotent
+(matching spans drafts and published alike) and drafts unless `--publish`; `--dry-run` and
+`--until` bound a run. Venues live in a checked lookup table in the script, and an
+unrecognized venue stops the run rather than guessing an address members would drive to.
 
 ## Feeding /local-events
 
