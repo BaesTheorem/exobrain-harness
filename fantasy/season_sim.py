@@ -172,7 +172,6 @@ def main():
 
     teams, games, reg = load(args.season)
     board = board_scores(teams)
-    names = {t["name"]: tid for tid, t in teams.items()}
 
     print("## Scoreboard 1: our system (value over replacement by our board, from ESPN's pick record)\n")
     print("| # | Team | Starters VOR | All 16 picks |")
@@ -183,7 +182,7 @@ def main():
     print("\n## Scoreboard 2: ESPN's system (optimal lineup on ESPN 2026 projections, league scoring)\n")
     print("| # | Team | Proj starters (season) | Per week |")
     print("|---|---|---|---|")
-    for i, (tid, t) in enumerate(sorted(teams.items(), key=lambda kv: -kv[1]["espn"]), 1):
+    for i, (_tid, t) in enumerate(sorted(teams.items(), key=lambda kv: -kv[1]["espn"]), 1):
         print(f"| {i} | {t['name']} | {t['espn']:.0f} | {t['espn'] / NFL_WEEKS:.1f} |")
 
     ids, mu, wins, losses, pf, probs = simulate(teams, games, reg, args.sims, args.sigma, args.tau, args.seed)
