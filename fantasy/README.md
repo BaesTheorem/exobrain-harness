@@ -95,6 +95,27 @@ The payload shape ESPN's web client uses is documented at the top of
 `espncli/tx.py`. Writes go to `lm-api-writes.fantasy.espn.com` (the reads host
 is a different hostname); the same `espn_s2` + `SWID` cookies authorize both.
 
+## Tool 4: `bin/lineup-watch` (launchd, pings only on a problem)
+
+`com.exobrain.lineup-watch` runs `bin/lineup-watch` every 15 minutes. It asks
+`espn check --json` for the week's lineup problems and lock order, and sends a
+banner (clickable to the ESPN roster page, with an "Ask MIST" button) only
+when a problem's starter locks within 75 minutes, once at the edge of the
+window and once as a final call at 20 minutes. Definite problems (OUT, empty
+slot, IR, suspension, bye) are announced the first time they appear regardless
+of the clock. A clean lineup writes one log line and nothing else. State in
+`.cache/lineup-watch.json` keeps a problem from being re-announced every run.
+
+```
+bin/lineup-watch --dry-run                # what it would do right now
+bin/lineup-watch --dry-run --window 9999  # treat every lock as imminent
+bin/lineup-watch --force                  # one real banner per current problem (test)
+```
+
+Install or reinstall: copy `com.exobrain.lineup-watch.plist` to
+`~/Library/LaunchAgents/` (a real copy, not a symlink) and `launchctl bootstrap
+gui/$(id -u)` it. Logs: `~/Library/Logs/exobrain/lineup-watch.log`.
+
 ### API facts that cost time to learn (2026-09-07)
 
 - **`site.api.espn.com` answers 403 to non-browser clients** (Akamai).
