@@ -134,6 +134,36 @@ cookie lane (`auth import` from Chrome, `whoami`, `my-events`, `my-calendar`, `m
 totals matched the API's charged amounts exactly. `rsvp` and `save` are written from the schema and have not been run on a real
 event yet.
 
+## Organizer writes
+
+Creating events needs the cookie and organizer rights on the group. `create-event` makes a
+**draft** unless you pass `--publish`, and publishing is a separate, prompted step.
+
+```sh
+meetup venues "Crows Coffee"                       # search Meetup's venue records
+meetup create-venue --name "Pawn and Pint" --address "613 Walnut St" --city "Kansas City" --state MO
+meetup create-event kc_rat_ea --title "Coworking" --start 2026-09-14T11:00 \
+    --duration PT4H --venue 25566301 --desc-file coworking.txt
+meetup publish 316471432                            # asks first; makes it member-visible
+meetup delete-event 316471432                       # asks first
+```
+
+- **Drafts are unannounced, not secret.** A draft never reaches the group page, the group's
+  upcoming list, or a member notification. It is still readable by anyone who queries the
+  group for `status: DRAFT` explicitly, which returns the id and title with `venue` nulled.
+  Fine for mirroring listings that are already public elsewhere; not a place to park a
+  private detail.
+- **`--start` is local wall-clock**, `YYYY-MM-DDTHH:MM`, interpreted in the group's own
+  timezone. `--duration` is an ISO-8601 duration (`PT2H`, `PT4H`).
+- **Check the venue before you use its id.** `venues` ranks by fuzzy name rather than
+  distance, so a chain returns the wrong branch first (`Minskys Pizza` lists Lenexa and
+  Overland Park ahead of the KC one). Records are member-entered and go stale, too: Meetup's
+  `Pawn and Pint` still carries a Southwest Blvd address the venue moved away from. When the
+  stored address disagrees with the real one, `create-venue` a correct record instead.
+- **`announceEvent` is not implemented on purpose.** It emails the whole group, and a blast
+  needs an explicit go-ahead for that specific send, which a CLI flag cannot stand in for.
+  Publishing is as far as this client goes.
+
 ## Wire notes (for extending beyond the CLI)
 
 | | |
