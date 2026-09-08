@@ -250,3 +250,5 @@ fantasy/draftbot/room_picks.jsonl
 fantasy/draftbot/bot_log.txt
 fantasy/draftbot/room_feed.out
 fantasy/draftbot/live-draft.log
+fantasy/draftbot/draft_2026_record.json
+fantasy/draftbot/season_sim_latest.json
