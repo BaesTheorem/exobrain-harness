@@ -1,0 +1,42 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>Label</key>
+	<string>com.mist.routine.fantasy-lineup-sunday</string>
+	<key>ProgramArguments</key>
+	<array>
+		<string>/bin/bash</string>
+		<string>/Users/alexhedtke/Documents/Exobrain harness/fantasy/bin/routine-guard</string>
+		<string>0</string>
+		<string>fantasy-lineup-sunday</string>
+		<string>10:15</string>
+		<string>11:45</string>
+	</array>
+	<key>RunAtLoad</key>
+	<true/>
+	<key>StandardErrorPath</key>
+	<string>/Users/alexhedtke/Library/Logs/mist-routines.log</string>
+	<key>StandardOutPath</key>
+	<string>/Users/alexhedtke/Library/Logs/mist-routines.log</string>
+	<key>StartCalendarInterval</key>
+	<array>
+		<dict>
+			<key>Hour</key>
+			<integer>10</integer>
+			<key>Minute</key>
+			<integer>15</integer>
+			<key>Weekday</key>
+			<integer>0</integer>
+		</dict>
+		<dict>
+			<key>Hour</key>
+			<integer>11</integer>
+			<key>Minute</key>
+			<integer>0</integer>
+			<key>Weekday</key>
+			<integer>0</integer>
+		</dict>
+	</array>
+</dict>
+</plist>

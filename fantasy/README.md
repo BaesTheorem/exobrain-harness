@@ -134,6 +134,31 @@ only point at these files, so the prompts are versioned here). `lineup-watch
 arrangement, with its standing limits, is written up in the playbook's
 "Season operations" section.
 
+### What happens when the Mac is off
+
+- The two watchers are `StartInterval` jobs with `RunAtLoad`: they run at
+  login or boot and then on their interval. Missed intervals are not replayed,
+  and they do not need to be: each run reads the current state, so the first
+  run after boot repairs anything still repairable. A lock that passed while
+  the Mac was off is gone.
+- The scheduled routines are hand-managed plists in `launchd/` (copied, never
+  symlinked, into `~/Library/LaunchAgents`; the Console's routine editor does
+  not own them, which is why they have no `routines-meta` entry). Each goes
+  through `bin/routine-guard` (run with `/bin/bash`, not `/bin/sh`, which
+  exits 126 under launchd here; weekday check: the Console's on-time wrapper
+  checks time of day only, and a RunAtLoad on a Monday evening ran the
+  Tuesday routine once) and then the Console's `run-routine-ontime.sh` with a
+  window and retry slots: lineup 17:30-23:30 daily (fires 17:30, 19:30,
+  22:05), Sunday lineup 10:15-11:45 (10:15, 11:00), Tuesday 18:00-23:30
+  (18:00, 20:00, 22:05). One completed run per day per routine; a transient
+  failure leaves the day unstamped so the next slot retries; a boot inside
+  the window runs it. The Mac's nightly 9:58 PM `wakepoweron` (pmset) means a
+  Mac shut down all day still gets the 22:05 slots.
+- The Mac has system sleep disabled (`pmset SleepDisabled 1`), so "asleep" is
+  not a case; only powered off or dead battery. The one uncovered hole is a
+  Mac that is off across Sunday late morning: the noon-lock repairs then wait
+  for boot. Closing it needs a root-scheduled power-on (see the playbook).
+
 ### API facts that cost time to learn (2026-09-07)
 
 - **`site.api.espn.com` answers 403 to non-browser clients** (Akamai).
