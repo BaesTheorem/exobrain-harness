@@ -46,6 +46,37 @@ Every subcommand accepts `--calendar`; without it they act on KC EA. Times are e
 4. **Verify writes through the public read side**, not the write response: re-pull `calendar/get-items` (unauthenticated) or the event page and diff the field you wrote. Same-instrument verification proves nothing.
 5. **Bulk edits touch future events only.** Past events are records; leave them.
 6. **Test events are `--visibility private` and cancelled immediately after.** Creation alone does not email calendar subscribers, and private events never render on the public calendar.
+7. **Mirror every change to Meetup.** Luma is where these events are authored, but the Meetup group is a mirror much of the membership still watches. After *any* create, reschedule, venue move, or cancellation on the Luma side, run `bin/luma-to-meetup` and act on what it reports. See below.
+
+## Mirroring to Meetup
+
+The KC EA calendar mirrors onto the Meetup group `kc_rat_ea` (622 members, Alex organizes).
+Luma authors; Meetup follows. `bin/luma-to-meetup` carries the creates.
+
+```bash
+bin/luma-to-meetup --dry-run     # what it would create, plus any drift
+bin/luma-to-meetup               # create the missing events as drafts
+bin/luma-to-meetup --publish     # create and publish in one pass
+meetup publish EVT               # publish one existing draft
+```
+
+- **Every listing opens with `Also on Luma: https://luma.com/<slug>`.** The script writes that
+  line; keep it on anything created by hand, so the Meetup listing always points back at the
+  Luma event it mirrors.
+- **It only creates.** Reschedules, retitles, and venue moves do **not** propagate, because
+  `editEvent` is unbuilt: fix those on the Meetup listing by hand, or delete the Meetup event
+  and re-run. Runs are idempotent (matching spans drafts and published), so re-running is safe.
+- **Cancellations do not propagate either.** Every run reports Meetup events with no matching
+  future Luma event, which is what a Luma cancellation looks like from this side. Surface those
+  to Alex rather than acting: cancelling a *published* Meetup event mails everyone who RSVP'd,
+  so it falls under rule 1.
+- **Publishing needs Alex's explicit go-ahead, drafting does not.** A draft reaches no member
+  and sends no mail, so drafting a batch and reading it back is free. Publishing is visible to
+  all 622 members at once and cannot be unsent.
+- **Venues are a checked lookup table inside the script, never a search.** An unrecognized venue
+  stops the run instead of guessing a street address members would drive to. Add a new one only
+  after confirming its address against Google; the `/meetup` skill explains why Meetup's own
+  venue search is not trustworthy for this.
 
 ## API Map (for extending beyond the CLI)
 

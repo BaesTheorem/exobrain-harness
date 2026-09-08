@@ -18,6 +18,10 @@ INVARIANTS:
   list alone would re-create every draft on the next run.
 - Luma is the source of truth. This only ever creates on the Meetup side; it does not edit or
   delete, so a hand-edited Meetup listing is never clobbered.
+- Because it cannot delete, a Luma cancellation would otherwise leave a live Meetup listing
+  standing and members would turn up to nothing. Every run therefore reports drift: Meetup
+  events with no matching future Luma event. Acting on that is a person's call, since
+  cancelling a published Meetup event mails everyone who RSVP'd.
 """
 
 from __future__ import annotations
@@ -117,11 +121,27 @@ def meetup(*args: str) -> list[dict]:
     return json.loads(done.stdout or "[]")
 
 
-def existing_keys() -> set[tuple[str, str]]:
+def existing_rows() -> list[dict]:
     """What Meetup already carries, published or still drafted."""
     rows = meetup("group-events", GROUP, "--json", "--limit", "200")
     rows += meetup("group-events", GROUP, "--drafts", "--json", "--limit", "200")
-    return {(r["title"].strip().casefold(), (r.get("start") or "")[:16]) for r in rows}
+    return rows
+
+
+def key_of(title: str, start: str) -> tuple[str, str]:
+    return title.strip().casefold(), start[:16]
+
+
+def report_drift(mine: list[dict], luma: list[dict]) -> None:
+    """Meetup listings with no future Luma event behind them, usually a Luma cancellation."""
+    wanted = {key_of(e["title"], e["start"].strftime("%Y-%m-%dT%H:%M")) for e in luma}
+    orphans = [r for r in mine if key_of(r["title"], r.get("start") or "") not in wanted]
+    if not orphans:
+        return
+    print(f"\n{len(orphans)} Meetup event(s) with no matching Luma event:")
+    for r in sorted(orphans, key=lambda r: r.get("start") or ""):
+        print(f"  {(r.get('start') or '')[:16]}  {r['title']}  {r.get('url') or ''}")
+    print("  Cancelled on Luma? Cancelling these mails everyone who RSVP'd, so leave it to Alex.")
 
 
 def main() -> int:
@@ -134,13 +154,16 @@ def main() -> int:
     args = ap.parse_args()
 
     cutoff = datetime.strptime(args.until, "%Y-%m-%d").replace(tzinfo=CT) if args.until else None
-    have = existing_keys()
+    mine = existing_rows()
+    have = {key_of(r["title"], r.get("start") or "") for r in mine}
+    upstream = luma_events()
+    report_drift(mine, upstream)
 
     pending = []
-    for ev in luma_events():
+    for ev in upstream:
         if cutoff and ev["start"].date() > cutoff.date():
             continue
-        if (ev["title"].strip().casefold(), ev["start"].strftime("%Y-%m-%dT%H:%M")) in have:
+        if key_of(ev["title"], ev["start"].strftime("%Y-%m-%dT%H:%M")) in have:
             continue
         if ev["venue"] not in VENUES:
             raise SystemExit(
@@ -153,7 +176,7 @@ def main() -> int:
         pending = pending[:args.limit]
 
     if not pending:
-        print("nothing to sync: Meetup already carries every future Luma event")
+        print("\nnothing to create: Meetup already carries every future Luma event")
         return 0
 
     verb = "publish" if args.publish else "draft"

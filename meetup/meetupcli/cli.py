@@ -580,10 +580,13 @@ def cmd_create_event(args: argparse.Namespace) -> int:
 def cmd_publish(args: argparse.Namespace) -> int:
     event_id = parse_event_ref(args.ref)
     client = make_client()
-    node = client.event(event_id)
-    if node:
-        ev = normalize_event(node)
-        print(f"{ev['title']} · {fmt_when(ev['start'])} · {fmt_where(ev)}")
+    if not args.json:
+        # Only when a human is reading: under --json the caller wants parseable stdout and
+        # nothing else, so a preamble here corrupts the very first character of the payload.
+        node = client.event(event_id)
+        if node:
+            ev = normalize_event(node)
+            print(f"{ev['title']} · {fmt_when(ev['start'])} · {fmt_where(ev)}")
     confirm("Publish this draft? It becomes visible to the whole group.", args.yes)
     result = client.publish_draft(event_id)
     if args.json:
