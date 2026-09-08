@@ -56,6 +56,14 @@
     "notes": "Pins the auto-updating claude CLI to one unchanging path (~/.local/share/claude/stable/claude) so its TCC grants, above all Full Disk Access, stop dying every release. Runs on WatchPaths via com.exobrain.claude-stable-path."
   },
   {
+    "name": "clawd-poses",
+    "command": "python3 clawd-poses/clawd_poses.py",
+    "repo_dir": "/Users/alexhedtke/Documents/Exobrain harness/clawd-poses",
+    "source": "built",
+    "added": "2026-09-08",
+    "notes": "Draws the Clawd mascot in 30 poses/moods on the original icon's 32px grid; PNG + SVG per pose plus a contact sheet. Pure Pillow, no model calls."
+  },
+  {
     "name": "CPTSD Tarot Pipeline",
     "command": "python3 ~/Documents/cptsd-tarot/bin/gen_art.py && python3 ~/Documents/cptsd-tarot/bin/compose.py && python3 ~/Documents/cptsd-tarot/bin/guide.py",
     "repo_dir": "/Users/alexhedtke/Documents/cptsd-tarot",
