@@ -64,6 +64,12 @@ write with a read-back and exits nonzero when the roster or the pending list
 does not show the change. Use it when Alex asks for a lineup move or a claim;
 never bolt writing onto `ff` or `espn`.
 
+**The lock-window watcher is already running** (`fantasy/bin/lineup-watch`
+under launchd `com.exobrain.lineup-watch`, every 15 minutes, since
+2026-09-07): it pings Alex only when a starter with a problem is inside 75
+minutes of locking, plus a final call at 20. Do not build a second one; if the
+rules need changing, change that script.
+
 ## Draft mode: the autopilot
 
 `fantasy/draftbot/` drafts a full roster in the ESPN draft room against a ranked

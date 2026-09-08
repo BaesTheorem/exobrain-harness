@@ -1,0 +1,133 @@
+#!/usr/bin/env python3
+"""lineup-watch: ping Alex before a lock window only when the lineup has a problem.
+
+Runs every 15 minutes from launchd (com.exobrain.lineup-watch). Each run asks
+`espn check --json` for the week's problems (OUT / IR / bye / empty slot /
+questionable starters) and the lock order (every starter's kickoff). It
+notifies when a problem's starter locks within WINDOW minutes, once at the
+window's edge and once more as a final call, and it notifies definite problems
+(OUT, EMPTY, IR, SUSPENSION, BYE) the first time they appear regardless of the
+clock. A clean lineup produces one log line and no banner. State lives in
+fantasy/.cache/lineup-watch.json so a problem is not re-announced every run.
+
+    lineup-watch [--window 75] [--final 20] [--dry-run] [--force]
+"""
+
+from __future__ import annotations
+
+import argparse
+import json
+import pathlib
+import subprocess
+import sys
+import time
+from datetime import datetime, timezone
+
+HERE = pathlib.Path(__file__).resolve().parent
+FANTASY = HERE.parent
+STATE = FANTASY / ".cache" / "lineup-watch.json"
+NOTIFY = FANTASY.parent / "mist-voice" / "bin" / "mist-notify"
+ROSTER_URL = "https://fantasy.espn.com/football/team?leagueId=45635023&teamId=12"
+DEFINITE = {"OUT", "EMPTY", "INJURY_RESERVE", "SUSPENSION", "BYE", "DOUBTFUL"}
+
+
+def check(retries: int = 3) -> dict:
+    """`espn check --json`, retried: launchd fires this on wake before DNS is back."""
+    for i in range(retries):
+        r = subprocess.run([sys.executable, str(HERE / "espn"), "check", "--json"],
+                           capture_output=True, text=True, timeout=180)
+        if r.returncode == 0 and r.stdout.strip():
+            return json.loads(r.stdout)
+        time.sleep(20 * (i + 1))
+    raise SystemExit(f"espn check failed: {r.stderr.strip()[:300]}")
+
+
+def load_state() -> dict:
+    try:
+        return json.loads(STATE.read_text())
+    except Exception:
+        return {}
+
+
+def save_state(st: dict) -> None:
+    STATE.parent.mkdir(parents=True, exist_ok=True)
+    STATE.write_text(json.dumps(st, indent=1))
+
+
+def notify(msg: str, final: bool, dry: bool, ident: str) -> None:
+    args = [str(NOTIFY), msg, "MIST lineup watch", "default", ROSTER_URL,
+            "--group", "lineup-watch", "--id", ident,
+            "--urgency", "timeSensitive" if final else "active",
+            "--action", "Ask MIST=console"]
+    if dry:
+        print("DRY-RUN notify:", msg)
+        return
+    subprocess.run(args, check=False, capture_output=True, timeout=20)
+
+
+def main() -> int:
+    ap = argparse.ArgumentParser()
+    ap.add_argument("--window", type=int, default=75, help="minutes before lock to ping")
+    ap.add_argument("--final", type=int, default=20, help="minutes before lock for the final call")
+    ap.add_argument("--dry-run", action="store_true")
+    ap.add_argument("--force", action="store_true", help="ping every current problem now (test)")
+    args = ap.parse_args()
+
+    d = check()
+    now = datetime.now(timezone.utc)
+    locks = {}
+    for row in d.get("lock_order", []):
+        try:
+            locks[row["player"]] = datetime.fromisoformat(row["kickoff"])
+        except (KeyError, ValueError):
+            pass
+    st = load_state()
+    week = d.get("week")
+    problems = d.get("problems", [])
+    stamp = time.strftime("%Y-%m-%d %H:%M")
+    if not problems:
+        print(f"{stamp} week {week}: lineup clean, {len(locks)} starters, margin {d.get('margin')}")
+        return 0
+
+    pinged = 0
+    for p in problems:
+        key = f"{week}:{p.get('slot')}:{p.get('player')}:{p.get('kind')}"
+        seen = st.get(key, {})
+        kick = locks.get(p.get("player"))
+        mins = (kick - now).total_seconds() / 60 if kick else None
+        if kick and mins is not None and mins <= 0:
+            print(f"{stamp} {key}: already locked, no ping")
+            continue
+        stage = None
+        if args.force:
+            stage = "forced"
+        elif mins is not None and mins <= args.final and not seen.get("final"):
+            stage = "final"
+        elif mins is not None and mins <= args.window and not seen.get("window"):
+            stage = "window"
+        elif p.get("kind") in DEFINITE and not seen.get("first"):
+            stage = "first"
+        if not stage:
+            why = f"already pinged ({', '.join(sorted(seen))})" if seen else "outside the window, nothing to do"
+            print(f"{stamp} {key}: {round(mins) if mins is not None else '?'} min to lock, {why}")
+            continue
+        when = kick.astimezone().strftime("%a %-I:%M %p") if kick else p.get("kick", "?")
+        lead = {"final": "FINAL CALL, locks in %d min" % round(mins or 0),
+                "window": "locks at %s" % when,
+                "first": "locks %s" % when,
+                "forced": "test ping, locks %s" % when}[stage]
+        msg = f"{p.get('kind')} {p.get('slot')} {p.get('player')}: {lead}. Fix: {p.get('fix') or 'none on the bench'}"
+        notify(msg, final=(stage == "final"), dry=args.dry_run,
+               ident=f"lineup-{week}-{(p.get('player') or '').replace(' ', '-')}")
+        print(f"{stamp} PING [{stage}] {msg}")
+        if not args.dry_run and stage != "forced":
+            seen[stage] = stamp
+            st[key] = seen
+        pinged += 1
+    save_state(st)
+    print(f"{stamp} week {week}: {len(problems)} problem(s), {pinged} ping(s)")
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())
