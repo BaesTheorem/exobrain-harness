@@ -25,6 +25,10 @@ waits on one is structurally too slow. The agent runs inside the ESPN page on a
 | `arm.py` | Deploys the autopilot, fills the queue, reports status |
 | `watch.py` | Streams new pick events, one per stdout line |
 | `peek.py` | Reads the roster panel. Safe to run while a pick is in flight |
+| `enter.py` | Gets into a live room the moment it opens (click or reload), then arms |
+| `supervise.py` | The one owner of the command channel during a draft: polls status, re-arms on a dead room, a wrong page, or a missing autopilot, and reads the room's Pick History into `room_picks.log` |
+| `recap.py` | Turns `room_picks.jsonl` + `vor.json` into the playbook's draft record (markdown) |
+| `grade.py` | Post-draft: every roster graded by our projections and by the consensus judge |
 
 ## Use
 
@@ -93,6 +97,41 @@ sweep is re-found by name before being clicked.
 
 ## Draft-day rules, learned the hard way
 
+The 2026 live draft (2026-09-07, slot 3, 16 for 16 by the bot, #1 of 13 under
+both judges) added the block below the mock-era rules.
+
+- **Nobody touches the bot's window.** Alex refreshed it twice in the first six
+  minutes. A reload throws the injected autopilot away, and the page looks
+  healthy afterwards, so no hang marker fires. `supervise.py` now re-arms when
+  a healthy page reports no `window.__mist`; `autopilot.js` swallows Cmd+R and
+  F5 on top of that. Hide the window or move it to another desktop before the
+  room opens, and read the supervisor's feed instead.
+- **The queue floor is filled RB, WR, TE, QB, in that order.** ESPN drafts the
+  TOP of the queue when the clock beats us, and `fillQueue` inserts in
+  `openPositions` order. It was QB-first until ten minutes before the draft,
+  with five quarterbacks at the head.
+- **A live room dies in more ways than a mock.** Seen in one draft: Connection
+  Failed, blank page, "wrong page" (the window left `/draft` entirely; the
+  driver's `goto` brings it back), and the autopilot-missing case above. The
+  WiFi dropping produced three of them in two minutes; every one recovered
+  without a lost pick.
+- **`supervise.py` must only count failed polls as idle.** It counted quiet
+  polls too and died on the first timeout after eight minutes of waiting, two
+  minutes before the live draft. Restarting it is safe at any time: the
+  autopilot runs in the page and does not notice.
+- **The league API reports zero picks and empty rosters while a live draft
+  runs**, and only fills in when ESPN marks it done. The room's Pick History
+  panel is in the DOM even while the Players tab is showing; read it with
+  `textContent`, never click the tab mid-draft (`grade.py` clicks it, so it is
+  post-draft only).
+- **The first click failed to register on 14 of 15 picks** in the live room
+  (fine in every mock). The roster-count verification caught each one and the
+  retry landed 2-4 seconds later. Cause unknown; the confirm timing is the
+  suspect. Worth fixing before it meets a slower retry.
+- **Clearing the queue by class name no longer works.** The live room's remove
+  buttons carry `Button--dequeue`, and staggered clicks go stale as the list
+  re-renders: click one at a time, re-querying each time.
+
 - **Be in the room before it opens.** ESPN drafted 73 picks in ~90 seconds on
   2026-08-24 because every team was flagged AUTO. Entering clears the flag on
   upcoming picks; picks already made are gone.
@@ -129,6 +168,16 @@ the `3` of `TE2/3` and the `K`, so the kicker count silently read 0 forever --
 and it is why the bye parser is tested against a fixture with known byes.
 
 ## Still open
+
+- **The board's `injured` and the overlay's SELL flags are not read by the
+  bot.** It drafted a SELL-flagged RB at 107 and an IR-designated WR at 180
+  (which happened to be fine: the league has an IR slot). Both flags exist in
+  the data it already loads.
+- **Static replacement level.** From about pick 100 every remaining player
+  scores below replacement at every position, so value-over-next-available
+  goes to zero and the bench rounds degrade to "least negative VOR" plus the
+  bench-balance penalty. Good enough for depth; it is why the bench came out
+  RB5 WR7.
 
 - **Tier awareness.** VOR ranks players; it does not notice when the last member
   of a tier is about to leave the board before the next turn. (The former

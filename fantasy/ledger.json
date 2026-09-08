@@ -53,6 +53,33 @@
    "claim": "WR-tail inflation marker: board rates Tyson WR56/Nailor WR59/Boutte WR63 vs consensus WR72/73/91; if these bench WRs bust as consensus expects, the 'WR waits well' conclusion weakens",
    "basis": "board tail vs consensus tail (intra-board sanity pair)",
    "status": "open"
+  },
+  {
+   "id": 7,
+   "date": "2026-09-07",
+   "a": "Rashee Rice",
+   "b": "Nico Collins",
+   "claim": "signed divergence: 29 percent target share, 0.53 WOPR, 75 percent snaps across his 8 games. Volume is the stickiest signal we measure and it says WR9, not WR14.",
+   "basis": "pre-draft sign-off",
+   "status": "open"
+  },
+  {
+   "id": 8,
+   "date": "2026-09-07",
+   "a": "Dallas Goedert",
+   "b": "Juwan Johnson",
+   "claim": "signed divergence: 11 TDs on 5.5 targets per game is the textbook regression profile (TD-to-next-TD R2 = 0.079). Our fade agrees with our own SELL flag; consensus TE12 is buying last season touchdowns.",
+   "basis": "pre-draft sign-off",
+   "status": "open"
+  },
+  {
+   "id": 9,
+   "date": "2026-09-07",
+   "a": "Jayden Daniels",
+   "b": "Emeka Egbuka",
+   "claim": "live draft 2026: board took Daniels at pick 50 (ECR 57) over Egbuka (ECR ~34, best available by consensus); the VONA call was that the QB cliff would be gone by pick 55 after four QBs went in the first 40 picks",
+   "basis": "examiner --live flag; 16 ECR ranks past consensus",
+   "status": "open"
   }
  ]
 }
