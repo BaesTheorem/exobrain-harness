@@ -40,6 +40,7 @@ meetup whoami
 meetup my-events                                       # what you RSVP'd to (--past for what you went to)
 meetup my-calendar                                     # everything upcoming in your groups
 meetup my-groups                                       # active memberships (--all for dead/blocked too)
+meetup payments --invoices                             # paid invoices, with billing periods
 meetup rsvp 316119292 yes                              # asks first; --yes to skip; --guests N
 meetup save 316119292                                  # bookmark; --unsave to undo
 meetup raw '{ locationSearch(query: "Lawrence, KS") { name lat lon } }'
@@ -117,13 +118,20 @@ What the personal commands mean:
   the site this is the "your groups" calendar.
 - `my-groups` lists active memberships plus any group you organize. `--all` adds the dead
   and blocked memberships Meetup still keeps on the account.
+- `payments` is the billing history: every paid invoice, oldest first, with the amount in
+  dollars. `--since YYYY-MM-DD` trims it and `--invoices` fetches each hosted invoice for
+  the human invoice number, the period it covers, the product, and any discount. Only
+  paid invoices appear, so a failed renewal leaves a gap in the order-number sequence.
+  Beware the invoice's own `Order date`: Meetup leaves a stale one on some invoices (one
+  2023 renewal reads `Oct 19, 2022`), so trust `date` (the charge) when the two disagree.
 
 `rsvp` is the only command that changes anything on your account. It prints the event, asks
 for confirmation, and refuses to run non-interactively without `--yes`.
 
 **Status:** every read command was verified live against meetup.com on 2026-09-06, and the
 cookie lane (`auth import` from Chrome, `whoami`, `my-events`, `my-calendar`, `my-groups`) on
-2026-09-07. `rsvp` and `save` are written from the schema and have not been run on a real
+2026-09-07. `payments --invoices` was verified live on 2026-09-07 against 27 invoices, whose
+totals matched the API's charged amounts exactly. `rsvp` and `save` are written from the schema and have not been run on a real
 event yet.
 
 ## Wire notes (for extending beyond the CLI)
@@ -144,6 +152,8 @@ event yet.
 | `feeSettings` | `null` means free through Meetup; `maxTickets: 0` means unlimited |
 | Private groups | `groupByUrlname` still answers with public fields; member counts read 0 |
 | `self.memberEvents` | Upcoming events across the member's groups; every edge came back `isAttending: false`. Attendance is `self.rsvps(filter: {eventStatus: [UPCOMING\|PAST], rsvpStatus: [YES, WAITLIST, ...]}, sort: {sortField: DATETIME})` |
+| `self.paymentsHistory` | Paid invoices. `filter: {subscriptionType: MEMBER\|ORGANIZER}`; the unfiltered connection answered with the organizer lane only, so the CLI sweeps both and merges by id. `amount` is **cents**; `invoiceNumber` is the *order* number (`A1B2C3D4-0007`), while the human invoice number (`US2022-100001`) lives only on the hosted `url` |
+| Hosted invoices | `invoice.taxamo.com` pages, public capability URLs, no cookie. Plain HTML with the invoice number, billing cycle, order date, product and totals. Money is written `US$\u00a098.94` on pre-2023 invoices and `98.94 USD` after; both shapes are parsed |
 | `self.memberships` | Includes dead and blocked groups (`metadata.status` DEAD, GROUP_BLOCKED, ...); filter `{status: [ACTIVE, LEADER]}` for the live ones. `metadata.role` reads ORGANIZER on a group you run |
 | Chrome cookies | yt-dlp `--cookies-from-browser chrome` decrypted the store with no Keychain prompt on this machine (the grant already existed from another tool); the export is the same trick the Instagram toolkit uses |
 | Mutations | `rsvp(input: {eventId, response: YES\|NO, guestsCount})`, `saveEvent`, `unsaveEvent`, `joinGroup`; organizer-side `createEvent`, `editEvent`, `announceEvent`, `deleteEvent` exist and are not built |

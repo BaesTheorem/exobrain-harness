@@ -18,7 +18,15 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "meetup"))
 
 from meetupcli import cli, store  # noqa: E402
 from meetupcli.api import MeetupClient, MeetupError  # noqa: E402
-from meetupcli.model import normalize_event, normalize_group, parse_event_ref, parse_group_ref, window  # noqa: E402
+from meetupcli.model import (  # noqa: E402
+    normalize_event,
+    normalize_group,
+    normalize_payment,
+    parse_event_ref,
+    parse_group_ref,
+    parse_invoice,
+    window,
+)
 
 TZ = ZoneInfo("America/Chicago")
 NOW = datetime(2026, 9, 6, 10, 0, tzinfo=TZ)
@@ -216,6 +224,50 @@ def test_normalize_group_folds_stats_and_connections():
     assert g["category"] == "Technology" and g["topics"] == ["Python"] and g["organizer"] == "Org"
     assert g["upcomingCount"] == 2 and g["upcoming"][0]["id"] == "1"
     assert g["pastCount"] == 400 and g["lastEvent"]["title"] == "Old"
+
+
+# -- payments --------------------------------------------------------------------------------
+
+
+def test_normalize_payment_converts_cents_to_dollars():
+    p = normalize_payment({"id": "in_1", "creationDate": "2026-08-23T10:08:08-04:00", "amount": 4499,
+                           "currency": "USD", "invoiceNumber": "A1B2C3D4-0029", "status": "paid",
+                           "url": "https://invoice.taxamo.com/x/invoice"})
+    assert p["amount"] == 44.99 and p["date"] == "2026-08-23"
+    assert p["orderNumber"] == "A1B2C3D4-0029", "the API's invoiceNumber is the order number"
+    assert normalize_payment({"amount": 0})["amount"] == 0.0, "a fully discounted invoice is not None"
+    assert normalize_payment({})["amount"] is None and normalize_payment({})["date"] is None
+
+
+# Meetup's hosted invoices come in two vintages that write money differently.
+OLD_INVOICE = """<html><body><p>Invoice # : US2019-100002</p>
+<p>Billing cycle: Oct 22, 2019 - Apr 22, 2020</p><p>Order date: Oct 22, 2019</p>
+<p>Order number: A1B2C3D4-0001</p><div>Summary Meetup Meetup Subscription: 6 Months
+US$\u00a098.94 Discount (US$\u00a029.69) Tax (0.00%) US$\u00a00.00 Total US$\u00a069.26</div></body></html>"""
+
+NEW_INVOICE = """<html><body><p>Invoice # : US2026-100003</p>
+<p>Billing cycle: Feb 23, 2026 - Mar 23, 2026</p><p>Order date: Feb 20, 2026</p>
+<p>Order number: A1B2C3D4-0023</p><div>Summary Meetup Meetup Subscription: 1 Month
+44.99&nbsp;&nbsp;USD Discount (44.99&nbsp;&nbsp;USD) Tax (0.00%) 0.00&nbsp;USD Total 0.00&nbsp;&nbsp;USD</div></body></html>"""
+
+
+def test_parse_invoice_reads_both_money_vintages():
+    old = parse_invoice(OLD_INVOICE)
+    assert old["invoiceNo"] == "US2019-100002" and old["orderNumber"] == "A1B2C3D4-0001"
+    assert old["billingCycle"] == "Oct 22, 2019 - Apr 22, 2020" and old["orderDate"] == "Oct 22, 2019"
+    assert old["product"] == "Subscription: 6 Months"
+    assert old["total"] == 69.26 and old["discount"] == 29.69
+
+    new = parse_invoice(NEW_INVOICE)
+    assert new["invoiceNo"] == "US2026-100003" and new["total"] == 0.0
+    assert new["discount"] == 44.99, "a comped month still names its discount"
+
+
+def test_parse_invoice_missing_fields_are_none_not_errors():
+    assert parse_invoice("<html><body>nothing here</body></html>") == {
+        "invoiceNo": None, "billingCycle": None, "orderDate": None,
+        "orderNumber": None, "product": None, "total": None, "discount": None,
+    }
 
 
 # -- store -----------------------------------------------------------------------------------
