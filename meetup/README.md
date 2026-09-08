@@ -35,10 +35,11 @@ meetup groups "effective altruism"                     # group search near home
 meetup locations "Overland Park"                       # what --near resolves to
 meetup home                                            # default location and timezone
 
-meetup auth set                                        # paste a browser cookie header (see below)
+meetup auth import                                     # pull the login cookie out of Chrome (see below)
 meetup whoami
-meetup my-events                                       # your upcoming RSVPs (--past for history)
-meetup my-groups
+meetup my-events                                       # what you RSVP'd to (--past for what you went to)
+meetup my-calendar                                     # everything upcoming in your groups
+meetup my-groups                                       # active memberships (--all for dead/blocked too)
 meetup rsvp 316119292 yes                              # asks first; --yes to skip; --guests N
 meetup save 316119292                                  # bookmark; --unsave to undo
 meetup raw '{ locationSearch(query: "Lawrence, KS") { name lat lon } }'
@@ -83,7 +84,7 @@ Event records (`search`, `events`, `event`, `group-events`, `my-events`, `--simi
 | `going`, `waitlist`, `maxTickets` | Yes RSVPs, waitlist size (detail only), capacity (`null` = unlimited) |
 | `fee`, `free` | `{amount, currency}` when Meetup collects a fee; `free` is true when it does not (external tickets are invisible here) |
 | `status`, `rsvpState` | `ACTIVE`, `PAST`, `CANCELLED`...; `JOIN_OPEN`, `CLOSED`, `FULL`... |
-| `isAttending`, `isSaved`, `myRsvp` | Only meaningful with a cookie |
+| `isAttending`, `isSaved`, `myRsvp`, `myGuests` | Only meaningful with a cookie; `myRsvp` is the RSVP status on `my-events` rows |
 | `description`, `howToFindUs`, `hosts`, `topics`, `series` | Detail commands only |
 
 Group records add `members`, `rating`, `ratings`, `category`, `private`, `joinMode`,
@@ -91,23 +92,39 @@ Group records add `members`, `rating`, `ratings`, `category`, `private`, `joinMo
 
 ## Login (the cookie lane)
 
-Personal commands send your browser's `Cookie` header. Copy it from any request to
-`www.meetup.com/gql2` in DevTools (Network tab, Request Headers) after logging in, then run
-`meetup auth set` and paste. It is stored in `secrets/cookie.txt` (mode `0600`, gitignored);
-`MEETUP_COOKIE` in the environment or the harness `.env` overrides the file. Logging out of
-that browser session kills it; `meetup auth status` tells you when it has died. Details in
-`secrets/README.md`.
+Personal commands send your browser's `Cookie` header for meetup.com. Two ways to get it:
+
+- `meetup auth import` reads it out of Chrome (`--browser safari|firefox|...` for others)
+  through yt-dlp's cookie extractor, which already knows how to decrypt the store. Only the
+  meetup.com lines are kept; the full jar is overwritten before its temp directory goes away.
+  How you signed in (Google, email) makes no difference: the session cookie is the same
+  either way.
+- `meetup auth set` takes a pasted header: DevTools, Network tab, any request to
+  `www.meetup.com/gql2`, copy the `cookie:` request header.
+
+Either way it lands in `secrets/cookie.txt` (mode `0600`, gitignored), and `MEETUP_COOKIE` in
+the environment or the harness `.env` overrides the file. Logging out of that browser session
+kills it; `meetup auth status` tells you when it has died. Details in `secrets/README.md`.
 
 A rejected cookie does not error on the wire: Meetup answers `self: null`. The CLI turns that
 into exit status 3 with a message to refresh the cookie.
 
+What the personal commands mean:
+
+- `my-events` is what you RSVP'd to (yes or waitlist), soonest first. `--past` is what you
+  went to, newest first.
+- `my-calendar` is every upcoming event across the groups you belong to, RSVP'd or not. On
+  the site this is the "your groups" calendar.
+- `my-groups` lists active memberships plus any group you organize. `--all` adds the dead
+  and blocked memberships Meetup still keeps on the account.
+
 `rsvp` is the only command that changes anything on your account. It prints the event, asks
 for confirmation, and refuses to run non-interactively without `--yes`.
 
-**Status:** every read command above was verified live against meetup.com on 2026-09-06.
-The cookie lane (`whoami`, `my-events`, `my-groups`, `rsvp`, `save`) is written straight from
-the endpoint's schema but has not yet been run with a real session, so treat its first use as
-a test: `whoami` first, then `my-events`, then a `rsvp` on an event you would attend anyway.
+**Status:** every read command was verified live against meetup.com on 2026-09-06, and the
+cookie lane (`auth import` from Chrome, `whoami`, `my-events`, `my-calendar`, `my-groups`) on
+2026-09-07. `rsvp` and `save` are written from the schema and have not been run on a real
+event yet.
 
 ## Wire notes (for extending beyond the CLI)
 
@@ -126,6 +143,9 @@ a test: `whoami` first, then `my-events`, then a `rsvp` on an event you would at
 | `Group.events` | `status: ACTIVE\|PAST`, `sort: ASC\|DESC`, optional `filter: {afterDateTime, beforeDateTime}`; `totalCount` here is real |
 | `feeSettings` | `null` means free through Meetup; `maxTickets: 0` means unlimited |
 | Private groups | `groupByUrlname` still answers with public fields; member counts read 0 |
+| `self.memberEvents` | Upcoming events across the member's groups; every edge came back `isAttending: false`. Attendance is `self.rsvps(filter: {eventStatus: [UPCOMING\|PAST], rsvpStatus: [YES, WAITLIST, ...]}, sort: {sortField: DATETIME})` |
+| `self.memberships` | Includes dead and blocked groups (`metadata.status` DEAD, GROUP_BLOCKED, ...); filter `{status: [ACTIVE, LEADER]}` for the live ones. `metadata.role` reads ORGANIZER on a group you run |
+| Chrome cookies | yt-dlp `--cookies-from-browser chrome` decrypted the store with no Keychain prompt on this machine (the grant already existed from another tool); the export is the same trick the Instagram toolkit uses |
 | Mutations | `rsvp(input: {eventId, response: YES\|NO, guestsCount})`, `saveEvent`, `unsaveEvent`, `joinGroup`; organizer-side `createEvent`, `editEvent`, `announceEvent`, `deleteEvent` exist and are not built |
 
 ## Tests

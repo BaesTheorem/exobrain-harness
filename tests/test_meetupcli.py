@@ -151,10 +151,34 @@ def test_personal_calls_need_a_cookie_and_detect_rejection():
     assert t.calls[0][3]["Cookie"] == "MEETUP_MEMBER=x"
 
 
-def test_my_events_carries_rsvp_state_and_mutations_surface_payload_errors():
-    client, _ = make((200, {"data": {"self": {"memberEvents": {"pageInfo": {"hasNextPage": False}, "edges": [{"rsvpState": "YES", "node": node(1)}]}}}}), cookie="c=1")
+def test_my_events_reads_rsvps_and_my_calendar_reads_group_events():
+    rsvps = {"data": {"self": {"rsvps": {"pageInfo": {"hasNextPage": False},
+                                         "edges": [{"node": {"status": "YES", "guestsCount": 1, "event": node(1)}}]}}}}
+    client, t = make((200, rsvps), (200, rsvps), cookie="c=1")
     got = client.my_events()
-    assert got[0]["myRsvp"] == "YES"
+    assert got[0]["id"] == "1" and got[0]["myRsvp"] == "YES" and got[0]["myGuests"] == 1
+    assert t.calls[0][2]["variables"]["filter"] == {"eventStatus": ["UPCOMING"], "rsvpStatus": ["YES", "WAITLIST", "YES_PENDING_PAYMENT"]}
+    assert t.calls[0][2]["variables"]["sort"] == {"sortField": "DATETIME", "sortOrder": "ASC"}
+    client.my_events(past=True)
+    assert t.calls[1][2]["variables"]["filter"]["eventStatus"] == ["PAST"]
+    assert t.calls[1][2]["variables"]["sort"]["sortOrder"] == "DESC"
+    cal = {"data": {"self": {"memberEvents": {"pageInfo": {"hasNextPage": False}, "edges": [{"node": node(2)}]}}}}
+    client, _ = make((200, cal), cookie="c=1")
+    got = client.my_calendar()
+    assert got[0]["id"] == "2" and "myRsvp" not in got[0], "calendar rows carry no personal RSVP state"
+
+
+def test_my_groups_filters_to_active_unless_asked():
+    payload = {"data": {"self": {"memberships": {"pageInfo": {"hasNextPage": False},
+                                                 "edges": [{"metadata": {"role": "ORGANIZER", "status": "LEADER"}, "node": {"id": "1", "name": "G", "urlname": "g"}}]}}}}
+    client, t = make((200, payload), (200, payload), cookie="c=1")
+    assert client.my_groups()[0]["myRole"] == "ORGANIZER"
+    assert t.calls[0][2]["variables"]["filter"] == {"status": ["ACTIVE", "LEADER"]}
+    client.my_groups(include_inactive=True)
+    assert "filter" not in t.calls[1][2]["variables"]
+
+
+def test_mutations_surface_payload_errors():
     client, t = make((200, {"data": {"rsvp": {"errors": [{"code": "FULL", "field": None, "message": "Event is full"}], "rsvp": None}}}), cookie="c=1")
     with pytest.raises(MeetupError) as info:
         client.rsvp("5", True, guests=2)
@@ -246,3 +270,21 @@ def test_cli_exit_codes(monkeypatch, capsys):
     assert cli.main(["my-events"]) == 3
     assert cli.main(["event", "not-an-id"]) == 2
     assert "meetup:" in capsys.readouterr().err
+
+
+def test_jar_to_header_keeps_only_meetup_cookies():
+    jar = "\n".join([
+        "# Netscape HTTP Cookie File",
+        "\t".join([".meetup.com", "TRUE", "/", "TRUE", "1790000000", "MEETUP_MEMBER", "id=1&tok=abc"]),
+        "#HttpOnly_" + "\t".join(["www.meetup.com", "FALSE", "/", "TRUE", "1790000000", "MEETUP_SESSION", "sess"]),
+        "\t".join([".instagram.com", "TRUE", "/", "TRUE", "1790000000", "sessionid", "nope"]),
+        "\t".join(["notmeetup.com", "TRUE", "/", "TRUE", "1790000000", "x", "y"]),
+        "garbage line",
+    ])
+    assert store.jar_to_header(jar) == "MEETUP_MEMBER=id=1&tok=abc; MEETUP_SESSION=sess"
+    assert store.jar_to_header("# empty\n") == ""
+
+
+def test_import_rejects_unknown_browser():
+    with pytest.raises(ValueError):
+        store.import_cookie_from_browser("lynx")

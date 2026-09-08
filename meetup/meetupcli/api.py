@@ -17,6 +17,9 @@ INVARIANTS:
   ``Event.dateTime`` comes back in the event's own local offset, so it prints correctly with
   no timezone lookup.
 - A rejected cookie does not raise: ``self`` is simply ``null``. Treat that as auth failure.
+- ``self.memberEvents`` is the calendar of upcoming events across the member's groups (every
+  edge comes back ``isAttending: false``). What the member RSVP'd to lives under
+  ``self.rsvps`` behind an ``RsvpFilter``.
 """
 
 from __future__ import annotations
@@ -161,22 +164,33 @@ query Self {
 }
 """
 
-Q_MY_EVENTS = EVENT_CORE + """
-query MyEvents($first: Int!, $after: String, $status: [EventStatus]) {
+Q_MY_RSVPS = EVENT_CORE + """
+query MyRsvps($first: Int, $after: String, $filter: RsvpFilter, $sort: RsvpSort) {
   self {
-    memberEvents(first: $first, after: $after, eventStatus: $status,
+    rsvps(first: $first, after: $after, filter: $filter, sort: $sort) {
+      pageInfo { hasNextPage endCursor }
+      edges { node { status guestsCount event { ...EventCore } } }
+    }
+  }
+}
+"""
+
+Q_MY_CALENDAR = EVENT_CORE + """
+query MyCalendar($first: Int!, $after: String) {
+  self {
+    memberEvents(first: $first, after: $after, eventStatus: [ACTIVE],
                  sort: { sortField: LOCAL_TIME, sortOrder: ASC }) {
       pageInfo { hasNextPage endCursor }
-      edges { rsvpState node { ...EventCore } }
+      edges { node { ...EventCore } }
     }
   }
 }
 """
 
 Q_MY_GROUPS = GROUP_CORE + """
-query MyGroups($first: Int, $after: String) {
+query MyGroups($first: Int, $after: String, $filter: MembershipsFilter) {
   self {
-    memberships(first: $first, after: $after) {
+    memberships(first: $first, after: $after, filter: $filter) {
       pageInfo { hasNextPage endCursor }
       edges { metadata { role status } node { ...GroupCore } }
     }
@@ -406,19 +420,38 @@ class MeetupClient:
         """The logged-in member. Raises MeetupError(auth=True) when the cookie is rejected."""
         return self.gql(Q_SELF, authed=True).get("self") or {}
 
+    UPCOMING_RSVPS = ["YES", "WAITLIST", "YES_PENDING_PAYMENT"]
+    PAST_RSVPS = ["YES", "ATTENDED", "NO_SHOW"]
+
     def my_events(self, *, past: bool = False, limit: int = 20) -> list[Json]:
-        variables = {"status": ["PAST"] if past else ["ACTIVE"]}
+        """Events the member RSVP'd to, soonest first; with ``past``, attended ones newest first."""
+        variables = {
+            "filter": {
+                "eventStatus": ["PAST" if past else "UPCOMING"],
+                "rsvpStatus": self.PAST_RSVPS if past else self.UPCOMING_RSVPS,
+            },
+            "sort": {"sortField": "DATETIME", "sortOrder": "DESC" if past else "ASC"},
+        }
         out = []
-        for edge in self._pages(Q_MY_EVENTS, variables, ("self", "memberEvents"), limit, authed=True):
-            node = edge.get("node")
-            if node:
-                node["myRsvp"] = edge.get("rsvpState")
-                out.append(node)
+        for edge in self._pages(Q_MY_RSVPS, variables, ("self", "rsvps"), limit, authed=True):
+            rsvp = edge.get("node") or {}
+            event = rsvp.get("event")
+            if event:
+                event["myRsvp"] = rsvp.get("status")
+                event["myGuests"] = rsvp.get("guestsCount")
+                out.append(event)
         return out
 
-    def my_groups(self, *, limit: int = 50) -> list[Json]:
+    def my_calendar(self, *, limit: int = 30) -> list[Json]:
+        """Upcoming events across the member's groups, RSVP'd or not."""
+        return self._nodes(self._pages(Q_MY_CALENDAR, {}, ("self", "memberEvents"), limit, authed=True))
+
+    def my_groups(self, *, limit: int = 50, include_inactive: bool = False) -> list[Json]:
+        """Active memberships (and the group the member organizes); ``include_inactive`` adds
+        the dead and blocked groups Meetup keeps on the account."""
+        variables: Json = {} if include_inactive else {"filter": {"status": ["ACTIVE", "LEADER"]}}
         out = []
-        for edge in self._pages(Q_MY_GROUPS, {}, ("self", "memberships"), limit, authed=True):
+        for edge in self._pages(Q_MY_GROUPS, variables, ("self", "memberships"), limit, authed=True):
             node = edge.get("node")
             if node:
                 meta = edge.get("metadata") or {}

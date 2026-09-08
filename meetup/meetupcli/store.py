@@ -12,6 +12,8 @@ from __future__ import annotations
 
 import os
 import re
+import shutil
+import subprocess
 import tempfile
 from pathlib import Path
 
@@ -100,3 +102,55 @@ def home_location() -> tuple[str, float, float]:
 
 def timezone_name() -> str:
     return env_value("MEETUP_TZ") or DEFAULT_TZ
+
+
+# -- browser import ----------------------------------------------------------------------------
+
+BROWSERS = ("chrome", "safari", "firefox", "brave", "edge", "chromium")
+
+
+def jar_to_header(text: str) -> str:
+    """The meetup.com cookies in a Netscape cookies.txt, as one Cookie header value."""
+    pairs: dict[str, str] = {}
+    for raw in text.splitlines():
+        line = raw[len("#HttpOnly_"):] if raw.startswith("#HttpOnly_") else raw
+        if not line.strip() or line.startswith("#"):
+            continue
+        parts = line.split("\t")
+        if len(parts) < 7:
+            continue
+        domain, _flag, _path, _secure, _expires, name, value = parts[:7]
+        host = domain.lstrip(".")
+        if host == "meetup.com" or host.endswith(".meetup.com"):
+            pairs[name] = value
+    return "; ".join(f"{k}={v}" for k, v in pairs.items())
+
+
+def import_cookie_from_browser(browser: str = "chrome") -> str:
+    """Pull the meetup.com cookies out of a browser profile with yt-dlp's extractor.
+
+    yt-dlp already knows how to read (and on macOS decrypt) the Chrome, Safari, and Firefox
+    cookie stores. It dumps a full jar to a private temp file; only the meetup.com lines are
+    kept, and the rest is overwritten before the directory goes away, so no other site's
+    session lands anywhere durable. The first Chrome read may raise a Keychain prompt for
+    "Chrome Safe Storage"; allow it.
+    """
+    if browser not in BROWSERS:
+        raise ValueError(f"unknown browser {browser!r}; pick one of {', '.join(BROWSERS)}")
+    if shutil.which("yt-dlp") is None:
+        raise RuntimeError("yt-dlp is not installed (brew install yt-dlp), or paste the header with `meetup auth set`")
+    with tempfile.TemporaryDirectory() as td:
+        tmp = Path(td) / "jar.txt"
+        # The URL is deliberately bogus: only the --cookies side effect matters.
+        subprocess.run(
+            ["yt-dlp", "--cookies-from-browser", browser, "--cookies", str(tmp), "--simulate",
+             "--skip-download", "--no-warnings", "https://www.meetup.com/_cookie_export_/"],
+            capture_output=True, check=False,
+        )
+        if not tmp.exists():
+            raise RuntimeError(f"yt-dlp wrote no cookie jar from {browser}; is it installed and logged in to meetup.com?")
+        header = jar_to_header(tmp.read_text(encoding="utf-8", errors="replace"))
+        tmp.write_bytes(b"\0" * tmp.stat().st_size)
+    if not header:
+        raise RuntimeError(f"no meetup.com cookies in {browser}; log in to meetup.com there first")
+    return header
