@@ -55,7 +55,7 @@ CATEGORY A -- GLOBAL/NATIONAL (find 6-8 stories):
 - Check: AP News, Reuters, BBC, NPR, Al Jazeera, The Guardian
 - For each story, note which outlets cover it and their exact headline phrasing (this is critical for framing analysis later)
 - Prioritize by: impact scope, novelty, consequence severity
-- Skip: sports, celebrity gossip, entertainment unless it has policy implications
+- Skip: sports, celebrity gossip, entertainment unless it has policy implications (one exception: the fantasy roster, Category B item 6)
 
 CATEGORY B -- INTEREST AREAS (find 3-5 stories not already in Category A):
 1. AI safety, AI governance, AI policy, AI regulation
@@ -63,6 +63,11 @@ CATEGORY B -- INTEREST AREAS (find 3-5 stories not already in Category A):
 3. Effective altruism, longtermism, existential risk
 4. Life extension, anti-aging breakthroughs
 5. Tech industry, labor market trends (especially tech/cybersecurity job market)
+6. Alex's fantasy football roster (Chaos Legion, added 2026-09-07). The players change weekly, so never list them
+   here: run `python3 "/Users/alexhedtke/Documents/Exobrain harness/fantasy/bin/espn" team --json` for the current
+   names, and `python3 ".../fantasy/bin/roster-news" --hours 36 --watch` for ESPN's own feed on them. A real story
+   about one of them (injury, suspension, arrest or charge, trade, benching, a contract dispute, a breakout game)
+   counts as an interest story; routine box scores do not. The "skip sports" rule does not apply to these players.
 
 Search specialized sources: CSET Georgetown, GovAI, Schneier on Security, KrebsOnSecurity, EA Forum, LessWrong, congress.gov for new legislation.
 

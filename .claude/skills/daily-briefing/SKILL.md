@@ -70,6 +70,14 @@ Invoke `/news-briefing` **directly in this session** via the Skill tool. Do NOT 
 
 Use 3-5 bullets drawn from the fresh briefing's `tldr:` and Washington section as the daily note's `#### News` content.
 
+### 11b. Fantasy roster (deterministic, ~20 seconds)
+Run `python3 "/Users/alexhedtke/Documents/Exobrain harness/fantasy/bin/roster-news" --hours 36 --watch` and paste its
+output under the `#### Fantasy` heading in the briefing. It prints the last 36 hours of player-specific news for every
+player on Chaos Legion's roster plus the watch list (league-wide roundups filtered out), or one italic line when there
+is nothing. Add one line of your own only when something needs a decision today (a starter ruled out, a lock inside the
+next few hours); the lineup routines act on it, so the briefing only has to make Alex aware. Alex asked for this on
+2026-09-07: he wants to know who these people are and what is happening to them.
+
 ### 12. Local Events (read-only)
 Do NOT run `/local-events` here -- the full scan runs as part of the weekly review on Sundays.
 Read `/Users/alexhedtke/Documents/Exobrain harness/local-events/local-events-log.json` and surface:
@@ -126,6 +134,9 @@ Weather goes FIRST (outside the briefing heading), then content under `### Morni
 - [Washington: what moved and what stage it's at -- 1 sentence. Omit if nothing binding moved.]
 - [Interest area highlight -- 1 sentence]
 (3-5 lines max.)
+
+#### Fantasy
+[roster-news output: one bullet per player with news, or the italic no-news line]
 
 #### Flags
 (Only if something worth flagging: procrastination, deadline risk, new context, exceptional job posting. Omit if nothing to flag.)
