@@ -1,6 +1,6 @@
 # Tuesday routine (6:00 PM CT): recap, ledger, waivers, trades, tendencies
 
-Follow `fantasy/routines/COMMON.md` first.
+Follow `fantasy/routines/COMMON.md` first. If today is not Tuesday, stop.
 
 1. **Recap.** `fantasy/bin/espn matchup --week <last week> --json`,
    `fantasy/bin/espn scoreboard --json`, `fantasy/bin/espn teams --json`

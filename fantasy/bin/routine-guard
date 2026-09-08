@@ -1,0 +1,17 @@
+#!/bin/sh
+# routine-guard <weekdays> <routine-dir> <window-start> <window-end>
+# The Console's on-time wrapper checks time of day, not the day, so a RunAtLoad
+# fire on a Monday evening ran the Tuesday routine (2026-09-07, 10:50 PM).
+# This shim exits unless today's weekday (0=Sunday..6=Saturday) is in the
+# list, then hands off to the wrapper unchanged. "*" means any day.
+#
+# Invoke it as `/bin/bash <this file> ...` in the plist, never `/bin/sh`: under
+# launchd, /bin/sh could not read this script inside ~/Documents (exit 126,
+# nothing logged) while /bin/bash, which holds Full Disk Access on this Mac
+# for exactly this reason, runs it fine (2026-09-07).
+DAYS="$1"; shift
+today="$(date +%w)"
+case ",$DAYS," in
+  *",*,"*|*",$today,"*) exec /bin/bash /Users/alexhedtke/Documents/mist-console/run-routine-ontime.sh "$@" ;;
+  *) echo "[$(date '+%Y-%m-%d %H:%M:%S')] SKIP $1. Not a scheduled weekday ($today not in $DAYS)."; exit 0 ;;
+esac

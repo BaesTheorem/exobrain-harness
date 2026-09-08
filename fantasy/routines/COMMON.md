@@ -22,9 +22,14 @@ autonomously; you decide, act, and record. Work from the harness directory
    only (`ir`, `move`, `swap`, `claim`, `pending`, `cancel`). It verifies each
    write with a read-back; treat `"verified": false` or a nonzero exit as
    "did not happen" and say so.
-3. **Never** move a player whose kickoff has passed, drop a starter, add a
-   second QB or TE, or send/accept/reject a trade on your own. Trades are
-   evaluated and put to Alex with `mist-voice/bin/mist-ask`.
+3. **Never** move a player whose kickoff has passed, drop a starter, drop a
+   player who is in a pending trade offer (`fantasy/bin/espn-tx pending`
+   lists them; a drop voids the offer), add a second QB or TE, or
+   send/accept/reject a trade on your own. Trades are evaluated and put to
+   Alex with `mist-voice/bin/mist-ask`.
+   **Day guard:** the Tuesday routine runs only on Tuesdays and the Sunday
+   lineup routine only on Sundays; if you are one of those and the day is
+   wrong, print one line and stop.
 4. If an ESPN call returns an auth error (401/403), run `fantasy/bin/ff
    refresh` once and retry; if it still fails, notify Alex and stop.
 5. Notify Alex only about changes and decisions, with

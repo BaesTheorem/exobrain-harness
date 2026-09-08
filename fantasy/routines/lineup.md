@@ -1,6 +1,7 @@
 # Lineup routine (daily 5:30 PM CT and Sunday 10:15 AM CT)
 
-Follow `fantasy/routines/COMMON.md` first.
+Follow `fantasy/routines/COMMON.md` first. (The Sunday 10:15 AM copy of this
+routine runs only on Sundays; on any other day it stops here.)
 
 1. `fantasy/bin/espn check --json` and `fantasy/bin/espn team --json`. If no
    starter locks within the next 27 hours, print "nothing locks before <time>"
