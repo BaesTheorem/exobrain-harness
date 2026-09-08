@@ -35,14 +35,41 @@ and sends a notification that deep-links to the barber's Booksy page.
 
 ## Which barber gets picked
 
-Alex's rule: **the highest-rated barber available in the window**, not the
-earliest opening. Every Midtown barber sits at a flat 5.0, so stars alone
-cannot separate them — review count is what actually decides, and ranking on
-stars alone would silently fall back to config order while looking like it
-ranked. `booksy.best_slot()` sorts by barber first and time second.
+Two rules, in order.
 
-Current order: Dmilly Cutz (82) → Troy (35) → Fully Blendz (22) → Razor Nick
-(14) → Xay (1). Refresh the counts in `config.json` when they drift.
+**1. Never a barber who takes a deposit.** A deposit means Booksy shows
+"Add card" where "Confirm & Book" belongs, and this package stores no card, so
+booking one is not a worse booking, it is no booking at all. Deposits are set
+per *service variant*, not per business (Dmilly charges $20 on a haircut and
+$85 on a colour, and every barber carries the same boilerplate cancellation
+policy at the business level), so the only thing that answers the question is
+the variant in `config.json`.
+
+```
+python3 booksy.py deposits            # who is eligible, from cached config
+python3 booksy.py deposits --update   # re-read from Booksy and save
+```
+
+As of 2026-09-08 only **Troy Richforever** qualifies: Dmilly $20, Razor Nick
+$15, Fully Blendz $12, and Xay's business now 404s so his deposit is unknown.
+**Unknown counts as requiring one.** Guessing wrong in the other direction
+costs a run.
+
+**2. Among those, the highest rated in the window,** not the earliest opening.
+Everyone sits at a flat 5.0, so review count is what actually decides, and
+ranking on stars alone would fall back to config order while looking like it
+ranked. `booksy.best_slot()` applies both rules, filter first.
+
+Reviews: Dmilly (82), Troy (35), Fully Blendz (22), Razor Nick (14), Xay (1).
+Refresh the counts in `config.json` when they drift.
+
+This ordering was learned the hard way. Ranking on reviews alone put Dmilly
+first every cycle, so every cycle the run walked the entire booking flow and
+died at her card prompt, having reserved nothing. `book.py` now enforces the
+rule itself via `refuse_if_deposit()`, reading the deposit live rather than
+trusting config, because ranking only governs the barber the routine *picks*.
+A hand-typed `--barber`, a stale config, or a barber who turns deposits on next
+month all route around the ranking and land on the gate instead.
 
 ## Auth: a saved session, not stored credentials
 
@@ -107,6 +134,27 @@ To reschedule: book the new slot first, then cancel the old one, so there is
 never a moment with zero appointments. Then update the calendar event and
 `schedule.py pending --date <new>`.
 
+## Closing the loop: what counts as a completed haircut
+
+`state.json` is the only record that a haircut *happened*. Booksy will not tell
+you: the Sep 1 2026 cut Alex actually sat through reports `status: "C"`,
+`active: false` in `/me/bookings`, the same shape as an appointment that was
+cancelled, with no field that separates the two. So the server is authoritative
+for "was this booking created" (that is what `book.py` verifies against) and
+useless for "did he get his hair cut".
+
+That gap bit once. The Sep 1 appointment lapsed without anyone running
+`schedule.py record`, `pending` merely stopped suppressing the job, and the
+next run read "no haircut on record yet" -- the one state that makes it act
+immediately -- and went hunting three weeks early.
+
+`schedule.py reconcile` now runs first in the daily job and closes out any
+appointment whose date has passed, recording it as completed and flagged
+`"assumed": true`, then notifying Alex to confirm. Assuming he went is
+deliberately the cheaper error: guess wrong that way and the next nudge is
+late, which one sentence fixes; guess the other way and the job books a second
+appointment on top of one he already has.
+
 ## Booksy API notes
 
 Undocumented, driven by the public web widget. No account needed to read:
@@ -134,8 +182,11 @@ runner is told never to conflate them.
 python3 booksy.py calendar --days 30              # who works which days
 python3 booksy.py slots --date 2026-08-29         # open times that day
 python3 booksy.py slots --from A --to B --json    # machine-readable
+python3 booksy.py deposits                       # who may be auto-booked
+python3 booksy.py deposits --update              # re-read deposits from Booksy
 
 python3 schedule.py status                        # where the cadence stands
+python3 schedule.py reconcile                     # close out a passed appointment
 python3 schedule.py pending --date 2026-08-29 --barber "Razor Nick"
 python3 schedule.py record  --date 2026-08-29 --barber "Razor Nick"
 ```

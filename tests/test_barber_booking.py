@@ -8,6 +8,7 @@ the wrong appointment.
 from __future__ import annotations
 
 import importlib.util
+import json
 import sys
 from datetime import datetime, timedelta
 from pathlib import Path
@@ -105,7 +106,7 @@ def test_empty_summary_is_caught(book):
 # --- ranking ------------------------------------------------------------
 
 
-def _barber(booksy, name, stars, reviews, business_id=1):
+def _barber(booksy, name, stars, reviews, business_id=1, deposit: float | None = 0.0):
     return booksy.Barber(
         business_id=business_id,
         name=name,
@@ -116,6 +117,7 @@ def _barber(booksy, name, stars, reviews, business_id=1):
         url="x",
         stars=stars,
         reviews=reviews,
+        deposit=deposit,
     )
 
 
@@ -164,3 +166,115 @@ def test_slot_end_uses_service_duration(booksy):
     strong = _barber(booksy, "Veteran", 5.0, 82, 2)
     slot = booksy.Slot(strong, datetime(2026, 8, 29, 11, 0))
     assert slot.end - slot.start == timedelta(minutes=30)
+
+
+# --- the deposit gate ---------------------------------------------------
+
+
+def test_deposit_barber_never_wins_however_good(booksy):
+    """The actual regression: 82 reviews kept beating a barber we can pay.
+
+    Every cycle the routine picked Dmilly on review count, drove the whole
+    booking flow, and hit her "Add card" screen. A better barber we cannot
+    check out with is worth less than a worse barber we can.
+    """
+    deposit = _barber(booksy, "Dmilly", 5.0, 82, 1, deposit=20.0)
+    free = _barber(booksy, "Troy", 5.0, 35, 2, deposit=0.0)
+    slots = [
+        booksy.Slot(deposit, datetime(2026, 8, 29, 9, 0)),
+        booksy.Slot(free, datetime(2026, 8, 29, 16, 0)),
+    ]
+    assert booksy.best_slot(slots).barber.name == "Troy"
+
+
+def test_unknown_deposit_fails_closed(booksy):
+    """A barber we could not read is not a barber we may book.
+
+    Xay's business 404s, so his deposit stores as null. Treating unknown as
+    zero would send an unattended run at a possible card prompt.
+    """
+    unknown = _barber(booksy, "Xay", 5.0, 1, 1, deposit=None)
+    assert not unknown.auto_bookable
+    slots = [booksy.Slot(unknown, datetime(2026, 8, 29, 9, 0))]
+    assert booksy.best_slot(slots) is None
+
+
+def test_all_deposit_barbers_means_no_slot(booksy):
+    """No eligible barber must read as "nothing bookable", not "book anyway"."""
+    a = _barber(booksy, "Dmilly", 5.0, 82, 1, deposit=20.0)
+    b = _barber(booksy, "Nick", 5.0, 14, 2, deposit=15.0)
+    slots = [
+        booksy.Slot(a, datetime(2026, 8, 29, 9, 0)),
+        booksy.Slot(b, datetime(2026, 8, 29, 10, 0)),
+    ]
+    assert booksy.best_slot(slots) is None
+
+
+def test_load_barbers_can_filter_to_auto_bookable(booksy, tmp_path):
+    config = tmp_path / "config.json"
+    config.write_text(
+        json.dumps(
+            {
+                "barbers": [
+                    {
+                        "business_id": 1,
+                        "name": "Dmilly",
+                        "service_name": "Haircut",
+                        "service_variant_id": 1,
+                        "price": "$40.00",
+                        "duration_min": 45,
+                        "url": "x",
+                        "stars": 5.0,
+                        "reviews": 82,
+                        "deposit": 20.0,
+                    },
+                    {
+                        "business_id": 2,
+                        "name": "Troy",
+                        "service_name": "Haircut",
+                        "service_variant_id": 2,
+                        "price": "$40.00",
+                        "duration_min": 45,
+                        "url": "y",
+                        "stars": 5.0,
+                        "reviews": 35,
+                        "deposit": 0.0,
+                    },
+                ]
+            }
+        )
+    )
+    everyone = booksy.load_barbers(config)
+    assert [b.name for b in everyone] == ["Dmilly", "Troy"]
+    assert [b.name for b in booksy.load_barbers(config, auto_bookable_only=True)] == ["Troy"]
+
+
+def test_read_deposit_matches_the_configured_variant(booksy, monkeypatch):
+    """Deposits are per service variant, so the wrong variant is the wrong answer.
+
+    Dmilly charges $20 for a haircut and $85 for colour off the same menu.
+    Reading the first variant on the page would call her deposit-free.
+    """
+    barber = _barber(booksy, "Dmilly", 5.0, 82, 1, deposit=None)
+    payload = {
+        "business": {
+            "service_categories": [
+                {
+                    "services": [
+                        {"name": "Colour", "variants": [{"id": 999, "prepayment": 0.0}]},
+                        {"name": "Haircut", "variants": [{"id": 1, "prepayment": 20.0}]},
+                    ]
+                }
+            ]
+        }
+    }
+    monkeypatch.setattr(booksy, "_get", lambda path, headers: payload)
+    assert booksy.read_deposit(barber) == 20.0
+
+
+def test_read_deposit_raises_when_the_variant_is_gone(booksy, monkeypatch):
+    """A missing variant must raise, not return 0.0 and authorise a booking."""
+    barber = _barber(booksy, "Xay", 5.0, 1, 1, deposit=None)
+    monkeypatch.setattr(booksy, "_get", lambda path, headers: {"business": {}})
+    with pytest.raises(booksy.BooksyError):
+        booksy.read_deposit(barber)

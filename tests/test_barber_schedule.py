@@ -139,3 +139,58 @@ def test_search_window_never_starts_in_the_past(tmp_path, monkeypatch):
     assert start > today
     assert end > start
     assert (end - start) <= timedelta(days=90)
+
+
+# --- reconcile: a lapsed appointment must not vanish --------------------
+
+
+def test_lapsed_appointment_records_as_completed(tmp_path, monkeypatch):
+    """The Sep 1 bug: the cut happened, the pending expired, history stayed empty.
+
+    The next run then read "no haircut on record", which is the one state that
+    makes the job act immediately, and it went hunting three weeks early.
+    """
+    mod = load_schedule(
+        tmp_path,
+        monkeypatch,
+        {"last_haircut": None, "pending": "2026-09-01", "pending_barber": "Troy", "history": []},
+    )
+    assert mod.reconcile(date(2026, 9, 8)) == date(2026, 9, 1)
+
+    st = mod.status(date(2026, 9, 8))
+    assert st.last_haircut == date(2026, 9, 1)
+    assert st.due == date(2026, 10, 13)
+    assert not st.should_act, "a recorded cut must stop the early hunt"
+
+    entry = json.loads((tmp_path / "state.json").read_text())["history"][-1]
+    assert entry == {"date": "2026-09-01", "assumed": True, "barber": "Troy"}
+
+
+def test_reconcile_leaves_a_future_appointment_alone(tmp_path, monkeypatch):
+    mod = load_schedule(
+        tmp_path, monkeypatch, {"last_haircut": None, "pending": "2026-09-20", "history": []}
+    )
+    assert mod.reconcile(date(2026, 9, 8)) is None
+    assert json.loads((tmp_path / "state.json").read_text())["pending"] == "2026-09-20"
+
+
+def test_reconcile_does_not_double_record_a_hand_logged_cut(tmp_path, monkeypatch):
+    """Alex recording it himself must retire the appointment, not duplicate it."""
+    mod = load_schedule(
+        tmp_path,
+        monkeypatch,
+        {
+            "last_haircut": "2026-09-01",
+            "pending": "2026-09-01",
+            "history": [{"date": "2026-09-01"}],
+        },
+    )
+    assert mod.reconcile(date(2026, 9, 8)) is None
+    state = json.loads((tmp_path / "state.json").read_text())
+    assert state["pending"] is None
+    assert len(state["history"]) == 1
+
+
+def test_reconcile_is_a_noop_without_an_appointment(tmp_path, monkeypatch):
+    mod = load_schedule(tmp_path, monkeypatch, {"last_haircut": "2026-09-01", "history": []})
+    assert mod.reconcile(date(2026, 9, 8)) is None
