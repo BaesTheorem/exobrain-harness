@@ -69,6 +69,28 @@ def test_healthy_room_is_not_flagged(state):
     assert supervise.hung() is None
 
 
+def test_wrong_page_is_flagged_only_for_a_real_non_draft_url(tmp_path, monkeypatch):
+    """A swipe-back lands on a healthy-looking page with no marker; only a real
+    http URL off /draft counts, so the fixture's placeholder url never fires."""
+    path = tmp_path / "state.json"
+    monkeypatch.setattr(supervise, "STATE", path)
+    path.write_text(json.dumps({"ts": "19:17:57", "url": "https://fantasy.espn.com/football/team?leagueId=1",
+                                "text": HEALTHY_ROOM}))
+    assert supervise.hung() == "wrong page"
+    path.write_text(json.dumps({"ts": "19:18:00", "url": "https://fantasy.espn.com/football/draft?leagueId=1",
+                                "text": HEALTHY_ROOM}))
+    assert supervise.hung() is None
+
+
+def test_marker_beats_wrong_page(tmp_path, monkeypatch):
+    """A dead-room banner is the more specific diagnosis whatever the URL says."""
+    path = tmp_path / "state.json"
+    monkeypatch.setattr(supervise, "STATE", path)
+    path.write_text(json.dumps({"ts": "19:17:29", "url": "https://fantasy.espn.com/football/team?leagueId=1",
+                                "text": CONNECTION_FAILED}))
+    assert supervise.hung() == "Connection Failed"
+
+
 def test_missing_state_file_is_not_a_false_alarm(tmp_path, monkeypatch):
     """No state.json yet (driver still booting) is not a dead room."""
     monkeypatch.setattr(supervise, "STATE", tmp_path / "nope.json")
