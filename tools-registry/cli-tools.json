@@ -176,6 +176,14 @@
     "notes": "Two draft scoreboards (our VOR board vs ESPN projections, from live rosters + ESPN's pick record) and a Monte Carlo of the season on the real schedule: wins/PF with 50/90% CIs, P(playoffs/bye/#1 seed/champion/most PF/last). Noise terms are stated assumptions, not fitted. Rerun in season."
   },
   {
+    "name": "fantasy trade_scan",
+    "command": "python3 fantasy/trade_scan.py [--our-view espn|board --min-gain N --their-floor N --top N]",
+    "repo_dir": "/Users/alexhedtke/Documents/Exobrain harness/fantasy",
+    "source": "built",
+    "added": "2026-09-07",
+    "notes": "Enumerates every 1-for-1 and 2-for-1 with each rival; scores both lineups on ESPN projections (their screen) or our VOR board (our view); paired season-sim for title/playoff/bye deltas. Pre-week-1 result: no win-win trades exist on shared projections; edges are belief trades (BUY flags) or absent managers."
+  },
+  {
     "name": "fantasy vor board",
     "command": "python3 fantasy/vor.py",
     "repo_dir": "/Users/alexhedtke/Documents/Exobrain harness/fantasy",
