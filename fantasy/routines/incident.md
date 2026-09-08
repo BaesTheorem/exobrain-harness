@@ -23,7 +23,10 @@ false, oldest first, then rewrite the file with those lines marked
 - **waiver_result.** Log the outcome (`fantasy/bin/ff roster`,
   `fantasy/bin/espn activity --json`). If the new player should start this
   week and a lock is within 6 hours, set him now; otherwise leave it for the
-  lineup routine.
+  lineup routine. If every claim failed and a roster spot is still open, the
+  wire is now first-come: add the best remaining player by the Tuesday rules
+  with `fantasy/bin/espn-tx claim "<name>" --fa` (no drop needed for an open
+  spot) and log who else was considered.
 - **left_roster / joined_roster / other.** Log it.
 
 Finish with one Season log line per incident and one notification to Alex
