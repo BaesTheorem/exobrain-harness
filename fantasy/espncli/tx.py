@@ -132,6 +132,24 @@ class EspnWriter:
         return {"verified": listed if waiver else self.slot_of(player_id) is not None,
                 "pending_count": len(pend), "response": resp}
 
+    def propose_trade(self, give_ids: list[int], get_ids: list[int], other_team: int,
+                      dry_run: bool = False) -> dict[str, Any]:
+        """Send a trade offer: our players to them, theirs to us, one proposal.
+        Verified by the offer appearing in the league's pending transactions."""
+        body = self._base("TRADE_PROPOSAL")
+        body["items"] = (
+            [{"playerId": pid, "type": "TRADE", "fromTeamId": self.team_id, "toTeamId": other_team} for pid in give_ids]
+            + [{"playerId": pid, "type": "TRADE", "fromTeamId": other_team, "toTeamId": self.team_id} for pid in get_ids]
+        )
+        if dry_run:
+            return {"dry_run": body}
+        resp = self._post(body)
+        pend = self.api.league("mPendingTransactions").get("pendingTransactions") or []
+        mine = [t for t in pend if "TRADE" in str(t.get("type", ""))
+                and {i.get("playerId") for i in t.get("items", [])} >= set(give_ids) | set(get_ids)]
+        return {"verified": bool(mine), "id": mine[0].get("id") if mine else None,
+                "status": mine[0].get("status") if mine else None, "response": resp}
+
     def pending(self) -> list[dict[str, Any]]:
         data = self.api.league("mPendingTransactions")
         return [t for t in data.get("pendingTransactions", []) or []
