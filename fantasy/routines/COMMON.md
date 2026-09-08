@@ -12,6 +12,11 @@ autonomously; you decide, act, and record. Work from the harness directory
    waiver and trade sections. The playbook is the living document: **every
    run writes back to it** (a Season log line at minimum, and a corrected rule
    whenever a rule met reality and lost), and bumps its `updated:` field.
+   **The playbook governs every judgment call.** For each decision, apply the
+   playbook's rule for that kind of call (the skill has a section map) and
+   name it in your log line. If the playbook has no rule for the situation,
+   decide from the skill's evidence and write the new rule into the playbook
+   in the section it belongs to.
 2. **Reads:** `fantasy/bin/espn ...` and `fantasy/bin/ff ...` (both read-only,
    every `espn` subcommand takes `--json`). **Writes:** `fantasy/bin/espn-tx`
    only (`ir`, `move`, `swap`, `claim`, `pending`, `cancel`). It verifies each
