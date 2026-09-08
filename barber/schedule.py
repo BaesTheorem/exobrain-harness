@@ -15,11 +15,18 @@ INVARIANTS (an edit must not break these):
 - An appointment already lined up (`pending`) suppresses the job until the
   day after it happens. Without this the daily job re-nudges every morning
   for a haircut that is already on the calendar.
+- A `pending` appointment whose date has passed is closed out as a completed
+  haircut, not discarded. It used to just expire, so the cut Alex actually got
+  left no trace and the next run read "no haircut on record" and went hunting
+  three weeks early. Booksy cannot settle this for us: it reported the Sep 1
+  cut Alex sat through as status "C", so the only record of a *completed*
+  haircut is this file.
 
 Usage:
     python3 schedule.py status                  # human-readable
     python3 schedule.py check                   # exit 0 = act now, 1 = nothing to do
     python3 schedule.py window                  # the date range to search
+    python3 schedule.py reconcile               # close out a lapsed appointment
     python3 schedule.py mark-notified
     python3 schedule.py pending --date 2026-08-29 [--barber "Razor Nick"]
     python3 schedule.py record --date 2026-08-29 [--barber "Razor Nick"]
@@ -111,6 +118,49 @@ def status(today: date | None = None) -> Status:
     return Status(last, due, days_until, notified, True, f"due in {days_until} days", pending)
 
 
+def reconcile(today: date | None = None) -> date | None:
+    """Close out an appointment whose date has passed. Returns the date, or None.
+
+    A lapsed `pending` used to simply stop suppressing the job, which threw
+    away the only evidence the haircut happened: the next run saw an empty
+    history, concluded Alex had never had a cut, and hunted for a slot three
+    weeks early. Booksy is no help here, since it files a sat-through
+    appointment under the same status letter as a cancelled one.
+
+    So a lapsed appointment records as completed, flagged `assumed` so the
+    guess stays visible and Alex can correct it. Assuming he went is the
+    cheaper error by a distance: guess "went" wrongly and the next nudge
+    arrives late, which one sentence from him fixes; guess "did not go"
+    wrongly and the job books a second appointment he is already booked for.
+    """
+    today = today or date.today()
+    state = load_state()
+    if not state.get("pending"):
+        return None
+    pending = date.fromisoformat(state["pending"])
+    if pending >= today:
+        return None
+
+    last = date.fromisoformat(state["last_haircut"]) if state.get("last_haircut") else None
+    if last is not None and last >= pending:
+        # Already recorded by hand; just retire the spent appointment.
+        state["pending"] = None
+        state.pop("pending_barber", None)
+        save_state(state)
+        return None
+
+    entry: dict[str, object] = {"date": pending.isoformat(), "assumed": True}
+    if state.get("pending_barber"):
+        entry["barber"] = state["pending_barber"]
+    state["last_haircut"] = pending.isoformat()
+    state["notified_cycle"] = None
+    state["pending"] = None
+    state.pop("pending_barber", None)
+    state.setdefault("history", []).append(entry)
+    save_state(state)
+    return pending
+
+
 def search_window(today: date | None = None) -> tuple[date, date]:
     """The date range to search for slots.
 
@@ -128,8 +178,15 @@ def search_window(today: date | None = None) -> tuple[date, date]:
 
 def _cmd_status(_: argparse.Namespace) -> int:
     st = status()
-    print(f"last haircut : {st.last_haircut or '(none recorded)'}")
-    if st.pending:
+    last = st.last_haircut
+    assumed = any(
+        e.get("assumed") and e.get("date") == (last.isoformat() if last else None)
+        for e in load_state().get("history") or []
+    )
+    print(f"last haircut : {last or '(none recorded)'}{' (assumed, unconfirmed)' if assumed else ''}")
+    if st.pending and st.pending < date.today():
+        print(f"appointment  : {st.pending} (passed; run reconcile)")
+    elif st.pending:
         print(f"appointment  : {st.pending}")
     print(f"interval     : {interval_weeks()} weeks")
     print(f"due          : {st.due or '(as soon as possible)'}")
@@ -150,6 +207,19 @@ def _cmd_check(_: argparse.Namespace) -> int:
 def _cmd_window(_: argparse.Namespace) -> int:
     start, end = search_window()
     print(f"{start} {end}")
+    return 0
+
+
+def _cmd_reconcile(_: argparse.Namespace) -> int:
+    closed = reconcile()
+    if closed is None:
+        print("nothing to reconcile")
+        return 1
+    print(
+        f"assumed the {closed} appointment happened and recorded it; "
+        f"next due {closed + timedelta(weeks=interval_weeks())}. "
+        f"If Alex did not go, run: schedule.py record --date <the real date>"
+    )
     return 0
 
 
@@ -200,6 +270,9 @@ def main(argv: list[str] | None = None) -> int:
     sub.add_parser("status", help="show the cadence").set_defaults(func=_cmd_status)
     sub.add_parser("check", help="exit 0 if a slot hunt is due").set_defaults(func=_cmd_check)
     sub.add_parser("window", help="print the search window").set_defaults(func=_cmd_window)
+    sub.add_parser(
+        "reconcile", help="close out an appointment whose date has passed"
+    ).set_defaults(func=_cmd_reconcile)
     sub.add_parser("mark-notified", help="record that this cycle was nudged").set_defaults(
         func=_cmd_mark_notified
     )

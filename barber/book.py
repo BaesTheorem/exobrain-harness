@@ -10,6 +10,10 @@ INVARIANTS (an edit must not break these):
 - Dry run is the default. Booking is real, costs money, and some barbers
   charge cancellation fees, so the confirming path must always be opt-in
   via --confirm.
+- A barber who takes a deposit is never booked here, whoever asked. The check
+  reads the live deposit and aborts on a non-zero one *or* on a failure to
+  read it. Paying a deposit means storing a card, which this package refuses
+  to do, so there is no version of this run that ends well.
 - Before confirming, the on-screen summary is re-read and matched against the
   slot we asked for. If Booksy moved us to a different time, barber, or price,
   we abort instead of confirming. Never confirm a screen we have not verified.
@@ -35,6 +39,7 @@ from pathlib import Path
 # safety-critical logic and must stay unit-testable without a browser (the
 # test runner's interpreter has no playwright).
 
+import booksy
 import session
 from browser import PROFILE_DIR, launch_profile
 
@@ -88,6 +93,42 @@ def visited_before(barber_name: str) -> bool:
         return False
     history = json.loads(state_path.read_text()).get("history") or []
     return any(entry.get("barber") == barber_name for entry in history)
+
+
+def refuse_if_deposit(business_id: int) -> float:
+    """Abort unless Booksy will let us book this barber without a card.
+
+    Alex's rule (2026-09-08): only ever auto-book barbers who require no
+    deposit. This is the enforcement point rather than the ranking, because
+    ranking only decides who gets picked *by the routine* -- a hand-typed
+    --barber, a stale config, or a barber who turns deposits on next month all
+    route around it and land here instead.
+
+    Read live, not from config: a deposit is a setting the barber can flip any
+    day, and a cached zero would authorise exactly the card prompt we are
+    trying to avoid. An unreadable deposit aborts too. The cost of a false
+    refusal is one notification; the cost of a false approval is a run that
+    walks the whole flow to a dead end.
+    """
+    barbers = booksy.load_barbers()
+    match = next((b for b in barbers if b.business_id == business_id), None)
+    if match is None:
+        raise BookingError(f"no barber with business_id {business_id} in config.json")
+    try:
+        deposit = booksy.read_deposit(match)
+    except booksy.BooksyError as exc:
+        raise BookingError(
+            f"{match.name}: could not read the deposit, so refusing to book ({exc}). "
+            "Book by hand if you want this barber."
+        ) from exc
+    if deposit != 0:
+        raise BookingError(
+            f"{match.name} requires a ${deposit:.2f} deposit, so the automation cannot "
+            f"book them -- Booksy shows 'Add card' where 'Confirm & Book' would be. "
+            f"Pick a deposit-free barber (python3 booksy.py deposits) or book by hand: "
+            f"{match.booking_url}"
+        )
+    return deposit
 
 
 def list_bookings() -> list[dict]:
@@ -167,6 +208,7 @@ def book(business_id: int, when: datetime, confirm: bool) -> int:
     barber = load_barber(business_id)
     if not PROFILE_DIR.exists():
         raise BookingError("no saved Booksy session; run: python3 login.py")
+    refuse_if_deposit(business_id)
 
     url = f"https://booksy.com/en-us/{barber['url']}"
     print(f"barber : {barber['name']}")

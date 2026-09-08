@@ -19,7 +19,8 @@
       "duration_min": 30,
       "url": "1787073_razor-nick_barber-shop_20722_kansas-city",
       "stars": 5.0,
-      "reviews": 14
+      "reviews": 14,
+      "deposit": 15.0
     },
     {
       "business_id": 1842256,
@@ -30,7 +31,8 @@
       "duration_min": 40,
       "url": "1842256_xay-sliced-eem_barber-shop_20722_kansas-city",
       "stars": 5.0,
-      "reviews": 1
+      "reviews": 1,
+      "deposit": null
     },
     {
       "business_id": 830705,
@@ -41,7 +43,8 @@
       "duration_min": 35,
       "url": "830705_fully-blendz_barber-shop_20722_kansas-city",
       "stars": 5.0,
-      "reviews": 22
+      "reviews": 22,
+      "deposit": 12.0
     },
     {
       "business_id": 1159975,
@@ -52,7 +55,8 @@
       "duration_min": 45,
       "url": "1159975_dmilly-cutz_barber-shop_20722_kansas-city",
       "stars": 5.0,
-      "reviews": 82
+      "reviews": 82,
+      "deposit": 20.0
     },
     {
       "business_id": 1335772,
@@ -63,8 +67,9 @@
       "duration_min": 45,
       "url": "1335772_troy-richforever_barber-shop_20722_kansas-city",
       "stars": 5.0,
-      "reviews": 35
+      "reviews": 35,
+      "deposit": 0.0
     }
   ],
-  "ranking": "Highest rated wins. All barbers sit at 5.0, so review count is the real tiebreak. Refresh with: python3 booksy.py ratings --update"
+  "ranking": "Deposit first, then rating. The automation may only book a barber whose deposit is 0.00 -- a deposit means Booksy replaces 'Confirm & Book' with 'Add card', which no unattended run can pass, and this package stores no card. Among deposit-free barbers, all sit at 5.0 stars, so review count is the real tiebreak. A null deposit means unreadable and counts as requiring one. Refresh with: python3 booksy.py deposits --update"
 }

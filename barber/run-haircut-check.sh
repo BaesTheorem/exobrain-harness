@@ -19,6 +19,19 @@ HARNESS="$(cd "$SCRIPT_DIR/.." && pwd)"
 
 TIMEOUT_SEC=600
 
+# Close out a past appointment before deciding anything. A lapsed one used to
+# expire unrecorded, so the next run saw an empty history and hunted for a slot
+# weeks early. This must come before `check`, which reads what it writes.
+if RECONCILED="$(python3 "$SCRIPT_DIR/schedule.py" reconcile)"; then
+    echo "[$(date)] $RECONCILED"
+    # Ask here rather than in the MIST prompt below: once the cut is recorded
+    # the cadence is satisfied, so this script exits at the `check` on the next
+    # line and MIST never runs. The assumption has to be confirmable anyway.
+    "$HARNESS/mist-voice/bin/mist-notify" \
+        "Marked your appointment as done and restarted the six weeks. Did you actually go?" \
+        "Haircut" none console --reply || true
+fi
+
 if ! python3 "$SCRIPT_DIR/schedule.py" check > /dev/null; then
     echo "[$(date)] $(python3 "$SCRIPT_DIR/schedule.py" check || true) -- nothing to do."
     exit 0
@@ -59,6 +72,11 @@ ${DUE_INFO}
 
 Do this:
 
+0. If the cadence above mentions an appointment that already happened, say so in your
+   notification and ask Alex to confirm he went. The runner has already recorded it as
+   completed on the assumption that he did; if he says otherwise, correct it with
+   schedule.py record. Booksy cannot answer this, so his word is the only source.
+
 1. Read the open Booksy slots:
      cd "${SCRIPT_DIR}" && python3 booksy.py slots --from ${WINDOW_START} --to ${WINDOW_END} --json
    If that reports warnings and no slots, Booksy is unreachable -- say so in the
@@ -69,11 +87,18 @@ Do this:
    "Walk" as soft (moveable); treat everything else as hard busy. Leave 30 minutes of
    travel either side -- the shop is about 10 minutes from him.
 
-3. Pick the slot. Alex's rule is the HIGHEST RATED barber available in the window, not the
-   earliest opening. Every barber is 5.0, so review count is the real tiebreak; config.json
-   is already sorted best-first and booksy.best_slot() applies exactly this rule. Among
-   slots with the best available barber, take the one nearest the due date that sits in a
-   comfortable gap rather than wedged between two commitments.
+3. Pick the slot. Two rules, in this order:
+   a. NEVER a barber who takes a deposit. Slots carry "auto_bookable": false and a
+      "deposit" amount; those are off limits to you, full stop, however good their
+      reviews are. A deposit makes Booksy show "Add card" instead of "Confirm & Book",
+      so booking one is not a worse booking, it is a guaranteed dead end. book.py will
+      refuse you anyway. Right now Troy Richforever is the only barber who qualifies.
+   b. Among what is left, the HIGHEST RATED barber in the window, not the earliest
+      opening. All are 5.0, so review count is the tiebreak. booksy.best_slot() applies
+      both rules already. Among slots with the best eligible barber, take the one nearest
+      the due date that sits in a comfortable gap rather than wedged between commitments.
+   If NO barber in the window is deposit-free, do not book anything. Notify Alex with the
+   best slot you found and its booking URL and say a deposit is why you stopped.
 
 4. Book it:
      cd "${SCRIPT_DIR}" && python3 book.py --barber <business_id> --at "YYYY-MM-DD HH:MM" --confirm
