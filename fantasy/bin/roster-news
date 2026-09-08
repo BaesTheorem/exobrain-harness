@@ -1,0 +1,81 @@
+#!/usr/bin/env python3
+"""roster-news: the last day or two of player-specific news for Chaos Legion's
+roster (and, with --watch, the watch list), as markdown for the daily
+briefing. Player-specific means the headline names the player; ESPN attaches
+league-wide roundups to every feed and those are filtered out.
+
+    roster-news [--hours 36] [--watch] [--all]   (--all ignores the time window)
+"""
+import argparse
+import json
+import pathlib
+import re
+import subprocess
+import sys
+from datetime import datetime, timedelta, timezone
+
+HERE = pathlib.Path(__file__).resolve().parent
+FANTASY = HERE.parent
+sys.path.insert(0, str(FANTASY))
+from espncli.client import Espn  # noqa: E402
+from espncli.cli import player_news  # noqa: E402
+
+
+def last_name(full: str) -> str:
+    parts = full.split()
+    tail = re.sub(r"(Jr\.|Sr\.|III|II|IV)$", "", parts[-1]).strip()
+    return tail or (parts[-2] if len(parts) > 1 else full)
+
+
+def main() -> int:
+    ap = argparse.ArgumentParser()
+    ap.add_argument("--hours", type=float, default=36)
+    ap.add_argument("--watch", action="store_true", help="include fantasy/watchlist.json players")
+    ap.add_argument("--all", action="store_true")
+    args = ap.parse_args()
+    api = Espn()
+    team = json.loads(subprocess.run([sys.executable, str(HERE / "espn"), "team", "--json"],
+                                     capture_output=True, text=True, timeout=180).stdout)
+    people = [(r["id"], r["name"], f"{r['slot']} {r['pos']} {r['team']}", r.get("status") or "") for r in team["roster"]]
+    if args.watch:
+        for w in json.load(open(FANTASY / "watchlist.json")).get("players", []):
+            if all(w["id"] != p[0] for p in people):
+                people.append((w["id"], w["name"], f"watch: {w['pos']} {w['nfl']}", ""))
+    since = datetime.now(timezone.utc) - timedelta(hours=args.hours)
+    out = []
+    for pid, name, tag, status in people:
+        if pid < 0:
+            continue  # D/ST feeds are team news; not worth the noise here
+        ln = last_name(name)
+        try:
+            items = player_news(api, pid, 12)
+        except Exception:
+            continue
+        hits = []
+        for it in items:
+            h = it.get("headline") or ""
+            if not re.search(re.escape(ln), h):
+                continue
+            pub = it.get("published") or ""
+            try:
+                when = datetime.fromisoformat(pub.replace("Z", "+00:00"))
+            except ValueError:
+                when = None
+            if not args.all and (when is None or when < since):
+                continue
+            hits.append((pub[:10], h.strip()))
+        if hits:
+            out.append((name, tag, status, hits[:3]))
+    if not out:
+        print(f"_No player-specific news on the roster in the last {args.hours:.0f} hours._")
+        return 0
+    for name, tag, status, hits in out:
+        st = f" ({status})" if status else ""
+        print(f"- **{name}**{st}, {tag}")
+        for d, h in hits:
+            print(f"    - {d}: {h}")
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())
