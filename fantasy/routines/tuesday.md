@@ -34,6 +34,24 @@ Follow `fantasy/routines/COMMON.md` first. If today is not Tuesday, stop.
    when a slot is open), confirming `"verified": true`. If nothing beats the
    bench, say so and file nothing. Week 7 is Daniels' bye: that week, claim a
    streaming QB instead (the IR slot and a drop make room).
+
+   **File in value order the first time. There is no undo.** ESPN's API does
+   not expose claim order and has no working cancel route, so a mis-ordered
+   list can only be repaired by Alex in the web UI. Two consequences, both
+   learned the hard way on 2026-09-08:
+   - **Never file a second claim for the same player as a hedge**, and never
+     attach a drop to a claim as insurance against your own earlier one. It
+     is dominated when the order is right and destructive when it is wrong.
+     With one open bench spot, the hedge let a worse player land *and* cost
+     the drop.
+   - **Count open bench spots before deciding on `--drop`.** Only attach a
+     drop when the roster is genuinely full after every earlier claim in the
+     list has landed. If an earlier claim fills the last spot, the later one
+     should have the drop; if it does not, the later claim just fails, which
+     is the safe failure.
+   If you find you have already filed in the wrong order, do not file another
+   claim to compensate. Say so in the summary and hand Alex the exact cancel
+   and reorder to make in the web UI.
 4. **Trades, from week 3 on.** The edge is a leaguemate's recency and
    endowment bias, so timing is the input: buy a volume player after a bad
    week or two, sell a thin-volume touchdown scorer after a big one. Scan
