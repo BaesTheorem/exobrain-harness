@@ -1,5 +1,5 @@
 {
- "updated": "2026-09-08",
+ "updated": "2026-09-09",
  "players": [
   {
    "id": 4426354,
@@ -60,8 +60,8 @@
    "name": "Chris Brooks",
    "pos": "RB",
    "nfl": 9,
-   "why": "claim filed Monday and first in ESPN's queue by subOrder; one of Green Bay's top three backs with Jacobs on the exempt list, but no established touches yet",
-   "trigger": "processes Wed 2:00 AM. If he lands, watch snap share: under 40% in a three-way split makes him droppable depth, 50%+ makes him a real flex. If the claim fails, he is a free-agent add only on a snap-share signal",
+   "why": "claim failed 2026-09-09 for lack of roster space (Vele took the open spot); still a free agent, one of Green Bay's top three backs with Jacobs on the exempt list, but no established touches",
+   "trigger": "free-agent add only on a snap-share signal: 50%+ of the Green Bay backfield makes him a real flex and worth a drop-add, under 40% in a three-way split is noise. 70.6 season projection is below every bench player we hold, so no speculative add",
    "added": "2026-09-07"
   },
   {
@@ -87,8 +87,8 @@
    "name": "Devaughn Vele",
    "pos": "WR",
    "nfl": 18,
-   "why": "best free-agent receiver by projection (123.2 season vs Mitchell's 93.9); absorbing the New Orleans target share our own IR'd Tyson vacated",
-   "trigger": "re-filed 2026-09-08 with a Keaton Mitchell drop so he lands even when Brooks fills the open slot; processes Wed 2:00 AM. If he lands, he is bench depth until a starter's role slips; if he fails, claim him again next Tuesday",
+   "why": "rostered 2026-09-09 off waivers (123.2 season projection, best receiver on the wire); absorbing the New Orleans target share our IR'd Tyson vacated",
+   "trigger": "on our bench. Promote to a starting WR or FLEX only on a role signal: a target share at or above 20% over two weeks, or a starter's role slipping. If his snap share stays under 50% through week 4 he is the first drop when a better wire receiver appears",
    "added": "2026-09-07"
   },
   {
