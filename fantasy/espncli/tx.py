@@ -155,11 +155,31 @@ class EspnWriter:
         return [t for t in data.get("pendingTransactions", []) or []
                 if t.get("teamId") == self.team_id]
 
-    def cancel(self, transaction_id: str) -> Any:
-        body = {"isLeagueManager": False, "teamId": self.team_id, "type": "WAIVER",
-                "memberId": self.api.creds["SWID"], "executionType": "CANCEL",
-                "id": transaction_id, "items": []}
-        return self._post(body)
+    def cancel(self, transaction_id: str) -> dict[str, Any]:
+        """Cancel one pending claim, verified by it leaving the pending list.
+
+        WARNING: no known ESPN route actually cancels a pending claim, so this
+        is expected to raise (2026-09-08). Two bugs were found and only the
+        first is fixed here. The body was missing scoringPeriodId, which every
+        other write carries via _base(); without it ESPN answers 409
+        TRAN_INVALID_SCORINGPERIOD_NOT_CURRENT, which reads like a timing
+        problem and is really a missing field. With that fixed ESPN answers 409
+        TRAN_NOT_FOUND "Transaction with ID null", i.e. it never reads the id
+        from the body, and echoing the whole pending object back does not help
+        either. POST/PUT/DELETE to .../transactions/{id} all answer 405.
+
+        Operational consequence, which is the part that matters: a filed claim
+        cannot be cancelled or reordered, so FILE CLAIMS IN VALUE ORDER THE
+        FIRST TIME. To slip a better player ahead of an already-filed claim,
+        file a second claim for him carrying a --drop, so he lands even once
+        the earlier claim has filled the open roster spot.
+        """
+        body = self._base("WAIVER")
+        body["executionType"] = "CANCEL"
+        body["id"] = transaction_id
+        resp = self._post(body)
+        still = any(t.get("id") == transaction_id for t in self.pending())
+        return {"verified": not still, "id": transaction_id, "response": resp}
 
 
 __all__ = ["EspnWriter", "BENCH", "IR", "SLOT_BY_NAME"]
