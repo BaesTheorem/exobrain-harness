@@ -6,8 +6,8 @@
    "name": "George Pickens",
    "pos": "WR",
    "nfl": 6,
-   "why": "the standing offer's target (Watson + Nailor); the manager has never been in the room",
-   "trigger": "any roster move by Ayahuasca Rodgers means the manager is active: re-send the offer if expired and ping Alex",
+   "why": "the expired offer's target (Watson + Nailor, expired unanswered 9/9 10:18 PM); the manager has never been in the room",
+   "trigger": "any roster move by Ayahuasca Rodgers means the manager is active: ping Alex; re-send only on his tap (asked 9/10 12:10 AM)",
    "added": "2026-09-07"
   },
   {

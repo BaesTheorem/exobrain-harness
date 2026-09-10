@@ -27,6 +27,14 @@ false, oldest first, then rewrite the file with those lines marked
   wire is now first-come: add the best remaining player by the Tuesday rules
   with `fantasy/bin/espn-tx claim "<name>" --fa` (no drop needed for an open
   spot) and log who else was considered.
+- **trade_resolved** (an offer we sent left the pending list). Read
+  `fantasy/bin/espn raw --views mTransactions2 --json --limit 0`: a row with
+  `memberId` `TradeTaskProcessor`, `executionType` `CANCEL`, and
+  `relatedTransactionId` pointing at ours means it expired unanswered (the
+  original keeps `status: PENDING`); otherwise the roster diff says whether
+  it went through. Log it, and if it expired put the re-send to Alex with
+  `mist-ask` (Re-send now / Wait for Tuesday / Drop it). Never re-send on
+  your own.
 - **left_roster / joined_roster / other.** Log it.
 
 Finish with one Season log line per incident and one notification to Alex

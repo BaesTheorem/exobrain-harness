@@ -105,9 +105,15 @@ def main() -> int:
     for tid in list(seen):
         if tid not in now_ids and seen[tid].get("mine") and seen[tid].get("status") == "PENDING":
             # A claim that vanished from pending was processed (executed or failed);
-            # the roster diff above says which. Hand it to the routine to log.
-            events.append({"kind": "waiver_result", "id": tid, "type": seen[tid].get("type"),
-                           "from": "PENDING", "to": "processed (see roster)", "judgment": True})
+            # the roster diff above says which. An outgoing trade offer that vanished
+            # was accepted, rejected, or expired (ESPN's TradeTaskProcessor writes a
+            # CANCELED row with relatedTransactionId at the 2-day mark and the
+            # original stays PENDING forever). Hand either to the routine to log.
+            trade = "TRADE" in str(seen[tid].get("type", ""))
+            events.append({"kind": "trade_resolved" if trade else "waiver_result", "id": tid,
+                           "type": seen[tid].get("type"),
+                           "from": "PENDING", "to": "resolved (see roster)" if trade else "processed (see roster)",
+                           "judgment": True})
             seen.pop(tid)
 
     # 3. The watch list: players we are tracking anywhere in the league, and teams
