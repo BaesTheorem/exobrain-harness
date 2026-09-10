@@ -32,7 +32,7 @@ Three facts measured 2026-08-26 that shape the script:
   held exactly 1 remote job (vs ~1,400 posted in 7 days), so the REMOTE pass
   is expected-dry -- never read that as breakage. The real yield is the LOCAL
   pass: KC-metro seats gated at the onsite floor, same shape as usajobs.py's
-  local pass. Honest expectation: the >=103K KC pool is mostly State of
+  local pass. Honest expectation: the >=80K KC pool is mostly State of
   Missouri trades/corrections/social-services seats; IT titles are rare.
 
 Detail pages are HTML-only (`/jobs/<id>.json` answers 406). They carry the
@@ -52,8 +52,8 @@ import urllib.request
 
 BASE = "https://missouri.talify.com"
 COMP_FLOOR = 75_000     # standard remote floor; see gitignored Claude Reference.md
-ONSITE_FLOOR = 103_000  # binary on ANY office requirement (feedback_onsite_floor)
-LOCAL_PREFILTER = 65_000  # server-side min; real gate is the band top vs ONSITE_FLOOR
+ONSITE_FLOOR = 80_000   # binary on ANY office requirement (feedback_onsite_floor)
+LOCAL_PREFILTER = 50_000  # server-side min; real gate is the band top vs ONSITE_FLOOR
 UA = {"User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7)"}
 
 # KC metro, Missouri side. 640xx/641xx covers the metro proper (Belton 64012,

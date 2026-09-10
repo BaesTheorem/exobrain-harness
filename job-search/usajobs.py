@@ -38,7 +38,7 @@ import urllib.parse
 import urllib.request
 
 COMP_FLOOR = 75_000    # standard remote floor; see gitignored Claude Reference.md
-ONSITE_FLOOR = 103_000  # any office requirement at all triggers this, binary
+ONSITE_FLOOR = 80_000  # any office requirement at all triggers this, binary
 LOCAL_LOCATION = "Kansas City, Missouri"
 LOCAL_RADIUS_MILES = 30
 
