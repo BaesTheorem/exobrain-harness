@@ -35,6 +35,18 @@ false, oldest first, then rewrite the file with those lines marked
   it went through. Log it, and if it expired put the re-send to Alex with
   `mist-ask` (Re-send now / Wait for Tuesday / Drop it). Never re-send on
   your own.
+  **If it went through, refill the slot it emptied, immediately and without
+  asking** (standing authorization, 2026-09-10). An accepted trade that sends
+  away a starter leaves a hole that scores zero, and Lineup Protection is OFF.
+  Put the acquired player into the vacated slot with `fantasy/bin/espn-tx
+  swap` / `move` and confirm `"verified": true`; if the acquired player is not
+  startable there, fill it with the best bench option by the lineup routine's
+  step 4 rules. Do this before that slot's kickoff and do not wait for the
+  next scheduled run, since a trade in review is invisible to `espn check`
+  until the roster actually moves. **The boundary: accepting, rejecting, and
+  sending trades stay Alex's tap. Executing the lineup consequence of a trade
+  he already approved is not a trade decision, it is the empty-slot repair
+  `lineup-watch` already does on sight.**
 - **left_roster / joined_roster / other.** Log it.
 
 Finish with one Season log line per incident and one notification to Alex

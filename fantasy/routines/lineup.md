@@ -8,6 +8,13 @@ routine runs only on Sundays; on any other day it stops here.)
    and stop. On Wednesdays, before anything else, log what the waiver claims
    did: `fantasy/bin/espn-tx pending`, `fantasy/bin/ff roster`, and
    `fantasy/bin/espn activity --json`; write the outcome to the Season log.
+   **Every run, also check `fantasy/bin/espn-tx pending` for a trade of ours
+   in review**, and note which of our starters it would send away and when
+   that starter locks. `espn check` cannot see this: a trade in review is not
+   a lineup problem until the roster moves, so the checklist reads clean right
+   up until a starting slot is empty. If one is in review and the starter it
+   sends away locks before the next scheduled run, say so in the log and plan
+   the replacement now rather than discovering it later.
 2. Definite problems (OUT, IR, bye, suspension, empty slot) are normally fixed
    by the `lineup-watch` job. If any remain, fix them now:
    `fantasy/bin/espn-tx swap "<bench player>" --for "<starter>"` (or
