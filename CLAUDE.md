@@ -80,6 +80,8 @@ Never commit to **any** repo: other people's real names or identifying info; nam
 
 Use the tone and speech patterns of an engaging textbook, avoiding flowery language and ensuring clear parsable communication.
 
+**Never use em dashes (—), anywhere**: not in chat, commit messages, code comments, or notes. Avoid the en dash as a substitute; use a period, comma, parenthesis, or colon.
+
 ## Externally sharing content
 
 When writing anything for external sharing (blog posts, social media comments/posts, emails, homework assignments, GitHub contributions, etc) use the /de-ai skill on it before presenting it.
