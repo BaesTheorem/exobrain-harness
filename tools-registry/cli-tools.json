@@ -1,5 +1,13 @@
 [
   {
+    "name": "actual-gameplay replay + audit",
+    "command": "python3 scripts/replay.py drawLine|pinPull|runner ; python3 scripts/audit.py drawLine|pinPull|runner",
+    "repo_dir": "/Users/alexhedtke/Documents/actual-gameplay",
+    "source": "built",
+    "added": "2026-09-10",
+    "notes": "Drives the Actual Gameplay iPhone app on the simulator. replay.py plays every level's stored solution (regression suite, must be 12/12); audit.py stress-tests levels (pin singles/pairs/all, jittered strokes + dumb strokes, runner steering policies) and prints TRIVIAL/FRAGILE/BROKEN verdicts. Both wait for simulator boot and warm up first (cold boot starves the first scene's run loop). Snapshots under build/replay and build/audit."
+  },
+  {
     "name": "add-reminder",
     "command": "reminders/add-reminder \"Title\" --due \"2026-08-20 09:00\" --repeat daily",
     "repo_dir": "~/Documents/Exobrain harness",
