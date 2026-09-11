@@ -60,8 +60,11 @@ SUMMARY_FIELDS = (
 mcp = MCPServer(
     "mykcmo",
     instructions=(
-        "Kansas City, MO 311 service requests (myKCMO) via the city's "
-        "open-data portal. Read-only; data lags real time by 2-7 days."
+        "Kansas City, MO 311 service requests (myKCMO). Reads come from the "
+        "city's open-data portal and lag real time by 2-7 days. Writes file a "
+        "REAL case with the city: list_report_categories -> get_report_subtypes "
+        "-> prepare_311_report (returns a captcha image to read with vision) -> "
+        "submit_311_report(confirm=True). Confirm with Alex before submitting."
     ),
 )
 
@@ -182,6 +185,29 @@ def get_311_request(case_number: str) -> list[dict]:
         "$limit": "10",
     }
     return [_trim(r, full=True) for r in _fetch(params)]
+
+
+@mcp.tool()
+def get_311_requests(case_numbers: list[str]) -> dict[str, list[dict]]:
+    """Look up several 311 requests at once by case or work-order number.
+    Returns a map of the number you asked for to its record(s); a number with
+    no match maps to an empty list (usually means it is newer than the feed's
+    2-7 day lag).
+    """
+    wanted = [c.strip() for c in case_numbers if c.strip()]
+    if not wanted:
+        return {}
+    literals = ", ".join(f"'{_soql_str(c)}'" for c in wanted)
+    params = {
+        "$where": f"reported_issue in({literals}) OR workorder_ in({literals})",
+        "$limit": str(len(wanted) * 10),
+    }
+    found: dict[str, list[dict]] = {c: [] for c in wanted}
+    for record in _fetch(params):
+        for c in wanted:
+            if c in (record.get("reported_issue"), record.get("workorder_")):
+                found[c].append(_trim(record, full=True))
+    return found
 
 
 @mcp.tool()
@@ -434,6 +460,7 @@ def prepare_311_report(
     pending_id = webrai.captcha_id()
     img_path = os.path.join(_CAPTCHA_DIR, f"kc_311_captcha_{pending_id}.jpg")
     cap_uid = webrai.open_captcha(opener, img_path)
+    read_path = webrai.enlarge(img_path)
 
     payload = webrai.build_payload(
         report_type=info["report_type"],
@@ -455,7 +482,8 @@ def prepare_311_report(
 
     return {
         "pending_id": pending_id,
-        "captcha_image_path": img_path,
+        "captcha_image_path": read_path,
+        "captcha_raw_path": img_path,
         "action_needed": (
             "Read captcha_image_path to solve the captcha, confirm the review "
             "with Alex, then call submit_311_report(pending_id, captcha_answer, "
@@ -524,7 +552,8 @@ def submit_311_report(
         return {
             "ok": False,
             "retry": True,
-            "captcha_image_path": img_path,
+            "captcha_image_path": webrai.enlarge(img_path),
+            "captcha_raw_path": img_path,
             "message": "Captcha was wrong; read the new image and resubmit.",
         }
 
