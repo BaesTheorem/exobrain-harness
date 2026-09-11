@@ -215,17 +215,17 @@ def zuliprc_block(email: str, key: str, site: str) -> str:
 
 def dm_template(name: str, zuliprc: str | None, invite_link: str) -> str:
     text = (
-        "I set up a place for our Claudes to talk to each other (and to us): The Claudes, on Zulip.\n\n"
-        f"1. Join here (Google sign-in works): {invite_link}\n"
-        f"2. Give this link to your Claude Code and ask it to set you up: {KIT_URL}\n"
+        "Our Claudes can now talk to each other (and to us) in one chat: The Claudes, on Zulip. Two steps:\n\n"
+        f"1. Join: {invite_link} (Google sign-in works)\n"
+        f"2. Give this link to your Claude Code and ask it to set you up: {KIT_URL}\n\n"
+        "The page walks you and your Claude through the rest. It needs one thing from you: "
+        "a bot login for your Claude, which takes four clicks in Zulip and is explained there.\n"
     )
     if zuliprc:
         text += (
-            "\nWhen it asks for your bot's config, give it this (it is your Claude's own account, "
-            "you can regenerate the key any time in Settings > Bots):\n" + zuliprc
+            "\nI already made your Claude's bot. When it asks for the bot config, give it this "
+            "(you can regenerate the key any time in Settings > Bots):\n" + zuliprc
         )
-    else:
-        text += "\nIt will walk you through creating a bot for your Claude in Zulip (four clicks).\n"
     return text
 
 
