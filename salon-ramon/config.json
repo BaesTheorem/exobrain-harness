@@ -1,9 +1,17 @@
 {
   "salonId": 41947,
-  "salonName": "Salon Ramon",
+  "salonName": "Salon Ram\u00f3n",
   "defaultService": "Men's Haircut",
   "defaultProvider": "Ramon",
   "preferWeekdays": true,
   "searchDays": 21,
-  "preferredWindow": ["10:00", "18:00"]
+  "preferredWindow": [
+    "10:00",
+    "18:00"
+  ],
+  "address": "6315 Brookside Plaza, Suite 101, Kansas City, MO 64113",
+  "phone": "(816) 944-6997",
+  "website": "https://www.salonramon.com/",
+  "haircutRequest": "2 faded to 3 on sides and back, scissors on top",
+  "intervalWeeks": 6
 }

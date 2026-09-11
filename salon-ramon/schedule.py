@@ -5,6 +5,10 @@ The recurring job runs daily and is cheap; this module is the gate that keeps
 it from doing anything (or nagging) until a cut is actually due. It owns
 state.json so the shell runner stays dumb.
 
+Venue-agnostic on purpose: it moved from Booksy (Rich Forever) to Rosy (Salon
+Ramon) without a logic change, because none of the cadence depends on which
+shop is on the other end. `history` carries the cuts from both.
+
 INVARIANTS (an edit must not break these):
 - `due` is derived from the last *completed* haircut, never from the last
   notification. Otherwise a cycle where Alex ignores the nudge silently
@@ -28,8 +32,8 @@ Usage:
     python3 schedule.py window                  # the date range to search
     python3 schedule.py reconcile               # close out a lapsed appointment
     python3 schedule.py mark-notified
-    python3 schedule.py pending --date 2026-08-29 [--barber "Razor Nick"]
-    python3 schedule.py record --date 2026-08-29 [--barber "Razor Nick"]
+    python3 schedule.py pending --date 2026-10-13 [--provider "Ramon Walker"]
+    python3 schedule.py record --date 2026-10-13 [--provider "Ramon Walker"]
 """
 
 from __future__ import annotations
@@ -81,7 +85,7 @@ def save_state(state: dict) -> None:
 
 
 def interval_weeks() -> int:
-    return int(_load(CONFIG_PATH, {"interval_weeks": 6}).get("interval_weeks", 6))
+    return int(_load(CONFIG_PATH, {}).get("intervalWeeks", 6))
 
 
 def status(today: date | None = None) -> Status:
@@ -145,17 +149,17 @@ def reconcile(today: date | None = None) -> date | None:
     if last is not None and last >= pending:
         # Already recorded by hand; just retire the spent appointment.
         state["pending"] = None
-        state.pop("pending_barber", None)
+        state.pop("pending_provider", None)
         save_state(state)
         return None
 
     entry: dict[str, object] = {"date": pending.isoformat(), "assumed": True}
-    if state.get("pending_barber"):
-        entry["barber"] = state["pending_barber"]
+    if state.get("pending_provider"):
+        entry["provider"] = state["pending_provider"]
     state["last_haircut"] = pending.isoformat()
     state["notified_cycle"] = None
     state["pending"] = None
-    state.pop("pending_barber", None)
+    state.pop("pending_provider", None)
     state.setdefault("history", []).append(entry)
     save_state(state)
     return pending
@@ -166,7 +170,7 @@ def search_window(today: date | None = None) -> tuple[date, date]:
 
     Clamped so it never starts in the past, and never ends before it starts --
     an overdue haircut pulls the target date behind us, and an unclamped end
-    would hand Booksy a backwards range and silently find nothing.
+    would hand the booker a backwards range and silently find nothing.
     """
     today = today or date.today()
     st = status(today)
@@ -239,8 +243,8 @@ def _cmd_pending(args: argparse.Namespace) -> int:
     when = date.fromisoformat(args.date)
     state = load_state()
     state["pending"] = when.isoformat()
-    if args.barber:
-        state["pending_barber"] = args.barber
+    if args.provider:
+        state["pending_provider"] = args.provider
     save_state(state)
     print(f"appointment noted for {when}; the daily job stays quiet until then")
     return 0
@@ -253,10 +257,10 @@ def _cmd_record(args: argparse.Namespace) -> int:
     # A fresh cycle deserves a fresh nudge, and the appointment is spent.
     state["notified_cycle"] = None
     state["pending"] = None
-    state.pop("pending_barber", None)
+    state.pop("pending_provider", None)
     entry = {"date": when.isoformat()}
-    if args.barber:
-        entry["barber"] = args.barber
+    if args.provider:
+        entry["provider"] = args.provider
     state.setdefault("history", []).append(entry)
     save_state(state)
     print(f"recorded haircut on {when}; next due {when + timedelta(weeks=interval_weeks())}")
@@ -279,12 +283,12 @@ def main(argv: list[str] | None = None) -> int:
 
     pend = sub.add_parser("pending", help="note an appointment that is lined up")
     pend.add_argument("--date", required=True, help="YYYY-MM-DD")
-    pend.add_argument("--barber")
+    pend.add_argument("--provider")
     pend.set_defaults(func=_cmd_pending)
 
     rec = sub.add_parser("record", help="record a completed haircut")
     rec.add_argument("--date", help="YYYY-MM-DD (default: today)")
-    rec.add_argument("--barber")
+    rec.add_argument("--provider")
     rec.set_defaults(func=_cmd_record)
 
     args = parser.parse_args(argv)

@@ -70,8 +70,7 @@ def slot_still_free(api: Api, slot: Slot) -> bool:
 
 def find_booked(api: Api, slot: Slot) -> dict | None:
     """The server's own answer to 'did this appointment get created?'"""
-    day = slot.start.strftime("%Y-%m-%d")
-    for appt in api.my_appointments(day, day):
+    for appt in api.my_appointments_on(slot.start.date()):
         if is_cancelled(appt):
             continue
         if (
@@ -139,9 +138,12 @@ def cancel(api: Api, salon: dict, appointment: dict, now: datetime, confirm: boo
 
     api.cancel_appointment(appointment["id"])
 
-    day = start.strftime("%Y-%m-%d")
     still_there = next(
-        (a for a in api.my_appointments(day, day) if a["id"] == appointment["id"] and not is_cancelled(a)),
+        (
+            a
+            for a in api.my_appointments_on(start.date())
+            if a["id"] == appointment["id"] and not is_cancelled(a)
+        ),
         None,
     )
     if still_there:

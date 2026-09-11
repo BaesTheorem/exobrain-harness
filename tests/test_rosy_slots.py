@@ -14,7 +14,7 @@ import pytest
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "salon-ramon"))
 
-from rosy.booking import build_payload, cancel_window_closed  # noqa: E402
+from rosy.booking import book, build_payload, cancel_window_closed, find_booked  # noqa: E402
 from rosy.slots import Slot, busy_intervals, day_window, find_slots, is_cancelled  # noqa: E402
 
 # Salon: open 08:00-20:00 every day, 2h lead, books 180 days out.
@@ -227,3 +227,106 @@ def test_booking_payload_matches_the_checkout_page():
 def test_cancel_window_guard(now, closed):
     appointment = {"id": 1, "startDate": "2026-09-30 15:30:00"}
     assert cancel_window_closed(SALON, appointment, now) is closed
+
+
+class FakeApi:
+    """An API whose date filtering matches the server's, exclusive `to` and all.
+
+    The real one bit: /appointments treats `to` as EXCLUSIVE, so from=X&to=X
+    returns nothing. A successful booking then reads back as "nothing booked",
+    and the obvious response to that message is to run the booking again.
+    """
+
+    class Ctx:
+        def __init__(self, customer_id):
+            self.customer_id = customer_id
+
+    def __init__(self, rows, customer_id=42):
+        self.rows = list(rows)
+        self.ctx = FakeApi.Ctx(customer_id)
+        self.posted = []
+
+    def my_appointments(self, start, end=None):
+        return [
+            r
+            for r in self.rows
+            if r["clientId"] == self.ctx.customer_id
+            and r["startDate"][:10] >= start
+            and (end is None or r["startDate"][:10] < end)
+        ]
+
+    def my_appointments_on(self, day):
+        from datetime import timedelta
+
+        return self.my_appointments(day.isoformat(), (day + timedelta(days=1)).isoformat())
+
+    def appointments_on(self, day):
+        return [r for r in self.rows if r["startDate"][:10] == day]
+
+    def create_appointments(self, payload):
+        self.posted.append(payload)
+        item = payload[0]
+        self.rows.append(
+            {
+                "id": 999,
+                "employeeId": item["employee"]["id"],
+                "serviceId": item["service"]["id"],
+                "clientId": item["customer"]["id"],
+                "startDate": item["startDate"].replace("T", " "),
+                "endDate": item["endDate"].replace("T", " "),
+                "cancellationId": None,
+            }
+        )
+        return {"claims": "to have worked"}
+
+
+OCT_SLOT = Slot(
+    start=datetime(2026, 10, 13, 13, 0),
+    end=datetime(2026, 10, 13, 13, 45),
+    end_blocking=datetime(2026, 10, 13, 13, 45),
+    employee_id=10,
+    employee_name="Ramon Walker",
+    service_id=500,
+    service_name="Men's Haircut",
+    duration=45,
+    price=40.0,
+)
+
+
+def test_find_booked_survives_the_exclusive_to_bound():
+    api = FakeApi(
+        [
+            {
+                "id": 999,
+                "employeeId": 10,
+                "serviceId": 500,
+                "clientId": 42,
+                "startDate": "2026-10-13 13:00:00",
+                "endDate": "2026-10-13 13:45:00",
+                "cancellationId": None,
+            }
+        ]
+    )
+    assert api.my_appointments("2026-10-13", "2026-10-13") == []  # the trap
+    assert find_booked(api, OCT_SLOT)["id"] == 999  # pyright: ignore[reportOptionalSubscript]
+
+
+def test_book_reports_success_only_from_a_server_read():
+    api = FakeApi([])
+    result = book(api, OCT_SLOT, salon_id=41947, note=None, confirm=True)
+    assert result.ok and result.appointment and result.appointment["id"] == 999
+
+
+def test_book_is_a_dry_run_without_confirm():
+    api = FakeApi([])
+    result = book(api, OCT_SLOT, salon_id=41947, note=None, confirm=False)
+    assert not result.ok
+    assert api.posted == []
+
+
+def test_book_refuses_to_book_the_same_slot_twice():
+    api = FakeApi([])
+    book(api, OCT_SLOT, salon_id=41947, note=None, confirm=True)
+    again = book(api, OCT_SLOT, salon_id=41947, note=None, confirm=True)
+    assert again.ok and "Already booked" in again.message
+    assert len(api.posted) == 1

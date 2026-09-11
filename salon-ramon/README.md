@@ -21,6 +21,34 @@ bin/ramon cancel --confirm           # the next one, unless --force is needed
 `book` and `cancel` are dry runs unless you pass `--confirm`. Defaults
 (provider, service, how far to search, preferred hours) live in `config.json`.
 
+## The 6-week cadence
+
+`schedule.py` owns the clock and `state.json` is the record. launchd
+(`com.exobrain.haircut-check`, daily at 10:00) runs `run-haircut-check.sh`,
+which almost always exits in a second: it only acts when a cut is due and no
+appointment is already lined up. When it does act it hands off to a headless
+MIST run, because that is the only piece that can read Google Calendar and so
+the only piece that can honour "fit it wherever I am open".
+
+```
+python3 schedule.py status                                    # where the cycle stands
+python3 schedule.py pending --date 2026-10-13 --provider "Ramon Walker"
+python3 schedule.py record  --date 2026-10-13 --provider "Ramon Walker"
+```
+
+Two rules worth keeping straight: the clock runs from the last **completed**
+cut, never the last nudge, and **no booking system can tell you a haircut
+happened**. Booksy filed a sat-through appointment under the same status letter
+as a cancellation and Rosy has no such flag either, so `state.json` is the only
+evidence. A `pending` appointment whose date has passed is recorded as
+completed (flagged `assumed`) and Alex is asked to confirm: a late nudge costs
+one sentence, a wrong "he did not go" books a second appointment.
+
+This replaced the Booksy/Rich Forever tool (`barber/`) on 2026-09-10; the
+cadence tracker and its history moved across unchanged, since none of it
+depended on the venue. One venue and one stylist means the deposit-ranking
+logic that job carried is simply gone.
+
 ## Auth
 
 Rosy is a Spring app behind a `JSESSIONID`, and Alex signs in with Google. The

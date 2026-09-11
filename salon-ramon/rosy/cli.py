@@ -7,6 +7,7 @@ to do anything without --confirm.
 from __future__ import annotations
 
 import argparse
+import json
 import re
 import sys
 from datetime import datetime, timedelta
@@ -37,6 +38,13 @@ def _pick(items: list[dict], wanted: str, field: str) -> dict | None:
         return exact[0]
     partial = [i for i in items if target in _norm(str(i.get(field, "")))]
     return partial[0] if len(partial) == 1 else (partial[0] if partial else None)
+
+
+def _parse_day(value: str):
+    try:
+        return datetime.strptime(value.strip(), "%Y-%m-%d").date()
+    except ValueError:
+        raise SystemExit(f"could not read {value!r} as YYYY-MM-DD") from None
 
 
 def _resolve_at(value: str, slots: list[Slot]) -> Slot | None:
@@ -198,6 +206,40 @@ def cmd_slots(args) -> int:
         s.api.employees() if args.any_provider else [s.employee(args.provider or s.conf["defaultProvider"])]
     )
     slots = s.search(service, employees, args.days)
+    if args.since or args.until:
+        slots = [
+            sl
+            for sl in slots
+            if (not args.since or sl.start.date() >= _parse_day(args.since))
+            and (not args.until or sl.start.date() <= _parse_day(args.until))
+        ]
+
+    if args.json:
+        # The scheduled runner pipes this into a MIST run that cross-references
+        # Google Calendar, so it needs the machine-readable shape, and an empty
+        # search has to be an empty list rather than an error: "no openings" and
+        # "could not reach the salon" are different facts and the runner says
+        # different things about them.
+        print(
+            json.dumps(
+                [
+                    {
+                        "start": sl.iso_start,
+                        "end": sl.iso_end,
+                        "provider": sl.employee_name,
+                        "provider_id": sl.employee_id,
+                        "service": sl.service_name,
+                        "service_id": sl.service_id,
+                        "duration": sl.duration,
+                        "price": sl.price,
+                    }
+                    for sl in slots[: args.limit]
+                ],
+                indent=1,
+            )
+        )
+        return 0
+
     if not slots:
         print(f"no open {service['name']} slots in the next {args.days} days")
         return 1
@@ -293,6 +335,9 @@ def main(argv: list[str] | None = None) -> int:
     p.add_argument("--any-provider", action="store_true", help="search every provider")
     p.add_argument("--days", type=int, default=None)
     p.add_argument("--limit", type=int, default=15)
+    p.add_argument("--since", help="ignore slots before this date (YYYY-MM-DD)")
+    p.add_argument("--until", help="ignore slots after this date (YYYY-MM-DD)")
+    p.add_argument("--json", action="store_true", help="machine-readable, for the scheduled runner")
     p.set_defaults(fn=cmd_slots)
 
     p = sub.add_parser("book", help="book a slot (dry run unless --confirm)")
