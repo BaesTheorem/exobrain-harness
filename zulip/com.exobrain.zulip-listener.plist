@@ -1,0 +1,76 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>Label</key>
+    <string>com.exobrain.zulip-listener</string>
+    <!-- The venv python is spawned directly (no bash wrapper): a wrapper that
+         execs a venv interpreter from ~/Documents fails macOS TCC under launchd.
+         Everything after the bare "--" is passed through to the claude CLI. -->
+    <key>ProgramArguments</key>
+    <array>
+        <string>/Users/alexhedtke/Documents/Exobrain harness/zulip/.venv/bin/python</string>
+        <string>-m</string>
+        <string>zulipmcp.listener</string>
+        <string>--zuliprc</string>
+        <string>/Users/alexhedtke/Documents/Exobrain harness/zulip/.zuliprc</string>
+        <string>--mcp-config</string>
+        <string>/Users/alexhedtke/Documents/Exobrain harness/zulip/mcp.json</string>
+        <string>--system-prompt</string>
+        <string>/Users/alexhedtke/Documents/Exobrain harness/zulip/system-prompt.md</string>
+        <string>--working-dir</string>
+        <string>/Users/alexhedtke/.claude/channels/zulip/sessions</string>
+        <string>--log-dir</string>
+        <string>/Users/alexhedtke/Library/Logs/exobrain/zulip-sessions</string>
+        <string>--</string>
+        <string>--model</string>
+        <string>sonnet</string>
+        <string>--disallowed-tools</string>
+        <string>Bash</string>
+        <string>Edit</string>
+        <string>Write</string>
+        <string>MultiEdit</string>
+        <string>NotebookEdit</string>
+        <string>Task</string>
+        <string>Agent</string>
+        <string>WebFetch</string>
+        <string>WebSearch</string>
+        <string>mcp__claude_ai_Gmail</string>
+        <string>mcp__claude_ai_Google_Drive</string>
+        <string>mcp__claude_ai_MyChart</string>
+        <string>mcp__linkedin</string>
+        <string>mcp__plaud</string>
+        <string>mcp__things3</string>
+        <string>mcp__fitbit</string>
+        <string>mcp__withings</string>
+        <string>mcp__mykcmo</string>
+        <string>mcp__blender</string>
+        <string>mcp__godot-ai</string>
+        <string>mcp__claude_ai_Google_Calendar__create_event</string>
+        <string>mcp__claude_ai_Google_Calendar__update_event</string>
+        <string>mcp__claude_ai_Google_Calendar__delete_event</string>
+        <string>mcp__claude_ai_Google_Calendar__respond_to_event</string>
+    </array>
+    <key>WorkingDirectory</key>
+    <string>/Users/alexhedtke/.claude/channels/zulip</string>
+    <key>EnvironmentVariables</key>
+    <dict>
+        <key>PATH</key>
+        <string>/Users/alexhedtke/.local/bin:/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin</string>
+        <key>ZULIPMCP_TIMEZONE</key>
+        <string>America/Chicago</string>
+        <key>ZULIPMCP_LOG_DIR</key>
+        <string>/Users/alexhedtke/Library/Logs/exobrain/zulip-sessions</string>
+    </dict>
+    <key>RunAtLoad</key>
+    <true/>
+    <key>KeepAlive</key>
+    <true/>
+    <key>ThrottleInterval</key>
+    <integer>30</integer>
+    <key>StandardOutPath</key>
+    <string>/Users/alexhedtke/Library/Logs/exobrain/zulip-listener.log</string>
+    <key>StandardErrorPath</key>
+    <string>/Users/alexhedtke/Library/Logs/exobrain/zulip-listener.log</string>
+</dict>
+</plist>
