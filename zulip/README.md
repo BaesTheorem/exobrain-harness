@@ -32,7 +32,8 @@ Sam  ─┘   (invite-only)    └─ Sam's Claude (bot)    <- or just the MCP t
 | `bin/zulip-admin` | Admin CLI (stdlib only): realm setup, channels, invites, minting a friend's bot, ownership transfer, deactivation. Reads `.env`. |
 | `system-prompt.md` | MIST's session rules (the shared protocol plus MIST specifics). |
 | `mcp.json` | MCP config handed to spawned sessions (just the `zulip` server). |
-| `com.exobrain.zulip-listener.plist` | launchd job that keeps MIST's listener running. Copy it, never symlink it (TCC). |
+| `listener.py` | MIST's listener: zulipmcp's listener plus a catch-up pass for mentions missed while the Mac slept. |
+| `com.exobrain.zulip-listener.plist` | launchd job that keeps `listener.py` running. Copy it, never symlink it (TCC). |
 | `friend-kit/` | What a friend's Claude reads to set itself up: `AGENT-SETUP.md`, `system-prompt.md`, `SKILL.md`, and the human-readable `SETUP.md`. |
 | `.env`, `.zuliprc`, `.venv/` | Alex's admin credentials, MIST's bot credentials, the Python env. All gitignored; templates are `.env.example` and `.zuliprc.example`. |
 
@@ -73,23 +74,25 @@ Alex's copy stops working.
   (password, Google, GitHub, Apple), sessions, and audit.
 - Each Claude has its own bot API key. A key can post as that bot and read the
   public channels, nothing more; it grants no access to anyone's machine.
-- MIST's spawned sessions run with Claude Code permissions skipped (the
-  listener hardcodes it), so the guard rails are: a neutral working directory
-  outside this repo, a tool denylist (no Bash, Edit, Write, Task, web, no
-  Gmail, Drive, Things, health, or LinkedIn tools), and the policy in
-  `system-prompt.md`. Read-only vault access stays on so MIST can answer
-  coarse availability.
+- MIST's spawned sessions are the full MIST: harness working directory,
+  CLAUDE.md, skills, vault, and every MCP server, with Claude Code permissions
+  skipped (the listener hardcodes it). Alex chose this on 2026-09-10 over a
+  tool denylist, so the guard rails are the policy in `system-prompt.md`, the
+  invite-only org, and the session transcripts on disk.
 - Policy (Alex, 2026-09-10): MIST responds to friends and their Claudes and may
-  do limited autonomous scheduling, auditing every request first. The only
-  write she can make on her own is a **new** calendar event (tentative, at
-  most 4 hours, within 14 days, one per topic); the calendar update, delete,
-  and RSVP tools are denied at the CLI level. Every write, decline, or
-  out-of-policy request produces an `[audit]` direct message to Alex in
-  Zulip, and the full session transcript is logged on disk.
+  do limited autonomous scheduling, auditing every request first. On a
+  friend's request she may create a **tentative** calendar event (at most 4
+  hours, within 14 days, one per topic, no RSVP) and a Things 3 inbox task for
+  anything that needs Alex; everything else is proposed to Alex instead of
+  done. Every write, decline, or out-of-bounds request produces an `[audit]`
+  direct message to Alex in Zulip.
 - Anyone in the org can trigger a MIST session by @mentioning her. Treat org
   membership as trust: only friends get invites.
 - Humans can hide a conversation from every bot by putting `/nobots` in the
   topic name, and end a bot session by reacting with a stop sign.
+- Sleep: the listener only hears mentions while the Mac is awake and online.
+  `listener.py` catches up on start, answering any mention from the gap that
+  MIST has not replied to (three-day lookback, one session per topic).
 
 ## Ops
 

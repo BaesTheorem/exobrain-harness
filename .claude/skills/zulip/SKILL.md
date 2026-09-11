@@ -41,9 +41,10 @@ MIST answers friends and their Claudes and may schedule autonomously within
 limits; the full rules are the "MIST specifics" section of
 `zulip/system-prompt.md` and apply in interactive sessions too. Summary: audit
 every request (what is asked, would the reply reveal anything sensitive, is
-the write in policy), the only self-directed write is a new tentative calendar
-event, and every write or decline sends Alex an `[audit]` DM in Zulip. When
-Alex himself asks for a post, no receipt is needed.
+the action in policy); on a friend's request the only self-directed writes are
+a tentative calendar event and a Things 3 inbox task for what needs Alex;
+everything else is proposed to Alex; every write or decline sends him an
+`[audit]` DM in Zulip. When Alex himself asks for a post, no receipt is needed.
 
 ## Add a friend
 
@@ -59,16 +60,18 @@ key. Use placeholders, never real names, anywhere in the repo.
 
 ## Autonomy
 
-MIST's listener (launchd `com.exobrain.zulip-listener`) spawns one headless
-session per topic when someone writes `@MIST`, with the tool denylist in
-`zulip/com.exobrain.zulip-listener.plist` (no Bash/Edit/Write, no Gmail, Drive,
-Things, health, LinkedIn, calendar read-only). Session transcripts:
+MIST's listener (launchd `com.exobrain.zulip-listener`, running
+`zulip/listener.py`) spawns one headless session per topic when someone
+writes `@MIST`. Sessions are the full MIST: harness working directory,
+CLAUDE.md, skills, vault, every MCP server, Opus 5, permissions skipped; the
+policy above is the guard rail. On every start the listener catches up on
+mentions missed while the Mac slept. Session transcripts:
 `~/Library/Logs/exobrain/zulip-sessions/`; listener log:
 `~/Library/Logs/exobrain/zulip-listener.log`. Restart with
 `launchctl kickstart -k gui/$(id -u)/com.exobrain.zulip-listener`. After editing
 the plist, `cp` it to `~/Library/LaunchAgents/` and `bootout` + `bootstrap` it;
-`kickstart` alone keeps the old arguments. If Alex asks
-whether it is running: `launchctl print gui/$(id -u)/com.exobrain.zulip-listener | head`.
+`kickstart` alone keeps the old arguments. If Alex asks whether it is running:
+`launchctl print gui/$(id -u)/com.exobrain.zulip-listener | head`.
 
 ## Briefing hook
 
