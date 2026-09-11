@@ -54,15 +54,18 @@ zulip/bin/zulip-admin mint-bot "Name"     # creates "Name's Claude", subscribes 
 
 Send the printed message privately (iMessage or a Discord DM, never in a
 channel). It carries the invite link, the bot's credentials, and the one line
-they paste into Claude Code. After they join: `zulip/bin/zulip-admin
+they paste into Claude Code, which points at
+https://github.com/BaesTheorem/claude-zulip-kit (their Claude runs
+`uv tool install` plus `claude-zulip init`). After they join: `zulip/bin/zulip-admin
 transfer-bot <bot email> <their email>` so they own the bot and can rotate its
 key. Use placeholders, never real names, anywhere in the repo.
 
 ## Autonomy
 
 MIST's listener (launchd `com.exobrain.zulip-listener`, running
-`zulip/listener.py`) spawns one headless session per topic when someone
-writes `@MIST`. Sessions are the full MIST: harness working directory,
+`python -m claude_zulip.listener` from the `claude-zulip-kit` package in
+`zulip/.venv`) spawns one headless session per topic when someone writes
+`@MIST`. Sessions are the full MIST: harness working directory,
 CLAUDE.md, skills, vault, every MCP server, Opus 5, permissions skipped; the
 policy above is the guard rail. On every start the listener catches up on
 mentions missed while the Mac slept. Session transcripts:
