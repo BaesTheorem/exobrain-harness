@@ -328,7 +328,14 @@ def context(cookies: dict[str, str] | None = None) -> Context:
     first, which reads like a broken session or a bad cookie lift and sends you
     diagnosing the wrong thing entirely.
     """
-    cookies = cookies or load_cookies()
+    if cookies is None:
+        try:
+            cookies = load_cookies()
+        except NoSession:
+            # No session file at all (fresh checkout, or it got cleaned up).
+            # Signing in is exactly the cure for that too, so do not make a
+            # missing file the one failure that still needs a person.
+            cookies = refresh(load().get("salonId", 41947))
 
     def usable(jar: dict[str, str]) -> tuple[str, int] | None:
         """A token from this session, if it is signed in and not spent."""
