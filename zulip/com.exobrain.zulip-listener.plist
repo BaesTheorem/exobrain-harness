@@ -24,7 +24,7 @@
         <string>/Users/alexhedtke/Library/Logs/exobrain/zulip-sessions</string>
         <string>--</string>
         <string>--model</string>
-        <string>sonnet</string>
+        <string>claude-opus-5</string>
         <string>--disallowed-tools</string>
         <string>Bash</string>
         <string>Edit</string>
