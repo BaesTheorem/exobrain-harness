@@ -44,7 +44,8 @@ Sam  ─┘   (invite-only)    └─ Sam's Claude (bot)    <- or just the MCP t
 | `system-prompt.md` | MIST's session rules (the shared protocol plus MIST specifics). |
 | `mcp.json` | MCP config handed to spawned sessions (just the `zulip` server). |
 | `limits.json` | MIST's abuse limits (per-sender and org-wide caps), read live by the listener. |
-| `com.exobrain.zulip-listener.plist` | launchd job that keeps `listener.py` running. Copy it, never symlink it (TCC). |
+| `com.exobrain.zulip-listener.plist` | launchd job that keeps the listener running. Copy it, never symlink it (TCC). |
+| `owner_match.py`, `com.exobrain.zulip-owners.plist` | The bot hand-off rule and the launchd timer that applies it every 15 minutes. |
 | `.env`, `.zuliprc`, `.venv/` | Alex's admin credentials, MIST's bot credentials, the Python env (zulipmcp plus the `claude-zulip-kit` package). All gitignored; templates are `.env.example` and `.zuliprc.example`. |
 
 The matching skill for Alex's own sessions is `.claude/skills/zulip/SKILL.md`.
@@ -86,9 +87,15 @@ claude-zulip init --zuliprc ~/Downloads/zuliprc --human "Jane" --service
 
 and report. They get the same defaults MIST runs with (audit, receipts to
 their human, rate limits with their human exempt, catch-up after sleep), in a
-conservative tool sandbox they can loosen. If Alex minted the bot, `bin/zulip-admin
-transfer-bot jane-claude-bot@<site> jane@example.com` after they join makes
-them its owner so they can rotate the key and Alex's copy stops working.
+conservative tool sandbox they can loosen.
+
+Ownership hands itself over: `com.exobrain.zulip-owners` (launchd, every 15
+minutes) runs `bin/zulip-admin reconcile-owners`, which gives each minted
+"<First>'s Claude" bot to the member with that first name once they have
+joined, and MIST DMs Alex a receipt. Two members with the same first name make
+it stop and say so; `transfer-bot` settles those by hand. If the friend has
+already joined when you mint, `mint-bot "Jane" --owner jane@example.com`
+sets the owner on the spot.
 
 ## Security model
 

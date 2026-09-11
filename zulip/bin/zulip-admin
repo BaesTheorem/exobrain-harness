@@ -11,8 +11,9 @@ failure is visible instead of silent.
   zulip-admin users | bots | streams
   zulip-admin invite-link [--days 30]   # reusable invite link (saved to .env)
   zulip-admin invite EMAIL... [--days 30]
-  zulip-admin mint-bot NAME [--short SLUG] [--no-template]
+  zulip-admin mint-bot NAME [--short SLUG] [--owner EMAIL] [--no-template]
   zulip-admin transfer-bot BOT_EMAIL OWNER_EMAIL
+  zulip-admin reconcile-owners [--dry-run]  # hand minted bots to the friends who have joined (launchd runs this)
   zulip-admin deactivate EMAIL
   zulip-admin dm [--zuliprc-file FILE]  # the message to send a friend (no minting)
   zulip-admin usage [--days 7]          # who triggered MIST sessions, and what they cost
@@ -243,7 +244,12 @@ def cmd_mint_bot(api: Api, env: dict, a) -> None:
         "subscriptions": [{"name": n} for n in CHANNELS], "principals": [email],
     })
     block = zuliprc_block(email, r["api_key"], api.site)
-    print(f"created bot '{full}' <{email}> (user_id {r.get('user_id')}), subscribed to {list(CHANNELS)}\n")
+    print(f"created bot '{full}' <{email}> (user_id {r.get('user_id')}), subscribed to {list(CHANNELS)}")
+    if a.owner:
+        owner = find_user(api, a.owner)
+        api.ok("PATCH", f"bots/{r['user_id']}", {"bot_owner_id": owner["user_id"]})
+        print(f"owner: {owner['full_name']} <{a.owner}>")
+    print()
     if a.no_template:
         print(block)
         return
@@ -257,6 +263,49 @@ def cmd_transfer_bot(api: Api, env: dict, a) -> None:
     owner = find_user(api, a.owner_email)
     api.ok("PATCH", f"bots/{bot['user_id']}", {"bot_owner_id": owner["user_id"]})
     print(f"{bot['full_name']} is now owned by {owner['full_name']} <{a.owner_email}>")
+
+
+def bot_api(env: dict) -> Api | None:
+    """MIST's own credentials from .zuliprc, for receipts sent as the bot."""
+    rc = HERE / ".zuliprc"
+    if not rc.exists():
+        return None
+    kv = dict(line.split("=", 1) for line in rc.read_text().splitlines() if "=" in line)
+    if not {"email", "key", "site"} <= kv.keys():
+        return None
+    return Api(kv["site"].strip(), kv["email"].strip(), kv["key"].strip())
+
+
+def cmd_reconcile_owners(api: Api, env: dict, a) -> None:
+    """Hand each minted "<First>'s Claude" bot to the member with that first name."""
+    sys.path.insert(0, str(HERE))
+    import owner_match  # noqa: PLC0415 - sibling module, imported only for this subcommand
+
+    try:
+        me = api.ok("GET", "users/me")["user_id"]
+        members = api.ok("GET", "users")["members"]
+    except urllib.error.URLError as exc:
+        print(f"network unavailable, nothing changed: {exc}")
+        return
+    transfers, pending, ambiguous = owner_match.plan_transfers(members, me)
+    receipts = bot_api(env)
+    for bot, human in transfers:
+        label = f"{bot['full_name']} -> {human['full_name']} ({human['user_id']})"
+        if a.dry_run:
+            print(f"would transfer {label}")
+            continue
+        api.ok("PATCH", f"bots/{bot['user_id']}", {"bot_owner_id": human["user_id"]})
+        print(f"transferred {label}")
+        if receipts is not None:
+            receipts.call("POST", "messages", {"type": "private", "to": [me],
+                          "content": f"[audit] handed {bot['full_name']} to {human['full_name']}; they own it now and can rotate its key."})
+    for bot in pending:
+        print(f"pending: {bot['full_name']} (nobody with that first name has joined yet)")
+    for bot, humans in ambiguous:
+        names = ", ".join(f"{h['full_name']} ({h['user_id']})" for h in humans)
+        print(f"ambiguous: {bot['full_name']} could be {names}; run transfer-bot by hand")
+    if not (transfers or pending or ambiguous):
+        print("nothing to do")
 
 
 def cmd_deactivate(api: Api, env: dict, a) -> None:
@@ -292,8 +341,9 @@ def main() -> None:
     sub.add_parser("streams")
     sp = sub.add_parser("invite-link"); sp.add_argument("--days", type=int, default=30)
     sp = sub.add_parser("invite"); sp.add_argument("emails", nargs="+"); sp.add_argument("--days", type=int, default=30)
-    sp = sub.add_parser("mint-bot"); sp.add_argument("name"); sp.add_argument("--short"); sp.add_argument("--no-template", action="store_true")
+    sp = sub.add_parser("mint-bot"); sp.add_argument("name"); sp.add_argument("--short"); sp.add_argument("--owner", help="email of the member who owns it (if they already joined)"); sp.add_argument("--no-template", action="store_true")
     sp = sub.add_parser("transfer-bot"); sp.add_argument("bot_email"); sp.add_argument("owner_email")
+    sp = sub.add_parser("reconcile-owners"); sp.add_argument("--dry-run", action="store_true")
     sp = sub.add_parser("deactivate"); sp.add_argument("email")
     sp = sub.add_parser("dm"); sp.add_argument("--zuliprc-file")
     sp = sub.add_parser("usage"); sp.add_argument("--days", type=int, default=7)
@@ -306,7 +356,7 @@ def main() -> None:
     handlers = {
         "whoami": cmd_whoami, "setup-realm": cmd_setup_realm, "users": cmd_users, "bots": cmd_users,
         "streams": cmd_streams, "invite-link": cmd_invite_link, "invite": cmd_invite,
-        "mint-bot": cmd_mint_bot, "transfer-bot": cmd_transfer_bot, "deactivate": cmd_deactivate,
+        "mint-bot": cmd_mint_bot, "transfer-bot": cmd_transfer_bot, "reconcile-owners": cmd_reconcile_owners, "deactivate": cmd_deactivate,
         "dm": cmd_dm, "usage": cmd_usage,
     }
     handlers[a.cmd](api, env, a)

@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>Label</key>
+    <string>com.exobrain.zulip-owners</string>
+    <!-- Every 15 minutes: hand each minted "<First>'s Claude" bot to the member
+         with that first name once they have joined, and DM Alex a receipt as
+         MIST. Minting stays manual (zulip-admin mint-bot). The venv python is
+         spawned directly, no bash wrapper (macOS TCC under launchd). After
+         editing: cp to ~/Library/LaunchAgents, then bootout + bootstrap. -->
+    <key>ProgramArguments</key>
+    <array>
+        <string>/Users/alexhedtke/Documents/Exobrain harness/zulip/.venv/bin/python</string>
+        <string>/Users/alexhedtke/Documents/Exobrain harness/zulip/bin/zulip-admin</string>
+        <string>reconcile-owners</string>
+    </array>
+    <key>WorkingDirectory</key>
+    <string>/Users/alexhedtke/Documents/Exobrain harness/zulip</string>
+    <key>StartInterval</key>
+    <integer>900</integer>
+    <key>RunAtLoad</key>
+    <true/>
+    <key>StandardOutPath</key>
+    <string>/Users/alexhedtke/Library/Logs/exobrain/zulip-owners.log</string>
+    <key>StandardErrorPath</key>
+    <string>/Users/alexhedtke/Library/Logs/exobrain/zulip-owners.log</string>
+</dict>
+</plist>
