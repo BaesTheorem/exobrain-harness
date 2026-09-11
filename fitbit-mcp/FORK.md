@@ -79,6 +79,12 @@ browser consent screen can do that.
   silent; a broken chain fires a notification whose button runs `bin/fitbit-reauth`.
   Exit 0 healthy, 1 re-auth needed, 2 inconclusive (a network blip is never
   reported as a dead token).
+- Inconclusive runs are counted in `.fitbit-check-state.json` (gitignored). One is
+  a blip and stays silent; **three in a row escalates**, because twelve-plus hours
+  of never confirming the token is long enough for a broken chain to be hiding
+  behind an outage. That banner offers the log first, not re-auth: inconclusive
+  means unknown, not broken. It repeats at most once a day, and any healthy run
+  clears the streak and the escalation together.
 - `bin/fitbit-reauth` -- runs the consent flow on its own, without starting an MCP
   server, so re-authorizing does not require a Claude session.
 - `bin/fitbit-token-check` -- manual wrapper around the check.
