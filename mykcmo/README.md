@@ -12,6 +12,7 @@ updated daily with a 2-7 day lag behind real time.
 | --- | --- |
 | `search_311_requests` | Filtered/full-text search: issue type, status (`open`/`closed`/literal), address substring, council district, date range |
 | `get_311_request` | Track a request by 311 case number or work-order number |
+| `get_311_requests` | Same, for a batch of numbers in one call |
 | `nearby_311_requests` | Requests within N meters of a point (`within_circle`) |
 | `kc_311_stats` | Grouped counts (by issue type, status, department, district, source) |
 | `list_311_issue_types` | Distinct issue types/sub-types with counts, for building filters |
@@ -36,7 +37,10 @@ PHP session). So filing here is a three-step, **agent-in-the-loop** flow:
 3. `prepare_311_report(...)` → geocodes the address, opens a session,
    downloads the captcha, returns a `pending_id`, a `captcha_image_path`,
    and a `review` of exactly what will be filed. **MIST reads the captcha
-   image with vision** and confirms the review with Alex.
+   image with vision** and confirms the review with Alex. The path handed
+   back is a 4× upscaled, contrast-stretched PNG; at the city's native
+   140×60 a vision read guesses between `l`/`1`/`i` and `0`/`O`. The raw
+   JPEG is kept alongside it as `captcha_raw_path`.
 4. `submit_311_report(pending_id, captcha_answer, confirm=True)` → creates
    the real 311 case, returns the work-order id (track it with
    `get_311_request` after the 2-7 day feed lag). A wrong captcha re-fetches
@@ -56,11 +60,22 @@ It is not a captcha-solving service and must not be repurposed as one.
 There is no public Open311 GeoReport v2 endpoint for KC (checked 2026-08-23);
 this web path is the only programmatic way to file.
 
+### Why this isn't a fork of `nyc-311-mcp`
+
+BetaNYC's [nyc-311-mcp](https://github.com/BetaNYC/nyc-311-mcp) is the obvious
+prior art, and it is read-only on purpose: creating service requests through
+the NYC 311 API needs the "Developer Partner" product, which requires city
+approval, so that server only does lookups plus NYC-specific calendar and
+emergency-status feeds (alternate-side parking, Code Blue) that have no KC
+equivalent. Forking it would have meant porting four read tools onto a server
+that already had six, and dropping the filing path this one exists for. The
+one idea worth taking was bulk lookup, which is `get_311_requests` above.
+
 ## Setup
 
 ```sh
 uv venv .venv
-uv pip install --python .venv/bin/python mcp
+uv pip install --python .venv/bin/python mcp pillow
 claude mcp add --scope user mykcmo -- "$(pwd)/bin/mykcmo-mcp"
 ```
 

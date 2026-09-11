@@ -25,6 +25,7 @@ INVARIANTS:
 
 import http.cookiejar
 import json
+import os
 import time
 import urllib.parse
 import urllib.request
@@ -207,13 +208,34 @@ def geocode(address: str) -> dict:
     }
 
 
+def enlarge(src_path: str) -> str:
+    """Write a 4x upscaled, contrast-stretched PNG next to a captcha JPEG and
+    return its path. The city serves the captcha at 140x60, which is small
+    enough that a vision read guesses between l/1/i and 0/O. Upscaling with a
+    smooth filter before the read removes most of that ambiguity. Falls back
+    to the original path if Pillow is missing."""
+    try:
+        from PIL import Image, ImageOps
+    except ImportError:
+        return src_path
+    big_path = os.path.splitext(src_path)[0] + "_big.png"
+    with Image.open(src_path) as img:
+        gray = ImageOps.grayscale(img)
+        gray = ImageOps.autocontrast(gray, cutoff=2)
+        w, h = gray.size
+        gray.resize((w * 4, h * 4), Image.Resampling.LANCZOS).save(big_path)
+    return big_path
+
+
 def open_captcha(opener, out_path: str) -> str:
     """Download a fresh image captcha into out_path (JPEG) on this session.
-    Returns the unique_captcha_id the answer must be submitted under."""
+    Also writes the enlarged read-me copy (see enlarge). Returns the
+    unique_captcha_id the answer must be submitted under."""
     cid = captcha_id()
     img = _get(opener, f"/get_captcha.php?rand={cid}&pre={cid}")
     with open(out_path, "wb") as f:
         f.write(img)
+    enlarge(out_path)
     return cid
 
 
