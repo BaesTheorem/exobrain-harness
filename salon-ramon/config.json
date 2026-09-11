@@ -1,0 +1,9 @@
+{
+  "salonId": 41947,
+  "salonName": "Salon Ramon",
+  "defaultService": "Men's Haircut",
+  "defaultProvider": "Ramon",
+  "preferWeekdays": true,
+  "searchDays": 21,
+  "preferredWindow": ["10:00", "18:00"]
+}

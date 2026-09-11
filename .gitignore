@@ -246,3 +246,6 @@ fantasy/draftbot/room_feed.out
 fantasy/draftbot/live-draft.log
 fantasy/draftbot/draft_2026_record.json
 fantasy/draftbot/season_sim_latest.json
+
+# Salon Ramon (Rosy) -- live browser session lifted from Chrome. Never commit.
+salon-ramon/.rosy-session.json
