@@ -68,6 +68,12 @@ The matching skill for Alex's own sessions is `.claude/skills/zulip/SKILL.md`.
 
 ## Adding a friend
 
+(`bin/zulip-admin` is Alex's copy of these commands, wired to `.env` and MIST's
+receipts. Any other admin gets the same thing from the kit itself:
+`claude-zulip admin setup|invite-link|mint|reconcile-owners ...` with their
+own API key as `zulip/.admin.zuliprc`, gitignored here; see the kit README's
+"For the org admin".)
+
 Two ways, both private (iMessage or a Discord DM, never a channel):
 
 ```bash
