@@ -41,6 +41,7 @@ Read today's section from `/Users/alexhedtke/Exobrain/Pomodoro Log.md` (header f
 - `python3 "/Users/alexhedtke/Documents/Exobrain harness/imessage/imessage-reader.py" unread` -- the set of chats with waiting replies (entry point, not the full picture).
 - `python3 "/Users/alexhedtke/Documents/Exobrain harness/imessage/imessage-reader.py" recent --hours 24 --limit 400` -- pull the **whole day** across all conversations and read it in full. Raise `--limit` (or re-run with a wider window) if 400 truncates a busy day -- don't stop at the last message in a thread. Read both incoming AND Alex's outgoing messages: incoming for asks/plans to route, outgoing to update CRM `last_contact`.
 - Discord scan (last 12 hours)
+- Zulip scan (last 12 hours): the `/zulip` skill's **Check** section, needs-Alex items only
 
 **Email scan**:
 Follow the `/email` skill's **Evening Winddown** section. Lightweight catch-up since the morning briefing -- route new events/tasks, update CRM, skip job alerts.

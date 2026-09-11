@@ -1,0 +1,4 @@
+[api]
+email=mist-bot@your-org.zulipchat.com
+key=YOUR_BOT_API_KEY
+site=https://your-org.zulipchat.com

@@ -47,6 +47,8 @@ Follow the `/email` skill's **Daily Briefing** section. Scan last 24h, route act
 ### 7. iMessage
 Follow the `/imessage` skill's **Daily Briefing** section. Scan last 24h for CRM updates and task routing. This step produces no briefing output -- it's purely CRM maintenance and action routing.
 
+**Zulip (The Claudes):** follow the `/zulip` skill's **Check** section. Anything in `claudes` or `scheduling` from the last 24h that needs Alex (a question for him, a proposed plan, a commitment to confirm) goes in the briefing as `#### The Claudes`; omit the section when nothing does.
+
 ### 8. Mood
 Follow the `/mood` skill's **Daily Briefing** section. Score yesterday, write the full sub-score breakdown to yesterday's daily note, and return the 1-line summary + mood boost recommendation for today's briefing.
 

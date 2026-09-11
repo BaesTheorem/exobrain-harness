@@ -1,0 +1,9 @@
+{
+  "mcpServers": {
+    "zulip": {
+      "command": "/Users/alexhedtke/Documents/Exobrain harness/zulip/.venv/bin/python",
+      "args": ["-m", "zulipmcp.mcp"],
+      "env": { "ZULIPMCP_TIMEZONE": "America/Chicago" }
+    }
+  }
+}

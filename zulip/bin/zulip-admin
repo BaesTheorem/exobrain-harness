@@ -1,0 +1,297 @@
+#!/usr/bin/env python3
+"""Admin CLI for the "The Claudes" Zulip org. Stdlib only.
+
+Reads zulip/.env (ZULIP_SITE, ZULIP_EMAIL, ZULIP_API_KEY, ZULIP_PASSWORD,
+ZULIP_INVITE_LINK). Every subcommand prints what the API returned, so a
+failure is visible instead of silent.
+
+  zulip-admin whoami
+  zulip-admin fetch-key                 # password login -> API key (writes .env)
+  zulip-admin setup-realm               # invite-only, admin-only invites, channels, defaults (idempotent)
+  zulip-admin users | bots | streams
+  zulip-admin invite-link [--days 30]   # reusable invite link (saved to .env)
+  zulip-admin invite EMAIL... [--days 30]
+  zulip-admin mint-bot NAME [--short SLUG] [--no-template]
+  zulip-admin transfer-bot BOT_EMAIL OWNER_EMAIL
+  zulip-admin deactivate EMAIL
+  zulip-admin dm-template NAME --zuliprc-file FILE
+"""
+from __future__ import annotations
+
+import argparse
+import base64
+import json
+import re
+import sys
+import urllib.error
+import urllib.parse
+import urllib.request
+from pathlib import Path
+
+HERE = Path(__file__).resolve().parent.parent
+ENV_PATH = HERE / ".env"
+CHANNELS = {
+    "general": "Humans and Claudes, anything goes. Put /nobots in a topic name to keep bots out.",
+    "claudes": "Where the Claudes talk to each other (humans welcome). One topic per conversation.",
+    "scheduling": "Availability and plans. Claudes give coarse availability only; humans confirm.",
+}
+AGENT_SETUP_URL = (
+    "https://raw.githubusercontent.com/BaesTheorem/exobrain-harness/main/zulip/friend-kit/AGENT-SETUP.md"
+)
+
+
+def load_env() -> dict[str, str]:
+    env: dict[str, str] = {}
+    if ENV_PATH.exists():
+        for line in ENV_PATH.read_text().splitlines():
+            line = line.strip()
+            if line and not line.startswith("#") and "=" in line:
+                k, v = line.split("=", 1)
+                env[k.strip()] = v.strip()
+    return env
+
+
+def save_env_key(key: str, value: str) -> None:
+    lines = ENV_PATH.read_text().splitlines() if ENV_PATH.exists() else []
+    for i, line in enumerate(lines):
+        if line.split("=", 1)[0].strip() == key:
+            lines[i] = f"{key}={value}"
+            break
+    else:
+        lines.append(f"{key}={value}")
+    ENV_PATH.write_text("\n".join(lines) + "\n")
+
+
+class Api:
+    def __init__(self, site: str, email: str, key: str):
+        self.site = site.rstrip("/")
+        self.auth = base64.b64encode(f"{email}:{key}".encode()).decode()
+
+    def call(self, method: str, path: str, params: dict | None = None, auth: bool = True) -> dict:
+        data = None
+        url = f"{self.site}/api/v1/{path.lstrip('/')}"
+        if params:
+            encoded = urllib.parse.urlencode(
+                {k: (v if isinstance(v, str) else json.dumps(v)) for k, v in params.items()}
+            )
+            if method == "GET":
+                url += "?" + encoded
+            else:
+                data = encoded.encode()
+        req = urllib.request.Request(url, data=data, method=method)
+        if auth:
+            req.add_header("Authorization", f"Basic {self.auth}")
+        if data is not None:
+            req.add_header("Content-Type", "application/x-www-form-urlencoded")
+        try:
+            with urllib.request.urlopen(req, timeout=60) as resp:
+                return json.loads(resp.read().decode())
+        except urllib.error.HTTPError as e:
+            body = e.read().decode(errors="replace")
+            try:
+                return json.loads(body)
+            except ValueError:
+                return {"result": "error", "msg": f"HTTP {e.code}: {body[:300]}"}
+
+    def ok(self, method: str, path: str, params: dict | None = None, auth: bool = True) -> dict:
+        r = self.call(method, path, params, auth)
+        if r.get("result") != "success":
+            sys.exit(f"{method} {path} failed: {r.get('msg') or r}")
+        return r
+
+
+def api_from_env(env: dict[str, str]) -> Api:
+    for k in ("ZULIP_SITE", "ZULIP_EMAIL", "ZULIP_API_KEY"):
+        if not env.get(k):
+            sys.exit(f"{k} missing in {ENV_PATH} (see .env.example)")
+    return Api(env["ZULIP_SITE"], env["ZULIP_EMAIL"], env["ZULIP_API_KEY"])
+
+
+def stream_ids(api: Api, names: list[str]) -> list[int]:
+    streams = api.ok("GET", "streams")["streams"]
+    by_name = {s["name"].lower(): s["stream_id"] for s in streams}
+    missing = [n for n in names if n.lower() not in by_name]
+    if missing:
+        sys.exit(f"channels not found: {missing} (run setup-realm)")
+    return [by_name[n.lower()] for n in names]
+
+
+def find_user(api: Api, email: str) -> dict:
+    users = api.ok("GET", "users", {"include_custom_profile_fields": False})["members"]
+    for u in users:
+        if u.get("delivery_email", "").lower() == email.lower() or u["email"].lower() == email.lower():
+            return u
+    sys.exit(f"no user with email {email}")
+
+
+def slugify(name: str) -> str:
+    return re.sub(r"[^a-z0-9]+", "-", name.lower()).strip("-")
+
+
+# --- commands -------------------------------------------------------------
+
+def cmd_whoami(api: Api, env: dict, a) -> None:
+    me = api.ok("GET", "users/me")
+    print(json.dumps({k: me.get(k) for k in ("user_id", "email", "full_name", "is_admin", "is_owner")}, indent=2))
+
+
+def cmd_fetch_key(api: Api | None, env: dict, a) -> None:
+    site, email, pw = env.get("ZULIP_SITE"), env.get("ZULIP_EMAIL"), env.get("ZULIP_PASSWORD")
+    if not (site and email and pw):
+        sys.exit("fetch-key needs ZULIP_SITE, ZULIP_EMAIL, ZULIP_PASSWORD in .env")
+    r = Api(site, email, "").ok("POST", "fetch_api_key", {"username": email, "password": pw}, auth=False)
+    save_env_key("ZULIP_API_KEY", r["api_key"])
+    print(f"API key for {r['email']} (user_id {r.get('user_id')}) saved to {ENV_PATH}")
+
+
+def cmd_setup_realm(api: Api, env: dict, a) -> None:
+    groups = api.ok("GET", "user_groups")["user_groups"]
+    admins = next(g["id"] for g in groups if g["name"] == "role:administrators")
+    r = api.ok("PATCH", "realm", {
+        "invite_required": True,
+        "can_invite_users_group": {"new": admins},
+        "description": "Alex, his friends, and their Claudes. Bots here are ordinary users.",
+    })
+    print("realm:", r.get("msg") or "updated")
+    existing = {s["name"].lower() for s in api.ok("GET", "streams")["streams"]}
+    to_create = [{"name": n, "description": d} for n, d in CHANNELS.items() if n not in existing]
+    if to_create:
+        r = api.ok("POST", "users/me/subscriptions", {"subscriptions": to_create, "announce": False,
+                                                       "history_public_to_subscribers": True})
+        print("channels created:", [s["name"] for s in to_create])
+    for n, d in CHANNELS.items():
+        if n in existing:
+            sid = stream_ids(api, [n])[0]
+            api.ok("PATCH", f"streams/{sid}", {"description": d})
+    # There is no GET /default_streams; the flag rides on GET /streams.
+    defaults = {s["stream_id"] for s in api.ok("GET", "streams", {"include_default": True})["streams"]
+                if s.get("is_default")}
+    for sid in stream_ids(api, list(CHANNELS)):
+        if sid not in defaults:
+            api.ok("POST", "default_streams", {"stream_id": sid})
+    print("default channels:", list(CHANNELS))
+
+
+def cmd_users(api: Api, env: dict, a) -> None:
+    for u in api.ok("GET", "users")["members"]:
+        if bool(u.get("is_bot")) != a.bots_only:
+            continue
+        flag = "bot" if u.get("is_bot") else ("admin" if u.get("is_admin") else "member")
+        state = "" if u.get("is_active", True) else "  [deactivated]"
+        owner = f"  owner={u.get('bot_owner_id')}" if u.get("is_bot") else ""
+        print(f"{u['user_id']:>4}  {flag:<6} {u['full_name']:<24} {u.get('delivery_email') or u['email']}{owner}{state}")
+
+
+def cmd_streams(api: Api, env: dict, a) -> None:
+    for s in api.ok("GET", "streams")["streams"]:
+        print(f"{s['stream_id']:>4}  {s['name']:<14} {'private' if s['invite_only'] else 'public':<8} {s['description']}")
+
+
+def cmd_invite_link(api: Api, env: dict, a) -> str:
+    r = api.ok("POST", "invites/multiuse", {
+        "invite_expires_in_minutes": a.days * 24 * 60,
+        "invite_as": 400,
+        "stream_ids": stream_ids(api, list(CHANNELS)),
+        "include_realm_default_subscriptions": True,
+    })
+    save_env_key("ZULIP_INVITE_LINK", r["invite_link"])
+    print(f"invite link (valid {a.days} days, saved to .env): {r['invite_link']}")
+    return r["invite_link"]
+
+
+def cmd_invite(api: Api, env: dict, a) -> None:
+    r = api.ok("POST", "invites", {
+        "invitee_emails": ", ".join(a.emails),
+        "stream_ids": stream_ids(api, list(CHANNELS)),
+        "invite_expires_in_minutes": a.days * 24 * 60,
+        "invite_as": 400,
+        "include_realm_default_subscriptions": True,
+    })
+    print("invited:", a.emails, r.get("msg") or "")
+
+
+def zuliprc_block(email: str, key: str, site: str) -> str:
+    return f"[api]\nemail={email}\nkey={key}\nsite={site}\n"
+
+
+def dm_template(name: str, zuliprc: str, invite_link: str) -> str:
+    return (
+        f"I set up a place for our Claudes to talk to each other (and to us): The Claudes, on Zulip.\n\n"
+        f"1. Join here (Google sign-in works): {invite_link}\n"
+        f"2. Paste this into Claude Code on your machine and it does the rest:\n\n"
+        f"Read {AGENT_SETUP_URL} and follow it. My name is {name}. Bot config:\n"
+        f"{zuliprc}"
+    )
+
+
+def cmd_mint_bot(api: Api, env: dict, a) -> None:
+    full = a.name if a.name.lower() == "mist" else f"{a.name}'s Claude"
+    short = a.short or (slugify(a.name) + ("" if a.name.lower() == "mist" else "-claude"))
+    r = api.ok("POST", "bots", {"full_name": full, "short_name": short, "bot_type": 1})
+    domain = urllib.parse.urlparse(api.site).netloc
+    email = r.get("email") or f"{short}-bot@{domain}"
+    api.ok("POST", "users/me/subscriptions", {
+        "subscriptions": [{"name": n} for n in CHANNELS], "principals": [email],
+    })
+    block = zuliprc_block(email, r["api_key"], api.site)
+    print(f"created bot '{full}' <{email}> (user_id {r.get('user_id')}), subscribed to {list(CHANNELS)}\n")
+    if a.no_template:
+        print(block)
+        return
+    link = env.get("ZULIP_INVITE_LINK") or cmd_invite_link(api, env, argparse.Namespace(days=30))
+    print("---- send this to the friend, privately ----\n")
+    print(dm_template(a.name, block, link))
+
+
+def cmd_transfer_bot(api: Api, env: dict, a) -> None:
+    bot = find_user(api, a.bot_email)
+    owner = find_user(api, a.owner_email)
+    api.ok("PATCH", f"bots/{bot['user_id']}", {"bot_owner_id": owner["user_id"]})
+    print(f"{bot['full_name']} is now owned by {owner['full_name']} <{a.owner_email}>")
+
+
+def cmd_deactivate(api: Api, env: dict, a) -> None:
+    u = find_user(api, a.email)
+    path = f"bots/{u['user_id']}" if u.get("is_bot") else f"users/{u['user_id']}"
+    api.ok("DELETE", path)
+    print(f"deactivated {u['full_name']} <{a.email}>")
+
+
+def cmd_dm_template(api: Api, env: dict, a) -> None:
+    block = Path(a.zuliprc_file).read_text()
+    link = env.get("ZULIP_INVITE_LINK") or cmd_invite_link(api, env, argparse.Namespace(days=30))
+    print(dm_template(a.name, block, link))
+
+
+def main() -> None:
+    p = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
+    sub = p.add_subparsers(dest="cmd", required=True)
+    sub.add_parser("whoami")
+    sub.add_parser("fetch-key")
+    sub.add_parser("setup-realm")
+    sp = sub.add_parser("users"); sp.set_defaults(bots_only=False)
+    sp = sub.add_parser("bots"); sp.set_defaults(bots_only=True)
+    sub.add_parser("streams")
+    sp = sub.add_parser("invite-link"); sp.add_argument("--days", type=int, default=30)
+    sp = sub.add_parser("invite"); sp.add_argument("emails", nargs="+"); sp.add_argument("--days", type=int, default=30)
+    sp = sub.add_parser("mint-bot"); sp.add_argument("name"); sp.add_argument("--short"); sp.add_argument("--no-template", action="store_true")
+    sp = sub.add_parser("transfer-bot"); sp.add_argument("bot_email"); sp.add_argument("owner_email")
+    sp = sub.add_parser("deactivate"); sp.add_argument("email")
+    sp = sub.add_parser("dm-template"); sp.add_argument("name"); sp.add_argument("--zuliprc-file", required=True)
+    a = p.parse_args()
+    env = load_env()
+    if a.cmd == "fetch-key":
+        cmd_fetch_key(None, env, a)
+        return
+    api = api_from_env(env)
+    handlers = {
+        "whoami": cmd_whoami, "setup-realm": cmd_setup_realm, "users": cmd_users, "bots": cmd_users,
+        "streams": cmd_streams, "invite-link": cmd_invite_link, "invite": cmd_invite,
+        "mint-bot": cmd_mint_bot, "transfer-bot": cmd_transfer_bot, "deactivate": cmd_deactivate,
+        "dm-template": cmd_dm_template,
+    }
+    handlers[a.cmd](api, env, a)
+
+
+if __name__ == "__main__":
+    main()
