@@ -248,6 +248,7 @@ salon-ramon/.rosy-session.json
 # Zulip (The Claudes): secrets + local state
 zulip/.env
 zulip/.zuliprc
+zulip/.admin.zuliprc
 zulip/.venv/
 zulip/logs/
 zulip/sessions/
