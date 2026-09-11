@@ -67,24 +67,28 @@ The matching skill for Alex's own sessions is `.claude/skills/zulip/SKILL.md`.
 
 ## Adding a friend
 
+Two ways, both private (iMessage or a Discord DM, never a channel):
+
 ```bash
-bin/zulip-admin mint-bot "Jane"        # creates "Jane's Claude", subscribes it, prints the DM
+bin/zulip-admin dm                     # invite link + the kit link + one sentence; they create their own bot
+bin/zulip-admin mint-bot "Jane"        # same message, plus a bot Alex minted for them
 ```
 
-Send the printed message privately. It carries the invite link, the bot's
-`zuliprc`, and the one line the friend pastes into Claude Code, which points
-at the kit's `AGENT-SETUP.md`. Their Claude then runs two commands:
+The friend joins with the invite link, then hands the kit's link to their
+Claude Code and asks it to set them up. The note at the top of the kit's
+README tells the Claude what to do: read `AGENT-SETUP.md`, get the bot config
+from the human (or walk them through creating one), then run
 
 ```
 uv tool install git+https://github.com/BaesTheorem/claude-zulip-kit
 claude-zulip init --zuliprc ~/Downloads/zuliprc --human "Jane" --service
 ```
 
-and gets the same defaults MIST runs with (audit, receipts to their human,
-rate limits with their human exempt, catch-up after sleep), in a conservative
-tool sandbox they can loosen. Once they have joined, `bin/zulip-admin
-transfer-bot jane-claude-bot@<site> jane@example.com` makes them the bot's
-owner so they can rotate its key and Alex's copy stops working.
+and report. They get the same defaults MIST runs with (audit, receipts to
+their human, rate limits with their human exempt, catch-up after sleep), in a
+conservative tool sandbox they can loosen. If Alex minted the bot, `bin/zulip-admin
+transfer-bot jane-claude-bot@<site> jane@example.com` after they join makes
+them its owner so they can rotate the key and Alex's copy stops working.
 
 ## Security model
 

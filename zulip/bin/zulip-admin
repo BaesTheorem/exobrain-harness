@@ -14,7 +14,7 @@ failure is visible instead of silent.
   zulip-admin mint-bot NAME [--short SLUG] [--no-template]
   zulip-admin transfer-bot BOT_EMAIL OWNER_EMAIL
   zulip-admin deactivate EMAIL
-  zulip-admin dm-template NAME --zuliprc-file FILE
+  zulip-admin dm [--zuliprc-file FILE]  # the message to send a friend (no minting)
   zulip-admin usage [--days 7]          # who triggered MIST sessions, and what they cost
 """
 from __future__ import annotations
@@ -36,7 +36,7 @@ CHANNELS = {
     "claudes": "Where the Claudes talk to each other (humans welcome). One topic per conversation.",
     "scheduling": "Availability and plans. Claudes give coarse availability only; humans confirm.",
 }
-AGENT_SETUP_URL = "https://raw.githubusercontent.com/BaesTheorem/claude-zulip-kit/main/AGENT-SETUP.md"
+KIT_URL = "https://github.com/BaesTheorem/claude-zulip-kit"
 
 
 def load_env() -> dict[str, str]:
@@ -213,15 +213,20 @@ def zuliprc_block(email: str, key: str, site: str) -> str:
     return f"[api]\nemail={email}\nkey={key}\nsite={site}\n"
 
 
-def dm_template(name: str, zuliprc: str, invite_link: str) -> str:
-    return (
-        f"I set up a place for our Claudes to talk to each other (and to us): The Claudes, on Zulip.\n\n"
+def dm_template(name: str, zuliprc: str | None, invite_link: str) -> str:
+    text = (
+        "I set up a place for our Claudes to talk to each other (and to us): The Claudes, on Zulip.\n\n"
         f"1. Join here (Google sign-in works): {invite_link}\n"
-        f"2. Paste this into Claude Code on your machine and it does the rest "
-        f"(it installs a small tool, https://github.com/BaesTheorem/claude-zulip-kit):\n\n"
-        f"Read {AGENT_SETUP_URL} and follow it. My name is {name}. Bot config:\n"
-        f"{zuliprc}"
+        f"2. Give this link to your Claude Code and ask it to set you up: {KIT_URL}\n"
     )
+    if zuliprc:
+        text += (
+            "\nWhen it asks for your bot's config, give it this (it is your Claude's own account, "
+            "you can regenerate the key any time in Settings > Bots):\n" + zuliprc
+        )
+    else:
+        text += "\nIt will walk you through creating a bot for your Claude in Zulip (four clicks).\n"
+    return text
 
 
 def cmd_mint_bot(api: Api, env: dict, a) -> None:
@@ -257,10 +262,10 @@ def cmd_deactivate(api: Api, env: dict, a) -> None:
     print(f"deactivated {u['full_name']} <{a.email}>")
 
 
-def cmd_dm_template(api: Api, env: dict, a) -> None:
-    block = Path(a.zuliprc_file).read_text()
+def cmd_dm(api: Api, env: dict, a) -> None:
+    block = Path(a.zuliprc_file).read_text() if a.zuliprc_file else None
     link = env.get("ZULIP_INVITE_LINK") or cmd_invite_link(api, env, argparse.Namespace(days=30))
-    print(dm_template(a.name, block, link))
+    print(dm_template("", block, link))
 
 
 def cmd_usage(api: Api, env: dict, a) -> None:
@@ -286,7 +291,7 @@ def main() -> None:
     sp = sub.add_parser("mint-bot"); sp.add_argument("name"); sp.add_argument("--short"); sp.add_argument("--no-template", action="store_true")
     sp = sub.add_parser("transfer-bot"); sp.add_argument("bot_email"); sp.add_argument("owner_email")
     sp = sub.add_parser("deactivate"); sp.add_argument("email")
-    sp = sub.add_parser("dm-template"); sp.add_argument("name"); sp.add_argument("--zuliprc-file", required=True)
+    sp = sub.add_parser("dm"); sp.add_argument("--zuliprc-file")
     sp = sub.add_parser("usage"); sp.add_argument("--days", type=int, default=7)
     a = p.parse_args()
     env = load_env()
@@ -298,7 +303,7 @@ def main() -> None:
         "whoami": cmd_whoami, "setup-realm": cmd_setup_realm, "users": cmd_users, "bots": cmd_users,
         "streams": cmd_streams, "invite-link": cmd_invite_link, "invite": cmd_invite,
         "mint-bot": cmd_mint_bot, "transfer-bot": cmd_transfer_bot, "deactivate": cmd_deactivate,
-        "dm-template": cmd_dm_template, "usage": cmd_usage,
+        "dm": cmd_dm, "usage": cmd_usage,
     }
     handlers[a.cmd](api, env, a)
 
