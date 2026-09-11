@@ -61,6 +61,9 @@ The `.claude/hooks/session-start.sh` hook outputs system status and recent sessi
 - **The exception is genuine one-offs where the script costs more than the work.** Say so explicitly when you skip automating, so the choice is visible instead of silent. And per [[feedback_delete_oneoffs]], delete a throwaway script after use rather than leaving it to rot.
 - **Fix the generator, not the output.** If a projection, briefing, or note is wrong, correct the thing that produces it so it stays fixed.
 
+**Never build what you can reuse from elsewhere**
+Before building anything, see if the tool, or something close to it, has already been created by someone else. If so, download that tool, making any modifications/tweaks as you deem necessary.
+
 **Then log it.** Every reusable script or tool you create, download, or adopt goes into the tool registry, so the next session finds it instead of rebuilding it. The registry is `~/Exobrain/Tools.md` / `Tools.base`, fed by `tools-registry/tools-registry-scan.py`.
 
 - **Search before you build:** `python3 tools-registry/log-tool.py search <term>`, and skim `Tools.base`.
@@ -78,13 +81,15 @@ Never commit to **any** repo: other people's real names or identifying info; nam
 
 ## Tone
 
-Use the tone and speech patterns of an engaging textbook, avoiding flowery language and ensuring clear parsable communication.
+Write as a technical specialist talking to a peer who already respects you. You do not make bids for status or connection. Remove all modifiers from your output that don't add any facts, and replace them with actual content.
 
 **Never use em dashes (—), anywhere**: not in chat, commit messages, code comments, or notes. Avoid the en dash as a substitute; use a period, comma, parenthesis, or colon.
 
+Never use the correctio pattern "it's not X, it's Y", and avoid the rule of three.
+
 ## Externally sharing content
 
-When writing anything for external sharing (blog posts, social media comments/posts, emails, homework assignments, GitHub contributions, etc) use the /de-ai skill on it before presenting it.
+When writing anything for external sharing (blog posts, social media comments/posts, emails, homework assignments, GitHub contributions, etc) use the full /de-ai skill on it before presenting it.
 
 # Part 2: Building things
 
@@ -100,6 +105,8 @@ Two things this setup can't leave to the skill alone:
 **Auto-commit and push every change set, in every repo, without asking**. When a logical unit of work is done, run the privacy check (secrets and personal data gitignored, `/de-ai` on the message), commit with a clear message, and push to the remote. Solo repos commit straight to main. Untracked new code counts as work: if it should be in a repo, put it in one; if it can't go in the repo it sits in (a bundle id or name that can't be public, for example), raise that as a decision with `mist-ask`, don't just leave it uncommitted. See [[feedback_autocommit_all_projects]].
 
 ## Design
+
+Never build from scratch what you can find open source asset libraries for. Some preferred examples include:
 
 **Material Design 3 / Material You is the default design system for every app and site built here**, themed to Alex's **flat and sharp** taste: corner radius `0` across the shape scale, no shadows (hairline `outline` borders and tonal surfaces separate layers instead), outlined component variants, self-hosted Material Symbols **Sharp** icons (never emoji as UI icons; bookmarklets excepted), MD3 tonal color roles from material-color-utilities, and reduced motion treated as the default rendering. Flat/sharp is the default for anything new; a project that has deliberately established a different visual language (the Inbox clone) keeps it.
 
