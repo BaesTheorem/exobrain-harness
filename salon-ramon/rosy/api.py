@@ -14,6 +14,7 @@ Shapes worth knowing, all learned from the site's own Backbone code:
 from __future__ import annotations
 
 import json
+from datetime import date, timedelta
 import urllib.error
 import urllib.parse
 import urllib.request
@@ -122,11 +123,21 @@ class Api:
         return self._items(payload, "appointments")
 
     def my_appointments(self, start: str, end: str | None = None) -> list[dict]:
+        """This customer's appointments in [start, end).
+
+        `to` is EXCLUSIVE. `from=X&to=X` returns nothing at all, which once made
+        a successful booking read back as "nothing booked" -- the one false
+        negative that invites a double-booking. Use `my_appointments_on` for a
+        single day rather than passing the same date twice.
+        """
         params = {"salonId": self.salon_id, "clientId": self.ctx.customer_id, "from": start}
         if end:
             params["to"] = end
         payload = self._request("GET", "/appointments", params)
         return self._items(payload, "appointments")
+
+    def my_appointments_on(self, day: date) -> list[dict]:
+        return self.my_appointments(day.isoformat(), (day + timedelta(days=1)).isoformat())
 
     # -- writes ------------------------------------------------------------
 

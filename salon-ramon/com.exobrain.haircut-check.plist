@@ -7,10 +7,10 @@
     <key>ProgramArguments</key>
     <array>
         <string>/bin/bash</string>
-        <string>/Users/alexhedtke/Documents/Exobrain harness/barber/run-haircut-check.sh</string>
+        <string>/Users/alexhedtke/Documents/Exobrain harness/salon-ramon/run-haircut-check.sh</string>
     </array>
     <key>WorkingDirectory</key>
-    <string>/Users/alexhedtke/Documents/Exobrain harness/barber</string>
+    <string>/Users/alexhedtke/Documents/Exobrain harness/salon-ramon</string>
     <key>StartCalendarInterval</key>
     <dict>
         <key>Hour</key>

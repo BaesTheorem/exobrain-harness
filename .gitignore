@@ -154,14 +154,9 @@ job-search/state/*
 reminders/.build/
 
 # Haircut history is a personal log; the cadence rebuilds from the last entry.
-barber/state.json
+salon-ramon/state.json
 
-# Booksy login session (browser profile). Never commit a live session.
-barber/.booksy-profile/
-barber/steps/
 
-# Live Booksy session token, captured from the browser. Never commit.
-barber/.booksy-session.json
 
 # Fantasy football -- ESPN session cookies (espn_s2 + SWID)
 fantasy/espn-credentials.json
@@ -249,3 +244,10 @@ fantasy/draftbot/season_sim_latest.json
 
 # Salon Ramon (Rosy) -- live browser session lifted from Chrome. Never commit.
 salon-ramon/.rosy-session.json
+
+# Zulip (The Claudes): secrets + local state
+zulip/.env
+zulip/.zuliprc
+zulip/.venv/
+zulip/logs/
+zulip/sessions/

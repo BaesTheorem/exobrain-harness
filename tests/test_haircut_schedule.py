@@ -1,4 +1,8 @@
-"""Tests for the haircut cadence gate (barber/schedule.py)."""
+"""Tests for the haircut cadence gate (salon-ramon/schedule.py).
+
+The tracker outlived the venue: it moved from the Booksy tool to the Rosy one
+unchanged, because none of the cadence logic depends on which shop is booking.
+"""
 
 from __future__ import annotations
 
@@ -10,20 +14,20 @@ from pathlib import Path
 
 import pytest
 
-BARBER = Path(__file__).resolve().parent.parent / "barber"
+SALON = Path(__file__).resolve().parent.parent / "salon-ramon"
 
 
 def load_schedule(tmp_path: Path, monkeypatch: pytest.MonkeyPatch, state: dict | None):
     """Import schedule.py with its state/config redirected at a temp dir."""
-    spec = importlib.util.spec_from_file_location("barber_schedule", BARBER / "schedule.py")
+    spec = importlib.util.spec_from_file_location("haircut_schedule", SALON / "schedule.py")
     assert spec and spec.loader
     mod = importlib.util.module_from_spec(spec)
     # dataclasses resolves annotations via sys.modules, so register before exec.
-    sys.modules["barber_schedule"] = mod
+    sys.modules["haircut_schedule"] = mod
     spec.loader.exec_module(mod)
 
     config = tmp_path / "config.json"
-    config.write_text(json.dumps({"interval_weeks": 6}))
+    config.write_text(json.dumps({"intervalWeeks": 6}))
     state_file = tmp_path / "state.json"
     if state is not None:
         state_file.write_text(json.dumps(state))
@@ -87,11 +91,11 @@ def test_record_resets_the_cycle(tmp_path, monkeypatch):
         monkeypatch,
         {"last_haircut": "2026-08-15", "notified_cycle": "2026-09-26"},
     )
-    mod.main(["record", "--date", "2026-09-26", "--barber", "Razor Nick"])
+    mod.main(["record", "--date", "2026-09-26", "--provider", "[Stylist]"])
     state = json.loads((tmp_path / "state.json").read_text())
     assert state["last_haircut"] == "2026-09-26"
     assert state["notified_cycle"] is None
-    assert state["history"][-1]["barber"] == "Razor Nick"
+    assert state["history"][-1]["provider"] == "[Stylist]"
 
 
 def test_pending_appointment_silences_the_daily_job(tmp_path, monkeypatch):
@@ -123,12 +127,12 @@ def test_record_clears_the_pending_appointment(tmp_path, monkeypatch):
     mod = load_schedule(
         tmp_path,
         monkeypatch,
-        {"last_haircut": None, "pending": "2026-08-29", "pending_barber": "Razor Nick"},
+        {"last_haircut": None, "pending": "2026-08-29", "pending_provider": "[Stylist]"},
     )
-    mod.main(["record", "--date", "2026-08-29", "--barber", "Razor Nick"])
+    mod.main(["record", "--date", "2026-08-29", "--provider", "[Stylist]"])
     state = json.loads((tmp_path / "state.json").read_text())
     assert state["pending"] is None
-    assert "pending_barber" not in state
+    assert "pending_provider" not in state
     assert state["last_haircut"] == "2026-08-29"
 
 
@@ -153,7 +157,7 @@ def test_lapsed_appointment_records_as_completed(tmp_path, monkeypatch):
     mod = load_schedule(
         tmp_path,
         monkeypatch,
-        {"last_haircut": None, "pending": "2026-09-01", "pending_barber": "Troy", "history": []},
+        {"last_haircut": None, "pending": "2026-09-01", "pending_provider": "[Stylist]", "history": []},
     )
     assert mod.reconcile(date(2026, 9, 8)) == date(2026, 9, 1)
 
@@ -163,7 +167,7 @@ def test_lapsed_appointment_records_as_completed(tmp_path, monkeypatch):
     assert not st.should_act, "a recorded cut must stop the early hunt"
 
     entry = json.loads((tmp_path / "state.json").read_text())["history"][-1]
-    assert entry == {"date": "2026-09-01", "assumed": True, "barber": "Troy"}
+    assert entry == {"date": "2026-09-01", "assumed": True, "provider": "[Stylist]"}
 
 
 def test_reconcile_leaves_a_future_appointment_alone(tmp_path, monkeypatch):
