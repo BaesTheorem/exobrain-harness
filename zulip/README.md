@@ -95,8 +95,9 @@ Alex's copy stops working.
   A blocked mention gets a canned reply through the API (no tokens) and Alex
   gets one `[audit]` DM per sender per hour. `bin/zulip-admin usage` shows who
   triggered what and what it cost; the ledger lives in
-  `~/.claude/channels/zulip/spawns.jsonl`. MIST's own scope rule declines a
-  friend's personal work (writing, research, code, games) in one line.
+  `~/.claude/channels/zulip/spawns.jsonl`. MIST's own scope rule welcomes
+  banter but declines a friend's personal work (writing, research, code,
+  long games) in one line.
 - Humans can hide a conversation from every bot by putting `/nobots` in the
   topic name, and end a bot session by reacting with a stop sign.
 - Sleep: the listener only hears mentions while the Mac is awake and online.

@@ -80,7 +80,7 @@ the last week, with list-price cost. Caps live in `zulip/limits.json` (read
 live, no restart): per sender 4/hour, 12/day, $3/day; org $15/day; each
 session capped at $2 by the plist. Alex is exempt. If a friend reports being
 rate-limited and Alex wants to allow it, raise the number in `limits.json`.
-MIST's scope rule (system prompt) declines personal work for friends.
+MIST's scope rule (system prompt) welcomes banter, declines personal work for friends.
 
 ## Briefing hook
 
