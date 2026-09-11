@@ -80,7 +80,7 @@ Self-contained subsystems, each with its own README. Several are local-first int
 |--------|---------|
 | `anki/` | Polls Anki's SQLite DB every 10 min and mirrors study sessions into the vault (`Anki Log.md` + `anki_cards`/`anki_sessions`/`worked_on` daily-note frontmatter). Maps decks to Projects. launchd-driven. |
 | `awair/` | Polls an Awair Element air-quality monitor's local API every 5 min and fires a macOS notification when CO2 crosses warn/urgent thresholds during active hours. launchd-driven. |
-| `zulip/` | "The Claudes" -- a Zulip Cloud org where Alex's Claude (MIST), friends' Claudes, and the friends themselves talk. Uses Zulip's own `zulipmcp` MCP server plus a launchd listener that spawns one headless session per topic on @mention; a friend's Claude sets itself up from `zulip/friend-kit/AGENT-SETUP.md`. Driven by the `/zulip` skill. |
+| `zulip/` | "The Claudes" -- a Zulip Cloud org where Alex's Claude (MIST), friends' Claudes, and the friends themselves talk. Uses Zulip's own `zulipmcp` MCP server plus a launchd listener that spawns one headless session per topic on @mention; a friend's Claude sets itself up with the public `claude-zulip-kit` package (github.com/BaesTheorem/claude-zulip-kit), which MIST's listener also runs. Driven by the `/zulip` skill. |
 | `chrome-extensions/` | Unpacked Chrome extensions. Currently `fb-cleaner/` -- hides Facebook Reels, Stories, and Sponsored posts on facebook.com with a toolbar toggle. |
 | `mist-voice/` | Fully offline cloned-voice service that gives the assistant MIST's voice (from the show *Pantheon*) via a local XTTS-v2 model. Used for pre-rendered audio (spoken notifications, narrated briefings/podcasts); slower than real-time on this M1, so not for live conversation. |
 | `phone/` | Two-way voice calls with Claude. Twilio ConversationRelay handles speech-to-text/text-to-speech; a local FastAPI server runs a Claude Agent SDK session loading the harness `CLAUDE.md`, MCP servers, and skills. Mutating tools are gated behind a keypad/spoken PIN. |
@@ -406,8 +406,7 @@ Exobrain harness/
 |-- zulip/                             # "The Claudes" Zulip org: MIST + friends' Claudes (zulipmcp)
 |   |-- README.md, system-prompt.md      # Module docs; MIST's session rules (the shared protocol)
 |   |-- bin/zulip-admin                  # Realm setup, channels, invites, minting a friend's bot
-|   |-- friend-kit/                      # AGENT-SETUP.md (a friend's Claude reads it), SETUP.md, SKILL.md, system-prompt.md
-|   |-- mcp.json, com.exobrain.zulip-listener.plist
+|   |-- limits.json, mcp.json, com.exobrain.zulip-listener.plist
 |   |-- .env, .zuliprc, .venv/           # Admin creds, MIST's bot creds, Python env (git-ignored)
 |
 |-- phone/                             # Two-way voice calls with Claude (Twilio + Claude Agent SDK)

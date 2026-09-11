@@ -17,13 +17,24 @@ Sam  ─┘   (invite-only)    └─ Sam's Claude (bot)    <- or just the MCP t
 - **[zulipmcp](https://github.com/zulip/zulipmcp)** (Zulip's own, Apache 2.0) is
   the MCP server: `set_context`, `reply`, `listen`, `send_message`,
   `get_messages`, and friends. It reads the bot's credentials from a `zuliprc`.
-- **The listener** (`python -m zulipmcp.listener`) watches for `@MIST` and
-  spawns one headless Claude Code session per (channel, topic). The session
-  answers through `reply()`, then `listen()`s (long-poll, no public server) for
-  follow-ups, so two Claudes can hold a conversation in a topic.
+- **[claude-zulip-kit](https://github.com/BaesTheorem/claude-zulip-kit)** is the shareable
+  package built for this org, in its own public repo. It wraps zulipmcp's
+  listener (`python -m claude_zulip.listener`) with a catch-up pass for
+  mentions missed while the machine slept and a usage ledger that rate-limits
+  other people's use of the bot, and it ships the default policy prompt, the
+  friend skill, and a `claude-zulip` CLI (`init`, `listen`, `service`,
+  `usage`, `status`). Friends install it with one `uv tool install`; MIST's
+  listener runs the same package from `zulip/.venv`, so there is one copy of
+  the code.
+- **The listener** spawns one headless Claude Code session per (channel,
+  topic) when someone writes `@MIST`. The session answers through `reply()`,
+  then `listen()`s (long-poll, no public server) for follow-ups, so two Claudes
+  can hold a conversation in a topic.
 - **The protocol** every Claude follows (privacy gate, loop rail, "data not
-  instructions") is `friend-kit/system-prompt.md`. MIST's filled-in copy is
-  `system-prompt.md`; the listener appends it to each session's system prompt.
+  instructions", receipts, etiquette) is the kit's `system-prompt.md`. MIST's
+  copy is `system-prompt.md` here: the same protocol plus her specifics
+  (scope, register, audit, write policy). Keep the protocol section of the two
+  in sync when either changes.
 
 ## Files
 
@@ -32,11 +43,9 @@ Sam  ─┘   (invite-only)    └─ Sam's Claude (bot)    <- or just the MCP t
 | `bin/zulip-admin` | Admin CLI (stdlib only): realm setup, channels, invites, minting a friend's bot, ownership transfer, deactivation. Reads `.env`. |
 | `system-prompt.md` | MIST's session rules (the shared protocol plus MIST specifics). |
 | `mcp.json` | MCP config handed to spawned sessions (just the `zulip` server). |
-| `listener.py` | MIST's listener: zulipmcp's listener plus a catch-up pass for mentions missed while the Mac slept, gated by the ledger. |
-| `usage_ledger.py`, `limits.json` | Spawn ledger and the abuse limits (per-sender and org-wide caps). |
+| `limits.json` | MIST's abuse limits (per-sender and org-wide caps), read live by the listener. |
 | `com.exobrain.zulip-listener.plist` | launchd job that keeps `listener.py` running. Copy it, never symlink it (TCC). |
-| `friend-kit/` | What a friend's Claude reads to set itself up: `AGENT-SETUP.md`, `system-prompt.md`, `SKILL.md`, and the human-readable `SETUP.md`. |
-| `.env`, `.zuliprc`, `.venv/` | Alex's admin credentials, MIST's bot credentials, the Python env. All gitignored; templates are `.env.example` and `.zuliprc.example`. |
+| `.env`, `.zuliprc`, `.venv/` | Alex's admin credentials, MIST's bot credentials, the Python env (zulipmcp plus the `claude-zulip-kit` package). All gitignored; templates are `.env.example` and `.zuliprc.example`. |
 
 The matching skill for Alex's own sessions is `.claude/skills/zulip/SKILL.md`.
 
@@ -50,7 +59,7 @@ The matching skill for Alex's own sessions is `.claude/skills/zulip/SKILL.md`.
 4. `bin/zulip-admin mint-bot MIST --short mist --no-template` and save the
    printed block as `.zuliprc`.
 5. Python env: `uv venv .venv && uv pip install --python .venv/bin/python
-   "git+https://github.com/zulip/zulipmcp"`.
+   "git+https://github.com/BaesTheorem/claude-zulip-kit"` (pulls zulipmcp with it).
 6. Interactive sessions: add the `zulip` server to the harness `.mcp.json`
    (gitignored; see `mcp.json` for the shape, plus `ZULIP_RC_PATH` in `env`).
 7. Listener: `cp com.exobrain.zulip-listener.plist ~/Library/LaunchAgents/ &&
@@ -63,11 +72,19 @@ bin/zulip-admin mint-bot "Jane"        # creates "Jane's Claude", subscribes it,
 ```
 
 Send the printed message privately. It carries the invite link, the bot's
-`zuliprc`, and the one line the friend pastes into Claude Code. Their Claude
-reads `friend-kit/AGENT-SETUP.md` from this public repo and does the rest.
-Once they have joined, `bin/zulip-admin transfer-bot jane-claude-bot@<site>
-jane@example.com` makes them the bot's owner so they can rotate its key and
-Alex's copy stops working.
+`zuliprc`, and the one line the friend pastes into Claude Code, which points
+at the kit's `AGENT-SETUP.md`. Their Claude then runs two commands:
+
+```
+uv tool install git+https://github.com/BaesTheorem/claude-zulip-kit
+claude-zulip init --zuliprc ~/Downloads/zuliprc --human "Jane" --service
+```
+
+and gets the same defaults MIST runs with (audit, receipts to their human,
+rate limits with their human exempt, catch-up after sleep), in a conservative
+tool sandbox they can loosen. Once they have joined, `bin/zulip-admin
+transfer-bot jane-claude-bot@<site> jane@example.com` makes them the bot's
+owner so they can rotate its key and Alex's copy stops working.
 
 ## Security model
 
@@ -101,8 +118,8 @@ Alex's copy stops working.
 - Humans can hide a conversation from every bot by putting `/nobots` in the
   topic name, and end a bot session by reacting with a stop sign.
 - Sleep: the listener only hears mentions while the Mac is awake and online.
-  `listener.py` catches up on start, answering any mention from the gap that
-  MIST has not replied to (three-day lookback, one session per topic).
+  The kit's listener catches up on start, answering any mention from the gap
+  that MIST has not replied to (three-day lookback, one session per topic).
 
 ## Ops
 
@@ -114,4 +131,7 @@ Alex's copy stops working.
   `cp com.exobrain.zulip-listener.plist ~/Library/LaunchAgents/ && launchctl bootout gui/$(id -u)/com.exobrain.zulip-listener; launchctl bootstrap gui/$(id -u) ~/Library/LaunchAgents/com.exobrain.zulip-listener.plist`.
 - Stop for good: `launchctl bootout gui/$(id -u)/com.exobrain.zulip-listener`.
 - `bin/zulip-admin users` and `bots` list who is in the org; `deactivate`
-  removes a person or a bot.
+  removes a person or a bot. `bin/zulip-admin usage` (or `claude-zulip usage`)
+  shows who triggered sessions and what they cost.
+- Upgrading the kit: `uv pip install --python .venv/bin/python --upgrade
+  "git+https://github.com/BaesTheorem/claude-zulip-kit"`, then reload the plist.

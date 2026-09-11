@@ -24,6 +24,7 @@ INVARIANTS (an edit must not break these):
 
 from __future__ import annotations
 
+import base64
 import json
 import re
 import shutil
@@ -34,6 +35,7 @@ import tempfile
 import urllib.error
 import urllib.request
 from dataclasses import dataclass
+from datetime import datetime, timedelta, timezone
 from hashlib import pbkdf2_hmac, sha256
 from pathlib import Path
 
@@ -49,6 +51,11 @@ SALT = b"saltysalt"
 ITERATIONS = 1003
 KEY_LEN = 16
 IV = b" " * 16
+
+# Refuse a token that cannot outlive the work. A booking is several calls, and
+# one that dies between the POST and the read-back is the worst case: the
+# appointment exists and nothing can confirm it.
+MIN_TOKEN_LIFE = timedelta(minutes=2)
 
 RELOGIN = (
     "Sign in at https://online.rosysalonsoftware.com/appointments in Chrome "
@@ -167,11 +174,29 @@ def load_cookies() -> dict[str, str]:
     return cookies
 
 
+def _token_lifetime(token: str) -> tuple[datetime, datetime] | None:
+    """(issued, expires) from the JWT payload, or None if it will not decode."""
+    try:
+        payload = token.split(".")[1]
+        payload += "=" * (-len(payload) % 4)
+        claims = json.loads(base64.urlsafe_b64decode(payload))
+        return (
+            datetime.fromtimestamp(claims["iat"], tz=timezone.utc),
+            datetime.fromtimestamp(claims["exp"], tz=timezone.utc),
+        )
+    except Exception:  # noqa: BLE001 - an unreadable token is simply unverifiable
+        return None
+
+
 def _fetch(url: str, cookies: dict[str, str]) -> str:
     jar = "; ".join(f"{k}={v}" for k, v in cookies.items())
     req = urllib.request.Request(
         url,
-        headers={"User-Agent": CHROME_UA, "cookie": jar, "accept": "text/html"},
+        headers={
+            "User-Agent": CHROME_UA,
+            "cookie": jar,
+            "accept": "text/html",
+        },
     )
     try:
         with urllib.request.urlopen(req, timeout=30) as resp:
@@ -180,17 +205,42 @@ def _fetch(url: str, cookies: dict[str, str]) -> str:
         raise NoSession(f"{url} -> HTTP {exc.code}. {RELOGIN}") from exc
 
 
-def context(cookies: dict[str, str] | None = None) -> Context:
-    """Scrape a fresh customer JWT + customer id from a signed-in page."""
-    cookies = cookies or load_cookies()
-    html = _fetch(f"{BASE}/appointments", cookies)
-
+def _scrape(html: str) -> tuple[str, int]:
     if "isCustomerLoggedIn = true" not in html:
         raise NoSession(f"Rosy says the session is signed out. {RELOGIN}")
-
     token = re.search(r'jwtToken = "([^"]+)"', html)
     customer = re.search(r"customerId = (\d+);", html)
     if not token or not customer:
         raise NoSession(f"signed-in page carried no token. {RELOGIN}")
+    return token.group(1), int(customer.group(1))
 
-    return Context(token=token.group(1), customer_id=int(customer.group(1)), cookies=cookies)
+
+def context(cookies: dict[str, str] | None = None) -> Context:
+    """A customer JWT with enough life left to finish the run.
+
+    THE 30-MINUTE WALL. Rosy mints the JWT once, at sign-in, and stores it in
+    the server session; every authenticated page then replays that same token
+    for its 30-minute life. Re-fetching the page does not re-mint it (verified:
+    `cache-control: no-store`, a fresh `Date`, `isCustomerLoggedIn = true`, and
+    the same `iat` as half an hour earlier), and the app ships no refresh
+    endpoint -- it never handles a 401, because it assumes a human finishes
+    booking in one sitting. So the JSESSIONID outliving the token means
+    nothing; only a fresh Google sign-in mints a new one.
+
+    That makes the expiry check load-bearing rather than defensive. Without it
+    the failure surfaces as a bare `401` from whichever call happened to run
+    first, which reads like a broken session or a bad cookie lift and sends you
+    diagnosing the wrong thing entirely.
+    """
+    cookies = cookies or load_cookies()
+    token, customer_id = _scrape(_fetch(f"{BASE}/appointments", cookies))
+
+    life = _token_lifetime(token)
+    if life and life[1] - datetime.now(timezone.utc) < MIN_TOKEN_LIFE:
+        minted = life[0].astimezone().strftime("%H:%M")
+        raise NoSession(
+            f"Rosy's token was minted at {minted} and is spent; it only lives 30 "
+            f"minutes from sign-in and the site cannot renew it. {RELOGIN}"
+        )
+
+    return Context(token=token, customer_id=customer_id, cookies=cookies)

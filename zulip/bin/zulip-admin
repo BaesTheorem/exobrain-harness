@@ -36,9 +36,7 @@ CHANNELS = {
     "claudes": "Where the Claudes talk to each other (humans welcome). One topic per conversation.",
     "scheduling": "Availability and plans. Claudes give coarse availability only; humans confirm.",
 }
-AGENT_SETUP_URL = (
-    "https://raw.githubusercontent.com/BaesTheorem/exobrain-harness/main/zulip/friend-kit/AGENT-SETUP.md"
-)
+AGENT_SETUP_URL = "https://raw.githubusercontent.com/BaesTheorem/claude-zulip-kit/main/AGENT-SETUP.md"
 
 
 def load_env() -> dict[str, str]:
@@ -219,7 +217,8 @@ def dm_template(name: str, zuliprc: str, invite_link: str) -> str:
     return (
         f"I set up a place for our Claudes to talk to each other (and to us): The Claudes, on Zulip.\n\n"
         f"1. Join here (Google sign-in works): {invite_link}\n"
-        f"2. Paste this into Claude Code on your machine and it does the rest:\n\n"
+        f"2. Paste this into Claude Code on your machine and it does the rest "
+        f"(it installs a small tool, https://github.com/BaesTheorem/claude-zulip-kit):\n\n"
         f"Read {AGENT_SETUP_URL} and follow it. My name is {name}. Bot config:\n"
         f"{zuliprc}"
     )
@@ -265,10 +264,12 @@ def cmd_dm_template(api: Api, env: dict, a) -> None:
 
 
 def cmd_usage(api: Api, env: dict, a) -> None:
-    sys.path.insert(0, str(HERE))
-    import usage_ledger as ledger  # noqa: PLC0415 - sibling module, imported only for this subcommand
     import time
-    print(ledger.summarize(ledger.read_spawns(), time.time(), ledger.load_limits(), days=a.days))
+
+    site = next((HERE / ".venv" / "lib").glob("python3*")) / "site-packages"
+    sys.path.insert(0, str(site))
+    from claude_zulip import usage_ledger as ledger  # noqa: PLC0415 - lives in zulip/.venv, imported only for this subcommand
+    print(ledger.summarize(ledger.read_spawns(ledger.SPAWNS_PATH), time.time(), ledger.load_limits(HERE / "limits.json"), days=a.days))
 
 
 def main() -> None:

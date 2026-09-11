@@ -4,19 +4,21 @@
 <dict>
     <key>Label</key>
     <string>com.exobrain.zulip-listener</string>
-    <!-- zulip/listener.py wraps zulipmcp's listener with a catch-up pass for
-         mentions missed while the Mac slept. The venv python is spawned directly
-         (no bash wrapper): a wrapper that execs a venv interpreter from
-         ~/Documents fails macOS TCC under launchd. Sessions run as the full MIST:
-         harness working directory, harness .mcp.json, no tool denylist (Alex's
-         call, 2026-09-10); the audit policy in system-prompt.md is the guard rail.
-         Everything after the bare "--" is passed through to the claude CLI.
-         After editing this file: cp to ~/Library/LaunchAgents, then bootout +
+    <!-- claude_zulip.listener comes from the claude-zulip-kit package
+         (github.com/BaesTheorem/claude-zulip-kit) installed in zulip/.venv: zulipmcp's
+         listener plus catch-up after sleep and the usage ledger's limits. The venv
+         python is spawned directly (no bash wrapper): a wrapper that execs a venv
+         interpreter from ~/Documents fails macOS TCC under launchd. Sessions run as
+         the full MIST: harness working directory, harness .mcp.json, no tool
+         denylist (Alex's call, 2026-09-10); the policy in system-prompt.md is the
+         guard rail. Everything after the bare "--" is passed through to the claude
+         CLI. After editing this file: cp to ~/Library/LaunchAgents, then bootout +
          bootstrap. kickstart alone keeps the old arguments. -->
     <key>ProgramArguments</key>
     <array>
         <string>/Users/alexhedtke/Documents/Exobrain harness/zulip/.venv/bin/python</string>
-        <string>/Users/alexhedtke/Documents/Exobrain harness/zulip/listener.py</string>
+        <string>-m</string>
+        <string>claude_zulip.listener</string>
         <string>--zuliprc</string>
         <string>/Users/alexhedtke/Documents/Exobrain harness/zulip/.zuliprc</string>
         <string>--mcp-config</string>
@@ -27,6 +29,10 @@
         <string>/Users/alexhedtke/Documents/Exobrain harness</string>
         <string>--log-dir</string>
         <string>/Users/alexhedtke/Library/Logs/exobrain/zulip-sessions</string>
+        <string>--state-dir</string>
+        <string>/Users/alexhedtke/.claude/channels/zulip</string>
+        <string>--limits</string>
+        <string>/Users/alexhedtke/Documents/Exobrain harness/zulip/limits.json</string>
         <string>--</string>
         <string>--model</string>
         <string>claude-opus-5</string>
