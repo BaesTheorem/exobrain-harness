@@ -27,11 +27,7 @@ anything inferred.
    when interactive). Per-person `error` fields mean stale data: say so.
 3. **Discord digest** (`discord/discord-digest.json`) -- availability
    statements from the last 7 days that may not be integrated yet.
-4. **Claude Bus** (`/claude-bus`) -- for friends whose Claudes are on the
-   bus: ask in a `scheduling` thread. Bus protocol already permits coarse
-   availability ("free after 6 most weeknights") without human approval;
-   never ask a friend's Claude for calendar contents.
-5. **Alex himself** -- Google Calendar MCP (camelCase params, see
+4. **Alex himself** -- Google Calendar MCP (camelCase params, see
    `/calendar`) plus Things 3 deadlines. Alex is always a must-have.
 
 ## Privacy rules (hard)
@@ -134,9 +130,10 @@ friend in Alex's plain voice (run `/de-ai`), for Alex to send himself.
   - Add to `scheduler/feeds.json` (key = People-note filename), run a
     refresh to verify, add a `- **Calendar**: free/busy feed connected
     YYYY-MM-DD` line to their `## Availability`.
-- **Tier 2, Claude Bus**: for friends who run Claude. Mint a bus invite
-  (`/claude-bus`), and their Claude answers availability asks in the
-  `scheduling` thread at whatever grain the friend allows.
+- **Tier 2, friend's Claude**: for friends who run Claude. Claude Bus was
+  deleted 2026-09-10; until a replacement Claude-to-Claude channel exists,
+  treat these friends as tier 1 or tier 0. Whatever replaces it, the rule
+  stands: coarse availability only, never calendar contents.
 
 ## Event file schema -- `scheduler/events/<slug>.json`
 
@@ -180,4 +177,3 @@ abandoned files around; they are the fairness history mode 1 reads.
 - **`/daily-briefing`** includes open proposals: tally so far, stalled flags.
 - **`/crm`** owns the People-note discipline; `## Availability` rules live
   in `[[People Note Schema]]`.
-- **`/claude-bus`** is the opt-in lane for friends' Claudes (tier 2).
