@@ -52,15 +52,51 @@ logic that job carried is simply gone.
 ## Auth
 
 Rosy is a Spring app behind a `JSESSIONID`, and Alex signs in with Google. The
-login page is guarded by reCAPTCHA, so nothing here attempts to log in: `ramon
-login` lifts the session he already has out of Chrome's cookie store, the same
-approach the Booksy tool uses for the barber.
+login page is guarded by reCAPTCHA, so nothing here types a password.
 
-The cookie is not the API credential. Every signed-in page embeds a
-**30-minute JWT** plus the `customerId`, and `/api/v2` authenticates on
-`Authorization: Bearer <that JWT>`. So each run re-scrapes `/appointments` for
-a fresh token rather than caching one. `.rosy-session.json` (gitignored, 0600)
-holds only the cookies.
+**The 30-minute wall.** Rosy mints the API JWT once, at sign-in, and stores it
+in the server session. Every authenticated page then replays that same token
+for its 30-minute life, and the app ships no refresh endpoint: it never handles
+a 401, because it assumes a human finishes booking in one sitting. Re-fetching
+the page does not re-mint it. That was verified rather than assumed
+(`cache-control: no-store`, a fresh `Date`, `isCustomerLoggedIn = true`, and an
+`iat` half an hour old). So a session goes cold half an hour after Alex last
+touched it, which would have made every unattended run depend on him being at
+the keyboard.
+
+**How it stays unattended.** `refresh()` replays the Google SSO cookies already
+in Chrome through Rosy's own OAuth endpoint. Google approves silently, because
+Alex consented to this app long ago, and the whole thing is a redirect chain:
+
+```
+/login?id=<salon>              establishes which salon this sign-in is for
+/oauth2/authorization/google   Rosy hands off to Google
+accounts.google.com            approves from Chrome's cookies, returns a code
+/login/oauth2/code/google      Rosy exchanges it and starts a session
+```
+
+That first hop is not optional. Skip it and the callback returns `id=null`,
+Rosy cannot tell which salon's customers to match the Google identity against,
+concludes this must be a new customer, and bounces off
+`newOnlineAccountCreationsAreNotAllowed`, an error that names the wrong cause
+entirely. The flow also has to start with no Rosy cookies, since a stale
+session breaks it the same way.
+
+`context()` calls this automatically whenever the session is signed out or the
+token is too spent to finish the run, so the recovery costs about two seconds
+and nobody is asked to do anything. `ramon login` (lifting the cookies straight
+out of Chrome) still exists as the manual path.
+
+**What this reads, and what it keeps.** The refresh reads Chrome's Google
+cookies, which are Alex's entire Google session, so two rules hold the line and
+both are tested rather than trusted: they are used in memory for one redirect
+chain and never written to disk (`.rosy-session.json` holds Rosy cookies only),
+and the jar is domain-scoped so Google's cookies only ever go to Google. That
+is why the code uses `http.cookiejar` rather than a hand-built `Cookie:`
+header. One wrong header would post a Google session to a salon booking system.
+
+Needs `cryptography` (Chrome's cookie store) on the interpreter that runs it.
+Everything else is stdlib.
 
 Three response codes worth knowing, because they distinguish the failure modes:
 a customer token reaches the controller (`400` on a bad body), the page's
@@ -68,9 +104,6 @@ a customer token reaches the controller (`400` on a bad body), the page's
 The anonymous token can read the whole catalogue, which is why `context()`
 refuses to hand one back: a silent downgrade to anon looks perfectly healthy
 until a booking POST returns 403.
-
-Needs `cryptography` (Chrome's cookie store) on the interpreter that runs
-`ramon login`. Everything else is stdlib.
 
 ## Salon rules the code enforces
 

@@ -6,10 +6,13 @@
 # is the only piece that can see Alex's Google Calendar (via the Calendar MCP)
 # and so is the only piece that can honour "fit it wherever I'm open".
 #
-# Alex has authorised booking outright, so the run books the slot itself using
-# the saved Rosy session (see `ramon login`) and tells him afterwards. The
-# salon allows free online cancellation up to a day ahead, so an auto-booked
-# slot is cheap to move.
+# Alex has authorised booking outright, so the run books the slot itself and
+# tells him afterwards. The salon allows free online cancellation up to a day
+# ahead, so an auto-booked slot is cheap to move.
+#
+# Fully unattended: Rosy's token dies 30 minutes after sign-in and the site
+# cannot renew it, so the booker re-mints one by replaying Chrome's Google SSO
+# rather than waiting for Alex to log in.
 #
 # This replaced the Booksy/Rich Forever version on 2026-09-10. One venue, one
 # stylist, so all the deposit-and-ranking logic that job carried is gone: the
@@ -87,10 +90,11 @@ Do this:
      cd "${SCRIPT_DIR}" && ./bin/ramon slots --days 60 --since ${WINDOW_START} --until ${WINDOW_END} --json
    An empty list [] means Ramon is genuinely booked solid in that window -- he often is,
    with under 20 openings in 45 days. A non-zero exit or an error means the salon is
-   unreachable or the session is dead. Those are different failures; say which one.
-   If the session is dead, the fix is: Alex signs in at
-   https://online.rosysalonsoftware.com/appointments in Chrome, then \`ramon login\`.
-   Tell him that specifically rather than reporting no availability.
+   unreachable. Those are different failures; say which one, and never report a dead
+   session as "no availability".
+   The session signs itself back in (Google SSO replay), so a session error means that
+   recovery ALSO failed. Then, and only then, the fix is Alex signing in at
+   https://online.rosysalonsoftware.com/appointments in Chrome. Tell him that specifically.
 
 2. Pull his Google Calendar for ${WINDOW_START} to ${WINDOW_END} and work out where he is
    genuinely free. Treat "Sleep", "Wind down", "Extra sleep cycle", "Bootup routine" and

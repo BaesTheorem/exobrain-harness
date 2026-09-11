@@ -10,10 +10,22 @@ embeds a short-lived JWT (`jwtToken`) and the signed-in `customerId`, and the
 `/api/v2` endpoints authenticate on `Authorization: Bearer <that JWT>`. The JWT
 lasts 30 minutes, so it is scraped fresh on each run rather than cached to disk.
 
+Rosy mints that JWT once, at sign-in, and never renews it, so a session goes
+cold 30 minutes after Alex last signed in and every unattended run would have
+needed him at the keyboard. `refresh()` closes that gap: it replays the Google
+SSO cookies already in Chrome through Rosy's own OAuth endpoint, which Google
+approves silently because Alex consented to this app long ago. No password, no
+captcha, nobody at the keyboard.
+
 INVARIANTS (an edit must not break these):
-- Only rosysalonsoftware.com cookies are ever read. This reads a personal
-  browser profile; widening the host filter turns a scoped session grab into a
-  credential dump.
+- Google cookies are read into memory for one OAuth redirect chain and never
+  persisted, printed, or logged. `.rosy-session.json` holds Rosy cookies only.
+  Alex authorised reading them for exactly this (2026-09-11); that authorisation
+  does not extend to keeping them.
+- The cookie jar stays domain-scoped, so Google's cookies are only ever sent to
+  Google and Rosy's only to Rosy. This is why the flow uses http.cookiejar
+  rather than a hand-built Cookie header: one wrong header would post Alex's
+  Google session to a salon booking system.
 - Never print, log, or return a token in a human-facing message. Report its
   length and whether it works, never its value.
 - `context()` fails closed. A page that comes back logged-out raises instead of
@@ -25,6 +37,7 @@ INVARIANTS (an edit must not break these):
 from __future__ import annotations
 
 import base64
+import http.cookiejar
 import json
 import re
 import shutil
@@ -39,12 +52,13 @@ from datetime import datetime, timedelta, timezone
 from hashlib import pbkdf2_hmac, sha256
 from pathlib import Path
 
-from .config import BASE, CHROME_UA
+from .config import BASE, CHROME_UA, load
 
 HERE = Path(__file__).resolve().parent.parent
 SESSION_PATH = HERE / ".rosy-session.json"
 COOKIE_DB = Path.home() / "Library/Application Support/Google/Chrome/Default/Cookies"
 COOKIE_HOST = "rosysalonsoftware.com"
+GOOGLE_HOST = "google.com"
 
 # Chrome's fixed macOS key-derivation parameters.
 SALT = b"saltysalt"
@@ -123,8 +137,8 @@ def _decrypt(blob: bytes, key: bytes, host: str) -> str:
     return plain.decode("utf-8", "replace")
 
 
-def extract() -> dict[str, str]:
-    """Read the Rosy cookies out of Chrome and save them, 0600."""
+def _chrome_rows(host_suffix: str) -> list[tuple[str, str, str, str, bool]]:
+    """(name, value, host, path, secure) for one host suffix, decrypted."""
     if not COOKIE_DB.exists():
         raise NoSession(f"no Chrome cookie DB at {COOKIE_DB}")
 
@@ -137,32 +151,42 @@ def extract() -> dict[str, str]:
     try:
         conn = sqlite3.connect(tmp_path)
         rows = conn.execute(
-            "select name, encrypted_value, host_key from cookies "
+            "select name, encrypted_value, host_key, path, is_secure from cookies "
             "where host_key like ? order by creation_utc desc",
-            (f"%{COOKIE_HOST}",),
+            (f"%{host_suffix}",),
         ).fetchall()
         conn.close()
     finally:
         tmp_path.unlink(missing_ok=True)
 
-    cookies: dict[str, str] = {}
-    for name, blob, host in rows:
-        if name in cookies:
+    out: list[tuple[str, str, str, str, bool]] = []
+    seen: set[tuple[str, str]] = set()
+    for name, blob, host, path, secure in rows:
+        if (host, name) in seen:
             continue
+        seen.add((host, name))
         try:
             value = _decrypt(blob, key, host)
         except Exception as exc:  # noqa: BLE001 - one bad cookie must not stop the rest
             print(f"  ! {name}: {type(exc).__name__}", file=sys.stderr)
             continue
         if value:
-            cookies[name] = value
+            out.append((name, value, host, path or "/", bool(secure)))
+    return out
 
+
+def extract() -> dict[str, str]:
+    """Read the Rosy cookies out of Chrome and save them, 0600."""
+    cookies = {name: value for name, value, _, _, _ in _chrome_rows(COOKIE_HOST)}
     if "JSESSIONID" not in cookies:
         raise NoSession(f"no JSESSIONID cookie for {COOKIE_HOST}. {RELOGIN}")
+    _save(cookies)
+    return cookies
 
+
+def _save(cookies: dict[str, str]) -> None:
     SESSION_PATH.write_text(json.dumps({"cookies": cookies}, indent=1) + "\n")
     SESSION_PATH.chmod(0o600)
-    return cookies
 
 
 def load_cookies() -> dict[str, str]:
@@ -215,6 +239,78 @@ def _scrape(html: str) -> tuple[str, int]:
     return token.group(1), int(customer.group(1))
 
 
+def _sso_jar() -> http.cookiejar.CookieJar:
+    """A jar holding Chrome's Google cookies and nothing else.
+
+    Deliberately excludes Rosy's own cookies: the OAuth callback fails with
+    `id=null` if it lands on a stale session, because Rosy stores which salon
+    the sign-in is for in the session it creates at the start of the flow.
+    """
+    jar = http.cookiejar.CookieJar()
+    for name, value, host, path, secure in _chrome_rows(GOOGLE_HOST):
+        dotted = host.startswith(".")
+        jar.set_cookie(
+            http.cookiejar.Cookie(
+                0, name, value, None, False,
+                host, dotted, dotted,
+                path, True, secure,
+                None, False, None, None, {},
+            )
+        )
+    return jar
+
+
+def refresh(salon_id: int) -> dict[str, str]:
+    """Mint a new Rosy session by replaying Chrome's Google SSO. No human needed.
+
+    Rosy has no token refresh of any kind, so the only way to get a live token
+    is to sign in again. Google will do that silently for an app Alex has
+    already consented to, which makes the whole thing a redirect chain:
+
+        /login?id=<salon>            establishes which salon this sign-in is for
+        /oauth2/authorization/google Rosy hands off to Google
+        accounts.google.com          approves from Chrome's cookies, returns a code
+        /login/oauth2/code/google    Rosy exchanges it and starts a session
+
+    The first hop is not optional. Skip it and the callback comes back
+    `id=null`, Rosy cannot tell which salon's customer list to match the Google
+    identity against, decides this must be a new customer, and bounces off
+    `newOnlineAccountCreationsAreNotAllowed`. That error names the wrong cause
+    and will send the next reader hunting for a permissions problem.
+    """
+    jar = _sso_jar()
+    opener = urllib.request.build_opener(urllib.request.HTTPCookieProcessor(jar))
+    headers = {"User-Agent": CHROME_UA, "accept": "text/html,application/xhtml+xml"}
+
+    login = f"{BASE}/login?id={salon_id}"
+    try:
+        opener.open(urllib.request.Request(login, headers=headers), timeout=40).read()
+        chain = opener.open(
+            urllib.request.Request(
+                f"{BASE}/oauth2/authorization/google?id={salon_id}",
+                headers={**headers, "referer": login},
+            ),
+            timeout=40,
+        )
+        html = chain.read().decode("utf-8", "replace")
+    except urllib.error.HTTPError as exc:
+        raise NoSession(
+            f"Google sign-in replay failed at HTTP {exc.code}. {RELOGIN}"
+        ) from exc
+
+    if "isCustomerLoggedIn = true" not in html:
+        raise NoSession(
+            "Google sign-in replay completed but Rosy did not sign us in "
+            f"(landed on {chain.url.split('?')[0]}). {RELOGIN}"
+        )
+
+    cookies = {c.name: c.value for c in jar if COOKIE_HOST in c.domain and c.value}
+    if "JSESSIONID" not in cookies:
+        raise NoSession(f"Google sign-in replay left no Rosy session. {RELOGIN}")
+    _save(cookies)
+    return cookies
+
+
 def context(cookies: dict[str, str] | None = None) -> Context:
     """A customer JWT with enough life left to finish the run.
 
@@ -233,14 +329,27 @@ def context(cookies: dict[str, str] | None = None) -> Context:
     diagnosing the wrong thing entirely.
     """
     cookies = cookies or load_cookies()
-    token, customer_id = _scrape(_fetch(f"{BASE}/appointments", cookies))
 
-    life = _token_lifetime(token)
-    if life and life[1] - datetime.now(timezone.utc) < MIN_TOKEN_LIFE:
-        minted = life[0].astimezone().strftime("%H:%M")
-        raise NoSession(
-            f"Rosy's token was minted at {minted} and is spent; it only lives 30 "
-            f"minutes from sign-in and the site cannot renew it. {RELOGIN}"
-        )
+    def usable(jar: dict[str, str]) -> tuple[str, int] | None:
+        """A token from this session, if it is signed in and not spent."""
+        html = _fetch(f"{BASE}/appointments", jar)
+        if "isCustomerLoggedIn = true" not in html:
+            return None
+        token, customer_id = _scrape(html)
+        life = _token_lifetime(token)
+        if life and life[1] - datetime.now(timezone.utc) < MIN_TOKEN_LIFE:
+            return None
+        return token, customer_id
 
+    got = usable(cookies)
+    if got is None:
+        # Signed out, or holding a token too spent to finish the run. Both have
+        # the same cure and it needs no human, so take it rather than reporting
+        # a dead session.
+        cookies = refresh(load().get("salonId", 41947))
+        got = usable(cookies)
+        if got is None:
+            raise NoSession(f"signed in again but Rosy still will not talk. {RELOGIN}")
+
+    token, customer_id = got
     return Context(token=token, customer_id=customer_id, cookies=cookies)

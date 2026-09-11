@@ -1,4 +1,4 @@
-"""Tests for the Rosy availability engine and the booking guardrails.
+"""Tests for the Rosy availability engine, booking guardrails, and SSO scoping.
 
 The slot walk is the part that can quietly do damage: too loose and it books
 over somebody else's appointment, too strict and it reports a booked-solid
@@ -330,3 +330,51 @@ def test_book_refuses_to_book_the_same_slot_twice():
     again = book(api, OCT_SLOT, salon_id=41947, note=None, confirm=True)
     assert again.ok and "Already booked" in again.message
     assert len(api.posted) == 1
+
+
+class TestSsoJarScoping:
+    """Chrome's Google cookies are Alex's whole Google account.
+
+    They are read for one purpose: replaying a silent sign-in through Google's
+    own OAuth endpoint so an unattended booking run can mint a Rosy token. The
+    thing that keeps that from being reckless is domain scoping, so it gets a
+    test rather than a comment. If someone ever swaps the jar for a hand-built
+    `Cookie:` header, this fails.
+    """
+
+    GOOGLE_ROWS = [
+        ("SAPISID", "google-secret", ".google.com", "/", True),
+        ("__Secure-1PSID", "google-secret-2", ".google.com", "/", True),
+        ("LSID", "google-secret-3", "accounts.google.com", "/", True),
+    ]
+
+    def _jar(self, monkeypatch):
+        import rosy.session as session
+
+        monkeypatch.setattr(session, "_chrome_rows", lambda host: list(self.GOOGLE_ROWS))
+        return session._sso_jar()
+
+    def _header_for(self, jar, url):
+        import urllib.request
+
+        req = urllib.request.Request(url)
+        jar.add_cookie_header(req)
+        return req.get_header("Cookie", "")
+
+    def test_google_cookies_go_to_google(self, monkeypatch):
+        jar = self._jar(monkeypatch)
+        sent = self._header_for(jar, "https://accounts.google.com/o/oauth2/v2/auth")
+        assert "SAPISID" in sent and "LSID" in sent
+
+    def test_google_cookies_never_go_to_the_salon(self, monkeypatch):
+        jar = self._jar(monkeypatch)
+        sent = self._header_for(jar, "https://online.rosysalonsoftware.com/login?id=41947")
+        assert sent == ""
+        for name, value, *_ in self.GOOGLE_ROWS:
+            assert name not in sent and value not in sent
+
+    def test_host_scoped_cookie_does_not_leak_to_the_parent_domain(self, monkeypatch):
+        jar = self._jar(monkeypatch)
+        sent = self._header_for(jar, "https://www.google.com/")
+        assert "SAPISID" in sent  # .google.com applies
+        assert "LSID" not in sent  # accounts.google.com does not

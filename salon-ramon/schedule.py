@@ -16,9 +16,14 @@ INVARIANTS (an edit must not break these):
   noticing.
 - Exactly one nudge per cycle. `notified_cycle` is compared against the due
   date, so re-running the job the same week does not re-notify.
-- An appointment already lined up (`pending`) suppresses the job until the
-  day after it happens. Without this the daily job re-nudges every morning
-  for a haircut that is already on the calendar.
+- Appointments already lined up (`pending`) suppress the job until the day
+  after the next one happens. Without this the daily job re-nudges every
+  morning for a haircut that is already on the calendar.
+- `pending` is a QUEUE, not one date. Booking several cycles ahead while the
+  calendar is open is the whole point of booking early, and a single-slot
+  field silently drops all but the newest: the job would then wake up after
+  the first cut, see nothing lined up, and book a duplicate on top of an
+  appointment that already exists.
 - A `pending` appointment whose date has passed is closed out as a completed
   haircut, not discarded. It used to just expire, so the cut Alex actually got
   left no trace and the next run read "no haircut on record" and went hunting
@@ -32,7 +37,7 @@ Usage:
     python3 schedule.py window                  # the date range to search
     python3 schedule.py reconcile               # close out a lapsed appointment
     python3 schedule.py mark-notified
-    python3 schedule.py pending --date 2026-10-13 [--provider "Ramon Walker"]
+    python3 schedule.py pending --date 2026-10-13 [--provider "Ramon Walker"]  # appends
     python3 schedule.py record --date 2026-10-13 [--provider "Ramon Walker"]
 """
 
@@ -64,7 +69,7 @@ class Status:
     notified_cycle: date | None
     should_act: bool
     reason: str
-    pending: date | None = None
+    pending: date | None = None  # the NEXT one; the rest live in state
 
 
 def _load(path: Path, default: dict) -> dict:
@@ -74,10 +79,33 @@ def _load(path: Path, default: dict) -> dict:
 
 
 def load_state() -> dict:
-    return _load(
+    state = _load(
         STATE_PATH,
-        {"last_haircut": None, "notified_cycle": None, "pending": None, "history": []},
+        {"last_haircut": None, "notified_cycle": None, "pending": [], "history": []},
     )
+    return _migrate(state)
+
+
+def _migrate(state: dict) -> dict:
+    """Bring a single-appointment state file up to the queue shape."""
+    pending = state.get("pending")
+    if isinstance(pending, str):
+        entry = {"date": pending}
+        if state.get("pending_provider"):
+            entry["provider"] = state["pending_provider"]
+        state["pending"] = [entry]
+    elif pending is None:
+        state["pending"] = []
+    state.pop("pending_provider", None)
+    return state
+
+
+def pending_dates(state: dict) -> list[date]:
+    return sorted(date.fromisoformat(e["date"]) for e in state.get("pending") or [])
+
+
+def next_pending(state: dict, today: date) -> date | None:
+    return next((d for d in pending_dates(state) if d >= today), None)
 
 
 def save_state(state: dict) -> None:
@@ -96,11 +124,11 @@ def status(today: date | None = None) -> Status:
     notified = (
         date.fromisoformat(state["notified_cycle"]) if state.get("notified_cycle") else None
     )
-    pending = date.fromisoformat(state["pending"]) if state.get("pending") else None
+    pending = next_pending(state, today)
 
     # An appointment already lined up settles the question, whether or not
     # there is any history. Stay quiet until the day after it happens.
-    if pending is not None and pending >= today:
+    if pending is not None:
         due = (last + timedelta(weeks=interval_weeks())) if last else None
         days = (due - today).days if due else None
         return Status(last, due, days, notified, False, f"appointment on {pending}", pending)
@@ -139,30 +167,32 @@ def reconcile(today: date | None = None) -> date | None:
     """
     today = today or date.today()
     state = load_state()
-    if not state.get("pending"):
-        return None
-    pending = date.fromisoformat(state["pending"])
-    if pending >= today:
+    passed = [e for e in state.get("pending") or [] if date.fromisoformat(e["date"]) < today]
+    if not passed:
         return None
 
+    state["pending"] = [e for e in state["pending"] if e not in passed]
     last = date.fromisoformat(state["last_haircut"]) if state.get("last_haircut") else None
-    if last is not None and last >= pending:
-        # Already recorded by hand; just retire the spent appointment.
-        state["pending"] = None
-        state.pop("pending_provider", None)
+    latest: date | None = None
+
+    for spent in sorted(passed, key=lambda e: e["date"]):
+        when = date.fromisoformat(spent["date"])
+        if last is not None and last >= when:
+            continue  # already recorded by hand; just retire the spent appointment
+        entry: dict[str, object] = {"date": when.isoformat(), "assumed": True}
+        if spent.get("provider"):
+            entry["provider"] = spent["provider"]
+        state.setdefault("history", []).append(entry)
+        latest = when
+
+    if latest is None:
         save_state(state)
         return None
 
-    entry: dict[str, object] = {"date": pending.isoformat(), "assumed": True}
-    if state.get("pending_provider"):
-        entry["provider"] = state["pending_provider"]
-    state["last_haircut"] = pending.isoformat()
+    state["last_haircut"] = latest.isoformat()
     state["notified_cycle"] = None
-    state["pending"] = None
-    state.pop("pending_provider", None)
-    state.setdefault("history", []).append(entry)
     save_state(state)
-    return pending
+    return latest
 
 
 def search_window(today: date | None = None) -> tuple[date, date]:
@@ -188,10 +218,12 @@ def _cmd_status(_: argparse.Namespace) -> int:
         for e in load_state().get("history") or []
     )
     print(f"last haircut : {last or '(none recorded)'}{' (assumed, unconfirmed)' if assumed else ''}")
-    if st.pending and st.pending < date.today():
-        print(f"appointment  : {st.pending} (passed; run reconcile)")
-    elif st.pending:
-        print(f"appointment  : {st.pending}")
+    upcoming = pending_dates(load_state())
+    stale = [d for d in upcoming if d < date.today()]
+    if stale:
+        print(f"appointment  : {stale[0]} (passed; run reconcile)")
+    for when in [d for d in upcoming if d >= date.today()]:
+        print(f"appointment  : {when}")
     print(f"interval     : {interval_weeks()} weeks")
     print(f"due          : {st.due or '(as soon as possible)'}")
     if st.days_until_due is not None:
@@ -242,11 +274,18 @@ def _cmd_mark_notified(_: argparse.Namespace) -> int:
 def _cmd_pending(args: argparse.Namespace) -> int:
     when = date.fromisoformat(args.date)
     state = load_state()
-    state["pending"] = when.isoformat()
+    queue = [e for e in state["pending"] if e["date"] != when.isoformat()]
+    entry: dict[str, object] = {"date": when.isoformat()}
     if args.provider:
-        state["pending_provider"] = args.provider
+        entry["provider"] = args.provider
+    queue.append(entry)
+    state["pending"] = sorted(queue, key=lambda e: e["date"])
     save_state(state)
-    print(f"appointment noted for {when}; the daily job stays quiet until then")
+    upcoming = pending_dates(state)
+    print(
+        f"appointment noted for {when}; the daily job stays quiet until then. "
+        f"queue: {', '.join(d.isoformat() for d in upcoming)}"
+    )
     return 0
 
 
@@ -254,10 +293,11 @@ def _cmd_record(args: argparse.Namespace) -> int:
     when = date.fromisoformat(args.date) if args.date else date.today()
     state = load_state()
     state["last_haircut"] = when.isoformat()
-    # A fresh cycle deserves a fresh nudge, and the appointment is spent.
+    # A fresh cycle deserves a fresh nudge, and the appointment is spent. Any
+    # appointment already booked for a LATER cycle survives; that is the point
+    # of the queue.
     state["notified_cycle"] = None
-    state["pending"] = None
-    state.pop("pending_provider", None)
+    state["pending"] = [e for e in state["pending"] if date.fromisoformat(e["date"]) > when]
     entry = {"date": when.isoformat()}
     if args.provider:
         entry["provider"] = args.provider
