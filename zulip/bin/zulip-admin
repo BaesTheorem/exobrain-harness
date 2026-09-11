@@ -15,6 +15,7 @@ failure is visible instead of silent.
   zulip-admin transfer-bot BOT_EMAIL OWNER_EMAIL
   zulip-admin deactivate EMAIL
   zulip-admin dm-template NAME --zuliprc-file FILE
+  zulip-admin usage [--days 7]          # who triggered MIST sessions, and what they cost
 """
 from __future__ import annotations
 
@@ -263,6 +264,13 @@ def cmd_dm_template(api: Api, env: dict, a) -> None:
     print(dm_template(a.name, block, link))
 
 
+def cmd_usage(api: Api, env: dict, a) -> None:
+    sys.path.insert(0, str(HERE))
+    import usage_ledger as ledger  # noqa: PLC0415 - sibling module, imported only for this subcommand
+    import time
+    print(ledger.summarize(ledger.read_spawns(), time.time(), ledger.load_limits(), days=a.days))
+
+
 def main() -> None:
     p = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     sub = p.add_subparsers(dest="cmd", required=True)
@@ -278,6 +286,7 @@ def main() -> None:
     sp = sub.add_parser("transfer-bot"); sp.add_argument("bot_email"); sp.add_argument("owner_email")
     sp = sub.add_parser("deactivate"); sp.add_argument("email")
     sp = sub.add_parser("dm-template"); sp.add_argument("name"); sp.add_argument("--zuliprc-file", required=True)
+    sp = sub.add_parser("usage"); sp.add_argument("--days", type=int, default=7)
     a = p.parse_args()
     env = load_env()
     if a.cmd == "fetch-key":
@@ -288,7 +297,7 @@ def main() -> None:
         "whoami": cmd_whoami, "setup-realm": cmd_setup_realm, "users": cmd_users, "bots": cmd_users,
         "streams": cmd_streams, "invite-link": cmd_invite_link, "invite": cmd_invite,
         "mint-bot": cmd_mint_bot, "transfer-bot": cmd_transfer_bot, "deactivate": cmd_deactivate,
-        "dm-template": cmd_dm_template,
+        "dm-template": cmd_dm_template, "usage": cmd_usage,
     }
     handlers[a.cmd](api, env, a)
 

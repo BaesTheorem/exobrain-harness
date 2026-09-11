@@ -30,6 +30,8 @@
         <string>--</string>
         <string>--model</string>
         <string>claude-opus-5</string>
+        <string>--max-budget-usd</string>
+        <string>2</string>
     </array>
     <key>WorkingDirectory</key>
     <string>/Users/alexhedtke/.claude/channels/zulip</string>
