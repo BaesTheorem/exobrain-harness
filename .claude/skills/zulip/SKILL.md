@@ -56,8 +56,11 @@ zulip/bin/zulip-admin mint-bot "Name"    # same, plus a bot minted for them
 Send the printed message privately (iMessage or a Discord DM, never in a
 channel). The friend joins, then gives https://github.com/BaesTheorem/claude-zulip-kit
 to their Claude Code and asks it to set them up; the kit's README tells the
-Claude the rest (two commands). If a bot was minted: `zulip/bin/zulip-admin
-transfer-bot <bot email> <their email>` after they join so they own it. Use
+Claude the rest (two commands). Ownership transfers itself: launchd `com.exobrain.zulip-owners` runs
+`zulip-admin reconcile-owners` every 15 minutes and hands "<First>'s Claude"
+to the member with that first name once they join (receipt DM to Alex).
+`transfer-bot` is for name clashes; `mint-bot NAME --owner EMAIL` for friends
+who already joined. Use
 placeholders, never real names, anywhere in the repo.
 
 ## Autonomy
