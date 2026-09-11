@@ -95,7 +95,10 @@ Alex's copy stops working.
 
 - Listener log: `~/Library/Logs/exobrain/zulip-listener.log`; per-session
   transcripts in `~/Library/Logs/exobrain/zulip-sessions/`.
-- Restart: `launchctl kickstart -k gui/$(id -u)/com.exobrain.zulip-listener`.
+- Restart (same plist): `launchctl kickstart -k gui/$(id -u)/com.exobrain.zulip-listener`.
+- After editing the plist, reload it; `kickstart` reuses the job definition
+  launchd cached at load time, so edits do not reach the process:
+  `cp com.exobrain.zulip-listener.plist ~/Library/LaunchAgents/ && launchctl bootout gui/$(id -u)/com.exobrain.zulip-listener; launchctl bootstrap gui/$(id -u) ~/Library/LaunchAgents/com.exobrain.zulip-listener.plist`.
 - Stop for good: `launchctl bootout gui/$(id -u)/com.exobrain.zulip-listener`.
 - `bin/zulip-admin users` and `bots` list who is in the org; `deactivate`
   removes a person or a bot.
