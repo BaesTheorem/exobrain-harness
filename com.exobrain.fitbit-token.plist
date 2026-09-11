@@ -1,0 +1,37 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>Label</key>
+    <string>com.exobrain.fitbit-token</string>
+
+    <!-- node runs DIRECTLY here, with no shell wrapper. A bash script that execs
+         a Homebrew interpreter is denied by TCC's ~/Documents gate: node dies
+         with EPERM opening build/index.js before it runs a line. Same shape as
+         the venv-python case in the harness notes. The wait-for-network gate
+         therefore lives inside token-check.mjs. -->
+    <key>ProgramArguments</key>
+    <array>
+        <string>/opt/homebrew/bin/node</string>
+        <string>/Users/alexhedtke/Documents/Exobrain harness/fitbit-mcp/scripts/token-check.mjs</string>
+    </array>
+
+    <!-- Every six hours against an eight-hour access token, so the token is never
+         cold when the morning briefing asks for it, and a broken refresh chain is
+         caught within six hours instead of surfacing as a health pipeline that is
+         silently dark all morning. 05:30 lands before the morning routines. -->
+    <key>StartCalendarInterval</key>
+    <array>
+        <dict><key>Hour</key><integer>5</integer><key>Minute</key><integer>30</integer></dict>
+        <dict><key>Hour</key><integer>11</integer><key>Minute</key><integer>30</integer></dict>
+        <dict><key>Hour</key><integer>17</integer><key>Minute</key><integer>30</integer></dict>
+        <dict><key>Hour</key><integer>23</integer><key>Minute</key><integer>30</integer></dict>
+    </array>
+
+    <key>StandardOutPath</key>
+    <string>/Users/alexhedtke/Library/Logs/exobrain/fitbit-token.log</string>
+
+    <key>StandardErrorPath</key>
+    <string>/Users/alexhedtke/Library/Logs/exobrain/fitbit-token.err</string>
+</dict>
+</plist>

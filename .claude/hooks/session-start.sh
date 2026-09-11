@@ -223,6 +223,21 @@ else
   ISSUES=$((ISSUES + 1))
 fi
 
+# Fitbit token keepalive -- exercises the server's own race-safe refresh every 6h
+# and notifies only when Fitbit's browser consent is genuinely needed. Exit 1 from
+# this job means the refresh chain is broken and no amount of waiting fixes it.
+# launchctl list columns: PID  LAST_EXIT  LABEL.
+FITBIT_JOB_EXIT=$(launchctl list 2>/dev/null | awk '$3 == "com.exobrain.fitbit-token" {print $2}')
+if [ -z "$FITBIT_JOB_EXIT" ]; then
+  echo "WARN: launchd fitbit-token not loaded -- nothing is watching the Fitbit refresh chain"
+  ISSUES=$((ISSUES + 1))
+elif [ "$FITBIT_JOB_EXIT" = "1" ]; then
+  echo "FAIL: Fitbit refresh chain is broken -- re-authorize with: fitbit-mcp/bin/fitbit-reauth"
+  ISSUES=$((ISSUES + 1))
+else
+  echo "OK: launchd fitbit-token"
+fi
+
 # iMessage sync -- the launchd job snapshots chat.db into imessage/cache/ under a
 # stable FDA-granted interpreter so skills read the cache WITHOUT Full Disk Access.
 # It fails SILENTLY if FDA isn't granted to the plist's python3 (exit 2 / "Operation

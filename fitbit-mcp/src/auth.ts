@@ -259,6 +259,12 @@ export function startAuthorizationFlow(): void {
 // recovering. Fitbit access tokens last eight hours, so five minutes costs nothing.
 const REFRESH_SKEW_MS = 5 * 60 * 1000;
 
+// A nulled-out instance re-reads the token file at most this often. Recovery is a
+// single small read, but a genuinely broken chain should not turn every tool call
+// into disk I/O.
+const RECOVERY_THROTTLE_MS = 60 * 1000;
+let lastRecoveryAttempt = 0;
+
 /** True when the token is missing, already expired, or inside the skew window. */
 function needsRefresh(data: FitbitTokenData | null): boolean {
   if (!data || !data.access_token) return true;
@@ -281,10 +287,27 @@ function needsRefresh(data: FitbitTokenData | null): boolean {
  * rotated the token, adopt its result rather than spending one that is already gone.
  */
 export async function getAccessToken(): Promise<string | null> {
-  // Return null if no token data exists
+  // Empty in-memory state is recoverable, so do not treat it as final. A failed
+  // refresh nulls both fields, and that used to be permanent: every later call
+  // returned here without looking at disk again, leaving the instance dark until
+  // its whole Claude session restarted. Another instance almost always writes a
+  // good token minutes later, which is why the failure looked like "Fitbit was
+  // dark all morning and fine by evening" rather than a clean outage.
   if (!tokenData || !accessToken) {
-    console.error('No valid access token found.');
-    return null;
+    const now = Date.now();
+    if (now - lastRecoveryAttempt < RECOVERY_THROTTLE_MS) return null;
+    lastRecoveryAttempt = now;
+
+    const recovered = await loadTokenFromFile();
+    if (!recovered || !recovered.access_token) {
+      console.error('No valid access token found.');
+      return null;
+    }
+    console.error('Recovered a token from disk after an earlier auth failure.');
+    tokenData = recovered;
+    accessToken = recovered.access_token;
+    // Deliberate fall-through: if the recovered token is itself stale, the
+    // race-safe refresh path below handles it like any normally loaded token.
   }
 
   if (!needsRefresh(tokenData)) {

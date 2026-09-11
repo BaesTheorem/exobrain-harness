@@ -104,10 +104,21 @@ async function main() {
     // If not, initiate the OAuth2 authorization flow
     const token = await getAccessToken();
     if (!token) {
-      console.error(
-        'No access token found. Starting Fitbit authorization flow...'
-      );
-      startAuthorizationFlow(); // Start flow in background, do not await
+      // The browser flow is interactive, so it must not fire from a headless
+      // caller: a launchd job or a token health check would pop a consent page
+      // in front of whatever Alex is doing, and nobody is there to finish it
+      // anyway. Those callers set FITBIT_NO_BROWSER_AUTH and escalate instead.
+      if (process.env.FITBIT_NO_BROWSER_AUTH) {
+        console.error(
+          'No access token found, and FITBIT_NO_BROWSER_AUTH is set. ' +
+            'Skipping the browser flow. Re-authorize with: bin/fitbit-reauth'
+        );
+      } else {
+        console.error(
+          'No access token found. Starting Fitbit authorization flow...'
+        );
+        startAuthorizationFlow(); // Start flow in background, do not await
+      }
     } else {
       console.error('Using existing/loaded access token.');
     }

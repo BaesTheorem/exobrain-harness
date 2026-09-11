@@ -1,0 +1,11 @@
+#!/bin/sh
+# Manual entry point for the Fitbit token health check.
+#
+# launchd does NOT use this wrapper: it runs scripts/token-check.mjs through node
+# directly, because a shell wrapper around a Homebrew interpreter trips TCC's
+# ~/Documents gate. See the header of that file.
+DIR="$(cd "$(dirname "$0")/.." && pwd)"
+NODE="$(command -v node || true)"
+[ -x "$NODE" ] || NODE=/opt/homebrew/bin/node
+[ -x "$NODE" ] || { echo "fitbit-token-check: no node found" >&2; exit 2; }
+exec "$NODE" "$DIR/scripts/token-check.mjs"
