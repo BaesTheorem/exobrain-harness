@@ -30,9 +30,14 @@ to `FITBIT_OAUTH_CONFIG.SCOPES`, which is what makes the wellness endpoints
 authorize at all. **Changing this list invalidates the stored token** and forces a
 re-auth through the OAuth callback on `localhost:3000`.
 
-### `src/index.ts` (2 lines)
+### `src/index.ts` (2 lines, plus the headless guard)
 
 Imports and calls `registerWellnessTools`.
+
+Also gates the browser OAuth flow behind `FITBIT_NO_BROWSER_AUTH`. Upstream starts
+that flow whenever it boots without a usable token, which is right for a desktop
+client and wrong for anything unattended: a scheduled job would pop a Fitbit
+consent page in front of whatever Alex is doing, and nobody is there to finish it.
 
 ### `src/auth.ts` (~123 changed lines) -- the refresh-token race fix
 
@@ -52,6 +57,41 @@ Practical consequence: **never refresh the Fitbit token out of band.** Let the
 server do it. Hand-refreshing from a script burns the token every other instance
 is about to use.
 
+A second bug in the same area, fixed 2026-09-10: a failed refresh set both
+`accessToken` and `tokenData` to null, and `getAccessToken()` then short-circuited
+on that null forever without ever re-reading the file. One lost race left the
+instance dark until its whole Claude session restarted, while a sibling wrote a
+perfectly good token to disk seconds later. That is the "Fitbit was dark all
+morning and fine by the evening" shape in the digests. It now re-reads the token
+file before giving up, throttled to once a minute so a genuinely dead chain is not
+a disk read per tool call. `src/auth.test.ts` covers it; that test fails against
+the old code with `expected null to be 'access-2'`.
+
+## Keeping the token renewed unattended
+
+Everything above renews the token on *use*. Two things it cannot do: renew a token
+nothing asks for, and clear a genuinely broken refresh chain, since only Fitbit's
+browser consent screen can do that.
+
+- `scripts/token-check.mjs` -- calls the very same `getAccessToken()` the server
+  calls, in a process reading the same token file, then fetches the profile. Not an
+  out-of-band refresh: the race-safe path applies unchanged. Healthy runs are
+  silent; a broken chain fires a notification whose button runs `bin/fitbit-reauth`.
+  Exit 0 healthy, 1 re-auth needed, 2 inconclusive (a network blip is never
+  reported as a dead token).
+- `bin/fitbit-reauth` -- runs the consent flow on its own, without starting an MCP
+  server, so re-authorizing does not require a Claude session.
+- `bin/fitbit-token-check` -- manual wrapper around the check.
+- `com.exobrain.fitbit-token.plist` -- runs the check every six hours against an
+  eight-hour token.
+
+**The plist runs `node` directly, with no shell wrapper, and it must stay that
+way.** A bash script that execs Homebrew's node is denied by TCC's `~/Documents`
+gate: node dies with `EPERM` opening `build/index.js` before it runs a line, while
+the identical command works from a terminal. Verified 2026-09-10 by bisecting a job
+that failed only under launchd. This is why the wait-for-network gate lives inside
+`token-check.mjs` instead of in a wrapper script.
+
 ## Layout
 
 - `bin/fitbit-mcp` -- the registered entry point. Sources the gitignored harness
@@ -61,6 +101,8 @@ is about to use.
 - `.fitbit-token.json` -- OAuth token, written by the server, gitignored. Resolved
   relative to the package root, so it travels with the directory.
 - `build/` -- generated, gitignored. Rebuild with `npm ci && npm run build`.
+- `scripts/` -- the unattended token-keepalive and re-auth entry points, described
+  above. Both import from `build/`, so they need the build too.
 
 ## Rebuilding after a pull
 
