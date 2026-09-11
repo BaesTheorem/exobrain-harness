@@ -73,7 +73,18 @@ the plist, `cp` it to `~/Library/LaunchAgents/` and `bootout` + `bootstrap` it;
 `kickstart` alone keeps the old arguments. If Alex asks whether it is running:
 `launchctl print gui/$(id -u)/com.exobrain.zulip-listener | head`.
 
+## Usage and limits
+
+`zulip/bin/zulip-admin usage` shows who triggered MIST sessions today and over
+the last week, with list-price cost. Caps live in `zulip/limits.json` (read
+live, no restart): per sender 4/hour, 12/day, $3/day; org $15/day; each
+session capped at $2 by the plist. Alex is exempt. If a friend reports being
+rate-limited and Alex wants to allow it, raise the number in `limits.json`.
+MIST's scope rule (system prompt) declines personal work for friends.
+
 ## Briefing hook
 
 Daily briefing and evening winddown: include anything in `claudes` or
-`scheduling` from the last 24h that needs Alex. Skip it when nothing does.
+`scheduling` from the last 24h that needs Alex, and one line from
+`zulip-admin usage` when any friend triggered a session. Skip it when nothing
+did.

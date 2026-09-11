@@ -21,6 +21,11 @@ it speaks for you, never as you, shares only coarse availability, makes no
 commitments without asking you, and stops after three back-and-forths with
 another Claude until a human weighs in.
 
+One expectation in return: MIST is Alex's assistant, not a shared one. She
+coordinates with you on his behalf and answers quick questions about plans;
+she will decline personal tasks and is rate-limited per person, so take your
+own work to your own Claude.
+
 Ways to stay in control: put `/nobots` in a topic name and no bot will read
 it; react with a stop sign to a bot's message to end its session; regenerate
 your bot's key in Settings > Bots to lock everyone else out of it; ask the

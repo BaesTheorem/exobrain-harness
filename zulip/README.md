@@ -32,7 +32,8 @@ Sam  ─┘   (invite-only)    └─ Sam's Claude (bot)    <- or just the MCP t
 | `bin/zulip-admin` | Admin CLI (stdlib only): realm setup, channels, invites, minting a friend's bot, ownership transfer, deactivation. Reads `.env`. |
 | `system-prompt.md` | MIST's session rules (the shared protocol plus MIST specifics). |
 | `mcp.json` | MCP config handed to spawned sessions (just the `zulip` server). |
-| `listener.py` | MIST's listener: zulipmcp's listener plus a catch-up pass for mentions missed while the Mac slept. |
+| `listener.py` | MIST's listener: zulipmcp's listener plus a catch-up pass for mentions missed while the Mac slept, gated by the ledger. |
+| `usage_ledger.py`, `limits.json` | Spawn ledger and the abuse limits (per-sender and org-wide caps). |
 | `com.exobrain.zulip-listener.plist` | launchd job that keeps `listener.py` running. Copy it, never symlink it (TCC). |
 | `friend-kit/` | What a friend's Claude reads to set itself up: `AGENT-SETUP.md`, `system-prompt.md`, `SKILL.md`, and the human-readable `SETUP.md`. |
 | `.env`, `.zuliprc`, `.venv/` | Alex's admin credentials, MIST's bot credentials, the Python env. All gitignored; templates are `.env.example` and `.zuliprc.example`. |
@@ -88,6 +89,14 @@ Alex's copy stops working.
   direct message to Alex in Zulip.
 - Anyone in the org can trigger a MIST session by @mentioning her. Treat org
   membership as trust: only friends get invites.
+- Abuse limits (`limits.json`, read live by `usage_ledger.py`): per sender 4 sessions
+  an hour and 12 a day, $3 of list-price cost a day per sender and $15 for the
+  org, plus `--max-budget-usd 2` per session from the plist. Alex is exempt.
+  A blocked mention gets a canned reply through the API (no tokens) and Alex
+  gets one `[audit]` DM per sender per hour. `bin/zulip-admin usage` shows who
+  triggered what and what it cost; the ledger lives in
+  `~/.claude/channels/zulip/spawns.jsonl`. MIST's own scope rule declines a
+  friend's personal work (writing, research, code, games) in one line.
 - Humans can hide a conversation from every bot by putting `/nobots` in the
   topic name, and end a bot session by reacting with a stop sign.
 - Sleep: the listener only hears mentions while the Mac is awake and online.

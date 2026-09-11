@@ -1,0 +1,11 @@
+{
+  "owner_user_id": 1199940,
+  "exempt_user_ids": [
+    1199940
+  ],
+  "per_sender_per_hour": 0,
+  "per_sender_per_day": 12,
+  "per_sender_usd_per_day": 3.0,
+  "global_usd_per_day": 15.0,
+  "est_cost_per_session": 0.75
+}

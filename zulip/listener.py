@@ -6,10 +6,16 @@ delivered, so nobody answers them. This wrapper, on every start, looks back for
 mentions MIST has not answered and spawns a session for each, then hands off to
 the stock listener. Same command line as ``python -m zulipmcp.listener``.
 
+It also gates every spawn through ``usage_ledger``: per-sender and org-wide
+limits from ``limits.json``, so a friend cannot use MIST as a free assistant or
+burn Alex's tokens for fun. A blocked mention gets a canned reply through the
+Zulip API (no tokens) and Alex gets one ``[audit]`` DM per sender per hour.
+
 INVARIANTS:
 - A mention is "answered" only if MIST posted in that topic after it.
 - Catch-up never spawns twice for one topic: one session per (stream, topic).
 - The last seen mention id is persisted so a restart does not re-answer.
+- Exempt users (Alex) are never blocked; blocked mentions never spawn.
 """
 
 from __future__ import annotations
@@ -20,6 +26,8 @@ from pathlib import Path
 
 import zulip
 from zulipmcp import listener as stock
+
+import usage_ledger as ledger
 
 STATE = Path.home() / ".claude" / "channels" / "zulip" / "last_seen_id"
 LOOKBACK_S = 3 * 24 * 3600
@@ -84,11 +92,48 @@ def catch_up(cfg: stock.Config) -> None:
 
 
 _orig_spawn = stock._spawn  # noqa: SLF001
+_client: zulip.Client | None = None
+_blocked_notified: dict[int, float] = {}
 
 
-def _spawn_and_remember(cfg: stock.Config, msg: dict) -> None:
+def _zulip_client(cfg: stock.Config) -> zulip.Client:
+    global _client
+    if _client is None:
+        _client = zulip.Client(config_file=str(cfg.zuliprc))
+    return _client
+
+
+def _block(cfg: stock.Config, msg: dict, reason: str, limits: dict) -> None:
+    where = f"#{msg['display_recipient']} > {msg['subject']}"
+    who = msg.get("sender_full_name", "?")
+    _log(f"blocked {who} in {where}: {reason}")
+    client = _zulip_client(cfg)
+    client.send_message({"type": "stream", "to": msg["display_recipient"], "topic": msg["subject"],
+                         "content": ledger.block_message(reason)})
+    owner = limits.get("owner_user_id")
+    now = time.time()
+    if owner and now - _blocked_notified.get(msg["sender_id"], 0) > 3600:
+        client.send_message({"type": "private", "to": [owner],
+                             "content": f"[audit] rate limit: {who} blocked in {where} ({reason})"})
+        _blocked_notified[msg["sender_id"]] = now
+
+
+def _spawn_gated(cfg: stock.Config, msg: dict) -> None:
+    """Rate-limit, remember, spawn, and record the new session's transcript path."""
+    limits = ledger.load_limits()
+    ok, reason = ledger.check(msg["sender_id"], ledger.read_spawns(), time.time(), limits)
+    if not ok:
+        _block(cfg, msg, reason, limits)
+        return
     _remember(msg["id"])
+    before = set(cfg.log_dir.glob("*.jsonl")) if cfg.log_dir.exists() else set()
     _orig_spawn(cfg, msg)
+    fresh = [p for p in cfg.log_dir.glob("*.jsonl") if p not in before]
+    if not fresh:
+        return  # an existing session for this topic will pick the message up via listen()
+    log = max(fresh, key=lambda p: p.stat().st_mtime)
+    ledger.record_spawn(msg["sender_id"], msg.get("sender_full_name", "?"),
+                        msg["display_recipient"], msg["subject"], str(log))
 
 
 _orig_run = stock.run
@@ -102,7 +147,7 @@ def _run_with_catch_up(cfg: stock.Config) -> None:
     _orig_run(cfg)
 
 
-stock._spawn = _spawn_and_remember  # noqa: SLF001
+stock._spawn = _spawn_gated  # noqa: SLF001
 stock.run = _run_with_catch_up
 
 if __name__ == "__main__":
