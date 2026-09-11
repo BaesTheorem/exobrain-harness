@@ -63,22 +63,39 @@ try:
 except (FileNotFoundError, json.JSONDecodeError):
     sys.exit(1)  # no/broken log → process
 
-# Latest processedAt per id
+# processedAt comes in two shapes in the log: "...Z" (UTC) and "...-05:00"
+# (local, written by a different code path). Parse the offset instead of
+# assuming UTC -- reading a -05:00 stamp as UTC backdates it 5 hours, which
+# made every already-processed file look newer than its own log entry and
+# relaunched a full Claude run on every launchd tick.
+def to_epoch(ts):
+    ts = ts.strip()
+    if ts.endswith("Z"):
+        ts = ts[:-1] + "+00:00"
+    dt = datetime.fromisoformat(ts)  # raises ValueError on junk
+    if dt.tzinfo is None:
+        dt = dt.replace(tzinfo=timezone.utc)
+    return dt.timestamp()
+
+# Latest processedAt per id, compared as instants (the two shapes above do not
+# sort correctly as plain strings).
 latest = {}
 for e in log:
     eid = e.get("id"); ts = e.get("processedAt")
-    if eid and ts and ts > latest.get(eid, ""):
-        latest[eid] = ts
+    if not eid or not ts:
+        continue
+    try:
+        epoch = to_epoch(ts)
+    except ValueError:
+        continue
+    if epoch > latest.get(eid, float("-inf")):
+        latest[eid] = epoch
 
 for f in files:
     rel = os.path.relpath(f, parent)
-    logged = latest.get(rel)
-    if not logged:
-        sys.exit(1)  # never processed
-    try:
-        logged_epoch = datetime.strptime(logged.rstrip("Z").split(".")[0], "%Y-%m-%dT%H:%M:%S").replace(tzinfo=timezone.utc).timestamp()
-    except ValueError:
-        sys.exit(1)
+    logged_epoch = latest.get(rel)
+    if logged_epoch is None:
+        sys.exit(1)  # never processed, or every stamp for it was unparseable
     if os.path.getmtime(f) > logged_epoch:
         sys.exit(1)  # file modified since last process
 sys.exit(0)  # all clean
