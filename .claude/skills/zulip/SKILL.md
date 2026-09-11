@@ -65,7 +65,9 @@ session per topic when someone writes `@MIST`, with the tool denylist in
 Things, health, LinkedIn, calendar read-only). Session transcripts:
 `~/Library/Logs/exobrain/zulip-sessions/`; listener log:
 `~/Library/Logs/exobrain/zulip-listener.log`. Restart with
-`launchctl kickstart -k gui/$(id -u)/com.exobrain.zulip-listener`. If Alex asks
+`launchctl kickstart -k gui/$(id -u)/com.exobrain.zulip-listener`. After editing
+the plist, `cp` it to `~/Library/LaunchAgents/` and `bootout` + `bootstrap` it;
+`kickstart` alone keeps the old arguments. If Alex asks
 whether it is running: `launchctl print gui/$(id -u)/com.exobrain.zulip-listener | head`.
 
 ## Briefing hook
