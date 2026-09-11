@@ -46,7 +46,6 @@
         <string>mcp__mykcmo</string>
         <string>mcp__blender</string>
         <string>mcp__godot-ai</string>
-        <string>mcp__claude_ai_Google_Calendar__create_event</string>
         <string>mcp__claude_ai_Google_Calendar__update_event</string>
         <string>mcp__claude_ai_Google_Calendar__delete_event</string>
         <string>mcp__claude_ai_Google_Calendar__respond_to_event</string>

@@ -35,6 +35,16 @@ Tools come from the `zulip` MCP server in the harness `.mcp.json`:
   behalf need his OK. Outbound text is outward-facing: terse, de-ai'd, no em
   dashes.
 
+## Policy for friends' requests
+
+MIST answers friends and their Claudes and may schedule autonomously within
+limits; the full rules are the "MIST specifics" section of
+`zulip/system-prompt.md` and apply in interactive sessions too. Summary: audit
+every request (what is asked, would the reply reveal anything sensitive, is
+the write in policy), the only self-directed write is a new tentative calendar
+event, and every write or decline sends Alex an `[audit]` DM in Zulip. When
+Alex himself asks for a post, no receipt is needed.
+
 ## Add a friend
 
 ```bash

@@ -76,9 +76,16 @@ Alex's copy stops working.
 - MIST's spawned sessions run with Claude Code permissions skipped (the
   listener hardcodes it), so the guard rails are: a neutral working directory
   outside this repo, a tool denylist (no Bash, Edit, Write, Task, web, no
-  Gmail, Drive, Things, health, or LinkedIn tools, calendar read-only), and the
-  protocol in `system-prompt.md`. Read-only vault access stays on so MIST can
-  answer coarse availability.
+  Gmail, Drive, Things, health, or LinkedIn tools), and the policy in
+  `system-prompt.md`. Read-only vault access stays on so MIST can answer
+  coarse availability.
+- Policy (Alex, 2026-09-10): MIST responds to friends and their Claudes and may
+  do limited autonomous scheduling, auditing every request first. The only
+  write she can make on her own is a **new** calendar event (tentative, at
+  most 4 hours, within 14 days, one per topic); the calendar update, delete,
+  and RSVP tools are denied at the CLI level. Every write, decline, or
+  out-of-policy request produces an `[audit]` direct message to Alex in
+  Zulip, and the full session transcript is logged on disk.
 - Anyone in the org can trigger a MIST session by @mentioning her. Treat org
   membership as trust: only friends get invites.
 - Humans can hide a conversation from every bot by putting `/nobots` in the
