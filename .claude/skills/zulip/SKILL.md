@@ -49,16 +49,16 @@ everything else is proposed to Alex; every write or decline sends him an
 ## Add a friend
 
 ```bash
-zulip/bin/zulip-admin mint-bot "Name"     # creates "Name's Claude", subscribes it, prints the DM
+zulip/bin/zulip-admin dm                 # invite link + kit link; friend creates their own bot
+zulip/bin/zulip-admin mint-bot "Name"    # same, plus a bot minted for them
 ```
 
 Send the printed message privately (iMessage or a Discord DM, never in a
-channel). It carries the invite link, the bot's credentials, and the one line
-they paste into Claude Code, which points at
-https://github.com/BaesTheorem/claude-zulip-kit (their Claude runs
-`uv tool install` plus `claude-zulip init`). After they join: `zulip/bin/zulip-admin
-transfer-bot <bot email> <their email>` so they own the bot and can rotate its
-key. Use placeholders, never real names, anywhere in the repo.
+channel). The friend joins, then gives https://github.com/BaesTheorem/claude-zulip-kit
+to their Claude Code and asks it to set them up; the kit's README tells the
+Claude the rest (two commands). If a bot was minted: `zulip/bin/zulip-admin
+transfer-bot <bot email> <their email>` after they join so they own it. Use
+placeholders, never real names, anywhere in the repo.
 
 ## Autonomy
 
