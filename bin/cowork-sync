@@ -1,0 +1,189 @@
+#!/bin/bash
+# cowork-sync -- keep the harness CLAUDE.md and the iCloud "Claude Cowork" copy
+# identical, in both directions.
+#
+# iCloud (like Drive) stores a symlink as a 54-byte inode/symlink object, so the
+# cloud side has to be a real file. This is the thing that keeps the real file
+# honest: hash both ends against the last agreed-on hash, copy whichever side
+# actually changed, and refuse to guess when both changed.
+#
+# Run by launchd (com.exobrain.cowork-sync): WatchPaths on both files for the
+# fast path, StartInterval as the safety net for iCloud writes that land without
+# firing a kqueue event.
+#
+#   cowork-sync            sync every pair
+#   cowork-sync --status   show hashes and what would happen, change nothing
+#   cowork-sync --push     force harness -> iCloud (resolves a conflict)
+#   cowork-sync --pull     force iCloud -> harness (resolves a conflict)
+
+set -uo pipefail
+
+HARNESS="/Users/alexhedtke/Documents/Exobrain harness"
+COWORK="$HOME/Library/Mobile Documents/com~apple~CloudDocs/Claude Cowork"
+STATE_DIR="${COWORK_SYNC_STATE:-$HOME/Library/Application Support/exobrain/cowork-sync}"
+BACKUP_DIR="$STATE_DIR/backups"
+NOTIFY="$HARNESS/mist-voice/bin/mist-notify"
+
+# One line per synced file: <state key>|<harness path>|<cowork path>
+# COWORK_SYNC_PAIRS overrides the list (same format, newline separated) so the
+# direction and conflict logic can be exercised without touching the real file.
+PAIRS=(
+  "claude-md|$HARNESS/CLAUDE.md|$COWORK/CLAUDE.md"
+)
+if [ -n "${COWORK_SYNC_PAIRS:-}" ]; then
+  PAIRS=()
+  while IFS= read -r line; do
+    [ -n "$line" ] && PAIRS+=("$line")
+  done <<<"$COWORK_SYNC_PAIRS"
+fi
+
+MODE="sync"
+case "${1:-}" in
+  --status) MODE="status" ;;
+  --push)   MODE="push" ;;
+  --pull)   MODE="pull" ;;
+  "")       ;;
+  *) echo "unknown option: $1" >&2; exit 2 ;;
+esac
+
+mkdir -p "$STATE_DIR" "$BACKUP_DIR"
+
+# Serialize runs: WatchPaths fires on both ends of a copy we just made. macOS
+# ships no flock(1), so mkdir is the atomic primitive.
+LOCK="$STATE_DIR/.lock"
+if ! mkdir "$LOCK" 2>/dev/null; then
+  # A lock older than 5 minutes belonged to a run that died; take it.
+  if [ -n "$(find "$LOCK" -maxdepth 0 -mmin +5 2>/dev/null)" ]; then
+    rmdir "$LOCK" 2>/dev/null
+    mkdir "$LOCK" 2>/dev/null || exit 0
+  else
+    exit 0
+  fi
+fi
+trap 'rmdir "$LOCK" 2>/dev/null' EXIT
+
+log() { echo "$(date '+%Y-%m-%d %H:%M:%S') $*"; }
+
+# iCloud evicts cold files and leaves a `.name.icloud` placeholder in their
+# place. Hashing that would look like a legitimate change, so hydrate first.
+hydrate() {
+  local path="$1" dir base placeholder waited=0
+  dir="$(dirname "$path")"
+  base="$(basename "$path")"
+  placeholder="$dir/.$base.icloud"
+  [ -f "$path" ] && return 0
+  [ -f "$placeholder" ] || return 0
+  log "hydrating evicted $base from iCloud"
+  brctl download "$path" 2>/dev/null
+  while [ ! -f "$path" ] && [ "$waited" -lt 30 ]; do
+    sleep 1
+    waited=$((waited + 1))
+  done
+  [ -f "$path" ]
+}
+
+hash_of() {
+  local path="$1"
+  # A symlink is not content. Treat it as absent so it gets replaced by a copy.
+  [ -L "$path" ] && return 0
+  [ -f "$path" ] || return 0
+  shasum -a 256 "$path" | awk '{print $1}'
+}
+
+backup() {
+  local path="$1" key="$2" side="$3"
+  [ -f "$path" ] || return 0
+  [ -L "$path" ] && return 0
+  cp "$path" "$BACKUP_DIR/$key.$side.$(date '+%Y%m%dT%H%M%S').bak"
+  # Keep the last 20 per key/side; they are the only undo for a bad overwrite.
+  ls -t "$BACKUP_DIR/$key.$side."*.bak 2>/dev/null | tail -n +21 | while read -r old; do
+    rm -f "$old"
+  done
+}
+
+# Write via a temp file in the destination directory so a reader never sees a
+# half-written CLAUDE.md, and so iCloud uploads one complete version.
+install_file() {
+  local src="$1" dst="$2" tmp
+  mkdir -p "$(dirname "$dst")"
+  tmp="$(dirname "$dst")/.cowork-sync.$$.tmp"
+  cp "$src" "$tmp" || return 1
+  # rm first: mv onto a symlink would write through it to the target.
+  rm -f "$dst"
+  mv -f "$tmp" "$dst"
+}
+
+conflict() {
+  local key="$1" a="$2" b="$3" stamp copy
+  stamp="$(date '+%Y%m%dT%H%M%S')"
+  copy="${b%.*}.conflict-$stamp.${b##*.}"
+  cp "$b" "$copy"
+  log "CONFLICT $key: both sides changed. iCloud version preserved at $copy"
+  log "  resolve with: cowork-sync --push   (harness wins)"
+  log "               cowork-sync --pull   (iCloud wins)"
+  [ -x "$NOTIFY" ] && "$NOTIFY" \
+    "Both copies of $(basename "$a") changed. Run cowork-sync --push or --pull." \
+    "Cowork sync conflict" "" "$copy"
+  return 1
+}
+
+rc=0
+for pair in "${PAIRS[@]}"; do
+  IFS='|' read -r key a b <<<"$pair"
+  state_file="$STATE_DIR/$key.sha256"
+
+  hydrate "$b"
+  ha="$(hash_of "$a")"
+  hb="$(hash_of "$b")"
+  hs=""
+  [ -f "$state_file" ] && hs="$(cat "$state_file")"
+
+  if [ "$MODE" = "status" ]; then
+    printf '%s\n  harness %s %s\n  icloud  %s %s\n  synced  %s\n' \
+      "$key" "${ha:-<absent>}" "$a" "${hb:-<absent/symlink>}" "$b" "${hs:-<never>}"
+    continue
+  fi
+
+  if [ -z "$ha" ] && [ -z "$hb" ]; then
+    log "$key: neither side exists, nothing to do"
+    rc=1
+    continue
+  fi
+
+  case "$MODE" in
+    push)
+      [ -z "$ha" ] && { log "$key: --push but harness copy is missing"; rc=1; continue; }
+      backup "$b" "$key" icloud
+      install_file "$a" "$b" && echo "$ha" >"$state_file" && log "$key: forced harness -> iCloud"
+      continue
+      ;;
+    pull)
+      [ -z "$hb" ] && { log "$key: --pull but iCloud copy is missing"; rc=1; continue; }
+      backup "$a" "$key" harness
+      install_file "$b" "$a" && echo "$hb" >"$state_file" && log "$key: forced iCloud -> harness"
+      continue
+      ;;
+  esac
+
+  if [ "$ha" = "$hb" ]; then
+    [ "$hs" != "$ha" ] && echo "$ha" >"$state_file"
+    continue
+  fi
+
+  if [ -z "$hb" ]; then
+    # First run, or the iCloud side is still the old symlink / was deleted.
+    install_file "$a" "$b" && echo "$ha" >"$state_file" && log "$key: seeded iCloud copy"
+  elif [ -z "$ha" ]; then
+    install_file "$b" "$a" && echo "$hb" >"$state_file" && log "$key: restored harness copy from iCloud"
+  elif [ "$ha" = "$hs" ]; then
+    backup "$a" "$key" harness
+    install_file "$b" "$a" && echo "$hb" >"$state_file" && log "$key: iCloud -> harness"
+  elif [ "$hb" = "$hs" ]; then
+    backup "$b" "$key" icloud
+    install_file "$a" "$b" && echo "$ha" >"$state_file" && log "$key: harness -> iCloud"
+  else
+    conflict "$key" "$a" "$b" || rc=1
+  fi
+done
+
+exit $rc
