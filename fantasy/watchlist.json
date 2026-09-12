@@ -1,13 +1,13 @@
 {
- "updated": "2026-09-09",
+ "updated": "2026-09-12",
  "players": [
   {
    "id": 4426354,
    "name": "George Pickens",
    "pos": "WR",
    "nfl": 6,
-   "why": "the expired offer's target (Watson + Nailor, expired unanswered 9/9 10:18 PM); the manager has never been in the room",
-   "trigger": "any roster move by Ayahuasca Rodgers means the manager is active: ping Alex; re-send only on his tap (asked 9/10 12:10 AM)",
+   "why": "the target of two expired offers (Watson + Nailor): e7d4703d died 9/9 10:18 PM, bf660050 died 9/12 12:35 PM, both unanswered; the manager has never been in the room",
+   "trigger": "any roster move by Ayahuasca Rodgers means the manager is active: ping Alex; a third send only on his tap (asked 9/12 1:50 PM: re-send now / wait for Tuesday / drop it)",
    "added": "2026-09-07"
   },
   {
