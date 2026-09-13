@@ -324,6 +324,36 @@ are involved. If the output is text, the phrase is wrong.
 Watch the same shape in its relatives: "put a name to it", "say the quiet part", "on
 the record" used to mean nothing more than "explicitly".
 
+## 22. Kill Explainer Scaffolding: "Here's Why That Matters", "Push Back On", "The Gap"
+
+Banned in every surface. Added 2026-09-13. Three different shapes, one habit: a stock
+phrase standing in for the specific sentence that belongs there.
+
+**"Here's why that matters."** The whole family: "why this matters", "what this means
+is", "here's the thing", "here's the kicker", "the takeaway here", "the implication".
+It announces that significance is coming instead of stating the significance, and the
+sentence after it almost always stands on its own. Same failure as rule 20, one step
+earlier in the paragraph. Fix: delete the announcement, lead with the consequence.
+- "Here's why that matters: the token expires 30 minutes after sign-in." -> "The token expires 30 minutes after sign-in."
+- "What this means is you have to re-mint it every run." -> "You have to re-mint it every run."
+
+**"Push back on."** Consultant vocabulary for disagree, object, refuse, or argue. It
+sounds collaborative while committing to nothing, and models reach for it whenever a
+sentence needs a verb with some spine. Also banned: "pushback" as a noun for an
+objection, and its cousins "lean into", "double down on", "unpack", "circle back",
+"align on". Fix: say what was actually said or done.
+- "I pushed back on the estimate." -> "I said two weeks was not enough."
+- "She got pushback from legal." -> "Legal refused to sign it."
+- Keep the literal physical sense: "push back on the lever", "the flight pushed back at 6:05".
+
+**"The gap."** An abstract noun standing where a number or a named missing thing
+belongs: "the gap between X and Y", "close the gap", "there's a gap in coverage",
+"the gap here is". It gestures at a shortfall without measuring it, which is exactly
+the information the reader came for. Fix: name the missing item or state the size.
+- "There's a gap in test coverage." -> "Nothing tests the retry path."
+- "Close the gap between forecast and observation." -> "Get the day-2 forecast within 2 degrees of the station reading."
+- Keep it when you immediately state the quantity ("a 14-point gap"), or when it is a literal physical space.
+
 ## Overused AI Words to Replace
 
 (Source: [Wikipedia: Signs of AI writing](https://en.wikipedia.org/wiki/Wikipedia:Signs_of_AI_writing))
@@ -360,6 +390,10 @@ the record" used to mean nothing more than "explicitly".
 - "at its core"
 - "that's the point" / "X is the point" (see "Never Write '[X] Is the Point'" -- banned in all forms)
 - "out loud" when nobody is speaking (see "Never Write 'Out Loud' for 'Explicitly'" -- use "explicitly" or cut it)
+- "here's why that matters" / "what this means is" / "the takeaway" (see rule 22 -- lead with the consequence)
+- "push back on" / "pushback" when nobody is pushing anything (see rule 22 -- say disagree, object, refuse)
+- "the gap" as an abstract shortfall (see rule 22 -- name the missing thing or state the number)
+- "honest" / "honestly" as self-awarded candor (see rule 14 -- delete it or show the candor)
 - "strikes a balance between"
 - "valuable insights"
 - "contributing to"

@@ -49,7 +49,7 @@ Use `Gmail:gmail_create_draft` with:
   - Station name (with directional platform if known), date, and time
   - Pattern data if applicable (multiple stops, repeat observations)
   - Whether photo evidence is available
-  - **Why this matters** -- always include a brief line explaining the value of the feature being reported on. For tracker/display issues: real-time arrival data is one of the streetcar system's strongest features for rider confidence and ridership growth, and fallback to static intervals undermines that. For safety issues: frame in terms of rider or pedestrian safety. For accessibility issues: frame in terms of ADA compliance and inclusive access. This context helps the ops team prioritize.
+  - **Rider impact** -- always include a brief line explaining the value of the feature being reported on. For tracker/display issues: real-time arrival data is one of the streetcar system's strongest features for rider confidence and ridership growth, and fallback to static intervals undermines that. For safety issues: frame in terms of rider or pedestrian safety. For accessibility issues: frame in terms of ADA compliance and inclusive access. This context helps the ops team prioritize.
   - A line inviting follow-up
   - User's contact info: [Your Name], [Your Phone], [Your Email]
 
@@ -72,7 +72,7 @@ I'd like to report an issue observed at the <Station Name> station on <Date> at 
 
 <If pattern: I've observed the same issue at [other stops/times], which may suggest a system-wide [feed/infrastructure] issue rather than a localized problem.>
 
-<Why this matters -- 1 sentence contextualizing the value of the feature or the risk of the issue. Examples:
+<Rider impact -- 1 sentence contextualizing the value of the feature or the risk of the issue. Examples:
 - Tracker: "Real-time arrival data is one of the streetcar's strongest rider-facing features, and fallback to static intervals reduces rider confidence and the system's competitive advantage over driving."
 - Safety: "This poses a risk to [rider/pedestrian] safety, particularly during [peak hours / low-visibility conditions]."
 - Accessibility: "This creates a barrier for riders who depend on [accessible boarding / audio announcements / etc.].">

@@ -25,7 +25,7 @@ Gather all data in parallel where possible, then present conversationally.
 - Flag anything that rolled over (didn't get done and should be rescheduled)
 
 **Health so far**:
-Follow the `/health` skill's **Evening Update** section. Pull today's final Fitbit activity totals and update the Health Log note. Steps vs 15,000 goal -- note the gap but don't nag (it's bedtime).
+Follow the `/health` skill's **Evening Update** section. Pull today's final Fitbit activity totals and update the Health Log note. Steps vs 15,000 goal -- say how many short but don't nag (it's bedtime).
 
 **Loki (cat)**: read the **last 7 daily notes** in `Areas/Health & Fitness/Loki Health Log/` (today + the prior 6, by `YYYY-MM-DD.md` filename -- don't re-query the API). Pull `weight_lbs` and `visits` from each note's frontmatter and look across the window for **emerging trends**, not just today's snapshot:
 - **Weight trajectory**: is the 7-day weight drifting up or down? A steady multi-day slide (or climb) matters more than any single day; ignore single-visit outliers (e.g. a 4.75 lb half-on-the-scale reading).
@@ -127,7 +127,7 @@ A quick pulse only -- the thorough cost review + recommendations live in the wee
 
 **Priority alignment**: Read Dashboard.md priorities. For tomorrow:
 - Which scheduled events/tasks map to priorities?
-- Are any priority areas completely unrepresented? Suggest a small action to fill the gap.
+- Are any priority areas completely unrepresented? Suggest a small action for the one that got no time.
 - If tomorrow looks overstuffed, flag it (per the overbooking feedback memory)
 
 **Suggest top 3 priorities for tomorrow**: Based on deadlines, priority alignment, and what got deferred today. Frame as:
