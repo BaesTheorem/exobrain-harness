@@ -1,0 +1,33 @@
+#!/bin/bash
+# Street View coverage lookup, keyless, via streetlevel's read of Google's internal API.
+# Split out of `geo` so the dependency-free subcommands stay instant.
+exec uv run --python 3.12 --quiet --with streetlevel python - "$@" <<'PY'
+import sys, types
+# streetlevel pulls in pyexiv2 purely to write EXIF on download, and that ships a dylib
+# that needs `brew install inih`. We never download, so stub it rather than add the dep.
+fake = types.ModuleType("pyexiv2")
+fake.__getattr__ = lambda name: type(name, (), {"__init__": lambda self, *a, **k: None})
+sys.modules["pyexiv2"] = fake
+
+from streetlevel import streetview
+
+lat, lon = float(sys.argv[1]), float(sys.argv[2])
+radius = int(sys.argv[3]) if len(sys.argv) > 3 else 500
+
+pano = streetview.find_panorama(lat, lon, radius=radius)
+if pano is None:
+    print(f"no Street View within {radius} m of {lat}, {lon}")
+    raise SystemExit(1)
+
+print(f"pano        {pano.id}")
+print(f"coords      {pano.lat:.6f}, {pano.lon:.6f}")
+print(f"captured    {pano.date}")
+if getattr(pano, "country_code", None):
+    print(f"country     {pano.country_code}")
+if getattr(pano, "address", None):
+    print(f"address     {pano.address}")
+if getattr(pano, "heading", None) is not None:
+    import math
+    print(f"car heading {math.degrees(pano.heading) % 360:.1f} deg")
+print(f"link        https://www.google.com/maps/@?api=1&map_action=pano&pano={pano.id}")
+PY
