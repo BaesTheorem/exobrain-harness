@@ -1,0 +1,4 @@
+#!/bin/bash
+# geo - the geolocation bench. See ../.claude/skills/geoguesser/SKILL.md
+here="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+exec /usr/bin/env PYTHONPATH="$here${PYTHONPATH:+:$PYTHONPATH}" python3 "$here/geo_cli.py" "$@"
