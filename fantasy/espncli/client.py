@@ -148,7 +148,7 @@ class Espn:
     # ---- transport -------------------------------------------------------
 
     def _get(self, url: str, headers: dict[str, str] | None = None, timeout: int = 60,
-             retries: int = 1) -> Any:
+             retries: int = 1, net_waits: int = 4) -> Any:
         h = {"User-Agent": UA, "Accept": "application/json"}
         if headers:
             h.update(headers)
@@ -160,7 +160,7 @@ class Espn:
             # The public injury report is ~9 MB and ESPN's edge sometimes cuts
             # it off mid-body; one retry recovers it (2026-09-07).
             if retries > 0:
-                return self._get(url, headers, timeout, retries - 1)
+                return self._get(url, headers, timeout, retries - 1, net_waits)
             raise EspnError(f"ESPN cut the response short for {url.split('?')[0]}: {e}") from None
         except urllib.error.HTTPError as e:
             body = e.read()[:300].decode(errors="replace")
@@ -170,6 +170,16 @@ class Espn:
                     "to re-pull them from Chrome while logged into ESPN.") from None
             raise EspnError(f"ESPN HTTP {e.code} for {url.split('?')[0]}: {body}") from None
         except urllib.error.URLError as e:
+            # launchd fires a missed interval the instant the Mac wakes, before
+            # Wi-Fi has reassociated, so DNS answers "nodename nor servname
+            # provided" and the run dies. Observed on roster-watch twice on
+            # 2026-09-13 (10:2x and 11:00), which silently skipped two game-day
+            # roster checks. A resolve failure is a wake artifact, not an
+            # answer, so wait it out; 2+4+8+16 = 30s of backoff, then give up
+            # so a genuinely offline machine still exits instead of hanging.
+            if net_waits > 0 and isinstance(e.reason, socket.gaierror):
+                time.sleep(2 ** (5 - net_waits))
+                return self._get(url, headers, timeout, retries, net_waits - 1)
             raise EspnError(f"Network error reaching ESPN: {e.reason}") from None
 
     def _auth(self, extra: dict[str, str] | None = None) -> dict[str, str]:
