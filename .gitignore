@@ -252,3 +252,10 @@ zulip/.admin.zuliprc
 zulip/.venv/
 zulip/logs/
 zulip/sessions/
+
+# kcurbex: forum credentials, session cookies, and scraped site data.
+# The forum tier-gates locations on purpose; none of it belongs in a public repo.
+kcurbex/secrets/*
+!kcurbex/secrets/README.md
+kcurbex/data/*
+!kcurbex/data/README.md
