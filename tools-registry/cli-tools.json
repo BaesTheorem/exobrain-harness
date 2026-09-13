@@ -265,6 +265,14 @@
     "notes": "Rebuilds and wirelessly reinstalls free-team iOS sideloads before their 7-day provisioning profiles expire. --status/--discover/--force/--quiet. launchd com.exobrain.ios-sideload-refresh, 10:30 and 20:30."
   },
   {
+    "name": "kcurbex",
+    "command": "kcurbex/bin/kcurbex",
+    "repo_dir": "kcurbex",
+    "source": "built",
+    "added": "2026-09-13",
+    "notes": "KC Urbex forum: index site reports to Obsidian (Areas/Adventure & Creativity/Urbex), sync board meetups to Google Calendar. Account is Tier 1, so only f=30 and f=109 are visible; the archive is gated and Tier 2 is granted socially at meetups. Watcher: com.exobrain.kcurbex-watch, every 12h."
+  },
+  {
     "name": "mid2mp3 / mp32mid",
     "command": "mid2mp3 <file.mid> | mp32mid <file.mp3>",
     "repo_dir": "~/.local/bin",

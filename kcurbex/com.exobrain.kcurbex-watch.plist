@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>Label</key>
+    <string>com.exobrain.kcurbex-watch</string>
+    <key>ProgramArguments</key>
+    <array>
+        <string>/bin/bash</string>
+        <string>/Users/alexhedtke/Documents/Exobrain harness/kcurbex/run-watch.sh</string>
+    </array>
+    <key>StartInterval</key>
+    <integer>43200</integer>
+    <key>RunAtLoad</key>
+    <false/>
+    <key>WorkingDirectory</key>
+    <string>/Users/alexhedtke/Documents/Exobrain harness/kcurbex</string>
+    <key>StandardOutPath</key>
+    <string>/Users/alexhedtke/.claude/channels/kcurbex/launchd.out.log</string>
+    <key>StandardErrorPath</key>
+    <string>/Users/alexhedtke/.claude/channels/kcurbex/launchd.err.log</string>
+</dict>
+</plist>
