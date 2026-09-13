@@ -16,6 +16,12 @@ suspension, and empty slots on sight; DOUBTFUL and a QUESTIONABLE starter
 whose weekly projection ESPN has zeroed inside the window. A QUESTIONABLE
 starter still projected to play is never auto-swapped; that is a ping.
 
+Every run also holds the Mac awake across the next lock's ping window, on the
+clock alone and never on whether a problem already exists. See hold_awake() for
+why that window is the only thing sleep actually destroys, and for the limits
+(a battery floor, a duration cap, and the closed-lid case that is out of reach
+without root).
+
     lineup-watch [--window 75] [--final 20] [--fix] [--dry-run] [--force]
 """
 
@@ -28,13 +34,17 @@ import subprocess
 import sys
 import time
 import re
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 
 HERE = pathlib.Path(__file__).resolve().parent
 FANTASY = HERE.parent
 sys.path.insert(0, str(FANTASY))
 STATE = FANTASY / ".cache" / "lineup-watch.json"
+HOLD = FANTASY / ".cache" / "lineup-watch-hold.pid"
 NOTIFY = FANTASY.parent / "mist-voice" / "bin" / "mist-notify"
+HOLD_LEAD = 30     # minutes before the ping window opens to arm the hold
+HOLD_CAP = 150     # minutes; never hold the Mac up longer than this at once
+HOLD_FLOOR = 30    # battery percent below which a hold is refused
 ROSTER_URL = "https://fantasy.espn.com/football/team?leagueId=45635023&teamId=12"
 DEFINITE = {"OUT", "EMPTY", "INJURY_RESERVE", "SUSPENSION", "BYE", "DOUBTFUL"}
 FIX_ON_SIGHT = {"OUT", "EMPTY", "INJURY_RESERVE", "SUSPENSION", "BYE"}
@@ -116,6 +126,88 @@ def save_state(st: dict) -> None:
     STATE.write_text(json.dumps(st, indent=1))
 
 
+def power() -> tuple[bool, int | None]:
+    """(on_ac, battery_percent). Unknown percent reads as None, unknown power as AC."""
+    try:
+        out = subprocess.run(["/usr/bin/pmset", "-g", "ps"], capture_output=True,
+                             text=True, timeout=10).stdout
+    except (OSError, subprocess.SubprocessError):
+        return (True, None)
+    m = re.search(r"(\d+)%", out)
+    return ("AC Power" in out, int(m.group(1)) if m else None)
+
+
+def holding() -> bool:
+    """True when a caffeinate this script armed is still alive.
+
+    Checks the command name, not just that the pid exists: pids are recycled,
+    and `os.kill(pid, 0)` succeeding proves only that *something* is there.
+    """
+    try:
+        pid = int(HOLD.read_text().strip())
+    except (OSError, ValueError):
+        return False
+    try:
+        r = subprocess.run(["/bin/ps", "-p", str(pid), "-o", "args="],
+                           capture_output=True, text=True, timeout=10)
+    except (OSError, subprocess.SubprocessError):
+        return False
+    # args=, not comm=: macOS ps truncates comm to 16 chars as soon as another
+    # column joins it, which silently clips "/usr/bin/caffeinate" to
+    # "/usr/bin/caffein" and would make this check answer False forever, leaking
+    # a fresh caffeinate every run. args= is never truncated.
+    return r.returncode == 0 and "caffeinate" in r.stdout
+
+
+def hold_awake(locks: dict, now: datetime, window: int, dry: bool) -> str:
+    """Keep the Mac up across the next lock's ping window.
+
+    launchd does fire a missed StartInterval job on wake, and both watchers read
+    current state, so a late run is still a complete run and nothing needs
+    replaying. The one thing sleep genuinely destroys is a ping window: if the
+    Mac is out from (lock - window) to kickoff, a downgrade arriving in that hour
+    is never seen, no banner fires, and the starter locks broken. Inactives post
+    about 90 minutes before kickoff, which lands inside that window by design.
+
+    So hold the machine up for that window specifically and nothing else.
+    Limits, because a watcher that flattens the battery is worse than the miss it
+    prevents: refuse below HOLD_FLOOR percent on battery, and cap any single
+    hold at HOLD_CAP minutes.
+
+    Honest limit: `caffeinate -s` is AC-only per its man page and `-i` blocks
+    only *idle* sleep, so a closed lid on battery still sleeps through the
+    window. Fixing that needs a root `pmset schedule wake`, which is Alex's call
+    to install, not something a user agent should assume.
+    """
+    future = [k for k in locks.values() if k > now]
+    if not future:
+        return "no lock ahead, no hold"
+    lock = min(future)
+    opens = lock - timedelta(minutes=window)
+    if now < opens - timedelta(minutes=HOLD_LEAD):
+        return "next window opens %s, too far out to hold" % opens.astimezone().strftime("%a %-I:%M %p")
+    if holding():
+        return "hold already armed through %s" % lock.astimezone().strftime("%-I:%M %p")
+    ac, pct = power()
+    if not ac and pct is not None and pct < HOLD_FLOOR:
+        return f"on battery at {pct}%, below the {HOLD_FLOOR}% floor; refusing to hold"
+    mins = min(int((lock - now).total_seconds() / 60) + 5, HOLD_CAP)
+    if mins <= 0:
+        return "lock is now, nothing to hold for"
+    if dry:
+        return f"DRY-RUN would hold awake {mins} min through {lock.astimezone():%-I:%M %p}"
+    try:
+        p = subprocess.Popen(["/usr/bin/caffeinate", "-s", "-i", "-m", "-t", str(mins * 60)],
+                             stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
+                             start_new_session=True)
+    except OSError as e:
+        return f"could not arm the hold: {e}"
+    HOLD.parent.mkdir(parents=True, exist_ok=True)
+    HOLD.write_text(str(p.pid))
+    where = "on AC" if ac else f"on battery at {pct}%"
+    return f"holding awake {mins} min ({where}) through the {lock.astimezone():%-I:%M %p} lock"
+
+
 def notify(msg: str, final: bool, dry: bool, ident: str) -> None:
     args = [str(NOTIFY), msg, "MIST lineup watch", "default", ROSTER_URL,
             "--group", "lineup-watch", "--id", ident,
@@ -181,8 +273,13 @@ def main() -> int:
     week = d.get("week")
     problems = d.get("problems", [])
     stamp = time.strftime("%Y-%m-%d %H:%M")
+    # Arm the hold on the clock alone, never on whether a problem exists yet.
+    # The case worth staying awake for is the downgrade that has not happened:
+    # gating this on problems being non-empty would sleep through exactly it.
+    hold = hold_awake(locks, now, args.window, args.dry_run)
     if not problems:
-        print(f"{stamp} week {week}: lineup clean, {len(locks)} starters, margin {d.get('margin')}")
+        print(f"{stamp} week {week}: lineup clean, {len(locks)} starters, "
+              f"margin {d.get('margin')}; {hold}")
         return 0
 
     pinged = 0
@@ -221,7 +318,7 @@ def main() -> int:
             st[key] = seen
         pinged += 1
     save_state(st)
-    print(f"{stamp} week {week}: {len(problems)} problem(s), {pinged} ping(s)")
+    print(f"{stamp} week {week}: {len(problems)} problem(s), {pinged} ping(s); {hold}")
     return 0
 
 
