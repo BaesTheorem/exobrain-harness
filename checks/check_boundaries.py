@@ -32,7 +32,15 @@ REPO = Path(__file__).resolve().parent.parent
 
 # (importer island, imported module) -> reason. Keep this SHORT; every entry
 # is a coupling that every future edit to the exporter has to respect.
-ALLOWED_CROSS: dict[tuple[str, str], str] = {}
+ALLOWED_CROSS: dict[tuple[str, str], str] = {
+    ("tests", "geo_solver"): (
+        "tests/test_geo_solver.py round-trips the shadow solver against known cities, "
+        "which means importing the thing it covers. Rule 2 already exempts tests/ for "
+        "exactly this reason; single-file islands like geoguessr/geo_solver.py land in "
+        "the export map by stem, where a package directory would not, so they need the "
+        "exemption spelled out here too."
+    ),
+}
 
 # stdlib_module_names is 3.10+; the fallback covers interpreters like the
 # macOS system 3.9 that hooks may run under. The filter matters because repo

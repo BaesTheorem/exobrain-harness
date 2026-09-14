@@ -36,6 +36,13 @@ USER_AGENT = (
 )
 HERE = Path(__file__).resolve().parent
 
+OVERPASS_MIRRORS = (
+    "https://overpass-api.de/api/interpreter",
+    "https://overpass.kumi.systems/api/interpreter",
+    "https://overpass.private.coffee/api/interpreter",
+)
+"""Tried in order. The main instance sheds load with a 504 whenever Europe is awake."""
+
 
 # --------------------------------------------------------------------------- sun
 
@@ -258,6 +265,26 @@ def cmd_geocode(args: argparse.Namespace) -> int:
     return 0
 
 
+def cmd_elev(args: argparse.Namespace) -> int:
+    """Ground elevation for one or more points, batched.
+
+    Open-Meteo takes every point in one call and needs no key. USGS EPQS is finer over
+    the US (1 m raster) but is one point per request, so it stays the fallback.
+    """
+    lats = ",".join(str(lat) for lat, _ in args.points)
+    lons = ",".join(str(lon) for _, lon in args.points)
+    query = urllib.parse.urlencode({"latitude": lats, "longitude": lons})
+    data = _http_json(f"https://api.open-meteo.com/v1/elevation?{query}")
+    if not isinstance(data, dict) or "elevation" not in data:
+        print("elevation service returned nothing usable", file=sys.stderr)
+        return 1
+    for (lat, lon), metres in zip(args.points, data["elevation"], strict=False):
+        print(
+            f"{lat:>10.5f} {lon:>11.5f}  {metres:>7.0f} m  {metres * 3.28084:>8,.0f} ft"
+        )
+    return 0
+
+
 # ---------------------------------------------------------------------- overpass
 
 
@@ -267,18 +294,30 @@ def cmd_overpass(args: argparse.Namespace) -> int:
         # Overpass answers in XML unless told otherwise, which every caller here regrets.
         query = "[out:json][timeout:120];" + query
     data = urllib.parse.urlencode({"data": query}).encode()
-    request = urllib.request.Request(
-        "https://overpass-api.de/api/interpreter",
-        data=data,
-        headers={"User-Agent": USER_AGENT},
-    )
-    try:
-        with urllib.request.urlopen(request, timeout=180) as response:  # noqa: S310 - fixed https host
-            body = response.read().decode("utf-8")
-    except urllib.error.HTTPError as exc:
-        # 429 means you are being rate-limited; 504 means the query was too heavy.
-        # Narrow the area or add tag filters before the geometry filters.
-        print(f"Overpass returned HTTP {exc.code}: {exc.reason}", file=sys.stderr)
+    body = None
+    failures: list[str] = []
+    for mirror in OVERPASS_MIRRORS:
+        request = urllib.request.Request(
+            mirror, data=data, headers={"User-Agent": USER_AGENT}
+        )
+        try:
+            with urllib.request.urlopen(request, timeout=180) as response:  # noqa: S310 - fixed https hosts
+                body = response.read().decode("utf-8")
+            break
+        except (urllib.error.HTTPError, urllib.error.URLError, TimeoutError) as exc:
+            # The main instance 504s under load far more often than the mirrors do,
+            # and a 504 says nothing about whether the query itself is sound. Only
+            # give up once every mirror has refused it.
+            reason = getattr(exc, "code", None) or getattr(exc, "reason", exc)
+            failures.append(f"{urllib.parse.urlparse(mirror).netloc}: {reason}")
+    if body is None:
+        print("every Overpass mirror refused the query:", file=sys.stderr)
+        for failure in failures:
+            print(f"  {failure}", file=sys.stderr)
+        print(
+            "504 usually means too heavy: tighten the bbox or filter on tags first.",
+            file=sys.stderr,
+        )
         return 1
     try:
         payload = json.loads(body)
@@ -411,6 +450,10 @@ def build_parser() -> argparse.ArgumentParser:
     geocode.add_argument("--country", help="ISO code to restrict to, e.g. pl")
     geocode.add_argument("--limit", type=int, default=8)
     geocode.set_defaults(func=cmd_geocode)
+
+    elev = sub.add_parser("elev", help="ground elevation at one or more points")
+    elev.add_argument("points", nargs="+", type=_latlon, help="lat,lon (repeatable)")
+    elev.set_defaults(func=cmd_elev)
 
     overpass = sub.add_parser(
         "overpass", help="run an Overpass QL query (or pipe one in)"
