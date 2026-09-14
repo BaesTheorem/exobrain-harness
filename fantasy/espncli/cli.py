@@ -348,7 +348,8 @@ def cmd_scoreboard(api: Espn, args: argparse.Namespace) -> None:
             entries, _ = side_entries(api, data, s)
             rows = roster_rows(api, entries, week)
             g[key] = {"team_id": s["teamId"], "team": names.get(s["teamId"], "?"),
-                      "projected": starters_proj(rows), "espn_total": s.get("totalPoints"),
+                      "projected": starters_proj(rows), "actual": starters_actual(rows),
+                      "espn_total": s.get("totalPoints"),
                       "live_proj": s.get("totalProjectedPointsLive"), "mine": s["teamId"] == mine}
         games.append(g)
     out = {"week": week, "matchups": games, "idle": idle}
@@ -359,8 +360,11 @@ def cmd_scoreboard(api: Espn, args: argparse.Namespace) -> None:
             a, h = g["away"], g["home"]
             def side(s):
                 mark = "*" if s["mine"] else " "
-                score = pts(s["espn_total"]) if (s["espn_total"] or 0) > 0 else "  -  "
-                return f"{mark}{s['team']:<24} proj {pts(s['projected']):>6}  pts {score:>6}"
+                live = s["espn_total"] if (s["espn_total"] or 0) > 0 else s["actual"]
+                score = pts(live) if live else "  -  "
+                lp = pts(s["live_proj"]) if s["live_proj"] else "  -  "
+                return (f"{mark}{s['team']:<24} proj {pts(s['projected']):>6}"
+                        f"  pts {score:>6}  live proj {lp:>6}")
             res = ""
             if g["winner"] == "HOME":
                 res = "  <- home won"
@@ -370,7 +374,9 @@ def cmd_scoreboard(api: Espn, args: argparse.Namespace) -> None:
             print(f"  {side(h)}{res}\n")
         if idle:
             print(f"  idle this week: {', '.join(idle)}")
-        print("  * = Chaos Legion. proj = sum of starters' ESPN weekly projections.")
+        print("  * = Chaos Legion. proj = sum of starters' ESPN weekly projections; "
+              "pts = scored so far (ESPN's own total until the week closes is 0, so this "
+              "sums the starters); live proj = ESPN's projected finish.")
     emit(args, out, render)
 
 
