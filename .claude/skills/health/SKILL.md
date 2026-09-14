@@ -173,9 +173,11 @@ If `fired` is false, the briefing omits the alert. **Do not nag**: when the stre
 
 **Skin temp data unavailability**: if the Fitbit API returns no skin temp data for last night (device wasn't worn, or device doesn't support it), do not fire -- never fall back to RHR-only, since RHR alone has too many false positives from stress.
 
-> [!warning] The canary is currently INERT. Alex switched from the Charge 5 to a **Versa 2** around 2026-08-01, and the Versa 2 does not produce skin temperature. Since the rules above forbid firing without the skin-temp confirmer, this detector cannot fire at all on the current device. Do not present it as active. Decision on how to resolve is pending with Alex as of 2026-08-10.
+> [!warning] **The canary is LIVE again as of 2026-09-14.** The claim below (that the Versa 2 produces no skin temp, so the detector can never fire) is **falsified**. `get_temp_skin_by_date_range` returned `nightlyRelative` values for **8/31, 9/2, 9/3, 9/4, 9/5, 9/6, 9/10, 9/11 and 9/12** -- nine nights, all on the Versa 2, all after the ~8/01 device switch. Either a firmware or backfill change landed between the 8/10 measurement and now. **Treat the confirmer as available**, and run the two-signal rule as written. It still will not fire on a night the band produced no reading, which is the normal no-data path, not a device limitation.
+>
+> Measured 2026-09-14: skin temp ran 0.0 -> -0.1 -> -0.3 degC across 9/10-9/12 while RHR ran 82 -> 84 -> 87. That is the detector doing its job: RHR elevated, thermal signal flat-to-down, so no fire. The stress/anxiety pattern, correctly not escalated.
 
-**Device capability, measured 2026-08-10** (not taken from spec sheets -- Fitbit's docs say "Versa series" without naming the Versa 2, and that claim does not hold here):
+**Device capability, measured 2026-08-10 and partly SUPERSEDED 2026-09-14.** The skin-temp row below was correct when measured and is wrong now; see the callout above. Kept as a record of how the measurement was made, and as a reminder that a device-capability finding has a shelf life and is worth re-testing rather than inheriting:
 
 | Stream | Charge 5 (through ~7/31) | Versa 2 (8/4 onward) |
 |---|---|---|
@@ -184,7 +186,7 @@ If `fired` is false, the briefing omits the alert. **Do not nag**: when the stre
 | Sleep + stages | yes | yes |
 | HRV (`dailyRmssd`) | yes | yes |
 | Breathing rate | yes | yes |
-| **Skin temp** | yes | **no** |
+| **Skin temp** | yes | **no** on 8/10, **yes** again by 9/14 (re-test before trusting either way) |
 | **SpO2** | yes through 7/9, then stopped | **no** |
 
 The discriminating test: on 8/7 and 8/9 the Versa 2 recorded 8h12m and 10h of sleep and produced HRV and breathing rate from those sessions, so the band was worn and the optical sensor worked, and both nights clear the 3-hour minimum for a temp reading. No skin temp came out. In June the Charge 5 produced skin temp on every night it recorded. This is a capability gap, not a wear or sync gap.
