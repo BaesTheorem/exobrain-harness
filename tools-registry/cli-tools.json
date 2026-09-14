@@ -24,6 +24,14 @@
     "notes": "Scans govinfo BILLSTATUS bulk zips for a whole Congress and returns every AI-related bill plus a per-member index (sponsor/cosponsor, party, date, bucket). Primary-source whip lists without an API key or rate limit. Zips: https://www.govinfo.gov/bulkdata/BILLSTATUS/119/{s,hr}/BILLSTATUS-119-{s,hr}.zip"
   },
   {
+    "name": "analyze-leaf",
+    "command": "python3 flipper/analyze-leaf.py <dump.nfc>",
+    "repo_dir": "flipper",
+    "source": "built",
+    "added": "2026-09-13",
+    "notes": "Offline LEAF/WaveLynx DESFire key oracle: confirms/refutes a candidate OCPSK master against a card's free-read signature (AN10957 4.5.1 + Appendix B). --selftest validates against NXP vectors. Cannot recover unknown keys."
+  },
+  {
     "name": "app-shell build-app",
     "command": "app-shell/build-app.sh \"Name\" slug http://127.0.0.1:PORT/ launchd.label [--plist P] [--log P] [--icon P.icns] [--bundle-id ID] [--health URL]",
     "repo_dir": "/Users/alexhedtke/Documents/Exobrain harness/app-shell",
