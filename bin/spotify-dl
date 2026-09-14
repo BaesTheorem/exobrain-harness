@@ -1,0 +1,237 @@
+#!/usr/bin/env python3
+"""Download a Spotify track by URL or id, without touching the Spotify Web API.
+
+zotify pulls tags from api.spotify.com using librespot's shared OAuth client id.
+That client is saturated globally, so the tag lookup returns 429 almost always
+even though the audio path is fine. This tool takes metadata from the embed
+endpoint (unauthenticated, not rate limited) and audio from librespot's content
+feeder, so a 429 on the Web API cannot block a download.
+
+Auth reuses zotify's stored credentials at
+~/Library/Application Support/Zotify/credentials.json. Run with --login once to
+create them via the browser OAuth flow; password login no longer works.
+
+Requires Spotify Premium. librespot refuses free accounts by upstream policy,
+so on a free account every track dies with "Failed fetching audio key" no matter
+its quality. Confirmed against a mainstream control track, so a failure here
+means the account, not the track.
+
+INVARIANTS
+    - Never calls api.spotify.com. Metadata comes only from the embed endpoint.
+    - Quality falls back VERY_HIGH -> HIGH -> NORMAL for catalogue gaps only.
+      No fallback rescues a free account; nothing here can.
+"""
+
+from __future__ import annotations
+
+import argparse
+import json
+import os
+import re
+import subprocess
+import sys
+import tempfile
+from pathlib import Path
+from typing import Any
+
+CREDENTIALS = Path.home() / "Library/Application Support/Zotify/credentials.json"
+EMBED = "https://open.spotify.com/embed/track/{}"
+UA = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 Safari/537.36"
+NEXT_DATA = re.compile(
+    r'<script id="__NEXT_DATA__" type="application/json">(.*?)</script>', re.S
+)
+CHUNK = 64 * 1024
+
+
+def _reexec_under_zotify_venv() -> None:
+    """Re-run this script under the venv that owns librespot, if needed."""
+    try:
+        import librespot  # noqa: F401
+    except ImportError:
+        venv = Path.home() / ".local/share/uv/tools/zotify/bin/python"
+        if venv.exists() and os.environ.get("_SPOTIFY_DL_REEXEC") != "1":
+            os.environ["_SPOTIFY_DL_REEXEC"] = "1"
+            os.execv(str(venv), [str(venv), os.path.abspath(__file__), *sys.argv[1:]])
+        sys.exit(
+            "librespot is not importable. Install it with:\n"
+            "  uv tool install git+https://github.com/zotify-dev/zotify.git"
+        )
+
+
+_reexec_under_zotify_venv()
+
+import requests  # noqa: E402
+from librespot.audio.decoders import AudioQuality, VorbisOnlyAudioQuality  # noqa: E402
+from librespot.core import Session  # noqa: E402
+from librespot.metadata import TrackId  # noqa: E402
+
+
+def parse_track_id(ref: str) -> str:
+    """Accept a full URL, a spotify:track: uri, or a bare base62 id."""
+    ref = ref.strip()
+    if m := re.search(r"track[/:]([A-Za-z0-9]{22})", ref):
+        return m.group(1)
+    if re.fullmatch(r"[A-Za-z0-9]{22}", ref):
+        return ref
+    raise SystemExit(f"Not a Spotify track reference: {ref!r}")
+
+
+def fetch_metadata(track_id: str) -> dict[str, Any]:
+    """Read title/artists/date/artwork from the embed page's __NEXT_DATA__."""
+    resp = requests.get(EMBED.format(track_id), headers={"User-Agent": UA}, timeout=30)
+    resp.raise_for_status()
+    match = NEXT_DATA.search(resp.text)
+    if not match:
+        raise SystemExit("Embed page had no __NEXT_DATA__ block; layout changed?")
+    entity = json.loads(match.group(1))["props"]["pageProps"]["state"]["data"]["entity"]
+    images = entity.get("visualIdentity", {}).get("image", [])
+    cover = max(images, key=lambda i: i.get("maxWidth", 0))["url"] if images else None
+    return {
+        "title": entity["name"],
+        "artists": [a["name"] for a in entity.get("artists", [])],
+        "duration_ms": entity.get("duration"),
+        "date": (entity.get("releaseDate") or {}).get("isoString", "")[:10],
+        "cover": cover,
+    }
+
+
+def open_session() -> Session:
+    if not CREDENTIALS.is_file():
+        raise SystemExit(f"No credentials at {CREDENTIALS}. Run: spotify-dl --login")
+    conf = Session.Configuration.Builder().set_store_credentials(False).build()
+    return Session.Builder(conf).stored_file(str(CREDENTIALS)).create()
+
+
+def login() -> None:
+    """Browser OAuth flow. Spotify killed librespot's password login."""
+    CREDENTIALS.parent.mkdir(parents=True, exist_ok=True)
+    conf = (
+        Session.Configuration.Builder()
+        .set_stored_credential_file(str(CREDENTIALS))
+        .build()
+    )
+    Session.Builder(conf).oauth(lambda url: subprocess.run(["open", url])).create()
+    print(f"Credentials saved to {CREDENTIALS}")
+
+
+def fetch_audio(session: Session, track_id: str, quality: str | None) -> bytes:
+    """Pull the raw OGG stream, degrading quality rather than failing."""
+    order = [AudioQuality.VERY_HIGH, AudioQuality.HIGH, AudioQuality.NORMAL]
+    if quality:
+        order = [AudioQuality[quality.upper()]]
+    track = TrackId.from_base62(track_id)
+    last: Exception | None = None
+    for level in order:
+        try:
+            stream = session.content_feeder().load(
+                track, VorbisOnlyAudioQuality(level), False, None
+            )
+        except Exception as exc:  # noqa: BLE001 - any failure means try lower
+            last = exc
+            continue
+        total = stream.input_stream.size
+        source = stream.input_stream.stream()
+        buf = bytearray()
+        while len(buf) < total:
+            data = source.read(min(CHUNK, total - len(buf)))
+            if not data:
+                break
+            buf += data
+        print(f"  audio: {level.name}, {len(buf) / 1_048_576:.1f} MiB", file=sys.stderr)
+        return bytes(buf)
+    raise SystemExit(f"Could not open any audio stream: {last}")
+
+
+def transcode(raw: bytes, dest: Path, bitrate: str) -> None:
+    with tempfile.NamedTemporaryFile(suffix=".ogg", delete=False) as tmp:
+        tmp.write(raw)
+        tmp_path = Path(tmp.name)
+    try:
+        subprocess.run(
+            [
+                "ffmpeg",
+                "-y",
+                "-hide_banner",
+                "-loglevel",
+                "error",
+                "-i",
+                str(tmp_path),
+                "-c:a",
+                "libmp3lame",
+                "-b:a",
+                bitrate,
+                str(dest),
+            ],
+            check=True,
+        )
+    finally:
+        tmp_path.unlink(missing_ok=True)
+
+
+def tag(dest: Path, meta: dict[str, Any]) -> None:
+    import music_tag
+
+    f = music_tag.load_file(str(dest))
+    f["title"] = meta["title"]
+    f["artist"] = ", ".join(meta["artists"])
+    f["album"] = meta["title"]
+    if meta["date"]:
+        f["year"] = meta["date"][:4]
+    if meta["cover"]:
+        art = requests.get(meta["cover"], headers={"User-Agent": UA}, timeout=30)
+        if art.ok:
+            f["artwork"] = art.content
+    f.save()
+
+
+def main() -> None:
+    ap = argparse.ArgumentParser(description=__doc__.splitlines()[0])
+    ap.add_argument("track", nargs="?", help="Spotify track URL, uri, or id")
+    ap.add_argument("--login", action="store_true", help="run the browser OAuth flow")
+    ap.add_argument("-o", "--outdir", default=str(Path.home() / "Downloads"))
+    ap.add_argument("--quality", choices=["normal", "high", "very_high"])
+    ap.add_argument("--bitrate", default="320k")
+    args = ap.parse_args()
+
+    if args.login:
+        login()
+        return
+    if not args.track:
+        ap.error("give a track reference, or --login")
+
+    track_id = parse_track_id(args.track)
+    meta = fetch_metadata(track_id)
+    artists = ", ".join(meta["artists"]) or "Unknown Artist"
+    print(f"{artists} - {meta['title']}", file=sys.stderr)
+
+    session = open_session()
+    raw = fetch_audio(session, track_id, args.quality)
+
+    safe = re.sub(r"[/:\\]", "-", f"{artists} - {meta['title']}")
+    dest = Path(args.outdir).expanduser() / f"{safe}.mp3"
+    dest.parent.mkdir(parents=True, exist_ok=True)
+    transcode(raw, dest, args.bitrate)
+    tag(dest, meta)
+
+    expected = (meta["duration_ms"] or 0) / 1000
+    probe = subprocess.run(
+        [
+            "ffprobe",
+            "-v",
+            "quiet",
+            "-show_entries",
+            "format=duration",
+            "-of",
+            "csv=p=0",
+            str(dest),
+        ],
+        capture_output=True,
+        text=True,
+    )
+    actual = float(probe.stdout.strip() or 0)
+    flag = "" if abs(actual - expected) < 2 else "  <-- LENGTH MISMATCH"
+    print(f"{dest}\n  {actual:.1f}s (Spotify says {expected:.1f}s){flag}")
+
+
+if __name__ == "__main__":
+    main()
