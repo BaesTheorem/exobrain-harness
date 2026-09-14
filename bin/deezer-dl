@@ -1,0 +1,329 @@
+#!/usr/bin/env python3
+"""Download a track from Deezer, given a Deezer or a Spotify link.
+
+Exists because Spotify cannot be downloaded on a free account: librespot refuses
+free accounts as upstream policy, so bin/spotify-dl needs Premium. Deezer's free
+tier does grant streaming rights, so a Spotify link is resolved to the matching
+Deezer track and pulled from there instead.
+
+Auth is the `arl` cookie from a logged-in Deezer session. Resolution order is
+$DEEZER_ARL, then DEEZER_ARL in the harness .env, then a live extraction from
+Chrome. The cookie is a full account credential: never print it, never commit it.
+
+Deezer serves the stream Blowfish-encrypted on every third 2048-byte block, with
+a per-track key derived from the MD5 of the track id, so the download is
+decrypted here rather than by a third-party tool.
+
+INVARIANTS
+    - Never writes the ARL to stdout, to a tracked file, or to an error message.
+    - Free accounts get MP3_128; MP3_320 is requested first and falls back when
+      the licence rejects it, so quality degrades instead of failing.
+    - A Spotify source link is matched to Deezer by title AND duration within
+      DURATION_TOLERANCE seconds, so a same-title cover cannot be served
+      silently in place of the track that was asked for.
+"""
+
+from __future__ import annotations
+
+import argparse
+import hashlib
+import json
+import os
+import re
+import subprocess
+import sys
+import tempfile
+from pathlib import Path
+from typing import Any
+
+import requests
+from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes
+
+HARNESS_ENV = Path(__file__).resolve().parent.parent / ".env"
+GW = "https://www.deezer.com/ajax/gw-light.php"
+GET_URL = "https://media.deezer.com/v1/get_url"
+EMBED = "https://open.spotify.com/embed/track/{}"
+UA = (
+    "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) "
+    "AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0 Safari/537.36"
+)
+NEXT_DATA = re.compile(
+    r'<script id="__NEXT_DATA__" type="application/json">(.*?)</script>', re.S
+)
+SECRET = b"g4el58wc0zvf9na1"
+IV = bytes(range(8))
+BLOCK = 2048
+DURATION_TOLERANCE = 4
+
+
+def get_arl() -> str:
+    """Find the Deezer arl cookie. Never log what this returns."""
+    if arl := os.environ.get("DEEZER_ARL"):
+        return arl.strip()
+    if HARNESS_ENV.is_file():
+        for line in HARNESS_ENV.read_text().splitlines():
+            if line.startswith("DEEZER_ARL="):
+                return line.split("=", 1)[1].strip().strip("\"'")
+    with tempfile.TemporaryDirectory() as tmp:
+        jar = Path(tmp) / "jar.txt"
+        subprocess.run(
+            [
+                "yt-dlp",
+                "--cookies-from-browser",
+                "chrome",
+                "--cookies",
+                str(jar),
+                "--simulate",
+                "--skip-download",
+                "https://www.deezer.com/",
+            ],
+            capture_output=True,
+        )
+        if jar.is_file():
+            for line in jar.read_text().splitlines():
+                parts = line.rstrip("\n").split("\t")
+                if len(parts) == 7 and parts[5] == "arl":
+                    return parts[6]
+    raise SystemExit(
+        "No Deezer arl cookie. Log in at deezer.com in Chrome, or set DEEZER_ARL."
+    )
+
+
+def session_for(arl: str) -> tuple[requests.Session, str, str]:
+    """Return (session, api_token, license_token) for a logged-in Deezer user."""
+    s = requests.Session()
+    s.headers.update({"User-Agent": UA, "Accept-Language": "en-US,en;q=0.9"})
+    s.cookies.set("arl", arl, domain=".deezer.com")
+    r = s.get(
+        GW,
+        params={
+            "method": "deezer.getUserData",
+            "input": "3",
+            "api_version": "1.0",
+            "api_token": "",
+        },
+        timeout=30,
+    )
+    r.raise_for_status()
+    data = r.json().get("results", {})
+    user = data.get("USER", {})
+    opts = user.get("OPTIONS", {}) or {}
+    if not user.get("USER_ID") or user.get("USER_ID") == 0:
+        raise SystemExit("arl cookie is not logged in. Re-log in at deezer.com.")
+    licence = opts.get("license_token")
+    if not licence:
+        raise SystemExit("Session has no license_token; account cannot stream.")
+    print(f"Deezer user {user['USER_ID']} ({data.get('OFFER_NAME')})", file=sys.stderr)
+    return s, data["checkForm"], licence
+
+
+def spotify_meta(track_id: str) -> dict[str, Any]:
+    """Title/artists/duration from Spotify's embed endpoint (no API key)."""
+    r = requests.get(EMBED.format(track_id), headers={"User-Agent": UA}, timeout=30)
+    r.raise_for_status()
+    m = NEXT_DATA.search(r.text)
+    if not m:
+        raise SystemExit("Spotify embed page changed shape; cannot read metadata.")
+    e = json.loads(m.group(1))["props"]["pageProps"]["state"]["data"]["entity"]
+    return {
+        "title": e["name"],
+        "artists": [a["name"] for a in e.get("artists", [])],
+        "seconds": round((e.get("duration") or 0) / 1000),
+    }
+
+
+def resolve_on_deezer(meta: dict[str, Any]) -> str:
+    """Find the Deezer id for a Spotify track, matching title AND duration."""
+    artist = meta["artists"][0] if meta["artists"] else ""
+    query = f"{artist} {meta['title']}".strip()
+    r = requests.get(
+        "https://api.deezer.com/search",
+        params={"q": query},
+        headers={"User-Agent": UA},
+        timeout=30,
+    )
+    r.raise_for_status()
+    want = meta["title"].casefold()
+    for hit in r.json().get("data", []):
+        same_title = hit["title"].casefold() == want
+        close = abs(hit["duration"] - meta["seconds"]) <= DURATION_TOLERANCE
+        if same_title and close:
+            return str(hit["id"])
+    raise SystemExit(
+        f"No Deezer match for {query!r} at ~{meta['seconds']}s. "
+        "A same-title cover is not accepted as a substitute."
+    )
+
+
+def track_data(s: requests.Session, api_token: str, track_id: str) -> dict[str, Any]:
+    r = s.post(
+        GW,
+        params={
+            "method": "song.getData",
+            "input": "3",
+            "api_version": "1.0",
+            "api_token": api_token,
+        },
+        json={"SNG_ID": str(track_id)},
+        timeout=30,
+    )
+    r.raise_for_status()
+    res = r.json().get("results", {})
+    if not res.get("TRACK_TOKEN"):
+        raise SystemExit(f"Deezer returned no track token for id {track_id}.")
+    return res
+
+
+def media_url(s: requests.Session, licence: str, token: str) -> tuple[str, str]:
+    """Best available stream URL. Free accounts fall back to MP3_128."""
+    errors = []
+    for fmt in ("MP3_320", "MP3_128"):
+        r = s.post(
+            GET_URL,
+            json={
+                "license_token": licence,
+                "media": [
+                    {
+                        "type": "FULL",
+                        "formats": [{"cipher": "BF_CBC_STRIPE", "format": fmt}],
+                    }
+                ],
+                "track_tokens": [token],
+            },
+            timeout=30,
+        )
+        entry = (r.json().get("data") or [{}])[0]
+        if entry.get("media"):
+            return entry["media"][0]["sources"][0]["url"], fmt
+        errors.append(f"{fmt}: {entry.get('errors')}")
+    raise SystemExit("No playable format for this account:\n  " + "\n  ".join(errors))
+
+
+def blowfish_key(track_id: str) -> bytes:
+    digest = hashlib.md5(str(track_id).encode()).hexdigest().encode()
+    return bytes(digest[i] ^ digest[i + 16] ^ SECRET[i] for i in range(16))
+
+
+def decrypt(payload: bytes, key: bytes) -> bytes:
+    """Every third 2048-byte block is Blowfish-CBC encrypted; the rest are plain."""
+    out = bytearray()
+    for index, start in enumerate(range(0, len(payload), BLOCK)):
+        chunk = payload[start : start + BLOCK]
+        if index % 3 == 0 and len(chunk) == BLOCK:
+            dec = Cipher(algorithms.Blowfish(key), modes.CBC(IV)).decryptor()
+            chunk = dec.update(chunk) + dec.finalize()
+        out += chunk
+    return bytes(out)
+
+
+def write_tagged(
+    raw: bytes, dest: Path, meta: dict[str, Any], cover: bytes | None
+) -> None:
+    with tempfile.TemporaryDirectory() as tmp:
+        src = Path(tmp) / "raw.mp3"
+        src.write_bytes(raw)
+        cmd = ["ffmpeg", "-y", "-hide_banner", "-loglevel", "error", "-i", str(src)]
+        if cover:
+            art = Path(tmp) / "cover.jpg"
+            art.write_bytes(cover)
+            cmd += [
+                "-i",
+                str(art),
+                "-map",
+                "0:a",
+                "-map",
+                "1",
+                "-disposition:v",
+                "attached_pic",
+            ]
+        cmd += [
+            "-c",
+            "copy",
+            "-id3v2_version",
+            "3",
+            "-metadata",
+            f"title={meta['title']}",
+            "-metadata",
+            f"artist={', '.join(meta['artists'])}",
+            "-metadata",
+            f"album={meta.get('album', meta['title'])}",
+            str(dest),
+        ]
+        subprocess.run(cmd, check=True)
+
+
+def main() -> None:
+    ap = argparse.ArgumentParser(description=__doc__.splitlines()[0])
+    ap.add_argument("link", help="Deezer track URL/id, or a Spotify track URL")
+    ap.add_argument("-o", "--outdir", default=str(Path.home() / "Downloads"))
+    args = ap.parse_args()
+
+    spotify = re.search(r"open\.spotify\.com/track/([A-Za-z0-9]{22})", args.link)
+    arl = get_arl()
+    s, api_token, licence = session_for(arl)
+
+    if spotify:
+        meta = spotify_meta(spotify.group(1))
+        print(
+            f"Spotify: {', '.join(meta['artists'])} - {meta['title']}", file=sys.stderr
+        )
+        track_id = resolve_on_deezer(meta)
+        print(f"matched Deezer track {track_id}", file=sys.stderr)
+    else:
+        found = re.search(r"(\d{6,})", args.link)
+        if not found:
+            raise SystemExit(f"Cannot read a track id from {args.link!r}")
+        track_id = found.group(1)
+        meta = {}
+
+    info = track_data(s, api_token, track_id)
+    meta = {
+        "title": info.get("SNG_TITLE") or meta.get("title", "Unknown"),
+        "artists": [info.get("ART_NAME")]
+        if info.get("ART_NAME")
+        else meta.get("artists", []),
+        "album": info.get("ALB_TITLE", ""),
+    }
+    url, fmt = media_url(s, licence, info["TRACK_TOKEN"])
+    print(f"format: {fmt}", file=sys.stderr)
+
+    resp = requests.get(url, headers={"User-Agent": UA}, timeout=120)
+    resp.raise_for_status()
+    audio = decrypt(resp.content, blowfish_key(info["SNG_ID"]))
+
+    cover = None
+    if picture := info.get("ALB_PICTURE"):
+        art = requests.get(
+            f"https://e-cdns-images.dzcdn.net/images/cover/{picture}/1000x1000.jpg",
+            headers={"User-Agent": UA},
+            timeout=30,
+        )
+        cover = art.content if art.ok else None
+
+    artists = ", ".join(a for a in meta["artists"] if a) or "Unknown Artist"
+    safe = re.sub(r"[/:\\]", "-", f"{artists} - {meta['title']}")
+    dest = Path(args.outdir).expanduser() / f"{safe}.mp3"
+    dest.parent.mkdir(parents=True, exist_ok=True)
+    write_tagged(audio, dest, meta, cover)
+
+    probe = subprocess.run(
+        [
+            "ffprobe",
+            "-v",
+            "quiet",
+            "-show_entries",
+            "format=duration",
+            "-of",
+            "csv=p=0",
+            str(dest),
+        ],
+        capture_output=True,
+        text=True,
+    )
+    print(
+        f"{dest}\n  {float(probe.stdout.strip() or 0):.1f}s, {dest.stat().st_size / 1e6:.1f} MB"
+    )
+
+
+if __name__ == "__main__":
+    main()
