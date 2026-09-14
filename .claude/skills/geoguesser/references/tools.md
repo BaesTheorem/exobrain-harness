@@ -140,6 +140,22 @@ handful of candidates, not for grid-scanning.
 
 ---
 
+## Elevation
+
+Both are free and keyless, and `geo elev` wraps the first.
+
+- **Open-Meteo elevation** [V] - `https://api.open-meteo.com/v1/elevation?latitude=a,b&longitude=c,d`.
+  Batches every point into one call. Roughly 90 m SRTM-class data, good to a few metres.
+- **USGS EPQS** [V] - `https://epqs.nationalmap.gov/v1/json?x=<lon>&y=<lat>&units=Feet&wkid=4326`.
+  1 m raster over the US, much finer, but one point per request. Use it to check a single
+  number once Open-Meteo has narrowed things.
+
+Elevation is the cheapest way to make a viewpoint hypothesis falsifiable, because the drop
+from a viewpoint to a landmark plus that landmark's depression in frame pins the focal
+length, and an implied field of view outside 15 to 110 degrees means the hypothesis is wrong.
+
+---
+
 ## Other imagery
 
 **Mapillary API v4** [V] — 2B+ crowdsourced geotagged street-level photos across 190+

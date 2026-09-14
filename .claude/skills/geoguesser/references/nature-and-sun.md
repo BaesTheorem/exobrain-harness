@@ -186,6 +186,29 @@ the vegetation rather than being averaged away.
 
 ---
 
+## Distant ranges lie about their height
+
+A summit's apparent rise above eye level is `atan(relief / distance)`, and the numbers are
+far smaller than intuition says. **A 14,000 ft peak seen from a 10,400 ft viewpoint 40 km
+away rises 1.6 degrees.** Under flat overcast and haze that reads as a low, rounded, blue
+ridge with no alpine character at all.
+
+| relief above your eye | at 20 km | at 40 km | at 60 km |
+|---|---|---|---|
+| 500 m | 1.4 deg | 0.7 deg | 0.5 deg |
+| 1000 m | 2.9 deg | 1.4 deg | 1.0 deg |
+| 1500 m | 4.3 deg | 2.1 deg | 1.4 deg |
+
+So **never infer a range's height, or "that is below treeline", from a distant profile.**
+Read the skyline for *shape* only. This error is expensive: on a South Park photo it turned
+the Mosquito Range, which carries several fourteeners, into "moderate rounded mountains,
+possibly Montana", and moved a correct region read into a four-way split.
+
+The corollary is that a wide basin view is almost always more compressed than it looks, so
+resist reading a scene as low-relief just because the far side looks gentle.
+
+---
+
 ## Sky and light
 
 - **Saharan Air Layer** — hot dry dust lofted 1 to 4 miles up, hazing skies and reddening

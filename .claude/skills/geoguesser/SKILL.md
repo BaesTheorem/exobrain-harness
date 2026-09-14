@@ -146,6 +146,14 @@ and region. Always run `geo where` on a final answer before committing to a coun
 in prose: it is a two-second check that catches a guess that landed in the wrong country.
 
 ```
+geo elev 39.41411,-105.75770 39.39140,-105.79054
+```
+Ground elevation at any number of points, batched, no key. This is what turns a "looks
+high above the valley" impression into a number, and it is how you falsify a candidate
+viewpoint: work out the drop to a landmark, compare it against the landmark's depression
+in frame, and see whether the implied field of view is one a real camera has.
+
+```
 geo overpass '<Overpass QL>'
 ```
 Narrow from partial clues. `[out:json]` is added automatically. This is how you turn "a
