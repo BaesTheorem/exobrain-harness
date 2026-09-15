@@ -6,7 +6,7 @@
     espn-tx swap "Chris Godwin" --for "Christian Watson"   # bench player in, starter out, one transaction
     espn-tx claim "Chris Brooks" [--drop "X"] # waiver claim (or free-agent add with --fa)
     espn-tx trade "Watson" "Nailor" --for "George Pickens" --with "Ayahuasca Rodgers"   # send a trade offer
-    espn-tx pending                           # this team's pending claims
+    espn-tx pending                           # claims and trades in flight, sent AND received
     espn-tx cancel <transaction id>
 
 Every write verifies the result with a read. --dry-run prints the payload.
@@ -42,7 +42,8 @@ def main() -> int:
     w = EspnWriter(api)
     if args.cmd == "pending":
         for t in w.pending():
-            print(json.dumps({k: t.get(k) for k in ("id", "type", "status", "scoringPeriodId", "items")}, indent=1))
+            print(json.dumps({k: t.get(k) for k in
+                              ("id", "type", "status", "direction", "scoringPeriodId", "items")}, indent=1))
         return 0
     if args.cmd == "cancel":
         print(json.dumps(w.cancel(args.id), indent=1)[:800])

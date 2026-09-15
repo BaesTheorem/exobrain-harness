@@ -214,3 +214,30 @@ def test_short_status_and_signed():
     assert cli.short_status("INJURY_RESERVE") == "IR"
     assert cli.signed(-0.0) == "+0.0"
     assert cli.signed(None) == "-"
+
+
+def test_pending_sees_an_incoming_trade_offer():
+    """The bug this pins: pending() matched only `teamId == ours`.
+
+    On a pending row `teamId` is the team that PROPOSED it, so every incoming
+    offer was invisible and the list came back empty. Empty reads as "nothing
+    in flight", which is what the routines and the never-drop-a-player-in-a-
+    trade guard act on, so the failure was silent in the direction that loses
+    a player. Found live 2026-09-14 with a Kenneth Walker III offer sitting in
+    the queue while the command printed nothing.
+    """
+    from espncli.tx import EspnWriter
+
+    api = FakeEspn()
+    incoming = {"id": "in-1", "type": "TRADE_PROPOSAL", "status": "PENDING", "teamId": 1,
+                "items": [{"playerId": 100, "fromTeamId": 1, "toTeamId": 12},
+                          {"playerId": 200, "fromTeamId": 12, "toTeamId": 1}]}
+    outgoing = {"id": "out-1", "type": "TRADE_PROPOSAL", "status": "PENDING", "teamId": 12,
+                "items": [{"playerId": 300, "fromTeamId": 12, "toTeamId": 14}]}
+    elsewhere = {"id": "other-1", "type": "TRADE_PROPOSAL", "status": "PENDING", "teamId": 3,
+                 "items": [{"playerId": 400, "fromTeamId": 3, "toTeamId": 14}]}
+    api.data = {"pendingTransactions": [incoming, outgoing, elsewhere]}
+
+    got = EspnWriter(api).pending()
+    assert [t["id"] for t in got] == ["in-1", "out-1"], "an offer we did not send is still ours to answer"
+    assert [t["direction"] for t in got] == ["in", "out"]
