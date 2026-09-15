@@ -18,6 +18,9 @@ INVARIANTS:
   list alone would re-create every draft on the next run.
 - Luma is the source of truth. This only ever creates on the Meetup side; it does not edit or
   delete, so a hand-edited Meetup listing is never clobbered.
+- Meetup caps a title at 80 characters where Luma does not, so titles are shortened on the way
+  over. The shortened form is what dedup and drift matching compare, because it is what Meetup
+  stores; comparing the raw Luma name would re-create the event on every run.
 - Because it cannot delete, a Luma cancellation would otherwise leave a live Meetup listing
   standing and members would turn up to nothing. Every run therefore reports drift: Meetup
   events with no matching future Luma event. Acting on that is a person's call, since
@@ -53,6 +56,27 @@ VENUES = {
     "Pawn and Pint": "25910726",               # 613 Walnut St, not the old Southwest Blvd record
 }
 
+# Meetup rejects a longer title with "title: The Meetup title is too long". Probed against the
+# live API: 80 characters is accepted, 81 is not.
+MEETUP_TITLE_MAX = 80
+
+
+def meetup_title(name: str) -> str:
+    """Fit a Luma event name into Meetup's 80-character title field.
+
+    A trailing parenthetical on these events is a subtitle, as in "The AI Does Not Hate You
+    (a briefing on current events ...)", so dropping it leaves the name members recognize.
+    Nothing is lost either way: when this shortens a title, the full Luma name is written into
+    the description body.
+    """
+    if len(name) <= MEETUP_TITLE_MAX:
+        return name
+    without_subtitle = re.sub(r"\s*\([^()]*\)\s*$", "", name).strip()
+    if without_subtitle and len(without_subtitle) <= MEETUP_TITLE_MAX:
+        return without_subtitle
+    kept = (without_subtitle or name)[:MEETUP_TITLE_MAX - 3].rsplit(" ", 1)[0]
+    return kept.rstrip(" ,;:-") + "..."
+
 
 def luma_events(limit: int = 100) -> list[dict]:
     url = (f"https://api.luma.com/calendar/get-items?calendar_api_id={CALENDAR}"
@@ -66,7 +90,8 @@ def luma_events(limit: int = 100) -> list[dict]:
         end = datetime.fromisoformat(ev["end_at"].replace("Z", "+00:00")).astimezone(CT)
         out.append({
             "slug": ev["url"],
-            "title": ev["name"],
+            "title": meetup_title(ev["name"]),
+            "luma_title": ev["name"],
             "start": start,
             "minutes": int((end - start).total_seconds() // 60),
             "venue": (ev.get("geo_address_info") or {}).get("address"),
@@ -191,7 +216,10 @@ def main() -> int:
         return 0
 
     for ev in pending:
-        body = f"Also on Luma: https://luma.com/{ev['slug']}\n\n{bodies[ev['slug']]}".strip()
+        head = f"Also on Luma: https://luma.com/{ev['slug']}"
+        if ev["title"] != ev["luma_title"]:
+            head += f"\n\n{ev['luma_title']}"
+        body = f"{head}\n\n{bodies[ev['slug']]}".strip()
         cmd = ["create-event", GROUP, "--title", ev["title"],
                "--start", ev["start"].strftime("%Y-%m-%dT%H:%M"),
                "--duration", f"PT{ev['minutes']}M",
