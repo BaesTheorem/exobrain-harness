@@ -205,7 +205,12 @@ def simulate(teams, games, reg, sims, sigma, tau, seed, actuals=None):
         np.add.at(playoffs, s[:, k], 1)
         if k < BYES:
             np.add.at(top2, s[:, k], 1)
-    return ids, mu, wins, losses, pf, {
+    # Final regular-season finishing place, 1..n, per simulated season. Kept
+    # separate from the win count because rank is what the league table shows
+    # and what the bye and the playoff cut are actually drawn on: a 7-win
+    # season can finish 3rd or 9th depending on everyone else.
+    ranks = seed_of + 1
+    return ids, mu, wins, losses, pf, ranks, {
         "champ": champ / sims, "bye": top2 / sims, "playoffs": playoffs / sims,
         "seed1": first / sims, "last": last / sims, "most_pf": most_pf / sims}
 
@@ -242,24 +247,25 @@ def main():
     for i, (_tid, t) in enumerate(sorted(teams.items(), key=lambda kv: -kv[1]["espn"]), 1):
         print(f"| {i} | {t['name']} | {t['espn']:.0f} | {t['espn'] / NFL_WEEKS:.1f} |")
 
-    ids, mu, wins, losses, pf, probs = simulate(
+    ids, mu, wins, losses, pf, ranks, probs = simulate(
         teams, games, reg, args.sims, args.sigma, args.tau, args.seed, actuals)
     played = f"weeks 1-{max(actuals)} played" if actuals else "preseason, nothing played"
     print(f"\n## Season simulation ({args.sims:,} seasons; {played}; "
           f"sigma_week={args.sigma}, tau_season={args.tau}; "
           f"{reg} weeks, {PLAYOFF_TEAMS} playoff teams, {BYES} byes, no reseeding)\n")
-    print("| Team | Proj/wk | Wins mean | 50% CI | 90% CI | PF mean | PF 90% CI | Playoffs | Bye | #1 seed | Champion | Most PF | Last |")
-    print("|---|---|---|---|---|---|---|---|---|---|---|---|---|")
+    print("| Team | Wins (50% CI) | Wins (90% CI) | Finish (50% CI) | Finish (90% CI) "
+          "| Playoffs | Bye | Title |")
+    print("|---|---|---|---|---|---|---|---|")
     rows = []
     for i, tid in enumerate(ids):
-        w = wins[:, i]
-        rows.append((teams[tid]["name"], mu[i], w.mean(), ci(w, 25, 75), ci(w, 5, 95), pf[:, i].mean(),
-                     ci(pf[:, i], 5, 95), probs["playoffs"][i], probs["bye"][i], probs["seed1"][i],
-                     probs["champ"][i], probs["most_pf"][i], probs["last"][i]))
-    for r in sorted(rows, key=lambda r: -r[10]):
-        nm, m, wm, (a, b), (c, d), pm, (e, f), pp, pb, p1, pc, ppf, pl = r
-        print(f"| {nm} | {m:.1f} | {wm:.1f} | {a:.0f}-{b:.0f} | {c:.0f}-{d:.0f} | {pm:.0f} | {e:.0f}-{f:.0f} "
-              f"| {pp:.0%} | {pb:.0%} | {p1:.0%} | {pc:.1%} | {ppf:.0%} | {pl:.0%} |")
+        w, r = wins[:, i], ranks[:, i]
+        rows.append((teams[tid]["name"], w.mean(), ci(w, 25, 75), ci(w, 5, 95),
+                     np.median(r), ci(r, 25, 75), ci(r, 5, 95),
+                     probs["playoffs"][i], probs["bye"][i], probs["champ"][i]))
+    for nm, wm, (a, b), (c, d), rmed, (ra, rb), (rc, rd), pp, pb, pc in sorted(rows, key=lambda x: -x[9]):
+        print(f"| {nm} | {wm:.1f} ({a:.0f}-{b:.0f}) | {c:.0f}-{d:.0f} "
+              f"| {rmed:.0f} ({ra:.0f}-{rb:.0f}) | {rc:.0f}-{rd:.0f} "
+              f"| {pp:.0%} | {pb:.0%} | {pc:.0%} |")
     json.dump({"names": [teams[t]["name"] for t in ids], "mu": mu.tolist(),
                "probs": {k: v.tolist() for k, v in probs.items()}},
               open(HERE / "draftbot" / "season_sim_latest.json", "w"), indent=1)
