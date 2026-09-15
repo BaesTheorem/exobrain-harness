@@ -689,7 +689,16 @@ def cmd_activity(api: Espn, args: argparse.Namespace) -> None:
     for t in topics:
         for m in t.get("messages", []):
             mt = m.get("messageTypeId")
-            team = m.get("to") if mt in (178, 180) else m.get("from")
+            # Which field carries the team depends on the message type, and the
+            # wrong one silently renders a lineup slot id as a team name. Adds
+            # (178/180) put the team in "to"; a drop (239) puts it in "for" and
+            # uses "from" for the slot the player vacated, so reading "from"
+            # there turned bench slot 20 into the team "20" (2026-09-15, first
+            # real moves in the feed; cross-checked against mTransactions2).
+            # Slot ids and team ids overlap, so take the first candidate that
+            # resolves to a team we know rather than trusting position.
+            order = ("to", "for", "from") if mt in (178, 180) else ("for", "from", "to")
+            team = next((m.get(k) for k in order if m.get(k) in names), m.get("from"))
             out.append({"date": local(m.get("date") or t.get("date")), "type": mt,
                         "action": ACTIVITY.get(mt, f"type {mt}"),
                         "team": names.get(team, str(team)),
