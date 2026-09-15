@@ -1,129 +1,152 @@
 {
- "updated": "2026-09-12",
- "players": [
-  {
-   "id": 4426354,
-   "name": "George Pickens",
-   "pos": "WR",
-   "nfl": 6,
-   "why": "the target of two expired offers (Watson + Nailor): e7d4703d died 9/9 10:18 PM, bf660050 died 9/12 12:35 PM, both unanswered; the manager has never been in the room",
-   "trigger": "any roster move by Ayahuasca Rodgers means the manager is active: ping Alex; a third send only on his tap (asked 9/12 1:50 PM: re-send now / wait for Tuesday / drop it)",
-   "added": "2026-09-07"
-  },
-  {
-   "id": 4596448,
-   "name": "Bucky Irving",
-   "pos": "RB",
-   "nfl": 27,
-   "why": "BUY flag (volume, unlucky on TDs); Irving-for-Stevenson was dead even on ESPN's screen",
-   "trigger": "after week 2, if his touches hold at 15+ a game and his owner is 0-2, put the offer to Alex",
-   "added": "2026-09-07"
-  },
-  {
-   "id": 4241389,
-   "name": "CeeDee Lamb",
-   "pos": "WR",
-   "nfl": 6,
-   "why": "BUY flag: 9.0 targets a game, 25% share, 3 TDs last year; on Goedel, Escher, Butkus",
-   "trigger": "two touchdown-less weeks on maintained volume: week-3 buy-low candidate",
-   "added": "2026-09-07"
-  },
-  {
-   "id": 4262921,
-   "name": "Justin Jefferson",
-   "pos": "WR",
-   "nfl": 16,
-   "why": "BUY flag: 8.3 targets, 31% share, 2 TDs; on Waiting for Gordon",
-   "trigger": "same trigger as Lamb; price will be high, needs a two-for-one",
-   "added": "2026-09-07"
-  },
-  {
-   "id": 16737,
-   "name": "Mike Evans",
-   "pos": "WR",
-   "nfl": 25,
-   "why": "BUY flag: 7.8 targets, 24% share, 3 TDs; on Goedel, Escher, Butkus",
-   "trigger": "cleared the adductor and practiced full 2026-09-08, so health has raised his price; the buy-low needs two touchdown-less weeks on maintained volume, week-3 scan",
-   "added": "2026-09-07"
-  },
-  {
-   "id": 4569587,
-   "name": "Wan'Dale Robinson",
-   "pos": "WR",
-   "nfl": 10,
-   "why": "BUY flag: 8.8 targets, 30% share; on The Winners (the league's weakest roster)",
-   "trigger": "a losing owner with a volume receiver is the ideal week-3 counterpart",
-   "added": "2026-09-07"
-  },
-  {
-   "id": 3149687,
-   "name": "Chris Brooks",
-   "pos": "RB",
-   "nfl": 9,
-   "why": "claim failed 2026-09-09 for lack of roster space (Vele took the open spot); still a free agent, one of Green Bay's top three backs with Jacobs on the exempt list, but no established touches",
-   "trigger": "free-agent add only on a snap-share signal: 50%+ of the Green Bay backfield makes him a real flex and worth a drop-add, under 40% in a three-way split is noise. 70.6 season projection is below every bench player we hold, so no speculative add",
-   "added": "2026-09-07"
-  },
-  {
-   "id": 4429023,
-   "name": "MarShawn Lloyd",
-   "pos": "RB",
-   "nfl": 9,
-   "why": "the other Packers back, on Goedel, Escher, Butkus",
-   "trigger": "whichever of Lloyd and Brooks gets the touches is the buy; the other is noise",
-   "added": "2026-09-07"
-  },
-  {
-   "id": 4047365,
-   "name": "Josh Jacobs",
-   "pos": "RB",
-   "nfl": 9,
-   "why": "commissioner's exempt list (charged, denies); on The Oprah Winfreys",
-   "trigger": "reinstatement with the role intact = buy-low from a frustrated owner; ask Alex",
-   "added": "2026-09-07"
-  },
-  {
-   "id": 4569559,
-   "name": "Devaughn Vele",
-   "pos": "WR",
-   "nfl": 18,
-   "why": "rostered 2026-09-09 off waivers (123.2 season projection, best receiver on the wire); absorbing the New Orleans target share our IR'd Tyson vacated",
-   "trigger": "on our bench. Promote to a starting WR or FLEX only on a role signal: a target share at or above 20% over two weeks, or a starter's role slipping. If his snap share stays under 50% through week 4 he is the first drop when a better wire receiver appears",
-   "added": "2026-09-07"
-  },
-  {
-   "id": 3886598,
-   "name": "Jauan Jennings",
-   "pos": "WR",
-   "nfl": 16,
-   "why": "free agent with the most volume on the wire (6.0 targets on 82% snaps) despite a SELL flag on 9 TDs",
-   "trigger": "a week of 8+ targets: claim as depth, volume beats the flag",
-   "added": "2026-09-07"
-  },
-  {
-   "id": 4568490,
-   "name": "RJ Harvey",
-   "pos": "RB",
-   "nfl": 7,
-   "why": "ours; SELL flag (12 TDs on 42% snaps)",
-   "trigger": "a two-touchdown game: sell high the following Tuesday",
-   "added": "2026-09-07"
-  },
-  {
-   "id": 4880281,
-   "name": "Jordyn Tyson",
-   "pos": "WR",
-   "nfl": 18,
-   "why": "ours, IR designated to return (hamstring, ~mid-October)",
-   "trigger": "when his practice window opens, decide activation on the role, not the injury",
-   "added": "2026-09-07"
-  }
- ],
- "teams": [
-  {
-   "id": 14,
-   "name": "Ayahuasca Rodgers",
-   "why": "absent manager; any roster move means the standing offer can land"
-  }
- ]
+  "updated": "2026-09-15",
+  "players": [
+    {
+      "id": 4426354,
+      "name": "George Pickens",
+      "pos": "WR",
+      "nfl": 6,
+      "why": "target of two expired offers (Watson + Nailor): e7d4703d died 9/9 10:18 PM, bf660050 died 9/12 12:35 PM, both unanswered. Week 1: 3 of 6 targets, 28 yards, 5.8, so his price is at its low while Watson's 32.7 is at its high, which is the best the 2-for-1 will ever look to a recency-biased manager. Rest of season he projects 234.1 vs Watson 156.3, and Nailor's 119.2 is unrealizable bench value",
+      "trigger": "re-raised to Alex 9/15 with week 1 data; a third send is still his tap alone. Any roster move by Ayahuasca Rodgers means the manager is finally active: ping Alex immediately, because that is the only real evidence an offer can land",
+      "added": "2026-09-07"
+    },
+    {
+      "id": 4596448,
+      "name": "Bucky Irving",
+      "pos": "RB",
+      "nfl": 27,
+      "why": "was a BUY flag (volume, unlucky on TDs); Irving-for-Stevenson was dead even on ESPN's screen. Week 1 closed that window: 20.3 points and national 'RB1 upside' coverage, so the market has repriced him upward, not down",
+      "trigger": "the 9/7 trigger is void: it required his owner to be 0-2 and KC Breathmints are 1-0. Re-open only on the actual buy-low shape, two quiet weeks on maintained touches. Buying him now is paying the premium this entry existed to avoid",
+      "added": "2026-09-07"
+    },
+    {
+      "id": 4241389,
+      "name": "CeeDee Lamb",
+      "pos": "WR",
+      "nfl": 6,
+      "why": "BUY flag: 9.0 targets a game, 25% share, 3 TDs last year; on Goedel, Escher, Butkus",
+      "trigger": "two touchdown-less weeks on maintained volume: week-3 buy-low candidate",
+      "added": "2026-09-07"
+    },
+    {
+      "id": 4262921,
+      "name": "Justin Jefferson",
+      "pos": "WR",
+      "nfl": 16,
+      "why": "BUY flag: 8.3 targets, 31% share, 2 TDs; on Waiting for Gordon",
+      "trigger": "same trigger as Lamb; price will be high, needs a two-for-one",
+      "added": "2026-09-07"
+    },
+    {
+      "id": 16737,
+      "name": "Mike Evans",
+      "pos": "WR",
+      "nfl": 25,
+      "why": "BUY flag: 7.8 targets, 24% share, 3 TDs; on Goedel, Escher, Butkus",
+      "trigger": "cleared the adductor and practiced full 2026-09-08, so health has raised his price; the buy-low needs two touchdown-less weeks on maintained volume, week-3 scan",
+      "added": "2026-09-07"
+    },
+    {
+      "id": 4569587,
+      "name": "Wan'Dale Robinson",
+      "pos": "WR",
+      "nfl": 10,
+      "why": "BUY flag: 8.8 targets, 30% share; on The Winners (the league's weakest roster)",
+      "trigger": "a losing owner with a volume receiver is the ideal week-3 counterpart",
+      "added": "2026-09-07"
+    },
+    {
+      "id": 3149687,
+      "name": "Chris Brooks",
+      "pos": "RB",
+      "nfl": 9,
+      "why": "claim failed 2026-09-09 for lack of roster space (Vele took the open spot); still a free agent, one of Green Bay's top three backs with Jacobs on the exempt list, but no established touches",
+      "trigger": "free-agent add only on a snap-share signal: 50%+ of the Green Bay backfield makes him a real flex and worth a drop-add, under 40% in a three-way split is noise. 70.6 season projection is below every bench player we hold, so no speculative add",
+      "added": "2026-09-07"
+    },
+    {
+      "id": 4429023,
+      "name": "MarShawn Lloyd",
+      "pos": "RB",
+      "nfl": 9,
+      "why": "the other Packers back, on Goedel, Escher, Butkus",
+      "trigger": "whichever of Lloyd and Brooks gets the touches is the buy; the other is noise",
+      "added": "2026-09-07"
+    },
+    {
+      "id": 4047365,
+      "name": "Josh Jacobs",
+      "pos": "RB",
+      "nfl": 9,
+      "why": "commissioner's exempt list; pleaded no contest 9/10 to misdemeanor battery and criminal damage, and per Schefter the NFL may count time on the list as time served. Still on The Oprah Winfreys, 0.0 in week 1 and projected 0.0 for week 2",
+      "trigger": "reinstatement with the role intact = buy-low from a frustrated owner; ask Alex. His owner is already visibly desperate at RB (see the Oprah Winfreys team entry), so a reinstatement is as likely to make them hold as to make them sell",
+      "added": "2026-09-07"
+    },
+    {
+      "id": 4569559,
+      "name": "Devaughn Vele",
+      "pos": "WR",
+      "nfl": 18,
+      "why": "ours, rostered 9/9 off waivers, absorbing the New Orleans target share our IR'd Tyson vacated. Week 1 confirmed the role: 7 of 9 targets, 69 yards and a TD, 19.9",
+      "trigger": "NOT a drop candidate any more; the 9/7 line calling him the first drop was written before a snap of his had been seen. Nine targets is a role. Promote to WR2 or FLEX on a second week at or above 20% target share, and re-read if the share falls under 15% for two straight weeks",
+      "added": "2026-09-07"
+    },
+    {
+      "id": 3886598,
+      "name": "Jauan Jennings",
+      "pos": "WR",
+      "nfl": 16,
+      "why": "WAS on the list as the highest-volume receiver on the wire (6.0 targets on 82% snaps), but that was his 2025 role in San Francisco. In Minnesota in week 1 he drew ONE target and caught none, 0.0 points, in a 39-22 win. The volume thesis that put him here is refuted by the only week of evidence that bears on it",
+      "trigger": "do NOT claim on his 114.8 season projection, which is priced on the old role. Needs 6+ targets in a single week to become interesting again; if week 2 is another 1-2 target game, delete this entry",
+      "added": "2026-09-07"
+    },
+    {
+      "id": 4568490,
+      "name": "RJ Harvey",
+      "pos": "RB",
+      "nfl": 7,
+      "why": "ours; SELL flag (12 TDs on 42% snaps last year). Week 1 made the flag worse, not better: THREE carries, 8.1 points earned mostly on four catches and four kick returns. His 149.6 season projection is the softest number on our bench",
+      "trigger": "sell high on any two-touchdown game, the following Tuesday. Separately, if he is still under 8 carries a game at week 4, stop treating him as protected RB depth and let him be the drop ahead of players projected below him",
+      "added": "2026-09-07"
+    },
+    {
+      "id": 4880281,
+      "name": "Jordyn Tyson",
+      "pos": "WR",
+      "nfl": 18,
+      "why": "ours, IR designated to return (hamstring, ~mid-October)",
+      "trigger": "when his practice window opens, decide activation on the role, not the injury",
+      "added": "2026-09-07"
+    },
+    {
+      "id": 4696044,
+      "name": "Kaelon Black",
+      "pos": "RB",
+      "nfl": 8,
+      "why": "our pending week 2 claim (in for Keaton Mitchell), filed on the role signal rather than the projection: 14 carries and 65 yards in week 1 behind a San Francisco offense implied for 29.5 this week. 113.8 season projection",
+      "trigger": "claim processes Wednesday ~2:00 AM; the Wednesday lineup routine logs the result. If it lands, he is RB4 insurance, not a starter. Promote only on 12+ carries a game for two straight weeks",
+      "added": "2026-09-15"
+    },
+    {
+      "id": 4869645,
+      "name": "Caleb Douglas",
+      "pos": "WR",
+      "nfl": 6,
+      "why": "the receiver we passed over for Black this week despite a bigger swap (+27.7 vs +19.9): 5 of 7 targets for 94 yards in week 1, 15.6% rostered and rising. Passed because he would be our WR6 and because a WR add puts us at nine WR against a position limit of eight while Tyson sits on IR",
+      "trigger": "claim him if he posts a second 7+ target week AND either Tyson is activated off IR or the IR-counts-toward-position-limits question is settled in our favour. Our 17-entry roster against everyone else's 16 suggests IR is excluded, but that is an inference, not a measurement",
+      "added": "2026-09-15"
+    }
+  ],
+  "teams": [
+    {
+      "id": 14,
+      "name": "Ayahuasca Rodgers",
+      "why": "absent manager; any roster move means the standing offer can land"
+    },
+    {
+      "id": 1,
+      "name": "The Oprah Winfreys",
+      "why": "the live trade lane. They offered Jonah Coleman for Kenneth Walker III at 10:04 PM on 9/14, minutes after Walker's 34.1 closed the Monday nighter, and they are starving at RB: Jacobs 0.0 on the exempt list, Cook 9.9, and a 97.6 week 1 that was the second-lowest winning score in the league. Our RB room is the deepest part of our roster and Trades wants us selling into exactly this need. They will open well below market, so counter rather than dismiss"
+    }
+  ]
 }
