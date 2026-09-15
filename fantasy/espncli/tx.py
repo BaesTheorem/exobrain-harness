@@ -29,13 +29,23 @@ WRITES = "https://lm-api-writes.fantasy.espn.com/apis/v3/games/ffl"
 FALLBACK = "https://fantasy.espn.com/apis/v3/games/ffl"
 
 
+def _slot_name(slot: int | None) -> str | int | None:
+    """SLOT.get, tolerant of the None that slot_of returns for an unrostered player.
+
+    Kept rather than asserting non-None: a verify read that cannot find the
+    player is exactly the case these dicts are reporting on, so it has to
+    survive long enough to come back "verified": false.
+    """
+    return None if slot is None else SLOT.get(slot, slot)
+
+
 class EspnWriter:
     def __init__(self, api: Espn | None = None):
         self.api = api or Espn()
         self.team_id = int(self.api.creds["team_id"])
 
     def _post(self, body: dict[str, Any]) -> Any:
-        last: Exception | None = None
+        last: BaseException | None = None
         for base in (WRITES, FALLBACK):
             url = (f"{base}/seasons/{self.api.season}/segments/0/leagues/"
                    f"{self.api.league_id}/transactions/")
@@ -86,8 +96,8 @@ class EspnWriter:
             return {"dry_run": body}
         resp = self._post(body)
         now = self.slot_of(player_id)
-        return {"from": SLOT.get(frm, frm), "to": SLOT.get(to_slot, to_slot),
-                "verified": now == to_slot, "now": SLOT.get(now, now), "response": resp}
+        return {"from": _slot_name(frm), "to": _slot_name(to_slot),
+                "verified": now == to_slot, "now": _slot_name(now), "response": resp}
 
     def swap(self, in_id: int, out_id: int, dry_run: bool = False) -> dict[str, Any]:
         """Bench player in, starter out, in ONE transaction.
@@ -111,8 +121,8 @@ class EspnWriter:
             return {"dry_run": body}
         resp = self._post(body)
         now_in, now_out = self.slot_of(in_id), self.slot_of(out_id)
-        return {"slot": SLOT.get(out_slot, out_slot), "verified": now_in == out_slot and now_out == BENCH,
-                "in_now": SLOT.get(now_in, now_in), "out_now": SLOT.get(now_out, now_out), "response": resp}
+        return {"slot": _slot_name(out_slot), "verified": now_in == out_slot and now_out == BENCH,
+                "in_now": _slot_name(now_in), "out_now": _slot_name(now_out), "response": resp}
 
     # ---- adds and claims -------------------------------------------------
 
@@ -151,9 +161,37 @@ class EspnWriter:
                 "status": mine[0].get("status") if mine else None, "response": resp}
 
     def pending(self) -> list[dict[str, Any]]:
+        """Everything in flight that involves this team, sent OR received.
+
+        The obvious filter, `teamId == team_id`, is wrong and was wrong from
+        the start (found 2026-09-14). `teamId` on a pending row is the team
+        that *proposed* it, so an incoming trade offer carries the other
+        manager's id and this method returned nothing while a live offer for
+        Kenneth Walker III sat in the queue. That is the dangerous shape of
+        bug: an empty list reads as "nothing in flight" instead of "I only
+        looked at half the league".
+
+        It was load-bearing in two places. The routines treat an empty
+        `espn-tx pending` as proof no trade is in review, and COMMON.md's
+        never-drop-a-player-in-a-trade guard reads this list before a waiver
+        drop, so a Tuesday claim could have voided an offer nobody knew about.
+
+        So match on participation: we proposed it, or one of its items moves a
+        player to or from us. `direction` is added for the caller's benefit
+        ("in" needs Alex's tap, "out" is ours and cancellable).
+        """
         data = self.api.league("mPendingTransactions")
-        return [t for t in data.get("pendingTransactions", []) or []
-                if t.get("teamId") == self.team_id]
+        out = []
+        for t in data.get("pendingTransactions", []) or []:
+            items = t.get("items") or []
+            party = any(i.get("fromTeamId") == self.team_id
+                        or i.get("toTeamId") == self.team_id for i in items)
+            if t.get("teamId") != self.team_id and not party:
+                continue
+            t = dict(t)
+            t["direction"] = "out" if t.get("teamId") == self.team_id else "in"
+            out.append(t)
+        return out
 
     def cancel(self, transaction_id: str) -> dict[str, Any]:
         """Cancel one pending claim, verified by it leaving the pending list.
