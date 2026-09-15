@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+  <key>Label</key><string>com.exobrain.chat-watch</string>
+  <!-- python is spawned directly, never through a shell wrapper: under launchd
+       /bin/sh cannot read scripts inside ~/Documents (exit 126, empty log)
+       while a direct interpreter spawn runs fine. -->
+  <key>ProgramArguments</key>
+  <array>
+    <string>/opt/homebrew/bin/python3</string>
+    <string>/Users/alexhedtke/Documents/Exobrain harness/fantasy/bin/chat-watch</string>
+  </array>
+  <key>EnvironmentVariables</key>
+  <dict>
+    <!-- .local/bin first so shutil.which finds the claude CLI. -->
+    <key>PATH</key><string>/Users/alexhedtke/.local/bin:/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin</string>
+    <!-- USER and LOGNAME are load-bearing, not decoration: Claude Code keeps its
+         OAuth token in the login Keychain and that lookup fails with
+         "Not logged in" when USER is absent. Verified 2026-09-14. -->
+    <key>USER</key><string>alexhedtke</string>
+    <key>LOGNAME</key><string>alexhedtke</string>
+    <key>HOME</key><string>/Users/alexhedtke</string>
+  </dict>
+  <key>StartInterval</key><integer>600</integer>
+  <key>RunAtLoad</key><false/>
+  <key>StandardOutPath</key><string>/Users/alexhedtke/Library/Logs/exobrain/chat-watch.log</string>
+  <key>StandardErrorPath</key><string>/Users/alexhedtke/Library/Logs/exobrain/chat-watch.log</string>
+</dict>
+</plist>

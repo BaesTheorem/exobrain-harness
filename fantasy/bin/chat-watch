@@ -1,0 +1,216 @@
+#!/usr/bin/env python3
+"""chat-watch: answer new ESPN Fantasy Chat messages with a headless Claude.
+
+Runs every 10 minutes from launchd (com.exobrain.chat-watch). Each run asks
+`espn chat --unanswered` which threads end with somebody else's message, drops
+the ones already handled, and if any remain invokes `claude -p` on
+fantasy/routines/chat.md, which decides whether to reply and sends through
+`espn-tx chat`. A quiet league produces one log line and no Claude call.
+
+    chat-watch [--max-per-day 6] [--dry-run] [--force]
+
+INVARIANTS
+  - State is keyed by MESSAGE ID, never by timestamp. Clocks, caches and
+    launchd's wake-replay all move; a message id does not. Anything already in
+    the handled set is never answered twice, which is the failure that actually
+    costs something here because it lands in a friend's inbox.
+  - The daily cap is enforced HERE, before Claude is invoked, not inside the
+    prompt. A prompt is a request; a counter is a limit. If the cap is spent,
+    the messages are still marked handled, so a quiet day does not release a
+    backlog of stale replies the next morning.
+  - Claude is invoked with a WALL-CLOCK TIMEOUT and its own working directory.
+    A hung model must not wedge a launchd job that fires every 10 minutes.
+  - The claude binary is resolved with shutil.which, never pinned. Pinned paths
+    under ~/.local/share/claude/versions break on every update.
+"""
+
+from __future__ import annotations
+
+import argparse
+import datetime
+import json
+import os
+import shutil
+import subprocess
+import sys
+from pathlib import Path
+
+FANTASY = Path(__file__).resolve().parent.parent
+HARNESS = FANTASY.parent
+STATE = FANTASY / ".cache" / "chat-watch.json"
+PROMPT = FANTASY / "routines" / "chat.md"
+NOTIFY = HARNESS / "mist-voice" / "bin" / "mist-notify"
+
+MODEL = "claude-fable-5-1"  # fantasy routines run on Fable; see the playbook
+CLAUDE_TIMEOUT = 600
+
+
+class ClaudeUnavailable(RuntimeError):
+    """Claude never got to think: no auth, no credits. Distinct from "no reply needed"."""
+
+
+def log(msg: str) -> None:
+    print(f"[{datetime.datetime.now():%Y-%m-%d %H:%M:%S}] {msg}", flush=True)
+
+
+def load_state() -> dict:
+    try:
+        return json.loads(STATE.read_text())
+    except (OSError, json.JSONDecodeError):
+        return {"handled": [], "sent_by_day": {}}
+
+
+def save_state(state: dict) -> None:
+    STATE.parent.mkdir(exist_ok=True)
+    # Unbounded growth is the only way this file misbehaves, and a season is
+    # a few hundred messages, so keep a generous tail rather than all of it.
+    state["handled"] = state["handled"][-500:]
+    tmp = STATE.with_suffix(".tmp")
+    tmp.write_text(json.dumps(state, indent=1))
+    os.replace(tmp, STATE)
+
+
+def unanswered_messages() -> list[dict]:
+    """The newest message of every thread somebody else spoke in last."""
+    out = subprocess.run(
+        [str(FANTASY / "bin" / "espn"), "chat", "--unanswered", "--fresh", "--json"],
+        capture_output=True, text=True, timeout=180, check=False, cwd=HARNESS,
+    )
+    if out.returncode != 0:
+        log(f"espn chat failed rc={out.returncode}: {out.stderr.strip()[:200]}")
+        return []
+    try:
+        threads = json.loads(out.stdout or "[]")
+    except json.JSONDecodeError:
+        log("espn chat returned unparseable JSON")
+        return []
+    latest = []
+    for t in threads:
+        if t.get("messages"):
+            m = dict(t["messages"][-1])
+            m["topic"] = t["id"]
+            m["with"] = t.get("with") or []
+            latest.append(m)
+    return latest
+
+
+def notify(text: str) -> None:
+    if NOTIFY.exists():
+        subprocess.run([str(NOTIFY), text, "Fantasy Chat", "none", "console",
+                        "--group", "fantasy", "--id", "chat-watch"],
+                       capture_output=True, check=False)
+
+
+def run_claude(pending: list[dict], dry_run: bool) -> bool:
+    claude = shutil.which("claude")
+    if not claude:
+        log("claude not on PATH; cannot answer")
+        return False
+    summary = "\n".join(
+        f"- thread {m['topic']} with {', '.join(m['with']) or 'league'}: "
+        f"{m['who']} at {m['at']}: {m['content'][:200]}"
+        for m in pending
+    )
+    prompt = (
+        f"{PROMPT.read_text()}\n\n---\n\n"
+        f"New messages waiting on a reply as of {datetime.datetime.now():%Y-%m-%d %H:%M}:\n"
+        f"{summary}\n\nDecide and act now."
+    )
+    if dry_run:
+        log(f"DRY RUN, would invoke claude with {len(pending)} message(s):\n{summary}")
+        return False
+    try:
+        r = subprocess.run(
+            [claude, "-p", prompt, "--model", MODEL, "--permission-mode", "bypassPermissions"],
+            capture_output=True, text=True, timeout=CLAUDE_TIMEOUT, check=False, cwd=HARNESS,
+        )
+    except subprocess.TimeoutExpired:
+        log(f"claude timed out after {CLAUDE_TIMEOUT}s; messages marked handled anyway")
+        notify("Fantasy Chat reply timed out. Check the thread by hand.")
+        return False
+    out = (r.stdout or "") + (r.stderr or "")
+    log(f"claude rc={r.returncode}: {out.strip()[-600:]}")
+
+    # Distinguish "Claude ran and chose not to reply" (fine, rc 0) from "Claude
+    # never got to think" (not fine). The second kind must NOT mark the message
+    # handled, or an outage silently eats a real conversation. Verified live
+    # 2026-09-14: a stripped environment reports "Not logged in" because the
+    # Keychain lookup needs USER, and an exhausted model budget reports "out of
+    # usage credits". Both look like a clean no-op from the outside.
+    lowered = out.lower()
+    for signal, why in (("not logged in", "Claude is not authenticated"),
+                        ("out of usage credits", "the model budget is exhausted"),
+                        ("please run /login", "Claude is not authenticated")):
+        if signal in lowered:
+            log(f"INFRASTRUCTURE FAILURE: {why}; leaving messages unhandled")
+            notify(f"Fantasy Chat could not reply: {why}.")
+            raise ClaudeUnavailable(why)
+    return r.returncode == 0
+
+
+def main() -> int:
+    ap = argparse.ArgumentParser()
+    ap.add_argument("--max-per-day", type=int, default=6)
+    ap.add_argument("--max-age-hours", type=float, default=24.0,
+                    help="ignore messages older than this (default 24)")
+    ap.add_argument("--dry-run", action="store_true")
+    ap.add_argument("--force", action="store_true",
+                    help="answer even messages already marked handled")
+    args = ap.parse_args()
+
+    state = load_state()
+    handled = set(state["handled"])
+    today = datetime.date.today().isoformat()
+    sent_today = int(state["sent_by_day"].get(today, 0))
+
+    fresh = unanswered_messages()
+    unseen = [m for m in fresh
+              if args.force or (m.get("id") and m["id"] not in handled)]
+
+    # An old message is not a conversation, it is history. The first dry run
+    # wanted to answer a week-old "Hi" in the league chat, which is exactly the
+    # kind of reply that makes an assistant look broken rather than present.
+    # Stale ones are marked handled so they never come back.
+    cutoff_ms = (datetime.datetime.now().timestamp() - args.max_age_hours * 3600) * 1000
+    pending = [m for m in unseen if (m.get("date") or 0) >= cutoff_ms]
+    stale = [m for m in unseen if m not in pending]
+    if stale:
+        log(f"ignoring {len(stale)} message(s) older than {args.max_age_hours}h")
+        if not args.dry_run:
+            state["handled"].extend(m["id"] for m in stale if m.get("id"))
+            save_state(state)
+
+    if not pending:
+        log("nothing waiting")
+        return 0
+
+    log(f"{len(pending)} message(s) waiting; {sent_today}/{args.max_per_day} used today")
+
+    if sent_today >= args.max_per_day:
+        # Mark handled regardless. Releasing a day's backlog tomorrow morning
+        # would be worse than missing it: the context is stale and the volume
+        # is exactly what the cap exists to prevent.
+        log("daily cap reached; marking handled without answering")
+        notify(f"{len(pending)} chat message(s) went unanswered: daily cap reached.")
+        state["handled"].extend(m["id"] for m in pending if m.get("id"))
+        save_state(state)
+        return 0
+
+    try:
+        ok = run_claude(pending, args.dry_run)
+    except ClaudeUnavailable:
+        # Deliberately no state write: these messages stay pending so the next
+        # run answers them once the outage clears.
+        return 1
+    if args.dry_run:
+        return 0
+
+    state["handled"].extend(m["id"] for m in pending if m.get("id"))
+    state["sent_by_day"][today] = sent_today + 1
+    state["sent_by_day"] = {d: n for d, n in state["sent_by_day"].items() if d >= today}
+    save_state(state)
+    return 0 if ok else 1
+
+
+if __name__ == "__main__":
+    sys.exit(main())
