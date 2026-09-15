@@ -23,6 +23,7 @@ import urllib.error
 import urllib.request
 from typing import Any
 
+from . import chat
 from .client import BENCH, IR, SLOT, SLOT_BY_NAME, UA, Espn, EspnError
 
 WRITES = "https://lm-api-writes.fantasy.espn.com/apis/v3/games/ffl"
@@ -44,11 +45,11 @@ class EspnWriter:
         self.api = api or Espn()
         self.team_id = int(self.api.creds["team_id"])
 
-    def _post(self, body: dict[str, Any]) -> Any:
+    def _post(self, body: dict[str, Any], path: str = "/transactions/") -> Any:
         last: BaseException | None = None
         for base in (WRITES, FALLBACK):
             url = (f"{base}/seasons/{self.api.season}/segments/0/leagues/"
-                   f"{self.api.league_id}/transactions/")
+                   f"{self.api.league_id}{path}")
             h = {"User-Agent": UA, "Accept": "application/json",
                  "Content-Type": "application/json",
                  "Origin": "https://fantasy.espn.com",
@@ -192,6 +193,51 @@ class EspnWriter:
             t["direction"] = "out" if t.get("teamId") == self.team_id else "in"
             out.append(t)
         return out
+
+    def chat_send(self, topic_id: str, text: str, dry_run: bool = False) -> dict[str, Any]:
+        """Post to a Fantasy Chat thread, splitting over ESPN's length cap.
+
+        Verified by reading the thread back and confirming each chunk appears
+        exactly once. A 201 per chunk only says the request was accepted; it
+        does not say the thread reads correctly, and a partial send (chunk 1
+        posted, chunk 2 rejected) is the failure that actually matters because
+        it leaves half a sentence in somebody's inbox.
+        """
+        chunks = chat.split_message(text)
+        if not chunks:
+            raise EspnError("nothing to send")
+        if dry_run:
+            return {"topic": topic_id, "chunks": chunks, "sent": False}
+
+        sent, failed = [], []
+        for chunk in chunks:
+            body = {"author": str(self.api.creds["SWID"]), "content": chunk,
+                    "topicId": topic_id, "messageTypeId": 0}
+            try:
+                self._post(body, path=f"/communication/topics/{topic_id}/messages")
+                sent.append(chunk)
+            except EspnError as e:
+                failed.append({"chunk": chunk, "error": str(e)})
+                break  # stop rather than scatter the rest out of order
+
+        posted = self._chat_contents(topic_id)
+        missing = [c for c in sent if posted.count(c) != 1]
+        return {
+            "topic": topic_id,
+            "chunks": len(chunks),
+            "sent": len(sent),
+            "failed": failed,
+            "verified": not failed and not missing,
+            "missing_or_duplicated": missing,
+        }
+
+    def _chat_contents(self, topic_id: str) -> list[str]:
+        """Message bodies currently in a thread, read fresh for verification."""
+        api = Espn(fresh=True)
+        for t in chat.fetch(api):
+            if t["id"] == topic_id:
+                return [m["content"] for m in t["messages"]]
+        return []
 
     def cancel(self, transaction_id: str) -> dict[str, Any]:
         """Cancel one pending claim, verified by it leaving the pending list.

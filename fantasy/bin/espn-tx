@@ -36,6 +36,7 @@ def main() -> int:
     p.add_argument("--with", dest="team", required=True, help="the other team's name (or part of it)")
     sub.add_parser("pending")
     p = sub.add_parser("cancel"); p.add_argument("id")
+    p = sub.add_parser("chat"); p.add_argument("topic"); p.add_argument("text", nargs="+")
     args = ap.parse_args()
 
     api = Espn()
@@ -47,6 +48,13 @@ def main() -> int:
         return 0
     if args.cmd == "cancel":
         print(json.dumps(w.cancel(args.id), indent=1)[:800])
+        return 0
+    if args.cmd == "chat":
+        res = w.chat_send(args.topic, " ".join(args.text), dry_run=args.dry_run)
+        print(json.dumps(res, indent=1, default=str))
+        if not args.dry_run and not res.get("verified"):
+            print("NOT VERIFIED: the thread read-back does not match what was sent.", file=sys.stderr)
+            return 1
         return 0
     if args.cmd == "trade":
         data = api.league("mTeam")

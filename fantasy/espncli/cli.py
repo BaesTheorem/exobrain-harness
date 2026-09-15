@@ -26,6 +26,7 @@ import sys
 from datetime import datetime
 from typing import Any
 
+from espncli import chat
 from espncli.client import (
     BENCH,
     IR,
@@ -1041,6 +1042,26 @@ def cmd_stream(api: Espn, args: argparse.Namespace) -> None:
     emit(args, rows, render)
 
 
+def cmd_chat(api: Espn, args: argparse.Namespace) -> None:
+    threads = chat.fetch(api)
+    if args.unanswered:
+        threads = chat.unanswered(threads)
+    if args.json:
+        print(json.dumps(threads, indent=2))
+        return
+    if not threads:
+        print("No chat threads." if not args.unanswered else "Nothing waiting on a reply.")
+        return
+    for t in threads:
+        who = ", ".join(t["with"]) or "league"
+        print(f"\n{t['type']} with {who}  [{t['id']}]")
+        for m in t["messages"][-args.n:]:
+            print(f"  {m['at']}  {m['who']:<24} {m['content']}")
+    if args.unanswered:
+        print("\nThey spoke last in every thread above. Reply with:"
+              "\n  espn-tx chat <topic id> \"your message\"")
+
+
 def cmd_raw(api: Espn, args: argparse.Namespace) -> None:
     if args.url:
         headers = api._auth() if "lm-api-reads.fantasy.espn.com" in args.url else None  # noqa: SLF001 -- same package, debugging escape hatch
@@ -1110,6 +1131,10 @@ def build_parser() -> argparse.ArgumentParser:
     p = sub.add_parser("stream", parents=[common, wk], help="D/ST or K streamers with implied totals and weather")
     p.add_argument("--pos", default="DST", help="DST (default) or K")
     p.add_argument("-n", type=int, default=12)
+    p = sub.add_parser("chat", parents=[common], help="Fantasy Chat: league chat and direct messages")
+    p.add_argument("-n", type=int, default=12, help="messages to show per thread")
+    p.add_argument("--unanswered", action="store_true",
+                   help="only threads where somebody else spoke last")
     p = sub.add_parser("raw", parents=[common], help="raw API JSON for building new features")
     p.add_argument("--views", default="mSettings", help="comma-separated ESPN views")
     p.add_argument("--period", type=int, help="scoringPeriodId")
@@ -1124,7 +1149,8 @@ COMMANDS = {
     "teams": cmd_teams, "team": cmd_team, "matchup": cmd_matchup, "scoreboard": cmd_scoreboard,
     "check": cmd_check, "fa": cmd_fa, "player": cmd_player, "news": cmd_news,
     "activity": cmd_activity, "draft": cmd_draft, "schedule": cmd_schedule, "settings": cmd_settings,
-    "nfl": cmd_nfl, "injuries": cmd_injuries, "stream": cmd_stream, "raw": cmd_raw,
+    "nfl": cmd_nfl, "injuries": cmd_injuries, "stream": cmd_stream, "chat": cmd_chat,
+    "raw": cmd_raw,
 }
 
 
