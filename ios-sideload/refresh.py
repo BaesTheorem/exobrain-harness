@@ -1,17 +1,18 @@
 #!/usr/bin/env python3
-"""Keep free-personal-team iOS sideloads alive on the phone.
+"""Keep iOS sideloads alive on the phone.
 
-Apple signs apps from a free Apple Developer account for exactly 7 days. When
-the embedded provisioning profile expires the app stays on the home screen but
-refuses to launch, which is a silent failure: you find out when you tap it and
-it bounces. Paying $99/yr fixes it; so does rebuilding and reinstalling before
-the deadline, which is all this does.
+A provisioning profile has a life: 7 days on a free Apple Developer account, a
+year on the paid program. When it expires the app stays on the home screen but
+refuses to launch, and nothing says why, so you find out when you tap it and it
+bounces. Rebuilding and reinstalling before the deadline restarts that clock,
+which is all this does. Alex moved to the paid program on 2026-09-01, which
+retired the twice-daily launchd agent on 2026-09-15; run this by hand now.
 
 Every piece of that is non-interactive, which is what makes the automation
 possible at all:
 
-  * `xcodebuild -allowProvisioningUpdates` mints a fresh 7-day profile against
-    the saved Xcode account without a 2FA prompt (verified 2026-08-23).
+  * `xcodebuild -allowProvisioningUpdates` mints a fresh profile against the
+    saved Xcode account without a 2FA prompt (verified 2026-08-23).
   * `devicectl` reaches the phone over the local-network tunnel once it has
     been paired for network connection, so nothing has to be plugged in.
 
@@ -468,7 +469,7 @@ def main() -> int:
         names = ", ".join(n for n, _ in refreshed)
         soonest = min(e for _, e in refreshed if e)
         notify(
-            f"Refreshed {names}. Signed for another 7 days, good until {soonest:%b %-d}.",
+            f"Refreshed {names}. Good until {soonest:%b %-d, %Y}.",
             "Sideloads refreshed", "Purr", "console",
         )
     if failed:
