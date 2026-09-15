@@ -259,3 +259,4 @@ kcurbex/secrets/*
 !kcurbex/secrets/README.md
 kcurbex/data/*
 !kcurbex/data/README.md
+mist-confetti/build/
