@@ -34,7 +34,7 @@ import numpy as np
 
 HERE = pathlib.Path(__file__).resolve().parent
 sys.path.insert(0, str(HERE))
-from espncli.client import Espn, season_proj, team_name  # noqa: E402
+from espncli.client import Espn, season_proj, team_name, week_actual  # noqa: E402
 
 POS = {1: "QB", 2: "RB", 3: "WR", 4: "TE", 5: "K", 16: "D/ST"}
 LINEUP = {"QB": 1, "RB": 2, "WR": 2, "TE": 1, "D/ST": 1, "K": 1}
@@ -103,7 +103,53 @@ def board_scores(teams):
             for team, ps in picks.items()}
 
 
-def simulate(teams, games, reg, sims, sigma, tau, seed):
+def load_actuals(season, week):
+    """Every team's real starter total for one completed week.
+
+    Summed from the lineups rather than read from ESPN's own `totalPoints`,
+    which sits at 0.0 until ESPN closes a week. The week that just finished is
+    therefore invisible in the standings for the better part of a day, and a
+    simulator that trusted that field would silently run preseason numbers
+    while looking like it had folded results in.
+    """
+    cl = Espn(fresh=True)
+    data = cl.league("mTeam", "mRoster", "mMatchup", period=week)
+    out = {}
+    for t in data["teams"]:
+        total = 0.0
+        for e in (t.get("roster") or {}).get("entries", []):
+            if e.get("lineupSlotId") in (20, 21):  # bench, IR
+                continue
+            total += week_actual(e["playerPoolEntry"]["player"], season, week) or 0.0
+        out[t["id"]] = round(total, 2)
+    return out
+
+
+def completed_weeks(season, games, reg, explicit=None):
+    """Weeks whose results should be treated as fact, plus their scores.
+
+    A week counts as complete only when EVERY team with a matchup in it has a
+    nonzero total. Half a week of real scores mixed into a simulation is worse
+    than none: it would fold in the early games and quietly zero out whoever
+    plays Monday night.
+    """
+    if explicit == 0:
+        return {}
+    actuals = {}
+    for w in range(1, reg + 1):
+        playing = {t for wk, h, a in games if wk == w for t in (h, a)}
+        if not playing:
+            continue
+        scores = load_actuals(season, w)
+        if any(scores.get(t, 0.0) <= 0.0 for t in playing):
+            break
+        actuals[w] = scores
+        if explicit is not None and w >= explicit:
+            break
+    return actuals
+
+
+def simulate(teams, games, reg, sims, sigma, tau, seed, actuals=None):
     ids = sorted(teams)
     idx = {tid: i for i, tid in enumerate(ids)}
     n = len(ids)
@@ -114,8 +160,16 @@ def simulate(teams, games, reg, sims, sigma, tau, seed):
     wins = np.zeros((sims, n))
     losses = np.zeros((sims, n))
     pf = np.zeros((sims, n))
+    actuals = actuals or {}
     for w, h, a in games:
-        hs, as_ = scores[:, w - 1, idx[h]], scores[:, w - 1, idx[a]]
+        if w in actuals:
+            # A played week is not a distribution. Overwrite the draws with the
+            # real numbers so every simulated season starts from what happened,
+            # and the remaining weeks are the only thing still uncertain.
+            hs = np.full(sims, actuals[w][h])
+            as_ = np.full(sims, actuals[w][a])
+        else:
+            hs, as_ = scores[:, w - 1, idx[h]], scores[:, w - 1, idx[a]]
         wins[:, idx[h]] += hs > as_
         wins[:, idx[a]] += as_ > hs
         losses[:, idx[h]] += hs < as_
@@ -168,9 +222,12 @@ def main():
     ap.add_argument("--tau", type=float, default=8.0, help="per-week roster-strength SD, drawn per season")
     ap.add_argument("--seed", type=int, default=1)
     ap.add_argument("--season", type=int, default=2026)
+    ap.add_argument("--through-week", type=int, default=None, metavar="N",
+                    help="treat weeks 1..N as played (default: auto-detect; 0 = preseason)")
     args = ap.parse_args()
 
     teams, games, reg = load(args.season)
+    actuals = completed_weeks(args.season, games, reg, args.through_week)
     board = board_scores(teams)
 
     print("## Scoreboard 1: our system (value over replacement by our board, from ESPN's pick record)\n")
@@ -185,8 +242,11 @@ def main():
     for i, (_tid, t) in enumerate(sorted(teams.items(), key=lambda kv: -kv[1]["espn"]), 1):
         print(f"| {i} | {t['name']} | {t['espn']:.0f} | {t['espn'] / NFL_WEEKS:.1f} |")
 
-    ids, mu, wins, losses, pf, probs = simulate(teams, games, reg, args.sims, args.sigma, args.tau, args.seed)
-    print(f"\n## Season simulation ({args.sims:,} seasons; sigma_week={args.sigma}, tau_season={args.tau}; "
+    ids, mu, wins, losses, pf, probs = simulate(
+        teams, games, reg, args.sims, args.sigma, args.tau, args.seed, actuals)
+    played = f"weeks 1-{max(actuals)} played" if actuals else "preseason, nothing played"
+    print(f"\n## Season simulation ({args.sims:,} seasons; {played}; "
+          f"sigma_week={args.sigma}, tau_season={args.tau}; "
           f"{reg} weeks, {PLAYOFF_TEAMS} playoff teams, {BYES} byes, no reseeding)\n")
     print("| Team | Proj/wk | Wins mean | 50% CI | 90% CI | PF mean | PF 90% CI | Playoffs | Bye | #1 seed | Champion | Most PF | Last |")
     print("|---|---|---|---|---|---|---|---|---|---|---|---|---|")
