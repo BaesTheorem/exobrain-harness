@@ -278,7 +278,7 @@
     "repo_dir": "/Users/alexhedtke/Documents/Exobrain harness/ios-sideload",
     "source": "built",
     "added": "2026-08-23",
-    "notes": "Rebuilds and wirelessly reinstalls free-team iOS sideloads before their 7-day provisioning profiles expire. --status/--discover/--force/--quiet. launchd com.exobrain.ios-sideload-refresh, 10:30 and 20:30."
+    "notes": "Rebuilds and wirelessly reinstalls iOS sideloads before their provisioning profiles expire. --status/--discover/--force/--quiet. Manual only: the twice-daily launchd agent was retired 2026-09-15 when the paid developer plan moved profiles from 7 days to a year."
   },
   {
     "name": "kcurbex",

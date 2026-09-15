@@ -1,6 +1,13 @@
 # iOS sideload refresher
 
-Keeps apps signed with a **free** Apple developer account alive on the iPhone.
+**The scheduled job was retired on 2026-09-15.** Alex joined the paid Apple
+Developer Program, so profiles now sign for a year instead of seven days, and
+the treadmill this was built to run no longer exists. The last bullet under
+Limits called it from the start. The script itself still works and is still the
+way to re-sign an app: it just runs by hand now, about once a year, or whenever
+an app stops opening.
+
+Keeps apps signed with an Apple developer account alive on the iPhone.
 
 Apple gives free-tier provisioning profiles a 7-day life. When one lapses the
 app stays on the home screen and simply refuses to open, so the failure is
@@ -13,9 +20,10 @@ pushes it back over WiFi, which restarts the 7-day clock.
     ./refresh.py --force      refresh everything now
     ./refresh.py --quiet      same, without the spoken notification
 
-Scheduled twice daily by `com.exobrain.ios-sideload-refresh` (10:30 and 20:30).
-Twice, because the laptop sleeps through scheduled jobs often enough that one
-attempt per day is not a safe margin. Logs to
+It ran twice daily under `com.exobrain.ios-sideload-refresh` (10:30 and 20:30)
+until 2026-09-15, twice because the laptop sleeps through scheduled jobs often
+enough that one attempt a day was not a safe margin. That agent is gone; run
+the script yourself. It still logs to
 `~/Library/Logs/exobrain/ios-sideload-refresh.log`.
 
 ## Setup
@@ -65,5 +73,5 @@ If it did not actually renew, the run fails loudly instead of pushing a dud.
 * Apps deleted from the phone stay deleted, unless the entry sets
   `alwaysInstall`. Use `--discover` to find sideloads with no config entry:
   those cannot be refreshed, usually because the source is gone.
-* This is a workaround for not paying for the Developer Program. The paid tier
-  signs for a year and makes the whole thing unnecessary.
+* This was a workaround for not paying for the Developer Program. The paid
+  tier signs for a year, which is what retired the schedule.

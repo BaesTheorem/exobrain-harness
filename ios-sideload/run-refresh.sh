@@ -1,6 +1,7 @@
 #!/bin/bash
 # Scheduled wrapper for refresh.py. See README.md.
-# Managed by launchd: com.exobrain.ios-sideload-refresh (10:30 and 20:30 local)
+# Ran under launchd com.exobrain.ios-sideload-refresh (10:30 and 20:30 local) until
+# 2026-09-15. The paid developer plan signs for a year, so it runs by hand now.
 export PATH="/opt/homebrew/bin:/usr/local/bin:$PATH"  # launchd has no Homebrew PATH; the app builds need xcodegen
 
 set -euo pipefail
