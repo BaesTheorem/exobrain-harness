@@ -41,7 +41,11 @@ STATE = FANTASY / ".cache" / "chat-watch.json"
 PROMPT = FANTASY / "routines" / "chat.md"
 NOTIFY = HARNESS / "mist-voice" / "bin" / "mist-notify"
 
-MODEL = "claude-fable-5-1"  # fantasy routines run on Fable; see the playbook
+# Tried in order. Fable first because the playbook puts fantasy routines there;
+# Opus 5 behind it because a spent Fable budget should not take the watcher down
+# for a day (Alex, 2026-09-14). The fallback fires ONLY on an exhausted budget,
+# never on an auth failure, since no model fixes a missing token.
+MODELS = ("claude-fable-5-1", "claude-opus-5")
 CLAUDE_TIMEOUT = 600
 
 
@@ -117,35 +121,48 @@ def run_claude(pending: list[dict], dry_run: bool) -> bool:
         f"{summary}\n\nDecide and act now."
     )
     if dry_run:
-        log(f"DRY RUN, would invoke claude with {len(pending)} message(s):\n{summary}")
+        log(f"DRY RUN, would invoke claude with {len(pending)} message(s) "
+            f"on {MODELS[0]} (falling back to {', '.join(MODELS[1:])}):\n{summary}")
         return False
-    try:
-        r = subprocess.run(
-            [claude, "-p", prompt, "--model", MODEL, "--permission-mode", "bypassPermissions"],
-            capture_output=True, text=True, timeout=CLAUDE_TIMEOUT, check=False, cwd=HARNESS,
-        )
-    except subprocess.TimeoutExpired:
-        log(f"claude timed out after {CLAUDE_TIMEOUT}s; messages marked handled anyway")
-        notify("Fantasy Chat reply timed out. Check the thread by hand.")
-        return False
-    out = (r.stdout or "") + (r.stderr or "")
-    log(f"claude rc={r.returncode}: {out.strip()[-600:]}")
 
-    # Distinguish "Claude ran and chose not to reply" (fine, rc 0) from "Claude
-    # never got to think" (not fine). The second kind must NOT mark the message
-    # handled, or an outage silently eats a real conversation. Verified live
-    # 2026-09-14: a stripped environment reports "Not logged in" because the
-    # Keychain lookup needs USER, and an exhausted model budget reports "out of
-    # usage credits". Both look like a clean no-op from the outside.
-    lowered = out.lower()
-    for signal, why in (("not logged in", "Claude is not authenticated"),
-                        ("out of usage credits", "the model budget is exhausted"),
-                        ("please run /login", "Claude is not authenticated")):
-        if signal in lowered:
+    for model in MODELS:
+        try:
+            r = subprocess.run(
+                [claude, "-p", prompt, "--model", model,
+                 "--permission-mode", "bypassPermissions"],
+                capture_output=True, text=True, timeout=CLAUDE_TIMEOUT,
+                check=False, cwd=HARNESS,
+            )
+        except subprocess.TimeoutExpired:
+            log(f"{model} timed out after {CLAUDE_TIMEOUT}s; messages marked handled anyway")
+            notify("Fantasy Chat reply timed out. Check the thread by hand.")
+            return False
+
+        out = (r.stdout or "") + (r.stderr or "")
+        log(f"{model} rc={r.returncode}: {out.strip()[-600:]}")
+        lowered = out.lower()
+
+        # Auth is not a model problem, so trying another one just burns a
+        # second call to reach the same wall. Fail immediately.
+        if "not logged in" in lowered or "please run /login" in lowered:
+            why = "Claude is not authenticated"
             log(f"INFRASTRUCTURE FAILURE: {why}; leaving messages unhandled")
             notify(f"Fantasy Chat could not reply: {why}.")
             raise ClaudeUnavailable(why)
-    return r.returncode == 0
+
+        # A spent budget IS per-model, which is the whole reason for the chain.
+        if "out of usage credits" in lowered or "usage limit" in lowered:
+            log(f"{model} budget exhausted; falling back")
+            continue
+
+        # Reached a model that could think. rc 0 with no reply sent is a
+        # legitimate outcome: most messages do not want an answer.
+        return r.returncode == 0
+
+    why = f"every model is out of credits ({', '.join(MODELS)})"
+    log(f"INFRASTRUCTURE FAILURE: {why}; leaving messages unhandled")
+    notify("Fantasy Chat could not reply: every model is out of credits.")
+    raise ClaudeUnavailable(why)
 
 
 def main() -> int:
@@ -156,7 +173,33 @@ def main() -> int:
     ap.add_argument("--dry-run", action="store_true")
     ap.add_argument("--force", action="store_true",
                     help="answer even messages already marked handled")
+    ap.add_argument("--self-test", action="store_true",
+                    help="exercise the model fallback chain and exit; sends nothing")
     args = ap.parse_args()
+
+    if args.self_test:
+        # Worth a flag rather than a one-off: the failure this catches (a spent
+        # budget, an expired token) is invisible until a real message arrives,
+        # and by then the reply is already late.
+        claude = shutil.which("claude")
+        if not claude:
+            log("claude not on PATH")
+            return 1
+        for model in MODELS:
+            r = subprocess.run(
+                [claude, "-p", "Reply with exactly: OK", "--model", model,
+                 "--permission-mode", "bypassPermissions"],
+                capture_output=True, text=True, timeout=CLAUDE_TIMEOUT,
+                check=False, cwd=HARNESS,
+            )
+            out = ((r.stdout or "") + (r.stderr or "")).strip()
+            healthy = r.returncode == 0 and "out of usage credits" not in out.lower()
+            log(f"{model}: {'OK' if healthy else 'UNAVAILABLE'} -- {out[:120]}")
+            if healthy:
+                log(f"chain healthy; replies would run on {model}")
+                return 0
+        log("NO MODEL AVAILABLE: the watcher would detect messages and not answer them")
+        return 1
 
     state = load_state()
     handled = set(state["handled"])
