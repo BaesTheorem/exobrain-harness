@@ -2,6 +2,23 @@
 
 Follow `fantasy/routines/COMMON.md` first.
 
+**Asking Alex from a routine: not `mist-ask` (found 2026-09-16).** Every "put it
+to Alex" below used to name `mist-ask`, which needs `$MIST_CONSOLE_SESSION` and
+exits nonzero without it. `run-routine.sh` does not set that variable, so
+**`mist-ask` fails in every routine run**, this one included. Use
+`mist-voice/bin/mist-notify` with `--action` buttons instead, each button a
+`cmd:` curl that POSTs the reply into the Console with no session id:
+
+```
+--action "Label=cmd:/usr/bin/curl -sS -X POST http://127.0.0.1:5014/notify-reply \
+  -H 'Content-Type: application/json' -d '{"text": "the reply Alex is sending"}'"
+```
+
+Then verify the banner actually carried the buttons by reading the last row of
+`~/Library/Logs/exobrain/notifications-history.jsonl` and checking its
+`actions` list, because a notification that silently lost its buttons looks
+identical to one that kept them. Measure the result, not the call.
+
 Read `fantasy/.cache/incidents.jsonl`. Handle every line whose `"handled"` is
 false, oldest first, then rewrite the file with those lines marked
 `"handled": true` (keep every line; the file is the audit trail).
@@ -17,9 +34,9 @@ false, oldest first, then rewrite the file with those lines marked
   touchdown luck, positional value in full PPR, the effect on our starting
   nine, and why the other manager wants it. Write the evaluation to the
   Season log. Then ask Alex and stop:
-  `mist-voice/bin/mist-ask "Trade offer from <team>: they get <X>, we get <Y>.
-  My read: <one line>." "Accept=accept the trade" "Reject=reject the trade"
-  "Counter=counter it"`. Never accept or reject yourself.
+  a `mist-notify` banner carrying Accept / Reject / Counter buttons built the
+  way the note at the top of this file describes. Never accept or reject
+  yourself.
 - **waiver_result.** Log the outcome (`fantasy/bin/ff roster`,
   `fantasy/bin/espn activity --json`). If the new player should start this
   week and a lock is within 6 hours, set him now; otherwise leave it for the
@@ -33,7 +50,8 @@ false, oldest first, then rewrite the file with those lines marked
   `relatedTransactionId` pointing at ours means it expired unanswered (the
   original keeps `status: PENDING`); otherwise the roster diff says whether
   it went through. Log it, and if it expired put the re-send to Alex with
-  `mist-ask` (Re-send now / Wait for Tuesday / Drop it). Never re-send on
+  buttons (Re-send now / Wait for Tuesday / Drop it), built the way the
+  note at the top of this file describes. Never re-send on
   your own.
   **If it went through, refill the slot it emptied, immediately and without
   asking** (standing authorization, 2026-09-10). An accepted trade that sends

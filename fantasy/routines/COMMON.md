@@ -26,7 +26,14 @@ autonomously; you decide, act, and record. Work from the harness directory
    player who is in a pending trade offer (`fantasy/bin/espn-tx pending`
    lists them; a drop voids the offer), add a second QB or TE, or
    send/accept/reject a trade on your own. Trades are evaluated and put to
-   Alex with `mist-voice/bin/mist-ask`.
+   Alex with a `mist-voice/bin/mist-notify` banner carrying buttons.
+   **Not `mist-ask`** (found 2026-09-16): it requires `$MIST_CONSOLE_SESSION`,
+   `run-routine.sh` does not set it, so it exits nonzero in every routine run.
+   Build each button as `--action "Label=cmd:/usr/bin/curl -sS -X POST
+   http://127.0.0.1:5014/notify-reply -H 'Content-Type: application/json' -d
+   '{"text": "the reply"}'"`, then confirm the buttons survived by reading
+   the `actions` list on the last row of
+   `~/Library/Logs/exobrain/notifications-history.jsonl`.
    **Day guard:** the Tuesday routine runs only on Tuesdays and the Sunday
    lineup routine only on Sundays; if you are one of those and the day is
    wrong, print one line and stop.

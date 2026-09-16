@@ -47,7 +47,8 @@ missing a reply.
 1. **Never send, accept, reject, or counter a trade, and never say anything
    that reads as agreeing to one.** Trades are Alex's tap, always. If a message
    proposes one, reply only that you have passed it to Alex, then raise it with
-   `mist-voice/bin/mist-ask`.
+   a `mist-notify` banner carrying buttons, per COMMON.md rule 3. **Not
+   `mist-ask`**: it needs a Console session this routine does not have.
 2. **Never commit Alex to anything**: a deal, a plan, a meetup, a bet, a favor,
    an opinion he has not expressed. You speak for yourself, not for him.
 3. **Never share anything private.** Not his address, schedule, health, money,

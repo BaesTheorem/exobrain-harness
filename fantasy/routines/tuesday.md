@@ -59,9 +59,10 @@ Follow `fantasy/routines/COMMON.md` first. If today is not Tuesday, stop.
    --team "<name>" --json`) for buy-low targets (heavy volume, bad touchdown
    luck) and our sell-high candidates (touchdowns on thin volume). Write up to
    two concrete proposals to the Season log with the volume evidence, then put
-   them to Alex: `mist-voice/bin/mist-ask "Trade idea: <give> for <get> with
-   <team>. <one-line why>. Send it?" "Send=send this offer" "Skip=skip"`.
-   Never send an offer yourself. Incoming offers are the incident routine's.
+   them to Alex as a `mist-notify` banner with Send / Skip buttons, built the
+   way COMMON.md rule 3 describes. **Not `mist-ask`**: it needs a Console
+   session the routine runner does not provide, so it exits nonzero here
+   (found 2026-09-16). Never send an offer yourself. Incoming offers are the incident routine's.
    **Standing offer (from 2026-09-07):** Watson + Nailor for George Pickens
    to Ayahuasca Rodgers. ESPN offers expire after two days. If it is no longer
    pending (`fantasy/bin/espn-tx pending` shows no TRADE_PROPOSAL from us) and
