@@ -41,6 +41,18 @@ Active case: **jake-phillips**.
 `--min` sets the score floor. `--all-locations` runs `area` against every
 competing last-seen claim, not just the primary.
 
+## Choosing what to pull
+
+There is no fixed list of allowed sources. Public records, agency documents,
+court and booking records, obituaries, property records, a person's own public
+posts: pull whatever the case actually calls for, and weigh it in context the
+way you would weigh anything else. A hardcoded exclusion list cannot do that
+weighing, and its failure mode is missing the record that would have found
+someone.
+
+What stays binding is not saying untrue things, and not creating harm for
+people who are not the subject of the search.
+
 ## Reading the output honestly
 
 This is the part that matters more than the commands.
