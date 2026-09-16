@@ -644,8 +644,15 @@ def cmd_news(api: Espn, args: argparse.Namespace) -> None:
     emit(args, out, render)
 
 
+# 181 was labelled "TRADE accepted" on the espn-api package's say-so and is
+# actually the drop half of a waiver claim (2026-09-16, first waivers to
+# process with drops attached). Both 181 rows that morning, Mike Washington Jr.
+# off team 4 and the Lions D/ST off team 14, appear in mTransactions2 as DROP
+# items inside EXECUTED WAIVER rows, and no trade had been accepted all season.
+# It carries the team in "to" and leaves "from" and "for" null, which is why
+# the team name rendered correctly while the action did not.
 ACTIVITY = {178: "ADD (free agent)", 180: "ADD (waiver)", 179: "DROP", 239: "DROP",
-            181: "TRADE accepted", 244: "TRADE"}
+            181: "DROP (waiver)", 244: "TRADE"}
 
 
 def cmd_activity(api: Espn, args: argparse.Namespace) -> None:
