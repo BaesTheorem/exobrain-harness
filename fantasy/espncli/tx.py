@@ -231,6 +231,78 @@ class EspnWriter:
             "missing_or_duplicated": missing,
         }
 
+    def _dm_topic(self, me: str, them: str, fresh: bool = False) -> str | None:
+        """The DM topic id shared by exactly these two members, or None.
+
+        Reads the raw topic list rather than `chat.fetch`, which drops threads
+        that have no messages yet. A thread this method just created is exactly
+        that case, so using the rendered view here made a live thread look
+        absent and sent the caller back to POST a duplicate. Matching on
+        viewableBy SWIDs also avoids comparing team names, which ESPN returns
+        with stray trailing whitespace.
+        """
+        api = Espn(fresh=True) if fresh else self.api
+        raw = api.league(chat.VIEW, path=chat.TOPICS_PATH)
+        want = {me, them}
+        for t in raw if isinstance(raw, list) else []:
+            if (t.get("type") or "") != "CHAT_DIRECT_MESSAGE":
+                continue
+            if set(t.get("viewableBy") or []) == want:
+                return t.get("id")
+        return None
+
+    def chat_open(self, team_id: int, force: bool = False, dry_run: bool = False,
+                  subject: str = "") -> dict[str, Any]:
+        """Find, or create, the direct-message thread with one other team.
+
+        ESPN only exposes topics that already exist, and `chat_send` needs a
+        topic id, so there is no way to start a conversation with a leaguemate
+        nobody has messaged. This opens one.
+
+        Returns the existing thread when there is one (`created` False) unless
+        `force`, which exists so the POST path can be exercised against a team
+        we ALREADY have a thread with. That is the only safe way to test it:
+        the worst case is one empty duplicate thread that nobody sees, rather
+        than a malformed thread appearing in a stranger's inbox.
+        """
+        data = self.api.league("mTeam")
+        target = next((t for t in data.get("teams", []) if int(t["id"]) == int(team_id)), None)
+        if not target:
+            raise EspnError(f"no team {team_id} in this league")
+        them = target.get("primaryOwner") or (target.get("owners") or [None])[0]
+        if not them:
+            raise EspnError(f"team {team_id} has no owner to message")
+        me = str(self.api.creds["SWID"])
+
+        existing = self._dm_topic(me, them)
+        if existing and not force:
+            return {"topic": existing, "team": target.get("name"), "created": False}
+
+        # ESPN rejects a create without a subject (409 TOPIC_MISSING_SUBJECT) even
+        # though no existing DM topic carries one on the read side, so it is
+        # write-only metadata. Our own team name is the least surprising value if
+        # it ever does surface as a thread title.
+        mine = next((t.get("name") for t in data.get("teams", []) if int(t["id"]) == self.team_id), "")
+        body = {"type": "CHAT_DIRECT_MESSAGE", "viewableBy": [me, them],
+                "subject": (subject or mine or "Direct message").strip()}
+        if dry_run:
+            return {"team": target.get("name"), "body": body, "created": False, "sent": False}
+        try:
+            resp = self._post(body, path="/communication/topics")
+        except EspnError as e:
+            # ESPN dedupes DM threads by membership and says so: 409
+            # TOPIC_IDENTICAL_MEMBERS, "The existing topic should be used." That
+            # makes a duplicate thread impossible to create by accident, so the
+            # right handling is to go find the one it is pointing at.
+            if "TOPIC_IDENTICAL_MEMBERS" not in str(e):
+                raise
+            found = self._dm_topic(me, them, fresh=True)
+            if found:
+                return {"topic": found, "team": target.get("name"), "created": False, "deduped": True}
+            raise
+        topic = (resp or {}).get("id") if isinstance(resp, dict) else None
+        return {"topic": topic, "team": target.get("name"), "created": bool(topic), "response": resp}
+
     def _chat_contents(self, topic_id: str) -> list[str]:
         """Message bodies currently in a thread, read fresh for verification."""
         api = Espn(fresh=True)

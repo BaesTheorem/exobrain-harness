@@ -37,6 +37,10 @@ def main() -> int:
     sub.add_parser("pending")
     p = sub.add_parser("cancel"); p.add_argument("id")
     p = sub.add_parser("chat"); p.add_argument("topic"); p.add_argument("text", nargs="+")
+    p = sub.add_parser("chat-open", help="find or start the DM thread with one team")
+    p.add_argument("team", nargs="+", help="the other team's name (or part of it)")
+    p.add_argument("--force", action="store_true",
+                   help="POST even when a thread already exists (how the create path gets tested safely)")
     args = ap.parse_args()
 
     api = Espn()
@@ -49,6 +53,12 @@ def main() -> int:
     if args.cmd == "cancel":
         print(json.dumps(w.cancel(args.id), indent=1)[:800])
         return 0
+    if args.cmd == "chat-open":
+        data = api.league("mTeam")
+        other = api.resolve_team(data, " ".join(args.team))
+        res = w.chat_open(int(other["id"]), force=args.force, dry_run=args.dry_run)
+        print(json.dumps(res, indent=1, default=str))
+        return 0 if args.dry_run or res.get("topic") else 1
     if args.cmd == "chat":
         res = w.chat_send(args.topic, " ".join(args.text), dry_run=args.dry_run)
         print(json.dumps(res, indent=1, default=str))

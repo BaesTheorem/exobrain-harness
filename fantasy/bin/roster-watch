@@ -3,8 +3,8 @@
 
 Every 30 minutes from launchd (com.exobrain.roster-watch). Diffs the roster's
 injury statuses, our pending claims, pending transactions aimed at the team
-(a trade offer), the players on fantasy/watchlist.json (status, ownership,
-which fantasy team holds them), and the rosters of watched teams against
+(a trade offer), the players on fantasy/watchlist.json (status, a rostered-percentage
+spike, which fantasy team holds them), and the rosters of watched teams against
 the last run. Anything new is appended to
 fantasy/.cache/incidents.jsonl, announced with a clickable banner, and, when
 it needs judgment (a starter going out, an IR designation, a trade offer, a
@@ -137,6 +137,14 @@ def main() -> int:
             if prev["team"] != cur["team"]:
                 events.append({"kind": "watch_owner", "player": wp["name"], "from_team": prev["team"], "to_team": cur["team"],
                                "why": wp["why"], "trigger": wp["trigger"], "judgment": True})
+            # A rostered-percentage spike is the market pricing in a role change (a
+            # backfield split resolving, a starter going down) before any box score
+            # we read does. Per-player override via "own_jump" on the watchlist entry.
+            jump = float(wp.get("own_jump", 10.0))
+            moved = cur["owned"] - prev.get("owned", cur["owned"])
+            if abs(moved) >= jump:
+                events.append({"kind": "watch_ownership", "player": wp["name"], "from": prev.get("owned"),
+                               "to": cur["owned"], "why": wp["why"], "trigger": wp["trigger"], "judgment": True})
         wstate[str(wp["id"])] = cur
     rosters = {str(t["id"]): sorted(e["playerId"] for e in (t.get("roster") or {}).get("entries", [])) for t in data["teams"]}
     prev_r = st.setdefault("rosters", {})
@@ -176,6 +184,8 @@ def main() -> int:
             heads.append(f"watch: {ev['player']} {ev['from']} -> {ev['to']}")
         elif ev["kind"] == "watch_owner":
             heads.append(f"watch: {ev['player']} changed hands")
+        elif ev["kind"] == "watch_ownership":
+            heads.append(f"watch: {ev['player']} {ev['from']}% -> {ev['to']}% rostered")
         elif ev["kind"] == "watched_team_moved":
             heads.append(f"{ev['team']} made a roster move")
         else:

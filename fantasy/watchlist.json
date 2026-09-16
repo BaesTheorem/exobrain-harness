@@ -60,9 +60,10 @@
       "name": "Chris Brooks",
       "pos": "RB",
       "nfl": 9,
-      "why": "claim failed 2026-09-09 for lack of roster space (Vele took the open spot); still a free agent, one of Green Bay's top three backs with Jacobs on the exempt list, but no established touches",
-      "trigger": "free-agent add only on a snap-share signal: 50%+ of the Green Bay backfield makes him a real flex and worth a drop-add, under 40% in a three-way split is noise. 70.6 season projection is below every bench player we hold, so no speculative add",
-      "added": "2026-09-07"
+      "why": "still a free agent 2026-09-16 at 14.3% rostered. Week 1 usage now known and it argues AGAINST him: 7 carries for 29 yards, 1 target, no catch, 2.9 points. He led SNAPS 38 to 30 but MarShawn Lloyd led CARRIES 13 to 7, and Lloyd is rostered by Goedel, Escher, Butkus. Rotowire reads Green Bay as riding the hot hand game to game while Jacobs is on the exempt list, which is the opposite of the predictable volume we rank on. Buying Brooks is buying the lesser half of a committee whose better half is already gone",
+      "trigger": "Alex asked 2026-09-16 to be flagged on the week-2 Green Bay split specifically. Two ways it fires. MECHANICAL: own_jump 8 means roster-watch banners any 8-point rostered-percentage move, which is the market pricing a backfield winner faster than a box score reads. JUDGMENT, at the Tuesday routine: add him only on 50%+ of the Green Bay backfield (carries, not snaps, since snaps already misled once here); under 40% in a three-way split is noise and the entry stands pat. Roster is full at 16, so any add spends a drop and must clear Noel or Nailor on season projection, not on one week",
+      "added": "2026-09-07",
+      "own_jump": 8
     },
     {
       "id": 4429023,
