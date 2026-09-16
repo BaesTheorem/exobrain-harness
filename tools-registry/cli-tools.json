@@ -313,6 +313,14 @@
     "notes": "Charts a month's long-run climate history for any US county/point. tavg from NOAA nClimGrid county series (1895+); dewpoint and humidity from ERA5 via Open-Meteo (1940+, since nClimGrid has no moisture variables). PEP 723 script, runs via uv, no venv. Writes light + dark PNGs plus source CSV to weather/out/. Trend line carries a 95% band and the headline says 'no detectable trend' when the interval straddles zero. Renamed from monthly-temp-history 2026-09-05."
   },
   {
+    "name": "mp (missing-person toolkit)",
+    "command": "bin/mp",
+    "repo_dir": "/Users/alexhedtke/Documents/missing-person",
+    "source": "built",
+    "added": "2026-09-16",
+    "notes": "Public missing-person search assist: NCIC/state-feed + NamUs case status, unidentified-person candidate ranking, newsroom watch, Overpass terrain for ground search. Public repo BaesTheorem/missing-person, NO personal data; case files live in the vault at ~/Exobrain/Areas/Community/Missing Persons/cases/. See /missing-person skill."
+  },
+  {
     "name": "musictheory-2008",
     "command": "python3 tools/serve.py",
     "repo_dir": "/Users/alexhedtke/Documents/musictheory-2008",
