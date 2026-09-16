@@ -1,0 +1,161 @@
+#!/usr/bin/env python3
+"""avatar-fit: size an image so nothing clips in a CIRCULAR avatar cropper.
+
+Profile-picture croppers (ESPN Fantasy, most social platforms) mask to a
+circle inscribed in a square. Padding an image to a square is NOT enough: a
+shape that is wide at one end, a shield or a wordmark, still pushes its
+corners outside the circle, and if the cropper's zoom slider is already at
+minimum there is no way to fix it in the UI.
+
+So fit the art's MINIMUM ENCLOSING CIRCLE to the crop circle instead. That
+circle's centre is usually not the image centre (a shield widest at the top
+sits high), and centring geometrically is what pushes the corners out.
+
+    avatar-fit logo.png -o out.png --bg '#B0A577' --size 500
+
+Verifies the result by scanning every opaque pixel and exits nonzero if any
+lands outside the inscribed circle, because "looks fine" is how the first
+two attempts at this shipped clipped.
+"""
+
+from __future__ import annotations
+
+import argparse
+import math
+import random
+import sys
+
+from PIL import Image
+
+SAMPLE_STEP = 4  # the hull only needs the silhouette, not every pixel
+
+
+def boundary(alpha: Image.Image, step: int = SAMPLE_STEP) -> list[tuple[int, int]]:
+    """Leftmost and rightmost opaque pixel per sampled row."""
+    w, h = alpha.size
+    raw = alpha.tobytes()  # flat w*h bytes; load() is both slower and untyped
+    pts: list[tuple[int, int]] = []
+    for y in range(0, h, step):
+        base = y * w
+        row = [x for x in range(0, w, step) if raw[base + x] > 16]
+        if row:
+            pts += [(row[0], y), (row[-1], y)]
+    return pts
+
+
+def hull(points: list[tuple[int, int]]) -> list[tuple[int, int]]:
+    """Andrew's monotone chain convex hull."""
+    pts = sorted(set(points))
+    if len(pts) < 3:
+        return pts
+
+    def half(seq):
+        out: list[tuple[int, int]] = []
+        for p in seq:
+            while len(out) >= 2:
+                (x1, y1), (x2, y2) = out[-2], out[-1]
+                if (x2 - x1) * (p[1] - y1) - (y2 - y1) * (p[0] - x1) <= 0:
+                    out.pop()
+                else:
+                    break
+            out.append(p)
+        return out
+
+    return half(pts)[:-1] + half(pts[::-1])[:-1]
+
+
+def _c2(a, b):
+    return ((a[0] + b[0]) / 2, (a[1] + b[1]) / 2, math.dist(a, b) / 2)
+
+
+def _c3(a, b, c):
+    (ax, ay), (bx, by), (cx, cy) = a, b, c
+    d = 2 * (ax * (by - cy) + bx * (cy - ay) + cx * (ay - by))
+    if abs(d) < 1e-9:
+        return None
+    ux = ((ax * ax + ay * ay) * (by - cy) + (bx * bx + by * by) * (cy - ay) + (cx * cx + cy * cy) * (ay - by)) / d
+    uy = ((ax * ax + ay * ay) * (cx - bx) + (bx * bx + by * by) * (ax - cx) + (cx * cx + cy * cy) * (bx - ax)) / d
+    return (ux, uy, math.dist((ux, uy), a))
+
+
+def enclosing_circle(pts: list[tuple[int, int]]) -> tuple[float, float, float]:
+    """Welzl, move-to-front. Returns (cx, cy, radius)."""
+    if len(pts) == 1:
+        return (pts[0][0], pts[0][1], 0.0)
+    p = list(pts)
+    random.seed(7)
+    random.shuffle(p)
+
+    def has(c, q):
+        return math.dist((c[0], c[1]), q) <= c[2] + 1e-7
+
+    c = _c2(p[0], p[1])
+    for i, a in enumerate(p):
+        if has(c, a):
+            continue
+        c = _c2(p[0], a)
+        for j in range(i):
+            b = p[j]
+            if has(c, b):
+                continue
+            c = _c2(a, b)
+            for k in range(j):
+                if not has(c, p[k]):
+                    cand = _c3(a, b, p[k])
+                    if cand:
+                        c = cand
+    return c
+
+
+def parse_bg(s: str) -> tuple[int, int, int, int]:
+    if not s or s.lower() in ("none", "transparent"):
+        return (0, 0, 0, 0)
+    v = s.lstrip("#")
+    if len(v) not in (6, 8):
+        raise SystemExit(f"--bg wants #RRGGBB or #RRGGBBAA, got {s!r}")
+    n = [int(v[i:i + 2], 16) for i in range(0, len(v), 2)]
+    return (n[0], n[1], n[2], n[3] if len(n) == 4 else 255)
+
+
+def main() -> int:
+    ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
+    ap.add_argument("src")
+    ap.add_argument("-o", "--out", required=True)
+    ap.add_argument("--size", type=int, default=500, help="output edge in px (default 500)")
+    ap.add_argument("--bg", default="none", help="#RRGGBB fill, or 'none' for transparent")
+    ap.add_argument("--margin", type=float, default=0.93,
+                    help="fraction of the crop circle the art fills (default 0.93)")
+    args = ap.parse_args()
+
+    src = Image.open(args.src).convert("RGBA")
+    pts = boundary(src.getchannel("A"))
+    if not pts:
+        raise SystemExit(f"{args.src}: no opaque pixels")
+    cx, cy, r = enclosing_circle(hull(pts))
+
+    side = args.size
+    scale = (side * args.margin) / (2 * r)
+    art = src.resize((max(1, round(src.width * scale)), max(1, round(src.height * scale))),
+                     Image.Resampling.LANCZOS)
+    canvas = Image.new("RGBA", (side, side), parse_bg(args.bg))
+    canvas.paste(art, (round(side / 2 - cx * scale), round(side / 2 - cy * scale)), art)
+    canvas.save(args.out)
+
+    placed = Image.new("RGBA", (side, side), (0, 0, 0, 0))
+    placed.paste(art, (round(side / 2 - cx * scale), round(side / 2 - cy * scale)), art)
+    seen = placed.getchannel("A").tobytes()
+    mid = side / 2
+    worst = max((math.dist((x, y), (mid, mid))
+                 for y in range(0, side, 2) for x in range(0, side, 2)
+                 if seen[y * side + x] > 16), default=0.0)
+    print(f"{args.out}: {side}x{side}, art circle centre ({cx:.0f}, {cy:.0f}) r={r:.0f}")
+    print(f"  furthest opaque pixel {worst:.1f} px from centre; inscribed radius {mid:.0f}")
+    if worst > mid:
+        print("  CLIPS: lower --margin", file=sys.stderr)
+        return 1
+    print("  fits")
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())
