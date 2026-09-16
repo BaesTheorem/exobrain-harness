@@ -33,6 +33,7 @@ Active case: **jake-phillips**.
     bin/mp unidentified <case>    rank unidentified-person candidates
     bin/mp news <case>            newsroom sweep
     bin/mp area <case>            terrain around each last-seen claim (slow; Overpass)
+    bin/mp docs <case>            fetch + read the case's source documents
     bin/mp scan <case>            everything, rewrites the vault note
     bin/mp watch <case>           scan, notify only on a change
 
@@ -66,6 +67,13 @@ the investigating agency, never to a county ME as a member of the public.
   before leaning on this again.
 - **RSS** carries recent items only. A quiet news sweep says nothing about
   what was published six months ago.
+
+**Read the case's documents before reasoning about the case.** `mp docs <case>`
+fetches and extracts every cited PDF. Agency bulletins routinely carry detail
+no API exposes: on jake-phillips the MSHP/NCIC bulletin held the only specific
+street address, the exact time, and the real date of last contact, while the
+NamUs API had nothing finer than a ZIP. Treating NamUs as "the agency record"
+when an NCIC bulletin exists is the mistake to avoid.
 
 **Never trust a WebSearch synthesis on a case.** It invented an age and a
 county on this one. Open NamUs, the state feed, or the agency's own post.
