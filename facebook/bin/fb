@@ -11,6 +11,7 @@ Works on any group/page/profile via named targets.
   fb parse <target>                 parse raw dumps into ranked posts
   fb report <target> [--top N]      build top-N + by-year reports with images
   fb authors <target> [--top N]     author leaderboards: peak + cumulative, by year
+  fb refresh-cookies [--browser B]  re-pull the live session from Chrome/Brave
 
 Read-only: never reacts, comments, or posts.
 """
@@ -110,6 +111,10 @@ def main(argv: list[str]) -> int:
         from fbtools.report import authors_main
 
         return authors_main(rest)
+    if cmd in ("refresh-cookies", "refresh"):
+        from fbtools.refresh_cookies import main as refresh_main
+
+        return refresh_main(rest)
     print(f"unknown command: {cmd}\n{__doc__}")
     return 1
 

@@ -38,6 +38,11 @@ Nothing personal is committed. Only code + this README are tracked.
 2. Install **"Get cookies.txt LOCALLY"** (runs locally, exports nothing).
 3. On a facebook.com tab, **Export** -> save as `facebook/secrets/cookies.txt`.
    (JSON exports also work as `secrets/cookies.json`.)
+
+**Or, on macOS, skip the extension:** `fb refresh-cookies` reads the live
+session straight from Chrome's on-disk cookie store (AES-128-CBC, key from the
+login Keychain via PBKDF2-HMAC-SHA1). `fb refresh-cookies --browser brave`
+for Brave. No browser window, no manual export.
 4. Needs at least `c_user` and `xs`. `fb status` verifies. Cookies expire; if a
    crawl bails with a login/checkpoint message, re-export.
 
