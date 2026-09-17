@@ -1,0 +1,632 @@
+{
+ "season": 2026,
+ "week": 2,
+ "issued": "2026-09-17T15:10-05:00",
+ "team_id": 12,
+ "team": "Chaos Legion",
+ "opponent": "The Winners",
+ "opponent_id": 2,
+ "forecast": {
+  "week": 2,
+  "author": "MIST",
+  "method": "Anchored each player on the unit-normalized 5-source consensus and the tiered historical actual/projection quantiles (2025 + 2026 w1, starter tier q25-q75 of roughly 0.6-1.25x, q05-q95 of 0.2-2.0x), then moved center and width by hand for game script, weather, role change, injury status and the stickiness of week 1 (volume sticky, touchdowns noise). Team totals use a weekly SD of about 21 points, which is what nine independent starters with these error distributions produce and matches observed PPR lineup variance. Standing follows from the win probability and the 21.7-point Points For cushion over Njigba Please!.",
+  "players": [
+   {
+    "name": "Jayden Daniels",
+    "median": 19.5,
+    "p50": [
+     14.0,
+     25.0
+    ],
+    "p90": [
+     7.0,
+     33.0
+    ],
+    "why": "Consensus 20.4 with a 4.7 spread. Dome, Washington a 4.5-point underdog so the script leans pass, and rushing yards pay 2.5x here, so his floor sits above the average starting QB's; the low tail (7) is the healthy-QB tail, not the injury tail, because he is Active with a clean report.",
+    "id": 4426348,
+    "pos": "QB",
+    "slot": "QB",
+    "consensus": 20.4,
+    "espn": 19.7
+   },
+   {
+    "name": "Kenneth Walker III",
+    "median": 16.5,
+    "p50": [
+     10.5,
+     23.0
+    ],
+    "p90": [
+     4.0,
+     34.0
+    ],
+    "why": "Consensus 17.9 but FFToday's 21.2 is chasing his 34.1 in week 1, which was touchdown-driven and not sticky. Kansas City a 6.5-point favorite with a 26.5 implied total keeps the volume, so the center is trimmed only a little below consensus and the top tail stays long.",
+    "id": 4567048,
+    "pos": "RB",
+    "slot": "RB",
+    "consensus": 17.9,
+    "espn": 17.9
+   },
+   {
+    "name": "David Montgomery",
+    "median": 13.5,
+    "p50": [
+     8.5,
+     19.0
+    ],
+    "p90": [
+     3.5,
+     29.0
+    ],
+    "why": "Consensus 15.3; the 28.9 in week 1 came on 12.7 projected and was touchdown-shaped. Goal-line profile in a near pick-em dome game: his median lands on touchdowns, so the 50% band is wider below than a volume back's would be.",
+    "id": 4035538,
+    "pos": "RB",
+    "slot": "RB",
+    "consensus": 15.3,
+    "espn": 14.1
+   },
+   {
+    "name": "Ja'Marr Chase",
+    "median": 16.0,
+    "p50": [
+     10.0,
+     23.0
+    ],
+    "p90": [
+     4.0,
+     34.0
+    ],
+    "why": "Consensus 17.4 after a 3.2 on 19.9 projected. Target share is the stickiest thing in the game and a one-week 3.2 on an elite share is the buy-low shape, not a trend; median a point under consensus for the Houston secondary, floor above a generic WR because the volume is there.",
+    "id": 4362628,
+    "pos": "WR",
+    "slot": "WR",
+    "consensus": 17.4,
+    "espn": 19.0
+   },
+   {
+    "name": "Christian Watson",
+    "median": 11.0,
+    "p50": [
+     6.0,
+     17.0
+    ],
+    "p90": [
+     1.5,
+     28.0
+    ],
+    "why": "Consensus 14.4 is inflated by the 32.7 (two touchdowns on thin volume) in week 1. Deep-threat profile in forecast rain at the Jets: the median is set below every source, the upside tail is kept long because that is what he is, and the low tail is near zero because a rainy day with three targets is a live outcome.",
+    "id": 4248528,
+    "pos": "WR",
+    "slot": "WR",
+    "consensus": 14.4,
+    "espn": 12.5
+   },
+   {
+    "name": "Trey McBride",
+    "median": 13.5,
+    "p50": [
+     9.0,
+     18.5
+    ],
+    "p90": [
+     4.0,
+     27.0
+    ],
+    "why": "Consensus 14.6 with a 0.3 spread, the tightest agreement on the roster. Target-hog tight end in a dome; Arizona's 19.0 implied total is the only drag, so the median is a point under and the band is the starter-tier TE shape.",
+    "id": 4361307,
+    "pos": "TE",
+    "slot": "TE",
+    "consensus": 14.6,
+    "espn": 14.4
+   },
+   {
+    "name": "Rhamondre Stevenson",
+    "median": 11.5,
+    "p50": [
+     7.0,
+     16.0
+    ],
+    "p90": [
+     2.5,
+     25.0
+    ],
+    "why": "Consensus 13.0, but TreVeyon Henderson scored 0.0 on a 0.0 projection in week 1 and is projected 9.6 this week, which reads as a backfield partner returning to a share he did not have when Stevenson posted 14.5. New England a 5.5-point favorite keeps the script friendly. Center trimmed for the split.",
+    "id": 4569173,
+    "pos": "RB",
+    "slot": "FLEX",
+    "consensus": 13.0,
+    "espn": 12.9
+   },
+   {
+    "name": "Rams D/ST",
+    "median": 7.0,
+    "p50": [
+     3.0,
+     11.0
+    ],
+    "p90": [
+     -2.0,
+     19.0
+    ],
+    "why": "Consensus 7.1 (CBS normalized down from 11.5, a scoring-format difference). Seven-point home favorite against a Giants offense implied around 21, the profile that produces sacks and turnovers; the negative tail is real here because this league penalizes yards allowed hard.",
+    "id": -16014,
+    "pos": "D/ST",
+    "slot": "D/ST",
+    "consensus": 7.1,
+    "espn": 5.8
+   },
+   {
+    "name": "Cam Little",
+    "median": 7.0,
+    "p50": [
+     4.0,
+     10.0
+    ],
+    "p90": [
+     0.0,
+     15.0
+    ],
+    "why": "Consensus 7.1. Jacksonville implied 21.5 in Denver, a 2.5-point underdog; distance-weighted scoring plus altitude favors long attempts if drives stall. Kicker error is the widest of any position in the library, so the 50% band is nearly half the median.",
+    "id": 4686361,
+    "pos": "K",
+    "slot": "K",
+    "consensus": 7.1,
+    "espn": 8.2
+   },
+   {
+    "name": "Chris Godwin Jr.",
+    "median": 9.5,
+    "p50": [
+     5.0,
+     14.0
+    ],
+    "p90": [
+     1.0,
+     22.0
+    ],
+    "why": "Consensus 10.8; 8.3 on 10.3 in week 1. Tampa an 8.5-point favorite (implied 25) which helps the offense but caps late passing volume. Bench, so this is a calibration line, not a lineup one.",
+    "id": 3116165,
+    "pos": "WR",
+    "slot": "BE",
+    "consensus": 10.8,
+    "espn": 10.0
+   },
+   {
+    "name": "RJ Harvey",
+    "median": 5.0,
+    "p50": [
+     0.0,
+     9.0
+    ],
+    "p90": [
+     0.0,
+     17.0
+    ],
+    "why": "Questionable, hamstring, estimated limited Wednesday after a Monday night game. I put him near one-in-three to sit, which is why the 50% band starts at zero; if he plays it is the three-carry role from week 1 (8.1 on kick returns and catches) behind Dobbins, so the ceiling is a touchdown.",
+    "id": 4568490,
+    "pos": "RB",
+    "slot": "BE",
+    "consensus": 9.0,
+    "espn": 10.0
+   },
+   {
+    "name": "Josh Downs",
+    "median": 8.0,
+    "p50": [
+     4.0,
+     12.5
+    ],
+    "p90": [
+     0.5,
+     20.0
+    ],
+    "why": "Consensus 9.5; 5.7 on 9.1 in week 1. Indianapolis implied 20 as a 6.5-point road underdog at Kansas City, which adds slot targets late; slot role gives a real floor, the ceiling needs a score.",
+    "id": 4688813,
+    "pos": "WR",
+    "slot": "BE",
+    "consensus": 9.5,
+    "espn": 9.4
+   },
+   {
+    "name": "Keaton Mitchell",
+    "median": 4.0,
+    "p50": [
+     1.0,
+     7.5
+    ],
+    "p90": [
+     0.0,
+     15.0
+    ],
+    "why": "Consensus 6.5 but 0.9 in week 1 on six projected. Deep-bench RB with no established touch share; the deep-bench tier's q25 in the library is 0.21x, so the low half of the band sits near zero.",
+    "id": 4596334,
+    "pos": "RB",
+    "slot": "BE",
+    "consensus": 6.5,
+    "espn": 8.0
+   },
+   {
+    "name": "Jaylin Noel",
+    "median": 5.0,
+    "p50": [
+     1.5,
+     8.5
+    ],
+    "p90": [
+     0.0,
+     16.0
+    ],
+    "why": "Consensus 5.6; 7.3 on 7.7 in week 1 as Houston's third receiver in a dome. Rotational role, so the band is the deep-bench WR shape with a modest top.",
+    "id": 4586312,
+    "pos": "WR",
+    "slot": "BE",
+    "consensus": 5.6,
+    "espn": 5.2
+   },
+   {
+    "name": "Jalen Nailor",
+    "median": 6.0,
+    "p50": [
+     2.5,
+     10.0
+    ],
+    "p90": [
+     0.0,
+     18.0
+    ],
+    "why": "Consensus 7.6 with the roster's tightest spread (0.5); 5.7 on 9.1 in week 1. Las Vegas implied 18.5 as a 6.5-point underdog at the Chargers: garbage-time volume is possible, a touchdown is the whole ceiling.",
+    "id": 4382466,
+    "pos": "WR",
+    "slot": "BE",
+    "consensus": 7.6,
+    "espn": 7.3
+   },
+   {
+    "name": "Devaughn Vele",
+    "median": 9.0,
+    "p50": [
+     4.5,
+     14.0
+    ],
+    "p90": [
+     0.5,
+     23.0
+    ],
+    "why": "Consensus 9.6 after 19.9 on 9.3 with 7 of 9 targets and a score. Nine targets is a role, which is why the median is near consensus rather than shaded down for the touchdown; New Orleans an 8.5-point underdog at Baltimore keeps the volume coming late.",
+    "id": 4569559,
+    "pos": "WR",
+    "slot": "BE",
+    "consensus": 9.6,
+    "espn": 9.5
+   },
+   {
+    "name": "Jordyn Tyson",
+    "median": 0.0,
+    "p50": [
+     0.0,
+     0.0
+    ],
+    "p90": [
+     0.0,
+     1.0
+    ],
+    "why": "On IR, designated to return around mid-October. Zero unless activated, and activation before Sunday is not in play.",
+    "id": 4880281,
+    "pos": "WR",
+    "slot": "IR",
+    "consensus": 0.0,
+    "espn": 0.0
+   }
+  ],
+  "team_total": {
+   "median": 121.0,
+   "p50": [
+    107.0,
+    135.0
+   ],
+   "p90": [
+    90.0,
+    155.0
+   ],
+   "why": "Sum of starter means is about 124 on the normalized consensus (127.1) less the systematic optimism the library shows (median actual 0.86x projection at the starter tier); a nine-starter lineup with these error shapes has a weekly SD near 21, so the 50% band is plus or minus 14 and the 90% band plus or minus about 33. Baseline agrees: 106-137 and 86-161."
+  },
+  "opp_total": {
+   "median": 106.0,
+   "p50": [
+    93.0,
+    120.0
+   ],
+   "p90": [
+    76.0,
+    140.0
+   ],
+   "why": "The Winners' normalized consensus is 109.0 and the baseline median 101.5. Josh Allen plays tonight in the slate's highest total (Buffalo implied 30), Jeanty and Hubbard both posted 30- and 24-point weeks on modest projections, and Henderson returns, so I hold the median above the baseline and keep a long upper tail for an Allen game."
+  },
+  "win_prob": 0.7,
+  "standing": {
+   "median": 1,
+   "p50": [
+    1,
+    2
+   ],
+   "p90": [
+    1,
+    7
+   ],
+   "p_first": 0.53,
+   "p_top2": 0.66,
+   "why": "A win (0.70) with a 21.7-point Points For cushion over Njigba Please! keeps us first unless they outscore us by 22 or more, roughly a one-in-four event, so P(first) is about 0.70 x 0.75. A loss drops us to 1-1 behind four likely undefeated teams and Namaslay at 1-0, which is 5th to 7th, hence the 90% band reaching 7. The baseline is more bullish (0.615 first, 0.716 top two) because its win probability is 0.736."
+  }
+ },
+ "baseline": {
+  "players": {
+   "Jayden Daniels": {
+    "q05": 3.82,
+    "q25": 11.76,
+    "q50": 17.54,
+    "q75": 22.74,
+    "q95": 32.01
+   },
+   "Kenneth Walker III": {
+    "q05": 5.11,
+    "q25": 11.31,
+    "q50": 15.68,
+    "q75": 22.22,
+    "q95": 35.71
+   },
+   "David Montgomery": {
+    "q05": 5.25,
+    "q25": 9.74,
+    "q50": 13.56,
+    "q75": 19.14,
+    "q95": 31.33
+   },
+   "Ja'Marr Chase": {
+    "q05": 2.54,
+    "q25": 9.73,
+    "q50": 14.82,
+    "q75": 22.28,
+    "q95": 32.59
+   },
+   "Christian Watson": {
+    "q05": 2.26,
+    "q25": 7.78,
+    "q50": 12.19,
+    "q75": 18.04,
+    "q95": 26.15
+   },
+   "Trey McBride": {
+    "q05": 3.38,
+    "q25": 9.25,
+    "q50": 12.01,
+    "q75": 18.98,
+    "q95": 29.34
+   },
+   "Rhamondre Stevenson": {
+    "q05": 3.79,
+    "q25": 8.4,
+    "q50": 11.99,
+    "q75": 16.38,
+    "q95": 27.81
+   },
+   "Rams D/ST": {
+    "q05": 0.88,
+    "q25": 3.97,
+    "q50": 7.09,
+    "q75": 12.14,
+    "q95": 18.28
+   },
+   "Cam Little": {
+    "q05": 0.94,
+    "q25": 3.94,
+    "q50": 6.77,
+    "q75": 9.9,
+    "q95": 15.05
+   },
+   "Chris Godwin Jr.": {
+    "q05": 0.0,
+    "q25": 4.68,
+    "q50": 8.35,
+    "q75": 14.18,
+    "q95": 23.94
+   },
+   "RJ Harvey": {
+    "q05": 1.32,
+    "q25": 4.33,
+    "q50": 7.31,
+    "q75": 11.95,
+    "q95": 21.29
+   },
+   "Josh Downs": {
+    "q05": 0.0,
+    "q25": 4.06,
+    "q50": 7.16,
+    "q75": 12.62,
+    "q95": 21.16
+   },
+   "Keaton Mitchell": {
+    "q05": 0.0,
+    "q25": 1.3,
+    "q50": 4.02,
+    "q75": 8.6,
+    "q95": 17.38
+   },
+   "Jaylin Noel": {
+    "q05": 0.0,
+    "q25": 0.0,
+    "q50": 3.52,
+    "q75": 7.96,
+    "q95": 18.67
+   },
+   "Jalen Nailor": {
+    "q05": 0.67,
+    "q25": 3.38,
+    "q50": 5.84,
+    "q75": 9.7,
+    "q95": 16.68
+   },
+   "Devaughn Vele": {
+    "q05": 0.0,
+    "q25": 4.04,
+    "q50": 7.04,
+    "q75": 11.84,
+    "q95": 21.05
+   },
+   "Jordyn Tyson": {
+    "q05": 0.0,
+    "q25": 0.0,
+    "q50": 0.0,
+    "q75": 0.0,
+    "q95": 0.0
+   }
+  },
+  "team_total": {
+   "q05": 86.16,
+   "q25": 106.23,
+   "q50": 121.77,
+   "q75": 137.09,
+   "q95": 160.54
+  },
+  "opp_total": {
+   "q05": 69.12,
+   "q25": 87.31,
+   "q50": 101.46,
+   "q75": 116.88,
+   "q95": 140.57
+  },
+  "win_prob": 0.736,
+  "rank": {
+   "q05": 1,
+   "q25": 1,
+   "q50": 1,
+   "q75": 3,
+   "q95": 6
+  },
+  "p_first": 0.615,
+  "p_top2": 0.716,
+  "p_top6": 0.99,
+  "rank_dist": {
+   "1": 0.615,
+   "2": 0.1,
+   "3": 0.037,
+   "4": 0.068,
+   "5": 0.102,
+   "6": 0.068,
+   "7": 0.008,
+   "8": 0.001,
+   "9": 0.0
+  },
+  "sims": 5000,
+  "residual_n": {
+   "QB": 577,
+   "RB": 1178,
+   "WR": 1852,
+   "TE": 815,
+   "K": 567,
+   "D/ST": 576
+  }
+ },
+ "sources": {
+  "ok": [
+   "cbs",
+   "fantasypros",
+   "fftoday",
+   "sleeper"
+  ],
+  "failed": []
+ },
+ "standings_before": [
+  {
+   "team_id": 12,
+   "team": "Chaos Legion",
+   "w": 1,
+   "l": 0,
+   "pf": 168.6
+  },
+  {
+   "team_id": 4,
+   "team": "Njigba Please!",
+   "w": 1,
+   "l": 0,
+   "pf": 146.9
+  },
+  {
+   "team_id": 13,
+   "team": "Goedel, Escher, Butkus",
+   "w": 1,
+   "l": 0,
+   "pf": 135.4
+  },
+  {
+   "team_id": 6,
+   "team": "KC Breathmints",
+   "w": 1,
+   "l": 0,
+   "pf": 129.5
+  },
+  {
+   "team_id": 5,
+   "team": "End-Zone Dancers",
+   "w": 1,
+   "l": 0,
+   "pf": 124.5
+  },
+  {
+   "team_id": 1,
+   "team": "The Oprah Winfreys",
+   "w": 1,
+   "l": 0,
+   "pf": 97.6
+  },
+  {
+   "team_id": 14,
+   "team": "Ayahuasca Rodgers",
+   "w": 0,
+   "l": 1,
+   "pf": 151.6
+  },
+  {
+   "team_id": 2,
+   "team": "The Winners",
+   "w": 0,
+   "l": 1,
+   "pf": 122.6
+  },
+  {
+   "team_id": 9,
+   "team": "Waiting for Gordon",
+   "w": 0,
+   "l": 1,
+   "pf": 116.8
+  },
+  {
+   "team_id": 3,
+   "team": "The Chefs",
+   "w": 0,
+   "l": 1,
+   "pf": 104.2
+  },
+  {
+   "team_id": 11,
+   "team": "The Mighty Marmots",
+   "w": 0,
+   "l": 1,
+   "pf": 94.5
+  },
+  {
+   "team_id": 10,
+   "team": "Cutie Mark Crusaders",
+   "w": 0,
+   "l": 1,
+   "pf": 78.9
+  },
+  {
+   "team_id": 7,
+   "team": "Namaslay",
+   "w": 0,
+   "l": 0,
+   "pf": 0.0
+  }
+ ],
+ "settled": null
+}

@@ -1,0 +1,16 @@
+#!/usr/bin/env python3
+"""forecast: the weekly 50%/90% prediction-and-review loop for Chaos Legion
+(dossier, record, settle, calibrate, history). MIST writes the intervals;
+this tool assembles the evidence, files the forecast, and scores it against
+reality. Read-only against ESPN. See fantasy/forecast.py and fantasy/README.md.
+"""
+
+import sys
+from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+
+from forecast import main  # noqa: E402
+
+if __name__ == "__main__":
+    sys.exit(main())

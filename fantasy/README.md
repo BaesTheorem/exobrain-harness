@@ -124,6 +124,34 @@ transactions aimed at the team against the last run. New events go to
 `fantasy-incident` routine via the Console's `run-routine.sh`. Install like
 `lineup-watch` with `com.exobrain.roster-watch.plist`.
 
+## Tool 6: `bin/forecast` (the weekly prediction-and-review loop)
+
+Alex's standing instruction from 2026-09-17: every week opens with MIST's own
+50% and 90% intervals on every rostered player, both team totals, the win
+probability and the league standing after the week, and closes with a review
+of where reality landed. ESPN is one input among five, and the intervals are
+MIST's judgment, so this tool never predicts. It:
+
+- `forecast dossier --week N --save f.json` builds the evidence pack: weekly
+  projections from ESPN, Sleeper, CBS, FantasyPros and FFToday, unit-normalized
+  per position (CBS and FFToday score a passing touchdown 6, not 4; the factors
+  print at the top), the consensus and spread, each player's season log against
+  ESPN's number, injury status, the Vegas line and implied total, the historical
+  actual/projection ratio quantiles by position and projection tier, and a
+  mechanical baseline (consensus times bootstrapped ratio, every matchup
+  simulated 5,000 times) that the review uses as a yardstick.
+- `forecast record mist.json --dossier f.json` validates MIST's forecast (the
+  50 inside the 90, every player present, no probability of 0 or 1) and files
+  `forecasts/<season>-wNN.json`, committed.
+- `forecast settle` scores the finished week for MIST and the baseline;
+  `forecast history` is the season coverage table.
+- `forecast calibrate --seasons 2025,2026` rebuilds `.cache/residuals.json`
+  from Sleeper's weekly projections and actuals (gitignored; about 5,500
+  player-weeks).
+
+The Tuesday routine runs `settle` first and the new week's forecast last. The
+JSON schema MIST writes is spelled out in `routines/tuesday.md` step 7.
+
 ## The season on autopilot: `routines/`
 
 `routines/COMMON.md` plus `lineup.md`, `tuesday.md`, and `incident.md` are
