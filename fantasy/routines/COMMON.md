@@ -22,7 +22,13 @@ autonomously; you decide, act, and record. Work from the harness directory
    playbook's rule for that kind of call (the skill has a section map) and
    name it in your log line. If the playbook has no rule for the situation,
    decide from the skill's evidence and write the new rule into the playbook
-   in the section it belongs to.
+   in the section it belongs to. **When a rule changes, first read the
+   playbook's *Corrections ledger*** (the ground may already be covered);
+   then put the current rule on top where it lives, add a ledger entry (Was /
+   Falsified by / Now / Lesson, newest first) and a one-line pointer at the
+   rule. Never layer the old text under the new and never delete it: the
+   corrections are data for the next run. Leaguemate reads go in *League
+   observations*, current read on top.
 2. **Reads:** `fantasy/bin/espn ...` and `fantasy/bin/ff ...` (both read-only,
    every `espn` subcommand takes `--json`). **Writes:** `fantasy/bin/espn-tx`
    only (`ir`, `move`, `swap`, `claim`, `pending`, `cancel`). It verifies each
