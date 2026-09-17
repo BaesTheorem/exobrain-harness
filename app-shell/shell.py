@@ -18,11 +18,14 @@ The server is NOT run in-process: these servers already live under launchd
 public interface and speaks HTTP to localhost, so it needs no TCC grants.
 """
 
+import base64
 import os
+import re
 import subprocess
 import sys
 import time
 import urllib.request
+from pathlib import Path
 
 TITLE = os.environ.get("APPSHELL_TITLE", "App")
 URL = os.environ["APPSHELL_URL"]
@@ -104,12 +107,38 @@ def _macos_identity():
         pass  # cosmetic only; never block the window
 
 
+class Api:
+    """Exposed to the page as window.pywebview.api.
+
+    save_file(name, data_url) writes a data: URL to ~/Downloads and returns the
+    path. Pages use it when present because an <a download> click inside
+    WKWebView goes through a modal save panel whose download then reads the
+    blob too late to be reliable; this path has no panel and no blob.
+    """
+
+    def save_file(self, name, data_url):
+        _, b64 = data_url.split(",", 1)
+        data = base64.b64decode(b64)
+        safe = re.sub(r"[^\w.\-]", "_", name) or "download"
+        downloads = Path.home() / "Downloads"
+        path = downloads / safe
+        n = 1
+        while path.exists():
+            path = downloads / f"{Path(safe).stem} ({n}){Path(safe).suffix}"
+            n += 1
+        path.write_bytes(data)
+        return str(path)
+
+
 def main():
     ensure_server()
     _macos_identity()
     import webview
+    # An <a download> click is a no-op in WKWebView unless downloads are on;
+    # with this, pywebview routes it through WKDownload to a save panel.
+    webview.settings["ALLOW_DOWNLOADS"] = True
     webview.create_window(TITLE, URL, width=WIN_W, height=WIN_H,
-                          min_size=(900, 640))
+                          min_size=(900, 640), js_api=Api())
     webview.start()
 
 
