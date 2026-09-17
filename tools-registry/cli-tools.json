@@ -112,6 +112,14 @@
     "notes": "Pull the friend-group Discord digest. Backs the /discord-digest skill and the com.exobrain.discord-digest job."
   },
   {
+    "name": "dolphin-happy-mode",
+    "command": "python3 flipper/dolphin-happy-mode.py {show|patch} <state-file>",
+    "repo_dir": "/Users/alexhedtke/Documents/Exobrain harness/flipper",
+    "source": "built",
+    "added": "2026-09-17",
+    "notes": "Decodes and patches the Flipper Zero dolphin state file (/int/.dolphin.state). Sets DolphinFlagHappyMode so butthurt is always reported as 0 (mood system off) and rewrites the saved_struct checksum. Pull the file with flipper-ble read, patch, write back, reboot os."
+  },
+  {
     "name": "exposure_audit.py",
     "command": "python3 .claude/skills/cybersecurity-bodyguard/scripts/exposure_audit.py",
     "repo_dir": "~/Documents/Exobrain harness",
