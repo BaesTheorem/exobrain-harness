@@ -27,6 +27,15 @@ then **write the new rule into the playbook** in the section it belongs to,
 so the next call does not have to reason from scratch. When the two disagree,
 the playbook wins; if that is because the playbook is stale, fix the playbook.
 
+**When a rule changes, the old one is data, not clutter** (Alex, 2026-09-17:
+"the corrections themselves can serve as useful data for future versions of
+you, so we don't re-tread territory"). Before rewriting any rule, read the
+playbook's *Corrections ledger* to see whether the ground has been covered.
+When you do change one: put the current rule on top where it lives, add a
+ledger entry (what it said, what falsified it, what it says now, the lesson),
+and leave a one-line pointer at the rule. Never layer the superseded text
+under the new text, and never delete it.
+
 Where each call lives in the playbook:
 
 | Call | Playbook section |
@@ -40,6 +49,8 @@ Where each call lives in the playbook:
 | What has already been decided and why | *Season log* (newest first) |
 | What is still unknown | *Open questions* |
 | League settings when a tool and memory disagree | *League at a glance* (the note wins) |
+| A leaguemate's tendencies, who is engaged, the Jesse rule | *League observations* (current read on top of each thread) |
+| Whether a rule has already been tried and overturned | *Corrections ledger* (Was / Falsified by / Now / Lesson, newest first) |
 | The week's 50%/90% forecast and the Tuesday review | *Weekly forecast and review*; the *Season log*, where each `### Week N` section opens with the generated Forecast and Review blocks |
 
 ## Live league data
