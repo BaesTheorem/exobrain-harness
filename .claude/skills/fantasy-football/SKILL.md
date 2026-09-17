@@ -40,6 +40,7 @@ Where each call lives in the playbook:
 | What has already been decided and why | *Season log* (newest first) |
 | What is still unknown | *Open questions* |
 | League settings when a tool and memory disagree | *League at a glance* (the note wins) |
+| The week's 50%/90% forecast and the Tuesday review | *Weekly forecast and review*; *Forecast ledger* (newest first) |
 
 ## Live league data
 
@@ -89,6 +90,19 @@ the site by hand.
 write with a read-back and exits nonzero when the roster or the pending list
 does not show the change. Use it when Alex asks for a lineup move or a claim;
 never bolt writing onto `ff` or `espn`.
+
+**Every week is forecast and then reviewed (Alex's instruction, 2026-09-17).**
+`fantasy/bin/forecast dossier` assembles the evidence (five projection
+sources unit-normalized per position, consensus and spread, season logs,
+injuries, Vegas totals, historical actual/projection quantiles by position
+and tier, and a mechanical baseline); MIST writes the 50% and 90% intervals
+for every rostered player, both totals, the win probability and the standing,
+each with a `why`, and files them with `forecast record`; Tuesday's `forecast
+settle` scores MIST and the baseline against reality and `forecast history`
+keeps the coverage table. Two constraints from Alex: ESPN's number is one
+vote, never the model, and the intervals are MIST's judgment, never the
+baseline's. The playbook's *Weekly forecast and review* section holds the
+rule and the *Forecast ledger* the headline lines.
 
 **The season runs on autopilot (since 2026-09-07).** Two launchd watchers
 (`lineup-watch --fix`, `roster-watch`) and three Fable routines

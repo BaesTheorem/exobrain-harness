@@ -1,7 +1,20 @@
-# Tuesday routine (6:00 PM CT): recap, ledger, waivers, trades, tendencies
+# Tuesday routine (6:00 PM CT): review, recap, ledger, waivers, trades, tendencies, forecast
 
 Follow `fantasy/routines/COMMON.md` first. If today is not Tuesday, stop.
 
+0. **Settle last week's forecast and write the review** (Alex's standing
+   instruction, 2026-09-17; the playbook's *Weekly forecast and review*
+   section is the rule). `fantasy/bin/forecast settle` scores MIST's 50% and
+   90% intervals and the mechanical baseline against the week's actuals;
+   `fantasy/bin/forecast history` gives the season coverage. Then judge each
+   miss: was it variance inside a well-shaped band (log it, change nothing)
+   or a reasoning error (a role read that was wrong, a source weighted
+   wrongly, a band too narrow for the position)? Write the coverage numbers,
+   the reasoning misses, and any rule change to the playbook's *Forecast
+   ledger* and Season log. A strategy change needs a failed reason, not a
+   number outside a band; three weeks of 50% coverage under 0.35 or over
+   0.65 is the signal the band widths are wrong. If `settle` says the week is
+   not over, stop this step and say so.
 1. **Recap.** `fantasy/bin/espn matchup --week <last week> --json`,
    `fantasy/bin/espn scoreboard --json`, `fantasy/bin/espn teams --json`
    (record, points for, and WAIVER PRIORITY, which resets weekly by reverse
@@ -79,5 +92,28 @@ Follow `fantasy/routines/COMMON.md` first. If today is not Tuesday, stop.
 5. **Tendencies.** `fantasy/bin/espn activity --json` since last Tuesday: who
    is active, who never touches an autopicked roster (that roster is the
    wire's feeder). Update the playbook's league observations, not just the log.
-6. Notify Alex with a compact summary (result, record, claims filed, priority),
-   linked to the league page.
+6. Notify Alex with a compact summary (result, record, claims filed, priority,
+   last week's coverage, this week's win probability), linked to the league
+   page.
+7. **Forecast the new week, last, on the roster as it stands.** This is
+   MIST's judgment call, not a script's number: `fantasy/bin/forecast
+   dossier --save /tmp/fc-dossier.json` assembles the evidence (five
+   projection sources unit-normalized per position, consensus and spread,
+   season logs, injuries, Vegas totals, the historical error distribution by
+   position and projection tier, and a mechanical baseline for comparison).
+   Read it, then write a JSON forecast with, for every rostered player, a
+   median, `p50`, `p90` and a one-sentence `why`; a `team_total` and
+   `opp_total` with the same shape; `win_prob`; and a `standing` block
+   (`median`, `p50`, `p90` on our rank after the week, `p_first`, `p_top2`,
+   `why`). ESPN is one vote; move off the consensus whenever you have a
+   reason the sources do not (a role change, weather, a questionable tag,
+   week-1 touchdowns on thin volume) and say the reason. Anchor widths on
+   the tier quantiles in the pack (starter-tier q25-q75 is roughly 0.6x to
+   1.25x the projection) and remember the median actual runs about 0.85x
+   projection. File it with `fantasy/bin/forecast record /tmp/fc-mist.json
+   --dossier /tmp/fc-dossier.json`; it refuses a 50 outside its 90, a missing
+   player, or a probability of 0 or 1. Put the headline line (team total,
+   win probability, P(first), P(top two), the judgment calls made against
+   consensus) in the playbook's *Forecast ledger*, newest first. Pending
+   claims are not on the roster yet, so they are not in the forecast; note
+   them in the ledger line.
