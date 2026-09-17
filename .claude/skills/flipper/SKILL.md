@@ -189,6 +189,11 @@ backed up at `flipper/sd-backup/tv.ir.orig`.
 - **TX verb:** `subghz tx_from_file <file> <repeat> <device>` where device
   `0 = internal radio`. `tx-subghz` wraps this. IR/tx verbs vary by firmware --
   fall back to `raw` and adjust if needed.
+- **The RTC resets to Jan 2000** on a firmware flash or a full battery drain,
+  and nothing on the device complains about it. Every capture saved afterwards
+  carries a year-2000 timestamp. Check `flipper-ble clock` against the Mac after
+  any flash and fix with `flipper-ble clock --set now`. Found 26 years slow on
+  2026-09-17, presumably since the Unleashed flash.
 
 ## TX (transmit) safety -- IMPORTANT
 
