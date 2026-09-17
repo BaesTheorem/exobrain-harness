@@ -216,6 +216,14 @@
     "notes": "General read-only Facebook toolkit. Cookie-auth headed browser (Playwright) + GraphQL capture; works on any group/page/profile via named targets. Subcommands: status, find-group <q>, crawl <target> [--url] [--minutes] [--headless], parse <target>, report <target> [--top N] [--per-year N]. crawl->parse->report; outputs top-N + by-year with images. All cookies/data/reports gitignored. Scroll reaches ~8-10mo of group history per session; deep history needs looped sessions or GraphQL cursor-replay (not built)."
   },
   {
+    "name": "fb refresh-cookies",
+    "command": "facebook/bin/fb refresh-cookies",
+    "repo_dir": "/Users/alexhedtke/Documents/Exobrain harness/facebook",
+    "source": "built",
+    "added": "2026-09-16",
+    "notes": "Refresh facebook/secrets/cookies.txt from the live Chrome/Brave session on macOS. Direct AES-128-CBC decrypt of the on-disk cookie store; key = PBKDF2-HMAC-SHA1(Keychain 'Chrome Safe Storage', 'saltysalt', 1003, 16). SHA1 not SHA256. Copied-profile browser launch does NOT work (key bound to original profile). --browser chrome|brave, --dry-run."
+  },
+  {
     "name": "geo",
     "command": "geoguessr/bin/geo",
     "repo_dir": "/Users/alexhedtke/Documents/Exobrain harness/geoguessr",
