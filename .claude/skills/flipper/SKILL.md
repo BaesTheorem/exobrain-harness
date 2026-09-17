@@ -19,7 +19,8 @@ touching the device so we don't re-tread the gotchas already solved.
   via qFlipper "Install from file."
 - **Region:** UNLOCKED (`hardware_region: 0`). **433.92 MHz TX works** -- the US
   region gate is gone. (Use responsibly; Alex is legally responsible for TX.)
-- **Dolphin mood disabled** -- see the Dolphin section below.
+- **Dolphin mood disabled** -- Happy Mode flag set, so butthurt reads 0
+  forever. See the Dolphin section below.
 
 ## The toolkit (`flipper/`)
 
@@ -217,18 +218,52 @@ Captured signals are **personal data** and must never be committed:
 
 ## Dolphin (mood/Tamagotchi) -- disabled
 
-Alex finds the sad-dolphin mood decay stressful. It's **disabled** by editing
-`/ext/dolphin/manifest.txt`: the 5 neglect-triggered animations (`L1_Cry`,
-`L1_Sad_song`, `L1_Mad_fist`, `L1_Boxing`, `L1_Leaving_sad`) are set to
-**`Weight: 0`** (never selected), and the content animations are widened to
-`Max butthurt: 99` so a happy one is always eligible at any mood. The internal
-mood counter still ticks but nothing sad ever displays.
+Alex finds the sad-dolphin mood decay stressful, so the mood system is off at
+the source. Two layers, both applied.
 
-- Backup of the stock manifest: `flipper/sd-backup/dolphin-manifest.txt.bak`.
-- **Reapply after any firmware update / asset-pack reinstall** -- those can
-  regenerate the default manifest and bring the sad animations back. Regenerate
-  by re-running the Weight:0 + widen transform on a fresh manifest, write it back
-  (the tool deletes-first), and reboot the Flipper (`raw "power reboot"`).
+**1. Happy Mode (the real switch).** The firmware gates the whole mood system
+behind a `DolphinFlagHappyMode` bit in the `flags` field of `/int/.dolphin.state`.
+When it is set, every consumer of dolphin stats is handed `butthurt = 0` no
+matter what the internal counter says, so the mood cannot decay. Unleashed
+exposes the same bit as **Settings -> Desktop -> Happy Mode**, a dialog whose
+buttons read `Disable` / `Keep enabled` when it is on and `Go back` / `Enable`
+when it is off. That dialog is the way to check the *live* state. Set headlessly
+on 2026-09-17 with `flipper/dolphin-happy-mode.py`, which also zeroes the stored
+counter (it was sitting at 10 of 14) so the toggle is safe to turn back off.
+
+```bash
+flipper/bin/flipper-ble read /int/.dolphin.state > /tmp/d.state
+python3 flipper/dolphin-happy-mode.py show /tmp/d.state          # decode
+python3 flipper/dolphin-happy-mode.py patch /tmp/d.state -o /tmp/d.happy
+flipper/bin/flipper-ble write /tmp/d.happy /int/.dolphin.state
+flipper/bin/flipper-ble reboot os                                # reload from disk
+```
+
+The **reboot is mandatory**. The dolphin service holds its state in RAM and
+flushes on a timer, so without it the running copy writes the old mood back over
+the patched file at the next deed. Verify with both instruments: read the file
+back, *and* open the Happy Mode dialog. The file alone only proves what is on
+disk, not what the running service believes.
+
+Format is a `saved_struct`: 8-byte header (magic `0xD0`, version `0x01`,
+checksum, pad, u32) then a 32-byte payload, where the checksum is the low byte of
+the payload sum. A bad checksum, or a butthurt outside 0..14, makes the firmware
+discard the file and reset the dolphin, **which wipes the XP as well**, so never
+hand-edit the bytes without rewriting the checksum. The script handles it.
+Backup of the pre-patch state: `flipper/sd-backup/dolphin-state.bin.bak`.
+
+**2. The animation manifest (belt and braces).** `/ext/dolphin/manifest.txt` has
+the 5 neglect-triggered animations (`L1_Cry`, `L1_Sad_song`, `L1_Mad_fist`,
+`L1_Boxing`, `L1_Leaving_sad`) set to **`Weight: 0`** so they are never selected,
+and the content animations widened to `Max butthurt: 99` so a happy one is always
+eligible. Redundant now that Happy Mode pins butthurt to 0, but it costs nothing
+and covers a firmware build that drops the flag. Backup of the stock manifest:
+`flipper/sd-backup/dolphin-manifest.txt.bak`.
+
+- **Reapply both after any firmware update or asset-pack reinstall.** An update
+  regenerates the stock manifest, and a factory reset clears the state file. Re-run
+  the patch script and reboot; re-run the Weight:0 + widen transform on a fresh
+  manifest.
 
 ## Home-automation direction (not built yet)
 
