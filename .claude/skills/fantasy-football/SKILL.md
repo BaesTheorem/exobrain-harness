@@ -40,7 +40,7 @@ Where each call lives in the playbook:
 | What has already been decided and why | *Season log* (newest first) |
 | What is still unknown | *Open questions* |
 | League settings when a tool and memory disagree | *League at a glance* (the note wins) |
-| The week's 50%/90% forecast and the Tuesday review | *Weekly forecast and review*; *Forecast ledger* (newest first) |
+| The week's 50%/90% forecast and the Tuesday review | *Weekly forecast and review*; the *Season log*, where each `### Week N` section opens with the generated Forecast and Review blocks |
 
 ## Live league data
 
@@ -102,7 +102,9 @@ settle` scores MIST and the baseline against reality and `forecast history`
 keeps the coverage table. Two constraints from Alex: ESPN's number is one
 vote, never the model, and the intervals are MIST's judgment, never the
 baseline's. The playbook's *Weekly forecast and review* section holds the
-rule and the *Forecast ledger* the headline lines.
+rule; the Season log is grouped by week and each week's section opens
+with the generated Forecast table and Review scorecard (`forecast
+playbook` regenerates them; commentary goes in via `forecast note`).
 
 **The season runs on autopilot (since 2026-09-07).** Two launchd watchers
 (`lineup-watch --fix`, `roster-watch`) and three Fable routines

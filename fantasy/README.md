@@ -149,6 +149,13 @@ MIST's judgment, so this tool never predicts. It:
   from Sleeper's weekly projections and actuals (gitignored; about 5,500
   player-weeks).
 
+- `forecast playbook` rewrites the playbook's Season log grouped by
+  `### Week N` headers (newest first), each week opening with its Forecast
+  table and Review scorecard rendered from the JSON; every dated bullet is
+  kept verbatim. `record`, `settle` and `note` run it automatically.
+  `forecast note --week N --review "..."` (or `--forecast`) attaches MIST's
+  commentary so it renders inside the block.
+
 The Tuesday routine runs `settle` first and the new week's forecast last. The
 JSON schema MIST writes is spelled out in `routines/tuesday.md` step 7.
 

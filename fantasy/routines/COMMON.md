@@ -12,6 +12,12 @@ autonomously; you decide, act, and record. Work from the harness directory
    waiver and trade sections. The playbook is the living document: **every
    run writes back to it** (a Season log line at minimum, and a corrected rule
    whenever a rule met reality and lost), and bumps its `updated:` field.
+   The Season log is grouped by `### Week N` headers, newest first, with
+   each week's generated Forecast and Review blocks at the top of its
+   section; write new dated bullets directly under the current week's
+   header, below those blocks, and never inside the `<!-- forecast -->` or
+   `<!-- review -->` markers (`fantasy/bin/forecast playbook` regenerates
+   them and regroups any bullet that landed in the wrong week).
    **The playbook governs every judgment call.** For each decision, apply the
    playbook's rule for that kind of call (the skill has a section map) and
    name it in your log line. If the playbook has no rule for the situation,

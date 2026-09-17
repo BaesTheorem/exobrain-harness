@@ -28,6 +28,13 @@ This file is the deterministic half of that loop. It never predicts. It:
   calibrate  rebuilds the residual library (Sleeper 2025 weekly projections vs
              actuals, plus every 2026 week played) in .cache/residuals.json.
   history    the coverage table so far.
+  note       attach MIST's judgment text (forecast commentary or the Tuesday
+             review) to the week's file, so it renders into the playbook.
+  playbook   rewrite the playbook's Season log grouped by week, with each
+             week's forecast table and review scorecard at the top of its
+             section, regenerated from the filed JSON. Every daily bullet is
+             kept verbatim; only the week headers and the marked blocks are
+             the tool's. `record`, `settle` and `note` run it automatically.
 
 Forecasts live in fantasy/forecasts/<season>-wNN.json, one file per week,
 committed: they are the predictions that pay rent. ESPN is one vote in the
@@ -51,7 +58,7 @@ import statistics
 import sys
 import urllib.error
 import urllib.request
-from datetime import datetime
+from datetime import date, datetime, timedelta
 from pathlib import Path
 from typing import Any
 
@@ -79,6 +86,8 @@ HERE = Path(__file__).resolve().parent
 FORECASTS = HERE / "forecasts"
 CACHE = HERE / ".cache"
 RESIDUALS = CACHE / "residuals.json"
+PLAYBOOK = Path.home() / "Exobrain/Areas/Adventure & Creativity/Fantasy Football/Fantasy Football Playbook.md"
+LOG_HEADER = "## Season log"
 UA = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7)"
 POSITIONS = ("QB", "RB", "WR", "TE", "K", "D/ST")
 MIN_PROJ = 3.0        # ratios below this projection blow up and mean nothing
@@ -707,6 +716,8 @@ def validate_forecast(f: dict, roster_names: list[str]) -> list[str]:
         seen.add(slug(nm))
         if not interval_ok(p.get("p50", []), p.get("p90", [])):
             errs.append(f"{nm}: intervals must satisfy p90.lo <= p50.lo <= p50.hi <= p90.hi")
+        if not isinstance(p.get("median"), (int, float)):
+            errs.append(f"{nm}: needs a numeric median")
         if not p.get("why"):
             errs.append(f"{nm}: needs a 'why' (the judgment is the point)")
     missing = want - seen
@@ -715,6 +726,8 @@ def validate_forecast(f: dict, roster_names: list[str]) -> list[str]:
     for k in ("team_total", "opp_total"):
         if not interval_ok(f[k].get("p50", []), f[k].get("p90", [])):
             errs.append(f"{k}: bad intervals")
+        if not isinstance(f[k].get("median"), (int, float)):
+            errs.append(f"{k}: needs a numeric median")
     try:
         wp = float(f["win_prob"])
         if not 0 < wp < 1:
@@ -724,6 +737,8 @@ def validate_forecast(f: dict, roster_names: list[str]) -> list[str]:
     s = f["standing"]
     if not interval_ok(s.get("p50", []), s.get("p90", [])):
         errs.append("standing: bad intervals")
+    if not isinstance(s.get("median"), (int, float)):
+        errs.append("standing: needs a numeric median rank")
     for k in ("p_first", "p_top2"):
         try:
             v = float(s.get(k))
@@ -935,6 +950,211 @@ def render_history(recs: list[dict]) -> None:
         print("  a well-calibrated forecaster lands near 0.50 and 0.90; far above means intervals are too wide, far below too narrow")
 
 
+# ---- playbook: the Season log by week, with the forecast and review on top ---
+
+def week1_start(api: Espn) -> date:
+    """The Tuesday that opens fantasy week 1: two days before its first kickoff."""
+    first = None
+    for t in api.pro_teams().values():
+        for g in (t.get("games") or {}).get("1") or []:
+            k = g.get("date")
+            if k and (first is None or k < first):
+                first = k
+    if first is None:
+        raise SystemExit("forecast: ESPN has no week-1 schedule to anchor the calendar on")
+    kick = datetime.fromtimestamp(first / 1000, TZ).date()
+    return kick - timedelta(days=(kick.weekday() - 1) % 7)   # back to Tuesday
+
+
+def week_of(d: date, start: date) -> int:
+    """Fantasy week for a calendar date; 0 is the preseason."""
+    if d < start:
+        return 0
+    return (d - start).days // 7 + 1
+
+
+def week_label(week: int, start: date) -> str:
+    if week == 0:
+        return f"Preseason (through {(start - timedelta(days=1)).strftime('%b %-d')})"
+    a = start + timedelta(days=7 * (week - 1))
+    b = a + timedelta(days=6)
+    return f"Week {week} ({a.strftime('%b %-d')} to {b.strftime('%b %-d')})"
+
+
+BULLET_RE = re.compile(r"^- \*\*(\d{4})-(\d{2})-(\d{2})")
+MARK_RE = re.compile(r"<!-- (forecast|review):(\d{4})-w(\d{2}) -->.*?<!-- /\1:\2-w\3 -->\n?", re.S)
+WEEK_HDR_RE = re.compile(r"^### (Week \d+|Preseason) \(.*\)\n", re.M)
+
+
+def split_log(body: str) -> tuple[str, list[tuple[date | None, str]]]:
+    """The Season log body -> (intro, [(date, chunk)]). A chunk is one dated
+    bullet with every continuation line and callout that follows it, verbatim.
+    Week headers and the tool's marked blocks are removed first; they are
+    regenerated. Text before the first bullet is the intro and is kept."""
+    body = MARK_RE.sub("", body)
+    body = WEEK_HDR_RE.sub("", body)
+    lines = body.split("\n")
+    intro: list[str] = []
+    chunks: list[tuple[date | None, str]] = []
+    cur: list[str] = []
+    cur_date: date | None = None
+    for ln in lines:
+        m = BULLET_RE.match(ln)
+        if m:
+            if cur:
+                chunks.append((cur_date, "\n".join(cur).rstrip("\n")))
+            cur, cur_date = [ln], date(int(m.group(1)), int(m.group(2)), int(m.group(3)))
+        elif cur:
+            cur.append(ln)
+        else:
+            intro.append(ln)
+    if cur:
+        chunks.append((cur_date, "\n".join(cur).rstrip("\n")))
+    return "\n".join(intro).strip("\n"), chunks
+
+
+def fmt_iv(iv: list) -> str:
+    return f"{iv[0]:g} to {iv[1]:g}"
+
+
+def render_forecast_md(rec: dict) -> str:
+    f = rec["forecast"]
+    issued = datetime.fromisoformat(rec["issued"]).strftime("%a %Y-%m-%d %-I:%M %p")
+    tag = f"{rec['season']}-w{rec['week']:02d}"
+    out = [f"<!-- forecast:{tag} -->",
+           f"#### Forecast (MIST, issued {issued}) vs {rec['opponent']}", ""]
+    tt, ot, st = f["team_total"], f["opp_total"], f["standing"]
+    b = rec.get("baseline") or {}
+    out.append("| | Median | 50% | 90% | Baseline 50% |")
+    out.append("|---|---|---|---|---|")
+    bq = b.get("team_total") or {}
+    out.append(f"| **Our total** | {tt['median']:g} | {fmt_iv(tt['p50'])} | {fmt_iv(tt['p90'])} | {bq.get('q25', '')} to {bq.get('q75', '')} |")
+    bq = b.get("opp_total") or {}
+    out.append(f"| **{rec['opponent']}** | {ot['median']:g} | {fmt_iv(ot['p50'])} | {fmt_iv(ot['p90'])} | {bq.get('q25', '')} to {bq.get('q75', '')} |")
+    out.append(f"| **Win probability** | {f['win_prob']:.2f} | | | {b.get('win_prob', '')} |")
+    rq = b.get("rank") or {}
+    out.append(f"| **Standing after the week** | {st['median']} | {fmt_iv(st['p50'])} | {fmt_iv(st['p90'])} | {rq.get('q25', '')} to {rq.get('q75', '')} |")
+    out.append(f"| **P(first) / P(top two)** | {st['p_first']:.2f} / {st['p_top2']:.2f} | | | {b.get('p_first', '')} / {b.get('p_top2', '')} |")
+    out.append("")
+    out.append("| Slot | Player | Median | 50% | 90% | Consensus | ESPN |")
+    out.append("|---|---|---|---|---|---|---|")
+    for p in f["players"]:
+        cons = p.get("consensus"); espn = p.get("espn")
+        out.append(f"| {p.get('slot', '')} | {p['name']} | {p['median']:g} | {fmt_iv(p['p50'])} | {fmt_iv(p['p90'])} | "
+                   f"{'' if cons is None else f'{cons:g}'} | {'' if espn is None else f'{espn:g}'} |")
+    out.append("")
+    out.append("> [!info]- Why, line by line")
+    if f.get("method"):
+        out.append(f"> **Method.** {f['method']}")
+        out.append(">")
+    for p in f["players"]:
+        out.append(f"> **{p['name'].rstrip('.')}.** {p['why']}")
+    for k, label in (("team_total", "Our total"), ("opp_total", rec["opponent"]), ("standing", "Standing")):
+        out.append(f"> **{label}.** {f[k]['why']}")
+    if rec.get("forecast_note"):
+        out.append("")
+        out.append(rec["forecast_note"].rstrip())
+    out.append(f"<!-- /forecast:{tag} -->")
+    return "\n".join(out) + "\n"
+
+
+def render_review_md(rec: dict, start: date | None = None) -> str:
+    tag = f"{rec['season']}-w{rec['week']:02d}"
+    s = rec.get("settled")
+    out = [f"<!-- review:{tag} -->"]
+    if not s:
+        when = ""
+        if start:
+            tue = start + timedelta(days=7 * rec["week"])
+            when = f", settles Tuesday {tue.strftime('%Y-%m-%d')}"
+        out += [f"#### Review: pending{when}", f"<!-- /review:{tag} -->"]
+        return "\n".join(out) + "\n"
+    r, st, c = s["result"], s["standing"], s["coverage"]
+    settled = datetime.fromisoformat(s["settled_at"]).strftime("%a %Y-%m-%d %-I:%M %p")
+    out.append(f"#### Review (settled {settled}): {'WON' if r['won'] else 'LOST'} {r['us']:.1f} to {r['them']:.1f}, finished #{st['rank']}")
+    out.append("")
+    out.append("| | MIST 50% | MIST 90% | MAE | Win Brier | P(first) Brier |")
+    out.append("|---|---|---|---|---|---|")
+    out.append(f"| **MIST** | {c['mist']['cov50']:.2f} | {c['mist']['cov90']:.2f} | {c['mist']['mae']} | {r['mist_brier']} | {st['first_brier_mist']} |")
+    out.append(f"| **Baseline** | {c['baseline']['cov50']:.2f} | {c['baseline']['cov90']:.2f} | {c['baseline']['mae']} | {r['baseline_brier']} | {st['first_brier_baseline']} |")
+    out.append("")
+    out.append("Coverage is the share of intervals that held; calibrated is 0.50 and 0.90. n = " + str(c["mist"]["n"]) + ".")
+    out.append("")
+    out.append("| Slot | Player | Actual | Median | 50% | 90% | MIST | Baseline | Error |")
+    out.append("|---|---|---|---|---|---|---|---|---|")
+    fp = {p["name"]: p for p in rec["forecast"]["players"]}
+    for p in s["players"]:
+        if "unsettled" in p:
+            out.append(f"| | {p['name']} | | | | | unsettled: {p['unsettled']} | | |")
+            continue
+        m, f = p["mist"], fp[p["name"]]
+        b = (p.get("baseline") or {}).get("where", "")
+        out.append(f"| {p['slot']} | {p['name']} | {m['actual']:g} | {f['median']:g} | {fmt_iv(f['p50'])} | {fmt_iv(f['p90'])} | {m['where']} | {b} | {m['error'] if m['error'] is not None else ''} |")
+    for k, label in (("team_total", "Our total"), ("opp_total", rec["opponent"])):
+        m = s[k]["mist"]; f = rec["forecast"][k]; b = (s[k].get("baseline") or {}).get("where", "")
+        out.append(f"| | **{label}** | {m['actual']:g} | {f['median']:g} | {fmt_iv(f['p50'])} | {fmt_iv(f['p90'])} | {m['where']} | {b} | {m['error'] if m['error'] is not None else ''} |")
+    fs = rec["forecast"]["standing"]
+    out.append(f"| | **Standing** | #{st['rank']} | {fs['median']} | {fmt_iv(fs['p50'])} | {fmt_iv(fs['p90'])} | {st['mist']['where']} | {st['baseline']['where']} | |")
+    out.append("")
+    if rec.get("review_note"):
+        out.append(rec["review_note"].rstrip())
+    else:
+        out.append("*Judgment pending: the Tuesday routine writes which misses were reasoning errors and what changes, via `forecast note --review`.*")
+    out.append(f"<!-- /review:{tag} -->")
+    return "\n".join(out) + "\n"
+
+
+def rebuild_log(text: str, recs: list[dict], start: date) -> str:
+    """The playbook text with its Season log regrouped by week. Every dated
+    bullet survives verbatim, newest first within its week; weeks run newest
+    first; each week opens with its forecast and review blocks when a filed
+    forecast exists."""
+    i = text.find(LOG_HEADER)
+    if i < 0:
+        raise SystemExit("forecast: playbook has no '## Season log' section")
+    head, body = text[:i + len(LOG_HEADER)], text[i + len(LOG_HEADER):]
+    nxt = re.search(r"^## ", body, re.M)
+    tail = ""
+    if nxt:
+        body, tail = body[:nxt.start()], body[nxt.start():]
+    intro, chunks = split_log(body)
+    by_rec = {r["week"]: r for r in recs}
+    weeks: dict[int, list[str]] = {}
+    for d, chunk in chunks:
+        weeks.setdefault(week_of(d, start) if d else 0, []).append(chunk)
+    for w in by_rec:
+        weeks.setdefault(w, [])
+    out = [head, ""]
+    if intro:
+        out += [intro, ""]
+    for w in sorted(weeks, reverse=True):
+        out.append(f"### {week_label(w, start)}")
+        out.append("")
+        rec = by_rec.get(w)
+        if rec:
+            out.append(render_forecast_md(rec))
+            out.append(render_review_md(rec, start))
+        for chunk in weeks[w]:
+            out.append(chunk)
+            out.append("")
+    result = "\n".join(out).rstrip("\n") + "\n"
+    if tail:
+        result += "\n" + tail
+    return result
+
+
+def bump_updated(text: str, today: date) -> str:
+    return re.sub(r"^updated: .*$", f"updated: {today.isoformat()}", text, count=1, flags=re.M)
+
+
+def write_playbook(api: Espn, path: Path = PLAYBOOK) -> None:
+    text = path.read_text()
+    new = rebuild_log(text, all_records(api.season), week1_start(api))
+    new = bump_updated(new, datetime.now(TZ).date())
+    if new != text:
+        path.write_text(new)
+
+
 # ---- main -----------------------------------------------------------------
 
 def main(argv: list[str] | None = None) -> int:
@@ -954,6 +1174,15 @@ def main(argv: list[str] | None = None) -> int:
     c.add_argument("--seasons", default="2025", help="comma list, e.g. 2025,2026")
     h = sub.add_parser("history", help="coverage across the season")
     h.add_argument("--json", action="store_true")
+    n = sub.add_parser("note", help="attach MIST's commentary to a week (renders into the playbook)")
+    n.add_argument("--week", type=int, required=True)
+    g = n.add_mutually_exclusive_group(required=True)
+    g.add_argument("--forecast", help="commentary under the forecast block ('-' for stdin)")
+    g.add_argument("--review", help="the Tuesday judgment under the review block ('-' for stdin)")
+    pb = sub.add_parser("playbook", help="regroup the playbook's Season log by week with forecast and review blocks")
+    pb.add_argument("--path", help="playbook path (default: the vault's)")
+    for sp in (r, s):
+        sp.add_argument("--no-playbook", action="store_true", help="do not rewrite the playbook afterwards")
     args = ap.parse_args(argv)
 
     api = Espn(load_creds())
@@ -985,6 +1214,9 @@ def main(argv: list[str] | None = None) -> int:
             doss = build_dossier(api, int(forecast["week"]))
         path = record(api, forecast, doss)
         print(f"filed {path.relative_to(HERE.parent)}")
+        if not args.no_playbook:
+            write_playbook(api)
+            print("playbook updated")
         return 0
     if args.cmd == "settle":
         recs = all_records(api.season)
@@ -1001,6 +1233,25 @@ def main(argv: list[str] | None = None) -> int:
             print(json.dumps(rec["settled"], indent=1))
         else:
             render_settled(rec)
+        if not args.no_playbook:
+            write_playbook(api)
+            print("playbook updated")
+        return 0
+    if args.cmd == "note":
+        path = week_file(api.season, args.week)
+        if not path.exists():
+            raise SystemExit(f"forecast: no forecast filed for week {args.week}")
+        rec = json.loads(path.read_text())
+        raw = args.forecast if args.forecast is not None else args.review
+        text = sys.stdin.read() if raw == "-" else raw
+        rec["forecast_note" if args.forecast is not None else "review_note"] = text.strip()
+        path.write_text(json.dumps(rec, indent=1))
+        write_playbook(api)
+        print("noted; playbook updated")
+        return 0
+    if args.cmd == "playbook":
+        write_playbook(api, Path(args.path) if args.path else PLAYBOOK)
+        print("playbook updated")
         return 0
     if args.cmd == "history":
         recs = all_records(api.season)

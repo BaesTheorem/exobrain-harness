@@ -10,15 +10,22 @@ Follow `fantasy/routines/COMMON.md` first. If today is not Tuesday, stop.
    miss: was it variance inside a well-shaped band (log it, change nothing)
    or a reasoning error (a role read that was wrong, a source weighted
    wrongly, a band too narrow for the position)? Write the coverage numbers,
-   the reasoning misses, and any rule change to the playbook's *Forecast
-   ledger* and Season log. A strategy change needs a failed reason, not a
+   the reasoning misses, and any rule change as the week's judgment:
+   `fantasy/bin/forecast note --week <last week> --review "<text>"` renders
+   it into that week's Review block at the top of its Season log section
+   (the scorecard table above it is generated; never edit inside the
+   markers), and a dated Season log bullet under the current week's header
+   carries the same conclusions. A strategy change needs a failed reason, not a
    number outside a band; three weeks of 50% coverage under 0.35 or over
    0.65 is the signal the band widths are wrong. If `settle` says the week is
    not over, stop this step and say so.
 1. **Recap.** `fantasy/bin/espn matchup --week <last week> --json`,
    `fantasy/bin/espn scoreboard --json`, `fantasy/bin/espn teams --json`
    (record, points for, and WAIVER PRIORITY, which resets weekly by reverse
-   standings). Season log line: score, opponent, record, points-for rank,
+   standings). Season log line (dated bullets go under the current `###
+   Week N` header, below the generated Forecast and Review blocks;
+   `forecast playbook` regroups any that land elsewhere): score, opponent,
+   record, points-for rank,
    waiver priority, and one sentence on what decided it, judged as process.
    Then the bye race, which is the season's actual objective (a top-2 seed
    skips a single-week round and is worth about 1.9x the title odds of a
@@ -112,8 +119,8 @@ Follow `fantasy/routines/COMMON.md` first. If today is not Tuesday, stop.
    1.25x the projection) and remember the median actual runs about 0.85x
    projection. File it with `fantasy/bin/forecast record /tmp/fc-mist.json
    --dossier /tmp/fc-dossier.json`; it refuses a 50 outside its 90, a missing
-   player, or a probability of 0 or 1. Put the headline line (team total,
-   win probability, P(first), P(top two), the judgment calls made against
-   consensus) in the playbook's *Forecast ledger*, newest first. Pending
-   claims are not on the roster yet, so they are not in the forecast; note
-   them in the ledger line.
+   player, or a probability of 0 or 1, and it regenerates the playbook's
+   Season log so the new week's Forecast table sits at the top of its
+   section. Pending claims are not on the roster yet, so they are not in the
+   forecast; say so with `fantasy/bin/forecast note --week <week> --forecast
+   "<text>"`, which renders under the table.
