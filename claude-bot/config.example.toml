@@ -36,6 +36,13 @@ admin_ids = [000000000000000000]  # your Discord user ID(s) -- full command acce
 #                            # Shared servers always run sandboxed from /tmp.
 # permission_mode = "bypassPermissions"  # CLI --permission-mode for private chats
 # denied_tools = []          # tools to withhold even in private chats, e.g. ["Bash"]
+# reply_to_others = false   # let people other than the owner talk to her
+#                            # (@mention / reply / DM). They ALWAYS get the
+#                            # sandbox + shared persona, never tools or memory.
+# others_dm = true           # ...including in DMs (only matters when the above is on)
+# others_cooldown = 15       # seconds between replies per guest; extra messages
+#                            # get an hourglass reaction. Guest replies also run
+#                            # one at a time so a pile-on can't fan out CLIs.
 # always_respond_guilds = []  # guild IDs where she replies to EVERY owner
 #                            # message (no @mention); e.g. a personal server
 # private_guilds = []        # guild IDs treated as PRIVATE (she may speak freely);
