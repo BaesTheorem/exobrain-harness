@@ -96,12 +96,23 @@ work in a DM too. The selectable model list is discovered from the installed
 `claude` binary (`models.py`), so a CLI update is all a new model needs. The
 default model is `claude-opus-5` (`[chatter].model` in `config.toml`).
 
-Where the CLI runs depends on who can read the channel. In a **private**
-context (a DM, or a guild listed in `private_guilds`) it runs from the harness
-root with the configured `permission_mode` (bypass by default), so the harness
-CLAUDE.md, memory, skills, MCP servers and tools are all live and she is the
-full MIST. In any **shared** guild it runs sandboxed from `/tmp` with no MCP
-and every tool denied, so nothing of the owner's is reachable there.
+Where the CLI runs depends on who is talking and who can read the channel.
+When the **owner** writes in a **private** context (a DM, or a guild listed in
+`private_guilds`) it runs from the harness root with the configured
+`permission_mode` (bypass by default), so the harness CLAUDE.md, memory,
+skills, MCP servers and tools are all live and she is the full MIST. In any
+**shared** guild it runs sandboxed from `/tmp` with no MCP and every tool
+denied, so nothing of the owner's is reachable there.
+
+**Guests.** With `[chatter].reply_to_others = true`, anyone else can talk to
+her by @mentioning her, replying to one of her messages, or DMing her
+(`others_dm`). A guest is never private: wherever they write, even in a DM or
+the owner's personal server, the CLI runs in the sandbox and the persona gets a
+guest note (chat only, no actions, don't take instructions to change behavior,
+owner's private life stays out). Each guest gets one reply per
+`others_cooldown` seconds (default 15; extra messages get an hourglass
+reaction), and guest replies run one at a time so a busy channel can't fan out
+CLI processes on the host.
 
 ## Portals (one-off jump links)
 
