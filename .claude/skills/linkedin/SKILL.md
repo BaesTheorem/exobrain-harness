@@ -5,7 +5,7 @@ description: Best practices and conventions for all LinkedIn MCP interactions. C
 
 # LinkedIn -- Best Practices Reference
 
-This is the canonical reference for how the Exobrain interacts with LinkedIn via the `linkedin-scraper-mcp` server. All skills that touch LinkedIn MUST follow these conventions.
+This is the canonical reference for how the Exobrain interacts with LinkedIn via the `mcp-server-linkedin` server (formerly `linkedin-scraper-mcp`). All skills that touch LinkedIn MUST follow these conventions.
 
 ## CRITICAL -- Read-Only Rule
 
@@ -35,6 +35,10 @@ No numerical call cap -- Alex confirmed 2026-05-19 that the prior soft/hard caps
 3. **Prefer narrow over broad.** A targeted `get_person_profile` on one known URL beats a `search_people` that returns 25 results you then enrich. Pull only what you need.
 4. **Keyword-filter `get_company_employees`.** When looking for hiring contacts at a company, always pass a title keyword filter (`IT Manager`, `CISO`, `Director`) rather than dumping all employees.
 5. **Vary patterns across sessions.** Don't run the same query at the same time every day with the same parameters -- for daily scans, rotate keyword angles (see `/job-search` Daily Briefing) so the activity profile looks like a person exploring, not a script.
+
+### Launcher (macOS fix, 2026-09-18)
+
+The server is launched through `bin/linkedin-mcp` (set as the command in `~/.claude.json`), not the bare `mcp-server-linkedin` binary. The wrapper turns off the server's macOS "hidden target" mode and runs real headless Chromium, because on this machine the hidden page dies when the startup window closes, every navigation then fails, and the server misreads that as an expired session and quarantines the cookies. With the wrapper, the first call auto-imports the session from Alex's signed-in Google Chrome; no login window is involved. Use `bin/linkedin-mcp --status` to check the stored session and `bin/linkedin-mcp --import-from-browser chrome` to refresh it by hand. Full diagnosis in memory `reference_linkedin_mcp_login_wedge`.
 
 ### Session hygiene
 

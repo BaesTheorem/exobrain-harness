@@ -1,0 +1,22 @@
+#!/bin/sh
+# linkedin-mcp: launch mcp-server-linkedin with its macOS hidden-target mode
+# disabled, so the browser runs in real headless mode instead.
+#
+# Why: on this Mac (macOS 26.3, Chrome for Testing 151 / Chrome 153) a page
+# created with `Target.createTarget {hidden: true}` is destroyed the moment the
+# server closes Chromium's startup window. Every navigation then raises
+# TargetClosedError, which the server misreads as an expired session: it
+# quarantines the cookies and opens a login window that fails the same way.
+# Measured 2026-09-18; keeping the startup window open, or a non-hidden target,
+# both work. The server has no switch for this, so the wrapper patches the
+# platform check before the browser module binds it.
+#
+# Same CLI as mcp-server-linkedin; all arguments pass through.
+exec /Users/alexhedtke/.local/share/uv/tools/mcp-server-linkedin/bin/python -c '
+import sys
+import linkedin_mcp_server.hidden_target as hidden_target
+hidden_target.hidden_target_is_supported = lambda: False
+from linkedin_mcp_server.cli_main import main
+sys.argv[0] = "mcp-server-linkedin"
+sys.exit(main())
+' "$@"
