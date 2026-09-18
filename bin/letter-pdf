@@ -152,6 +152,8 @@ def main() -> None:
                     help="body point size (default 11.3)")
     ap.add_argument("--leading", type=float, default=1.52,
                     help="body line-height multiplier (default 1.52)")
+    ap.add_argument("--side-margin", type=float, default=0.95,
+                    help="left/right page margin in inches (default 0.95)")
     args = ap.parse_args()
 
     src = pathlib.Path(args.input)
@@ -166,7 +168,7 @@ def main() -> None:
     running = html.escape(args.running or src.stem)
     footer = (
         '<div style="width:100%;font-family:Georgia,serif;font-size:7.5pt;'
-        f'color:{MUTED};padding:0 0.95in;">'
+        f'color:{MUTED};padding:0 {args.side_margin}in;">'
         '<span style="float:left"></span>'
         f'<span style="float:right">{running} &nbsp;&middot;&nbsp; '
         'page <span class="pageNumber"></span> of '
@@ -184,7 +186,8 @@ def main() -> None:
             header_template="<div></div>",
             footer_template=footer,
             margin={"top": "0.9in", "bottom": "0.85in",
-                    "left": "0.95in", "right": "0.95in"},
+                    "left": f"{args.side_margin}in",
+                    "right": f"{args.side_margin}in"},
         )
         browser.close()
     print(out)
