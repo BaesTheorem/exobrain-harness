@@ -21,9 +21,21 @@ admin_ids = [000000000000000000]  # your Discord user ID(s) -- full command acce
 # [chatter]                  # Phase 5: LLM persona -- MIST replies to the OWNER
 #                            # when @mentioned, replied to, or DMed.
 # enabled = true
-# model = "claude-opus-4-8"  # `claude` CLI model: alias ("sonnet"/"opus") or a
-#                            # full id like "claude-opus-4-8" (Opus 4.8)
+# model = "claude-opus-5"    # default `claude` CLI model: an alias ("fable"/
+#                            # "opus"/"sonnet"/"haiku") or a full id. Switch live
+#                            # with !model / /model; the choice persists in the DB.
+# effort = "default"         # default thinking depth: low|medium|high|xhigh|max,
+#                            # or "default" to let the CLI pick. Switch live with
+#                            # !effort (aliases !think, !thinking) or /effort.
 # history = 12               # how many recent channel messages to use as context
+# timeout = 600              # seconds to wait for a reply (private chats can do
+#                            # real agentic work, so leave this generous)
+# cwd = "/path/to/harness"   # where the CLI runs for PRIVATE chats. Defaults to
+#                            # the harness root (this repo), so CLAUDE.md, memory,
+#                            # skills and MCP servers load and she is the full MIST.
+#                            # Shared servers always run sandboxed from /tmp.
+# permission_mode = "bypassPermissions"  # CLI --permission-mode for private chats
+# denied_tools = []          # tools to withhold even in private chats, e.g. ["Bash"]
 # always_respond_guilds = []  # guild IDs where she replies to EVERY owner
 #                            # message (no @mention); e.g. a personal server
 # private_guilds = []        # guild IDs treated as PRIVATE (she may speak freely);

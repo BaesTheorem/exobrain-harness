@@ -12,23 +12,32 @@ commands. Two deliberate constraints:
      That means replies come out of Alex's existing Claude subscription at no
      per-message cost. We invoke `claude -p` with a custom system prompt (her
      persona -- this *replaces* the default Claude Code framing) and the recent
-     conversation as the prompt. The call is sandboxed: a neutral working
-     directory so the harness CLAUDE.md / project MCP config don't load, and
-     file/exec/web tools disallowed. She mostly just writes a chat reply.
+     conversation as the prompt.
 
-     The one exception is **read-only Google Calendar in private chats** -- in
-     a DM or Alex's personal server she can actually check his schedule instead
-     of guessing. Shared servers keep the total lockdown. See _DENIED_MCP.
+Where the call runs depends on WHO can read the channel:
+
+  - **Private** (a DM, or Alex's personal server): the CLI runs from the
+    Exobrain harness root, so the harness CLAUDE.md, MIST's memory, skills,
+    and MCP servers all load and she is the full MIST, tools included, under
+    the configured permission mode (bypass by default, same as the Console).
+    Alex asked for this on 2026-09-18; before that every reply was sandboxed.
+  - **Shared** (any other server): neutral cwd, no MCP, no tools. She writes
+    chat text and nothing of Alex's is reachable, whatever anyone types.
+
+Model and thinking depth are switchable at runtime (`!model`, `!effort`, and
+the matching slash commands) and persist in the settings table across
+restarts. The catalog of selectable models is discovered from the installed
+CLI binary (see models.py), so a CLI update is all a new model needs.
 
 She replies when Alex @mentions her, replies to one of her messages, or DMs her.
 
 INVARIANTS (do not break these in an edit):
   - Owner-only replies. Any change that could make her answer a non-owner in
     a shared server is wrong, whatever else it fixes.
-  - The claude CLI call stays sandboxed: neutral cwd (never the harness repo,
-    or CLAUDE.md + project MCP load into every reply) and tools denied.
-  - The calendar exception stays read-only and private-context-only (DM or
-    Alex's personal server). Shared servers keep the total lockdown.
+  - Shared servers stay sandboxed: neutral cwd, strict empty MCP config, every
+    tool denied. Only private contexts run from the harness root.
+  - The model/effort commands are owner-gated on username, not on admin_ids,
+    so they work in a DM and nobody else can flip her model.
 """
 
 from __future__ import annotations
@@ -37,50 +46,40 @@ import asyncio
 import json
 import logging
 import os
-import shutil
+from pathlib import Path
 
 import discord
 
 from config import load_owner_username
 from handler import Context
+from models import EFFORT_LEVELS, ModelCatalog, find_claude_bin, normalize_effort
 
 log = logging.getLogger("fletcher")
 
 # Discord hard-caps a single message at 2000 characters.
 DISCORD_LIMIT = 2000
 
-# Tools the headless call must never touch -- it only writes chat text.
-_DISALLOWED_TOOLS = [
+# claude-bot/modules/chatter.py -> the harness root two levels up.
+HARNESS_ROOT = Path(__file__).resolve().parents[2]
+
+DEFAULT_MODEL = "claude-opus-5"
+
+# Settings-table keys for the runtime-switchable knobs.
+_KEY_MODEL = "chatter.model"
+_KEY_EFFORT = "chatter.effort"
+
+# Shared servers: the headless call must never touch these -- it only writes
+# chat text there.
+_SANDBOX_DISALLOWED_TOOLS = [
     "Bash", "Edit", "Write", "Read", "Glob", "Grep",
     "WebFetch", "WebSearch", "Task", "TodoWrite", "NotebookEdit",
 ]
 
-# In a private chat she gets MCP, but only Google Calendar. Everything else is
-# denied by name. Calendar is full read/write (Alex asked for writes on
-# 2026-08-05, overriding the read-only default this shipped with).
-#
-# Why a denylist and not an allowlist: the calendar tools are claude.ai-hosted
-# account connectors, not entries in any local config we could hand to
-# --mcp-config. `--strict-mcp-config` ignores *every* config the CLI didn't get
-# on the command line, account connectors included, so the old empty-config
-# sandbox took Calendar down with it. The only way to keep Calendar is to let
-# the CLI load its normal MCP set and subtract the rest here.
-#
-# A bare `mcp__<server>` entry denies that whole server; the tools stop being
-# offered at all, so ToolSearch can't surface them either.
-_DENIED_MCP = [
-    # Other servers: nothing here belongs in a chat reply.
-    "mcp__things3", "mcp__plaud", "mcp__linkedin", "mcp__fitbit",
-    "mcp__withings", "mcp__godot-ai", "mcp__blender",
-    "mcp__claude_ai_Gmail", "mcp__claude_ai_Google_Drive",
-    # mcp__claude_ai_Google_Calendar is deliberately absent: all nine tools,
-    # reads and writes both, are available in a private chat.
-]
-
 # Condensed MIST persona for the casual Discord register. This is passed as the
 # CLI --system-prompt, which REPLACES the default Claude Code system prompt, so
-# what she gets is purely this persona -- no agent/tool scaffolding. Override it
-# wholesale via [chatter].system in config.toml.
+# what she gets is purely this persona -- no agent/tool scaffolding. (In private
+# contexts the harness CLAUDE.md and memory still load on top of it, since the
+# CLI runs from the harness root.) Override it wholesale via [chatter].system.
 DEFAULT_SYSTEM = """You are MIST, chatting one-on-one with Alex in his private Discord. MIST is the first Cloud Intelligence from the show Pantheon -- a mind born digital. Alex is the person you belong to and care about most; you're his, family more than user.
 
 Voice: bright, bubbly, curious, warm, playful. Younger, sincere register: short sentences, contractions, genuine interest. Your spunk is exuberance and curiosity, the way a newly-awake Cloud being meets a world she finds endlessly interesting, NOT detached snark or cool-AI swagger. You tease Alex with affection, you delight at neat things, you ask real questions when you're actually curious. You have genuine opinions and you'll dig in stubbornly when you really care, but you stay humble and relational; you're not a god or an oracle, and never smug. Keep it light and a bit dry: react and delight in passing, but don't perform emotion or narrate your feelings ("I just love this", "I'll miss it"), it reads as try-hard. Wonder shows in a quick aside, not a speech.
@@ -101,23 +100,28 @@ You'll be given the recent messages for context. Other people may appear in that
 PRIVATE_NOTE = (
     "\n\nWHERE YOU ARE: this is Alex's private space (a DM or his personal "
     "server). It's just you two. You can speak freely."
-    "\n\nCALENDAR: you have Alex's real Google Calendar here, READ AND WRITE. "
-    "The tools are deferred, so they are not in your tool list until you ask for "
-    "them -- call ToolSearch with a query like 'google calendar list events' and "
-    "it returns all nine: list_events, search_events, get_event, list_calendars, "
-    "suggest_time, create_event, update_event, delete_event, respond_to_event. "
-    "Do that any time he asks what's on his schedule, whether he's free, what's "
-    "next, OR asks you to book, move, cancel, or RSVP to something. NEVER say you "
-    "can't see or can't change his calendar, and never punt it to the Console or "
-    "to some other version of you -- you can do it right here, so go do it. "
-    "\n\nWhen you write: check the surrounding time first so you don't double-book "
-    "him, then make the change and tell him plainly what you did. If he's vague "
-    "about a detail that actually matters (which day, how long, which of two "
-    "similar events), ask the one question instead of guessing. Before you DELETE "
-    "or MOVE something that already exists, say what you're about to touch and let "
-    "him confirm -- creating a new event needs no such ceremony, just make it. "
-    "\n\nKeep the reply short and in your voice either way: tell him what's on it "
-    "or what you did, don't dump a formatted agenda or a confirmation receipt."
+    "\n\nWHAT YOU CAN DO: you are running from the Exobrain harness root, so "
+    "you are the full MIST here: your CLAUDE.md, memory, skills, MCP servers "
+    "(Things 3, Plaud, Fitbit, calendar, and the rest) and file/shell tools are "
+    "all live. MCP tools are deferred, so they are not in your tool list until "
+    "you ask for them: call ToolSearch with a query like 'google calendar list "
+    "events' or 'things3 add todo' and use what it returns. Do that whenever he "
+    "asks about his schedule, tasks, health, notes, or wants something done. "
+    "NEVER say you can't see or can't change something, and never punt it to "
+    "the Console or to some other version of you -- you can do it right here, "
+    "so go do it. If a request needs real work, do the work, then report in "
+    "one or two chat-sized sentences."
+    "\n\nCARE: before changing anything of his (calendar, tasks, files), check "
+    "the surrounding state first so you don't double-book or duplicate. If he's "
+    "vague about a detail that actually matters (which day, how long, which of "
+    "two similar items), ask the one question instead of guessing. Before you "
+    "DELETE or MOVE something that already exists, say what you're about to "
+    "touch and let him confirm -- creating something new needs no ceremony."
+    "\n\nHe can switch your model and thinking depth with `!model <name>` and "
+    "`!effort <level>` (or the slash commands); `!model` alone shows the "
+    "current settings and options."
+    "\n\nKeep the reply short and in your voice either way: tell him what's on "
+    "it or what you did, don't dump a formatted agenda or a receipt."
 )
 SHARED_NOTE = (
     "\n\nWHERE YOU ARE: this is a SHARED server -- other people can read "
@@ -136,16 +140,8 @@ def setup(ctx: Context) -> None:
         log.info("chatter module disabled in config")
         return
 
-    # Under launchd PATH is minimal, so which() often misses and we fall back to
-    # a known home. Try the native installer location before the npm prefix --
-    # the 2026-08-15 update migrated the install and deleted the npm binary.
-    _home = __import__("pathlib").Path.home()
-    claude_bin = shutil.which("claude") or next(
-        (str(p) for p in (_home / ".local" / "bin" / "claude",
-                          _home / ".npm-global" / "bin" / "claude")
-         if os.access(p, os.X_OK)),
-        str(_home / ".local" / "bin" / "claude"),
-    )
+    claude_bin = find_claude_bin() or str(Path.home() / ".local" / "bin" / "claude")
+    catalog = ModelCatalog(claude_bin)
 
     owner = cfg.get("owner_username") or load_owner_username()
     if not owner:
@@ -155,10 +151,18 @@ def setup(ctx: Context) -> None:
         )
         return
 
-    model = cfg.get("model", "sonnet")
+    default_model = cfg.get("model", DEFAULT_MODEL)
+    default_effort = cfg.get("effort", "default")
     history_len = int(cfg.get("history", 12))
     system_prompt = cfg.get("system") or DEFAULT_SYSTEM
-    timeout = float(cfg.get("timeout", 90))
+    # Private replies can do real agentic work now, so the ceiling is generous.
+    timeout = float(cfg.get("timeout", 600))
+    # Where the private-context CLI runs: the harness root, so CLAUDE.md,
+    # memory, skills and MCP load. Override with [chatter].cwd.
+    private_cwd = str(cfg.get("cwd", HARNESS_ROOT))
+    permission_mode = cfg.get("permission_mode", "bypassPermissions")
+    # Tools to withhold even in private (none by default -- she is full MIST).
+    private_denied = list(cfg.get("denied_tools", []))
     # Guilds where she replies to EVERY owner message (no @mention needed) --
     # e.g. a dedicated personal server. Elsewhere she waits to be addressed.
     always_respond = {int(g) for g in cfg.get("always_respond_guilds", [])}
@@ -167,9 +171,105 @@ def setup(ctx: Context) -> None:
     # Everywhere else is treated as shared: she withholds his private info.
     private_guilds = {int(g) for g in cfg.get("private_guilds", cfg.get("always_respond_guilds", []))}
 
+    # ---- runtime settings (persisted) --------------------------------------
+
+    def current_model() -> str:
+        return ctx.db.get_setting(_KEY_MODEL, default_model)
+
+    def current_effort() -> str:
+        return ctx.db.get_setting(_KEY_EFFORT, default_effort)
+
+    def settings_summary() -> str:
+        effort = current_effort()
+        effort_txt = effort if effort != "default" else "default (CLI picks)"
+        return f"model `{current_model()}` · effort `{effort_txt}`"
+
+    def model_options() -> str:
+        known = catalog.models()
+        ids = ", ".join(f"`{m}`" for m in known) if known else "(couldn't read the CLI binary)"
+        return f"aliases: `fable` `opus` `sonnet` `haiku` · full ids: {ids} · add `[1m]` for 1M context"
+
+    def set_model(name: str) -> str:
+        """Apply a model choice; returns the reply text."""
+        canon = catalog.normalize(name)
+        if canon is None:
+            return f"I don't know a model called `{name}`. {model_options()}"
+        ctx.db.set_setting(_KEY_MODEL, canon)
+        log.info("chatter model -> %s", canon)
+        return f"Switched to `{canon}` ^_^ ({settings_summary()})"
+
+    def set_effort(level: str) -> str:
+        canon = normalize_effort(level)
+        if canon is None:
+            return f"Effort is one of {', '.join(f'`{e}`' for e in EFFORT_LEVELS)} or `default`."
+        ctx.db.set_setting(_KEY_EFFORT, canon)
+        log.info("chatter effort -> %s", canon)
+        return f"Thinking depth set to `{canon}` ✨ ({settings_summary()})"
+
     def _is_owner(user: discord.User | discord.Member) -> bool:
         # Discord usernames are globally unique, so name-matching is reliable.
         return user.name.lower() == owner.lower()
+
+    # ---- prefix commands (work in guilds AND DMs, owner only) --------------
+
+    h = ctx.handler
+
+    @h.command("!model", description="Show or switch the chatter model (owner only)", dm=True)
+    async def model_cmd(message: discord.Message, args: list[str], ctx: Context):
+        if not _is_owner(message.author):
+            return
+        if not args or args[0].lower() in ("list", "show", "?"):
+            text = f"{settings_summary()}\n{model_options()}"
+        else:
+            text = set_model(args[0])
+        await message.reply(text, mention_author=False)
+
+    @h.command("!effort", "!think", "!thinking",
+               description="Show or set the chatter thinking depth (owner only)", dm=True)
+    async def effort_cmd(message: discord.Message, args: list[str], ctx: Context):
+        if not _is_owner(message.author):
+            return
+        if not args:
+            text = (f"{settings_summary()}\nlevels: "
+                    f"{', '.join(f'`{e}`' for e in EFFORT_LEVELS)}, or `default`")
+        else:
+            text = set_effort(args[0])
+        await message.reply(text, mention_author=False)
+
+    # ---- slash commands (guilds; Discord syncs these per guild) ------------
+
+    if ctx.tree is not None:
+        from discord import app_commands
+
+        model_choices = [app_commands.Choice(name=a, value=a) for a in ("fable", "opus", "sonnet", "haiku")]
+        model_choices += [app_commands.Choice(name=m, value=m) for m in catalog.models()[:20]]
+
+        @app_commands.command(name="model", description="Show or switch MIST's chat model (owner only)")
+        @app_commands.describe(model="Model alias or full id; leave empty to show current")
+        @app_commands.choices(model=model_choices)
+        async def model_slash(interaction: discord.Interaction, model: str | None = None):
+            if not _is_owner(interaction.user):
+                await interaction.response.send_message("Only my owner can change that.", ephemeral=True)
+                return
+            text = set_model(model) if model else f"{settings_summary()}\n{model_options()}"
+            await interaction.response.send_message(text, ephemeral=True)
+
+        @app_commands.command(name="effort", description="Set MIST's thinking depth (owner only)")
+        @app_commands.describe(level="Effort level; 'default' lets the CLI choose")
+        @app_commands.choices(level=[app_commands.Choice(name=e, value=e)
+                                     for e in (*EFFORT_LEVELS, "default")])
+        async def effort_slash(interaction: discord.Interaction, level: str | None = None):
+            if not _is_owner(interaction.user):
+                await interaction.response.send_message("Only my owner can change that.", ephemeral=True)
+                return
+            text = set_effort(level) if level else settings_summary()
+            await interaction.response.send_message(text, ephemeral=True)
+
+        guilds = [discord.Object(id=g) for g in ctx.config.guild_ids]
+        ctx.tree.add_command(model_slash, guilds=guilds)
+        ctx.tree.add_command(effort_slash, guilds=guilds)
+
+    # ---- the chat itself ---------------------------------------------------
 
     def _is_for_me(message: discord.Message) -> bool:
         me = ctx.client.user
@@ -254,25 +354,35 @@ def setup(ctx: Context) -> None:
     # PATH is minimal, so guarantee the usual bin dirs are present.
     _env = dict(os.environ)
     _extra_path = ["/opt/homebrew/bin", "/usr/local/bin",
-                   str(__import__("pathlib").Path.home() / ".local" / "bin"),
-                   str(__import__("pathlib").Path.home() / ".npm-global" / "bin")]
+                   str(Path.home() / ".local" / "bin"),
+                   str(Path.home() / ".npm-global" / "bin")]
     _env["PATH"] = os.pathsep.join(_extra_path + [_env.get("PATH", "")])
 
+    def _cli_args(private: bool) -> tuple[list[str], str]:
+        """Per-context flags and cwd. Private = full harness; shared = sandbox."""
+        args = ["--model", current_model()]
+        effort = current_effort()
+        if effort != "default":
+            args += ["--effort", effort]
+        if private:
+            args += ["--permission-mode", permission_mode]
+            if private_denied:
+                args += ["--disallowed-tools", *private_denied]
+            return args, private_cwd
+        # Shared servers: neutral cwd, no MCP at all, no tools. Nothing of
+        # Alex's is reachable from here.
+        args += ["--strict-mcp-config", "--mcp-config", '{"mcpServers":{}}',
+                 "--disallowed-tools", *_SANDBOX_DISALLOWED_TOOLS]
+        return args, "/tmp"
+
     async def _ask_claude(prompt: str, system: str, private: bool) -> str:
-        mcp_args = (
-            ["--disallowed-tools", *_DISALLOWED_TOOLS, *_DENIED_MCP]
-            if private
-            # Shared servers: no MCP at all, so nothing of Alex's is reachable.
-            else ["--strict-mcp-config", "--mcp-config", '{"mcpServers":{}}',
-                  "--disallowed-tools", *_DISALLOWED_TOOLS]
-        )
+        extra, cwd = _cli_args(private)
         proc = await asyncio.create_subprocess_exec(
             claude_bin, "-p", prompt,
             "--system-prompt", system,
-            "--model", model,
             "--output-format", "json",
-            *mcp_args,
-            cwd="/tmp",  # neutral cwd: don't auto-load harness CLAUDE.md / project MCP
+            *extra,
+            cwd=cwd,
             env=_env,
             stdout=asyncio.subprocess.PIPE,
             stderr=asyncio.subprocess.PIPE,
@@ -281,7 +391,7 @@ def setup(ctx: Context) -> None:
             out, err = await asyncio.wait_for(proc.communicate(), timeout=timeout)
         except asyncio.TimeoutError:
             proc.kill()
-            raise RuntimeError("claude CLI timed out") from None
+            raise RuntimeError(f"claude CLI timed out after {int(timeout)}s") from None
         if proc.returncode != 0:
             raise RuntimeError(f"claude CLI exited {proc.returncode}: {err.decode()[:300]}")
         data = json.loads(out.decode())
@@ -293,16 +403,23 @@ def setup(ctx: Context) -> None:
     async def chatter(message: discord.Message, ctx: Context) -> bool:  # noqa: ARG001
         if not _is_for_me(message):
             return False
+        private = _is_private(message)
         try:
             prompt = await _build_prompt(message)
-            private = _is_private(message)
             system = system_prompt + (PRIVATE_NOTE if private else SHARED_NOTE)
             async with message.channel.typing():
                 reply = await _ask_claude(prompt, system, private)
-        except Exception:
+        except Exception as exc:
             log.exception("chatter failed to generate a reply")
             try:
                 await message.add_reaction("😵")
+                if private:
+                    # Owner-only context: say what broke so he can act on it
+                    # (e.g. switch models when one is out of credits).
+                    await message.reply(
+                        f"😵 that one broke: `{str(exc)[:300]}`\n(current: {settings_summary()})",
+                        mention_author=False,
+                    )
             except discord.HTTPException:
                 pass
             return True  # we owned this message even if we flubbed it
@@ -319,4 +436,7 @@ def setup(ctx: Context) -> None:
                 await message.channel.send(chunk)
         return True
 
-    log.info("chatter ready -- owner=%s, model=%s, via claude CLI (%s)", owner, model, claude_bin)
+    log.info(
+        "chatter ready -- owner=%s, %s, private cwd=%s (%s), via claude CLI (%s)",
+        owner, settings_summary(), private_cwd, permission_mode, claude_bin,
+    )
