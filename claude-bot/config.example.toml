@@ -62,6 +62,15 @@ admin_ids = [000000000000000000]  # your Discord user ID(s) -- full command acce
 #                            # but Instagram often blocks yt-dlp; kkinstagram is
 #                            # the reliable default).
 
+# [threads]                  # Thread auto-join (Fletcher's use_threads). Anyone
+# enabled = true             # runs `!preference use_threads true` (or a list of
+#                            # #channels / category names) to be added to every
+#                            # new public thread, so it shows in their sidebar.
+#                            # The owner/admins can set it for others:
+#                            # `!preference @user use_threads true`.
+# default_on = []            # user IDs treated as `true` unless they opt out
+#                            # (Fletcher gives this to the mod list)
+
 # [greeting]                 # Phase 3: member onboarding
 # rules_gate = false         # require new members to DM "I agree" before gaining access
 # default_role_id = 0        # role granted on join / when no saved roles exist

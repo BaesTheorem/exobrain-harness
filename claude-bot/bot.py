@@ -98,9 +98,32 @@ class FletcherBot(discord.Client):
             except discord.HTTPException:
                 log.exception("slash command sync failed for guild %s", gid)
 
+    async def on_thread_create(self, thread: discord.Thread):
+        await self._run_thread_handlers(thread)
+
+    async def _run_thread_handlers(self, thread: discord.Thread) -> None:
+        if thread.guild.id not in self.config.guild_ids:
+            return
+        for fn in self.handler.thread_handlers:
+            try:
+                await fn(thread, self.ctx)
+            except Exception:
+                log.exception("thread handler failed")
+
     async def on_message(self, message: discord.Message):
         if message.author.bot:
             return
+        # Backfill: a thread the gateway never announced (created while we were
+        # down, or from an archived-thread revival) shows up as a message in a
+        # thread we haven't joined. Only bother while it's fresh.
+        chan = message.channel
+        if (
+            isinstance(chan, discord.Thread)
+            and not chan.me
+            and not chan.is_private()
+            and chan.message_count < 4
+        ):
+            await self._run_thread_handlers(chan)
         # Prefix commands take priority; if none matched, offer the message to
         # the message_handlers (chatter replies to @mentions / replies / DMs).
         handled = await self.handler.dispatch(message, self.ctx)

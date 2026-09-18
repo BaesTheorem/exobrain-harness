@@ -29,6 +29,7 @@ Feature phases land as additional modules:
 | 6 ✅ | `modules/portal.py` | `!portal` one-off jump links between channels (Fletcher teleport) |
 | 7 ✅ | `modules/ace.py` | `!ace` Ace Attorney video generator (isolated venv, throttled) |
 | 8 ✅ | `modules/instagram.py` | reply to an Instagram link + @mention MIST → reel embeds as inline video (Fletcher kkinstagram fix) |
+| 9 ✅ | `modules/threads.py` | `!preference use_threads` + auto-join: opted-in users are added to every new public thread (Fletcher `use_threads`) |
 
 ## Setup
 
@@ -126,6 +127,38 @@ per-guild on connect (needs the `applications.commands` invite scope).
 > An earlier version implemented portals as a persistent webhook *mirror*
 > (Fletcher's `!bridge`). That was the wrong feature and was removed; the
 > `bridges` / `bridge_messagemap` / `bridge_pending` tables are dropped on boot.
+
+## Thread auto-join (`!preference use_threads`)
+
+Discord only shows a thread in your sidebar once you're a member of it, so new
+threads in a busy server are easy to miss. `modules/threads.py` ports Fletcher's
+`use_threads` preference: opt in once and MIST adds you to every new public
+thread as it appears.
+
+```
+!preference use_threads true              every new thread in this server
+!preference use_threads #general, Events  only threads under those channels/categories
+!preference use_threads false             opt out
+!preference use_threads null              delete the row
+!preference use_threads                   show the current value
+```
+
+Also `/preference key:use_threads value:true`. From a DM, `!preference
+<guild_id>:use_threads true` targets one server; a bare DM setting is global
+and a per-server row overrides it. Category and channel names are checked
+against the server, with a "did you mean" on typos.
+
+**On behalf of someone else** (owner or admin only):
+`!preference @user use_threads true`, or `/preference ... user:@user`.
+
+How the summon works: `thread.add_user()` posts a visible "X was added" system
+message per person, so instead MIST sends a silent placeholder in the thread,
+edits the user mentions into it (edits never notify, and mentions add members),
+then deletes it. Membership survives the delete. Each thread is summoned once
+(`thread_summoned` table), threads older than five minutes are skipped, private
+threads are never touched, and users who can't read the parent channel are
+never added. `[threads].default_on` lists user IDs treated as `true` unless
+they opt out (Fletcher gives this to its mod list).
 
 ## Ace Attorney video generator (`!ace`)
 
