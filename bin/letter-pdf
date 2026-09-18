@@ -53,7 +53,7 @@ def inline(text: str) -> str:
     return out
 
 
-def build_html(md: str, fs: float, lh: float) -> str:
+def build_html(md: str, fs: float, lh: float, sig: float) -> str:
     blocks = [b.strip() for b in re.split(r"\n\s*\n", md.strip()) if b.strip()]
     if len(blocks) < 4:
         sys.exit("letter-pdf: need at least sender, date, recipient, and body blocks")
@@ -127,7 +127,7 @@ def build_html(md: str, fs: float, lh: float) -> str:
   h2.sec + p {{ break-before: avoid; }}
   strong {{ font-weight: 700; }}
   .closing {{ margin-top: 20px; margin-bottom: 0; }}
-  .siggap {{ height: 46px; }}
+  .siggap {{ height: {sig}in; }}
   .sig {{ margin: 0 0 2px; line-height: 1.45; }}
   .sig + .sig {{ font-size: 9.4pt; color: {MUTED}; }}
   .rule {{ border: 0; border-top: 1px solid {RULE}; margin: 0; }}
@@ -154,11 +154,15 @@ def main() -> None:
                     help="body line-height multiplier (default 1.52)")
     ap.add_argument("--side-margin", type=float, default=0.95,
                     help="left/right page margin in inches (default 0.95)")
+    ap.add_argument("--sig-space", type=float, default=0.5,
+                    help="blank inches left for a handwritten signature "
+                         "(default 0.5)")
     args = ap.parse_args()
 
     src = pathlib.Path(args.input)
     out = pathlib.Path(args.output) if args.output else src.with_suffix(".pdf")
-    page = build_html(src.read_text(), args.font_size, args.leading)
+    page = build_html(src.read_text(), args.font_size, args.leading,
+                      args.sig_space)
 
     tmp = pathlib.Path(tempfile.mkdtemp()) / "letter.html"
     tmp.write_text(page)
