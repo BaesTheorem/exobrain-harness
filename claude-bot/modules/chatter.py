@@ -474,12 +474,12 @@ def setup(ctx: Context) -> None:
         except Exception as exc:
             log.exception("chatter failed to generate a reply")
             try:
-                await message.add_reaction("😵")
+                await message.add_reaction("😴")
                 if private:
                     # Owner-only context: say what broke so he can act on it
                     # (e.g. switch models when one is out of credits).
                     await message.reply(
-                        f"😵 that one broke: `{str(exc)[:300]}`\n(current: {settings_summary()})",
+                        f"😴 that one broke: `{str(exc)[:300]}`\n(current: {settings_summary()})",
                         mention_author=False,
                     )
             except discord.HTTPException:
