@@ -78,6 +78,12 @@ CREATE TABLE IF NOT EXISTS chatter_messages (
 );
 CREATE VIRTUAL TABLE IF NOT EXISTS chatter_fts
     USING fts5(content, content='chatter_messages', content_rowid='id');
+
+-- Bot-wide runtime settings that survive a restart (chatter model, effort)
+CREATE TABLE IF NOT EXISTS settings (
+    key   TEXT PRIMARY KEY,
+    value TEXT
+);
 """
 
 # Note: the old webhook-mirror portal (bridges / bridge_messagemap /
@@ -122,4 +128,15 @@ class DB:
             "INSERT INTO user_prefs(user_id,key,value) VALUES(?,?,?) "
             "ON CONFLICT(user_id,key) DO UPDATE SET value=excluded.value",
             (user_id, key, json.dumps(value)),
+        )
+
+    def get_setting(self, key: str, default=None):
+        row = self.conn.execute("SELECT value FROM settings WHERE key=?", (key,)).fetchone()
+        return json.loads(row["value"]) if row else default
+
+    def set_setting(self, key: str, value) -> None:
+        self.execute(
+            "INSERT INTO settings(key,value) VALUES(?,?) "
+            "ON CONFLICT(key) DO UPDATE SET value=excluded.value",
+            (key, json.dumps(value)),
         )

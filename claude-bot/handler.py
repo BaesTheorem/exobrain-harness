@@ -38,6 +38,7 @@ class Command:
     min_args: int = 0
     cooldown: float = 0.0          # seconds between uses, per user
     hidden: bool = False
+    dm: bool = False               # also usable in a DM with the bot
     last_used: dict[int, float] = field(default_factory=dict, repr=False)
 
 
@@ -120,9 +121,12 @@ class Handler:
         if message.author.bot:
             return False
         # Guild guard for COMMANDS: ignore commands outside the servers we
-        # serve. DMs are intentionally let through to message_handlers
-        # (chatter), but they are never treated as commands here.
-        if message.guild is None or message.guild.id not in self.config.guild_ids:
+        # serve. DMs fall through to message_handlers (chatter) unless the
+        # matched command opted into DMs with dm=True (the chatter settings
+        # commands do, so Alex can switch models from a DM).
+        guild = message.guild
+        in_dm = guild is None
+        if guild is not None and guild.id not in self.config.guild_ids:
             return False
         content = message.content.strip()
         if not content.startswith(self.config.prefix):
@@ -132,6 +136,8 @@ class Handler:
         if match is None:
             return False
         cmd, args = match
+        if in_dm and not cmd.dm:
+            return False
 
         if cmd.admin and not self.is_admin(message.author):
             await message.reply("You don't have permission to use that.", mention_author=False)

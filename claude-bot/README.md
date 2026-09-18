@@ -76,6 +76,32 @@ is allowed per token, so stop the launchd job before running `bot.py` by hand.
 | `db.py` | SQLite schema + helpers |
 | `modules/` | feature modules, each with `setup(ctx)` |
 
+## Chatter: model and thinking depth
+
+`modules/chatter.py` runs replies through the `claude` CLI on the owner's
+subscription. The model and effort level are switchable at runtime and persist
+in the SQLite `settings` table, so a restart keeps the last choice:
+
+```
+!model                 show current model + effort, and what's selectable
+!model opus            switch (aliases fable/opus/sonnet/haiku, or a full id
+                       like claude-opus-5; add [1m] for the 1M-context variant)
+!effort xhigh          thinking depth: low | medium | high | xhigh | max | default
+/model  /effort        the same as slash commands, with a picker
+```
+
+Owner only (gated on Discord username, not `admin_ids`), and the prefix forms
+work in a DM too. The selectable model list is discovered from the installed
+`claude` binary (`models.py`), so a CLI update is all a new model needs. The
+default model is `claude-opus-5` (`[chatter].model` in `config.toml`).
+
+Where the CLI runs depends on who can read the channel. In a **private**
+context (a DM, or a guild listed in `private_guilds`) it runs from the harness
+root with the configured `permission_mode` (bypass by default), so the harness
+CLAUDE.md, memory, skills, MCP servers and tools are all live and she is the
+full MIST. In any **shared** guild it runs sandboxed from `/tmp` with no MCP
+and every tool denied, so nothing of the owner's is reachable there.
+
 ## Portals (one-off jump links)
 
 `modules/portal.py` mirrors Fletcher's `!teleport`/`!portal`: a **portal** is
