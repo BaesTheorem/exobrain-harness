@@ -1,0 +1,194 @@
+#!/usr/bin/env python3
+"""Render a plain-markdown letter into a formal, print-ready PDF.
+
+Expected markdown shape (blank-line separated blocks):
+
+    <sender name>            <- block 1, letterhead
+    <sender street>
+    <sender city, state zip>
+
+    <date>                   <- block 2
+
+    <recipient name>         <- block 3
+    <recipient org / lines>
+
+    Dear ...,                <- salutation, then body
+    ...
+    **Section header**       <- a block that is entirely bold is a header
+    ...
+    Respectfully,            <- closing; everything after is the signature block
+
+House style: white stock, ink #1a1a1a, rust #b83c28 accents, Charter/Georgia
+body. Continuation pages carry a running footer with the page number.
+
+Usage: letter-pdf INPUT.md [-o OUTPUT.pdf] [--running "Short running head"]
+"""
+import argparse
+import html
+import pathlib
+import re
+import sys
+import tempfile
+
+INK = "#1a1a1a"
+RUST = "#b83c28"
+MUTED = "#6b6459"
+RULE = "#c9c2b6"
+
+
+def smart_quotes(text: str) -> str:
+    """Straight quotes to typographic ones, for print."""
+    out = re.sub(r"(?<=[A-Za-z])'(?=[A-Za-z])", "\u2019", text)   # don't, it's
+    out = re.sub(r'(^|[\s(\[])"', "\\1\u201c", out)              # opening "
+    out = out.replace('"', "\u201d")                               # everything else closes
+    out = re.sub(r"(^|[\s(\[])'", "\\1\u2018", out)              # opening '
+    out = out.replace("'", "\u2019")
+    return out
+
+
+def inline(text: str) -> str:
+    out = html.escape(smart_quotes(text))
+    out = re.sub(r"\*\*(.+?)\*\*", r"<strong>\1</strong>", out)
+    out = re.sub(r"(?<!\*)\*(?!\*)(.+?)(?<!\*)\*(?!\*)", r"<em>\1</em>", out)
+    return out
+
+
+def build_html(md: str, fs: float, lh: float) -> str:
+    blocks = [b.strip() for b in re.split(r"\n\s*\n", md.strip()) if b.strip()]
+    if len(blocks) < 4:
+        sys.exit("letter-pdf: need at least sender, date, recipient, and body blocks")
+
+    sender, date, recipient = blocks[0], blocks[1], blocks[2]
+    rest = blocks[3:]
+
+    sender_lines = sender.split("\n")
+    name, sender_rest = sender_lines[0], sender_lines[1:]
+
+    body_parts = []
+    in_signature = False
+    for block in rest:
+        lines = block.split("\n")
+        stripped = block.strip()
+        if re.fullmatch(r"\*\*.+\*\*", stripped) and "\n" not in stripped:
+            body_parts.append(
+                f'<h2 class="sec">{inline(stripped[2:-2])}</h2>')
+            continue
+        if re.match(r"^(Respectfully|Sincerely|Regards|Yours)\b", stripped):
+            in_signature = True
+            body_parts.append(f'<p class="closing">{inline(stripped)}</p>')
+            body_parts.append('<div class="siggap"></div>')
+            continue
+        if in_signature:
+            body_parts.append(
+                '<p class="sig">' + "<br>".join(inline(x) for x in lines) + "</p>")
+            continue
+        body_parts.append(
+            "<p>" + "<br>".join(inline(x) for x in lines) + "</p>")
+
+    to = "<br>".join(inline(x) for x in recipient.split("\n"))
+
+    pgap = 11 * lh / 1.52
+    hgap = 21 * lh / 1.52
+    hgap2 = 9 * lh / 1.52
+    dgap = 22 * lh / 1.52
+    lgap = 26 * lh / 1.52
+    return f"""<!doctype html>
+<html><head><meta charset="utf-8"><title>{inline(name)}</title>
+<style>
+  @page {{ size: letter; margin: 0.9in 0.95in 0.95in 0.95in; }}
+  * {{ -webkit-print-color-adjust: exact; print-color-adjust: exact; }}
+  body {{
+    font-family: Charter, Georgia, "Times New Roman", serif;
+    font-size: {fs}pt; line-height: {lh}; color: {INK};
+    margin: 0; background: #fff;
+  }}
+  .letterhead {{
+    border-bottom: 1.2px solid {RUST};
+    padding-bottom: 9px; margin-bottom: {lgap:.1f}px;
+    display: flex; align-items: flex-end; justify-content: space-between;
+  }}
+  .name {{
+    font-size: 17pt; letter-spacing: 0.12em; text-transform: uppercase;
+    font-weight: 400;
+  }}
+  .from {{
+    font-size: 8.6pt; line-height: 1.5; color: {MUTED};
+    letter-spacing: 0.04em; text-align: right;
+  }}
+  .date {{ margin: 0 0 {dgap:.1f}px; }}
+  .to {{ margin: 0 0 26px; line-height: 1.45; }}
+  p {{ margin: 0 0 {pgap:.1f}px; text-align: left; hyphens: none; }}
+  h2.sec {{
+    font-size: 8.8pt; font-family: Charter, Georgia, serif;
+    letter-spacing: 0.15em; text-transform: uppercase; color: {RUST};
+    font-weight: 700; margin: {hgap:.1f}px 0 {hgap2:.1f}px;
+    break-after: avoid; page-break-after: avoid;
+  }}
+  h2.sec + p {{ break-before: avoid; }}
+  strong {{ font-weight: 700; }}
+  .closing {{ margin-top: 20px; margin-bottom: 0; }}
+  .siggap {{ height: 46px; }}
+  .sig {{ margin: 0 0 2px; line-height: 1.45; }}
+  .sig + .sig {{ font-size: 9.4pt; color: {MUTED}; }}
+  .rule {{ border: 0; border-top: 1px solid {RULE}; margin: 0; }}
+</style></head>
+<body>
+  <div class="letterhead">
+    <div class="name">{inline(name)}</div>
+    <div class="from">{"<br>".join(inline(x) for x in sender_rest)}</div>
+  </div>
+  <p class="date">{inline(date)}</p>
+  <p class="to">{to}</p>
+  {"".join(body_parts)}
+</body></html>"""
+
+
+def main() -> None:
+    ap = argparse.ArgumentParser()
+    ap.add_argument("input")
+    ap.add_argument("-o", "--output")
+    ap.add_argument("--running", default="")
+    ap.add_argument("--font-size", type=float, default=11.3,
+                    help="body point size (default 11.3)")
+    ap.add_argument("--leading", type=float, default=1.52,
+                    help="body line-height multiplier (default 1.52)")
+    args = ap.parse_args()
+
+    src = pathlib.Path(args.input)
+    out = pathlib.Path(args.output) if args.output else src.with_suffix(".pdf")
+    page = build_html(src.read_text(), args.font_size, args.leading)
+
+    tmp = pathlib.Path(tempfile.mkdtemp()) / "letter.html"
+    tmp.write_text(page)
+
+    from playwright.sync_api import sync_playwright
+
+    running = html.escape(args.running or src.stem)
+    footer = (
+        '<div style="width:100%;font-family:Georgia,serif;font-size:7.5pt;'
+        f'color:{MUTED};padding:0 0.95in;">'
+        '<span style="float:left"></span>'
+        f'<span style="float:right">{running} &nbsp;&middot;&nbsp; '
+        'page <span class="pageNumber"></span> of '
+        '<span class="totalPages"></span></span></div>'
+    )
+    with sync_playwright() as p:
+        browser = p.chromium.launch()
+        pg = browser.new_page()
+        pg.goto(tmp.as_uri(), wait_until="networkidle")
+        pg.pdf(
+            path=str(out),
+            format="Letter",
+            print_background=True,
+            display_header_footer=True,
+            header_template="<div></div>",
+            footer_template=footer,
+            margin={"top": "0.9in", "bottom": "0.85in",
+                    "left": "0.95in", "right": "0.95in"},
+        )
+        browser.close()
+    print(out)
+
+
+if __name__ == "__main__":
+    main()
