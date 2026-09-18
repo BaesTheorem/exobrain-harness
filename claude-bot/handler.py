@@ -80,6 +80,10 @@ class Handler:
         # the client's cache, which is essential for an always-on relay).
         self.raw_message_edit_handlers: list[Callable] = []
         self.raw_message_delete_handlers: list[Callable] = []
+        # New public threads the bot can see (on_thread_create, plus the
+        # on_message backfill for threads that appeared while it was away).
+        # Each receives (thread, ctx).
+        self.thread_handlers: list[Callable] = []
 
     # --- registration (called by modules in setup()) ---
     def command(self, *triggers: str, **kwargs) -> Callable[[CommandFn], CommandFn]:

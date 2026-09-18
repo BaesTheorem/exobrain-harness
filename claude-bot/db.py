@@ -59,12 +59,25 @@ CREATE TABLE IF NOT EXISTS reminders (
 );
 CREATE INDEX IF NOT EXISTS reminders_due ON reminders (scheduled);
 
--- Generic per-user key/value (Fletcher: user_preferences)
+-- Generic per-user key/value (Fletcher: user_preferences). guild_id 0 is a
+-- global row; a guild-specific row overrides it when a lookup allows the
+-- global fallback (Fletcher uses NULL for global, but NULL can't sit in a
+-- SQLite composite key and still upsert).
 CREATE TABLE IF NOT EXISTS user_prefs (
-    user_id INTEGER NOT NULL,
-    key     TEXT NOT NULL,
-    value   TEXT,
-    PRIMARY KEY (user_id, key)
+    user_id  INTEGER NOT NULL,
+    guild_id INTEGER NOT NULL DEFAULT 0,
+    key      TEXT NOT NULL,
+    value    TEXT,
+    PRIMARY KEY (user_id, guild_id, key)
+);
+CREATE INDEX IF NOT EXISTS user_prefs_key ON user_prefs (key);
+
+-- Threads the auto-join module has already summoned people into, so a
+-- restart or a late gateway replay never summons twice.
+CREATE TABLE IF NOT EXISTS thread_summoned (
+    thread_id INTEGER PRIMARY KEY,
+    guild_id  INTEGER NOT NULL,
+    summoned  TEXT DEFAULT CURRENT_TIMESTAMP
 );
 
 -- LLM chat history, with full-text search for the persona's recall
@@ -102,6 +115,7 @@ class DB:
         self.conn = sqlite3.connect(path, check_same_thread=False)
         self.conn.row_factory = sqlite3.Row
         self.conn.execute("PRAGMA journal_mode=WAL")
+        self._migrate_user_prefs()
         self.conn.executescript(SCHEMA)
         for stmt in _DROP_LEGACY:
             self.conn.execute(stmt)
@@ -116,18 +130,64 @@ class DB:
     def query(self, sql: str, params: tuple = ()) -> list[sqlite3.Row]:
         return self.conn.execute(sql, params).fetchall()
 
-    def get_pref(self, user_id: int, key: str, default=None):
-        row = self.conn.execute(
-            "SELECT value FROM user_prefs WHERE user_id=? AND key=?",
-            (user_id, key),
-        ).fetchone()
+    def _migrate_user_prefs(self) -> None:
+        """The first schema keyed user_prefs on (user_id, key) with no guild
+        column. Nothing ever wrote to it, so rebuild rather than ALTER."""
+        cols = [r[1] for r in self.conn.execute("PRAGMA table_info(user_prefs)")]
+        if cols and "guild_id" not in cols:
+            self.conn.execute("DROP TABLE user_prefs")
+            self.conn.commit()
+
+    def get_pref(self, user_id: int, key: str, default=None, guild_id: int = 0,
+                 allow_global: bool = False):
+        """Read one preference. guild_id 0 is the global row. With
+        allow_global, a guild lookup falls back to the global row (guild wins
+        when both exist)."""
+        if guild_id and allow_global:
+            row = self.conn.execute(
+                "SELECT value FROM user_prefs WHERE user_id=? AND key=? "
+                "AND guild_id IN (?, 0) ORDER BY guild_id DESC LIMIT 1",
+                (user_id, key, guild_id),
+            ).fetchone()
+        else:
+            row = self.conn.execute(
+                "SELECT value FROM user_prefs WHERE user_id=? AND guild_id=? AND key=?",
+                (user_id, guild_id, key),
+            ).fetchone()
         return json.loads(row["value"]) if row else default
 
-    def set_pref(self, user_id: int, key: str, value) -> None:
+    def set_pref(self, user_id: int, key: str, value, guild_id: int = 0) -> None:
         self.execute(
-            "INSERT INTO user_prefs(user_id,key,value) VALUES(?,?,?) "
-            "ON CONFLICT(user_id,key) DO UPDATE SET value=excluded.value",
-            (user_id, key, json.dumps(value)),
+            "INSERT INTO user_prefs(user_id,guild_id,key,value) VALUES(?,?,?,?) "
+            "ON CONFLICT(user_id,guild_id,key) DO UPDATE SET value=excluded.value",
+            (user_id, guild_id, key, json.dumps(value)),
+        )
+
+    def del_pref(self, user_id: int, key: str, guild_id: int = 0) -> bool:
+        cur = self.execute(
+            "DELETE FROM user_prefs WHERE user_id=? AND guild_id=? AND key=?",
+            (user_id, guild_id, key),
+        )
+        return cur.rowcount > 0
+
+    def users_with_pref(self, key: str, guild_id: int) -> list[int]:
+        """Every user holding `key` for this guild or globally."""
+        rows = self.conn.execute(
+            "SELECT DISTINCT user_id FROM user_prefs WHERE key=? AND guild_id IN (?, 0)",
+            (key, guild_id),
+        ).fetchall()
+        return [r["user_id"] for r in rows]
+
+    def thread_summoned(self, thread_id: int) -> bool:
+        row = self.conn.execute(
+            "SELECT 1 FROM thread_summoned WHERE thread_id=?", (thread_id,)
+        ).fetchone()
+        return row is not None
+
+    def mark_thread_summoned(self, thread_id: int, guild_id: int) -> None:
+        self.execute(
+            "INSERT OR IGNORE INTO thread_summoned(thread_id,guild_id) VALUES(?,?)",
+            (thread_id, guild_id),
         )
 
     def get_setting(self, key: str, default=None):
