@@ -22,6 +22,10 @@ To rebuild the corpus:
    outage reports and any Claude-drafted mail (cover letters, CRM outreach).
 4. **Blog** -- Substack `https://becomingstronger.substack.com`, posts dated
    September 2023 and earlier (his non-AI-assisted cutoff).
+5. **Originals** -- `corpus/originals/`, pieces Alex writes himself and hands
+   over directly. Not rebuildable from any source; these are the only corpus
+   files that would be lost for good. One markdown file per piece, with
+   `source / date / gear / topic` frontmatter.
 
 ## Output
 
