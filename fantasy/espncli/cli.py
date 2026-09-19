@@ -288,7 +288,22 @@ def matchup_view(api: Espn, week: int, data: dict, team_id: int) -> dict | None:
            "playoff": m.get("playoffTierType"), "me_is_home": me_key == "home",
            "me": sides.get(me_key), "opp": sides.get(opp_key)}
     if out["opp"]:
-        out["margin"] = round(out["me"]["projected"] - out["opp"]["projected"], 1)
+        me, opp = out["me"], out["opp"]
+        # Pre-game: the sum of the starters' weekly projections. Once any
+        # player on either side has locked, his points are banked and his
+        # projection is stale, so the margin that decides the variance rule
+        # is ESPN's live projection (actuals for locked players, projections
+        # for the rest). Found 2026-09-19: a Thursday 40.8 from the opponent's
+        # QB left this reading "favorite by 13" while the live read was
+        # "underdog by 3.5".
+        out["pregame_margin"] = round(me["projected"] - opp["projected"], 1)
+        banked = me["actual"] is not None or opp["actual"] is not None
+        live = None
+        if banked and me["espn_live_proj"] is not None and opp["espn_live_proj"] is not None:
+            live = round(me["espn_live_proj"] - opp["espn_live_proj"], 1)
+        out["live_margin"] = live
+        out["margin_source"] = "live" if live is not None else "pregame"
+        out["margin"] = live if live is not None else out["pregame_margin"]
         out["rule"] = variance_line(out["margin"])
     return out
 
@@ -321,7 +336,8 @@ def cmd_matchup(api: Espn, args: argparse.Namespace) -> None:
         if me["projected"] == 0 and opp["projected"] == 0:
             print("No projections yet: both lineups are empty or ESPN has not published the week.")
         else:
-            print(f"Projected margin: {out['margin']:+.1f}  ->  {out['rule']}")
+            label = "Live margin" if out.get("margin_source") == "live" else "Projected margin"
+            print(f"{label}: {out['margin']:+.1f}  ->  {out['rule']}")
         if out["winner"] in ("HOME", "AWAY"):
             won = (out["winner"] == "HOME") == out["me_is_home"]
             print(f"Final: {'WIN' if won else 'LOSS'} {pts(me['espn_total'])} to {pts(opp['espn_total'])}")
@@ -470,8 +486,9 @@ def cmd_check(api: Espn, args: argparse.Namespace) -> None:
                 print(f"     {n['bench']} ({pts(n['bench_proj'])}) over {n['starter']} at {n['slot']} "
                       f"({pts(n['starter_proj'])}), +{n['gain']}")
         if mv and mv.get("opp"):
+            src = "live" if mv.get("margin_source") == "live" else "projected"
             print(f"\n  matchup vs {mv['opp']['team']}: projected {pts(mv['me']['projected'])} to "
-                  f"{pts(mv['opp']['projected'])}, margin {mv['margin']:+.1f} -> {mv['rule']}")
+                  f"{pts(mv['opp']['projected'])}, {src} margin {mv['margin']:+.1f} -> {mv['rule']}")
         elif mv:
             print("\n  idle week: no opponent, nothing to set")
         print("\n  starters lock in this order:")
