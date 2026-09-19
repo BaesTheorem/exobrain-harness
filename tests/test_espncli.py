@@ -193,6 +193,28 @@ def test_matchup_reads_lineups_and_locked_actuals(capsys):
     assert unlocked["actual"] is None
 
 
+def test_matchup_margin_is_pregame_until_someone_locks(capsys):
+    run_json(FakeEspn(), "matchup")
+    out = json.loads(capsys.readouterr().out)
+    # Locked Niner is on the bench, so no starter has banked points yet.
+    assert out["margin_source"] == "pregame" and out["live_margin"] is None
+    assert out["margin"] == out["pregame_margin"] == pytest.approx(42.0)
+
+
+def test_matchup_margin_goes_live_once_a_starter_has_banked_points(capsys):
+    data = league_fixture()
+    # Their QB already played (team 25 kicked off in the past) and went off.
+    data["teams"][1]["roster"]["entries"][0] = entry(21, "Their QB", 1, 25, 0, 18.0, actual=40.8)
+    data["schedule"][0]["home"]["totalProjectedPointsLive"] = 83.0
+    data["schedule"][0]["away"]["totalProjectedPointsLive"] = 86.4
+    run_json(FakeEspn(data), "matchup")
+    out = json.loads(capsys.readouterr().out)
+    assert out["pregame_margin"] == pytest.approx(42.0)      # the stale read
+    assert out["margin_source"] == "live"
+    assert out["live_margin"] == out["margin"] == pytest.approx(-3.4)
+    assert out["rule"].startswith("underdog")
+
+
 def test_implied_totals_from_home_spread(monkeypatch):
     api = FakeEspn()
     event = {"id": "1", "shortName": "NE @ SEA", "date": "2026-09-10T00:20Z",

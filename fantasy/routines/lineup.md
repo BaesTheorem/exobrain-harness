@@ -24,9 +24,12 @@ routine runs only on Sundays; on any other day it stops here.)
    is a true game-time decision whose bench alternative projects within ~3
    points and kicks off earlier or at the same time. Otherwise keep him and
    let `lineup-watch` handle a late zeroed projection. One line of reasoning.
-4. The variance rule, from `fantasy/bin/espn matchup --json` (projected
-   margin). Favorite by more than 3: prefer floor in FLEX and WR2 (high target
-   share, steady weekly scores). Underdog by more than 3: prefer ceiling
+4. The variance rule, from the `margin` field of `fantasy/bin/espn matchup
+   --json`. Pre-game it is the projection sum; once anyone on either side has
+   locked it is ESPN's live projection (`margin_source` says which). A banked
+   Thursday score can flip the side, as 2026-09-19 showed. Favorite by more
+   than 3: prefer floor in FLEX and WR2 (high target share, steady weekly
+   scores). Underdog by more than 3: prefer ceiling
    (deep-threat receivers, big-play backs). Within 3 points either way, the
    higher projection starts. Swap only when the projection gap is under 3 and
    the variance profiles clearly differ; do not churn.

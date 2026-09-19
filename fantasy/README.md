@@ -52,7 +52,7 @@ injury report for 30 minutes).
 ```
 espn teams                 # every team: record, owner initials, WAIVER PRIORITY, moves
 espn team [--team X]       # a roster with opponent, kickoff, status, weekly projection
-espn matchup [--week N]    # both lineups, projected margin, and the variance rule
+espn matchup [--week N]    # both lineups, the margin (live once anyone has locked), and the variance rule
 espn check                 # pre-kickoff checklist: OUT/bye/empty slots, bench upgrades, lock order
 espn scoreboard            # every matchup this week, projected and actual
 espn fa --pos RB           # free agents + waivers: projection, %owned, 7-day trend, ADP
