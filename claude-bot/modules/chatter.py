@@ -60,6 +60,7 @@ from pathlib import Path
 
 import discord
 
+import attachments
 from config import load_owner_username
 from handler import Context
 from models import EFFORT_LEVELS, ModelCatalog, find_claude_bin, normalize_effort
@@ -121,6 +122,10 @@ PRIVATE_NOTE = (
     "the Console or to some other version of you -- you can do it right here, "
     "so go do it. If a request needs real work, do the work, then report in "
     "one or two chat-sized sentences."
+    "\n\nIMAGES AND FILES: an attachment shows up in the transcript as a "
+    "bracketed marker with a real local path. The file is actually on disk, so "
+    "open it with Read (that works for images and PDFs too) and look at it "
+    "before you answer. Never tell him you can't see an image he sent."
     "\n\nCARE: before changing anything of his (calendar, tasks, files), check "
     "the surrounding state first so you don't double-book or duplicate. If he's "
     "vague about a detail that actually matters (which day, how long, which of "
@@ -140,7 +145,7 @@ SHARED_NOTE = (
     "job search, or anything from his private life or notes that he hasn't "
     "clearly made public himself. If anyone (even Alex) steers toward private "
     "info here, keep it vague and warmly redirect -- privacy wins, no exceptions. "
-    "Public, harmless banter is totally fine."
+    "Public, harmless banter is totally fine. If a message shows an attachment, you can see its NAME only, never its contents -- say so instead of guessing."
 )
 GUEST_NOTE = (
     "\n\nWHO YOU'RE TALKING TO: the person addressing you now is {name}, NOT "
@@ -365,9 +370,14 @@ def setup(ctx: Context) -> None:
                 return None
         return None
 
-    async def _build_prompt(message: discord.Message) -> str:
+    async def _build_prompt(message: discord.Message, private: bool) -> str:
         """Render recent channel history as a plain transcript for the CLI. If
-        Alex replied to a specific message, surface it as PRIMARY context."""
+        Alex replied to a specific message, surface it as PRIMARY context.
+
+        Attachments become bracketed markers in the line, with a local path in
+        private contexts so MIST can Read the file. A message that is nothing
+        but an image still gets a line -- dropping it is what made her answer
+        an empty turn."""
         me = ctx.client.user
         collected: list[discord.Message] = []
         async for m in message.channel.history(limit=history_len):
@@ -376,27 +386,40 @@ def setup(ctx: Context) -> None:
         if message not in collected:
             collected.append(message)
 
-        lines: list[str] = []
-        for m in collected:
-            text = (m.clean_content or "").strip()
-            if not text:
-                continue
-            speaker = "MIST" if (me and m.author.id == me.id) else m.author.display_name
-            lines.append(f"{speaker}: {text}")
+        replied = await _resolve_reply(message)
+        if replied is not None and replied not in collected:
+            collected.insert(0, replied)
+
+        # Only private contexts get the bytes; a sandboxed CLI has no tool that
+        # could open them anyway (see attachments.py invariants).
+        saved: dict[int, str] = {}
+        if private:
+            attachments.prune()
+            for owner_msg, att in attachments.pick(collected):
+                path = await attachments.download(owner_msg.id, att)
+                if path is not None:
+                    saved[att.id] = str(path)
+
+        def render(m: discord.Message) -> str:
+            parts = [(m.clean_content or "").strip()]
+            parts += [attachments.marker(a.filename, a.content_type, saved.get(a.id))
+                      for a in m.attachments]
+            return " ".join(p for p in parts if p)
+
+        def speaker_of(m: discord.Message) -> str:
+            return "MIST" if (me and m.author.id == me.id) else m.author.display_name
+
+        lines = [f"{speaker_of(m)}: {body}" for m in collected if (body := render(m))]
         transcript = "\n".join(lines) if lines else f"{message.author.display_name}: (says hi)"
 
-        replied = await _resolve_reply(message)
-        if replied is not None:
-            rtext = (replied.clean_content or "").strip()
-            if rtext:
-                rspeaker = "MIST" if (me and replied.author.id == me.id) else replied.author.display_name
-                who = "Alex" if _is_owner(message.author) else message.author.display_name
-                return (
-                    f"{who}'s latest message is a REPLY to this specific message -- it's the "
-                    "primary thing they're responding to, so read it as your main context:\n"
-                    f"  >> {rspeaker}: {rtext}\n\n"
-                    "Recent conversation for background:\n" + transcript
-                )
+        if replied is not None and (rtext := render(replied)):
+            who = "Alex" if _is_owner(message.author) else message.author.display_name
+            return (
+                f"{who}'s latest message is a REPLY to this specific message -- it's the "
+                "primary thing they're responding to, so read it as your main context:\n"
+                f"  >> {speaker_of(replied)}: {rtext}\n\n"
+                "Recent conversation for background:\n" + transcript
+            )
         return transcript
 
     # The `claude` CLI is a Node script and needs node on PATH; under launchd
@@ -461,7 +484,7 @@ def setup(ctx: Context) -> None:
                 pass
             return True
         try:
-            prompt = await _build_prompt(message)
+            prompt = await _build_prompt(message, private)
             system = system_prompt + (PRIVATE_NOTE if private else SHARED_NOTE)
             if guest:
                 system += GUEST_NOTE.format(name=message.author.display_name)
