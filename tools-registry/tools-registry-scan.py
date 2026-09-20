@@ -227,6 +227,7 @@ def load_manual():
             "repo_dir": repo, "launcher": "", "command": e.get("command", ""),
             "source": e.get("source", "built"), "added": e.get("added", ""),
             "notes": e.get("notes", ""),
+            "description": e.get("description", ""), "use_when": e.get("use_when", ""),
         })
     return items
 
@@ -352,6 +353,8 @@ def write_note(item):
         f"command: {yaml_str(item.get('command'))}",
         f"source: {yaml_str(item.get('source') or 'built')}",
         f"added: {yaml_str(item.get('added'))}",
+        f"description: {yaml_str(item.get('description'))}",
+        f"use_when: {yaml_str(item.get('use_when'))}",
         "---",
     ]
     body = []

@@ -240,6 +240,16 @@
     "notes": "Geolocation bench behind the /geoguesser skill. Subcommands: sun (latitude from a shadow, no clock needed), sunpos (forward check), pano (keyless Street View coverage + capture date), score (GeoGuessr scoring curve both ways), where/geocode (Nominatim), overpass, enhance (crop+upscale a sign until it is readable)."
   },
   {
+    "name": "Ghidra",
+    "command": "JAVA_HOME=$(/usr/libexec/java_home -v 21 2>/dev/null || echo /opt/homebrew/opt/openjdk@21) ~/tools/ghidra_12.1.3_PUBLIC/support/analyzeHeadless <proj_dir> <proj> -import <file> -postScript <script.py> -scriptPath <dir>   # GUI: ~/tools/ghidra_12.1.3_PUBLIC/ghidraRun",
+    "repo_dir": "~/tools/ghidra_12.1.3_PUBLIC",
+    "source": "vendored",
+    "added": "2026-09-20",
+    "notes": "Standalone zip in ~/tools (cask needs sudo, blocked in non-interactive shells; the release zip does not). analyzeHeadless for batch/scripted runs, ghidraRun for the GUI. Set JAVA_HOME to the openjdk@21 path or it errors 'Unable to locate a Java Runtime'. Downloaded from github.com/NationalSecurityAgency/ghidra releases 2026-09-20.",
+    "description": "NSA Ghidra 12.1.3: SRE suite. Disassembler + decompiler for x86/x64/ARM/etc PE/ELF/Mach-O; headless mode scriptable in Jython.",
+    "use_when": "Reverse engineering a binary: decompile a function to C, trace a crypter/packer's decrypt routine, recover algorithms/keys, analyze malware or firmware statically. Needs JDK 21 (openjdk@21 installed). Pair with bin/pe-triage (fast triage) and speakeasy (dynamic)."
+  },
+  {
     "name": "gridpoint-build-install",
     "command": "~/Documents/gridpoint/scripts/build-install.sh",
     "repo_dir": "~/Documents/gridpoint",

@@ -97,6 +97,8 @@ def cmd_add(args):
         "source": args.source,
         "added": args.added or datetime.date.today().isoformat(),
         "notes": args.notes or "",
+        "description": args.description or "",
+        "use_when": args.use_when or "",
     }
     if args.category != "cli":
         entry["category"] = args.category
@@ -142,6 +144,8 @@ def main():
     p.add_argument("--command", help="how to invoke it, with a representative example")
     p.add_argument("--dir", help="repo or install dir; ~ is fine")
     p.add_argument("--notes", help="what it does and any gotcha worth knowing")
+    p.add_argument("--description", help="one line: what the tool is")
+    p.add_argument("--use-when", dest="use_when", help="the contexts/triggers where you'd reach for it")
     p.add_argument("--source", default="built", choices=["built", "installed", "vendored"])
     p.add_argument("--category", default="cli", choices=["cli", "app", "scheduled-job"])
     p.add_argument("--added", help="ISO date; defaults to today")
