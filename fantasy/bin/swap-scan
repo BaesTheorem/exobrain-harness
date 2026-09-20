@@ -12,6 +12,9 @@ INVARIANTS
   Jordyn Tyson sat on IR from 08-30 with 0.0 in weeks 1 and 2 and still
   carried a 99.9 season projection. So it is a preseason prior, never a
   rest-of-season value, and it must not be used alone.
+- Position maximums are read from `espn settings`, and a candidate at a
+  capped position is only offered against a drop of the same position. IR
+  does not count toward the cap (verified by the 2026-09-20 add).
 - The per-week rate therefore blends that stale prior with ESPN's live weekly
   projection, which does track role and matchup. Harstad's finding (in the
   /fantasy-football skill) is that a naive 50/50 blend of a preseason number
@@ -67,10 +70,20 @@ def main() -> int:
     pool = espn("fa", "--pos", "ALL", "-n", "300")
     assert isinstance(pool, list)
 
+    settings = espn("settings")
+    assert isinstance(settings, dict)
+    position_max: dict[str, int] = settings.get("position_max") or {}
+
     roster = team["roster"]
     bench = [p for p in roster if p["slot"] == "BE"]
     starters = [p for p in roster if p["slot"] in STARTER_SLOTS]
     ir = [p for p in roster if p["slot"] in IR_SLOTS]
+    # IR does not count against the position maximum: the 2026-09-20 Bateman
+    # add went through with eight active WRs plus one on IR.
+    held: dict[str, int] = {}
+    for p in roster:
+        if p["slot"] not in IR_SLOTS:
+            held[p["pos"]] = held.get(p["pos"], 0) + 1
 
     for p in [*bench, *starters, *pool]:
         p["rate"] = rate(p.get("proj"), p.get("season_proj"))
@@ -78,8 +91,16 @@ def main() -> int:
     bench.sort(key=lambda p: p["rate"])
     results: list[dict[str, object]] = []
 
+    def allowed(drop: dict, cand: dict) -> bool:
+        """Flex-eligible and under the position maximum once the drop is gone."""
+        if cand["pos"] != drop["pos"] and cand["pos"] not in {"RB", "WR", "TE"}:
+            return False
+        cap = position_max.get(cand["pos"])
+        after = held.get(cand["pos"], 0) - (1 if cand["pos"] == drop["pos"] else 0)
+        return cap is None or after < cap
+
     for drop in bench:
-        cands = [c for c in pool if c["pos"] == drop["pos"] or c["pos"] in {"RB", "WR", "TE"}]
+        cands = [c for c in pool if allowed(drop, c)]
         scored = [
             {
                 "add": c["name"],
@@ -113,23 +134,29 @@ def main() -> int:
     print(f"Swap scan -- week {week}, {remaining} regular-season weeks remain "
           f"(weeks {week + 1}-{REG_SEASON_END}), gate +{args.gate:g} pts")
     print(f"  rate = 0.5 x (preseason season_proj / {NFL_WEEKS}) + 0.5 x live weekly proj")
-    print(f"  bench {len(bench)}, starters {len(starters)}, IR {len(ir)}, pool {len(pool)}\n")
+    full = [f"{pos} {held.get(pos, 0)}/{cap}" for pos, cap in position_max.items()
+            if held.get(pos, 0) >= cap]
+    print(f"  bench {len(bench)}, starters {len(starters)}, IR {len(ir)}, pool {len(pool)}"
+          + (f"; at position max: {', '.join(full)}" if full else "") + "\n")
 
-    best = 0.0
+    best: float | None = None
     for r in results:
         print(f"  DROP {r['drop']:<22} {r['pos']:<4} rate {r['drop_rate']}/wk")
         cands = r["candidates"]
         assert isinstance(cands, list)
         for c in cands:
             gain = float(c["gain"])
-            best = max(best, gain)
+            best = gain if best is None else max(best, gain)
             flag = "PASS" if gain >= args.gate else "    "
             print(f"    {flag} +{gain:>6.1f}  {c['add']:<24} {c['pos']:<4} "
                   f"{c['avail']:<3} rate {c['add_rate']:<6} own {c['owned']}% ({c['trend']:+})")
         print()
 
-    print(f"  best swap on the board: +{best:.1f} vs a +{args.gate:g} gate -- "
-          f"{'GATE MET' if best >= args.gate else 'gate not met, stand pat'}")
+    if best is None:
+        print("  no eligible swap on the board")
+    else:
+        print(f"  best swap on the board: {best:+.1f} vs a +{args.gate:g} gate -- "
+              f"{'GATE MET' if best >= args.gate else 'gate not met, stand pat'}")
     return 0
 
 

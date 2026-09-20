@@ -35,7 +35,14 @@ Follow `fantasy/routines/COMMON.md` first. If today is not Tuesday, stop.
    the Season log. Only settled ledger results may change how the board is
    built next year.
 3. **Waivers.** Claiming costs nothing here (priority resets weekly), so claim
-   whenever the wire beats the bench. Look at `fantasy/bin/espn fa --pos RB
+   whenever the wire beats the bench. **Start with `fantasy/bin/swap-scan`**
+   (Alex, 2026-09-20: actively monitor for these): it prices every
+   bench-for-wire swap as `(add - drop) x weeks left` against the playbook's
+   20-point gate and marks the ones that clear it, with position maximums
+   applied (WR sits at 8/8 since the Bateman add, so a WR add needs a WR
+   drop). A PASS is a candidate, not a verdict: check the role evidence in
+   step 3's ranking before filing, and a swap that fails the gate on points
+   can still clear it on the role condition. Then look at `fantasy/bin/espn fa --pos RB
    --sort proj`, the same for WR and TE, `--sort trend` for risers,
    `fantasy/bin/espn injuries`, and the bench in `espn team --json`. Rank by
    opportunity (targets, touches, snap share; `espn player <name>` shows the
