@@ -27,6 +27,7 @@ from datetime import datetime
 from typing import Any
 
 from espncli import chat
+from espncli.value import best_fill, best_swaps, load_sd_multipliers, win_prob
 from espncli.client import (
     BENCH,
     IR,
@@ -305,7 +306,53 @@ def matchup_view(api: Espn, week: int, data: dict, team_id: int) -> dict | None:
         out["margin_source"] = "live" if live is not None else "pregame"
         out["margin"] = live if live is not None else out["pregame_margin"]
         out["rule"] = variance_line(out["margin"])
+        # The variance rule as a number (2026-09-20): each unlocked starter is
+        # a normal around his projection with a position- and player-specific
+        # spread, a locked one is his banked actual, and the matchup is the
+        # difference of the two sums. Opponent problems (OUT, bye, empty) are
+        # priced as they stand; `opp_problems` says what an unfixed one is worth.
+        mults = load_sd_multipliers()
+        out["win"] = win_prob(me["rows"], opp["rows"], mults)
+        out["opp_problems"] = lineup_problems(opp["rows"])
+        if out["opp_problems"]:
+            fixed = [dict(r) for r in opp["rows"]]
+            for r in fixed:
+                if any(pr["player"] == r["name"] for pr in out["opp_problems"]) and r.get("actual") is None:
+                    r["proj"] = 0.0
+            out["win_if_opp_unfixed"] = win_prob(me["rows"], fixed, mults)["p"]
+        out["swaps"] = best_swaps(me["rows"], opp["rows"], mults)
     return out
+
+
+def lineup_problems(rows: list[dict]) -> list[dict]:
+    """Starters who will score zero unless someone acts: OUT, IR, suspended,
+    doubtful, on bye, or already zeroed. Used for both sides of a matchup."""
+    out = []
+    for r in rows:
+        if r["slotId"] in (BENCH, IR) or r.get("actual") is not None:
+            continue
+        kind = None
+        if r["opp"] == "BYE":
+            kind = "BYE"
+        elif r["status"] in ("OUT", "IR", "SUSP", "D"):
+            kind = {"D": "DOUBTFUL", "SUSP": "SUSPENDED"}.get(r["status"], r["status"])
+        if kind:
+            out.append({"kind": kind, "slot": r["slot"], "player": r["name"], "proj": r["proj"]})
+    return out
+
+
+def print_win(out: dict, indent: str = "") -> None:
+    w = out.get("win")
+    if not w:
+        return
+    print(f"{indent}Win probability {w['p']:.0%}  (us {w['mu_me']} sd {w['sd_me']}, them {w['mu_opp']} sd {w['sd_opp']})")
+    for pr in out.get("opp_problems") or []:
+        print(f"{indent}  opponent problem: {pr['kind']} {pr['slot']} {pr['player']} "
+              f"(proj {pts(pr['proj'])}); if left unfixed we are {out.get('win_if_opp_unfixed', 0):.0%}")
+    for sw in out.get("swaps") or []:
+        why = "variance" if sw["d_proj"] <= 0 else "projection"
+        print(f"{indent}  swap {sw['bench']} in for {sw['starter']} at {sw['slot']}: "
+              f"{sw['p_before']:.0%} -> {sw['p_after']:.0%} ({sw['d_p']:+.1%}, proj {sw['d_proj']:+}, {why})")
 
 
 def cmd_matchup(api: Espn, args: argparse.Namespace) -> None:
@@ -338,6 +385,7 @@ def cmd_matchup(api: Espn, args: argparse.Namespace) -> None:
         else:
             label = "Live margin" if out.get("margin_source") == "live" else "Projected margin"
             print(f"{label}: {out['margin']:+.1f}  ->  {out['rule']}")
+            print_win(out)
         if out["winner"] in ("HOME", "AWAY"):
             won = (out["winner"] == "HOME") == out["me_is_home"]
             print(f"Final: {'WIN' if won else 'LOSS'} {pts(me['espn_total'])} to {pts(opp['espn_total'])}")
@@ -411,10 +459,18 @@ def cmd_check(api: Espn, args: argparse.Namespace) -> None:
     def usable(r: dict) -> bool:
         return r["opp"] != "BYE" and r["status"] not in ("OUT", "IR", "SUSP", "D")
 
+    mv = matchup_view(api, week, data, t["id"])
+    opp_rows = (mv.get("opp") or {}).get("rows") if mv else None
+    mults = load_sd_multipliers()
+
     def best_bench_for(slot_id: int, exclude: int | None) -> dict | None:
-        cands = [b for b in bench if slot_id in b["eligible"] and usable(b) and b["id"] != exclude]
-        cands.sort(key=lambda b: -(b["proj"] or 0.0))
-        return cands[0] if cands else None
+        """By win probability against this week's opponent when there is one
+        (favorite wants the floor, underdog the ceiling), by projection otherwise."""
+        return best_fill(rows, opp_rows, slot_id, exclude, mults)
+
+    def fix_text(b: dict) -> str:
+        extra = f", win {b['p_after']:.0%}" if b.get("p_after") is not None else ""
+        return f"{b['pos']}, proj {pts(b['proj'])}{extra}"
 
     # empty slots
     for slot_id, n in counts.items():
@@ -424,7 +480,7 @@ def cmd_check(api: Espn, args: argparse.Namespace) -> None:
         for _ in range(n - len(have)):
             b = best_bench_for(slot_id, None)
             problems.append({"kind": "EMPTY", "slot": SLOT.get(slot_id, "?"), "player": None,
-                             "fix": f"move {b['name']} in (proj {pts(b['proj'])})" if b else "nobody eligible on the bench"})
+                             "fix": f"move {b['name']} in ({fix_text(b)})" if b else "nobody eligible on the bench"})
     # inactive / bye / questionable starters
     for r in starters:
         st = r["status"]
@@ -439,7 +495,7 @@ def cmd_check(api: Espn, args: argparse.Namespace) -> None:
             b = best_bench_for(r["slotId"], r["id"])
             problems.append({"kind": kind, "slot": r["slot"], "player": r["name"],
                              "kick": r["kick"],
-                             "fix": (f"swap in {b['name']} ({b['pos']}, proj {pts(b['proj'])})" if b
+                             "fix": (f"swap in {b['name']} ({fix_text(b)})" if b
                                      else "no usable bench option for this slot")})
     # bench players out-projecting a starter they could replace
     for b in bench:
@@ -459,8 +515,10 @@ def cmd_check(api: Espn, args: argparse.Namespace) -> None:
             d = local(g.get("date"))
             if d and (first_game is None or d < first_game[0]):
                 first_game = (d, f"{api.pro(g.get('awayProTeamId'))['abbrev']} @ {api.pro(g.get('homeProTeamId'))['abbrev']}")
-    mv = matchup_view(api, week, data, t["id"])
     out = {"week": week, "team": team_name(t), "problems": problems, "nudges": nudges[:5],
+           "win": mv.get("win") if mv else None, "swaps": mv.get("swaps") if mv else None,
+           "opp_problems": mv.get("opp_problems") if mv else None,
+           "win_if_opp_unfixed": mv.get("win_if_opp_unfixed") if mv else None,
            "first_kickoff": {"when": first_game[0], "game": first_game[1]} if first_game else None,
            "lock_order": [{"player": r["name"], "slot": r["slot"], "kickoff": r["kickoff"]} for r in locks],
            "margin": mv.get("margin") if mv else None, "rule": mv.get("rule") if mv else None,
@@ -489,6 +547,7 @@ def cmd_check(api: Espn, args: argparse.Namespace) -> None:
             src = "live" if mv.get("margin_source") == "live" else "projected"
             print(f"\n  matchup vs {mv['opp']['team']}: projected {pts(mv['me']['projected'])} to "
                   f"{pts(mv['opp']['projected'])}, {src} margin {mv['margin']:+.1f} -> {mv['rule']}")
+            print_win(mv, indent="  ")
         elif mv:
             print("\n  idle week: no opponent, nothing to set")
         print("\n  starters lock in this order:")
@@ -1106,6 +1165,9 @@ def cmd_raw(api: Espn, args: argparse.Namespace) -> None:
         filt = json.loads(args.filter) if args.filter else None
         data = api.league(*views, period=args.period, filt=filt, path=args.path)
     out = json.dumps(data, indent=2)
+    if getattr(args, "json", False):
+        print(out)   # --json means a machine reads it: never truncate into invalid JSON
+        return
     if args.limit and len(out) > args.limit:
         print(out[: args.limit])
         warn(f"\n[espn raw: truncated at {args.limit} of {len(out)} chars, so this is not valid JSON. "
