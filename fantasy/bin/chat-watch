@@ -105,6 +105,77 @@ def notify(text: str) -> None:
                        capture_output=True, check=False)
 
 
+def _json_objects(text: str) -> list[dict]:
+    """Parse `espn-tx pending`, which prints one indented object per row."""
+    dec, out, i = json.JSONDecoder(), [], 0
+    while i < len(text):
+        while i < len(text) and text[i].isspace():
+            i += 1
+        if i >= len(text):
+            break
+        obj, i = dec.raw_decode(text, i)
+        out.append(obj)
+    return out
+
+
+def trade_partners() -> tuple[set[str], bool]:
+    """Team names we have a trade in flight with, and whether the lookup worked.
+
+    A chat message from one of these is almost certainly about the offer, and
+    the playbook's standing limit puts sending, accepting, rejecting and
+    countering a trade on Alex's tap. So the watcher must not hand one to a
+    model unattended: a reply that reads as a counter is the failure this
+    exists to prevent, and it lands in a friend's inbox where it cannot be
+    taken back.
+
+    The second return value is the positive control. An empty set is the
+    dangerous shape here, because it is indistinguishable from "the lookup
+    broke" and it fails toward auto-replying. Callers escalate everything when
+    it is False.
+    """
+    try:
+        teams = json.loads(subprocess.run(
+            [str(FANTASY / "bin" / "espn"), "teams", "--json"],
+            capture_output=True, text=True, timeout=120, check=True, cwd=HARNESS,
+        ).stdout)
+        by_id = {int(t["id"]): (t.get("team") or "").strip() for t in teams}
+        mine = next(int(t["id"]) for t in teams if t.get("mine"))
+
+        rows = _json_objects(subprocess.run(
+            [str(FANTASY / "bin" / "espn-tx"), "pending"],
+            capture_output=True, text=True, timeout=120, check=True, cwd=HARNESS,
+        ).stdout)
+    except (subprocess.SubprocessError, ValueError, KeyError, StopIteration) as e:
+        log(f"trade-partner lookup FAILED ({type(e).__name__}: {e}); "
+            f"escalating every message rather than risk an unattended trade reply")
+        return set(), False
+
+    partners = set()
+    for row in rows:
+        if "TRADE" not in (row.get("type") or "") or row.get("status") != "PENDING":
+            continue
+        for item in row.get("items") or []:
+            for side in (item.get("fromTeamId"), item.get("toTeamId")):
+                if side is not None and int(side) != mine and by_id.get(int(side)):
+                    partners.add(by_id[int(side)])
+    log(f"trade partners in flight: {sorted(partners) or 'none'}")
+    return partners, True
+
+
+def escalate(messages: list[dict]) -> None:
+    """Banner Alex instead of answering. One notification per message."""
+    for m in messages:
+        who = (m.get("who") or "someone").strip()
+        body = (m.get("content") or "").strip().replace("\n", " ")
+        if NOTIFY.exists():
+            subprocess.run(
+                [str(NOTIFY), f"{who}: {body[:180]}", "Fantasy Chat: trade in flight",
+                 "none", "console", "--group", "fantasy",
+                 "--id", f"trade-chat-{m.get('id', 'x')}"],
+                capture_output=True, check=False)
+        log(f"ESCALATED to Alex (no auto-reply): {who}: {body[:120]}")
+
+
 def run_claude(pending: list[dict], dry_run: bool) -> bool:
     claude = shutil.which("claude")
     if not claude:
@@ -228,6 +299,23 @@ def main() -> int:
         return 0
 
     log(f"{len(pending)} message(s) waiting; {sent_today}/{args.max_per_day} used today")
+
+    # A live trade offer changes who is allowed to answer. Alex asked for this
+    # on 2026-09-20 while an offer to KC Breathmints was in review; the general
+    # rule is the playbook's, not hers: trades are his tap, so the watcher
+    # hands him the message rather than replying for him.
+    partners, guard_ok = trade_partners()
+    hot = [m for m in pending
+           if not guard_ok or (m.get("who") or "").strip() in partners]
+    pending = [m for m in pending if m not in hot]
+    if hot:
+        escalate(hot)
+        if not args.dry_run:
+            state["handled"].extend(m["id"] for m in hot if m.get("id"))
+            save_state(state)
+    if not pending:
+        log("nothing left to answer after escalation")
+        return 0
 
     if sent_today >= args.max_per_day:
         # Mark handled regardless. Releasing a day's backlog tomorrow morning
