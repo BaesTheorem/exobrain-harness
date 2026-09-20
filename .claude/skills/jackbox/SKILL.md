@@ -1,108 +1,103 @@
 ---
 name: jackbox
-description: Play Jackbox games autonomously by driving jackbox.tv in a headed Chrome over the DevTools protocol. Canonical reference for joining a room, reading the screen with vision, and running per-game autopilots (Quiplash 2, Tee K.O.) that write LLM-generated jokes, draw human-like doodles, and vote. Use when the user says "join this jackbox", "play jackbox", "join room <CODE>", gives a 4-letter Jackbox room code, or asks the bot to play Quiplash / Tee K.O. / Drawful / a party game.
+description: Play Jackbox games autonomously by driving jackbox.tv in a headless Chrome over the DevTools protocol. Canonical reference for joining a room, reading the controller screen, and the one-loop autopilot that recognizes the game (Quiplash 2, Tee K.O., with a generic fallback for any text-prompt or vote-among-choices game), writes LLM-generated jokes, draws human-like doodles, and votes. Use when the user says "join this jackbox", "play jackbox", "join room <CODE>", gives a 4-letter Jackbox room code, or asks the bot to play Quiplash / Tee K.O. / Drawful / a party game.
 ---
 
 # Jackbox autopilot
 
-Plays Jackbox party games as a player by driving **jackbox.tv** (the phone-controller site) in a real Chrome window over CDP (Chrome DevTools Protocol). The autopilots run locally in tight loops and use the Claude API for humor/judgment, so they keep up with fast game timers and never steal the user's screen focus.
+Plays Jackbox party games as a player by driving **jackbox.tv** (the phone-controller site) in a throwaway **headless** Chrome over CDP. One background loop watches the controller DOM, picks the game module that recognizes the screen, and acts in-process, so it keeps up with fast voting windows and never touches the user's focus. Claude does the creative and judgment work.
 
 Plays as **AlexsClaude** by default (<=12 chars; signals to friends it's Alex's bot).
 
-## Architecture (why it's built this way)
-
-- **One persistent Chrome, many short node calls.** `launch.sh` starts Chrome with `--remote-debugging-port=9222` on a **throwaway profile** (`/tmp/jackbox-chrome-profile`) so the user's real Chrome is never touched. Every script then `connectOverCDP('http://localhost:9222')`, acts, and disconnects with `browser.close()` -- which **detaches CDP but leaves Chrome running**. This keeps the game session alive across separate tool calls.
-- **Autopilots are local loops, not turn-by-turn.** A turn-based agent (screenshot → think → click) is too slow for Quiplash voting windows and Tee K.O. phases. The autopilots (`quiplash.js`, `teeko.js`) poll the DOM every 0.6-1s, detect the phase, and act in-process. Launch them with `nohup … & disown` so they survive.
-- **The Claude API does the creative/judgment work**, not the loop. Opus 4.8 writes answers/slogans/draws; Haiku judges text votes fast; Sonnet does vision votes.
-
-## Setup / prerequisites
-
-- Google Chrome installed at `/Applications/Google Chrome.app`.
-- Playwright available to node. `env.sh` resolves it into `NODE_PATH`; if missing: `npm i -g playwright && npx -y playwright@1.60 install chromium`.
-- `ANTHROPIC_API_KEY` -- loaded by `env.sh` from the gitignored `phone/.env` (never inlined). Only the autopilots need it; `control.js`/`shot.js`/`join.js` don't.
-
-All node scripts read `NODE_PATH` + `ANTHROPIC_API_KEY` from the environment, so **always `source scripts/env.sh` first**.
-
-## Quickstart
+## Quickstart (the whole night is four commands)
 
 ```bash
-cd .claude/skills/jackbox
-source scripts/env.sh
-
-# 1. Launch the throwaway Chrome (once per session)
-bash scripts/launch.sh                 # CDP on :9222, opens jackbox.tv
-
-# 2. Join the room (name as "AlexsClaude")
-node scripts/join.js GBVN
-
-# 3. See what's on screen (vision)
-node scripts/shot.js /tmp/jb.png       # then Read /tmp/jb.png
-node scripts/control.js peek           # DOM text + interactive elements
-
-# 4. Start the right autopilot for the game in the background
-nohup node scripts/quiplash.js >> /tmp/jb-quiplash.log 2>&1 & disown   # Quiplash 2
-nohup node scripts/teeko.js    >> /tmp/jb-teeko.log    2>&1 & disown   # Tee K.O.
-tail -f /tmp/jb-teeko.log              # live play-by-play
+bin/jackbox launch            # headless Chrome, CDP on :9222, jackbox.tv open. No window, no focus change.
+bin/jackbox join GBVN         # exit 0 = in the room; exit 2 = room rejected the code (message says why)
+bin/jackbox play              # autopilot in the background; auto-detects the game and switches between games
+bin/jackbox status            # running? what phase does it see? Chrome up?
+bin/jackbox log               # live play-by-play
+bin/jackbox stop --chrome     # end of night
 ```
 
-Identify the game from the loading flavor text or `control.js peek`: Quiplash 2 shows `#quiplash-answer-input`; Tee K.O. shows a `<canvas>` + `#awshirt-submitdrawing` (internal name "awshirt"/"Awesome Shirt").
+Optional: `bin/jackbox shot` (PNG for vision), `bin/jackbox peek` (DOM probe), `bin/jackbox dump <label>` (save the phase for a fixture), `bin/jackbox report` (summarize the game log), `bin/jackbox test` (offline suite), `bin/jackbox launch --headed` (visible window; focus is handed back).
+
+The wrapper sources `scripts/env.sh` (installs node deps on first run, loads a key if one exists). Nothing needs `NODE_PATH`.
+
+## Architecture (why it's built this way)
+
+- **One persistent Chrome, many short node calls.** `launch.sh` starts Chrome with remote debugging on a throwaway profile (`/tmp/jackbox-chrome-profile`). Scripts `connectOverCDP`, act, and disconnect; `browser.close()` on a CDP connection detaches without killing Chrome, so the game session survives across tool calls.
+- **Headless by default.** jackbox.tv, its room-lookup API, canvas mouse input, and CDP screenshots all work under `--headless=old` (verified 2026-09-20 on Chrome 153). Headed Chrome activates its own window even via `open -g`, so `--headed` restores focus to the previous app afterwards. `--headless=new` also works but flashes the screen once at launch (see the browser-render skill).
+- **One loop, pluggable games.** `autopilot.js` probes the DOM every 500ms (`lib/probe.js`: text, inputs, buttons, vote elements, canvas + blank check in a single `evaluate`), then dispatches to the first module whose `match(state)` fires. The match is sticky through a game's waiting screens, and anything a specific module declines falls through to `games/generic.js`. A Party Pack night that rotates games needs no restart.
+- **Trusted input by coordinates.** Votes click at element centers via `Input.dispatchMouseEvent`, never by text selector, so answers containing quotes or emoji can't break a click. Drawing pipelines every mouse event of a stroke over the CDP socket without awaiting each (order is preserved), which is roughly 100x faster than per-point `page.mouse`.
+- **Claude through whichever credential exists** (`lib/claude.js`): the Anthropic SDK when `ANTHROPIC_API_KEY` is set, otherwise `claude -p` on Alex's Claude Code login. This machine currently has no API key, so the CLI path is the live one.
+
+## Models and measured latency (CLI provider, 2026-09-20)
+
+| Role | Model | Effort | Wall time |
+|---|---|---|---|
+| answers, slogans, drawings | `claude-opus-5` | `medium` (`JACKBOX_EFFORT`) | answer 2.6s, 4 slogans 3.2s, 16-stroke design 10s |
+| text votes (pairwise + ranking) | `claude-opus-5` | `low` | 2.6s |
+| vision votes | `claude-sonnet-5` | `low` | unmeasured live |
+
+Haiku 4.5 through the CLI always thinks and took 5-8s per vote, so it lost to Opus at low effort on both speed and quality. Override any model with `JACKBOX_ANSWER_MODEL` / `JACKBOX_JUDGE_MODEL` / `JACKBOX_VISION_MODEL`. Drawing itself is milliseconds; the design call is the cost.
 
 ## Tools
 
-| Script | Purpose |
+| Path | Purpose |
 |---|---|
-| `scripts/env.sh` | **Source first.** Resolves Playwright into `NODE_PATH`, loads `ANTHROPIC_API_KEY` from `phone/.env`. |
-| `scripts/launch.sh` | Launch throwaway Chrome w/ remote debugging, open jackbox.tv. |
-| `scripts/join.js <CODE> [name]` | Navigate to jackbox.tv, dismiss cookie banner, enter code + name, click PLAY. |
-| `scripts/shot.js [out]` | **Reliable** screenshot via raw CDP. Use this for vision. |
-| `scripts/control.js <cmd>` | Generic driver: `peek` / `click` / `fill` / `type` / `press`. For manual play and discovering a new game's DOM. |
-| `scripts/quiplash.js` | Quiplash 2 autopilot (writing + voting). |
-| `scripts/teeko.js` | Tee K.O. autopilot (draw + slogans + voting). |
+| `bin/jackbox` (repo root) | The CLI above. Self-registers in the tools registry. |
+| `scripts/autopilot.js` | The loop. `--game quiplash|teeko|generic` forces a module, `--name`, `--interval`. |
+| `scripts/games/quiplash.js` | Quiplash 2: answer via `#quiplash-answer-input` + `#quiplash-submit-answer`; 2-way votes; **Last Lash** ranks all N answers and keeps clicking next-best (up to 3) while the choices stay on screen, so it fits both single-vote and ranked rounds. |
+| `scripts/games/teeko.js` | Tee K.O. ("awshirt"): design -> pipelined strokes -> submit; pre-generated slogan queue; text-first votes with a vision fallback for image-only shirts. |
+| `scripts/games/generic.js` | Fallback: answers a lone text prompt, votes among a group of same-styled choice buttons. Never clicks lobby controls (Everyone's in, Skip, Continue, Ready...). |
+| `scripts/lib/` | `browser` (connect, CDP screenshot, clickAt), `probe`, `claude` (dual provider), `humor` (prompts + parsers), `draw`, `actions` (fill/submit/vote), `results` (JSONL log). |
+| `scripts/join.js`, `shot.js`, `control.js`, `report.js` | Join with real waits; raw-CDP screenshot; peek/click/fill/type/press/dump; log summary. |
+| `tests/run.js` + `tests/fixtures/` | Offline suite on the Playwright headless shell: probes, module detection, Last Lash multi-pick, lobby guard, trusted drawing events, and a drawing benchmark. |
 
 ## Conventions & hard rules
 
-- **Name:** `AlexsClaude` (so the friend group knows it's the bot).
-- **Quiplash: NEVER use the Safety Quip** (`#quiplash-submit-safetyquip`) -- it's half points. Always submit a real full-points answer via `#quiplash-submit-answer`. On API failure, fall back to a real generic answer, never the safety quip.
-- **Don't steal focus.** Never call `page.bringToFront()` -- it yanks the Chrome window in front of the user (this was an explicit complaint). The bot plays in its own background window.
-- **Run autopilots in the background**, never foreground -- and `disown` so they survive the launching shell exiting.
+- **Name:** `AlexsClaude`.
+- **Quiplash: NEVER use the Safety Quip** (`#quiplash-submit-safetyquip`), it's half points. On API failure submit a real fallback line from `humor.fallbackAnswer()`.
+- **Never bring the window to front.** Headless makes this moot; in headed mode nothing calls `bringToFront()`.
+- **Autopilot runs in the background** via the wrapper (`nohup … & disown`), one instance at a time.
+- **Generic module stays conservative.** It may only fill a prompt or vote; adding any click on a control button is a bug.
 
-## Humor (this is the point -- keep it good)
+## Humor (this is the point, keep it good)
 
-The answer/slogan prompts encode what actually wins these games (researched + user-validated):
-- **Specificity > generic** ("Pulling a Beyoncé" > "dancing"); real brands, oddly specific numbers.
-- **Commit to the absurd**; **smart-stupid juxtaposition** (highbrow + idiotic).
-- **Misdirection** -- skip the first obvious joke; the 3rd/4th idea wins.
-- **Relatable darkness** -- debt, your ex, the DMV, burnout, existential dread, HR.
-- **Punchy, funniest word last** so it lands when read aloud.
-- **THE BAR** (aim here, don't copy): *"A cupholder shaped like the middle class"* -- a mundane object weaponized into a socioeconomic gut-punch. User flagged this as elite; the prompts target that register, not mere quirk.
-- Answers use **best-of-N**: Opus brainstorms 5 candidates across techniques and ships only the funniest. Models: answers/draws/slogans = `claude-opus-4-8`; text votes = `claude-haiku-4-5-20251001`; vision votes = `claude-sonnet-4-6`.
+The prompts in `lib/humor.js` encode what wins these games (researched + user-validated): specificity over generic, commit to the absurd, smart-stupid juxtaposition, misdirection (skip the first obvious joke), relatable darkness, funniest word last. **THE BAR** (aim, don't copy): *"A cupholder shaped like the middle class."* With Opus 5 the five-candidate brainstorm happens in thinking and the reply is the single answer line; the prompt also enforces format constraints (Acro-Lash acronyms, Word-Lash required words, Comic-Lash captions).
+
+**Tuning loop.** Every run writes `tmp/jackbox/games/<stamp>-<game>.jsonl`: each answer with its prompt and latency, each vote with the options and the ranking, each drawing, and every distinct controller screen. `bin/jackbox report` summarizes it. Outcomes are the missing column: the phone controller does not show who won a matchup, so after a game ask Alex which answers landed and annotate the log, then use `/claude-api build-eval` and `hillclimb` on `ANSWER_SYS`. Do not tune the prompt on vibes.
 
 ## Drawing (Tee K.O.)
 
-`teeko.js` asks Opus to design a bold, single-subject t-shirt graphic as **normalized stroke paths** (0..1, kept inside 0.12-0.88), then replays them as **real mouse strokes with per-point jitter + segment interpolation** so the lines wobble like a hand drew them (not vector-perfect). It picks the nearest color swatch by sampling palette background colors. Detects a fresh blank canvas (samples the canvas pixels) to handle Tee K.O.'s two-drawings-per-round flow.
+Opus designs a bold single-subject graphic as normalized stroke paths (0..1, inside 0.12-0.88); `lib/draw.js` interpolates each segment into ~8px steps with per-point jitter and replays them as trusted mouse events. Chrome coalesces rapid `mousemove`s to about one per frame regardless of batching (measured: 42 of 66 points survive fully pipelined, 47 with chunks of 4, at 25ms vs 186ms), which still leaves a point every ~12px, finer than a finger. Colors come from sampling palette swatch backgrounds. A fresh blank canvas (pixel sample) re-arms drawing for Tee K.O.'s two-drawings-per-round flow.
 
 ## Gotchas (learned the hard way)
 
-- **`page.screenshot()` HANGS on jackbox.tv** ("waiting for fonts to load"). Use `shot.js` (raw CDP `Page.captureScreenshot`) for vision instead. `control.js` only does a best-effort screenshot with a short timeout.
-- **Fast windows beat slow paths.** Quiplash voting and Tee K.O. phases close in seconds. Keep per-action latency low: text votes use Haiku (~1s), not vision (~3-5s). If votes are missed, the path is too slow, not the detection.
-- **Tee K.O. vote buttons are `awshirt-vote-button`** and are often **text** (the slogan), not images -- judge by text. Use the vision fallback only when buttons carry no text.
-- **Verify detection against the live DOM** with `control.js peek` before assuming an autopilot will catch a phase -- element ids/classes are game-specific.
-- Background `node … &` inside a backgrounded shell can die when the wrapper exits; use `nohup … & disown` and confirm with `pgrep -fl`.
+- **`page.screenshot()` hangs on jackbox.tv** ("waiting for fonts"). Use `shot.js` / `lib/browser.screenshot` (raw `Page.captureScreenshot`).
+- **PLAY stays disabled until jackbox.tv validates the code** with its API; a bad code shows "Room not found". `join.js` waits for either, so its exit code is trustworthy.
+- **Cookie banner** appears a beat after load on a fresh profile and covers PLAY. `join.js` polls the body text and clicks Reject/Accept All until it's gone.
+- **`claude -p --bare` cannot log in** (it reads only `ANTHROPIC_API_KEY`), and an isolated `CLAUDE_CONFIG_DIR` loses the keychain login too. So the CLI provider runs with the global CLAUDE.md attached (~9k cached input tokens) and strips the kaomoji line MIST's instructions add to every reply.
+- **`claude -p` waits 3s for stdin** unless stdin is closed; the provider spawns with `stdio: ['ignore', ...]`.
+- **Vote element text is the truth for text games.** Tee K.O. vote buttons are `awshirt-vote-button` and usually carry the slogan; only image-only shirts need the screenshot path.
+- **Verify detection against the live DOM** with `bin/jackbox peek` before assuming a phase will be caught; ids are game-specific and Jackbox ships new packs.
+- Background `node … &` inside a backgrounded shell can die when the wrapper exits; the wrapper uses `nohup … & disown`.
 
 ## Adding a new game
 
-1. `node scripts/control.js peek` during each phase to learn the element ids/classes (and `shot.js` to see it).
-2. Add a phase branch to a new `<game>.js` modeled on `quiplash.js` (text in/out) or `teeko.js` (canvas + vision). Reuse the `claude()` helper and the humor system prompts.
-3. Keep the loop fast, text-first, and focus-free.
+1. During each phase run `bin/jackbox peek` (and `bin/jackbox dump <phase>` to save HTML+PNG under `tmp/jackbox/dumps/`).
+2. Write `scripts/games/<game>.js` exporting `{ name, match(state), tick(ctx, state) -> handled }`, modeled on `quiplash.js` (text) or `teeko.js` (canvas + vision). `ctx` gives `page`, `cdp`, `ai`, `probe()`, `record()`, `log()`, `playerName`. Register it in the `MODULES` list in `autopilot.js`.
+3. Scrub player names from the dump, trim it to the elements that matter, drop it in `tests/fixtures/`, and add a case to `tests/run.js` (the stub `ai` returns fixed picks). Run `bin/jackbox test`.
+4. Keep the loop fast, text-first, and focus-free.
 
 ## Teardown
 
 ```bash
-pkill -f 'quiplash.js|teeko.js'                       # stop autopilots
-pkill -f jackbox-chrome-profile                       # close the throwaway Chrome
-rm -rf /tmp/jackbox-chrome-profile /tmp/jb*.log /tmp/jb.png
+bin/jackbox stop --chrome     # kills the autopilot and the throwaway Chrome, removes the profile
+rm -f /tmp/jb*.png /tmp/jb-autopilot.log
 ```
 
 ## Privacy
 
-Scripts contain no personal data; the API key is loaded from a gitignored file at runtime, never inlined. Safe to commit. The only outward-facing identity is the player name `AlexsClaude`.
+Scripts contain no personal data. Game logs and DOM dumps live under the gitignored `tmp/`; dumps of a lobby contain friends' player names, so scrub before promoting one to `tests/fixtures/`. The only outward-facing identity is the player name `AlexsClaude`.

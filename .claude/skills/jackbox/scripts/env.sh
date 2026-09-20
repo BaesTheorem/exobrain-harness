@@ -1,22 +1,16 @@
 #!/usr/bin/env bash
-# Source this before running any jackbox node script:  source scripts/env.sh
-# It resolves Playwright into NODE_PATH and loads the Anthropic API key from a
-# gitignored .env (never inline the secret). Both are read by the node scripts.
-
-# 1) NODE_PATH -> the directory that contains the 'playwright' package.
-if ! node -e "require.resolve('playwright')" >/dev/null 2>&1; then
-  PW="$(find "$HOME/.npm/_npx" /opt/homebrew/lib/node_modules "$HOME/.npm-global/lib/node_modules" \
-        -type d -path '*/node_modules/playwright' 2>/dev/null | head -1)"
-  if [ -n "$PW" ]; then export NODE_PATH="$(dirname "$PW")"; fi
+# Source before running any jackbox node script directly (bin/jackbox does this for you).
+# 1) node deps live in this dir (playwright-core + @anthropic-ai/sdk; no bundled browser).
+# 2) ANTHROPIC_API_KEY comes from a gitignored env file, never inlined.
+JB_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+if [ ! -d "$JB_DIR/node_modules/playwright-core" ]; then
+  echo "jackbox: installing node deps..." >&2
+  (cd "$JB_DIR" && npm install --no-audit --no-fund >/dev/null) || echo "WARN: npm install failed in $JB_DIR" >&2
 fi
-node -e "require.resolve('playwright')" >/dev/null 2>&1 || \
-  echo "WARN: playwright not found. Install with:  npx -y playwright@1.60 install chromium  (and 'npm i -g playwright')" >&2
-
-# 2) ANTHROPIC_API_KEY from a gitignored env file (phone/.env holds it in this repo).
-ENV_FILE="${ANTHROPIC_ENV_FILE:-$HOME/Documents/Exobrain harness/phone/.env}"
-if [ -z "$ANTHROPIC_API_KEY" ] && [ -f "$ENV_FILE" ]; then
+ENV_FILE="${ANTHROPIC_ENV_FILE:-$JB_DIR/../../../../phone/.env}"
+if [ -z "${ANTHROPIC_API_KEY:-}" ] && [ -f "$ENV_FILE" ]; then
   val="$(grep -E '^ANTHROPIC_API_KEY=' "$ENV_FILE" | head -1 | sed -E 's/^[^=]*=//')"
   val="${val%\"}"; val="${val#\"}"; val="${val%\'}"; val="${val#\'}"
-  export ANTHROPIC_API_KEY="$val"
+  [ -n "$val" ] && export ANTHROPIC_API_KEY="$val"
 fi
-[ -n "$ANTHROPIC_API_KEY" ] || echo "WARN: ANTHROPIC_API_KEY not set (autopilots need it; controller/shot do not)." >&2
+[ -n "${ANTHROPIC_API_KEY:-}" ] || echo "WARN: ANTHROPIC_API_KEY not set (autopilot needs it; join/shot/control do not)." >&2
