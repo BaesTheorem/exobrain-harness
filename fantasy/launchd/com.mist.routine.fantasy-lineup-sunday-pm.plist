@@ -3,15 +3,15 @@
 <plist version="1.0">
 <dict>
 	<key>Label</key>
-	<string>com.mist.routine.fantasy-lineup-sunday</string>
+	<string>com.mist.routine.fantasy-lineup-sunday-pm</string>
 	<key>ProgramArguments</key>
 	<array>
 		<string>/bin/bash</string>
 		<string>/Users/alexhedtke/Documents/Exobrain harness/fantasy/bin/routine-guard</string>
 		<string>0</string>
-		<string>fantasy-lineup-sunday</string>
-		<string>10:35</string>
-		<string>11:50</string>
+		<string>fantasy-lineup-sunday-pm</string>
+		<string>14:30</string>
+		<string>15:20</string>
 	</array>
 	<key>RunAtLoad</key>
 	<true/>
@@ -23,17 +23,17 @@
 	<array>
 		<dict>
 			<key>Hour</key>
-			<integer>10</integer>
+			<integer>14</integer>
 			<key>Minute</key>
-			<integer>40</integer>
+			<integer>35</integer>
 			<key>Weekday</key>
 			<integer>0</integer>
 		</dict>
 		<dict>
 			<key>Hour</key>
-			<integer>11</integer>
+			<integer>14</integer>
 			<key>Minute</key>
-			<integer>10</integer>
+			<integer>55</integer>
 			<key>Weekday</key>
 			<integer>0</integer>
 		</dict>

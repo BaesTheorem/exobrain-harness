@@ -1,0 +1,18 @@
+#!/bin/bash
+# sunday-poweron: schedule a power-on for next Sunday 10:20 AM so the noon-lock
+# repairs and the 10:40 lineup routine run even if the Mac was shut down.
+#
+# pmset allows one repeating wake (the nightly 9:58 PM wakeorpoweron already
+# uses it), so a second weekly time has to be a one-off `pmset schedule`
+# event, re-armed every week. Root only. Install the LaunchDaemon next to it:
+#
+#   sudo cp fantasy/launchd/com.exobrain.sunday-poweron.plist /Library/LaunchDaemons/
+#   sudo launchctl bootstrap system /Library/LaunchDaemons/com.exobrain.sunday-poweron.plist
+#
+# It fires Monday 3:15 AM and at boot; either way it (re)arms the coming
+# Sunday. `pmset -g sched` shows the event.
+set -e
+next_sunday=$(date -v+sun +%m/%d/%Y)          # today if Sunday; the 10:20 is past by 3 AM Monday anyway
+[ "$(date +%w)" = "0" ] && next_sunday=$(date -v+7d +%m/%d/%Y)
+/usr/bin/pmset schedule wakeorpoweron "$next_sunday 10:20:00"
+echo "[$(date '+%Y-%m-%d %H:%M:%S')] armed wakeorpoweron for $next_sunday 10:20"

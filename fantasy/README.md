@@ -159,6 +159,28 @@ MIST's judgment, so this tool never predicts. It:
 The Tuesday routine runs `settle` first and the new week's forecast last. The
 JSON schema MIST writes is spelled out in `routines/tuesday.md` step 7.
 
+## The scans (2026-09-20): `bin/volume`, `bin/swap-scan`, `bin/stream-scan`, `bin/league-scan`
+
+All read-only, all `--json`, all built the night Alex asked what else would
+raise the odds. The shared pieces live in `espncli/value.py`: `ros_rate`
+(the one in-season currency: half ESPN's static preseason `season_proj`,
+half the live weekly projection, season PPG from week 5) and the spread model
+(`player_sd`, `win_prob`, `best_swaps`, `best_fill`) that turns the playbook's
+variance rule into a number in `espn check` and `espn matchup`.
+
+| Tool | Reads | Says |
+|---|---|---|
+| `volume roster/fa/league/player` | nflreadpy weekly stats + snap counts, ESPN rosters | targets, target share, WOPR, snaps, BUY/SELL/ROLE flags; writes `.cache/player-sd.json` |
+| `swap-scan` | roster, wire, settings, Sleeper trending, the volume cache | every bench-for-wire swap vs the +20 gate; never a second QB/TE; bye holes |
+| `stream-scan` | `espn team/nfl/stream` | the K and D/ST thresholds, byes two weeks out |
+| `league-scan` | every closed week's lineups, every period's transactions | zeros started, bench points left, offers answered, per manager |
+| `trade_scan.py --json` | rosters on `ros_rate`, the season sim | 1-for-1 and 2-for-1 proposals priced in title and bye odds |
+| `season_sim.py --json` | rosters on `ros_rate`, results so far | bye/playoff/title odds for the Tuesday log |
+
+Tests: `tests/test_fantasy_value.py` (both sides of the variance rule with
+planted lineups), `tests/test_swap_scan.py` (the gate's positive control and
+the second-TE rule), and the opponent-hole case in `tests/test_espncli.py`.
+
 ## The season on autopilot: `routines/`
 
 `routines/COMMON.md` plus `lineup.md`, `tuesday.md`, and `incident.md` are
@@ -184,15 +206,19 @@ arrangement, with its standing limits, is written up in the playbook's
   checks time of day only, and a RunAtLoad on a Monday evening ran the
   Tuesday routine once) and then the Console's `run-routine-ontime.sh` with a
   window and retry slots: lineup 17:30-23:30 daily (fires 17:30, 19:30,
-  22:05), Sunday lineup 10:15-11:45 (10:15, 11:00), Tuesday 18:00-23:30
-  (18:00, 20:00, 22:05). One completed run per day per routine; a transient
+  22:05), Sunday lineup 10:35-11:50 (10:40, 11:10; after the noon window's
+  10:30 inactives) and 14:30-15:20 (14:35, 14:55; the 3:05/3:25 window),
+  Tuesday 18:00-23:30 (18:00, 20:00, 22:05). One completed run per day per routine; a transient
   failure leaves the day unstamped so the next slot retries; a boot inside
   the window runs it. The Mac's nightly 9:58 PM `wakepoweron` (pmset) means a
   Mac shut down all day still gets the 22:05 slots.
 - The Mac has system sleep disabled (`pmset SleepDisabled 1`), so "asleep" is
   not a case; only powered off or dead battery. The one uncovered hole is a
   Mac that is off across Sunday late morning: the noon-lock repairs then wait
-  for boot. Closing it needs a root-scheduled power-on (see the playbook).
+  for boot. `bin/sunday-poweron` plus `launchd/com.exobrain.sunday-poweron.plist`
+  (a root LaunchDaemon; install commands in the script header) arm a
+  Sunday 10:20 power-on each Monday; pmset holds only one repeating wake and
+  the nightly one has it, so this is a weekly one-off.
 
 ### API facts that cost time to learn (2026-09-07)
 

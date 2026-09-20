@@ -100,6 +100,38 @@ quirk, and the ESPN API gotchas (which host 403s, which view accepts
 them (TD-regression scan, trade-log-vs-standings study) rather than scraping
 the site by hand.
 
+**The scans (added 2026-09-20, all read-only, all `--json`)** sit on top of
+`espn` and are what the routines reach for first:
+
+- `fantasy/bin/volume roster|fa --pos RB|league --flag BUY|player <name>` —
+  the in-season opportunity feed (nflverse via nflreadpy, a day behind):
+  targets, target share, WOPR, carries, weighted opportunities, snap share,
+  last week's role move, BUY/SELL (volume rank vs points rank at the
+  position) and ROLE-UP/DOWN flags. **"Rank by volume" means this tool.**
+  `volume build --fresh` on Tuesday; it also writes the per-player spread
+  multipliers `espn check` uses
+- `espn check` / `espn matchup` now report `win` (P(win) from each unlocked
+  starter's projection and a measured, tiered, per-player spread; locked
+  players are banked), `swaps` (bench-for-starter swaps ranked by the win
+  probability they buy; apply at +1 point), `opp_problems` and
+  `win_if_opp_unfixed` (the opponent's holes, priced). The variance rule is
+  a number; the fill for a problem slot is chosen by it
+- `fantasy/bin/swap-scan` — the waiver gate: `(add - drop) x weeks left`
+  against +20, never a second QB/TE, Sleeper 24-hour adds as market heat,
+  volume flags as the role condition, bye holes two weeks out
+- `fantasy/bin/stream-scan` — the D/ST (ours faces >= 24 implied, a free
+  agent faces <= 19) and K (a free agent's offense 4+ above ours, fair
+  weather) thresholds, plus K/D/ST byes ahead
+- `fantasy/bin/league-scan` — per manager: zeros started, bench points left
+  per closed week, adds, trade offers sent/received/accepted/expired. The
+  opponent model and the trade-targeting input
+- `python3 fantasy/trade_scan.py --json [--min-gain 10]` — every 1-for-1
+  and 2-for-1 the other side does not lose on its own screen, priced in
+  title and bye odds; `python3 fantasy/season_sim.py --json` — bye odds on
+  the results so far. Both value rosters on `espncli.value.ros_rate`, the one
+  in-season currency (half preseason projection, half live), because ESPN's
+  `season_proj` is static and alone prices August
+
 **Writes go through `fantasy/bin/espn-tx` and nothing else** (added
 2026-09-07): `ir`, `move`, `claim`, `pending`, `cancel`. It verifies every
 write with a read-back and exits nonzero when the roster or the pending list
@@ -122,9 +154,10 @@ with the generated Forecast table and Review scorecard (`forecast
 playbook` regenerates them; commentary goes in via `forecast note`).
 
 **The season runs on autopilot (since 2026-09-07).** Two launchd watchers
-(`lineup-watch --fix`, `roster-watch`) and three Fable routines
-(`fantasy-lineup` daily + Sunday, `fantasy-tuesday`, `fantasy-incident` on
-demand) run the playbook's in-season protocol; the prompts are in
+(`lineup-watch --fix`, `roster-watch`, the latter also bannering the waiver
+and streaming gates) and the Fable routines (`fantasy-lineup` daily, Sunday
+10:40 AM and 2:35 PM after the inactives post, `fantasy-tuesday`,
+`fantasy-incident` on demand) run the playbook's in-season protocol; the prompts are in
 `fantasy/routines/` and each run invokes this skill first and writes back to
 the playbook. In an interactive session, do the same: invoke this skill, read
 the Season log before advising, and record decisions there. Do not build a
