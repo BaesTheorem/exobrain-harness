@@ -83,6 +83,32 @@ def swap_gate_event(st: dict) -> dict | None:
     return {"kind": "swap_gate", "gate": gate, "judgment": False, **best}
 
 
+def stream_gate_event(st: dict) -> dict | None:
+    """A K or D/ST streamer that clears the playbook's thresholds (bin/stream-scan),
+    once per candidate: the same one-banner-per-pair memory as the swap gate."""
+    try:
+        out = subprocess.run([sys.executable, str(HERE / "stream-scan"), "--json"], capture_output=True,
+                             text=True, timeout=240, check=True).stdout
+        scan = json.loads(out)
+    except Exception as exc:
+        print(f"stream-scan unavailable: {exc}")
+        return None
+    gs = st.setdefault("stream_gate", {})
+    for label in ("dst", "k"):
+        v = scan.get(label)
+        if not v or not v.get("stream") or not v.get("best_fa"):
+            gs[label] = None
+            continue
+        cand = v["best_fa"][0]
+        pair = f"{v['ours']}|{cand['name']}|{scan.get('week')}"
+        if gs.get(label) == pair:
+            continue
+        gs[label] = pair
+        return {"kind": "stream_gate", "slot": "D/ST" if label == "dst" else "K", "ours": v["ours"],
+                "add": cand["name"], "avail": cand["avail"], "why": v["why"], "judgment": False}
+    return None
+
+
 def load(path: pathlib.Path, default):
     try:
         return json.loads(path.read_text())
@@ -205,6 +231,9 @@ def main() -> int:
         sg = swap_gate_event(st)
         if sg:
             events.append(sg)
+        sg = stream_gate_event(st)
+        if sg:
+            events.append(sg)
 
     st["status"] = statuses
     st["first_run"] = False
@@ -240,6 +269,8 @@ def main() -> int:
             heads.append(f"watch: {ev['player']} {ev['from']}% -> {ev['to']}% rostered")
         elif ev["kind"] == "watched_team_moved":
             heads.append(f"{ev['team']} made a roster move")
+        elif ev["kind"] == "stream_gate":
+            heads.append(f"stream {ev['slot']}: {ev['add']} ({ev['avail']}) over {ev['ours']}, {ev['why']}")
         elif ev["kind"] == "swap_gate":
             heads.append(f"wire: add {ev['add']} ({ev['add_pos']}, {ev['avail']}) for "
                          f"{ev['drop']} clears the gate, +{ev['gain']:.1f} pts rest of season")
@@ -250,6 +281,15 @@ def main() -> int:
     link = LEAGUE_URL if any(ev["kind"] == "trade_offer" for ev in events) else ROSTER_URL
     actions = ["--action", "Ask MIST=console"]
     swap = next((ev for ev in events if ev["kind"] == "swap_gate"), None)
+    stream = next((ev for ev in events if ev["kind"] == "stream_gate"), None)
+    if stream and not swap:
+        how = "--fa" if stream["avail"] == "FA" else ""
+        actions = [
+            "--action", reply_button(
+                "Do it", f"Stream from roster-watch: add {stream['add']} for {stream['ours']} at {stream['slot']} "
+                         f"({stream['why']}; espn-tx claim {how} \"{stream['add']}\" --drop \"{stream['ours']}\")"),
+            "--action", reply_button("Skip", f"Skip the {stream['add']} stream; keep {stream['ours']}"),
+        ]
     if swap:
         how = "--fa" if swap["avail"] == "FA" else ""
         actions = [

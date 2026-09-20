@@ -34,7 +34,8 @@ import numpy as np
 
 HERE = pathlib.Path(__file__).resolve().parent
 sys.path.insert(0, str(HERE))
-from espncli.client import Espn, season_proj, team_name, week_actual  # noqa: E402
+from espncli.client import Espn, season_actual, season_proj, team_name, week_actual, week_proj  # noqa: E402
+from espncli.value import games_played, ros_rate  # noqa: E402
 
 POS = {1: "QB", 2: "RB", 3: "WR", 4: "TE", 5: "K", 16: "D/ST"}
 LINEUP = {"QB": 1, "RB": 2, "WR": 2, "TE": 1, "D/ST": 1, "K": 1}
@@ -65,15 +66,23 @@ def optimal_lineup(players):
 
 
 def load(season):
+    """Every roster valued on the one in-season currency (espncli.value.ros_rate,
+    scaled back to a 17-game season so the simulator's per-week division holds).
+    Before 2026-09-20 this read ESPN's static preseason projection, which never
+    moves on a role change or an injury; a trade scan or a bye-odds number on
+    that input was pricing August."""
     cl = Espn()
-    data = cl.league("mTeam", "mRoster", "mMatchup", "mSettings")
+    data = cl.league("mTeam", "mRoster", "mMatchup", "mSettings", "mStatus")
+    week = Espn.current_week(data)
     teams = {}
     for t in data["teams"]:
         players = []
         for e in (t.get("roster") or {}).get("entries", []):
             p = e["playerPoolEntry"]["player"]
+            games = games_played(cl.pro(p.get("proTeamId")).get("games", {}), week)
+            rate = ros_rate(week, week_proj(p, season, week), season_proj(p, season), season_actual(p, season), games)
             players.append({"name": p["fullName"], "pos": POS.get(p.get("defaultPositionId"), "?"),
-                            "proj": season_proj(p, season) or 0.0})
+                            "proj": rate * NFL_WEEKS, "preseason": season_proj(p, season) or 0.0})
         teams[t["id"]] = {"name": team_name(t).strip(), "players": players,
                           "espn": optimal_lineup(players)}
     reg = data["settings"]["scheduleSettings"]["matchupPeriodCount"]
@@ -149,7 +158,7 @@ def completed_weeks(season, games, reg, explicit=None):
     return actuals
 
 
-def simulate(teams, games, reg, sims, sigma, tau, seed, actuals=None):
+def simulate(teams, games, reg, sims, sigma, tau, seed, actuals=None) -> tuple:
     ids = sorted(teams)
     idx = {tid: i for i, tid in enumerate(ids)}
     n = len(ids)
@@ -229,33 +238,35 @@ def main():
     ap.add_argument("--season", type=int, default=2026)
     ap.add_argument("--through-week", type=int, default=None, metavar="N",
                     help="treat weeks 1..N as played (default: auto-detect; 0 = preseason)")
+    ap.add_argument("--json", action="store_true", help="also print a JSON summary (our odds first)")
     args = ap.parse_args()
+    say = (lambda *a, **k: None) if args.json else print   # --json: the summary is the only stdout
 
     teams, games, reg = load(args.season)
     actuals = completed_weeks(args.season, games, reg, args.through_week)
     board = board_scores(teams)
 
-    print("## Scoreboard 1: our system (value over replacement by our board, from ESPN's pick record)\n")
-    print("| # | Team | Starters VOR | All 16 picks |")
-    print("|---|---|---|---|")
+    say("## Scoreboard 1: our system (value over replacement by our board, from ESPN's pick record)\n")
+    say("| # | Team | Starters VOR | All 16 picks |")
+    say("|---|---|---|---|")
     for i, (nm, v) in enumerate(sorted(board.items(), key=lambda kv: -kv[1]["starters"]), 1):
-        print(f"| {i} | {nm} | {v['starters']:.0f} | {v['all16']:.0f} |")
+        say(f"| {i} | {nm} | {v['starters']:.0f} | {v['all16']:.0f} |")
 
-    print("\n## Scoreboard 2: ESPN's system (optimal lineup on ESPN 2026 projections, league scoring)\n")
-    print("| # | Team | Proj starters (season) | Per week |")
-    print("|---|---|---|---|")
+    say("\n## Scoreboard 2: ESPN's system (optimal lineup on ESPN 2026 projections, league scoring)\n")
+    say("| # | Team | Proj starters (season) | Per week |")
+    say("|---|---|---|---|")
     for i, (_tid, t) in enumerate(sorted(teams.items(), key=lambda kv: -kv[1]["espn"]), 1):
-        print(f"| {i} | {t['name']} | {t['espn']:.0f} | {t['espn'] / NFL_WEEKS:.1f} |")
+        say(f"| {i} | {t['name']} | {t['espn']:.0f} | {t['espn'] / NFL_WEEKS:.1f} |")
 
     ids, mu, wins, losses, pf, ranks, probs = simulate(
         teams, games, reg, args.sims, args.sigma, args.tau, args.seed, actuals)
     played = f"weeks 1-{max(actuals)} played" if actuals else "preseason, nothing played"
-    print(f"\n## Season simulation ({args.sims:,} seasons; {played}; "
+    say(f"\n## Season simulation ({args.sims:,} seasons; {played}; "
           f"sigma_week={args.sigma}, tau_season={args.tau}; "
           f"{reg} weeks, {PLAYOFF_TEAMS} playoff teams, {BYES} byes, no reseeding)\n")
-    print("| Team | Wins (50% CI) | Wins (90% CI) | Finish (50% CI) | Finish (90% CI) "
+    say("| Team | Wins (50% CI) | Wins (90% CI) | Finish (50% CI) | Finish (90% CI) "
           "| Playoffs | Bye | Title |")
-    print("|---|---|---|---|---|---|---|---|")
+    say("|---|---|---|---|---|---|---|---|")
     rows = []
     for i, tid in enumerate(ids):
         w, r = wins[:, i], ranks[:, i]
@@ -263,12 +274,23 @@ def main():
                      np.median(r), ci(r, 25, 75), ci(r, 5, 95),
                      probs["playoffs"][i], probs["bye"][i], probs["champ"][i]))
     for nm, wm, (a, b), (c, d), rmed, (ra, rb), (rc, rd), pp, pb, pc in sorted(rows, key=lambda x: -x[9]):
-        print(f"| {nm} | {wm:.1f} ({a:.0f}-{b:.0f}) | {c:.0f}-{d:.0f} "
+        say(f"| {nm} | {wm:.1f} ({a:.0f}-{b:.0f}) | {c:.0f}-{d:.0f} "
               f"| {rmed:.0f} ({ra:.0f}-{rb:.0f}) | {rc:.0f}-{rd:.0f} "
               f"| {pp:.0%} | {pb:.0%} | {pc:.0%} |")
-    json.dump({"names": [teams[t]["name"] for t in ids], "mu": mu.tolist(),
-               "probs": {k: v.tolist() for k, v in probs.items()}},
-              open(HERE / "draftbot" / "season_sim_latest.json", "w"), indent=1)
+    summary = {"names": [teams[t]["name"] for t in ids], "mu": mu.tolist(),
+               "weeks_played": max(actuals) if actuals else 0,
+               "probs": {k: v.tolist() for k, v in probs.items()}}
+    json.dump(summary, open(HERE / "draftbot" / "season_sim_latest.json", "w"), indent=1)
+    if args.json:
+        me = int(Espn().creds.get("team_id", 0))
+        i = ids.index(me) if me in ids else None
+        mine = {k: round(float(v[i]), 4) for k, v in probs.items()} if i is not None else {}
+        if i is not None:
+            mine["wins_mean"] = round(float(wins[:, i].mean()), 2)
+            mine["finish_median"] = float(np.median(ranks[:, i]))
+        print(json.dumps({"weeks_played": summary["weeks_played"], "sims": args.sims, "mine": mine,
+                          "teams": {teams[t]["name"]: {k: round(float(v[j]), 4) for k, v in probs.items()}
+                                    for j, t in enumerate(ids)}}, indent=1))
 
 
 if __name__ == "__main__":

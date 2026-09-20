@@ -36,7 +36,8 @@ def main():
     ap.add_argument("--min-gain", type=float, default=25.0, help="our lineup gain, season points")
     ap.add_argument("--their-floor", type=float, default=-12.0, help="worst lineup change we assume a rival accepts")
     ap.add_argument("--our-view", choices=["espn", "board"], default="espn",
-                    help="value OUR side by ESPN projections, or by our draft board's value over replacement (vor.json)")
+                    help="value OUR side by the in-season blend (espn), or by our draft board's value over replacement (vor.json)")
+    ap.add_argument("--json", action="store_true", help="the ranked proposals as JSON instead of a table")
     args = ap.parse_args()
 
     teams, games, reg = ss.load(2026)
@@ -47,7 +48,20 @@ def main():
         for e in (t.get("roster") or {}).get("entries", []):
             p = e["playerPoolEntry"]["player"]
             status[(t["id"], p["fullName"])] = p.get("injuryStatus") or ""
-    flags = {norm(v["name"]): v.get("flag") for v in json.load(open(HERE / "draftbot" / "opportunity.json")).values()}
+    # Two flag sources: the 2025 draft overlay (opportunity.json) and this
+    # season's volume feed (bin/volume), which is the one that moves in-season.
+    flags = {}
+    try:
+        flags = {norm(v["name"]): v.get("flag") for v in json.load(open(HERE / "draftbot" / "opportunity.json")).values()}
+    except (OSError, ValueError):
+        pass
+    try:
+        vol = json.load(open(HERE / ".cache" / "volume-2026.json"))["players"]
+        for v in vol.values():
+            if v.get("flags"):
+                flags[norm(v["name"])] = "/".join(v["flags"]) + "(26)"
+    except (OSError, ValueError, KeyError):
+        pass
 
     ours = teams[me]["players"]
     teams[me]["espn_players"] = {pl["name"]: pl["proj"] for pl in ours}
@@ -107,20 +121,33 @@ def main():
     print(f"candidates {len(cands):,}; plausible {len(plausible)} (our gain >= {args.min_gain}, their lineup change >= {args.their_floor}, raw balance)\n")
 
     # Paired simulation: same seed for baseline and every candidate.
-    _, _, _, _, _, base = ss.simulate(teams, games, reg, args.sims, 22.0, 8.0, 7)
+    actuals = ss.completed_weeks(2026, games, reg)
+    base = ss.simulate(teams, games, reg, args.sims, 22.0, 8.0, 7, actuals)[-1]   # the probs dict (7-tuple; the old 6-way unpack crashed)
     i_me = sorted(teams).index(me)
-    print("| # | With | We give | We get | Our lineup Δ (season) | Their lineup Δ | Raw proj Δ (them) | Δ title | Δ playoffs | Δ bye | Flags |")
-    print("|---|---|---|---|---|---|---|---|---|---|---|")
+    rows = []
     for n, c in enumerate(plausible[: args.top], 1):
         mod = copy.deepcopy(teams)
         mod[me]["espn"] = teams[me]["espn"] + (c["d_us"] if args.our_view == "espn" else c.get("d_us_espn", 0.0))
         mod[c["tid"]]["espn"] = teams[c["tid"]]["espn"] + c["d_them"]
-        _, _, _, _, _, pr = ss.simulate(mod, games, reg, args.sims, 22.0, 8.0, 7)
+        pr = ss.simulate(mod, games, reg, args.sims, 22.0, 8.0, 7, actuals)[-1]
         fl = [f"{x['name'].split()[-1]}:{flags.get(norm(x['name']))}" for x in c["a"] + [c["b"]] if flags.get(norm(x["name"]))]
-        print(f"| {n} | {c['team']} | {' + '.join(c['give'])} | {', '.join(c['get'])} | {c['d_us']:+.0f} | {c['d_them']:+.0f} | {-c['raw']:+.0f} "
-              f"| {100 * (pr['champ'][i_me] - base['champ'][i_me]):+.1f} pts | {100 * (pr['playoffs'][i_me] - base['playoffs'][i_me]):+.1f} pts "
-              f"| {100 * (pr['bye'][i_me] - base['bye'][i_me]):+.1f} pts | {' '.join(fl) or '-'} |")
-    print(f"\nbaseline: title {100 * base['champ'][i_me]:.1f}%, playoffs {100 * base['playoffs'][i_me]:.0f}%, bye {100 * base['bye'][i_me]:.0f}%")
+        rows.append({"n": n, "with": c["team"], "give": c["give"], "get": c["get"],
+                     "d_us": round(c["d_us"], 1), "d_them": round(c["d_them"], 1), "raw_them": round(-c["raw"], 1),
+                     "d_title": round(100 * (pr["champ"][i_me] - base["champ"][i_me]), 2),
+                     "d_playoffs": round(100 * (pr["playoffs"][i_me] - base["playoffs"][i_me]), 2),
+                     "d_bye": round(100 * (pr["bye"][i_me] - base["bye"][i_me]), 2), "flags": fl})
+    baseline = {"title": round(100 * base["champ"][i_me], 1), "playoffs": round(100 * base["playoffs"][i_me], 1),
+                "bye": round(100 * base["bye"][i_me], 1), "weeks_played": max(actuals) if actuals else 0}
+    if args.json:
+        print(json.dumps({"baseline": baseline, "candidates": len(cands), "plausible": len(plausible), "proposals": rows}, indent=1))
+        return
+    print("| # | With | We give | We get | Our lineup Δ (season) | Their lineup Δ | Raw proj Δ (them) | Δ title | Δ playoffs | Δ bye | Flags |")
+    print("|---|---|---|---|---|---|---|---|---|---|---|")
+    for r in rows:
+        print(f"| {r['n']} | {r['with']} | {' + '.join(r['give'])} | {', '.join(r['get'])} | {r['d_us']:+.0f} | {r['d_them']:+.0f} | {r['raw_them']:+.0f} "
+              f"| {r['d_title']:+.1f} pts | {r['d_playoffs']:+.1f} pts | {r['d_bye']:+.1f} pts | {' '.join(r['flags']) or '-'} |")
+    print(f"\nbaseline (weeks 1-{baseline['weeks_played']} played): title {baseline['title']}%, playoffs {baseline['playoffs']:.0f}%, bye {baseline['bye']:.0f}%")
+    print("values are the in-season blend (espncli.value.ros_rate x 17), not the preseason projection; flags tagged (26) are this season's volume feed")
 
 
 if __name__ == "__main__":

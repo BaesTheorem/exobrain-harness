@@ -767,6 +767,7 @@ def record(api: Espn, forecast: dict, dossier: dict) -> Path:
         r = by_name[slug(p["name"])]
         p["id"], p["pos"], p["slot"] = r["id"], r["pos"], r["slot"]
         p["consensus"], p["espn"] = r["consensus"], r["proj"].get("espn")
+        p["sources"] = r["proj"]          # every source's number, so settle can score each one
     out = {
         "season": api.season, "week": forecast["week"],
         "issued": datetime.now(TZ).isoformat(timespec="minutes"),
@@ -861,10 +862,32 @@ def settle_week(api: Espn, path: Path) -> dict:
                      "first_brier_baseline": round((b["p_first"] - (rank == 1)) ** 2, 4)},
         "standings_after": standings,
     }
+    out["source_error"] = source_error(f["players"], actual_by_id)
     out["coverage"] = coverage([{"settled": out}])
     rec["settled"] = out
     path.write_text(json.dumps(rec, indent=1))
     return rec
+
+
+def source_error(players: list[dict], actual_by_id: dict[int, float]) -> dict:
+    """Mean absolute error of each projection source (and the consensus) on the
+    players who finished the week on the roster. Added 2026-09-20 so the season
+    says which source runs hot by position instead of the skill's 2019-2023
+    memory of it. Records filed before this carry no per-source numbers."""
+    errs: dict[str, list[float]] = {}
+    for p in players:
+        a = actual_by_id.get(p.get("id") or -1)
+        if a is None:
+            continue
+        votes = dict(p.get("sources") or {})
+        if p.get("consensus") is not None:
+            votes["consensus"] = p["consensus"]
+        if p.get("median") is not None:
+            votes["mist"] = p["median"]
+        for src, v in votes.items():
+            if v is not None:
+                errs.setdefault(src, []).append(abs(float(v) - a))
+    return {src: {"mae": round(statistics.fmean(xs), 2), "n": len(xs)} for src, xs in errs.items() if xs}
 
 
 def coverage(recs: list[dict]) -> dict:
@@ -948,6 +971,15 @@ def render_history(recs: list[dict]) -> None:
         print(f"  season: MIST 50%={c['mist']['cov50']:.2f} 90%={c['mist']['cov90']:.2f} MAE={c['mist']['mae']} (n={c['mist']['n']})   "
               f"baseline 50%={c['baseline']['cov50']:.2f} 90%={c['baseline']['cov90']:.2f} MAE={c['baseline']['mae']}")
         print("  a well-calibrated forecaster lands near 0.50 and 0.90; far above means intervals are too wide, far below too narrow")
+        # per-source error, pooled over every settled week that recorded it
+        pooled: dict[str, list[float]] = {}
+        for r in settled:
+            for src, e in (r["settled"].get("source_error") or {}).items():
+                pooled.setdefault(src, []).extend([e["mae"]] * e["n"])
+        if pooled:
+            line = ", ".join(f"{src} {statistics.fmean(xs):.2f} (n={len(xs)})"
+                             for src, xs in sorted(pooled.items(), key=lambda kv: statistics.fmean(kv[1])))
+            print(f"  source MAE, best first: {line}")
 
 
 # ---- playbook: the Season log by week, with the forecast and review on top ---
