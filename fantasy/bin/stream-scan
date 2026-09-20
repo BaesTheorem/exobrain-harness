@@ -1,0 +1,148 @@
+#!/usr/bin/env python3
+"""stream-scan: apply the playbook's K and D/ST streaming thresholds, every week.
+
+The playbook (*Roster management*) has held a deterministic D/ST rule since
+2026-09-11 that nothing ran: stream only on a large matchup gap, never on a
+bad result, where the gap is **our D/ST facing an implied total >= 24 while a
+free agent faces <= 19**. This runs it, plus the kicker analogue written
+2026-09-20: **a free-agent kicker whose own offense is implied >= 4 points
+above ours, in a dome or fair weather**, is a stream candidate. Both come
+from `espn stream`, which prices the slate off the spread and total.
+
+A hit is a candidate for the Tuesday routine or a roster-watch banner, never
+a claim: the roster is full, so a stream is a swap and the drop is Alex's
+tap. Bye weeks for our D/ST or K show up here two weeks ahead, since the
+claim has to go in the Tuesday before.
+
+    stream-scan [--json] [--weeks 2]
+
+INVARIANTS
+- Read-only. Never files anything.
+- The thresholds are the playbook's numbers, named as constants here; change
+  them in both places or not at all.
+"""
+
+from __future__ import annotations
+
+import argparse
+import json
+import subprocess
+import sys
+from pathlib import Path
+
+HERE = Path(__file__).resolve().parent
+ESPN = HERE / "espn"
+DST_OURS_MIN = 24.0     # our D/ST's opponent implied total at or above this ...
+DST_FA_MAX = 19.0       # ... while a free agent's opponent is at or below this
+K_GAP_MIN = 4.0         # a free-agent kicker's offense implied this many points above ours
+K_BAD_WEATHER = ("rain", "snow", "storm", "wind")
+LOOKAHEAD = 2
+
+
+def espn(*args: str) -> object:
+    out = subprocess.run([str(ESPN), *args, "--json"], capture_output=True, text=True, check=True)
+    return json.loads(out.stdout)
+
+
+def implied_for(team_abbrev: str, slate: list[dict]) -> tuple[float | None, float | None, str]:
+    """(own implied, opponent implied, weather) for one NFL team this week."""
+    for g in slate:
+        home, away = (g.get("home") or {}).get("abbrev", ""), (g.get("away") or {}).get("abbrev", "")
+        weather = "dome" if g.get("indoor") else (f"{g.get('temp')}°F {g.get('weather')}" if g.get("weather") else "")
+        if home.upper() == team_abbrev.upper():
+            return g.get("implied_home"), g.get("implied_away"), weather
+        if away.upper() == team_abbrev.upper():
+            return g.get("implied_away"), g.get("implied_home"), weather
+    return None, None, ""
+
+
+def fair(weather: str) -> bool:
+    w = (weather or "").lower()
+    return w == "dome" or not any(b in w for b in K_BAD_WEATHER)
+
+
+def scan(ours: dict, slate: list[dict], dst_pool: list[dict], k_pool: list[dict]) -> dict:
+    """Pure: our D/ST and K rows, the slate, the two pools -> verdicts."""
+    out: dict = {"dst": None, "k": None}
+    d = ours.get("D/ST")
+    if d:
+        own, opp, weather = implied_for(d["team"], slate)
+        cands = [r for r in dst_pool if r.get("implied_opp") is not None and r["implied_opp"] <= DST_FA_MAX]
+        cands.sort(key=lambda r: -(r.get("proj") or 0))
+        fire = opp is not None and opp >= DST_OURS_MIN and bool(cands)
+        out["dst"] = {"ours": d["name"], "team": d["team"], "opp": d["opp"], "opp_implied": opp,
+                      "proj": round(d.get("proj") or 0, 1), "bye": d["opp"] == "BYE",
+                      "best_fa": [{"name": r["name"], "opp": r["opp"], "opp_implied": r["implied_opp"],
+                                   "proj": round(r.get("proj") or 0, 1), "avail": r["avail"], "weather": r.get("weather")} for r in cands[:3]],
+                      "stream": fire or d["opp"] == "BYE",
+                      "why": ("bye week: a second D/ST is needed" if d["opp"] == "BYE" else
+                              f"ours faces {opp} implied (>= {DST_OURS_MIN:g}) and a free agent faces <= {DST_FA_MAX:g}" if fire else
+                              f"ours faces {opp} implied; threshold is >= {DST_OURS_MIN:g} with a free agent at <= {DST_FA_MAX:g}")}
+    k = ours.get("K")
+    if k:
+        own, opp, weather = implied_for(k["team"], slate)
+        cands = [r for r in k_pool if r.get("implied_own") is not None and own is not None
+                 and r["implied_own"] - own >= K_GAP_MIN and fair(r.get("weather") or "")]
+        cands.sort(key=lambda r: -(r.get("implied_own") or 0))
+        fire = bool(cands)
+        out["k"] = {"ours": k["name"], "team": k["team"], "opp": k["opp"], "own_implied": own, "weather": weather,
+                    "proj": round(k.get("proj") or 0, 1), "bye": k["opp"] == "BYE",
+                    "best_fa": [{"name": r["name"], "team": r["team"], "own_implied": r["implied_own"],
+                                 "proj": round(r.get("proj") or 0, 1), "avail": r["avail"], "weather": r.get("weather")} for r in cands[:3]],
+                    "stream": fire or k["opp"] == "BYE",
+                    "why": ("bye week: a second K is needed" if k["opp"] == "BYE" else
+                            f"a free-agent offense is implied >= {K_GAP_MIN:g} above ours ({own}) in fair weather" if fire else
+                            f"ours is implied {own}; no free-agent offense is >= {K_GAP_MIN:g} higher in fair weather")}
+    return out
+
+
+def upcoming_byes(team: dict, week: int) -> list[dict]:
+    out = []
+    for r in team.get("roster", []):
+        if r["slot"] in ("D/ST", "K") and r.get("bye") and week < int(r["bye"]) <= week + LOOKAHEAD:
+            out.append({"slot": r["slot"], "player": r["name"], "week": int(r["bye"])})
+    return out
+
+
+def main() -> int:
+    ap = argparse.ArgumentParser(description=__doc__)
+    ap.add_argument("--json", action="store_true")
+    args = ap.parse_args()
+    team = espn("team")
+    assert isinstance(team, dict)
+    week = int(team["week"])
+    ours = {r["slot"]: r for r in team["roster"] if r["slot"] in ("D/ST", "K")}
+    slate = espn("nfl")
+    dst_pool = espn("stream", "--pos", "DST", "-n", "40")
+    k_pool = espn("stream", "--pos", "K", "-n", "40")
+    assert isinstance(slate, list) and isinstance(dst_pool, list) and isinstance(k_pool, list)
+    out = scan(ours, slate, dst_pool, k_pool)
+    out["week"] = week
+    out["byes_ahead"] = upcoming_byes(team, week)
+    if args.json:
+        json.dump(out, sys.stdout, indent=2, default=str)
+        return 0
+    print(f"Stream scan -- week {week}\n")
+    for label in ("dst", "k"):
+        v = out.get(label)
+        if not v:
+            print(f"  {label.upper()}: no starter in the slot")
+            continue
+        verdict = "STREAM" if v["stream"] else "hold  "
+        line = f"  {verdict}  {label.upper():<4} {v['ours']:<18} {v['opp']:<5}"
+        line += f" opp implied {v['opp_implied']}" if label == "dst" else f" own implied {v['own_implied']} {v['weather']}"
+        print(line + f"  proj {v['proj']}  -- {v['why']}")
+        for c in v["best_fa"]:
+            imp = f"opp implied {c['opp_implied']}" if label == "dst" else f"own implied {c['own_implied']} {c['weather']}"
+            print(f"            {c['name']:<20} {c['avail']:<3} {imp}  proj {c['proj']}")
+    if out["byes_ahead"]:
+        print("\n  byes ahead (claim the Tuesday before):")
+        for b in out["byes_ahead"]:
+            print(f"    week {b['week']}  {b['slot']:<5} {b['player']}")
+    print(f"\n  D/ST rule: ours faces >= {DST_OURS_MIN:g} implied while a free agent faces <= {DST_FA_MAX:g}. "
+          f"K rule: a free agent's offense >= {K_GAP_MIN:g} above ours, fair weather. Both from the playbook; a STREAM is a candidate, the drop is Alex's.")
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())

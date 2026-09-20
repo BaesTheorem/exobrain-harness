@@ -126,6 +126,7 @@ def entry_row(api: Espn, e: dict, week: int) -> dict:
         "name": p.get("fullName") or "?",
         "pos": POS.get(p.get("defaultPositionId") or 0, "?"),
         "team": api.pro(tid)["abbrev"],
+        "bye": api.pro(tid).get("bye") or 0,
         "opp": api.opponent(tid, week),
         "kickoff": kick,
         "kick": when(kick) + (" (locked)" if started else ""),
