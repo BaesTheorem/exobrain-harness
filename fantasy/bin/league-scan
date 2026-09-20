@@ -1,0 +1,176 @@
+#!/usr/bin/env python3
+"""league-scan: measure every manager's engagement from what ESPN records.
+
+The playbook's *League observations* were kept by hand from draft night and
+the activity feed. This computes the same reads from the record, so the
+Tuesday routine updates observations from numbers instead of impressions:
+
+  zeros       starters who scored 0.0 in a completed week (a bye or an
+              inactive left in the lineup; Lineup Protection is OFF here)
+  left        points left on the bench per completed week: the best legal
+              lineup from the roster that week, minus what was started.
+              Small means an attentive manager; large means a set-and-forget
+              roster and a lineup that can be beaten by its own bench
+  moves       adds and trades from ESPN's transaction counter
+  offers      trade offers sent and received, and how received ones ended
+              (accepted, expired unanswered, still pending)
+
+Two uses. **The opponent model**: `espn check` prices an opponent's OUT or
+bye starter as a hole; this says whether that manager historically fixes
+holes, which is the number that decides whether to count on it. **Trade
+targeting**: an offer to a manager who lets offers expire is a wasted two
+days; one to a manager who answers is a negotiation.
+
+    league-scan [--json] [--weeks N]
+
+INVARIANTS
+- Read-only. Owner identities print as ESPN initials, never names.
+- A week counts only when ESPN has closed it (every team's total nonzero).
+"""
+
+from __future__ import annotations
+
+import argparse
+import collections
+import json
+import sys
+from pathlib import Path
+
+HERE = Path(__file__).resolve().parent
+FANTASY = HERE.parent
+sys.path.insert(0, str(FANTASY))
+
+from espncli.cli import initials, roster_rows, side_entries, table  # noqa: E402
+from espncli.client import BENCH, IR, Espn, team_name  # noqa: E402
+
+SLOT_POS = {0: ("QB",), 2: ("RB",), 4: ("WR",), 6: ("TE",), 16: ("D/ST",), 17: ("K",), 23: ("RB", "WR", "TE")}
+
+
+def best_actual(rows: list[dict], counts: dict[int, int]) -> float:
+    """The most a roster could have scored that week with a legal lineup."""
+    pool = sorted((r for r in rows if r["slotId"] != IR and r.get("actual") is not None),
+                  key=lambda r: -r["actual"])
+    used: set = set()
+    total = 0.0
+    for slot_id in (0, 2, 4, 6, 16, 17, 23):       # fixed slots first, flex last
+        for _ in range(counts.get(slot_id, 0)):
+            pick = next((r for r in pool if id(r) not in used and r["pos"] in SLOT_POS[slot_id]), None)
+            if pick:
+                used.add(id(pick))
+                total += pick["actual"]
+    return round(total, 1)
+
+
+def week_rows(api: Espn, week: int) -> tuple[dict, dict[int, list[dict]]]:
+    data = api.league("mTeam", "mRoster", "mMatchup", "mMatchupScore", "mSettings", period=week)
+    out: dict[int, list[dict]] = {}
+    for m in data.get("schedule", []):
+        if m.get("matchupPeriodId") != week:
+            continue
+        for key in ("home", "away"):
+            s = m.get(key)
+            if s:
+                entries, _ = side_entries(api, data, s)
+                out[s["teamId"]] = roster_rows(api, entries, week)
+    return data, out
+
+
+def scan(api: Espn, weeks: int | None) -> dict:
+    now = api.league("mTeam", "mSettings", "mStatus")
+    current = api.current_week(now)
+    counts = {int(k): v for k, v in now["settings"]["rosterSettings"]["lineupSlotCounts"].items() if v}
+    members = {m["id"]: m for m in now.get("members", [])}
+    teams = {t["id"]: {"team": team_name(t), "owner": initials(members.get((t.get("primaryOwner") or (t.get("owners") or [None])[0]))),
+                       "acq": (t.get("transactionCounter") or {}).get("acquisitions", 0),
+                       "trades": (t.get("transactionCounter") or {}).get("trades", 0),
+                       "weeks": 0, "zeros": 0, "left": 0.0, "zero_list": []} for t in now["teams"]}
+    last = current - 1 if weeks is None else min(weeks, current - 1)
+    played = []
+    for w in range(1, last + 1):
+        _, rows = week_rows(api, w)
+        if not rows or any(sum(r["actual"] or 0 for r in rs if r["slotId"] not in (BENCH, IR)) <= 0 for rs in rows.values()):
+            break                       # ESPN has not closed this week for everyone
+        played.append(w)
+        for tid, rs in rows.items():
+            t = teams[tid]
+            started = [r for r in rs if r["slotId"] not in (BENCH, IR)]
+            # K and D/ST can score 0.0 on a played game, so a zero there says
+            # nothing about the manager; every other position at 0.0 is a bye,
+            # an inactive, or a player who never touched the ball.
+            zeros = [r for r in started if (r["actual"] or 0) <= 0 and (r["pos"] not in ("K", "D/ST") or r["opp"] == "BYE")]
+            t["weeks"] += 1
+            t["zeros"] += len(zeros)
+            t["zero_list"] += [f"w{w} {r['slot']} {r['name']}" + (" (bye)" if r["opp"] == "BYE" else "") for r in zeros]
+            t["left"] += best_actual(rs, counts) - sum(r["actual"] or 0 for r in started)
+    # Trade offers, from the transaction log. mTransactions2 is scoped to one
+    # scoring period per call and an offer's original row sits in the period
+    # it was proposed while the expiry CANCEL row sits in the period it died,
+    # so every period is read and rows are deduped by id.
+    seen: dict[str, dict] = {}
+    for w in range(1, current + 1):
+        for t in api.league("mTransactions2", period=w).get("transactions", []):
+            if t.get("type") == "TRADE_PROPOSAL" and t.get("id"):
+                seen[t["id"]] = t
+    originals = {i: t for i, t in seen.items() if t.get("executionType") != "CANCEL"}
+    cancelled = {t.get("relatedTransactionId") for t in seen.values() if t.get("executionType") == "CANCEL"}
+    for t in seen.values():     # an expiry whose original fell outside the periods read still counts
+        if t.get("executionType") == "CANCEL" and t.get("relatedTransactionId") not in originals:
+            originals[t["relatedTransactionId"]] = dict(t, status="PENDING", id=t["relatedTransactionId"])
+    sent, recv = collections.Counter(), collections.defaultdict(lambda: collections.Counter())
+    for t in originals.values():
+        frm = t.get("teamId")
+        to = {i.get("toTeamId") for i in t.get("items", []) if i.get("toTeamId") != frm}
+        sent[frm] += 1
+        for tid in to:
+            if t.get("status") == "EXECUTED":
+                recv[tid]["accepted"] += 1
+            elif t.get("id") in cancelled:
+                recv[tid]["expired"] += 1
+            elif t.get("status") == "PENDING":
+                recv[tid]["pending"] += 1
+            else:
+                recv[tid]["other"] += 1
+    rows = []
+    for tid, t in teams.items():
+        r = recv.get(tid, collections.Counter())
+        rows.append({"team_id": tid, **t, "left": round(t["left"], 1),
+                     "left_pw": round(t["left"] / t["weeks"], 1) if t["weeks"] else None,
+                     "offers_sent": sent.get(tid, 0), "offers_recv": sum(r.values()),
+                     "accepted": r.get("accepted", 0), "expired": r.get("expired", 0), "pending": r.get("pending", 0),
+                     "mine": tid == api.my_team_id(now)})
+    rows.sort(key=lambda r: (-(r["zeros"]), -(r["left_pw"] or 0)))
+    return {"weeks_played": played, "teams": rows}
+
+
+def main() -> int:
+    ap = argparse.ArgumentParser(description=__doc__)
+    ap.add_argument("--json", action="store_true")
+    ap.add_argument("--weeks", type=int, help="only the first N completed weeks")
+    args = ap.parse_args()
+    api = Espn()
+    out = scan(api, args.weeks)
+    if args.json:
+        json.dump(out, sys.stdout, indent=2)
+        return 0
+    wks = out["weeks_played"]
+    print(f"League engagement -- {len(wks)} completed week(s){' (' + ', '.join(map(str, wks)) + ')' if wks else ''}\n")
+    for r in out["teams"]:
+        r["mark"] = "<-" if r["mine"] else ""
+        r["left_s"] = "-" if r["left_pw"] is None else f"{r['left_pw']:.1f}"
+        r["offers"] = f"{r['offers_sent']}/{r['offers_recv']}"
+        r["answered"] = f"{r['accepted']}a {r['expired']}x {r['pending']}p" if r["offers_recv"] else "-"
+    table(out["teams"], [("TEAM", "team", 26, "l"), ("OWN", "owner", 4, "l"), ("ZEROS", "zeros", 5, "r"),
+                         ("LEFT/WK", "left_s", 7, "r"), ("ADDS", "acq", 4, "r"), ("TRD", "trades", 3, "r"),
+                         ("OFFERS s/r", "offers", 10, "l"), ("RECEIVED", "answered", 12, "l"), ("", "mark", 2, "l")])
+    zl = [(r["team"], z) for r in out["teams"] for z in r["zero_list"]]
+    if zl:
+        print("\n  zeros started:")
+        for team, z in zl:
+            print(f"    {team:<26} {z}")
+    print("\n  ZEROS = starters who scored 0.0 in a closed week; LEFT/WK = bench points that beat the lineup started;"
+          "\n  RECEIVED = offers to that manager: a accepted, x expired unanswered, p pending. Owners are initials only.")
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())
