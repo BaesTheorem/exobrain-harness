@@ -1,0 +1,17 @@
+<!doctype html><html><body style="margin:0">
+<script>window.__ev={down:0,move:0,up:0,trusted:0};</script>
+<div id="pal" style="display:flex;gap:4px;padding:8px">
+  <div class="sw" style="width:30px;height:30px;background:rgb(0,0,0)" onclick="window.__color='black'"></div>
+  <div class="sw" style="width:30px;height:30px;background:rgb(230,30,30)" onclick="window.__color='red'"></div>
+  <div class="sw" style="width:30px;height:30px;background:rgb(40,90,220)" onclick="window.__color='blue'"></div>
+</div>
+<canvas id="c" width="400" height="400" style="width:400px;height:400px;display:block;background:#fff;border:1px solid #ccc"></canvas>
+<button id="awshirt-submitdrawing" onclick="window.__submitted=true">DONE</button>
+<script>
+const c=document.getElementById('c'),x=c.getContext('2d');x.fillStyle='#fff';x.fillRect(0,0,400,400);x.lineWidth=6;x.lineCap='round';x.strokeStyle='#000';
+let down=false;const P=e=>{const r=c.getBoundingClientRect();return[e.clientX-r.x,e.clientY-r.y];};
+c.addEventListener('mousedown',e=>{down=true;__ev.down++;if(e.isTrusted)__ev.trusted++;const[a,b]=P(e);x.beginPath();x.moveTo(a,b);});
+c.addEventListener('mousemove',e=>{if(!down)return;__ev.move++;const[a,b]=P(e);x.lineTo(a,b);x.stroke();});
+window.addEventListener('mouseup',e=>{if(!down)return;down=false;__ev.up++;});
+</script>
+</body></html>

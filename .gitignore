@@ -260,3 +260,6 @@ kcurbex/secrets/*
 kcurbex/data/*
 !kcurbex/data/README.md
 mist-confetti/build/
+
+# npm deps for node-based skills (jackbox autopilot etc.)
+node_modules/

@@ -1,0 +1,12 @@
+{
+  "name": "jackbox-autopilot",
+  "private": true,
+  "description": "Drives jackbox.tv over CDP in a throwaway Chrome; Claude writes the jokes.",
+  "scripts": {
+    "test": "node ../tests/run.js"
+  },
+  "dependencies": {
+    "@anthropic-ai/sdk": "^0.90.0",
+    "playwright-core": "^1.63.0"
+  }
+}

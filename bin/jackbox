@@ -1,0 +1,49 @@
+#!/usr/bin/env bash
+# jackbox: play Jackbox party games as AlexsClaude from the command line.
+#   jackbox launch [--headed]        throwaway Chrome w/ CDP on :9222 at jackbox.tv; headless by default, --headed shows the window
+#   jackbox join CODE [NAME]         join a room (exit 2 if the room rejected us)
+#   jackbox play [--game G]          start the autopilot in the background (auto-detects the game; G forces one)
+#   jackbox status                   is the autopilot running, what phase does it see, is Chrome up
+#   jackbox log                      tail -f the autopilot log
+#   jackbox shot [out.png]           screenshot for vision (default /tmp/jb.png)
+#   jackbox peek                     dump the DOM probe (text, inputs, buttons, votes, canvas)
+#   jackbox dump [label]             save outerHTML+PNG of the current phase to tmp/jackbox/dumps/
+#   jackbox report [log.jsonl]       summarize a game log (default newest)
+#   jackbox stop [--chrome]          stop the autopilot; --chrome also closes the throwaway Chrome
+#   jackbox test                     offline fixture tests + drawing benchmark
+set -euo pipefail
+HARNESS="$(cd "$(dirname "$(readlink "$0" || echo "$0")")/.." && pwd)"
+SKILL="$HARNESS/.claude/skills/jackbox/scripts"
+LOG=/tmp/jb-autopilot.log
+cd "$SKILL"
+# shellcheck source=/dev/null
+source ./env.sh 2>/dev/null
+cmd="${1:-help}"; shift || true
+case "$cmd" in
+  launch)  bash ./launch.sh "$@" ;;
+  join)    node join.js "$@" ;;
+  play)
+    if pgrep -f 'autopilot.js' >/dev/null; then echo "autopilot already running (pid $(pgrep -f autopilot.js | head -1)); jackbox stop first"; exit 1; fi
+    nohup node autopilot.js "$@" >> "$LOG" 2>&1 &
+    disown
+    sleep 2.5
+    echo "autopilot pid $! -> $LOG"; tail -n 3 "$LOG" ;;
+  status)
+    if pgrep -fl 'autopilot.js' >/dev/null; then echo "autopilot: running ($(pgrep -f autopilot.js | head -1))"; tail -n 4 "$LOG" 2>/dev/null; else echo "autopilot: not running"; fi
+    curl -s -m 1 http://localhost:${JACKBOX_PORT:-9222}/json/version >/dev/null && echo "chrome: up on :${JACKBOX_PORT:-9222}" || echo "chrome: down" ;;
+  log)     tail -n 20 -f "$LOG" ;;
+  shot)    node shot.js "$@" ;;
+  peek)    node control.js peek ;;
+  dump)    node control.js dump "$@" ;;
+  control) node control.js "$@" ;;
+  report)  node report.js "$@" ;;
+  stop)
+    pkill -f 'autopilot.js' 2>/dev/null && echo "autopilot stopped" || echo "autopilot was not running"
+    if [ "${1:-}" = "--chrome" ]; then
+      pkill -f 'jackbox-chrome-profile' 2>/dev/null && echo "chrome closed" || true
+      for i in 1 2 3 4 5 6 7 8; do pgrep -f 'jackbox-chrome-profile' >/dev/null || break; sleep 0.5; done
+      rm -rf /tmp/jackbox-chrome-profile
+    fi ;;
+  test)    node ../tests/run.js "$@" ;;
+  *)       sed -n '2,15p' "$0" ;;
+esac
