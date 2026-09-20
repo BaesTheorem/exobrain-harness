@@ -1,0 +1,255 @@
+#!/usr/bin/env python3
+"""chat-draft: Fantasy Chat replies go out only after Alex approves them.
+
+The chat routine used to send its reply straight to ESPN. Since 2026-09-20 it
+writes a draft here instead, and a banner with Send / Rewrite / Skip buttons
+puts the decision in front of Alex in the MIST Console. Each button injects a
+plain-language instruction into the active Console chat, where the full MIST
+runs the matching subcommand.
+
+    chat-draft save --topic T --reply-to MSGID --who "Team" \
+        --incoming "what they wrote" --text "the reply" [--why "rule applied"]
+    chat-draft list [--all]
+    chat-draft show ID
+    chat-draft send ID [--text "replacement text"] [--force]
+    chat-draft skip ID [--why "reason"]
+
+INVARIANTS
+  - Nothing in this tree sends a chat reply unattended. The routine drafts;
+    a human taps Send. `espn-tx chat` remains for interactive use.
+  - `send` re-reads the thread first and refuses when the other side has
+    written since the message the draft answers, unless --force. A reply to
+    a thread that has moved on reads as a bot, which is the failure this
+    whole loop exists to prevent.
+  - Sending goes through `EspnWriter.chat_send`, the same verified path as
+    `espn-tx chat`, so a partial or rejected post is reported, never assumed.
+  - State is one JSON file per draft under fantasy/.cache/chat-drafts
+    (gitignored). Ids are short and random; a second draft for the same
+    incoming message replaces the first and reposts the banner in place.
+"""
+
+from __future__ import annotations
+
+import argparse
+import datetime
+import json
+import os
+import subprocess
+import sys
+import uuid
+from pathlib import Path
+
+FANTASY = Path(__file__).resolve().parent.parent
+HARNESS = FANTASY.parent
+DRAFTS = FANTASY / ".cache" / "chat-drafts"
+NOTIFY = HARNESS / "mist-voice" / "bin" / "mist-notify"
+CONSOLE_URL = os.environ.get("MIST_CONSOLE_URL") or "http://127.0.0.1:5014"
+
+sys.path.insert(0, str(FANTASY))
+
+from espncli import chat  # noqa: E402
+from espncli.client import Espn, EspnError  # noqa: E402
+from espncli.tx import EspnWriter  # noqa: E402
+
+
+def now() -> str:
+    return datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+
+
+def path_for(draft_id: str) -> Path:
+    return DRAFTS / f"{draft_id}.json"
+
+
+def load(draft_id: str) -> dict:
+    p = path_for(draft_id)
+    if not p.exists():
+        sys.exit(f"no draft {draft_id}; `chat-draft list --all` shows what exists")
+    return json.loads(p.read_text())
+
+
+def store(draft: dict) -> None:
+    DRAFTS.mkdir(parents=True, exist_ok=True)
+    p = path_for(draft["id"])
+    tmp = p.with_suffix(".tmp")
+    tmp.write_text(json.dumps(draft, indent=1, ensure_ascii=False))
+    os.replace(tmp, p)
+
+
+def all_drafts() -> list[dict]:
+    if not DRAFTS.exists():
+        return []
+    out = []
+    for p in DRAFTS.glob("*.json"):
+        try:
+            out.append(json.loads(p.read_text()))
+        except (OSError, json.JSONDecodeError):
+            continue
+    return sorted(out, key=lambda d: d.get("created") or "")
+
+
+def button(label: str, text: str) -> str:
+    """A banner button that types `text` into the active Console chat.
+
+    Same shape mist-ask builds, minus the session id: the routine has no
+    Console chat of its own, so the instruction lands in whichever chat is
+    active (or the newest), and the full MIST there runs the command named in
+    the text. Single quotes would break the embedded shell string, so the
+    texts below avoid them.
+    """
+    payload = json.dumps({"text": text})
+    return (f"{label}=cmd:/usr/bin/curl -sS -X POST {CONSOLE_URL}/notify-reply "
+            f"-H 'Content-Type: application/json' -d '{payload}'")
+
+
+def raise_banner(draft: dict) -> bool:
+    if not NOTIFY.exists():
+        return False
+    did = draft["id"]
+    body = f"To {draft['who']}: {draft['text']}"
+    sub = f"re: {draft['incoming'][:90]}"
+    argv = [
+        str(NOTIFY), body, "Fantasy Chat draft", "none", "console",
+        "--subtitle", sub, "--group", "fantasy", "--id", f"chat-draft-{did}",
+        "--urgency", "timeSensitive",
+        "--action", button("Send", f"Send fantasy chat draft {did}. Run: fantasy/bin/chat-draft send {did}"),
+        "--action", button("Rewrite", f"Rewrite fantasy chat draft {did}. Run fantasy/bin/chat-draft show {did}, "
+                                      f"propose a better reply, and once I approve it send it with "
+                                      f"fantasy/bin/chat-draft send {did} --text <the new reply>"),
+        "--action", button("Skip", f"Skip fantasy chat draft {did}. Run: fantasy/bin/chat-draft skip {did}"),
+    ]
+    r = subprocess.run(argv, capture_output=True, text=True, check=False)
+    return r.returncode == 0
+
+
+def cmd_save(a: argparse.Namespace) -> int:
+    # One pending draft per incoming message. A rerun of the routine on the
+    # same message replaces its draft and reposts the same banner id.
+    existing = next((d for d in all_drafts()
+                     if d.get("reply_to") == a.reply_to and d.get("status") == "pending"), None)
+    draft = {
+        "id": existing["id"] if existing else uuid.uuid4().hex[:6],
+        "created": now(),
+        "status": "pending",
+        "topic": a.topic,
+        "reply_to": a.reply_to,
+        "who": a.who,
+        "incoming": a.incoming,
+        "text": " ".join(a.text),
+        "why": a.why or "",
+        "chunks": chat.split_message(" ".join(a.text)),
+    }
+    store(draft)
+    banner = False if a.quiet else raise_banner(draft)
+    print(json.dumps({"id": draft["id"], "replaced": bool(existing), "banner": banner,
+                      "chunks": len(draft["chunks"])}, indent=1))
+    return 0
+
+
+def cmd_list(a: argparse.Namespace) -> int:
+    rows = [d for d in all_drafts() if a.all or d.get("status") == "pending"]
+    if not rows:
+        print("no pending drafts" if not a.all else "no drafts")
+        return 0
+    for d in rows:
+        print(f"{d['id']}  {d['status']:<8} {d['created']}  to {d['who']}")
+        print(f"        them: {d['incoming'][:110]}")
+        print(f"        MIST: {d['text'][:110]}")
+    return 0
+
+
+def cmd_show(a: argparse.Namespace) -> int:
+    print(json.dumps(load(a.id), indent=1, ensure_ascii=False))
+    return 0
+
+
+def newer_from_them(api: Espn, draft: dict) -> list[dict] | None:
+    """Messages the other side wrote after the one this draft answers.
+
+    None means the thread or the answered message could not be found, which
+    is its own reason to stop: the draft is anchored to nothing.
+    """
+    thread = next((t for t in chat.fetch(api) if t["id"] == draft["topic"]), None)
+    if not thread:
+        return None
+    msgs = thread["messages"]
+    idx = next((i for i, m in enumerate(msgs) if m["id"] == draft["reply_to"]), None)
+    if idx is None:
+        return None
+    return [m for m in msgs[idx + 1:] if not m["mine"]]
+
+
+def cmd_send(a: argparse.Namespace) -> int:
+    draft = load(a.id)
+    if draft["status"] != "pending" and not a.force:
+        sys.exit(f"draft {a.id} is already {draft['status']}; --force to send anyway")
+    text = " ".join(a.text) if a.text else draft["text"]
+
+    api = Espn()
+    try:
+        newer = newer_from_them(api, draft)
+    except EspnError as e:
+        sys.exit(f"could not re-read the thread: {e}")
+    if newer is None and not a.force:
+        sys.exit("thread or the answered message not found on ESPN; --force to send anyway")
+    if newer and not a.force:
+        print(f"REFUSED: {draft['who']} wrote {len(newer)} newer message(s) since the one this "
+              f"draft answers. Re-read the thread; --force sends regardless.", file=sys.stderr)
+        for m in newer:
+            print(f"  {m['at']}  {m['content'][:160]}", file=sys.stderr)
+        return 2
+
+    res = EspnWriter(api).chat_send(draft["topic"], text, dry_run=a.dry_run)
+    print(json.dumps(res, indent=1, default=str))
+    if a.dry_run:
+        return 0
+    draft.update({
+        "status": "sent" if res.get("verified") else "send-failed",
+        "sent_at": now(), "sent_text": text, "result": res,
+    })
+    store(draft)
+    if not res.get("verified"):
+        print("NOT VERIFIED: the thread read-back does not match what was sent.", file=sys.stderr)
+        return 1
+    return 0
+
+
+def cmd_skip(a: argparse.Namespace) -> int:
+    draft = load(a.id)
+    draft.update({"status": "skipped", "skipped_at": now(), "skip_why": a.why or ""})
+    store(draft)
+    print(json.dumps({"id": a.id, "status": "skipped"}))
+    return 0
+
+
+def main() -> int:
+    ap = argparse.ArgumentParser(description=(__doc__ or "").split("\n\n")[0])
+    sub = ap.add_subparsers(dest="cmd", required=True)
+
+    p = sub.add_parser("save", help="store a draft and raise the approval banner")
+    p.add_argument("--topic", required=True, help="ESPN topic id of the thread")
+    p.add_argument("--reply-to", required=True, help="id of the message being answered")
+    p.add_argument("--who", required=True, help="team name of the person being answered")
+    p.add_argument("--incoming", required=True, help="their message, verbatim")
+    p.add_argument("--text", required=True, nargs="+", help="the proposed reply")
+    p.add_argument("--why", help="the rule or reasoning, for the log")
+    p.add_argument("--quiet", action="store_true", help="store only, no banner")
+    p.set_defaults(fn=cmd_save)
+
+    p = sub.add_parser("list"); p.add_argument("--all", action="store_true"); p.set_defaults(fn=cmd_list)
+    p = sub.add_parser("show"); p.add_argument("id"); p.set_defaults(fn=cmd_show)
+
+    p = sub.add_parser("send", help="post an approved draft to ESPN")
+    p.add_argument("id")
+    p.add_argument("--text", nargs="*", help="send this text instead of the stored draft")
+    p.add_argument("--force", action="store_true", help="send even if the thread has moved on")
+    p.add_argument("--dry-run", action="store_true")
+    p.set_defaults(fn=cmd_send)
+
+    p = sub.add_parser("skip"); p.add_argument("id"); p.add_argument("--why"); p.set_defaults(fn=cmd_skip)
+
+    a = ap.parse_args()
+    return a.fn(a)
+
+
+if __name__ == "__main__":
+    sys.exit(main())

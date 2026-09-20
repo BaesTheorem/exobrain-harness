@@ -112,7 +112,7 @@ def run_claude(pending: list[dict], dry_run: bool) -> bool:
         return False
     summary = "\n".join(
         f"- thread {m['topic']} with {', '.join(m['with']) or 'league'}: "
-        f"{m['who']} at {m['at']}: {m['content'][:200]}"
+        f"{m['who']} at {m['at']} (message id {m.get('id')}): {m['content'][:200]}"
         for m in pending
     )
     prompt = (
