@@ -8,51 +8,196 @@ points, or a bye-week hole the swap fills.
 
 INVARIANTS
 - Read-only. Never files a claim; `espn-tx claim` is the only write path.
-- `season_proj` from ESPN is the STATIC PRESEASON number. Verified 2026-09-20:
-  Jordyn Tyson sat on IR from 08-30 with 0.0 in weeks 1 and 2 and still
-  carried a 99.9 season projection. So it is a preseason prior, never a
-  rest-of-season value, and it must not be used alone.
-- Position maximums are read from `espn settings`, and a candidate at a
+- The currency is `espncli.value.ros_rate`, the one blend every in-season
+  tool uses (half the static preseason `season_proj`, half the live number;
+  `value.py` explains why `season_proj` alone is never a value).
+- Position maximums are read from the league settings, and a candidate at a
   capped position is only offered against a drop of the same position. IR
-  does not count toward the cap (verified by the 2026-09-20 add).
-- The per-week rate therefore blends that stale prior with ESPN's live weekly
-  projection, which does track role and matchup. Harstad's finding (in the
-  /fantasy-football skill) is that a naive 50/50 blend of a preseason number
-  and in-season production beats either alone.
+  does not count toward the cap (verified by the 2026-09-20 Bateman add).
+- **Never a second QB or TE** (routines/COMMON.md rule 3). Found 2026-09-20:
+  the first version offered Helm and Mayer against WR drops with McBride
+  rostered, and roster-watch would have bannered it. A QB or TE candidate is
+  only offered against a drop at the same position (replacing the one we
+  have), and the test plants exactly that case.
+- Market heat (Sleeper's trending adds, last 24h, no auth) and the volume
+  flags (`bin/volume`) are attached as evidence for the role condition; they
+  never move the gate. A PASS is a candidate, not a verdict.
+
+    swap-scan [--gate 20] [--top 3] [--json]
 """
 
 from __future__ import annotations
 
 import argparse
 import json
-import subprocess
 import sys
+import urllib.request
 from pathlib import Path
 
-BIN = Path(__file__).resolve().parent / "espn"
-NFL_WEEKS = 17
+HERE = Path(__file__).resolve().parent
+FANTASY = HERE.parent
+sys.path.insert(0, str(FANTASY))
+
+from espncli.cli import pool_rows, roster_rows  # noqa: E402
+from espncli.client import BENCH, IR, Espn, norm  # noqa: E402
+from espncli.value import games_played, ros_rate  # noqa: E402
+
 REG_SEASON_END = 14
 GATE = 20.0
-IR_SLOTS = {"IR"}
-STARTER_SLOTS = {"QB", "RB", "WR", "TE", "FLEX", "D/ST", "K"}
+ONE_OF = {"QB", "TE"}                 # never a second one on the roster
+FLEX_POS = {"RB", "WR", "TE"}
+LOOKAHEAD = 2                         # weeks of bye holes to show
+VOLUME = FANTASY / ".cache" / "volume-{season}.json"
+SLEEPER_TRENDING = "https://api.sleeper.app/v1/players/nfl/trending/add?lookback_hours=24&limit=150"
+SLEEPER_PROJ = "https://api.sleeper.app/projections/nfl/{season}/{week}?season_type=regular&position[]=QB&position[]=RB&position[]=WR&position[]=TE"
 
 
-def espn(*args: str) -> object:
-    out = subprocess.run(
-        [str(BIN), *args, "--json"], capture_output=True, text=True, check=True
-    )
-    return json.loads(out.stdout)
+def fetch_json(url: str) -> object:
+    with urllib.request.urlopen(urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0"}), timeout=20) as r:
+        return json.load(r)
 
 
-def rate(proj: float | None, season_proj: float | None) -> float:
-    """Points per remaining week: half stale preseason prior, half live weekly."""
-    weekly = float(proj or 0.0)
-    prior = float(season_proj or 0.0) / NFL_WEEKS
-    if prior <= 0:
-        return weekly
-    if weekly <= 0:
-        return prior
-    return 0.5 * prior + 0.5 * weekly
+def sleeper_heat(season: int, week: int) -> dict[str, int]:
+    """norm(name)|POS -> adds in the last 24 hours across Sleeper leagues.
+    The national market's wire, hours ahead of ESPN's 7-day ownership trend.
+    Any failure returns {} and the scan says so; heat is evidence, not input."""
+    try:
+        trending = fetch_json(SLEEPER_TRENDING)
+        rows = fetch_json(SLEEPER_PROJ.format(season=season, week=week))
+    except Exception:
+        return {}
+    names = {}
+    for r in rows if isinstance(rows, list) else []:
+        p = r.get("player") or {}
+        pid = str(r.get("player_id") or p.get("player_id") or "")
+        if pid:
+            names[pid] = f"{norm(p.get('first_name', '') + ' ' + p.get('last_name', ''))}|{p.get('position')}"
+    out: dict[str, int] = {}
+    for t in trending if isinstance(trending, list) else []:
+        k = names.get(str(t.get("player_id")))
+        if k:
+            out[k] = int(t.get("count") or 0)
+    return out
+
+
+def load_volume(season: int) -> dict[str, dict]:
+    try:
+        return json.loads(Path(str(VOLUME).format(season=season)).read_text())["players"]
+    except (OSError, ValueError, KeyError):
+        return {}
+
+
+def vkey(r: dict) -> str:
+    return f"{norm(r['name'])}|{r['pos']}"
+
+
+def allowed(cand: dict, drop: dict, held: dict[str, int], position_max: dict[str, int]) -> bool:
+    """Flex-eligible or same position, never a second QB/TE, under the cap once the drop is gone."""
+    if cand["pos"] != drop["pos"]:
+        if cand["pos"] not in FLEX_POS or cand["pos"] in ONE_OF:
+            return False
+    cap = position_max.get(cand["pos"])
+    after = held.get(cand["pos"], 0) - (1 if cand["pos"] == drop["pos"] else 0)
+    return cap is None or after < cap
+
+
+def scan(week: int, roster: list[dict], pool: list[dict], position_max: dict[str, int],
+         games: dict[str, int] | None = None, heat: dict[str, int] | None = None,
+         volume: dict[str, dict] | None = None, gate: float = GATE, top: int = 3) -> dict:
+    """Pure: rows in, ranked swaps out. `games` is pro-team abbrev -> games played."""
+    games, heat, volume = games or {}, heat or {}, volume or {}
+    remaining = max(REG_SEASON_END - week, 0)
+    bench = [p for p in roster if p["slotId"] == BENCH]
+    held: dict[str, int] = {}
+    for p in roster:
+        if p["slotId"] != IR:
+            held[p["pos"]] = held.get(p["pos"], 0) + 1
+    for p in [*roster, *pool]:
+        p["rate"] = ros_rate(week, p.get("proj"), p.get("season_proj"), p.get("season_actual"), games.get(p.get("team") or ""))
+    bench.sort(key=lambda p: p["rate"])
+    results = []
+    for drop in bench:
+        scored = []
+        for c in pool:
+            if not allowed(c, drop, held, position_max):
+                continue
+            v = volume.get(vkey(c)) or {}
+            flags = v.get("flags") or []
+            scored.append({
+                "add": c["name"], "pos": c["pos"], "avail": c["avail"], "team": c.get("team"),
+                "owned": round(float(c.get("owned") or 0), 1), "trend": round(float(c.get("trend") or 0), 1),
+                "add_rate": round(c["rate"], 2), "gain": round((c["rate"] - drop["rate"]) * remaining, 1),
+                "heat": heat.get(vkey(c), 0), "flags": flags,
+                "role": bool({"BUY", "ROLE-UP"} & set(flags)),
+                "snap": (v.get("last") or {}).get("snap"), "tgt_share": (v.get("last") or {}).get("tgt_share"),
+                "opps": (v.get("last") or {}).get("opps"),
+            })
+        scored.sort(key=lambda r: -r["gain"])
+        results.append({"drop": drop["name"], "pos": drop["pos"], "drop_rate": round(drop["rate"], 2),
+                        "drop_flags": (volume.get(vkey(drop)) or {}).get("flags") or [],
+                        "candidates": scored[:top]})
+    return {"week": week, "remaining_weeks": remaining, "gate": gate, "held": held,
+            "position_max": position_max, "swaps": results}
+
+
+def bye_holes(api: Espn, roster: list[dict], week: int, weeks: int = LOOKAHEAD) -> list[dict]:
+    """Starters on bye in the next `weeks` weeks, with the bench cover for each slot."""
+    out = []
+    starters = [r for r in roster if r["slotId"] not in (BENCH, IR)]
+    bench = [r for r in roster if r["slotId"] == BENCH]
+    for w in range(week + 1, min(week + weeks, REG_SEASON_END) + 1):
+        for s in starters:
+            if api.opponent(api_team_id(api, s), w) != "BYE":
+                continue
+            cover = [b for b in bench if s["slotId"] in b["eligible"] and api.opponent(api_team_id(api, b), w) != "BYE"
+                     and b["status"] not in ("OUT", "IR", "SUSP")]
+            cover.sort(key=lambda b: -b["rate"])
+            out.append({"week": w, "slot": s["slot"], "player": s["name"], "pos": s["pos"],
+                        "cover": [{"name": b["name"], "pos": b["pos"], "rate": round(b["rate"], 1)} for b in cover[:2]]})
+    return out
+
+
+def api_team_id(api: Espn, r: dict) -> int | None:
+    for tid, t in api.pro_teams().items():
+        if t["abbrev"] == r["team"]:
+            return tid
+    return None
+
+
+def render(out: dict, holes: list[dict], heat_ok: bool, volume_ok: bool) -> int:
+    week, remaining, gate = out["week"], out["remaining_weeks"], out["gate"]
+    print(f"Swap scan -- week {week}, {remaining} regular-season weeks remain "
+          f"(weeks {week + 1}-{REG_SEASON_END}), gate +{gate:g} pts")
+    print("  rate = ros_rate: half preseason season_proj/17, half live weekly proj (season PPG from week 5)")
+    full = [f"{pos} {out['held'].get(pos, 0)}/{cap}" for pos, cap in out["position_max"].items()
+            if out["held"].get(pos, 0) >= cap]
+    print(f"  never a second QB or TE; at position max: {', '.join(full) or 'none'}"
+          + ("" if heat_ok else "; Sleeper heat unavailable") + ("" if volume_ok else "; no volume cache (run bin/volume build)") + "\n")
+    best = None
+    for r in out["swaps"]:
+        dflags = f"  [{' '.join(r['drop_flags'])}]" if r["drop_flags"] else ""
+        print(f"  DROP {r['drop']:<22} {r['pos']:<4} rate {r['drop_rate']}/wk{dflags}")
+        for c in r["candidates"]:
+            gain = float(c["gain"])
+            best = gain if best is None else max(best, gain)
+            flag = "PASS" if gain >= gate else ("ROLE" if c["role"] else "    ")
+            role = f"  snap {100 * c['snap']:.0f}% tgt {100 * c['tgt_share']:.0f}%" if c.get("snap") is not None and c.get("tgt_share") is not None else ""
+            print(f"    {flag} +{gain:>6.1f}  {c['add']:<24} {c['pos']:<4} {c['avail']:<3} rate {c['add_rate']:<6} "
+                  f"own {c['owned']}% ({c['trend']:+})  heat {c['heat']:>6}{role}  {' '.join(c['flags'])}")
+        print()
+    if best is None:
+        print("  no eligible swap on the board")
+    else:
+        print(f"  best swap on the board: {best:+.1f} vs a +{gate:g} gate -- "
+              f"{'GATE MET' if best >= gate else 'gate not met, stand pat'}")
+    print("  ROLE = the add carries a volume signal (BUY or ROLE-UP) the projection may not price yet: the gate's"
+          "\n  second condition, which is read by hand. heat = Sleeper adds in the last 24 hours, the national wire.")
+    if holes:
+        print(f"\n  bye holes in the next {LOOKAHEAD} weeks (claim the Tuesday before; Wednesdays are contested):")
+        for h in holes:
+            cover = ", ".join(f"{c['name']} ({c['rate']}/wk)" for c in h["cover"]) or "NO BENCH COVER"
+            print(f"    week {h['week']}  {h['slot']:<5} {h['player']:<22} -> {cover}")
+    return 0
 
 
 def main() -> int:
@@ -62,102 +207,25 @@ def main() -> int:
     ap.add_argument("--json", action="store_true")
     args = ap.parse_args()
 
-    team = espn("team")
-    assert isinstance(team, dict)
-    week = int(team["week"])
-    remaining = max(REG_SEASON_END - week, 0)
-
-    pool = espn("fa", "--pos", "ALL", "-n", "300")
-    assert isinstance(pool, list)
-
-    settings = espn("settings")
-    assert isinstance(settings, dict)
-    position_max: dict[str, int] = settings.get("position_max") or {}
-
-    roster = team["roster"]
-    bench = [p for p in roster if p["slot"] == "BE"]
-    starters = [p for p in roster if p["slot"] in STARTER_SLOTS]
-    ir = [p for p in roster if p["slot"] in IR_SLOTS]
-    # IR does not count against the position maximum: the 2026-09-20 Bateman
-    # add went through with eight active WRs plus one on IR.
-    held: dict[str, int] = {}
-    for p in roster:
-        if p["slot"] not in IR_SLOTS:
-            held[p["pos"]] = held.get(p["pos"], 0) + 1
-
-    for p in [*bench, *starters, *pool]:
-        p["rate"] = rate(p.get("proj"), p.get("season_proj"))
-
-    bench.sort(key=lambda p: p["rate"])
-    results: list[dict[str, object]] = []
-
-    def allowed(drop: dict, cand: dict) -> bool:
-        """Flex-eligible and under the position maximum once the drop is gone."""
-        if cand["pos"] != drop["pos"] and cand["pos"] not in {"RB", "WR", "TE"}:
-            return False
-        cap = position_max.get(cand["pos"])
-        after = held.get(cand["pos"], 0) - (1 if cand["pos"] == drop["pos"] else 0)
-        return cap is None or after < cap
-
-    for drop in bench:
-        cands = [c for c in pool if allowed(drop, c)]
-        scored = [
-            {
-                "add": c["name"],
-                "pos": c["pos"],
-                "avail": c["avail"],
-                "owned": round(float(c.get("owned") or 0), 1),
-                "trend": round(float(c.get("trend") or 0), 1),
-                "add_rate": round(c["rate"], 2),
-                "gain": round((c["rate"] - drop["rate"]) * remaining, 1),
-            }
-            for c in cands
-        ]
-        scored.sort(key=lambda r: float(r["gain"]), reverse=True)
-        results.append(
-            {
-                "drop": drop["name"],
-                "pos": drop["pos"],
-                "drop_rate": round(drop["rate"], 2),
-                "candidates": scored[: args.top],
-            }
-        )
-
+    api = Espn()
+    data = api.league("mTeam", "mRoster", "mSettings", "mStatus")
+    week = api.current_week(data)
+    t = api.resolve_team(data, None)
+    roster = roster_rows(api, api.roster_entries(data, t["id"]), week)
+    pool = pool_rows(api, week, "ALL", 300, ["FREEAGENT", "WAIVERS"])
+    rs = data["settings"]["rosterSettings"]
+    from espncli.client import POS  # noqa: PLC0415
+    position_max = {POS[int(k)]: v for k, v in (rs.get("positionLimits") or {}).items() if int(k) in POS and v not in (-1, None)}
+    games = {pt["abbrev"]: games_played(pt["games"], week) for pt in api.pro_teams().values()}
+    heat = sleeper_heat(api.season, week)
+    volume = load_volume(api.season)
+    out = scan(week, roster, pool, position_max, games, heat, volume, args.gate, args.top)
+    holes = bye_holes(api, roster, week)
+    out["bye_holes"] = holes
     if args.json:
-        json.dump(
-            {"week": week, "remaining_weeks": remaining, "gate": args.gate, "swaps": results},
-            sys.stdout,
-            indent=2,
-        )
+        json.dump(out, sys.stdout, indent=2, default=str)
         return 0
-
-    print(f"Swap scan -- week {week}, {remaining} regular-season weeks remain "
-          f"(weeks {week + 1}-{REG_SEASON_END}), gate +{args.gate:g} pts")
-    print(f"  rate = 0.5 x (preseason season_proj / {NFL_WEEKS}) + 0.5 x live weekly proj")
-    full = [f"{pos} {held.get(pos, 0)}/{cap}" for pos, cap in position_max.items()
-            if held.get(pos, 0) >= cap]
-    print(f"  bench {len(bench)}, starters {len(starters)}, IR {len(ir)}, pool {len(pool)}"
-          + (f"; at position max: {', '.join(full)}" if full else "") + "\n")
-
-    best: float | None = None
-    for r in results:
-        print(f"  DROP {r['drop']:<22} {r['pos']:<4} rate {r['drop_rate']}/wk")
-        cands = r["candidates"]
-        assert isinstance(cands, list)
-        for c in cands:
-            gain = float(c["gain"])
-            best = gain if best is None else max(best, gain)
-            flag = "PASS" if gain >= args.gate else "    "
-            print(f"    {flag} +{gain:>6.1f}  {c['add']:<24} {c['pos']:<4} "
-                  f"{c['avail']:<3} rate {c['add_rate']:<6} own {c['owned']}% ({c['trend']:+})")
-        print()
-
-    if best is None:
-        print("  no eligible swap on the board")
-    else:
-        print(f"  best swap on the board: {best:+.1f} vs a +{args.gate:g} gate -- "
-              f"{'GATE MET' if best >= args.gate else 'gate not met, stand pat'}")
-    return 0
+    return render(out, holes, bool(heat), bool(volume))
 
 
 if __name__ == "__main__":
