@@ -263,3 +263,19 @@ def test_pending_sees_an_incoming_trade_offer():
     got = EspnWriter(api).pending()
     assert [t["id"] for t in got] == ["in-1", "out-1"], "an offer we did not send is still ours to answer"
     assert [t["direction"] for t in got] == ["in", "out"]
+
+
+def test_check_reports_win_probability_and_the_opponents_holes(capsys):
+    """The opponent side of the matchup is modeled too (2026-09-20): an OUT or
+    bye starter on their side is listed with what it is worth, and the win
+    probability is reported both as the lineup stands and if they leave it."""
+    data = league_fixture()
+    data["teams"][1]["roster"]["entries"].append(entry(24, "Their Out WR", 3, 8, 4, 15.0, status="OUT"))
+    run_json(FakeEspn(data), "check")
+    out = json.loads(capsys.readouterr().out)
+    assert 0 < out["win"]["p"] < 1 and out["win"]["sd_me"] > 0
+    assert [(p["kind"], p["player"]) for p in out["opp_problems"]] == [("OUT", "Their Out WR")]
+    assert out["win_if_opp_unfixed"] > out["win"]["p"], "their zero is our gain"
+    # the fill for our OUT RB now carries the win probability it produces
+    fix = next(p["fix"] for p in out["problems"] if p["kind"] == "OUT")
+    assert "win " in fix and "Bench Lion" in fix

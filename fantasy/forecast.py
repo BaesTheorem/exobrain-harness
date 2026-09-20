@@ -96,7 +96,7 @@ QUANTILES = (0.05, 0.25, 0.5, 0.75, 0.95)
 # Fallback coefficient of variation per position when the residual library is
 # missing (a fresh clone). Rough, from the week-1 2026 and week-5 2025 probes
 # recorded in the playbook; the library replaces it on the first calibrate.
-PRIOR_CV = {"QB": 0.40, "RB": 0.65, "WR": 0.85, "TE": 0.95, "K": 0.55, "D/ST": 1.0}
+from espncli.value import PRIOR_CV  # noqa: E402 -- one spread table for forecast and lineup check
 
 
 # ---- small helpers --------------------------------------------------------
