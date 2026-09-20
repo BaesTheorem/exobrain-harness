@@ -1,0 +1,396 @@
+#!/usr/bin/env python3
+"""volume: in-season opportunity metrics, the number the playbook's edge rests on.
+
+Every rule in the playbook says rank by volume, not points (targets per game
+YoY r = 0.70, touchdowns R2 = 0.079), and until 2026-09-20 nothing in season
+pulled volume: `espn player` shows points and `opportunity.py` is 2025 data
+built for the draft. This pulls nflverse weekly stats and snap counts for the
+current season (nflreadpy, a day behind the games), joins them to ESPN's
+rosters and wire by name and position, and flags the mispricings a casual
+room makes:
+
+  BUY       volume rank at his position is well ahead of his points rank
+            (the points are coming; the market prices last week's box score)
+  SELL      points rank well ahead of volume rank (touchdowns on thin usage)
+  ROLE-UP   last week's snap share or target share jumped on the weeks before
+  ROLE-DOWN the reverse
+
+It also writes `.cache/player-sd.json`: each player's week-to-week scatter
+from his own 2025 and 2026 game logs, as a multiplier on the position's
+spread, shrunk toward 1.0 on few games. `espn check` reads it for the
+variance rule's win probability.
+
+    volume build [--fresh]            # pull nflverse, write both caches (12h TTL otherwise)
+    volume roster [--team X]          # our roster (or any team's) with volume columns and flags
+    volume fa [--pos RB] [-n 25]      # the wire, sorted by the position's volume metric
+    volume league [--flag BUY]        # every rostered player in the league: the buy-low scan
+    volume player <name>              # one player's weekly log
+    every subcommand takes --json
+
+INVARIANTS
+- Read-only, never writes to ESPN. The only files written are under .cache/.
+- Name matching is norm(name)|POS on both sides. A miss prints as "-" in
+  every column and is listed at the bottom, never silently dropped: a scan
+  that quietly loses the one player who matters is the failure mode here.
+- The flags are candidates for judgment, never decisions. A BUY says the
+  volume is real; whether the role holds is the routine's call.
+"""
+
+from __future__ import annotations
+
+import argparse
+import json
+import statistics
+import sys
+import time
+from pathlib import Path
+
+HERE = Path(__file__).resolve().parent
+FANTASY = HERE.parent
+sys.path.insert(0, str(FANTASY))
+
+from espncli.cli import pool_rows, roster_rows, table  # noqa: E402
+from espncli.client import Espn, norm, team_name  # noqa: E402
+
+CACHE = FANTASY / ".cache"
+VOLUME = CACHE / "volume-{season}.json"
+SD_FILE = CACHE / "player-sd.json"
+TTL = 12 * 3600
+TEAM_MAP = {"LA": "LAR", "WAS": "WSH"}
+POS_MAP = {"FB": "RB", "HB": "RB"}
+FANTASY_POS = ("QB", "RB", "WR", "TE")
+TOP_N = {"QB": 14, "RB": 30, "WR": 40, "TE": 14}      # how deep "startable" runs at each position
+RANK_GAP = 8                                          # places between volume rank and points rank
+SD_SHRINK = 6.0                                       # games of prior weight on the player's own CV
+SD_MIN_GAMES, SD_MIN_PPG = 6, 5.0
+
+
+def key(name: str, pos: str) -> str:
+    return f"{norm(name)}|{pos}"
+
+
+# ---- build --------------------------------------------------------------
+
+def pull(season: int) -> dict:
+    import nflreadpy as nfl  # noqa: PLC0415 -- slow import, only the build path needs it
+    import polars as pl  # noqa: PLC0415
+
+    def rows(df):
+        return [{k: (None if v is None or (isinstance(v, float) and v != v) else v) for k, v in r.items()}
+                for r in df.to_dicts()]
+
+    stats = nfl.load_player_stats(seasons=[season - 1, season])
+    stats = stats.filter(pl.col("season_type") == "REG")
+    want = [c for c in ("season", "week", "player_display_name", "position", "team", "opponent_team",
+                        "attempts", "carries", "targets", "receptions", "target_share", "air_yards_share",
+                        "wopr", "rushing_tds", "receiving_tds", "passing_tds", "rushing_yards",
+                        "receiving_yards", "fantasy_points_ppr") if c in stats.columns]
+    weekly = rows(stats.select(want))
+    try:
+        snaps = rows(nfl.load_snap_counts(seasons=[season]).filter(pl.col("game_type") == "REG")
+                     .select(["week", "player", "position", "team", "offense_pct"]))
+    except Exception as exc:  # snap counts lag a day and sometimes 404 early in the week
+        print(f"volume: snap counts unavailable ({exc}); building without them", file=sys.stderr)
+        snaps = []
+    return {"weekly": weekly, "snaps": snaps}
+
+
+def aggregate(season: int, raw: dict) -> tuple[dict[str, dict], dict]:
+    snap = {}
+    for s in raw["snaps"]:
+        pos = POS_MAP.get(s["position"], s["position"])
+        if pos in FANTASY_POS:
+            snap[(key(s["player"], pos), int(s["week"]))] = s["offense_pct"]
+    players: dict[str, dict] = {}
+    logs_all: dict[str, list[float]] = {}          # both seasons, for the spread model
+    for r in raw["weekly"]:
+        pos = POS_MAP.get(r["position"], r["position"])
+        if pos not in FANTASY_POS:
+            continue
+        k = key(r["player_display_name"], pos)
+        logs_all.setdefault(k, []).append(float(r.get("fantasy_points_ppr") or 0.0))
+        if int(r["season"]) != season:
+            continue
+        p = players.setdefault(k, {"name": r["player_display_name"], "pos": pos, "team": None, "weeks": []})
+        p["team"] = TEAM_MAP.get(r["team"], r["team"])
+        w = int(r["week"])
+        tds = float(r.get("rushing_tds") or 0) + float(r.get("receiving_tds") or 0) + float(r.get("passing_tds") or 0)
+        p["weeks"].append({
+            "week": w, "opp": r.get("opponent_team"),
+            "att": float(r.get("attempts") or 0), "car": float(r.get("carries") or 0),
+            "tgt": float(r.get("targets") or 0), "rec": float(r.get("receptions") or 0),
+            "tgt_share": r.get("target_share"), "ays": r.get("air_yards_share"), "wopr": r.get("wopr"),
+            "snap": snap.get((k, w)), "td": tds, "ppr": float(r.get("fantasy_points_ppr") or 0.0),
+            "yds": float(r.get("rushing_yards") or 0) + float(r.get("receiving_yards") or 0),
+        })
+    for p in players.values():
+        p["weeks"].sort(key=lambda x: x["week"])
+        summarize(p)
+    rank_positions(players)
+    return players, sd_model(logs_all, players)
+
+
+def mean(xs: list) -> float | None:
+    xs = [float(x) for x in xs if x is not None]
+    return round(statistics.fmean(xs), 3) if xs else None
+
+
+def summarize(p: dict) -> None:
+    ws = p["weeks"]
+    g = len(ws)
+    p["games"] = g
+    p["tgt_pg"] = round(sum(w["tgt"] for w in ws) / g, 1)
+    p["car_pg"] = round(sum(w["car"] for w in ws) / g, 1)
+    p["att_pg"] = round(sum(w["att"] for w in ws) / g, 1)
+    p["opps_pg"] = round(sum(w["car"] + 1.5 * w["tgt"] for w in ws) / g, 1)   # RB currency: a target is worth more than a carry in PPR
+    p["tgt_share"] = mean([w["tgt_share"] for w in ws])
+    p["ays"] = mean([w["ays"] for w in ws])
+    p["wopr"] = mean([w["wopr"] for w in ws])
+    p["snap"] = mean([w["snap"] for w in ws])
+    p["td"] = sum(w["td"] for w in ws)
+    p["ppr_pg"] = round(sum(w["ppr"] for w in ws) / g, 1)
+    last = ws[-1]
+    p["last"] = {"week": last["week"], "tgt_share": last["tgt_share"], "snap": last["snap"],
+                 "opps": round(last["car"] + 1.5 * last["tgt"], 1), "ppr": last["ppr"]}
+    p["flags"] = []
+    if g >= 2:
+        prior = ws[:-1]
+        d_snap = (last["snap"] or 0) - (mean([w["snap"] for w in prior]) or 0) if last["snap"] is not None else 0
+        d_share = (last["tgt_share"] or 0) - (mean([w["tgt_share"] for w in prior]) or 0)
+        d_opps = p["last"]["opps"] - (sum(w["car"] + 1.5 * w["tgt"] for w in prior) / len(prior))
+        up = d_snap >= 0.15 or (p["pos"] in ("WR", "TE") and d_share >= 0.08) or (p["pos"] == "RB" and d_opps >= 5)
+        down = d_snap <= -0.15 or (p["pos"] in ("WR", "TE") and d_share <= -0.08) or (p["pos"] == "RB" and d_opps <= -5)
+        if up:
+            p["flags"].append("ROLE-UP")
+        elif down:
+            p["flags"].append("ROLE-DOWN")
+
+
+def volume_metric(p: dict) -> float:
+    if p["pos"] == "RB":
+        return p["opps_pg"]
+    if p["pos"] == "QB":
+        return p["att_pg"] + p["car_pg"]
+    return p["wopr"] if p["wopr"] is not None else (p["tgt_share"] or 0.0)
+
+
+def rank_positions(players: dict[str, dict]) -> None:
+    for pos in FANTASY_POS:
+        group = [p for p in players.values() if p["pos"] == pos and p["games"] >= 1]
+        by_vol = sorted(group, key=lambda p: -volume_metric(p))
+        by_pts = sorted(group, key=lambda p: -p["ppr_pg"])
+        for i, p in enumerate(by_vol, 1):
+            p["vol_rank"] = i
+        for i, p in enumerate(by_pts, 1):
+            p["pts_rank"] = i
+        top = TOP_N[pos]
+        for p in group:
+            gap = p["pts_rank"] - p["vol_rank"]      # positive: usage says he is better than his points
+            if p["vol_rank"] <= top and gap >= RANK_GAP and pos != "QB":
+                p["flags"].append("BUY")
+            elif p["pts_rank"] <= top and -gap >= RANK_GAP and pos != "QB":
+                p["flags"].append("SELL")
+
+
+def sd_model(logs_all: dict[str, list[float]], players: dict[str, dict]) -> dict:
+    """Per-player CV of weekly PPR points, shrunk toward the position average."""
+    pos_of = {k: k.split("|")[-1] for k in logs_all}
+    cvs: dict[str, tuple[float, int]] = {}
+    for k, xs in logs_all.items():
+        if len(xs) >= SD_MIN_GAMES and statistics.fmean(xs) >= SD_MIN_PPG:
+            cvs[k] = (statistics.pstdev(xs) / statistics.fmean(xs), len(xs))
+    pos_cv: dict[str, float] = {}
+    for pos in FANTASY_POS:
+        vals = [cv for k, (cv, _) in cvs.items() if pos_of[k] == pos]
+        if vals:
+            pos_cv[pos] = statistics.fmean(vals)
+    mult = {}
+    for k, (cv, n) in cvs.items():
+        base = pos_cv.get(pos_of[k])
+        if not base:
+            continue
+        shrunk = (n * cv + SD_SHRINK * base) / (n + SD_SHRINK)
+        mult[k] = round(min(1.6, max(0.6, shrunk / base)), 3)
+    return {"built": time.strftime("%Y-%m-%dT%H:%M"), "pos_cv": {k: round(v, 3) for k, v in pos_cv.items()},
+            "n": len(mult), "mult": mult}
+
+
+def build(season: int, fresh: bool) -> dict[str, dict]:
+    path = Path(str(VOLUME).format(season=season))
+    if not fresh and path.exists() and time.time() - path.stat().st_mtime < TTL:
+        return json.loads(path.read_text())["players"]
+    players, sd = aggregate(season, pull(season))
+    CACHE.mkdir(exist_ok=True)
+    path.write_text(json.dumps({"built": time.strftime("%Y-%m-%dT%H:%M"), "season": season, "players": players}))
+    SD_FILE.write_text(json.dumps(sd, indent=0))
+    return players
+
+
+# ---- joins and rendering ----------------------------------------------------
+
+def attach(rows: list[dict], players: dict[str, dict]) -> list[dict]:
+    """ESPN rows (roster or pool) with the volume record joined on name|pos."""
+    for r in rows:
+        v = players.get(key(r["name"], r["pos"]))
+        r["volume"] = v
+        r["flags"] = " ".join(v["flags"]) if v else ""
+        r["matched"] = v is not None
+    return rows
+
+
+def pct(x: float | None) -> str:
+    return "-" if x is None else f"{100 * x:.0f}%"
+
+
+def num(x: float | None, nd: int = 1) -> str:
+    return "-" if x is None else f"{x:.{nd}f}"
+
+
+COLS = [("PLAYER", "name", 24, "l"), ("POS", "pos", 4, "l"), ("TM", "team", 4, "l"), ("G", "g", 2, "r"),
+        ("TGT/G", "tgt", 5, "r"), ("TGT%", "share", 5, "r"), ("WOPR", "wopr", 5, "r"), ("CAR/G", "car", 5, "r"),
+        ("OPP/G", "opps", 5, "r"), ("SNAP%", "snap", 5, "r"), ("LAST SNAP", "lsnap", 9, "r"), ("LAST TGT%", "lshare", 9, "r"),
+        ("TD", "td", 3, "r"), ("PPR/G", "ppr", 5, "r"), ("VOL#", "vr", 4, "r"), ("PTS#", "pr", 4, "r"), ("FLAGS", "flags", 16, "l")]
+
+
+def fmt(r: dict) -> dict:
+    v = r.get("volume")
+    if not v:
+        return {**r, "g": "-", "tgt": "-", "share": "-", "wopr": "-", "car": "-", "opps": "-", "snap": "-",
+                "lsnap": "-", "lshare": "-", "td": "-", "ppr": "-", "vr": "-", "pr": "-", "flags": "(no nflverse match)"}
+    return {**r, "g": v["games"], "tgt": num(v["tgt_pg"]), "share": pct(v["tgt_share"]), "wopr": num(v["wopr"], 2),
+            "car": num(v["car_pg"]), "opps": num(v["opps_pg"]), "snap": pct(v["snap"]), "lsnap": pct(v["last"]["snap"]),
+            "lshare": pct(v["last"]["tgt_share"]), "td": int(v["td"]), "ppr": num(v["ppr_pg"]),
+            "vr": v.get("vol_rank", "-"), "pr": v.get("pts_rank", "-"), "flags": r.get("flags", "")}
+
+
+def render(rows: list[dict], title: str) -> None:
+    print(title + "\n")
+    table([fmt(r) for r in rows], COLS)
+    missing = [r["name"] for r in rows if not r.get("matched") and r["pos"] in FANTASY_POS]
+    if missing:
+        print(f"\n  no nflverse row (no 2026 snap yet, or a name mismatch): {', '.join(missing)}")
+    print("\n  TGT% and WOPR are per-game means; OPP/G = carries + 1.5 x targets (the RB currency in full PPR);"
+          "\n  VOL# and PTS# are ranks at the position by volume and by PPR/G. BUY = volume rank beats points rank"
+          f"\n  by {RANK_GAP}+ inside the startable tier; SELL = the reverse; ROLE-UP/DOWN = last week's snap or"
+          "\n  target share moved 15/8 points on the weeks before. K and D/ST have no volume row.")
+
+
+def emit(args: argparse.Namespace, rows: list[dict], title: str) -> None:
+    if args.json:
+        json.dump(rows, sys.stdout, indent=1, default=str)
+    else:
+        render(rows, title)
+
+
+def sort_rows(rows: list[dict], how: str) -> list[dict]:
+    def k(r):
+        v = r.get("volume")
+        if not v:
+            return -1.0
+        if how == "trend":
+            return (v["last"]["snap"] or 0) - (v["snap"] or 0)
+        if how == "snap":
+            return v["snap"] or 0
+        if how == "opps":
+            return v["opps_pg"]
+        return volume_metric(v)
+    return sorted(rows, key=k, reverse=True)
+
+
+# ---- subcommands ------------------------------------------------------------
+
+def cmd_build(api: Espn, args: argparse.Namespace) -> None:
+    players = build(api.season, True)
+    sd = json.loads(SD_FILE.read_text())
+    print(f"volume: {len(players)} players with a 2026 row; spread multipliers for {sd['n']} "
+          f"(position CV {sd['pos_cv']}); caches in {CACHE}")
+
+
+def cmd_roster(api: Espn, args: argparse.Namespace) -> None:
+    players = build(api.season, args.fresh)
+    data = api.league("mTeam", "mRoster", "mSettings")
+    t = api.resolve_team(data, args.team)
+    week = api.current_week(api.league("mStatus"))
+    rows = attach(roster_rows(api, api.roster_entries(data, t["id"]), week), players)
+    emit(args, rows, f"{team_name(t)} -- volume through the games played (nflverse), week {week}")
+
+
+def cmd_fa(api: Espn, args: argparse.Namespace) -> None:
+    players = build(api.season, args.fresh)
+    week = api.current_week(api.league("mStatus"))
+    pos = args.pos.upper()
+    rows = pool_rows(api, week, pos, 400 if pos == "ALL" else 150, ["FREEAGENT", "WAIVERS"])
+    rows = [r for r in rows if r["pos"] in FANTASY_POS]
+    rows = attach(rows, players)
+    rows = sort_rows([r for r in rows if r["matched"]], args.sort)[: args.n]
+    emit(args, rows, f"Available {pos} -- volume, sorted by {args.sort}")
+
+
+def cmd_league(api: Espn, args: argparse.Namespace) -> None:
+    players = build(api.season, args.fresh)
+    data = api.league("mTeam", "mRoster", "mSettings")
+    week = api.current_week(api.league("mStatus"))
+    mine = api.my_team_id(data)
+    rows = []
+    for t in data["teams"]:
+        for r in roster_rows(api, api.roster_entries(data, t["id"]), week):
+            if r["pos"] in FANTASY_POS:
+                r["owner"] = team_name(t)
+                r["own_team"] = t["id"] == mine
+                rows.append(r)
+    rows = attach(rows, players)
+    if args.flag:
+        rows = [r for r in rows if args.flag.upper() in (r.get("flags") or "")]
+    rows = sort_rows(rows, args.sort)
+    if args.json:
+        json.dump(rows, sys.stdout, indent=1, default=str)
+        return
+    print(f"League-wide volume, week {week}" + (f", flag {args.flag.upper()}" if args.flag else "") + "\n")
+    cols = [("OWNER", "owner", 24, "l"), *COLS[:3], *COLS[4:]]
+    table([fmt(r) for r in rows], cols)
+    print("\n  Buy-low = BUY on a rival roster; sell-high = SELL on ours. Rank flags are candidates for the"
+          "\n  Tuesday routine's judgment, not verdicts: check the role holds (espn news) before offering.")
+
+
+def cmd_player(api: Espn, args: argparse.Namespace) -> None:
+    players = build(api.season, args.fresh)
+    p = api.resolve_one(" ".join(args.name))
+    v = players.get(key(p["name"], p.get("pos") or "?")) or next((x for x in players.values() if norm(x["name"]) == norm(p["name"])), None)
+    if args.json:
+        json.dump(v, sys.stdout, indent=1)
+        return
+    if not v:
+        print(f"{p['name']}: no nflverse row this season")
+        return
+    print(f"{v['name']}  {v['pos']}  {v['team']}  -- {v['games']} games, flags: {' '.join(v['flags']) or 'none'}\n")
+    rows = [{"week": w["week"], "opp": w["opp"], "snap": pct(w["snap"]), "car": int(w["car"]), "tgt": int(w["tgt"]),
+             "rec": int(w["rec"]), "share": pct(w["tgt_share"]), "wopr": num(w["wopr"], 2), "yds": int(w["yds"]),
+             "td": int(w["td"]), "ppr": num(w["ppr"])} for w in v["weeks"]]
+    table(rows, [("WK", "week", 2, "r"), ("OPP", "opp", 4, "l"), ("SNAP", "snap", 5, "r"), ("CAR", "car", 3, "r"),
+                 ("TGT", "tgt", 3, "r"), ("REC", "rec", 3, "r"), ("TGT%", "share", 5, "r"), ("WOPR", "wopr", 5, "r"),
+                 ("YDS", "yds", 4, "r"), ("TD", "td", 2, "r"), ("PPR", "ppr", 5, "r")])
+    print(f"\n  season: {v['tgt_pg']} tgt/g, {pct(v['tgt_share'])} share, WOPR {num(v['wopr'], 2)}, {v['car_pg']} car/g, "
+          f"snap {pct(v['snap'])}, {int(v['td'])} TD, {v['ppr_pg']} PPR/g; volume rank {v.get('vol_rank', '-')}, "
+          f"points rank {v.get('pts_rank', '-')} at {v['pos']}")
+
+
+def main(argv: list[str] | None = None) -> int:
+    common = argparse.ArgumentParser(add_help=False)
+    common.add_argument("--json", action="store_true")
+    common.add_argument("--fresh", action="store_true", help="re-pull nflverse now")
+    ap = argparse.ArgumentParser(prog="volume", description=(__doc__ or "").split("\n\n")[0])
+    sub = ap.add_subparsers(dest="cmd", required=True)
+    sub.add_parser("build", parents=[common])
+    p = sub.add_parser("roster", parents=[common]); p.add_argument("--team")
+    p = sub.add_parser("fa", parents=[common]); p.add_argument("--pos", default="ALL"); p.add_argument("-n", type=int, default=25)
+    p.add_argument("--sort", default="volume", choices=["volume", "opps", "snap", "trend"])
+    p = sub.add_parser("league", parents=[common]); p.add_argument("--flag"); p.add_argument("--sort", default="volume", choices=["volume", "opps", "snap", "trend"])
+    p = sub.add_parser("player", parents=[common]); p.add_argument("name", nargs="+")
+    args = ap.parse_args(argv)
+    api = Espn(fresh=False)
+    {"build": cmd_build, "roster": cmd_roster, "fa": cmd_fa, "league": cmd_league, "player": cmd_player}[args.cmd](api, args)
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())
