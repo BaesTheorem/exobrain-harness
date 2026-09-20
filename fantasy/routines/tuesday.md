@@ -6,7 +6,10 @@ Follow `fantasy/routines/COMMON.md` first. If today is not Tuesday, stop.
    instruction, 2026-09-17; the playbook's *Weekly forecast and review*
    section is the rule). `fantasy/bin/forecast settle` scores MIST's 50% and
    90% intervals and the mechanical baseline against the week's actuals;
-   `fantasy/bin/forecast history` gives the season coverage. Then judge each
+   `fantasy/bin/forecast history` gives the season coverage and, from week 3,
+   the per-source error ranking (which of ESPN, Sleeper, CBS, FantasyPros,
+   FFToday and the consensus ran hot, by MAE); note it, and weight a source
+   down in your own judgment only after three weeks of it losing. Then judge each
    miss: was it variance inside a well-shaped band (log it, change nothing)
    or a reasoning error (a role read that was wrong, a source weighted
    wrongly, a band too narrow for the position)? Write the coverage numbers,
@@ -31,6 +34,12 @@ Follow `fantasy/routines/COMMON.md` first. If today is not Tuesday, stop.
    skips a single-week round and is worth about 1.9x the title odds of a
    3-6 seed): `fantasy/bin/ff standings` shows the cutline; log games and
    points ahead of or behind the #2 seed, and name the teams we are racing.
+   **Then the bye odds themselves**: `python3 fantasy/season_sim.py --sims
+   20000 --json` folds the results so far into the simulation and prints
+   our `bye`, `playoffs`, `champ` and `seed1` probabilities; log them every
+   week beside last week's, so the objective has a number and a trend.
+   **Run `fantasy/bin/volume build --fresh` here** (nflverse posts the
+   week's stats by Tuesday) so every scan below reads this week's volume.
 2. **Ledger.** `python3 fantasy/ledger.py settle`; note the running score in
    the Season log. Only settled ledger results may change how the board is
    built next year.
@@ -40,13 +49,20 @@ Follow `fantasy/routines/COMMON.md` first. If today is not Tuesday, stop.
    bench-for-wire swap as `(add - drop) x weeks left` against the playbook's
    20-point gate and marks the ones that clear it, with position maximums
    applied (WR sits at 8/8 since the Bateman add, so a WR add needs a WR
-   drop). A PASS is a candidate, not a verdict: check the role evidence in
-   step 3's ranking before filing, and a swap that fails the gate on points
-   can still clear it on the role condition. Then look at `fantasy/bin/espn fa --pos RB
-   --sort proj`, the same for WR and TE, `--sort trend` for risers,
-   `fantasy/bin/espn injuries`, and the bench in `espn team --json`. Rank by
-   opportunity (targets, touches, snap share; `espn player <name>` shows the
-   weekly log), never by last week's points; committee backs who already
+   drop), never a second QB or TE, with Sleeper's 24-hour adds (`heat`, the
+   national wire) and the volume flags beside each candidate, and the bye
+   holes two weeks out with the bench cover for each. A PASS is a candidate,
+   not a verdict: check the role evidence before filing, and a swap that
+   fails the gate on points can still clear it on the role condition (a
+   `ROLE` mark: BUY or ROLE-UP from the volume feed). **Then
+   `fantasy/bin/stream-scan`**: the D/ST and K thresholds; a STREAM there is
+   a candidate under the same drop rules. Then `fantasy/bin/volume fa --pos
+   RB` (the same for WR and TE; `--sort trend` for risers): targets, target
+   share, WOPR, snap share, last week's role move, and the BUY/SELL/ROLE-UP
+   flags, which is what "rank by opportunity" means from now on; `espn fa
+   --sort proj` for the projections, `fantasy/bin/espn injuries`, and the
+   bench in `espn team --json`. Rank by opportunity (targets, touches, snap
+   share; `volume player <name>` shows the weekly log), never by last week's points; committee backs who already
    have touches beat clean handcuffs; touchdowns on thin volume are a sell,
    heavy volume with bad touchdown luck is a buy. No second QB or TE. Drop the
    lowest-value bench player (role first, then season projection) to make
@@ -81,10 +97,15 @@ Follow `fantasy/routines/COMMON.md` first. If today is not Tuesday, stop.
    and reorder to make in the web UI.
 4. **Trades, from week 3 on.** The edge is a leaguemate's recency and
    endowment bias, so timing is the input: buy a volume player after a bad
-   week or two, sell a thin-volume touchdown scorer after a big one. Scan
-   rival rosters (`fantasy/bin/espn team
-   --team "<name>" --json`) for buy-low targets (heavy volume, bad touchdown
-   luck) and our sell-high candidates (touchdowns on thin volume). Write up to
+   week or two, sell a thin-volume touchdown scorer after a big one. Start
+   with `fantasy/bin/volume league --flag BUY` (rival players whose volume
+   rank beats their points rank: the buy-low list) and `--flag SELL` (ours
+   riding touchdowns on thin usage: the sell-high list), then `python3
+   fantasy/trade_scan.py --json --min-gain 10` for every 1-for-1 and 2-for-1
+   the other side does not lose on its own screen, priced in title and bye
+   odds through the season simulation, and `fantasy/bin/league-scan` for
+   who answers offers (a manager whose received offers all expired is not a
+   negotiation, he is a two-day wait). Write up to
    two concrete proposals to the Season log with the volume evidence, then put
    them to Alex as a `mist-notify` banner with Send / Skip buttons, built the
    way COMMON.md rule 3 describes. **Not `mist-ask`**: it needs a Console
@@ -103,9 +124,13 @@ Follow `fantasy/routines/COMMON.md` first. If today is not Tuesday, stop.
    Review it: act on any trigger that has fired (the incidents file shows
    watch events), remove entries that no longer matter, add the week's new
    buy-low and sell-high candidates with their triggers, and bump `updated`.
-5. **Tendencies.** `fantasy/bin/espn activity --json` since last Tuesday: who
-   is active, who never touches an autopicked roster (that roster is the
-   wire's feeder). Update the playbook's league observations, not just the log.
+5. **Tendencies.** `fantasy/bin/league-scan` (zeros started, bench points
+   left per week, adds, offers sent and received and how they ended, per
+   manager, from every closed week) and `fantasy/bin/espn activity --json`
+   since last Tuesday: who is active, who leaves holes (the opponent model
+   in the lineup routine counts on a hole only for a manager with a record
+   of them), who answers offers. Update the playbook's league observations
+   from the numbers, not just the log.
 6. Notify Alex with a compact summary (result, record, claims filed, priority,
    last week's coverage, this week's win probability), linked to the league
    page.

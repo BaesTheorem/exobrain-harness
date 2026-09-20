@@ -1,7 +1,10 @@
-# Lineup routine (daily 5:30 PM CT and Sunday 10:15 AM CT)
+# Lineup routine (daily 5:30 PM CT, Sunday 10:40 AM and 2:35 PM CT)
 
-Follow `fantasy/routines/COMMON.md` first. (The Sunday 10:15 AM copy of this
-routine runs only on Sundays; on any other day it stops here.)
+Follow `fantasy/routines/COMMON.md` first. (The two Sunday copies of this
+routine run only on Sundays; on any other day they stop here. They are timed
+after the inactives post: 10:30 for the noon window, about 1:35 and 1:55 for
+the 3:05 and 3:25 windows. Before 2026-09-20 the Sunday run fired at 10:15,
+fifteen minutes before the reports it existed to read.)
 
 1. `fantasy/bin/espn check --json` and `fantasy/bin/espn team --json`. If no
    starter locks within the next 27 hours, print "nothing locks before <time>"
@@ -24,15 +27,23 @@ routine runs only on Sundays; on any other day it stops here.)
    is a true game-time decision whose bench alternative projects within ~3
    points and kicks off earlier or at the same time. Otherwise keep him and
    let `lineup-watch` handle a late zeroed projection. One line of reasoning.
-4. The variance rule, from the `margin` field of `fantasy/bin/espn matchup
-   --json`. Pre-game it is the projection sum; once anyone on either side has
-   locked it is ESPN's live projection (`margin_source` says which). A banked
-   Thursday score can flip the side, as 2026-09-19 showed. Favorite by more
-   than 3: prefer floor in FLEX and WR2 (high target share, steady weekly
-   scores). Underdog by more than 3: prefer ceiling
-   (deep-threat receivers, big-play backs). Within 3 points either way, the
-   higher projection starts. Swap only when the projection gap is under 3 and
-   the variance profiles clearly differ; do not churn.
+4. The variance rule, as a number (from 2026-09-20). `fantasy/bin/espn
+   check --json` (and `matchup`) reports `win` (P(win) with both sides' means
+   and spreads: every unlocked starter is a normal around his projection
+   with a measured, tiered, per-player spread; a locked one is his banked
+   actual) and `swaps`, every single bench-for-starter swap that raises P(win),
+   best first, each with `d_p` and the projection-only `d_proj` so you can
+   see whether variance or the mean made the call. **Apply a swap when
+   `d_p` is at least +1 point of win probability**; below that it is churn.
+   The old reading (favorite by 3 = floor, underdog by 3 = ceiling, within 3
+   = projection) is what the number encodes, so state which side we are on
+   in the log line and cite `win.p` before and after. `margin_source` still
+   says whether the margin is pre-game or live; a banked Thursday score can
+   flip the side, as 2026-09-19 showed. Also read `opp_problems` and
+   `win_if_opp_unfixed`: an OUT or bye starter on their side is a hole, and
+   `fantasy/bin/league-scan` says whether that manager historically fixes
+   holes (zeros started, bench points left). Count on the hole only for a
+   manager with a record of leaving them.
    **Idle week (week 8), or any week ESPN shows no opponent:** there is no
    game to win, only Points For (the seeding tiebreak) to bank. Start the
    highest-projection lineup with no variance adjustment.
@@ -42,7 +53,7 @@ routine runs only on Sundays; on any other day it stops here.)
    variance rule: take the variance trade only when the win-probability gain
    is clearly larger than the projected points it costs. If we hold a top-2
    seed by more than a game with two weeks left, floor everywhere.
-5. Write one Season log line: date, opponent, projected margin, what changed
-   and why ("no changes" is a valid entry), and from week 9 the bye-race
-   position (games and points ahead of or behind the #2 line).
+5. Write one Season log line: date, opponent, projected margin and `win.p`,
+   what changed and why ("no changes" is a valid entry), and from week 9 the
+   bye-race position (games and points ahead of or behind the #2 line).
 6. Notify Alex only if something changed.

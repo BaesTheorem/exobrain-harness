@@ -30,7 +30,18 @@ autonomously; you decide, act, and record. Work from the harness directory
    corrections are data for the next run. Leaguemate reads go in *League
    observations*, current read on top.
 2. **Reads:** `fantasy/bin/espn ...` and `fantasy/bin/ff ...` (both read-only,
-   every `espn` subcommand takes `--json`). **Writes:** `fantasy/bin/espn-tx`
+   every `espn` subcommand takes `--json`), plus the scans added 2026-09-20,
+   all read-only and all `--json`: `fantasy/bin/volume` (targets, target
+   share, WOPR, snap share, BUY/SELL/ROLE flags from nflverse; `roster`,
+   `fa`, `league --flag BUY`, `player`), `fantasy/bin/swap-scan` (the waiver
+   gate with Sleeper heat, volume flags and bye holes), `fantasy/bin/stream-scan`
+   (the K and D/ST thresholds), `fantasy/bin/league-scan` (zeros started,
+   bench points left, trade offers answered, per manager),
+   `python3 fantasy/trade_scan.py --json` (every 1-for-1 and 2-for-1 priced
+   in title and bye odds) and `python3 fantasy/season_sim.py --json` (bye
+   odds after the results so far). **Rank by volume means `volume`, not a
+   news blurb.** Every value is `espncli.value.ros_rate` (half preseason,
+   half live); ESPN's `season_proj` alone is never a value. **Writes:** `fantasy/bin/espn-tx`
    only (`ir`, `move`, `swap`, `claim`, `pending`, `cancel`). It verifies each
    write with a read-back; treat `"verified": false` or a nonzero exit as
    "did not happen" and say so.
