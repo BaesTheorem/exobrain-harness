@@ -5,7 +5,10 @@ Every 30 minutes from launchd (com.exobrain.roster-watch). Diffs the roster's
 injury statuses, our pending claims, pending transactions aimed at the team
 (a trade offer), the players on fantasy/watchlist.json (status, a rostered-percentage
 spike, which fantasy team holds them), and the rosters of watched teams against
-the last run. Anything new is appended to
+the last run. It also runs fantasy/bin/swap-scan and, when a bench-for-wire
+swap crosses the playbook's 20-point gate for the first time, banners Alex with
+Do it / Skip buttons (his standing instruction, 2026-09-20: actively monitor
+for these; a drop is his tap, never the watcher's). Anything new is appended to
 fantasy/.cache/incidents.jsonl, announced with a clickable banner, and, when
 it needs judgment (a starter going out, an IR designation, a trade offer, a
 processed claim), handed to the fantasy-incident routine, which runs headless
@@ -36,6 +39,48 @@ ROUTINE_LOG = pathlib.Path.home() / "Library" / "Logs" / "mist-routines.log"
 ROSTER_URL = "https://fantasy.espn.com/football/team?leagueId=45635023&teamId=12"
 LEAGUE_URL = "https://fantasy.espn.com/football/league?leagueId=45635023"
 NEEDS_JUDGMENT = {"OUT", "DOUBTFUL", "INJURY_RESERVE", "SUSPENSION"}
+SWAP_SCAN = HERE / "swap-scan"
+REPLY_URL = "http://127.0.0.1:5014/notify-reply"
+
+
+def reply_button(label: str, text: str) -> str:
+    """A mist-notify --action that posts `text` into the Console as Alex's reply."""
+    payload = json.dumps({"text": text})
+    return (f"{label}=cmd:/usr/bin/curl -sS -X POST {REPLY_URL} "
+            f"-H 'Content-Type: application/json' -d '{payload}'")
+
+
+def swap_gate_event(st: dict) -> dict | None:
+    """The best bench-for-wire swap, if it clears the gate and has not been offered yet.
+
+    State remembers the last pair offered, so a swap that stays above the gate
+    for days produces one banner, not one every 30 minutes; a different pair,
+    or the same pair after it dropped below the gate and came back, is new.
+    """
+    try:
+        out = subprocess.run([sys.executable, str(SWAP_SCAN), "--json"], capture_output=True,
+                             text=True, timeout=240, check=True).stdout
+        scan = json.loads(out)
+    except Exception as exc:  # the watcher's other checks must still run
+        print(f"swap-scan unavailable: {exc}")
+        return None
+    gate = float(scan.get("gate", 20.0))
+    best: dict | None = None
+    for row in scan.get("swaps", []):
+        for c in row.get("candidates", []):
+            if best is None or float(c["gain"]) > float(best["gain"]):
+                best = {"drop": row["drop"], "drop_pos": row["pos"], "add": c["add"],
+                        "add_pos": c["pos"], "avail": c["avail"], "gain": float(c["gain"]),
+                        "owned": c["owned"], "trend": c["trend"]}
+    gs = st.setdefault("swap_gate", {})
+    if best is None or best["gain"] < gate:
+        gs["offered"] = None
+        return None
+    pair = f"{best['drop']}|{best['add']}"
+    if gs.get("offered") == pair:
+        return None
+    gs["offered"] = pair
+    return {"kind": "swap_gate", "gate": gate, "judgment": False, **best}
 
 
 def load(path: pathlib.Path, default):
@@ -154,6 +199,13 @@ def main() -> int:
             events.append({"kind": "watched_team_moved", "team": wt["name"], "why": wt["why"], "judgment": True})
     st["rosters"] = rosters
 
+    # 4. The waiver gate: a bench-for-wire swap worth 20+ points over the rest of
+    #    the regular season. Banner only; the drop is Alex's decision.
+    if not st.get("first_run"):
+        sg = swap_gate_event(st)
+        if sg:
+            events.append(sg)
+
     st["status"] = statuses
     st["first_run"] = False
     if not events:
@@ -188,13 +240,27 @@ def main() -> int:
             heads.append(f"watch: {ev['player']} {ev['from']}% -> {ev['to']}% rostered")
         elif ev["kind"] == "watched_team_moved":
             heads.append(f"{ev['team']} made a roster move")
+        elif ev["kind"] == "swap_gate":
+            heads.append(f"wire: add {ev['add']} ({ev['add_pos']}, {ev['avail']}) for "
+                         f"{ev['drop']} clears the gate, +{ev['gain']:.1f} pts rest of season")
         else:
             heads.append(ev["kind"].replace("_", " ") + (f": {ev.get('player')}" if ev.get("player") else ""))
     judgment = any(ev.get("judgment") for ev in events)
     msg = "; ".join(heads)[:200] + (". MIST is on it." if judgment and not args.no_routine else "")
     link = LEAGUE_URL if any(ev["kind"] == "trade_offer" for ev in events) else ROSTER_URL
+    actions = ["--action", "Ask MIST=console"]
+    swap = next((ev for ev in events if ev["kind"] == "swap_gate"), None)
+    if swap:
+        how = "--fa" if swap["avail"] == "FA" else ""
+        actions = [
+            "--action", reply_button(
+                "Do it", f"File the swap from roster-watch: drop {swap['drop']}, add {swap['add']} "
+                         f"(swap-scan +{swap['gain']:.1f}; espn-tx claim {how} \"{swap['add']}\" "
+                         f"--drop \"{swap['drop']}\")"),
+            "--action", reply_button("Skip", f"Skip the {swap['add']} swap; leave {swap['drop']} alone"),
+        ]
     subprocess.run([str(NOTIFY), msg, "MIST roster watch", "default", link, "--group", "roster-watch",
-                    "--action", "Ask MIST=console"], check=False, capture_output=True, timeout=20)
+                    *actions], check=False, capture_output=True, timeout=20)
     if judgment and not args.no_routine and RUNNER.exists():
         with ROUTINE_LOG.open("a") as logf:
             subprocess.Popen(["/bin/bash", str(RUNNER), "fantasy-incident"], stdout=logf, stderr=logf,
