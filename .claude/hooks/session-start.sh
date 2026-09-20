@@ -113,10 +113,15 @@ try:
     exp = datetime.fromisoformat(d['expires_at'].replace('Z', '+00:00'))
     now = datetime.now(timezone.utc)
     hours_left = (exp - now).total_seconds() / 3600
-    if hours_left < 0:
-        print(f'WARN: Fitbit token expired {-hours_left:.0f}h ago -- needs re-auth')
-    elif hours_left < 1:
-        print(f'WARN: Fitbit token expires in {hours_left*60:.0f}m -- refresh soon')
+    # Fitbit access tokens live 8h and the MCP server refreshes them on first use.
+    # An expired access token is therefore the normal steady state, not a fault, so
+    # long as a refresh token is on disk. Only the absence of a refresh token means
+    # a human has to go re-consent in a browser. The real health signal for the
+    # refresh chain is the launchd fitbit-token job's exit code, checked further down.
+    if not d.get('refresh_token'):
+        print('WARN: Fitbit refresh token missing -- needs browser re-auth: fitbit-mcp/bin/fitbit-reauth')
+    elif hours_left < 0:
+        print(f'OK: Fitbit token (access token aged out {-hours_left:.0f}h ago; refreshes on first use)')
     else:
         print(f'OK: Fitbit token (valid for {hours_left:.0f}h)')
 except Exception as e:
