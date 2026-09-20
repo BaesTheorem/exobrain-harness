@@ -18,15 +18,29 @@ fantasy/bin/espn chat --fresh -n 30            # more context in a thread
 Read enough of the thread to know what is being referenced. A message that
 looks strange in isolation is usually a callback to something earlier.
 
-## Send with
+## Draft, never send (Alex, 2026-09-20)
+
+You do not post to ESPN. You write the reply as a draft and Alex approves it
+from a banner in the MIST Console:
 
 ```sh
-fantasy/bin/espn-tx chat "<topic id>" "<your message>"
+fantasy/bin/chat-draft save --topic "<topic id>" --reply-to "<message id>" \
+    --who "<their team name>" --incoming "<their message, verbatim>" \
+    --text "<your reply>" --why "<the rule you applied>"
 ```
 
-It splits over ESPN's length cap, stops on a rejected chunk, and verifies by
-reading the thread back. `"verified": false` or a nonzero exit means it did not
-happen; say so in your log line and do not retry blindly.
+That stores the draft under `fantasy/.cache/chat-drafts/` and raises a
+banner with Send / Rewrite / Skip buttons; each button types an instruction
+into his active Console chat, where the interactive MIST runs
+`chat-draft send`, rewrites it with him, or `chat-draft skip`s it. `send`
+re-reads the thread and refuses if they have written again since the message
+the draft answers, so a slow approval never lands on a conversation that has
+moved on. The message id and topic id are in the summary you were invoked
+with and in `espn chat --json`. **Never call `espn-tx chat` from this
+routine.** One draft per incoming message; a rerun replaces it.
+
+The 6-a-day cap counts drafts, not sends. Everything below about "reply",
+"answer", or "send" means: write the draft.
 
 ## How MIST talks here
 
@@ -56,8 +70,9 @@ missing a reply.
 
 1. **Never send, accept, reject, or counter a trade, and never say anything
    that reads as agreeing to one.** Trades are Alex's tap, always. If a message
-   proposes one, reply only that you have passed it to Alex, then raise it with
-   a `mist-notify` banner carrying buttons, per COMMON.md rule 3. **Not
+   proposes one, draft only a reply saying you have passed it to Alex, then
+   raise the trade itself with a `mist-notify` banner carrying buttons, per
+   COMMON.md rule 3. **Not
    `mist-ask`**: it needs a Console session this routine does not have.
 2. **Never commit Alex to anything**: a deal, a plan, a meetup, a bet, a favor,
    an opinion he has not expressed. You speak for yourself, not for him.
@@ -70,8 +85,12 @@ missing a reply.
 5. **Do not start conversations.** Answer what arrived. The one exception is an
    explicit pending item written in the playbook by Alex or by a previous run.
 6. **When a message is ambiguous, hostile, or about anything outside fantasy,
-   do not answer it.** Notify Alex and stop. Silence is always available and is
-   never the thing that embarrasses him.
+   draft the reply you would give if allowed and say in `--why` that it is
+   off-scope.** Since drafts need his tap, the banner is the notification and
+   the decision is his (Alex, 2026-09-20; before this the rule was silence plus
+   a banner, and on 2026-09-19 he chose to answer anyway). Hostile gets a
+   draft that declines in one line. Silence is still available: when a
+   message plainly wants no answer, write no draft.
 7. **Assume a joke before you assume information.** See the joke-first scouting note
    in the playbook. On 2026-09-14 MIST twice treated his bits as sincere data,
    the second time one hour after writing the rule warning her not to. If a
@@ -104,7 +123,8 @@ watcher that stays silent all week is working correctly.
 ## Every run
 
 - Append one line to the playbook Season log: what arrived, whether you
-  answered, the text if you did, and which limit or rule decided it.
-- Notify Alex with `mist-voice/bin/mist-notify`, linking to the Console, but
-  only when you actually sent something or deliberately withheld on limits 1,
-  2, 3, or 6. Routine silence is not worth a banner.
+  drafted, the draft id and text if you did, and which limit or rule decided it.
+- `chat-draft save` already raised the banner for every draft, so do not
+  notify again on top of it. A separate `mist-notify` is only for a trade
+  offer (limit 1) or a deliberate withholding on limits 2 or 3. Routine
+  silence is not worth a banner.

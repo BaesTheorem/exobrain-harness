@@ -87,6 +87,10 @@ memory or opening the site:
 - `espn nfl` — the slate with kickoffs in Central time, lines, implied totals
 - `espn injuries` — the NFL report scoped to the roster by default
 - `espn scoreboard`, `espn schedule`, `espn settings`, `espn raw`
+- `espn chat [--unanswered]` — league chat and DMs. Replies MIST writes
+  unattended go through `fantasy/bin/chat-draft` (draft, banner, Alex taps
+  Send / Rewrite / Skip); `chat-draft list` shows what is waiting on him.
+  `espn-tx chat` posts directly and is for interactive sessions only.
 
 Every subcommand takes `--json`, so new analysis scripts should consume that
 rather than re-implementing the API. Credentials live in the gitignored
