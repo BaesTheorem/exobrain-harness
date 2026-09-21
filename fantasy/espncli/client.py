@@ -445,6 +445,102 @@ class Espn:
         return []
 
 
+def pending_conflicts(api: Espn, txs: list[dict]) -> list[str]:
+    """What the roster looks like if EVERY pending action succeeds, and what
+    that breaks.
+
+    The pending banner lists transactions one by one, which is enough to stop
+    a duplicate but not enough to see a collision: on 2026-09-20 four separate
+    routes to a quarterback were live at once (two Bryce Young claims, a Geno
+    Smith backstop, and a Drake Maye trade under negotiation) and every one of
+    them read as reasonable on its own row. Nothing was wrong with any single
+    action. The problem only exists in the sum, so the sum is what gets
+    printed.
+
+    Resolving them all at once is deliberately the wrong model of reality:
+    claims are ordered and mostly fail. It is the right model for a WARNING,
+    because the question is not what will happen, it is what could, and a
+    position that is fine in every branch needs no banner.
+    """
+    if not txs:
+        return []
+    me = int(api.creds["team_id"])
+    try:
+        settings = api.league("mSettings")["settings"]["rosterSettings"]
+        slots = {SLOT.get(int(k), ""): v for k, v in settings["lineupSlotCounts"].items() if v}
+        limits = {POS.get(int(k), ""): v for k, v in (settings.get("positionLimits") or {}).items()
+                  if int(k) in POS and v not in (-1, None)}
+        data = api.league("mRoster")
+        entries = api.roster_entries(data, me)
+        pos_of = {p["id"]: p["pos"] for p in api.players_index()}
+    except Exception as e:  # noqa: BLE001 - advisory only, never break the command
+        return [f"  (could not check for collisions: {e})"]
+
+    def entry_pos(e: dict) -> str:
+        player = (e.get("playerPoolEntry") or {}).get("player") or {}
+        raw = player.get("defaultPositionId")
+        return POS.get(int(raw), "?") if raw is not None else "?"
+
+    def position(pid: int | None) -> str:
+        if pid is None:
+            return "?"
+        entry = next((e for e in entries if (e.get("playerPoolEntry") or {}).get("id") == pid), None)
+        return entry_pos(entry) if entry else pos_of.get(int(pid), "?")
+
+    counts: dict[str, int] = {}
+    for e in entries:
+        if e.get("lineupSlotId") != IR:  # an IR body does not occupy a position slot
+            counts[entry_pos(e)] = counts.get(entry_pos(e), 0) + 1
+
+    warnings, adds_by_player, in_trade, dropped = [], {}, set(), set()
+    for t in txs:
+        for i in t.get("items") or []:
+            pid, kind = i.get("playerId"), i.get("type")
+            p = position(pid)
+            if kind == "ADD" or (kind == "TRADE" and i.get("toTeamId") == me):
+                # Count the body, not the row. Two claims for the same player
+                # cannot both execute, so counting him twice would warn about a
+                # roster that no branch can actually produce.
+                if pid not in adds_by_player:
+                    counts[p] = counts.get(p, 0) + 1
+                adds_by_player[pid] = adds_by_player.get(pid, 0) + 1
+            elif kind == "DROP" or (kind == "TRADE" and i.get("fromTeamId") == me):
+                if pid not in dropped:  # same body, not the same row (see above)
+                    counts[p] = counts.get(p, 0) - 1
+                dropped.add(pid)
+                if kind == "TRADE":
+                    in_trade.add(pid)
+
+    try:
+        names = api.names_for(list(adds_by_player) + list(in_trade))
+    except Exception:  # noqa: BLE001
+        names = {}
+
+    for pid, n in adds_by_player.items():
+        if n > 1:
+            warnings.append(f"  !! {names.get(pid, pid)} is added by {n} pending rows")
+    for t in txs:
+        for i in t.get("items") or []:
+            if i.get("type") == "DROP" and i.get("playerId") in in_trade:
+                warnings.append(f"  !! dropping {names.get(i['playerId'], i['playerId'])}, "
+                                "who is in a pending trade; the drop voids the offer")
+    for p, n in sorted(counts.items()):
+        if p in limits and n > limits[p]:
+            warnings.append(f"  !! {p} would be {n}, over the league max of {limits[p]}")
+        startable = slots.get(p, 0)
+        if startable and n - startable >= 2 and p in ("QB", "TE", "K", "D/ST"):
+            warnings.append(f"  !! {p} would be {n} with {startable} startable: "
+                            f"{n - startable} spare at a one-slot position")
+    total = sum(counts.values())
+    cap = sum(v for k, v in slots.items() if k != "IR")
+    if total > cap:
+        warnings.append(f"  !! roster would be {total}, over the {cap} active spots")
+
+    shape = ", ".join(f"{p} {n}" for p, n in sorted(counts.items()) if p != "?")
+    head = f"  if every pending action lands: {shape} ({total}/{cap} active)"
+    return [head, *warnings] if warnings else [head]
+
+
 def pending_banner(api: Espn) -> list[str]:
     """One line per in-flight claim, offer or lineup move, for the banner every
     ESPN command prints to stderr before it runs.
@@ -523,6 +619,7 @@ def pending_banner(api: Espn) -> list[str]:
         at = when_.strftime("%a %-I:%M%p").replace("AM", "a").replace("PM", "p") if when_ else "?"
         lines.append(f"  {kind + order:<9} {t.get('direction', '?'):<3} {describe(t)}"
                      f"   week {t.get('scoringPeriodId')}, processes {at}")
+    lines += pending_conflicts(api, txs)
     lines.append("  Season log in the playbook has the reasoning. `espn-tx pending` for the raw rows.")
     return lines
 
