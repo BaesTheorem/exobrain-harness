@@ -182,6 +182,14 @@ fi
 PLAUD_LOADED=$(launchctl list 2>/dev/null | grep -c "plaud-watcher")
 DIGEST_LOADED=$(launchctl list 2>/dev/null | grep -c "discord-digest")
 
+MOUNTREM_LOADED=$(launchctl list 2>/dev/null | grep -c "mount-reminders")
+if [ "$MOUNTREM_LOADED" -ge 1 ]; then
+  echo "OK: launchd mount-reminders"
+else
+  echo "WARN: launchd mount-reminders not loaded -- nothing will fire when the Plex SSD mounts (see mount-reminders/README.md)"
+  ISSUES=$((ISSUES + 1))
+fi
+
 if [ "$PLAUD_LOADED" -ge 1 ]; then
   echo "OK: launchd plaud-watcher"
 else
