@@ -260,6 +260,23 @@ def console_chat(title: str, seed: str) -> str | None:
     return sid
 
 
+def classify(pending: list[dict], partners: set[str],
+             guard_ok: bool) -> tuple[list[dict], list[dict], list[dict]]:
+    """Split the waiting messages into (trade, direct message, league-wide).
+
+    Only the third list may reach the model. The trade check runs first so a
+    DM from a live trade partner escalates once, under the sharper reason, and
+    a failed partner lookup (guard_ok False) sweeps everything into it, because
+    an empty partner set is indistinguishable from a broken one and the
+    dangerous direction is auto-replying.
+    """
+    hot = [m for m in pending
+           if not guard_ok or (m.get("who") or "").strip() in partners]
+    dms = [m for m in pending if m not in hot and m.get("type") == DM_TYPE]
+    league = [m for m in pending if m not in hot and m not in dms]
+    return hot, dms, league
+
+
 def escalate(messages: list[dict], reason: str) -> bool:
     """Hand the thread to Alex instead of answering it.
 
@@ -443,10 +460,7 @@ def main() -> int:
     # league-wide threads are left for the model. The trade check runs first so
     # a DM from a live trade partner escalates once, with the sharper reason.
     partners, guard_ok = trade_partners()
-    hot = [m for m in pending
-           if not guard_ok or (m.get("who") or "").strip() in partners]
-    dms = [m for m in pending if m not in hot and m.get("type") == DM_TYPE]
-    pending = [m for m in pending if m not in hot and m not in dms]
+    hot, dms, pending = classify(pending, partners, guard_ok)
 
     for group, reason in ((hot, "trade in flight"), (dms, "direct message")):
         if not group:
