@@ -40,6 +40,7 @@ from espncli.client import (
     initials,
     local,
     norm,
+    pending_banner,
     season_actual,
     season_proj,
     team_name,
@@ -1215,6 +1216,8 @@ def build_parser() -> argparse.ArgumentParser:
     common = argparse.ArgumentParser(add_help=False)
     common.add_argument("--json", action="store_true", help="machine-readable output")
     common.add_argument("--fresh", action="store_true", help="bypass the day-old caches")
+    common.add_argument("--no-pending", action="store_true",
+                        help="skip the pending-transactions banner")
     wk = argparse.ArgumentParser(add_help=False)
     wk.add_argument("--week", type=int, help="scoring period (default: the current one)")
     team = argparse.ArgumentParser(add_help=False)
@@ -1286,6 +1289,9 @@ def main(argv: list[str] | None = None) -> int:
     args = build_parser().parse_args(argv)
     try:
         api = Espn(fresh=getattr(args, "fresh", False))
+        if not getattr(args, "no_pending", False):
+            for line in pending_banner(api):
+                print(line, file=sys.stderr)
         COMMANDS[args.cmd](api, args)
     except EspnError as e:
         print(f"espn: {e}", file=sys.stderr)

@@ -180,19 +180,12 @@ class EspnWriter:
         So match on participation: we proposed it, or one of its items moves a
         player to or from us. `direction` is added for the caller's benefit
         ("in" needs Alex's tap, "out" is ours and cancellable).
+
+        The participation logic moved to `Espn.pending_transactions` on
+        2026-09-20 so the read-only tools could print it as a banner without
+        importing this write lane. One implementation, two callers.
         """
-        data = self.api.league("mPendingTransactions")
-        out = []
-        for t in data.get("pendingTransactions", []) or []:
-            items = t.get("items") or []
-            party = any(i.get("fromTeamId") == self.team_id
-                        or i.get("toTeamId") == self.team_id for i in items)
-            if t.get("teamId") != self.team_id and not party:
-                continue
-            t = dict(t)
-            t["direction"] = "out" if t.get("teamId") == self.team_id else "in"
-            out.append(t)
-        return out
+        return self.api.pending_transactions()
 
     def chat_send(self, topic_id: str, text: str, dry_run: bool = False) -> dict[str, Any]:
         """Post to a Fantasy Chat thread, splitting over ESPN's length cap.
