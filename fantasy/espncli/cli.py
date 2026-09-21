@@ -27,7 +27,7 @@ from datetime import datetime
 from typing import Any
 
 from espncli import chat
-from espncli.value import best_fill, best_swaps, load_sd_multipliers, win_prob
+from espncli.value import best_fill, best_swaps, clock_remaining, load_sd_multipliers, win_prob
 from espncli.client import (
     BENCH,
     IR,
@@ -313,15 +313,20 @@ def matchup_view(api: Espn, week: int, data: dict, team_id: int) -> dict | None:
         # difference of the two sums. Opponent problems (OUT, bye, empty) are
         # priced as they stand; `opp_problems` says what an unfixed one is worth.
         mults = load_sd_multipliers()
-        out["win"] = win_prob(me["rows"], opp["rows"], mults)
+        # The gate is a player with points, not a team total: ESPN leaves the
+        # team-level actual empty until the week closes.
+        scored = any(r.get("actual") is not None for r in me["rows"] + opp["rows"])
+        rem = games_remaining(api, week) if scored else {}
+        out["win"] = win_prob(me["rows"], opp["rows"], mults, rem)
+        out["in_progress"] = {k: round(v, 3) for k, v in sorted(rem.items())}
         out["opp_problems"] = lineup_problems(opp["rows"])
         if out["opp_problems"]:
             fixed = [dict(r) for r in opp["rows"]]
             for r in fixed:
                 if any(pr["player"] == r["name"] for pr in out["opp_problems"]) and r.get("actual") is None:
                     r["proj"] = 0.0
-            out["win_if_opp_unfixed"] = win_prob(me["rows"], fixed, mults)["p"]
-        out["swaps"] = best_swaps(me["rows"], opp["rows"], mults)
+            out["win_if_opp_unfixed"] = win_prob(me["rows"], fixed, mults, rem)["p"]
+        out["swaps"] = best_swaps(me["rows"], opp["rows"], mults, remaining=rem)
     return out
 
 
@@ -463,11 +468,12 @@ def cmd_check(api: Espn, args: argparse.Namespace) -> None:
     mv = matchup_view(api, week, data, t["id"])
     opp_rows = (mv.get("opp") or {}).get("rows") if mv else None
     mults = load_sd_multipliers()
+    rem = (mv or {}).get("in_progress") or {}
 
     def best_bench_for(slot_id: int, exclude: int | None) -> dict | None:
         """By win probability against this week's opponent when there is one
         (favorite wants the floor, underdog the ceiling), by projection otherwise."""
-        return best_fill(rows, opp_rows, slot_id, exclude, mults)
+        return best_fill(rows, opp_rows, slot_id, exclude, mults, rem)
 
     def fix_text(b: dict) -> str:
         extra = f", win {b['p_after']:.0%}" if b.get("p_after") is not None else ""
@@ -992,12 +998,38 @@ def nfl_events(api: Espn, week: int) -> list[dict]:
         st = (e.get("status") or {}).get("type") or {}
         out.append({"id": e.get("id"), "name": e.get("shortName"), "kickoff": local_iso(e.get("date")),
                     "home": home, "away": away, "state": st.get("state"), "status": st.get("shortDetail"),
+                    "period": (e.get("status") or {}).get("period"),
+                    "clock": (e.get("status") or {}).get("displayClock"),
                     "ou": ou, "spread": spread, "line": odds.get("details"),
                     "implied_home": implied_home, "implied_away": implied_away,
                     "indoor": venue.get("indoor"), "venue": venue.get("fullName"),
                     "weather": w.get("displayValue"), "temp": w.get("temperature"),
                     "tv": (comp.get("broadcast") or ""), })
     out.sort(key=lambda g: g["kickoff"] or datetime.max.replace(tzinfo=TZ))
+    return out
+
+
+def games_remaining(api: Espn, week: int) -> dict[str, float]:
+    """Pro team -> share of its game still to play, for teams playing right now.
+
+    Empty when nothing is in progress, which is every call outside a game
+    window, so the banked-actual path stays the normal one."""
+    out = {}
+    try:
+        games = nfl_events(api, week)
+    except Exception:
+        # The public scoreboard is a separate host from the league API. If it
+        # is down, every game reads as not-in-progress, which is the old
+        # banked behaviour rather than a crash. `in_progress` in the JSON is
+        # what tells a reader which of the two happened.
+        return out
+    for g in games:
+        left = clock_remaining(g["state"], g.get("period"), g.get("clock"))
+        if left <= 0:
+            continue
+        for side in (g["home"], g["away"]):
+            if side and side.get("abbrev"):
+                out[side["abbrev"]] = left
     return out
 
 

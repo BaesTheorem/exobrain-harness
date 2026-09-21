@@ -16,7 +16,7 @@ import pytest
 REPO = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(REPO / "fantasy"))
 
-from espncli import cli, client  # noqa: E402
+from espncli import cli, client, value  # noqa: E402
 
 FUTURE = 4_102_444_800_000  # 2100-01-01 in ms: a kickoff that has not happened
 PAST = 946_684_800_000      # 2000-01-01: a kickoff that has
@@ -87,12 +87,18 @@ class FakeEspn(client.Espn):
         self._pro = pro or pro_fixture()
         self._index = []
         self.data = data or league_fixture()
+        self.events = []
 
     def _get(self, url, headers=None, timeout=60, retries=1):
         raise AssertionError(f"tests must not touch the network: {url}")
 
     def league(self, *views, period=None, filt=None, path=""):
         return self.data
+
+    def public(self, path, **params):
+        """The NFL scoreboard. Empty by default: no game is in progress, so
+        a player with an actual is done and his points are banked."""
+        return {"events": self.events}
 
 
 def run_json(api, cmd, **kw):
@@ -213,6 +219,50 @@ def test_matchup_margin_goes_live_once_a_starter_has_banked_points(capsys):
     assert out["margin_source"] == "live"
     assert out["live_margin"] == out["margin"] == pytest.approx(-3.4)
     assert out["rule"].startswith("underdog")
+
+
+def scoreboard_event(home, away, state, period=None, clock=None):
+    """One NFL scoreboard event, the shape `nfl_events` parses."""
+    return {"id": "9", "shortName": f"{away} @ {home}", "date": "2026-09-20T23:20Z",
+            "status": {"period": period, "displayClock": clock, "type": {"state": state, "shortDetail": "x"}},
+            "competitions": [{"competitors": [
+                {"homeAway": "home", "team": {"abbreviation": home, "id": "12"}, "score": "10", "records": []},
+                {"homeAway": "away", "team": {"abbreviation": away, "id": "7"}, "score": "7", "records": []}],
+                "odds": [], "venue": {"fullName": "v", "indoor": False}, "broadcast": "NBC"}]}
+
+
+def test_clock_remaining_reads_a_game_in_progress():
+    assert value.clock_remaining("pre", None, None) == 0.0          # not kicked off
+    assert value.clock_remaining("post", 4, "0:00") == 0.0          # final
+    assert value.clock_remaining("in", 1, "15:00") == 1.0           # opening kickoff
+    assert value.clock_remaining("in", 3, "7:30") == pytest.approx(0.375)
+    assert value.clock_remaining("in", 5, "10:00") == value.OT_SHARE
+
+
+def test_a_starter_mid_game_is_not_banked_at_his_first_quarter_points(capsys):
+    # Found live on 2026-09-20: a starter with 2.3 points in the first quarter
+    # was banked at 2.3 with sd 0, reading the matchup at 1% with 55 minutes
+    # of his game still to play.
+    data = league_fixture()
+    # Team 25 kicked off in the past, so ESPN is reporting points for him.
+    data["teams"][0]["roster"]["entries"][0] = entry(1, "Starting QB", 1, 25, 0, 20.0, actual=2.3)
+    api = FakeEspn(data)
+    api.events = [scoreboard_event("SF", "LAR", "in", period=1, clock="11:48")]
+    run_json(api, "matchup")
+    live = json.loads(capsys.readouterr().out)
+    left = (3 * 900 + 11 * 60 + 48) / 3600
+    assert live["in_progress"]["SF"] == pytest.approx(left, abs=1e-3)
+
+    # Positive control: the same roster with that game final banks him at 2.3,
+    # so the difference between the two reads is exactly what the clock buys.
+    api2 = FakeEspn(data)
+    api2.events = [scoreboard_event("SF", "LAR", "post", period=4, clock="0:00")]
+    run_json(api2, "matchup")
+    done = json.loads(capsys.readouterr().out)
+    assert done["in_progress"] == {}
+    assert live["win"]["mu_me"] - done["win"]["mu_me"] == pytest.approx(left * 20.0, abs=0.1)
+    assert live["win"]["sd_me"] > done["win"]["sd_me"]
+    assert live["win"]["p"] > done["win"]["p"]
 
 
 def test_implied_totals_from_home_spread(monkeypatch):

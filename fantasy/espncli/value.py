@@ -119,34 +119,70 @@ def phi(z: float) -> float:
     return 0.5 * (1.0 + math.erf(z / math.sqrt(2.0)))
 
 
-def row_moments(r: dict, mults: dict[str, float]) -> tuple[float, float]:
-    """(mean, sd) for one lineup row: banked actual if locked, else projection."""
-    if r.get("actual") is not None:
-        return float(r["actual"]), 0.0
+GAME_SECONDS = 3600.0     # regulation, for the share of a game still to play
+OT_SHARE = 0.05           # overtime is a floor, not a fifth quarter
+
+
+def clock_remaining(state: str | None, period: int | None, clock: str | None) -> float:
+    """Share of one NFL game still to play, from ESPN's scoreboard status.
+
+    0.0 covers both "has not kicked off" and "final", because neither has
+    points still coming that an actual has not already counted."""
+    if state != "in" or not period:
+        return 0.0
+    if period > 4:
+        return OT_SHARE
+    mins, _, secs = (clock or "0:00").partition(":")
+    try:
+        left = int(mins) * 60 + int(secs)
+    except ValueError:
+        left = 0
+    return max(0.0, min(1.0, ((4 - period) * 900 + left) / GAME_SECONDS))
+
+
+def row_moments(r: dict, mults: dict[str, float],
+                remaining: dict[str, float] | None = None) -> tuple[float, float]:
+    """(mean, sd) for one lineup row: banked actual if the game is over,
+    projection if it has not started, and the two blended while it is on.
+
+    Found 2026-09-20 during SNF: a starter in the first quarter with 2.3
+    points was banked at 2.3 with sd 0, which read the matchup as 1% when
+    55 minutes of his game were still to play. A player mid-game is his
+    banked points plus the share of his projection the clock still has
+    left, with the spread on sqrt of that share (independent increments;
+    a touchdown-lumpy scorer is probably wider than this says)."""
     key = f"{norm(r.get('name') or '')}|{r.get('pos')}"
-    return float(r.get("proj") or 0.0), player_sd(r.get("pos", "?"), r.get("proj"), mults.get(key, 1.0))
+    sd = player_sd(r.get("pos", "?"), r.get("proj"), mults.get(key, 1.0))
+    if r.get("actual") is None:
+        return float(r.get("proj") or 0.0), sd
+    left = (remaining or {}).get(r.get("team") or "", 0.0)
+    if left <= 0:
+        return float(r["actual"]), 0.0
+    return float(r["actual"]) + left * float(r.get("proj") or 0.0), sd * math.sqrt(left)
 
 
 def is_starter(r: dict) -> bool:
     return r.get("slotId") not in (BENCH_SLOT, IR_SLOT)
 
 
-def lineup_moments(rows: list[dict], mults: dict[str, float]) -> tuple[float, float]:
+def lineup_moments(rows: list[dict], mults: dict[str, float],
+                   remaining: dict[str, float] | None = None) -> tuple[float, float]:
     mu, var = 0.0, 0.0
     for r in rows:
         if not is_starter(r):
             continue
-        m, s = row_moments(r, mults)
+        m, s = row_moments(r, mults, remaining)
         mu += m
         var += s * s
     return mu, math.sqrt(var)
 
 
-def win_prob(me: list[dict], opp: list[dict], mults: dict[str, float] | None = None) -> dict:
+def win_prob(me: list[dict], opp: list[dict], mults: dict[str, float] | None = None,
+             remaining: dict[str, float] | None = None) -> dict:
     """P(our starters outscore theirs), with both sides' means and spreads."""
     mults = mults or {}
-    mu_me, sd_me = lineup_moments(me, mults)
-    mu_opp, sd_opp = lineup_moments(opp, mults)
+    mu_me, sd_me = lineup_moments(me, mults, remaining)
+    mu_opp, sd_opp = lineup_moments(opp, mults, remaining)
     sd = math.sqrt(sd_me * sd_me + sd_opp * sd_opp)
     p = 0.5 if sd == 0 and mu_me == mu_opp else (1.0 if sd == 0 and mu_me > mu_opp else 0.0 if sd == 0 else phi((mu_me - mu_opp) / sd))
     return {"p": round(p, 3), "mu_me": round(mu_me, 1), "sd_me": round(sd_me, 1),
@@ -158,14 +194,15 @@ def usable(r: dict) -> bool:
 
 
 def best_swaps(me: list[dict], opp: list[dict], mults: dict[str, float] | None = None,
-               min_gain: float = 0.005, top: int = 5) -> list[dict]:
+               min_gain: float = 0.005, top: int = 5,
+               remaining: dict[str, float] | None = None) -> list[dict]:
     """Every single bench-for-starter swap that raises win probability, best first.
 
     Only unlocked, usable bench players into unlocked starter slots they are
     eligible for. `d_proj` is what the projection-only view would have said,
     so a reader can see when variance, not the mean, made the call."""
     mults = mults or {}
-    base = win_prob(me, opp, mults)["p"]
+    base = win_prob(me, opp, mults, remaining)["p"]
     out = []
     starters = [r for r in me if is_starter(r)]
     bench = [r for r in me if r.get("slotId") == BENCH_SLOT]
@@ -181,7 +218,7 @@ def best_swaps(me: list[dict], opp: list[dict], mults: dict[str, float] | None =
                     r["slotId"] = BENCH_SLOT
                 elif r.get("id") == b.get("id"):
                     r["slotId"] = s["slotId"]
-            p = win_prob(trial, opp, mults)["p"]
+            p = win_prob(trial, opp, mults, remaining)["p"]
             if p - base >= min_gain:
                 out.append({"bench": b["name"], "bench_pos": b.get("pos"), "starter": s["name"],
                             "slot": s.get("slot"), "slotId": s.get("slotId"),
@@ -192,7 +229,8 @@ def best_swaps(me: list[dict], opp: list[dict], mults: dict[str, float] | None =
 
 
 def best_fill(me: list[dict], opp: list[dict] | None, slot_id: int, exclude: int | None,
-              mults: dict[str, float] | None = None) -> dict | None:
+              mults: dict[str, float] | None = None,
+              remaining: dict[str, float] | None = None) -> dict | None:
     """The bench player to put into `slot_id`: by win probability when there is
     an opponent to beat, by projection otherwise (idle week, or no matchup)."""
     mults = mults or {}
@@ -210,7 +248,7 @@ def best_fill(me: list[dict], opp: list[dict] | None, slot_id: int, exclude: int
                 r["slotId"] = BENCH_SLOT
             elif r.get("id") == b.get("id"):
                 r["slotId"] = slot_id
-        scored.append((win_prob(trial, opp, mults)["p"], float(b.get("proj") or 0.0), b))
+        scored.append((win_prob(trial, opp, mults, remaining)["p"], float(b.get("proj") or 0.0), b))
     scored.sort(key=lambda t: (-t[0], -t[1]))
     best = dict(scored[0][2])
     best["p_after"] = round(scored[0][0], 3)
