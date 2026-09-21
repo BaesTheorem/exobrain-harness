@@ -44,6 +44,17 @@ false, oldest first, then rewrite the file with those lines marked
   wire is now first-come: add the best remaining player by the Tuesday rules
   with `fantasy/bin/espn-tx claim "<name>" --fa` (no drop needed for an open
   spot) and log who else was considered.
+  **Then check the depth at one-slot positions (QB, TE, K, D/ST).** Claims are
+  filed in branches on purpose, and a backstop that was supposed to be
+  mutually exclusive can land anyway: sharing a drop player between two claims
+  only makes the second conditional *if* ESPN rejects a claim whose drop is
+  already gone, which is unverified. Two deep at a one-slot position is a dead
+  roster spot on a full roster, so drop the worse one on the playbook's value
+  rule and log both. Never assume the branch resolved the way it was designed
+  to; read the roster back and count.
+  **The playbook's Season log may carry a named branch for the week** (which
+  add closes out a trade negotiation, which reopens it). Apply it if present,
+  and mark it resolved there when you do.
 - **trade_resolved** (an offer we sent left the pending list). Read
   `fantasy/bin/espn raw --views mTransactions2 --json --limit 0`: a row with
   `memberId` `TradeTaskProcessor`, `executionType` `CANCEL`, and
