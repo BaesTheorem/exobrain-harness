@@ -9,6 +9,12 @@
 #   sudo cp fantasy/launchd/com.exobrain.sunday-poweron.plist /Library/LaunchDaemons/
 #   sudo launchctl bootstrap system /Library/LaunchDaemons/com.exobrain.sunday-poweron.plist
 #
+# Installed 2026-09-20 from the Console via osascript "with administrator
+# privileges". That root helper cannot read ~/Documents (TCC: "Operation not
+# permitted" on the cp), so stage the plist in /tmp first and copy from there.
+# The daemon itself runs this script through /bin/bash, which holds Full Disk
+# Access on this Mac, and its first RunAtLoad fire armed 09/27 10:20 fine.
+#
 # It fires Monday 3:15 AM and at boot; either way it (re)arms the coming
 # Sunday. `pmset -g sched` shows the event.
 set -e
