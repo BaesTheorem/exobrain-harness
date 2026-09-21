@@ -34,7 +34,14 @@
         <string>--limits</string>
         <string>/Users/alexhedtke/Documents/Exobrain harness/zulip/limits.json</string>
         <string>--</string>
+        <!-- Fable first: friends and their Claudes are a third-party surface, and
+             CLAUDE.md pins those to Fable (2026-09-21). Opus if Fable is out;
+             whether --fallback-model also covers a spent credit balance is
+             unverified, so if a session dies on credits, that is the thing to
+             check first. -->
         <string>--model</string>
+        <string>claude-fable-5-1</string>
+        <string>--fallback-model</string>
         <string>claude-opus-5</string>
         <string>--max-budget-usd</string>
         <string>2</string>
@@ -49,6 +56,9 @@
         <string>America/Chicago</string>
         <key>ZULIPMCP_LOG_DIR</key>
         <string>/Users/alexhedtke/Library/Logs/exobrain/zulip-sessions</string>
+        <!-- Inherited by every spawned session: the harness guard hook keys on it. -->
+        <key>MIST_UNATTENDED</key>
+        <string>1</string>
     </dict>
     <key>RunAtLoad</key>
     <true/>

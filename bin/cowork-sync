@@ -113,6 +113,39 @@ install_file() {
   mv -f "$tmp" "$dst"
 }
 
+# The iCloud copy is writable by anything holding Alex's iCloud session, and
+# a pull installs it as MIST's rule file within seconds. So an incoming change
+# passes the injection scanner first (added lines only, with the phrases a
+# rule file legitimately quotes excluded), and every applied pull raises a
+# banner so an edit Alex did not make is visible the same minute.
+SCAN="$HARNESS/security/bin/mist-injection-scan"
+incoming_ok() {  # $1 = key, $2 = current harness copy, $3 = incoming iCloud copy
+  local key="$1" cur="$2" inc="$3" hits marker
+  [ -x "$SCAN" ] || return 0
+  if [ -f "$cur" ]; then
+    hits="$(diff -u "$cur" "$inc" 2>/dev/null | "$SCAN" --added-lines --exclude instructions 2>/dev/null)"
+  else
+    hits="$("$SCAN" --exclude instructions "$inc" 2>/dev/null)"
+  fi
+  [ -z "$hits" ] && return 0
+  marker="$STATE_DIR/$key.flagged.$(hash_of "$inc")"
+  log "REFUSED $key: incoming iCloud copy has instruction-shaped lines; not installed"
+  printf '%s\n' "$hits" | sed 's/^/  /'
+  if [ ! -f "$marker" ]; then
+    touch "$marker"
+    [ -x "$NOTIFY" ] && "$NOTIFY" \
+      "iCloud copy of $(basename "$cur") was NOT pulled: the injection scanner flagged $(printf '%s\n' "$hits" | wc -l | tr -d ' ') added line(s). Review it, then cowork-sync --pull to accept." \
+      "MIST guard" Basso "$inc" --group security
+  fi
+  return 1
+}
+
+pulled() {  # $1 = key, $2 = harness path. Banner on every applied pull.
+  [ -x "$NOTIFY" ] && "$NOTIFY" \
+    "$(basename "$2") updated from the iCloud Claude Cowork copy. If that was not you, cowork-sync --push restores the last harness version from backups." \
+    "Cowork sync" none "$2" --group security --id cowork-pull || true
+}
+
 conflict() {
   local key="$1" a="$2" b="$3" stamp copy
   stamp="$(date '+%Y%m%dT%H%M%S')"
@@ -159,8 +192,9 @@ for pair in "${PAIRS[@]}"; do
       ;;
     pull)
       [ -z "$hb" ] && { log "$key: --pull but iCloud copy is missing"; rc=1; continue; }
+      # An explicit --pull is Alex accepting the copy, so no scan here.
       backup "$a" "$key" harness
-      install_file "$b" "$a" && echo "$hb" >"$state_file" && log "$key: forced iCloud -> harness"
+      install_file "$b" "$a" && echo "$hb" >"$state_file" && log "$key: forced iCloud -> harness" && pulled "$key" "$a"
       continue
       ;;
   esac
@@ -174,10 +208,12 @@ for pair in "${PAIRS[@]}"; do
     # First run, or the iCloud side is still the old symlink / was deleted.
     install_file "$a" "$b" && echo "$ha" >"$state_file" && log "$key: seeded iCloud copy"
   elif [ -z "$ha" ]; then
-    install_file "$b" "$a" && echo "$hb" >"$state_file" && log "$key: restored harness copy from iCloud"
+    incoming_ok "$key" "$a" "$b" || { rc=1; continue; }
+    install_file "$b" "$a" && echo "$hb" >"$state_file" && log "$key: restored harness copy from iCloud" && pulled "$key" "$a"
   elif [ "$ha" = "$hs" ]; then
+    incoming_ok "$key" "$a" "$b" || { rc=1; continue; }
     backup "$a" "$key" harness
-    install_file "$b" "$a" && echo "$hb" >"$state_file" && log "$key: iCloud -> harness"
+    install_file "$b" "$a" && echo "$hb" >"$state_file" && log "$key: iCloud -> harness" && pulled "$key" "$a"
   elif [ "$hb" = "$hs" ]; then
     backup "$b" "$key" icloud
     install_file "$a" "$b" && echo "$ha" >"$state_file" && log "$key: harness -> iCloud"

@@ -22,6 +22,10 @@
 SCRIPT_DIR="$(cd "$(dirname "$0")/.." && pwd)"
 source "$SCRIPT_DIR/config.sh"
 
+# Unattended: the guard hook (.claude/hooks/guard-unattended.py) applies. Job
+# descriptions and alert emails are third-party text read with full tools.
+export MIST_UNATTENDED=1
+
 LOG_DIR="$EXOBRAIN_LOG_DIR"
 TIMESTAMP=$(date +%Y%m%d_%H%M%S)
 NOTIFY="$HARNESS_DIR/mist-voice/bin/mist-notify"

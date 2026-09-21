@@ -10,7 +10,11 @@
 #
 # Positional args (all optional after the message):
 #   1 message   2 title (MIST)   3 sound (Purr; "none" = silent)   4 link
-# The link is what a banner click opens:
+# The link is what a banner click opens. It is validated: web URLs, Obsidian and
+# Things links that only navigate, the Console, folders, app bundles and plain
+# files pass; file:// and other schemes, executables, scripts and Obsidian URIs
+# that run a command are replaced by "console" and noted in the history line.
+# Never build a "cmd:" action target from third-party text.
 #   - "console"        -> raise the MIST Console (its current chat). Use for briefings/triage.
 #   - "console:<sid>"  -> raise the Console AND switch to that chat (the chat that produced this).
 #   - a URL/scheme  (https://, http://localhost:5014, obsidian://, things:///...)  -> opened directly
@@ -34,6 +38,7 @@
 #   --group <id>             notification-center stacking group (threadIdentifier)
 #   --id <id>                stable identifier: reposting replaces the banner in place
 #   --urgency passive|active|timeSensitive
+#   --dry-run                print the composed spec JSON and exit without delivering
 #   --voice                  ALSO speak the message aloud. Off by default:
 #                            watchers fire unattended and a banner should not
 #                            make noise in a room Alex may not be in.
@@ -52,11 +57,12 @@ shift
 
 TITLE="MIST"; SOUND="Purr"; LINK=""
 SUBTITLE=""; IMAGE=""; GROUP=""; NID=""; URGENCY=""
-REPLY=0; REPLY_SID=""; VOICE=0
+REPLY=0; REPLY_SID=""; VOICE=0; DRY=0
 ACTIONS=()
 POSN=0
 while [ $# -gt 0 ]; do
   case "$1" in
+    --dry-run)  DRY=1; shift;;
     --subtitle) SUBTITLE="${2:-}"; shift 2;;
     --image)    IMAGE="${2:-}"; shift 2;;
     --group)    GROUP="${2:-}"; shift 2;;
@@ -101,10 +107,54 @@ SPEC="$(MSG="$MSG" TITLE="$TITLE" SOUND="$SOUND" LINK="$LINK" SUBTITLE="$SUBTITL
         IMAGE="$IMAGE" GROUP="$GROUP" NID="$NID" URGENCY="$URGENCY" REPLY="$REPLY" \
         REPLY_SID="$REPLY_SID" ACTIONS="$(IFS=$'\x1f'; echo "${ACTIONS[*]:-}")" \
         python3 - <<'PY'
-import json, os
+import json, os, re, sys
 e = os.environ.get
+
+# A click target is executed by `open`, so a target that came from third-party
+# text (a forum post's URL, a mail's link, a message) must not be able to run
+# anything. Allowed: the Console, web URLs, Obsidian and Things links that only
+# navigate, folders and app bundles, and plain non-executable files. Rejected
+# targets fall back to the Console and are recorded in the history line, so
+# the banner still lands and the rejection is visible.
+BAD_EXT = {".command", ".sh", ".bash", ".zsh", ".py", ".rb", ".pl", ".scpt", ".applescript",
+           ".terminal", ".workflow", ".action", ".jar", ".pkg", ".dmg", ".app", ".js", ".mjs"}
+def link_ok(link):
+    if link in ("", "console", "console!") or re.fullmatch(r"console:[A-Za-z0-9_.-]+", link):
+        return True, ""
+    low = link.lower()
+    if low.startswith(("https://", "http://")):
+        return True, ""
+    if low.startswith("obsidian://"):
+        if "commandid=" in low or "eval=" in low or "clipboard=" in low:
+            return False, "obsidian URI that runs a command"
+        return True, ""
+    if low.startswith("things:///"):
+        if low.startswith(("things:///show", "things:///search")):
+            return True, ""
+        return False, "things URI that writes"
+    if "://" in link or ":" in link.split("/")[0]:
+        return False, "scheme not allowed"
+    p = os.path.expanduser(link)
+    if os.path.isdir(p):
+        return True, ""            # folders and .app bundles (open launches the app)
+    if os.path.isfile(p):
+        ext = os.path.splitext(p)[1].lower()
+        if ext in BAD_EXT or os.access(p, os.X_OK):
+            return False, "executable file"
+        return True, ""
+    if "/" not in link and any(os.path.isdir(os.path.expanduser(d) + "/" + link + ".app")
+                               for d in ("/Applications", "~/Applications", "/System/Applications")):
+        return True, ""            # bare app name
+    return False, "not an existing file, folder, app or allowed URL"
+
+rejected = []
+link = e("LINK") or ""
+ok, why = link_ok(link)
+if not ok:
+    rejected.append({"link": link, "why": why})
+    link = "console"
 spec = {"title": e("TITLE"), "body": e("MSG"), "sound": e("SOUND") or "default",
-        "link": e("LINK") or ""}
+        "link": link}
 for k, env in (("subtitle", "SUBTITLE"), ("image", "IMAGE"), ("group", "GROUP"),
                ("id", "NID"), ("urgency", "URGENCY")):
     if e(env):
@@ -115,12 +165,30 @@ acts = []
 for a in (e("ACTIONS") or "").split("\x1f"):
     if a and "=" in a:
         label, target = a.split("=", 1)
+        # "cmd:<shell>" is a caller-authored command and stays; it must never be
+        # built from third-party text (see security/README.md). Everything else
+        # is a link and gets the same check as the click target.
+        if not target.startswith("cmd:"):
+            ok, why = link_ok(target)
+            if not ok:
+                rejected.append({"action": label, "target": target, "why": why})
+                continue
         acts.append({"label": label, "target": target})
 if acts:
     spec["actions"] = acts[:3]
+if rejected:
+    spec["rejected"] = rejected
+    for r in rejected:
+        print(f"mist-notify: rejected click target {r.get('link') or r.get('target')!r}: {r['why']}",
+              file=sys.stderr)
 print(json.dumps(spec))
 PY
 )"
+
+if [ "$DRY" = "1" ]; then
+  printf '%s\n' "$SPEC"
+  exit 0
+fi
 
 log_history() {  # $1 = delivery route
   ( mkdir -p "$(dirname "$HISTORY")"

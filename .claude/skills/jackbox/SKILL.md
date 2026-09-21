@@ -78,7 +78,7 @@ Opus designs a bold single-subject graphic as normalized stroke paths (0..1, ins
 - **`page.screenshot()` hangs on jackbox.tv** ("waiting for fonts"). Use `shot.js` / `lib/browser.screenshot` (raw `Page.captureScreenshot`).
 - **PLAY stays disabled until jackbox.tv validates the code** with its API; a bad code shows "Room not found". `join.js` waits for either, so its exit code is trustworthy.
 - **Cookie banner** appears a beat after load on a fresh profile and covers PLAY. `join.js` polls the body text and clicks Reject/Accept All until it's gone.
-- **`claude -p --bare` cannot log in** (it reads only `ANTHROPIC_API_KEY`), and an isolated `CLAUDE_CONFIG_DIR` loses the keychain login too. So the CLI provider runs with the global CLAUDE.md attached (~9k cached input tokens) and strips the kaomoji line MIST's instructions add to every reply.
+- **`claude -p --bare` cannot log in** (it reads only `ANTHROPIC_API_KEY`), and an isolated `CLAUDE_CONFIG_DIR` loses the keychain login too. `--setting-sources ""` is the flag that works: keychain login intact, and no global CLAUDE.md, hooks or memory in the process (verified 2026-09-21), which also drops ~9k cached input tokens per call and keeps other players' answers away from anything of Alex's.
 - **`claude -p` waits 3s for stdin** unless stdin is closed; the provider spawns with `stdio: ['ignore', ...]`.
 - **Vote element text is the truth for text games.** Tee K.O. vote buttons are `awshirt-vote-button` and usually carry the slogan; only image-only shirts need the screenshot path.
 - **Verify detection against the live DOM** with `bin/jackbox peek` before assuming a phase will be caught; ids are game-specific and Jackbox ships new packs.

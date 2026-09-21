@@ -1,0 +1,7 @@
+#!/bin/bash
+# mist-injection-scan: tripwire for instruction-shaped text in files that get
+# loaded as context. Exit 1 on a hit.
+#   mist-injection-scan PATH...     mist-injection-scan --stdin
+#   git diff | mist-injection-scan --added-lines
+# Thin exec wrapper; logic lives in security/scan_injection.py.
+exec /usr/bin/env python3 "$(cd "$(dirname "$0")/.." && pwd)/scan_injection.py" "$@"

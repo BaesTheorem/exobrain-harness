@@ -27,6 +27,13 @@ admin_ids = [000000000000000000]  # your Discord user ID(s) -- full command acce
 # effort = "default"         # default thinking depth: low|medium|high|xhigh|max,
 #                            # or "default" to let the CLI pick. Switch live with
 #                            # !effort (aliases !think, !thinking) or /effort.
+# guest_model = "claude-fable-5-1"  # model for NON-owner replies (the sandbox).
+#                            # Independent of `model`: guests are where an
+#                            # injection arrives, and those run on Fable. Falls
+#                            # back to `model` only when Fable is out of credits.
+# guard = true               # export MIST_UNATTENDED=1 to every CLI this starts,
+#                            # so the harness guard hook refuses rule-file writes
+#                            # and persistence shells. Off only to debug the bot.
 # history = 12               # how many recent channel messages to use as context
 # timeout = 600              # seconds to wait for a reply (private chats can do
 #                            # real agentic work, so leave this generous)

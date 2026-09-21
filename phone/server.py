@@ -37,7 +37,10 @@ from claude_agent_sdk import (
 load_dotenv()
 
 HARNESS_DIR = Path(__file__).resolve().parent.parent
-AGENT_MODEL = os.environ.get("AGENT_MODEL", "claude-sonnet-4-6")
+# A phone line is a third-party surface (caller ID is spoofable), so it runs
+# on Fable like every other one; set AGENT_MODEL to trade capability for
+# latency knowingly, never by default.
+AGENT_MODEL = os.environ.get("AGENT_MODEL", "claude-fable-5-1")
 VOICE_PIN = os.environ.get("VOICE_PIN", "")
 PUBLIC_WS_URL = os.environ.get("PUBLIC_WS_URL", "")
 TTS_PROVIDER = os.environ.get("TTS_PROVIDER", "Amazon")
@@ -94,21 +97,52 @@ PHONE_APPEND = (
 
 app = FastAPI()
 
-# --- mutating-tool classification (denylist; reads pass, writes get gated) -----
-MUTATING_BUILTINS = {"Write", "Edit", "NotebookEdit", "Bash"}
-MUTATING_VERBS = (
-    "add", "create", "update", "delete", "remove", "send", "draft", "book",
-    "respond", "label", "unlabel", "move", "complete", "refill", "connect_with",
-    "post", "request", "cancel", "schedule", "set_", "write", "trash", "archive",
-    "star",
+# --- tool classification: an ALLOWLIST of reads; everything else needs the PIN ----
+# This used to be a denylist of mutating verbs, which missed forward, share_file,
+# copy_file, mark_*_spam, submit_311_report, execute_blender_code, upload_file,
+# edit_message and logout, plus every built-in that is not a file write (Agent,
+# Workflow, RemoteTrigger). A gate that has to name every dangerous verb loses
+# to the next MCP server; one that names the safe ones does not.
+READ_ONLY_BUILTINS = {
+    "Read", "Glob", "Grep", "ToolSearch", "WebFetch", "WebSearch", "Skill", "TodoWrite",
+    "ListMcpResourcesTool", "ReadMcpResourceTool", "ReadMcpResourceDirTool",
+}
+READ_VERBS = (
+    "get", "list", "search", "show", "read", "fetch", "resolve", "verify", "describe",
+    "query", "count", "stats", "nearby", "peek", "status", "find", "lookup", "whoami",
+    "info", "check", "view", "suggest_time", "typing", "stop_typing", "listen",
 )
+_VENDOR_PREFIXES = ("withings_", "kc_", "gmail_", "gcal_", "google_", "fitbit_")
+
+
+_MUTATING_HEADS = {
+    "add", "create", "update", "delete", "remove", "send", "set", "write", "post", "submit",
+    "upload", "edit", "move", "trash", "mark", "apply", "share", "copy", "forward", "execute",
+    "cancel", "end", "logout", "login", "reply", "respond", "book", "connect", "refill", "draft",
+    "label", "unlabel", "complete", "archive", "star", "prepare", "report", "import", "export",
+}
+_READ_TAILS = {"stats", "info", "status", "count"}
+
+
+def is_read_only(tool_name: str) -> bool:
+    if tool_name in READ_ONLY_BUILTINS:
+        return True
+    if "__" not in tool_name:
+        return False  # any other built-in (Bash, Write, Edit, Agent, ...) acts or escapes
+    base = tool_name.split("__")[-1].lower()
+    for prefix in _VENDOR_PREFIXES:
+        if base.startswith(prefix):
+            base = base[len(prefix):]
+    tokens = base.split("_")
+    if tokens[0] in _MUTATING_HEADS:
+        return False
+    if base in READ_VERBS or tokens[0] in READ_VERBS:
+        return True
+    return tokens[-1] in _READ_TAILS  # kc_311_stats, report_issue_info
 
 
 def is_mutating(tool_name: str) -> bool:
-    if tool_name in MUTATING_BUILTINS:
-        return True
-    base = tool_name.split("__")[-1].lower()
-    return any(v in base for v in MUTATING_VERBS)
+    return not is_read_only(tool_name)
 
 
 def _deny(reason: str) -> dict:
@@ -152,6 +186,11 @@ async def start_agent(session: dict) -> ClaudeSDKClient:
         include_partial_messages=True,  # stream text deltas so TTS starts immediately
         max_turns=30,
         add_dirs=ADD_DIRS,
+        # Unattended from the harness's point of view: the project guard hook
+        # (.claude/hooks/guard-unattended.py, loaded via setting_sources) also
+        # refuses instruction-file writes and persistence shells for this
+        # session, on top of the PIN gate below.
+        env={"MIST_UNATTENDED": "1"},
         hooks={"PreToolUse": [HookMatcher(matcher=None, hooks=[make_gate(session)])]},
     )
     client = ClaudeSDKClient(options=opts)
