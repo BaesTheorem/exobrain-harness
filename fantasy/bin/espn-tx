@@ -19,7 +19,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
-from espncli.client import IR, SLOT_BY_NAME, Espn  # noqa: E402
+from espncli.client import IR, SLOT_BY_NAME, Espn, pending_banner  # noqa: E402
 from espncli.tx import EspnWriter  # noqa: E402
 
 
@@ -44,6 +44,10 @@ def main() -> int:
     args = ap.parse_args()
 
     api = Espn()
+    # Alex's standing rule (2026-09-20): show what is already in flight before
+    # touching ESPN. Loudest here, where the next line can file a duplicate.
+    for line in pending_banner(api):
+        print(line, file=sys.stderr)
     w = EspnWriter(api)
     if args.cmd == "pending":
         for t in w.pending():

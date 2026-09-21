@@ -374,6 +374,34 @@ class Espn:
             raise EspnError(f"SWID owns multiple teams {owned}; set team_id in the credential file.")
         return None
 
+    def pending_transactions(self) -> list[dict]:
+        """Everything in flight that involves our team, sent OR received.
+
+        The obvious filter, `teamId == team_id`, is wrong and was wrong from
+        the start (found 2026-09-14). `teamId` on a pending row is the team
+        that *proposed* it, so an incoming trade offer carries the other
+        manager's id and this returned nothing while a live offer for Kenneth
+        Walker III sat in the queue. That is the dangerous shape of bug: an
+        empty list reads as "nothing in flight" rather than "I only looked at
+        half the league".
+
+        Lives here in the read layer, not in tx.py, so the read-only tools can
+        print the pending banner without importing the write lane. Reading
+        what is in flight is a read; `Tx.pending()` delegates to this.
+        """
+        team_id = int(self.creds["team_id"])
+        out = []
+        for t in self.league("mPendingTransactions").get("pendingTransactions", []) or []:
+            items = t.get("items") or []
+            party = any(i.get("fromTeamId") == team_id or i.get("toTeamId") == team_id
+                        for i in items)
+            if t.get("teamId") != team_id and not party:
+                continue
+            t = dict(t)
+            t["direction"] = "out" if t.get("teamId") == team_id else "in"
+            out.append(t)
+        return out
+
     def resolve_team(self, data: dict, who: str | None) -> dict:
         """A team by id, abbrev, or name fragment; default is Alex's."""
         teams = data.get("teams", [])
@@ -415,6 +443,88 @@ class Espn:
             if t["id"] == team_id:
                 return (t.get("roster") or {}).get("entries", [])
         return []
+
+
+def pending_banner(api: Espn) -> list[str]:
+    """One line per in-flight claim, offer or lineup move, for the banner every
+    ESPN command prints to stderr before it runs.
+
+    Alex's standing rule (2026-09-20): any time you touch ESPN, check what is
+    already pending. It is a banner rather than a line in the skill file
+    because the rule was already written down and got skipped three times in
+    one evening, twice by re-deriving and re-filing a Bryce Young claim that
+    was sitting in the queue. A precondition that has to be remembered is a
+    precondition that gets missed, so the tools state it unasked.
+
+    stderr on purpose: `--json` consumers keep a clean stdout.
+
+    Never raises. A banner that can break `espn matchup` is worse than no
+    banner, so a fetch failure renders as an explicit unknown rather than as
+    silence, because silence here is indistinguishable from "nothing pending"
+    and that is the exact confusion the banner exists to prevent.
+    """
+    try:
+        txs = api.pending_transactions()
+    except Exception as e:  # noqa: BLE001 - a banner must never break the command
+        return [f"PENDING: unreadable ({e}). Check `espn-tx pending` before acting."]
+    if not txs:
+        return []
+
+    me = int(api.creds["team_id"])
+    ids = [i.get("playerId") for t in txs for i in (t.get("items") or [])]
+    try:
+        names = api.names_for([i for i in ids if i])
+    except Exception:  # noqa: BLE001 - fall back to raw ids, still useful
+        names = {}
+    teams: dict[int, str] = {}
+    if any((t.get("type") or "").startswith("TRADE") for t in txs):
+        try:
+            teams = {t["id"]: team_name(t) for t in api.league("mTeam").get("teams", [])}
+        except Exception:  # noqa: BLE001
+            teams = {}
+
+    def nm(item: dict) -> str:
+        pid = item.get("playerId")
+        if pid is None:
+            return "player ?"
+        return names.get(int(pid)) or f"player {pid}"
+
+    def describe(t: dict) -> str:
+        items = t.get("items") or []
+        if (t.get("type") or "").startswith("TRADE"):
+            give = [nm(i) for i in items if i.get("fromTeamId") == me]
+            get = [nm(i) for i in items if i.get("toTeamId") == me]
+            others = sorted({int(i[k]) for i in items for k in ("fromTeamId", "toTeamId")
+                             if i.get(k) not in (me, 0, None)})
+            who = ", ".join(teams.get(o, f"team {o}") for o in others)
+            bits = []
+            if give:
+                bits.append("give " + ", ".join(give))
+            if get:
+                bits.append("get " + ", ".join(get))
+            return f"{' / '.join(bits)}  with {who or '?'}"
+        adds = [nm(i) for i in items if i.get("type") == "ADD"]
+        drops = [nm(i) for i in items if i.get("type") == "DROP"]
+        moves = [nm(i) for i in items if i.get("type") == "LINEUP"]
+        bits = []
+        if adds:
+            bits.append("ADD " + ", ".join(adds))
+        if drops:
+            bits.append("DROP " + ", ".join(drops))
+        if moves:
+            bits.append("MOVE " + ", ".join(moves))
+        return " / ".join(bits) or "(no items)"
+
+    lines = [f"PENDING ({len(txs)}) -- already in flight, do not re-file:"]
+    for t in sorted(txs, key=lambda t: (t.get("subOrder") is None, t.get("subOrder") or 0)):
+        kind = (t.get("type") or "?").replace("_PROPOSAL", "")
+        order = f" #{t['subOrder']}" if t.get("subOrder") is not None else ""
+        when_ = local(t.get("processDate"))
+        at = when_.strftime("%a %-I:%M%p").replace("AM", "a").replace("PM", "p") if when_ else "?"
+        lines.append(f"  {kind + order:<9} {t.get('direction', '?'):<3} {describe(t)}"
+                     f"   week {t.get('scoringPeriodId')}, processes {at}")
+    lines.append("  Season log in the playbook has the reasoning. `espn-tx pending` for the raw rows.")
+    return lines
 
 
 def warn(msg: str) -> None:

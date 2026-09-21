@@ -29,7 +29,12 @@ autonomously; you decide, act, and record. Work from the harness directory
    rule. Never layer the old text under the new and never delete it: the
    corrections are data for the next run. Leaguemate reads go in *League
    observations*, current read on top.
-2. **Reads:** `fantasy/bin/espn ...` and `fantasy/bin/ff ...` (both read-only,
+2. **Every ESPN tool prints a PENDING banner to stderr before it runs**
+   (from 2026-09-20). Read it first and treat what it lists as current
+   state: a claim, offer or move already in flight is not something to
+   re-file, re-derive, or re-escalate to Alex. The Season log holds the
+   reasoning behind each row. Never pass `--no-pending` in a routine.
+   **Reads:** `fantasy/bin/espn ...` and `fantasy/bin/ff ...` (both read-only,
    every `espn` subcommand takes `--json`), plus the scans added 2026-09-20,
    all read-only and all `--json`: `fantasy/bin/volume` (targets, target
    share, WOPR, snap share, BUY/SELL/ROLE flags from nflverse; `roster`,
