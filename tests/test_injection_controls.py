@@ -152,8 +152,10 @@ def _run_guard(tool_name, tool_input, unattended=True, session="test-session"):
         env["MIST_UNATTENDED"] = "1"
     else:
         env.pop("MIST_UNATTENDED", None)
-    # Keep the test from writing the real log or raising a banner.
+    # Keep the test from writing the real log or raising a banner. A fake HOME
+    # only redirects the log; the banner needs its own switch.
     env["HOME"] = os.environ.get("PYTEST_GUARD_HOME", "/tmp/guard-test-home")
+    env["MIST_GUARD_NOTIFY"] = "off"
     Path(env["HOME"]).mkdir(parents=True, exist_ok=True)
     payload = json.dumps({"session_id": session, "tool_name": tool_name, "tool_input": tool_input})
     r = subprocess.run([sys.executable, str(REPO / ".claude" / "hooks" / "guard-unattended.py")],
@@ -302,7 +304,7 @@ def test_guard_denies_persistence_and_exfiltration_shells():
 
 
 def test_guard_fails_open_on_garbage_and_honours_the_off_switch():
-    env = dict(os.environ, MIST_UNATTENDED="1", HOME="/tmp/guard-test-home")
+    env = dict(os.environ, MIST_UNATTENDED="1", HOME="/tmp/guard-test-home", MIST_GUARD_NOTIFY="off")
     r = subprocess.run([sys.executable, str(REPO / ".claude" / "hooks" / "guard-unattended.py")],
                        input="not json", capture_output=True, text=True, env=env)
     assert r.returncode == 0 and r.stdout.strip() == ""

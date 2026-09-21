@@ -20,7 +20,10 @@ reach past the task:
 
 Attended sessions (the Console, a terminal) are untouched: the variable is
 absent, the hook exits immediately, and Alex keeps bypassPermissions as he
-chose. MIST_GUARD=off disables it for debugging a runner.
+chose. MIST_GUARD=off disables it for debugging a runner. MIST_GUARD_NOTIFY=off
+keeps the denial and the log line but skips the banner; the test suite sets
+it, because a fake HOME redirects the log but mist-notify still reaches the
+real screen.
 
 The point is that the model's judgment is not the last line. A routine can
 be convinced of anything by a good enough message; this hook cannot.
@@ -411,7 +414,8 @@ def main() -> int:
     session_id = str(payload.get("session_id") or "")
     _log(f"DENY session={session_id or '-'} tool={tool_name} :: {reason} :: "
          f"{json.dumps(tool_input)[:400]}")
-    _notify_once(session_id, reason)
+    if os.environ.get("MIST_GUARD_NOTIFY", "").lower() not in ("off", "0", "false"):
+        _notify_once(session_id, reason)
     print(json.dumps({
         "hookSpecificOutput": {
             "hookEventName": "PreToolUse",
