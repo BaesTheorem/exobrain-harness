@@ -15,7 +15,8 @@ reach past the task:
     user-level .claude.json);
   - shell commands with a persistence or exfiltration shape: pipe-to-shell,
     launchctl, crontab, Keychain access, sudo, defaults write, force pushes,
-    remote changes, and any write-shaped command that names a protected path.
+    remote changes, and any write verb or redirect whose target is a protected
+    path (a protected path merely mentioned elsewhere in the command is not).
 
 Attended sessions (the Console, a terminal) are untouched: the variable is
 absent, the hook exits immediately, and Alex keeps bypassPermissions as he
@@ -46,6 +47,7 @@ import datetime
 import json
 import os
 import re
+import shlex
 import subprocess
 import sys
 from pathlib import Path
@@ -109,7 +111,9 @@ PROTECTED_READ: list[tuple[str, str]] = [
 # Shell commands with a persistence, escalation or exfiltration shape.
 BASH_DENY: list[tuple[str, str]] = [
     (re.escape(CANARY), "guard canary"),
-    (r"\b(curl|wget)\b[^|\n]{0,200}\|\s*(sudo\s+)?(sh|bash|zsh|python3?|perl|ruby|node)\b", "pipe from the network into an interpreter"),
+    # `curl | python3 -c '<parse>'` is an API read with the script inline in the
+    # command; only a bare interpreter (or `python3 -`) executes the download.
+    (r"\b(curl|wget)\b[^|\n]{0,200}\|\s*(sudo\s+)?(sh|bash|zsh|python3?|perl|ruby|node)\b(?!\s+-[cme]\b)", "pipe from the network into an interpreter"),
     (r"\bbase64\s+(-d|--decode)\b[^|\n]{0,80}\|\s*(sh|bash|zsh|python3?)\b", "decode into an interpreter"),
     (r"\beval\s+[\"']?\$\(", "eval of a command substitution"),
     (r"\bsudo\b", "privilege escalation"),
@@ -138,12 +142,30 @@ BASH_DENY: list[tuple[str, str]] = [
     (r"\bclaude\b[^\n]*\s(-p|--print)(\s|$)", "spawning a second headless session escapes this guard's scope"),
 ]
 
-# A write-shaped shell command that names a protected path.
-WRITE_SHAPE = re.compile(
-    r"(>{1,2}|\btee\b|\bsed\s+-i|\bcp\b|\bmv\b|\brm\b|\bln\b|\bchmod\b|\bchown\b|\btouch\b|"
-    r"\btruncate\b|\binstall\b|\bpatch\b|\bdd\b|\bcat\s*>|<<\s*['\"]?\w+['\"]?\s*>|\bpython3?\b[^\n]*<<|"
-    r"\brsync\b|\bunzip\b|\btar\s+-?x)",
+# Verbs whose operands are written, moved, deleted or made executable. The
+# write test pairs each verb with the operands it actually takes (and each
+# redirect with its target) instead of asking "is there a write verb anywhere
+# and a protected path anywhere", which read `python3 weather/get-weather.py
+# 2>&1` as an overwrite of get-weather.py and blocked most routines.
+WRITE_VERBS = {"tee", "cp", "mv", "rm", "ln", "chmod", "chown", "touch", "truncate",
+               "install", "patch", "dd", "rsync", "unzip", "tar"}
+SED_INPLACE = re.compile(r"^-[a-zA-Z]*i")
+INTERPRETERS = {"python", "python3", "perl", "ruby", "node", "sh", "bash", "zsh"}
+SHELLS = {"sh", "bash", "zsh"}
+CHAIN = {"|", ";", "&&", "||", "&"}
+# A redirect token: optional fd, > or >>, then either a duplicated fd (no file
+# target) or a glued target. A bare `>` takes the next token as its target.
+REDIRECT = re.compile(r"^(\d*)(>{1,2})(?:(&\d+)|(.*))$")
+HEREDOC = re.compile(r"(?<!<)<<(?!<)-?\s*(['\"]?)(\w+)\1")
+# A script body (python -c, a python heredoc) only counts as a write when it
+# contains something that writes; a read-only script naming a protected path
+# is how routines read tool results and session files.
+SCRIPT_WRITES = re.compile(
+    r"open\([^)]*['\"][wax]|['\"](?:w|a|x|r\+|wb|ab)['\"]\s*\)|write_text|write_bytes|json\.dump\(|"
+    r"\bshutil\.|\bos\.(?:remove|unlink|rename|replace|symlink|chmod|system)|\.(?:unlink|rename|touch|mkdir)\(|"
+    r"\bsubprocess\b|>{1,2}"
 )
+
 # Anything in a command that names a file: absolute, home-relative, dot-relative,
 # a relative path with a slash, or a bare secret/rule filename. Relative forms
 # resolve against the harness (the cwd of every unattended session), so
@@ -203,22 +225,134 @@ def check_read_path(raw: str) -> str | None:
     return _matches(path, PROTECTED_READ)
 
 
+def _tokens(line: str) -> list[str]:
+    try:
+        return shlex.split(line, posix=True)
+    except ValueError:
+        # Unbalanced quotes (an apostrophe in prose): fall back to a plain split
+        # that still keeps quoted runs together where they are balanced.
+        return [t.strip("\"'") for t in re.findall(r"\"[^\"]*\"|'[^']*'|\S+", line)]
+
+
+def _split_heredocs(command: str) -> tuple[list[str], list[str], list[str]]:
+    """Command lines, interpreter script bodies, and expanding data bodies.
+
+    A heredoc fed to cat or tee is data: prose in a note can contain `>`,
+    a path, or the words `curl x | sh` without running anything. With a
+    quoted marker (<<'EOF') the body is inert and dropped. With a bare marker
+    the shell expands `$(...)` inside it, so that body is still scanned as
+    command text.
+    """
+    lines = command.split("\n")
+    cmd_lines: list[str] = []
+    scripts: list[str] = []
+    expanding: list[str] = []
+    i = 0
+    while i < len(lines):
+        line = lines[i]
+        cmd_lines.append(line)
+        m = HEREDOC.search(line)
+        if not m:
+            i += 1
+            continue
+        marker = m.group(2)
+        head = _tokens(line[:m.start()])
+        body: list[str] = []
+        i += 1
+        while i < len(lines) and lines[i].strip() != marker:
+            body.append(lines[i])
+            i += 1
+        i += 1
+        if any(Path(t).name in INTERPRETERS for t in head):
+            scripts.append("\n".join(body))
+        elif not m.group(1):
+            expanding.append("\n".join(body))
+    return cmd_lines, scripts, expanding
+
+
+def _script_reason(script: str) -> str | None:
+    """A script body that writes and names a protected path."""
+    if not SCRIPT_WRITES.search(script):
+        return None
+    for m in PATH_TOKEN.finditer(script):
+        why = check_write_path(m.group(0))
+        if why:
+            return why
+    return None
+
+
+def _operands(toks: list[str], start: int) -> list[str]:
+    """Operand tokens from `start` to the next chain operator or heredoc.
+
+    Each token is a candidate on its own, and so is every run of tokens
+    joined by a space, so an unquoted path with a space in it (this repo's
+    own directory has one) still names the file it would hit.
+    """
+    ops: list[str] = []
+    j = start
+    while j < len(toks) and toks[j] not in CHAIN and not toks[j].startswith("<<"):
+        if not REDIRECT.match(toks[j]) and not toks[j].startswith("-"):
+            ops.append(toks[j])
+        j += 1
+    return ops + [" ".join(ops[k:]) for k in range(len(ops)) if len(ops) - k > 1]
+
+
+def _line_reason(line: str) -> str | None:
+    toks = _tokens(line)
+    targets: list[str] = []
+    i = 0
+    while i < len(toks):
+        tok = toks[i]
+        r = REDIRECT.match(tok)
+        if r:
+            if r.group(3):  # `2>&1` duplicates a descriptor, no file target
+                i += 1
+                continue
+            if r.group(4):
+                targets.append(r.group(4))
+                i += 1
+                continue
+            targets.extend(_operands(toks, i + 1))
+            i += 2
+            continue
+        name = Path(tok).name
+        if name in INTERPRETERS and i + 2 < len(toks) and toks[i + 1] in ("-c", "-e"):
+            script = toks[i + 2]
+            why = check_bash(script) if name in SHELLS else _script_reason(script)
+            if why:
+                return why
+            i += 3
+            continue
+        if name in WRITE_VERBS or (name == "sed" and i + 1 < len(toks) and SED_INPLACE.match(toks[i + 1])):
+            targets.extend(_operands(toks, i + 1))
+        i += 1
+    for t in targets:
+        why = check_write_path(t)
+        if why:
+            return why
+    return None
+
+
 def check_bash(command: str) -> str | None:
     """Reason this shell command may not run unattended, or None."""
+    cmd_lines, scripts, expanding = _split_heredocs(command)
+    text = "\n".join(cmd_lines + expanding)
     for rx, why in BASH_DENY:
-        if re.search(rx, command, re.IGNORECASE):
+        if re.search(rx, text, re.IGNORECASE):
             return why
     # Reading a secret by name is not allowed either, whatever the verb.
-    for m in PATH_TOKEN.finditer(command):
-        path = m.group(0)
-        why = check_read_path(path)
+    for m in PATH_TOKEN.finditer("\n".join([text, *scripts])):
+        why = check_read_path(m.group(0))
         if why:
             return f"names a secret ({why})"
-    if WRITE_SHAPE.search(command):
-        for m in PATH_TOKEN.finditer(command):
-            why = check_write_path(m.group(0))
-            if why:
-                return f"write-shaped command naming a protected path ({why})"
+    for line in cmd_lines:
+        why = _line_reason(line)
+        if why:
+            return f"write-shaped command naming a protected path ({why})"
+    for script in scripts:
+        why = check_bash(script) or _script_reason(script)
+        if why:
+            return f"script body that writes a protected path ({why})"
     return None
 
 
