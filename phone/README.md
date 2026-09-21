@@ -121,7 +121,7 @@ avoid the tool-search round trip.
   `cloudflared` is the no-signup option; the free `trycloudflare.com` subdomain
   rotates on each restart, so re-set `PUBLIC_WS_URL` (and restart the server)
   whenever you restart the tunnel.
-- **Latency:** runs the full agent loop (Sonnet by default via `AGENT_MODEL`),
+- **Latency:** runs the full agent loop (Fable by default via `AGENT_MODEL`; a phone line is a third-party surface),
   so tool lookups add a few seconds of "one moment" silence. The session connects
   on call setup so MCP servers boot while the greeting plays.
 - **Auth/cost:** the Agent SDK drives the local `claude` CLI; the conversation

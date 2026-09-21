@@ -5,6 +5,11 @@
 SCRIPT_DIR="$(cd "$(dirname "$0")/.." && pwd)"
 source "$SCRIPT_DIR/config.sh"
 
+# Unattended: the guard hook (.claude/hooks/guard-unattended.py) refuses
+# instruction-file writes and persistence shells for this session. Transcripts
+# are other people's speech, so a fooled model here is the case it exists for.
+export MIST_UNATTENDED=1
+
 LOG_DIR="$EXOBRAIN_LOG_DIR"
 TIMESTAMP=$(date +%Y%m%d_%H%M%S)
 

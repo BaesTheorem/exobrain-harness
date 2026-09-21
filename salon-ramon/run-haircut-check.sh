@@ -52,6 +52,9 @@ fi
 # and two empty log files. Resolve rather than pin the path: the binary already
 # moved once (npm-global -> ~/.local/bin) and will move again.
 export PATH="$HOME/.local/bin:/opt/homebrew/bin:$PATH"
+# Unattended: the guard hook (.claude/hooks/guard-unattended.py) applies.
+export MIST_UNATTENDED=1
+
 if ! CLAUDE_BIN="$(command -v claude)"; then
     echo "[$(date)] claude CLI not found on PATH ($PATH). Cannot book; will retry tomorrow."
     exit 1

@@ -33,9 +33,13 @@ async function askSdk(role, system, content, maxTokens, timeout) {
 }
 
 // ---------- claude -p provider ----------
-// No MCP, no tools unless vision needs Read, neutral cwd. --bare would skip the global
-// CLAUDE.md too, but it also skips keychain login, so the global instructions ride along
-// (about 9k cached tokens) and the MIST kaomoji line they produce is stripped below.
+// No MCP, no tools unless vision needs Read, neutral cwd, and --setting-sources "" so the
+// global CLAUDE.md, hooks and memory stay out of the process (verified 2026-09-21: the
+// session then does not know the word MIST). --bare would do the same but also skips the
+// keychain login. Other players' answers are third-party text judged by Opus at low effort
+// and Sonnet for vision, which is exactly the model tier a joke-shaped injection targets;
+// with nothing of Alex's loaded there is nothing for it to reach. stripPersona stays as a
+// belt-and-braces for any provider that still prepends a kaomoji line.
 let claudeBin = null;
 function resolveClaude() {
   if (claudeBin) return claudeBin;
@@ -47,7 +51,7 @@ function resolveClaude() {
 function askCli(role, system, prompt, timeout, { tools = [] } = {}) {
   const args = ['-p', prompt, '--system-prompt', system, '--output-format', 'json', '--model', MODELS[role],
     '--no-session-persistence', '--strict-mcp-config', '--mcp-config', '{"mcpServers":{}}',
-    '--tools', tools.length ? tools.join(',') : ''];
+    '--setting-sources', '', '--tools', tools.length ? tools.join(',') : ''];
   args.push('--effort', role === 'answer' ? EFFORT : 'low');
   const env = { ...process.env, PATH: ['/opt/homebrew/bin', '/usr/local/bin', path.join(os.homedir(), '.local', 'bin'), process.env.PATH || ''].join(':') };
   return new Promise((resolve, reject) => {

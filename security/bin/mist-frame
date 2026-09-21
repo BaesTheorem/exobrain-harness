@@ -1,0 +1,7 @@
+#!/bin/bash
+# mist-frame: wrap stdin as an UNTRUSTED data block for a model prompt.
+#   mist-frame --source espn-chat < message.txt
+#   mist-frame --preamble          # just the shared preamble text
+# Thin exec wrapper so scripts in other islands shell out instead of importing
+# (checks/check_boundaries.py). Logic lives in security/untrusted_frame.py.
+exec /usr/bin/env python3 "$(cd "$(dirname "$0")/.." && pwd)/untrusted_frame.py" "$@"

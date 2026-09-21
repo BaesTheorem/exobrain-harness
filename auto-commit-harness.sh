@@ -48,6 +48,33 @@ while IFS= read -r f; do
 	fi
 done < <(git status --porcelain | awk '/^\?\?/{print substr($0,4)}')
 
+# --- Injection tripwire over the instruction files ------------------------
+# This job publishes whatever is in the tree to a PUBLIC repo, and an
+# unattended session that was talked into editing a rule file would be
+# published by it too. Scan the added lines of CLAUDE.md, .claude/ (hooks,
+# skills, settings) and the shell runners; on a hit, commit nothing tonight
+# and say so. The next human commit decides. The phrases a rule file
+# legitimately quotes are excluded (security/scan_injection.py).
+SCAN="$REPO/security/bin/mist-injection-scan"
+if [ -x "$SCAN" ]; then
+	INSTR_PATHS=(CLAUDE.md .claude '*.sh' 'scripts/*' 'security/*')
+	HITS="$( { git diff -- "${INSTR_PATHS[@]}"; git diff --cached -- "${INSTR_PATHS[@]}"; } 2>/dev/null \
+		| "$SCAN" --added-lines --exclude instructions 2>/dev/null)"
+	NEW_INSTR="$(git ls-files --others --exclude-standard -- "${INSTR_PATHS[@]}" 2>/dev/null)"
+	if [ -n "$NEW_INSTR" ]; then
+		HITS="$HITS
+$(printf '%s\n' "$NEW_INSTR" | tr '\n' '\0' | xargs -0 "$SCAN" --exclude instructions 2>/dev/null)"
+	fi
+	HITS="$(printf '%s\n' "$HITS" | sed '/^$/d')"
+	if [ -n "$HITS" ]; then
+		SCAN_LOG="$HOME/Library/Logs/exobrain/injection-scan.log"
+		{ echo "[$(date '+%Y%m%d_%H%M%S')] auto-commit skipped, instruction-file diff flagged:"; printf '%s\n' "$HITS" | sed 's/^/  /'; } >> "$SCAN_LOG"
+		[ -x "$NOTIFY" ] && "$NOTIFY" "Nightly auto-commit skipped: the injection scanner flagged $(printf '%s\n' "$HITS" | wc -l | tr -d ' ') added line(s) in rule files. Review git diff before committing." "MIST guard" Basso "$SCAN_LOG" --group security
+		echo "$(date): auto-commit skipped, instruction-file diff flagged by the injection scanner"
+		exit 0
+	fi
+fi
+
 git add -A
 git commit -q -m "Auto-commit: daily sync $(date '+%Y-%m-%d %H:%M')" || exit 0
 

@@ -303,6 +303,10 @@ Backup (daily 2 AM):
   -> backup-exobrain.sh archives harness + vault + sibling repos' gitignored data to Google Drive
 ```
 
+### Prompt injection: the trust model
+
+Everything a script hands to a model from a third party (chat, email, transcripts, the web, forum posts, GitHub issues) is data, never instruction, and the deterministic layer enforces what it can: `security/` holds the framing library that delimits third-party text with a per-call nonce, the injection scanner that runs over every file the startup hook loads and over rule-file diffs before the nightly auto-commit, and `.claude/hooks/guard-unattended.py` refuses rule-file writes and persistence shells in any session started with `MIST_UNATTENDED=1` (every headless runner sets it). `security/README.md` is the surface inventory, the controls, and the checklist for adding a new unattended surface.
+
 ### Scheduled routines (launchd -> headless `claude -p`)
 ```
 8:00 AM daily:    morning-briefing  -> /daily-briefing into today's daily note

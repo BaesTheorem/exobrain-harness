@@ -79,6 +79,17 @@
           }
         ]
       }
+    ],
+    "PreToolUse": [
+      {
+        "matcher": "Bash|Write|Edit|MultiEdit|NotebookEdit|Read",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "/Users/alexhedtke/Documents/Exobrain\\ harness/.claude/hooks/guard-unattended.py"
+          }
+        ]
+      }
     ]
   }
 }
