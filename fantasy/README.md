@@ -208,7 +208,7 @@ variance rule into a number in `espn check` and `espn matchup`.
 | Tool | Reads | Says |
 |---|---|---|
 | `volume roster/fa/league/player` | nflreadpy weekly stats + snap counts, ESPN rosters | targets, target share, WOPR, snaps, BUY/SELL/ROLE flags; writes `.cache/player-sd.json` |
-| `swap-scan` | roster, wire, settings, Sleeper trending, the volume cache | every bench-for-wire swap vs the +20 gate; never a second QB/TE; bye holes |
+| `swap-scan` | roster, wire, settings, Sleeper trending, the volume cache, the pending list | every bench-for-wire swap vs the +20 gate; never a second QB/TE; a drop already spent in a pending claim is marked `pending_drop` and roster-watch skips it; bye holes |
 | `stream-scan` | `espn team/nfl/stream` | the K and D/ST thresholds, byes two weeks out |
 | `league-scan` | every closed week's lineups, every period's transactions | zeros started, bench points left, offers answered, per manager |
 | `trade_scan.py --json` | rosters on `ros_rate`, the season sim | 1-for-1 and 2-for-1 proposals priced in title and bye odds |
