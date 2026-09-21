@@ -55,6 +55,22 @@ Where each call lives in the playbook:
 
 ## Live league data
 
+**Read what is already pending before you touch ESPN at all** (Alex,
+2026-09-20: "any time you touch ESPN, you should check for all our current
+pending actions"). A claim, a trade offer or a lineup move already in the
+queue is *current state*, and answering without it produces confident advice
+to do a thing that is already done. Every `ff`, `espn` and `espn-tx` run now
+prints the pending banner to stderr unasked, so this is enforced rather than
+remembered; `--no-pending` turns it off and nothing routine should pass it.
+Read the banner before you reason, and read the playbook's Season log for the
+reasoning behind whatever it lists.
+
+The enforcement exists because the prose version of this rule was already in
+the skill and got skipped three times in one evening, twice by re-deriving a
+Bryce Young claim that was sitting in the queue. Treat a precondition that
+depends on remembering as a precondition that will be missed, and move it
+into the tool.
+
 `fantasy/bin/ff` in the harness reads the real league over the ESPN API
 (read-only). Use it before answering anything that depends on current state:
 
@@ -87,10 +103,17 @@ memory or opening the site:
 - `espn nfl` — the slate with kickoffs in Central time, lines, implied totals
 - `espn injuries` — the NFL report scoped to the roster by default
 - `espn scoreboard`, `espn schedule`, `espn settings`, `espn raw`
-- `espn chat [--unanswered]` — league chat and DMs. Replies MIST writes
-  unattended go through `fantasy/bin/chat-draft` (draft, banner, Alex taps
-  Send / Rewrite / Skip); `chat-draft list` shows what is waiting on him.
-  `espn-tx chat` posts directly and is for interactive sessions only.
+- `espn chat [--unanswered]` reads the league chat and the DMs. The two are
+  handled differently, and `bin/chat-watch` sorts them every 10 minutes.
+  A **league-wide** message may be answered unattended, as a draft through
+  `fantasy/bin/chat-draft` (draft, banner, Alex taps Send / Rewrite / Skip);
+  `chat-draft list` shows what is waiting on him. A **direct message** never
+  is (Alex, 2026-09-20): the watcher escalates it instead, with a Discord DM,
+  a banner, and a MIST Console chat titled `Fantasy DM: <team>` seeded with
+  the thread, so the reply gets decided with him. Same treatment for anything
+  from a manager we have a trade in flight with. `espn-tx chat` posts
+  directly and is for interactive sessions only, which is what one of those
+  Console chats is: draft there, send when Alex says so.
 
 Every subcommand takes `--json`, so new analysis scripts should consume that
 rather than re-implementing the API. Credentials live in the gitignored
