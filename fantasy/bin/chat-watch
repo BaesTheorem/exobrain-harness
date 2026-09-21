@@ -250,6 +250,10 @@ def console_chat(title: str, seed: str) -> str | None:
         # Title first: the Console derives one from the first message only when
         # the chat is still untitled, so setting it after the send loses.
         post(f"/sessions/{sid}/title", {"title": title})
+        # Injection replies run on Fable (Alex, 2026-09-21), and a DM from this
+        # league is the likeliest place one arrives. New Console chats default
+        # to Opus, so pin the model before the seed spawns the process.
+        post(f"/sessions/{sid}/model", {"model": MODELS[0]})
         # Generous timeout: this send spawns the chat's claude process and its
         # MCP servers before it returns.
         post(f"/send/{sid}", {"text": seed}, timeout=90)
