@@ -7,6 +7,12 @@ the ones already handled, and if any remain invokes `claude -p` on
 fantasy/routines/chat.md, which decides whether to reply and sends through
 `espn-tx chat`. A quiet league produces one log line and no Claude call.
 
+A DIRECT message never gets an unattended reply (Alex, 2026-09-20). It is
+handed to him instead, three ways: a Discord DM from the bot, a local banner,
+and a new MIST Console chat seeded with the thread, so the conversation about
+what to say is already open when he looks. Only the league-wide threads reach
+the model.
+
     chat-watch [--max-per-day 6] [--dry-run] [--force]
 
 INVARIANTS
@@ -22,6 +28,10 @@ INVARIANTS
     A hung model must not wedge a launchd job that fires every 10 minutes.
   - The claude binary is resolved with shutil.which, never pinned. Pinned paths
     under ~/.local/share/claude/versions break on every update.
+  - An escalated message is marked handled only when at least ONE delivery path
+    landed. Each of the three fails for its own reason (bot token, Console not
+    running, notifier permissions) and all three failing while the id is burned
+    anyway is exactly how a DM disappears without anybody noticing.
 """
 
 from __future__ import annotations
@@ -33,6 +43,8 @@ import os
 import shutil
 import subprocess
 import sys
+import urllib.error
+import urllib.request
 from pathlib import Path
 
 FANTASY = Path(__file__).resolve().parent.parent
@@ -40,6 +52,31 @@ HARNESS = FANTASY.parent
 STATE = FANTASY / ".cache" / "chat-watch.json"
 PROMPT = FANTASY / "routines" / "chat.md"
 NOTIFY = HARNESS / "mist-voice" / "bin" / "mist-notify"
+DISCORD_SEND = HARNESS / "discord" / "discord-send.py"
+HARNESS_ENV = HARNESS / ".env"
+CONSOLE = "http://127.0.0.1:5014"
+
+# ESPN's type for a one-to-one thread. The league-wide ones are CHAT and
+# CHAT_ALL_MEMBERS, and those are the only threads the model may answer.
+DM_TYPE = "CHAT_DIRECT_MESSAGE"
+
+CONSOLE_SEED = """\
+An ESPN fantasy league message is waiting on a reply, and sending it is Alex's
+call, not yours. Escalated because: {reason}.
+
+Thread `{topic}` with {partners}. New from {who}:
+
+{quoted}
+
+Invoke the fantasy-football skill and read the playbook before you answer
+anything. Pull the whole thread with `fantasy/bin/espn chat --json`, then
+whatever the question actually needs: `espn player`, `bin/volume`,
+`trade_scan.py`, `bin/league-scan`. Tell Alex what is being asked, which
+playbook rule covers it, and draft the reply you would send.
+
+Do not send anything until he says to. When he does, it goes out through
+`fantasy/bin/espn-tx chat`.
+"""
 
 # Tried in order. Fable first because the playbook puts fantasy routines there;
 # Opus 5 behind it because a spent Fable budget should not take the watcher down
@@ -93,6 +130,7 @@ def unanswered_messages() -> list[dict]:
         if t.get("messages"):
             m = dict(t["messages"][-1])
             m["topic"] = t["id"]
+            m["type"] = t.get("type") or ""
             m["with"] = t.get("with") or []
             latest.append(m)
     return latest
@@ -162,18 +200,112 @@ def trade_partners() -> tuple[set[str], bool]:
     return partners, True
 
 
-def escalate(messages: list[dict]) -> None:
-    """Banner Alex instead of answering. One notification per message."""
+def harness_env(key: str) -> str | None:
+    """One value out of the harness .env. Read here rather than inherited from
+    the environment, because launchd hands this process almost nothing."""
+    try:
+        for line in HARNESS_ENV.read_text().splitlines():
+            line = line.strip()
+            if line.startswith(f"{key}="):
+                return line.split("=", 1)[1].strip().strip("\'\"")
+    except OSError:
+        pass
+    return None
+
+
+def discord_dm(text: str) -> bool:
+    """DM Alex through the bot. The channel is his own DM with her, so a
+    leaguemate's message never lands anywhere the friend group can read it."""
+    channel = harness_env("DISCORD_NOTIFY_CHAT_ID")
+    if not channel or not DISCORD_SEND.exists():
+        log("discord skip: no DISCORD_NOTIFY_CHAT_ID or no discord-send.py")
+        return False
+    r = subprocess.run([sys.executable, str(DISCORD_SEND), channel, text],
+                       capture_output=True, text=True, timeout=60,
+                       check=False, cwd=HARNESS)
+    if r.returncode != 0:
+        log(f"discord send failed rc={r.returncode}: "
+            f"{((r.stderr or '') + (r.stdout or '')).strip()[:200]}")
+        return False
+    return True
+
+
+def console_chat(title: str, seed: str) -> str | None:
+    """Open a MIST Console chat seeded with the thread; return its session id.
+
+    Deliberately NOT /quick-new. That endpoint also marks the chat as the one
+    the main window should jump to, and yanking Alex out of what he is typing
+    costs more than a chat he finds when he looks. The banner and the Discord
+    DM are the pointer; this just has the conversation ready.
+    """
+    def post(path: str, payload: dict | None = None, timeout: int = 20) -> dict:
+        req = urllib.request.Request(
+            f"{CONSOLE}{path}", data=json.dumps(payload or {}).encode(),
+            headers={"Content-Type": "application/json"}, method="POST")
+        with urllib.request.urlopen(req, timeout=timeout) as r:
+            return json.loads(r.read() or "{}")
+
+    try:
+        sid = post("/sessions")["id"]
+        # Title first: the Console derives one from the first message only when
+        # the chat is still untitled, so setting it after the send loses.
+        post(f"/sessions/{sid}/title", {"title": title})
+        # Generous timeout: this send spawns the chat's claude process and its
+        # MCP servers before it returns.
+        post(f"/send/{sid}", {"text": seed}, timeout=90)
+    except (urllib.error.URLError, OSError, ValueError, KeyError) as e:
+        log(f"console chat unavailable ({type(e).__name__}: {e}); escalating without it")
+        return None
+    log(f"opened Console chat {sid}: {title}")
+    return sid
+
+
+def escalate(messages: list[dict], reason: str) -> bool:
+    """Hand the thread to Alex instead of answering it.
+
+    Grouped by thread, so three messages from one leaguemate produce one chat
+    and one Discord ping rather than three of each. Returns whether at least
+    one delivery path landed; the caller must not burn the message ids when
+    nothing did.
+    """
+    delivered = False
+    by_topic: dict[str, list[dict]] = {}
     for m in messages:
-        who = (m.get("who") or "someone").strip()
-        body = (m.get("content") or "").strip().replace("\n", " ")
+        by_topic.setdefault(m["topic"], []).append(m)
+
+    for topic, group in by_topic.items():
+        who = ", ".join(dict.fromkeys(
+            (m.get("who") or "someone").strip() for m in group))
+        partners = ", ".join(group[0].get("with") or []) or "league"
+        quoted = "\n".join(f"> {(m.get('content') or '').strip()}" for m in group)
+        one_line = " / ".join(
+            (m.get("content") or "").strip().replace("\n", " ") for m in group)
+
+        sid = console_chat(
+            f"Fantasy DM: {partners}",
+            CONSOLE_SEED.format(reason=reason, topic=topic, partners=partners,
+                                who=who, quoted=quoted))
+        delivered = delivered or sid is not None
+
+        tail = (f"Console chat is open: *Fantasy DM: {partners}*. Tell me there "
+                f"and I will draft the reply." if sid else
+                "The Console is not running, so there is no chat yet. "
+                "`fantasy/bin/espn chat --json` has the thread.")
+        delivered = discord_dm(
+            f"(o.o) **Fantasy DM** from **{who}** ({reason})\n{quoted}\n{tail}"
+        ) or delivered
+
         if NOTIFY.exists():
-            subprocess.run(
-                [str(NOTIFY), f"{who}: {body[:180]}", "Fantasy Chat: trade in flight",
-                 "none", "console", "--group", "fantasy",
-                 "--id", f"trade-chat-{m.get('id', 'x')}"],
+            r = subprocess.run(
+                [str(NOTIFY), f"{who}: {one_line[:180]}", f"Fantasy DM: {reason}",
+                 "none", f"console:{sid}" if sid else "console",
+                 "--group", "fantasy", "--id", f"chat-esc-{group[-1].get('id', 'x')}"],
                 capture_output=True, check=False)
-        log(f"ESCALATED to Alex (no auto-reply): {who}: {body[:120]}")
+            delivered = delivered or r.returncode == 0
+
+        log(f"ESCALATED to Alex ({reason}, no auto-reply), delivered={delivered}: "
+            f"{who}: {one_line[:120]}")
+    return delivered
 
 
 def run_claude(pending: list[dict], dry_run: bool) -> bool:
@@ -304,15 +436,33 @@ def main() -> int:
     # on 2026-09-20 while an offer to KC Breathmints was in review; the general
     # rule is the playbook's, not hers: trades are his tap, so the watcher
     # hands him the message rather than replying for him.
+    #
+    # A direct message goes the same way, for the same reason one step earlier:
+    # a one-to-one thread is a conversation with Alex, and he asked (2026-09-20)
+    # to be pulled into it rather than find out after she answered. Only the
+    # league-wide threads are left for the model. The trade check runs first so
+    # a DM from a live trade partner escalates once, with the sharper reason.
     partners, guard_ok = trade_partners()
     hot = [m for m in pending
            if not guard_ok or (m.get("who") or "").strip() in partners]
-    pending = [m for m in pending if m not in hot]
-    if hot:
-        escalate(hot)
-        if not args.dry_run:
-            state["handled"].extend(m["id"] for m in hot if m.get("id"))
+    dms = [m for m in pending if m not in hot and m.get("type") == DM_TYPE]
+    pending = [m for m in pending if m not in hot and m not in dms]
+
+    for group, reason in ((hot, "trade in flight"), (dms, "direct message")):
+        if not group:
+            continue
+        if args.dry_run:
+            log(f"DRY RUN, would escalate {len(group)} message(s) as '{reason}': "
+                + "; ".join(f"{m.get('who')}: {(m.get('content') or '')[:80]}"
+                            for m in group))
+            continue
+        if escalate(group, reason):
+            state["handled"].extend(m["id"] for m in group if m.get("id"))
             save_state(state)
+        else:
+            log(f"every escalation path failed for {len(group)} '{reason}' "
+                f"message(s); leaving them unhandled so the next run retries")
+
     if not pending:
         log("nothing left to answer after escalation")
         return 0

@@ -159,6 +159,43 @@ MIST's judgment, so this tool never predicts. It:
 The Tuesday routine runs `settle` first and the new week's forecast last. The
 JSON schema MIST writes is spelled out in `routines/tuesday.md` step 7.
 
+## Tool 7: `bin/chat-watch` (launchd, every 10 minutes)
+
+`com.exobrain.chat-watch` asks `espn chat --unanswered` which threads end with
+somebody else's message, drops the ones already handled by message id, and
+splits what is left two ways.
+
+- **League-wide threads** (`CHAT`, `CHAT_ALL_MEMBERS`) go to a headless Claude
+  on `routines/chat.md`, which writes a draft through `bin/chat-draft` and
+  never posts. Six drafts a day, enforced in the watcher rather than the
+  prompt: a prompt is a request, a counter is a limit.
+- **Direct messages** (`CHAT_DIRECT_MESSAGE`) are escalated to Alex instead,
+  never answered unattended (his instruction, 2026-09-20). So is anything from
+  a manager we have a trade in flight with, whatever thread it arrived in.
+
+An escalation is three deliveries, grouped per thread: a Discord DM from the
+bot to Alex's own DM channel (`DISCORD_NOTIFY_CHAT_ID` in the harness `.env`,
+so a leaguemate's message never reaches a channel the friend group can read),
+a `mist-notify` banner linking straight to the chat, and a new MIST Console
+chat titled `Fantasy DM: <team>` and seeded with the thread plus the standing
+"draft it, do not send it" instruction. It uses `POST /sessions` rather than
+`/quick-new` on purpose: `/quick-new` also makes the main window jump to the
+new chat, and yanking Alex out of what he is typing costs more than a chat he
+finds when he looks.
+
+The three paths fail independently (bot token, Console not running, notifier
+permissions), so the message id is burned only when **at least one** landed.
+All three failing while the id is marked handled anyway is how a DM would
+disappear without anybody noticing.
+
+```
+bin/chat-watch --dry-run --force     # classify everything waiting, send nothing
+bin/chat-watch --self-test           # exercise the Fable -> Opus fallback chain
+```
+
+Logs: `~/Library/Logs/exobrain/chat-watch.log`. State (handled ids, drafts per
+day): `.cache/chat-watch.json`.
+
 ## The scans (2026-09-20): `bin/volume`, `bin/swap-scan`, `bin/stream-scan`, `bin/league-scan`
 
 All read-only, all `--json`, all built the night Alex asked what else would
