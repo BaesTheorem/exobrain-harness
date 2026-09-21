@@ -67,11 +67,13 @@ def swap_gate_event(st: dict) -> dict | None:
     gate = float(scan.get("gate", 20.0))
     best: dict | None = None
     for row in scan.get("swaps", []):
+        if row.get("pending_drop"):
+            continue   # that drop is already spent arming a pending claim (2026-09-20, Noel)
         for c in row.get("candidates", []):
             if best is None or float(c["gain"]) > float(best["gain"]):
                 best = {"drop": row["drop"], "drop_pos": row["pos"], "add": c["add"],
                         "add_pos": c["pos"], "avail": c["avail"], "gain": float(c["gain"]),
-                        "owned": c["owned"], "trend": c["trend"]}
+                        "owned": c["owned"], "trend": c["trend"], "flags": c.get("flags") or []}
     gs = st.setdefault("swap_gate", {})
     if best is None or best["gain"] < gate:
         gs["offered"] = None
@@ -272,8 +274,9 @@ def main() -> int:
         elif ev["kind"] == "stream_gate":
             heads.append(f"stream {ev['slot']}: {ev['add']} ({ev['avail']}) over {ev['ours']}, {ev['why']}")
         elif ev["kind"] == "swap_gate":
+            fl = f", volume {'/'.join(ev['flags'])}" if ev.get("flags") else ""
             heads.append(f"wire: add {ev['add']} ({ev['add_pos']}, {ev['avail']}) for "
-                         f"{ev['drop']} clears the gate, +{ev['gain']:.1f} pts rest of season")
+                         f"{ev['drop']} clears the gate, +{ev['gain']:.1f} pts rest of season{fl}")
         else:
             heads.append(ev["kind"].replace("_", " ") + (f": {ev.get('player')}" if ev.get("player") else ""))
     judgment = any(ev.get("judgment") for ev in events)

@@ -22,6 +22,12 @@ INVARIANTS
 - Market heat (Sleeper's trending adds, last 24h, no auth) and the volume
   flags (`bin/volume`) are attached as evidence for the role condition; they
   never move the gate. A PASS is a candidate, not a verdict.
+- **A drop already spent in a pending claim is not a free drop.** Found
+  2026-09-20: the gate bannered Wicks-for-Noel while Noel was the drop that
+  armed the whole QB waiver chain (Young and Geno both drop him, so exactly
+  one lands). Filing a third claim on the same drop would have let the wire
+  decide which one we got. Each swap row now carries `pending_drop`, read
+  from the live pending list, and roster-watch skips those rows.
 
     swap-scan [--gate 20] [--top 3] [--json]
 """
@@ -103,9 +109,12 @@ def allowed(cand: dict, drop: dict, held: dict[str, int], position_max: dict[str
 
 def scan(week: int, roster: list[dict], pool: list[dict], position_max: dict[str, int],
          games: dict[str, int] | None = None, heat: dict[str, int] | None = None,
-         volume: dict[str, dict] | None = None, gate: float = GATE, top: int = 3) -> dict:
-    """Pure: rows in, ranked swaps out. `games` is pro-team abbrev -> games played."""
+         volume: dict[str, dict] | None = None, gate: float = GATE, top: int = 3,
+         committed: set[str] | None = None) -> dict:
+    """Pure: rows in, ranked swaps out. `games` is pro-team abbrev -> games played;
+    `committed` is the normalized names already listed as a DROP in a pending claim."""
     games, heat, volume = games or {}, heat or {}, volume or {}
+    committed = committed or set()
     remaining = max(REG_SEASON_END - week, 0)
     bench = [p for p in roster if p["slotId"] == BENCH]
     held: dict[str, int] = {}
@@ -135,6 +144,7 @@ def scan(week: int, roster: list[dict], pool: list[dict], position_max: dict[str
         scored.sort(key=lambda r: -r["gain"])
         results.append({"drop": drop["name"], "pos": drop["pos"], "drop_rate": round(drop["rate"], 2),
                         "drop_flags": (volume.get(vkey(drop)) or {}).get("flags") or [],
+                        "pending_drop": norm(drop["name"]) in committed,
                         "candidates": scored[:top]})
     return {"week": week, "remaining_weeks": remaining, "gate": gate, "held": held,
             "position_max": position_max, "swaps": results}
@@ -157,6 +167,24 @@ def bye_holes(api: Espn, roster: list[dict], week: int, weeks: int = LOOKAHEAD) 
     return out
 
 
+def pending_drops(api: Espn) -> set[str]:
+    """Normalized names of our players already listed as a DROP in a pending claim.
+
+    Never raises: an unreadable pending list must not stop the scan, but it
+    must not read as "nothing committed" either, so the miss is printed.
+    """
+    try:
+        txs = api.pending_transactions()
+        me = int(api.creds["team_id"])
+        ids = [i.get("playerId") for t in txs if t.get("type") == "WAIVER"
+               for i in (t.get("items") or []) if i.get("type") == "DROP" and i.get("fromTeamId") == me]
+        names = api.names_for([i for i in ids if i])
+        return {norm(n) for n in names.values()}
+    except Exception as exc:  # noqa: BLE001 - the scan runs without it, loudly
+        print(f"pending list unreadable ({exc}); pending_drop is unmarked this run", file=sys.stderr)
+        return set()
+
+
 def api_team_id(api: Espn, r: dict) -> int | None:
     for tid, t in api.pro_teams().items():
         if t["abbrev"] == r["team"]:
@@ -176,7 +204,8 @@ def render(out: dict, holes: list[dict], heat_ok: bool, volume_ok: bool) -> int:
     best = None
     for r in out["swaps"]:
         dflags = f"  [{' '.join(r['drop_flags'])}]" if r["drop_flags"] else ""
-        print(f"  DROP {r['drop']:<22} {r['pos']:<4} rate {r['drop_rate']}/wk{dflags}")
+        spent = "  PENDING DROP: already spent in a claim, not a free drop" if r.get("pending_drop") else ""
+        print(f"  DROP {r['drop']:<22} {r['pos']:<4} rate {r['drop_rate']}/wk{dflags}{spent}")
         for c in r["candidates"]:
             gain = float(c["gain"])
             best = gain if best is None else max(best, gain)
@@ -219,7 +248,8 @@ def main() -> int:
     games = {pt["abbrev"]: games_played(pt["games"], week) for pt in api.pro_teams().values()}
     heat = sleeper_heat(api.season, week)
     volume = load_volume(api.season)
-    out = scan(week, roster, pool, position_max, games, heat, volume, args.gate, args.top)
+    out = scan(week, roster, pool, position_max, games, heat, volume, args.gate, args.top,
+               committed=pending_drops(api))
     holes = bye_holes(api, roster, week)
     out["bye_holes"] = holes
     if args.json:

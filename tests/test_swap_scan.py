@@ -63,3 +63,14 @@ def test_role_and_heat_are_evidence_not_gate():
     cands = {c["add"]: c for s in out["swaps"] for c in s["candidates"]}
     assert cands["Hot WR"]["role"] is True and cands["Hot WR"]["flags"] == ["ROLE-UP"]
     assert cands["Meh WR"]["heat"] == 5000 and cands["Meh WR"]["gain"] < out["gate"], "heat never moves the gate"
+
+
+def test_a_drop_spent_in_a_pending_claim_is_marked():
+    """2026-09-20: the gate offered Wicks for Noel while Noel was the drop arming the
+    QB waiver chain. The row stays (it is still information) but carries the mark
+    roster-watch skips on; a positive control shows the mark can be false."""
+    out = swap_scan.scan(2, roster(), pool(), {}, committed={swap_scan.norm("Bench WR")})
+    by_drop = {s["drop"]: s for s in out["swaps"]}
+    assert by_drop["Bench WR"]["pending_drop"] is True
+    assert by_drop["Bench TE"]["pending_drop"] is False
+    assert by_drop["Bench WR"]["candidates"][0]["gain"] >= out["gate"], "the PASS is still reported, just marked"
