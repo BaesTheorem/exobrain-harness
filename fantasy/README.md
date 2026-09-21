@@ -280,6 +280,29 @@ arrangement, with its standing limits, is written up in the playbook's
   when this was built; the message-field mapping (178/180 add, 179/239 drop,
   181/244 trade) follows the espn-api package. Check it against the first
   real move.
+- **`fan.api.espn.com/apis/v2/fans/<SWID>` needs the braces percent-encoded**
+  (`%7B...%7D`). Raw braces return `{"message":"fan not found"}` for *every*
+  SWID including a made-up one, so the error reads like a missing account and
+  is really a URL parse failure. Encoded, it returns the account's My Teams
+  record, which is where the fantasy team shows up on espn.com and in the app.
+  Always run the bogus-SWID control before believing a "not found" here.
+
+## Which ESPN account owns the team
+
+Two places on this Mac answer "which login is Chaos Legion under", and both
+beat guessing from a display name (ESPN auto-assigns `ESPNFANnnnnnnnn` to
+accounts that never set one, so it is not a sign of a throwaway account):
+
+- Chrome local storage key `FAN_EMAIL_PROFILE_<SWID>` holds the email ESPN has
+  on file for that SWID.
+- The `ESPN-ONESITE.WEB-PROD.token` cookie is a Disney ID JWT; its middle
+  segment carries `sub` (the SWID), `email`, `identity_id`, and `nbf` (when
+  the identity was created). Decrypt it with the same Chrome Safe Storage key
+  `ff refresh` uses. Its second base64 segment needs `=` padding.
+
+A login that shows no leagues is almost always a different session, not a
+different account: check the SWID on the device that is missing them against
+the one in `espn-credentials.json`.
 
 ## Credentials (gitignored, not in the repo)
 
