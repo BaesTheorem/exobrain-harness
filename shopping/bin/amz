@@ -257,20 +257,25 @@ def cmd_auth(a) -> int:
 
 
 def main() -> int:
-    ap = argparse.ArgumentParser(prog="amz", description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    ap.add_argument("--json", action="store_true", help="emit raw JSON")
-    ap.add_argument("--headed", action="store_true", help="show the browser window")
-    ap.add_argument("--timeout", type=int, default=45, help="page load timeout in seconds")
+    # The shared flags live on a parent parser so they work on EITHER side of
+    # the subcommand. Defined only on the top-level parser, `amz show X --json`
+    # is an argparse error, which is exactly the form anyone would type first.
+    common = argparse.ArgumentParser(add_help=False)
+    common.add_argument("--json", action="store_true", help="emit raw JSON")
+    common.add_argument("--headed", action="store_true", help="show the browser window")
+    common.add_argument("--timeout", type=int, default=45, help="page load timeout in seconds")
+    ap = argparse.ArgumentParser(prog="amz", description=__doc__, parents=[common],
+                                 formatter_class=argparse.RawDescriptionHelpFormatter)
     sub = ap.add_subparsers(dest="cmd", required=True)
-    s = sub.add_parser("search"); s.add_argument("query", nargs="+"); s.add_argument("-n", type=int, default=12)
-    d = sub.add_parser("show"); d.add_argument("asin", nargs="+")
+    s = sub.add_parser("search", parents=[common]); s.add_argument("query", nargs="+"); s.add_argument("-n", type=int, default=12)
+    d = sub.add_parser("show", parents=[common]); d.add_argument("asin", nargs="+")
     d.add_argument("--anon", action="store_true", help="skip the session (delivery dates become meaningless)")
-    u = sub.add_parser("url"); u.add_argument("asin")
-    au = sub.add_parser("auth")
+    u = sub.add_parser("url", parents=[common]); u.add_argument("asin")
+    au = sub.add_parser("auth", parents=[common])
     au.add_argument("--from-chrome", action="store_true", help="re-export the live session from the browser")
     au.add_argument("--status", action="store_true", help="show held cookies and expiry (default)")
     au.add_argument("--browser", choices=list(chrome_cookies.BROWSERS), default="chrome")
-    o = sub.add_parser("orders"); o.add_argument("--year", help="e.g. 2026")
+    o = sub.add_parser("orders", parents=[common]); o.add_argument("--year", help="e.g. 2026")
     a = ap.parse_args()
 
     if a.cmd == "url":
