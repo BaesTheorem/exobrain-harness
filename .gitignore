@@ -263,3 +263,9 @@ mist-confetti/build/
 
 # npm deps for node-based skills (jackbox autopilot etc.)
 node_modules/
+
+# shopping: live amazon.com session cookies exported from Chrome. These are
+# as good as a signed-in browser on an account with Prime and live payment
+# methods. Never commit. See shopping/secrets/README.md to rebuild.
+shopping/secrets/*
+!shopping/secrets/README.md
