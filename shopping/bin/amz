@@ -1,0 +1,175 @@
+#!/usr/bin/env python3
+"""amz -- read-only Amazon product and price lookup over a headless browser.
+
+Anonymous. No account, no cookies, no credentials. Amazon's `/s?` search is
+gated by Akamai Bot Manager (a `bm-verify` JS challenge, NOT an auth check),
+so plain curl gets a 1.4KB challenge stub while a real browser engine gets the
+full page. That is the whole reason this exists instead of a requests script.
+
+  amz search <query> [-n N] [--json]   search results: asin, price, rating
+  amz show <ASIN> [--json]             one product: price, rating, bullets, specs
+  amz url <ASIN>                       print the canonical product URL
+
+Both commands take --headed to watch the browser, and --timeout SECONDS.
+
+Read-only by construction: it never signs in, adds to cart, or buys anything.
+"""
+
+from __future__ import annotations
+
+import argparse
+import json
+import re
+import sys
+
+UA = (
+    "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 "
+    "(KHTML, like Gecko) Chrome/129.0.0.0 Safari/537.36"
+)
+DP = "https://www.amazon.com/dp/{}"
+SEARCH = "https://www.amazon.com/s?k={}"
+
+# Sponsored carousels and "customers also viewed" strips inject OTHER products'
+# titles and prices into the same HTML. Every selector below is scoped to a
+# container that belongs to the item itself; do not loosen them to bare regex.
+BUYBOX = (
+    "#corePriceDisplay_desktop_feature_div span.a-offscreen",
+    "#corePrice_feature_div span.a-offscreen",
+    "#price_inside_buybox",
+)
+
+
+def _text(node) -> str:
+    return re.sub(r"\s+", " ", node.inner_text()).strip() if node else ""
+
+
+def _first(page, selectors: tuple[str, ...]) -> str:
+    for sel in selectors:
+        if hit := page.query_selector(sel):
+            if t := _text(hit):
+                return t
+    return ""
+
+
+def _browser(pw, headed: bool):
+    b = pw.chromium.launch(headless=not headed)
+    ctx = b.new_context(user_agent=UA, locale="en-US", viewport={"width": 1440, "height": 900})
+    return b, ctx.new_page()
+
+
+def _guard(page) -> None:
+    """Fail loudly instead of returning an empty list that looks like 'no results'."""
+    html = page.content()
+    if "bm-verify" in html or re.search(r"Enter the characters|Robot Check", html):
+        raise SystemExit("amz: hit Amazon's bot challenge. Slow down and retry in a few minutes.")
+
+
+def search(query: str, limit: int, headed: bool, timeout: int) -> list[dict]:
+    from playwright.sync_api import sync_playwright
+
+    out: list[dict] = []
+    with sync_playwright() as pw:
+        b, page = _browser(pw, headed)
+        try:
+            page.goto(SEARCH.format(query.replace(" ", "+")), wait_until="domcontentloaded", timeout=timeout * 1000)
+            page.wait_for_timeout(2500)
+            _guard(page)
+            seen: set[str] = set()
+            for card in page.query_selector_all('[data-component-type="s-search-result"]'):
+                asin = card.get_attribute("data-asin") or ""
+                # <h2> holds only the BRAND in the current card layout ("Ziploc"), so
+                # read the title-recipe block and strip its leading "Sponsored" label.
+                title = _text(card.query_selector('[data-cy="title-recipe"]')) or _text(card.query_selector("h2"))
+                title = re.sub(r"^(?:Sponsored\s*)+", "", title)
+                if not asin or asin in seen:
+                    continue
+                seen.add(asin)
+                stars = card.query_selector("span.a-icon-alt")
+                out.append({
+                    "asin": asin,
+                    "title": title,
+                    "price": _text(card.query_selector("span.a-price > span.a-offscreen")),
+                    "rating": (_text(stars).split(" out of")[0] if stars else ""),
+                    "reviews": _text(card.query_selector("span.a-size-base.s-underline-text")),
+                    "sponsored": bool(card.query_selector('[aria-label*="Sponsored"], .puis-sponsored-label-text')),
+                })
+                if len(out) >= limit:
+                    break
+        finally:
+            b.close()
+    return out
+
+
+def show(asin: str, headed: bool, timeout: int) -> dict:
+    from playwright.sync_api import sync_playwright
+
+    with sync_playwright() as pw:
+        b, page = _browser(pw, headed)
+        try:
+            page.goto(DP.format(asin), wait_until="domcontentloaded", timeout=timeout * 1000)
+            page.wait_for_timeout(2500)
+            _guard(page)
+            stars = page.query_selector("#acrPopover")
+            specs = {}
+            for row in page.query_selector_all("#productDetails_techSpec_section_1 tr, #productOverview_feature_div tr"):
+                cells = row.query_selector_all("th, td")
+                if len(cells) == 2:
+                    specs[_text(cells[0])] = _text(cells[1])
+            return {
+                "asin": asin,
+                "url": DP.format(asin),
+                "title": _text(page.query_selector("#productTitle")),
+                "price": _first(page, BUYBOX),
+                "rating": (stars.get_attribute("title") or "" if stars else ""),
+                "reviews": _text(page.query_selector("#acrCustomerReviewText")),
+                "availability": _text(page.query_selector("#availability")),
+                "bullets": [t for li in page.query_selector_all("#feature-bullets li") if (t := _text(li))],
+                "specs": specs,
+            }
+        finally:
+            b.close()
+
+
+def main() -> int:
+    ap = argparse.ArgumentParser(prog="amz", description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
+    ap.add_argument("--json", action="store_true", help="emit raw JSON")
+    ap.add_argument("--headed", action="store_true", help="show the browser window")
+    ap.add_argument("--timeout", type=int, default=45, help="page load timeout in seconds")
+    sub = ap.add_subparsers(dest="cmd", required=True)
+    s = sub.add_parser("search"); s.add_argument("query", nargs="+"); s.add_argument("-n", type=int, default=12)
+    d = sub.add_parser("show"); d.add_argument("asin")
+    u = sub.add_parser("url"); u.add_argument("asin")
+    a = ap.parse_args()
+
+    if a.cmd == "url":
+        print(DP.format(a.asin)); return 0
+
+    if a.cmd == "search":
+        rows = search(" ".join(a.query), a.n, a.headed, a.timeout)
+        if a.json:
+            print(json.dumps(rows, indent=2)); return 0
+        if not rows:
+            print("No results. That is suspect -- check the query before believing it.", file=sys.stderr); return 1
+        for r in rows:
+            tag = "[ad] " if r["sponsored"] else ""
+            stars = f"{r['rating']}* {r['reviews']}" if r["rating"] else ""
+            print(f"{r['asin']}  {r['price'] or '-':>10}  {stars:>14}  {tag}{r['title'][:70]}")
+        return 0
+
+    p = show(a.asin, a.headed, a.timeout)
+    if a.json:
+        print(json.dumps(p, indent=2)); return 0
+    print(p["title"] or "(no title -- page may not have loaded)")
+    print(f"  {p['url']}")
+    print(f"  price: {p['price'] or '?'}   rating: {p['rating'] or '?'}   {p['reviews']}")
+    if p["availability"]:
+        print(f"  stock: {p['availability']}")
+    for k, v in p["specs"].items():
+        print(f"  {k}: {v}")
+    for bullet in p["bullets"]:
+        print(f"  - {bullet}")
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())
