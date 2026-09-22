@@ -72,6 +72,14 @@ BUYBOX = (
     "#corePrice_feature_div span.a-offscreen",
     "#price_inside_buybox",
 )
+# Delivery promise is address-specific, so it only means anything with the
+# session loaded. Anonymous, Amazon guesses a region and the date can be days
+# off, which is worse than no answer when the question is "will it arrive".
+DELIVERY = (
+    "#mir-layout-DELIVERY_BLOCK",
+    "#deliveryBlockMessage",
+    "#fast-track-message",
+)
 
 
 def _text(node) -> str:
@@ -143,11 +151,17 @@ def search(query: str, limit: int, headed: bool, timeout: int) -> list[dict]:
     return out
 
 
-def show(asin: str, headed: bool, timeout: int) -> dict:
+def show(asin: str, headed: bool, timeout: int, anon: bool = False) -> dict:
     from playwright.sync_api import sync_playwright
 
+    jar = None
+    if not anon:
+        try:
+            jar = chrome_cookies.load()
+        except chrome_cookies.NotLoggedIn:
+            jar = None
     with sync_playwright() as pw:
-        b, page = _browser(pw, headed)
+        b, page = _browser(pw, headed, cookies=jar)
         try:
             page.goto(DP.format(asin), wait_until="domcontentloaded", timeout=timeout * 1000)
             page.wait_for_timeout(2500)
@@ -166,6 +180,8 @@ def show(asin: str, headed: bool, timeout: int) -> dict:
                 "rating": (stars.get_attribute("title") or "" if stars else ""),
                 "reviews": _text(page.query_selector("#acrCustomerReviewText")),
                 "availability": _text(page.query_selector("#availability")),
+                "delivery": _first(page, DELIVERY),
+                "signed_in": bool(jar) and not page.query_selector("#ap_email"),
                 "bullets": [t for li in page.query_selector_all("#feature-bullets li") if (t := _text(li))],
                 "specs": specs,
             }
@@ -247,7 +263,8 @@ def main() -> int:
     ap.add_argument("--timeout", type=int, default=45, help="page load timeout in seconds")
     sub = ap.add_subparsers(dest="cmd", required=True)
     s = sub.add_parser("search"); s.add_argument("query", nargs="+"); s.add_argument("-n", type=int, default=12)
-    d = sub.add_parser("show"); d.add_argument("asin")
+    d = sub.add_parser("show"); d.add_argument("asin", nargs="+")
+    d.add_argument("--anon", action="store_true", help="skip the session (delivery dates become meaningless)")
     u = sub.add_parser("url"); u.add_argument("asin")
     au = sub.add_parser("auth")
     au.add_argument("--from-chrome", action="store_true", help="re-export the live session from the browser")
@@ -284,18 +301,24 @@ def main() -> int:
             print(f"{r['asin']}  {r['price'] or '-':>10}  {stars:>14}  {tag}{r['title'][:70]}")
         return 0
 
-    p = show(a.asin, a.headed, a.timeout)
+    products = [show(x, a.headed, a.timeout, a.anon) for x in a.asin]
     if a.json:
-        print(json.dumps(p, indent=2)); return 0
-    print(p["title"] or "(no title -- page may not have loaded)")
-    print(f"  {p['url']}")
-    print(f"  price: {p['price'] or '?'}   rating: {p['rating'] or '?'}   {p['reviews']}")
-    if p["availability"]:
-        print(f"  stock: {p['availability']}")
-    for k, v in p["specs"].items():
-        print(f"  {k}: {v}")
-    for bullet in p["bullets"]:
-        print(f"  - {bullet}")
+        print(json.dumps(products if len(products) > 1 else products[0], indent=2)); return 0
+    for p in products:
+        print(p["title"] or "(no title -- page may not have loaded)")
+        print(f"  {p['url']}")
+        print(f"  price: {p['price'] or '?'}   rating: {p['rating'] or '?'}   {p['reviews']}")
+        if p["availability"]:
+            print(f"  stock: {p['availability']}")
+        if p["delivery"]:
+            tag = "" if p["signed_in"] else "  (ANONYMOUS -- date is a guess, not your address)"
+            print(f"  ship:  {p['delivery']}{tag}")
+        if len(products) == 1:
+            for k, v in p["specs"].items():
+                print(f"  {k}: {v}")
+            for bullet in p["bullets"]:
+                print(f"  - {bullet}")
+        print()
     return 0
 
 
