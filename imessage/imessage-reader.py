@@ -314,22 +314,43 @@ def get_messages_recent(hours=24, limit=100):
     conn.close()
 
 
+def handles_for_name(name_query):
+    """Handles whose Contacts name matches name_query.
+
+    chat.db only stores display_name for group chats, so a 1:1 thread with a
+    person is nameless in the database and only `list` looked the name up in
+    Contacts. Without this, `chat "Maggie"` reported "No messages found" for a
+    thread that plainly exists, which reads as an answer instead of a miss.
+    """
+    needle = name_query.strip().lower()
+    if not needle:
+        return []
+    return [h for h, n in get_contacts().items() if needle in n.lower()]
+
+
 def get_messages_chat(chat_query, days=7, limit=100):
     """Get messages from a specific chat by name or phone number."""
     conn = get_db()
     cutoff = utc_cutoff_ts(days=days)
     chat_search = f"%{chat_query}%"
+    handles = handles_for_name(chat_query)
+    placeholders = ",".join("?" * len(handles))
+    handle_clause = (
+        f" OR h.id IN ({placeholders}) OR c.chat_identifier IN ({placeholders})"
+        if handles else ""
+    )
     query = f"""
         SELECT {MSG_QUERY_COLS}
         {MSG_JOINS}
-        WHERE (c.display_name LIKE ? OR c.chat_identifier LIKE ? OR h.id LIKE ?)
+        WHERE (c.display_name LIKE ? OR c.chat_identifier LIKE ? OR h.id LIKE ?{handle_clause})
             AND m.date > ?
             AND m.associated_message_type = 0
             AND (m.text IS NOT NULL OR m.attributedBody IS NOT NULL)
         ORDER BY m.date ASC
         LIMIT ?
     """
-    rows = conn.execute(query, (chat_search, chat_search, chat_search, cutoff, limit)).fetchall()
+    params = [chat_search, chat_search, chat_search] + handles * 2 + [cutoff, limit]
+    rows = conn.execute(query, params).fetchall()
     if not rows:
         print(f"No messages found matching '{chat_query}' in the last {days} days.")
     else:
