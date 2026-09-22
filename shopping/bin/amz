@@ -10,7 +10,15 @@ full page. That is the whole reason this exists instead of a requests script.
   amz show <ASIN> [--json]             one product: price, rating, bullets, specs
   amz url <ASIN>                       print the canonical product URL
 
-Both commands take --headed to watch the browser, and --timeout SECONDS.
+Account-level commands reuse a session exported from Chrome. The sign-in is
+always done by hand in a real browser; this tool has no password and cannot
+log in. See shopping/secrets/README.md.
+
+  amz auth --from-chrome               export the live amazon.com session
+  amz auth --status                    which auth cookies are held, and expiry
+  amz orders [--year YYYY] [--json]    order history for the signed-in account
+
+All commands take --headed to watch the browser, and --timeout SECONDS.
 
 Read-only by construction: it never signs in, adds to cart, or buys anything.
 """
@@ -20,12 +28,39 @@ from __future__ import annotations
 import argparse
 import json
 import re
+import subprocess
 import sys
+from datetime import datetime, timezone
+from pathlib import Path
 
-UA = (
-    "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 "
-    "(KHTML, like Gecko) Chrome/129.0.0.0 Safari/537.36"
-)
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+
+from shoptools import chrome_cookies  # noqa: E402
+
+CHROME = "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome"
+
+
+def _ua() -> str:
+    """Match the installed Chrome's major version.
+
+    Not cosmetic. Amazon binds a session to the browser identity: the exported
+    cookies authenticate fine under the real Chrome major, and bounce to the
+    sign-in page under a stale one. A hardcoded 129 against Chrome 153 was a
+    real bug, and it fails as "your session expired", which sends you off
+    re-exporting cookies that were never the problem.
+    """
+    major = "153"
+    try:
+        out = subprocess.run([CHROME, "--version"], capture_output=True, text=True, timeout=10).stdout
+        if m := re.search(r"(\d+)\.", out):
+            major = m.group(1)
+    except (OSError, subprocess.SubprocessError):
+        pass
+    return ("Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 "
+            f"(KHTML, like Gecko) Chrome/{major}.0.0.0 Safari/537.36")
+
+
+UA = _ua()
 DP = "https://www.amazon.com/dp/{}"
 SEARCH = "https://www.amazon.com/s?k={}"
 
@@ -51,9 +86,17 @@ def _first(page, selectors: tuple[str, ...]) -> str:
     return ""
 
 
-def _browser(pw, headed: bool):
+ORDERS = "https://www.amazon.com/gp/css/order-history"
+# A lapsed session renders the sign-in page, which parses as zero orders. That
+# is the failure this tool exists to make impossible, so it is checked by name.
+SIGNED_OUT = ("/ap/signin", "Sign in", "ap_email")
+
+
+def _browser(pw, headed: bool, cookies: list[dict] | None = None):
     b = pw.chromium.launch(headless=not headed)
     ctx = b.new_context(user_agent=UA, locale="en-US", viewport={"width": 1440, "height": 900})
+    if cookies:
+        ctx.add_cookies(cookies)
     return b, ctx.new_page()
 
 
@@ -130,6 +173,73 @@ def show(asin: str, headed: bool, timeout: int) -> dict:
             b.close()
 
 
+def orders(year: str | None, headed: bool, timeout: int) -> list[dict]:
+    from playwright.sync_api import sync_playwright
+
+    jar = chrome_cookies.load()
+    url = ORDERS + (f"?timeFilter=year-{year}" if year else "")
+    out: list[dict] = []
+    with sync_playwright() as pw:
+        b, page = _browser(pw, headed, cookies=jar)
+        try:
+            page.goto(url, wait_until="domcontentloaded", timeout=timeout * 1000)
+            page.wait_for_timeout(2500)
+            _guard(page)
+            if "/ap/signin" in page.url or page.query_selector("#ap_email"):
+                raise SystemExit(
+                    "amz: the saved session is signed out or expired. "
+                    "Sign in to amazon.com in Chrome, then run `amz auth --from-chrome`.")
+            for card in page.query_selector_all(".order-card"):
+                # Each header cell is a label/value pair. Read them by LABEL rather
+                # than by position: the column order varies by order type, and
+                # "Ship to" is deliberately never captured.
+                # Keys are lowercased because inner_text() returns RENDERED text and
+                # the .a-text-caps class is text-transform:uppercase, so the label
+                # arrives as "ORDER PLACED". Matching it verbatim silently yields "".
+                head: dict[str, str] = {}
+                for cell in card.query_selector_all(".order-header__header-list-item"):
+                    label = _text(cell.query_selector(".a-text-caps")).lower()
+                    value = _text(cell.query_selector(".a-size-base"))
+                    if label and label != "ship to":
+                        head[label] = value
+                out.append({
+                    "order_id": _text(card.query_selector(".yohtmlc-order-id .a-color-secondary:last-child"))
+                                or _text(card.query_selector(".yohtmlc-order-id")),
+                    "placed": head.get("order placed", ""),
+                    "total": head.get("total", ""),
+                    "items": [t for n in card.query_selector_all(".yohtmlc-product-title") if (t := _text(n))],
+                })
+        finally:
+            b.close()
+    return out
+
+
+def cmd_auth(a) -> int:
+    if a.from_chrome:
+        jar = chrome_cookies.export_session(a.browser)
+        path = chrome_cookies.save(jar)
+        print(f"exported {len(jar)} amazon.com cookies -> {path} (chmod 600, gitignored)")
+        return 0
+    try:
+        jar = chrome_cookies.load()
+    except chrome_cookies.NotLoggedIn as exc:
+        print(exc, file=sys.stderr)
+        return 1
+    now = datetime.now(timezone.utc)
+    print(f"{len(jar)} cookies saved at {chrome_cookies.COOKIE_FILE}")
+    for c in sorted(jar, key=lambda c: c["name"]):
+        if c["name"] not in chrome_cookies.NEEDED:
+            continue
+        exp = c.get("expires", -1)
+        if exp and exp > 0:
+            when = datetime.fromtimestamp(exp, tz=timezone.utc)
+            age = "EXPIRED" if when < now else f"expires {when.astimezone():%Y-%m-%d}"
+        else:
+            age = "session cookie"
+        print(f"  {c['name']:14} {age}")
+    return 0
+
+
 def main() -> int:
     ap = argparse.ArgumentParser(prog="amz", description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--json", action="store_true", help="emit raw JSON")
@@ -139,10 +249,28 @@ def main() -> int:
     s = sub.add_parser("search"); s.add_argument("query", nargs="+"); s.add_argument("-n", type=int, default=12)
     d = sub.add_parser("show"); d.add_argument("asin")
     u = sub.add_parser("url"); u.add_argument("asin")
+    au = sub.add_parser("auth")
+    au.add_argument("--from-chrome", action="store_true", help="re-export the live session from the browser")
+    au.add_argument("--status", action="store_true", help="show held cookies and expiry (default)")
+    au.add_argument("--browser", choices=list(chrome_cookies.BROWSERS), default="chrome")
+    o = sub.add_parser("orders"); o.add_argument("--year", help="e.g. 2026")
     a = ap.parse_args()
 
     if a.cmd == "url":
         print(DP.format(a.asin)); return 0
+
+    if a.cmd == "auth":
+        return cmd_auth(a)
+
+    if a.cmd == "orders":
+        rows = orders(a.year, a.headed, a.timeout)
+        if a.json:
+            print(json.dumps(rows, indent=2)); return 0
+        if not rows:
+            print("No orders parsed. Suspect the selectors, not the account.", file=sys.stderr); return 1
+        for r in rows:
+            print(f"{r['placed']:<18} {r['total']:>10}  {'; '.join(r['items'])[:80]}")
+        return 0
 
     if a.cmd == "search":
         rows = search(" ".join(a.query), a.n, a.headed, a.timeout)
