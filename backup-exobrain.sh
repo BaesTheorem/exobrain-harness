@@ -73,6 +73,7 @@ KEEP_WEEKLY="${KEEP_WEEKLY:-4}"
 KEEP_MONTHLY="${KEEP_MONTHLY:-6}"
 REPO_SCAN_ROOT="${REPO_SCAN_ROOT:-$HOME/Documents}"
 LOCAL_BACKUP_DIR="${LOCAL_BACKUP_DIR:-}"
+LOCAL_BACKUP_KEEP="${LOCAL_BACKUP_KEEP:-3}"
 if ! declare -p EXTRA_INCLUDES >/dev/null 2>&1; then EXTRA_INCLUDES=(); fi
 if ! declare -p BACKUP_EXCLUDE_REPOS >/dev/null 2>&1; then BACKUP_EXCLUDE_REPOS=(); fi
 BACKUP_REPO_MAX_MB="${BACKUP_REPO_MAX_MB:-2048}"
@@ -374,16 +375,84 @@ fi
 # account lockout takes both at once. A copy on an external disk / other cloud
 # mount breaks that single point of failure. Disabled unless LOCAL_BACKUP_DIR is
 # set (config.sh). Copy via a .tmp then atomic mv so a partial is never mistaken
-# for a complete archive.
+# for a complete archive, and md5-verify what landed: a USB disk can short-write
+# where the boot volume would not, and an unverified second copy is worse than
+# none, because it reads as redundancy that isn't there.
+#
+# Retention here is keep-newest-N (LOCAL_BACKUP_KEEP), deliberately NOT the
+# cloud's GFS. The full GFS set runs to KEEP_DAILY+KEEP_WEEKLY+KEEP_MONTHLY
+# archives, ~9GB each, which would fill a shared external disk in a fortnight
+# and take whatever else lives on it down too. Drive holds the deep history;
+# this destination exists to survive a Google lockout, so a few recent restore
+# points is the whole job. The prune runs BEFORE the copy, so the delete that
+# makes room can't be skipped by the copy failing first.
+#
+# Nothing in this section may abort the run. The Drive upload is confirmed by
+# the time we get here, so a full or flaky external disk degrades to a warning.
+staged_md5() {
+    local m=""
+    if [ -f "$LEDGER" ]; then
+        m="$(awk -F'\t' -v n="$ARCHIVE_NAME" '$2 == n {print $4}' "$LEDGER" | tail -1)"
+    fi
+    [ -n "$m" ] || m="$(md5 -q "$STAGED" 2>/dev/null || true)"
+    echo "$m"
+}
+
+# Keep the newest $1 archives in LOCAL_BACKUP_DIR, delete the rest. Only touches
+# files this script's own naming produces.
+prune_local_backups() {
+    local keep="$1" kept=0 f
+    while IFS= read -r f; do
+        [ -n "$f" ] || continue
+        kept=$((kept + 1))
+        if [ "$kept" -gt "$keep" ]; then
+            echo "[$(date)] Pruning older secondary copy: ${f##*/}"
+            rm -f "$f" || true
+        fi
+    done < <(ls -t "$LOCAL_BACKUP_DIR"/exobrain-collective-*.tar.gz 2>/dev/null)
+}
+
+secondary_copy() {
+    local dest="$LOCAL_BACKUP_DIR/$ARCHIVE_NAME" keep need avail want got
+    keep="$LOCAL_BACKUP_KEEP"
+    [ "$keep" -ge 1 ] 2>/dev/null || keep=1
+    # Prune to keep-1 so that this run's copy lands at exactly $keep.
+    prune_local_backups $(( keep - 1 ))
+    rm -f "$LOCAL_BACKUP_DIR"/exobrain-collective-*.tar.gz.tmp 2>/dev/null || true
+
+    need=$(stat -f %z "$STAGED")
+    avail=$(( $(df -k "$LOCAL_BACKUP_DIR" | awk 'NR==2 {print $4}') * 1024 ))
+    if [ "$avail" -lt $(( need + 1073741824 )) ]; then
+        echo "[$(date)] WARN: secondary copy skipped: $(( avail / 1073741824 ))GB free at $LOCAL_BACKUP_DIR, need $(( need / 1073741824 + 1 ))GB" >&2
+        return 0
+    fi
+
+    echo "[$(date)] Secondary copy -> $LOCAL_BACKUP_DIR ..."
+    if ! cp "$STAGED" "$dest.tmp"; then
+        echo "[$(date)] WARN: secondary copy to $LOCAL_BACKUP_DIR failed (write error)" >&2
+        rm -f "$dest.tmp" 2>/dev/null || true
+        return 0
+    fi
+
+    want="$(staged_md5)"
+    got="$(md5 -q "$dest.tmp" 2>/dev/null || true)"
+    if [ -z "$want" ] || [ "$want" != "$got" ]; then
+        echo "[$(date)] WARN: secondary copy md5 mismatch (want '$want', got '$got'); discarding partial" >&2
+        rm -f "$dest.tmp" 2>/dev/null || true
+        return 0
+    fi
+
+    if ! mv -f "$dest.tmp" "$dest"; then
+        echo "[$(date)] WARN: could not finalize secondary copy at $dest" >&2
+        rm -f "$dest.tmp" 2>/dev/null || true
+        return 0
+    fi
+    echo "[$(date)] Secondary copy verified: $dest (md5 $got)"
+}
+
 if [ -n "$LOCAL_BACKUP_DIR" ]; then
     if [ -d "$LOCAL_BACKUP_DIR" ]; then
-        if cp "$STAGED" "$LOCAL_BACKUP_DIR/$ARCHIVE_NAME.tmp" \
-           && mv -f "$LOCAL_BACKUP_DIR/$ARCHIVE_NAME.tmp" "$LOCAL_BACKUP_DIR/$ARCHIVE_NAME"; then
-            echo "[$(date)] Secondary copy: $LOCAL_BACKUP_DIR/$ARCHIVE_NAME"
-        else
-            echo "[$(date)] WARN: secondary copy to $LOCAL_BACKUP_DIR failed" >&2
-            rm -f "$LOCAL_BACKUP_DIR/$ARCHIVE_NAME.tmp" 2>/dev/null || true
-        fi
+        secondary_copy || echo "[$(date)] WARN: secondary copy step errored; Drive copy is confirmed" >&2
     else
         echo "[$(date)] WARN: LOCAL_BACKUP_DIR set but not present: $LOCAL_BACKUP_DIR (skipping)" >&2
     fi

@@ -111,7 +111,12 @@ EXTRA_INCLUDES=(
 # cloud mount). Empty = disabled. Google Drive is both the backup target AND a
 # primary data source, so a single account lockout takes both at once; a copy
 # here breaks that single point of failure. Each verified archive is copied here.
-LOCAL_BACKUP_DIR=""
+LOCAL_BACKUP_DIR="/Volumes/Extreme SSD/Exobrain backups"
+# How many archives to keep at LOCAL_BACKUP_DIR (newest first). Keep-newest-N,
+# not the cloud's GFS: the full GFS set is ~13 archives at ~9GB each, which
+# would fill a shared external disk and take the rest of its contents with it.
+# Drive holds the deep history; this target exists to survive a Google lockout.
+LOCAL_BACKUP_KEEP=3
 
 # External dependencies (outside the harness)
 FITBIT_TOKEN="$HARNESS_DIR/fitbit-mcp/.fitbit-token.json"
