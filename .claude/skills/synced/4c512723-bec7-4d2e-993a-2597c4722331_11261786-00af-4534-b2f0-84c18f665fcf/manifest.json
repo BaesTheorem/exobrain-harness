@@ -1,5 +1,5 @@
 {
-  "lastUpdated": 1789584697922,
+  "lastUpdated": 1790017202890,
   "skills": [
     {
       "skillId": "import-memory",
@@ -89,8 +89,9 @@
       "skillId": "skill_0117m3mQ9e1gTtNqe5H88eDZ",
       "name": "obsidian",
       "description": "Best practices and conventions for all Obsidian vault interactions. Canonical reference for daily note formatting, People notes, wikilinks, vault structure, and append-only rules. Referenced by other skills. Use when you need to check Obsidian conventions, note structure, or vault paths before reading or writing to the vault.",
-      "source": "custom",
-      "updatedAt": "2026-04-16T21:41:17.190414Z"
+      "source": "plugin",
+      "updatedAt": "2026-04-16T21:41:17.190312Z",
+      "backingPluginId": "plugin_01BaUw4Mp3AVaEGGjGLR8Fs7"
     },
     {
       "skillId": "skill_01R1xJ4u1nE9BWjUAFyj9xra",
