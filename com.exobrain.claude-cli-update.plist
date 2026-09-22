@@ -18,14 +18,18 @@
     <key>RunAtLoad</key>
     <true/>
 
-    <!-- Daily at 4:00 AM (local time). Omitting Weekday makes it daily. -->
+    <!-- Four times a day (local time), not just overnight. Releases ship during
+         US business hours: 2.1.280 published at 10:44 AM on 2026-09-22 carrying
+         the claude-opus-5-5 alias, and a 4 AM-only job left the Console's model
+         picker a release behind for the rest of the day. An up-to-date check is
+         one manifest fetch, so the extra runs cost nothing. -->
     <key>StartCalendarInterval</key>
-    <dict>
-        <key>Hour</key>
-        <integer>4</integer>
-        <key>Minute</key>
-        <integer>0</integer>
-    </dict>
+    <array>
+        <dict><key>Hour</key><integer>4</integer><key>Minute</key><integer>0</integer></dict>
+        <dict><key>Hour</key><integer>11</integer><key>Minute</key><integer>0</integer></dict>
+        <dict><key>Hour</key><integer>15</integer><key>Minute</key><integer>0</integer></dict>
+        <dict><key>Hour</key><integer>19</integer><key>Minute</key><integer>0</integer></dict>
+    </array>
 
     <key>StandardOutPath</key>
     <string>/Users/alexhedtke/Library/Logs/exobrain/claude-cli-update.out</string>
