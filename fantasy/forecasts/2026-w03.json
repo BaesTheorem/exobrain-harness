@@ -1,0 +1,718 @@
+{
+ "season": 2026,
+ "week": 3,
+ "issued": "2026-09-22T18:12-05:00",
+ "team_id": 12,
+ "team": "Chaos Legion",
+ "opponent": "Cutie Mark Crusaders",
+ "opponent_id": 10,
+ "forecast": {
+  "week": 3,
+  "author": "MIST",
+  "method": "Anchored on the unit-normalized consensus (ESPN, Sleeper, CBS, FantasyPros; FFToday absent from this pack) and the tiered historical actual/projection quantiles (starter tier median about 0.85x, q25-q75 roughly 0.6x to 1.25x), then moved each line by hand for the role seen in the week 2 snaps and targets (volume sticky, touchdowns noise), the Vegas line and implied total, weather, and injury status. Team totals use a weekly SD near 21 and, per the week 2 review, a right-skewed 90% band (about -30 / +40 around the median). The QB slot is the judgment call this week: Daniels is priced at zero on his own line, and the team total assumes the slot is filled by Sunday by a claimed or free-agent quarterback at a 13-point median (Young 16.7, Geno 15.1, Mariota 15.3 by ESPN, times the QB tier's 0.86x), because two claims are in flight and the Wednesday lineup routine adds a free agent if both fail; P(slot filled) about 0.97.",
+  "players": [
+   {
+    "name": "Jayden Daniels",
+    "median": 0,
+    "p50": [
+     0,
+     0
+    ],
+    "p90": [
+     0,
+     12
+    ],
+    "why": "DOUBTFUL with a dislocated left elbow (same joint as the three-game absence last year), imaging Monday, consulting specialists, no timetable; Mariota is expected to start. I put him under one-in-twenty to play, and if he somehow does it is a limited game, hence a 90% ceiling of 12 and a zero everywhere else. This line is the roster as it stands; the team total below assumes the slot gets filled, see the note under the table.",
+    "id": 4426348,
+    "pos": "QB",
+    "slot": "QB",
+    "consensus": 0.0,
+    "espn": 0.0,
+    "sources": {
+     "espn": 0.0
+    }
+   },
+   {
+    "name": "Kenneth Walker III",
+    "median": 19,
+    "p50": [
+     13,
+     26
+    ],
+    "p90": [
+     6,
+     38
+    ],
+    "why": "Consensus 20.4 (ESPN 21.0, FantasyPros 19.4). Volume rank 1 at RB: 23.5 carries and 8 targets a game, 35.5 opportunities, 82% snaps last week. Kansas City an 11.5-point favorite at Miami with a 28.5 implied total, which is a carry-heavy script but also a rest-the-starter fourth quarter, so the median sits under consensus at the library's 0.9x and the top tail stays long for a game-script touchdown.",
+    "id": 4567048,
+    "pos": "RB",
+    "slot": "RB",
+    "consensus": 20.4,
+    "espn": 21.0,
+    "sources": {
+     "espn": 21.0,
+     "sleeper": 20.1,
+     "cbs": 20.9,
+     "fantasypros": 19.4
+    }
+   },
+   {
+    "name": "David Montgomery",
+    "median": 9.5,
+    "p50": [
+     5,
+     15
+    ],
+    "p90": [
+     1.5,
+     26
+    ],
+    "why": "Consensus 12.8 but the role moved the wrong way: 6 carries and 52% snaps at Cincinnati after 20 in week 1, 6% target share, three touchdowns on thin usage (SELL, ROLE-DOWN). Houston a 2.5-point favorite in the Indianapolis dome, implied 22.5. His median is a touchdown-shaped number, so the 50% band is wide below and the 90% ceiling assumes a two-score day.",
+    "id": 4035538,
+    "pos": "RB",
+    "slot": "RB",
+    "consensus": 12.8,
+    "espn": 11.9,
+    "sources": {
+     "espn": 11.9,
+     "sleeper": 14.1,
+     "cbs": 12.4
+    }
+   },
+   {
+    "name": "Ja'Marr Chase",
+    "median": 15.5,
+    "p50": [
+     9.5,
+     22.5
+    ],
+    "p90": [
+     4,
+     34
+    ],
+    "why": "Consensus 18.1. Only a 20% target share so far (6.5 a game) with Higgins at 25%, which is why the volume feed flags him SELL at points rank 17; the 26.5 last week was efficiency on 8 targets. Cincinnati a 3.5-point favorite at Pittsburgh, implied 23, 68 degrees, outdoor. Median below consensus until the share climbs; ceiling stays elite because the talent is.",
+    "id": 4362628,
+    "pos": "WR",
+    "slot": "WR",
+    "consensus": 18.1,
+    "espn": 19.0,
+    "sources": {
+     "espn": 19.0,
+     "sleeper": 17.2,
+     "cbs": 18.5,
+     "fantasypros": 17.9
+    }
+   },
+   {
+    "name": "Christian Watson",
+    "median": 13,
+    "p50": [
+     7.5,
+     19
+    ],
+    "p90": [
+     2.5,
+     30
+    ],
+    "why": "Consensus 15.1 (CBS 16.0). Thursday night at home vs Atlanta, Green Bay a 6-point favorite, implied 24.8, cloudy and 60 degrees. The volume is real now: 9.5 targets a game, 29% share, 90% snaps, ROLE-UP. But three touchdowns in two weeks on a deep-threat profile is the part that does not repeat, so the median is 2 under consensus and the ceiling is the two-score game he has already shown.",
+    "id": 4248528,
+    "pos": "WR",
+    "slot": "WR",
+    "consensus": 15.1,
+    "espn": 14.0,
+    "sources": {
+     "espn": 14.0,
+     "sleeper": 15.2,
+     "cbs": 16.0
+    }
+   },
+   {
+    "name": "Trey McBride",
+    "median": 15,
+    "p50": [
+     10,
+     21
+    ],
+    "p90": [
+     5,
+     30
+    ],
+    "why": "Consensus 16.6, the roster's best-agreed line. 11.5 targets a game, 37% share, WOPR 0.78, volume rank 1 at TE. Arizona an 8.5-point underdog at San Francisco with a 19.5 implied total, which is a trailing script that feeds a target-hog tight end. Median at the starter-tier 0.9x, band the TE shape.",
+    "id": 4361307,
+    "pos": "TE",
+    "slot": "TE",
+    "consensus": 16.6,
+    "espn": 16.5,
+    "sources": {
+     "espn": 16.5,
+     "sleeper": 16.6,
+     "cbs": 15.5,
+     "fantasypros": 17.8
+    }
+   },
+   {
+    "name": "Rhamondre Stevenson",
+    "median": 8,
+    "p50": [
+     4.5,
+     12.5
+    ],
+    "p90": [
+     1.5,
+     22
+    ],
+    "why": "Consensus 11.1 (ESPN 12.0) but the split is now visible: 36% snaps and 6 carries last week with Henderson back at 13.6. New England a 3-point underdog at Jacksonville, implied 21.2, 82 degrees. BUY on volume rank vs points, ROLE-DOWN on last week; I price the role I saw last, so the median is 3 under consensus with a long top tail if the split flips back.",
+    "id": 4569173,
+    "pos": "RB",
+    "slot": "FLEX",
+    "consensus": 11.1,
+    "espn": 12.0,
+    "sources": {
+     "espn": 12.0,
+     "sleeper": 10.2,
+     "cbs": 11.1
+    }
+   },
+   {
+    "name": "Rams D/ST",
+    "median": 5.5,
+    "p50": [
+     2,
+     9
+    ],
+    "p90": [
+     -2,
+     16
+    ],
+    "why": "Consensus 6.4 (ESPN 5.4). Rams a 2.5-point favorite at Denver, Denver implied 21.5 at altitude; a mid-total road game, neither the sack-and-turnover shape nor the blowup one. Negative tail is the yards-allowed penalty in this league.",
+    "id": -16014,
+    "pos": "D/ST",
+    "slot": "D/ST",
+    "consensus": 6.4,
+    "espn": 5.4,
+    "sources": {
+     "espn": 5.4,
+     "sleeper": 6.8,
+     "cbs": 7.0
+    }
+   },
+   {
+    "name": "Cam Little",
+    "median": 7.5,
+    "p50": [
+     4,
+     11
+    ],
+    "p90": [
+     1,
+     16
+    ],
+    "why": "Consensus 8.2. Jacksonville a 3-point home favorite vs New England, implied 24.2, sunny and 82. Distance-weighted scoring and a 61-yard leg give him a real ceiling on stalled drives; kicker error is the widest in the library, so the 50% band is nearly the median.",
+    "id": 4686361,
+    "pos": "K",
+    "slot": "K",
+    "consensus": 8.2,
+    "espn": 8.7,
+    "sources": {
+     "espn": 8.7,
+     "sleeper": 8.4,
+     "cbs": 7.5
+    }
+   },
+   {
+    "name": "Chris Godwin Jr.",
+    "median": 7,
+    "p50": [
+     3.5,
+     11
+    ],
+    "p90": [
+     0.5,
+     18
+    ],
+    "why": "Consensus 9.3. 3.5 targets a game, 12% share on 86% snaps, volume rank 95: he runs routes and does not get the ball. Minnesota a 1.5-point favorite at Tampa, Tampa implied 20.5. Bench and in a trade proposal; a calibration line.",
+    "id": 3116165,
+    "pos": "WR",
+    "slot": "BE",
+    "consensus": 9.3,
+    "espn": 8.8,
+    "sources": {
+     "espn": 8.8,
+     "sleeper": 9.9,
+     "cbs": 9.2
+    }
+   },
+   {
+    "name": "RJ Harvey",
+    "median": 2,
+    "p50": [
+     0,
+     5.5
+    ],
+    "p90": [
+     0,
+     13
+    ],
+    "why": "Questionable, hamstring, inactive last week; Dobbins and rookie Coleman carried the backfield. Sunday night vs the Rams, Denver implied 21.5. I make him about a coin flip to play and, if he does, the three-carry role from week 1, so the median is 2 and the ceiling is a touchdown or a kick return.",
+    "id": 4568490,
+    "pos": "RB",
+    "slot": "BE",
+    "consensus": 8.2,
+    "espn": 9.5,
+    "sources": {
+     "espn": 9.5,
+     "sleeper": 7.6,
+     "cbs": 7.4
+    }
+   },
+   {
+    "name": "Josh Downs",
+    "median": 10,
+    "p50": [
+     6,
+     14.5
+    ],
+    "p90": [
+     2,
+     23
+    ],
+    "why": "Consensus 11.1 with the roster's tightest spread. ROLE-UP and BUY: 9 targets and a 30% share last week, 86% snaps. Indianapolis a 2.5-point home underdog vs Houston in the dome, implied 20, slot volume late. Median at 0.9x consensus, floor above a generic bench WR because the targets are there.",
+    "id": 4688813,
+    "pos": "WR",
+    "slot": "BE",
+    "consensus": 11.1,
+    "espn": 11.5,
+    "sources": {
+     "espn": 11.5,
+     "sleeper": 10.7,
+     "cbs": 11.0
+    }
+   },
+   {
+    "name": "Jaylin Noel",
+    "median": 4,
+    "p50": [
+     1.5,
+     7.5
+    ],
+    "p90": [
+     0,
+     14
+    ],
+    "why": "Consensus 5.2 but CBS's 7.8 is the outlier; ESPN and Sleeper say 3.9. 45% snaps on the season, 3.5 targets a game, the third receiver. Houston at Indianapolis, dome. He is the drop in both QB claims, so this line likely settles as 'not on the roster'.",
+    "id": 4586312,
+    "pos": "WR",
+    "slot": "BE",
+    "consensus": 5.2,
+    "espn": 3.9,
+    "sources": {
+     "espn": 3.9,
+     "sleeper": 3.8,
+     "cbs": 7.8
+    }
+   },
+   {
+    "name": "Jalen Nailor",
+    "median": 4.5,
+    "p50": [
+     2,
+     8
+    ],
+    "p90": [
+     0,
+     15
+    ],
+    "why": "Consensus 6.1 after 1.9 on 5 targets last week (14% share, 60% snaps). Las Vegas a 3-point underdog at New Orleans in the dome, implied 20.2. The drop in the Washington claim; a touchdown is the whole ceiling.",
+    "id": 4382466,
+    "pos": "WR",
+    "slot": "BE",
+    "consensus": 6.1,
+    "espn": 6.3,
+    "sources": {
+     "espn": 6.3,
+     "sleeper": 6.6,
+     "cbs": 5.5
+    }
+   },
+   {
+    "name": "Devaughn Vele",
+    "median": 10,
+    "p50": [
+     6,
+     14.5
+    ],
+    "p90": [
+     2,
+     23
+    ],
+    "why": "Consensus 10.6. 8 targets a game, 20% share, 94% snaps, 15.6 PPR a game; the SELL flag is a points-rank artifact, the volume is a real role. New Orleans a 3-point home favorite vs Las Vegas in the dome, implied 23.2, the second-highest on the roster. Median at consensus rather than shaded down; his watch trigger fired for the FLEX conversation.",
+    "id": 4569559,
+    "pos": "WR",
+    "slot": "BE",
+    "consensus": 10.6,
+    "espn": 11.5,
+    "sources": {
+     "espn": 11.5,
+     "sleeper": 9.9,
+     "cbs": 10.5
+    }
+   },
+   {
+    "name": "Rashod Bateman",
+    "median": 9.5,
+    "p50": [
+     5,
+     14.5
+    ],
+    "p90": [
+     1.5,
+     24
+    ],
+    "why": "Consensus 10.3 with a 5.7 spread (ESPN 7.6, CBS 13.3). ROLE-UP: 93% snaps and a 31% share last week for 21.8. Baltimore a 3.5-point favorite at Dallas in the slate's highest total (52.5), implied 28, the highest on our roster. Median between the sources, long ceiling for the game environment, floor near zero because the Ravens spread targets.",
+    "id": 4360939,
+    "pos": "WR",
+    "slot": "BE",
+    "consensus": 10.3,
+    "espn": 7.6,
+    "sources": {
+     "espn": 7.6,
+     "sleeper": 10.1,
+     "cbs": 13.3
+    }
+   },
+   {
+    "name": "Jordyn Tyson",
+    "median": 0,
+    "p50": [
+     0,
+     0
+    ],
+    "p90": [
+     0,
+     1
+    ],
+    "why": "IR, designated to return around mid-October; not activated this week.",
+    "id": 4880281,
+    "pos": "WR",
+    "slot": "IR",
+    "consensus": 0.0,
+    "espn": 0.0,
+    "sources": {
+     "espn": 0.0
+    }
+   }
+  ],
+  "team_total": {
+   "median": 106,
+   "p50": [
+    92,
+    120
+   ],
+   "p90": [
+    74,
+    146
+   ],
+   "why": "Starter medians excluding QB sum to 93 (ESPN's 108.5 without a quarterback, times the 0.86x the library shows), plus a 13-point median for the streaming quarterback expected to fill the slot. Nine starters with these error shapes give a weekly SD near 21, so plus or minus 14 for the 50%; the 90% band is asymmetric per the week 2 lesson, -32 / +40. Baseline (QB at zero) is 88-120 / 70-145."
+  },
+  "opp_total": {
+   "median": 100,
+   "p50": [
+    87,
+    114
+   ],
+   "p90": [
+    70,
+    140
+   ],
+   "why": "Cutie Mark Crusaders' starter consensus sums to 110.3, baseline median 103. Goff at home vs the Jets (Detroit -6.5, implied 27) and Kincaid (18.0 and 22.5 on sub-11 projections, Buffalo implied 28.8) carry real upside; Parker Washington is a 36% target share, ROLE-UP and BUY. Against: London 5.5 and 8.9 on a bad Atlanta offense implied 18.8 on Thursday, Pollard 4.4 and 7.5, Jadarian Price Questionable. Median at the 0.9x mark, upper tail long for a Goff-Kincaid stack week. This manager sets a full lineup (no zeros, 16 bench points left a week), so no hole is assumed."
+  },
+  "win_prob": 0.57,
+  "standing": {
+   "median": 4,
+   "p50": [
+    3,
+    7
+   ],
+   "p90": [
+    2,
+    8
+   ],
+   "p_first": 0.03,
+   "p_top2": 0.19,
+   "why": "A win (0.57) makes us 2-1 with the league's top Points For, so we finish ahead of every 2-1 team and behind each team that reaches 3-0: Njigba Please! (about 0.75 vs KC Breathmints), End-Zone Dancers (0.6 vs The Winners) and The Oprah Winfreys (0.47 at The Chefs). That puts the win branch at 2nd (29%), 3rd (45%), 4th (21%), 1st (5%). A loss (0.43) drops us to 1-2 behind the three 2-0 teams, the idle Marmots at 1-1, one of Waiting for Gordon or Namaslay, and whichever of The Winners, Goedel Escher Butkus and KC Breathmints win: 6th to 9th, mode 7. Mixed: median 4, P(first) 0.03, P(top two) 0.19; the baseline is close (4, 0.017, 0.127) with its quarterback at zero."
+  }
+ },
+ "baseline": {
+  "players": {
+   "Jayden Daniels": {
+    "q05": 0.0,
+    "q25": 0.0,
+    "q50": 0.0,
+    "q75": 0.0,
+    "q95": 0.0
+   },
+   "Kenneth Walker III": {
+    "q05": 5.79,
+    "q25": 12.99,
+    "q50": 17.86,
+    "q75": 25.52,
+    "q95": 40.6
+   },
+   "David Montgomery": {
+    "q05": 1.9,
+    "q25": 6.87,
+    "q50": 10.64,
+    "q75": 17.47,
+    "q95": 29.31
+   },
+   "Ja'Marr Chase": {
+    "q05": 2.85,
+    "q25": 10.13,
+    "q50": 15.44,
+    "q75": 23.18,
+    "q95": 33.9
+   },
+   "Christian Watson": {
+    "q05": 2.37,
+    "q25": 7.91,
+    "q50": 12.75,
+    "q75": 18.56,
+    "q95": 27.42
+   },
+   "Trey McBride": {
+    "q05": 3.84,
+    "q25": 10.52,
+    "q50": 13.65,
+    "q75": 22.03,
+    "q95": 33.36
+   },
+   "Rhamondre Stevenson": {
+    "q05": 1.75,
+    "q25": 5.44,
+    "q50": 8.94,
+    "q75": 14.3,
+    "q95": 27.7
+   },
+   "Rams D/ST": {
+    "q05": -2.31,
+    "q25": 2.04,
+    "q50": 5.33,
+    "q75": 10.28,
+    "q95": 17.6
+   },
+   "Cam Little": {
+    "q05": 1.12,
+    "q25": 4.51,
+    "q50": 7.56,
+    "q75": 11.0,
+    "q95": 17.1
+   },
+   "Chris Godwin Jr.": {
+    "q05": 0.0,
+    "q25": 3.95,
+    "q50": 7.09,
+    "q75": 12.16,
+    "q95": 20.79
+   },
+   "RJ Harvey": {
+    "q05": 1.22,
+    "q25": 3.96,
+    "q50": 6.65,
+    "q75": 10.88,
+    "q95": 19.39
+   },
+   "Josh Downs": {
+    "q05": 0.0,
+    "q25": 4.68,
+    "q50": 8.28,
+    "q75": 14.06,
+    "q95": 24.61
+   },
+   "Jaylin Noel": {
+    "q05": 0.0,
+    "q25": 0.0,
+    "q50": 3.19,
+    "q75": 7.3,
+    "q95": 17.3
+   },
+   "Jalen Nailor": {
+    "q05": 0.0,
+    "q25": 0.74,
+    "q50": 4.12,
+    "q75": 8.71,
+    "q95": 19.83
+   },
+   "Devaughn Vele": {
+    "q05": 0.0,
+    "q25": 4.5,
+    "q50": 7.91,
+    "q75": 13.36,
+    "q95": 23.25
+   },
+   "Rashod Bateman": {
+    "q05": 0.0,
+    "q25": 4.35,
+    "q50": 7.68,
+    "q75": 12.93,
+    "q95": 22.83
+   },
+   "Jordyn Tyson": {
+    "q05": 0.0,
+    "q25": 0.0,
+    "q50": 0.0,
+    "q75": 0.0,
+    "q95": 0.0
+   }
+  },
+  "team_total": {
+   "q05": 69.63,
+   "q25": 88.04,
+   "q50": 104.03,
+   "q75": 120.21,
+   "q95": 145.2
+  },
+  "opp_total": {
+   "q05": 69.92,
+   "q25": 88.69,
+   "q50": 103.08,
+   "q75": 118.66,
+   "q95": 143.18
+  },
+  "win_prob": 0.513,
+  "rank": {
+   "q05": 2,
+   "q25": 3,
+   "q50": 4,
+   "q75": 8,
+   "q95": 9
+  },
+  "p_first": 0.017,
+  "p_top2": 0.127,
+  "p_top6": 0.546,
+  "rank_dist": {
+   "1": 0.017,
+   "2": 0.109,
+   "3": 0.25,
+   "4": 0.136,
+   "5": 0.001,
+   "6": 0.033,
+   "7": 0.14,
+   "8": 0.2,
+   "9": 0.098,
+   "10": 0.016
+  },
+  "sims": 5000,
+  "residual_n": {
+   "QB": 577,
+   "RB": 1178,
+   "WR": 1852,
+   "TE": 815,
+   "K": 567,
+   "D/ST": 576
+  }
+ },
+ "sources": {
+  "ok": [
+   "cbs",
+   "fantasypros",
+   "fftoday",
+   "sleeper"
+  ],
+  "failed": []
+ },
+ "standings_before": [
+  {
+   "team_id": 4,
+   "team": "Njigba Please!",
+   "w": 2,
+   "l": 0,
+   "pf": 284.1
+  },
+  {
+   "team_id": 5,
+   "team": "End-Zone Dancers",
+   "w": 2,
+   "l": 0,
+   "pf": 241.6
+  },
+  {
+   "team_id": 1,
+   "team": "The Oprah Winfreys",
+   "w": 2,
+   "l": 0,
+   "pf": 205.3
+  },
+  {
+   "team_id": 12,
+   "team": "Chaos Legion",
+   "w": 1,
+   "l": 1,
+   "pf": 291.8
+  },
+  {
+   "team_id": 2,
+   "team": "The Winners",
+   "w": 1,
+   "l": 1,
+   "pf": 280.2
+  },
+  {
+   "team_id": 13,
+   "team": "Goedel, Escher, Butkus",
+   "w": 1,
+   "l": 1,
+   "pf": 229.3
+  },
+  {
+   "team_id": 9,
+   "team": "Waiting for Gordon",
+   "w": 1,
+   "l": 1,
+   "pf": 214.2
+  },
+  {
+   "team_id": 11,
+   "team": "The Mighty Marmots",
+   "w": 1,
+   "l": 1,
+   "pf": 197.4
+  },
+  {
+   "team_id": 6,
+   "team": "KC Breathmints",
+   "w": 1,
+   "l": 1,
+   "pf": 193.4
+  },
+  {
+   "team_id": 14,
+   "team": "Ayahuasca Rodgers",
+   "w": 0,
+   "l": 2,
+   "pf": 226.3
+  },
+  {
+   "team_id": 10,
+   "team": "Cutie Mark Crusaders",
+   "w": 0,
+   "l": 2,
+   "pf": 190.5
+  },
+  {
+   "team_id": 3,
+   "team": "The Chefs",
+   "w": 0,
+   "l": 1,
+   "pf": 104.2
+  },
+  {
+   "team_id": 7,
+   "team": "Namaslay",
+   "w": 0,
+   "l": 1,
+   "pf": 101.1
+  }
+ ],
+ "settled": null,
+ "forecast_note": "Filed Tue 2026-09-22 6:30 PM on the roster as it stands. Three claims process Wednesday 2:00 AM (Malik Washington for Nailor, Bryce Young for Noel, Geno Smith for Noel) and none of them is in this table; the team total assumes a streaming quarterback fills the QB slot by Sunday (13-point median), which is the one judgment call that decides the week, while Daniels' own line is priced at zero. Two Mahomes trade packages to The Winners are with Alex on buttons and are not assumed. If the Wednesday roster differs, the lineup routine's daily check is the live read; this table stays as issued."
+}
