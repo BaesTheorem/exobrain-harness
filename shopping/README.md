@@ -45,6 +45,14 @@ same browser path is used for both so there is one code path to maintain.
 - **`<h2>` is the brand, not the title.** In the current search card layout the
   `<h2>` holds only "Ziploc". The title lives in `[data-cy="title-recipe"]`
   behind a "Sponsored" prefix.
+- **Read the `Capacity` spec row; never compute it from the dimensions.**
+  Estimating a gusseted pouch's volume from its flat width and height
+  overshoots badly: the cylinder model put a Wallaby MRE bag at 1.5 L when the
+  listing states **0.4 L**, because the published dimensions include seal
+  margins and the gusset constrains the shape far more than a free cylinder.
+  Some listings do put junk in the field (one read `Capacity: 4.25 inches`,
+  the gusset depth in the wrong slot); when that happens, find a comparable
+  bag that publishes both, do not fall back on the arithmetic.
 - **An empty result is suspect, not an answer.** `search` exits non-zero on
   zero rows, and both commands raise if they detect the bot challenge, so a
   block never reads as "no such product".
