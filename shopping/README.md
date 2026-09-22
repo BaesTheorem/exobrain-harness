@@ -6,9 +6,19 @@ Read-only retail lookup tools.
 
 ```
 amz search "retort pouch stand up" -n 10
-amz show B09DS2BLYZ
-amz show B09DS2BLYZ --json
+amz show B09DS2BLYZ                    # one product
+amz show B0D2PTLXDD B0FSPVM1X2 --json  # several, to compare price and shipping
+amz auth --from-chrome                 # re-export the live session
+amz auth --status                      # held cookies and their expiry
+amz orders --year 2026                 # order history for the signed-in account
 ```
+
+`--json`, `--headed` and `--timeout` work on either side of the subcommand.
+
+`show` loads the saved session by default so the **delivery promise is for
+Alex's real address**. Anonymous, Amazon guesses a region and the date can be
+days off, so that case prints a warning next to it rather than passing it off
+as real. `--anon` forces the anonymous path.
 
 ### Why a browser and not `requests`
 
