@@ -24,6 +24,16 @@
     "notes": "Scans govinfo BILLSTATUS bulk zips for a whole Congress and returns every AI-related bill plus a per-member index (sponsor/cosponsor, party, date, bucket). Primary-source whip lists without an API key or rate limit. Zips: https://www.govinfo.gov/bulkdata/BILLSTATUS/119/{s,hr}/BILLSTATUS-119-{s,hr}.zip"
   },
   {
+    "name": "amz",
+    "command": "shopping/bin/amz search <query> | show <ASIN>",
+    "repo_dir": "shopping",
+    "source": "built",
+    "added": "2026-09-22",
+    "notes": "Read-only Amazon product/price lookup over headless Playwright. Anonymous, no creds. Amazon /s? search is bm-verify (Akamai) gated against curl but a real browser clears it; /dp/ works either way. Selectors scoped to avoid sponsored-carousel contamination.",
+    "description": "",
+    "use_when": ""
+  },
+  {
     "name": "analyze-leaf",
     "command": "python3 flipper/analyze-leaf.py <dump.nfc>",
     "repo_dir": "flipper",
