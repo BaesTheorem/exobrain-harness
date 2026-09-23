@@ -1,0 +1,23 @@
+#!/usr/bin/env swift
+// drive-evict: drop the local bytes of Google Drive (or any File Provider) files,
+// leaving cloud-only placeholders. Same as Finder's "Remove Download".
+//
+// Usage: drive-evict <path>...   (files; pass a dir's files via find | xargs -0)
+//
+// Pinned ("Available offline") items refuse with NSFileProviderErrorDomain -2008
+// "cannot be evicted". Unpin those in Finder first (right-click > Google Drive >
+// Online only); check pin state with `fileproviderctl evaluate <path>`.
+// Verify with `stat -f %b` (on-disk blocks) before and after.
+import Foundation
+
+var failed = false
+for p in CommandLine.arguments.dropFirst() {
+    do {
+        try FileManager.default.evictUbiquitousItem(at: URL(fileURLWithPath: p))
+        print("ok \(p)")
+    } catch {
+        failed = true
+        FileHandle.standardError.write("ERR \(p): \(error.localizedDescription)\n".data(using: .utf8)!)
+    }
+}
+exit(failed ? 1 : 0)
