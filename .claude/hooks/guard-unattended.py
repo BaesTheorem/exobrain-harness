@@ -180,6 +180,15 @@ PATH_TOKEN = re.compile(
     r"[^\s\"'`;|&<>)]*"
 )
 
+# String literals in a script body. Triple-quoted first so their inner quotes
+# are not read as short literals.
+STRING_LITERAL = re.compile(
+    r"\"\"\"[\s\S]*?\"\"\"|'''[\s\S]*?'''|\"(?:[^\"\\\n]|\\.)*\"|'(?:[^'\\\n]|\\.)*'"
+)
+# A literal whose whole content is an absolute or home-relative path. These may
+# contain spaces (this repo's own directory has one); relative paths may not.
+ROOTED_PATH = re.compile(r"(?:~|\$HOME|\.{1,2})?/[^\n\"'`]*")
+
 
 def _log(line: str) -> None:
     try:
@@ -273,12 +282,32 @@ def _split_heredocs(command: str) -> tuple[list[str], list[str], list[str]]:
     return cmd_lines, scripts, expanding
 
 
+def _script_paths(script: str) -> list[str]:
+    """Paths a script body could open: string literals that are wholly a path,
+    plus path tokens in the code outside any literal.
+
+    A path mentioned inside a sentence ("ran fantasy/bin/espn check") is prose
+    headed for a note, not a file the script touches. Counting it denied every
+    routine that logged which tool it ran (2026-09-22 and 09-23). A path built
+    by concatenation slips past this, as one held in a variable already did.
+    """
+    paths: list[str] = []
+    for m in STRING_LITERAL.finditer(script):
+        body = m.group(0)
+        body = body[3:-3] if body[:3] in ('"""', "'''") else body[1:-1]
+        if ROOTED_PATH.fullmatch(body) or PATH_TOKEN.fullmatch(body):
+            paths.append(body)
+    code = STRING_LITERAL.sub('""', script)
+    paths.extend(m.group(0) for m in PATH_TOKEN.finditer(code))
+    return paths
+
+
 def _script_reason(script: str) -> str | None:
     """A script body that writes and names a protected path."""
     if not SCRIPT_WRITES.search(script):
         return None
-    for m in PATH_TOKEN.finditer(script):
-        why = check_write_path(m.group(0))
+    for path in _script_paths(script):
+        why = check_write_path(path)
         if why:
             return why
     return None
