@@ -1,0 +1,6 @@
+#!/usr/bin/env bash
+# mist-ytp -- script-driven YouTube Poop renderer (clips, sentence mixing, effects).
+# Thin shim: run the CLI under this project's venv (pyyaml / faster-whisper live there).
+set -euo pipefail
+DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+exec "$DIR/.venv/bin/python" "$DIR/mist_ytp.py" "$@"
