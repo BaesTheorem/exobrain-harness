@@ -233,7 +233,7 @@ def _geocode_with_claude(timeout: int = 900) -> bool:
     before = GEOCODED_PATH.stat().st_mtime if GEOCODED_PATH.exists() else 0
     try:
         subprocess.run(["claude", "--print", "--permission-mode", "bypassPermissions",
-                        "--model", "claude-fable-5-1", "--fallback-model", "claude-opus-5",
+                        "--model", "claude-fable-5-1", "--fallback-model", "claude-opus-5-5[1m]",
                         "--tools", "Read,Write,Glob,Grep,WebFetch,WebSearch",
                         "--strict-mcp-config", "--mcp-config", '{"mcpServers":{}}',
                         "--no-session-persistence", preamble + prompt],

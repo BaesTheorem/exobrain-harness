@@ -82,7 +82,7 @@ Do not send anything until he says to. When he does, it goes out through
 # Opus 5 behind it because a spent Fable budget should not take the watcher down
 # for a day (Alex, 2026-09-14). The fallback fires ONLY on an exhausted budget,
 # never on an auth failure, since no model fixes a missing token.
-MODELS = ("claude-fable-5-1", "claude-opus-5")
+MODELS = ("claude-fable-5-1", "claude-opus-5-5[1m]")
 CLAUDE_TIMEOUT = 600
 
 

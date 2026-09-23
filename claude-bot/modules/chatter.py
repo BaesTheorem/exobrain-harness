@@ -86,7 +86,7 @@ DISCORD_LIMIT = 2000
 # claude-bot/modules/chatter.py -> the harness root two levels up.
 HARNESS_ROOT = Path(__file__).resolve().parents[2]
 
-DEFAULT_MODEL = "claude-opus-5"
+DEFAULT_MODEL = "claude-opus-5-5[1m]"
 
 # Settings-table keys for the runtime-switchable knobs.
 _KEY_MODEL = "chatter.model"
