@@ -76,6 +76,14 @@ admin_ids = [000000000000000000]  # your Discord user ID(s) -- full command acce
 #                            # but Instagram often blocks yt-dlp; kkinstagram is
 #                            # the reliable default).
 
+# [gphotos]                  # Google Photos video embedder. Any Google Photos
+# enabled = true             # share link that turns out to be a video gets a
+#                            # reply with the gphotos-embed worker link, which
+#                            # Discord plays inline. Photos/albums are ignored.
+# host = "gphotos.alex-hedtke.workers.dev"  # your gphotos-embed worker
+# suppress_original = true   # hide the original's static preview (needs
+#                            # Manage Messages; skipped without it)
+
 # [threads]                  # Thread auto-join (Fletcher's use_threads). Anyone
 # enabled = true             # runs `!preference use_threads true` (or a list of
 #                            # #channels / category names) to be added to every

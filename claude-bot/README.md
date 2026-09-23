@@ -30,6 +30,7 @@ Feature phases land as additional modules:
 | 7 ✅ | `modules/ace.py` | `!ace` Ace Attorney video generator (isolated venv, throttled) |
 | 8 ✅ | `modules/instagram.py` | reply to an Instagram link + @mention MIST → reel embeds as inline video (Fletcher kkinstagram fix) |
 | 9 ✅ | `modules/threads.py` | `!preference use_threads` + auto-join: opted-in users are added to every new public thread (Fletcher `use_threads`) |
+| 10 ✅ | `modules/gphotos.py` | any Google Photos video link → MIST replies with a [gphotos-embed](https://github.com/BaesTheorem/gphotos-embed) link that plays inline |
 
 ## Setup
 
