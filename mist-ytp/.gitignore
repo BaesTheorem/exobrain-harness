@@ -1,0 +1,4 @@
+.venv/
+assets/
+__pycache__/
+work/

@@ -446,6 +446,16 @@
     "notes": "Rebuilds this whole registry (Tools, Dependencies, Project Dependencies). Runs daily at 07:15 via com.exobrain.tools-registry."
   },
   {
+    "name": "ttrpg-memorial",
+    "command": "python3 memorial_card.py card.json -o out.png --pdf out.pdf",
+    "repo_dir": "/Users/alexhedtke/Documents/Exobrain harness/ttrpg-memorial",
+    "source": "built",
+    "added": "2026-09-22",
+    "notes": "MD3 flat/sharp memorial card for a retired TTRPG character; palette seeded from the portrait via vendored material-color-utilities",
+    "description": "",
+    "use_when": ""
+  },
+  {
     "name": "tv",
     "command": "tv/tv <command>",
     "repo_dir": "~/Documents/Exobrain harness",
