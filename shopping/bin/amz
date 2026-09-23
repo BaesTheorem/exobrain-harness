@@ -151,6 +151,23 @@ def search(query: str, limit: int, headed: bool, timeout: int) -> list[dict]:
     return out
 
 
+def _variants(html: str) -> dict[str, str]:
+    """Sibling ASINs from the twister's `dimensionValuesDisplayData` map.
+
+    Each color/size variant is its own ASIN with its OWN stock and delivery
+    date, so a search hit on one color says nothing about the others (a grey
+    tarp shipped next day while the searched green one was two days out).
+    """
+    m = re.search(r'"dimensionValuesDisplayData"\s*:\s*(\{.*?\})\s*,', html, re.S)
+    if not m:
+        return {}
+    try:
+        raw = json.loads(m.group(1))
+    except json.JSONDecodeError:
+        return {}
+    return {a: " / ".join(v) for a, v in raw.items()}
+
+
 def show(asin: str, headed: bool, timeout: int, anon: bool = False) -> dict:
     from playwright.sync_api import sync_playwright
 
@@ -174,6 +191,7 @@ def show(asin: str, headed: bool, timeout: int, anon: bool = False) -> dict:
                     specs[_text(cells[0])] = _text(cells[1])
             return {
                 "asin": asin,
+                "variants": _variants(page.content()),
                 "url": DP.format(asin),
                 "title": _text(page.query_selector("#productTitle")),
                 "price": _first(page, BUYBOX),
@@ -270,6 +288,8 @@ def main() -> int:
     s = sub.add_parser("search", parents=[common]); s.add_argument("query", nargs="+"); s.add_argument("-n", type=int, default=12)
     d = sub.add_parser("show", parents=[common]); d.add_argument("asin", nargs="+")
     d.add_argument("--anon", action="store_true", help="skip the session (delivery dates become meaningless)")
+    d.add_argument("--all-variants", action="store_true",
+                   help="also load every sibling color/size ASIN; each has its own stock and delivery date")
     u = sub.add_parser("url", parents=[common]); u.add_argument("asin")
     au = sub.add_parser("auth", parents=[common])
     au.add_argument("--from-chrome", action="store_true", help="re-export the live session from the browser")
@@ -307,6 +327,13 @@ def main() -> int:
         return 0
 
     products = [show(x, a.headed, a.timeout, a.anon) for x in a.asin]
+    if a.all_variants:
+        seen = {p["asin"] for p in products}
+        for p in list(products):
+            for v in p["variants"]:
+                if v not in seen:
+                    seen.add(v)
+                    products.append(show(v, a.headed, a.timeout, a.anon))
     if a.json:
         print(json.dumps(products if len(products) > 1 else products[0], indent=2)); return 0
     for p in products:
@@ -318,6 +345,8 @@ def main() -> int:
         if p["delivery"]:
             tag = "" if p["signed_in"] else "  (ANONYMOUS -- date is a guess, not your address)"
             print(f"  ship:  {p['delivery']}{tag}")
+        if p["variants"].get(p["asin"]):
+            print(f"  variant: {p['variants'][p['asin']]}  ({len(p['variants'])} siblings; --all-variants to check each)")
         if len(products) == 1:
             for k, v in p["specs"].items():
                 print(f"  {k}: {v}")
