@@ -263,7 +263,8 @@ def main() -> None:
     img = Card(data, portrait, scheme_from(portrait)).render()
     img.save(a.out, optimize=True)
     if a.pdf:
-        img.save(a.pdf, resolution=144 * S / 2)
+        # this Pillow build has no JPEG encoder, which its PDF writer needs; sips embeds the PNG
+        subprocess.run(["sips", "-s", "format", "pdf", str(a.out), "--out", str(a.pdf)], check=True, capture_output=True)
     print(a.out)
 
 
