@@ -21,7 +21,7 @@ admin_ids = [000000000000000000]  # your Discord user ID(s) -- full command acce
 # [chatter]                  # Phase 5: LLM persona -- MIST replies to the OWNER
 #                            # when @mentioned, replied to, or DMed.
 # enabled = true
-# model = "claude-opus-5"    # default `claude` CLI model: an alias ("fable"/
+# model = "claude-opus-5-5[1m]"  # default `claude` CLI model: an alias ("fable"/
 #                            # "opus"/"sonnet"/"haiku") or a full id. Switch live
 #                            # with !model / /model; the choice persists in the DB.
 # effort = "default"         # default thinking depth: low|medium|high|xhigh|max,

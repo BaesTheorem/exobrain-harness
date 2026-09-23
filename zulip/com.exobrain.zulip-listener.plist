@@ -42,7 +42,7 @@
         <string>--model</string>
         <string>claude-fable-5-1</string>
         <string>--fallback-model</string>
-        <string>claude-opus-5</string>
+        <string>claude-opus-5-5[1m]</string>
         <string>--max-budget-usd</string>
         <string>2</string>
     </array>
