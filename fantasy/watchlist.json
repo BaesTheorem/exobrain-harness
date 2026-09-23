@@ -1,5 +1,5 @@
 {
- "updated": "2026-09-22",
+ "updated": "2026-09-23",
  "players": [
   {
    "id": 4596448,
@@ -69,7 +69,7 @@
    "name": "Jauan Jennings",
    "pos": "WR",
    "nfl": 16,
-   "why": "WAS on the list as the highest-volume receiver on the wire (6.0 targets on 82% snaps), but that was his 2025 role in San Francisco. In Minnesota in week 1 he drew ONE target and caught none, 0.0 points, in a 39-22 win. The volume thesis that put him here is refuted by the only week of evidence that bears on it | 2026-09-20: OUT for week 2 (personal, not injury), so week 2 produced no target evidence either way.",
+   "why": "WAS on the list as the highest-volume receiver on the wire (6.0 targets on 82% snaps), but that was his 2025 role in San Francisco. In Minnesota in week 1 he drew ONE target and caught none, 0.0 points, in a 39-22 win. The volume thesis that put him here is refuted by the only week of evidence that bears on it | 2026-09-20: OUT for week 2 (personal, not injury), so week 2 produced no target evidence either way. | 2026-09-23: back to QUESTIONABLE for week 3; the Tampa Bay test stands.",
    "trigger": "do NOT claim on his 114.8 season projection, which is priced on the old role. Needs 6+ targets in a single week to become interesting again; week 2 was a personal absence with no evidence, so the test moves to week 3 at Tampa Bay (2026-09-27): another 1-2 target game there and delete this entry",
    "added": "2026-09-07"
   },
@@ -78,7 +78,7 @@
    "name": "RJ Harvey",
    "pos": "RB",
    "nfl": 7,
-   "why": "ours; SELL flag (12 TDs on 42% snaps last year). Week 1 made the flag worse, not better: THREE carries, 8.1 points earned mostly on four catches and four kick returns. His 149.6 season projection is the softest number on our bench | 2026-09-17: QUESTIONABLE, hamstring, estimated limited Wednesday on a short week (DEN vs JAX Sunday). Bench, no lineup effect. Makes the 149.6 softer still. | 2026-09-20: OUT, inactive at Denver vs JAX with the hamstring. Dobbins paced the backfield with rookie Jonah Coleman behind him. Zero carries this week; Coleman taking the RB2 snaps is the second data point against the 149.6. | 2026-09-22: still QUESTIONABLE (hamstring) after sitting week 2; 3 carries on the season. Now the RB piece in the Mahomes proposal put to Alex (Godwin + Harvey to The Winners).",
+   "why": "ours; SELL flag (12 TDs on 42% snaps last year). Week 1 made the flag worse, not better: THREE carries, 8.1 points earned mostly on four catches and four kick returns. His 149.6 season projection is the softest number on our bench | 2026-09-17: QUESTIONABLE, hamstring, estimated limited Wednesday on a short week (DEN vs JAX Sunday). Bench, no lineup effect. Makes the 149.6 softer still. | 2026-09-20: OUT, inactive at Denver vs JAX with the hamstring. Dobbins paced the backfield with rookie Jonah Coleman behind him. Zero carries this week; Coleman taking the RB2 snaps is the second data point against the 149.6. | 2026-09-22: still QUESTIONABLE (hamstring) after sitting week 2; 3 carries on the season. Now the RB piece in the Mahomes proposal put to Alex (Godwin + Harvey to The Winners). | 2026-09-23: OUT to QUESTIONABLE ahead of week 3, still on the bench; Young and Washington landed on waivers so the roster is full and he is the drop ahead of anyone projected below him if the week-4 clause fires.",
    "trigger": "sell high on any two-touchdown game; if he is still under 8 carries a game at week 4, he is the drop ahead of players projected below him. If the Mahomes offer goes out and lands, this entry closes.",
    "added": "2026-09-07"
   },

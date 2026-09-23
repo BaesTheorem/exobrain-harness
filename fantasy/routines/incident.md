@@ -46,9 +46,12 @@ false, oldest first, then rewrite the file with those lines marked
   spot) and log who else was considered.
   **Then check the depth at one-slot positions (QB, TE, K, D/ST).** Claims are
   filed in branches on purpose, and a backstop that was supposed to be
-  mutually exclusive can land anyway: sharing a drop player between two claims
-  only makes the second conditional *if* ESPN rejects a claim whose drop is
-  already gone, which is unverified. Two deep at a one-slot position is a dead
+  mutually exclusive can land anyway. Sharing a drop player between two claims
+  does make the second conditional: ESPN rejects a claim whose drop is already
+  gone with `FAILED_PLAYERALREADYDROPPED` on the same processing tick (verified
+  2026-09-23, Geno for Noel behind Young for Noel). A claim filed against a
+  *different* drop is not conditional on anything, so the count still has to
+  be read off the roster. Two deep at a one-slot position is a dead
   roster spot on a full roster, so drop the worse one on the playbook's value
   rule and log both. Never assume the branch resolved the way it was designed
   to; read the roster back and count.
