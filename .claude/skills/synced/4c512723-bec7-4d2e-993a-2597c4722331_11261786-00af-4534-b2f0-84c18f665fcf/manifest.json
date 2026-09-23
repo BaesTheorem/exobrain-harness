@@ -1,5 +1,5 @@
 {
-  "lastUpdated": 1790017202890,
+  "lastUpdated": 1790103605604,
   "skills": [
     {
       "skillId": "import-memory",
@@ -26,8 +26,9 @@
       "skillId": "skill_015kTVovqiXgJwzLXkJGMFJd",
       "name": "imessage",
       "description": "Read and search iMessages. Use when the user asks about texts, iMessages, wants to check messages, asks \"who texted me\", \"any texts\", \"check my messages\", \"what did [person] say\", \"search texts for [keyword]\", \"unread messages\", \"unanswered texts\", or wants to look up a conversation.",
-      "source": "custom",
-      "updatedAt": "2026-04-16T21:47:00.786026Z"
+      "source": "plugin",
+      "updatedAt": "2026-04-16T21:47:00.785848Z",
+      "backingPluginId": "plugin_01R3jGF5jT6g5gf8jJbyaeEW"
     },
     {
       "skillId": "skill_01RZZNCzixR4BQBESREBczmq",
@@ -75,15 +76,17 @@
       "skillId": "skill_014cSWtPRwAjaGeWfdEsukuH",
       "name": "session-memory",
       "description": "Cross-session continuity and context-aware data prioritization. Saves structured summaries at session end, loads context at session start to guide what data to pull and how deep to go. Runs automatically via startup hook (load) and CLAUDE.md instruction (save). Also use when the user says \"save session\", \"what did we do last time\", or \"context\".",
-      "source": "custom",
-      "updatedAt": "2026-04-16T21:43:44.155991Z"
+      "source": "plugin",
+      "updatedAt": "2026-04-16T21:43:44.155634Z",
+      "backingPluginId": "plugin_01X9QXLM2EgEKek5PCwiuv6u"
     },
     {
       "skillId": "skill_0176PnCe3VcZrYSMw7pBZYzU",
       "name": "things3",
       "description": "Best practices and conventions for all Things 3 interactions. Canonical reference for task creation, deduplication, project backlinks, and task formatting. Referenced by other skills. Use when you need to check Things 3 conventions, task formatting rules, or available MCP tools before interacting with Things 3.",
-      "source": "custom",
-      "updatedAt": "2026-04-16T21:44:11.106667Z"
+      "source": "plugin",
+      "updatedAt": "2026-04-16T21:44:11.106575Z",
+      "backingPluginId": "plugin_01Q9T14ztmNRCkG8nq5Hquxy"
     },
     {
       "skillId": "skill_0117m3mQ9e1gTtNqe5H88eDZ",
@@ -111,8 +114,9 @@
       "skillId": "skill_016MUFgmsgexYyDSujhwBNSi",
       "name": "news-briefing",
       "description": "Comprehensive news intelligence briefing with bias analysis, blind spot detection, prediction market cross-referencing, and epistemic hygiene. Writes a cited, beautiful report to Obsidian. Use when the user asks for \"news\", \"news briefing\", \"what's happening in the world\", \"headlines\", \"catch me up on news\", \"news report\", or when triggered by the daily briefing.",
-      "source": "custom",
-      "updatedAt": "2026-04-16T21:46:03.704284Z"
+      "source": "plugin",
+      "updatedAt": "2026-04-16T21:46:03.689590Z",
+      "backingPluginId": "plugin_01NTzQ87kFaSCafhQLhpvzSh"
     },
     {
       "skillId": "skill_01NFVnZxWvwZD8KqL2fbGrbu",
@@ -139,8 +143,9 @@
       "skillId": "skill_013UpaxcBue4bjhudZn86JA9",
       "name": "process-supernote",
       "description": "OCR Supernote handwritten notes by extracting PNG pages and reading them with vision. Extracts text, tasks, and events from handwritten content. Use when the user mentions Supernote, handwritten notes, handwriting, \"read what I wrote\", \"I wrote something down\", \"check my notebook\", \"any new handwritten notes\", or when triggered by a scheduled task.",
-      "source": "custom",
-      "updatedAt": "2026-04-16T21:43:26.697914Z"
+      "source": "plugin",
+      "updatedAt": "2026-04-16T21:43:26.697806Z",
+      "backingPluginId": "plugin_01WJUMm776M9Bkfy9Xt5XFKd"
     },
     {
       "skillId": "skill_01Rqju4ZoUvWYSy67MDd2Xvn",
@@ -174,15 +179,17 @@
       "skillId": "skill_014Ft6vYa7dRFQAingVh8eHP",
       "name": "crm",
       "description": "Look up, manage, and surface Network CRM contacts. Cross-references People/ notes, daily digest emails, transcripts, and calendar to keep Alex's network warm. Use when the user asks about a person, wants to follow up or reach out, asks \"who is [name]\", \"when did I last talk to\", \"I should reach out to\", \"draft a message to\", \"look up [name]\", \"tell me about [name]\", \"who should I follow up with\", \"any overdue contacts\", or mentions wanting to connect with someone.",
-      "source": "custom",
-      "updatedAt": "2026-04-16T21:31:11.817384Z"
+      "source": "plugin",
+      "updatedAt": "2026-04-16T21:31:11.817198Z",
+      "backingPluginId": "plugin_018tFMywKYVWC1EJbwL6kvRJ"
     },
     {
       "skillId": "skill_016G7rxTj8WtDL5TV1dPXfbX",
       "name": "exobrain-audit",
       "description": "Comprehensive audit of the Exobrain harness — privacy scan, architecture analysis, and AI productivity research. Use whenever the user says \"audit\", \"exobrain audit\", \"harness audit\", \"system check\", \"privacy scan\", \"repo audit\", or wants to review the overall health, security, and efficiency of the Exobrain system. Also use when the user asks about improving their setup, finding redundancies, or checking for leaked personal data.",
-      "source": "custom",
-      "updatedAt": "2026-04-16T21:39:52.490673Z"
+      "source": "plugin",
+      "updatedAt": "2026-04-16T21:39:52.490572Z",
+      "backingPluginId": "plugin_01J3Ef9atfDNfh7RH1UbNsJW"
     },
     {
       "skillId": "skill_01T95oAg2mciLS2F4Lw5BUNV",
@@ -202,8 +209,9 @@
       "skillId": "skill_0177KbXk7WgKGQGynKU7RNxy",
       "name": "defuddle",
       "description": "Extract clean markdown content from web pages using Defuddle CLI, removing clutter and navigation to save tokens. Use instead of WebFetch when the user provides a URL to read or analyze, for online documentation, articles, blog posts, or any standard web page. Do NOT use for URLs ending in .md — those are already markdown, use WebFetch directly.",
-      "source": "custom",
-      "updatedAt": "2026-04-16T21:38:31.562037Z"
+      "source": "plugin",
+      "updatedAt": "2026-04-16T21:38:31.561951Z",
+      "backingPluginId": "plugin_01Fky9ZNfDtfu1RLsXG315SL"
     },
     {
       "skillId": "skill_01MTQr5Pv2NePgxTQESu9cuT",
@@ -251,8 +259,9 @@
       "skillId": "skill_014QyQYJNhsRLjwECuJRVkno",
       "name": "deep-research",
       "description": "Multi-agent deep research system for complex questions requiring thorough investigation. Spawns parallel subagents to explore different facets, synthesizes findings into a cited report. Use when the user asks to \"research\", \"deep dive\", \"investigate\", \"find out everything about\", \"comprehensive analysis\", \"what do we know about\", or any question that requires exploring multiple sources and synthesizing findings. Also use when other skills need heavy research (e.g., job-search company research, weekly review trend analysis).",
-      "source": "custom",
-      "updatedAt": "2026-04-16T21:37:34.491613Z"
+      "source": "plugin",
+      "updatedAt": "2026-04-16T21:37:34.491480Z",
+      "backingPluginId": "plugin_01DXsQz46AjuoXq9Ed33Cw1c"
     },
     {
       "skillId": "xlsx",
@@ -266,7 +275,7 @@
       "name": "pptx",
       "description": "Use this skill any time a .pptx or .potx file is involved in any way — as input, output, or both. This includes: creating slide decks, pitch decks, or presentations as PowerPoint (.pptx) files; reading, parsing, or extracting text from any .pptx or .potx file (even if the extracted content will be used elsewhere, like in an email, summary, or creating a different type of slide deck); editing, modifying, or updating existing presentations; combining or splitting slide files; working with templates (.potx), layouts, speaker notes, or comments. Trigger whenever the user asks for a PowerPoint or .pptx file, or references a .pptx or .potx filename, regardless of what they plan to do with the content afterward. However, when the user asks for a deck, slides, a slide deck, or a presentation without naming a file format, default to using a dedicated slide-deck artifact type or a separate slides skill if this session offers one; otherwise, use this skill.",
       "source": "anthropic",
-      "updatedAt": "2026-09-14T21:00:33.306681Z"
+      "updatedAt": "2026-09-22T18:00:37.886566Z"
     },
     {
       "skillId": "docx",
