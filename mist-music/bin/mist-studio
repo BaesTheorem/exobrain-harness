@@ -1,0 +1,10 @@
+#!/usr/bin/env bash
+# mist-studio -- MIST Studio, a local Suno-style song studio on ACE-Step 1.5.
+#   mist-studio            # serve http://127.0.0.1:5032
+#   mist-studio --open     # ...and open the browser
+#   mist-studio --port N
+# Runs under this project's venv (flask + gradio_client live there).
+set -euo pipefail
+DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+cd "$DIR"
+exec "$DIR/.venv/bin/python" -m studio.server "$@"

@@ -1,6 +1,10 @@
 # mist-music
 
-MIST's music tool. Three real jobs, one CLI:
+MIST's music tool. Three real jobs, one CLI, plus **MIST Studio**, the
+Suno-style web app in `studio/` (`bin/mist-studio`, http://127.0.0.1:5032,
+`/Applications/MIST Studio.app`): describe or write songs, cover a track you
+upload, repaint a section, split stems, keep a library with cover art. See
+`studio/README.md`.
 
 1. **Read sheet music → hear it.** Feed a MIDI file, a MusicXML/`.mxl` score, or a
    **photo/scan/PDF of a printed score**, and it renders to audio.

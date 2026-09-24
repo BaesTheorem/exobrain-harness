@@ -17,6 +17,7 @@ we never re-tread ground.
 
 | Alex wants | Tool | Section |
 |---|---|---|
+| **The Suno-style app**: describe or write a song, covers of uploads, repaint, stems, library with art | **MIST Studio** (`mist-music/bin/mist-studio`, :5032) | §0 |
 | Generate a full MP3 song from a prompt (vocals/lyrics/production) | `mist-music gen` | §1 |
 | Hear sheet music (MIDI / MusicXML / photo / scan / PDF of a score) | `mist-music render` | §1 |
 | Transcribe an audio clip → MIDI + MusicXML | `mist-music transcribe` | §1 |
@@ -26,6 +27,42 @@ Both keep user media (audio, images, rendered output) gitignored; the scripts
 themselves are generic and committed. Public-repo privacy still applies.
 
 ---
+
+## §0 · MIST Studio (the Suno alternative)
+
+`mist-music/studio/` is the web app: `/Applications/MIST Studio.app`, or
+`mist-music/bin/mist-studio --open`, on **http://127.0.0.1:5032** (launchd
+`com.exobrain.mist-studio`). Read `mist-music/studio/README.md` before touching
+it. When Alex wants to *make songs interactively* (several takes, covers of a
+track he uploads, repainting a section, stems, a library), point him at the app
+instead of running the CLI for him. When he wants one track from chat, the CLI
+in §1 still embeds inline.
+
+- **Levels:** Simple (one sentence, the model's planner writes tags + lyrics),
+  Custom (tags with preset chips, lyrics with section chips, Claude lyric
+  writer, LM "Enhance", BPM/key/time signature/length/takes/model), Cover
+  (pick an upload or library song, **Analyze** fills tags/lyrics/BPM/key and
+  captures the 5 Hz codes, cover-strength slider), Repaint (time range), and a
+  **Pro controls** switch that exposes every DiT/LM knob plus quality score,
+  LRC, FLAC, seed lock, a style-reference track.
+- **Backends (Settings):** the free Space `ACE-Step/Ace-Step-v1.5` (every GPU
+  call, including Analyze and the LM song-writer, reserves ~180 s of the daily
+  ZeroGPU pool; the app parses the "try again in HH:MM:SS" reset and shows it),
+  a **self-hosted ACE-Step REST server** (`uv run acestep-api` on a rented GPU,
+  no quota; this is the answer when Alex wants volume), or **mock** (no GPU).
+- **Bolted on:** local **demucs** stems (two or four; ~14 s per 30 s of audio,
+  1.8 GB peak; `--segment 7` is mandatory), **Claude** lyrics via `claude -p
+  --setting-sources ''`, **mist-image** cover art (2 s), Beer CSS / Material
+  Symbols Sharp, UI SFX cues (CC0).
+- **Same folders from chat:** songs live in `mist-music/studio/library/<id>/`
+  (`song.mp3`, `meta.json` with the full request, `cover.png`, `stems/`), inside
+  the Console's `/file` root, so `![title](/abs/path/song.mp3)` embeds a studio
+  take inline.
+- **Gotchas:** the Space's `/generation_wrapper` is 49 positional args written
+  by parameter name (`PARAM_NAMES` in `studio/engine.py`); label drift shows in
+  `/api/health`. Cover and repaint skip the Space's LM and read the source
+  directly, so no separate "convert to codes" call is needed. Flask's default
+  `sort_keys` is off on purpose (preset chip order).
 
 ## §1 · mist-music (generate / render / transcribe)
 

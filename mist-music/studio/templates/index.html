@@ -1,0 +1,407 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>MIST Studio</title>
+<link rel="icon" href="/static/icon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="/static/vendor/beer.min.css">
+<link rel="stylesheet" href="/static/app.css">
+<script type="module" src="/static/vendor/material-dynamic-colors.min.js"></script>
+<script type="module" src="/static/vendor/beer.min.js"></script>
+</head>
+<body class="dark">
+
+<nav class="left" id="rail">
+  <header class="rail-brand">
+    <i>graphic_eq</i>
+    <span>MIST Studio</span>
+  </header>
+  <a data-page="create" class="active"><i>add_circle</i><span>Create</span></a>
+  <a data-page="library"><i>library_music</i><span>Library</span></a>
+  <a data-page="queue"><i>pending_actions</i><span>Queue</span><div class="badge none" id="queueBadge"></div></a>
+  <a data-page="settings"><i>settings</i><span>Settings</span></a>
+  <div class="max"></div>
+  <a id="healthPill" class="health" title="backend"><i>cloud</i><span id="healthText">checking</span></a>
+</nav>
+
+<main class="responsive">
+
+<!-- ============================ CREATE ============================ -->
+<section id="page-create" class="page active">
+  <div class="row top-row">
+    <div class="tabs level-tabs" id="createTabs">
+      <a data-tab="simple" class="active"><i>auto_awesome</i><span>Simple</span></a>
+      <a data-tab="custom"><i>tune</i><span>Custom</span></a>
+      <a data-tab="cover"><i>swap_horiz</i><span>Cover</span></a>
+      <a data-tab="edit"><i>content_cut</i><span>Repaint</span></a>
+    </div>
+    <div class="max"></div>
+    <label class="switch icon pro-switch" title="Show every model control">
+      <input type="checkbox" id="proSwitch">
+      <span><i>science</i></span>
+    </label>
+    <span class="small-text">Pro controls</span>
+  </div>
+
+  <div class="grid">
+    <div class="s12 l8">
+
+      <!-- Simple -->
+      <article class="tabpane active" id="tab-simple">
+        <h6>Describe the song</h6>
+        <p class="small-text muted">One or two sentences. The model writes the style tags and lyrics, then plays it.</p>
+        <div class="field textarea label border">
+          <textarea id="simpleDesc" rows="4" placeholder=" "></textarea>
+          <label>Song description</label>
+        </div>
+        <div class="row wrap">
+          <label class="switch"><input type="checkbox" id="simpleInstrumental"><span>Instrumental</span></label>
+          <div class="field label border small-field">
+            <select id="simpleLang"></select><label>Vocal language</label>
+          </div>
+          <div class="field label border small-field">
+            <select id="simpleBatch"><option>1</option><option>2</option><option>3</option><option>4</option></select>
+            <label>Takes</label>
+          </div>
+        </div>
+        <nav class="actions">
+          <button class="border" id="btnSurprise"><i>casino</i><span>Surprise me</span></button>
+          <button class="border" id="btnWriteFirst"><i>edit_note</i><span>Write it first</span></button>
+          <div class="max"></div>
+          <button id="btnSimpleGenerate"><i>play_arrow</i><span>Generate</span></button>
+        </nav>
+      </article>
+
+      <!-- Custom -->
+      <article class="tabpane" id="tab-custom">
+        <div class="field label border">
+          <input type="text" id="title" placeholder=" ">
+          <label>Title (optional)</label>
+        </div>
+        <div class="field textarea label border">
+          <textarea id="caption" rows="3" placeholder=" "></textarea>
+          <label>Style tags: genre, mood, instruments, vocals, BPM</label>
+        </div>
+        <div class="chipbar">
+          <div class="field border small-field no-margin">
+            <select id="chipGroup"></select>
+          </div>
+          <div class="chips" id="chipList" data-target="caption"></div>
+        </div>
+        <div class="row wrap">
+          <button class="chip border small" id="btnCaptionFromBrief" title="Turn a sentence into tags"><i>auto_fix_high</i><span>Tags from a brief</span></button>
+          <button class="chip border small" id="btnEnhance" title="Let the music model polish tags and lyrics"><i>auto_awesome</i><span>Enhance with the model</span></button>
+        </div>
+
+        <div class="field textarea label border lyrics-field">
+          <textarea id="lyrics" rows="10" placeholder=" "></textarea>
+          <label>Lyrics with [Verse] / [Chorus] tags</label>
+        </div>
+        <div class="chips" id="sectionChips" data-target="lyrics"></div>
+        <div class="row wrap">
+          <button class="chip border small" id="btnWriteLyrics"><i>edit_note</i><span>Write lyrics for me</span></button>
+          <label class="switch"><input type="checkbox" id="instrumental"><span>Instrumental</span></label>
+        </div>
+
+        <div class="grid compact">
+          <div class="s6 m3"><div class="field label border"><select id="lang"></select><label>Vocal language</label></div></div>
+          <div class="s6 m3"><div class="field label border"><input type="number" id="bpm" min="30" max="300" placeholder=" "><label>BPM (blank = auto)</label></div></div>
+          <div class="s6 m3"><div class="field label border"><input type="text" id="key" placeholder=" "><label>Key (e.g. Am, F# minor)</label></div></div>
+          <div class="s6 m3"><div class="field label border"><select id="timesig"><option value="">auto</option><option value="2">2/4</option><option value="3">3/4</option><option value="4">4/4</option></select><label>Time signature</label></div></div>
+        </div>
+        <div class="row wrap">
+          <label class="switch"><input type="checkbox" id="durationAuto" checked><span>Auto length</span></label>
+          <div class="slider max" id="durationSlider">
+            <input type="range" id="duration" min="10" max="600" step="5" value="120" disabled>
+            <span></span>
+          </div>
+          <span class="mono" id="durationLabel">auto</span>
+        </div>
+        <div class="row wrap">
+          <div class="field label border small-field"><select id="batch"><option>1</option><option>2</option><option>3</option><option>4</option><option>5</option><option>6</option><option>7</option><option>8</option></select><label>Takes</label></div>
+          <div class="field label border"><select id="model"></select><label>Model</label></div>
+        </div>
+        <nav class="actions">
+          <div class="max"></div>
+          <button id="btnGenerate"><i>play_arrow</i><span>Generate</span></button>
+        </nav>
+      </article>
+
+      <!-- Cover -->
+      <article class="tabpane" id="tab-cover">
+        <h6>Cover a track</h6>
+        <p class="small-text muted">Same song, new style. Upload a track you have the rights to remix, or pick a song from the library.</p>
+        <div class="source-box" id="coverSourceBox">
+          <div class="row">
+            <button class="border" id="btnPickCover"><i>upload_file</i><span>Choose source</span></button>
+            <span id="coverSourceName" class="max muted">no source yet</span>
+            <button class="border small" id="btnAnalyze" disabled><i>hearing</i><span>Analyze</span></button>
+            <button class="border small" id="btnCoverStems" disabled><i>call_split</i><span>Stems</span></button>
+          </div>
+          <audio id="coverPreview" controls preload="none" class="hidden"></audio>
+          <div id="analysisBox" class="analysis hidden"></div>
+        </div>
+        <div class="row wrap">
+          <span class="small-text">Cover strength</span>
+          <div class="slider max"><input type="range" id="coverStrength" min="0" max="1" step="0.05" value="1"><span></span></div>
+          <span class="mono" id="coverStrengthLabel">1.00</span>
+        </div>
+        <p class="small-text muted">1.0 keeps the structure and melody of the source; around 0.2 is a loose style transfer.</p>
+        <div class="field textarea label border">
+          <textarea id="coverCaption" rows="3" placeholder=" "></textarea>
+          <label>New style tags</label>
+        </div>
+        <div class="chipbar">
+          <div class="field border small-field no-margin"><select id="coverChipGroup"></select></div>
+          <div class="chips" id="coverChipList" data-target="coverCaption"></div>
+        </div>
+        <div class="field textarea label border lyrics-field">
+          <textarea id="coverLyrics" rows="8" placeholder=" "></textarea>
+          <label>Lyrics (from analysis, or your own)</label>
+        </div>
+        <div class="row wrap">
+          <label class="switch"><input type="checkbox" id="coverInstrumental"><span>Instrumental</span></label>
+          <div class="field label border small-field"><select id="coverLang"></select><label>Vocal language</label></div>
+          <div class="field label border small-field"><select id="coverBatch"><option>1</option><option>2</option><option>3</option><option>4</option></select><label>Takes</label></div>
+          <label class="switch pro-only"><input type="checkbox" id="useCodes" checked><span>Use analysis codes</span></label>
+        </div>
+        <nav class="actions">
+          <div class="max"></div>
+          <button id="btnCoverGenerate" disabled><i>play_arrow</i><span>Make the cover</span></button>
+        </nav>
+      </article>
+
+      <!-- Repaint -->
+      <article class="tabpane" id="tab-edit">
+        <h6>Repaint a section</h6>
+        <p class="small-text muted">Regenerate a time range inside a track and keep the rest. Good for fixing a verse or swapping a solo.</p>
+        <div class="source-box">
+          <div class="row">
+            <button class="border" id="btnPickEdit"><i>upload_file</i><span>Choose source</span></button>
+            <span id="editSourceName" class="max muted">no source yet</span>
+          </div>
+          <audio id="editPreview" controls preload="none" class="hidden"></audio>
+        </div>
+        <div class="grid compact">
+          <div class="s6 m3"><div class="field label border"><input type="number" id="repaintStart" min="0" step="0.5" value="0" placeholder=" "><label>Start (s)</label></div></div>
+          <div class="s6 m3"><div class="field label border"><input type="number" id="repaintEnd" min="-1" step="0.5" value="-1" placeholder=" "><label>End (s, -1 = end)</label></div></div>
+          <div class="s6 m3"><div class="field label border small-field"><select id="editBatch"><option>1</option><option>2</option><option>3</option><option>4</option></select><label>Takes</label></div></div>
+        </div>
+        <div class="field textarea label border">
+          <textarea id="editCaption" rows="3" placeholder=" "></textarea>
+          <label>What the repainted part should sound like</label>
+        </div>
+        <div class="field textarea label border">
+          <textarea id="editLyrics" rows="6" placeholder=" "></textarea>
+          <label>Lyrics (optional)</label>
+        </div>
+        <nav class="actions">
+          <div class="max"></div>
+          <button id="btnEditGenerate" disabled><i>play_arrow</i><span>Repaint</span></button>
+        </nav>
+      </article>
+
+      <!-- Pro panel -->
+      <article class="pro-only" id="proPanel">
+        <h6><i>science</i> Pro controls</h6>
+        <div class="grid compact">
+          <div class="s12 m6"><span class="small-text">Diffusion steps <b id="stepsLabel">8</b></span>
+            <div class="slider"><input type="range" id="steps" min="1" max="20" value="8"><span></span></div></div>
+          <div class="s12 m6"><span class="small-text">Guidance scale <b id="guidanceLabel">7.0</b> (base models only)</span>
+            <div class="slider"><input type="range" id="guidance" min="1" max="20" step="0.5" value="7"><span></span></div></div>
+          <div class="s12 m6"><span class="small-text">Shift <b id="shiftLabel">3.0</b></span>
+            <div class="slider"><input type="range" id="shift" min="1" max="5" step="0.1" value="3"><span></span></div></div>
+          <div class="s6 m3"><div class="field label border"><select id="inferMethod"><option value="ode">ode (Euler)</option><option value="sde">sde (stochastic)</option></select><label>Sampler</label></div></div>
+          <div class="s6 m3"><div class="field label border"><select id="format"><option value="mp3">mp3</option><option value="flac">flac</option></select><label>Format</label></div></div>
+          <div class="s8 m4"><div class="field label border"><input type="number" id="seed" placeholder=" "><label>Seed (blank = random)</label></div></div>
+          <div class="s4 m2"><label class="switch"><input type="checkbox" id="seedLock"><span>Lock</span></label></div>
+          <div class="s12 m6"><div class="field label border"><input type="text" id="timesteps" placeholder=" "><label>Custom timesteps (comma list)</label></div></div>
+          <div class="s12 m6"><div class="row wrap">
+            <label class="switch"><input type="checkbox" id="useAdg"><span>ADG</span></label>
+            <div class="field label border small-field"><input type="number" id="cfgStart" min="0" max="1" step="0.05" value="0" placeholder=" "><label>CFG start</label></div>
+            <div class="field label border small-field"><input type="number" id="cfgEnd" min="0" max="1" step="0.05" value="1" placeholder=" "><label>CFG end</label></div>
+          </div></div>
+        </div>
+        <h6 class="small">Language model (planner)</h6>
+        <div class="grid compact">
+          <div class="s12 m4"><label class="switch"><input type="checkbox" id="thinking" checked><span>Thinking (LM plans the codes)</span></label></div>
+          <div class="s12 m4"><label class="switch"><input type="checkbox" id="cotMetas" checked><span>LM fills BPM / key / length</span></label></div>
+          <div class="s12 m4"><label class="switch"><input type="checkbox" id="cotCaption" checked><span>LM rewrites the tags</span></label></div>
+          <div class="s12 m4"><label class="switch"><input type="checkbox" id="cotLang" checked><span>LM detects language</span></label></div>
+          <div class="s6 m4"><span class="small-text">Temperature <b id="lmTempLabel">0.85</b></span>
+            <div class="slider"><input type="range" id="lmTemp" min="0" max="2" step="0.05" value="0.85"><span></span></div></div>
+          <div class="s6 m4"><span class="small-text">LM CFG <b id="lmCfgLabel">2.0</b></span>
+            <div class="slider"><input type="range" id="lmCfg" min="1" max="3" step="0.1" value="2"><span></span></div></div>
+          <div class="s6 m4"><div class="field label border"><input type="number" id="lmTopK" min="0" max="100" value="0" placeholder=" "><label>Top-K (0 = off)</label></div></div>
+          <div class="s6 m4"><div class="field label border"><input type="number" id="lmTopP" min="0" max="1" step="0.05" value="0.9" placeholder=" "><label>Top-P</label></div></div>
+          <div class="s12 m4"><div class="field label border"><input type="text" id="lmNeg" value="NO USER INPUT" placeholder=" "><label>LM negative prompt</label></div></div>
+        </div>
+        <h6 class="small">Extras</h6>
+        <div class="grid compact">
+          <div class="s12 m4"><label class="switch"><input type="checkbox" id="autoScore"><span>Quality score</span></label></div>
+          <div class="s12 m4"><label class="switch"><input type="checkbox" id="autoLrc"><span>Timed lyrics (LRC)</span></label></div>
+          <div class="s12 m4"><div class="field label border"><select id="autoArt"><option value="">Cover art: default</option><option value="on">Cover art: on</option><option value="off">Cover art: off</option></select><label>Art</label></div></div>
+          <div class="s12"><div class="row">
+            <button class="border small" id="btnPickRef"><i>audio_file</i><span>Style reference track</span></button>
+            <span id="refSourceName" class="max muted">none</span>
+            <button class="transparent circle small" id="btnClearRef" title="Clear"><i>close</i></button>
+          </div></div>
+        </div>
+      </article>
+    </div>
+
+    <!-- Results / recent -->
+    <div class="s12 l4">
+      <article id="resultBox">
+        <h6>Latest</h6>
+        <div id="resultList" class="stack"><p class="muted small-text">Songs appear here as they finish.</p></div>
+      </article>
+      <article id="quotaBox" class="hidden"></article>
+    </div>
+  </div>
+</section>
+
+<!-- ============================ LIBRARY ============================ -->
+<section id="page-library" class="page">
+  <div class="row top-row wrap">
+    <div class="field prefix border small-field max">
+      <i>search</i>
+      <input type="search" id="libSearch" placeholder="Search title, tags, lyrics">
+    </div>
+    <div class="field border small-field"><select id="libSort"><option value="newest">Newest</option><option value="oldest">Oldest</option><option value="title">Title</option><option value="longest">Longest</option></select></div>
+    <label class="switch"><input type="checkbox" id="libFav"><span>Favorites</span></label>
+    <button class="border" id="btnUpload"><i>upload</i><span>Upload track</span></button>
+    <input type="file" id="uploadInput" accept="audio/*" multiple class="hidden">
+  </div>
+  <div id="dropZone" class="dropzone"><i>upload_file</i><span>Drop audio files here to add them as sources</span></div>
+  <details id="uploadsDetails">
+    <summary class="row"><i>folder_open</i><span>Uploaded sources</span><span class="count hidden" id="uploadsCount"></span></summary>
+    <div id="uploadsList" class="stack"></div>
+  </details>
+  <div id="songGrid" class="grid"></div>
+  <p id="libEmpty" class="muted center-align hidden">Nothing here yet. Make something on the Create page.</p>
+</section>
+
+<!-- ============================ QUEUE ============================ -->
+<section id="page-queue" class="page">
+  <div class="row top-row">
+    <h6 class="no-margin">Jobs</h6>
+    <div class="max"></div>
+    <button class="border small" id="btnClearJobs"><i>delete_sweep</i><span>Clear finished</span></button>
+  </div>
+  <div id="jobList" class="stack"></div>
+</section>
+
+<!-- ============================ SETTINGS ============================ -->
+<section id="page-settings" class="page">
+  <div class="grid">
+    <div class="s12 l6">
+      <article>
+        <h6>Backend</h6>
+        <div class="stack">
+          <label class="radio"><input type="radio" name="backend" value="space"><span>Hugging Face Space (free, ZeroGPU quota)</span></label>
+          <div class="field label border indent"><input type="text" id="cfgSpace" placeholder=" "><label>Space id</label></div>
+          <label class="switch indent"><input type="checkbox" id="cfgUseToken"><span>Send HF_TOKEN from the harness .env (<span id="tokenState">unknown</span>)</span></label>
+          <label class="radio"><input type="radio" name="backend" value="api"><span>Self-hosted ACE-Step server (rented GPU, no quota)</span></label>
+          <div class="field label border indent"><input type="text" id="cfgApiUrl" placeholder=" "><label>Server URL</label></div>
+          <label class="radio"><input type="radio" name="backend" value="mock"><span>Mock (no GPU, stand-in audio)</span></label>
+        </div>
+        <nav class="actions">
+          <button class="border" id="btnTestBackend"><i>network_check</i><span>Test connection</span></button>
+        </nav>
+        <pre id="healthBox" class="mono small-text"></pre>
+      </article>
+      <article>
+        <h6>Defaults</h6>
+        <div class="grid compact">
+          <div class="s12 m6"><div class="field label border"><select id="cfgModel"></select><label>Default model</label></div></div>
+          <div class="s12 m6"><div class="field label border"><select id="cfgBatch"><option>1</option><option>2</option><option>3</option><option>4</option></select><label>Default takes</label></div></div>
+          <div class="s12 m6"><label class="switch"><input type="checkbox" id="cfgAutoArt"><span>Cover art after each song</span></label></div>
+          <div class="s12 m6"><div class="field label border"><select id="cfgArtSize"><option>512</option><option>768</option><option>1024</option></select><label>Art size</label></div></div>
+          <div class="s12 m6"><div class="field label border"><select id="cfgStems"><option value="local">Local demucs</option><option value="cloud">Cloud (HF Space, shares quota)</option><option value="auto">Auto</option></select><label>Stem separation</label></div></div>
+          <div class="s12 m6"><div class="field label border"><select id="cfgWriter"><option value="claude">Claude</option><option value="space">Music model LM</option></select><label>Lyric writer</label></div></div>
+          <div class="s12 m6"><div class="field label border"><input type="text" id="cfgClaudeModel" placeholder=" "><label>Claude model</label></div></div>
+        </div>
+      </article>
+    </div>
+    <div class="s12 l6">
+      <article>
+        <h6>Look and feel</h6>
+        <div class="row wrap">
+          <label class="switch"><input type="checkbox" id="cfgSfx"><span>UI sounds</span></label>
+          <div class="field label border small-field"><select id="cfgMode"><option value="dark">Dark</option><option value="light">Light</option><option value="auto">Auto</option></select><label>Mode</label></div>
+          <span class="small-text">Theme seed</span>
+          <input type="color" id="cfgSeed" class="swatch" title="Theme seed color">
+        </div>
+        <nav class="actions">
+          <div class="max"></div>
+          <button id="btnSaveSettings"><i>save</i><span>Save settings</span></button>
+        </nav>
+      </article>
+      <article>
+        <h6>About</h6>
+        <p class="small-text">Generation is ACE-Step 1.5 (MIT), a foundation model that writes and renders full songs with vocals. Lyrics can come from Claude. Cover art comes from mist-image. Stems come from demucs. UI sounds are CC0 from UI SFX. Layout is Beer CSS on Material Design 3.</p>
+        <p class="small-text muted">Free Space quota: each GPU call reserves about three minutes of the daily ZeroGPU pool. When the pool is spent, point the backend at a self-hosted ACE-Step server.</p>
+      </article>
+    </div>
+  </div>
+</section>
+
+</main>
+
+<!-- ============================ DIALOGS ============================ -->
+<dialog id="dlgSource">
+  <h6>Choose a source track</h6>
+  <div class="row">
+    <button class="border small" id="dlgSourceUpload"><i>upload</i><span>Upload new</span></button>
+    <div class="max"></div>
+  </div>
+  <div id="dlgSourceList" class="stack scroll-list"></div>
+  <nav class="actions">
+    <div class="max"></div>
+    <button class="border" data-close="dlgSource">Cancel</button>
+  </nav>
+</dialog>
+
+<dialog id="dlgLyrics">
+  <h6>Write lyrics</h6>
+  <div class="field textarea label border"><textarea id="lyrTheme" rows="3" placeholder=" "></textarea><label>What the song is about</label></div>
+  <div class="field label border"><input type="text" id="lyrStyle" placeholder=" "><label>Style (prefilled from your tags)</label></div>
+  <div class="row wrap">
+    <div class="field label border small-field"><select id="lyrLang"></select><label>Language</label></div>
+    <div class="field label border small-field"><select id="lyrWriter"><option value="claude">Claude</option><option value="space">Music model LM</option></select><label>Writer</label></div>
+  </div>
+  <div class="field label border"><input type="text" id="lyrStructure" placeholder=" "><label>Structure (optional)</label></div>
+  <pre id="lyrResult" class="lyrics-preview hidden"></pre>
+  <nav class="actions">
+    <button class="border" data-close="dlgLyrics">Close</button>
+    <div class="max"></div>
+    <button class="border" id="btnLyrWrite"><i>edit_note</i><span>Write</span></button>
+    <button id="btnLyrUse" disabled><i>check</i><span>Use these</span></button>
+  </nav>
+</dialog>
+
+<dialog id="dlgSong" class="large">
+  <div class="row">
+    <h6 id="dlgSongTitle" class="max no-margin">Song</h6>
+    <button class="transparent circle" data-close="dlgSong"><i>close</i></button>
+  </div>
+  <div id="dlgSongBody"></div>
+</dialog>
+
+<dialog id="dlgConfirm">
+  <h6 id="dlgConfirmTitle">Delete?</h6>
+  <p id="dlgConfirmText"></p>
+  <nav class="actions">
+    <div class="max"></div>
+    <button class="border" data-close="dlgConfirm">Cancel</button>
+    <button class="error" id="btnConfirmOk">Delete</button>
+  </nav>
+</dialog>
+
+<div class="snackbar" id="snack"><i id="snackIcon">info</i><span id="snackText"></span></div>
+
+<script src="/static/app.js"></script>
+</body>
+</html>
