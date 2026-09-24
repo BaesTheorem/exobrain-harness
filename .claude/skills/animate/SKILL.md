@@ -46,3 +46,7 @@ On the M1 Air's Metal GPU (`--use-angle=metal`) frames take about 100–275 ms e
 - The renderer never plays audio, so test runs are already silent. Show results through the Console embed; don't `open` them in a player that starts playing out loud.
 - Headless Chrome here uses the real GPU, not the `--headless=new` screen-flash path that `/browser-render` warns about.
 - Pull kit fixes with `git fetch upstream && git merge upstream/main` on `main`.
+- **Run song-sync on the trimmed excerpt you'll use, not the full track.** On "Carefree" the full-song offset came out 0.38 s off. Then check the offset against strong onsets, which should all land at the same point in the beat. For Kevin MacLeod tracks the true BPM is in `https://incompetech.com/music/royalty-free/pieces.json` (`bpm` field).
+- **A sheet showing the kit's placeholder (a smiling Clawd on blank paper) means the scene file threw.** Run `node --check src/scenes/<slug>.js`.
+- **Match the effective size across cuts** (`u × zoom`) and end a moving thing's path in shot A where shot B picks it up on screen. Otherwise a cut on action reads as a jump.
+- Pigment mixing catches more than glows. A cream dust puff painted over Clawd turned purple, so draw effects that sit behind a character before `clawd()`.
