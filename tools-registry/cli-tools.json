@@ -74,6 +74,16 @@
     "notes": "Module-boundary checker for the harness (top-level dirs are islands). Runs automatically in the post-edit quality-gate hook."
   },
   {
+    "name": "Claude Animation (song-sync)",
+    "command": "bin/song-sync assets/song.mp3 --bpm=N [--lyrics=timings.json]; node render.mjs --clip --out=out/video.mp4",
+    "repo_dir": "/Users/alexhedtke/Documents/claude-animation",
+    "source": "built",
+    "added": "2026-09-24",
+    "notes": "p5.brush watercolour animation kit (fork of JohnHeibel/ClaudeAnimationBase). song-sync writes bpm/offset/lyric cues. Use via /animate.",
+    "description": "",
+    "use_when": ""
+  },
+  {
     "name": "claude-stable-path",
     "command": "maintenance/claude-stable-path.sh --now",
     "repo_dir": "/Users/alexhedtke/Documents/Exobrain harness",
