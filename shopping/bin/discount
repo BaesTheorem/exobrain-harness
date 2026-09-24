@@ -1,0 +1,309 @@
+#!/usr/bin/env -S uv run --quiet --script
+# /// script
+# requires-python = ">=3.11"
+# dependencies = ["curl_cffi>=0.7"]
+# ///
+"""discount -- find promo codes, test them on a live cart, and find the cheapest offer.
+
+  discount codes <domain> [--extra CODE ...] [--no-guess] [--json]
+      Collect candidate codes for a store from SimplyCodes and Wethrift, plus
+      common guesses (WELCOME10, SAVE15, ...). These are candidates only. The
+      aggregators list plenty of dead codes, so test them before quoting any.
+
+  discount shopify <product-url> [--variant ID] [--qty N] [--codes C ...]
+                   [--harvest] [--max-stack N] [--json]
+      Test codes on a real Shopify cart through the Ajax Cart API: each code
+      alone, then every combination of the codes that applied. The totals
+      come back from the store, so they are measurements. It never
+      checks out and nothing is charged.
+
+  discount best <offers.json> [--json]
+      Take every source for the item, with its price, shipping, tax, codes,
+      stacking limit, cashback portal and discounted gift cards. Try every
+      legal combination of codes at each source and rank the results by net
+      cost. Anything not confirmed on a live cart is marked as an estimate.
+
+Read-only toward money: it adds items to an anonymous cart and reads totals.
+It never signs in, enters payment, or submits an order.
+"""
+
+from __future__ import annotations
+
+import argparse
+import itertools
+import json
+import re
+import sys
+import time
+from pathlib import Path
+from urllib.parse import urlparse
+
+from curl_cffi import requests
+
+# Welcome and newsletter codes follow a small set of patterns. On Shopify a wrong
+# guess costs one request and the cart reports it as not applicable, so
+# guessing is cheap. (WELCOME10 was a guess and was live at allbirds.com on 2026-09-23.)
+GUESSES = [
+    f"{w}{n}"
+    for w in ("WELCOME", "SAVE", "FIRST", "EMAIL", "NEW", "THANKYOU", "COMEBACK", "SIGNUP", "HELLO", "TAKE")
+    for n in ("10", "15", "20")
+] + ["FREESHIP", "FREESHIPPING", "STUDENT", "MILITARY", "NEWSLETTER", "WELCOME"]
+
+CODE_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9_-]{2,29}$")
+
+
+def _session() -> requests.Session:
+    return requests.Session(impersonate="chrome")
+
+
+def _bare_domain(s: str) -> str:
+    host = urlparse(s if "//" in s else f"https://{s}").netloc or s
+    return host.removeprefix("www.")
+
+
+# ---------------------------------------------------------------- code harvest
+
+def _simplycodes(s: requests.Session, domain: str) -> list[str]:
+    # dealspotr.com and knoji.com both redirect here.
+    t = s.get(f"https://simplycodes.com/store/{domain}", timeout=25).text
+    return re.findall(r'data-code="([^"]+)"', t)
+
+
+def _wethrift(s: requests.Session, domain: str) -> list[str]:
+    slug = domain.split(".")[0]
+    t = s.get(f"https://www.wethrift.com/{slug}", timeout=25).text
+    return re.findall(r'"code"\s*:\s*"([^"]{3,30})"', t)
+
+
+HARVESTERS = {"simplycodes": _simplycodes, "wethrift": _wethrift}
+
+
+def harvest(domain: str, extra: list[str], guess: bool) -> list[dict]:
+    s = _session()
+    found: dict[str, set[str]] = {}
+    for name, fn in HARVESTERS.items():
+        try:
+            codes = fn(s, domain)
+        except Exception as e:  # noqa: BLE001 -- one dead aggregator must not sink the rest
+            print(f"warn: {name} failed: {e}", file=sys.stderr)
+            continue
+        if not codes:
+            print(f"warn: {name} returned 0 codes for {domain}", file=sys.stderr)
+        for c in codes:
+            found.setdefault(c.strip(), set()).add(name)
+    for c in extra:
+        found.setdefault(c.strip(), set()).add("manual")
+    if guess:
+        for c in GUESSES:
+            found.setdefault(c, set()).add("guess")
+    return [{"code": c, "sources": sorted(src)} for c, src in found.items() if CODE_RE.match(c)]
+
+
+# ---------------------------------------------------------------- shopify lane
+
+class Shopify:
+    def __init__(self, product_url: str):
+        u = urlparse(product_url)
+        self.base = f"{u.scheme or 'https'}://{u.netloc}"
+        m = re.search(r"/products/([^/?#]+)", u.path)
+        if not m:
+            raise SystemExit(f"not a Shopify product URL (no /products/<handle>): {product_url}")
+        self.handle = m.group(1)
+        self.s = _session()
+
+    def product(self) -> dict:
+        r = self.s.get(f"{self.base}/products/{self.handle}.js", timeout=25)
+        if r.status_code != 200 or not r.headers.get("content-type", "").startswith("application/json"):
+            raise SystemExit(f"{self.base} does not answer the Shopify product API (HTTP {r.status_code}). "
+                             "Not a Shopify store, or a headless one; test codes by hand at checkout.")
+        return r.json()
+
+    def fill(self, variant: int, qty: int) -> None:
+        self.s.post(f"{self.base}/cart/clear.js", timeout=25)
+        r = self.s.post(f"{self.base}/cart/add.js", json={"items": [{"id": variant, "quantity": qty}]}, timeout=25)
+        if r.status_code != 200:
+            raise SystemExit(f"add to cart failed (HTTP {r.status_code}): {r.text[:200]}")
+
+    def apply(self, codes: list[str]) -> dict:
+        r = self.s.post(f"{self.base}/cart/update.js", json={"discount": ",".join(codes)}, timeout=25)
+        c = r.json()
+        return {
+            "codes": codes,
+            "applicable": [d["code"] for d in c.get("discount_codes", []) if d.get("applicable")],
+            "subtotal": c["original_total_price"] / 100,
+            "total": c["total_price"] / 100,
+            "currency": c.get("currency", ""),
+        }
+
+
+def run_shopify(args: argparse.Namespace) -> dict:
+    shop = Shopify(args.url)
+    prod = shop.product()
+    variants = prod["variants"]
+    if args.variant:
+        v = next((x for x in variants if x["id"] == args.variant), None)
+        if v is None:
+            raise SystemExit(f"variant {args.variant} not on this product; ids: {[x['id'] for x in variants]}")
+    else:
+        v = next((x for x in variants if x.get("available")), variants[0])
+    shop.fill(v["id"], args.qty)
+
+    cands = list(dict.fromkeys(args.codes or []))
+    if args.harvest:
+        cands += [c["code"] for c in harvest(_bare_domain(shop.base), [], guess=True) if c["code"] not in cands]
+
+    # Instrument check: a nonsense code must come back not applicable. If it
+    # "applies", the store auto-discounts everything and results mean nothing.
+    ctrl = shop.apply(["ZZNOTACODE9137"])
+    if ctrl["applicable"]:
+        raise SystemExit("control failed: a nonsense code reported applicable; this cart cannot tell good codes from bad")
+    base_total = ctrl["total"]
+
+    singles = []
+    for c in cands:
+        res = shop.apply([c])
+        res["saves"] = round(base_total - res["total"], 2)
+        singles.append(res)
+        time.sleep(0.4)
+    live = [r for r in singles if r["applicable"]]
+    # Free-shipping codes apply but save $0 here: the Ajax cart has no shipping line.
+    live.sort(key=lambda r: -r["saves"])
+
+    combos = []
+    pool = [r["codes"][0] for r in live]
+    for k in range(2, min(args.max_stack, len(pool)) + 1):
+        for combo in itertools.combinations(pool, k):
+            res = shop.apply(list(combo))
+            res["saves"] = round(base_total - res["total"], 2)
+            combos.append(res)
+            time.sleep(0.4)
+    shop.apply([])
+
+    everything = live + combos
+    best = min(everything, key=lambda r: r["total"]) if everything else None
+    return {
+        "store": shop.base, "product": prod["title"], "variant": v.get("title"), "variant_id": v["id"],
+        "qty": args.qty, "base_total": base_total, "tested": len(cands),
+        "working": live, "combos": combos, "best": best,
+    }
+
+
+# ---------------------------------------------------------------- optimizer
+
+def _price(offer: dict, codes: list[dict]) -> dict:
+    sub = offer["price"] * offer.get("qty", 1)
+    ship = offer.get("shipping", 0.0)
+    for c in codes:
+        if sub < c.get("min_subtotal", 0):
+            return {}
+    after = sub
+    # Percent codes compound on the subtotal, then fixed amounts come off. Most
+    # carts work this way, but not all, so the result stays an estimate until tested.
+    for c in (c for c in codes if c["type"] == "pct"):
+        after *= 1 - c["value"] / 100
+    for c in (c for c in codes if c["type"] == "fixed"):
+        after -= c["value"]
+    after = max(after, 0.0)
+    if any(c["type"] == "freeship" for c in codes):
+        ship = 0.0
+    tax = after * offer.get("tax_rate", 0.0)
+    total = after + ship + tax
+    cash = total * (1 - offer.get("giftcard_pct", 0) / 100)
+    back = after * offer.get("cashback_pct", 0) / 100
+    return {
+        "source": offer["source"], "url": offer.get("url", ""),
+        "codes": [c["code"] for c in codes],
+        "checkout_total": round(total, 2), "out_of_pocket": round(cash, 2),
+        "cashback": round(back, 2), "net": round(cash - back, 2),
+        # No codes means the listed shelf price, which was read directly.
+        "verified": all(c.get("verified") for c in codes),
+    }
+
+
+def run_best(path: Path) -> dict:
+    data = json.loads(path.read_text())
+    rows = []
+    for offer in data["offers"]:
+        codes = offer.get("codes", [])
+        limit = offer.get("max_codes", 1)
+        for k in range(0, min(limit, len(codes)) + 1):
+            for combo in itertools.combinations(codes, k):
+                if k > 1 and not all(c.get("stackable", False) for c in combo):
+                    continue
+                if r := _price(offer, list(combo)):
+                    rows.append(r)
+    rows.sort(key=lambda r: (r["net"], not r["verified"]))
+    best_per_source: dict[str, dict] = {}
+    for r in rows:
+        best_per_source.setdefault(r["source"], r)
+    return {"item": data.get("item", ""), "ranked": sorted(best_per_source.values(), key=lambda r: r["net"]),
+            "combinations_tried": len(rows)}
+
+
+# ---------------------------------------------------------------- output
+
+def _print_shopify(r: dict) -> None:
+    print(f"{r['product']} ({r['variant']}) x{r['qty']} at {r['store']}")
+    print(f"cart before codes: {r['base_total']:.2f}   codes tested: {r['tested']}")
+    for w in r["working"]:
+        note = "  (applies; saves 0 in cart, likely free shipping or a threshold)" if w["saves"] == 0 else ""
+        print(f"  OK  {w['codes'][0]:<22} -{w['saves']:.2f} -> {w['total']:.2f}{note}")
+    for c in r["combos"]:
+        print(f"  +   {'+'.join(c['codes']):<22} -{c['saves']:.2f} -> {c['total']:.2f}  applied: {c['applicable']}")
+    if r["best"]:
+        b = r["best"]
+        print(f"BEST: {'+'.join(b['applicable'])} -> {b['total']:.2f} {b['currency']} (saves {b['saves']:.2f})")
+    else:
+        print("BEST: no code applied")
+
+
+def _print_best(r: dict) -> None:
+    print(f"{r['item']}   ({r['combinations_tried']} priced combinations)")
+    for x in r["ranked"]:
+        tag = "verified" if x["verified"] else "estimate"
+        codes = "+".join(x["codes"]) or "-"
+        print(f"  {x['net']:>9.2f} net  {x['out_of_pocket']:>9.2f} paid  {x['cashback']:>6.2f} back  "
+              f"{x['source']:<18} {codes:<24} [{tag}]")
+
+
+def main() -> None:
+    p = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
+    sub = p.add_subparsers(dest="cmd", required=True)
+
+    c = sub.add_parser("codes")
+    c.add_argument("domain")
+    c.add_argument("--extra", nargs="*", default=[])
+    c.add_argument("--no-guess", action="store_true")
+    c.add_argument("--json", action="store_true")
+
+    s = sub.add_parser("shopify")
+    s.add_argument("url")
+    s.add_argument("--variant", type=int)
+    s.add_argument("--qty", type=int, default=1)
+    s.add_argument("--codes", nargs="*", default=[])
+    s.add_argument("--harvest", action="store_true", help="also test harvested + guessed codes")
+    s.add_argument("--max-stack", type=int, default=3)
+    s.add_argument("--json", action="store_true")
+
+    b = sub.add_parser("best")
+    b.add_argument("offers", type=Path)
+    b.add_argument("--json", action="store_true")
+
+    a = p.parse_args()
+    if a.cmd == "codes":
+        out = harvest(_bare_domain(a.domain), a.extra, guess=not a.no_guess)
+        if a.json:
+            print(json.dumps(out, indent=2))
+        else:
+            for c in out:
+                print(f"{c['code']:<24} {','.join(c['sources'])}")
+    elif a.cmd == "shopify":
+        out = run_shopify(a)
+        print(json.dumps(out, indent=2)) if a.json else _print_shopify(out)
+    else:
+        out = run_best(a.offers)
+        print(json.dumps(out, indent=2)) if a.json else _print_best(out)
+
+
+if __name__ == "__main__":
+    main()
