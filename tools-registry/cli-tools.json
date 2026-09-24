@@ -343,6 +343,16 @@
     "notes": "MIDI <-> audio conversion. mp32mid needs Basic Pitch with ONNX."
   },
   {
+    "name": "MIST crystal animations",
+    "command": "node render.mjs --pack | --sheet | --strip=<anim>; open pack.html",
+    "repo_dir": "/Users/alexhedtke/Documents/mist-anims",
+    "source": "built",
+    "added": "2026-09-24",
+    "notes": "MIST's bipyramid crystal: 11 animations x 7 looks, transparent WebP (256) + WebM (512) + GIF. Private repo BaesTheorem/mist-anims.",
+    "description": "",
+    "use_when": ""
+  },
+  {
     "name": "MIST Studio",
     "command": "mist-music/bin/mist-studio --open   # or open /Applications/MIST\\ Studio.app; http://127.0.0.1:5032",
     "repo_dir": "~/Documents/Exobrain harness/mist-music/studio",
