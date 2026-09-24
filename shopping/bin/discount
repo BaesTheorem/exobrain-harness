@@ -65,13 +65,19 @@ def _bare_domain(s: str) -> str:
 
 def _simplycodes(s: requests.Session, domain: str) -> list[str]:
     # dealspotr.com and knoji.com both redirect here.
-    t = s.get(f"https://simplycodes.com/store/{domain}", timeout=25).text
+    r = s.get(f"https://simplycodes.com/store/{domain}", timeout=25)
+    if r.status_code == 404:
+        raise LookupError("no page for this store")
+    t = r.text
     return re.findall(r'data-code="([^"]+)"', t)
 
 
 def _wethrift(s: requests.Session, domain: str) -> list[str]:
     slug = domain.split(".")[0]
-    t = s.get(f"https://www.wethrift.com/{slug}", timeout=25).text
+    r = s.get(f"https://www.wethrift.com/{slug}", timeout=25)
+    if r.status_code == 404:
+        raise LookupError("no page for this store")
+    t = r.text
     return re.findall(r'"code"\s*:\s*"([^"]{3,30})"', t)
 
 
@@ -111,8 +117,21 @@ class Shopify:
         self.handle = m.group(1)
         self.s = _session()
 
+    def _req(self, method: str, path: str, **kw):
+        # Shopify's bot check answers 429 with a "Verifying your connection" page
+        # once requests come too fast (two parallel runs were enough on
+        # 2026-09-23). Back off and retry, then give up with a clear error.
+        for wait in (15, 30, 60, 0):
+            r = self.s.request(method, f"{self.base}{path}", timeout=25, **kw)
+            if r.status_code != 429:
+                return r
+            if wait:
+                print(f"429 from {self.base}; waiting {wait}s", file=sys.stderr)
+                time.sleep(wait)
+        raise SystemExit(f"{self.base} kept rate-limiting (429). Wait a few minutes, run one test at a time.")
+
     def product(self) -> dict:
-        r = self.s.get(f"{self.base}/products/{self.handle}.js", timeout=25)
+        r = self._req("GET", f"/products/{self.handle}.js")
         try:
             data = r.json() if r.status_code == 200 else None
         except ValueError:
@@ -122,14 +141,17 @@ class Shopify:
                              "Wrong handle, not a Shopify store, or a headless one; test codes by hand at checkout.")
         return data
 
-    def fill(self, variant: int, qty: int) -> None:
-        self.s.post(f"{self.base}/cart/clear.js", timeout=25)
-        r = self.s.post(f"{self.base}/cart/add.js", json={"items": [{"id": variant, "quantity": qty}]}, timeout=25)
+    def fill(self, variant: int, qty: int, selling_plan: int | None = None) -> None:
+        item: dict = {"id": variant, "quantity": qty}
+        if selling_plan:
+            item["selling_plan"] = selling_plan
+        self._req("POST", "/cart/clear.js")
+        r = self._req("POST", "/cart/add.js", json={"items": [item]})
         if r.status_code != 200:
             raise SystemExit(f"add to cart failed (HTTP {r.status_code}): {r.text[:200]}")
 
     def apply(self, codes: list[str]) -> dict:
-        r = self.s.post(f"{self.base}/cart/update.js", json={"discount": ",".join(codes)}, timeout=25)
+        r = self._req("POST", "/cart/update.js", json={"discount": ",".join(codes)})
         c = r.json()
         return {
             "codes": codes,
@@ -150,7 +172,7 @@ def run_shopify(args: argparse.Namespace) -> dict:
             raise SystemExit(f"variant {args.variant} not on this product; ids: {[x['id'] for x in variants]}")
     else:
         v = next((x for x in variants if x.get("available")), variants[0])
-    shop.fill(v["id"], args.qty)
+    shop.fill(v["id"], args.qty, args.selling_plan)
 
     cands = list(dict.fromkeys(args.codes or []))
     if args.harvest:
@@ -168,7 +190,7 @@ def run_shopify(args: argparse.Namespace) -> dict:
         res = shop.apply([c])
         res["saves"] = round(base_total - res["total"], 2)
         singles.append(res)
-        time.sleep(0.4)
+        time.sleep(1.0)
     live = [r for r in singles if r["applicable"]]
     # Free-shipping codes apply but save $0 here: the Ajax cart has no shipping line.
     live.sort(key=lambda r: -r["saves"])
@@ -180,7 +202,7 @@ def run_shopify(args: argparse.Namespace) -> dict:
             res = shop.apply(list(combo))
             res["saves"] = round(base_total - res["total"], 2)
             combos.append(res)
-            time.sleep(0.4)
+            time.sleep(1.0)
     shop.apply([])
 
     everything = live + combos
@@ -288,6 +310,8 @@ def main() -> None:
     s.add_argument("--codes", nargs="*", default=[])
     s.add_argument("--harvest", action="store_true", help="also test harvested + guessed codes")
     s.add_argument("--max-stack", type=int, default=3)
+    s.add_argument("--selling-plan", type=int,
+                   help="subscription plan id (selling_plan_groups in <handle>.js); some codes are subscription-only")
     s.add_argument("--json", action="store_true")
 
     b = sub.add_parser("best")

@@ -87,6 +87,13 @@ The `/discount` skill drives the whole workflow.
   flags and the discounted `total_price` for an anonymous cart. Comma-joined codes
   show whether the store lets codes combine. Each run first applies a nonsense code and
   aborts if the store reports it as applicable. Nothing ever reaches checkout.
+- **Small Shopify stores rate-limit hard.** basicallyfood.com answered 429 with
+  a "Verifying your connection" page after roughly 20 cart requests, and kept
+  blocking this IP for more than 5 minutes. Run one test at a time. Test the
+  codes you found online before `--harvest` guesses, and keep `--max-stack` low.
+- **Some codes are subscription-only.** Pass `--selling-plan <id>` (ids are in
+  `selling_plan_groups` of `/products/<handle>.js`) to test them on a
+  subscription cart.
 - **The cart has no shipping line**, so a free-shipping code shows as applicable but
   saves $0.
 - **Aggregator coverage (tested 2026-09-23):** SimplyCodes puts codes in
