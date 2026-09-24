@@ -87,8 +87,10 @@ How it fits together:
 - **No streaks.** Three sessions a week with a rest day between is the
   target; a missed day costs nothing. Do not add a streak.
 
-Alex must start a Run on the Fitbit when he starts a quest, or verification
-has nothing to match (an auto-detected walk still matches if it overlaps).
+Fitbit auto-detect (15 min minimum by default, `logType: auto_detected`)
+is enough to verify a session; the verifier ignores `logType` and matches
+on overlap. A manual Run on the watch adds GPS distance and the full
+active-minute credit. Early weeks will be filed as Walk or Sport, not Run.
 "Waiting for Fitbit" in the app means the watcher has not run since the
 session, or the watch has not synced; `quest-verify` by hand settles which.
 See [[project_running_quest]].

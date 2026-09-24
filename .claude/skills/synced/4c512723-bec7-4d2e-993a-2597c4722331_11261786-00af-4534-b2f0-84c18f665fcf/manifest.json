@@ -1,5 +1,5 @@
 {
-  "lastUpdated": 1790215207682,
+  "lastUpdated": 1790227009774,
   "skills": [
     {
       "skillId": "import-memory",
@@ -49,8 +49,9 @@
       "skillId": "skill_01FvCojFqmizzrVJDbvXCmav",
       "name": "process-transcript",
       "description": "Process Plaud Note transcripts from the Plaud/ folder in the Obsidian vault. Extracts tasks, events, notes, and insights, routing them to Things 3, Google Calendar, and the daily note. Use when the user mentions transcripts, recordings, Plaud, conversations to process, \"I just recorded something\", \"any new recordings\", \"process my notes\", \"what did I talk about\", or when triggered by a scheduled task.",
-      "source": "custom",
-      "updatedAt": "2026-04-16T21:43:04.796388Z"
+      "source": "plugin",
+      "updatedAt": "2026-04-16T21:43:04.796282Z",
+      "backingPluginId": "plugin_01Dh8Gyr4AFWse8znWizXKpf"
     },
     {
       "skillId": "skill_01PskfcP8j9ayLydy5Qgff6S",
