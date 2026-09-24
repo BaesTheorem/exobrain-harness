@@ -53,4 +53,42 @@ with frontmatter (`week_of`, `days_trained`, `sets_done`, `sets_target`,
 
 For the morning briefing or winddown, one line is enough: sets done vs target
 this week and days trained, from `weeks -n 1`. Flag a week with 0 days
-trained by Thursday.
+trained by Thursday. Add the quest line from `quest --line`.
+
+## The running quest (Couch to 5K)
+
+The app's Quest tab is a gamified Couch to 5K: nine chapters of three
+sessions, an OSRS-style Agility level, and Fitbit verification. Alex built
+it because getting out the door was the hard part, so the design pays for
+leaving the house, not for pace.
+
+```
+~/Documents/exercise-log/bin/exercise-log quest          # level, xp, next session, recent attempts
+~/Documents/exercise-log/bin/exercise-log quest --line   # the briefing line
+~/Documents/exercise-log/bin/quest-verify [--dry-run]    # match attempts to Fitbit now
+```
+
+How it fits together:
+
+- **Phone** runs the interval timer (spoken jog/walk cues, notifications at
+  every boundary, background audio so it works locked) and records each
+  attempt in `quest.sessions` with `elapsedSeconds` and `completed`.
+- **Mac** (`running-quest/quest_watch.py`, launchd every 30 min) runs
+  `quest-verify`, which matches attempts to Fitbit activities by time
+  overlap and writes a `verification` block (duration, distance, average
+  HR, active minutes). Runs Fitbit saw with no attempt become free runs.
+  Bikes never count. It then posts banners and Discord messages and, when a
+  quest is due and the weather window is good, one "go now" nudge a day.
+- **XP** is derived from `sessions` on both sides, never stored: warm-up
+  finished 1000, session completed +1500, Fitbit verified +1500, +50 per
+  active minute, free run 500 + active minutes. Levels use the OSRS table;
+  the full plan verified lands around level 50. The constants are in
+  `lib/quest.py` and `Quest.swift`; change both or neither.
+- **No streaks.** Three sessions a week with a rest day between is the
+  target; a missed day costs nothing. Do not add a streak.
+
+Alex must start a Run on the Fitbit when he starts a quest, or verification
+has nothing to match (an auto-detected walk still matches if it overlaps).
+"Waiting for Fitbit" in the app means the watcher has not run since the
+session, or the watch has not synced; `quest-verify` by hand settles which.
+See [[project_running_quest]].

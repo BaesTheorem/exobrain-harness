@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>Label</key>
+	<string>com.exobrain.quest-watch</string>
+	<!-- Homebrew python3 directly: the CommandLineTools one lacks Full Disk
+	     Access for ~/Documents under launchd, and a /bin/sh wrapper exits 126. -->
+	<key>ProgramArguments</key>
+	<array>
+		<string>/opt/homebrew/bin/python3</string>
+		<string>/Users/alexhedtke/Documents/Exobrain harness/running-quest/quest_watch.py</string>
+	</array>
+	<key>StartInterval</key>
+	<integer>1800</integer>
+	<key>RunAtLoad</key>
+	<true/>
+	<key>StandardOutPath</key>
+	<string>/Users/alexhedtke/Library/Logs/exobrain/quest-watch.out</string>
+	<key>StandardErrorPath</key>
+	<string>/Users/alexhedtke/Library/Logs/exobrain/quest-watch.err</string>
+</dict>
+</plist>
