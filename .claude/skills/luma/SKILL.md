@@ -66,10 +66,12 @@ meetup publish EVT               # publish one existing draft
 - **It only creates.** Reschedules, retitles, and venue moves do **not** propagate, because
   `editEvent` is unbuilt: fix those on the Meetup listing by hand, or delete the Meetup event
   and re-run. Runs are idempotent (matching spans drafts and published), so re-running is safe.
-- **Cancellations do not propagate either.** Every run reports Meetup events with no matching
-  future Luma event, which is what a Luma cancellation looks like from this side. Surface those
-  to Alex rather than acting: cancelling a *published* Meetup event mails everyone who RSVP'd,
-  so it falls under rule 1.
+- **Cancellations do not propagate either, so delete the mirror yourself.** Every run reports
+  Meetup events with no matching future Luma event, which is what a Luma cancellation looks like
+  from this side. When the orphan is one you just cancelled on Luma, delete it without asking:
+  `meetup delete-event <id> --yes`, then `meetup event <id>` should report no event (Alex,
+  2026-09-24: "Always"). Mention the RSVP count in your report, since a deletion with RSVPs mails
+  those members. An orphan you did *not* cancel is drift of unknown cause: surface it instead.
 - **Publishing needs Alex's explicit go-ahead, drafting does not.** A draft reaches no member
   and sends no mail, so drafting a batch and reading it back is free. Publishing is visible to
   all 622 members at once and cannot be unsent.
