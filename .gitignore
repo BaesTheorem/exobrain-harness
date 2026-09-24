@@ -269,3 +269,9 @@ node_modules/
 # methods. Never commit. See shopping/secrets/README.md to rebuild.
 shopping/secrets/*
 !shopping/secrets/README.md
+
+# MIST Studio (mist-music/studio): generated songs, uploads, per-machine config
+mist-music/studio/library/
+mist-music/studio/uploads/
+mist-music/studio/config.json
+mist-music/studio/downloads/

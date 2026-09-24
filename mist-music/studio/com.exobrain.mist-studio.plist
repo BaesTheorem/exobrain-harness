@@ -1,0 +1,26 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+  <key>Label</key><string>com.exobrain.mist-studio</string>
+  <!-- venv python goes straight in ProgramArguments: a bash wrapper that execs a
+       Homebrew interpreter from ~/Documents dies on TCC (see the launchd memories) -->
+  <key>ProgramArguments</key>
+  <array>
+    <string>/Users/alexhedtke/Documents/Exobrain harness/mist-music/.venv/bin/python</string>
+    <string>-m</string>
+    <string>studio.server</string>
+  </array>
+  <key>WorkingDirectory</key><string>/Users/alexhedtke/Documents/Exobrain harness/mist-music</string>
+  <key>RunAtLoad</key><true/>
+  <key>KeepAlive</key><true/>
+  <key>StandardOutPath</key><string>/Users/alexhedtke/Library/Logs/exobrain/mist-studio.log</string>
+  <key>StandardErrorPath</key><string>/Users/alexhedtke/Library/Logs/exobrain/mist-studio.log</string>
+  <key>EnvironmentVariables</key>
+  <dict>
+    <!-- launchd's default PATH has no Homebrew or ~/.local: ffmpeg, demucs and claude live there -->
+    <key>PATH</key><string>/Users/alexhedtke/.local/bin:/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin</string>
+    <key>PYTHONUNBUFFERED</key><string>1</string>
+  </dict>
+</dict>
+</plist>
