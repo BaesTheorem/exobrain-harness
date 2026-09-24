@@ -34,7 +34,12 @@ On the M1 Air's Metal GPU (`--use-angle=metal`) frames take about 100–275 ms e
    - the subagents only touch their own files, and shared files belong to the orchestrator.
    Run the subagents in the foreground: skill-heavy agents in the background fail without reporting it.
 6. **Render.** Short pieces: `node render.mjs --clip --out=out/video.mp4`. Long ones: `node render.mjs --frames --workers=3`, which can resume, then `node render.mjs --encode --audio=assets/song.mp3`.
-7. **Deliver.**
+7. **Sound effects.** Every cartoon needs them, so do this by default.
+   - Write `src/scenes/<slug>.sfx.json` with cue times taken from the scene's own constants (`beat(n)`, landing times, and so on). For things driven by physics, compute the hit times with the same formula the scene uses, like the goo splats in `video/dungeon`.
+   - Sources, in order: Kenney's CC0 audio packs (kenney.nl: RPG Audio, Impact Sounds, Sci-Fi Sounds, Digital Audio, Interface Sounds; scrape the `.zip` link from each asset page), then UI SFX (CC0), then the mixer's built-in synths (`slide`, `whoosh`, `bubbles`, `tweet`, `hum`). Copy only the files you use into `assets/sfx/` and keep the license alongside them.
+   - `bin/sfx-mix <sheet> --video=out/<slug>.mp4 --out=out/<slug>_sfx.mp4` mixes and muxes without re-rendering the frames.
+   - You can't hear the mix, so measure it. Render the effects alone (set `music` to null) and look at the waveform: a solid block is a sustained tone that's too loud. Compare `ebur128` loudness for effects alone against music alone and keep them within about 2 LU; the first dungeon pass had effects 5.5 LU over the music. Check the final file's true peak is below 0 dBFS.
+8. **Deliver.**
    - Copy the MP4 to `~/Documents/Exobrain harness/tmp/video/<slug>.mp4` and embed it as `![<title>](<that raw path>)`. The Console plays videos from under the harness; don't percent-encode the path.
    - Use a new filename for each version.
    - Credit a Kevin MacLeod track per the CLAUDE.md music rule.
