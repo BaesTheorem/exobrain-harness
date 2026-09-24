@@ -1,5 +1,5 @@
 {
-  "lastUpdated": 1790136885340,
+  "lastUpdated": 1790215207682,
   "skills": [
     {
       "skillId": "import-memory",
@@ -41,8 +41,9 @@
       "skillId": "skill_01EgPao86LywjmeWdfRcmDEx",
       "name": "json-canvas",
       "description": "Create and edit JSON Canvas files (.canvas) with nodes, edges, groups, and connections. Use when working with .canvas files, creating visual canvases, mind maps, flowcharts, or when the user mentions Canvas files in Obsidian.",
-      "source": "custom",
-      "updatedAt": "2026-04-16T21:42:00.205286Z"
+      "source": "plugin",
+      "updatedAt": "2026-04-16T21:42:00.205148Z",
+      "backingPluginId": "plugin_01VRpFfz7539tgqV7Pqa9JS6"
     },
     {
       "skillId": "skill_01FvCojFqmizzrVJDbvXCmav",
@@ -107,8 +108,9 @@
       "skillId": "skill_01A4a8rdLcwB76jRXV2ziPQX",
       "name": "ttrpg-campaign",
       "description": "Manage Alex's TTRPG campaigns. Session prep (Lazy DM methodology), session recap (from Plaud transcripts), and campaign knowledge management. Use when the user mentions DnD, D&D, Dungeons and Dragons, TTRPG, tabletop RPG, campaign, session prep, session recap, \"next session\", \"what happened last session\", or any known player/character names in a TTRPG context.",
-      "source": "custom",
-      "updatedAt": "2026-04-16T21:44:30.038460Z"
+      "source": "plugin",
+      "updatedAt": "2026-04-16T21:44:30.038333Z",
+      "backingPluginId": "plugin_01XfZeCgXZY47FLHsGdkDkx4"
     },
     {
       "skillId": "skill_016MUFgmsgexYyDSujhwBNSi",
@@ -136,8 +138,9 @@
       "skillId": "skill_01Ea7jxkzYVWD6qPDq6fTYCe",
       "name": "weekly-review",
       "description": "Comprehensive GTD-style weekly review. Scans email, calendar, notes, Things 3, and Supernote to synthesize the past week and plan the next. Use when the user wants to reflect on or review the week, plan next week, asks \"how did my week go\", \"what happened this week\", \"weekly recap\", \"let's do a review\", \"week summary\", \"wrap up the week\", or when triggered by the Sunday scheduled task.",
-      "source": "custom",
-      "updatedAt": "2026-04-16T21:41:01.447461Z"
+      "source": "plugin",
+      "updatedAt": "2026-04-16T21:41:01.447276Z",
+      "backingPluginId": "plugin_01LGuTLvEGyNYZo4FxNfKv1S"
     },
     {
       "skillId": "skill_013UpaxcBue4bjhudZn86JA9",
@@ -165,8 +168,9 @@
       "skillId": "skill_019nxXace5yvnL37rhDjdecc",
       "name": "email",
       "description": "Best practices and conventions for all Gmail interactions. Canonical reference for email scanning, job alert processing, actionable item extraction, CRM cross-referencing, and draft composition. Referenced by other skills. Use when you need to check email conventions or available MCP tools before interacting with Gmail.",
-      "source": "custom",
-      "updatedAt": "2026-04-16T21:38:47.648661Z"
+      "source": "plugin",
+      "updatedAt": "2026-04-16T21:38:47.648483Z",
+      "backingPluginId": "plugin_01FH8GiHxk8sky6tq7Ny8iYQ"
     },
     {
       "skillId": "skill_01MYRcBuyHMiMREAudWoiLPL",
@@ -238,8 +242,9 @@
       "skillId": "skill_01EAaR4WLQBQLKd8vnrCCmRL",
       "name": "de-ai",
       "description": "Remove AI-generated patterns from text to make it sound more human and authentic. Use whenever you are generating text to share externally (such as cover letters, social media posts, etc) or the user says \"make this sound human\", \"de-AI this\", \"this sounds too AI\", \"make it natural\", \"humanize this\", \"rewrite this naturally\", or pastes text that they want cleaned up from AI-sounding language.",
-      "source": "custom",
-      "updatedAt": "2026-04-16T21:34:12.608927Z"
+      "source": "plugin",
+      "updatedAt": "2026-04-16T21:34:12.608754Z",
+      "backingPluginId": "plugin_01FGHLQuFKA7XjBE933Pq8Cw"
     },
     {
       "skillId": "skill_018k1DA2ftgMhVA8SpsCsP2n",
