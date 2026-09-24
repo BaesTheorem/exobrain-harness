@@ -333,6 +333,17 @@
     "notes": "MIDI <-> audio conversion. mp32mid needs Basic Pitch with ONNX."
   },
   {
+    "name": "MIST Studio",
+    "command": "mist-music/bin/mist-studio --open   # or open /Applications/MIST\\ Studio.app; http://127.0.0.1:5032",
+    "repo_dir": "~/Documents/Exobrain harness/mist-music/studio",
+    "source": "built",
+    "added": "2026-09-23",
+    "notes": "Port 5032, launchd com.exobrain.mist-studio (plist source in studio/, copy in ~/Library/LaunchAgents). Backends in Settings: HF Space ACE-Step/Ace-Step-v1.5 (every GPU call reserves ~180s of the daily free ZeroGPU pool), self-hosted acestep-api on a rented GPU (no quota), mock. Stems = local demucs (segment 7). Lyrics = claude -p with settings off. Art = mist-image. Tests: pytest tests/test_mist_studio.py.",
+    "description": "Suno-style song studio on ACE-Step 1.5: describe or write songs, cover uploaded tracks, repaint sections, split stems, library with cover art",
+    "use_when": "Alex wants to make songs interactively, cover a track he uploads, get stems, or browse generated music; chat one-offs still use mist-music gen",
+    "category": "app"
+  },
+  {
     "name": "mist-progress",
     "command": "mist-progress run --label \"<what it is>\" -- <command>",
     "repo_dir": "~/Documents/mist-console",
