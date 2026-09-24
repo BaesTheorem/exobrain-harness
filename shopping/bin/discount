@@ -113,10 +113,14 @@ class Shopify:
 
     def product(self) -> dict:
         r = self.s.get(f"{self.base}/products/{self.handle}.js", timeout=25)
-        if r.status_code != 200 or not r.headers.get("content-type", "").startswith("application/json"):
+        try:
+            data = r.json() if r.status_code == 200 else None
+        except ValueError:
+            data = None
+        if not isinstance(data, dict) or "variants" not in data:
             raise SystemExit(f"{self.base} does not answer the Shopify product API (HTTP {r.status_code}). "
-                             "Not a Shopify store, or a headless one; test codes by hand at checkout.")
-        return r.json()
+                             "Wrong handle, not a Shopify store, or a headless one; test codes by hand at checkout.")
+        return data
 
     def fill(self, variant: int, qty: int) -> None:
         self.s.post(f"{self.base}/cart/clear.js", timeout=25)
@@ -233,9 +237,10 @@ def run_best(path: Path) -> dict:
                 if r := _price(offer, list(combo)):
                     rows.append(r)
     rows.sort(key=lambda r: (r["net"], not r["verified"]))
-    best_per_source: dict[str, dict] = {}
+    # Best verified row per source, plus the best estimate when it beats that.
+    best_per_source: dict[tuple[str, bool], dict] = {}
     for r in rows:
-        best_per_source.setdefault(r["source"], r)
+        best_per_source.setdefault((r["source"], r["verified"]), r)
     return {"item": data.get("item", ""), "ranked": sorted(best_per_source.values(), key=lambda r: r["net"]),
             "combinations_tried": len(rows)}
 
