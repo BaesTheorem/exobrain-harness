@@ -1,0 +1,170 @@
+#!/usr/bin/env -S uv run --script --quiet
+# /// script
+# requires-python = ">=3.11"
+# dependencies = ["Hershey-Fonts", "numpy", "pillow"]
+# ///
+"""hand-letter: draw text with a simulated pen instead of a typed font.
+
+Letter skeletons come from the Hershey stroke alphabets (public-domain
+single-line letterforms made for pen plotters), so they are pen paths, not glyph
+outlines. Every letter instance gets its own slow wobble, tilt, size, baseline
+offset and pen pressure, plus a felt-tip ink texture, so no two letters match.
+Draws at 4x and downsamples.
+
+  hand-letter "a happy ending." -o out.png                 # transparent PNG, tight
+  hand-letter "We must" --base square.png -x 655 -y 740 -o out.png
+  hand-letter "build" --slant 0.25 --font scriptc --cap 46 --ink 38,48,58
+
+Fonts worth knowing: futural (plain print hand, default), rowmans (a touch more
+formal), scriptc / cursive (fountain-pen scripts). --list shows them all.
+--x/--y place the baseline start on --base; --center centers on --x instead.
+Positions are in output pixels. Line breaks in the text stack at --leading.
+"""
+import argparse
+import math
+import random
+import sys
+
+import numpy as np
+from HersheyFonts import HersheyFonts
+from PIL import Image, ImageDraw, ImageFilter
+
+SS = 4   # supersample
+
+
+def _noise1d(n, octaves=(0.006, 0.018), amp=(1.0, 0.35), rng=random):
+    t = np.arange(n, dtype=float)
+    out = np.zeros(n)
+    for f, a in zip(octaves, amp, strict=True):
+        out += a * np.sin(t * f * 2 * math.pi + rng.uniform(0, 2 * math.pi))
+        out += a * 0.5 * np.sin(t * f * 3.1 * 2 * math.pi + rng.uniform(0, 2 * math.pi))
+    return out
+
+
+def _resample(pts, step):
+    out = [pts[0]]
+    for (x0, y0), (x1, y1) in zip(pts, pts[1:], strict=False):
+        d = math.hypot(x1 - x0, y1 - y0)
+        k = max(1, int(d / step))
+        out.extend((x0 + (x1 - x0) * i / k, y0 + (y1 - y0) * i / k) for i in range(1, k + 1))
+    return out
+
+
+class Pen:
+    def __init__(self, font="futural", cap_px=46, width_px=4.6, ink=(38, 48, 58), seed=1,
+                 wobble=1.3, tilt_deg=1.8, size_var=0.05, baseline_var=2.0, slant=0.0,
+                 letter_gap=0.92, word_gap=0.72):
+        self.h = HersheyFonts()
+        self.h.load_default_font(font)
+        self.scale = cap_px * SS / 21.0          # Hershey cap_line -12 .. base_line 9
+        self.w = width_px * SS
+        self.ink = tuple(ink)
+        self.rng = random.Random(seed)
+        self.wobble, self.tilt, self.size_var = wobble, tilt_deg, size_var
+        self.base_var, self.slant = baseline_var, slant
+        self.letter_gap, self.word_gap = letter_gap, word_gap
+
+    def _adv(self, g, ch):
+        return g.char_width * (self.word_gap if ch == " " else self.letter_gap) * self.scale
+
+    def measure(self, text):
+        """Advance width of `text` in output px."""
+        return sum(self._adv(next(self.h.glyphs_for_text(ch)), ch) for ch in text) / SS
+
+    def draw(self, layer, text, x, y, slant=None):
+        """Draw `text` with the baseline starting at (x, y) in output px."""
+        slant = self.slant if slant is None else slant
+        rng = self.rng
+        d = ImageDraw.Draw(layer)
+        cx, cy = x * SS, y * SS
+        for ch in text:
+            g = next(self.h.glyphs_for_text(ch))
+            if ch != " ":
+                s = self.scale * rng.uniform(1 - self.size_var, 1 + self.size_var)
+                th = math.radians(rng.uniform(-self.tilt, self.tilt))
+                by = rng.uniform(-self.base_var, self.base_var) * SS
+                ox = cx - g.left_offset * s + rng.uniform(-1.0, 1.0) * SS
+                for stroke in g.strokes:
+                    pts = [(px * s, (py - g.base_line) * s) for px, py in stroke]
+                    if len(pts) < 2:
+                        pts = pts * 2
+                    pts = _resample(pts, 1.5 * SS)
+                    n = len(pts)
+                    nx = _noise1d(n, rng=rng) * self.wobble * SS
+                    ny = _noise1d(n, rng=rng) * self.wobble * SS
+                    press = 0.80 + 0.30 * (0.5 + 0.5 * _noise1d(n, octaves=(0.004, 0.012), rng=rng) / 1.4)
+                    prev = None
+                    for i, (px, py) in enumerate(pts):
+                        px2 = px - py * slant                       # italic shear
+                        rx = px2 * math.cos(th) - py * math.sin(th)  # per-letter tilt
+                        ry = px2 * math.sin(th) + py * math.cos(th)
+                        X, Y = ox + rx + nx[i], cy + by + ry + ny[i]
+                        r = self.w * float(press[i]) / 2
+                        if prev:
+                            d.line([prev, (X, Y)], fill=self.ink, width=int(r * 2))
+                        d.ellipse((X - r, Y - r, X + r, Y + r), fill=self.ink)
+                        prev = (X, Y)
+            cx += self._adv(g, ch)
+
+
+def ink_layer(size):
+    return Image.new("RGBA", (size[0] * SS, size[1] * SS), (0, 0, 0, 0))
+
+
+def finish(layer, size, rng):
+    """Uneven ink density like a felt pen on paper, then downsample."""
+    a = np.array(layer).astype(float)
+    W, H = layer.size
+    tex = np.array(Image.fromarray((rng.random((H // 8, W // 8)) * 255).astype(np.uint8))
+                   .resize((W, H), Image.BILINEAR)) / 255.0
+    a[..., 3] *= 0.86 + 0.14 * tex
+    out = Image.fromarray(a.clip(0, 255).astype(np.uint8)).filter(ImageFilter.GaussianBlur(0.6 * SS))
+    return out.resize(size, Image.LANCZOS)
+
+
+def main():
+    ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
+    ap.add_argument("text", nargs="?", help="text to letter; \\n or a real newline breaks lines")
+    ap.add_argument("-o", "--out", default="hand-letter.png")
+    ap.add_argument("--base", help="draw onto this image instead of a transparent canvas")
+    ap.add_argument("-x", type=float, default=None, help="baseline start x (default: 24, or centered with --center)")
+    ap.add_argument("-y", type=float, default=None, help="first baseline y (default: cap + 24)")
+    ap.add_argument("--center", action="store_true", help="center each line on -x (or the canvas middle)")
+    ap.add_argument("--font", default="futural")
+    ap.add_argument("--cap", type=float, default=46, help="cap height in px")
+    ap.add_argument("--width", type=float, default=4.6, help="pen width in px")
+    ap.add_argument("--ink", default="38,48,58", help="r,g,b")
+    ap.add_argument("--slant", type=float, default=0.0, help="italic shear, e.g. 0.25")
+    ap.add_argument("--wobble", type=float, default=1.3)
+    ap.add_argument("--leading", type=float, default=None, help="line spacing in px (default 1.8 x cap)")
+    ap.add_argument("--seed", type=int, default=23)
+    ap.add_argument("--list", action="store_true", help="list the stroke alphabets and exit")
+    a = ap.parse_args()
+    if a.list:
+        print("\n".join(sorted(HersheyFonts().default_font_names)))
+        return
+    if not a.text:
+        ap.error("text is required")
+    lines = a.text.replace("\\n", "\n").split("\n")
+    ink = tuple(int(v) for v in a.ink.split(","))
+    pen = Pen(font=a.font, cap_px=a.cap, width_px=a.width, ink=ink, seed=a.seed,
+              wobble=a.wobble, slant=a.slant)
+    leading = a.leading or a.cap * 1.8
+    widths = [pen.measure(t) for t in lines]
+    if a.base:
+        im = Image.open(a.base).convert("RGBA")
+    else:
+        pad = 24
+        im = Image.new("RGBA", (int(max(widths) + 2 * pad), int(a.cap + leading * (len(lines) - 1) + 2 * pad)), (0, 0, 0, 0))
+    x0 = a.x if a.x is not None else (im.width / 2 if a.center else 24)
+    y0 = a.y if a.y is not None else a.cap + 24
+    lay = ink_layer(im.size)
+    for i, (t, w) in enumerate(zip(lines, widths, strict=True)):
+        pen.draw(lay, t, x0 - w / 2 if a.center else x0, y0 + i * leading)
+    im.alpha_composite(finish(lay, im.size, np.random.default_rng(a.seed)))
+    (im if a.out.lower().endswith(".png") else im.convert("RGB")).save(a.out)
+    print(a.out)
+
+
+if __name__ == "__main__":
+    sys.exit(main())
