@@ -70,3 +70,31 @@ only things that would need credentials; none of them are implemented, and
 adding them should follow the house pattern used by the LinkedIn and Instagram
 tools (log in by hand once in a real browser, export the session cookie to a
 gitignored file, never automate the login itself).
+
+## `bin/discount` -- promo codes, live cart tests, cheapest source
+
+```
+discount codes allbirds.com                      # candidates: SimplyCodes, Wethrift, guesses
+discount shopify <product-url> --codes A B C --harvest --max-stack 3
+discount best tmp/discount/<item>.json            # rank every source x every legal code subset
+```
+
+A `uv run --script` file with `curl_cffi` declared inline, so it needs `uv` and nothing else.
+The `/discount` skill drives the whole workflow.
+
+- **Shopify is the only lane that proves a code works.** The Ajax Cart API
+  (`POST /cart/update.js {"discount": "A,B"}`) returns per-code `applicable`
+  flags and the discounted `total_price` for an anonymous cart. Comma-joined codes
+  show whether the store lets codes combine. Each run first applies a nonsense code and
+  aborts if the store reports it as applicable. Nothing ever reaches checkout.
+- **The cart has no shipping line**, so a free-shipping code shows as applicable but
+  saves $0.
+- **Aggregator coverage (tested 2026-09-23):** SimplyCodes puts codes in
+  `data-code` attributes, and dealspotr.com and knoji.com redirect to it. Wethrift embeds
+  `"code":` JSON. RetailMeNot, CouponFollow and CouponCabin hide codes behind a
+  click-out. Slickdeals `/coupons/` returns 410, CouponBirds 403. The Syrup
+  open-source coupon DB (`db.joinsyrup.com`) sits behind a JS challenge and hangs,
+  and the repo is archived, so don't build on it.
+- **`best` is arithmetic, not a measurement.** It applies percent codes before
+  fixed ones, then tax, then the gift-card discount, then cashback. Rows are
+  `verified` only when every code in them was confirmed on a cart.
