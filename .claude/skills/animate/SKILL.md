@@ -14,6 +14,10 @@ Videos are code. Each frame is a pure function of time `t`, painted with p5.brus
 
 **Read `~/Documents/claude-animation/ANIMATION_GUIDE.md` before writing any scene code.** It is the spec: the rules (handmade medium, no text, something happens in every shot, transitions at every seam), the storyboard format, the review loop and the whole API. This skill covers only how the kit fits into MIST.
 
+## When MIST herself is in the video
+
+Her form is the crystal pack, not a p5.brush drawing: `~/Documents/mist-anims` (see the Design section of CLAUDE.md). Take a clip from `dist/webm/<look>/<anim>.webm` (VP9 with alpha) and composite it over the rendered frames with ffmpeg (`overlay` filter, or `-filter_complex "[0][1]overlay=x:y"`), or for a standalone MIST piece skip this kit and write the scene in `src/anims.js` there. New moods or poses go into that repo so they stay on model.
+
 ## Performance on this Mac
 
 On the M1 Air's Metal GPU (`--use-angle=metal`) frames take about 100–275 ms each, so an 11 s clip renders in about a minute. That is well inside the guide's 2.5 s/frame budget, so the watercolour fills can stay. RAM is the tighter limit on 8 GB: keep `--workers` at 2–3 for `--frames`.
