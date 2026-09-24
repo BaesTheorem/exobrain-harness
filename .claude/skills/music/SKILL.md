@@ -174,6 +174,8 @@ Turns **an audio track + a still image + the exact lyrics** into a line-by-line
 captioned MP4 (fade in/out, one line at a time, over a blurred-fill background).
 Fully offline. Scripts: `lyrics-video/build_ass.py`, `lyrics-video/render_video.py`.
 
+For an **animated** music video (characters acting each line, instead of text over a still), use `/animate`. Its `bin/song-sync --lyrics` reads the `timings.json` that this pipeline's alignment step writes.
+
 ### The one principle that makes it work
 
 **The lyrics Alex gives are ground truth for the WORDS. Whisper supplies only the
