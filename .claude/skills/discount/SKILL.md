@@ -58,6 +58,10 @@ store's tax estimate; don't assume a rate), stock/delivery date, seller.
   of the codes that applied, and reads the store's own cart total. It never checks out.
   A code that applies but saves $0 in the cart is usually free shipping (the Ajax cart has no
   shipping line) or has a threshold the cart doesn't meet. Try `--qty` if a threshold is close.
+  Read each code's terms: if it says "subscriptions", retest with `--selling-plan <id>`.
+  Never run two tests against one store in parallel. Small stores return 429 after about 20
+  requests and keep blocking for more than 5 minutes, so test the codes you found online
+  first and the `--harvest` guesses last.
 - **Non-Shopify stores:** the code box usually appears only at checkout, after the shipping
   address, and automating a guest checkout on Alex's behalf is out of scope. Mark those codes
   `verified: false`, rank them as estimates, and give Alex the short list to paste in (best
