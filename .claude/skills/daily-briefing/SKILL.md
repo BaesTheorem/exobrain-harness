@@ -26,6 +26,8 @@ Follow the `/health` skill's **Morning Snapshot** section. Pull yesterday's Fitb
 
 Also run the **RHR Illness Canary** check from that skill. If it fires, render the alert at the **top of the briefing**, above `#### Health` and above the schedule -- this is the one section that pre-empts everything else because it changes how Alex should plan the day.
 
+**Running quest:** one line from `~/Documents/exercise-log/bin/exercise-log quest --line` (Agility level, quests done this week, the next session). Add it under `#### Health`. If a quest is due today, name a free block for it; the `/exercise` skill's Quest section has the rules (three a week, a rest day between).
+
 **Loki (cat):** read the most recent `Areas/Health & Fitness/Loki Health Log/` note (don't re-query the API) and add one `#### Loki` line with her latest weight + yesterday's visit count. Run the **Loki anomaly watch** from the `/health` skill against her ~14-day baseline; if a sustained weight slide or frequency change is flagging, surface it as a watch-item with a vet-weigh-in nudge. If nothing's off, keep it to the single status line. If there's no recent Loki note (puller not set up / no data yet), omit the section silently.
 
 ### 3. Calendar
