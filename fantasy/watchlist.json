@@ -1,139 +1,139 @@
 {
- "updated": "2026-09-23",
- "players": [
-  {
-   "id": 4596448,
-   "name": "Bucky Irving",
-   "pos": "RB",
-   "nfl": 27,
-   "why": "was a BUY flag (volume, unlucky on TDs); Irving-for-Stevenson was dead even on ESPN's screen. Week 1 closed that window: 20.3 points and national 'RB1 upside' coverage, so the market has repriced him upward, not down",
-   "trigger": "the 9/7 trigger is void: it required his owner to be 0-2 and KC Breathmints are 1-0. Re-open only on the actual buy-low shape, two quiet weeks on maintained touches. Buying him now is paying the premium this entry existed to avoid",
-   "added": "2026-09-07"
-  },
-  {
-   "id": 4241389,
-   "name": "CeeDee Lamb",
-   "pos": "WR",
-   "nfl": 6,
-   "why": "BUY flag: 9.0 targets a game, 25% share, 3 TDs last year; on Goedel, Escher, Butkus | 2026-09-22: window closed for now: 8 and 9 targets, 29% share, 3 TDs in two weeks (15.4, 35.3), points rank 5. The buy-low shape needs the touchdowns to stop on this volume.",
-   "trigger": "two touchdown-less weeks on maintained volume (8+ targets); nothing fired yet. Owner Goedel, Escher, Butkus (Cale), 0 offers received all season.",
-   "added": "2026-09-07"
-  },
-  {
-   "id": 4262921,
-   "name": "Justin Jefferson",
-   "pos": "WR",
-   "nfl": 16,
-   "why": "BUY flag: 8.3 targets, 31% share, 2 TDs; on Waiting for Gordon | 2026-09-22: ONE quiet week in: 6 targets, 32% share, 100% snaps, 0 TD, 8.5 points at Chicago. BUY flag live (volume rank 2, points rank 10).",
-   "trigger": "a second touchdown-less week on 30%+ share fires the buy-low at the 09-29 Tuesday routine; the ask is a 2-for-1 to Waiting for Gordon (R.C., 3 adds, 12.1 bench points left per week, 0 offers received so far).",
-   "added": "2026-09-07"
-  },
-  {
-   "id": 16737,
-   "name": "Mike Evans",
-   "pos": "WR",
-   "nfl": 25,
-   "why": "BUY flag: 7.8 targets, 24% share, 3 TDs; on Goedel, Escher, Butkus | 2026-09-20: QUESTIONABLE, hip injury in the fourth quarter at Miami after 3 catches on 3 targets for 54 yards (75% snaps in week 1, 6 of 7 for 49 and a TD). Demarcus Robinson also hurt, so the target tree narrows if he is healthy. | 2026-09-22: hip; 54% snaps, 3 targets, 14% share at Miami, ROLE-DOWN and SELL on the feed. Shanahan: \"will have to be managed this week\". The volume fell with the injury, so this is not a maintained-volume buy-low.",
-   "trigger": "wait: needs a healthy week at 6+ targets before the price is worth paying. Retire the entry if the target share is under 15% again in week 3.",
-   "added": "2026-09-07"
-  },
-  {
-   "id": 4569587,
-   "name": "Wan'Dale Robinson",
-   "pos": "WR",
-   "nfl": 10,
-   "why": "BUY flag: 8.8 targets, 30% share; on The Winners (the league's weakest roster) | 2026-09-22: volume collapsed in week 2: 53% snaps, 1 target, 6% share, 1.9 points. ROLE-DOWN. The thesis (a volume receiver on a weak roster) has one week for it and one against.",
-   "trigger": "retire if week 3 is under 15% share again; re-open only on 7+ targets.",
-   "added": "2026-09-07"
-  },
-  {
-   "id": 4047365,
-   "name": "Josh Jacobs",
-   "pos": "RB",
-   "nfl": 9,
-   "why": "commissioner's exempt list; pleaded no contest 9/10 to misdemeanor battery and criminal damage, and per Schefter the NFL may count time on the list as time served. Still on The Oprah Winfreys, 0.0 in week 1 and projected 0.0 for week 2",
-   "trigger": "reinstatement with the role intact = buy-low from a frustrated owner; ask Alex. His owner is already visibly desperate at RB (see the Oprah Winfreys team entry), so a reinstatement is as likely to make them hold as to make them sell",
-   "added": "2026-09-07"
-  },
-  {
-   "id": 4569559,
-   "name": "Devaughn Vele",
-   "pos": "WR",
-   "nfl": 18,
-   "why": "ours, rostered 9/9 off waivers, absorbing the New Orleans target share our IR'd Tyson vacated. Week 1 confirmed the role: 7 of 9 targets, 69 yards and a TD, 19.9 | 2026-09-22: TRIGGER FIRED: second straight week at 20%+ target share (22% and 22%), 8 targets a game, 94% snaps, 15.6 PPR/g. The promote-to-FLEX read is now a lineup question against Stevenson (ROLE-DOWN, 36% snaps and 6 carries with Henderson back), handed to the lineup routine; espn check prices them 11.5 vs 12.0 so the +1 swap bar is not met on projection alone.",
-   "trigger": "lineup routine: FLEX Vele over Stevenson if Stevenson's snap share does not recover in the Thursday-to-Sunday news; re-read if Vele's share falls under 15% for two straight weeks.",
-   "added": "2026-09-07"
-  },
-  {
-   "id": 3886598,
-   "name": "Jauan Jennings",
-   "pos": "WR",
-   "nfl": 16,
-   "why": "WAS on the list as the highest-volume receiver on the wire (6.0 targets on 82% snaps), but that was his 2025 role in San Francisco. In Minnesota in week 1 he drew ONE target and caught none, 0.0 points, in a 39-22 win. The volume thesis that put him here is refuted by the only week of evidence that bears on it | 2026-09-20: OUT for week 2 (personal, not injury), so week 2 produced no target evidence either way. | 2026-09-23: back to QUESTIONABLE for week 3; the Tampa Bay test stands.",
-   "trigger": "do NOT claim on his 114.8 season projection, which is priced on the old role. Needs 6+ targets in a single week to become interesting again; week 2 was a personal absence with no evidence, so the test moves to week 3 at Tampa Bay (2026-09-27): another 1-2 target game there and delete this entry",
-   "added": "2026-09-07"
-  },
-  {
-   "id": 4568490,
-   "name": "RJ Harvey",
-   "pos": "RB",
-   "nfl": 7,
-   "why": "ours; SELL flag (12 TDs on 42% snaps last year). Week 1 made the flag worse, not better: THREE carries, 8.1 points earned mostly on four catches and four kick returns. His 149.6 season projection is the softest number on our bench | 2026-09-17: QUESTIONABLE, hamstring, estimated limited Wednesday on a short week (DEN vs JAX Sunday). Bench, no lineup effect. Makes the 149.6 softer still. | 2026-09-20: OUT, inactive at Denver vs JAX with the hamstring. Dobbins paced the backfield with rookie Jonah Coleman behind him. Zero carries this week; Coleman taking the RB2 snaps is the second data point against the 149.6. | 2026-09-22: still QUESTIONABLE (hamstring) after sitting week 2; 3 carries on the season. Now the RB piece in the Mahomes proposal put to Alex (Godwin + Harvey to The Winners). | 2026-09-23: OUT to QUESTIONABLE ahead of week 3, still on the bench; Young and Washington landed on waivers so the roster is full and he is the drop ahead of anyone projected below him if the week-4 clause fires.",
-   "trigger": "sell high on any two-touchdown game; if he is still under 8 carries a game at week 4, he is the drop ahead of players projected below him. If the Mahomes offer goes out and lands, this entry closes.",
-   "added": "2026-09-07"
-  },
-  {
-   "id": 4880281,
-   "name": "Jordyn Tyson",
-   "pos": "WR",
-   "nfl": 18,
-   "why": "ours, IR designated to return (hamstring, ~mid-October)",
-   "trigger": "when his practice window opens, decide activation on the role, not the injury",
-   "added": "2026-09-07"
-  },
-  {
-   "id": 4430807,
-   "name": "Chase Brown",
-   "pos": "RB",
-   "nfl": 4,
-   "why": "BUY flag on Ayahuasca Rodgers: 18.0 carries and 5.5 targets a game, 71% snaps, volume rank 6 against points rank 16, one touchdown in two weeks; 11.2 last week is the bad-week entry point the Trades rule wants. Owner is 0-2, engaged (3 adds), 2 offers received and both expired unanswered.",
-   "trigger": "a second sub-12 week on 16+ carries fires a buy-low proposal at the 09-29 Tuesday routine, built from Montgomery (SELL) plus a bench receiver, put to Alex with buttons.",
-   "added": "2026-09-22"
-  },
-  {
-   "id": 3139477,
-   "name": "Patrick Mahomes",
-   "pos": "QB",
-   "nfl": 12,
-   "why": "The Winners' bench QB behind Josh Allen, with Kyler Murray also on their bench: three quarterbacks for one slot. 29.0 last week (382 yards, 3 TD), 274 season projection, 88.8% rostered. Our QB slot is Daniels (dislocated elbow, DOUBTFUL, Mariota starting) with nothing behind him but Wednesday's Young and Geno claims. Proposal A (Godwin + Harvey) and B (Montgomery + Harvey) are with Alex on buttons from the 09-22 Tuesday routine.",
-   "trigger": "if Alex sends and it lands, Mahomes goes into the QB slot before Sunday noon (the 09-10 carve-out) and the weakest of Young/Geno/Daniels is the next drop. If Allen misses time, the price rises and the lane closes; re-check Thursday.",
-   "added": "2026-09-22"
-  },
-  {
-   "id": 3886818,
-   "name": "David Montgomery",
-   "pos": "RB",
-   "nfl": 34,
-   "why": "ours, SELL flag: 3 touchdowns on 13 carries a game and a 6% target share, ROLE-DOWN to 6 carries and 52% snaps at Cincinnati, points rank 11 against volume rank 22. The textbook sell-high, but no partner priced at the 09-22 scan (The Oprah Winfreys need an RB and nothing cleared their floor).",
-   "trigger": "package him in any offer where the other side prices on points (the Mahomes proposal B does); re-scan next Tuesday. Do not sell for less than a starter-grade return; he is still our RB2 by projection.",
-   "added": "2026-09-22"
-  }
- ],
- "teams": [
-  {
-   "id": 14,
-   "name": "Ayahuasca Rodgers",
-   "why": "ACTIVE as of 2026-09-16, which kills the premise this entry was built on. Their first transaction of the season processed at 2:16 AM: a waiver claim swapping the Lions D/ST out for the Bengals D/ST, which is a deliberate matchup move, not an ESPN autopick. The standing counterargument to a third Pickens send, that the manager has never been in the room, is now false. Still 0-1 and holding Pickens | 2026-09-17: three more free-agent moves (Bass in 11:09, out 11:17, Folk in 11:18, kicker insurance behind a questionable Pineiro) and all nine week-2 slots set with Pickens at WR. Engaged manager, priority 12. The third Pickens send is still Alex's unanswered call; do not raise it again unasked. | 2026-09-17 2:42 PM: Alex dropped the Pickens offer from the watch list. Closed; no third send. The entry stays only as a leaguemate-tendency read (engaged, priority 12, churns kickers). | 2026-09-23 10:09 AM: fifth and sixth free-agent moves in a week: Nick Folk dropped once Pineiro went ACTIVE (the one-week kicker insurance pattern from 09-17), Raiders D/ST added as a second defense behind Bengals. Still 0-2 with Goedert DOUBTFUL at TE and Chase Brown (our BUY watch) at RB. Read: K and D/ST churner who buys a week of insurance and sells it back when the starter clears; nothing here touches our roster or the wire we want."
-  },
-  {
-   "id": 1,
-   "name": "The Oprah Winfreys",
-   "why": "the live trade lane. They offered Jonah Coleman for Kenneth Walker III at 10:04 PM on 9/14, minutes after Walker's 34.1 closed the Monday nighter, and they are starving at RB: Jacobs 0.0 on the exempt list, Cook 9.9, and a 97.6 week 1 that was the second-lowest winning score in the league. Our RB room is the deepest part of our roster and Trades wants us selling into exactly this need. They will open well below market, so counter rather than dismiss | 2026-09-17: that offer expired unanswered at 9:55:52 PM on 09-16 (TradeTaskProcessor CANCEL 5546f483). The lane is still live: their RB need is unchanged and a counter (never sent by MIST) is the Tuesday routine's trade-idea material."
-  },
-  {
-   "id": 2,
-   "name": "The Winners",
-   "why": "the live trade lane from 2026-09-22: three quarterbacks (Allen, Mahomes, Murray) on a 16-man roster, 1-1, 12.8 bench points left per week, one zero started (Henderson, week 1), 0 offers received so far, so whether the manager answers is untested. Beat us 157.6 to 123.2 in week 2 on Allen 40.8 and Adams 39.5."
-  }
- ]
+  "updated": "2026-09-23",
+  "players": [
+    {
+      "id": 4596448,
+      "name": "Bucky Irving",
+      "pos": "RB",
+      "nfl": 27,
+      "why": "was a BUY flag (volume, unlucky on TDs); Irving-for-Stevenson was dead even on ESPN's screen. Week 1 closed that window: 20.3 points and national 'RB1 upside' coverage, so the market has repriced him upward, not down",
+      "trigger": "the 9/7 trigger is void: it required his owner to be 0-2 and KC Breathmints are 1-0. Re-open only on the actual buy-low shape, two quiet weeks on maintained touches. Buying him now is paying the premium this entry existed to avoid",
+      "added": "2026-09-07"
+    },
+    {
+      "id": 4241389,
+      "name": "CeeDee Lamb",
+      "pos": "WR",
+      "nfl": 6,
+      "why": "BUY flag: 9.0 targets a game, 25% share, 3 TDs last year; on Goedel, Escher, Butkus | 2026-09-22: window closed for now: 8 and 9 targets, 29% share, 3 TDs in two weeks (15.4, 35.3), points rank 5. The buy-low shape needs the touchdowns to stop on this volume.",
+      "trigger": "two touchdown-less weeks on maintained volume (8+ targets); nothing fired yet. Owner Goedel, Escher, Butkus (Cale), 0 offers received all season.",
+      "added": "2026-09-07"
+    },
+    {
+      "id": 4262921,
+      "name": "Justin Jefferson",
+      "pos": "WR",
+      "nfl": 16,
+      "why": "BUY flag: 8.3 targets, 31% share, 2 TDs; on Waiting for Gordon | 2026-09-22: ONE quiet week in: 6 targets, 32% share, 100% snaps, 0 TD, 8.5 points at Chicago. BUY flag live (volume rank 2, points rank 10).",
+      "trigger": "a second touchdown-less week on 30%+ share fires the buy-low at the 09-29 Tuesday routine; the ask is a 2-for-1 to Waiting for Gordon (R.C., 3 adds, 12.1 bench points left per week, 0 offers received so far).",
+      "added": "2026-09-07"
+    },
+    {
+      "id": 16737,
+      "name": "Mike Evans",
+      "pos": "WR",
+      "nfl": 25,
+      "why": "BUY flag: 7.8 targets, 24% share, 3 TDs; on Goedel, Escher, Butkus | 2026-09-20: QUESTIONABLE, hip injury in the fourth quarter at Miami after 3 catches on 3 targets for 54 yards (75% snaps in week 1, 6 of 7 for 49 and a TD). Demarcus Robinson also hurt, so the target tree narrows if he is healthy. | 2026-09-22: hip; 54% snaps, 3 targets, 14% share at Miami, ROLE-DOWN and SELL on the feed. Shanahan: \"will have to be managed this week\". The volume fell with the injury, so this is not a maintained-volume buy-low.",
+      "trigger": "wait: needs a healthy week at 6+ targets before the price is worth paying. Retire the entry if the target share is under 15% again in week 3.",
+      "added": "2026-09-07"
+    },
+    {
+      "id": 4569587,
+      "name": "Wan'Dale Robinson",
+      "pos": "WR",
+      "nfl": 10,
+      "why": "BUY flag: 8.8 targets, 30% share; on The Winners (the league's weakest roster) | 2026-09-22: volume collapsed in week 2: 53% snaps, 1 target, 6% share, 1.9 points. ROLE-DOWN. The thesis (a volume receiver on a weak roster) has one week for it and one against.",
+      "trigger": "retire if week 3 is under 15% share again; re-open only on 7+ targets.",
+      "added": "2026-09-07"
+    },
+    {
+      "id": 4047365,
+      "name": "Josh Jacobs",
+      "pos": "RB",
+      "nfl": 9,
+      "why": "commissioner's exempt list; pleaded no contest 9/10 to misdemeanor battery and criminal damage, and per Schefter the NFL may count time on the list as time served. Still on The Oprah Winfreys, 0.0 in week 1 and projected 0.0 for week 2",
+      "trigger": "reinstatement with the role intact = buy-low from a frustrated owner; ask Alex. His owner is already visibly desperate at RB (see the Oprah Winfreys team entry), so a reinstatement is as likely to make them hold as to make them sell",
+      "added": "2026-09-07"
+    },
+    {
+      "id": 4569559,
+      "name": "Devaughn Vele",
+      "pos": "WR",
+      "nfl": 18,
+      "why": "ours, rostered 9/9 off waivers, absorbing the New Orleans target share our IR'd Tyson vacated. Week 1 confirmed the role: 7 of 9 targets, 69 yards and a TD, 19.9 | 2026-09-22: TRIGGER FIRED: second straight week at 20%+ target share (22% and 22%), 8 targets a game, 94% snaps, 15.6 PPR/g. The promote-to-FLEX read is now a lineup question against Stevenson (ROLE-DOWN, 36% snaps and 6 carries with Henderson back), handed to the lineup routine; espn check prices them 11.5 vs 12.0 so the +1 swap bar is not met on projection alone.",
+      "trigger": "lineup routine: FLEX Vele over Stevenson if Stevenson's snap share does not recover in the Thursday-to-Sunday news; re-read if Vele's share falls under 15% for two straight weeks.",
+      "added": "2026-09-07"
+    },
+    {
+      "id": 3886598,
+      "name": "Jauan Jennings",
+      "pos": "WR",
+      "nfl": 16,
+      "why": "WAS on the list as the highest-volume receiver on the wire (6.0 targets on 82% snaps), but that was his 2025 role in San Francisco. In Minnesota in week 1 he drew ONE target and caught none, 0.0 points, in a 39-22 win. The volume thesis that put him here is refuted by the only week of evidence that bears on it | 2026-09-20: OUT for week 2 (personal, not injury), so week 2 produced no target evidence either way. | 2026-09-23: back to QUESTIONABLE for week 3; the Tampa Bay test stands. | 2026-09-25: ACTIVE for week 3 (not on Wednesday's report), at TB Sunday, 6.1 projected, 5.1% rostered. The Tampa Bay test is live this week: 6+ targets or the entry is deleted Tuesday.",
+      "trigger": "do NOT claim on his 114.8 season projection, which is priced on the old role. Needs 6+ targets in a single week to become interesting again; week 2 was a personal absence with no evidence, so the test moves to week 3 at Tampa Bay (2026-09-27): another 1-2 target game there and delete this entry",
+      "added": "2026-09-07"
+    },
+    {
+      "id": 4568490,
+      "name": "RJ Harvey",
+      "pos": "RB",
+      "nfl": 7,
+      "why": "ours; SELL flag (12 TDs on 42% snaps last year). Week 1 made the flag worse, not better: THREE carries, 8.1 points earned mostly on four catches and four kick returns. His 149.6 season projection is the softest number on our bench | 2026-09-17: QUESTIONABLE, hamstring, estimated limited Wednesday on a short week (DEN vs JAX Sunday). Bench, no lineup effect. Makes the 149.6 softer still. | 2026-09-20: OUT, inactive at Denver vs JAX with the hamstring. Dobbins paced the backfield with rookie Jonah Coleman behind him. Zero carries this week; Coleman taking the RB2 snaps is the second data point against the 149.6. | 2026-09-22: still QUESTIONABLE (hamstring) after sitting week 2; 3 carries on the season. Now the RB piece in the Mahomes proposal put to Alex (Godwin + Harvey to The Winners). | 2026-09-23: OUT to QUESTIONABLE ahead of week 3, still on the bench; Young and Washington landed on waivers so the roster is full and he is the drop ahead of anyone projected below him if the week-4 clause fires. | 2026-09-25: ACTIVE, full practice Thursday, plays Sunday vs LAR; Coleman (ankle) missed two practices so it is a Dobbins/Harvey split. Bench, inside pending offer 15622132 (Godwin + Harvey for Mahomes, expires Fri ~11:40 AM), so untouchable until that resolves. SELL flag and week-4 drop clause stand.",
+      "trigger": "sell high on any two-touchdown game; if he is still under 8 carries a game at week 4, he is the drop ahead of players projected below him. If the Mahomes offer goes out and lands, this entry closes.",
+      "added": "2026-09-07"
+    },
+    {
+      "id": 4880281,
+      "name": "Jordyn Tyson",
+      "pos": "WR",
+      "nfl": 18,
+      "why": "ours, IR designated to return (hamstring, ~mid-October)",
+      "trigger": "when his practice window opens, decide activation on the role, not the injury",
+      "added": "2026-09-07"
+    },
+    {
+      "id": 4430807,
+      "name": "Chase Brown",
+      "pos": "RB",
+      "nfl": 4,
+      "why": "BUY flag on Ayahuasca Rodgers: 18.0 carries and 5.5 targets a game, 71% snaps, volume rank 6 against points rank 16, one touchdown in two weeks; 11.2 last week is the bad-week entry point the Trades rule wants. Owner is 0-2, engaged (3 adds), 2 offers received and both expired unanswered.",
+      "trigger": "a second sub-12 week on 16+ carries fires a buy-low proposal at the 09-29 Tuesday routine, built from Montgomery (SELL) plus a bench receiver, put to Alex with buttons.",
+      "added": "2026-09-22"
+    },
+    {
+      "id": 3139477,
+      "name": "Patrick Mahomes",
+      "pos": "QB",
+      "nfl": 12,
+      "why": "The Winners' bench QB behind Josh Allen, with Kyler Murray also on their bench: three quarterbacks for one slot. 29.0 last week (382 yards, 3 TD), 274 season projection, 88.8% rostered. Our QB slot is Daniels (dislocated elbow, DOUBTFUL, Mariota starting) with nothing behind him but Wednesday's Young and Geno claims. Proposal A (Godwin + Harvey) and B (Montgomery + Harvey) are with Alex on buttons from the 09-22 Tuesday routine.",
+      "trigger": "if Alex sends and it lands, Mahomes goes into the QB slot before Sunday noon (the 09-10 carve-out) and the weakest of Young/Geno/Daniels is the next drop. If Allen misses time, the price rises and the lane closes; re-check Thursday.",
+      "added": "2026-09-22"
+    },
+    {
+      "id": 3886818,
+      "name": "David Montgomery",
+      "pos": "RB",
+      "nfl": 34,
+      "why": "ours, SELL flag: 3 touchdowns on 13 carries a game and a 6% target share, ROLE-DOWN to 6 carries and 52% snaps at Cincinnati, points rank 11 against volume rank 22. The textbook sell-high, but no partner priced at the 09-22 scan (The Oprah Winfreys need an RB and nothing cleared their floor).",
+      "trigger": "package him in any offer where the other side prices on points (the Mahomes proposal B does); re-scan next Tuesday. Do not sell for less than a starter-grade return; he is still our RB2 by projection.",
+      "added": "2026-09-22"
+    }
+  ],
+  "teams": [
+    {
+      "id": 14,
+      "name": "Ayahuasca Rodgers",
+      "why": "ACTIVE as of 2026-09-16, which kills the premise this entry was built on. Their first transaction of the season processed at 2:16 AM: a waiver claim swapping the Lions D/ST out for the Bengals D/ST, which is a deliberate matchup move, not an ESPN autopick. The standing counterargument to a third Pickens send, that the manager has never been in the room, is now false. Still 0-1 and holding Pickens | 2026-09-17: three more free-agent moves (Bass in 11:09, out 11:17, Folk in 11:18, kicker insurance behind a questionable Pineiro) and all nine week-2 slots set with Pickens at WR. Engaged manager, priority 12. The third Pickens send is still Alex's unanswered call; do not raise it again unasked. | 2026-09-17 2:42 PM: Alex dropped the Pickens offer from the watch list. Closed; no third send. The entry stays only as a leaguemate-tendency read (engaged, priority 12, churns kickers). | 2026-09-23 10:09 AM: fifth and sixth free-agent moves in a week: Nick Folk dropped once Pineiro went ACTIVE (the one-week kicker insurance pattern from 09-17), Raiders D/ST added as a second defense behind Bengals. Still 0-2 with Goedert DOUBTFUL at TE and Chase Brown (our BUY watch) at RB. Read: K and D/ST churner who buys a week of insurance and sells it back when the starter clears; nothing here touches our roster or the wire we want. | 2026-09-25 8:41 AM: seventh and eighth free-agent moves (ACQ 5): Gunnar Helm (TE, TEN, 4.0% rostered, 7.9 projected at NYG) in, Jalen McMillan (WR, TB) out, with Goedert DOUBTFUL at TE. Same one-week insurance pattern, now at a third position (K 09-17, D/ST 09-23, TE today). Expect Helm dropped the week Goedert clears. Nothing on our wire or roster."
+    },
+    {
+      "id": 1,
+      "name": "The Oprah Winfreys",
+      "why": "the live trade lane. They offered Jonah Coleman for Kenneth Walker III at 10:04 PM on 9/14, minutes after Walker's 34.1 closed the Monday nighter, and they are starving at RB: Jacobs 0.0 on the exempt list, Cook 9.9, and a 97.6 week 1 that was the second-lowest winning score in the league. Our RB room is the deepest part of our roster and Trades wants us selling into exactly this need. They will open well below market, so counter rather than dismiss | 2026-09-17: that offer expired unanswered at 9:55:52 PM on 09-16 (TradeTaskProcessor CANCEL 5546f483). The lane is still live: their RB need is unchanged and a counter (never sent by MIST) is the Tuesday routine's trade-idea material."
+    },
+    {
+      "id": 2,
+      "name": "The Winners",
+      "why": "the live trade lane from 2026-09-22: three quarterbacks (Allen, Mahomes, Murray) on a 16-man roster, 1-1, 12.8 bench points left per week, one zero started (Henderson, week 1), 0 offers received so far, so whether the manager answers is untested. Beat us 157.6 to 123.2 in week 2 on Allen 40.8 and Adams 39.5."
+    }
+  ]
 }
