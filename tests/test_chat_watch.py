@@ -82,3 +82,19 @@ def test_escalate_reports_failure_when_every_path_fails(monkeypatch):
     # The caller burns the message id on a True, so a False here is the only
     # thing standing between a delivery outage and a DM nobody ever sees.
     assert not chat_watch.escalate([m("1", "Namaslay", DM)], "direct message")
+
+
+def test_fable_run_pins_opus_subagents_and_orchestrates():
+    env = chat_watch.claude_run_env("claude-fable-5-1")
+    assert env["CLAUDE_CODE_SUBAGENT_MODEL"] == "claude-opus-5-5[1m]"
+    assert env["CLAUDE_CODE_SUBAGENT_MODEL_FORCE"] == "1"
+    assert env["MIST_UNATTENDED"] == "1"
+    assert chat_watch.orchestrator_args("claude-fable-5-1") == [
+        "--append-system-prompt", chat_watch.FABLE_ORCHESTRATOR_PROMPT]
+
+
+def test_opus_fallback_run_has_no_orchestrator_pin():
+    env = chat_watch.claude_run_env("claude-opus-5-5[1m]")
+    assert "CLAUDE_CODE_SUBAGENT_MODEL_FORCE" not in env
+    assert env["MIST_UNATTENDED"] == "1"
+    assert chat_watch.orchestrator_args("claude-opus-5-5[1m]") == []
