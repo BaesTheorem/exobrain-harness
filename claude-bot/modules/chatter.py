@@ -88,26 +88,6 @@ HARNESS_ROOT = Path(__file__).resolve().parents[2]
 
 DEFAULT_MODEL = "claude-opus-5-5[1m]"
 
-# Fable only orchestrates; Opus 5.5 (1M) subagents do the work (Alex,
-# 2026-09-24; canonical copy in mist-console bridge.py). Private turns only:
-# shared servers run with no tools at all, so there is no Agent tool to
-# delegate with, and granting one would reopen that sandbox.
-FABLE_WORKER_MODEL = "claude-opus-5-5[1m]"
-FABLE_ORCHESTRATOR_ENV = {
-    "CLAUDE_CODE_SUBAGENT_MODEL": FABLE_WORKER_MODEL,
-    "CLAUDE_CODE_SUBAGENT_MODEL_FORCE": "1",
-}
-FABLE_ORCHESTRATOR_PROMPT = (
-    "You are running on Fable, and Fable is ONLY the orchestrator. Do not do the "
-    "work yourself: break the request into tasks, hand each to an Opus 5.5 (1M "
-    "context) subagent with the Agent tool, check what comes back, and write the "
-    "reply. Subagents are pinned to " + FABLE_WORKER_MODEL + ", so leave the Agent "
-    "tool's model parameter unset and never use the fork subagent type (forks "
-    "inherit your model). Run independent tasks as parallel Agent calls and give "
-    "each a self-contained prompt with the goal, paths, constraints, and what to "
-    "report back. A short conversational reply that needs no tools, you just write."
-)
-
 # Settings-table keys for the runtime-switchable knobs.
 _KEY_MODEL = "chatter.model"
 _KEY_EFFORT = "chatter.effort"
@@ -488,13 +468,6 @@ def setup(ctx: Context) -> None:
     if guard:
         _env["MIST_UNATTENDED"] = "1"
 
-    def _run_env(private: bool, model: str) -> dict[str, str]:
-        """_env, plus the Opus subagent pin on a private Fable turn."""
-        env = {k: v for k, v in _env.items() if k not in FABLE_ORCHESTRATOR_ENV}
-        if private and "fable" in model.lower():
-            env.update(FABLE_ORCHESTRATOR_ENV)
-        return env
-
     def _cli_args(private: bool, model: str) -> tuple[list[str], str]:
         """Per-context flags and cwd. Private = full harness; shared = sandbox."""
         args = ["--model", model]
@@ -505,8 +478,6 @@ def setup(ctx: Context) -> None:
             args += ["--permission-mode", permission_mode]
             if private_denied:
                 args += ["--disallowed-tools", *private_denied]
-            if "fable" in model.lower():
-                args += ["--append-system-prompt", FABLE_ORCHESTRATOR_PROMPT]
             return args, private_cwd
         # Shared servers: neutral cwd, no MCP at all, no built-in tools at all,
         # and no settings sources, so no hooks, no CLAUDE.md, no memory. The
@@ -527,7 +498,7 @@ def setup(ctx: Context) -> None:
             "--output-format", "json",
             *extra,
             cwd=cwd,
-            env=_run_env(private, model),
+            env=_env,
             stdout=asyncio.subprocess.PIPE,
             stderr=asyncio.subprocess.PIPE,
         )
