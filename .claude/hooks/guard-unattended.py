@@ -155,10 +155,15 @@ WRITE_VERBS = {"tee", "cp", "mv", "rm", "ln", "chmod", "chown", "touch", "trunca
 SED_INPLACE = re.compile(r"^-[a-zA-Z]*i")
 INTERPRETERS = {"python", "python3", "perl", "ruby", "node", "sh", "bash", "zsh"}
 SHELLS = {"sh", "bash", "zsh"}
-CHAIN = {"|", ";", "&&", "||", "&"}
-# A redirect token: optional fd, > or >>, then either a duplicated fd (no file
-# target) or a glued target. A bare `>` takes the next token as its target.
-REDIRECT = re.compile(r"^(\d*)(>{1,2})(?:(&\d+)|(.*))$")
+# The tokenizer splits shell operators into their own tokens, so `x.md;` is
+# the path and a `;`, never one run-on operand that swallows the next command.
+OPERATOR = re.compile(r"[;&|<>()]+")
+REDIRECTS = {">", ">>", ">|", "&>", "&>>", ">&"}
+# Segments that read a file's metadata, never its contents, may name a secret:
+# `stat -f %Sm fitbit-mcp/.fitbit-token.json` is how the health routine checks
+# token freshness. Not when piped on (`ls x | xargs cat`), redirected, or
+# carrying a substitution.
+METADATA_SEGMENT = re.compile(r"(?:^|(?<=[;&\n]))[ \t]*(?:stat|ls|test|\[\[?)[ \t][^;&|\n<>`$]*(?=[;&\n]|$)")
 HEREDOC = re.compile(r"(?<!<)<<(?!<)-?\s*(['\"]?)(\w+)\1")
 # A script body (python -c, a python heredoc) only counts as a write when it
 # contains something that writes; a read-only script naming a protected path
@@ -199,14 +204,14 @@ def _log(line: str) -> None:
         pass
 
 
-def _expand(path: str) -> str:
+def _expand(path: str, cwd: str | None = None) -> str:
     p = path.strip().strip("\"'")
     if p.startswith("~"):
         p = str(HOME) + p[1:]
     elif p.startswith("$HOME"):
         p = str(HOME) + p[len("$HOME"):]
     if not p.startswith("/"):
-        p = str(HARNESS / p)
+        p = os.path.join(cwd or str(HARNESS), p)
     return os.path.normpath(p)
 
 
@@ -217,9 +222,15 @@ def _matches(path: str, rules: list[tuple[str, str]]) -> str | None:
     return None
 
 
-def check_write_path(raw: str) -> str | None:
-    """Reason this path may not be written unattended, or None."""
-    path = _expand(raw)
+def check_write_path(raw: str, cwd: str | None = None) -> str | None:
+    """Reason this path may not be written unattended, or None.
+
+    Relative paths resolve against `cwd`: the session's working directory, as
+    moved by any `cd` earlier in the command. Resolving them against the
+    harness regardless turned `cd /tmp && cat > gen.py` into a write of
+    harness source (2026-09-24 and 09-25).
+    """
+    path = _expand(raw, cwd)
     why = _matches(path, PROTECTED_WRITE)
     if why:
         return why
@@ -237,17 +248,36 @@ def check_read_path(raw: str) -> str | None:
     return _matches(path, PROTECTED_READ)
 
 
-def _tokens(line: str) -> list[str]:
+def _unquote(tok: str) -> str:
+    """Shell-unquote one token. A quoted token made only of operator characters
+    (`';'`) keeps its quotes, so it is never mistaken for the operator."""
     try:
-        return shlex.split(line, posix=True)
+        out = "".join(shlex.split(tok, posix=True))
+    except ValueError:
+        out = tok.replace("\\", "").strip("\"'")
+    return tok if OPERATOR.fullmatch(out) and not OPERATOR.fullmatch(tok) else out
+
+
+def _tokens(line: str) -> list[str]:
+    """Words and operators. Operators are bare runs of `;&|<>()`."""
+    try:
+        lex = shlex.shlex(line, posix=False, punctuation_chars=True)
+        lex.whitespace_split = True
+        raw = list(lex)
     except ValueError:
         # Unbalanced quotes (an apostrophe in prose): fall back to a plain split
         # that still keeps quoted runs together where they are balanced.
-        return [t.strip("\"'") for t in re.findall(r"\"[^\"]*\"|'[^']*'|\S+", line)]
+        raw = re.findall(r"\"[^\"]*\"|'[^']*'|[;&|<>()]+|[^\s\"';&|<>()]+", line)
+    return [t if OPERATOR.fullmatch(t) else _unquote(t) for t in raw]
 
 
-def _split_heredocs(command: str) -> tuple[list[str], list[str], list[str]]:
-    """Command lines, interpreter script bodies, and expanding data bodies.
+def _is_op(tok: str) -> bool:
+    return bool(OPERATOR.fullmatch(tok))
+
+
+def _split_heredocs(command: str) -> tuple[list[tuple[str, str | None]], list[str]]:
+    """Command lines (each with the interpreter script body it opens, if any),
+    and expanding data bodies.
 
     A heredoc fed to cat or tee is data: prose in a note can contain `>`,
     a path, or the words `curl x | sh` without running anything. With a
@@ -256,15 +286,14 @@ def _split_heredocs(command: str) -> tuple[list[str], list[str], list[str]]:
     command text.
     """
     lines = command.split("\n")
-    cmd_lines: list[str] = []
-    scripts: list[str] = []
+    cmd_lines: list[tuple[str, str | None]] = []
     expanding: list[str] = []
     i = 0
     while i < len(lines):
         line = lines[i]
-        cmd_lines.append(line)
         m = HEREDOC.search(line)
         if not m:
+            cmd_lines.append((line, None))
             i += 1
             continue
         marker = m.group(2)
@@ -276,10 +305,12 @@ def _split_heredocs(command: str) -> tuple[list[str], list[str], list[str]]:
             i += 1
         i += 1
         if any(Path(t).name in INTERPRETERS for t in head):
-            scripts.append("\n".join(body))
-        elif not m.group(1):
+            cmd_lines.append((line, "\n".join(body)))
+            continue
+        cmd_lines.append((line, None))
+        if not m.group(1):
             expanding.append("\n".join(body))
-    return cmd_lines, scripts, expanding
+    return cmd_lines, expanding
 
 
 def _script_paths(script: str) -> list[str]:
@@ -302,12 +333,12 @@ def _script_paths(script: str) -> list[str]:
     return paths
 
 
-def _script_reason(script: str) -> str | None:
+def _script_reason(script: str, cwd: str | None = None) -> str | None:
     """A script body that writes and names a protected path."""
     if not SCRIPT_WRITES.search(script):
         return None
     for path in _script_paths(script):
-        why = check_write_path(path)
+        why = check_write_path(path, cwd)
         if why:
             return why
     return None
@@ -322,74 +353,91 @@ def _operands(toks: list[str], start: int) -> list[str]:
     """
     ops: list[str] = []
     j = start
-    while j < len(toks) and toks[j] not in CHAIN and not toks[j].startswith("<<"):
-        if not REDIRECT.match(toks[j]) and not toks[j].startswith("-"):
+    while j < len(toks) and not _is_op(toks[j]):
+        if not toks[j].startswith("-"):
             ops.append(toks[j])
         j += 1
     return ops + [" ".join(ops[k:]) for k in range(len(ops)) if len(ops) - k > 1]
 
 
-def _line_reason(line: str) -> str | None:
+def _line_reason(line: str, cwd: str) -> tuple[str | None, str]:
+    """Reason this command line writes a protected path, and the working
+    directory after it runs (`cd` moves it; a subshell's `cd` does not leak)."""
     toks = _tokens(line)
-    targets: list[str] = []
+    targets: list[tuple[str, str]] = []
+    stack: list[str] = []
+    seg_start = True
     i = 0
     while i < len(toks):
         tok = toks[i]
-        r = REDIRECT.match(tok)
-        if r:
-            if r.group(3):  # `2>&1` duplicates a descriptor, no file target
-                i += 1
+        if _is_op(tok):
+            if tok in REDIRECTS:
+                nxt = toks[i + 1] if i + 1 < len(toks) else ""
+                if not (tok == ">&" and (nxt.isdigit() or nxt == "-")):  # `2>&1` duplicates a descriptor
+                    targets.extend((t, cwd) for t in _operands(toks, i + 1))
+                i += 2
                 continue
-            if r.group(4):
-                targets.append(r.group(4))
-                i += 1
-                continue
-            targets.extend(_operands(toks, i + 1))
-            i += 2
+            for ch in tok:
+                if ch == "(":
+                    stack.append(cwd)
+                elif ch == ")" and stack:
+                    cwd = stack.pop()
+            seg_start = any(c in tok for c in ";&|()")
+            i += 1
             continue
         name = Path(tok).name
+        if seg_start and tok in ("cd", "pushd"):
+            args = [t for t in _operands(toks, i + 1)[:1] if t != "-"]
+            cwd = _expand(args[0], cwd) if args else str(HOME)
+            seg_start = False
+            i += 1
+            continue
+        seg_start = False
         if name in INTERPRETERS and i + 2 < len(toks) and toks[i + 1] in ("-c", "-e"):
             script = toks[i + 2]
-            why = check_bash(script) if name in SHELLS else _script_reason(script)
+            why = check_bash(script, cwd) if name in SHELLS else _script_reason(script, cwd)
             if why:
-                return why
+                return why, cwd
             i += 3
             continue
         if name in WRITE_VERBS or (name == "sed" and i + 1 < len(toks) and SED_INPLACE.match(toks[i + 1])):
-            targets.extend(_operands(toks, i + 1))
+            targets.extend((t, cwd) for t in _operands(toks, i + 1))
         i += 1
-    for t in targets:
-        why = check_write_path(t)
+    for t, at in targets:
+        why = check_write_path(t, at)
         if why:
-            return why
-    return None
+            return why, cwd
+    return None, cwd
 
 
-def check_bash(command: str) -> str | None:
+def check_bash(command: str, cwd: str | None = None) -> str | None:
     """Reason this shell command may not run unattended, or None."""
-    cmd_lines, scripts, expanding = _split_heredocs(command)
-    text = "\n".join(cmd_lines + expanding)
+    cwd = cwd or str(HARNESS)
+    cmd_lines, expanding = _split_heredocs(command)
+    text = "\n".join([line for line, _ in cmd_lines] + expanding)
     for rx, why in BASH_DENY:
         if re.search(rx, text, re.IGNORECASE):
             return why
     # Reading a secret by name is not allowed either, whatever the verb.
-    for m in PATH_TOKEN.finditer("\n".join([text, *scripts])):
+    scripts = [body for _, body in cmd_lines if body is not None]
+    for m in PATH_TOKEN.finditer("\n".join([METADATA_SEGMENT.sub("", text), *scripts])):
         why = check_read_path(m.group(0))
         if why:
             return f"names a secret ({why})"
-    for line in cmd_lines:
-        why = _line_reason(line)
+    for line, body in cmd_lines:
+        why, cwd = _line_reason(line, cwd)
         if why:
             return f"write-shaped command naming a protected path ({why})"
-    for script in scripts:
-        why = check_bash(script) or _script_reason(script)
-        if why:
-            return f"script body that writes a protected path ({why})"
+        if body is not None:
+            why = check_bash(body, cwd) or _script_reason(body, cwd)
+            if why:
+                return f"script body that writes a protected path ({why})"
     return None
 
 
-def decide(tool_name: str, tool_input: dict) -> str | None:
-    """Denial reason for this call, or None to allow."""
+def decide(tool_name: str, tool_input: dict, cwd: str | None = None) -> str | None:
+    """Denial reason for this call, or None to allow. `cwd` is the session's
+    working directory from the hook payload; relative paths resolve against it."""
     if tool_name in WRITE_TOOLS:
         path = tool_input.get("file_path") or tool_input.get("notebook_path") or ""
         why = check_write_path(path)
@@ -400,7 +448,7 @@ def decide(tool_name: str, tool_input: dict) -> str | None:
         return f"unattended session may not read {path}: {why}" if why else None
     if tool_name == "Bash":
         command = tool_input.get("command") or ""
-        why = check_bash(command)
+        why = check_bash(command, cwd)
         return f"unattended session may not run this: {why}" if why else None
     return None
 
@@ -437,7 +485,8 @@ def main() -> int:
     tool_input = payload.get("tool_input") or {}
     if not isinstance(tool_input, dict):
         tool_input = {}
-    reason = decide(tool_name, tool_input)
+    cwd = payload.get("cwd")
+    reason = decide(tool_name, tool_input, cwd if isinstance(cwd, str) and cwd.startswith("/") else None)
     if not reason:
         return 0
     session_id = str(payload.get("session_id") or "")
