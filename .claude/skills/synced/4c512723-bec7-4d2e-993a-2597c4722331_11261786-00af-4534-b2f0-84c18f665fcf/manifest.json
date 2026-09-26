@@ -1,5 +1,5 @@
 {
-  "lastUpdated": 1790306257866,
+  "lastUpdated": 1790388007555,
   "skills": [
     {
       "skillId": "import-memory",
@@ -31,15 +31,16 @@
       "description": "Read and search iMessages. Use when the user asks about texts, iMessages, wants to check messages, asks \"who texted me\", \"any texts\", \"check my messages\", \"what did [person] say\", \"search texts for [keyword]\", \"unread messages\", \"unanswered texts\", or wants to look up a conversation.",
       "source": "plugin",
       "updatedAt": "2026-04-16T21:47:00.785848Z",
-      "creatorType": "user",
-      "backingPluginId": "plugin_01R3jGF5jT6g5gf8jJbyaeEW"
+      "backingPluginId": "plugin_01R3jGF5jT6g5gf8jJbyaeEW",
+      "creatorType": "user"
     },
     {
       "skillId": "skill_01RZZNCzixR4BQBESREBczmq",
       "name": "discord-digest",
       "description": "Scan Alex's friend group Discord server for events, plans, and activity. Summarizes what happened and what's coming up. Used by daily briefing for the Discord recap section, and can be run standalone. Use when the user asks about Discord, the friend group, \"what are my friends up to\", \"anything on Discord\", \"check the group chat\", \"what did I miss\", \"any plans with friends\", \"what's the group doing\", or when triggered by the daily briefing.",
-      "source": "custom",
-      "updatedAt": "2026-04-16T21:46:34.151623Z",
+      "source": "plugin",
+      "updatedAt": "2026-04-16T21:46:34.151430Z",
+      "backingPluginId": "plugin_016fb1BtUMmA2pFmNy7XSCMX",
       "creatorType": "user"
     },
     {
@@ -48,8 +49,8 @@
       "description": "Create and edit JSON Canvas files (.canvas) with nodes, edges, groups, and connections. Use when working with .canvas files, creating visual canvases, mind maps, flowcharts, or when the user mentions Canvas files in Obsidian.",
       "source": "plugin",
       "updatedAt": "2026-04-16T21:42:00.205148Z",
-      "creatorType": "user",
-      "backingPluginId": "plugin_01VRpFfz7539tgqV7Pqa9JS6"
+      "backingPluginId": "plugin_01VRpFfz7539tgqV7Pqa9JS6",
+      "creatorType": "user"
     },
     {
       "skillId": "skill_01FvCojFqmizzrVJDbvXCmav",
@@ -57,23 +58,25 @@
       "description": "Process Plaud Note transcripts from the Plaud/ folder in the Obsidian vault. Extracts tasks, events, notes, and insights, routing them to Things 3, Google Calendar, and the daily note. Use when the user mentions transcripts, recordings, Plaud, conversations to process, \"I just recorded something\", \"any new recordings\", \"process my notes\", \"what did I talk about\", or when triggered by a scheduled task.",
       "source": "plugin",
       "updatedAt": "2026-04-16T21:43:04.796282Z",
-      "creatorType": "user",
-      "backingPluginId": "plugin_01Dh8Gyr4AFWse8znWizXKpf"
+      "backingPluginId": "plugin_01Dh8Gyr4AFWse8znWizXKpf",
+      "creatorType": "user"
     },
     {
       "skillId": "skill_01PskfcP8j9ayLydy5Qgff6S",
       "name": "obsidian-markdown",
       "description": "Create and edit Obsidian Flavored Markdown with wikilinks, embeds, callouts, properties, and other Obsidian-specific syntax. Use when working with .md files in Obsidian, or when the user mentions wikilinks, callouts, frontmatter, tags, embeds, or Obsidian notes.",
-      "source": "custom",
-      "updatedAt": "2026-04-16T21:42:32.472866Z",
+      "source": "plugin",
+      "updatedAt": "2026-04-16T21:42:32.472743Z",
+      "backingPluginId": "plugin_01LU9Ho6kxvqJZmddeaUSFkj",
       "creatorType": "user"
     },
     {
       "skillId": "skill_01QwvbkUdXpV92xEjGUqjhMB",
       "name": "job-search",
       "description": "Job search assistant — audit postings for fit, research companies/people, tailor ATS-compliant cover letters, and track weekly application volume via email confirmations. Use when the user shares a job posting, asks to write a cover letter, wants company research, asks \"how many apps this week\", \"audit this role\", \"is this a good fit\", \"help me apply\", \"job search status\", \"application tracker\", or mentions applying to jobs.",
-      "source": "custom",
-      "updatedAt": "2026-04-16T21:41:35.569252Z",
+      "source": "plugin",
+      "updatedAt": "2026-04-16T21:41:35.569160Z",
+      "backingPluginId": "plugin_0166hVewNaibjhTCHGfqfDkv",
       "creatorType": "user"
     },
     {
@@ -82,8 +85,8 @@
       "description": "Create and edit Obsidian Bases (.base files) with views, filters, formulas, and summaries. Use when working with .base files, creating database-like views of notes, or when the user mentions Bases, table views, card views, filters, or formulas in Obsidian.",
       "source": "plugin",
       "updatedAt": "2026-04-16T21:42:14.898454Z",
-      "creatorType": "user",
-      "backingPluginId": "plugin_01LzZPp1VwEDe123Fop9Ggw5"
+      "backingPluginId": "plugin_01LzZPp1VwEDe123Fop9Ggw5",
+      "creatorType": "user"
     },
     {
       "skillId": "skill_014cSWtPRwAjaGeWfdEsukuH",
@@ -91,8 +94,8 @@
       "description": "Cross-session continuity and context-aware data prioritization. Saves structured summaries at session end, loads context at session start to guide what data to pull and how deep to go. Runs automatically via startup hook (load) and CLAUDE.md instruction (save). Also use when the user says \"save session\", \"what did we do last time\", or \"context\".",
       "source": "plugin",
       "updatedAt": "2026-04-16T21:43:44.155634Z",
-      "creatorType": "user",
-      "backingPluginId": "plugin_01X9QXLM2EgEKek5PCwiuv6u"
+      "backingPluginId": "plugin_01X9QXLM2EgEKek5PCwiuv6u",
+      "creatorType": "user"
     },
     {
       "skillId": "skill_0176PnCe3VcZrYSMw7pBZYzU",
@@ -100,8 +103,8 @@
       "description": "Best practices and conventions for all Things 3 interactions. Canonical reference for task creation, deduplication, project backlinks, and task formatting. Referenced by other skills. Use when you need to check Things 3 conventions, task formatting rules, or available MCP tools before interacting with Things 3.",
       "source": "plugin",
       "updatedAt": "2026-04-16T21:44:11.106575Z",
-      "creatorType": "user",
-      "backingPluginId": "plugin_01Q9T14ztmNRCkG8nq5Hquxy"
+      "backingPluginId": "plugin_01Q9T14ztmNRCkG8nq5Hquxy",
+      "creatorType": "user"
     },
     {
       "skillId": "skill_0117m3mQ9e1gTtNqe5H88eDZ",
@@ -109,15 +112,16 @@
       "description": "Best practices and conventions for all Obsidian vault interactions. Canonical reference for daily note formatting, People notes, wikilinks, vault structure, and append-only rules. Referenced by other skills. Use when you need to check Obsidian conventions, note structure, or vault paths before reading or writing to the vault.",
       "source": "plugin",
       "updatedAt": "2026-04-16T21:41:17.190312Z",
-      "creatorType": "user",
-      "backingPluginId": "plugin_01BaUw4Mp3AVaEGGjGLR8Fs7"
+      "backingPluginId": "plugin_01BaUw4Mp3AVaEGGjGLR8Fs7",
+      "creatorType": "user"
     },
     {
       "skillId": "skill_01R1xJ4u1nE9BWjUAFyj9xra",
       "name": "local-events",
       "description": "Discover upcoming Kansas City events Alex would enjoy. Searches Facebook events, Meetup, venue calendars, and library listings. Highlights favorite artists, tech/AI meetups, live music, and social opportunities. Use when the user asks \"what's going on in KC\", \"any events coming up\", \"things to do this weekend\", \"local events\", \"concerts near me\", or when triggered by the weekly review on Sundays.",
-      "source": "custom",
-      "updatedAt": "2026-04-16T21:42:50.132734Z",
+      "source": "plugin",
+      "updatedAt": "2026-04-16T21:42:50.132563Z",
+      "backingPluginId": "plugin_014vRztz9tPmP1c41jCgzgYS",
       "creatorType": "user"
     },
     {
@@ -126,8 +130,8 @@
       "description": "Manage Alex's TTRPG campaigns. Session prep (Lazy DM methodology), session recap (from Plaud transcripts), and campaign knowledge management. Use when the user mentions DnD, D&D, Dungeons and Dragons, TTRPG, tabletop RPG, campaign, session prep, session recap, \"next session\", \"what happened last session\", or any known player/character names in a TTRPG context.",
       "source": "plugin",
       "updatedAt": "2026-04-16T21:44:30.038333Z",
-      "creatorType": "user",
-      "backingPluginId": "plugin_01XfZeCgXZY47FLHsGdkDkx4"
+      "backingPluginId": "plugin_01XfZeCgXZY47FLHsGdkDkx4",
+      "creatorType": "user"
     },
     {
       "skillId": "skill_016MUFgmsgexYyDSujhwBNSi",
@@ -135,8 +139,8 @@
       "description": "Comprehensive news intelligence briefing with bias analysis, blind spot detection, prediction market cross-referencing, and epistemic hygiene. Writes a cited, beautiful report to Obsidian. Use when the user asks for \"news\", \"news briefing\", \"what's happening in the world\", \"headlines\", \"catch me up on news\", \"news report\", or when triggered by the daily briefing.",
       "source": "plugin",
       "updatedAt": "2026-04-16T21:46:03.689590Z",
-      "creatorType": "user",
-      "backingPluginId": "plugin_01NTzQ87kFaSCafhQLhpvzSh"
+      "backingPluginId": "plugin_01NTzQ87kFaSCafhQLhpvzSh",
+      "creatorType": "user"
     },
     {
       "skillId": "skill_01NFVnZxWvwZD8KqL2fbGrbu",
@@ -144,16 +148,16 @@
       "description": "Track and analyze Alex's mood, mental health, and wellbeing over time. Maintains a structured Mood Journal in Obsidian with day-by-day scores, weekly summaries, and a color-coded calendar heatmap. Use when the user asks about mood, mental health, \"how am I doing\", \"how have I been feeling\", \"mood check\", \"update my mood journal\", \"how was my week emotionally\", \"any patterns in my mood\", or as part of daily briefing and weekly review processing.",
       "source": "plugin",
       "updatedAt": "2026-04-16T21:45:24.791460Z",
-      "creatorType": "user",
-      "backingPluginId": "plugin_01Vhnha3xeKExRQnLWHbSJLp"
+      "backingPluginId": "plugin_01Vhnha3xeKExRQnLWHbSJLp",
+      "creatorType": "user"
     },
     {
       "skillId": "skill_01TuXzFxsNTYDr7xwYW6Nwnq",
       "name": "verify",
       "description": "Fact-check and verify propositional claims, research outputs, and briefing profiles. Runs as a background agent to silently correct errors before they reach Alex. Use automatically after any research task, People note update, briefing, or output containing specific claims (dates, bill numbers, names, roles, statistics, URLs).",
-      "source": "custom",
-      "updatedAt": "2026-04-16T21:40:48.607318Z",
-      "creatorType": "user"
+      "source": "plugin",
+      "updatedAt": "2026-04-16T21:40:48.607174Z",
+      "backingPluginId": "plugin_011shqfdNKYy3CKuHXQ5mfNF"
     },
     {
       "skillId": "skill_01Ea7jxkzYVWD6qPDq6fTYCe",
@@ -161,8 +165,8 @@
       "description": "Comprehensive GTD-style weekly review. Scans email, calendar, notes, Things 3, and Supernote to synthesize the past week and plan the next. Use when the user wants to reflect on or review the week, plan next week, asks \"how did my week go\", \"what happened this week\", \"weekly recap\", \"let's do a review\", \"week summary\", \"wrap up the week\", or when triggered by the Sunday scheduled task.",
       "source": "plugin",
       "updatedAt": "2026-04-16T21:41:01.447276Z",
-      "creatorType": "user",
-      "backingPluginId": "plugin_01LGuTLvEGyNYZo4FxNfKv1S"
+      "backingPluginId": "plugin_01LGuTLvEGyNYZo4FxNfKv1S",
+      "creatorType": "user"
     },
     {
       "skillId": "skill_013UpaxcBue4bjhudZn86JA9",
@@ -170,15 +174,16 @@
       "description": "OCR Supernote handwritten notes by extracting PNG pages and reading them with vision. Extracts text, tasks, and events from handwritten content. Use when the user mentions Supernote, handwritten notes, handwriting, \"read what I wrote\", \"I wrote something down\", \"check my notebook\", \"any new handwritten notes\", or when triggered by a scheduled task.",
       "source": "plugin",
       "updatedAt": "2026-04-16T21:43:26.697806Z",
-      "creatorType": "user",
-      "backingPluginId": "plugin_01WJUMm776M9Bkfy9Xt5XFKd"
+      "backingPluginId": "plugin_01WJUMm776M9Bkfy9Xt5XFKd",
+      "creatorType": "user"
     },
     {
       "skillId": "skill_01Rqju4ZoUvWYSy67MDd2Xvn",
       "name": "health",
       "description": "Pull, persist, and analyze health data from Fitbit and Withings. Single source of truth for Health Log notes in Obsidian. Use when the user asks about health, steps, sleep, weight, heart rate, body composition, \"how's my health\", \"health trends\", \"pull my health data\", or when any skill needs health data (daily briefing, evening winddown, mood scoring, weekly/monthly review).",
-      "source": "custom",
-      "updatedAt": "2026-04-16T21:40:18.662067Z",
+      "source": "plugin",
+      "updatedAt": "2026-04-16T21:40:18.661959Z",
+      "backingPluginId": "plugin_01Fu8B1M9ZXzvMSLD2K7jycE",
       "creatorType": "user"
     },
     {
@@ -195,8 +200,8 @@
       "description": "Best practices and conventions for all Gmail interactions. Canonical reference for email scanning, job alert processing, actionable item extraction, CRM cross-referencing, and draft composition. Referenced by other skills. Use when you need to check email conventions or available MCP tools before interacting with Gmail.",
       "source": "plugin",
       "updatedAt": "2026-04-16T21:38:47.648483Z",
-      "creatorType": "user",
-      "backingPluginId": "plugin_01FH8GiHxk8sky6tq7Ny8iYQ"
+      "backingPluginId": "plugin_01FH8GiHxk8sky6tq7Ny8iYQ",
+      "creatorType": "user"
     },
     {
       "skillId": "skill_01MYRcBuyHMiMREAudWoiLPL",
@@ -204,8 +209,8 @@
       "description": "Quick-capture a thought, task, note, or event. Routes to the right destination (Things 3, Obsidian daily note, or Google Calendar). Use when the user wants to jot something down, add a task or reminder, save a thought, \"remind me to\", \"add to my list\", \"put this on my calendar\", \"I need to\", \"don't let me forget\", \"save this\", or provides a brief item to save.",
       "source": "plugin",
       "updatedAt": "2026-04-16T21:30:12.427870Z",
-      "creatorType": "user",
-      "backingPluginId": "plugin_012ufKxqRV6uLyzqJYraye9g"
+      "backingPluginId": "plugin_012ufKxqRV6uLyzqJYraye9g",
+      "creatorType": "user"
     },
     {
       "skillId": "skill_014Ft6vYa7dRFQAingVh8eHP",
@@ -213,8 +218,8 @@
       "description": "Look up, manage, and surface Network CRM contacts. Cross-references People/ notes, daily digest emails, transcripts, and calendar to keep Alex's network warm. Use when the user asks about a person, wants to follow up or reach out, asks \"who is [name]\", \"when did I last talk to\", \"I should reach out to\", \"draft a message to\", \"look up [name]\", \"tell me about [name]\", \"who should I follow up with\", \"any overdue contacts\", or mentions wanting to connect with someone.",
       "source": "plugin",
       "updatedAt": "2026-04-16T21:31:11.817198Z",
-      "creatorType": "user",
-      "backingPluginId": "plugin_018tFMywKYVWC1EJbwL6kvRJ"
+      "backingPluginId": "plugin_018tFMywKYVWC1EJbwL6kvRJ",
+      "creatorType": "user"
     },
     {
       "skillId": "skill_016G7rxTj8WtDL5TV1dPXfbX",
@@ -222,15 +227,16 @@
       "description": "Comprehensive audit of the Exobrain harness — privacy scan, architecture analysis, and AI productivity research. Use whenever the user says \"audit\", \"exobrain audit\", \"harness audit\", \"system check\", \"privacy scan\", \"repo audit\", or wants to review the overall health, security, and efficiency of the Exobrain system. Also use when the user asks about improving their setup, finding redundancies, or checking for leaked personal data.",
       "source": "plugin",
       "updatedAt": "2026-04-16T21:39:52.490572Z",
-      "creatorType": "user",
-      "backingPluginId": "plugin_01J3Ef9atfDNfh7RH1UbNsJW"
+      "backingPluginId": "plugin_01J3Ef9atfDNfh7RH1UbNsJW",
+      "creatorType": "user"
     },
     {
       "skillId": "skill_01T95oAg2mciLS2F4Lw5BUNV",
       "name": "antivirus",
       "description": "Native macOS security audit — XProtect state, persistence mechanisms (LaunchAgents/Daemons, login items), network listeners, browser extensions, known-malware paths, and quarantine history. No third-party AV required. Use when the user says \"antivirus scan\", \"security check\", \"am I infected\", \"check my machine\", or during a bodyguard incident response.",
-      "source": "custom",
-      "updatedAt": "2026-04-16T21:29:54.652940Z",
+      "source": "plugin",
+      "updatedAt": "2026-04-16T21:29:54.652785Z",
+      "backingPluginId": "plugin_01KFV4ffAiopCc3Ju4bvTEUC",
       "creatorType": "user"
     },
     {
@@ -239,8 +245,8 @@
       "description": "Defensive security partner focused on doxxing, stalking, and targeted harassment. Use when the user says \"bodyguard\", \"security scan\", \"doxx scan\", \"privacy scan\", \"threat check\", \"I'm being harassed\", \"I think I'm being stalked\", \"am I being doxxed\", \"scrub me from the internet\", or asks about their public attack surface, data broker presence, credential breaches, or how to respond to a security incident. Also use for pre-flight exposure audits before publishing content.",
       "source": "plugin",
       "updatedAt": "2026-04-16T21:33:44.239248Z",
-      "creatorType": "user",
-      "backingPluginId": "plugin_01MrswXF51RfohnpVUJd9tsW"
+      "backingPluginId": "plugin_01MrswXF51RfohnpVUJd9tsW",
+      "creatorType": "user"
     },
     {
       "skillId": "skill_0177KbXk7WgKGQGynKU7RNxy",
@@ -248,8 +254,8 @@
       "description": "Extract clean markdown content from web pages using Defuddle CLI, removing clutter and navigation to save tokens. Use instead of WebFetch when the user provides a URL to read or analyze, for online documentation, articles, blog posts, or any standard web page. Do NOT use for URLs ending in .md — those are already markdown, use WebFetch directly.",
       "source": "plugin",
       "updatedAt": "2026-04-16T21:38:31.561951Z",
-      "creatorType": "user",
-      "backingPluginId": "plugin_01Fky9ZNfDtfu1RLsXG315SL"
+      "backingPluginId": "plugin_01Fky9ZNfDtfu1RLsXG315SL",
+      "creatorType": "user"
     },
     {
       "skillId": "skill_01MTQr5Pv2NePgxTQESu9cuT",
@@ -257,8 +263,8 @@
       "description": "Draft and send an issue report email to the KC Streetcar team (info@kcstreetcar.org). Use this skill whenever the user mentions reporting a problem with the KC Streetcar — tracker displays showing fallback data instead of live arrivals, service disruptions, station issues, safety concerns, accessibility problems, or any other streetcar infrastructure issue. Also trigger when the user says things like \"report this to the streetcar\", \"email KC Streetcar\", \"let the streetcar people know\", or references a streetcar problem they want escalated. If the user uploads a photo taken near a KC Streetcar station and describes an issue, use this skill. Requires Gmail MCP tool access and Pillow (pip install).",
       "source": "plugin",
       "updatedAt": "2026-04-06T18:28:36.734870Z",
-      "creatorType": "user",
-      "backingPluginId": "plugin_01SgeWr4ppZD6ni4gwebk8QA"
+      "backingPluginId": "plugin_01SgeWr4ppZD6ni4gwebk8QA",
+      "creatorType": "user"
     },
     {
       "skillId": "skill-creator",
@@ -272,8 +278,9 @@
       "skillId": "skill_01NkrcGD8HTVVh9WEigLztSb",
       "name": "calendar",
       "description": "Best practices and conventions for all Google Calendar interactions. Canonical reference for event creation, flight buffers, overbooking detection, late-night date handling, and calendar verification. Referenced by other skills. Use when you need to check calendar conventions or available MCP tools before interacting with Google Calendar.",
-      "source": "custom",
-      "updatedAt": "2026-04-16T21:28:48.333664Z",
+      "source": "plugin",
+      "updatedAt": "2026-04-16T21:28:48.333470Z",
+      "backingPluginId": "plugin_01FAnfvq1gNeyLtrxZGtXqRT",
       "creatorType": "user"
     },
     {
@@ -282,8 +289,8 @@
       "description": "Remove AI-generated patterns from text to make it sound more human and authentic. Use whenever you are generating text to share externally (such as cover letters, social media posts, etc) or the user says \"make this sound human\", \"de-AI this\", \"this sounds too AI\", \"make it natural\", \"humanize this\", \"rewrite this naturally\", or pastes text that they want cleaned up from AI-sounding language.",
       "source": "plugin",
       "updatedAt": "2026-04-16T21:34:12.608754Z",
-      "creatorType": "user",
-      "backingPluginId": "plugin_01FGHLQuFKA7XjBE933Pq8Cw"
+      "backingPluginId": "plugin_01FGHLQuFKA7XjBE933Pq8Cw",
+      "creatorType": "user"
     },
     {
       "skillId": "skill_018k1DA2ftgMhVA8SpsCsP2n",
@@ -291,8 +298,8 @@
       "description": "Run extended multi-agent reconnaissance sessions. Use when asked to brainstorm deeply, explore ideas from multiple angles, or generate a structured recon document.",
       "source": "plugin",
       "updatedAt": "2026-04-16T21:35:02.271274Z",
-      "creatorType": "user",
-      "backingPluginId": "plugin_01S2mJAqqbnMX4pxZxEmKXpU"
+      "backingPluginId": "plugin_01S2mJAqqbnMX4pxZxEmKXpU",
+      "creatorType": "user"
     },
     {
       "skillId": "pdf",
@@ -308,8 +315,8 @@
       "description": "Multi-agent deep research system for complex questions requiring thorough investigation. Spawns parallel subagents to explore different facets, synthesizes findings into a cited report. Use when the user asks to \"research\", \"deep dive\", \"investigate\", \"find out everything about\", \"comprehensive analysis\", \"what do we know about\", or any question that requires exploring multiple sources and synthesizing findings. Also use when other skills need heavy research (e.g., job-search company research, weekly review trend analysis).",
       "source": "plugin",
       "updatedAt": "2026-04-16T21:37:34.491480Z",
-      "creatorType": "user",
-      "backingPluginId": "plugin_01DXsQz46AjuoXq9Ed33Cw1c"
+      "backingPluginId": "plugin_01DXsQz46AjuoXq9Ed33Cw1c",
+      "creatorType": "user"
     },
     {
       "skillId": "xlsx",
