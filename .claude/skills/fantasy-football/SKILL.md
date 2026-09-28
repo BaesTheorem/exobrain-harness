@@ -113,7 +113,10 @@ memory or opening the site:
   the thread, so the reply gets decided with him. Same treatment for anything
   from a manager we have a trade in flight with. `espn-tx chat` posts
   directly and is for interactive sessions only, which is what one of those
-  Console chats is: draft there, send when Alex says so.
+  Console chats is: draft there, send when Alex says so. ESPN caps a post near
+  240 characters and longer text goes out as several posts, so when Alex
+  asks for one message, write it under the cap and pass `--single`, which
+  refuses rather than splits.
 
 Every subcommand takes `--json`, so new analysis scripts should consume that
 rather than re-implementing the API. Credentials live in the gitignored

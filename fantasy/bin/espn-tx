@@ -37,6 +37,8 @@ def main() -> int:
     sub.add_parser("pending")
     p = sub.add_parser("cancel"); p.add_argument("id")
     p = sub.add_parser("chat"); p.add_argument("topic"); p.add_argument("text", nargs="+")
+    p.add_argument("--single", action="store_true",
+                   help="refuse to send if ESPN's length cap would split the text into several posts")
     p = sub.add_parser("chat-open", help="find or start the DM thread with one team")
     p.add_argument("team", nargs="+", help="the other team's name (or part of it)")
     p.add_argument("--force", action="store_true",
@@ -64,6 +66,15 @@ def main() -> int:
         print(json.dumps(res, indent=1, default=str))
         return 0 if args.dry_run or res.get("topic") else 1
     if args.cmd == "chat":
+        # ESPN caps a post near chat.MAX_CONTENT characters and chat_send splits
+        # longer text into several posts. When Alex asks for one message, that
+        # split is the failure (2026-09-28), so refuse instead of sending three.
+        from espncli import chat as _chat
+        parts = _chat.split_message(" ".join(args.text))
+        if args.single and len(parts) > 1:
+            print(f"REFUSED: {len(' '.join(args.text))} chars would post as {len(parts)} messages; "
+                  f"cap is {_chat.MAX_CONTENT}. Shorten it.", file=sys.stderr)
+            return 2
         res = w.chat_send(args.topic, " ".join(args.text), dry_run=args.dry_run)
         print(json.dumps(res, indent=1, default=str))
         if not args.dry_run and not res.get("verified"):
