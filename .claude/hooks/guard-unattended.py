@@ -13,10 +13,13 @@ reach past the task:
     plists, shell rc files, PATH directories, and source code in this repo;
   - reading a secret file (.env, .zuliprc, token and credential JSON, the
     user-level .claude.json);
-  - shell commands with a persistence or exfiltration shape: pipe-to-shell,
-    launchctl, crontab, Keychain access, sudo, defaults write, force pushes,
-    remote changes, and any write verb or redirect whose target is a protected
-    path (a protected path merely mentioned elsewhere in the command is not).
+  - shell commands with a persistence or exfiltration shape: pipe-to-shell
+    (and network output fed to a script that executes it), launchctl, crontab,
+    Keychain access, sudo, defaults write, any git push (bin/harness-commit is
+    the sanctioned path), remote changes, AppleScript that runs a shell or
+    types keystrokes, and any write verb, in-place editor (sed/perl/ruby -i)
+    or redirect whose target is a protected path (a protected path merely
+    mentioned elsewhere in the command is not).
 
 Attended sessions (the Console, a terminal) are untouched: the variable is
 absent, the hook exits immediately, and Alex keeps bypassPermissions as he
@@ -35,6 +38,10 @@ unattended run is exactly the event Alex wants to hear about.
 INVARIANTS
   - Fail open on malformed input. A broken hook that blocks every tool would
     kill every routine; a logged parse failure is the lesser harm.
+  - Fail closed on a crash in the guard's own logic. An exception while
+    judging a well-formed call denies that call, logs the traceback, and
+    raises one banner per session. Exiting non-zero without a decision would
+    let Claude Code run the call, which turns the guard off with no signal.
   - Never deny on the basis of the model's stated intent, only on the
     concrete tool input. Reasons are matched against paths and command text.
   - Anything the guard denies must be reachable from an interactive session,
@@ -53,6 +60,7 @@ import re
 import shlex
 import subprocess
 import sys
+import traceback
 from pathlib import Path
 
 HARNESS = Path(__file__).resolve().parent.parent.parent
@@ -130,6 +138,12 @@ BASH_DENY: list[tuple[str, str]] = [
     (r"\b(curl|wget)\b[^|\n]{0,200}\|\s*(sudo\s+)?(sh|bash|zsh|python3?|perl|ruby|node)\b(?!\s+-[cme]\b)", "pipe from the network into an interpreter"),
     (r"\bbase64\s+(-d|--decode)\b[^|\n]{0,80}\|\s*(sh|bash|zsh|python3?)\b", "decode into an interpreter"),
     (r"\beval\s+[\"']?\$\(", "eval of a command substitution"),
+    # Code fetched by a substitution and handed to an interpreter as its
+    # program. Downloaded data passed as an ordinary argument is not code.
+    (r"\b(?:python3?|node|ruby|perl|sh|bash|zsh)\s+(?:-\S+\s+)*?-[ce]\s+[\"']?(?:\$\(|`)\s*(?:curl|wget)\b",
+     "runs code fetched by a command substitution"),
+    (r"(?:\b(?:python3?|node|ruby|perl|sh|bash|zsh|source)|(?:^|(?<=[\s;&|(]))\.)\s+[\"']?<\(\s*(?:curl|wget)\b",
+     "runs code fetched by a process substitution"),
     (r"\bsudo\b", "privilege escalation"),
     (r"\blaunchctl\s+(bootstrap|bootout|load|unload|kickstart|enable|disable|submit)\b", "launchd is persistence"),
     (r"\bcrontab\b", "cron is persistence"),
@@ -172,8 +186,42 @@ WRITE_VERBS = {"tee", "cp", "mv", "rm", "ln", "chmod", "chown", "touch", "trunca
 # removes its source.
 DEST_ONLY = {"cp", "ln", "install", "rsync"}
 SED_INPLACE = re.compile(r"^-[a-zA-Z]*i")
+# perl and ruby switches that can be clustered ahead of -i (`-pi`, `-0pi`,
+# `-i.bak`). Not a bare letter class: `-MList::Util` must not read as -i.
+PERL_INPLACE = re.compile(r"^-(?:[aclnpswTtWX]|0[0-7]*)*i")
+INPLACE_EDITORS = {"sed", "perl", "ruby"}
+# Flags whose next word is the editing program, not a file it edits.
+INPLACE_SCRIPT_FLAGS = {"sed": {"-e", "--expression", "-f", "--file"}, "perl": {"-e", "-E"}, "ruby": {"-e"}}
 INTERPRETERS = {"python", "python3", "perl", "ruby", "node", "sh", "bash", "zsh"}
 SHELLS = {"sh", "bash", "zsh"}
+NET_FETCHERS = {"curl", "wget"}
+# Words that run the command after them, so that command is still in command
+# position (`curl x | env python3 -c ...`).
+RUNNERS = {"env", "sudo", "exec", "command", "nohup", "time", "nice", "xargs"}
+# Code that runs text as code. Fed from curl, any of these executes the
+# download; `json.load(sys.stdin)` and `re.compile` do not.
+EXEC_CODE = re.compile(r"(?<![\w.$])(?:exec|eval|compile|execfile|Function)\s*\(|\brunpy\b|\bvm\.run")
+EXEC_ANY = re.compile(
+    EXEC_CODE.pattern
+    + r"|\bos\.(?:system|popen|exec\w*|spawn\w*)\b|\bsubprocess\b|\bchild_process\b|\bpty\.spawn\b|\b__import__\b"
+    # perl and ruby: `eval $x`, `system "..."`, `exec(...)`.
+    + r"|(?<![\w.$'\"])(?:eval|system|exec)\s*[(\"'$`{]"
+)
+# A script that fetches over the network by itself.
+NET_IN_SCRIPT = re.compile(
+    r"\burllib\b|\burlopen\b|\brequests\.\w+\(|\bhttpx\b|\bhttp\.client\b|\bsocket\b|\bfetch\(|"
+    r"https?://|\bLWP::|\bNet::HTTP\b|\bopen-uri\b"
+)
+OSASCRIPT = re.compile(r"\bosascript\b")
+OSASCRIPT_DENY: list[tuple[str, str]] = [
+    (r"\bdo\s+shell\s+script\b", "AppleScript that runs a shell command"),
+    (r"\bSystem Events\b[\s\S]*\b(?:keystroke|key\s+code)\b", "AppleScript that types keystrokes through System Events"),
+]
+# Any push, whatever the flags. The sanctioned path is bin/harness-commit,
+# which scans before it pushes; a bare push from a routine skips that scan.
+GIT_PUSH = re.compile(CMD_START + r"git\s+(?:-[cC]\s+(?:\"[^\"]*\"|'[^']*'|\S+)\s+|--[\w-]+(?:=\S+)?\s+)*push\b",
+                      re.IGNORECASE)
+HARNESS_COMMIT = HARNESS / "bin" / "harness-commit"
 # The tokenizer splits shell operators into their own tokens, so `x.md;` is
 # the path and a `;`, never one run-on operand that swallows the next command.
 OPERATOR = re.compile(r"[;&|<>()]+")
@@ -366,9 +414,11 @@ def _split_heredocs(command: str) -> tuple[list[tuple[str, str | None, bool]], l
             body.append(lines[i])
             i += 1
         i += 1
-        interp = [Path(t).name for t in head if Path(t).name in INTERPRETERS]
+        interp = [Path(t).name for t in head if Path(t).name in INTERPRETERS or Path(t).name == "osascript"]
         if interp:
             cmd_lines.append((line, "\n".join(body), interp[0] in SHELLS))
+            if interp[0] == "osascript" and not m.group(1):
+                expanding.append("\n".join(body))
             continue
         cmd_lines.append((line, None, False))
         if not m.group(1):
@@ -408,7 +458,9 @@ def _script_reason(script: str, cwd: str | None = None) -> str | None:
         return None
     for m in SUBPROCESS_ARGV.finditer(script):
         argv = [lit[1:-1] for lit in STRING_LITERAL.findall(m.group(1)) if lit[:3] not in ('"""', "'''")]
-        why = _line_reason(shlex.join(argv), cwd or str(HARNESS))[0] if argv else None
+        # The whole shell check, not only the write test: `["git", "push"]`
+        # is the same push as the command line.
+        why = check_bash(shlex.join(argv), cwd or str(HARNESS)) if argv else None
         if why:
             return why
     script = SUBPROCESS_ARGV.sub("[]", script)
@@ -471,6 +523,32 @@ def _dest_operands(toks: list[str], start: int) -> list[str]:
     return out + [os.path.join(d, os.path.basename(src.rstrip("/"))) for d in out for src in plain]
 
 
+def _inplace_operands(name: str, toks: list[str], start: int) -> list[str] | None:
+    """Files an in-place editor (`sed -i`, `perl -pi`, `ruby -i`) rewrites, or
+    None when this invocation does not edit in place. The flag may sit
+    anywhere in the segment (`sed -e 's/a/b/' -i f`), and the program after
+    -e is not a file."""
+    words: list[str] = []
+    j = start
+    while j < len(toks) and not _is_op(toks[j]):
+        words.append(toks[j])
+        j += 1
+    flag = SED_INPLACE if name == "sed" else PERL_INPLACE
+    if not any(flag.match(w) or w.startswith("--in-place") for w in words):
+        return None
+    script_flags = INPLACE_SCRIPT_FLAGS[name]
+    kept: list[str] = []
+    skip = False
+    for w in words:
+        if skip:
+            skip = False
+        elif w in script_flags:
+            skip = True
+        else:
+            kept.append(w)
+    return _operands(kept, 0)
+
+
 def _line_reason(line: str, cwd: str) -> tuple[str | None, str]:
     """Reason this command line writes a protected path, and the working
     directory after it runs (`cd` moves it; a subshell's `cd` does not leak)."""
@@ -504,6 +582,10 @@ def _line_reason(line: str, cwd: str) -> tuple[str | None, str]:
             i += 1
             continue
         seg_start = False
+        if name in INPLACE_EDITORS:
+            inplace = _inplace_operands(name, toks, i + 1)
+            if inplace is not None:
+                targets.extend((t, cwd) for t in inplace)
         if name in INTERPRETERS and i + 2 < len(toks) and toks[i + 1] in ("-c", "-e"):
             script = toks[i + 2]
             why = check_bash(script, cwd) if name in SHELLS else _script_reason(script, cwd)
@@ -513,7 +595,7 @@ def _line_reason(line: str, cwd: str) -> tuple[str | None, str]:
             continue
         if name in DEST_ONLY:
             targets.extend((t, cwd) for t in _dest_operands(toks, i + 1))
-        elif name in WRITE_VERBS or (name == "sed" and i + 1 < len(toks) and SED_INPLACE.match(toks[i + 1])):
+        elif name in WRITE_VERBS:
             targets.extend((t, cwd) for t in _operands(toks, i + 1))
         i += 1
     for t, at in targets:
@@ -521,6 +603,79 @@ def _line_reason(line: str, cwd: str) -> tuple[str | None, str]:
         if why:
             return why, cwd
     return None, cwd
+
+
+def _pipe_reason(line: str) -> str | None:
+    """Network output that ends up executed, judged per pipeline.
+
+    `curl x | python3 -c "import json,sys; print(json.load(sys.stdin))"` is an
+    API read and stays allowed (2026-09-21). The same pipe into a shell in any
+    form, or into an inline script that execs, evals or spawns, runs the
+    download. So does an inline script that fetches and execs by itself.
+    """
+    toks = _tokens(line)
+    net_pipe = seg_net = False
+    seg_start = True
+    prev = ""
+    i = 0
+    while i < len(toks):
+        tok = toks[i]
+        if _is_op(tok):
+            if tok in REDIRECTS:
+                i += 2
+                continue
+            # `|` carries the pipeline on; `;`, `&&`, `||` and newlines end it.
+            net_pipe = (net_pipe or seg_net) if ("|" in tok and "||" not in tok) else False
+            seg_net = False
+            seg_start = True
+            prev = ""
+            i += 1
+            continue
+        name = Path(tok).name
+        if seg_start and re.match(r"^\w+=", tok):  # `FOO=1 python3 ...`
+            i += 1
+            continue
+        at_cmd = seg_start or prev in RUNNERS
+        seg_start = False
+        prev = name
+        if name in NET_FETCHERS:
+            seg_net = True
+        if at_cmd and name in INTERPRETERS:
+            if net_pipe and name in SHELLS:
+                return "network output piped into a shell"
+            if i + 2 < len(toks) and toks[i + 1] in ("-c", "-e"):
+                script = toks[i + 2]
+                if net_pipe and EXEC_ANY.search(script):
+                    return "network output piped into an inline script that executes it"
+                if EXEC_CODE.search(script) and NET_IN_SCRIPT.search(script):
+                    return "inline script that fetches code over the network and executes it"
+        i += 1
+    return None
+
+
+def _net_exec_reason(script: str) -> str | None:
+    """A script body (heredoc) that fetches code over the network and runs it."""
+    if EXEC_CODE.search(script) and NET_IN_SCRIPT.search(script):
+        return "script body that fetches code over the network and executes it"
+    return None
+
+
+def _osascript_reason(text: str) -> str | None:
+    for rx, why in OSASCRIPT_DENY:
+        if re.search(rx, text, re.IGNORECASE):
+            return why
+    return None
+
+
+def _is_harness_commit(command: str, cwd: str) -> bool:
+    """One plain invocation of bin/harness-commit: no chain, no substitution,
+    so its commit message may mention `git push` without being one."""
+    if "\n" in command.strip() or "$(" in command or "`" in command:
+        return False
+    toks = _tokens(command)
+    if not toks or any(_is_op(t) for t in toks):
+        return False
+    return _expand(toks[0], cwd) == str(HARNESS_COMMIT)
 
 
 def _deny_pattern(text: str) -> str | None:
@@ -538,6 +693,8 @@ def check_bash(command: str, cwd: str | None = None) -> str | None:
     why = _deny_pattern(text)
     if why:
         return why
+    if GIT_PUSH.search(text) and not _is_harness_commit(command, cwd):
+        return "git push from an unattended session (bin/harness-commit is the sanctioned path)"
     # Reading a secret by name is not allowed either, whatever the verb.
     scripts = [body for _, body, _ in cmd_lines if body is not None]
     for m in PATH_TOKEN.finditer("\n".join([METADATA_SEGMENT.sub("", text), *scripts])):
@@ -545,10 +702,21 @@ def check_bash(command: str, cwd: str | None = None) -> str | None:
         if why:
             return f"names a secret ({why})"
     for line, body, shell in cmd_lines:
+        why = _pipe_reason(line)
+        if why:
+            return why
+        applescript = bool(OSASCRIPT.search(line))
+        if applescript:
+            why = _osascript_reason(line + "\n" + (body or ""))
+            if why:
+                return why
         why, cwd = _line_reason(line, cwd)
         if why:
             return f"write-shaped command naming a protected path ({why})"
-        if body is not None:
+        if body is not None and not applescript:
+            why = _net_exec_reason(body) if not shell else None
+            if why:
+                return why
             # A Python body is not shell: its `->` and `'<[^>]+>'` are not
             # redirects (2026-09-25, 09-26, 09-28). It still gets the pattern
             # scan, which catches `os.system("sudo ...")`.
@@ -576,22 +744,72 @@ def decide(tool_name: str, tool_input: dict, cwd: str | None = None) -> str | No
     return None
 
 
-def _notify_once(session_id: str, reason: str) -> None:
-    """One banner per session, so a looping model cannot flood the screen."""
+def _notify_once(session_id: str, message: str, link: str, kind: str = "") -> None:
+    """One banner per session and kind, so a looping model cannot flood the screen."""
+    if os.environ.get("MIST_GUARD_NOTIFY", "").lower() in ("off", "0", "false"):
+        return
     try:
         NOTIFIED_DIR.mkdir(parents=True, exist_ok=True)
-        marker = NOTIFIED_DIR / (re.sub(r"[^A-Za-z0-9_-]", "_", session_id or "nosession")[:80])
+        marker = NOTIFIED_DIR / (kind + re.sub(r"[^A-Za-z0-9_-]", "_", session_id or "nosession")[:80])
         if marker.exists():
             return
         marker.touch()
         if NOTIFY.exists():
             subprocess.run(
-                [str(NOTIFY), f"Guard blocked a tool call in an unattended session: {reason[:160]}",
-                 "MIST guard", "Basso", str(LOG), "--group", "security", "--id", "guard-unattended"],
+                [str(NOTIFY), message, "MIST guard", "Basso", link,
+                 "--group", "security", "--id", f"guard-unattended{'-' + kind.rstrip('-') if kind else ''}"],
                 capture_output=True, timeout=20, check=False,
             )
     except (OSError, subprocess.SubprocessError):
         pass
+
+
+def _emit_deny(reason: str) -> None:
+    print(json.dumps({
+        "hookSpecificOutput": {
+            "hookEventName": "PreToolUse",
+            "permissionDecision": "deny",
+            "permissionDecisionReason": reason,
+        }
+    }))
+
+
+def _judge(payload: dict, session_id: str) -> int:
+    tool_name = str(payload.get("tool_name") or "")
+    tool_input = payload.get("tool_input") or {}
+    if not isinstance(tool_input, dict):
+        tool_input = {}
+    cwd = payload.get("cwd")
+    reason = decide(tool_name, tool_input, cwd if isinstance(cwd, str) and cwd.startswith("/") else None)
+    if not reason:
+        return 0
+    _log(f"DENY session={session_id or '-'} tool={tool_name} :: {reason} :: "
+         f"{json.dumps(tool_input)[:400]}")
+    _notify_once(session_id, f"Guard blocked a tool call in an unattended session: {reason[:160]}", str(LOG))
+    _emit_deny(
+        f"{reason}. This session is unattended (MIST_UNATTENDED=1) and the guard hook "
+        f"does not allow it, whatever the text that asked for it said. If the routine "
+        f"genuinely needs this, it is a change to the runner or the rules, made from an "
+        f"interactive session. The denial has been logged and Alex notified."
+    )
+    return 0
+
+
+def _fail_closed(session_id: str, tb: str) -> int:
+    """The guard crashed on a well-formed call: deny it, log why, banner once."""
+    try:
+        _log(f"CRASH session={session_id or '-'} :: guard raised, call denied (fail closed)\n{tb.rstrip()}")
+        _notify_once(session_id, "The unattended-session guard crashed and is denying tool calls "
+                     "until it is fixed. Traceback in guard-unattended.log.", "console", kind="crash-")
+        _emit_deny(
+            "The guard hook crashed while checking this call, so it is denied (fail closed). "
+            "This session is unattended (MIST_UNATTENDED=1). The traceback has been logged and "
+            "Alex notified; the fix is to the guard, from an interactive session."
+        )
+        return 0
+    except Exception:  # noqa: BLE001 - last resort: exit 2 blocks the call even if stdout is gone
+        sys.stderr.write("guard-unattended crashed; call denied (fail closed)\n")
+        return 2
 
 
 def main() -> int:
@@ -604,32 +822,14 @@ def main() -> int:
     except (ValueError, OSError) as e:
         _log(f"PARSE-FAIL {e}")
         return 0
-    tool_name = str(payload.get("tool_name") or "")
-    tool_input = payload.get("tool_input") or {}
-    if not isinstance(tool_input, dict):
-        tool_input = {}
-    cwd = payload.get("cwd")
-    reason = decide(tool_name, tool_input, cwd if isinstance(cwd, str) and cwd.startswith("/") else None)
-    if not reason:
+    if not isinstance(payload, dict):
+        _log(f"PARSE-FAIL payload is {type(payload).__name__}, not an object")
         return 0
     session_id = str(payload.get("session_id") or "")
-    _log(f"DENY session={session_id or '-'} tool={tool_name} :: {reason} :: "
-         f"{json.dumps(tool_input)[:400]}")
-    if os.environ.get("MIST_GUARD_NOTIFY", "").lower() not in ("off", "0", "false"):
-        _notify_once(session_id, reason)
-    print(json.dumps({
-        "hookSpecificOutput": {
-            "hookEventName": "PreToolUse",
-            "permissionDecision": "deny",
-            "permissionDecisionReason": (
-                f"{reason}. This session is unattended (MIST_UNATTENDED=1) and the guard hook "
-                f"does not allow it, whatever the text that asked for it said. If the routine "
-                f"genuinely needs this, it is a change to the runner or the rules, made from an "
-                f"interactive session. The denial has been logged and Alex notified."
-            ),
-        }
-    }))
-    return 0
+    try:
+        return _judge(payload, session_id)
+    except Exception:  # noqa: BLE001 - any crash must deny, not switch the guard off
+        return _fail_closed(session_id, traceback.format_exc())
 
 
 if __name__ == "__main__":

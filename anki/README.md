@@ -1,5 +1,8 @@
 # Anki Sync
 
+> **Dormant (checked 2026-09-28):** `com.exobrain.anki-sync` is deliberately not loaded. Anki.app is installed but the desktop collection's last review is 2026-05-11, so the Anki Log is accurate rather than stale, and a loaded job would rewrite today's daily note every 10 minutes just to set `anki_cards: 0`.
+> Load it (`launchctl bootstrap gui/$(id -u) ~/Library/LaunchAgents/com.exobrain.anki-sync.plist` after copying the plist there) when studying resumes; reviews done on a phone only reach this database after the desktop app syncs with AnkiWeb.
+
 Polls Anki's SQLite database every 10 minutes and writes session data into the Obsidian vault. Mirrors the pomodoro module's pattern.
 
 ## What it writes

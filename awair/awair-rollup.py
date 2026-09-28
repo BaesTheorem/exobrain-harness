@@ -10,11 +10,16 @@ spent in an uncomfortable range. Run nightly via launchd (or on demand).
 """
 
 import csv
+import subprocess
+import sys
+import traceback
 from collections import defaultdict
 from datetime import datetime
 from pathlib import Path
 
 CSV_FILE = Path(__file__).resolve().parent / "air-log.csv"
+NOTIFY_BIN = Path(__file__).resolve().parent.parent / "mist-voice" / "bin" / "mist-notify"
+FAIL_LOG = Path.home() / "Library" / "Logs" / "exobrain" / "awair-failures.log"
 NOTE = Path.home() / "Exobrain" / "Areas" / "Health & Fitness" / "Air Quality Log.md"
 START = "<!-- AIR:AUTO START -->"
 END = "<!-- AIR:AUTO END -->"
@@ -132,5 +137,26 @@ def main():
     write_note(build_body(rows, now_iso))
 
 
+def report_failure(exc):
+    """Log a crash to the shared Awair failure log and banner it. The rollup
+    used to die with only a stderr line in a log nobody reads."""
+    FAIL_LOG.parent.mkdir(parents=True, exist_ok=True)
+    ts = datetime.now().isoformat(timespec="seconds")
+    with FAIL_LOG.open("a") as f:
+        f.write(f"[{ts}] rollup: crashed: {exc!r}\n{traceback.format_exc()}")
+    try:
+        subprocess.run(
+            [str(NOTIFY_BIN), f"Air Quality Log rollup crashed: {exc!r}",
+             "Exobrain ERROR", "Basso", str(FAIL_LOG), "--group", "awair"],
+            check=False, timeout=30,
+        )
+    except (OSError, subprocess.SubprocessError):
+        pass
+
+
 if __name__ == "__main__":
-    main()
+    try:
+        main()
+    except Exception as exc:  # noqa: BLE001 -- log and banner any crash, then fail
+        report_failure(exc)
+        sys.exit(1)

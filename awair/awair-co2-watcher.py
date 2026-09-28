@@ -2,7 +2,7 @@
 """
 Polls the Awair Element local API every run. It ALWAYS logs the reading to the
 air-log time series (24/7, so the bedroom's overnight CO2/humidity is captured),
-and fires a macOS notification AND a Discord DM only when levels exceed
+and fires a mist-notify banner AND a Discord DM only when levels exceed
 configured thresholds DURING active hours (so no 3am banners).
 
 Hysteresis prevents notification spam: after notifying, suppress same-tier
@@ -23,8 +23,6 @@ INVARIANTS (do not break these in an edit):
 """
 
 import json
-import os
-import shutil
 import socket
 import subprocess
 import sys
@@ -150,33 +148,54 @@ def save_state(state):
     STATE_FILE.write_text(json.dumps(state, indent=2))
 
 
-AWAIR_APP_BUNDLE_ID = "com.alexhedtke.energydashboard"  # Home Climate.app (shows the Awair air data)
+NOTIFY_BIN = HARNESS_DIR / "mist-voice" / "bin" / "mist-notify"
+FAIL_LOG = Path.home() / "Library" / "Logs" / "exobrain" / "awair-failures.log"
+STALE_HOURS = 24  # no successful poll for this long -> one banner per day
 
 
-def notify(title, message, urgent=False):
-    sound = "Basso" if urgent else "Purr"
-    label = "Exobrain URGENT" if urgent else "Exobrain"
-    full_title = f"{label}: {title}"
-    # Post via terminal-notifier so clicking the notification opens Home Climate.
-    # Plain `osascript display notification` is owned by Script Editor, so a click
-    # opened Script Editor instead. Fall back to osascript if it isn't installed.
-    tn = shutil.which("terminal-notifier") or "/opt/homebrew/bin/terminal-notifier"
+def notify(message, title, sound, link, group="awair"):
+    """Banner through mist-notify (history, Console bell, click target).
+    Best-effort: a notification failure must never stop logging."""
     try:
-        if os.path.exists(tn):
-            subprocess.run(
-                [tn, "-title", full_title, "-message", message,
-                 "-sender", AWAIR_APP_BUNDLE_ID,
-                 "-execute", f"open -b {AWAIR_APP_BUNDLE_ID}", "-sound", sound],
-                check=False,
-            )
-            return
-    except Exception:
-        pass
-    subprocess.run(
-        ["osascript", "-e",
-         f'display notification "{message}" with title "{full_title}" sound name "{sound}"'],
-        check=False,
-    )
+        subprocess.run(
+            [str(NOTIFY_BIN), message, title, sound, link, "--group", group],
+            check=False, timeout=30,
+        )
+    except (OSError, subprocess.SubprocessError) as e:
+        log(f"notify failed: {e}")
+
+
+def record_failure(msg):
+    FAIL_LOG.parent.mkdir(parents=True, exist_ok=True)
+    ts = datetime.now().isoformat(timespec="seconds")
+    with FAIL_LOG.open("a") as f:
+        f.write(f"[{ts}] co2-watcher: {msg}\n")
+
+
+def check_stale(now, state):
+    """Called after a failed poll. The watcher used to return with no alert on every
+    fetch failure, so a moved device IP or a dead Local API left the air log
+    frozen for weeks with nothing saying so. Banner once per day when the last
+    good reading is older than STALE_HOURS."""
+    last_ok = state.get("last_ok")
+    if last_ok:
+        last = datetime.fromisoformat(last_ok)
+    elif AIR_CSV.exists():
+        last = datetime.fromtimestamp(AIR_CSV.stat().st_mtime)
+    else:
+        return
+    hours = (now - last).total_seconds() / 3600
+    if hours < STALE_HOURS or not in_active_hours(now):
+        return
+    today = now.date().isoformat()
+    if state.get("stale_notified") == today:
+        return
+    msg = f"no Awair reading for {hours:.0f}h (last {last.isoformat(timespec='minutes')})"
+    record_failure(msg)
+    notify(f"Awair watcher: {msg}. Check the device IP in awair/state.json.",
+           "Exobrain ERROR", "Basso", str(LOG_FILE))
+    state["stale_notified"] = today
+    save_state(state)
 
 
 def load_discord_token():
@@ -232,7 +251,12 @@ def main():
     if state.get("last_ip") != prev_ip:
         save_state(state)
     if data is None:
-        return  # fetch_with_fallback already logged the failure
+        # fetch_with_fallback already logged the failure
+        check_stale(now, state)
+        return
+    state["last_ok"] = now.isoformat(timespec="seconds")
+    state.pop("stale_notified", None)
+    save_state(state)
 
     co2 = data.get("co2")
     if co2 is None:
@@ -264,7 +288,9 @@ def main():
     score = data.get("score", "?")
     pm25 = data.get("pm25", "?")
     msg = f"CO2 {co2} ppm (score {score}, PM2.5 {pm25}) -- open a window"
-    notify("Air quality", msg, urgent=(tier == "urgent"))
+    urgent = tier == "urgent"
+    notify(msg, "Exobrain URGENT: Air quality" if urgent else "Exobrain: Air quality",
+           "Basso" if urgent else "Purr", "console")
 
     emoji = "🚨" if tier == "urgent" else "🌬️"
     notify_discord(env.get("DISCORD_NOTIFY_CHAT_ID"), f"{emoji} **Air quality** -- {msg}")
@@ -275,4 +301,11 @@ def main():
 
 
 if __name__ == "__main__":
-    main()
+    try:
+        main()
+    except Exception as exc:  # noqa: BLE001 -- log and banner any crash, then fail
+        import traceback
+        log(f"crashed: {exc!r}")
+        record_failure(f"crashed: {exc!r}\n{traceback.format_exc()}")
+        notify(f"Awair CO2 watcher crashed: {exc!r}", "Exobrain ERROR", "Basso", str(FAIL_LOG))
+        sys.exit(1)

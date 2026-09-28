@@ -4,4 +4,16 @@
 #   mist-injection-scan PATH...     mist-injection-scan --stdin
 #   git diff | mist-injection-scan --added-lines
 # Thin exec wrapper; logic lives in security/scan_injection.py.
-exec /usr/bin/env python3 "$(cd "$(dirname "$0")/.." && pwd)/scan_injection.py" "$@"
+#
+# Interpreter: Apple's /usr/bin/python3 (the scanner is stdlib-only). Neither
+# `env python3` nor the harness .venv python works here under launchd: TCC
+# refuses a non-Apple interpreter exec'd from a bash wrapper read access to
+# ~/Documents ("Operation not permitted"). With Homebrew on PATH, `env python3`
+# killed the session-memory consolidator every night from 2026-09-21 to
+# 2026-09-28; the venv python fails the same way on pyvenv.cfg (both checked
+# under `launchctl submit` on 2026-09-28). Apple's platform binary is exempt.
+# Falls back to PATH python3 on systems without it.
+SEC="$(cd "$(dirname "$0")/.." && pwd)"
+PY=/usr/bin/python3
+[ -x "$PY" ] || PY="$(command -v python3)"
+exec "$PY" "$SEC/scan_injection.py" "$@"

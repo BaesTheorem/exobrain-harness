@@ -1,0 +1,202 @@
+#!/usr/bin/env python3
+"""alarm-triage: what the harness's alarms said over the last N days.
+
+Reads the two alarm streams nothing else reads back:
+  ~/Library/Logs/exobrain/guard-unattended.log     (guard hook denials)
+  ~/Library/Logs/exobrain/notifications-history.jsonl (every mist-notify banner)
+and prints, for the window: guard denials grouped by rule with the command
+that tripped each one, banner counts by title and by group, and the repeat
+offenders (the same denial or the same banner 3+ times).
+
+It makes no true/false-positive judgement. The output is the evidence a human
+needs to make that call and to decide which rule or which watcher to fix.
+
+    bin/alarm-triage                 last 7 days
+    bin/alarm-triage --days 30
+    bin/alarm-triage --full          do not truncate commands and bodies
+    bin/alarm-triage --repeat 5      repeat-offender threshold (default 3)
+
+Stdlib only; any python3 (the harness .venv or /usr/bin/python3) runs it.
+"""
+
+from __future__ import annotations
+
+import argparse
+import json
+import re
+from collections import Counter, defaultdict
+from dataclasses import dataclass
+from datetime import datetime, timedelta
+from pathlib import Path
+
+LOG_DIR = Path.home() / "Library" / "Logs" / "exobrain"
+GUARD_LOG = LOG_DIR / "guard-unattended.log"
+NOTIFY_LOG = LOG_DIR / "notifications-history.jsonl"
+
+# 2026-09-27 17:34:35 DENY session=<uuid> tool=Bash :: <reason> :: {json, maybe truncated}
+GUARD_RE = re.compile(
+    r"^(?P<ts>\d{4}-\d\d-\d\d \d\d:\d\d:\d\d) (?P<verdict>\w+) session=(?P<session>\S+) "
+    r"tool=(?P<tool>\S+) :: (?P<reason>.*?) :: (?P<args>.*)$"
+)
+ARG_KEYS = ("command", "file_path", "notebook_path", "path")
+
+
+@dataclass
+class Denial:
+    ts: datetime
+    session: str
+    tool: str
+    reason: str
+    target: str
+
+
+def extract_target(raw: str) -> str:
+    """The command or path the tool call carried. The log truncates long
+    argument JSON, so fall back to a regex over the raw text."""
+    try:
+        obj = json.loads(raw)
+        for k in ARG_KEYS:
+            if isinstance(obj, dict) and obj.get(k):
+                return str(obj[k])
+    except json.JSONDecodeError:
+        pass
+    for k in ARG_KEYS:
+        m = re.search(rf'"{k}": "((?:[^"\\]|\\.)*)', raw)
+        if m:
+            try:
+                return json.loads(f'"{m.group(1)}"')
+            except json.JSONDecodeError:
+                return m.group(1)
+    return raw
+
+
+def read_guard(since: datetime) -> tuple[list[Denial], int]:
+    out: list[Denial] = []
+    unparsed = 0
+    if not GUARD_LOG.exists():
+        return out, unparsed
+    for line in GUARD_LOG.read_text(errors="replace").splitlines():
+        m = GUARD_RE.match(line)
+        if not m:
+            if line.strip():
+                unparsed += 1
+            continue
+        ts = datetime.strptime(m["ts"], "%Y-%m-%d %H:%M:%S")
+        if ts < since:
+            continue
+        out.append(Denial(ts, m["session"], m["tool"], m["reason"], extract_target(m["args"])))
+    return out, unparsed
+
+
+def read_notifications(since: datetime) -> tuple[list[dict], int]:
+    out: list[dict] = []
+    bad = 0
+    if not NOTIFY_LOG.exists():
+        return out, bad
+    cutoff = since.timestamp()
+    for line in NOTIFY_LOG.read_text(errors="replace").splitlines():
+        if not line.strip():
+            continue
+        try:
+            rec = json.loads(line)
+        except json.JSONDecodeError:
+            bad += 1
+            continue
+        if float(rec.get("ts", 0)) >= cutoff:
+            out.append(rec)
+    return out, bad
+
+
+def normalize(text: str) -> str:
+    """Collapse the parts that differ between repeats of the same alarm:
+    numbers, hex ids, whitespace."""
+    text = re.sub(r"\b[0-9a-f]{7,}\b", "<id>", text)
+    text = re.sub(r"\d+", "#", text)
+    return re.sub(r"\s+", " ", text).strip()
+
+
+def clip(text: str, n: int, full: bool) -> str:
+    text = re.sub(r"\s+", " ", text).strip()
+    return text if full or len(text) <= n else text[: n - 3] + "..."
+
+
+def main() -> int:
+    ap = argparse.ArgumentParser(description=(__doc__ or "").split("\n\n")[0])
+    ap.add_argument("--days", type=int, default=7)
+    ap.add_argument("--repeat", type=int, default=3, help="repeat-offender threshold")
+    ap.add_argument("--full", action="store_true", help="do not truncate")
+    args = ap.parse_args()
+
+    now = datetime.now()
+    since = now - timedelta(days=args.days)
+    width = 10_000 if args.full else 140
+
+    denials, unparsed = read_guard(since)
+    notes, bad = read_notifications(since)
+
+    print(f"alarm-triage: {since:%Y-%m-%d %H:%M} to {now:%Y-%m-%d %H:%M} ({args.days} days)")
+    print(f"  guard denials: {len(denials)} in {len({d.session for d in denials})} sessions"
+          + (f" ({unparsed} unparsed lines)" if unparsed else ""))
+    print(f"  banners: {len(notes)}" + (f" ({bad} unparsable lines)" if bad else ""))
+
+    # --- guard denials by rule ------------------------------------------
+    print("\n== Guard denials by rule")
+    by_reason: dict[str, list[Denial]] = defaultdict(list)
+    for d in denials:
+        by_reason[d.reason].append(d)
+    for reason, items in sorted(by_reason.items(), key=lambda kv: -len(kv[1])):
+        print(f"\n[{len(items)}] {reason}")
+        for d in sorted(items, key=lambda x: x.ts):
+            print(f"  {d.ts:%m-%d %H:%M} {d.session[:8]} {d.tool}: {clip(d.target, width, args.full)}")
+    if not denials:
+        print("  none")
+
+    # --- notifications ----------------------------------------------------
+    print("\n== Banners by title")
+    for title, n in Counter(r.get("title", "?") for r in notes).most_common():
+        print(f"  {n:4d}  {title}")
+    print("\n== Banners by group")
+    for group, n in Counter(r.get("group") or "(none)" for r in notes).most_common():
+        print(f"  {n:4d}  {group}")
+    print("\n== Banners by click target kind")
+    def kind(link: str) -> str:
+        if not link:
+            return "(none)"
+        if link.startswith("console"):
+            return "console"
+        if "://" in link:
+            return link.split("://", 1)[0]
+        return "file/app"
+    for k, n in Counter(kind(r.get("link", "")) for r in notes).most_common():
+        print(f"  {n:4d}  {k}")
+
+    # --- repeat offenders -------------------------------------------------
+    print(f"\n== Repeat offenders ({args.repeat}+ times)")
+    found = False
+    rep_d: dict[tuple[str, str], list[Denial]] = defaultdict(list)
+    for d in denials:
+        rep_d[(d.reason, normalize(d.target)[:160])].append(d)
+    for (reason, _), items in sorted(rep_d.items(), key=lambda kv: -len(kv[1])):
+        if len(items) < args.repeat:
+            continue
+        found = True
+        days = sorted({f"{d.ts:%m-%d}" for d in items})
+        print(f"  denial x{len(items)} ({', '.join(days)}): {reason}")
+        print(f"    e.g. {clip(items[-1].target, width, args.full)}")
+    rep_n: dict[tuple[str, str], list[dict]] = defaultdict(list)
+    for r in notes:
+        rep_n[(r.get("title", "?"), normalize(r.get("body", ""))[:160])].append(r)
+    for (title, _), items in sorted(rep_n.items(), key=lambda kv: -len(kv[1])):
+        if len(items) < args.repeat:
+            continue
+        found = True
+        days = sorted({datetime.fromtimestamp(float(r.get("ts", 0))).strftime("%m-%d") for r in items})
+        print(f"  banner x{len(items)} ({', '.join(days)}): {title}")
+        print(f"    e.g. {clip(items[-1].get('body', ''), width, args.full)}")
+    if not found:
+        print("  none")
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

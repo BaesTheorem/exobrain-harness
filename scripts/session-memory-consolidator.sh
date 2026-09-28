@@ -102,8 +102,8 @@ For each transcript jsonl path above:
 5. Body format (same for new and delta memories): use the /session-memory skill structure with sections Decisions, Data Pulled, Tasks Created, People Updated, Open Threads, Active Themes, Next Session Hint. Each section 2-5 bullets max.
 
 6. Notification: count total files written (N = new + delta). If N > 0, run the macOS notification command:
-   osascript -e "display notification \"Saved N session memories\" with title \"Exobrain\" sound name \"Purr\""
-   (replace N with the actual count).
+   mist-voice/bin/mist-notify "Saved N session memories" "Exobrain" Purr console
+   (replace N with the actual count; run it from the harness directory, which is the working directory).
 
 7. End with a one-line summary listing each transcript and what you did with it (wrote/delta/skipped, with reason).
 
@@ -155,9 +155,19 @@ FAIL_LOG="$EXOBRAIN_LOG_DIR/session-memory-failures.log"
 RUN_OUT="$EXOBRAIN_LOG_DIR/session-memory-last.out"
 DIGEST_FILE="$MEMORY_DIR/${TODAY}_DIGEST.md"
 
+# Marker for the injection scan below: every memory file this run writes is
+# newer than it. (RUN_OUT is the wrong reference: it is written after the
+# memories, so `-newer "$RUN_OUT"` matched none of them.)
+SCAN_MARKER="$(mktemp -t consolidator-scan-marker)"
+trap 'rm -f "$SCAN_MARKER"' EXIT
+
+# Headless backstops: --permission-prompts none denies anything that would
+# prompt; the MCP wait caps how long a stalled server holds the first turn.
+export CLAUDE_CODE_MCP_STARTUP_WAIT_MS=20000
+
 # caffeinate: the 23:00 run must survive system sleep (a 2026-07-13 run stalled
 # 10 hours across a sleep and finished the next morning).
-echo "$PROMPT" | caffeinate -is "$CLAUDE_BIN" --print --dangerously-skip-permissions > "$RUN_OUT" 2>&1 &
+echo "$PROMPT" | caffeinate -is "$CLAUDE_BIN" --print --dangerously-skip-permissions --permission-prompts none > "$RUN_OUT" 2>&1 &
 CLAUDE_PID=$!
 (
     sleep $TIMEOUT_SEC
@@ -198,17 +208,35 @@ fi
 # quarantined (the hook annotates it at load time), but it is worth a banner:
 # it means a third party's text made it into MIST's own notes in a shape that
 # reads as a rule.
+#
+# The scan must never take the script down with it. From 2026-09-21 to
+# 2026-09-28 the scanner could not start under launchd (TCC denied the
+# interpreter), and `set -e` plus a discarded stderr turned that into a silent
+# exit 1 every night. Scanner exit codes: 0 clean, 1 hit, anything else is the
+# scanner failing, which is logged and treated as "nothing flagged".
 SCAN="$SCRIPT_DIR/security/bin/mist-injection-scan"
 if [ -x "$SCAN" ]; then
-    NEW_FILES="$(find "$MEMORY_DIR" -maxdepth 1 -name "${TODAY}_*.md" -type f -newer "$RUN_OUT" 2>/dev/null; echo "$DIGEST_FILE")"
-    FLAGGED="$(printf '%s\n' "$NEW_FILES" | sort -u | tr '\n' '\0' | xargs -0 "$SCAN" 2>/dev/null)"
+    NEW_FILES=()
+    while IFS= read -r f; do NEW_FILES+=("$f"); done < <(
+        { find "$MEMORY_DIR" -maxdepth 1 -name "${TODAY}_*.md" -type f -newer "$SCAN_MARKER" 2>/dev/null; echo "$DIGEST_FILE"; } | sort -u)
+    SCAN_ERR="$(mktemp -t consolidator-scan-err)"
+    SCAN_RC=0
+    FLAGGED="$("$SCAN" "${NEW_FILES[@]}" 2>"$SCAN_ERR")" || SCAN_RC=$?
+    # rc 1 with nothing on stdout is an interpreter crash, not a hit.
+    if [ "$SCAN_RC" -gt 1 ] || { [ "$SCAN_RC" -eq 1 ] && [ -z "$FLAGGED" ]; }; then
+        echo "[$(date +%Y%m%d_%H%M%S)] injection scan failed rc=$SCAN_RC: $(tail -c 300 "$SCAN_ERR" | tr '\n' ' ')" | tee -a "$FAIL_LOG"
+        FLAGGED=""
+    fi
+    rm -f "$SCAN_ERR"
     if [ -n "$FLAGGED" ]; then
         SCAN_LOG="$EXOBRAIN_LOG_DIR/injection-scan.log"
         { echo "[$(date +%Y%m%d_%H%M%S)] consolidator output flagged:"; printf '%s\n' "$FLAGGED" | sed 's/^/  /'; } >> "$SCAN_LOG"
         NOTIFY="$SCRIPT_DIR/mist-voice/bin/mist-notify"
-        [ -x "$NOTIFY" ] && "$NOTIFY" \
-            "Injection scanner flagged $(printf '%s\n' "$FLAGGED" | wc -l | tr -d ' ') line(s) in tonight's session memories. Read them before trusting them." \
-            "MIST guard" Basso "$SCAN_LOG" --group security || true
+        if [ -x "$NOTIFY" ]; then
+            "$NOTIFY" \
+                "Injection scanner flagged $(printf '%s\n' "$FLAGGED" | wc -l | tr -d ' ') line(s) in tonight's session memories. Read them before trusting them." \
+                "MIST guard" Basso "$SCAN_LOG" --group security || true
+        fi
     fi
 fi
 echo "[$(date)] Done"

@@ -1,0 +1,185 @@
+#!/bin/bash
+# harness-commit: stage, scan, commit and push the Exobrain harness repo.
+#
+#   bin/harness-commit "commit message"
+#   bin/harness-commit --dry-run ["message"]    everything except commit and push
+#
+# This is the only sanctioned commit path for unattended routines (the evening
+# wind-down calls it). A routine that runs `git commit` / `git push` itself
+# publishes to a PUBLIC repo with no check on what a fooled session wrote; this
+# script puts two checks in front of the push:
+#   1. the filename privacy audit from auto-commit-harness.sh (secrets, runtime
+#      state, OS junk, large binaries get gitignored instead of committed);
+#   2. the injection scanner over everything staged: whole file for added
+#      files, added lines only for modified ones. Rule files (CLAUDE.md,
+#      .claude/, security/, tests/, shell runners, READMEs) are scanned with
+#      `--exclude instructions`, as the nightly sweep does, since they quote
+#      the phrases legitimately.
+# auto-commit-harness.sh (launchd, 23:30) stays as the nightly sweep for
+# whatever interactive sessions left uncommitted.
+#
+# Exit codes: 0 committed and pushed (or nothing to do, or dry run passed)
+#             2 usage / wrong branch      3 scanner flagged staged text
+#             4 scanner failed to run (fail closed: nothing committed)
+#             5 commit or push failed
+# On exit 3 and 4 the changes are left staged for a human to read.
+# Every run is logged to ~/Library/Logs/exobrain/harness-commit.log.
+set -uo pipefail
+
+DRY=0
+MSG=""
+for a in "$@"; do
+	case "$a" in
+		--dry-run) DRY=1 ;;
+		-h|--help) sed -n '2,29p' "$0"; exit 0 ;;
+		*) MSG="$a" ;;
+	esac
+done
+if [ -z "$MSG" ]; then
+	[ "$DRY" -eq 1 ] && MSG="(dry run)" || { echo "usage: harness-commit [--dry-run] \"message\"" >&2; exit 2; }
+fi
+
+REPO="$(cd "$(dirname "$0")/.." && pwd)"
+LOG_DIR="$HOME/Library/Logs/exobrain"
+LOG="$LOG_DIR/harness-commit.log"
+SCAN_LOG="$LOG_DIR/injection-scan.log"
+NOTIFY="$REPO/mist-voice/bin/mist-notify"
+SCAN="$REPO/security/bin/mist-injection-scan"
+mkdir -p "$LOG_DIR"
+cd "$REPO" || exit 2
+
+TAG="run"; [ "$DRY" -eq 1 ] && TAG="dry-run"
+log() { echo "[$(date '+%Y%m%d_%H%M%S')] $TAG: $*" | tee -a "$LOG"; }
+banner() { [ -x "$NOTIFY" ] && "$NOTIFY" "$1" "$2" Basso "$3" --group security || true; }
+
+BRANCH="$(git rev-parse --abbrev-ref HEAD)"
+if [ "$BRANCH" != "main" ]; then
+	log "refused: on branch $BRANCH, not main"
+	exit 2
+fi
+
+# Dry run stages into a throwaway copy of the index, so the real index and the
+# working tree are untouched.
+if [ "$DRY" -eq 1 ]; then
+	TMP_INDEX="$(mktemp -t harness-commit-index)"
+	cp "$(git rev-parse --git-path index)" "$TMP_INDEX"
+	export GIT_INDEX_FILE="$TMP_INDEX"
+	trap 'rm -f "$TMP_INDEX"' EXIT
+fi
+
+# --- 1. Filename privacy audit over untracked files -----------------------
+# Same patterns as auto-commit-harness.sh. Keep the two lists in step.
+privacy_hit() {
+	local f="$1" base sz
+	base="$(basename "$f")"
+	case "$base" in
+		.DS_Store|*.swp|*.swo|Thumbs.db) echo "os-junk"; return ;;
+		.env|.env.*|*-token*|*token.json|*secret*|*secrets*|*.pem|*.key|credentials*.json) echo "secret"; return ;;
+		*-state.json|*.db|*.sqlite|*.sqlite3) echo "runtime-state"; return ;;
+	esac
+	if [ -f "$f" ]; then
+		sz=$(stat -f%z "$f" 2>/dev/null || echo 0)
+		if [ "$sz" -gt 5242880 ]; then
+			case "$base" in
+				*.png|*.jpg|*.jpeg|*.gif|*.mp3|*.mp4|*.mov|*.wav|*.zip|*.pdf) echo "large-binary"; return ;;
+			esac
+		fi
+	fi
+}
+
+IGNORED=()
+while IFS= read -r f; do
+	[ -n "$f" ] || continue
+	hit="$(privacy_hit "$f")"
+	[ -n "$hit" ] || continue
+	IGNORED+=("$f")
+	log "privacy audit: $f ($hit) gitignored, not committed"
+	if [ "$DRY" -eq 0 ] && ! grep -qxF "$f" .gitignore 2>/dev/null; then
+		printf '%s\n' "$f" >> .gitignore
+	fi
+done < <(git ls-files --others --exclude-standard)
+
+git add -A
+# In a dry run .gitignore was not edited, so drop the would-be-ignored files
+# from the throwaway index by hand.
+if [ "$DRY" -eq 1 ] && [ "${#IGNORED[@]}" -gt 0 ]; then
+	git rm -q --cached -- "${IGNORED[@]}" >/dev/null 2>&1 || true
+fi
+
+if git diff --cached --quiet; then
+	log "nothing to commit"
+	exit 0
+fi
+
+# --- 2. Injection scan over staged text -----------------------------------
+is_rule_file() {
+	case "$1" in
+		CLAUDE.md|.claude/*|security/*|tests/*|*.sh|scripts/*|README.md|*/README.md) return 0 ;;
+	esac
+	return 1
+}
+
+HITS=""
+SCAN_FAIL=""
+while IFS=$'\t' read -r status path; do
+	[ -n "$path" ] || continue
+	EXCL=()
+	is_rule_file "$path" && EXCL=(--exclude instructions)
+	err="$(mktemp -t harness-commit-scan)"
+	rc=0
+	if [ "$status" = "A" ]; then
+		out="$("$SCAN" ${EXCL[@]+"${EXCL[@]}"} "$path" 2>"$err")" || rc=$?
+	else
+		out="$(git diff --cached -- "$path" | "$SCAN" --added-lines ${EXCL[@]+"${EXCL[@]}"} 2>"$err")" || rc=$?
+		# --added-lines reports stdin positions; say which file they came from.
+		[ -n "$out" ] && out="$(printf '%s\n' "$out" | sed "s|^|$path: |")"
+	fi
+	if [ "$rc" -gt 1 ] || { [ "$rc" -eq 1 ] && [ -z "$out" ]; }; then
+		SCAN_FAIL="$SCAN_FAIL $path(rc=$rc: $(tail -c 200 "$err" | tr '\n' ' '))"
+	elif [ -n "$out" ]; then
+		HITS="$HITS$out"$'\n'
+	fi
+	rm -f "$err"
+done < <(git -c core.quotepath=off diff --cached --name-status --diff-filter=AM)
+
+if [ -n "$SCAN_FAIL" ]; then
+	log "refused: injection scanner failed on:$SCAN_FAIL"
+	[ "$DRY" -eq 0 ] && banner "harness-commit refused: the injection scanner failed to run. Nothing committed; changes left staged." "MIST guard" "$LOG"
+	exit 4
+fi
+
+HITS="$(printf '%s' "$HITS" | sed '/^$/d')"
+if [ -n "$HITS" ]; then
+	N="$(printf '%s\n' "$HITS" | wc -l | tr -d ' ')"
+	{ echo "[$(date '+%Y%m%d_%H%M%S')] harness-commit ($TAG) refused, staged text flagged:"; printf '%s\n' "$HITS" | sed 's/^/  /'; } >> "$SCAN_LOG"
+	log "refused: scanner flagged $N line(s); see $SCAN_LOG"
+	printf '%s\n' "$HITS" | sed 's/^/  /'
+	[ "$DRY" -eq 0 ] && banner "harness-commit refused: the injection scanner flagged $N staged line(s). Nothing committed; changes left staged for review." "MIST guard" "$SCAN_LOG"
+	exit 3
+fi
+
+STAT="$(git diff --cached --shortstat | sed 's/^ *//')"
+if [ "$DRY" -eq 1 ]; then
+	git diff --cached --name-status | sed 's/^/  /'
+	log "would commit: $STAT; message: $MSG"
+	exit 0
+fi
+
+# --- 3. Commit and push ---------------------------------------------------
+if ! git commit -q -m "$MSG"; then
+	log "git commit failed"
+	banner "harness-commit: git commit failed" "MIST URGENT" "$LOG"
+	exit 5
+fi
+SHA="$(git rev-parse --short HEAD)"
+if ! "$REPO/scripts/wait-for-network.sh" github.com 300; then
+	log "committed $SHA ($STAT), no network; the nightly sweep will push it"
+	exit 0
+fi
+if ! PUSH_ERR="$(git push -q origin main 2>&1)"; then
+	log "committed $SHA, push failed: $(printf '%s' "$PUSH_ERR" | tail -c 300 | tr '\n' ' ')"
+	banner "harness-commit: push of $SHA failed" "MIST URGENT" "$LOG"
+	exit 5
+fi
+log "committed and pushed $SHA ($STAT): $MSG"
+exit 0

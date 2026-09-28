@@ -9,6 +9,9 @@
 #
 # Design constraints:
 #   - Fail open. A missing tool or unparseable payload must never block edits.
+#     A missing linter still prints one WARN line (as additionalContext, exit
+#     0), so a session knows its edit went unchecked instead of reading
+#     silence as a pass.
 #   - Per-file only. Full-repo pyright OOMs node on this 8GB machine.
 #   - Fast. ruff is ms; pyright single-file is ~1-2s.
 
@@ -41,6 +44,7 @@ case "$file_path" in
 esac
 
 errors=""
+missing=""
 
 if [ -x "$RUFF" ]; then
     ruff_out="$(cd "$REPO_DIR" && "$RUFF" check --output-format concise "$file_path" 2>&1)"
@@ -48,6 +52,8 @@ if [ -x "$RUFF" ]; then
         errors="ruff:
 $ruff_out"
     fi
+else
+    missing="$missing ruff ($RUFF)"
 fi
 
 if [ -x "$PYRIGHT" ]; then
@@ -62,6 +68,8 @@ pyright:
 $pyright_diag"
         fi
     fi
+else
+    missing="$missing pyright ($PYRIGHT)"
 fi
 
 boundaries_out="$(cd "$REPO_DIR" && python3 checks/check_boundaries.py "$file_path" 2>&1)"
@@ -71,14 +79,22 @@ if [ $? -ne 0 ] && [ -n "$boundaries_out" ]; then
 $boundaries_out"
 fi
 
+warn=""
+[ -n "$missing" ] && warn="WARN post-edit-check: not installed, so $(basename "$file_path") was not checked by:$missing"
+
 if [ -n "$errors" ]; then
     {
+        [ -n "$warn" ] && echo "$warn"
         echo "post-edit check failed for $file_path"
         echo "$errors"
         echo
         echo "Fix these before moving on. If a finding is intentional, add a noqa with a reason (see pyproject.toml)."
     } >&2
     exit 2
+fi
+
+if [ -n "$warn" ]; then
+    printf '{"hookSpecificOutput":{"hookEventName":"PostToolUse","additionalContext":"%s"}}\n' "$warn"
 fi
 
 exit 0

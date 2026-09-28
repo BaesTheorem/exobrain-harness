@@ -12,6 +12,19 @@ export MIST_UNATTENDED=1
 
 LOG_DIR="$EXOBRAIN_LOG_DIR"
 TIMESTAMP=$(date +%Y%m%d_%H%M%S)
+FAIL_LOG="$LOG_DIR/plaud-failures.log"
+
+# Failure banners go through mist-notify (history, Console bell, click target).
+# The click opens the failure log, which holds the detail the banner truncates.
+notify_fail() {
+    local NOTIFY="$SCRIPT_DIR/mist-voice/bin/mist-notify"
+    [ -x "$NOTIFY" ] && "$NOTIFY" "$1" "Exobrain ERROR" Basso "$FAIL_LOG" --group plaud || true
+}
+
+# Headless-run environment: nobody answers a permission prompt (anything that
+# would prompt is denied), and a stalled MCP server can hold up the first turn
+# for at most 20s instead of indefinitely.
+export CLAUDE_CODE_MCP_STARTUP_WAIT_MS=20000
 
 # Serialize plaud/supernote processing: both append to processing-log.json.
 # macOS ships no flock(1), so python takes flock(2) on the inherited FD; the
@@ -28,10 +41,11 @@ while True:
         if time.time() >= deadline:
             sys.exit(1)
         time.sleep(5)
-' || { echo "[$(date +%Y%m%d_%H%M%S)] SKIPPED: could not acquire processing lock in 30m" >> "$EXOBRAIN_LOG_DIR/plaud-failures.log"; exit 0; }
+' || { echo "[$(date +%Y%m%d_%H%M%S)] SKIPPED: could not acquire processing lock in 30m" >> "$FAIL_LOG"; exit 0; }
 
 if ! command -v claude &>/dev/null; then
-    osascript -e 'display notification "Claude CLI not found -- cannot process transcripts" with title "Exobrain ERROR" sound name "Basso"'
+    echo "[$TIMESTAMP] Claude CLI not found -- cannot process transcripts" >> "$FAIL_LOG"
+    notify_fail "Claude CLI not found -- cannot process transcripts"
     # Touch the watched directory so launchd re-triggers when it next checks,
     # rather than silently consuming the WatchPaths event
     touch "$GDRIVE_PLAUD" 2>/dev/null
@@ -81,6 +95,7 @@ TIMEOUT_SEC=900
 claude \
     --print \
     --dangerously-skip-permissions \
+    --permission-prompts none \
     -p "Run /process-transcript to check for and process any new Plaud transcripts." \
     >"$LOG_DIR/process-$TIMESTAMP.out" \
     2>"$LOG_DIR/process-$TIMESTAMP.err" &
@@ -91,8 +106,8 @@ CLAUDE_PID=$!
         kill -TERM $CLAUDE_PID 2>/dev/null
         sleep 5
         kill -KILL $CLAUDE_PID 2>/dev/null
-        echo "[$TIMESTAMP] TIMEOUT after ${TIMEOUT_SEC}s -- claude --print killed" >> "$LOG_DIR/plaud-failures.log"
-        osascript -e "display notification \"Plaud processor hung -- killed after ${TIMEOUT_SEC}s\" with title \"Exobrain ERROR\" sound name \"Basso\""
+        echo "[$TIMESTAMP] TIMEOUT after ${TIMEOUT_SEC}s -- claude --print killed" >> "$FAIL_LOG"
+        notify_fail "Plaud processor hung -- killed after ${TIMEOUT_SEC}s"
     fi
 ) &
 KILLER_PID=$!
@@ -111,11 +126,11 @@ if [ $EXIT_CODE -ne 0 ]; then
     # stdout, not stderr. When stderr is empty, fall back to the stdout tail so the
     # failure log is never blank (that blank is exactly what made 2026-07-15 hard to diagnose).
     [ -z "$ERROR_MSG" ] && ERROR_MSG=$(tail -3 "$LOG_DIR/process-$TIMESTAMP.out" 2>/dev/null | tr '\n' ' ' | head -c 200)
-    osascript -e "display notification \"Transcript processing failed (exit $EXIT_CODE): $ERROR_MSG\" with title \"Exobrain ERROR\" sound name \"Basso\""
+    notify_fail "Transcript processing failed (exit $EXIT_CODE): $ERROR_MSG"
 
     # Log the failure for debugging
-    echo "[$TIMESTAMP] FAILED (exit $EXIT_CODE)" >> "$LOG_DIR/plaud-failures.log"
-    echo "  detail: $ERROR_MSG" >> "$LOG_DIR/plaud-failures.log"
+    echo "[$TIMESTAMP] FAILED (exit $EXIT_CODE)" >> "$FAIL_LOG"
+    echo "  detail: $ERROR_MSG" >> "$FAIL_LOG"
 fi
 
 # Clean up error file if empty
