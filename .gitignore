@@ -10,6 +10,10 @@
 
 # Claude Code runtime
 .claude/projects/
+# Claude Code's cache of claude.ai-synced skills. The directory name is the account's
+# org and account UUIDs and the contents are Anthropic's copyrighted skill trees plus
+# stale copies of local skills; never commit it. syncClaudeAiSkills is off in settings.
+.claude/skills/synced/
 .claude/plugins/
 .claude/session-memories/
 # session memories also land at repo root; keep both ignored (personal context)
