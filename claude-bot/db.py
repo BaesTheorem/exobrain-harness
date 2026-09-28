@@ -97,6 +97,20 @@ CREATE TABLE IF NOT EXISTS settings (
     key   TEXT PRIMARY KEY,
     value TEXT
 );
+
+-- Link previews the preview module posted, keyed both ways: a deleted post
+-- takes its previews down, a dismissed preview hands the post its embed back.
+CREATE TABLE IF NOT EXISTS link_previews (
+    preview_message   INTEGER PRIMARY KEY,
+    preview_channel   INTEGER NOT NULL,
+    source_channel    INTEGER NOT NULL,
+    source_message    INTEGER NOT NULL,
+    source_author     INTEGER NOT NULL,
+    url               TEXT NOT NULL,
+    source_suppressed INTEGER NOT NULL DEFAULT 0,
+    created           TEXT DEFAULT CURRENT_TIMESTAMP
+);
+CREATE INDEX IF NOT EXISTS link_previews_source ON link_previews (source_message);
 """
 
 # Note: the old webhook-mirror portal (bridges / bridge_messagemap /
@@ -200,3 +214,32 @@ class DB:
             "ON CONFLICT(key) DO UPDATE SET value=excluded.value",
             (key, json.dumps(value)),
         )
+
+    # --- link previews (modules/preview.py) ---
+    def add_link_preview(self, source_channel: int, source_message: int, source_author: int,
+                         preview_channel: int, preview_message: int, url: str,
+                         source_suppressed: bool) -> None:
+        self.execute(
+            "INSERT OR REPLACE INTO link_previews(preview_message,preview_channel,"
+            "source_channel,source_message,source_author,url,source_suppressed) "
+            "VALUES(?,?,?,?,?,?,?)",
+            (preview_message, preview_channel, source_channel, source_message,
+             source_author, url, int(source_suppressed)),
+        )
+
+    def previews_for_source(self, source_message: int) -> list[sqlite3.Row]:
+        return self.query(
+            "SELECT * FROM link_previews WHERE source_message=?", (source_message,)
+        )
+
+    def preview_by_message(self, preview_message: int) -> sqlite3.Row | None:
+        rows = self.query(
+            "SELECT * FROM link_previews WHERE preview_message=?", (preview_message,)
+        )
+        return rows[0] if rows else None
+
+    def forget_previews_for_source(self, source_message: int) -> None:
+        self.execute("DELETE FROM link_previews WHERE source_message=?", (source_message,))
+
+    def forget_preview(self, preview_message: int) -> None:
+        self.execute("DELETE FROM link_previews WHERE preview_message=?", (preview_message,))

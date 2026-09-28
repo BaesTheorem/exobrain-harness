@@ -28,7 +28,7 @@ Feature phases land as additional modules:
 | 5 ✅ | `modules/chatter.py` | Claude-powered chat persona (runs on the `claude` CLI) |
 | 6 ✅ | `modules/portal.py` | `!portal` one-off jump links between channels (Fletcher teleport) |
 | 7 ✅ | `modules/ace.py` | `!ace` Ace Attorney video generator (isolated venv, throttled) |
-| 8 ✅ | `modules/instagram.py` | reply to an Instagram link + @mention MIST → reel embeds as inline video (Fletcher kkinstagram fix) |
+| 8 ✅ | `modules/preview.py` | link previews: X/Twitter, TikTok, Instagram, Reddit, Tumblr, Telegram, Facebook/Bilibili/VK/... and Discord message links get a playable or readable repost when Discord's own unfurl falls short (Fletcher `preview_messagelink_function`) |
 | 9 ✅ | `modules/threads.py` | `!preference use_threads` + auto-join: opted-in users are added to every new public thread (Fletcher `use_threads`) |
 | 10 ✅ | `modules/gphotos.py` | any Google Photos video link → MIST replies with a [gphotos-embed](https://github.com/BaesTheorem/gphotos-embed) link that plays inline |
 
@@ -114,6 +114,58 @@ owner's private life stays out). Each guest gets one reply per
 `others_cooldown` seconds (default 15; extra messages get an hourglass
 reaction), and guest replies run one at a time so a busy channel can't fan out
 CLI processes on the host.
+
+## Link previews (`modules/preview.py`)
+
+Discord unfurls some hosts badly (X without the video, Instagram as a login
+wall, Reddit video as a still) or not at all (Tumblr, TikTok short links).
+This module is Fletcher's link-preview engine, trimmed to the sites a friend
+group actually pastes. Every message in a served server (and DMs) is scanned;
+for each link MIST works out whether she can do better than Discord did and,
+only then, replies with a preview. The decision rules are Fletcher's:
+
+| Host | What happens |
+|------|--------------|
+| X / Twitter, nitter mirrors | the [fxtwitter API](https://api.fxtwitter.com) says what the post carries. Video and multi-photo posts always get a `fixupx.com` link; text posts only when Discord's card is missing, a placeholder ("Post"), or cuts the text off |
+| TikTok | short links are expanded first. If Discord's unfurl has no player, `tiktokez.com` is probed and posted; failing that the video is re-uploaded via yt-dlp |
+| Instagram | `kkinstagram.com` probed as Discord's crawler (it answers with the mp4 for reels). A reel or photo reposts with the caption above it; a post every mirror refuses falls back to the cover still from Instagram's own page |
+| Reddit | `vxreddit.com`, only when it adds a video Discord's card lacks |
+| Tumblr | `tpmblr.com` (fxtumblr), only when Discord rendered nothing or its generic "Tumblr" card |
+| Telegram | a card built from the post's OpenGraph tags |
+| Facebook, Bilibili, VK, ok.ru, Rutube, Newgrounds, Loom, Snapchat | no fixer exists: yt-dlp downloads the media and it is re-uploaded as an attachment (under the server's upload cap). A Facebook post with no video gets an OG card |
+| `discord.com/channels/...` | the linked message is quoted ("unrolled"): author, relative time, body, attachments re-uploaded, only if the poster could read that channel |
+
+Every preview is a **silent reply** to the post it belongs to, with a small
+footer that points reactions at the original and names the dismiss button:
+
+```
+-# [link](https://fixupx.com/...) · react to the [original post](<jump>) · ✖️ here drops this preview
+```
+
+- React **✖️** on a preview to delete it (the poster, an admin, or the owner).
+  If MIST had suppressed the original's embed she hands it back.
+- **Deleting the original** deletes its previews.
+- **Editing** a new link into a post under five minutes old previews it.
+- Wrap a link in `<angle brackets>` or put `#nofx` anywhere in the message to
+  opt out. A `||spoilered||` link gets a spoilered preview.
+- `!preview` (aliases `!embed`, `!fix`) as a reply, with a URL, or with a
+  message id asks for a preview on purpose; so does a 🔭 reaction, or replying
+  to a post with nothing but an @mention of MIST.
+- One paste = one preview: the same link from the same person in the same
+  channel inside a minute is skipped, and a tweet already shown in a channel
+  isn't re-shown from a mirror address for five minutes.
+
+**Suppressing the original** (`suppress_original`, on by default) hides the
+poster's own card so the media isn't doubled. That is a `message.edit` on
+someone else's post, which needs the **Manage Messages** permission; without
+it the original's card just stays next to the preview. Grant it to the bot's
+role in each server for the tidy version.
+
+Probes fetch the fixer page with Discord's crawler user agent and read its
+OpenGraph tags (or notice it answered with the video file itself); Discord's
+own unfurl of the original is awaited via the `MESSAGE_UPDATE` it dispatches,
+up to a few seconds. Downloads run one at a time. `yt-dlp` is optional (in
+`requirements.txt`); without it the re-upload paths just do nothing.
 
 ## Portals (one-off jump links)
 

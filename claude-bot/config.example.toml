@@ -67,14 +67,22 @@ admin_ids = [000000000000000000]  # your Discord user ID(s) -- full command acce
 #                            # The bot needs the Manage Webhooks permission in both
 #                            # channels. Portals may cross servers the bot is in.
 
-# [instagram]                # Reel embedder: reply to a message with an Instagram
-# enabled = true             # link and @mention MIST -- she reposts it so the reel
-#                            # plays inline (Discord's native IG embed is broken).
-# proxy_domain = "kkinstagram.com"  # embed-fixer frontend (Fletcher uses this one)
-# reupload_video = false     # if true AND yt-dlp is installed, download the reel
-#                            # and re-upload the mp4 directly (best when it works,
-#                            # but Instagram often blocks yt-dlp; kkinstagram is
-#                            # the reliable default).
+# [preview]                 # Link previews (Fletcher's preview engine): X/
+# enabled = true             # Twitter, TikTok, Instagram, Reddit, Tumblr, Telegram,
+#                            # Facebook/Bilibili/VK/... and Discord message links
+#                            # get a repost that plays or reads when Discord's own
+#                            # unfurl falls short. See README "Link previews".
+# max_per_message = 3        # links previewed per post (hard ceiling 5)
+# suppress_original = true   # hide the poster's own card once a preview is up
+#                            # (needs Manage Messages; skipped without it)
+# reupload = true            # download + re-upload video where no fixer exists
+#                            # (needs yt-dlp in the venv)
+# unroll = true              # quote linked discord.com/channels/... messages
+# tweet_host = "fixupx.com"  # the embed-fixer frontends, one per host
+# tiktok_host = "tiktokez.com"
+# instagram_host = "kkinstagram.com"
+# reddit_host = "vxreddit.com"
+# tumblr_host = "tpmblr.com"
 
 # [gphotos]                  # Google Photos video embedder. Any Google Photos
 # enabled = true             # share link that turns out to be a video gets a
