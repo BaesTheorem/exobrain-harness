@@ -255,6 +255,8 @@ Method: `search_companies` to confirm the company URN (disambiguate look-alikes)
 
 If the LinkedIn MCP is unavailable, note "contact research pending (LinkedIn MCP unavailable)" on the listing and fall back to the company careers page / company LinkedIn.
 
+**Always surface the recruiter and the role's reporting line, whatever the connection degree** (Alex 2026-09-28). When Alex asks for connections, contacts, or people at an employer, the answer has two parts and both are required: (1) warm paths through his 1st/2nd-degree network, ranked first, and (2) the recruiter(s) and the direct line managers of the role, even when every one of them is 3rd+. Mark each person's degree so the ranking stays visible. A network-only answer that omits the recruiter and hiring manager is incomplete. Check the posting page itself for names: some ATSes (JobScore) list a "Hiring Manager" and "Recruiter" on the job page, and that beats any LinkedIn inference. When the JD names a manager title that LinkedIn can't find (e.g. "Director, Information Security"), say so explicitly.
+
 ## AI Safety Fellowship Lane (gate variant)
 
 Alex's standing instruction (2026-07-25): **paid AI safety fellowships are in the pipeline regardless of location.** They run on a modified gate set because the standard four gates would kill essentially all of them -- fellowships are fixed-term by design (gate 2) and most are in-person in the Bay Area, DC, or London (gate 1). Dropping the lane on those grounds is the failure mode this section exists to prevent. Canonical gate text lives in the gitignored `Projects/Get new job/Claude Reference.md` § "Carve-out: paid AI safety fellowships"; read it at scan time.
