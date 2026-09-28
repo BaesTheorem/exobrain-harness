@@ -9,7 +9,7 @@ which process did it. This makes sure that never happens silently again.
 
 ## What it does
 
-`mem-watchdog.py` runs as a persistent launchd daemon and every 60s:
+`mem-watchdog.py` runs as a persistent launchd daemon and every 20s:
 
 - logs the top 5 processes by resident memory to `mem-watchdog.log`
 - **warns** (macOS notification + sound) when any single process crosses
@@ -18,6 +18,12 @@ which process did it. This makes sure that never happens silently again.
   stays above `KILL_GB` (default 12GB) for 2 consecutive checks, unless it is on
   the protected list (kernel_task, WindowServer, Finder, the watchdog itself,
   etc.). At 12GB on an 8GB machine a process is unambiguously a runaway.
+- **emergency-kills** any unprotected process on the FIRST read above
+  `EMERGENCY_GB` (default 16GB), with no streak, because at that size the
+  machine can freeze before a second read happens.
+- **warns** (at most hourly) when total swap used exceeds `SWAP_WARN_GB` (default 5.5GB), the
+  early sign of a leak spread across many processes that no single-process
+  threshold catches.
 - **fast-kills stateless search tools** (`EXPENDABLE`, default `ugrep,bfs`) on
   the FIRST read above `EXPENDABLE_KILL_GB` (default 3GB), no streak, no
   notification. Claude Code shadows `grep`/`find` with its embedded
@@ -33,10 +39,13 @@ the exact culprit is always identifiable after the fact.
 
 | Var | Default | Meaning |
 |---|---|---|
-| `MEMWD_CHECK_SECS` | 60 | seconds between checks |
+| `MEMWD_CHECK_SECS` | 20 | seconds between checks |
 | `MEMWD_WARN_GB` | 5.0 | notify above this RSS |
 | `MEMWD_KILL_GB` | 12.0 | auto-kill above this RSS |
+| `MEMWD_EMERGENCY_GB` | 16.0 | kill on the first read above this, no streak |
+| `MEMWD_SWAP_WARN_GB` | 5.5 | notify when total swap used exceeds this |
 | `MEMWD_SUSTAINED` | 2 | consecutive over-threshold reads before killing |
+| `MEMWD_WARN_THROTTLE` | 600 | seconds before the same process can warn again |
 | `MEMWD_AUTO_KILL` | 1 | set `0` for warn-only (no killing) |
 | `MEMWD_TOP_N` | 5 | how many processes to log each tick |
 | `MEMWD_EXPENDABLE` | `ugrep,bfs` | comma list of comm names killed on first read over the expendable threshold |
@@ -60,6 +69,7 @@ Two important macOS gotchas dictate the layout:
 RT="$HOME/Library/Application Support/mem-watchdog"
 mkdir -p "$RT"
 cp mem-watchdog.py "$RT/mem-watchdog.py"          # runtime copy (out of TCC's way)
+(cd .. && pwd -P) > "$RT/harness-dir"             # lets the copy find mist-voice/bin/mist-notify
 cp com.exobrain.mem-watchdog.plist ~/Library/LaunchAgents/
 launchctl bootstrap gui/$(id -u) ~/Library/LaunchAgents/com.exobrain.mem-watchdog.plist
 launchctl enable gui/$(id -u)/com.exobrain.mem-watchdog

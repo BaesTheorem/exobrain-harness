@@ -15,7 +15,7 @@ When new files land, launchd fires Claude Code in `--print` mode to run the rele
 | `run-process-supernote.sh` | launchd wrapper invoked when new Supernote files land. Same pattern -- fast bailout if every `.note` file's mtime is already covered by the processing log. |
 | `supernote-parser.py` | Standalone helper used by `/process-supernote`. Reads a `.note` file with `supernotelib`, exports each page as PNG, and computes SHA-256 page hashes for change detection. |
 | `com.exobrain.plaud-watcher.plist` | launchd plist. WatchPaths: `~/My Drive/Plaud`. Throttle 30s, fallback StartInterval 1800s in case Google Drive mounts after launchd's initial check. |
-| `com.exobrain.supernote-watcher.plist` | launchd plist. WatchPaths: `~/My Drive/Supernote/Note`. Throttle 30s. |
+| `com.exobrain.supernote-watcher.plist` | launchd plist. WatchPaths: `~/My Drive/Supernote/Note`. Throttle 60s, fallback StartInterval 1800s. |
 
 Both wrapper scripts source `../config.sh` for shared paths (`HARNESS_DIR`, `GDRIVE_PLAUD`, `GDRIVE_SUPERNOTE`, `PROCESSING_LOG`).
 

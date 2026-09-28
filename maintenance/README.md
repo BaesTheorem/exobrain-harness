@@ -109,13 +109,19 @@ maintenance/bin/mist-tcc-carry --check   # report only; exit 1 = grants pending
 maintenance/bin/mist-tcc-carry --prune   # also drop rows for uninstalled versions
 ```
 
-**Two triggers, because neither covers everything.** The `session-start` hook
-runs it on every interactive session (silent when there's nothing to do). The
-`com.exobrain.tcc-carry-forward` agent watches the versions **directory** and
-fires the instant the updater drops a new binary, which is what covers launchd
-routines firing overnight before Alex ever opens a session. WatchPaths targets
-the directory, not a file: the changing filename *is* the problem, so there is
-no stable file to watch.
+**Two triggers.** The `com.exobrain.tcc-carry-forward` agent watches the
+versions **directory** and fires the instant the updater drops a new binary,
+which is what covers launchd routines firing overnight before Alex ever opens a
+session. WatchPaths targets the directory, not a file: the changing filename
+*is* the problem, so there is no stable file to watch. `claude-stable-path.sh`
+(below) also runs it with `--prune` after every re-pin.
+
+The `session-start` hook does **not** run it and must never probe TCC itself.
+Inside a hook, TCC judges the claude CLI, which sits at an explicit "Don't
+Allow", so every probe raised the "access data from other apps" dialog (about
+five a day by 2026-08-21). The hook only reads the verdict the launchd job
+leaves in `.claude/hooks/state/tcc-report`; see the comment block above its TCC
+section.
 
 Full Disk Access itself (`kTCCServiceSystemPolicyAllFiles`) lives in the
 **system** database and needs root, so it cannot be carried. It still has to be
@@ -183,3 +189,34 @@ then treats it as a different program and its FDA row must be removed and
 re-added by hand (toggling is not enough). The heal notification says so.
 This is one-time per python minor series now that stubs link via the
 stable opt path.
+
+## claude-stable-path.sh
+
+Pins the Claude Code CLI to one path that never changes, so its TCC grants stop
+evaporating on every auto-update. The native installer drops each release at its
+own versioned path (`~/.local/share/claude/versions/<version>`), and TCC keys
+every grant the bare `claude` binary holds by path, so each release is a new
+identity; Full Disk Access lives in the SIP-protected system database, so no
+script can carry it forward.
+
+The script keeps a real copy (not a symlink; tccd records the resolved target)
+of the newest release at `~/.local/share/claude/stable/claude` and points
+`~/.local/bin/claude` at it. Grant Full Disk Access to the stable path once and
+it holds, because the code requirement macOS stores for this binary is
+version-independent. It refuses any binary that fails `codesign --verify
+--strict` against Anthropic's requirement, and replaces by rename so running
+processes keep their inode. Afterwards it runs `tcc_carry_forward.py --prune`.
+
+### Run by
+
+`com.exobrain.claude-stable-path` (WatchPaths on the versions dir and
+`~/.local/bin/claude`, plus RunAtLoad). `claude-cli-autoupdate.sh` also calls it
+with `--now` right after an update to close the race.
+
+## wifi-diag.sh
+
+A one-shot captive-portal Wi-Fi diagnostic, run by hand while connected to a
+portal network that has no internet yet. It records the associated network,
+DHCP lease and default route, DNS servers, MAC randomization state, and related
+checks into `wifi-diag-out.txt` next to the script (gitignored), so MIST can read
+it after you reconnect to a working network. No launchd job.

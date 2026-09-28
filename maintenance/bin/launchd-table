@@ -1,0 +1,186 @@
+#!/usr/bin/env python3
+"""Print the README's launchd table from the plists git actually tracks.
+
+Usage: maintenance/bin/launchd-table   (run from anywhere inside the repo)
+
+For every plist git tracks or would track (`git ls-files --cached --others --exclude-standard`) it reads the Label, the trigger
+(StartCalendarInterval / StartInterval / WatchPaths / KeepAlive / RunAtLoad),
+and the script ProgramArguments runs, and checks `launchctl list` for whether
+the job is loaded on this machine (root\nLaunchDaemons in /Library/LaunchDaemons count as loaded). The Purpose column is the first line of the
+target script's header comment or docstring, so fix a bad purpose at the
+script, not in the README.
+
+Plists are parsed with `plutil -convert json` rather than plistlib: plutil is
+what launchd-adjacent tooling uses and it tolerates the `--` inside XML
+comments that Python's strict expat parser rejects.
+"""
+
+from __future__ import annotations
+
+import json
+import re
+import subprocess
+from pathlib import Path
+
+DAYS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]
+SCRIPT_SUFFIXES = (".sh", ".py", ".js", ".mjs")
+
+
+def repo_root() -> Path:
+    out = subprocess.check_output(
+        ["git", "rev-parse", "--show-toplevel"], cwd=Path(__file__).resolve().parent, text=True
+    )
+    return Path(out.strip())
+
+
+def load_plist(path: Path) -> dict:
+    out = subprocess.check_output(["plutil", "-convert", "json", "-o", "-", str(path)])
+    return json.loads(out)
+
+
+def loaded_labels() -> set[str]:
+    try:
+        out = subprocess.check_output(["launchctl", "list"], text=True)
+    except (OSError, subprocess.CalledProcessError):
+        return set()
+    return {line.split("\t")[-1] for line in out.splitlines()[1:]}
+
+
+def fmt_interval(seconds: int) -> str:
+    if seconds % 3600 == 0:
+        return f"every {seconds // 3600}h"
+    if seconds % 60 == 0:
+        return f"every {seconds // 60} min"
+    return f"every {seconds}s"
+
+
+def fmt_calendar(entry: dict) -> str:
+    hour, minute = entry.get("Hour"), entry.get("Minute", 0)
+    when = f"{hour:02d}:{minute:02d}" if hour is not None else f":{minute:02d} hourly"
+    if "Weekday" in entry:
+        return f"{DAYS[entry['Weekday']]} {when}"
+    if "Day" in entry:
+        return f"day {entry['Day']} {when}"
+    return when
+
+
+def fmt_schedule(p: dict, home: str) -> str:
+    parts: list[str] = []
+    cal = p.get("StartCalendarInterval")
+    if cal:
+        entries = cal if isinstance(cal, list) else [cal]
+        shown = [fmt_calendar(e) for e in entries]
+        if len(shown) > 4:
+            shown = shown[:3] + [f"+{len(shown) - 3} more"]
+        parts.append("Calendar: " + ", ".join(shown))
+    if "StartInterval" in p:
+        parts.append(fmt_interval(p["StartInterval"]))
+    for wp in p.get("WatchPaths", []):
+        parts.append("WatchPaths: `" + wp.replace(home, "~") + "`")
+    if p.get("KeepAlive"):
+        parts.append("KeepAlive daemon")
+    if p.get("RunAtLoad"):
+        parts.append("RunAtLoad")
+    return "; ".join(parts) or "manual"
+
+
+def target_script(p: dict, root: Path, plist_dir: Path) -> tuple[Path | None, str]:
+    """Return (script path in this repo or None, how to display what runs)."""
+    args = p.get("ProgramArguments") or [p.get("Program", "")]
+    if "-m" in args:  # python -m package.module
+        mod = args[args.index("-m") + 1]
+        for base in (plist_dir, plist_dir.parent):
+            cand = base / (mod.replace(".", "/") + ".py")
+            if cand.is_file():
+                return cand, f"`{cand.relative_to(root)}`"
+        return None, f"`python -m {mod}` (external package)"
+    for arg in args[1:] + args[:1]:
+        if "/.venv/" in arg or not arg.startswith("/"):
+            continue
+        m = re.search(r"Exobrain harness/(.+)$", arg)  # plists carry the owner's clone path
+        if m and (root / m.group(1)).is_file():
+            cand = root / m.group(1)
+            return cand, f"`{cand.relative_to(root)}`"
+        if arg.endswith(SCRIPT_SUFFIXES):
+            # installed copy outside the repo (e.g. mem-watchdog under Application Support)
+            cand = plist_dir / Path(arg).name
+            if cand.is_file():
+                return cand, f"`{cand.relative_to(root)}` (installed copy)"
+    return None, ""
+
+
+def purpose(script: Path | None) -> str:
+    """First sentence of the script's header comment or docstring."""
+    if script is None or not script.is_file():
+        return ""
+    try:
+        lines = script.read_text(errors="replace").splitlines()[:40]
+    except OSError:
+        return ""
+    para: list[str] = []
+    in_doc = False
+    for raw in lines:
+        line = raw.strip()
+        if line.startswith("#!") or re.match(r"^#\s*(-\*-|shellcheck|noqa|pyright|type:)", line):
+            continue
+        if line.startswith(('"""', "'''")):
+            in_doc = True
+            line = line[3:]
+        if not (in_doc or line.startswith(("#", "//"))):
+            if para:
+                break
+            if line:
+                break
+            continue
+        text = line.lstrip("#/").strip().rstrip('"').rstrip("'").strip()
+        if not text:
+            if para:
+                break
+            continue
+        if text in (script.name, script.stem) or text.startswith(script.name + " <"):
+            continue
+        if re.fullmatch(r"[\w.-]+\s*(<.*)?", text) and not para:
+            continue
+        if para and not para[-1].endswith((".", "!", "?", ":", ",", ";")) and text[0].isupper():
+            para[-1] += "."  # a title line with no period ends a sentence
+        para.append(re.sub(r"^[\w.-]+\.(sh|py)\s*(--|:)\s*", "", text))
+        joined = " ".join(para)
+        if re.search(r"[.!?](\s|$)", joined) or len(joined) > 160:
+            break
+    joined = " ".join(para)
+    m = re.match(r"(.+?[.!?])(\s|$)", joined)
+    out = (m.group(1) if m else joined).replace("|", "/")
+    return out if len(out) <= 160 else out[:157].rsplit(" ", 1)[0] + "..."
+
+
+def main() -> None:
+    root = repo_root()
+    home = str(Path.home())
+    loaded = loaded_labels()
+    files = subprocess.check_output(["git", "ls-files", "--cached", "--others", "--exclude-standard", "*.plist"], cwd=root, text=True).split()
+    print("| Label | Plist | Trigger | Runs | Purpose | Loaded here |")
+    print("|-------|-------|---------|------|---------|-------------|")
+    for rel in files:
+        p = load_plist(root / rel)
+        label = p.get("Label", Path(rel).stem)
+        script, runs = target_script(p, root, (root / rel).parent)
+        if label in loaded:
+            state = "yes"
+        elif (Path("/Library/LaunchDaemons") / f"{label}.plist").exists():
+            state = "yes (root daemon)"
+        else:
+            state = "**no**"
+        print(
+            f"| `{label}` | `{rel}` | {fmt_schedule(p, home)} | {runs} | {purpose(script)} | {state} |"
+        )
+    n_loaded = sum(
+        1
+        for f in files
+        if (lbl := load_plist(root / f).get("Label")) in loaded
+        or (Path("/Library/LaunchDaemons") / f"{lbl}.plist").exists()
+    )
+    print(f"\n{len(files)} plists; {n_loaded} loaded on this machine.")
+
+
+if __name__ == "__main__":
+    main()

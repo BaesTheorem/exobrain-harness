@@ -43,6 +43,9 @@ locked (fail-safe).
 
 - `server.py` -- the conversation brain (FastAPI WebSocket + TwiML endpoint).
 - `call.py` -- places an outbound call to your phone.
+- `server_mist.py` -- the same brain and PIN security, with a fully local audio path (Twilio Media Streams) so the caller hears MIST's offline cloned voice. See `README-MIST.md`.
+- `call_mist.py` -- places an outbound test call routed to `server_mist.py`'s `/media` stream.
+- `README-MIST.md` -- setup and trade-offs for the MIST-voice variant.
 - `.env` -- real credentials (gitignored). Built from `.env.example`.
 - `requirements.txt` -- Python deps.
 

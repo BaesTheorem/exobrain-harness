@@ -114,7 +114,9 @@ fi
 # Re-point the user-database grants at the stable path too, now that it is the
 # live identity. Runs under its own FDA-holding interpreter, so this read is
 # silent; see tcc_carry_forward.py.
-CARRY="$HOME/Documents/Exobrain harness/maintenance/venv/bin/mist-tcc-python3"
-[ -x "$CARRY" ] && "$CARRY" "$HOME/Documents/Exobrain harness/maintenance/tcc_carry_forward.py" --prune >>"$LOG" 2>&1
+# maintenance/ is wherever this script lives.
+MAINT_DIR="$(cd "$(dirname "$0")" && pwd)"
+CARRY="$MAINT_DIR/venv/bin/mist-tcc-python3"
+[ -x "$CARRY" ] && "$CARRY" "$MAINT_DIR/tcc_carry_forward.py" --prune >>"$LOG" 2>&1
 
 exit 0

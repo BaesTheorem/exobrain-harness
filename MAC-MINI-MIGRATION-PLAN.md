@@ -1,5 +1,7 @@
 # Mac Mini Server Migration Plan
 
+> **Historical plan.** Last substantive edit 2026-07-15. The inventory below lists 10 jobs as of that date, while 80 `com.exobrain.*` / `com.mist.*` jobs were loaded on 2026-09-28 (`launchctl list | grep -cE 'exobrain|mist'`), and "Discord is the only off-network entry point" no longer holds: `phone/` (Twilio voice calls) and the MIST Console iOS tunnel are also reachable from outside. For rebuilding a machine use `RESTORE.md`; for the current job list use the generated launchd table in `README.md` (`maintenance/bin/launchd-table`). Kept for the heartbeat-versus-client design, which still applies if the split happens.
+
 Move the always-on parts of the exobrain harness to a dedicated Mac Mini so the laptop can sleep without breaking automation, Discord, or phone access.
 
 ## Goal
@@ -77,7 +79,6 @@ All of these currently run on the MacBook. **Move all to Mini, disable all on Ma
 | `com.exobrain.backup`                       | Backup of exobrain harness                |
 | `com.exobrain.vault-snapshot`               | Vault snapshot                            |
 | `com.exobrain.bodyguard-weekly`             | Weekly bodyguard run                      |
-| `com.exobrain.session-memory-consolidator`  | Session memory consolidation              |
 
 **LAN-bound jobs:** `awair-co2-watcher` polls a device on the home network. Mini will be on the same LAN -- confirmed.
 
@@ -124,7 +125,7 @@ For the first week, watch for duplicate processing:
 
 ## Remote access -- phone to Mini
 
-Discord is the only off-network entry point. No tunnel software needed -- Discord traffic is outbound from the Mini, so as long as the Mini has internet, the bot works from anywhere your phone has Discord.
+Discord was the only off-network entry point when this plan was written (see the banner at the top for what has changed since). No tunnel software needed -- Discord traffic is outbound from the Mini, so as long as the Mini has internet, the bot works from anywhere your phone has Discord.
 
 If a future need for SSH / Screen Sharing from outside the home network emerges, revisit Tailscale (free for personal use, install on Mini + MacBook + iPhone, gives stable reachable hostname). Out of scope for the initial migration.
 

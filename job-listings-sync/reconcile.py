@@ -31,9 +31,7 @@ import sys
 from datetime import date
 from pathlib import Path
 
-LISTINGS = Path(
-    "/Users/alexhedtke/Exobrain/Projects/Get new job/Job Listings"
-)
+LISTINGS = Path.home() / "Exobrain" / "Projects" / "Get new job" / "Job Listings"
 
 
 def parse_frontmatter(text: str) -> tuple[dict[str, str], str, str]:

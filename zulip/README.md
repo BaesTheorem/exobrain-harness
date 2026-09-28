@@ -83,7 +83,8 @@ bin/zulip-admin mint-bot "Jane"        # same message, plus a bot Alex minted fo
 
 The friend joins with the invite link, then hands the kit's link to their
 Claude Code and asks it to set them up. The note at the top of the kit's
-README tells the Claude what to do: read `AGENT-SETUP.md`, get the bot config
+README tells the Claude what to do: read `AGENT-SETUP.md` (in the kit repo, not
+here), get the bot config
 from the human (or walk them through creating one), then run
 
 ```
@@ -123,7 +124,8 @@ sets the owner on the spot.
   direct message to Alex in Zulip.
 - Anyone in the org can trigger a MIST session by @mentioning her. Treat org
   membership as trust: only friends get invites.
-- Abuse limits (`limits.json`, read live by `usage_ledger.py`): per sender 4 sessions
+- Abuse limits (`limits.json`, read live by `usage_ledger.py`, which ships in the
+  external [claude-zulip-kit](https://github.com/BaesTheorem/claude-zulip-kit) package, not this repo): per sender 4 sessions
   an hour and 12 a day, $3 of list-price cost a day per sender and $15 for the
   org, plus `--max-budget-usd 2` per session from the plist. Alex is exempt.
   A blocked mention gets a canned reply through the API (no tokens) and Alex

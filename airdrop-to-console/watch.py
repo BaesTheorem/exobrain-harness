@@ -27,7 +27,8 @@ import urllib.request
 
 HOME = os.path.expanduser("~")
 DOWNLOADS = os.path.join(HOME, "Downloads")
-HARNESS = "/Users/alexhedtke/Documents/Exobrain harness"
+# The harness root is the parent of this module's directory.
+HARNESS = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 ARCHIVE = os.path.join(HARNESS, "tmp", "images", "airdrop")
 STATE_PATH = os.path.join(HARNESS, "airdrop-to-console", "state.json")
 CONSOLE = "http://127.0.0.1:5014"

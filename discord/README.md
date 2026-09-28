@@ -7,30 +7,31 @@ Fetches messages from a friend group Discord server for daily briefing consumpti
 ### `discord-digest-fetch.py`
 Python script that fetches recent messages from Discord channels via REST API. Gitignored because it contains a hardcoded username-to-real-name mapping for the friend group.
 
-**To rebuild**: Create a Python script that:
-1. Uses `urllib.request` (stdlib only, no dependencies) to call the Discord API
-2. Fetches messages from configured channel IDs using a bot token from env var `DISCORD_BOT_TOKEN`
-3. Maps Discord usernames to real names via a `USERNAME_MAP` dict
-4. Writes output to `discord-digest.json` with structure:
+**To rebuild**: Create a Python script (stdlib only, `urllib.request`) that:
+1. Reads `DISCORD_BOT_TOKEN` from `~/.claude/channels/discord/.env` (a `KEY=value` file; the same token `claude-bot/` and `discord-send.py` use). It does not read the process environment, so the plist needs no token.
+2. Fetches messages from a `CHANNELS` dict mapping channel IDs to `{"name": "..."}`, paginating back `--hours N` (default 24). For the channel named `Hangouts` it also fetches recent threads.
+3. Maps Discord user IDs/usernames to real names via a `USERNAME_MAP` dict (the reason the script is gitignored).
+4. Writes `discord/discord-digest.json` with this shape, plus a timestamped copy to `~/My Drive/Discord/`:
    ```json
    {
-     "fetched_at": "ISO-8601 timestamp",
+     "last_attempted_fetch": "ISO-8601",
+     "last_successful_fetch": "ISO-8601",
+     "generated_at": "ISO-8601",
+     "hours_back": 24,
      "channels": {
-       "channel-name": [
-         {
-           "author": "Real Name",
-           "username": "discord_handle",
-           "content": "message text",
-           "timestamp": "ISO-8601",
-           "attachments": [],
-           "mentions": []
-         }
-       ]
+       "<channel_id>": {
+         "name": "General",
+         "message_count": 3,
+         "messages": [
+           {"id": "...", "author": "Real Name", "author_id": "...", "is_alex": false,
+            "content": "message text", "timestamp": "ISO-8601", "attachments": 0,
+            "mentions_alex": false, "reply_to": null}
+         ],
+         "threads": [{"id": "...", "name": "...", "messages": []}]
+       }
      }
    }
    ```
-5. Accepts `--hours N` flag (default 24) to control lookback window
-6. Configure `CHANNELS` dict mapping channel IDs to `{"name": "...", "limit": N}`
 
 ### `discord-digest.json`
 Fetched Discord messages (already gitignored). Contains private group conversation data.
@@ -69,17 +70,7 @@ character cap is split on paragraph boundaries and sent as consecutive messages.
 
 ## `DISCORD_BOT_TOKEN`
 
-`discord-digest-fetch.py` reads `DISCORD_BOT_TOKEN` from the process environment. For the launchd job to see it, set it in `com.exobrain.discord-digest.plist`'s `EnvironmentVariables` block:
-
-```xml
-<key>EnvironmentVariables</key>
-<dict>
-    <key>DISCORD_BOT_TOKEN</key>
-    <string>your_bot_token_here</string>
-</dict>
-```
-
-Or export it via `launchctl setenv` at login. Don't commit either form -- the plist with a real token must NOT be checked in. (Currently `com.exobrain.discord-digest.plist` does not inject the token; if the digest is silently empty, this is the first thing to check.)
+Every Discord script here reads the token from one file, `~/.claude/channels/discord/.env`, as a line `DISCORD_BOT_TOKEN=...`. Nothing reads it from the environment, and no plist carries it. Create the directory and file before loading the job (`mkdir -p ~/.claude/channels/discord`); the digest plist also logs into that directory (`digest-fetch.log`). If the digest comes back empty or the job exits 1 with "Token file not found", check that file first.
 
 ## Install
 

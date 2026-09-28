@@ -12,8 +12,10 @@ printf '%s\n' "$OUTPUT"
 
 if [ $EXIT_CODE -ne 0 ]; then
     TAIL=$(printf '%s\n' "$OUTPUT" | tail -3 | tr '\n' ' ' | head -c 200)
-    echo "[$TIMESTAMP] FAILED (exit $EXIT_CODE)" >> /tmp/exobrain-things3-sync-failures.log
-    echo "  detail: $TAIL" >> /tmp/exobrain-things3-sync-failures.log
+    FAIL_LOG="$HOME/Library/Logs/exobrain/things3-sync-failures.log"   # not /tmp: macOS reaps it
+    mkdir -p "$(dirname "$FAIL_LOG")"
+    echo "[$TIMESTAMP] FAILED (exit $EXIT_CODE)" >> "$FAIL_LOG"
+    echo "  detail: $TAIL" >> "$FAIL_LOG"
     NOTIFY="$SCRIPT_DIR/../mist-voice/bin/mist-notify"
     [ -x "$NOTIFY" ] && "$NOTIFY" "things3-sync failed (exit $EXIT_CODE)" "MIST" Basso console
 fi

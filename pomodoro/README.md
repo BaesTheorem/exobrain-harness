@@ -9,7 +9,7 @@ pip install pywebview pillow
 bash setup.sh
 ```
 
-`setup.sh` creates a macOS .app bundle at `~/Desktop/PomodoroTimer.app`.
+`setup.sh` creates a macOS .app bundle at `~/Desktop/Pomodoro.app`.
 
 ## Files
 

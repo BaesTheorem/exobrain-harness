@@ -1,6 +1,6 @@
 # MIST (Discord bot)
 
-A single-server Discord bot for one private server, modeled on the
+A Discord bot for a small set of private servers (one or more `guild_ids` in `config.toml`), modeled on the
 open-source [~nova/Fletcher](https://git.sr.ht/~nova/fletcher) bot but
 stripped of its cross-server machinery. The running bot is named **MIST**
 (set via `config.toml`); "Fletcher" appears in this code only as the upstream
@@ -11,8 +11,8 @@ project the architecture is based on.
 - **Is:** one `discord.py` 2.x gateway client, a command registry, SQLite, and
   pluggable feature modules. Runs as one process; restart to deploy.
 - **Isn't:** no cross-server bridging, no sharding, no per-guild config cascade,
-  no Postgres, no hot reload. All of that is Fletcher's multi-server scaffolding,
-  which a single private server doesn't need.
+  no Postgres, no hot reload. All of that is Fletcher's large-scale scaffolding,
+  which a handful of private servers don't need.
 
 ## Status
 
@@ -23,8 +23,8 @@ Feature phases land as additional modules:
 |-------|--------|----------|
 | 1 ✅ | `modules/core.py` | help, ping, about -- proves dispatch |
 | 2 ✅ | `modules/fun.py` | `!roll` dice, `!pick`, `!fight`, `!8ball`, `!mock` (offline) |
-| 3 | `modules/moderation.py`, `modules/greeting.py` | reaction roles, lockout gate, role save/restore |
-| 4 | `modules/schedule.py` | reminders, recurring tasks |
+| 3 (planned) | `modules/moderation.py`, `modules/greeting.py` (not written yet) | reaction roles, lockout gate, role save/restore |
+| 4 (planned) | `modules/schedule.py` (not written yet) | reminders, recurring tasks |
 | 5 ✅ | `modules/chatter.py` | Claude-powered chat persona (runs on the `claude` CLI) |
 | 6 ✅ | `modules/portal.py` | `!portal` one-off jump links between channels (Fletcher teleport) |
 | 7 ✅ | `modules/ace.py` | `!ace` Ace Attorney video generator (isolated venv, throttled) |
@@ -37,7 +37,7 @@ Feature phases land as additional modules:
 1. **Enable privileged intents** in the [Discord Developer Portal](https://discord.com/developers/applications)
    → your app → Bot → Privileged Gateway Intents:
    - **Message Content Intent** -- required (read commands/chat)
-   - **Server Members Intent** -- required for Phase 3 join/leave features
+   - **Server Members Intent** -- needed for the planned Phase 3 join/leave features
    - Presence Intent -- leave off
 2. **Token:** already read from the shared Exobrain env file
    `~/.claude/channels/discord/.env` (`DISCORD_BOT_TOKEN`) -- the same token the
@@ -95,7 +95,7 @@ in the SQLite `settings` table, so a restart keeps the last choice:
 Owner only (gated on Discord username, not `admin_ids`), and the prefix forms
 work in a DM too. The selectable model list is discovered from the installed
 `claude` binary (`models.py`), so a CLI update is all a new model needs. The
-default model is `claude-opus-5` (`[chatter].model` in `config.toml`).
+default model is `claude-opus-5-5[1m]` (`DEFAULT_MODEL` in `modules/chatter.py`; override with `[chatter].model` in `config.toml`). Non-owner replies use `guest_model`, default `claude-fable-5-1`.
 
 Where the CLI runs depends on who is talking and who can read the channel.
 When the **owner** writes in a **private** context (a DM, or a guild listed in

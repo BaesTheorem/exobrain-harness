@@ -37,6 +37,7 @@ launchctl list | grep com.exobrain.things3-sync
 Logs:
 - `~/Library/Logs/exobrain/things3-sync.log` (script output via `logging`)
 - `~/Library/Logs/exobrain/things3-sync.err` (launchd stderr)
+- `~/Library/Logs/exobrain/things3-sync-failures.log` (one entry per nonzero exit, written by `run-things3-sync.sh`)
 
 ## Configuration constants
 
@@ -44,7 +45,7 @@ Edit these at the top of `things3-obsidian-sync.py` to tune behavior:
 
 | Constant | Default | Purpose |
 |----------|---------|---------|
-| `THINGS_DB` | `~/Library/Group Containers/JLMPQHK86H.com.culturedcode.ThingsMac/ThingsData-VE3Z1/Things Database.thingsdatabase/main.sqlite` | Read-only path to Things 3's SQLite DB. The `VE3Z1` suffix may differ on a fresh install. |
+| `THINGS_DB` | newest `~/Library/Group Containers/JLMPQHK86H.com.culturedcode.ThingsMac/ThingsData-*/Things Database.thingsdatabase/main.sqlite` | Read-only path to Things 3's SQLite DB, found by glob because the `ThingsData-` suffix differs per install. |
 | `VAULT` | `~/Exobrain` | Obsidian vault root. |
 | `EXCLUDED_AREA_TITLES` | `{"Morning", "Evening"}` | Areas treated as ritual containers, not project areas -- projects in these areas are NOT required to have a parent area. |
 | `AREA_EXEMPT_PROJECTS` | `{"Shopping list"}` | Project names allowed to live without an area assignment (otherwise the script warns). |

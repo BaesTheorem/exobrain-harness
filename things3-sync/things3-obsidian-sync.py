@@ -34,18 +34,25 @@ from pathlib import Path
 
 # --- Configuration ---
 
-# The ThingsData-XXXXX suffix varies per install; find yours with:
-#   ls ~/Library/Group\ Containers/JLMPQHK86H.com.culturedcode.ThingsMac/
-THINGS_DB = os.path.expanduser(
-    "~/Library/Group Containers/JLMPQHK86H.com.culturedcode.ThingsMac/"
-    "ThingsData-VE3Z1/Things Database.thingsdatabase/main.sqlite"
+# The ThingsData-XXXXX suffix varies per install, so glob for it. If several
+# exist (an old install left behind), take the most recently written database.
+_THINGS_CONTAINER = Path.home() / "Library/Group Containers/JLMPQHK86H.com.culturedcode.ThingsMac"
+_THINGS_DBS = sorted(
+    _THINGS_CONTAINER.glob("ThingsData-*/Things Database.thingsdatabase/main.sqlite"),
+    key=lambda p: p.stat().st_mtime,
+)
+THINGS_DB = str(_THINGS_DBS[-1]) if _THINGS_DBS else str(
+    _THINGS_CONTAINER / "ThingsData-*/Things Database.thingsdatabase/main.sqlite"
 )
 VAULT = Path(os.path.expanduser("~/Exobrain"))
 PROJECTS_DIR = VAULT / "Projects"
 AREAS_DIR = VAULT / "Areas"
 SOMEDAY_DIR = PROJECTS_DIR / "Someday"
 ARCHIVE_DIR = PROJECTS_DIR / "Archive"
-LOG_FILE = "/tmp/exobrain-things3-sync.log"
+# Not /tmp: macOS reaps it, taking a failed run's evidence along (see config.sh).
+LOG_DIR = Path.home() / "Library/Logs/exobrain"
+LOG_DIR.mkdir(parents=True, exist_ok=True)
+LOG_FILE = str(LOG_DIR / "things3-sync.log")
 
 # Areas to exclude from sync (Morning/Evening are ritual areas, not project areas)
 EXCLUDED_AREA_TITLES = {"Morning", "Evening"}

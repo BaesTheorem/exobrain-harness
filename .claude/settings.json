@@ -36,7 +36,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "/Users/alexhedtke/Documents/Exobrain\\ harness/.claude/hooks/post-edit-check.sh"
+            "command": "\"$CLAUDE_PROJECT_DIR\"/.claude/hooks/post-edit-check.sh"
           }
         ]
       }
@@ -46,7 +46,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "/Users/alexhedtke/Documents/Exobrain\\ harness/.claude/hooks/now.sh"
+            "command": "\"$CLAUDE_PROJECT_DIR\"/.claude/hooks/now.sh"
           }
         ]
       }
@@ -57,7 +57,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "/Users/alexhedtke/Documents/Exobrain\\ harness/.claude/hooks/session-start.sh"
+            "command": "\"$CLAUDE_PROJECT_DIR\"/.claude/hooks/session-start.sh"
           }
         ]
       },
@@ -66,7 +66,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "/Users/alexhedtke/Documents/Exobrain\\ harness/.claude/hooks/session-start.sh"
+            "command": "\"$CLAUDE_PROJECT_DIR\"/.claude/hooks/session-start.sh"
           }
         ]
       },
@@ -75,7 +75,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "/Users/alexhedtke/Documents/Exobrain\\ harness/.claude/hooks/session-start.sh"
+            "command": "\"$CLAUDE_PROJECT_DIR\"/.claude/hooks/session-start.sh"
           }
         ]
       }
@@ -86,7 +86,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "/Users/alexhedtke/Documents/Exobrain\\ harness/.claude/hooks/guard-unattended.py"
+            "command": "\"$CLAUDE_PROJECT_DIR\"/.claude/hooks/guard-unattended.py"
           }
         ]
       }

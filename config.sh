@@ -9,6 +9,11 @@
 # Core directories
 HARNESS_DIR="$HOME/Documents/Exobrain harness"
 VAULT_DIR="$HOME/Exobrain"
+# Claude Code names a project's state dir under ~/.claude/projects/ after its
+# absolute path with every "/" and " " turned into "-". Derive it here so no
+# script hardcodes the owner's slug.
+CLAUDE_PROJECT_SLUG="$(printf '%s' "$HARNESS_DIR" | tr '/ ' '--')"
+CLAUDE_MEMORY_DIR="$HOME/.claude/projects/$CLAUDE_PROJECT_SLUG/memory"
 
 # Google Drive sources (require Google Drive for Desktop)
 # Raw data stays in GDrive -- backed up, persistent, and replayable
@@ -95,7 +100,7 @@ EXTRA_INCLUDES=(
     ".claude/settings.local.json"
     ".claude/CLAUDE.md"                         # global persona / user instructions
     ".claude/mist-global.md"                    # symlink hop for the @import (paths with spaces break)
-    ".claude/projects/-Users-alexhedtke-Documents-Exobrain-harness/memory"  # MIST's single persistent memory store (projects/ is otherwise excluded)
+    ".claude/projects/$CLAUDE_PROJECT_SLUG/memory"  # MIST's single persistent memory store (projects/ is otherwise excluded)
     ".claude.json"                              # user-scope MCP servers (fitbit/withings creds) + Claude CLI state
     ".claude/.mcp.json"                         # global things3 MCP definition
     ".claude/statusline-command.sh"
@@ -120,6 +125,21 @@ LOCAL_BACKUP_KEEP=3
 
 # External dependencies (outside the harness)
 FITBIT_TOKEN="$HARNESS_DIR/fitbit-mcp/.fitbit-token.json"
+
+# Optional session-start checks for things that live outside this repo. Each
+# defaults on only when its target exists on this machine, so a fresh clone does
+# not WARN forever about the owner's sibling repos or devices. Export 0/1 to force.
+CLAUDE_HOME_DIR="$HOME/Documents/claude-home"   # private sibling repo: Nest/Evergy pollers
+if [ -z "${CHECK_CLAUDE_HOME:-}" ]; then
+    [ -d "$CLAUDE_HOME_DIR" ] && CHECK_CLAUDE_HOME=1 || CHECK_CLAUDE_HOME=0
+fi
+# mount-reminders fires when the Plex SSD mounts; only check it where it was installed.
+if [ -z "${CHECK_MOUNT_REMINDERS:-}" ]; then
+    [ -f "$HOME/Library/LaunchAgents/com.exobrain.mount-reminders.plist" ] && CHECK_MOUNT_REMINDERS=1 || CHECK_MOUNT_REMINDERS=0
+fi
+# Energy Log note written by claude-home's energy-pull (see /electricity skill).
+ENERGY_LOG="$VAULT_DIR/Areas/Money & Finances/Energy Log.md"
+ENERGY_STALE_DAYS=2
 
 # Ensure HOME is set (launchd doesn't set it)
 export HOME="${HOME:-$(dscl . -read /Users/$(whoami) NFSHomeDirectory | awk '{print $2}')}"

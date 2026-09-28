@@ -21,9 +21,7 @@ import pathlib
 import re
 import sys
 
-PEOPLE = pathlib.Path(
-    "/Users/alexhedtke/Exobrain/Areas/Relationships & Community/People"
-)
+PEOPLE = pathlib.Path.home() / "Exobrain" / "Areas" / "Relationships & Community" / "People"
 FM = re.compile(r"\A---\n(.*?)\n---", re.S)
 
 

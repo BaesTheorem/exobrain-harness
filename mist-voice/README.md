@@ -5,7 +5,7 @@ Goal: give the Exobrain assistant MIST's *actual voice* (from the TV show
 **fully offline** voice clone running on this Mac. No cloud TTS, no third-party
 voice service.
 
-See [[feedback_voice_mist_pantheon]] in memory for the why.
+See [[feedback_voice_mist_pantheon]] (private memory note, not in this repo) for the why.
 
 ## Why local (not ElevenLabs)
 

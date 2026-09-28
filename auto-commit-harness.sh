@@ -13,7 +13,8 @@
 # launchd agent com.exobrain.auto-commit-harness (daily 23:30).
 set -e
 
-REPO="/Users/alexhedtke/Documents/Exobrain harness"
+# The repo is wherever this script lives (it sits at the repo root).
+REPO="$(cd "$(dirname "$0")" && pwd)"
 NOTIFY="$REPO/mist-voice/bin/mist-notify"
 cd "$REPO" || exit 0
 

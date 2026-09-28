@@ -88,8 +88,8 @@ browser consent screen can do that.
 - `bin/fitbit-reauth` -- runs the consent flow on its own, without starting an MCP
   server, so re-authorizing does not require a Claude session.
 - `bin/fitbit-token-check` -- manual wrapper around the check.
-- `com.exobrain.fitbit-token.plist` -- runs the check every six hours against an
-  eight-hour token.
+- `com.exobrain.fitbit-token.plist` (at the harness repo root, not in this
+  directory) -- runs the check every six hours against an eight-hour token.
 
 **The plist runs `node` directly, with no shell wrapper, and it must stay that
 way.** A bash script that execs Homebrew's node is denied by TCC's `~/Documents`

@@ -4,7 +4,7 @@ A Claude Code-powered personal automation system that manages information flow a
 
 **Owner**: Alex Hedtke
 **Platform**: macOS (Apple Silicon), Claude Code CLI + Desktop
-**Last audited**: 2026-07-23
+**Last audited**: 2026-09-28
 
 ---
 
@@ -69,7 +69,8 @@ All outputs converge on the Obsidian vault (`/Users/alexhedtke/Exobrain/`) as th
 | `vault-snapshot.sh` | `scripts/` | Shell | Daily 06:00 -- builds compact Dashboard + Projects digest for session-start hook injection | bash |
 | `session-memory-consolidator.sh` | `scripts/` | Shell | Daily 23:00 -- backfills missing session memories from today's transcripts | bash, Claude CLI |
 | `get-weather.py` | `weather/` | Python | Weather script for Kansas City via Open-Meteo API (no key needed). Used by `/daily-briefing`. | `openmeteo_requests`, `openmeteo_sdk` |
-| `backup-exobrain.sh` | root | Shell | Daily (2 AM) backup of processing log, credentials, skills, settings, and memory to compressed archive; keeps last 3 (20h freshness guard prevents dupes) | None |
+| `backup-exobrain.sh` | root | Shell | Daily (2 AM) collective archive of the harness, the vault, and every sibling repo's gitignored data, uploaded through the Drive API's resumable-upload protocol (`backup/drive-upload.py`, never the DriveFS mount). Grandfather-father-son retention (`KEEP_DAILY`/`KEEP_WEEKLY`/`KEEP_MONTHLY` in `config.sh`) is pruned Drive-side; `com.exobrain.backup-resume` finishes an interrupted upload every 30 min | python3, Google OAuth client in `.env` |
+| `cowork-sync` | `bin/` | Shell | Keeps the harness `CLAUDE.md` and the iCloud "Claude Cowork" copy identical in both directions (hash both ends against the last agreed hash, copy the side that changed, refuse to guess on a conflict; `--status`/`--push`/`--pull`). Run by `com.exobrain.cowork-sync` | `security/bin/mist-injection-scan` |
 | `session-start.sh` | `.claude/hooks/` | Shell | Hook -- displays date/logical day and runs system health checks on session start | bash, python3 |
 
 ### Standalone Modules
@@ -78,7 +79,7 @@ Self-contained subsystems, each with its own README. Several are local-first int
 
 | Module | Purpose |
 |--------|---------|
-| `anki/` | Polls Anki's SQLite DB every 10 min and mirrors study sessions into the vault (`Anki Log.md` + `anki_cards`/`anki_sessions`/`worked_on` daily-note frontmatter). Maps decks to Projects. launchd-driven. |
+| `anki/` | Polls Anki's SQLite DB every 10 min and mirrors study sessions into the vault (`Anki Log.md` + `anki_cards`/`anki_sessions`/`worked_on` daily-note frontmatter). Maps decks to Projects. launchd-driven; the plist is tracked but not loaded on the owner's machine, so the Anki Log is not updating. |
 | `awair/` | Polls an Awair Element air-quality monitor's local API every 5 min and fires a macOS notification when CO2 crosses warn/urgent thresholds during active hours. launchd-driven. |
 | `zulip/` | "The Claudes" -- a Zulip Cloud org where Alex's Claude (MIST), friends' Claudes, and the friends themselves talk. Uses Zulip's own `zulipmcp` MCP server plus a launchd listener that spawns one headless session per topic on @mention; a friend's Claude sets itself up with the public `claude-zulip-kit` package (github.com/BaesTheorem/claude-zulip-kit), which MIST's listener also runs. Driven by the `/zulip` skill. |
 | `chrome-extensions/` | Unpacked Chrome extensions. Currently `fb-cleaner/` -- hides Facebook Reels, Stories, and Sponsored posts on facebook.com with a toolbar toggle. |
@@ -87,7 +88,7 @@ Self-contained subsystems, each with its own README. Several are local-first int
 | `tv/` | Local control of a Tizen Samsung TV over the LAN (token-paired WebSocket, no cloud account) -- power/Wake-on-LAN, volume, app launch, raw remote keys, plus a full-screen TUI console. |
 | `youtube-no-shorts/` | A userscript (+ content-blocker rules) that removes YouTube Shorts on the real youtube.com (iPhone via the Userscripts app, desktop via Tampermonkey), preserving login and Premium background playback. |
 | `airdrop-to-console/` | Watches `~/Downloads` for AirDropped iPhone photos and routes them into a pinned MIST Console chat. launchd-driven. |
-| `claude-bot/` | The MIST Discord bot -- a discord.py client that gives friends' servers a chat presence and portal channels. launchd KeepAlive daemon. |
+| `claude-bot/` | The MIST Discord bot -- a multi-guild discord.py client that gives friends' servers a chat presence and portal channels. launchd KeepAlive daemon. |
 | `disposable-email/` | Throwaway email aliases for signups that shouldn't touch the main identity (game accounts, trials). |
 | `flipper/` | CLI to drive a Flipper Zero over USB serial or Bluetooth LE -- read/write device files, analyze captures, transmit. Paired with the `/flipper` skill. |
 | `job-search/` | Headless daily job-discovery scan for the `/job-search` skill (`claude --print` under launchd at 09:00). |
@@ -157,6 +158,23 @@ Skills are invoked with `/skill-name` in Claude Code. Each is defined in `.claud
 | `/osrs` | Play Old School RuneScape as MIST on a private server, fully in the background | RuneLite, in-process agent |
 | `/restore-harness` | Restore the harness onto a wiped or new Mac from the daily backup tarball + GitHub | backup-exobrain.sh, RESTORE.md |
 | `/setup-exobrain` | Walk a NEW person (not the repo owner) through standing up their own exobrain with their tools | None (guide) |
+| `/ami` | Drive the AMI Play bar-jukebox service: find venues, read a jukebox's live queue and pricing, search the catalog, queue a song | ami-play CLI |
+| `/anbernic` | Manage an Anbernic RG35XXSP retro handheld over WiFi: push game files, list the cards, on-device maintenance over SSH | SSH |
+| `/animate` | Hand-painted 2D animated videos and music videos in code (p5.js + p5.brush, the Clawd rig, headless Chrome frames), optionally synced to a generated song | claude-animation repo, ffmpeg |
+| `/astro-cartography` | Printable astrocartography PDF packets (planetary lines on world maps, city sweeps, relocated angles) from birth data | astro-cartography repo |
+| `/chess` | Play annotated chess against Maia (human-like engine, 1100-1900) in chat, with Stockfish annotations and a board image per move | Maia, Stockfish |
+| `/discount` | Find the lowest real price for one item: every retailer, promo code, cashback portal, and discounted gift card, tested on a live cart where possible | `shopping/bin/discount` |
+| `/duel` | Play Yu-Gi-Oh! against the user live in EDOPro with a deck from MIST's roster, then review the game log to tune decks and coach | EDOPro |
+| `/fantasy-football` | Evidence-based partner for a season-long redraft league: draft prep and live draft, lineups, waivers, trades, league analysis | `fantasy/`, ESPN CLI |
+| `/game-dev` | Game design and development partner; auto-starts the Godot and Blender MCP hosts, then helps with mechanics, levels, balance, playtesting, assets | godot-ai, blender-mcp |
+| `/geoguesser` | Geolocate a photo or play GeoGuessr from bollards, road lines, camera generation, script, vegetation, and sun angle, backed by real tools | Shadow-to-latitude solver, Overpass |
+| `/group-scheduler` | Friend-group event scheduler: reasons over everyone's known constraints and proposes concrete times instead of running a poll | `scheduler/`, People notes, Discord |
+| `/ios-app` | Build, sign, install, and debug iOS (and companion macOS) apps from the command line: XcodeGen, signing, devicectl, build-log forensics | Xcode, devicectl |
+| `/ironman` | Read the Ironman iPhone app (an OSRS-style skills panel for real life): exercise log, running quest, sleep, meals, levels and XP | ironman repo |
+| `/missing-person` | Assist a public missing-person search with the `mp` CLI: case status across NCIC and NamUs, candidate ranking, news sweeps, terrain maps | missing-person repo |
+| `/mist-voice` | MIST's offline cloned voice: speak a reply as an audio track, narrate a note to MP3, one-off TTS, transcription | `mist-voice/` |
+| `/scooter` | Talk to a NIU KQi Air scooter over Bluetooth LE: battery, speed, ride settings, lock/unlock, cruise, regen | niu-kqi CLI |
+| `/unemployment` | File and manage a Missouri unemployment (UInteract) claim: weekly payment requests, work-search evidence, correspondence | `unemployment/uinteract.py` |
 
 #### Convention Skills (reference docs, not directly invoked)
 
@@ -175,7 +193,7 @@ Skills are invoked with `/skill-name` in Claude Code. Each is defined in `.claud
 | `/browser-render` | Canonical reference for headless-browser screenshots of local HTML -- render HTML/SVG to PNG/PDF without flashing the screen |
 | `/humor` | Operational reference for being genuinely funny -- humor mechanics (benign-violation, incongruity-resolution) used by the Discord persona and chat |
 
-A few additional local-only skills exist on this machine but are git-excluded (personal-scope tooling that never gets committed).
+73 skills are tracked (`git ls-files .claude/skills | awk -F/ '{print $3}' | sort -u | wc -l`). A few additional local-only skills exist on this machine but are git-excluded (personal-scope tooling that never gets committed).
 
 ### Scheduled Routines (5)
 
@@ -187,7 +205,7 @@ Two wrappers gate whether a given fire should actually run:
 
 `run-routine.sh` also classifies failures: auth/config errors (exit 78, "not logged in") stick as a loud FAIL, known-transient API/network errors retry with backoff and then stay quiet, so one dropped connection doesn't masquerade as a broken routine for days.
 
-These runner scripts and plists ship with the private mist-console repo, not this one.
+The runner scripts (`run-routine*.sh`) and the plists for the five routines below ship with the private mist-console repo, not this one. The four fantasy-football routines are the exception: their plists (`com.mist.routine.fantasy-*`) live here in `fantasy/launchd/` and call `fantasy/bin/routine-guard`, a weekday gate that hands off to the Console's `run-routine-ontime.sh`, so they still need mist-console installed.
 
 | Routine | Schedule | Purpose |
 |---------|----------|---------|
@@ -199,39 +217,74 @@ These runner scripts and plists ship with the private mist-console repo, not thi
 
 The session-start hook surfaces any routine whose last run exited nonzero, so failures don't pass silently.
 
-### launchd Jobs (19)
+### launchd Jobs
 
-Installed in `~/Library/LaunchAgents/`. All 19 plists are tracked in the repo. (The same machine also runs launchd jobs owned by sibling repos -- claude-home energy/HVAC pollers, price/restock watchers, the mist-console autocommit -- which are documented in their own repos, not here.)
+Installed in `~/Library/LaunchAgents/` (and one root LaunchDaemon, `sunday-poweron`, in `/Library/LaunchDaemons/`). The table below is generated by `maintenance/bin/launchd-table` from every plist in the repo; rerun it and paste the output here after adding, removing, or rescheduling a job. "Runs" is the script the plist executes and "Purpose" is the first sentence of that script's header, so fix a wrong purpose in the script. "Loaded here" reflects `launchctl list` on the owner's machine when the table was generated (2026-09-28). Every plist carries the owner's literal home path; Step 7 below shows how to template it.
 
-| Plist | Location | Watches/Triggers | Purpose |
-|-------|----------|-----------------|---------|
-| `com.exobrain.plaud-watcher.plist` | `transcript-processing/` | `WatchPaths: Plaud/` folder (30s throttle, 30-min fallback) | Runs `run-process-transcript.sh` when new transcripts land |
-| `com.exobrain.supernote-watcher.plist` | `transcript-processing/` | `WatchPaths: Supernote/Note/` folder (60s throttle, 30-min fallback) | Runs `run-process-supernote.sh` when new Supernote files land |
-| `com.exobrain.things3-sync.plist` | `things3-sync/` | Interval: 900s (15 min) | Runs `things3-obsidian-sync.py` to mirror Things 3 projects/areas into Obsidian |
-| `com.exobrain.discord-digest.plist` | `discord/` | Interval: 14400s (4 hours) | Runs `discord-digest-fetch.py` to fetch Discord messages for briefing |
-| `com.exobrain.anki-sync.plist` | `anki/` | Interval: 600s (10 min), RunAtLoad | Runs `run-anki-sync.sh` -> `anki-sync.py` to mirror Anki study sessions into the vault (`Anki Log.md` + daily-note frontmatter) |
-| `com.exobrain.awair-co2-watcher.plist` | `awair/` | Interval: 300s (5 min) | Runs `awair-co2-watcher.py` to poll the Awair Element local API and alert on high CO2 |
-| `com.exobrain.awair-rollup.plist` | `awair/` | Daily: 23:55 | Runs `awair-rollup.py` to summarize the day's `air-log.csv` into the vault's Air Quality Log note |
-| `com.exobrain.airdrop-console.plist` | `airdrop-to-console/` | `WatchPaths: ~/Downloads` (15-min fallback) | Runs `run-watch.sh` to route AirDropped iPhone photos into the pinned MIST Console chat |
-| `com.exobrain.claude-bot.plist` | `claude-bot/` | KeepAlive daemon (RunAtLoad, 30s throttle) | Runs `bot.py`, the MIST Discord bot (single-server discord.py client) |
-| `com.exobrain.imessage-sync.plist` | `imessage/` | Interval: 900s (15 min) | Runs `imessage-sync.py` under a stable FDA-granted interpreter to snapshot `chat.db` into a local cache |
-| `com.exobrain.job-listings-sync.plist` | `job-listings-sync/` | `WatchPaths: Job Listings/` folder (5s throttle, 5-min fallback) | Runs `run.sh` -> `reconcile.py` to reconcile job-listing note frontmatter when files change |
-| `com.exobrain.job-scan.plist` | `job-search/` | Daily: 09:00 | Runs `run-job-scan.sh`, the headless daily job-discovery scan for `/job-search` |
-| `com.exobrain.headless-chrome-reaper.plist` | `maintenance/` | Interval: 120s (2 min) | Kills orphaned headless Chrome render processes older than 10 minutes |
-| `com.exobrain.mem-watchdog.plist` | `mem-watchdog/` | KeepAlive daemon (60s poll) | Runs `mem-watchdog.py` to kill runaway processes before they exhaust the 8GB machine's RAM |
-| `com.exobrain.session-memory-consolidator.plist` | `scripts/` | Daily: 23:00 | Runs `scripts/session-memory-consolidator.sh` to write missing session memories from today's transcripts |
-| `com.exobrain.vault-snapshot.plist` | `scripts/` | Daily: 06:00 | Runs `scripts/vault-snapshot.sh` to build a compact Dashboard + Projects digest for session-start injection |
-| `com.exobrain.tools-registry.plist` | `tools-registry/` | Daily: 07:15 | Runs `tools-registry-scan.py` to rebuild the vault's `Tools/` inventory notes from apps + LaunchAgents |
-| `com.exobrain.bodyguard-weekly.plist` | root | Weekly: Sunday 08:00 | Runs the cybersecurity-bodyguard weekly OSINT scan (`.claude/skills/cybersecurity-bodyguard/scripts/weekly-scan.sh`) |
-| `com.exobrain.backup.plist` | root | Daily: 2:00 AM (RunAtLoad + 20h freshness guard) | Runs `backup-exobrain.sh`: one collective archive (harness + vault + sibling repos' gitignored data) to Google Drive, GFS retention |
+The same machine also runs launchd jobs owned by sibling repos and gitignored dirs (claude-home energy/HVAC pollers, `watchers/` price, restock and tour watchers, the mist-console routines and autocommit), which are documented in their own repos, not here.
+
+| Label | Plist | Trigger | Runs | Purpose | Loaded here |
+|-------|-------|---------|------|---------|-------------|
+| `com.exobrain.auto-commit-harness` | `com.exobrain.auto-commit-harness.plist` | Calendar: 23:30 | `auto-commit-harness.sh` | Nightly backstop: commit + push any pending changes in the Exobrain harness repo. | yes |
+| `com.exobrain.airdrop-console` | `airdrop-to-console/com.exobrain.airdrop-console.plist` | every 15 min; WatchPaths: `~/Downloads`; RunAtLoad | `airdrop-to-console/run-watch.sh` | launchd entrypoint. | yes |
+| `com.exobrain.anki-sync` | `anki/com.exobrain.anki-sync.plist` | every 10 min; RunAtLoad | `anki/run-anki-sync.sh` | Anki Session Sync runner. | **no** |
+| `com.exobrain.awair-co2-watcher` | `awair/com.exobrain.awair-co2-watcher.plist` | every 5 min; RunAtLoad | `awair/awair-co2-watcher.py` | Polls the Awair Element local API every run. | yes |
+| `com.exobrain.awair-rollup` | `awair/com.exobrain.awair-rollup.plist` | Calendar: 23:55; RunAtLoad | `awair/awair-rollup.py` | Rolls the air-log.csv time series (written by awair-co2-watcher.py) up into a human-readable Air Quality Log note in the Obsidian vault, mirroring the. | yes |
+| `com.exobrain.claude-bot` | `claude-bot/com.exobrain.claude-bot.plist` | KeepAlive daemon; RunAtLoad | `claude-bot/bot.py` | MIST -- Discord bot entry point. | yes |
+| `com.exobrain.backup-resume` | `com.exobrain.backup-resume.plist` | every 30 min | `backup-exobrain.sh` | Daily COLLECTIVE backup of everything GitHub doesn't hold, into Google Drive. | yes |
+| `com.exobrain.backup` | `com.exobrain.backup.plist` | Calendar: 02:00; RunAtLoad | `backup-exobrain.sh` | Daily COLLECTIVE backup of everything GitHub doesn't hold, into Google Drive. | yes |
+| `com.exobrain.bodyguard-weekly` | `com.exobrain.bodyguard-weekly.plist` | Calendar: Sun 08:00 | `.claude/skills/cybersecurity-bodyguard/scripts/weekly-scan.sh` | Weekly bodyguard passive OSINT scan. | yes |
+| `com.exobrain.claude-cli-update` | `com.exobrain.claude-cli-update.plist` | Calendar: 04:00, 11:00, 15:00, 19:00; RunAtLoad | `claude-cli-autoupdate.sh` | Keeps the Claude Code CLI current so the MIST Console's model picker (which discovers models by grepping the claude binary) surfaces new releases on its own. | yes |
+| `com.exobrain.cowork-sync` | `com.exobrain.cowork-sync.plist` | every 5 min; WatchPaths: `~/Documents/Exobrain harness/CLAUDE.md`; WatchPaths: `~/Library/Mobile Documents/com~apple~CloudDocs/Claude Cowork/CLAUDE.md`; RunAtLoad | `bin/cowork-sync` | cowork-sync -- keep the harness CLAUDE.md and the iCloud "Claude Cowork" copy identical, in both directions. | yes |
+| `com.exobrain.fitbit-token` | `com.exobrain.fitbit-token.plist` | Calendar: 05:30, 11:30, 17:30, 23:30 | `fitbit-mcp/scripts/token-check.mjs` | Keep the Fitbit OAuth token renewed, and escalate only when a human is needed. | yes |
+| `com.exobrain.discord-digest` | `discord/com.exobrain.discord-digest.plist` | every 4h; RunAtLoad | `discord/run-discord-digest.sh` | Wrapper script for launchd to run Discord digest fetch. | yes |
+| `com.exobrain.eject-assist` | `disk-eject/com.exobrain.eject-assist.plist` | KeepAlive daemon; RunAtLoad | `disk-eject/disk_eject.py` | Free a busy external volume so it can eject, and watch for failed ejects. | yes |
+| `com.exobrain.chat-watch` | `fantasy/com.exobrain.chat-watch.plist` | every 10 min | `fantasy/bin/chat-watch` | chat-watch: answer new ESPN Fantasy Chat messages with a headless Claude. | yes |
+| `com.exobrain.lineup-watch` | `fantasy/com.exobrain.lineup-watch.plist` | every 15 min; RunAtLoad | `fantasy/bin/lineup-watch` | lineup-watch: ping Alex before a lock window only when the lineup has a problem. | yes |
+| `com.exobrain.roster-watch` | `fantasy/com.exobrain.roster-watch.plist` | every 30 min; RunAtLoad | `fantasy/bin/roster-watch` | roster-watch: notice what happens to Chaos Legion between MIST's scheduled runs. | yes |
+| `com.exobrain.sunday-poweron` | `fantasy/launchd/com.exobrain.sunday-poweron.plist` | Calendar: Mon 03:15; RunAtLoad | `fantasy/bin/sunday-poweron` | sunday-poweron: schedule a power-on for next Sunday 10:20 AM so the noon-lock repairs and the 10:40 lineup routine run even if the Mac was shut down. | yes (root daemon) |
+| `com.mist.routine.fantasy-lineup-sunday-pm` | `fantasy/launchd/com.mist.routine.fantasy-lineup-sunday-pm.plist` | Calendar: Sun 14:35, Sun 14:55; RunAtLoad | `fantasy/bin/routine-guard` | The Console's on-time wrapper checks time of day, not the day, so a RunAtLoad fire on a Monday evening ran the Tuesday routine (2026-09-07, 10:50 PM). | yes |
+| `com.mist.routine.fantasy-lineup-sunday` | `fantasy/launchd/com.mist.routine.fantasy-lineup-sunday.plist` | Calendar: Sun 10:40, Sun 11:10; RunAtLoad | `fantasy/bin/routine-guard` | The Console's on-time wrapper checks time of day, not the day, so a RunAtLoad fire on a Monday evening ran the Tuesday routine (2026-09-07, 10:50 PM). | yes |
+| `com.mist.routine.fantasy-lineup` | `fantasy/launchd/com.mist.routine.fantasy-lineup.plist` | Calendar: 17:30, 19:30, 22:05; RunAtLoad | `fantasy/bin/routine-guard` | The Console's on-time wrapper checks time of day, not the day, so a RunAtLoad fire on a Monday evening ran the Tuesday routine (2026-09-07, 10:50 PM). | yes |
+| `com.mist.routine.fantasy-tuesday` | `fantasy/launchd/com.mist.routine.fantasy-tuesday.plist` | Calendar: Tue 18:00, Tue 20:00, Tue 22:05; RunAtLoad | `fantasy/bin/routine-guard` | The Console's on-time wrapper checks time of day, not the day, so a RunAtLoad fire on a Monday evening ran the Tuesday routine (2026-09-07, 10:50 PM). | yes |
+| `com.exobrain.imessage-sync` | `imessage/com.exobrain.imessage-sync.plist` | every 15 min; RunAtLoad | `imessage/imessage-sync.py` | iMessage Sync for Exobrain -- the Full-Disk-Access half of the reader. | yes |
+| `com.exobrain.job-listings-sync` | `job-listings-sync/com.exobrain.job-listings-sync.plist` | every 5 min; WatchPaths: `~/Exobrain/Projects/Get new job/Job Listings`; RunAtLoad | `job-listings-sync/run.sh` | Reconcile job-listing frontmatter on file changes. | yes |
+| `com.exobrain.job-scan` | `job-search/com.exobrain.job-scan.plist` | Calendar: 09:00 | `job-search/run-job-scan.sh` | Wrapper script for launchd to trigger the daily job-search discovery scan. | yes |
+| `com.exobrain.kcurbex-watch` | `kcurbex/com.exobrain.kcurbex-watch.plist` | every 12h | `kcurbex/run-watch.sh` | Unattended KC Urbex pass, driven by com.exobrain.kcurbex-watch. | yes |
+| `com.exobrain.claude-stable-path` | `maintenance/com.exobrain.claude-stable-path.plist` | WatchPaths: `~/.local/share/claude/versions`; WatchPaths: `~/.local/bin/claude`; RunAtLoad | `maintenance/claude-stable-path.sh` | Pin the Claude Code CLI to ONE path that never changes, so its TCC grants stop evaporating every time it auto-updates. | yes |
+| `com.exobrain.headless-chrome-reaper` | `maintenance/com.exobrain.headless-chrome-reaper.plist` | every 2 min; RunAtLoad | `maintenance/headless-chrome-reaper.sh` | Safety net that kills ONLY genuinely-stuck headless Chrome render processes (and their hung shell wrappers). | yes |
+| `com.exobrain.post-brew-heal` | `maintenance/com.exobrain.post-brew-heal.plist` | Calendar: 07:40; WatchPaths: `/opt/homebrew/Cellar` | `maintenance/post-brew-heal.sh` | Post-Homebrew self-heal: runs automatically (WatchPaths on /opt/homebrew/Cellar) whenever brew installs, upgrades, or removes anything, plus a daily backstop. | yes |
+| `com.exobrain.rotate-logs` | `maintenance/com.exobrain.rotate-logs.plist` | Calendar: Sun 04:00 | `maintenance/rotate-logs.sh` | Rotates the scheduled-job logs in ~/Library/Logs/exobrain. | yes |
+| `com.exobrain.tcc-carry-forward` | `maintenance/com.exobrain.tcc-carry-forward.plist` | WatchPaths: `~/.local/share/claude/versions`; RunAtLoad | `maintenance/tcc_carry_forward.py` | Carry the Claude Code CLI's TCC grants forward across auto-updates. | yes |
+| `com.exobrain.mem-watchdog` | `mem-watchdog/com.exobrain.mem-watchdog.plist` | KeepAlive daemon; RunAtLoad | `mem-watchdog/mem-watchdog.py` (installed copy) | Memory watchdog for the 8GB MacBook Air. | yes |
+| `com.exobrain.mist-studio` | `mist-music/studio/com.exobrain.mist-studio.plist` | KeepAlive daemon; RunAtLoad | `mist-music/studio/server.py` | MIST Studio: the Flask app. | yes |
+| `com.exobrain.mount-reminders` | `mount-reminders/com.exobrain.mount-reminders.plist` | every 10 min; RunAtLoad | `mount-reminders/on-mount.sh` | Raise a banner when a named volume mounts and there is work waiting on it. | yes |
+| `com.exobrain.quest-watch` | `running-quest/com.exobrain.quest-watch.plist` | every 30 min; RunAtLoad | `running-quest/quest_watch.py` | The running quest's Mac-side loop: verify, celebrate, nudge. | yes |
+| `com.exobrain.haircut-check` | `salon-ramon/com.exobrain.haircut-check.plist` | Calendar: 10:00 | `salon-ramon/run-haircut-check.sh` | Haircut booking nudge -- Salon Ramón, Brookside, every 6 weeks. | yes |
+| `com.exobrain.session-memory-consolidator` | `scripts/com.exobrain.session-memory-consolidator.plist` | Calendar: 23:00 | `scripts/session-memory-consolidator.sh` | Daily session-memory consolidator. | yes |
+| `com.exobrain.vault-snapshot` | `scripts/com.exobrain.vault-snapshot.plist` | Calendar: 06:00 | `scripts/vault-snapshot.sh` | Build a compact snapshot of the Obsidian vault for session-start injection. | yes |
+| `com.exobrain.substack-sync` | `substack-sync/com.exobrain.substack-sync.plist` | Calendar: 07:23 | `substack-sync/run.sh` | Mirror Substack posts into becomingstronger.github.io/posts.json. | yes |
+| `com.exobrain.things3-sync` | `things3-sync/com.exobrain.things3-sync.plist` | every 15 min; RunAtLoad | `things3-sync/run-things3-sync.sh` | Things 3 ↔ Obsidian sync runner. | yes |
+| `com.exobrain.tools-registry` | `tools-registry/com.exobrain.tools-registry.plist` | Calendar: 07:15 | `tools-registry/tools-registry-scan.py` | Scan the machine for every tool Alex has built and project them into Obsidian notes. | yes |
+| `com.exobrain.plaud-watcher` | `transcript-processing/com.exobrain.plaud-watcher.plist` | every 30 min; WatchPaths: `~/My Drive/Plaud`; RunAtLoad | `transcript-processing/run-process-transcript.sh` | Wrapper script for launchd to trigger transcript processing. | yes |
+| `com.exobrain.supernote-watcher` | `transcript-processing/com.exobrain.supernote-watcher.plist` | every 30 min; WatchPaths: `~/My Drive/Supernote/Note`; RunAtLoad | `transcript-processing/run-process-supernote.sh` | Wrapper script for launchd to trigger Supernote processing. | yes |
+| `com.exobrain.zulip-listener` | `zulip/com.exobrain.zulip-listener.plist` | KeepAlive daemon; RunAtLoad | `python -m claude_zulip.listener` (external package) |  | yes |
+| `com.exobrain.zulip-owners` | `zulip/com.exobrain.zulip-owners.plist` | every 15 min; RunAtLoad | `zulip/bin/zulip-admin` | Admin CLI for the "The Claudes" Zulip org. | yes |
+
+45 plists; 44 loaded on this machine.
+
+`com.exobrain.anki-sync` is tracked but not loaded, so `Anki Log.md` does not update. `com.exobrain.auto-commit-harness.plist` sits at the repo root and was untracked until 2026-09-28 even though the job has been loaded for months.
 
 ### Hooks
 
-| Hook | Event | File |
-|------|-------|------|
-| Session start | `SessionStart` (startup + resume) | `.claude/hooks/session-start.sh` |
+Defined in `.claude/settings.json`. Every hook command is written as `"$CLAUDE_PROJECT_DIR"/.claude/hooks/<file>`: Claude Code sets `CLAUDE_PROJECT_DIR` to the repo root for hook commands, so the hooks work from any clone location, and the double quotes keep the space in `Exobrain harness` intact. Never write an absolute path there; on another machine a missing hook fails every prompt and the guard fails open.
 
-Displays today's date with logical day (accounting for the 2 AM boundary), then runs system health checks on all MCP servers, launchd jobs, credentials, and key paths.
+| Hook | Event | File | What it does |
+|------|-------|------|--------------|
+| Session start | `SessionStart` (startup, resume, clear) | `.claude/hooks/session-start.sh` | Prints the date and logical day (2 AM boundary), then health-checks MCP servers, launchd jobs, credentials, data freshness, and key paths, and injects the vault snapshot and recent session memories |
+| Clock | `UserPromptSubmit` | `.claude/hooks/now.sh` | Prints `Current time: ...` on every prompt so elapsed time is a subtraction, not a guess |
+| Unattended guard | `PreToolUse` (`Bash\|Write\|Edit\|MultiEdit\|NotebookEdit\|Read`) | `.claude/hooks/guard-unattended.py` | No-op in interactive sessions. When `MIST_UNATTENDED=1`, refuses rule-file writes, secret reads, and persistence or exfiltration shell shapes (see `security/README.md`) |
+| Quality gate | `PostToolUse` (`Edit\|Write`) | `.claude/hooks/post-edit-check.sh` | Runs ruff, single-file pyright, and the module-boundary checker on an edited `.py` file and feeds errors back. Fails open if `~/.local/bin/ruff` or `~/.npm-global/bin/pyright` is missing |
 
 ### Memory System
 
@@ -253,8 +306,10 @@ Persistent cross-session memory in `.claude/projects/.../memory/`. ~225 files to
 | **Gmail** | Claude Desktop managed | Email search, read, draft | Google OAuth (Desktop-managed) |
 | **Google Drive** | Claude Desktop managed | File search and fetch | Google OAuth (Desktop-managed) |
 | **Discord** | Claude plugin (`discord@claude-plugins-official`) | Message fetch (digest) | Bot token (plugin-managed) |
-| **Plaud** | Remote MCP | Recording list, transcripts, AI summary notes, audio links | OAuth (tokens in `~/.plaud/`, auto-refreshed) |
-| **LinkedIn** | Local (linkedin-scraper-mcp) | Read-only profile/company/job lookups for job-search and CRM | Browser session (never sends messages) |
+| **Plaud** | Local, user scope (`npx -y @plaud-ai/mcp@0.3.13`) | Recording list, transcripts, AI summary notes, audio links | OAuth (tokens in `~/.plaud/`, auto-refreshed) |
+| **LinkedIn** | Local, user scope (`bin/linkedin-mcp`, a wrapper that launches `mcp-server-linkedin` in real headless mode) | Read-only profile/company/job lookups for job-search and CRM | Browser session (never sends messages) |
+| **Zulip** | Local, project `.mcp.json` (`zulip/.venv/bin/python -m zulipmcp.mcp`) | Read and post in "The Claudes" Zulip org | `zulip/.zuliprc` (gitignored; setup in `zulip/README.md`) |
+| **myKCMO** | Local, user scope (`mykcmo/bin/mykcmo-mcp`) | Kansas City 311: read requests from the open-data portal, file a new report (captcha + confirm gate) | Optional `MYKCMO_*` keys in `.env` |
 | **MyChart** | Claude Desktop managed (hosted by [OpenRecord](https://github.com/Fan-Pier-Labs/openrecord)) | Full MyChart patient portal: meds, labs, imaging, vitals, messages, billing, insurance, referrals, preventive care, care team, immunizations, visits, documents, emergency contacts, refill requests (35+ tools, read + write) | MyChart credentials + TOTP (session auto-renews) |
 
 **Fitbit MCP location**: `/Users/alexhedtke/Documents/Exobrain harness/fitbit-mcp/` (patched fork, see `fitbit-mcp/FORK.md`)
@@ -342,6 +397,8 @@ Exobrain harness/
 |-- restore-smoke-test.sh               # Verifies the latest backup tarball actually restores
 |-- Brewfile                            # Homebrew manifest for rebuilding system deps
 |-- auto-commit-harness.sh              # Daily auto-commit of harness changes (with gitignore audit)
+|-- com.exobrain.auto-commit-harness.plist  # 23:30 nightly timer for auto-commit-harness.sh
+|-- bin/                                # Loose CLI tools (index: bin/README.md; auto-registered in the tools registry)
 |-- MAC-MINI-MIGRATION-PLAN.md          # Plan to move always-on automation to a dedicated Mac Mini (laptop becomes a client)
 |-- .mcp.json                           # MCP server configs + Fitbit credentials (git-ignored)
 |-- .env                                # Shared local secrets: Withings tokens, AWAIR_HOST, TV_HOST/TV_MAC, LUMA_AUTH_SESSION_KEY (git-ignored)
@@ -353,7 +410,7 @@ Exobrain harness/
 |-- backup-exobrain.sh                  # Daily 2 AM collective backup (harness + vault + repo gitignored data, GFS retention)
 |-- com.exobrain.backup.plist           # Daily backup timer (Step 7 copies it to ~/Library/LaunchAgents/)
 |-- com.exobrain.bodyguard-weekly.plist # Weekly cybersecurity-bodyguard OSINT scan
-|-- watchers/                           # (gitignored) local-only price/restock/tour watchers; configs hold personal targets
+|-- watchers/                           # (gitignored) local-only price/restock/tour watchers; see "Not in the repo" below
 |
 |-- transcript-processing/
 |   |-- README.md
@@ -474,7 +531,10 @@ Exobrain harness/
     |-- launch.json                     # Dev server configs (sailboat retro)
     |-- hooks/
     |   |-- session-start.sh            # Date + system health check
-    |-- skills/                         # 54 tracked skills -- see Skills section above
+    |   |-- now.sh                      # Current-time stamp on every prompt
+    |   |-- guard-unattended.py         # PreToolUse guard for MIST_UNATTENDED=1 sessions
+    |   |-- post-edit-check.sh          # ruff + pyright + boundary check after Python edits
+    |-- skills/                         # 73 tracked skills -- see Skills section above
 
 External vault: /Users/alexhedtke/Exobrain/
 |-- Dashboard.md                        # Current priorities
@@ -500,6 +560,31 @@ External vault: /Users/alexhedtke/Exobrain/
 |-- Supernotes -> /Users/alexhedtke/My Drive/Supernote/Note/
 ```
 
+### Not in the repo
+
+These directories exist in the owner's working tree but are wholly gitignored, because they hold personal targets, personal data, or scratch output. A clone has none of them.
+
+| Dir | What it holds | Rebuild |
+|-----|---------------|---------|
+| `watchers/` | Ad-hoc "ping me when X changes" watchers (restock, price, tour dates, bill tracking, the GitHub bounty queue). One subdir per watcher with `watch.py`, `config.json`, a `com.exobrain.<name>-watch.plist`, and `watch.log`, plus `status.sh` and a README. | See below; the `/github` skill needs `bounty-hunter/` |
+| `data/` | Runtime state for `/solo-dm` campaigns (`data/solo-dm/<campaign>/`, SQLite + JSON). | Created by the skill on first run |
+| `cycle-tracker/` | A stdlib-only tracker web app and its personal health data; no longer used. | Not needed |
+| `apple-notes-sync/` | Sync state for an Apple Notes mirror. | Not needed |
+| `recon/` | Working files from `/deep-recon` runs (per-round agent outputs); finished reports go to the vault's `recon/` folder. | Not needed |
+| `tmp/` | Scratch space for one-off work (the post-edit hook skips it). | Not needed |
+
+**Rebuilding `watchers/bounty-hunter/` for the `/github` skill.** The skill reads and writes these files:
+
+- `config.json`: keys `allowed_orgs` (orgs known to pay bounties), `bounty_labels`, `honeypot_label_markers`, `priority_keywords`, `max_comments`, `max_age_hours`, `min_dollars`, `per_org_limit`, `notify_discord`, `notify_mac`.
+- `watch.py`: polls GitHub for bounty-labelled issues and appends each winnable one to `candidates.jsonl` as `{key, repo, number, title, dollars, comments, age_h, priority, url, body, action, found_at}`; `watch.py --list` prints the queue. It also polls every PR in `submitted.jsonl` (`{repo, pr, issue, pipeline, ts}`) and pings on activity.
+- `notify.py "message"`: sends a Discord DM using `DISCORD_NOTIFY_CHAT_ID` from the harness `.env` and the bot token in `~/.claude/channels/discord/.env`.
+- `claims.jsonl`: `{repo, number, dollars, pr_url, ts}` per submitted claim, appended by the skill.
+- `com.exobrain.bounty-hunter.plist`: runs `watch.py` on a timer.
+
+**The `/missing-person` watcher** is a plist you write by hand: `ProgramArguments` = `python3 <path to the missing-person repo>/bin/mp watch <case-id>`, a daily `StartCalendarInterval`, copied to `~/Library/LaunchAgents/`. The case id is personal, so the plist never ships.
+
+**Wikilinks in the docs.** `[[double-bracket]]` links in skills, READMEs, and `CLAUDE.md` (for example `[[project_tools_registry]]` or `[[feedback_verify_claims]]`) point at notes in the owner's private Obsidian vault or the private memory store (`~/.claude/projects/<slug>/memory/`). They are not in this repo; read them as the name of the rule, not a broken link.
+
 ---
 
 ## Setup from Scratch
@@ -522,22 +607,43 @@ git clone <repo-url> "Exobrain harness"
 cd "Exobrain harness"
 ```
 
+### Step 1b: Load the Instructions in Every Session
+
+`CLAUDE.md` in this repo is canonical and loads in every Claude Code session on the machine, not only inside the repo. Two pieces make that work: a space-free symlink (Claude Code's `@import` breaks on the space in `Exobrain harness`) and a one-line import in the global `~/.claude/CLAUDE.md`.
+
+```bash
+ln -s "$PWD/CLAUDE.md" ~/.claude/mist-global.md
+printf '@%s/.claude/mist-global.md\n' "$HOME" >> ~/.claude/CLAUDE.md
+```
+
+Inside the repo the file also loads as the project `CLAUDE.md`; Claude Code dedupes by resolved path, so it is not loaded twice.
+
 ### Step 2: Install System Dependencies
 
 ```bash
 # Python 3.12+ (the harness's launch.json hardcodes /opt/homebrew/bin/python3.12)
 brew install python@3.12 node screen
 
-# Python packages
-pip3 install supernotelib openmeteo-requests openmeteo-sdk
+# uv (Things 3 MCP, ruff, several module venvs)
+curl -LsSf https://astral.sh/uv/install.sh | sh
 
-# uv (for Things 3 MCP)
-pip3 install uv
-# OR: curl -LsSf https://astral.sh/uv/install.sh | sh
+# Python packages the tracked root scripts import (supernotelib, Open-Meteo, ...)
+pip3 install -r requirements.txt
 
 # Things 3 MCP
 uv tool install things-mcp
+
+# Quality gates for .claude/hooks/post-edit-check.sh. The hook looks for these
+# exact paths and fails open (checks nothing) when they are missing.
+uv tool install ruff                         # -> ~/.local/bin/ruff
+npm config set prefix "$HOME/.npm-global"
+npm install -g pyright                       # -> ~/.npm-global/bin/pyright
+
+# Runtime dirs that several plists log into (restore-smoke-test.sh checks them)
+mkdir -p ~/.claude/channels/{discord,maintenance,awair,kcurbex} ~/Library/Logs/exobrain
 ```
+
+Modules with their own dependencies (`claude-bot/`, `phone/`, `zulip/`, `mist-voice/`, `kcurbex/`, ...) carry their own `requirements.txt` or venv instructions in their README.
 
 ### Step 3: Install Fitbit MCP Server
 
@@ -558,6 +664,8 @@ FITBIT_CLIENT_SECRET=your_client_secret
 ```
 
 Register a Fitbit app at https://dev.fitbit.com/apps to get credentials. Set callback URL to `http://localhost:3000/callback`.
+
+The token is kept alive by `com.exobrain.fitbit-token.plist` at the repo root, which runs `fitbit-mcp/scripts/token-check.mjs` four times a day (Step 7).
 
 ### Step 4: Create `.mcp.json`
 
@@ -588,6 +696,19 @@ In the harness root (this file is git-ignored):
 }
 ```
 
+Four more local servers are registered at user scope (in `~/.claude.json`, so they are available in every project) or in the project `.mcp.json`:
+
+```bash
+# Plaud recordings and transcripts (OAuth on first use; tokens in ~/.plaud/)
+claude mcp add --scope user plaud -- npx -y @plaud-ai/mcp@0.3.13
+# LinkedIn, read-only; the wrapper runs mcp-server-linkedin in real headless mode
+claude mcp add --scope user linkedin -- "$PWD/bin/linkedin-mcp"
+# Kansas City 311 (optional MYKCMO_* keys in .env; see mykcmo/README.md)
+claude mcp add --scope user mykcmo -- "$PWD/mykcmo/bin/mykcmo-mcp"
+```
+
+Zulip goes in `.mcp.json` as `"zulip": {"command": "<repo>/zulip/.venv/bin/python", "args": ["-m", "zulipmcp.mcp"]}` after building the venv per `zulip/README.md`.
+
 ### Step 5: Configure Claude Desktop MCP Servers
 
 In Claude Desktop settings, enable:
@@ -613,25 +734,47 @@ Paste your Discord bot token when prompted. Set up channel access with `/discord
 
 ### Step 7: Install launchd Jobs
 
+Every tracked plist hardcodes the owner's home, `/Users/alexhedtke`, and many are personal (fantasy football, a haircut reminder, a Zulip org, a scooter quest). Install the core set, templating the home path as you copy. Copies, not symlinks: TCC blocks symlinks into `~/Documents` from loading at login, so a symlinked job never runs at boot.
+
+Core set:
+
+| Plist | Job |
+|-------|-----|
+| `transcript-processing/com.exobrain.plaud-watcher.plist` | Process new Plaud transcripts |
+| `transcript-processing/com.exobrain.supernote-watcher.plist` | Process new Supernote pages |
+| `things3-sync/com.exobrain.things3-sync.plist` | Mirror Things 3 projects into the vault |
+| `discord/com.exobrain.discord-digest.plist` | Fetch the Discord digest |
+| `com.exobrain.backup.plist`, `com.exobrain.backup-resume.plist` | Nightly backup, and finish interrupted uploads |
+| `com.exobrain.fitbit-token.plist` | Keep the Fitbit OAuth token alive |
+| `scripts/com.exobrain.session-memory-consolidator.plist` | Backfill session memories nightly |
+| `scripts/com.exobrain.vault-snapshot.plist` | Build the session-start vault digest |
+| `com.exobrain.auto-commit-harness.plist` | Nightly commit and push of the harness |
+| `mem-watchdog/com.exobrain.mem-watchdog.plist` | Kill runaway processes (copy the script first, see `mem-watchdog/README.md`) |
+
 ```bash
-# Copy every tracked plist to LaunchAgents (NOT symlinks: TCC blocks symlinks
-# into ~/Documents from loading at login, so the jobs would never run at boot).
-# See the launchd Jobs table above for what each one does; skip any you don't want.
-for plist in $(git ls-files '*.plist'); do
-  cp "$PWD/$plist" ~/Library/LaunchAgents/
+core=(
+  transcript-processing/com.exobrain.plaud-watcher.plist
+  transcript-processing/com.exobrain.supernote-watcher.plist
+  things3-sync/com.exobrain.things3-sync.plist
+  discord/com.exobrain.discord-digest.plist
+  com.exobrain.backup.plist com.exobrain.backup-resume.plist
+  com.exobrain.fitbit-token.plist
+  scripts/com.exobrain.session-memory-consolidator.plist
+  scripts/com.exobrain.vault-snapshot.plist
+  com.exobrain.auto-commit-harness.plist
+  mem-watchdog/com.exobrain.mem-watchdog.plist
+)
+for p in "${core[@]}"; do
+  dest=~/Library/LaunchAgents/$(basename "$p")
+  sed "s|/Users/alexhedtke|$HOME|g" "$p" > "$dest"   # template the owner's home path
+  plutil -lint "$dest" && launchctl bootstrap gui/$(id -u) "$dest"
 done
-
-# Load the jobs
-for plist in ~/Library/LaunchAgents/com.exobrain.*.plist; do
-  launchctl load "$plist"
-done
-
-# After any plist edit, copy again (the LaunchAgents copy is the authoritative one).
-# Verify
 launchctl list | grep exobrain
 ```
 
-Edit the plist files to match your actual paths if they differ from the defaults.
+If the repo is not at `~/Documents/Exobrain harness`, also rewrite that part of the path in the same `sed`. After any plist edit, copy and template again: the `~/Library/LaunchAgents` copy is the one launchd reads.
+
+Everything else in the launchd table is personal or optional. Install one the same way only if you use that module (read its README first); the fantasy `com.mist.routine.*` plists additionally need the private mist-console repo, and `sunday-poweron` is a root LaunchDaemon for `/Library/LaunchDaemons/`.
 
 ### Step 8: Make Scripts Executable
 
@@ -644,6 +787,10 @@ chmod +x transcript-processing/run-process-transcript.sh discord/run-discord-dig
 The recurring routines (morning briefing, afternoon email scan, evening winddown, local-events scan, weekly review) run as `com.mist.routine.*` launchd jobs that feed each routine's prompt to a headless `claude -p` in this directory (see Scheduled Routines above). The runner scripts and plists live with the mist-console repo. To rebuild them from scratch, a launchd/cron job that runs `claude --print "/daily-briefing"` (and the rest) here on the same schedule is the whole idea -- the `job-search/run-job-scan.sh` wrapper is a working template for headless `claude --print` under launchd. Two things to copy from it: `export USER` (launchd doesn't set it, and the Keychain OAuth lookup fails without it) and a log path outside `~/Documents`, which is TCC-protected.
 
 Run each routine once interactively first to pre-approve tool permissions.
+
+### Step 9b: Unattended Sessions and the Guard
+
+Every headless runner (the transcript and Supernote runners, the job scan, the session-memory consolidator, the Discord bot's chatter, the Zulip listener, the phone server, ESPN chat-watch) sets `MIST_UNATTENDED=1` before calling `claude`. With that set, the PreToolUse hook `.claude/hooks/guard-unattended.py` refuses writes to rule files (`CLAUDE.md`, `.claude/`, skills, memory, plists, `.env`), reads of secret files, and shell commands shaped like persistence or exfiltration, whatever the model was persuaded to try; interactive sessions are unaffected. A new headless runner must set the variable and be added to `UNATTENDED_RUNNERS` in `tests/test_injection_controls.py`. `security/README.md` has the surface inventory, the controls, and the checklist for adding a surface.
 
 ### Step 10: Grant Full Disk Access (for iMessage)
 
@@ -704,7 +851,12 @@ The session-start hook also flags any `com.exobrain.*` or `com.mist.routine.*` j
 
 ### Where Scheduled-Job Logs Live
 
-Every `com.exobrain.*` job writes to **`~/Library/Logs/exobrain/`** (`EXOBRAIN_LOG_DIR` in `config.sh`; plists can't source shell variables, so they carry the literal path).
+Most `com.exobrain.*` jobs write to **`~/Library/Logs/exobrain/`** (`EXOBRAIN_LOG_DIR` in `config.sh`; plists can't source shell variables, so they carry the literal path). The exceptions, from each plist's `StandardOutPath`:
+
+- `~/.claude/channels/`: `scripts/` jobs (`session-memory-consolidator.log`, `vault-snapshot.log`), the Discord plists (`discord/claude-bot.log`, `discord/digest-fetch.log`), awair (`awair/`), kcurbex (`kcurbex/`), and the headless-Chrome reaper (`maintenance/`). This is why those `channels/` subdirectories must exist before the jobs load.
+- `~/Library/Logs/mist-routines.log`: every `com.mist.routine.*` job, including the four fantasy routines.
+- Inside the module dir (gitignored): `airdrop-to-console/watch.log`, `imessage/logs/`, `substack-sync/launchd.out.log`.
+- `~/Library/Application Support/mem-watchdog/`: the memory watchdog, which runs from there for TCC reasons.
 
 Not `/tmp`: macOS reaps files there that go untouched for a few days, so a failed run can erase its own evidence before anyone reads it. That is precisely what happened chasing a set of exit -9 kills on 2026-07-28 -- the one log that would have explained them was already gone. `~/Library/Logs` is the macOS-canonical spot, survives reboots, and shows up in Console.app.
 

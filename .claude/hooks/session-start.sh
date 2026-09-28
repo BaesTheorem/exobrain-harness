@@ -160,34 +160,41 @@ fi
 # nest-data.json only on a successful authenticated fetch, so that file's mtime
 # is proof the token worked recently. Stale data = real breakage (expired token,
 # dead poller, no network); token age on its own is not.
-NEST_TOKEN="$HOME/Documents/claude-home/integrations/nest/token.json"
-NEST_DATA="$HOME/Documents/claude-home/integrations/nest/nest-data.json"
-if [ ! -f "$NEST_TOKEN" ]; then
-  echo "WARN: Nest token missing -- run nest-auth.py to reconnect HVAC"
-  ISSUES=$((ISSUES + 1))
-elif [ -f "$NEST_DATA" ]; then
-  NEST_DATA_AGE_M=$(( ($(date +%s) - $(stat -f %m "$NEST_DATA")) / 60 ))
-  if [ "$NEST_DATA_AGE_M" -gt 60 ]; then
-    echo "WARN: Nest data stale (${NEST_DATA_AGE_M}m old; nest-poll runs every 5m) -- check token (nest-auth.py) and com.exobrain.nest-poll"
+# Skipped unless the private claude-home sibling repo exists (CHECK_CLAUDE_HOME
+# in config.sh), so a fresh clone does not WARN about pollers it never had.
+if [ "$CHECK_CLAUDE_HOME" = 1 ]; then
+  NEST_TOKEN="$CLAUDE_HOME_DIR/integrations/nest/token.json"
+  NEST_DATA="$CLAUDE_HOME_DIR/integrations/nest/nest-data.json"
+  if [ ! -f "$NEST_TOKEN" ]; then
+    echo "WARN: Nest token missing -- run nest-auth.py to reconnect HVAC"
     ISSUES=$((ISSUES + 1))
+  elif [ -f "$NEST_DATA" ]; then
+    NEST_DATA_AGE_M=$(( ($(date +%s) - $(stat -f %m "$NEST_DATA")) / 60 ))
+    if [ "$NEST_DATA_AGE_M" -gt 60 ]; then
+      echo "WARN: Nest data stale (${NEST_DATA_AGE_M}m old; nest-poll runs every 5m) -- check token (nest-auth.py) and com.exobrain.nest-poll"
+      ISSUES=$((ISSUES + 1))
+    else
+      echo "OK: Nest auth (successful poll ${NEST_DATA_AGE_M}m ago)"
+    fi
   else
-    echo "OK: Nest auth (successful poll ${NEST_DATA_AGE_M}m ago)"
+    echo "WARN: Nest data missing -- nest-poll has never succeeded"
+    ISSUES=$((ISSUES + 1))
   fi
-else
-  echo "WARN: Nest data missing -- nest-poll has never succeeded"
-  ISSUES=$((ISSUES + 1))
 fi
 
 # launchd jobs
 PLAUD_LOADED=$(launchctl list 2>/dev/null | grep -c "plaud-watcher")
 DIGEST_LOADED=$(launchctl list 2>/dev/null | grep -c "discord-digest")
 
-MOUNTREM_LOADED=$(launchctl list 2>/dev/null | grep -c "mount-reminders")
-if [ "$MOUNTREM_LOADED" -ge 1 ]; then
-  echo "OK: launchd mount-reminders"
-else
-  echo "WARN: launchd mount-reminders not loaded -- nothing will fire when the Plex SSD mounts (see mount-reminders/README.md)"
-  ISSUES=$((ISSUES + 1))
+# Only where mount-reminders was installed (CHECK_MOUNT_REMINDERS in config.sh).
+if [ "$CHECK_MOUNT_REMINDERS" = 1 ]; then
+  MOUNTREM_LOADED=$(launchctl list 2>/dev/null | grep -c "mount-reminders")
+  if [ "$MOUNTREM_LOADED" -ge 1 ]; then
+    echo "OK: launchd mount-reminders"
+  else
+    echo "WARN: launchd mount-reminders not loaded -- nothing will fire when the Plex SSD mounts (see mount-reminders/README.md)"
+    ISSUES=$((ISSUES + 1))
+  fi
 fi
 
 if [ "$PLAUD_LOADED" -ge 1 ]; then
@@ -466,7 +473,7 @@ done
 # if the newest digest is >26h old the consolidator is silently dead (observed
 # 2026-07: three straight nights of failures behind exit 0) and startup context
 # degrades fast. 26h allows for "today's digest doesn't exist until 23:00".
-NEWEST_DIGEST=$(ls -t "$HOME/Exobrain/Claude/"*_DIGEST.md 2>/dev/null | head -1)
+NEWEST_DIGEST=$(ls -t "$SESSION_MEMORY_DIR/"*_DIGEST.md 2>/dev/null | head -1)
 if [ -n "$NEWEST_DIGEST" ]; then
   DIGEST_AGE_H=$(( ($(date +%s) - $(stat -f %m "$NEWEST_DIGEST")) / 3600 ))
   if [ "$DIGEST_AGE_H" -gt 26 ]; then
@@ -525,6 +532,27 @@ except Exception as e:
 else
   echo "WARN: Discord digest missing"
   ISSUES=$((ISSUES + 1))
+fi
+
+# Energy data freshness. The Energy Log note's mtime proves nothing: the HVAC
+# block is rewritten every few minutes even while the Evergy half is dead (it
+# failed for 18 days behind exit 0 in 2026-09 and nothing here noticed). Read the
+# newest dated row inside the ENERGY:AUTO block instead; Evergy lags about a day.
+if [ "$CHECK_CLAUDE_HOME" = 1 ] && [ -f "$ENERGY_LOG" ]; then
+  ENERGY_NEWEST=$(awk '/ENERGY:AUTO START/{f=1} /ENERGY:AUTO END/{f=0} f' "$ENERGY_LOG" \
+    | grep -oE '^\| ?20[0-9]{2}-[0-9]{2}-[0-9]{2}' | grep -oE '20[0-9-]{8}' | sort | tail -1)
+  if [ -z "$ENERGY_NEWEST" ]; then
+    echo "WARN: Energy Log has no dated Evergy rows -- check energy-pull (see /electricity)"
+    ISSUES=$((ISSUES + 1))
+  else
+    ENERGY_AGE_D=$(( ($(date +%s) - $(date -j -f %Y-%m-%d "$ENERGY_NEWEST" +%s)) / 86400 ))
+    if [ "$ENERGY_AGE_D" -gt "$ENERGY_STALE_DAYS" ]; then
+      echo "WARN: Energy Log Evergy data stale (newest day $ENERGY_NEWEST, ${ENERGY_AGE_D}d old) -- energy-pull exits 0 on failure; check its log (see /electricity)"
+      ISSUES=$((ISSUES + 1))
+    else
+      echo "OK: Energy Log (newest Evergy day $ENERGY_NEWEST)"
+    fi
+  fi
 fi
 
 # Summary
@@ -595,7 +623,7 @@ fi
 # === VAULT SNAPSHOT ===
 # (Dir name is Claude Code's per-project data dir: the project cwd with slashes
 # replaced by dashes. A different clone path means a different dir name.)
-SNAPSHOT_FILE="$HOME/.claude/projects/-Users-alexhedtke-Documents-Exobrain-harness/vault-snapshot.md"
+SNAPSHOT_FILE="$HOME/.claude/projects/$CLAUDE_PROJECT_SLUG/vault-snapshot.md"
 if [ -f "$SNAPSHOT_FILE" ]; then
   AGE_HOURS=$(( ($(date +%s) - $(stat -f %m "$SNAPSHOT_FILE")) / 3600 ))
   echo ""

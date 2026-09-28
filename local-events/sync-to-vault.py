@@ -17,7 +17,7 @@ import re
 import datetime
 
 LOG = os.path.join(os.path.dirname(__file__), "local-events-log.json")
-VAULT_FOLDER = "/Users/alexhedtke/Exobrain/Local Events"
+VAULT_FOLDER = os.path.join(os.path.expanduser("~"), "Exobrain", "Local Events")
 RETAIN_PASSED_DAYS = 45  # keep recently-passed events so the "Passed" view has context
 
 ILLEGAL = re.compile(r'[\\/:#^\[\]|*?"<>]')

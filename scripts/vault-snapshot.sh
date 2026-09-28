@@ -9,8 +9,8 @@ source "$SCRIPT_DIR/config.sh"
 
 DASHBOARD="$VAULT_DIR/Dashboard.md"
 PROJECTS_DIR="$VAULT_DIR/Projects"
-# Claude Code's per-project data dir (project cwd with slashes replaced by dashes; a different clone path gives a different name)
-OUT_DIR="$HOME/.claude/projects/-Users-alexhedtke-Documents-Exobrain-harness"
+# Claude Code's per-project data dir; CLAUDE_PROJECT_SLUG is derived from HARNESS_DIR in config.sh
+OUT_DIR="$HOME/.claude/projects/$CLAUDE_PROJECT_SLUG"
 OUT="$OUT_DIR/vault-snapshot.md"
 
 mkdir -p "$OUT_DIR"

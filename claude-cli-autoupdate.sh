@@ -37,7 +37,9 @@ if [ -z "$CLAUDE_BIN" ]; then
   CLAUDE_BIN="$(command -v claude)"
   CLAUDE_BIN="${CLAUDE_BIN:-$HOME/.local/bin/claude}"
 fi
-NOTIFY="/Users/alexhedtke/Documents/Exobrain harness/mist-voice/bin/mist-notify"
+# The harness root is wherever this script lives (it sits at the repo root).
+HARNESS="$(cd "$(dirname "$0")" && pwd)"
+NOTIFY="$HARNESS/mist-voice/bin/mist-notify"
 LOG_DIR="$HOME/Library/Logs/exobrain"
 mkdir -p "$LOG_DIR"
 LOG="$LOG_DIR/claude-cli-update.log"
@@ -62,7 +64,7 @@ fi
 # (com.exobrain.claude-stable-path) normally beats us to it, but it sleeps 5s to
 # let the installer finish, and running it here directly closes the race so the
 # version we report is the version `claude` actually runs.
-"$HOME/Documents/Exobrain harness/maintenance/claude-stable-path.sh" --now >>"$LOG" 2>&1 || true
+"$HARNESS/maintenance/claude-stable-path.sh" --now >>"$LOG" 2>&1 || true
 
 # Re-resolve: an update that migrates install methods moves the binary out from
 # under us, so the pre-update path may no longer exist.

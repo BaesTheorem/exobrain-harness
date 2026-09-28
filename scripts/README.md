@@ -6,14 +6,14 @@ Top-level utility scripts that run on a launchd schedule, separate from the inpu
 
 | File | Purpose |
 |------|---------|
-| `session-memory-consolidator.sh` | Daily backstop for session memory. Reads today's Claude Code transcripts (`~/.claude/projects/-Users-alexhedtke-Documents-Exobrain-harness/*.jsonl`) and writes session-memory files for any significant sessions that didn't write their own at end-of-session. Also prunes old memory: regular session memories after 14 days, daily digests after 30 days. |
-| `vault-snapshot.sh` | Builds a compact Markdown digest of `Dashboard.md` plus active project notes (skipping `Archive/` and `Someday/`) and writes it to `~/.claude/projects/-Users-alexhedtke-Documents-Exobrain-harness/vault-snapshot.md`. The session-start hook injects this so every Claude session opens with current priorities loaded. Warns if the file exceeds 4 KB. |
+| `session-memory-consolidator.sh` | Daily backstop for session memory. Reads today's Claude Code transcripts (`~/.claude/projects/<slug>/*.jsonl`) and writes session-memory files for any significant sessions that didn't write their own at end-of-session. Also prunes old memory: regular session memories after 14 days, daily digests after 30 days. |
+| `vault-snapshot.sh` | Builds a compact Markdown digest of `Dashboard.md` plus active project notes (skipping `Archive/` and `Someday/`) and writes it to `~/.claude/projects/<slug>/vault-snapshot.md`. The session-start hook injects this so every Claude session opens with current priorities loaded. Warns if the file exceeds 4 KB. |
 | `com.exobrain.session-memory-consolidator.plist` | launchd plist for `session-memory-consolidator.sh`. `StartCalendarInterval`: 23:00 daily. `RunAtLoad: false` (only runs on schedule). |
 | `com.exobrain.vault-snapshot.plist` | launchd plist for `vault-snapshot.sh`. `StartCalendarInterval`: 06:00 daily. `RunAtLoad: false`. |
 
-Both shell scripts source `../config.sh` for `HARNESS_DIR`, `VAULT_DIR`, and `SESSION_MEMORY_DIR`.
+Both shell scripts source `../config.sh` for `HARNESS_DIR`, `VAULT_DIR`, `SESSION_MEMORY_DIR`, and `CLAUDE_PROJECT_SLUG`.
 
-The `~/.claude/projects/-Users-alexhedtke-Documents-Exobrain-harness/` path above is Claude Code's per-project data directory: the project's cwd with slashes replaced by dashes. If you clone the harness to a different path, Claude Code derives a different directory name, so adjust these paths to match your clone location.
+`<slug>` is Claude Code's per-project data directory name: the project's absolute path with `/` and spaces replaced by dashes (for the owner, `-Users-alexhedtke-Documents-Exobrain-harness`). `config.sh` derives it from `HARNESS_DIR` as `CLAUDE_PROJECT_SLUG`, and `vault-snapshot.sh` uses that, so a different clone path needs no edit there.
 
 ## Install
 

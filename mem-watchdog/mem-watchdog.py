@@ -33,6 +33,20 @@ from datetime import datetime
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 
+
+def _harness_dir():
+    """Locate the harness repo. Run in place, it is this file's parent dir. The
+    launchd copy lives in ~/Library/Application Support (see README), so there
+    the install step records the repo path in a `harness-dir` file next to it."""
+    parent = os.path.dirname(HERE)
+    if os.path.isdir(os.path.join(parent, "mist-voice")):
+        return parent
+    try:
+        with open(os.path.join(HERE, "harness-dir")) as f:
+            return f.read().strip()
+    except OSError:
+        return ""
+
 # --- tunables (override via env) -------------------------------------------
 CHECK_SECS = float(os.environ.get("MEMWD_CHECK_SECS", "20"))
 WARN_GB = float(os.environ.get("MEMWD_WARN_GB", "5.0"))      # notify at this footprint
@@ -112,8 +126,8 @@ def _notify(title, message):
             )
         except Exception:
             pass
-    # Best-effort MIST voice if the harness notifier is on PATH (silent fallback baked in).
-    mist = os.path.expanduser("~/Documents/Exobrain harness/mist-voice/bin/mist-notify")
+    # Best-effort MIST voice if the harness notifier is reachable (silent fallback baked in).
+    mist = os.path.join(_harness_dir(), "mist-voice", "bin", "mist-notify")
     if os.path.exists(mist):
         try:
             subprocess.run([mist, message, "MIST URGENT", "Basso"], check=False, timeout=15)
