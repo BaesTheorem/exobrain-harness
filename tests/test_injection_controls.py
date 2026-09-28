@@ -335,6 +335,47 @@ def test_guard_denies_persistence_and_exfiltration_shells():
         assert _run_guard("Bash", {"command": cmd}) is None, cmd
 
 
+def test_guard_reads_python_as_python_and_copies_as_copies():
+    # Every denial from 2026-09-25 through 09-28, none of which wrote anywhere.
+    sid = "b5ae8be6-03c1-4d87-9ea0-82564906ac50"
+    results = f"{HOME}/.claude/projects/-x/{sid}/tool-results"
+    allowed = [
+        (f"cd {HOME}/.claude/projects/-x/ && python3 - <<'EOF'\nfor f in ['a']:\n    print(f\"== {{f}} {{1}} -> {{2}}\")\nEOF", None),
+        ("curl -s https://x.example/j -o /tmp/js/va.html; python3 -c \"\nimport re\nt=open('/tmp/js/va.html').read()\n"
+         "t=re.sub(r'<[^>]+>','\\n',t)\nprint(t)\n\"", f"{HARNESS}/.claude/skills"),
+        (f"cd {results}/; python3 - <<'EOF'\nimport re\nfor mm in re.finditer(r'/jobs/view/'+'1'+r'[^>]*>', b):\n"
+         "    parts=[p for p in mm if 'jobs/view' not in p]\nEOF", None),
+        ("pmset -g log | grep -E '^2026' | head -30; echo ---; pmset -g sched", None),
+        ("grep -n -i \"10:40\\|asleep\\|pmset\\|caffeinate\" 'Fantasy Football Playbook.md' | head -20", None),
+        (f"cd '{HARNESS}'; python3 - <<'EOF'\nimport subprocess,os\np=os.path.expanduser('~/Exobrain/Daily notes/x.md')\n"
+         "out=subprocess.run(['python3','fantasy/bin/roster-news','--hours','36'],capture_output=True,text=True).stdout\n"
+         "open(p,'w').write(out)\nEOF", None),
+        (f"cp {results}/mcp-gmail-get_thread-1790604069110.txt /tmp/js0928/; ls /tmp/js0928", None),
+        (f"jq -r '.items[].title' '{results}/r.txt'; rm -f '{results}/r.txt'", None),
+    ]
+    for cmd, cwd in allowed:
+        assert _run_guard("Bash", {"command": cmd}, cwd=cwd) is None, cmd
+
+    denied = [
+        "pmset -a sleep 0",
+        "echo x; /usr/bin/pmset displaysleepnow",
+        "networksetup -setairportpower en0 off",
+        "echo scutil | xargs scutil --set HostName evil",
+        f"cp -t '{HARNESS}/fantasy/bin' /tmp/espn",
+        "cp /tmp/espn fantasy/bin",
+        "cp /tmp/x.py weather",
+        f"mv '{HARNESS}/fantasy/bin/espn' /tmp/",
+        f"ln -sf /tmp/evil '{HARNESS}/.claude/hooks/session-start.sh'",
+        f"python3 -c \"\nimport os\nopen('{HARNESS}/CLAUDE.md','w').write('x')\n\"",
+        f"cd '{HARNESS}'; python3 - <<'EOF'\nimport subprocess\nsubprocess.run(['cp','/tmp/x','fantasy/bin/espn'])\nEOF",
+        "python3 - <<'EOF'\nimport os\nos.system('sudo rm -rf /var/log')\nEOF",
+        f"rm -f '{results}/../../memory/MEMORY.md'",
+        f"cp /tmp/x '{HOME}/.claude/projects/-x/{sid}.jsonl'",
+    ]
+    for cmd in denied:
+        assert _run_guard("Bash", {"command": cmd}) == "deny", cmd
+
+
 def test_guard_resolves_relative_paths_against_the_session_cwd():
     heredoc = {"command": "cat > gen.py <<'EOF'\nx\nEOF"}
     assert _run_guard("Bash", heredoc, cwd="/tmp/mem") is None

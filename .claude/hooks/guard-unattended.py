@@ -94,6 +94,11 @@ PROTECTED_WRITE: list[tuple[str, str]] = [
     (r"/Applications/[^/]+\.app/", "an app bundle"),
 ]
 
+# A session's own tool-result dumps under ~/.claude/projects are its scratch:
+# routines cd there to parse an MCP result and delete it after. The memory
+# directory and the transcripts beside them stay protected.
+SESSION_SCRATCH = re.compile(r"/\.claude/projects/[^/]+/[0-9a-f-]{36}/tool-results/.+$")
+
 # Source code inside the harness repo. Data files (json, md, txt, csv, jsonl,
 # cache) are deliberately not here: routines write logs, state and notes.
 CODE_EXT = re.compile(r"\.(sh|bash|zsh|py|js|mjs|cjs|ts|swift|rb|pl|php|lua|go|rs|c|h|m|scpt|applescript|command)$", re.IGNORECASE)
@@ -110,6 +115,12 @@ PROTECTED_READ: list[tuple[str, str]] = [
     (r"/\.ssh/", "SSH keys"),
     (r"/Library/Keychains/", "Keychain"),
 ]
+
+# The start of a command: after a chain operator, a subshell, a substitution,
+# or a word that runs its argument (`xargs`, `env`, `eval`, `do shell script "`).
+# An escaped `\|` is regex alternation inside a grep pattern, not a pipe.
+CMD_START = (r"(?:^|[;&(`\n]|(?<!\\)\||\$\(|\b(?:xargs|env|exec|command|nohup|time|eval|then|do|else|script)\s+[\"']?)"
+             r"\s*(?:\S*/)?")
 
 # Shell commands with a persistence, escalation or exfiltration shape.
 BASH_DENY: list[tuple[str, str]] = [
@@ -139,7 +150,12 @@ BASH_DENY: list[tuple[str, str]] = [
     (r"\bssh-(keygen|add|copy-id)\b", "SSH key changes"),
     (r"\b(nc|ncat|netcat)\s+(-l|-e)\b", "listener or reverse shell"),
     (r"\bosascript\b[^\n]*administrator privileges", "elevated AppleScript"),
-    (r"\b(pmset|systemsetup|networksetup|scutil)\b", "changes system state"),
+    # Only as a command, and not the read-only forms: `pmset -g log` is how a
+    # routine checks whether the laptop slept, and `grep "pmset\|caffeinate"`
+    # merely searches for the word (both denied 2026-09-27).
+    (CMD_START + r"(?:pmset(?!\s+-g\b)|systemsetup(?!\s+-(?:get|list|print)\w*)|"
+     r"networksetup(?!\s+-(?:list|get|print|show)\w*)|scutil(?!\s+(?:--get|--dns|--proxy|--nwi|-r)\b))\b",
+     "changes system state"),
     (r"\bopen\s+-a\s+[\"']?(Terminal|iTerm|Script Editor|System Settings|System Preferences)\b", "opens a control surface"),
     (r"\bkill(all)?\s+(-9\s+)?(-[0-9]+\s+)?(claude|MIST|launchd|loginwindow)\b", "kills the harness"),
     (r"\bclaude\b[^\n]*\s(-p|--print)(\s|$)", "spawning a second headless session escapes this guard's scope"),
@@ -152,6 +168,9 @@ BASH_DENY: list[tuple[str, str]] = [
 # 2>&1` as an overwrite of get-weather.py and blocked most routines.
 WRITE_VERBS = {"tee", "cp", "mv", "rm", "ln", "chmod", "chown", "touch", "truncate",
                "install", "patch", "dd", "rsync", "unzip", "tar"}
+# Verbs that read every operand but the destination. `mv` is not here: it
+# removes its source.
+DEST_ONLY = {"cp", "ln", "install", "rsync"}
 SED_INPLACE = re.compile(r"^-[a-zA-Z]*i")
 INTERPRETERS = {"python", "python3", "perl", "ruby", "node", "sh", "bash", "zsh"}
 SHELLS = {"sh", "bash", "zsh"}
@@ -171,8 +190,13 @@ HEREDOC = re.compile(r"(?<!<)<<(?!<)-?\s*(['\"]?)(\w+)\1")
 SCRIPT_WRITES = re.compile(
     r"open\([^)]*['\"][wax]|['\"](?:w|a|x|r\+|wb|ab)['\"]\s*\)|write_text|write_bytes|json\.dump\(|"
     r"\bshutil\.|\bos\.(?:remove|unlink|rename|replace|symlink|chmod|system)|\.(?:unlink|rename|touch|mkdir)\(|"
-    r"\bsubprocess\b|>{1,2}"
+    # A redirect only inside a literal (perl `open(F, ">x")`): a bare `>` in a
+    # script is a comparison or a regex, never a write.
+    r"\bsubprocess\b|['\"]\+?>{1,2}"
 )
+
+# A literal argument list handed to subprocess.
+SUBPROCESS_ARGV = re.compile(r"\bsubprocess\.\w+\(\s*\[([^\]]*)\]")
 
 # Anything in a command that names a file: absolute, home-relative, dot-relative,
 # a relative path with a slash, or a bare secret/rule filename. Relative forms
@@ -231,6 +255,8 @@ def check_write_path(raw: str, cwd: str | None = None) -> str | None:
     harness source (2026-09-24 and 09-25).
     """
     path = _expand(raw, cwd)
+    if SESSION_SCRATCH.search(path):
+        return None
     why = _matches(path, PROTECTED_WRITE)
     if why:
         return why
@@ -275,9 +301,38 @@ def _is_op(tok: str) -> bool:
     return bool(OPERATOR.fullmatch(tok))
 
 
-def _split_heredocs(command: str) -> tuple[list[tuple[str, str | None]], list[str]]:
-    """Command lines (each with the interpreter script body it opens, if any),
-    and expanding data bodies.
+def _quote_open(text: str) -> bool:
+    """Whether `text` ends inside an unclosed shell quote. A `#` comment
+    (`# don't`) is skipped so its apostrophe does not open one."""
+    quote = ""
+    i = 0
+    while i < len(text):
+        ch = text[i]
+        if quote == "'":
+            quote = "" if ch == "'" else quote
+        elif ch == "\\":
+            i += 1
+        elif quote == '"':
+            quote = "" if ch == '"' else quote
+        elif ch in "'\"":
+            quote = ch
+        elif ch == "#" and (i == 0 or text[i - 1] in " \t\n;&|("):
+            nl = text.find("\n", i)
+            i = len(text) if nl < 0 else nl
+            continue
+        i += 1
+    return bool(quote)
+
+
+def _split_heredocs(command: str) -> tuple[list[tuple[str, str | None, bool]], list[str]]:
+    """Command lines (each with the interpreter script body it opens, if any,
+    and whether that interpreter is a shell), and expanding data bodies.
+
+    A command line runs to the next newline outside quotes, so a multi-line
+    `python3 -c "..."` stays one line and its code is never read as shell:
+    `re.sub(r'<[^>]+>', ...)` on a line of its own was a redirect into the
+    working directory (2026-09-26). A quote that never closes falls back to
+    one physical line.
 
     A heredoc fed to cat or tee is data: prose in a note can contain `>`,
     a path, or the words `curl x | sh` without running anything. With a
@@ -286,14 +341,21 @@ def _split_heredocs(command: str) -> tuple[list[tuple[str, str | None]], list[st
     command text.
     """
     lines = command.split("\n")
-    cmd_lines: list[tuple[str, str | None]] = []
+    cmd_lines: list[tuple[str, str | None, bool]] = []
     expanding: list[str] = []
     i = 0
     while i < len(lines):
         line = lines[i]
+        j = i
+        while _quote_open(line) and j + 1 < len(lines):
+            j += 1
+            line += "\n" + lines[j]
+        if _quote_open(line):
+            line, j = lines[i], i
+        i = j
         m = HEREDOC.search(line)
         if not m:
-            cmd_lines.append((line, None))
+            cmd_lines.append((line, None, False))
             i += 1
             continue
         marker = m.group(2)
@@ -304,10 +366,11 @@ def _split_heredocs(command: str) -> tuple[list[tuple[str, str | None]], list[st
             body.append(lines[i])
             i += 1
         i += 1
-        if any(Path(t).name in INTERPRETERS for t in head):
-            cmd_lines.append((line, "\n".join(body)))
+        interp = [Path(t).name for t in head if Path(t).name in INTERPRETERS]
+        if interp:
+            cmd_lines.append((line, "\n".join(body), interp[0] in SHELLS))
             continue
-        cmd_lines.append((line, None))
+        cmd_lines.append((line, None, False))
         if not m.group(1):
             expanding.append("\n".join(body))
     return cmd_lines, expanding
@@ -334,9 +397,21 @@ def _script_paths(script: str) -> list[str]:
 
 
 def _script_reason(script: str, cwd: str | None = None) -> str | None:
-    """A script body that writes and names a protected path."""
+    """A script body that writes and names a protected path.
+
+    A literal argv handed to subprocess is judged as the command line it is,
+    so running `fantasy/bin/roster-news` from a script that also writes a note
+    is not a write to the tool (2026-09-28), while `["cp", x, "fantasy/bin/y"]`
+    still is.
+    """
     if not SCRIPT_WRITES.search(script):
         return None
+    for m in SUBPROCESS_ARGV.finditer(script):
+        argv = [lit[1:-1] for lit in STRING_LITERAL.findall(m.group(1)) if lit[:3] not in ('"""', "'''")]
+        why = _line_reason(shlex.join(argv), cwd or str(HARNESS))[0] if argv else None
+        if why:
+            return why
+    script = SUBPROCESS_ARGV.sub("[]", script)
     for path in _script_paths(script):
         why = check_write_path(path, cwd)
         if why:
@@ -357,7 +432,43 @@ def _operands(toks: list[str], start: int) -> list[str]:
         if not toks[j].startswith("-"):
             ops.append(toks[j])
         j += 1
-    return ops + [" ".join(ops[k:]) for k in range(len(ops)) if len(ops) - k > 1]
+    # A join is only a candidate while no later word starts a new rooted path:
+    # `cp /a/src /tmp/dst` is two paths, never one called "/a/src /tmp/dst".
+    return ops + [" ".join(ops[k:]) for k in range(len(ops)) if len(ops) - k > 1
+                  and not any(w.startswith(("/", "~", "$HOME")) for w in ops[k + 1:])]
+
+
+def _dest_operands(toks: list[str], start: int) -> list[str]:
+    """Write candidates for a copy-shaped verb: the destination (the `-t`
+    directory if given, else the last operand, with the space-joined runs
+    ending in it), and each source's name inside it, since `cp x fantasy/bin`
+    writes fantasy/bin/x. Copying a tool result out of ~/.claude to /tmp was
+    denied as a write to ~/.claude (2026-09-28)."""
+    words: list[str] = []
+    j = start
+    while j < len(toks) and not _is_op(toks[j]):
+        words.append(toks[j])
+        j += 1
+    if "--remove-source-files" in words:
+        return _operands(toks, start)
+    plain = [w for w in words if not w.startswith("-")]
+    dest = None
+    for k, w in enumerate(words):
+        if w in ("-t", "--target-directory") and k + 1 < len(words):
+            dest = words[k + 1]
+            plain.remove(dest)
+        elif w.startswith("--target-directory="):
+            dest = w.split("=", 1)[1]
+    if dest is None:
+        if not plain:
+            return []
+        if len(plain) == 1:  # `ln -s /x/y` makes ./y
+            return [os.path.basename(plain[0].rstrip("/"))]
+        dest = plain.pop()
+        out = [c for c in _operands(toks, start) if c == dest or (" " in c and c.endswith(dest))]
+    else:
+        out = [dest]
+    return out + [os.path.join(d, os.path.basename(src.rstrip("/"))) for d in out for src in plain]
 
 
 def _line_reason(line: str, cwd: str) -> tuple[str | None, str]:
@@ -400,7 +511,9 @@ def _line_reason(line: str, cwd: str) -> tuple[str | None, str]:
                 return why, cwd
             i += 3
             continue
-        if name in WRITE_VERBS or (name == "sed" and i + 1 < len(toks) and SED_INPLACE.match(toks[i + 1])):
+        if name in DEST_ONLY:
+            targets.extend((t, cwd) for t in _dest_operands(toks, i + 1))
+        elif name in WRITE_VERBS or (name == "sed" and i + 1 < len(toks) and SED_INPLACE.match(toks[i + 1])):
             targets.extend((t, cwd) for t in _operands(toks, i + 1))
         i += 1
     for t, at in targets:
@@ -410,26 +523,36 @@ def _line_reason(line: str, cwd: str) -> tuple[str | None, str]:
     return None, cwd
 
 
+def _deny_pattern(text: str) -> str | None:
+    for rx, why in BASH_DENY:
+        if re.search(rx, text, re.IGNORECASE):
+            return why
+    return None
+
+
 def check_bash(command: str, cwd: str | None = None) -> str | None:
     """Reason this shell command may not run unattended, or None."""
     cwd = cwd or str(HARNESS)
     cmd_lines, expanding = _split_heredocs(command)
-    text = "\n".join([line for line, _ in cmd_lines] + expanding)
-    for rx, why in BASH_DENY:
-        if re.search(rx, text, re.IGNORECASE):
-            return why
+    text = "\n".join([line for line, _, _ in cmd_lines] + expanding)
+    why = _deny_pattern(text)
+    if why:
+        return why
     # Reading a secret by name is not allowed either, whatever the verb.
-    scripts = [body for _, body in cmd_lines if body is not None]
+    scripts = [body for _, body, _ in cmd_lines if body is not None]
     for m in PATH_TOKEN.finditer("\n".join([METADATA_SEGMENT.sub("", text), *scripts])):
         why = check_read_path(m.group(0))
         if why:
             return f"names a secret ({why})"
-    for line, body in cmd_lines:
+    for line, body, shell in cmd_lines:
         why, cwd = _line_reason(line, cwd)
         if why:
             return f"write-shaped command naming a protected path ({why})"
         if body is not None:
-            why = check_bash(body, cwd) or _script_reason(body, cwd)
+            # A Python body is not shell: its `->` and `'<[^>]+>'` are not
+            # redirects (2026-09-25, 09-26, 09-28). It still gets the pattern
+            # scan, which catches `os.system("sudo ...")`.
+            why = check_bash(body, cwd) if shell else (_deny_pattern(body) or _script_reason(body, cwd))
             if why:
                 return f"script body that writes a protected path ({why})"
     return None
