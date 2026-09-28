@@ -264,7 +264,7 @@ def nudge(result: dict, cfg: dict, state: dict) -> None:
     text = (f"Good running window for the next two hours ({wx}). Next quest: week {nxt['week']} day {nxt['day']}, "
             f"{nxt['title']}, {nxt['totalSeconds'] // 60} min with {nxt['jogSeconds'] // 60} min of jogging.")
     notify(text, "Go now", "console!")
-    discord(cfg.get("DISCORD_NOTIFY_CHAT_ID"), f"(ᵔwᵔ) {text} Open Exercise Log, Quest tab, Start quest, and start a Run on the watch.")
+    discord(cfg.get("DISCORD_NOTIFY_CHAT_ID"), f"(ᵔwᵔ) {text} Open Exercise Log, Skills, Agility, Start quest, and start a Run on the watch.")
     state["last_nudge"] = local.strftime("%Y-%m-%d")
     log(f"nudged: {wx}")
 

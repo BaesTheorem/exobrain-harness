@@ -1,7 +1,7 @@
 # Running quest
 
 The Mac side of the Couch to 5K quest in the Exercise Log iPhone app
-(`~/Documents/exercise-log`, Quest tab). The phone runs the interval timer
+(`~/Documents/exercise-log`, Skills > Agility). The phone runs the interval timer
 and records each attempt in `exercise-log.json`; this watcher checks those
 attempts against Fitbit, awards the XP the phone cannot award itself, and
 nudges when a run is due and the weather is good.
