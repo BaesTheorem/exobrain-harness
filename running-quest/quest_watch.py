@@ -34,6 +34,7 @@ HARNESS = HERE.parent
 HOME = Path.home()
 EXERCISE_LOG = HOME / "Documents/exercise-log"
 VERIFY = EXERCISE_LOG / "bin/quest-verify"
+HP_VERIFY = EXERCISE_LOG / "bin/hitpoints-verify"
 NOTIFY = HARNESS / "mist-voice/bin/mist-notify"
 DISCORD_SEND = HARNESS / "discord/discord-send.py"
 STATE = HERE / ".state.json"
@@ -111,6 +112,43 @@ def run_verify() -> dict | None:
     except json.JSONDecodeError:
         log(f"verify printed non-JSON: {r.stdout[:200]}")
         return None
+
+
+def run_hp_verify() -> dict | None:
+    """Sleep nights into Hitpoints. Same shape as run_verify; missing is fine."""
+    if not HP_VERIFY.exists():
+        return None
+    r = subprocess.run([sys.executable, str(HP_VERIFY), "--json", "--days", "14"], capture_output=True, text=True)
+    if r.returncode != 0:
+        log(f"hitpoints-verify exit {r.returncode}: {r.stderr.strip()[:300]}")
+        return None
+    try:
+        return json.loads(r.stdout)
+    except json.JSONDecodeError:
+        log(f"hitpoints-verify printed non-JSON: {r.stdout[:200]}")
+        return None
+
+
+def celebrate_hp(result: dict, cfg: dict) -> None:
+    own = cfg.get("DISCORD_NOTIFY_CHAT_ID")
+    public = cfg.get("QUEST_DISCORD_CHANNEL") or own
+    for ev in result.get("events", []):
+        if ev["type"] == "night_verified":
+            mins = ev.get("minutes") or 0
+            hm = f"{mins // 60}h {mins % 60:02d}m"
+            if ev["goalMet"]:
+                text = f"Sleep goal met for the night ending {ev['date']}: {hm}. Hitpoints run: {result['summary']['run']} night(s)."
+                notify(text, "Hitpoints", "console!")
+                discord(own, f"(－ω－) {text}")
+            elif ev.get("wasClaimed"):
+                text = f"Fitbit says the night ending {ev['date']} was {hm}, short of the goal. The claim was replaced."
+                notify(text, "Hitpoints", "console!")
+                discord(own, f"(ə_e) {text}")
+        elif ev["type"] == "level_up":
+            text = f"Hitpoints level {ev['to']}. ({ev['xp']:,} xp)"
+            notify(text, "Level up", "console!")
+            discord(public, f"(>‿<) Alex reached Hitpoints level {ev['to']}. {ev['xp']:,} xp and counting.")
+        log(f"hp event: {json.dumps(ev)[:300]}")
 
 
 def celebrate(result: dict, cfg: dict) -> None:
@@ -241,6 +279,10 @@ def main() -> None:
     s = result.get("summary", {})
     log(f"verify ok: level {s.get('level')} {s.get('xp')} xp, {len(result.get('events', []))} event(s), changed={result.get('changed')}")
     celebrate(result, cfg)
+    hp = run_hp_verify()
+    if hp is not None:
+        log(f"hitpoints ok: level {hp['summary']['level']}, run {hp['summary']['run']}, {len(hp.get('events', []))} event(s)")
+        celebrate_hp(hp, cfg)
     nudge(result, cfg, state)
     state["last_run"] = datetime.now().isoformat(timespec="seconds")
     save_state(state)
