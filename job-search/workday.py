@@ -102,7 +102,7 @@ DROP = re.compile(
     r"customer success|sales)\b", re.I)
 KEEP = re.compile(
     r"\b(analyst|it support|it operations|it specialist|helpdesk|help desk|"
-    r"service desk|security|identity|iam|grc|compliance|administrator|"
+    r"service desk|resident consultant|associate consultant|security|identity|iam|grc|compliance|administrator|"
     r"m365|microsoft 365|intune|endpoint|desktop support|technical support)\b", re.I)
 
 # Workday tenants spell "remote" many ways in the location field, and gating on

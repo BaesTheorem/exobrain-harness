@@ -59,7 +59,7 @@ DROP = re.compile(
 # Himalayas firehose from flooding the output with sales/marketing roles).
 KEEP = re.compile(
     r"\b(analyst|it support|it operations|it specialist|helpdesk|help desk|"
-    r"service desk|security|identity|iam|grc|compliance|administrator|"
+    r"service desk|resident consultant|associate consultant|security|identity|iam|grc|compliance|administrator|"
     r"m365|microsoft 365|intune|endpoint|desktop support|technical support)\b", re.I)
 
 WWR_CATEGORIES = [
@@ -68,8 +68,10 @@ WWR_CATEGORIES = [
     "all-other-remote-jobs",  # NOT remote-all-other-remote-jobs; that slug 301s
 ]
 
-HIMALAYAS_ROW_CAP = 6000  # hard cap per run; truncation is logged, never silent.
-# A normal 3-day window is ~3,900 rows (2026-09-07), so 4,000 was brushing the cap.
+HIMALAYAS_ROW_CAP = 10000  # hard cap per run; truncation is logged, never silent.
+# A normal 3-day window was ~3,900 rows on 2026-09-07. By 2026-09-28 one Monday
+# window alone held 2,998 rows and the 2-day daily scan hit the old 6,000 cap.
+# 10,000 is 500 pages, still paced by HIMALAYAS_WAVE / HIMALAYAS_PAUSE below.
 
 # Himalayas sits behind Cloudflare rate limiting (measured 2026-09-07): ~100
 # requests inside a 10s window returns 429 with `Cf-Mitigated: challenge`, no

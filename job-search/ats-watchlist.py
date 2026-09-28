@@ -70,7 +70,7 @@ DROP = re.compile(
     r"engineer (iii|iv|v)|vp|vice president|chief|supervisory)\b", re.I)
 KEEP = re.compile(
     r"\b(analyst|it support|it operations|it specialist|helpdesk|help desk|"
-    r"service desk|security|identity|iam|grc|compliance|administrator|"
+    r"service desk|resident consultant|associate consultant|security|identity|iam|grc|compliance|administrator|"
     r"m365|microsoft 365|intune|endpoint|desktop support|technical support|"
     r"fellow|fellowship)\b", re.I)
 

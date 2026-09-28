@@ -50,6 +50,35 @@ def load():
     return out
 
 
+SUFFIXES = r"\b(corporation|corp|incorporated|inc|llc|l\.?p|ltd|limited|company|co|group|holdings|international|plc)\b\.?"
+
+
+def norm(s):
+    """Lowercase, drop corporate suffixes and punctuation. 'LTS Corporation' -> 'lts'."""
+    s = re.sub(SUFFIXES, " ", s.lower())
+    return " ".join(re.sub(r"[^a-z0-9&]+", " ", s).split())
+
+
+def company_match(term, n):
+    """Match either direction on normalized names, whole words only.
+
+    Plain substring missed 'LTS Corporation' against notes filed as 'LTS - ...'
+    (2026-09-28): the search term was longer than the stored company. Reverse
+    containment catches that; the whole-word bound and 3-char minimum keep a
+    short stored name from matching every term that happens to contain it.
+    """
+    t = norm(term)
+    for cand in (n["company"], n["name"].split(" - ")[0]):
+        c = norm(cand)
+        if not c or not t:
+            continue
+        if re.search(r"\b%s\b" % re.escape(t), c):
+            return True
+        if len(c) >= 3 and re.search(r"\b%s\b" % re.escape(c), t):
+            return True
+    return False
+
+
 notes = load()
 if "--stats" in sys.argv:
     from collections import Counter
@@ -72,7 +101,8 @@ for term in args:
     if by_url:
         hits = [n for n in notes if n["url"] and n["url"].lower() == t]
     else:
-        hits = [n for n in notes if t in n["name"].lower() or t in n["company"].lower()]
+        hits = [n for n in notes if t in n["name"].lower() or t in n["company"].lower()
+                or company_match(term, n)]
     print(f"== {term} -> {len(hits)} hit(s)")
     for n in hits:
         print(f"   {n['name']} | status={n['status'] or '-'} | reapply={n['reapply'] or '-'} "

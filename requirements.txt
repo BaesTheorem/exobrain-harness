@@ -9,3 +9,5 @@ numpy
 # Pomodoro desktop app (pomodoro/main.py + create_icon.py)
 pywebview
 pillow
+# Hiring.cafe TLS fingerprint workaround (job-search/hiringcafe.py)
+curl_cffi

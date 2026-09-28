@@ -7,9 +7,16 @@ REST API; the working data path is the Next.js page-data route:
     https://hiringcafe.com/_next/data/<BUILD_ID>/index.json?searchState=<url-encoded JSON>
 
 BUILD_ID rotates on every deploy, so it is scraped from the homepage each run
-rather than pinned. Plain curl/requests with a browser UA is enough -- no
-Playwright, no auth. (An earlier attempt used hiring.cafe/api/search-jobs, which
-401s on GET and 405s on POST because that host is not the app.)
+rather than pinned. No Playwright, no auth. (An earlier attempt used
+hiring.cafe/api/search-jobs, which 401s on GET and 405s on POST because that
+host is not the app.)
+
+TLS fingerprinting (2026-09-28): a plain urllib request with a browser UA now
+403s on the homepage itself, and a one-shot curl_cffi impersonation 403s on
+_next/data. What works is a curl_cffi Session impersonating Chrome, so the
+homepage cookies carry into the data call, plus a hiringcafe.com Referer.
+curl_cffi lives in the harness .venv (requirements.txt); when the interpreter
+running this script lacks it, the script re-execs itself under that venv.
 
 Each hit carries structured fields that map onto the four hard gates, so the
 filtering here is exact rather than inferred from prose.
@@ -20,21 +27,46 @@ Usage:
 
 import argparse
 import json
+import os
 import re
 import sys
 import urllib.parse
-import urllib.request
+from pathlib import Path
 
-UA = ("Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 "
-      "(KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36")
 
 COMP_FLOOR = 75_000  # standard-lane floor; see gitignored Claude Reference.md
 
 
+def _ensure_curl_cffi():
+    """Re-exec under the harness .venv when this interpreter lacks curl_cffi.
+
+    Only called from main(): doing this at import time replaced the pytest
+    process that imports this module for the gate tests (2026-09-28).
+    """
+    try:
+        import curl_cffi  # noqa: F401
+    except ImportError:
+        venv = Path(__file__).resolve().parent.parent / ".venv" / "bin" / "python"
+        if venv.exists() and Path(sys.executable).resolve() != venv.resolve():
+            os.execv(str(venv), [str(venv), __file__, *sys.argv[1:]])
+        sys.exit("curl_cffi missing: uv pip install --python .venv/bin/python curl_cffi")
+
+
+_SESSION = None
+
+
+def _session():
+    global _SESSION
+    if _SESSION is None:
+        from curl_cffi import requests as cffi_requests
+        _SESSION = cffi_requests.Session(impersonate="chrome")
+    return _SESSION
+
+
 def _get(url):
-    req = urllib.request.Request(url, headers={"User-Agent": UA})
-    with urllib.request.urlopen(req, timeout=45) as r:
-        return r.read().decode("utf-8", "replace")
+    r = _session().get(url, headers={"Referer": "https://hiringcafe.com/"}, timeout=45)
+    r.raise_for_status()
+    return r.text
 
 
 def build_id():
@@ -97,6 +129,7 @@ def gate(hit, max_age_days):
 
 
 def main():
+    _ensure_curl_cffi()
     ap = argparse.ArgumentParser()
     ap.add_argument("queries", nargs="+")
     ap.add_argument("--days", type=int, default=14, help="max posting age")
