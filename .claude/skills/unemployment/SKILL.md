@@ -5,9 +5,11 @@ description: File and manage Alex's Missouri unemployment (UInteract) claim -- w
 
 # Unemployment (Missouri DES / UInteract)
 
-Alex was laid off from Clyde on **2026-07-17** (IT outsourced to Accenture -- a
-clean no-fault separation). Initial claim **filed 2026-07-19**. Portal:
-[uinteract.labor.mo.gov](https://uinteract.labor.mo.gov).
+Portal: [uinteract.labor.mo.gov](https://uinteract.labor.mo.gov).
+
+The case facts (separation, claim date, self-employment, severance) live only in
+the vault, in the "Case facts" section of the playbook below. Read them there at
+runtime; never copy them into this repo.
 
 Deep background lives in `Research/Layoff Benefits Playbook (Missouri 2026).md`
 in the vault. Read it before answering anything about eligibility, severance, or
@@ -22,11 +24,11 @@ statements made to obtain benefits (RSMo 288.380), and the penalties land on
 Alex, not on the assistant that filled the form. Several of its questions have
 answers that exist only in Alex's head:
 
-- Did he work, in any capacity, during the week? **Working Order LLC is an
-  active consultancy** -- self-employment and coaching hours count as work even
-  when unpaid or unbilled, and gross earnings are reported for the week they
-  were *earned*, not the week they were paid.
-- Severance. Alex has an 8-week package (~$10,422.32). DES's FAQ says severance
+- Did he work, in any capacity, during the week? If the playbook's case facts
+  list an active self-employment venture, its hours count as work even when
+  unpaid or unbilled, and gross earnings are reported for the week they were
+  *earned*, not the week they were paid.
+- Severance (amount in the playbook's case facts). DES's FAQ says severance
   is "not reportable"; RSMo 288.036 says lump-sum severance is prorated as
   wages. **These do not reconcile in the public sources.** The playbook flags
   this as an open question requiring a call to DES at **800-320-2519**
@@ -71,8 +73,8 @@ actually happened, with a date. The sources, in order of reliability:
 
 1. **Application confirmation emails** (Gmail). The hardest evidence -- an
    employer acknowledgment with a timestamp. Note that a submitted-looking
-   Workday form with no confirmation email may never have submitted; the
-   Saint Luke's case on 7/27 is the cautionary example.
+   Workday form with no confirmation email may never have submitted (the
+   playbook's case facts record one example).
 2. **Job listing notes** -- `Projects/Get new job/Job Listings/*.md`, where
    `status: applied` and `application_date` is set. The `application_date`
    field is often left blank, so don't rely on it alone.

@@ -43,7 +43,9 @@ coords are stable regardless of where the OS window sits. `canvas = window - (0,
 - Client: `~/alora/client_runelite.jar` (Alora's RuneLite fork; self-downloaded by `Alora.jar`).
 - Agent jar (built): `~/Documents/osrs-companion/mist-agent/mist-agent.jar`.
 - Credentials: `~/Documents/osrs-companion/credentials.json` (chmod 600). MIST's login only;
-  Alex holds his own. **Never inline creds; read this file.**
+  Alex holds his own. **Never inline creds; read this file.** Schema (read by
+  `scripts/osrs.py login [account]`, default account `mist`):
+  `{"alora": {"mist": {"username": "<login>", "password": "<password>"}}}`
 
 The agent **source** is tracked here in `agent/MistAgent.java`; rebuild with `agent/build.sh`.
 
@@ -112,10 +114,10 @@ python3 osrs.py guard <AlexName> 30  # bodyguard: follow + kill what attacks the
 > `key ENTER` to drive Play Now. In-world clicks work fine. **Occluded-window screencapture misses
 > the sprite-drawn tab icons**, so locate tabs/controls via `roots`+`widgettree`, not pixels.
 > **Muting is auto-enforced.** A `mist-mute` daemon thread (started in `premain`) re-applies `mute`
-> every 3s while `LOGGED_IN`, so silence survives track changes AND re-logins (the client JVM persists
+> every 30s while `LOGGED_IN`, so silence survives track changes AND re-logins (the client JVM persists
 > across game sessions). sfx + area-sound zero cleanly via `Preferences`; **music volume is a synced
 > preference `setMusicVolume` doesn't persist** (`getMusicVolume` always reads ~20), but the daemon
-> re-zeros the live MIDI output every 3s so any track-change blip lasts <3s. Toggle with `automute off`
+> re-zeros the live MIDI output every 30s (`MistAgent.java` `muteLoop`) so any track-change blip lasts <30s. Toggle with `automute off`
 > (needed before `mute 100` restores sound, else the daemon reverts it). The in-game settings tab is
 > locked during the Gielinor Guide tutorial, which is why this reflection route (not UI) is the mute.
 

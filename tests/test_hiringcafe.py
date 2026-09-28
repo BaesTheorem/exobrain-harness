@@ -5,7 +5,7 @@ unlisted-comp DQ, no hard degree/clearance bars). If a gate's behavior
 changes, that should be a deliberate /job-search decision, not a side effect.
 """
 
-from conftest import load_script
+from conftest import SYNTHETIC_ENV, load_script
 
 hc = load_script("job-search/hiringcafe.py")
 
@@ -54,7 +54,8 @@ def test_gate3_unlisted_comp_is_dq_by_default():
 
 
 def test_gate3_comp_floor_boundary():
-    # Floor is $75K; a band topping out exactly at the floor passes.
+    # A band topping out exactly at the floor passes; one dollar under fails.
+    assert hc.COMP_FLOOR == int(SYNTHETIC_ENV["JOB_COMP_FLOOR"])
     passed, _ = hc.gate(make_hit(yearly_max_compensation=hc.COMP_FLOOR), 7)
     assert passed
     passed, reason = hc.gate(make_hit(yearly_max_compensation=hc.COMP_FLOOR - 1), 7)

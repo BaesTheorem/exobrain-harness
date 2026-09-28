@@ -2,9 +2,9 @@
 """USAJOBS discovery lane for /job-search: the official federal jobs API.
 
 Federal remote IT/security postings mostly never touch commercial boards, and
-many explicitly accept experience in lieu of a degree. Alex is Public
-Trust-eligible, which several already-scanned postings (Cadmus, CVP, LTS)
-treated as a requirement he clears.
+many explicitly accept experience in lieu of a degree. Whether a posting's
+suitability or clearance tier is one the candidate clears is a profile question,
+checked at JD-read time, not here.
 
 The API is free but keyed: request a key at https://developer.usajobs.gov/apirequest/
 (email form; the key arrives by email). Put it in the harness .env as:
@@ -37,8 +37,10 @@ import re
 import urllib.parse
 import urllib.request
 
-COMP_FLOOR = 75_000    # standard remote floor; see gitignored Claude Reference.md
-ONSITE_FLOOR = 80_000  # any office requirement at all triggers this, binary
+from comp_floors import comp_floor, onsite_floor
+
+COMP_FLOOR = comp_floor()      # standard remote floor, from the harness .env
+ONSITE_FLOOR = onsite_floor()  # any office requirement at all triggers this, binary
 LOCAL_LOCATION = "Kansas City, Missouri"
 LOCAL_RADIUS_MILES = 30
 

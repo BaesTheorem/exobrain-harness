@@ -7,6 +7,10 @@ if [ ! -d "$JB_DIR/node_modules/playwright-core" ]; then
   echo "jackbox: installing node deps..." >&2
   (cd "$JB_DIR" && npm install --no-audit --no-fund >/dev/null) || echo "WARN: npm install failed in $JB_DIR" >&2
 fi
+# Default key source: the harness phone/ tool's gitignored .env (four levels up is the
+# harness root). It is the one file on this machine that already holds an
+# ANTHROPIC_API_KEY; the root .env does not. Override with ANTHROPIC_ENV_FILE, or just
+# export ANTHROPIC_API_KEY, if you cloned without phone/ set up.
 ENV_FILE="${ANTHROPIC_ENV_FILE:-$JB_DIR/../../../../phone/.env}"
 if [ -z "${ANTHROPIC_API_KEY:-}" ] && [ -f "$ENV_FILE" ]; then
   val="$(grep -E '^ANTHROPIC_API_KEY=' "$ENV_FILE" | head -1 | sed -E 's/^[^=]*=//')"

@@ -14,14 +14,14 @@ at 20 cards a page, and accepts Ransack query params:
 
 Three facts measured 2026-08-26 that shape the script:
 
-- **The comp threshold normalizes across pay types.** annually=103000,
-  hourly=49.5, and monthly=8583 returned the identical 52-job set, and a
+- **The comp threshold normalizes across pay types.** A probe value encoded
+  as annually=90000, hourly=43.27, and monthly=7500 returned the identical job set, and a
   spot-checked hit was listed "annually" -- so one annually-typed query covers
   hourly- and monthly-listed jobs too. Comp is still re-verified client-side
   from each survivor's detail page.
 - **`compensation_max_gteq` is silently IGNORED** (not Ransack-whitelisted):
   it returns the unfiltered board, which first showed up as Food Service
-  Worker "clearing" a $103K filter. Never trust an unlisted predicate here
+  Worker "clearing" a six-figure probe filter. Never trust an unlisted predicate here
   without a positive control, and beware result counts that exactly equal
   your own pagination cap. Band rule is therefore done client-side: the
   server pre-filters at a REDUCED min (LOCAL_PREFILTER) to catch straddling
@@ -32,7 +32,7 @@ Three facts measured 2026-08-26 that shape the script:
   held exactly 1 remote job (vs ~1,400 posted in 7 days), so the REMOTE pass
   is expected-dry -- never read that as breakage. The real yield is the LOCAL
   pass: KC-metro seats gated at the onsite floor, same shape as usajobs.py's
-  local pass. Honest expectation: the >=80K KC pool is mostly State of
+  local pass. Expect the KC pool above the onsite floor to be mostly State of
   Missouri trades/corrections/social-services seats; IT titles are rare.
 
 Detail pages are HTML-only (`/jobs/<id>.json` answers 406). They carry the
@@ -50,9 +50,11 @@ import time
 import urllib.parse
 import urllib.request
 
+from comp_floors import comp_floor, onsite_floor
+
 BASE = "https://missouri.talify.com"
-COMP_FLOOR = 75_000     # standard remote floor; see gitignored Claude Reference.md
-ONSITE_FLOOR = 80_000   # binary on ANY office requirement (feedback_onsite_floor)
+COMP_FLOOR = comp_floor()      # standard remote floor, from the harness .env
+ONSITE_FLOOR = onsite_floor()  # binary on ANY office requirement; same source
 LOCAL_PREFILTER = 50_000  # server-side min; real gate is the band top vs ONSITE_FLOOR
 UA = {"User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7)"}
 

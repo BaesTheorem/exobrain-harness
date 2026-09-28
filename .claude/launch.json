@@ -4,8 +4,8 @@
     {
       "name": "sailboat-retro",
       "runtimeExecutable": "/opt/homebrew/bin/python3.12",
-      "runtimeArgs": ["-m", "http.server", "8347", "-d", "/Users/alexhedtke/Documents/Exobrain harness"],
-      "port": 8347
+      "runtimeArgs": ["sailboat-retro/app.py", "--no-open"],
+      "port": 5175
     },
     {
       "name": "solo-dm",

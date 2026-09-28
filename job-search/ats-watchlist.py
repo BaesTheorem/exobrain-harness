@@ -43,18 +43,31 @@ STATE_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "state")
 SNAPSHOT = os.path.join(STATE_DIR, "ats-snapshot.json")
 EXTRA = os.path.join(STATE_DIR, "watchlist-extra.json")
 
+BLOCKFILE = os.path.join(STATE_DIR, "ats-blocklist.json")
+
 # Boards that are aggregator middlemen, not employers -- polling them is noise.
-# Plus boards that have been retired by the employer: these 404 on every poll and
-# cost a failed-board slot per run. Confirmed 404 daily 2026-09-02 through 2026-09-06.
-BLOCKLIST = {
+AGGREGATORS = {
     "lever:jobgether",
     "greenhouse:jobgether",
-    "greenhouse:boldbusiness",
-    "greenhouse:m2",
-    "greenhouse:openly",
-    "greenhouse:underdogfantasy",
-    "lever:hopper",
 }
+
+
+def load_blocklist():
+    """Aggregators plus the gitignored state/ats-blocklist.json.
+
+    The file holds boards an employer retired (they 404 on every poll and cost a
+    failed-board slot per run). It is runtime data because the employer names
+    reveal where Alex applied. Schema: {"<ats>:<board>": {"why": "reason"}};
+    see state/ats-blocklist.example.json. Missing file = aggregators only.
+    """
+    blocked = set(AGGREGATORS)
+    if os.path.exists(BLOCKFILE):
+        with open(BLOCKFILE, encoding="utf-8") as f:
+            blocked.update(k.lower() for k in json.load(f))
+    return blocked
+
+
+BLOCKLIST = load_blocklist()
 
 TOKEN_PATTERNS = [
     ("greenhouse", re.compile(r"boards(?:-api)?\.greenhouse\.io/(?:v1/boards/)?([a-z0-9]+)")),

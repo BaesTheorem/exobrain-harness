@@ -1,0 +1,29 @@
+{
+ "exampleco/External": {
+  "host": "exampleco.wd1.myworkdayjobs.com",
+  "tenant": "exampleco",
+  "site": "External",
+  "facets": {
+   "Location_Country": [
+    "00000000000000000000000000000001"
+   ],
+   "timeType": [
+    "00000000000000000000000000000002"
+   ]
+  },
+  "search": "",
+  "why": "pinned from a recruiter-shared URL; remote-US + full-time pre-filtered",
+  "added": "2031-01-05",
+  "warm": false
+ },
+ "sampleinc/Careers": {
+  "host": "sampleinc.wd5.myworkdayjobs.com",
+  "tenant": "sampleinc",
+  "site": "Careers",
+  "facets": {},
+  "search": "analyst",
+  "why": "whole-tenant board narrowed by search text",
+  "added": "2031-01-06",
+  "warm": true
+ }
+}

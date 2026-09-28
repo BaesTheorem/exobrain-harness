@@ -204,7 +204,7 @@ After all agents return, **you** (Opus) perform the analysis and write the brief
 
 1. **Bias & framing analysis** -- For the top 3-5 global stories, compare how outlets headline and frame the story. Note loaded language, passive vs active voice, context included/omitted. Assign editorial divergence: Low / Medium / High.
 
-2. **Blind spot detection** -- Alex is center/grey-tribe, rationalist-adjacent, primarily reads blogs (ACX, LessWrong, EA Forum) and algorithmic feeds. Identify 2-4 stories from the gathered data (or that the agents missed) that his information diet would miss:
+2. **Blind spot detection** -- Alex's information diet is mostly blogs (ACX, LessWrong, EA Forum) and algorithmic feeds. Identify 2-4 stories from the gathered data (or that the agents missed) that his information diet would miss:
    - Mainstream stories ignored by rationalist blogs
    - Non-English / non-Western sources
    - Labor, housing, healthcare stories the algorithm won't surface
@@ -360,9 +360,9 @@ When called from `/daily-briefing`, add a 3-5 line summary to the daily note und
 ```
 
 ### Standalone
-When called directly via `/news-briefing`, write the full briefing note and append the summary to the daily note. Notify via macOS:
+When called directly via `/news-briefing`, write the full briefing note and append the summary to the daily note. Notify from the harness root (clickable, opens the Console):
 ```bash
-osascript -e 'display notification "News briefing ready -- [N] stories covered" with title "Exobrain" sound name "Purr"'
+mist-voice/bin/mist-notify "News briefing ready -- [N] stories covered" "Exobrain" Purr console
 ```
 
 ## Deduplication

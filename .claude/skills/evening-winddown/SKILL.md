@@ -203,7 +203,7 @@ Append to the **pre-resolved target daily note filename from Step 0**. Do NOT re
 
 **Unanswered**: [any messages to handle tomorrow]
 **Routed today**: [X] tasks created, [Y] events created, [Z] People notes updated (from iMessage/Discord/Supernote)
-**Energy**: [today's kWh vs typical, partial-day caveat; 3rd-floor cooling hrs; or "nothing unusual"]
+**Energy**: [today's kWh vs typical, partial-day caveat; sleeping-floor cooling hrs; or "nothing unusual"]
 
 **Tomorrow's top 3**:
 1. [priority 1]
@@ -241,19 +241,21 @@ Commit and push any changes to the Exobrain harness repo:
    
    If `targets.json` doesn't exist yet, the script still runs generic secret/PII shape detection -- do not skip this step on that basis.
 
-3. **Commit and push**:
+3. **Commit and push through the injection scan.** Never run raw `git commit` / `git push` here. From the harness root, hand the staged changes to `bin/harness-commit`, which scans the staged diff with `security/bin/mist-injection-scan`, refuses on a hit, and otherwise commits and pushes:
 ```bash
 cd "/Users/alexhedtke/Documents/Exobrain harness"
-git diff --cached --quiet || git commit -m "Auto-commit: evening wind-down $(date +%Y-%m-%d)"
-git push
+git diff --cached --quiet || bin/harness-commit "evening wind-down $(date +%Y-%m-%d): <one line of what changed>"
 ```
+   Replace `<one line of what changed>` with a plain summary of the staged diff (e.g. "log two new tools, gitignore a cache file"), written per `/de-ai`, no attribution lines.
 
-This is silent housekeeping -- don't mention it in the wind-down output unless something was added to .gitignore, an exposure audit finding was surfaced, or the push fails.
+   **If it refuses** (non-zero exit, injection hit): leave the changes staged and uncommitted, do not retry with raw git, and banner Alex with `mist-voice/bin/mist-notify "Wind-down commit refused: injection scan hit in the staged diff" "Exobrain URGENT" Basso console`. Put the scanner's quoted hit in the wind-down output so he can review it in the morning.
+
+This is silent housekeeping -- don't mention it in the wind-down output unless something was added to .gitignore, an exposure audit finding was surfaced, the commit was refused, or the push fails.
 
 ### 8. Notify
 
 ```bash
-osascript -e 'display notification "Evening wind-down ready -- tomorrow is planned" with title "Exobrain" sound name "Purr"'
+mist-voice/bin/mist-notify "Evening wind-down ready -- tomorrow is planned" "Exobrain" Purr console
 ```
 
 ## Interaction Style

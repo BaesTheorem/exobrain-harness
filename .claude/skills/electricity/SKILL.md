@@ -36,11 +36,10 @@ and touch nothing. The scheduled jobs below own the writes.
   joins Evergy daily/hourly + Nest runtime + weather into one report.
 
 ### Nest -- near-real-time behavior feedback
-- Three thermostats, **one per floor = three separate AC zones/compressors**.
-  Referenced generically as **1st floor**, **2nd floor**, **3rd floor**. The
-  **3rd floor is the sleeping floor and the bill's single biggest driver** --
-  its native schedule deep-cools overnight. The 2nd floor sits on a wide
-  deadband (~83°F cool) and barely runs.
+- Multiple thermostats, **one per floor = separate AC zones/compressors**.
+  Referenced generically by floor number. Which floor is **the sleeping floor**
+  (usually the bill's biggest driver, since its native schedule cools overnight)
+  and which zones barely run are in the gitignored config, not here.
 - `nest-poll.py` samples live state every 5 min (`com.exobrain.nest-poll`) for
   the `HVAC:AUTO` block. `nest-events.py` drains Google Pub/Sub HVAC on/off
   events (`com.exobrain.nest-events`, every 10 min) for **exact** runtime that
@@ -59,26 +58,27 @@ notes above/below them:
 |-------|-----------|----------|
 | `ENERGY:AUTO` | `energy-pull.py` | Cycle outlook + daily kWh/$ table |
 | `HVAC:AUTO` | `nest-poll.py` | Live per-floor temp/setpoint/status + cooling-today |
-| `NIGHTLOG:AUTO` | `night-log.py` | Per-night 3rd-floor runtime vs. outdoor low |
+| `NIGHTLOG:AUTO` | `night-log.py` | Per-night sleeping-floor runtime vs. outdoor low |
 | `PRECOOL:AUTO` | `precool-log.py` | Pre-cool decision vs. result, per-band learning |
 
 ## The overnight schedule experiment
 
-The active question: **is the 3rd-floor overnight schedule actually saving
+The active question: **is the sleeping-floor overnight schedule actually saving
 money, or were the cheap nights just mild?** To answer it you have to hold
 weather constant.
 
 - `night-log.py` (daily `com.exobrain.nest-nightlog` at 08:00) logs, per night
-  (the 22:00-07:00 window keyed by its evening date): 3rd-floor overnight
+  (the 22:00-07:00 window keyed by its evening date): sleeping-floor overnight
   cooling hours, whole-house hours, that night's outdoor low, and the
   morning-after kWh. Overnight minutes are event-sourced (exact, sleep-proof).
 - **How to read it:** compare nights with **similar outdoor lows**. Less runtime
   at the same low = the schedule is doing real work, not just cool weather. One
   cheap night proves nothing; wait for a spread of lows (~a week).
-- The 3rd-floor schedule is a **ramp** (deep-cool ~66°F at 10pm easing up toward
-  morning), so the compressor runs hardest 10pm-12:30am. That early-overnight
-  deep-cool is the lever if Alex ever wants more savings -- but it's his and his
-  housemate's sleep comfort, so don't push it; surface the tradeoff, his call.
+- The sleeping floor's schedule is a **ramp** (deepest cooling at bedtime, easing
+  up toward morning; the setpoints live in the native Nest schedule), so the
+  compressor runs hardest in the first hours after bedtime. That early-overnight
+  cooling is the lever if Alex ever wants more savings, but it is the household's
+  sleep comfort, so don't argue for it; surface the tradeoff, his call.
 
 ## Rate plan & cost framing
 
@@ -89,19 +89,19 @@ weather constant.
 - **Demand response:** all three Nests are enrolled in the **Evergy Thermostat
   Program** -- Evergy may raise setpoints on summer weekdays 12-9pm (opt-out per
   event). Complementary to the overnight schedule (different window).
-- **Cost split:** electricity is **Alex's bill, split three ways** with two
-  housemates, so his personal share of any savings is ~1/3. Still worth it as a
-  whole-house win, but frame dollar figures as his ~1/3 share, not the full bill.
+- **Cost split:** if the bill is shared, frame dollar figures as Alex's share
+  per the configured split in the gitignored config, not the full bill. Still
+  worth it as a whole-house win.
 
 ## Control philosophy (settled)
 
 **Native Nest schedule = the reliable static baseline; MIST/code = dynamic
-overrides only.** Alex hand-entered the 24h 3rd-floor schedule in the Nest app,
+overrides only.** Alex hand-entered the 24h sleeping-floor schedule in the Nest app,
 so the daily ramp no longer depends on the Mac.
 
 Live dynamic overrides:
 - **Weather-responsive afternoon pre-cool** (`nest-precool.py`, daily 14:00):
-  scales the 3rd-floor pre-cool *depth* to the day's forecast high so the
+  scales the sleeping-floor pre-cool *depth* to the day's forecast high so the
   sleeping floor banks against the 4-8pm peak only as hard as the weather
   warrants -- mild days bank nothing, hot days bank deep. Tier table:
   ≤80°F→72, 81-87→70, 88-93→68, 94+→66. Guardrails: SAFE_RANGE 66-74°F,
@@ -109,7 +109,7 @@ Live dynamic overrides:
   resumes at its next setpoint change. **This is the only dynamic write today.**
   Its results loop is `precool-log.py` (the `PRECOOL:AUTO` block) -- read it to
   see whether a band's bank depth is necessary and tune the tiers from evidence.
-- *Future:* a presence-based "both top-floor residents away → coast" override
+- *Future:* a presence-based "sleeping-floor residents away → coast" override
   (pending a geofence/presence build).
 
 Don't rebuild the dismantled Mac-side overnight enforcer (the ramp lives in the
@@ -131,7 +131,7 @@ this skill is still the source of truth for pulling/analyzing electricity.
   into the vault. Never copy pulled data (`energy-data.json`, `nest-data.json`)
   or credentials into the harness.
 - **Never commit housemate real names** or the cost-split details to any repo.
-  Refer to floors and "two housemates" generically.
+  Refer to floors and "housemates" generically.
 
 ## When other skills need this
 

@@ -53,15 +53,7 @@ The monthly review has five sections. Execute them in this order:
 
 **Goal**: Help Alex reflect on how well he embodied each core value this month, and brainstorm how to embody them next month.
 
-**Alex's five core values** (from `⭐️ Core values and interests.md` and individual value notes):
-
-1. **Life** -- Sapience matters. Death is bad. Life extension, preventing species death, protecting humanity.
-2. **Truth** -- Objective reality, Bayesian rationality. Desiring to know what is true for its own sake.
-3. **Freedom** -- Agency, consent, dignity. Opposing coercion and multipolar traps.
-4. **Responsibility** -- Heroic responsibility. No excuses. If you can fix suffering, you must.
-5. **Happiness** -- Hedonic AND eudaimonic. Pleasure, relationships, hard work aligned with values, mindfulness, preventing suffering.
-
-**Alex's mission statement**: "To be a friend, leader, and romantic partner that fosters a culture of empathy and courageous truth seeking to make the world a better place. To live a life that makes a good story."
+**Alex's core values and mission statement**: read them at runtime from the vault note `Musings/⭐️ Core values and interests.md` in the Exobrain vault and its linked individual value notes. Do not copy them into this skill; the note is the source of truth and changes.
 
 **Steps**:
 1. Read all daily notes from the month (not just Sundays) -- scan for evidence of each value being lived or neglected
@@ -101,7 +93,7 @@ The monthly review has five sections. Execute them in this order:
 
 ### SECTION 3: Areas Balance
 
-**Goal**: Check that no life area is consuming Alex disproportionately (especially romantic relationships), and ensure every area has at least one active project.
+**Goal**: Check that no life area is consuming Alex disproportionately, and ensure every area has at least one active project.
 
 **Things 3 Areas** (current structure):
 - Morning (bootup routine)
@@ -130,7 +122,7 @@ The monthly review has five sections. Execute them in this order:
    - Number of completed tasks this month (from weekly review summaries or logbook)
    - Rough time investment (inferred from calendar events, daily notes, transcript topics)
 3. Flag imbalances:
-   - **Over-indexed areas**: Disproportionate time/energy vs stated priorities. Pay SPECIAL attention to romantic relationship patterns -- scan daily notes, iMessages, transcripts, calendar for dating/relationship time. If this area is consuming Alex, flag it directly but constructively.
+   - **Over-indexed areas**: Disproportionate time/energy vs stated priorities. Include relationship status from the profile, if any, as one input among the others; flag an area that is consuming Alex directly but constructively.
    - **Under-indexed areas**: Areas with zero active projects or zero activity this month
    - **Stagnant areas**: Areas where the same tasks have been sitting untouched
 4. For each area with NO active project:
@@ -165,7 +157,7 @@ Output a `### Project Vitality` table to the daily note (Project | Area | Status
 
 Run the `/exobrain-audit` skill. It covers harness health, privacy/legibility, architecture recon, and AI productivity research. Surface findings under `### System Audit` in the daily note -- don't auto-apply fixes.
 
-Add a quick scheduled-task + launchd + MCP server smoke test on top of the audit (`list_scheduled_tasks`, `launchctl list | grep exobrain`, `get_inbox`, `gcal_list_events` today, `gmail_get_profile`, `get_profile` Fitbit). Flag anything stale.
+Add a quick scheduled-task + launchd + MCP server smoke test on top of the audit (`list_scheduled_tasks`, `launchctl list | grep exobrain`, `get_inbox`, `gcal_list_events` today, a Gmail `search_threads` for today, `get_profile` Fitbit). Flag anything stale.
 
 ---
 

@@ -102,7 +102,7 @@ LinkedIn job IDs encode age: 37xxxxx = 2023-2024, 41-42xxxxx = late 2025, 43xxxx
 ### CRITICAL Rules
 
 1. **Read-only or refuse.** See the section above. No exceptions.
-2. **Pace calls like a human.** No bulk loops, soft cap ~15-20 calls per session.
+2. **Pace calls like a human.** No bulk loops. There is no numerical cap (see "Pacing rules": Alex retired the old 15-20 soft cap on 2026-05-19); the qualitative pacing rules are the limit.
 3. **Never assume a search hit is the right person.** LinkedIn search is fuzzy -- verify with current company, location, and headshot/title before propagating identity into a People note or CRM entry.
 
 ### Important Rules

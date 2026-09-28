@@ -20,7 +20,7 @@ Rebuild Alex's machine from backups as fast and safely as possible. Companion re
 
 A restore reassembles four independent sources. The backup tarball is only one of them.
 
-1. **Code** ← GitHub clone (every repo is private under `BaesTheorem/`).
+1. **Code** ← GitHub clone under `BaesTheorem/`. The harness itself is public (`exobrain-harness`); the Console and several siblings are private, so `gh auth login` must happen first.
 2. **Private data** (secrets, tokens, SQLite DBs, local state) ← the collective tarball, overlaid *on top of* cloned code.
 3. **Vault** ← Obsidian Sync (tarball = fallback only; see guardrail).
 4. **Auth + OS state** (cloud MCP sessions, Apple ID / Google / GitHub / Obsidian logins, macOS Full Disk Access) ← re-authorized by hand. In no backup.
@@ -124,12 +124,13 @@ done
 cd ~/Documents
 for r in night-watch pocket-dungeon inbox-by-gmail-clone pixel-claude-code opower annas-archive \
   5e-spell-maker claude-home dnd-character-sheet mist-voice-data mist-console chromatic-set \
-  petkit-loki sleep-cycle-alarm claude-phone dating-lab bestagon envelope-budget \
+  petkit-loki sleep-cycle-alarm claude-phone bestagon envelope-budget \
   hp1-sorcerers-stone-macos rental-harmony passage kc-library-nyt-pass; do
   gh repo clone "BaesTheorem/$r" || echo "WARN: $r clone failed"
   [ -d ~/restore-staging/repos-gitignored/$r ] && rsync -a ~/restore-staging/repos-gitignored/$r/ ~/Documents/$r/
 done
 ```
+The list above is not exhaustive and deliberately omits some private repos by name. Diff it against `gh repo list BaesTheorem --limit 200 --json name -q '.[].name'` and clone whatever else the old machine had in `~/Documents`.
 Rebuild venvs **carefully** -- do NOT blanket-rebuild:
 - `mist-voice`: `python3.12 -m venv .venv && .venv/bin/pip install -r requirements-lock.txt` (3.12 only; needs `brew ffmpeg`).
 - `mist-voice-data`: `git lfs pull` -- **watch the 1 GB/month LFS quota**; an exhausted quota leaves silent garbage-audio pointer files, not an error.

@@ -2,7 +2,7 @@
 name: flipper
 description: "Drive Alex's Flipper Zero from the command line -- read/write files on the device, analyze captures, transmit signals, and inspect device state, over USB or wirelessly over Bluetooth LE. Use when Alex mentions the Flipper, Flipper Zero, sub-GHz / 433 MHz, NFC/RFID, infrared/IR, BadUSB, a .sub/.ir/.nfc capture, the dolphin (mood/animations), flashing firmware, or wants to read/write/control the device."
 metadata:
-  hardware: "Flipper Zero 'Obabry', target f7, Unleashed firmware (unlshd-089e), region-unlocked"
+  hardware: "Flipper Zero '<device-name>', target f7, Unleashed firmware (unlshd-089e), region-unlocked"
   tools_dir: "/Users/alexhedtke/Documents/Exobrain harness/flipper"
 ---
 
@@ -14,7 +14,7 @@ touching the device so we don't re-tread the gotchas already solved.
 
 ## Device state (current)
 
-- **Model:** Flipper Zero, name `Obabry`, hardware target **f7**.
+- **Model:** Flipper Zero, name `<device-name>` (the BLE address is in the gitignored `flipper/.ble_addr`), hardware target **f7**.
 - **Firmware:** **Unleashed `unlshd-089e`** (custom). Flashed from Official 1.4.3
   via qFlipper "Install from file."
 - **Region:** UNLOCKED (`hardware_region: 0`). **433.92 MHz TX works** -- the US

@@ -17,4 +17,19 @@ the tracker are auto-discovered from `type: job-listing` notes on every run, but
 board pinned with specific filters is only in this file. Re-pin after a fresh clone
 with `python3 workday.py --add "<board URL with its filters>" --why "reason"`, then
 read back the resolved facet labels it prints to confirm the filters mean what the
-URL implied.
+URL implied. Schema, one entry per board keyed `"<tenant>/<site>"`:
+
+```json
+{"<tenant>/<site>": {"host": "<tenant>.wd1.myworkdayjobs.com", "tenant": "<tenant>",
+  "site": "<site>", "facets": {"<facetName>": ["<opaque id>"]}, "search": "",
+  "why": "reason", "added": "YYYY-MM-DD", "warm": false}}
+```
+
+`ats-blocklist.json` (optional, hand-maintained) holds Greenhouse/Lever/Ashby boards
+`ats-watchlist.py` must skip, usually because the employer retired the board and it
+404s on every poll. Aggregator boards are blocked in code; this file is only for
+employer boards, which is why it is not tracked. Schema:
+`{"<ats>:<board>": {"why": "reason"}}`. Missing file = aggregators only.
+
+The two `*.example.json` files here are tracked, with fake entries, to show the
+shapes. Copy one without the `.example` infix to start a real list.

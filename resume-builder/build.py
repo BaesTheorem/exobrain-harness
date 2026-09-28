@@ -30,13 +30,13 @@ Output defaults to ~/Downloads/. Requires: playwright (chromium), pypdf, qpdf.
 TAILORING SCHEMA (all keys optional):
   {
     "tag": "ACME",                          # filename suffix + PDF title
-    "summary": "...override summary...",     # must keep the 11+/4+ tenure framing
+    "summary": "...override summary...",     # must keep the tenure-first opener
     "skills_append": {"Security": "extra, truthful, ATS keywords"},
     "experience_bullets": {                  # replace a job's bullets (reorder/polish)
-        "clyde": ["bullet 1", "bullet 2", ...]
+        "job1": ["bullet 1", "bullet 2", ...]
     },
     "title_suffix": {                        # opt-in note appended to a job's title line
-        "clyde": " (IT function outsourced, July 2026)"
+        "job1": " (contract ended)"
     },
     "leadership_include": ["ea_kc"],         # switch on an optional canonical entry
     "leadership": [                          # replace the Leadership and Community entries

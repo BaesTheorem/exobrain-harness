@@ -68,8 +68,8 @@ different brokers.
 The harness ships with `com.exobrain.bodyguard-weekly.plist` -- install it:
 
 ```bash
-chmod +x /Users/alexhedtke/Exobrain\ harness/.claude/skills/cybersecurity-bodyguard/scripts/weekly-scan.sh
-cp /Users/alexhedtke/Exobrain\ harness/com.exobrain.bodyguard-weekly.plist ~/Library/LaunchAgents/
+chmod +x /Users/alexhedtke/Documents/Exobrain\ harness/.claude/skills/cybersecurity-bodyguard/scripts/weekly-scan.sh
+cp /Users/alexhedtke/Documents/Exobrain\ harness/com.exobrain.bodyguard-weekly.plist ~/Library/LaunchAgents/
 launchctl load ~/Library/LaunchAgents/com.exobrain.bodyguard-weekly.plist
 ```
 

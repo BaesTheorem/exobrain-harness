@@ -36,8 +36,11 @@ WATCHLIST = FANTASY / "watchlist.json"
 NOTIFY = FANTASY.parent / "mist-voice" / "bin" / "mist-notify"
 RUNNER = pathlib.Path("/Users/alexhedtke/Documents/mist-console/run-routine.sh")
 ROUTINE_LOG = pathlib.Path.home() / "Library" / "Logs" / "mist-routines.log"
-ROSTER_URL = "https://fantasy.espn.com/football/team?leagueId=45635023&teamId=12"
-LEAGUE_URL = "https://fantasy.espn.com/football/league?leagueId=45635023"
+from espncli.client import web_urls  # noqa: E402  (needs the sys.path line above)
+
+_URLS = web_urls()  # ids come from the gitignored espn-credentials.json
+ROSTER_URL = _URLS["team"]
+LEAGUE_URL = _URLS["league"]
 NEEDS_JUDGMENT = {"OUT", "DOUBTFUL", "INJURY_RESERVE", "SUSPENSION"}
 SWAP_SCAN = HERE / "swap-scan"
 REPLY_URL = "http://127.0.0.1:5014/notify-reply"

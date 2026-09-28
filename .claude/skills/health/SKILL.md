@@ -14,7 +14,7 @@ Single source of truth for all health data. Other skills reference this skill ra
 | **Fitbit** | Steps, sleep, resting HR, AZM, calories, activity trends | **Weight** (that's Withings only) |
 | **Withings** | Weight, body composition (fat %, muscle mass, bone mass, hydration %, visceral fat), blood pressure | Activity data |
 
-Alex weighs in the morning before drinking water -- hydration % reads low by design. Not a concern.
+If Alex weighs in before drinking water (see his profile), hydration % reads low by design. Not a concern.
 
 ## MyChart (Epic patient portal)
 
@@ -30,7 +30,7 @@ Path: `/Users/alexhedtke/Exobrain/Areas/Health & Fitness/Health Log/YYYY-MM-DD.m
 ---
 date: YYYY-MM-DD
 steps: 0
-step_goal: 15000
+step_goal: 0  # his configured step goal (Fitbit get_activity_goals)
 resting_hr: 0
 sleep_hours: 0.0
 sleep_score: 0
@@ -58,14 +58,14 @@ Health Log notes may include additional frontmatter properties for tracking spec
 ### Rules
 
 - **Idempotent**: If a Health Log note already exists for a date, read it instead of re-querying APIs. Only update if new data is available (e.g., evening update adds final step count to a note the morning created with Withings data).
-- **Morning cross-check** (exception to idempotent rule): When the morning briefing runs and yesterday's Health Log note already exists (created by the evening winddown), always pull fresh Fitbit data for yesterday and compare against the stored values. The evening winddown often runs before all data has synced (late-night steps, sleep data finalized after wake). If any field differs, update the note with the fresh value and note the correction in the `#### Notes` section (e.g., "Morning cross-check: steps updated 3,832 → 4,105").
+- **Morning cross-check** (exception to idempotent rule): When the morning briefing runs and yesterday's Health Log note already exists (created by the evening winddown), always pull fresh Fitbit data for yesterday and compare against the stored values. The evening winddown often runs before all data has synced (late-night steps, sleep data finalized after wake). If any field differs, update the note with the fresh value and note the correction in the `#### Notes` section (e.g., "Morning cross-check: steps updated N → M").
 - **Omit empty fields**: No BP reading = omit `bp_systolic`/`bp_diastolic` entirely. Don't set to null.
 - **Raw numbers only**: No units in frontmatter. Units go in display text.
 - `Health Log.base` at the vault root renders all notes as filterable/sortable views.
 
 ### Band not worn vs. band not synced
 
-Absent Fitbit data has two very different causes and they look identical on the day. Getting this wrong writes false history: on 2026-08-10 a reconnect flushed nine days of buffered data and revealed that 8/4--8/9 had all been logged as "band off" when the band was on the whole time. 8/7 was recorded as **115 steps**; it was actually **9,297 steps and 6.45 miles**, the best day of the month.
+Absent Fitbit data has two very different causes and they look identical on the day. Getting this wrong writes false history: once, a reconnect flushed nine days of buffered data and revealed that nearly a week had been logged as "band off" when the band was on the whole time. One of those days was recorded as a near-zero step count (low hundreds) and was actually one of the best days of the month.
 
 **The discriminators, in order of reliability:**
 
@@ -99,7 +99,7 @@ Called by the daily briefing. Pulls **yesterday's** data and writes/updates the 
 
 **Withings** — always call `withings_get_measurements`, never `withings_get_weight` alone:
 - `withings_get_measurements` with yesterday's date as both startDate and endDate → check which measurement types were actually recorded
-- **Do not gate this call on "did a weigh-in happen."** Alex owns a BPM Connect as well as the scale, and blood-pressure readings arrive independently of weigh-ins. Querying weight only will silently miss them. On 2026-08-07 he took the BP baseline Talkiatry had asked for; because the routine only checked weight, every log from 8/2 to 8/9 kept reporting it as overdue, escalating to "23 days overdue," while the reading sat in the account. Found on 2026-08-10.
+- **Do not gate this call on "did a weigh-in happen."** Alex owns a BPM Connect as well as the scale, and blood-pressure readings arrive independently of weigh-ins. Querying weight only will silently miss them. Once he took a BP baseline his prescriber had asked for; because the routine only checked weight, a week of logs kept reporting it as overdue, escalating to "N days overdue," while the reading sat in the account.
 - BP measure types: **9 = diastolic, 10 = systolic, 11 = heart pulse**. Weight is 1.
 - **Only include fields that were actually measured on that date.** The `withings_get_body_composition` tool silently combines the latest weight with the latest body comp even if they're from different dates -- do NOT trust its output blindly. Use `withings_get_measurements` with date filtering to verify which types were recorded.
 - Common pattern: a quick weigh-in records only weight (type 1), while a full body scan records weight + fat mass (5) + muscle (76) + bone (88) + hydration (77) + visceral fat (170). Only include fields that have a measurement on that specific date.
@@ -125,7 +125,7 @@ Called by the daily briefing. Pulls **yesterday's** data and writes/updates the 
 
 ### Step goal tracking
 
-Alex's goal: 15,000+ steps/day. Compare yesterday to 7-day average. If below goal, identify a free block in today's calendar and suggest a specific walk time. One recommendation per briefing -- don't nag.
+Alex's goal: his configured step goal (read it from Fitbit `get_activity_goals`, not from memory). Compare yesterday to 7-day average. If below goal, identify a free block in today's calendar and suggest a specific walk time. One recommendation per briefing -- don't nag.
 
 ### RHR Illness Canary
 
@@ -160,12 +160,12 @@ If RHR is elevated but skin temp is normal, **do not fire** -- this is the stres
 {
   "fired": true,
   "severity": "moderate" | "high",
-  "today_rhr": 82,
-  "rhr_baseline": 75,
+  "today_rhr": 67,
+  "rhr_baseline": 60,
   "rhr_delta": 7,
-  "skin_temp_delta_c": 0.34,
+  "skin_temp_delta_c": 0.3,
   "streak_days": 3,
-  "message": "RHR elevated 7 bpm AND skin temp +0.34°C above baseline (3-day streak). Likely illness onset -- consider lightening tomorrow's schedule, hydrating, and protecting sleep."
+  "message": "RHR elevated 7 bpm AND skin temp +0.3°C above baseline (3-day streak). Likely illness onset -- consider lightening tomorrow's schedule, hydrating, and protecting sleep."
 }
 ```
 
@@ -175,7 +175,7 @@ If `fired` is false, the briefing omits the alert. **Do not nag**: when the stre
 
 > [!warning] **The canary is LIVE again as of 2026-09-14.** The claim below (that the Versa 2 produces no skin temp, so the detector can never fire) is **falsified**. `get_temp_skin_by_date_range` returned `nightlyRelative` values for **8/31, 9/2, 9/3, 9/4, 9/5, 9/6, 9/10, 9/11 and 9/12** -- nine nights, all on the Versa 2, all after the ~8/01 device switch. Either a firmware or backfill change landed between the 8/10 measurement and now. **Treat the confirmer as available**, and run the two-signal rule as written. It still will not fire on a night the band produced no reading, which is the normal no-data path, not a device limitation.
 >
-> Measured 2026-09-14: skin temp ran 0.0 -> -0.1 -> -0.3 degC across 9/10-9/12 while RHR ran 82 -> 84 -> 87. That is the detector doing its job: RHR elevated, thermal signal flat-to-down, so no fire. The stress/anxiety pattern, correctly not escalated.
+> Measured 2026-09-14: across three nights skin temp ran flat-to-down (a few tenths of a degree below baseline) while RHR climbed several bpm. That is the detector doing its job: RHR elevated, thermal signal flat-to-down, so no fire. The stress/anxiety pattern, correctly not escalated.
 
 **Device capability, measured 2026-08-10 and partly SUPERSEDED 2026-09-14.** The skin-temp row below was correct when measured and is wrong now; see the callout above. Kept as a record of how the measurement was made, and as a reminder that a device-capability finding has a shelf life and is worth re-testing rather than inheriting:
 
@@ -189,9 +189,9 @@ If `fired` is false, the briefing omits the alert. **Do not nag**: when the stre
 | **Skin temp** | yes | **no** on 8/10, **yes** again by 9/14 (re-test before trusting either way) |
 | **SpO2** | yes through 7/9, then stopped | **no** |
 
-The discriminating test: on 8/7 and 8/9 the Versa 2 recorded 8h12m and 10h of sleep and produced HRV and breathing rate from those sessions, so the band was worn and the optical sensor worked, and both nights clear the 3-hour minimum for a temp reading. No skin temp came out. In June the Charge 5 produced skin temp on every night it recorded. This is a capability gap, not a wear or sync gap.
+The discriminating test: on two full-length nights the Versa 2 recorded well over 3 hours of sleep and produced HRV and breathing rate from those sessions, so the band was worn and the optical sensor worked, and both nights clear the 3-hour minimum for a temp reading. No skin temp came out. In June the Charge 5 produced skin temp on every night it recorded. This is a capability gap, not a wear or sync gap.
 
-**Do not substitute breathing rate as the illness confirmer without re-validating it.** It was tested against the 8/9 illness episode and failed: breathing rate was 18.0 on 8/7 and 16.4 on 8/9 against a ~17 baseline, and HRV *rose* on the sick day. Worse, 8/8 -- the night the RHR peaked at 82 -- has no HRV or breathing rate at all, because at 3h47m it was too short for Fitbit to compute either. Short nights are what illness onset produces, so these confirmers drop out exactly when needed. A canary rebuilt on them would be a detector that cannot fail.
+**Do not substitute breathing rate as the illness confirmer without re-validating it.** It was tested against a past illness episode and failed: breathing rate moved about a breath per minute either side of baseline with no consistent direction, and HRV *rose* on the sick day. Worse, the night RHR peaked has no HRV or breathing rate at all, because it was under 4 hours and too short for Fitbit to compute either. Short nights are what illness onset produces, so these confirmers drop out exactly when needed. A canary rebuilt on them would be a detector that cannot fail.
 
 **Confounders** to mention in the message when relevant:
 - Hard workout in the past 24h (check `get_exercises`) -- exercise can elevate next-day RHR

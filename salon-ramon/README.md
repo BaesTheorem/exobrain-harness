@@ -32,8 +32,8 @@ the only piece that can honour "fit it wherever I am open".
 
 ```
 python3 schedule.py status                                    # where the cycle stands
-python3 schedule.py pending --date 2026-10-13 --provider "Ramon Walker"
-python3 schedule.py record  --date 2026-10-13 --provider "Ramon Walker"
+python3 schedule.py pending --date YYYY-MM-DD --provider "[Stylist]"
+python3 schedule.py record  --date YYYY-MM-DD --provider "[Stylist]"
 ```
 
 Two rules worth keeping straight: the clock runs from the last **completed**
@@ -44,7 +44,7 @@ evidence. A `pending` appointment whose date has passed is recorded as
 completed (flagged `assumed`) and Alex is asked to confirm: a late nudge costs
 one sentence, a wrong "he did not go" books a second appointment.
 
-This replaced the Booksy/Rich Forever tool (`barber/`) on 2026-09-10; the
+This replaced an earlier Booksy-based tool (since removed) on 2026-09-10; the
 cadence tracker and its history moved across unchanged, since none of it
 depended on the venue. One venue and one stylist means the deposit-ranking
 logic that job carried is simply gone.

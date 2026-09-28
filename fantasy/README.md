@@ -228,6 +228,16 @@ only point at these files, so the prompts are versioned here). `lineup-watch
 arrangement, with its standing limits, is written up in the playbook's
 "Season operations" section.
 
+**Dependencies outside this repo.** Three pieces call into the private
+`mist-console` repo (checked out at `~/Documents/mist-console` on Alex's
+machine) and will not work on a fresh clone without it: `bin/roster-watch`
+launches the incident routine through its `run-routine.sh`, `bin/routine-guard`
+execs its `run-routine-ontime.sh`, and `draftbot/supervise.py` reports through
+its `bin/mist-progress`. Those paths are absolute and machine-specific; point
+them at your own routine runner (or remove the calls) before running any of
+the three. Everything else here needs only this directory and the gitignored
+credential file.
+
 ### What happens when the Mac is off
 
 - The two watchers are `StartInterval` jobs with `RunAtLoad`: they run at
@@ -311,11 +321,11 @@ repo `.gitignore`, "Fantasy football" block). It is `chmod 600`. Shape:
 
 ```json
 {
-  "league_id": 45635023,
+  "league_id": <leagueId>,
   "season": 2026,
   "espn_s2": "<long URL-encoded session cookie>",
   "SWID": "{GUID}",
-  "team_id": 12,
+  "team_id": <teamId>,
   "team_name": "Chaos Legion"
 }
 ```
@@ -333,7 +343,9 @@ espn.com there). To rebuild or refresh:
 - **Automatic:** `ff refresh` copies Chrome's cookie DB, decrypts the ESPN
   cookies with the "Chrome Safe Storage" key from Keychain (triggers a one-time
   macOS Keychain prompt -- click Allow), and rewrites the file. Requires being
-  logged into espn.com in Chrome.
+  logged into espn.com in Chrome. On a first run with no credential file yet,
+  set `ESPN_LEAGUE_ID` (the `leagueId` in your league URL) and optionally
+  `ESPN_SEASON`; `ff refresh` seeds the file from them.
 - **Manual:** in a browser logged into ESPN, DevTools -> Application -> Cookies
   -> `espn.com`, copy `espn_s2` and `SWID` into the JSON above.
 
@@ -343,9 +355,9 @@ ESPN cookies last roughly a year but rotate on password change or logout. When
 ## Known league quirks
 
 **Duplicate team: resolved 2026-08-23.** Alex's SWID briefly owned two teams here,
-id 8 "Alex's Awesome Team" (the ESPN default name) and id 12 "Chaos Legion". Id 8
+the ESPN default team and "Chaos Legion". The default one
 has since been deleted. The `team_id` pin in the credential file still resolves
-to 12 and is harmless, so it stays as belt-and-braces against the default team
+to Chaos Legion and is harmless, so it stays as belt-and-braces against the default team
 reappearing.
 
 **Odd league size.** The league grew to **13 teams** on/around 2026-08-23, so
@@ -358,4 +370,12 @@ walks the schedule has to tolerate a missing side.
 
 No real names anywhere in this dir or the tool output (output redacts league
 members to initials). The credential file and the other managers' SWIDs are
-opaque GUIDs in the gitignored file only. Nothing here is committed.
+opaque GUIDs in the gitignored file only. What is and is not tracked:
+
+- **Tracked:** the code, the routine prompts, `forecasts/*.json` (weekly
+  forecasts, team names only) and `ledger.json` (the calibration ledger).
+- **Gitignored:** `espn-credentials.json`, `.cache/`, the draftbot runtime
+  files, and `watchlist.json`, the live scouting state `roster-watch` reads
+  (players and teams with a `why` and a `trigger`; the Tuesday routine
+  rebuilds it). A fresh clone has no watch list until that routine writes one;
+  `roster-watch` and `roster-news --watch` treat a missing file as empty.

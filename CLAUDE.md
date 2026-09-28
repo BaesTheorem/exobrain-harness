@@ -195,7 +195,7 @@ Alex writes his own content into the daily note. Treat these two mechanisms as *
 2. **`> [!alex]` callouts** -- Obsidian callouts of type `alex` anywhere in the note are Alex's inline corrections or additions. Example:
    ```
    > [!alex] correction
-   > Actually Minda not Linda -- and she said 3pm not 2pm
+   > Actually [Name] not [Misheard] -- and they said 3pm not 2pm
    ```
    Before rewriting any section, grep for `> [!alex]` blocks in the current file, preserve them in place, and splice your new content around them. If a callout contradicts something you generated, defer to the callout -- it is an explicit correction.
 

@@ -17,9 +17,10 @@ INVARIANTS (do not break these in an edit):
   - Apple timestamps are nanoseconds since 2001-01-01 UTC. The conversion
     helpers are characterization-tested (tests/test_imessage_reader.py);
     change behavior there and the tests must change deliberately with it.
-  - KNOWN BROKEN, do not build on them: `search` and name-based `chat`
-    return empty results silently. Only `recent` and phone-number `chat`
-    are reliable query paths.
+  - Name-based `chat` resolves through the AddressBook databases
+    (handles_for_name, fixed 2026-09-22): chat.db stores no name for a 1:1
+    thread, so a name lookup that skips Contacts reports an empty result for
+    a thread that exists. `search` filters text and attributedBody in Python.
 """
 
 import json
@@ -319,7 +320,7 @@ def handles_for_name(name_query):
 
     chat.db only stores display_name for group chats, so a 1:1 thread with a
     person is nameless in the database and only `list` looked the name up in
-    Contacts. Without this, `chat "Maggie"` reported "No messages found" for a
+    Contacts. Without this, `chat "[Name]"` reported "No messages found" for a
     thread that plainly exists, which reads as an answer instead of a miss.
     """
     needle = name_query.strip().lower()

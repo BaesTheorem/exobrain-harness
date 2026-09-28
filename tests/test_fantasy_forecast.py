@@ -186,7 +186,7 @@ def test_rebuild_groups_by_week_and_keeps_every_bullet_and_callout():
 
 def test_rebuild_is_idempotent_and_places_forecast_blocks():
     rec = {
-        "season": 2026, "week": 2, "issued": "2026-09-17T15:10:00-05:00", "opponent": "The Winners",
+        "season": 2026, "week": 2, "issued": "2026-09-17T15:10:00-05:00", "opponent": "Team B",
         "forecast": {**good_forecast(), "method": "anchored on the pack"},
         "baseline": {"team_total": {"q25": 106.0, "q75": 137.0}, "opp_total": {"q25": 87.0, "q75": 117.0},
                      "win_prob": 0.736, "rank": {"q25": 1, "q75": 3}, "p_first": 0.615, "p_top2": 0.716},

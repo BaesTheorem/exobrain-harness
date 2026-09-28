@@ -33,7 +33,7 @@ com.exobrain.niu-kqi` and let it prompt again.
    The KQi Air is a kick scooter and is NOT bound to the cloud account; its password comes
    from `v5/device/bluetooth_secret` by MAC, which any logged-in account can fetch.
    `kqi mac` prints the real MAC (macOS hides it from scans; the tool connects briefly and
-   reads it from `system_profiler`). Its BLE name is "NIU Link D840", MAC ends in D8:40.
+   reads it from `system_profiler`). Its BLE name is `NIU Link <device-name>`; the MAC is in the gitignored `secrets/scooter.json`, never in this skill.
 2. **The scooter is on and within range.** It does not advertise when off. `kqi find` shows
    what matched and remembers the CoreBluetooth address; `kqi scan` lists everything nearby
    when `find` sees nothing; `kqi probe` dumps its GATT with no credentials.

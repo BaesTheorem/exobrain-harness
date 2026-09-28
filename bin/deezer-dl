@@ -50,6 +50,8 @@ UA = (
 NEXT_DATA = re.compile(
     r'<script id="__NEXT_DATA__" type="application/json">(.*?)</script>', re.S
 )
+# Deezer's public Blowfish key-derivation constant, the same value hardcoded in the
+# open-source Deezer clients (deemix and others). Not a credential.
 SECRET = b"g4el58wc0zvf9na1"
 IV = bytes(range(8))
 BLOCK = 2048

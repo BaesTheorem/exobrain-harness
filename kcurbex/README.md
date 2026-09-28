@@ -22,6 +22,25 @@ Tier 2 is granted socially, by being vouched for in person. The pinned newbie th
 
 Nothing here tries to route around the tiering. It reads what the account is granted.
 
+## Setup
+
+    cd kcurbex
+    python3 -m venv .venv
+    .venv/bin/pip install -r requirements.txt   # requests, beautifulsoup4, lxml
+
+`bin/kcurbex` runs `kcurbexcli/cli.py` under that `.venv`. Keys it reads from the
+harness root `.env` (see `.env.example`; the process environment wins):
+
+- `KCURBEX_USERNAME`, `KCURBEX_PASSWORD`: the forum login (or put them in
+  `secrets/credentials.json` instead).
+- `MYKCMO_HOME_LAT`, `MYKCMO_HOME_LON`: the point proximity is measured from.
+- `GOOGLE_OAUTH_CLIENT_ID`, `GOOGLE_OAUTH_CLIENT_SECRET`: for `auth-calendar`.
+- `KCURBEX_CALENDAR_ID` (optional): the target calendar; defaults to `primary`.
+
+`secrets/` (gitignored) holds the forum credentials, the session cookies, and the
+Google token; `secrets/README.md` says how to rebuild each. `data/` holds the scan
+output (see `data/README.md`).
+
 ## Commands
 
     bin/kcurbex whoami          # which forum account the stored session belongs to
@@ -47,7 +66,8 @@ Every geocode carries a confidence: `exact`, `block`, `neighborhood`, `region`,
 
 **`region` means the metro centroid, not the site.** Distance is therefore only
 computed for `exact`/`block`/`neighborhood`. Without that rule every unidentified KC
-report lands 2.44 mi from home and sails through a 3-mile filter as a false hit. The
+report lands on the metro centroid, one fixed distance from home, and can pass a
+proximity filter as a false hit. The
 vault marks those `proximity: unplaceable` with a null distance, and they collect in
 the database's "Needs locating" view.
 

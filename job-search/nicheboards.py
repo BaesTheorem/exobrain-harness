@@ -42,10 +42,12 @@ import urllib.error
 import urllib.parse
 import urllib.request
 
+from comp_floors import comp_floor
+
 UA = ("Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 "
       "(KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36")
 
-COMP_FLOOR = 75_000  # standard-lane floor; see gitignored Claude Reference.md
+COMP_FLOOR = comp_floor()  # standard-lane floor, from the harness .env
 
 # Title pre-filter, mirroring the skill's LinkedIn-lane rules: seniority drops,
 # specialist mismatches (tools Alex does not have), and sales/CSM shapes.

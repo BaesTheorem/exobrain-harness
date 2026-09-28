@@ -8,12 +8,16 @@ here.
 
 ## Quick use
 
+One-time setup: create the gitignored `secrets.json` with the inbox the aliases
+forward into, `{"base_email": "you@gmail.com"}`. `alias.py` exits with a pointer
+here if it is missing.
+
 ```bash
 cd disposable-email
-python3 alias.py mint jagex            # -> alex.hedtke+jagex@gmail.com  (type this into the form)
+python3 alias.py mint jagex            # -> you+jagex@gmail.com  (type this into the form)
 python3 alias.py list                  # what's been minted, for what, when
 python3 alias.py read jagex            # the Gmail query MIST runs to grab the code
-python3 alias.py burn alex.hedtke+jagex@gmail.com   # mark dead after it gets spammy
+python3 alias.py burn you+jagex@gmail.com   # mark dead after it gets spammy
 ```
 
 Ask MIST: "mint me a throwaway email for X" and she runs `mint`, hands you the
@@ -22,7 +26,7 @@ code/link.
 
 ## ⚠ Ban risk / identity isolation (read before using for game accounts)
 
-`gmail-plus` and `gmail-dot` **normalize back to `alex.hedtke@gmail.com`** -- everyone
+`gmail-plus` and `gmail-dot` **normalize back to `you@gmail.com`** -- everyone
 (Jagex included) strips the `+tag` and ignores dots. So if an account on one of those
 gets **banned**, the address that gets blacklisted is effectively your *main* Gmail:
 you couldn't reuse it for that service again, and any legit account on it starts dirty.
@@ -45,12 +49,12 @@ radius; it doesn't make the account untraceable. (For a throwaway F2P account, f
 |---|---|---|---|
 | `catchall` (**recommended** for risky accounts) | `<service>@yourdomain.com` | **YES** -- own domain, no link to Gmail | a domain + Cloudflare Email Routing (free) |
 | `addy` | `random@anonaddy.me` (addy.io) | **YES** -- separate domain, kill any alias | needs `secrets.json` |
-| `gmail-plus` (low-stakes only) | `alex.hedtke+<service>@gmail.com` | **NO** -- normalizes to main address | none -- works now |
+| `gmail-plus` (low-stakes only) | `you+<service>@gmail.com` | **NO** -- normalizes to main address | none -- works now |
 | `gmail-dot` (low-stakes only) | dotted username variant | **NO** -- normalizes to main address | none |
 
 **Recommended ban-safe setup -- Cloudflare Email Routing (free, no server):** register a cheap
 throwaway domain, point its nameservers at Cloudflare, enable Email Routing with a catch-all
-rule `*@yourdomain.com` → `alex.hedtke@gmail.com`. Then add `{"catchall_domain":"yourdomain.com"}`
+rule `*@yourdomain.com` → `you@gmail.com`. Then add `{"catchall_domain":"yourdomain.com"}`
 to `secrets.json` and use `--scheme catchall`. Any address you invent works instantly, looks
 legit, has no link to your Gmail, and forwards in so MIST reads the code. This beats both hosted
 addy.io and self-hosted AnonAddy for throwaway *inbound* signups (self-hosting AnonAddy needs a
@@ -61,10 +65,10 @@ a VPN exit between your main and throwaway accounts.
 
 Upgrade path for real disposability: **addy.io** (free, unlimited aliases, an API
 so MIST can auto-mint, forwards to Gmail). To enable, sign up at addy.io, set the
-default recipient to `alex.hedtke@gmail.com`, then create `secrets.json`:
+default recipient to `you@gmail.com`, then add the keys to `secrets.json`:
 
 ```json
-{ "addy_api_key": "YOUR_KEY", "addy_domain": "anonaddy.me" }
+{ "base_email": "you@gmail.com", "addy_api_key": "YOUR_KEY", "addy_domain": "anonaddy.me" }
 ```
 
 Most powerful alternative if Alex points a domain here: **Cloudflare Email Routing**
@@ -73,7 +77,7 @@ works and looks fully legitimate.
 
 ## Privacy (gitignored)
 
-`aliases.json` (the alias→service→identity map) and `secrets.json` (API key) are
+`aliases.json` (the alias→service→identity map) and `secrets.json` (base inbox + API key) are
 **gitignored** -- they're personal data + a credential. Only `alias.py` + this README
 are tracked. The registry rebuilds itself as you mint; there's nothing to restore
 beyond re-minting (or re-export from addy.io if used).

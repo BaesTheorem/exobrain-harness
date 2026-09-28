@@ -8,7 +8,7 @@ idea as that script -- cut search engines out of discovery for employers we know
 about -- against a different ATS.
 
 Every Workday tenant exposes an unauthenticated JSON search endpoint behind the
-SPA. Verified live 2026-08-26 against r1rcm:
+SPA. Verified live 2026-08-26 against a wd1 tenant:
 
     list    POST https://<host>/wday/cxs/<tenant>/<site>/jobs
             body {"appliedFacets": {...}, "limit": 20, "offset": N, "searchText": ""}
@@ -51,10 +51,12 @@ import time
 import urllib.parse
 import urllib.request
 
+from comp_floors import comp_floor
+
 UA = ("Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 "
       "(KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36")
 
-COMP_FLOOR = 75_000  # standard-lane floor; see gitignored Claude Reference.md
+COMP_FLOOR = comp_floor()  # standard-lane floor, from the harness .env
 HOURS_PER_YEAR = 2080
 
 VAULT = os.path.expanduser("~/Exobrain")
@@ -65,7 +67,7 @@ SNAPSHOT = os.path.join(STATE_DIR, "workday-snapshot.json")
 PAGE = 20  # Workday silently caps `limit` at 20, same trap as the Himalayas API
 
 # Crawl bounds (added 2026-09-07 after an unfiltered auto-discovered board hung
-# the lane). CVS Health reports total=19016 at ~0.75s a page: a whole-tenant
+# the lane). One large tenant (<Employer C>) reports total=19016 at ~0.75s a page: a whole-tenant
 # crawl is ~950 sequential requests, and `with ThreadPoolExecutor` cannot exit
 # until it finishes. Boards are newest-first (verified on wd1 and wd5 tenants),
 # so the diff only ever needs the front of the list: cap the pages, cap the
@@ -107,17 +109,17 @@ KEEP = re.compile(
 
 # Workday tenants spell "remote" many ways in the location field, and gating on
 # the literal word alone is a false negative that kills a whole employer's
-# inventory (Cigna posts every remote req as "United States Work at Home").
+# inventory (<Employer A> posts every remote req as "United States Work at Home").
 REMOTE = re.compile(
     r"\bremote\b|work at home|work from home|home[- ]based|telecommut|"
     r"\bwfh\b|\bvirtual\b|\banywhere\b", re.I)
 # Checked against title AND location: the location field is the tenant's coarse
 # bucket and routinely says "Remote" for a seat the title marks hybrid or
-# city-bound (CrowdStrike "Analyst I ... (Hybrid, St Louis)" under "USA - Remote").
+# city-bound (<Employer B>: "Analyst I ... (Hybrid, <City>)" under "USA - Remote").
 HYBRID = re.compile(r"\bhybrid\b|\bon-?site\b|\bin-?office\b", re.I)
 # A remote seat in another country is still gate 1 for a US candidate, and the
 # location field says so in the tenant's own words ("Canada - Remote AB",
-# "Mexico - Remote") or CrowdStrike's 3-letter title codes ("(Remote, GBR)").
+# "Mexico - Remote") or <Employer B>'s 3-letter title codes ("(Remote, GBR)").
 # The first fixed run (2026-09-07) let 1 of 3 survivors and 9 of 24 leads
 # through on this alone. "United States" must NOT match: keep to other
 # countries and Canadian provinces.
@@ -179,7 +181,7 @@ def poll(board: dict, known: set | None = None) -> tuple[dict, dict]:
     set of req ids the previous snapshot holds for this board; None or empty
     means a baseline, which crawls to the cap.
 
-    `total` is read from page one only. wd5 tenants (Cigna and 11 others
+    `total` is read from page one only. wd5 tenants (<Employer A> and 11 others
     measured 2026-09-07) return total=0 on every later page while still
     returning postings, and re-reading it each page silently truncated every
     unfiltered board to 40 postings for the lane's first two weeks.
@@ -188,7 +190,7 @@ def poll(board: dict, known: set | None = None) -> tuple[dict, dict]:
     meta = {"pages": 0, "total": None, "stopped": "end of board"}
     offset, total, streak = 0, None, 0
     started = time.monotonic()
-    # Faceted boards come back in mixed order (R1's pinned board interleaves
+    # Faceted boards come back in mixed order (one pinned board interleaves
     # 3-day-old and 30+-day-old reqs), so the caught-up early stop only applies
     # to unfiltered boards, whose newest-first order was verified across pages.
     can_catch_up = bool(known) and not (board.get("facets") or board.get("search"))

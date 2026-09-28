@@ -12,12 +12,15 @@ the file extension, streams the upload with progress, and verifies it landed
 via a remote sha256.
 
 Usage:
-  push-rom --setup --ip 192.168.0.21   first time: install key, find both cards
+  push-rom --setup --ip <device-ip>    first time: install key, find both cards
   push-rom game.gba                     push, inferring the system folder
   push-rom disc.chd --system PS         push to an explicit system folder
   push-rom game.gba --card os           push to the OS card instead of games
   push-rom --list                       list system folders on the games card
   push-rom --list GBA --card os         list a system folder on the OS card
+
+Device IP lookup order: --ip, then $ANBERNIC_HOST (process env or the harness
+root .env), then the IP cached in ~/.config/push-rom/config.json.
 """
 
 from __future__ import annotations
@@ -265,8 +268,21 @@ def upload(ip: str, base: str, file: Path, sysdir: str, *, dry_run: bool) -> Non
         die(f"upload verification failed for {remote}")
 
 
+def env_host() -> str | None:
+    """ANBERNIC_HOST from the process env, else from the harness root .env."""
+    if os.environ.get("ANBERNIC_HOST"):
+        return os.environ["ANBERNIC_HOST"]
+    env_file = Path(__file__).resolve().parents[2] / ".env"
+    if env_file.exists():
+        for line in env_file.read_text().splitlines():
+            key, sep, val = line.strip().partition("=")
+            if sep and key.strip() == "ANBERNIC_HOST":
+                return val.strip().strip('"').strip("'") or None
+    return None
+
+
 def get_ip(args: argparse.Namespace, cfg: dict[str, str]) -> str:
-    ip = args.ip or cfg.get("ip")
+    ip = args.ip or env_host() or cfg.get("ip")
     if not ip:
         die("no device IP known. Run: push-rom --setup --ip <device-ip>\n"
             "  (the device shows its IP on screen when the SSH app is open)")
@@ -277,7 +293,7 @@ def get_ip(args: argparse.Namespace, cfg: dict[str, str]) -> str:
 
 
 def cmd_setup(args: argparse.Namespace, cfg: dict[str, str]) -> None:
-    ip = args.ip or cfg.get("ip")
+    ip = args.ip or env_host() or cfg.get("ip")
     if not ip:
         die("pass --ip <device-ip> (shown on the device when the SSH app is open)")
     cfg["ip"] = ip

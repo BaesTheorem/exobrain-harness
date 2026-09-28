@@ -94,7 +94,7 @@ Record the bindings so every skill can resolve a port without re-asking. Create 
 
 ## Step 5 -- Pick the skills to bring over (core, not everything)
 
-This repo has ~48 skills, but roughly half are hyper-personal to the owner. Bring the **core** loop; leave the owner-specific ones.
+This repo tracks 73 skills (as of 2026-09-28; recount with `git ls-files .claude/skills | cut -d/ -f3 | sort -u | wc -l`), but roughly half are hyper-personal to the owner. Bring the **core** loop; leave the owner-specific ones.
 
 - **Core (recommend for everyone):** capture, daily-briefing, evening-winddown, weekly-review, monthly-review, process-transcript, crm, mood, session-memory, verify, de-ai, plus the convention references for whichever note/task/calendar tools they chose.
 - **Owner-specific (skip unless relevant):** job-search, resume-builder, it-analyst, the games (osrs, solo-dm, dnd-sheet, jackbox), finances, the personal watchers, and anything tied to the owner's specific devices, employer, or life. If a skill names the owner, a specific employer, or a specific city, it's personal -- adapt or drop it.

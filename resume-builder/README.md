@@ -57,14 +57,14 @@ one-page letter. `tailoring/example_cover.md` shows the correct shape.
 ```json
 {
   "tag": "ACME",
-  "summary": "...override summary (KEEP the 11+/4+ tenure framing)...",
+  "summary": "...override summary (KEEP the tenure-first opener)...",
   "skills_append": { "Security": "Additional focus on <truthful ATS keywords>." },
-  "experience_bullets": { "clyde": ["reordered / polished bullet", "..."] },
-  "title_suffix": { "clyde": " (IT function outsourced, July 2026)" },
+  "experience_bullets": { "job1": ["reordered / polished bullet", "..."] },
+  "title_suffix": { "job1": " (contract ended)" },
   "leadership_include": ["ea_kc"]
 }
 ```
-Job ids for `experience_bullets` and `title_suffix`: `clyde`, `geeksquad` (see `data/resume_data.json`).
+Job ids for `experience_bullets` and `title_suffix` are the `id` fields in `data/resume_data.json` (e.g. `job1`, `job2`).
 
 `leadership_include` switches on a canonical Leadership entry carrying `"optional": true`,
 by id. Those entries are real and documented, they are just irrelevant to most JDs, so they
@@ -82,7 +82,8 @@ resume should stay clean. Truthful context only, never retitling.
 **Hard rules (from [[Claude Reference]] "Tailored Resumes"):** surgical edits only.
 Never add a skill/tool/cert the canonical data doesn't support. Don't change titles,
 dates, employers, or section structure. The summary must always open with
-"11+ years in IT, with 4+ years in an enterprise environment [role-relevant X]".
+total tenure and enterprise tenure, taken from `resume_data.json`, followed by the
+role-relevant focus.
 
 ## ATS / AI-screening practices baked in
 See the vault note **[[ATS & AI-Screening Playbook]]** (`Projects/Get new job/`).

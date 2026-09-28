@@ -29,8 +29,8 @@ EARTH_RADIUS_MI = 3958.7613
 
 # Confidence levels at which a computed distance actually means something.
 # "region" resolves to a metro centroid, so its distance describes where the geocoder
-# put the pin, not where the site is: every unidentified KC report lands at the same
-# 2.44 mi from home and would otherwise sail through a 3-mile filter as a false hit.
+# put the pin, not where the site is: every unidentified KC report lands on the metro
+# centroid, one fixed distance from home, and could pass a proximity filter as a false hit.
 LOCATING_CONFIDENCE = frozenset({"exact", "block", "neighborhood"})
 
 
@@ -39,7 +39,7 @@ def distance_is_meaningful(confidence: str) -> bool:
 
 
 def proximity(confidence: str, miles: float | None, radius: float = 3.0) -> str:
-    """'near' | 'far' | 'unplaceable' -- the honest answer to "is this close to home?"."""
+    """'near' | 'far' | 'unplaceable' -- the answer to "is this close to home?"."""
     if miles is None or not distance_is_meaningful(confidence):
         return "unplaceable"
     return "near" if miles <= radius else "far"

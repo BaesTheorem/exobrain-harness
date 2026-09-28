@@ -57,7 +57,7 @@ Run `/job-search status` logic to compile the week's application count and pace.
 - Upskilling progress (cert study sessions, training attended, exams)
 - Interview activity (scheduled, completed, outcomes)
 - Networking for job search (outreach sent, intros made)
-Append a dated `Applications` entry to the job hub note (`/Users/alexhedtke/Exobrain/Projects/Get new job.md`) under `## Job Search Log`.
+Append a dated `Applications` entry to the job hub note (`/Users/alexhedtke/Exobrain/Projects/Get new job/Get new job.md`) under `## Job Search Log`.
 
 ### 8. Health trends
 Read the past 7 days of Health Log notes (`Areas/Health & Fitness/Health Log/YYYY-MM-DD.md`, already written by the daily briefings) for steps, sleep, and zone minutes. Per `/health`, do NOT re-query the Fitbit API for historical data. The only fresh pull is Withings, if a body-comp snapshot is needed: body composition (`withings_get_body_composition` imperial) for latest snapshot, plus `withings_get_measurements` for 7-day weight/body comp trends, and blood pressure if available. Summarize trends and flag concerns.
@@ -69,10 +69,10 @@ Read the concern dossier notes in `Areas/Health & Fitness/Concerns/` for the lis
 The thorough counterpart to the wind-down's quick pulse. See `/electricity` for the integrations, read paths, rate plan, and cost-split framing. Goal: a real read on where the bill is going and **at least one concrete, actionable recommendation** (or an explicit "stay the course, here's why").
 
 1. **Cost vs. baseline**: from the Energy Log / the Evergy puller's `--json` (now at `~/Documents/claude-home/integrations/evergy`), report the cycle's usage + cost-to-date, projection, and the gap to "typical" (kWh and $, and the % over/under). Note the trend vs. last week.
-2. **Per-floor breakdown**: from the Nest integration (now `~/Documents/claude-home/integrations/nest`), sum the week's cooling hours per floor. Name the cost driver (normally the 3rd floor) and its share. Flag any floor whose runtime jumped.
-3. **The overnight experiment (the main event)**: read the `NIGHTLOG:AUTO` block. Line up the week's nights by **outdoor low** and compare 3rd-floor overnight runtime across nights with *similar* lows. State plainly whether the native schedule is saving energy or whether the cheap nights were just mild -- and **say so even when the answer is "not enough spread of lows yet, keep logging."** Don't manufacture a verdict from one or two nights.
+2. **Per-floor breakdown**: from the Nest integration (now `~/Documents/claude-home/integrations/nest`), sum the week's cooling hours per floor. Name the cost driver (normally the sleeping floor) and its share. Flag any floor whose runtime jumped.
+3. **The overnight experiment (the main event)**: read the `NIGHTLOG:AUTO` block. Line up the week's nights by **outdoor low** and compare sleeping-floor overnight runtime across nights with *similar* lows. State plainly whether the native schedule is saving energy or whether the cheap nights were just mild -- and **say so even when the answer is "not enough spread of lows yet, keep logging."** Don't manufacture a verdict from one or two nights.
 4. **Rate-plan check**: with TOU peak 4-8pm (~16% premium), is meaningful load landing in peak? Total summer kWh is usually the bigger lever than time-shifting, so weight recommendations accordingly.
-5. **Recommendation(s)**: 0-2 concrete moves, each with the expected effect framed as **Alex's ~1/3 share** of the bill (it's split three ways). The 3rd-floor early-overnight deep-cool is the biggest lever, but it's his and his housemate's sleep comfort -- surface the tradeoff honestly, recommend, don't nag. If a change is worth trying, create a Things 3 task for it (search first to dedup).
+5. **Recommendation(s)**: 0-2 concrete moves, each with the expected effect framed as **Alex's share** of the bill (per the configured split in the gitignored config, see `/electricity`). The sleeping-floor early-overnight cooling is the biggest lever, but it is the household's sleep comfort -- surface the tradeoff plainly, recommend, don't nag. If a change is worth trying, create a Things 3 task for it (search first to dedup).
 
 ### 8d. Budget check -- Envelope Budget app
 A real read on how the budget is doing against its priorities, with concrete recommendations. Use the `/finances` skill (read `Areas/Money & Finances/Budget.md` first for the live priorities, then the app).
@@ -107,7 +107,7 @@ Read `/Users/alexhedtke/Exobrain/Mood Journal.md` and generate the weekly summar
    - Name, why they're interesting (`why_interesting` from frontmatter)
    - Suggested outreach angle (with a concrete offer to help)
    - Platform to use (or suggest one based on available info)
-4. Create a Things 3 task `Reach out to [Name]` (when: anytime, tag: networking, notes: context + People note deep link). Search Things 3 first to avoid duplicates.
+4. Create a Things 3 task `Reach out to [Name]` (inbox, no `when` per `/things3`; tag: networking, notes: context + People note deep link). Search Things 3 first to avoid duplicates.
 
 **CRM health summary**: total categorized contacts, number overdue, category distribution.
 
@@ -152,7 +152,7 @@ Step 13 *surfaces* problems; this step *fixes* them, so the system compounds ins
 **Produce a prioritized Harness Improvement backlog** -- each item: `{symptom → proposed change → file(s) touched → effort → risk}`.
 
 **Ship the safe, high-value ones this week** (with Alex's go-ahead): low-risk edits to skills, convention docs, memory, `.gitignore`, README, or notification copy.
-- **Before committing, re-run the privacy/gitignore guard** -- no secrets, no real third-party names, no personal data -- per the CLAUDE.md Privacy & Legibility rules.
+- **Before committing, re-run the privacy/gitignore guard** -- no secrets, no real third-party names, no personal data -- per the CLAUDE.md `## Privacy` rules.
 - Queue anything risky or large as a Things 3 task under the **Exobrain** project rather than forcing it in.
 
 **Log it** -- append a dated entry to `Areas/Exobrain/Iteration Log.md` (create if missing): what changed, why, and what was deferred. This keeps the system's evolution traceable and stops the same finding from resurfacing every week.
@@ -176,7 +176,7 @@ Write `### Weekly Review` section in Sunday's daily note containing:
 6. **Someday promotion**: Item(s) suggested for this week
 7. **Project next actions**: One task per active project
 8. **Health snapshot**: 7-day trends with recommendations + health concern patterns (per the gitignored health-concerns config; see /health)
-8c. **Energy & HVAC**: cost vs. typical, per-floor cooling breakdown, overnight-schedule verdict (or "keep logging"), and 0-2 recommendations framed as Alex's ~1/3 share
+8c. **Energy & HVAC**: cost vs. typical, per-floor cooling breakdown, overnight-schedule verdict (or "keep logging"), and 0-2 recommendations framed as Alex's configured share
 9. **Priority alignment**: Are daily activities matching stated priorities? Flag misalignment.
 10. **Mood summary**: Week's mood trajectory, sub-category trends, comparison to prior week, pattern flags
 11. **Network CRM**: CRM health summary + 1 recommended outreach for the week (with context and suggested angle)
@@ -188,6 +188,6 @@ Write `### Weekly Review` section in Sunday's daily note containing:
 
 ### Notify
 ```bash
-osascript -e 'display notification "Your weekly review is ready -- check Sunday'\''s daily note" with title "Exobrain" sound name "Purr"'
+mist-voice/bin/mist-notify "Your weekly review is ready -- check Sunday's daily note" "Exobrain" Purr console
 ```
 

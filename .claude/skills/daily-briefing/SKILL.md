@@ -55,7 +55,12 @@ Follow the `/imessage` skill's **Daily Briefing** section. Scan last 24h for CRM
 Follow the `/mood` skill's **Daily Briefing** section. Score yesterday, write the full sub-score breakdown to yesterday's daily note, and return the 1-line summary + mood boost recommendation for today's briefing.
 
 ### 9. Job Search
-Follow the `/job-search` skill's **Daily Briefing** section. If it's a weekday, run tracker maintenance and return the pace check.
+Discovery lanes belong to the 09:00 `com.exobrain.job-scan` job (`job-search/run-job-scan.sh`), not to this briefing. Do not re-run them here by default; summarize the most recent scan instead:
+
+1. Find the newest completed scan: `ls -t ~/Library/Logs/exobrain/job-scan-*-a*.out | head -1`. A completed run ends with the two lane-marker lines (`GMAIL_LANE: ...`, `LINKEDIN_LANE: ...`). Also read the newest `## Job Search Log -- YYYY-MM-DD (Pipeline ...)` entry in `Projects/Get new job/Get new job.md`, which the scan appends when it gets that far.
+2. **Fresh (completed run under 24 h old by file mtime):** do not run any lane. Report its survivor count under `#### Flags` only if it added verified candidates, and list any Things tasks it created under `#### New tasks created`.
+3. **Stale (newest completed run is 24 h old or more, or the latest attempt has no lane markers):** say so in `#### Flags` with the file's timestamp, then run the discovery lanes from the `/job-search` **Daily Briefing** section (steps 2 to 3) as the fallback.
+4. Either way, run the parts the scan does not own: tracker maintenance from Gmail confirmations/rejections (`/job-search` Daily Briefing step 1), the weekly pace check (step 5) on weekdays, and today's interviews (step 6).
 
 ### 10. CRM
 Follow the `/crm` skill's **Network scan** mode (mode 8). Create Things 3 tasks for overdue contacts. Do NOT list overdue contacts in the briefing -- Things 3 tasks are sufficient. Only mention a contact if you have new context from email/transcript/calendar.
@@ -81,6 +86,9 @@ player on Chaos Legion's roster plus the watch list (league-wide roundups filter
 is nothing. Add one line of your own only when something needs a decision today (a starter ruled out, a lock inside the
 next few hours); the lineup routines act on it, so the briefing only has to make Alex aware. Alex asked for this on
 2026-09-07: he wants to know who these people are and what is happening to them.
+
+### 11c. Discord (read-only)
+Do NOT run a live Discord scan here. Read the digest that `discord-digest-fetch.py` refreshes every 4 h under launchd: `discord/discord-digest.json` in the harness (gitignored). Interpret it per the `/discord-digest` skill (including its username mapping); never paste real names into anything tracked. Include a short `#### Discord` section (3 lines max: upcoming plans with dates, anything that needs Alex's reply) **only when the digest has entries newer than the last briefing**; omit the section otherwise. Route any plan with a date to the calendar per `/calendar` and any ask to Things per `/things3`, the same as the digest skill's own routing rules. If the file is missing or older than 24 h, skip the section and add one line to `#### Flags` naming the stale digest.
 
 ### 12. Local Events (read-only)
 Do NOT run `/local-events` here -- the full scan runs as part of the weekly review on Sundays.
@@ -141,6 +149,9 @@ Weather goes FIRST (outside the briefing heading), then content under `### Morni
 
 #### Fantasy
 [roster-news output: one bullet per player with news, or the italic no-news line]
+
+#### Discord
+- [upcoming plan or ask from the digest -- 1 line each, max 3. Omit the section when there is nothing new.]
 
 #### Flags
 (Only if something worth flagging: procrastination, deadline risk, new context, exceptional job posting. Omit if nothing to flag.)

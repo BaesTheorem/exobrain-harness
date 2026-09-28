@@ -510,11 +510,21 @@ def api_distance(body: dict):
     miles = None
     if cal and cal.get("miles_per_rel"):
         miles = rel * cal["miles_per_rel"]
+    # The slow-travel row follows a campaign-specific caravan (a named NPC's cart, a
+    # wagon train). Set world_state key "travel_cart" to {"label": ..., "mi_per_day": ...}
+    # per campaign; the default is a generic cart at 18 mi/day.
+    cart = ws_get("travel_cart") or {}
+    if not isinstance(cart, dict):
+        cart = {}
+    cart_label = str(cart.get("label") or "cart")
+    cart_mpd = float(cart.get("mi_per_day") or 18)
     return {
         "rel": rel,
         "miles": miles,
         "days_normal": (miles / 20) if miles else None,     # 20 mi/day normal
-        "days_cart": (miles / 18) if miles else None,       # Olwin's pace
+        "days_cart": (miles / cart_mpd) if miles else None,
+        "cart_label": cart_label,
+        "cart_mi_per_day": cart_mpd,
         "days_pushed": (miles / 25) if miles else None,     # pushed
     }
 

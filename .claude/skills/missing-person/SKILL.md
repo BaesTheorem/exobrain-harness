@@ -23,7 +23,8 @@ them, so case files live in the vault and never in a repo. The repo ships only
 `cases/example.toml`, and a test enforces that. Lookup order is
 `$MP_CASES_DIR`, then the vault, then the repo.
 
-Active case: **jake-phillips**.
+Active case: whatever `bin/mp cases` lists from the vault cases dir. Never write
+a case slug or name into this skill or any repo.
 
 ## Commands
 
@@ -82,13 +83,13 @@ the investigating agency, never to a county ME as a member of the public.
 
 **Read the case's documents before reasoning about the case.** `mp docs <case>`
 fetches and extracts every cited PDF. Agency bulletins routinely carry detail
-no API exposes: on jake-phillips the MSHP/NCIC bulletin held the only specific
-street address, the exact time, and the real date of last contact, while the
+no API exposes: on one past case the state patrol/NCIC bulletin held the only
+specific location, the exact time, and the real date of last contact, while the
 NamUs API had nothing finer than a ZIP. Treating NamUs as "the agency record"
 when an NCIC bulletin exists is the mistake to avoid.
 
 **Never trust a WebSearch synthesis on a case.** It invented an age and a
-county on this one. Open NamUs, the state feed, or the agency's own post.
+county on a past case. Open NamUs, the state feed, or the agency's own post.
 
 ## When Alex shows a flyer or asks for an update
 

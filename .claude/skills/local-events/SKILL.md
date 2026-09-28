@@ -87,7 +87,7 @@ Score each discovered event 1-10 using these factors:
 | Accessibility | 3x | Within 10-min walk of KC Streetcar = 10, Walkable/bikeable = 7, <10 min drive = 5, >10 min drive = 2 |
 | Social potential | 1x | Group-friendly / could invite people = 8, Solo = 5 |
 
-**Transit note**: Alex does not have a car. Events on or near the KC Streetcar line are strongly preferred. Events >10 min drive away require rideshare/bus/borrowing a car -- flag the transit challenge in the "Why" line and factor it into scoring. The Streetcar runs from River Market through downtown, Union Station, Crown Center, and to UMKC. Venues near this corridor (The Midland, Sprint Center/T-Mobile Center, Union Station, Screenland Armour in North KC) get a big accessibility boost.
+**Transit note**: read Alex's current transport situation from his profile. When he is car-free, events on or near the KC Streetcar line are strongly preferred. Events >10 min drive away require rideshare/bus/borrowing a car -- flag the transit challenge in the "Why" line and factor it into scoring. The Streetcar runs from River Market through downtown, Union Station, Crown Center, and to UMKC. Venues near this corridor (The Midland, Sprint Center/T-Mobile Center, Union Station, Screenland Armour in North KC) get a big accessibility boost.
 
 Only surface events scoring 5+ (weighted average). Always surface favorite artists and high-interest matches regardless of score.
 
@@ -229,16 +229,16 @@ What's happening tonight in KC? Quick search focused on today's date only.
 
 ## Notifications
 
-After the scan completes:
+After the scan completes (run from the harness root; every banner is clickable per the notification policy):
 
 **Always**:
 ```bash
-osascript -e 'display notification "[N] new events found for the next 30 days" with title "Exobrain" sound name "Purr"'
+mist-voice/bin/mist-notify "[N] new events found for the next 30 days" "Exobrain" Purr console
 ```
 
 **Favorite artist alert** (urgent):
 ```bash
-osascript -e 'display notification "[Artist] is coming to KC on [date]!" with title "Exobrain URGENT" sound name "Basso"'
+mist-voice/bin/mist-notify "[Artist] is coming to KC on [date]!" "Exobrain URGENT" Basso "<ticket or venue URL>"
 ```
 
 ## Integration with Other Skills

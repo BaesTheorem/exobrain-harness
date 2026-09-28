@@ -33,7 +33,7 @@ reminders/add-reminder "Title" [--list NAME] [--at HH:MM] \
 Examples:
 
 ```bash
-reminders/add-reminder "Check Luci's food bowl" --at 8:00 --repeat daily
+reminders/add-reminder "Feed the cat" --at 8:00 --repeat daily
 reminders/add-reminder "Water the plants" --at 18:30 --repeat weekly --interval 2
 reminders/add-reminder "Pick up prescription"          # no time, no repeat
 ```
@@ -54,7 +54,3 @@ is newer, so just edit the Swift and re-run.
 - **Not the default task destination.** Alex's tasks live in Things 3 (see
   `/things3`). Reach for this only when he asks for Apple Reminders specifically,
   usually because he wants it on the watch or in a Siri flow.
-
-## Things this created
-
-- `Check Luci's food bowl` -- INBOX, daily at 8:00 AM, created 2026-08-14.

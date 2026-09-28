@@ -23,6 +23,7 @@ values into fantasy/espn-credentials.json by hand.
 import json
 import os
 import sys
+import time
 import argparse
 import urllib.request
 import urllib.error
@@ -81,8 +82,8 @@ def my_team_id(creds, data):
     """Return Alex's team id.
 
     Prefer the pinned team_id in the credential file. The SWID briefly owned two
-    teams here (id 8 'Alex's Awesome Team', the ESPN default, plus id 12 'Chaos
-    Legion'); id 8 was deleted 2026-08-23, so owner-matching would now succeed on
+    teams here (the ESPN default team plus 'Chaos Legion'); the default one was
+    deleted 2026-08-23, so owner-matching would now succeed on
     its own. The pin stays because ESPN can recreate a default team, and it costs
     nothing. Owner-match remains the fallback.
     """
@@ -277,8 +278,14 @@ def cmd_refresh(creds_ignored, args):
     os.remove(tmp)
     if "espn_s2" not in got or "SWID" not in got:
         sys.exit("Could not find ESPN cookies in Chrome. Log into espn.com first.")
-    existing = json.load(open(CREDS)) if os.path.exists(CREDS) else {
-        "league_id": 45635023, "season": 2026}
+    if os.path.exists(CREDS):
+        existing = json.load(open(CREDS))
+    elif os.environ.get("ESPN_LEAGUE_ID"):
+        existing = {"league_id": int(os.environ["ESPN_LEAGUE_ID"]),
+                    "season": int(os.environ.get("ESPN_SEASON") or time.strftime("%Y"))}
+    else:
+        sys.exit("No espn-credentials.json yet. Set ESPN_LEAGUE_ID (the leagueId in "
+                 "your league URL) and re-run `ff refresh`, or see fantasy/README.md.")
     existing.update(espn_s2=got["espn_s2"], SWID=got["SWID"])
     json.dump(existing, open(CREDS, "w"), indent=2)
     os.chmod(CREDS, 0o600)

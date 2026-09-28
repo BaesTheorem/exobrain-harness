@@ -14,6 +14,8 @@
 # org and account UUIDs and the contents are Anthropic's copyrighted skill trees plus
 # stale copies of local skills; never commit it. syncClaudeAiSkills is off in settings.
 .claude/skills/synced/
+# Claude Code's skill trash (deleted-skill copies); local only
+.claude/skills/.trash/
 .claude/plugins/
 .claude/session-memories/
 # session memories also land at repo root; keep both ignored (personal context)
@@ -37,9 +39,7 @@ phone/gcal-token.json
 
 # Personal/sensitive data
 .claude/skills/health/health-concerns-config.md
-cycle-tracker/cycle-data.json
-cycle-tracker/cycle-data.archived-*.json
-cycle-tracker/app.py
+cycle-tracker/
 local-events/local-events-log.json
 local-events/local-events-prefs.json
 sailboat-retro/retro-data.json
@@ -129,7 +129,7 @@ maintenance/wifi-diag-out.txt
 
 # Local-only watcher fleet (personal product/price/tour targets, home ZIP,
 # state, and its own README, which names them all). Nothing inside is tracked;
-# .claude/commands/bounty.md and the root README note why the dir is absent.
+# the root README notes why the dir is absent.
 # (Moved here from .git/info/exclude, which does not survive a re-clone.)
 watchers/
 substack-sync/sync.log
@@ -153,6 +153,7 @@ scheduler/events/
 # Alex applies). See job-search/state/README.md for rebuild.
 job-search/state/*
 !job-search/state/README.md
+!job-search/state/*.example.json
 
 # Compiled EventKit helper (rebuilt on demand by reminders/add-reminder)
 reminders/.build/
@@ -166,6 +167,8 @@ salon-ramon/state.json
 fantasy/espn-credentials.json
 # espn CLI day-old caches of public ESPN data (NFL schedule, player index)
 fantasy/.cache/
+# Live scouting state (league rosters, trade targets); rebuilt by the weekly routines.
+fantasy/watchlist.json
 
 # Draft autopilot runtime. profile/ is a logged-in Chrome profile holding live
 # ESPN/Disney session cookies; url.txt and live-draft-url.txt carry Alex's

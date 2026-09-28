@@ -12,7 +12,7 @@ Identify structural transformations and what they mean, not just collections of 
 
 ### Voice (CRITICAL)
 
-The final document must sound like the user extended their own thinking, not like a philosophy seminar. Read `_resources/Kazys Varnelis – Personal Writing Style Guide.md` before drafting.
+The final document must sound like the user extended their own thinking, not like a philosophy seminar. Read `Writing Voice.md` at the Exobrain vault root before drafting (it is Alex's voice guide and lives outside this repo).
 
 **Do:** Declarative assertions. Concrete stakes. Categorical distinctions that carve nature at its joints. Varied sentence rhythm -- long discursive sentences alternating with short staccato claims. Abstraction tethered to specific cases, artworks, historical moments.
 

@@ -111,14 +111,10 @@ Follow `fantasy/routines/COMMON.md` first. If today is not Tuesday, stop.
    way COMMON.md rule 3 describes. **Not `mist-ask`**: it needs a Console
    session the routine runner does not provide, so it exits nonzero here
    (found 2026-09-16). Never send an offer yourself. Incoming offers are the incident routine's.
-   **Standing offer (from 2026-09-07):** Watson + Nailor for George Pickens
-   to Ayahuasca Rodgers. ESPN offers expire after two days. If it is no longer
-   pending (`fantasy/bin/espn-tx pending` shows no TRADE_PROPOSAL from us) and
-   both Watson and Nailor are still ours and Pickens is still theirs, re-send
-   it: `fantasy/bin/espn-tx trade "Christian Watson" "Jalen Nailor" --for
-   "George Pickens" --with "Ayahuasca Rodgers"`. This one re-send is the only
-   offer you send without asking; Alex approved it on 2026-09-07. Stop if the
-   playbook's Season log says he withdrew it.
+   **Standing offers.** Read them from the playbook's *Trades > Standing
+   offers* list and follow the re-send conditions written there. That list is
+   the only source of offers you may send without asking; if it is empty,
+   send nothing.
    **Watch list.** `fantasy/watchlist.json` is the set of players and teams
    roster-watch tracks between runs, each with a `why` and a `trigger`.
    Review it: act on any trigger that has fired (the incidents file shows

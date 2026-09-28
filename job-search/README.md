@@ -53,15 +53,15 @@ Daily unattended discovery scan for the `/job-search` skill.
   server-side**, so pinning a hand-filtered board is one command. Facet IDs are opaque per-tenant
   GUIDs and never portable between employers -- `--add` prints each one's resolved human label and
   open count as the positive control. Two gate bugs caught on the first live run and fixed:
-  gating remote on the literal word "remote" silently killed a whole employer's inventory (Cigna
+  gating remote on the literal word "remote" killed a whole employer's inventory (<Employer A>
   posts remote reqs as "United States Work at Home"), and the location field contradicts the title
-  often enough that a hybrid/onsite marker in either field now decides gate 1 (CrowdStrike lists
-  "Analyst I ... (Hybrid, St Louis)" under location "USA - Remote").
+  often enough that a hybrid/onsite marker in either field now decides gate 1 (<Employer B> lists
+  "Analyst I ... (Hybrid, <City>)" under location "USA - Remote").
   Boards for warm-connection employers are pinned with `--warm`: their rows carry a WARM REFERRAL tag
   in every bucket, and their off-lane titles are listed instead of dropped, since a referral is worth
   more than a title match. It grants no gate exception on its own.
   **Crawl bounds (2026-09-07).** Boards found in the vault carry no facets, so they are polled
-  whole, and CVS Health (total=19016, ~0.75s a page) turned that into a ~950-request crawl that
+  whole, and <Employer C> (total=19016, ~0.75s a page) turned that into a ~950-request crawl that
   hung the lane past the 40-minute scan timeout with zero bytes of output. Boards are
   newest-first on both wd1 and wd5 tenants (verified across pages), so the diff only needs the
   front of the list: `poll()` now caps at `MAX_PAGES`, caps wall clock at `BOARD_DEADLINE`, and on
@@ -83,7 +83,7 @@ Daily unattended discovery scan for the `/job-search` skill.
   lane's actual value. The comp threshold normalizes across pay types (hourly/monthly/annual
   encodings of one floor return the identical set), but `compensation_max_gteq` is silently
   ignored -- not Ransack-whitelisted, it returns the unfiltered board, first spotted when a
-  Food Service Worker "cleared" a $103K filter -- so the band rule runs client-side: server
+  Food Service Worker "cleared" a six-figure probe filter -- so the band rule runs client-side: server
   pre-filter at a reduced min, then gate each detail page's band top at the real floor.
   Detail pages are HTML-only (`.json` answers 406). Off-lane KC titles that cleared the comp
   pre-filter are printed for overrule rather than silently dropped.

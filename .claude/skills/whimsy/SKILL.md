@@ -34,8 +34,8 @@ Scan available data sources (daily notes, transcripts, calendar events, Discord 
 | Tier | Points | Description | Examples |
 |------|--------|-------------|----------|
 | **Mundane Sparkle** | 1-5 | A small crack in the ordinary. Something slightly *off* in a good way. | Traveling somewhere, wearing something ridiculous on purpose, taking an unexplainable detour, sending a deeply unhinged meme to the wrong group chat |
-| **Certified Whimsy** | 6-15 | Something genuinely weird or delightful happened and you leaned into it. | Watching Elijah Wood DJ, showing up somewhere in costume for no reason, befriending a stranger in a completely unexpected context, doing something that made you laugh at yourself |
-| **Legendary Frolic** | 16-30 | An event so strange or joyful it becomes a story you tell for months. | Going on a fully unplanned road trip, crashing a wedding (nicely), combining two activities that have no business coexisting (e.g., political lobbying followed by a rave) |
+| **Certified Whimsy** | 6-15 | Something genuinely weird or delightful happened and you leaned into it. | Catching a celebrity DJ set in a tiny venue, showing up somewhere in costume for no reason, befriending a stranger in a completely unexpected context, doing something that made you laugh at yourself |
+| **Legendary Frolic** | 16-30 | An event so strange or joyful it becomes a story you tell for months. | Going on a fully unplanned road trip, crashing a wedding (nicely), combining two activities that have no business coexisting (e.g., a museum tour followed by a rave) |
 | **Mythic Caprice** | 31-50 | Reality-bending whimsy. The universe paused to take notes. | Flying somewhere on a whim with no plan, starting something absurdly ambitious on impulse, doing something so unexpected your friends are still processing it weeks later |
 | **TRANSCENDENT FOOLISHNESS** | 51-100 | You have become whimsy itself. Bards compose ballads. Squirrels salute you. | Reserved for acts of whimsy so pure and unhinged that no rational framework can contain them. The Keeper will know it when they see it. Most weeks will have zero of these. Most *lives* will have few. |
 

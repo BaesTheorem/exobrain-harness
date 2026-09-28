@@ -54,7 +54,7 @@ SUFFIXES = r"\b(corporation|corp|incorporated|inc|llc|l\.?p|ltd|limited|company|
 
 
 def norm(s):
-    """Lowercase, drop corporate suffixes and punctuation. 'LTS Corporation' -> 'lts'."""
+    """Lowercase, drop corporate suffixes and punctuation. 'Acme Corporation' -> 'acme'."""
     s = re.sub(SUFFIXES, " ", s.lower())
     return " ".join(re.sub(r"[^a-z0-9&]+", " ", s).split())
 
@@ -62,7 +62,7 @@ def norm(s):
 def company_match(term, n):
     """Match either direction on normalized names, whole words only.
 
-    Plain substring missed 'LTS Corporation' against notes filed as 'LTS - ...'
+    Plain substring missed 'Acme Corporation' against notes filed as 'Acme - ...'
     (2026-09-28): the search term was longer than the stored company. Reverse
     containment catches that; the whole-word bound and 3-char minimum keep a
     short stored name from matching every term that happens to contain it.

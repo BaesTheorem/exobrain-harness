@@ -148,8 +148,9 @@ def test_gate_order_ats_closed_then_type_then_location_then_comp():
     assert wd.gate(row, detail(time_type="Part time"))[1].startswith("gate 2")
     assert wd.gate(row, detail(loc="Plano, TX"))[1].startswith("gate 1")
     assert wd.gate(row, detail(lo=None, hi=None))[0] == "lead"
-    assert wd.gate(row, detail(lo=50_000.0, hi=70_000.0))[1].startswith("gate 3")
-    verdict, why = wd.gate(row, detail(lo=60_000.0, hi=90_000.0))
+    floor = float(wd.COMP_FLOOR)
+    assert wd.gate(row, detail(lo=floor - 25_000, hi=floor - 5_000))[1].startswith("gate 3")
+    verdict, why = wd.gate(row, detail(lo=floor - 15_000, hi=floor + 15_000))
     assert verdict == "pass" and "BAND-STRADDLE" in why
 
 

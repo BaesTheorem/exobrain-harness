@@ -72,7 +72,7 @@ Follow the `/crm` skill's mode 9 (Continuous Integration) protocol -- enrich `##
 
 When called as part of the daily briefing (produces no briefing output -- purely CRM maintenance and action routing):
 
-1. **Scan last 24h**: `python3 "/Users/alexhedtke/Documents/Exobrain harness/imessage/imessage-reader.py" recent --hours 24 --limit 100`
+1. **Scan last 24h**: `python3 "/Users/alexhedtke/Documents/Exobrain harness/imessage/imessage-reader.py" recent --hours 24 --limit 200` (200+: a lower limit drops the newest messages)
 2. **CRM last_contact**: For outgoing messages to anyone with a People/ note, update `last_contact` in frontmatter.
 3. **CRM enrichment**: If any thread contains substantive new info (plans, life updates, mentions of other people), enrich the People note per `/crm` mode 9. For brief/routine texts ("omw", "sounds good"), just update `last_contact`.
 4. **Route actionable items**: Extract tasks, events, and follow-ups. Route per standard conventions (Things 3 for tasks, Calendar for clear events, Things 3 inbox for ambiguous events).

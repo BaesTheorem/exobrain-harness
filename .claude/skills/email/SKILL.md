@@ -97,7 +97,7 @@ Standard flow when scanning emails produces actionable items:
 4. **Route events to Google Calendar FIRST.** Any email containing a specific date/time for a meeting, call, appointment, or event → create via `gcal_create_event` immediately (check for duplicates first). This is the #1 most commonly missed routing step. Ambiguous timing → Things 3 inbox task `Review: [event]`
 5. Check Things 3 for existing tasks (`search_todos`)
 6. Create tasks for genuinely new action items (`add_todo`)
-7. For job-related items, log to Job Applications tracker (`/Users/alexhedtke/Exobrain/Projects/Job Search/Job Applications.md`)
+7. For job-related items, update the matching listing note in `Projects/Get new job/Job Listings/` (set `status` and `application_date`; `Job Listings.base` is the tracker view) and append to `## Job Search Log` in `Projects/Get new job/Get new job.md`
 8. For CRM-relevant contacts, update People/ notes
 
 ## Email Scan Patterns by Skill

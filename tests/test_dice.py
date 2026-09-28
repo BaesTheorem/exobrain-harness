@@ -1,13 +1,18 @@
 """Characterization tests for the gates in job-search/dice.py."""
 
-from conftest import load_script
+from conftest import SYNTHETIC_ENV, load_script
 
 dice = load_script("job-search/dice.py")
 
 
+def band(lo, hi):
+    return "USD %s.00 - %s.00 per year" % (f"{lo:,}", f"{hi:,}")
+
+
 def card(**overrides):
+    top = max(dice.COMP_FLOOR, dice.ONSITE_FLOOR)
     c = {"id": "x", "title": "Security Analyst", "company": "Acme", "where": "Remote • Today",
-         "type": "Full-time", "salary": "USD 80,000.00 - 100,000.00 per year"}
+         "type": "Full-time", "salary": band(top, top + 20_000)}
     c.update(overrides)
     return c
 
@@ -21,13 +26,20 @@ def test_onsite_outside_kc_declines_on_gate1():
     assert verdict == "decline" and why.startswith("gate1")
 
 
+def test_floors_come_from_config():
+    assert dice.COMP_FLOOR == int(SYNTHETIC_ENV["JOB_COMP_FLOOR"])
+    assert dice.ONSITE_FLOOR == int(SYNTHETIC_ENV["JOB_ONSITE_FLOOR"])
+
+
 def test_kc_onsite_uses_onsite_floor():
-    # $55K-$80K: band top equals the $80K onsite floor, so it passes with flags.
+    # Band top equals the onsite floor, so it passes with flags.
+    floor = dice.ONSITE_FLOOR
     verdict, why = dice.gate(card(where="Lenexa, Kansas • Today",
-                                  salary="USD 55,000.00 - 80,000.00 per year"))
+                                  salary=band(floor - 25_000, floor)))
     assert verdict == "survivor" and "KC-LOCAL" in why and "BAND-STRADDLE" in why
+    assert f"{floor:,}" in why
     verdict, _ = dice.gate(card(where="Overland Park, Kansas",
-                                salary="USD 55,000.00 - 78,000.00 per year"))
+                                salary=band(floor - 25_000, floor - 2_000)))
     assert verdict == "decline"
 
 
@@ -38,10 +50,13 @@ def test_contract_and_third_party_decline_on_gate2():
 
 
 def test_band_rule_and_hourly_annualization():
-    assert dice.gate(card(salary="USD 60,000.00 - 74,000.00 per year"))[0] == "decline"
-    assert "BAND-STRADDLE" in dice.gate(card(salary="USD 60,000.00 - 90,000.00 per year"))[1]
-    assert dice.gate(card(salary="USD 22.50 per hour"))[0] == "decline"  # $46,800/yr
-    assert dice.gate(card(salary="USD 40.00 - 48.00 per hour"))[0] == "survivor"
+    floor = dice.COMP_FLOOR
+    assert dice.gate(card(salary=band(floor - 15_000, floor - 1_000)))[0] == "decline"
+    assert "BAND-STRADDLE" in dice.gate(card(salary=band(floor - 15_000, floor + 15_000)))[1]
+    under = (floor - 2_080) / 2080  # hourly rate that annualizes to just under the floor
+    assert dice.gate(card(salary="USD %.2f per hour" % under))[0] == "decline"
+    over = (floor + 20_800) / 2080
+    assert dice.gate(card(salary="USD %.2f - %.2f per hour" % (over, over + 5)))[0] == "survivor"
 
 
 def test_unlisted_comp_is_a_lead():

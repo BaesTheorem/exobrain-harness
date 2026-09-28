@@ -1263,6 +1263,7 @@ async function computeDistance() {
   $("#dist-rel").textContent = r.rel.toFixed(4);
   $("#dist-miles").textContent = r.miles != null ? r.miles.toFixed(1) + " mi" : " -- (uncalibrated)";
   $("#dist-cart").textContent = r.days_cart != null ? r.days_cart.toFixed(1) : "—";
+  if (r.cart_label) $("#dist-cart-label").textContent = `Days (${r.cart_label}, ${r.cart_mi_per_day} mi)`;
   $("#dist-normal").textContent = r.days_normal != null ? r.days_normal.toFixed(1) : "—";
   $("#dist-pushed").textContent = r.days_pushed != null ? r.days_pushed.toFixed(1) : "—";
 }

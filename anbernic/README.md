@@ -50,7 +50,7 @@ On the device: APPS menu > **Temporary SSH Server**. It shows the device IP on
 screen. Then, on the Mac:
 
 ```
-push-rom --setup --ip 192.168.0.21   # first time only: key + find both cards
+push-rom --setup --ip <device-ip>    # first time only: key + find both cards
 push-rom game.gba                    # system folder inferred, games card
 push-rom disc.chd --system PS        # explicit system folder
 push-rom game.gba --card os          # target the OS card instead
@@ -58,6 +58,10 @@ push-rom --list                      # what system folders exist
 push-rom --list GBA --card os        # inspect the OS card's copy
 push-rom game.gba --dry-run          # show what it would do
 ```
+
+`--ip` can be left off once the device has a fixed address: set `ANBERNIC_HOST`
+in the harness root `.env` (see `.env.example`), or rely on the IP `--setup`
+caches in `~/.config/push-rom/config.json`.
 
 The IP and games-Roms path are cached in `~/.config/push-rom/config.json`
 after setup; the dedicated key lives beside it. If a pushed game doesn't

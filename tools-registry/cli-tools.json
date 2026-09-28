@@ -39,7 +39,7 @@
     "repo_dir": "flipper",
     "source": "built",
     "added": "2026-09-13",
-    "notes": "Offline LEAF/WaveLynx DESFire key oracle: confirms/refutes a candidate OCPSK master against a card's free-read signature (AN10957 4.5.1 + Appendix B). --selftest validates against NXP vectors. Cannot recover unknown keys."
+    "notes": "Offline NFC key analysis: confirms or refutes a candidate master key against a DESFire card's free-read signature (AN10957 4.5.1 + Appendix B). --selftest validates against NXP vectors. Cannot recover unknown keys."
   },
   {
     "name": "app-shell build-app",
@@ -92,14 +92,6 @@
     "notes": "Pins the auto-updating claude CLI to one unchanging path (~/.local/share/claude/stable/claude) so its TCC grants, above all Full Disk Access, stop dying every release. Runs on WatchPaths via com.exobrain.claude-stable-path."
   },
   {
-    "name": "CPTSD Tarot Pipeline",
-    "command": "python3 ~/Documents/cptsd-tarot/bin/gen_art.py && python3 ~/Documents/cptsd-tarot/bin/compose.py && python3 ~/Documents/cptsd-tarot/bin/guide.py",
-    "repo_dir": "/Users/alexhedtke/Documents/cptsd-tarot",
-    "source": "built",
-    "added": "2026-08-23",
-    "notes": "Turns Pete Walker's CPTSD book into a 22-card Major Arcana deck. deck.json = single source of truth (scenes, wound/gift/practice text, seeds); gen_art.py paints via mist-image (FLUX.2 klein, 832x1248), compose.py builds 900x1500 cards + 3x5in deck PDF + 6-up letter print sheets at 2.75x4.75 tarot trim + overview grid, guide.py emits the vault companion note (Areas/Emotions & Wellbeing/CPTSD Tarot.md). Re-run gen_art.py to fill missing art only; edit deck.json then rerun compose+guide to revise. Extend with minor arcana = add cards to deck.json (suits would be the 4Fs)."
-  },
-  {
     "name": "crm-overdue-scan",
     "command": "python3 crm/overdue-scan.py",
     "repo_dir": "/Users/alexhedtke/Documents/Exobrain harness",
@@ -122,6 +114,16 @@
     "source": "installed",
     "added": "2026-08-16",
     "notes": "Web page -> clean markdown. Use instead of WebFetch for ordinary pages; see the /defuddle skill."
+  },
+  {
+    "name": "dice.py (job-search Dice lane)",
+    "command": "python3 job-search/dice.py \"<angle>\" ... --days 1|3|7",
+    "repo_dir": "/Users/alexhedtke/Documents/Exobrain harness/job-search",
+    "source": "built",
+    "added": "2026-09-28",
+    "notes": "Dice job board discovery lane for /job-search: parses server-rendered job cards via curl_cffi Chrome impersonation, gates remote/full-time/contract/comp (band rule), KC-metro onsite seats at the onsite floor. Dice ignores its own remote filter.",
+    "description": "",
+    "use_when": ""
   },
   {
     "name": "discord-digest-fetch.py",
@@ -300,7 +302,7 @@
     "repo_dir": "~/Documents/Exobrain harness",
     "source": "built",
     "added": "2026-08-16",
-    "notes": "Read iMessages from the local chat.db. Only `recent` and phone-number `chat` work; `search` and name-based `chat` return empty."
+    "notes": "Read iMessages from the local chat.db: recent, search, unread, and chat by phone number or contact name (names resolve through the AddressBook databases, fixed 2026-09-22)."
   },
   {
     "name": "imessage-send.py",
@@ -450,7 +452,7 @@
     "repo_dir": "salon-ramon",
     "source": "built",
     "added": "2026-09-10",
-    "notes": "Books haircuts at Salon Ramon (Brookside) over Rosy Salon Software: ramon slots/book/appointments/cancel, dry-run unless --confirm and verified against a server read. Auth lifts the Google-signed-in JSESSIONID out of Chrome (ramon login) and re-scrapes the 30-minute JWT each run. schedule.py owns the 6-week cadence; launchd com.exobrain.haircut-check runs daily at 10:00. Replaced the Booksy/Rich Forever tool on 2026-09-10."
+    "notes": "Books haircuts at Salon Ramon over Rosy Salon Software: ramon slots/book/appointments/cancel, dry-run unless --confirm and verified against a server read. Auth lifts the Google-signed-in JSESSIONID out of Chrome (ramon login) and re-scrapes the 30-minute JWT each run. schedule.py owns the 6-week cadence; launchd com.exobrain.haircut-check runs daily at 10:00. Replaced the Booksy/Rich Forever tool on 2026-09-10."
   },
   {
     "name": "supernote-parser.py",

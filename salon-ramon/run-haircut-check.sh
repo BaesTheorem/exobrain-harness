@@ -102,7 +102,7 @@ Do this:
 2. Pull his Google Calendar for ${WINDOW_START} to ${WINDOW_END} and work out where he is
    genuinely free. Treat "Sleep", "Wind down", "Extra sleep cycle", "Bootup routine" and
    "Walk" as soft (moveable); treat everything else as hard busy. Leave 30 minutes of
-   travel either side -- Brookside is about 15 minutes from him.
+   travel either side; the salon is a short trip away.
 
 3. Pick the slot nearest the due date that sits in a comfortable gap rather than wedged
    between commitments. The slot list is already ranked by his preferences (weekdays,

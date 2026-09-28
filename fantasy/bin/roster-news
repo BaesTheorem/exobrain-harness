@@ -37,8 +37,9 @@ def main() -> int:
     team = json.loads(subprocess.run([sys.executable, str(HERE / "espn"), "team", "--json"],
                                      capture_output=True, text=True, timeout=180).stdout)
     people = [(r["id"], r["name"], f"{r['slot']} {r['pos']} {r['team']}", r.get("status") or "") for r in team["roster"]]
-    if args.watch:
-        for w in json.load(open(FANTASY / "watchlist.json")).get("players", []):
+    wl_path = FANTASY / "watchlist.json"  # gitignored; absent on a fresh clone
+    if args.watch and wl_path.exists():
+        for w in json.load(open(wl_path)).get("players", []):
             if all(w["id"] != p[0] for p in people):
                 people.append((w["id"], w["name"], f"watch: {w['pos']} {w['nfl']}", ""))
     since = datetime.now(timezone.utc) - timedelta(hours=args.hours)

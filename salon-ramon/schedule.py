@@ -37,8 +37,8 @@ Usage:
     python3 schedule.py window                  # the date range to search
     python3 schedule.py reconcile               # close out a lapsed appointment
     python3 schedule.py mark-notified
-    python3 schedule.py pending --date 2026-10-13 [--provider "Ramon Walker"]  # appends
-    python3 schedule.py record --date 2026-10-13 [--provider "Ramon Walker"]
+    python3 schedule.py pending --date YYYY-MM-DD [--provider "[Stylist]"]  # appends
+    python3 schedule.py record --date YYYY-MM-DD [--provider "[Stylist]"]
 """
 
 from __future__ import annotations

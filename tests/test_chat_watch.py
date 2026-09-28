@@ -29,7 +29,7 @@ DM = "CHAT_DIRECT_MESSAGE"
 
 
 def test_a_dm_never_reaches_the_model_and_the_league_chat_still_does():
-    pending = [m("1", "Namaslay", DM), m("2", "The Winners", "CHAT", topic="league"),
+    pending = [m("1", "Team A", DM), m("2", "Team B", "CHAT", topic="league"),
                m("3", "LM", "CHAT_ALL_MEMBERS", topic="all")]
     hot, dms, league = chat_watch.classify(pending, partners=set(), guard_ok=True)
 
@@ -41,15 +41,15 @@ def test_a_dm_never_reaches_the_model_and_the_league_chat_still_does():
 
 
 def test_a_trade_partner_escalates_once_under_the_sharper_reason():
-    pending = [m("1", "KC Breathmints", DM), m("2", "KC Breathmints", "CHAT", topic="league")]
-    hot, dms, league = chat_watch.classify(pending, {"KC Breathmints"}, guard_ok=True)
+    pending = [m("1", "Trade Partner", DM), m("2", "Trade Partner", "CHAT", topic="league")]
+    hot, dms, league = chat_watch.classify(pending, {"Trade Partner"}, guard_ok=True)
 
     assert [x["id"] for x in hot] == ["1", "2"]   # the league one too: it is about the offer
     assert dms == [] and league == []             # and the DM is not escalated twice
 
 
 def test_a_broken_partner_lookup_escalates_everything():
-    pending = [m("1", "Namaslay", DM), m("2", "The Winners", "CHAT", topic="league")]
+    pending = [m("1", "Team A", DM), m("2", "Team B", "CHAT", topic="league")]
     hot, dms, league = chat_watch.classify(pending, partners=set(), guard_ok=False)
 
     assert len(hot) == 2 and dms == [] and league == []
@@ -63,15 +63,15 @@ def test_escalate_groups_by_thread_and_reports_delivery(monkeypatch):
     monkeypatch.setattr(chat_watch, "NOTIFY", Path("/nonexistent"))
 
     landed = chat_watch.escalate(
-        [m("1", "Namaslay", DM, content="first"), m("2", "Namaslay", DM, content="second"),
-         m("3", "The Winners", DM, topic="t2", content="other")],
+        [m("1", "Team A", DM, content="first"), m("2", "Team A", DM, content="second"),
+         m("3", "Team B", DM, topic="t2", content="other")],
         "direct message")
 
     assert landed
     assert len(chats) == 2                      # one chat per thread, not per message
     assert "first" in chats[0][1] and "second" in chats[0][1]
     assert len(dms_sent) == 2
-    assert "Namaslay" in dms_sent[0]
+    assert "Team A" in dms_sent[0]
 
 
 def test_escalate_reports_failure_when_every_path_fails(monkeypatch):
@@ -81,4 +81,4 @@ def test_escalate_reports_failure_when_every_path_fails(monkeypatch):
 
     # The caller burns the message id on a True, so a False here is the only
     # thing standing between a delivery outage and a DM nobody ever sees.
-    assert not chat_watch.escalate([m("1", "Namaslay", DM)], "direct message")
+    assert not chat_watch.escalate([m("1", "Team A", DM)], "direct message")

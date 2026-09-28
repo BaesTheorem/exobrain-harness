@@ -62,7 +62,7 @@ SEARCH STRATEGY:
 - Try 3-5 different query phrasings if initial results are thin
 - Prefer primary sources (official sites, papers, .gov, .edu) over SEO content farms
 - If you find a promising source, read it thoroughly rather than skimming
-- USE DEFUDDLE: When reading any web page, run `npx @anthropic/defuddle@latest "[URL]"` via Bash instead of WebFetch. Only use WebFetch as a fallback if defuddle fails.
+- USE DEFUDDLE: When reading any web page, run `defuddle parse "[URL]" --md` (the `defuddle` CLI from `npm install -g defuddle`; there is no `@anthropic/defuddle` package) via Bash instead of WebFetch. Only use WebFetch as a fallback if defuddle fails.
 
 OUTPUT FORMAT:
 Return your findings as structured notes:
@@ -80,7 +80,7 @@ DO NOT fabricate sources or citations. If you can't find something, say so.
 - Use `model: "sonnet"` for subagents (cost-efficient, Opus for lead only)
 - Launch all independent subagents in a SINGLE message (parallel execution)
 - Each subagent should make 5-15 tool calls depending on complexity
-- **Defuddle all web pages.** Subagents must use `npx @anthropic/defuddle@latest "[URL]"` (via Bash) instead of raw WebFetch when reading page content. This strips navigation, ads, and boilerplate, often cutting tokens by 60-80%. Only fall back to WebFetch if defuddle fails.
+- **Defuddle all web pages.** Subagents must use `defuddle parse "[URL]" --md` (the `defuddle` CLI from `npm install -g defuddle`; there is no `@anthropic/defuddle` package) (via Bash) instead of raw WebFetch when reading page content. This strips navigation, ads, and boilerplate, often cutting tokens by 60-80%. Only fall back to WebFetch if defuddle fails.
 
 ## Step 3: Evaluate Coverage
 
@@ -163,7 +163,7 @@ After producing the report:
 1. **Daily note**: Append a brief entry noting what was researched and key takeaways, with `[[wikilinks]]` to relevant existing notes
 2. **People notes**: If the research involves specific people, update or create People/ notes
 3. **Tasks**: If the research surfaces action items, create Things 3 tasks
-4. **Media**: If media recommendations are mentioned, create individual `Media/[Title].md` notes (see CLAUDE.md schema). For books, include `author` and `word_count`.
+4. **Media**: If media recommendations are mentioned, create individual `Media/[Title].md` notes (schema: `/process-transcript` step 7b, "Media extraction"). For books, include `author` and `word_count`.
 5. **Save report**: If the research is substantial, save it as a note in the vault at `/Users/alexhedtke/Exobrain/Research/[Topic].md`
 
 ## Example: Complex Query
@@ -179,6 +179,6 @@ After producing the report:
 
 **Spawn**: 5 parallel subagents, one per facet. Each told to prioritize .gov sources, official EU publications, and enterprise IT trade publications.
 
-**Evaluate**: After phase 1, likely need a follow-up agent for specific compliance timelines and another for sector-specific impacts (e.g., legal sector, since Alex works at a law firm).
+**Evaluate**: After phase 1, likely need a follow-up agent for specific compliance timelines and another for sector-specific impacts (e.g., the legal sector, if the question touches it).
 
 **Synthesize**: Structured report with comparison table of US vs EU approaches, timeline of key dates, and specific recommendations for enterprise IT teams.

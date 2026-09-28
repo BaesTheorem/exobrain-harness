@@ -1,5 +1,5 @@
 {
-  "_comment": "TEMPLATE. Copy to resume_data.json (gitignored) and fill with real data. This file ships with placeholders because the harness repo is public — never commit real contact info or resume content here.",
+  "_comment": "TEMPLATE. Copy to resume_data.json (gitignored) and fill with real data. This file ships with placeholders because the harness repo is public; never commit real contact info or resume content here.",
   "name": "[Full Name]",
   "contact": "[City, ST ZIP] • [phone] • [email] • [linkedin-url]",
   "summary": "[Professional summary. Per the standing rule, open with the tenure framing: 'N+ years in [field], including M+ years in an enterprise environment [doing role-relevant X]'.]",

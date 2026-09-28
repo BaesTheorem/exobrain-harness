@@ -46,7 +46,7 @@ Spawn 3-4 parallel subagents, each covering a subset of tracked files (split by 
 
 ### Reference
 
-The full privacy policy is in CLAUDE.md under "Privacy & Legibility (CRITICAL)". Read it before scanning so you internalize the rules.
+The full privacy policy is in CLAUDE.md under `## Privacy`. Read it before scanning so you internalize the rules.
 
 ### Output
 
@@ -123,7 +123,7 @@ Audit reports are too large for daily notes. Write full reports to a dedicated f
 - **Report filename**: `YYYY-MM-DD-audit.md`
 - **Daily note**: Add a short summary (5-10 lines max) under `### Exobrain Audit` with a link to the full report
 
-### Full Report Format (`audits/YYYY-MM-DD-audit.md`)
+### Full Report Format (vault `Areas/Exobrain/Audits/YYYY-MM-DD-audit.md`)
 
 ```markdown
 # Exobrain Audit -- YYYY-MM-DD
@@ -145,7 +145,7 @@ Audit reports are too large for daily notes. Write full reports to a dedicated f
 
 ```markdown
 ### Exobrain Audit
-*[Full report](../Exobrain%20harness/audits/YYYY-MM-DD-audit.md)*
+*Full report: [[Areas/Exobrain/Audits/YYYY-MM-DD-audit|YYYY-MM-DD audit]]*
 
 - **Privacy**: [N] issues found ([breakdown by type]) / Clean
 - **Legibility**: [N] gaps found / Good
@@ -160,14 +160,14 @@ Create Things 3 tasks for any action items that need follow-up (check for duplic
 
 When invoked:
 
-1. Read CLAUDE.md's Privacy & Legibility section to ground the privacy scan
-2. Ensure `audits/` directory exists
+1. Read CLAUDE.md's `## Privacy` section to ground the privacy scan
+2. Ensure the vault folder `Areas/Exobrain/Audits/` exists (reports never go in the repo)
 3. Launch all three phases in parallel:
    - Phase 1: Privacy & legibility subagents scanning tracked files
    - Phase 2: Deep-recon skill invocation
    - Phase 3: Deep-research skill invocation
 4. As phases complete, collect their outputs
-5. Write the full report to `Audits/YYYY-MM-DD-audit.md` in the Obsidian vault
+5. Write the full report to `Areas/Exobrain/Audits/YYYY-MM-DD-audit.md` in the Obsidian vault
 6. Write the summary to today's daily note under `### Exobrain Audit`
 
 ## When to run

@@ -12,9 +12,7 @@ Two halves. **Part A** is the file-based vault pipeline that runs on `.txt` file
 ## Steps
 
 ### 0. Canonical name mapping
-Plaud transcripts frequently mis-transcribe names. Before processing any transcript, apply these corrections throughout the text:
-
-Before processing any transcript, check the People/ folder in the Obsidian vault for canonical spellings. Common Plaud mis-transcriptions include phonetically similar substitutions (e.g., "Linda" for a name ending in "-inda", "Bryce" for "[Friend]").
+Plaud transcripts frequently mis-transcribe names. Before processing any transcript, check the People/ folder in the Obsidian vault for canonical spellings. Common Plaud mis-transcriptions are phonetically similar substitutions (e.g., "[Misheard]" for "[Name]"). The known specific corrections live in the name-corrections entry of MIST's private memory store (see its `MEMORY.md` index), never in this repo; apply them throughout the text.
 
 To build the correction table:
 1. Glob `/Users/alexhedtke/Exobrain/Areas/Relationships & Community/People/*.md`
@@ -136,7 +134,7 @@ For every person mentioned in the transcript:
 6. Skip generic/unknown speakers (e.g., "Speaker 1", "unknown") -- only create notes for identifiable people.
 
 ### 7. Log job-related content to job hub
-If the transcript contains any job search-related content -- job leads, companies mentioned, networking contacts for job hunting, interview prep, upskilling discussion, application strategy -- append a dated log entry to `/Users/alexhedtke/Exobrain/Projects/Get new job.md` under `## Job Search Log`. Use the appropriate type (Networking, Research, Upskilling, Interview, etc.) and include the key details.
+If the transcript contains any job search-related content -- job leads, companies mentioned, networking contacts for job hunting, interview prep, upskilling discussion, application strategy -- append a dated log entry to `/Users/alexhedtke/Exobrain/Projects/Get new job/Get new job.md` under `## Job Search Log`. Use the appropriate type (Networking, Research, Upskilling, Interview, etc.) and include the key details.
 
 ### 7b. Media extraction
 

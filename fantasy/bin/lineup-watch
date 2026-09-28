@@ -45,7 +45,9 @@ NOTIFY = FANTASY.parent / "mist-voice" / "bin" / "mist-notify"
 HOLD_LEAD = 30     # minutes before the ping window opens to arm the hold
 HOLD_CAP = 150     # minutes; never hold the Mac up longer than this at once
 HOLD_FLOOR = 30    # battery percent below which a hold is refused
-ROSTER_URL = "https://fantasy.espn.com/football/team?leagueId=45635023&teamId=12"
+from espncli.client import web_urls  # noqa: E402  (needs the sys.path line above)
+
+ROSTER_URL = web_urls()["team"]  # ids come from the gitignored espn-credentials.json
 DEFINITE = {"OUT", "EMPTY", "INJURY_RESERVE", "SUSPENSION", "BYE", "DOUBTFUL"}
 FIX_ON_SIGHT = {"OUT", "EMPTY", "INJURY_RESERVE", "SUSPENSION", "BYE"}
 FIX_IN_WINDOW = {"DOUBTFUL"}

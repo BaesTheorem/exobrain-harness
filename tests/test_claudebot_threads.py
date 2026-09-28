@@ -54,8 +54,8 @@ def test_parse_key_and_user_mention():
     assert tp.parse_key("123:use_threads") == (123, "use_threads")
     assert tp.parse_key("use_threads") == (None, "use_threads")
     assert tp.parse_key("a:b") == (None, "a:b")
-    assert tp.parse_user_mention("<@!945577631133351947>") == 945577631133351947
-    assert tp.parse_user_mention("945577631133351947") == 945577631133351947
+    assert tp.parse_user_mention("<@!123456789012345678>") == 123456789012345678
+    assert tp.parse_user_mention("123456789012345678") == 123456789012345678
     assert tp.parse_user_mention("true") is None
     assert tp.parse_user_mention("42") is None
 

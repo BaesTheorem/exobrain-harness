@@ -29,16 +29,16 @@ SALON = {
 # Provider works Mon-Fri 09:00-17:00, off weekends.
 EMPLOYEE = {
     "id": 10,
-    "firstName": "Ramon",
-    "lastName": "Walker",
+    "firstName": "[Stylist]",
+    "lastName": "",
     "schedule": [[None, None]] + [["09:00", "17:00"]] * 5 + [[None, None]],
 }
 SERVICE = {"id": 500, "name": "Men's Haircut", "defaultPrice": 40.0, "defaultDurationPrice": 60}
 EMP_SERVICE = {"employeeId": 10, "serviceId": 500, "duration": 45, "processTime": 0, "price": 0.0}
 
-WEDNESDAY = date(2026, 9, 16)
-SATURDAY = date(2026, 9, 19)
-EARLY = datetime(2026, 9, 16, 6, 0)  # before the window, so lead time never bites
+WEDNESDAY = date(2031, 9, 17)
+SATURDAY = date(2031, 9, 20)
+EARLY = datetime(2031, 9, 17, 6, 0)  # before the window, so lead time never bites
 
 
 def appt(start, end, employee_id=10, client_id=999, cancellation=None):
@@ -46,13 +46,13 @@ def appt(start, end, employee_id=10, client_id=999, cancellation=None):
         "employeeId": employee_id,
         "clientId": client_id,
         "serviceId": 500,
-        "startDate": f"2026-09-16 {start}:00",
-        "endDate": f"2026-09-16 {end}:00",
+        "startDate": f"2031-09-17 {start}:00",
+        "endDate": f"2031-09-17 {end}:00",
         "cancellationId": cancellation,
     }
 
 
-def timesheet(start, end, event_type=0, employee_id=10, day="2026-09-16"):
+def timesheet(start, end, event_type=0, employee_id=10, day="2031-09-17"):
     return {
         "employeeId": employee_id,
         "status": "S",
@@ -82,8 +82,8 @@ def starts(slots):
 
 def test_day_window_is_the_intersection_of_salon_and_provider():
     assert day_window(SALON, EMPLOYEE, WEDNESDAY) == (
-        datetime(2026, 9, 16, 9, 0),
-        datetime(2026, 9, 16, 17, 0),
+        datetime(2031, 9, 17, 9, 0),
+        datetime(2031, 9, 17, 17, 0),
     )
 
 
@@ -143,7 +143,7 @@ def test_time_on_from_another_day_cannot_widen_this_day():
     in the search, stretching each day's window across the whole range so the
     grid walked days it had never checked for conflicts.
     """
-    faraway = timesheet("06:15", "20:00", event_type=1, day="2026-10-07")
+    faraway = timesheet("06:15", "20:00", event_type=1, day="2031-10-08")
     slots = search(timesheets=[faraway])
     assert starts(slots)[0] == "09:00"
     assert all(s.start.date() == WEDNESDAY for s in slots)
@@ -161,7 +161,7 @@ def test_inverted_timesheet_row_blocks_nothing():
 
 
 def test_lead_time_hides_slots_too_soon_from_now():
-    now = datetime(2026, 9, 16, 10, 0)  # 2h lead -> nothing before 12:00
+    now = datetime(2031, 9, 17, 10, 0)  # 2h lead -> nothing before 12:00
     assert starts(search(now=now))[0] == "12:00"
 
 
@@ -191,11 +191,11 @@ def test_price_falls_back_to_the_menu_when_the_provider_sets_none():
 
 def test_booking_payload_matches_the_checkout_page():
     slot = Slot(
-        start=datetime(2026, 9, 30, 15, 30),
-        end=datetime(2026, 9, 30, 16, 15),
-        end_blocking=datetime(2026, 9, 30, 16, 15),
+        start=datetime(2031, 10, 1, 15, 30),
+        end=datetime(2031, 10, 1, 16, 15),
+        end_blocking=datetime(2031, 10, 1, 16, 15),
         employee_id=10,
-        employee_name="Ramon Walker",
+        employee_name="[Stylist]",
         service_id=500,
         service_name="Men's Haircut",
         duration=45,
@@ -208,8 +208,8 @@ def test_booking_payload_matches_the_checkout_page():
             "customer": {"id": 42},
             "employee": {"id": 10},
             "service": {"id": 500},
-            "startDate": "2026-09-30T15:30:00",
-            "endDate": "2026-09-30T16:15:00",
+            "startDate": "2031-10-01T15:30:00",
+            "endDate": "2031-10-01T16:15:00",
             "note": "bit off the top",
             "createdByType": 1,  # OLB; the API rejects/miscredits other values
             "createdByClient": 1,
@@ -220,12 +220,12 @@ def test_booking_payload_matches_the_checkout_page():
 @pytest.mark.parametrize(
     ("now", "closed"),
     [
-        (datetime(2026, 9, 28, 12, 0), False),  # two days out, free to cancel
-        (datetime(2026, 9, 29, 16, 0), True),  # inside 1 day, 50% charge risk
+        (datetime(2031, 9, 29, 12, 0), False),  # two days out, free to cancel
+        (datetime(2031, 9, 30, 16, 0), True),  # inside 1 day, 50% charge risk
     ],
 )
 def test_cancel_window_guard(now, closed):
-    appointment = {"id": 1, "startDate": "2026-09-30 15:30:00"}
+    appointment = {"id": 1, "startDate": "2031-10-01 15:30:00"}
     assert cancel_window_closed(SALON, appointment, now) is closed
 
 
@@ -281,11 +281,11 @@ class FakeApi:
 
 
 OCT_SLOT = Slot(
-    start=datetime(2026, 10, 13, 13, 0),
-    end=datetime(2026, 10, 13, 13, 45),
-    end_blocking=datetime(2026, 10, 13, 13, 45),
+    start=datetime(2031, 10, 14, 13, 0),
+    end=datetime(2031, 10, 14, 13, 45),
+    end_blocking=datetime(2031, 10, 14, 13, 45),
     employee_id=10,
-    employee_name="Ramon Walker",
+    employee_name="[Stylist]",
     service_id=500,
     service_name="Men's Haircut",
     duration=45,
@@ -301,13 +301,13 @@ def test_find_booked_survives_the_exclusive_to_bound():
                 "employeeId": 10,
                 "serviceId": 500,
                 "clientId": 42,
-                "startDate": "2026-10-13 13:00:00",
-                "endDate": "2026-10-13 13:45:00",
+                "startDate": "2031-10-14 13:00:00",
+                "endDate": "2031-10-14 13:45:00",
                 "cancellationId": None,
             }
         ]
     )
-    assert api.my_appointments("2026-10-13", "2026-10-13") == []  # the trap
+    assert api.my_appointments("2031-10-14", "2031-10-14") == []  # the trap
     assert find_booked(api, OCT_SLOT)["id"] == 999  # pyright: ignore[reportOptionalSubscript]
 
 

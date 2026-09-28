@@ -124,7 +124,7 @@ Make the third paragraph sound more like a startup founder wrote it
 
 The tell: a small invented metaphor, dropped in to *sound* casual and lived-in, that no actual person says. It is the failure mode of trying to be human rather than being specific, and it is worse than plain corporate writing because it draws attention to itself.
 
-Caught in the wild (Ford cover letter, 2026-07-26): "Your responsibility list reads like my old week." Nobody describes their job as "my old week." Fixed to "I did most of what is on your responsibility list."
+Caught in the wild (a cover letter): "Your responsibility list reads like my old week." Nobody describes their job as "my old week." Fixed to "I did most of what is on your responsibility list."
 
 The shape to watch for:
 - A time unit or body part standing in for the work: "that was my Tuesday", "my old week", "it lived in my inbox", "I had my hands in it"

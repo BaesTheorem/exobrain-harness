@@ -34,7 +34,9 @@ import urllib.parse
 from pathlib import Path
 
 
-COMP_FLOOR = 75_000  # standard-lane floor; see gitignored Claude Reference.md
+from comp_floors import comp_floor
+
+COMP_FLOOR = comp_floor()  # standard-lane floor, from the harness .env
 
 
 def _ensure_curl_cffi():
@@ -107,7 +109,7 @@ def gate(hit, max_age_days):
     # Gate 4: only the mechanically checkable parts. Degree and YoE are stated
     # bars Alex either clears or does not; responsibility match still needs eyes.
     if v.get("bachelors_degree_requirement") == "Required":
-        return False, "gate4 bachelor's required (Alex has none)"
+        return False, "gate4 bachelor's required"
     if (v.get("min_industry_and_role_yoe") or 0) > 8:
         return False, "gate4 wants %s+ yrs" % v.get("min_industry_and_role_yoe")
     if v.get("security_clearance") not in (None, "None"):

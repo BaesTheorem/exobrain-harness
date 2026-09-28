@@ -27,7 +27,7 @@ Half-points are valid (e.g., 2.5). Round to nearest 0.5 for display.
 |----------|-----------------|------------------|
 | **Emotional State** | Direct mood reports, sentiment, affect | Transcripts (explicit statements), iMessage tone, Discord tone |
 | **Energy** | Vitality, alertness, physical/mental stamina | Fitbit sleep quality/duration, resting HR, activity levels, caffeine timing |
-| **Self-Care** | Exercise, nutrition, sleep hygiene, medication | Fitbit steps (15k goal), sleep timing, bedtime drift, alcohol mentions |
+| **Self-Care** | Exercise, nutrition, sleep hygiene, medication | Fitbit steps vs his configured step goal, sleep timing, bedtime drift, alcohol mentions |
 | **Social** | Connection quality, social battery, isolation | Transcript social content, Discord activity, iMessage responsiveness |
 | **Purpose** | Motivation, progress on priorities, momentum | Things 3 completion, study sessions, procrastination flags, overdue tasks |
 
@@ -42,8 +42,8 @@ Half-points are valid (e.g., 2.5). Round to nearest 0.5 for display.
 - **Discord engagement** -- active participation vs. lurking
 
 ### Indirect signals (medium confidence)
-- **Fitbit sleep**: Duration, efficiency, bedtime (target: before 12:45 AM). Poor sleep = energy/mood drag
-- **Fitbit steps**: <8k = sedentary day (flag), >15k = goal met (boost), >20k = exceptional
+- **Fitbit sleep**: Duration, efficiency, bedtime (target: his configured bedtime from the profile). Poor sleep = energy/mood drag
+- **Fitbit steps**: <8k = sedentary day (flag), at or above his configured step goal = goal met (boost), well above it = exceptional
 - **Fitbit resting HR**: Trending up = stress/poor recovery, trending down = improving fitness
 - **Withings body composition**: Weight trend, fat % changes, muscle mass -- use for Self-Care scoring. Do NOT use Fitbit for weight.
 - **Things 3 completion rate**: Tasks getting done vs. piling up

@@ -39,7 +39,7 @@ anything inferred.
 - **Source sensitivity**: a conflict learned from a calendar feed or DM is
   used silently to rank candidates. Only conflicts the person stated in the
   same public channel may be cited in a public proposal. "Thursday scored
-  lower" is fine to post; "Heidi's calendar shows busy Thursday" is not.
+  lower" is fine to post; "[Friend]'s calendar shows busy Thursday" is not.
 - `feeds.json`, `freebusy-cache.json`, and `events/` are gitignored. No
   friend names or URLs in tracked files, ever.
 
@@ -125,8 +125,8 @@ friend in Alex's plain voice (run `/de-ai`), for Alex to send himself.
   Discord and what Alex logs manually. This is the default for everyone.
 - **Tier 1, calendar free/busy**: friend shares a read-only feed.
   - Google: calendar Settings -> "Secret address in iCal format" -> send the
-    URL to Alex. Alternative: share the calendar with alex.hedtke@gmail.com
-    as "See only free/busy", which shows up via the Calendar MCP instead of
+    URL to Alex. Alternative: share the calendar with the owner's address
+    (`OWNER_EMAIL` in the harness `.env`) as "See only free/busy", which shows up via the Calendar MCP instead of
     a feed; note it in their People note if so.
   - Apple: public calendar link (`webcal://`).
   - Add to `scheduler/feeds.json` (key = People-note filename), run a
@@ -163,7 +163,7 @@ abandoned files around; they are the fairness history mode 1 reads.
 
 ## Gotchas
 
-- The bot never replies to friends in KC Coven; all friend interaction is
+- The bot never replies to friends in the friend-group server; all friend interaction is
   passive (they reply, the digest carries it back). Expect up to 4h latency
   unless you fetch manually.
 - An unknown person in a reply thread: resolve via `USERNAME_MAP`; if

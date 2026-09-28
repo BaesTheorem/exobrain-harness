@@ -49,7 +49,7 @@ Where each call lives in the playbook:
 | What has already been decided and why | *Season log* (newest first) |
 | What is still unknown | *Open questions* |
 | League settings when a tool and memory disagree | *League at a glance* (the note wins) |
-| A leaguemate's tendencies, who is engaged, the Jesse rule | *League observations* (current read on top of each thread) |
+| A leaguemate's tendencies, who is engaged, the [leaguemate] rule | *League observations* (current read on top of each thread) |
 | Whether a rule has already been tried and overturned | *Corrections ledger* (Was / Falsified by / Now / Lesson, newest first) |
 | The week's 50%/90% forecast and the Tuesday review | *Weekly forecast and review*; the *Season log*, where each `### Week N` section opens with the generated Forecast and Review blocks |
 

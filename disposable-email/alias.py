@@ -8,7 +8,7 @@ is tracked in a gitignored registry (which service it was for, when, status) so 
 leaked/sold address is identifiable and can be burned + replaced.
 
 Backends (schemes):
-  gmail-plus  (default) alex.hedtke+<service>@gmail.com -- works instantly, no setup.
+  gmail-plus  (default) you+<service>@gmail.com -- works instantly, no setup.
   gmail-dot             dotted variant (hides the +tag for forms that reject '+').
   addy                  addy.io API alias (true disposability) -- needs ADDY_API_KEY.
 
@@ -24,11 +24,22 @@ emits the exact `to:<alias> newer_than:1d` query to hand to search_threads.
 """
 import sys, os, json, datetime, re
 
-BASE_EMAIL = "alex.hedtke@gmail.com"
-BASE_USER, BASE_DOMAIN = BASE_EMAIL.split("@")
 HERE = os.path.dirname(os.path.abspath(__file__))
 REGISTRY = os.path.join(HERE, "aliases.json")           # gitignored -- personal data
-SECRETS = os.path.join(HERE, "secrets.json")            # gitignored -- addy.io API key etc.
+SECRETS = os.path.join(HERE, "secrets.json")            # gitignored -- base_email, addy.io key etc.
+
+def base_email():
+    """The real inbox every alias forwards into, from the gitignored secrets.json."""
+    cfg = json.load(open(SECRETS)) if os.path.exists(SECRETS) else {}
+    addr = cfg.get("base_email", "")
+    if "@" not in addr:
+        sys.exit('No "base_email" in %s. Add your real inbox, e.g. '
+                 '{"base_email": "you@gmail.com"} (see README).' % SECRETS)
+    return addr
+
+def base_parts():
+    user, domain = base_email().split("@", 1)
+    return user, domain
 
 def _load():
     if os.path.exists(REGISTRY):
@@ -60,14 +71,16 @@ def mint(service, scheme="gmail-plus", note=""):
     rows = _load()
     if scheme == "gmail-plus":
         tag = _unique_tag(rows, service)
-        alias = f"{BASE_USER}+{tag}@{BASE_DOMAIN}"
+        user, domain = base_parts()
+        alias = f"{user}+{tag}@{domain}"
     elif scheme == "gmail-dot":
         # deterministic dotted variant of the username (Gmail ignores dots)
         tag = _slug(service)
-        u = BASE_USER.replace(".", "")
+        user, domain = base_parts()
+        u = user.replace(".", "")
         # insert a dot after a position derived from the service name (stable, readable)
         pos = (sum(ord(c) for c in tag) % (len(u) - 1)) + 1
-        alias = f"{u[:pos]}.{u[pos:]}@{BASE_DOMAIN}"
+        alias = f"{u[:pos]}.{u[pos:]}@{domain}"
     elif scheme == "catchall":
         # Catch-all domain (e.g. Cloudflare Email Routing *@domain -> Gmail). Any address
         # works without pre-registering, so minting is just local string + registry log.
@@ -77,7 +90,7 @@ def mint(service, scheme="gmail-plus", note=""):
         if not dom:
             return ("CATCHALL_NOT_CONFIGURED: add {\"catchall_domain\":\"yourdomain.com\"} to "
                     "%s (point the domain at Cloudflare, enable Email Routing catch-all "
-                    "*@domain -> %s)" % (SECRETS, BASE_EMAIL))
+                    "*@domain -> %s)" % (SECRETS, base_email()))
         tag = _unique_tag(rows, service)        # reuse the -2/-3 uniqueness logic
         alias = f"{tag}@{dom}"
     elif scheme == "addy":
@@ -96,7 +109,7 @@ def addy_mint(service, note=""):
     if not os.path.exists(SECRETS):
         return ("ADDY_NOT_CONFIGURED: create %s with {\"addy_api_key\":\"...\","
                 "\"addy_domain\":\"anonaddy.me\"} (sign up at addy.io, set the default "
-                "recipient to %s)" % (SECRETS, BASE_EMAIL))
+                "recipient to %s)" % (SECRETS, base_email()))
     import urllib.request
     cfg = json.load(open(SECRETS))
     body = json.dumps({"domain": cfg.get("addy_domain", "anonaddy.me"),
@@ -176,10 +189,10 @@ def main():
             print("usage: alias.py mint <service> [--scheme ...] [--note ...]"); return
         out = mint(rest[0], scheme, note_txt)
         print(out)
-        if scheme in ("gmail-plus", "gmail-dot") and out.endswith("@" + BASE_DOMAIN):
+        if scheme in ("gmail-plus", "gmail-dot") and out.endswith("@" + base_parts()[1]):
             print("  ⚠ this NORMALIZES to %s -- NOT safe for anything that might get banned"
                   " (e.g. game accounts). Use --scheme addy for a separate-domain alias that"
-                  " can't poison your main email." % BASE_EMAIL)
+                  " can't poison your main email." % base_email())
     elif c == "list":
         print(list_aliases(a[2] if len(a) > 2 and a[1] == "--service" else None))
     elif c == "note":

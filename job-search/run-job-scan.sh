@@ -13,7 +13,7 @@
 #
 # Retries once on failure: ~half of 7/21-8/10 runs died on "Connection closed
 # mid-response" with no retry, no hub entry, and a non-clickable osascript
-# banner, so crashed days were indistinguishable from honest 0-survivor days.
+# banner, so crashed days were indistinguishable from real 0-survivor days.
 #
 # Scheduled by com.exobrain.job-scan.plist (daily). Source copy of the plist lives
 # beside this script; the live copy is a REAL FILE in ~/Library/LaunchAgents/
@@ -86,9 +86,9 @@ Steps:
 5. Create listing notes in Projects/Get new job/Job Listings/ per the skill schema (full frontmatter + raw JD archived verbatim in the collapsible callout):
    - Every survivor: status candidate.
    - Every role that CONSUMED A FULL JD READ but died on ANY gate: status skipped, declined: true, plus a "## Why skipped" section quoting the exact failed bar. This is what stops tomorrow from re-reading the same JD. Roles killed by the title pre-filter or before a JD read get no note.
-   - CONTRADICTORY REQUIREMENTS (poster-side screening filters contradict the bar stated in the JD body, the Terumo pattern): status candidate with the contradiction spelled out under ## Gaps, flagged for Alex to decide -- never a silent DQ.
-6. Append a dated "Pipeline" entry to the hub note (Projects/Get new job/Get new job.md) under ## Job Search Log: honest lane-coverage table (ran / skipped-with-reason per lane), scan tally (searches / JD-reads / passed / near-missed), each survivor with apply URL, near-misses with one-line reasons. Do not pad counts.
-7. NOTIFY ONLY IF new verified candidates were added: run  mist-voice/bin/mist-notify "Job scan: N new verified candidate(s) in the tracker" "MIST" Purr console  -- use a Basso sound and an URGENT title only for a stand-out high-comp remote strong fit. If zero survivors, no notification; the honest hub-note entry is enough.
+   - CONTRADICTORY REQUIREMENTS (poster-side screening filters contradict the bar stated in the JD body, e.g. an application form screening for a degree the JD body lists as optional): status candidate with the contradiction spelled out under ## Gaps, flagged for Alex to decide -- never a silent DQ.
+6. Append a dated "Pipeline" entry to the hub note (Projects/Get new job/Get new job.md) under ## Job Search Log: complete lane-coverage table (ran / skipped-with-reason per lane), scan tally (searches / JD-reads / passed / near-missed), each survivor with apply URL, near-misses with one-line reasons. Do not pad counts.
+7. NOTIFY ONLY IF new verified candidates were added: run  mist-voice/bin/mist-notify "Job scan: N new verified candidate(s) in the tracker" "MIST" Purr console  -- use a Basso sound and an URGENT title only for a stand-out high-comp remote strong fit. If zero survivors, no notification; the hub-note entry is enough.
 8. LANE MARKERS (REQUIRED, the wrapper parses them): the VERY LAST TWO lines of your output must be exactly, in this order:
    GMAIL_LANE: RAN     (or GMAIL_LANE: SKIPPED if the Gmail MCP was unreachable this run)
    LINKEDIN_LANE: RAN  (or LINKEDIN_LANE: SKIPPED if the LinkedIn MCP was unreachable this run)

@@ -1,5 +1,5 @@
 {
-  "_comment": "TEMPLATE for a per-JD tailoring file. Copy to <company>.json (gitignored). Surgical overrides only — never add skills/tools/certs the canonical data doesn't support.",
+  "_comment": "TEMPLATE for a per-JD tailoring file. Copy to <company>.json (gitignored). Surgical overrides only; never add skills/tools/certs the canonical data doesn't support.",
   "tag": "EXAMPLE",
   "summary": "[optional: role-tailored summary, KEEP the N+/M+ tenure framing]",
   "skills_append": {

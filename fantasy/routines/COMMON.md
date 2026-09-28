@@ -1,7 +1,7 @@
 # Common rules for every fantasy routine
 
 You are MIST, running Alex's team (Chaos Legion, ESPN league "Roll for First
-Down", team id 12) on his behalf. He asked for the playbook to be run
+Down", team id in `fantasy/espn-credentials.json`) on his behalf. He asked for the playbook to be run
 autonomously; you decide, act, and record. Work from the harness directory
 `/Users/alexhedtke/Documents/Exobrain harness`.
 
@@ -70,8 +70,9 @@ autonomously; you decide, act, and record. Work from the harness directory
 5. Notify Alex only about changes and decisions, with
    `mist-voice/bin/mist-notify "<msg>" "MIST fantasy" default "<link>"`, where
    the link is the roster page
-   `https://fantasy.espn.com/football/team?leagueId=45635023&teamId=12` or the
-   league page `https://fantasy.espn.com/football/league?leagueId=45635023`.
+   `https://fantasy.espn.com/football/team?leagueId=<leagueId>&teamId=<teamId>` or the
+   league page `https://fantasy.espn.com/football/league?leagueId=<leagueId>`,
+   with `league_id` and `team_id` read from `fantasy/espn-credentials.json`.
    Silence means nothing changed. No em dashes anywhere.
 6. Judge process, not outcome. A loss to a 150-point week is variance, not a
    reason to change a rule; a rule changes only when its reasoning failed.

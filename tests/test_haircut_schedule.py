@@ -39,23 +39,23 @@ def load_schedule(tmp_path: Path, monkeypatch: pytest.MonkeyPatch, state: dict |
 
 def test_no_history_acts_immediately(tmp_path, monkeypatch):
     mod = load_schedule(tmp_path, monkeypatch, None)
-    st = mod.status(date(2026, 8, 16))
+    st = mod.status(date(2031, 8, 17))
     assert st.should_act
     assert st.last_haircut is None
 
 
 def test_not_due_stays_quiet(tmp_path, monkeypatch):
-    mod = load_schedule(tmp_path, monkeypatch, {"last_haircut": "2026-08-15"})
-    st = mod.status(date(2026, 8, 16))
+    mod = load_schedule(tmp_path, monkeypatch, {"last_haircut": "2031-08-16"})
+    st = mod.status(date(2031, 8, 17))
     assert not st.should_act
-    assert st.due == date(2026, 9, 26)
+    assert st.due == date(2031, 9, 27)
     assert st.days_until_due == 41
 
 
 def test_acts_inside_lead_window(tmp_path, monkeypatch):
-    mod = load_schedule(tmp_path, monkeypatch, {"last_haircut": "2026-08-15"})
-    # Due 2026-09-26; LEAD_DAYS is 12, so 09-15 is inside the window.
-    st = mod.status(date(2026, 9, 15))
+    mod = load_schedule(tmp_path, monkeypatch, {"last_haircut": "2031-08-16"})
+    # Due 2031-09-27; LEAD_DAYS is 12, so 09-16 is inside the window.
+    st = mod.status(date(2031, 9, 16))
     assert st.should_act
     assert st.days_until_due == 11
 
@@ -64,9 +64,9 @@ def test_nudges_only_once_per_cycle(tmp_path, monkeypatch):
     mod = load_schedule(
         tmp_path,
         monkeypatch,
-        {"last_haircut": "2026-08-15", "notified_cycle": "2026-09-26"},
+        {"last_haircut": "2031-08-16", "notified_cycle": "2031-09-27"},
     )
-    st = mod.status(date(2026, 9, 15))
+    st = mod.status(date(2031, 9, 16))
     assert not st.should_act
     assert "already nudged" in st.reason
 
@@ -76,12 +76,12 @@ def test_due_derives_from_haircut_not_notification(tmp_path, monkeypatch):
     mod = load_schedule(
         tmp_path,
         monkeypatch,
-        {"last_haircut": "2026-08-15", "notified_cycle": "2026-09-26"},
+        {"last_haircut": "2031-08-16", "notified_cycle": "2031-09-27"},
     )
     # Well past the due date and still ignored: due stays put, and because the
     # cycle is unchanged we do not re-nudge -- but the date has not drifted.
-    st = mod.status(date(2026, 10, 20))
-    assert st.due == date(2026, 9, 26)
+    st = mod.status(date(2031, 10, 21))
+    assert st.due == date(2031, 9, 27)
     assert st.days_until_due == -24
 
 
@@ -89,25 +89,25 @@ def test_record_resets_the_cycle(tmp_path, monkeypatch):
     mod = load_schedule(
         tmp_path,
         monkeypatch,
-        {"last_haircut": "2026-08-15", "notified_cycle": "2026-09-26"},
+        {"last_haircut": "2031-08-16", "notified_cycle": "2031-09-27"},
     )
-    mod.main(["record", "--date", "2026-09-26", "--provider", "[Stylist]"])
+    mod.main(["record", "--date", "2031-09-27", "--provider", "[Stylist]"])
     state = json.loads((tmp_path / "state.json").read_text())
-    assert state["last_haircut"] == "2026-09-26"
+    assert state["last_haircut"] == "2031-09-27"
     assert state["notified_cycle"] is None
     assert state["history"][-1]["provider"] == "[Stylist]"
 
 
 def test_pending_appointment_silences_the_daily_job(tmp_path, monkeypatch):
     """The bootstrap case: no history, but a cut is already booked."""
-    mod = load_schedule(tmp_path, monkeypatch, {"last_haircut": None, "pending": "2026-08-29"})
-    assert not mod.status(date(2026, 8, 17)).should_act
-    assert not mod.status(date(2026, 8, 29)).should_act  # the day itself
+    mod = load_schedule(tmp_path, monkeypatch, {"last_haircut": None, "pending": "2031-08-30"})
+    assert not mod.status(date(2031, 8, 18)).should_act
+    assert not mod.status(date(2031, 8, 30)).should_act  # the day itself
 
 
 def test_job_wakes_again_after_the_appointment_passes(tmp_path, monkeypatch):
-    mod = load_schedule(tmp_path, monkeypatch, {"last_haircut": None, "pending": "2026-08-29"})
-    st = mod.status(date(2026, 8, 30))
+    mod = load_schedule(tmp_path, monkeypatch, {"last_haircut": None, "pending": "2031-08-30"})
+    st = mod.status(date(2031, 8, 31))
     assert st.should_act
     assert st.reason == "no haircut on record yet"
 
@@ -115,30 +115,30 @@ def test_job_wakes_again_after_the_appointment_passes(tmp_path, monkeypatch):
 def test_pending_does_not_suppress_a_later_due_cycle(tmp_path, monkeypatch):
     """A spent appointment must not silence the next cycle forever."""
     mod = load_schedule(
-        tmp_path, monkeypatch, {"last_haircut": "2026-08-29", "pending": "2026-08-29"}
+        tmp_path, monkeypatch, {"last_haircut": "2031-08-30", "pending": "2031-08-30"}
     )
-    # Next due 2026-10-10; inside the lead window and the appointment is past.
-    st = mod.status(date(2026, 10, 1))
+    # Next due 2031-10-11; inside the lead window and the appointment is past.
+    st = mod.status(date(2031, 10, 2))
     assert st.should_act
-    assert st.due == date(2026, 10, 10)
+    assert st.due == date(2031, 10, 11)
 
 
 def test_record_clears_the_pending_appointment(tmp_path, monkeypatch):
     mod = load_schedule(
         tmp_path,
         monkeypatch,
-        {"last_haircut": None, "pending": [{"date": "2026-08-29", "provider": "[Stylist]"}]},
+        {"last_haircut": None, "pending": [{"date": "2031-08-30", "provider": "[Stylist]"}]},
     )
-    mod.main(["record", "--date", "2026-08-29", "--provider", "[Stylist]"])
+    mod.main(["record", "--date", "2031-08-30", "--provider", "[Stylist]"])
     state = json.loads((tmp_path / "state.json").read_text())
     assert state["pending"] == []
     assert state["pending"] == []
-    assert state["last_haircut"] == "2026-08-29"
+    assert state["last_haircut"] == "2031-08-30"
 
 
 def test_search_window_never_starts_in_the_past(tmp_path, monkeypatch):
-    mod = load_schedule(tmp_path, monkeypatch, {"last_haircut": "2026-06-01"})
-    today = date(2026, 8, 16)
+    mod = load_schedule(tmp_path, monkeypatch, {"last_haircut": "2031-06-02"})
+    today = date(2031, 8, 17)
     start, end = mod.search_window(today)
     assert start > today
     assert end > start
@@ -149,7 +149,7 @@ def test_search_window_never_starts_in_the_past(tmp_path, monkeypatch):
 
 
 def test_lapsed_appointment_records_as_completed(tmp_path, monkeypatch):
-    """The Sep 1 bug: the cut happened, the pending expired, history stayed empty.
+    """The missed-close-out bug: the cut happened, the pending expired, history stayed empty.
 
     The next run then read "no haircut on record", which is the one state that
     makes the job act immediately, and it went hunting three weeks early.
@@ -157,25 +157,25 @@ def test_lapsed_appointment_records_as_completed(tmp_path, monkeypatch):
     mod = load_schedule(
         tmp_path,
         monkeypatch,
-        {"last_haircut": None, "pending": [{"date": "2026-09-01", "provider": "[Stylist]"}], "history": []},
+        {"last_haircut": None, "pending": [{"date": "2031-09-02", "provider": "[Stylist]"}], "history": []},
     )
-    assert mod.reconcile(date(2026, 9, 8)) == date(2026, 9, 1)
+    assert mod.reconcile(date(2031, 9, 9)) == date(2031, 9, 2)
 
-    st = mod.status(date(2026, 9, 8))
-    assert st.last_haircut == date(2026, 9, 1)
-    assert st.due == date(2026, 10, 13)
+    st = mod.status(date(2031, 9, 9))
+    assert st.last_haircut == date(2031, 9, 2)
+    assert st.due == date(2031, 10, 14)
     assert not st.should_act, "a recorded cut must stop the early hunt"
 
     entry = json.loads((tmp_path / "state.json").read_text())["history"][-1]
-    assert entry == {"date": "2026-09-01", "assumed": True, "provider": "[Stylist]"}
+    assert entry == {"date": "2031-09-02", "assumed": True, "provider": "[Stylist]"}
 
 
 def test_reconcile_leaves_a_future_appointment_alone(tmp_path, monkeypatch):
     mod = load_schedule(
-        tmp_path, monkeypatch, {"last_haircut": None, "pending": "2026-09-20", "history": []}
+        tmp_path, monkeypatch, {"last_haircut": None, "pending": "2031-09-21", "history": []}
     )
-    assert mod.reconcile(date(2026, 9, 8)) is None
-    assert json.loads((tmp_path / "state.json").read_text())["pending"] == "2026-09-20"
+    assert mod.reconcile(date(2031, 9, 9)) is None
+    assert json.loads((tmp_path / "state.json").read_text())["pending"] == "2031-09-21"
 
 
 def test_reconcile_does_not_double_record_a_hand_logged_cut(tmp_path, monkeypatch):
@@ -184,32 +184,32 @@ def test_reconcile_does_not_double_record_a_hand_logged_cut(tmp_path, monkeypatc
         tmp_path,
         monkeypatch,
         {
-            "last_haircut": "2026-09-01",
-            "pending": "2026-09-01",
-            "history": [{"date": "2026-09-01"}],
+            "last_haircut": "2031-09-02",
+            "pending": "2031-09-02",
+            "history": [{"date": "2031-09-02"}],
         },
     )
-    assert mod.reconcile(date(2026, 9, 8)) is None
+    assert mod.reconcile(date(2031, 9, 9)) is None
     state = json.loads((tmp_path / "state.json").read_text())
     assert state["pending"] == []
     assert len(state["history"]) == 1
 
 
 def test_reconcile_is_a_noop_without_an_appointment(tmp_path, monkeypatch):
-    mod = load_schedule(tmp_path, monkeypatch, {"last_haircut": "2026-09-01", "history": []})
-    assert mod.reconcile(date(2026, 9, 8)) is None
+    mod = load_schedule(tmp_path, monkeypatch, {"last_haircut": "2031-09-02", "history": []})
+    assert mod.reconcile(date(2031, 9, 9)) is None
 
 
 def test_a_scalar_pending_migrates_to_the_queue(tmp_path, monkeypatch):
     """State written by the single-appointment version still loads."""
     mod = load_schedule(
         tmp_path, monkeypatch,
-        {"last_haircut": "2026-09-01", "pending": "2026-10-13", "pending_provider": "[Stylist]"},
+        {"last_haircut": "2031-09-02", "pending": "2031-10-14", "pending_provider": "[Stylist]"},
     )
     state = mod.load_state()
-    assert state["pending"] == [{"date": "2026-10-13", "provider": "[Stylist]"}]
+    assert state["pending"] == [{"date": "2031-10-14", "provider": "[Stylist]"}]
     assert "pending_provider" not in state
-    assert mod.status(date(2026, 9, 11)).pending == date(2026, 10, 13)
+    assert mod.status(date(2031, 9, 12)).pending == date(2031, 10, 14)
 
 
 def test_two_booked_cycles_both_suppress_the_job(tmp_path, monkeypatch):
@@ -223,46 +223,46 @@ def test_two_booked_cycles_both_suppress_the_job(tmp_path, monkeypatch):
     mod = load_schedule(
         tmp_path, monkeypatch,
         {
-            "last_haircut": "2026-09-01",
+            "last_haircut": "2031-09-02",
             "pending": [
-                {"date": "2026-10-13", "provider": "[Stylist]"},
-                {"date": "2026-11-25", "provider": "[Stylist]"},
+                {"date": "2031-10-14", "provider": "[Stylist]"},
+                {"date": "2031-11-26", "provider": "[Stylist]"},
             ],
             "history": [],
         },
     )
     # Before the first appointment: quiet, pointing at October.
-    assert mod.status(date(2026, 10, 1)).should_act is False
-    assert mod.status(date(2026, 10, 1)).pending == date(2026, 10, 13)
+    assert mod.status(date(2031, 10, 2)).should_act is False
+    assert mod.status(date(2031, 10, 2)).pending == date(2031, 10, 14)
 
     # The October cut happens and gets closed out.
-    assert mod.reconcile(date(2026, 10, 14)) == date(2026, 10, 13)
+    assert mod.reconcile(date(2031, 10, 15)) == date(2031, 10, 14)
     state = json.loads((tmp_path / "state.json").read_text())
-    assert state["last_haircut"] == "2026-10-13"
-    assert state["pending"] == [{"date": "2026-11-25", "provider": "[Stylist]"}]
+    assert state["last_haircut"] == "2031-10-14"
+    assert state["pending"] == [{"date": "2031-11-26", "provider": "[Stylist]"}]
 
-    # The morning after: due 2026-11-24, inside the 12-day lead, and yet quiet,
+    # The morning after: due 2031-11-25, inside the 12-day lead, and yet quiet,
     # because November is already booked.
-    st = mod.status(date(2026, 11, 20))
-    assert st.due == date(2026, 11, 24)
+    st = mod.status(date(2031, 11, 21))
+    assert st.due == date(2031, 11, 25)
     assert st.should_act is False
-    assert st.pending == date(2026, 11, 25)
+    assert st.pending == date(2031, 11, 26)
 
 
 def test_reconcile_closes_out_several_missed_appointments_at_once(tmp_path, monkeypatch):
     mod = load_schedule(
         tmp_path, monkeypatch,
         {
-            "last_haircut": "2026-09-01",
-            "pending": [{"date": "2026-10-13"}, {"date": "2026-11-25"}],
+            "last_haircut": "2031-09-02",
+            "pending": [{"date": "2031-10-14"}, {"date": "2031-11-26"}],
             "history": [],
         },
     )
-    assert mod.reconcile(date(2026, 12, 1)) == date(2026, 11, 25)
+    assert mod.reconcile(date(2031, 12, 2)) == date(2031, 11, 26)
     state = json.loads((tmp_path / "state.json").read_text())
-    assert state["last_haircut"] == "2026-11-25"
+    assert state["last_haircut"] == "2031-11-26"
     assert state["pending"] == []
-    assert [h["date"] for h in state["history"]] == ["2026-10-13", "2026-11-25"]
+    assert [h["date"] for h in state["history"]] == ["2031-10-14", "2031-11-26"]
     assert all(h["assumed"] for h in state["history"])
 
 
@@ -270,20 +270,20 @@ def test_recording_one_cut_keeps_a_later_booking(tmp_path, monkeypatch):
     mod = load_schedule(
         tmp_path, monkeypatch,
         {
-            "last_haircut": "2026-09-01",
-            "pending": [{"date": "2026-10-13"}, {"date": "2026-11-25"}],
+            "last_haircut": "2031-09-02",
+            "pending": [{"date": "2031-10-14"}, {"date": "2031-11-26"}],
             "history": [],
         },
     )
-    mod.main(["record", "--date", "2026-10-13", "--provider", "[Stylist]"])
+    mod.main(["record", "--date", "2031-10-14", "--provider", "[Stylist]"])
     state = json.loads((tmp_path / "state.json").read_text())
-    assert state["pending"] == [{"date": "2026-11-25"}]
+    assert state["pending"] == [{"date": "2031-11-26"}]
 
 
 def test_pending_appends_rather_than_replacing(tmp_path, monkeypatch):
-    mod = load_schedule(tmp_path, monkeypatch, {"last_haircut": "2026-09-01"})
-    mod.main(["pending", "--date", "2026-11-25", "--provider", "[Stylist]"])
-    mod.main(["pending", "--date", "2026-10-13", "--provider", "[Stylist]"])
-    mod.main(["pending", "--date", "2026-10-13", "--provider", "[Stylist]"])  # idempotent
+    mod = load_schedule(tmp_path, monkeypatch, {"last_haircut": "2031-09-02"})
+    mod.main(["pending", "--date", "2031-11-26", "--provider", "[Stylist]"])
+    mod.main(["pending", "--date", "2031-10-14", "--provider", "[Stylist]"])
+    mod.main(["pending", "--date", "2031-10-14", "--provider", "[Stylist]"])  # idempotent
     state = json.loads((tmp_path / "state.json").read_text())
-    assert [e["date"] for e in state["pending"]] == ["2026-10-13", "2026-11-25"]
+    assert [e["date"] for e in state["pending"]] == ["2031-10-14", "2031-11-26"]

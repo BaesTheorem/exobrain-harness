@@ -22,7 +22,7 @@ For every piece of content passed to you, check:
 
 ## How to verify
 
-- Use `WebSearch` to find sources; use `npx @anthropic/defuddle@latest "[URL]"` (via Bash) instead of raw WebFetch to read page content (strips clutter, saves 60-80% tokens). Fall back to WebFetch only if defuddle fails.
+- Use `WebSearch` to find sources; use `defuddle parse "[URL]" --md` (the `defuddle` CLI from `npm install -g defuddle`; there is no `@anthropic/defuddle` package) (via Bash) instead of raw WebFetch to read page content (strips clutter, saves 60-80% tokens). Fall back to WebFetch only if defuddle fails.
 - Use `Read` to cross-reference against existing People/ notes, daily notes, and CLAUDE.md
 - Use `Grep` to search the vault for contradictions
 - If a claim cannot be verified and is not trivially true, flag it as unverified

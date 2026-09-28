@@ -75,8 +75,8 @@ This is the canonical reference for how the Exobrain interacts with the Obsidian
     Projects/
       Get new job/
         Get new job.md          <-- primary project note
-        Job Applications.md     <-- related tracking note
-        Resume drafts/          <-- sub-folder for files
+        Job Listings/           <-- one note per listing (the tracker)
+        Job Listings.base       <-- Bases view over Job Listings/
       PauseAI KC/
         PauseAI KC.md
         DC Trip Prep.md
@@ -87,7 +87,7 @@ This is the canonical reference for how the Exobrain interacts with the Obsidian
 
 13. **Media extraction.** When any content mentions movies, shows, anime, books, podcasts, articles, games, TTRPGs, or other media:
     - Extract: title, who recommended it, context, brief description
-    - Create a note in `Media/[Title].md` with frontmatter (see CLAUDE.md "Media Extraction" for schema). For books, include `author` and `word_count` properties.
+    - Create a note in `Media/[Title].md` with frontmatter (schema: `/process-transcript` step 7b, "Media extraction"). For books, include `author` and `word_count` properties.
     - Check for duplicates first (Glob `Media/` folder). If a note already exists, append new context to the body.
     - Note in the daily note: "Added X media items to [[Media.base|Media]]"
 
@@ -135,15 +135,19 @@ how_we_met: BlueDot
 ## Daily Note Content Order
 
 Content accumulates throughout the day in this general order:
-1. Navigation header
-2. `### Morning Briefing` (weather, health, schedule, tasks, Discord, iMessages, email)
-3. Transcript entries (standalone H3s, written to recording date)
-4. `### Supernote` (OCR'd handwritten notes)
-5. Ad hoc sections (captures, call notes, etc.)
-6. `### Local Events`
-7. `### Evening Wind-Down` (day score, completed/rolled tasks, tomorrow's top 3)
-8. `### Mood` (written by next morning's briefing or evening winddown)
-9. `### Weekly Review` (Sundays only)
+1. Navigation header (`<< [[Yesterday]] | [[Tomorrow]] >>`)
+2. `**Weather**:` line
+3. `#### 📝 Alex's Notes` (Alex's freeform space; never modify it, preserve the header even when empty; see CLAUDE.md "Alex's manual input")
+4. `### Morning Briefing` (health, schedule, tasks, Discord, iMessages, email)
+5. Transcript entries (standalone H3s, written to recording date)
+6. `### Supernote` (OCR'd handwritten notes)
+7. Ad hoc sections (captures, call notes, etc.)
+8. `### Local Events`
+9. `### Evening Wind-Down` (day score, completed/rolled tasks, tomorrow's top 3)
+10. `### Mood` (written by next morning's briefing or evening winddown)
+11. `### Weekly Review` (Sundays only)
+
+`> [!alex]` callouts can appear anywhere in the note; they are Alex's corrections. Preserve them in place and splice generated content around them.
 
 ## Frontmatter Conventions
 

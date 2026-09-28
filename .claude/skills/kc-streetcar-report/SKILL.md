@@ -19,8 +19,8 @@ Draft a concise, actionable issue report email to the KC Streetcar operations te
 2. **EXIF fallback** -- run the extraction script for timestamp and device info:
 
 ```bash
-pip install Pillow --break-system-packages -q
-python3 /path/to/this/skill/scripts/extract_metadata.py /mnt/user-data/uploads/<filename>
+# from the harness root; Pillow must be importable
+python3 .claude/skills/kc-streetcar-report/scripts/extract_metadata.py "<path/to/photo>"
 ```
 
 The script returns JSON with `timestamp`, `device`, and nearest-station match. Visual identification from the photo is more reliable than GPS matching -- prefer the station name you can read on the sign.

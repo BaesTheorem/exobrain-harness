@@ -74,6 +74,25 @@ def load_creds() -> dict[str, Any]:
     return c
 
 
+def web_urls() -> dict[str, str]:
+    """Browser links to the team and league pages, built from the credential file.
+
+    The league and team ids are account-specific, so they live in the gitignored
+    credential file, not in code. Never raises: a missing or partial file falls
+    back to the generic fantasy home, since callers use these as notification
+    click targets.
+    """
+    home = "https://fantasy.espn.com/football/"
+    try:
+        c = json.loads(CREDS.read_text())
+    except (OSError, ValueError):
+        return {"team": home, "league": home}
+    league, team = c.get("league_id"), c.get("team_id")
+    league_url = f"{home}league?leagueId={league}" if league else home
+    team_url = f"{home}team?leagueId={league}&teamId={team}" if league and team else league_url
+    return {"team": team_url, "league": league_url}
+
+
 def norm(name: str) -> str:
     """Fold a player name for matching: no accents, punctuation, suffixes, case."""
     s = unicodedata.normalize("NFKD", name or "").encode("ascii", "ignore").decode()

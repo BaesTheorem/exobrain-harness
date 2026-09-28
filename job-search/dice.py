@@ -28,8 +28,10 @@ import urllib.parse
 from pathlib import Path
 
 
-COMP_FLOOR = 75_000  # standard-lane floor; see gitignored Claude Reference.md
-ONSITE_FLOOR = 80_000  # any office requirement inside the KC metro; same source
+from comp_floors import comp_floor, onsite_floor
+
+COMP_FLOOR = comp_floor()  # standard-lane floor, from the harness .env
+ONSITE_FLOOR = onsite_floor()  # any office requirement inside the KC metro; same source
 # Dice ignores its own location=Remote filter (2026-09-28: most cards were onsite),
 # so gate 1 runs here. KC-metro onsite/hybrid seats are in scope at ONSITE_FLOOR.
 KC_METRO = re.compile(
@@ -123,7 +125,7 @@ def gate(j):
     if "remote" not in j["where"].lower():
         if not KC_METRO.search(j["where"]):
             return "decline", "gate1 location %r" % j["where"]
-        floor, local = ONSITE_FLOOR, " [KC-LOCAL onsite/hybrid: $80K floor]"
+        floor, local = ONSITE_FLOOR, f" [KC-LOCAL onsite/hybrid: ${ONSITE_FLOOR:,} floor]"
     if "full-time" not in j["type"].lower() or BODY_SHOP.search(j["type"]):
         return "decline", "gate2 employment type %r" % j["type"]
     lo, hi = parse_band(j["salary"])

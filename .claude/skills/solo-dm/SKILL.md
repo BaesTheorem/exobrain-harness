@@ -52,6 +52,7 @@ Decide which mode to run based on what Alex asked:
    `python3 scripts/db.py add-character --slug <slug> --kind pc --name "<Name>" --tier opus --sheet-json '<json>'`
 6. Export the PC sheet to the vault: `python3 scripts/sheet.py export --slug <slug> --id 1`
 7. Seed starting `world_state` entries (in-game date, weather, season) via `db.py append-event` with type `note`.
+   If the party travels with a slow caravan (an NPC's cart, a wagon train), also set world_state key `travel_cart` to `{"label": "<NPC>'s cart", "mi_per_day": 18}`; the web UI's distance panel reads it for its slow-travel row (default: a generic cart at 18 mi/day). Never hardcode a campaign's NPC names in `scripts/` or `webui/`.
 8. Give Alex a clear "ready to play -- say 'start solo session' when you are" prompt.
 
 ## Mode 2 -- Session start
@@ -166,13 +167,13 @@ python3 scripts/db.py append-event --slug <s> --type retcon \
 5. Update any changed Faction/Location/NPC notes (additive only -- never overwrite Alex's edits).
 6. `python3 scripts/db.py close-session --slug <s> --recap-md "$(cat Sessions/Session-N-recap.md)" --last-scene-verbatim "<verbatim closing-scene prose>"`.
 7. **Sycophancy diff:** read `Session-N-recap.md` and confirm every success/failure in the recap maps to a logged roll in the DB. If not, that's a bug -- fix before finishing.
-8. macOS notification: `osascript -e 'display notification "Session N complete" with title "Solo DM"'`.
+8. Clickable notification (run from the harness root): `mist-voice/bin/mist-notify "Session N complete" "Solo DM" Purr console`.
 
 ## Calendar & quest hygiene (during play)
 
 The dashboard exposes a Harptos calendar view and an editable quest/task list, both backed by the campaign DB. Keep them in sync as scenes unfold -- Alex relies on these to remember plans across sessions.
 
-- **When a scene plants a future appointment** ("we'll meet Olwin at the Red Sheaf in three days," "the festival is in a tenday"), POST it to `/api/calendar/events` (`{year, day_of_year, title, kind: "event"|"task"|"quest_beat", notes}`). Use the in-game date (Harptos), not real-world. If the date is relative ("in 3 days"), advance from the current `in_game_date` and write the resulting absolute date.
+- **When a scene plants a future appointment** ("we'll meet [NPC] at the inn in three days," "the festival is in a tenday"), POST it to `/api/calendar/events` (`{year, day_of_year, title, kind: "event"|"task"|"quest_beat", notes}`). Use the in-game date (Harptos), not real-world. If the date is relative ("in 3 days"), advance from the current `in_game_date` and write the resulting absolute date.
 - **When a new quest emerges**, POST `/api/quests` with the name and an initial list of beats (`[{text, done: false}, ...]`). Don't wait for the player to ask -- capture it the turn it appears.
 - **When a quest beat completes**, PATCH the quest's `beats` array (set `done: true` on the matching entry). When a quest concludes, PATCH its `status` to `complete` or `failed`.
 - **When in-game time advances** (long rest, travel, downtime), POST `/api/calendar/advance` with `{days, hours, to_time}`. This updates the canonical `in_game_date` and any UI showing it.

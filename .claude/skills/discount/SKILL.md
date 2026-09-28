@@ -30,7 +30,7 @@ Run these lanes in parallel. [[reference_retail_price_lookup_lanes]] documents e
   WebSearch synthesis is zero-evidence.
 - **Used/open-box** only if Alex asks for it: eBay, Back Market, REI Re/Supply, Amazon Warehouse. List them separately.
 
-For every source record: price, shipping to 64111, sales tax (read it off a cart or the
+For every source record: price, shipping to the home ZIP (`HOME_ZIP` in the harness `.env`), sales tax (read it off a cart or the
 store's tax estimate; don't assume a rate), stock/delivery date, seller.
 
 ## 3. Collect every discount
