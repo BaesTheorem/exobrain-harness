@@ -1,26 +1,33 @@
 ---
-name: exercise
-description: "Read Alex's resistance-training log from the Exercise Log iPhone app: sets, reps, weekly targets, progressions, and rest per exercise. Use when Alex mentions the exercise log, workouts, lifting, the gym, sets or reps, 'did I train this week', 'how many sets', a progression or weight for an exercise, or when a briefing, winddown, or weekly review wants training data."
+name: ironman
+description: "Read Alex's Ironman iPhone app (an OSRS skills panel for real life): the Strength exercise log (sets, reps, targets, progressions), the Agility running quest, Hitpoints sleep nights and meals, and the Firemaking, Crafting and Cooking logs, with levels and XP. Use when Alex mentions Ironman, the exercise log, workouts, lifting, sets or reps, his skills or levels, XP, a level-up, sleep goal nights, 'did I train this week', or when a briefing, winddown, or weekly review wants training or skill data."
 metadata:
-  repo: "/Users/alexhedtke/Documents/exercise-log (public: BaesTheorem/exercise-log)"
-  app: "Exercise Log on Alex's iPhone (bundle com.alexhedtke.exerciselog)"
+  repo: "/Users/alexhedtke/Documents/ironman (public: BaesTheorem/ironman)"
+  app: "Ironman on Alex's iPhone (bundle com.alexhedtke.exerciselog, unchanged from the Exercise Log days)"
 ---
 
-# /exercise
+# /ironman
 
 The iPhone app is the only writer. It mirrors one file, `exercise-log.json`,
 into a folder Alex picked in Files (iCloud Drive or Google Drive), and that
 folder syncs to this Mac. Read it through the CLI, never by hand:
 
 ```
-~/Documents/exercise-log/bin/exercise-log status          # this week, file age
-~/Documents/exercise-log/bin/exercise-log weeks -n 8      # sets done vs target per week
-~/Documents/exercise-log/bin/exercise-log week YYYY-MM-DD # one page
-~/Documents/exercise-log/bin/exercise-log markdown        # paste-ready table
-~/Documents/exercise-log/bin/exercise-log vault           # project weeks into the vault
+~/Documents/ironman/bin/ironman status          # this week, file age
+~/Documents/ironman/bin/ironman weeks -n 8      # sets done vs target per week
+~/Documents/ironman/bin/ironman week YYYY-MM-DD # one page
+~/Documents/ironman/bin/ironman markdown        # paste-ready table
+~/Documents/ironman/bin/ironman vault           # project weeks into the vault
+~/Documents/ironman/bin/ironman skills          # level and xp per skill
+~/Documents/ironman/bin/ironman quest           # running quest summary
 ```
 
-The README in the repo documents the JSON schema. Ids join `exercises` to
+The README in the repo documents the JSON schema and every XP rule
+(`lib/skills.py` and `lib/quest.py` mirror the app). Six skills on the OSRS
+table: Hitpoints (sleep nights from Fitbit via `bin/hitpoints-verify`, run
+by the harness quest watcher; healthy meals; a third of Strength and
+Agility XP), Strength (the exercise log), Agility (Couch to 5K), and the
+Firemaking, Crafting and Cooking logs under `skills`. Ids join `exercises` to
 `days[].entries`; `weeklySets` is a per-week target, not per day; a `done`
 flag is the paper strikethrough.
 
@@ -52,8 +59,8 @@ with frontmatter (`week_of`, `days_trained`, `sets_done`, `sets_target`,
 ## Briefings
 
 For the morning briefing or winddown, one line is enough: sets done vs target
-this week and days trained, from `weeks -n 1`. Flag a week with 0 days
-trained by Thursday. Add the quest line from `quest --line`.
+this week and days trained, from `weeks -n 1`, plus any level gained
+(`skills`). Flag a week with 0 days trained by Thursday. Add the quest line from `quest --line`.
 
 ## The running quest (Couch to 5K)
 
@@ -63,9 +70,9 @@ it because getting out the door was the hard part, so the design pays for
 leaving the house, not for pace.
 
 ```
-~/Documents/exercise-log/bin/exercise-log quest          # level, xp, next session, recent attempts
-~/Documents/exercise-log/bin/exercise-log quest --line   # the briefing line
-~/Documents/exercise-log/bin/quest-verify [--dry-run]    # match attempts to Fitbit now
+~/Documents/ironman/bin/ironman quest          # level, xp, next session, recent attempts
+~/Documents/ironman/bin/ironman quest --line   # the briefing line
+~/Documents/ironman/bin/quest-verify [--dry-run]    # match attempts to Fitbit now
 ```
 
 How it fits together:

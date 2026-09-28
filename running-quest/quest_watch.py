@@ -3,7 +3,7 @@
 
 Runs every 30 minutes under launchd (``com.exobrain.quest-watch``):
 
-1. ``exercise-log/bin/quest-verify --json`` matches the phone's quest
+1. ``ironman/bin/quest-verify --json`` matches the phone's quest
    attempts against Fitbit's activity log and writes verifications and free
    runs into ``exercise-log.json``.
 2. Every event it reports becomes a banner (``mist-notify``) and a Discord
@@ -32,7 +32,7 @@ from pathlib import Path
 HERE = Path(__file__).resolve().parent
 HARNESS = HERE.parent
 HOME = Path.home()
-EXERCISE_LOG = HOME / "Documents/exercise-log"
+EXERCISE_LOG = HOME / "Documents/ironman"
 VERIFY = EXERCISE_LOG / "bin/quest-verify"
 HP_VERIFY = EXERCISE_LOG / "bin/hitpoints-verify"
 NOTIFY = HARNESS / "mist-voice/bin/mist-notify"

@@ -1,7 +1,7 @@
 # Running quest
 
-The Mac side of the Couch to 5K quest in the Exercise Log iPhone app
-(`~/Documents/exercise-log`, Skills > Agility). The phone runs the interval timer
+The Mac side of the Couch to 5K quest in the Ironman iPhone app
+(`~/Documents/ironman`, Skills > Agility). The phone runs the interval timer
 and records each attempt in `exercise-log.json`; this watcher checks those
 attempts against Fitbit, awards the XP the phone cannot award itself, and
 nudges when a run is due and the weather is good.
@@ -14,10 +14,10 @@ nudges when a run is due and the weather is good.
 
 ## What one run does
 
-1. `exercise-log/bin/quest-verify --json` pulls the last 14 days of Fitbit
+1. `ironman/bin/quest-verify --json` pulls the last 14 days of Fitbit
    activities and matches them to quest attempts by time overlap. A matched
    attempt gets a `verification` block; a run with no attempt becomes a free
-   run. Bikes never count. The rules live in `exercise-log/lib/quest.py` and
+   run. Bikes never count. The rules live in `ironman/lib/quest.py` and
    are mirrored in the app's `Quest.swift`.
 2. Each event becomes a `mist-notify` banner and a Discord message:
    verifications and free runs to Alex's own channel
@@ -44,6 +44,6 @@ minutes. Good enough to tell a run from a stroll, not enough to check each
 launchctl bootstrap gui/$(id -u) ~/Library/LaunchAgents/com.exobrain.quest-watch.plist
 launchctl kickstart -k gui/$(id -u)/com.exobrain.quest-watch     # run now
 launchctl bootout gui/$(id -u)/com.exobrain.quest-watch          # stop
-~/Documents/exercise-log/bin/exercise-log quest                  # current state
-~/Documents/exercise-log/bin/quest-verify --dry-run              # what would match
+~/Documents/ironman/bin/ironman quest                  # current state
+~/Documents/ironman/bin/quest-verify --dry-run              # what would match
 ```
