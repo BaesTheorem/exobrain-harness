@@ -33,10 +33,9 @@ PROCESSING_LOG="$HARNESS_DIR/processing-log.json"
 DISCORD_DIGEST="$HARNESS_DIR/discord/discord-digest.json"
 SESSION_MEMORY_DIR="$VAULT_DIR/Claude"
 # Zettelkasten layout under it (scripts/session_memory.py owns the schema):
-# Sessions/ per-session notes (14 d), Digests/ daily digests (30 d), Zettel/
-# permanent one-idea notes, Maps/ generated per-tag lists, Index.md entry point.
+# Sessions/ per-session notes (14 d), Zettel/ permanent one-idea notes, Maps/
+# generated per-tag lists, Index.md entry point.
 SESSION_NOTES_DIR="$SESSION_MEMORY_DIR/Sessions"
-SESSION_DIGESTS_DIR="$SESSION_MEMORY_DIR/Digests"
 SESSION_ZETTEL_DIR="$SESSION_MEMORY_DIR/Zettel"
 
 # Scheduled-job logs. NOT /tmp: macOS reaps files there that go untouched for a

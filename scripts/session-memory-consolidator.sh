@@ -6,8 +6,7 @@
 #              project dir (Console chats live in many cwds). The writer skips
 #              sessions the PreCompact hook already covered, writes a _delta
 #              for tails, and judges trivial sessions itself.
-#   2. digest  the day's rolling summary from today's Sessions notes.
-#   3. prune   Sessions older than 14 days, Digests older than 30. Zettels stay.
+#   2. prune   Sessions older than 14 days. Zettels stay.
 # The engine frames transcripts as untrusted, scans everything it writes, and
 # rebuilds Maps/ and Index.md; nothing here touches note content.
 
@@ -23,7 +22,6 @@ export MIST_UNATTENDED=1
 TODAY="$(date +%Y-%m-%d)"
 SM="$SCRIPT_DIR/bin/session-memory"
 FAIL_LOG="$EXOBRAIN_LOG_DIR/session-memory-failures.log"
-DIGEST_FILE="$SESSION_DIGESTS_DIR/${TODAY}_DIGEST.md"
 NOTIFY="$SCRIPT_DIR/mist-voice/bin/mist-notify"
 PARALLEL=3
 
@@ -55,17 +53,15 @@ printf '%s\n' "$TRANSCRIPTS" | caffeinate -is xargs -P "$PARALLEL" -I{} \
     "$SM" write "{}" --trigger consolidator --quiet
 WRITE_STATUS=$?
 
-"$SM" digest --date "$TODAY"
-DIGEST_STATUS=$?
-
 NOTES_TODAY="$(find "$SESSION_NOTES_DIR" -maxdepth 1 -name "${TODAY}_*.md" ! -name '*_skip.md' 2>/dev/null | wc -l | tr -d ' ')"
-if [ "$NOTES_TODAY" -gt 0 ] && [ ! -s "$DIGEST_FILE" ]; then
-    REASON="digest missing (write xargs exit $WRITE_STATUS, digest exit $DIGEST_STATUS)"
+# xargs exits 123 when any writer call failed (model timeout, no JSON, exit != 0).
+if [ "$WRITE_STATUS" -ne 0 ]; then
+    REASON="writer failures (xargs exit $WRITE_STATUS); $NOTES_TODAY note(s) still written"
     {
         echo "[$(date +%Y%m%d_%H%M%S)] FAILED ($REASON)"
         tail -n 12 "$EXOBRAIN_LOG_DIR/session-memory-writer.log" 2>/dev/null | sed 's/^/  /'
     } >> "$FAIL_LOG"
-    [ -x "$NOTIFY" ] && "$NOTIFY" "Session-memory consolidator failed ($REASON)" "MIST" Basso console || true
+    [ -x "$NOTIFY" ] && "$NOTIFY" "Session-memory consolidator: $REASON" "MIST" Basso console || true
     echo "[$(date)] Done (FAILED: $REASON)"
     exit 1
 fi
@@ -73,4 +69,4 @@ if [ -x "$NOTIFY" ] && [ "$NOTES_TODAY" -gt 0 ]; then
     "$NOTIFY" "Consolidated $NOTES_TODAY session note(s) for $TODAY" "Exobrain" Purr \
         "obsidian://open?vault=Exobrain&file=Claude/Index" --group memory || true
 fi
-echo "[$(date)] Done ($NOTES_TODAY note(s) today, digest $( [ -s "$DIGEST_FILE" ] && echo written || echo skipped ))"
+echo "[$(date)] Done ($NOTES_TODAY note(s) today)"

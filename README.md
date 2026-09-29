@@ -289,7 +289,7 @@ Defined in `.claude/settings.json`. Every hook command is written as `"$CLAUDE_P
 
 ### Memory System
 
-Two stores. **Session memory** is a Zettelkasten in the vault at `~/Exobrain/Claude/` (`Sessions/` per-session notes kept 14 days, `Digests/` daily summaries kept 30 days, `Zettel/` permanent one-idea notes with timestamp ids and typed links, `Maps/` one generated list per tag, `Index.md` the entry point). `scripts/session_memory.py` owns it: the PreCompact hook writes before every compaction, the 23:00 consolidator backstops the day, and the session-start hook loads the last 3 digests, 3 session notes and the Index. See the `/session-memory` skill.
+Two stores. **Session memory** is a Zettelkasten in the vault at `~/Exobrain/Claude/` (`Sessions/` per-session notes kept 14 days, `Zettel/` permanent one-idea notes with timestamp ids and typed links, `Maps/` one generated list per tag, `Index.md` the entry point with the open threads). `scripts/session_memory.py` owns it: the PreCompact hook writes before every compaction, the 23:00 consolidator backstops the day, and the session-start hook loads the last 3 session notes and the Index. See the `/session-memory` skill.
 
 **Claude Code auto-memory** is the persistent cross-session memory in `.claude/projects/.../memory/`. ~225 files total, indexed by a one-line-per-memory `MEMORY.md` loaded each session. Other frequently used repos symlink their memory dirs to this store, so there is one memory regardless of project.
 

@@ -188,12 +188,12 @@ def test_write_applies_model_ops(sm, tmp_path, monkeypatch):
 
 def test_migrate_moves_flat_files(sm):
     (sm.ROOT / "2026-09-01_1200.md").write_text("a")
-    (sm.ROOT / "2026-09-01_DIGEST.md").write_text("b")
+    (sm.ROOT / "2026-09-01_DIGEST.md").write_text("b")   # legacy digest: left alone
     (sm.ROOT / "Notes.md").write_text("keep")
     ns = type("A", (), {})()
     assert sm.cmd_migrate(ns) == 0
     assert (sm.SESSIONS / "2026-09-01_1200.md").exists()
-    assert (sm.DIGESTS / "2026-09-01_DIGEST.md").exists()
+    assert (sm.ROOT / "2026-09-01_DIGEST.md").exists()
     assert (sm.ROOT / "Notes.md").exists()
 
 
