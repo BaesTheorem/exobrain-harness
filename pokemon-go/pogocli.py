@@ -865,6 +865,9 @@ def parse_box_csv(text: str) -> tuple[str, list[dict[str, Any]], list[str]]:
         if not name or name in ("-", "?"):
             issues.append(f"row {n}: no species")
             continue
+        if re.match(r"^\s*cp\s*\d", name, re.I) or re.match(r"^[\d.,]+\s*(m|kg)?$", name, re.I) or len(re.findall(r"[A-Za-z]", name)) < 3:
+            issues.append(f"row {n}: name is a CP label or a measurement ({name!r}); a frame caught mid-transition")
+            continue
         cp = _num(col(row, "cp"))
         if cp is None:
             issues.append(f"row {n}: unreadable CP")
@@ -969,7 +972,72 @@ def dupe_groups(mons: list[dict[str, Any]]) -> list[list[dict[str, Any]]]:
     return sorted((sorted(g, key=best) for g in groups.values() if len(g) > 1), key=lambda g: (-len(g), g[0]["name"]))
 
 
+POGOLENS_BUNDLE = "com.alexhedtke.pogolens"
+POGOLENS_CSV_HEADER = ["Index", "Name", "Form", "Pokemon", "Gender", "CP", "HP", "Atk IV", "Def IV", "Sta IV", "IV Avg",
+                       "Level Min", "Level Max", "Quick Move", "Charge Move", "Charge Move 2", "Lucky", "Shadow/Purified",
+                       "Favorite", "Rank # (G)", "Name (G)", "Nickname", "Dust", "IV Exact", "Candidates", "Scan Date", "Source",
+                       "Candy", "Candy XL", "Mega Energy", "Evolve Candy", "Caught Date"]
+
+
+def paired_iphone() -> str:
+    out = subprocess.run(["xcrun", "devicectl", "list", "devices"], capture_output=True, text=True, check=False).stdout
+    for line in out.splitlines():
+        if re.search(r"connected|available", line, re.I):
+            m = re.search(r"[0-9A-F]{8}-[0-9A-F]{4}-[0-9A-F]{4}-[0-9A-F]{4}-[0-9A-F]{12}", line, re.I)
+            if m:
+                return m.group(0)
+    raise SystemExit("pogo: no paired iPhone answers; unlock it on the same Wi-Fi")
+
+
+def pogolens_box_to_csv(mons: list[dict[str, Any]]) -> str:
+    """The app's pogolens-box.json, in the CSV dialect the app itself exports."""
+    names = {s["pokemon_id"]: s["pokemon_name"] for s in ref("pokemon_stats")}
+    lines = [",".join(POGOLENS_CSV_HEADER)]
+    for n, m in enumerate(mons, start=1):
+        key = m.get("speciesKey") or ""
+        sid, _, form = key.partition("-")
+        species = names.get(int(sid)) if sid.isdigit() else None
+        levels = sorted({c["level"] for c in m.get("candidates", [])})
+        ivs = [m.get("atk"), m.get("def"), m.get("sta")]
+        pct = f"{sum(ivs) / 45 * 100:.1f}" if all(v is not None for v in ivs) else ""
+        nick = m["nameOnScreen"] if species and norm(m["nameOnScreen"]) != norm(species) else ""
+        charged = m.get("chargedMoves") or []
+        row = [str(n), species or m["nameOnScreen"], form if species else "", sid if species else "",
+               {"m": "\u2642", "f": "\u2640"}.get(m.get("gender") or "", ""), str(m["cp"]), str(m.get("hpMax") or ""),
+               *["" if v is None else str(v) for v in ivs], pct,
+               str(levels[0]) if levels else "", str(levels[-1]) if levels else "",
+               m.get("fastMove") or "", charged[0] if charged else "", charged[1] if len(charged) > 1 else "",
+               "1" if m.get("lucky") else "0", "1" if m.get("shadow") else ("2" if m.get("purified") else "0"), "1" if m.get("favorite") else "0",
+               "", "", nick, str(m.get("dust") or ""), "1" if m.get("ivExact") else "0", str(len(m.get("candidates", []))),
+               m.get("scannedAt") or "", "pogolens-pull",
+               str(m.get("candyOnHand") or ""), str(m.get("candyXL") or ""), str(m.get("megaEnergy") or ""), str(m.get("evolveCandy") or ""), m.get("caughtDate") or ""]
+        lines.append(",".join('"' + c.replace('"', '""') + '"' if any(ch in c for ch in ',"\n') else c for c in row))
+    return "\n".join(lines) + "\n"
+
+
+def cmd_box_pull(a: argparse.Namespace) -> None:
+    """Copy the app's box straight off the phone over Wi-Fi and import it; no iCloud in the loop."""
+    udid = a.device or paired_iphone()
+    pulls = DATA_DIR / "pulls"
+    pulls.mkdir(parents=True, exist_ok=True)
+    stamp = f"{dt.datetime.now():%Y%m%d-%H%M%S}"
+    raw = pulls / f"pogolens-box-{stamp}.json"
+    r = subprocess.run(["xcrun", "devicectl", "device", "copy", "from", "--device", udid, "--domain-type", "appDataContainer",
+                        "--domain-identifier", POGOLENS_BUNDLE, "--source", "Documents/pogolens-box.json", "--destination", str(raw)],
+                       capture_output=True, text=True, check=False)
+    if r.returncode != 0 or not raw.exists():
+        raise SystemExit("pogo: could not copy the box off the phone: " + (r.stderr or r.stdout).strip().splitlines()[-1:][0] if (r.stderr or r.stdout).strip() else "pogo: devicectl copy failed")
+    mons = json.loads(raw.read_text(encoding="utf-8"))
+    csv_path = pulls / f"pogolens-pull-{stamp}.csv"
+    csv_path.write_text(pogolens_box_to_csv(mons), encoding="utf-8")
+    snap = import_box(csv_path)
+    print(f"pulled {len(mons)} records from the phone; imported {snap['count']} Pokemon, {len(snap['issues'])} row(s) dropped as misreads")
+
+
 def cmd_box(a: argparse.Namespace) -> None:
+    if a.box_cmd == "pull":
+        cmd_box_pull(a)
+        return
     if a.box_cmd == "import":
         snap = import_box(Path(a.file).expanduser())
         print(f"imported {snap['count']} Pokemon from {Path(snap['source']).name} ({snap['dialect']}); {len(snap['issues'])} row(s) skipped")
@@ -1465,6 +1533,8 @@ def build_parser() -> argparse.ArgumentParser:
     bs = box.add_subparsers(dest="box_cmd", required=True)
     bi = bs.add_parser("import", help="import a Poke Genie or Calcy IV CSV")
     bi.add_argument("file")
+    bp = bs.add_parser("pull", help="copy the Pogo Lens box off the paired iPhone over Wi-Fi and import it")
+    bp.add_argument("--device", help="devicectl UDID (default: the paired iPhone)")
     for name, help_ in (("list", "list and filter the box"), ("find", "alias of list with a query")):
         bl = bs.add_parser(name, help=help_)
         bl.add_argument("query", nargs="?", help="species, nickname or form")
