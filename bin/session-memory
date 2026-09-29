@@ -1,0 +1,9 @@
+#!/usr/bin/env bash
+# session-memory: MIST's session memory + Zettelkasten in the vault (Claude/).
+#   session-memory write <transcript.jsonl> [--trigger compact|consolidator|manual] [--force] [--dry-run]
+#   session-memory digest [--date YYYY-MM-DD]
+#   session-memory backfill [--limit N]     zettels from older Sessions notes
+#   session-memory index | lint | prune | migrate
+#   session-memory condense <transcript.jsonl> [--since ISO]
+# Logic lives in scripts/session_memory.py (read its docstring first).
+exec /usr/bin/env python3 "$(cd "$(dirname "$0")/.." && pwd)/scripts/session_memory.py" "$@"

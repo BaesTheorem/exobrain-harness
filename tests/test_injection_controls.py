@@ -503,6 +503,8 @@ UNATTENDED_RUNNERS = [
     "job-search/run-job-scan.sh",
     "salon-ramon/run-haircut-check.sh",
     "scripts/session-memory-consolidator.sh",
+    "scripts/session_memory.py",
+    ".claude/hooks/pre-compact.sh",
     "fantasy/bin/chat-watch",
     "kcurbex/kcurbexcli/cli.py",
     "claude-bot/modules/chatter.py",

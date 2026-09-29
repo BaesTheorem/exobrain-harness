@@ -92,7 +92,7 @@ YDAY=$(date -v-1d +%Y-%m-%d)
 
 check_heading "morning briefing (08:00)" "$TODAY_NOTE" '^###+ *morning briefing'
 check_heading "evening wind-down (21:00, yesterday)" "$YDAY_NOTE" '^###+ *evening wind-?down'
-check_fresh "session-memory digest (23:00, yesterday)" 36 "$SESSION_MEMORY_DIR/${YDAY}_DIGEST.md"
+check_fresh "session-memory digest (23:00, yesterday)" 36 "$SESSION_DIGESTS_DIR/${YDAY}_DIGEST.md"
 check_fresh "job scan (09:00)" 26 "$EXOBRAIN_LOG_DIR"/job-scan-*.out
 check_fresh "backup (daily)" 30 "$EXOBRAIN_LOG_DIR/backup.log"
 

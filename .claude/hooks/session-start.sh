@@ -473,7 +473,7 @@ done
 # if the newest digest is >26h old the consolidator is silently dead (observed
 # 2026-07: three straight nights of failures behind exit 0) and startup context
 # degrades fast. 26h allows for "today's digest doesn't exist until 23:00".
-NEWEST_DIGEST=$(ls -t "$SESSION_MEMORY_DIR/"*_DIGEST.md 2>/dev/null | head -1)
+NEWEST_DIGEST=$(ls -t "$SESSION_DIGESTS_DIR/"*_DIGEST.md 2>/dev/null | head -1)
 if [ -n "$NEWEST_DIGEST" ]; then
   DIGEST_AGE_H=$(( ($(date +%s) - $(stat -f %m "$NEWEST_DIGEST")) / 3600 ))
   if [ "$DIGEST_AGE_H" -gt 26 ]; then
@@ -564,9 +564,11 @@ else
 fi
 
 # === SESSION MEMORY ===
-# Load: 3 most recent daily digests (cross-day context, ~150 words each) +
-# 3 most recent individual session memories (granular recent state).
-# Digests are filtered out of the session list to avoid double-counting.
+# Load: 3 most recent daily digests (Digests/, cross-day context, ~150 words
+# each) + 3 most recent session notes (Sessions/, granular recent state) + the
+# Zettelkasten Index (Maps with counts and the open threads), so the session
+# knows which permanent notes exist and can read one on demand.
+# Layout and writer: scripts/session_memory.py (bin/session-memory).
 #
 # Everything loaded here was written by a past MIST session, often a headless
 # one, from a day that included other people's text. So it is framed as what it
@@ -587,8 +589,8 @@ scan_note() {  # $1 = file. Prints a warning block if the scanner fires.
   fi
 }
 if [ -d "$MEMORY_DIR" ]; then
-  RECENT_DIGESTS=$(ls -t "$MEMORY_DIR"/*_DIGEST.md 2>/dev/null | head -3)
-  RECENT_SESSIONS=$(ls -t "$MEMORY_DIR"/*.md 2>/dev/null | grep -v '_DIGEST\.md$' | head -3)
+  RECENT_DIGESTS=$(ls -t "$SESSION_DIGESTS_DIR"/*_DIGEST.md 2>/dev/null | head -3)
+  RECENT_SESSIONS=$(ls -t "$SESSION_NOTES_DIR"/*.md 2>/dev/null | grep -v '_skip\.md$' | head -3)
 
   if [ -n "$RECENT_DIGESTS" ] || [ -n "$RECENT_SESSIONS" ]; then
     echo ""
@@ -614,6 +616,12 @@ if [ -d "$MEMORY_DIR" ]; then
         scan_note "$f"
         cat "$f"
       done <<< "$RECENT_SESSIONS"
+    fi
+    if [ -f "$MEMORY_DIR/Index.md" ]; then
+      echo ""
+      echo "=== Zettelkasten Index (permanent notes live in $MEMORY_DIR/Zettel; open a map or a zettel when a topic comes up) ==="
+      # Frontmatter, the generator comment and the recent-zettels tail are noise here.
+      sed -e '1,/^---$/{/^---$/!d;}' -e '/^---$/d' -e '/^<!--/d' "$MEMORY_DIR/Index.md" | sed '/^## Recent zettels/,$d'
     fi
     echo ""
     echo "=== End Session Memory ==="

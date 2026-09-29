@@ -285,10 +285,13 @@ Defined in `.claude/settings.json`. Every hook command is written as `"$CLAUDE_P
 | Clock | `UserPromptSubmit` | `.claude/hooks/now.sh` | Prints `Current time: ...` on every prompt so elapsed time is a subtraction, not a guess |
 | Unattended guard | `PreToolUse` (`Bash\|Write\|Edit\|MultiEdit\|NotebookEdit\|Read`) | `.claude/hooks/guard-unattended.py` | No-op in interactive sessions. When `MIST_UNATTENDED=1`, refuses rule-file writes, secret reads, and persistence or exfiltration shell shapes (see `security/README.md`) |
 | Quality gate | `PostToolUse` (`Edit\|Write`) | `.claude/hooks/post-edit-check.sh` | Runs ruff, single-file pyright, and the module-boundary checker on an edited `.py` file and feeds errors back. Fails open if `~/.local/bin/ruff` or `~/.npm-global/bin/pyright` is missing |
+| Memory before compaction | `PreCompact` (manual, auto) | `.claude/hooks/pre-compact.sh` | Detaches `bin/session-memory write <transcript>` so the session note and its zettels are written from the full transcript before the summary replaces it. Registered in the **user-level** `~/.claude/settings.json` (Step 1b), not here: the memory store is one per machine and Console chats run in many working directories. Inside a MIST Console chat the run shows as an inline progress bar |
 
 ### Memory System
 
-Persistent cross-session memory in `.claude/projects/.../memory/`. ~225 files total, indexed by a one-line-per-memory `MEMORY.md` loaded each session. Other frequently used repos symlink their memory dirs to this store, so there is one memory regardless of project.
+Two stores. **Session memory** is a Zettelkasten in the vault at `~/Exobrain/Claude/` (`Sessions/` per-session notes kept 14 days, `Digests/` daily summaries kept 30 days, `Zettel/` permanent one-idea notes with timestamp ids and typed links, `Maps/` one generated list per tag, `Index.md` the entry point). `scripts/session_memory.py` owns it: the PreCompact hook writes before every compaction, the 23:00 consolidator backstops the day, and the session-start hook loads the last 3 digests, 3 session notes and the Index. See the `/session-memory` skill.
+
+**Claude Code auto-memory** is the persistent cross-session memory in `.claude/projects/.../memory/`. ~225 files total, indexed by a one-line-per-memory `MEMORY.md` loaded each session. Other frequently used repos symlink their memory dirs to this store, so there is one memory regardless of project.
 
 **Core**: user profile, reference paths, project architecture
 **Behavioral rules**: overbooking alerts, calendar verification, Guild event filtering, Things 3 deep links and inbox-only, CRM extraction and math verification, outreach style, claim verification, flight buffers, late-night date handling, Fitbit data accuracy, Withings in health data, Obsidian formatting (H3 daily note headings, no blank lines before headers, no H1 in People notes), transcript name corrections, job scan depth and stale listing verification, compact briefing format, no em dashes, sleep data date convention
@@ -617,6 +620,21 @@ printf '@%s/.claude/mist-global.md\n' "$HOME" >> ~/.claude/CLAUDE.md
 ```
 
 Inside the repo the file also loads as the project `CLAUDE.md`; Claude Code dedupes by resolved path, so it is not loaded twice.
+
+The compaction memory hook is registered the same way, machine-wide, because it must fire in every working directory the MIST Console opens a chat in:
+
+```bash
+python3 - <<'PY'
+import json, os
+p = os.path.expanduser("~/.claude/settings.json")
+d = json.load(open(p)) if os.path.exists(p) else {}
+cmd = '"$HOME/Documents/Exobrain harness/.claude/hooks/pre-compact.sh"'   # your clone path
+d.setdefault("hooks", {})["PreCompact"] = [
+    {"matcher": m, "hooks": [{"type": "command", "command": cmd, "timeout": 30}]}
+    for m in ("manual", "auto")]
+json.dump(d, open(p, "w"), indent=2)
+PY
+```
 
 ### Step 2: Install System Dependencies
 
