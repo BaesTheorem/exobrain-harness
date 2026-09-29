@@ -880,6 +880,8 @@ def parse_box_csv(text: str) -> tuple[str, list[dict[str, Any]], list[str]]:
             dex = _num(col(row, "pokemon"))
             ranks = {"great": _num(col(row, "rank g")), "ultra": _num(col(row, "rank u")), "little": _num(col(row, "rank l"))}
             scan = col(row, "scan date", "original scan date")
+            if "iv exact" in idx:  # Pogo Lens marks solver guesses; Poke Genie IVs are always exact
+                unique = col(row, "iv exact") != "0"
         else:
             atk, dfn, sta = _num(col(row, "oatt iv")), _num(col(row, "odef iv")), _num(col(row, "ohp iv"))
             lo = hi = _num(col(row, "level"))
@@ -907,6 +909,7 @@ def parse_box_csv(text: str) -> tuple[str, list[dict[str, Any]], list[str]]:
             "level": lo if lo == hi else None, "level_min": lo, "level_max": hi,
             "fast": fast, "charged": charged, "lucky": lucky, "shadow": shadow, "purified": purified,
             "favorite": fav, "rank": {k: int(v) for k, v in ranks.items() if v}, "scanned": scan, "row": n,
+            "candy": _num(col(row, "candy")), "candy_xl": _num(col(row, "candy xl")), "caught": col(row, "caught date"),
         })
     return dialect, mons, issues
 

@@ -244,3 +244,14 @@ def test_inbox_classifier_and_import_round_trip(tmp_path, monkeypatch):
     assert summary["journey"]["spins"]["rows"] == 2 and summary["journey"]["spins"]["months"] == {"2026-08": 1, "2026-09": 1}
     imports = pogo.read_json(tmp_path / "data" / "imports.json", {})
     assert {v["kind"] for v in imports.values()} == {"box", "account"}
+
+
+def test_pogo_lens_columns_ride_along():
+    header = "Index,Name,Form,Pokemon,Gender,CP,HP,Atk IV,Def IV,Sta IV,IV Avg,Level Min,Level Max,Quick Move,Charge Move,Charge Move 2,Lucky,Shadow/Purified,Favorite,Rank # (G),Name (G),Nickname,Dust,IV Exact,Candidates,Scan Date,Source,Candy,Candy XL,Mega Energy,Evolve Candy,Caught Date\n"
+    row = "1,Bulbasaur,Normal,1,,608,82,14,10,10,75.6,20.0,20.5,Tackle,,,0,0,0,,,,2500,0,7,2026-09-29T12:53:00Z,pogolens,242,29,340,25,2022-06-26\n"
+    dialect, mons, issues = pogo.parse_box_csv(header + row)
+    assert dialect == "pokegenie" and len(mons) == 1 and not issues
+    m = mons[0]
+    assert m["iv_exact"] is False and m["level"] is None and (m["level_min"], m["level_max"]) == (20.0, 20.5)
+    assert (m["candy"], m["candy_xl"], m["caught"]) == (242, 29, "2022-06-26")
+    assert pogo.ivs_label(m) == "14/10/10~"
