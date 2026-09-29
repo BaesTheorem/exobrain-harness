@@ -1,0 +1,13 @@
+#!/bin/sh
+# Launch the Pokemon Go MCP server (stdio): 43 tools over LeekDuck's events,
+# raids, research, eggs, Team GO Rocket lineups and promo codes. The server is
+# the GhostTypes/pokemon-go-mcp fork cloned to ~/Documents/pokemon-go-mcp
+# (POGO_MCP_DIR overrides); its venv comes from `uv sync` in that directory.
+# Registered in the harness .mcp.json as "pokemon-go".
+CLONE="${POGO_MCP_DIR:-$HOME/Documents/pokemon-go-mcp}"
+if [ ! -x "$CLONE/.venv/bin/python" ]; then
+    echo "pokemon-go-mcp: no venv at $CLONE/.venv; run: cd '$CLONE' && uv sync" >&2
+    exit 1
+fi
+export FASTMCP_SHOW_CLI_BANNER=false
+exec "$CLONE/.venv/bin/python" "$CLONE/server.py"

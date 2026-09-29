@@ -1,0 +1,14 @@
+#!/usr/bin/env python3
+"""pogo: Pokemon Go from the terminal (events, raids, research, eggs, Team GO Rocket,
+Pokedex, type matchups, PvPoke rankings, CP and IV math). Run `pogo -h` for lanes.
+"""
+
+import sys
+from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+
+from pogocli import main  # noqa: E402
+
+if __name__ == "__main__":
+    sys.exit(main())

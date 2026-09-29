@@ -313,6 +313,7 @@ Two stores. **Session memory** is a Zettelkasten in the vault at `~/Exobrain/Cla
 | **LinkedIn** | Local, user scope (`bin/linkedin-mcp`, a wrapper that launches `mcp-server-linkedin` in real headless mode) | Read-only profile/company/job lookups for job-search and CRM | Browser session (never sends messages) |
 | **Zulip** | Local, project `.mcp.json` (`zulip/.venv/bin/python -m zulipmcp.mcp`) | Read and post in "The Claudes" Zulip org | `zulip/.zuliprc` (gitignored; setup in `zulip/README.md`) |
 | **myKCMO** | Local, user scope (`mykcmo/bin/mykcmo-mcp`) | Kansas City 311: read requests from the open-data portal, file a new report (captcha + confirm gate) | Optional `MYKCMO_*` keys in `.env` |
+| **Pokemon Go** | Local, project `.mcp.json` (`pokemon-go/bin/pokemon-go-mcp`, a launcher for the fork at `~/Documents/pokemon-go-mcp`) | LeekDuck events, raids, research, eggs, Team GO Rocket lineups, promo codes (43 tools, read-only); `pokemon-go/bin/pogo` is the CLI twin with Pokedex, PvPoke and CP/IV math | None (public community data) |
 | **MyChart** | Claude Desktop managed (hosted by [OpenRecord](https://github.com/Fan-Pier-Labs/openrecord)) | Full MyChart patient portal: meds, labs, imaging, vitals, messages, billing, insurance, referrals, preventive care, care team, immunizations, visits, documents, emergency contacts, refill requests (35+ tools, read + write) | MyChart credentials + TOTP (session auto-renews) |
 
 **Fitbit MCP location**: `/Users/alexhedtke/Documents/Exobrain harness/fitbit-mcp/` (patched fork, see `fitbit-mcp/FORK.md`)
