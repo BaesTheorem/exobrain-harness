@@ -18,7 +18,7 @@ get the account banned, and it is not negotiable.
 | A Pokémon's stats, moves, matchups, max CP, shiny status | `pogo dex <name> [--form mega]`, `pogo type`, `pogo shiny` | pogoapi.net |
 | PvP value | `pogo pvp great\|ultra\|master\|little [--find name] [--cup slug]` | PvPoke rankings; `--cups` lists the current cups |
 | CP and IV math | `pogo cp`, `pogo ivs --dust` | same formulas the app uses |
-| **His box** (species, CP, IVs, level, moves, ranks) | `pogo box stats\|list\|find\|dupes\|diff` | From Pogo Lens or Poke Genie CSVs; the inbox watcher imports them from iCloud Drive/Pokemon GO |
+| **His box** (species, CP, IVs, level, moves, candy, caught date) | `pogo box pull` then `pogo box stats\|list\|find\|dupes\|diff` | `pull` copies the Pogo Lens box off the paired iPhone over Wi-Fi (phone unlocked, same LAN) and imports it; the iCloud CSV export and Poke Genie CSVs are the fallbacks. Rows named like a CP label, or whose CP and HP fit no IVs, are frames caught mid-animation and are dropped |
 | **His account** (level, XP, stardust, spend, friends, activity by month) | `pogo account show\|activity\|spend` | From the official data request; Pokémon by species name only |
 | His goals and standing notes | vault `Areas/Adventure & Creativity/Pokemon GO/Pokemon GO.md` | Read it first, every time. Alex edits the Goals section himself |
 
@@ -46,8 +46,11 @@ events end. A box older than a few weeks is a hypothesis about his storage, not 
 ## Pogo Lens (the scanner app)
 
 Repo `~/Documents/pogo-lens` (BaesTheorem/pogo-lens), iOS, XcodeGen, installed with
-`ios/scripts/install.sh`. It OCRs his screenshots of Pokémon summary and appraisal screens and
-writes a Poke Genie-dialect CSV into the sync folder he picked (iCloud Drive/Pokemon GO). The
+`ios/scripts/install.sh`. Two modes: **live scan** (a Broadcast Upload Extension receives the screen while he plays
+Pokémon GO, OCRs a frame a second, confirms each read with a second frame because CP counters
+and appraisal bars animate, and banners each Pokémon) and screenshot scan. Both feed the app's
+box; `pogo box pull` fetches that box over Wi-Fi, and the app also exports a Poke Genie-dialect
+CSV into the sync folder he picked (iCloud Drive/Pokemon GO). The
 parsers are calibrated from the OCR debug files the app writes when that setting is on
 (`pogolens-debug-*.json` in the same folder): read them on the Mac, adjust
 `ScreenParser.swift` or `AppraisalReader.swift`, rebuild, reinstall.
