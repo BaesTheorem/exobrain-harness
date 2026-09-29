@@ -6,7 +6,7 @@
 #              project dir (Console chats live in many cwds). The writer skips
 #              sessions the PreCompact hook already covered, writes a _delta
 #              for tails, and judges trivial sessions itself.
-#   2. prune   Sessions older than 14 days. Zettels stay.
+#   2. prune   stale _skip markers only; session notes and zettels are kept.
 # The engine frames transcripts as untrusted, scans everything it writes, and
 # rebuilds Maps/ and Index.md; nothing here touches note content.
 

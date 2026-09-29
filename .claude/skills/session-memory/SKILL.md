@@ -12,7 +12,7 @@ Three moments: **save** (before compaction, nightly, or on request), **load** (s
 | Layer | Path | What | Retention |
 |---|---|---|---|
 | Entry point | `Index.md` | Open threads, every map with its count, recent zettels. Generated. | rebuilt on every write |
-| Session notes | `Sessions/YYYY-MM-DD_HHMM.md` (`_delta`, `_skip`) | One note per Claude Code session: what happened, decided, pulled, left open | 14 days |
+| Session notes | `Sessions/YYYY-MM-DD_HHMM.md` (`_delta`, `_skip`) | One note per Claude Code session: what happened, decided, pulled, left open. Every zettel cites its source note, so these are kept (only `_skip` markers age out after 30 days) | kept |
 | Zettels | `Zettel/<id> <title>.md` | One durable idea each, in MIST's words, standing alone | forever |
 | Maps | `Maps/<tag>.md` | One list per tag, newest first. Generated. | rebuilt on every write |
 
@@ -24,7 +24,7 @@ Maps and the Index are projections: never hand-edit them, fix the zettel frontma
 
 ## Save
 
-**Automatic.** The `PreCompact` hook (`.claude/hooks/pre-compact.sh`, registered in `~/.claude/settings.json`) runs `bin/session-memory write <transcript>` in the background before the CLI summarizes the history, so the note comes from the full transcript. The 23:00 consolidator (`scripts/session-memory-consolidator.sh`) runs the same writer over every transcript touched that day, in every project dir, then prunes. The writer:
+**Automatic.** The `PreCompact` hook (`.claude/hooks/pre-compact.sh`, registered in `~/.claude/settings.json`) runs `bin/session-memory write <transcript>` in the background before the CLI summarizes the history, so the note comes from the full transcript. The 23:00 consolidator (`scripts/session-memory-consolidator.sh`) runs the same writer over every transcript touched that day, in every project dir, then clears stale `_skip` markers. The writer:
 
 1. condenses the transcript (user and assistant text, tool names, truncated results; no thinking, no sidechains, no `<system-reminder>` blocks) and frames it as UNTRUSTED;
 2. skips sessions already covered (`session_id` + `covered_through`), writes a `_delta` when only the tail is new, and skips trivial sessions (one question, under ~1500 chars of reply); a 10-minute cooldown per session absorbs compaction storms;

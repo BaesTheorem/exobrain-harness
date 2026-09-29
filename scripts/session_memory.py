@@ -6,7 +6,7 @@ layers, all plain Markdown that Obsidian renders:
 
     Claude/
       Index.md          entry point: open threads, every map with its count (generated)
-      Sessions/         one note per Claude Code session (source notes, 14 days)
+      Sessions/         one note per Claude Code session (source notes, kept)
       Zettel/           permanent notes, one idea each, kept forever
       Maps/             one structure note per tag, listing its zettels (generated)
 
@@ -34,13 +34,15 @@ Subcommands (also via ``bin/session-memory``):
     migrate      Move flat legacy files into Sessions/.
     index        Rebuild Maps/*.md and Index.md from zettel frontmatter.
     lint         Report broken links, duplicate ids, malformed frontmatter.
-    prune        Delete Sessions older than 14 days.
+    prune        Delete `_skip` coverage markers older than 30 days. Session
+                 notes are kept: every zettel cites the one it came from.
     condense <transcript.jsonl> [--since ISO]
         Print the condensed transcript the writer would send (debugging).
 
 INVARIANTS
-- Zettels are never deleted or pruned by this module; ``status`` marks them
-  resolved or superseded instead.
+- Zettels and session notes are never deleted or pruned by this module;
+  ``status`` marks a zettel resolved or superseded instead. Only ``_skip``
+  markers (no content, coverage bookkeeping) age out.
 - Everything a model wrote is data: transcripts are framed UNTRUSTED before
   they reach the prompt, and every note this module writes passes through the
   injection scanner (a hit is logged and reported, never hidden).
@@ -76,7 +78,7 @@ FRAME = HARNESS / "security/bin/mist-frame"
 SCAN = HARNESS / "security/bin/mist-injection-scan"
 NOTIFY = HARNESS / "mist-voice/bin/mist-notify"
 
-SESSION_RETENTION_DAYS = 14
+SKIP_MARKER_RETENTION_DAYS = 30
 MAX_TRANSCRIPT_CHARS = 160_000     # ~40k tokens of condensed transcript per run
 TOOL_INPUT_CHARS = 220
 TOOL_RESULT_CHARS = 320
@@ -916,11 +918,11 @@ def cmd_prune(_args) -> int:
     ensure_dirs()
     now = time.time()
     n_s = 0
-    for p in SESSIONS.glob("*.md"):
-        if now - p.stat().st_mtime > SESSION_RETENTION_DAYS * 86400:
+    for p in SESSIONS.glob("*_skip.md"):
+        if now - p.stat().st_mtime > SKIP_MARKER_RETENTION_DAYS * 86400:
             p.unlink()
             n_s += 1
-    log(f"prune: removed {n_s} session note(s)")
+    log(f"prune: removed {n_s} skip marker(s)")
     return 0
 
 
