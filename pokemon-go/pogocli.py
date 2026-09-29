@@ -1296,6 +1296,22 @@ def classify_export(path: Path) -> str:
     return ""
 
 
+def settled(p: Path, wait: float = 3.0) -> bool:
+    """A file that is still being written or synced changes size; a hydrated iCloud file has a
+    fresh mtime but a stable size, so size is the test, not age."""
+    try:
+        before = p.stat().st_size
+    except OSError:
+        return False
+    if time.time() - p.stat().st_mtime > SETTLE_SECONDS:
+        return True
+    time.sleep(wait)
+    try:
+        return p.stat().st_size == before and before > 0
+    except OSError:
+        return False
+
+
 def hydrate_icloud(real: Path, timeout: int = 90) -> bool:
     """Ask iCloud to download an evicted file (the `.name.icloud` placeholder) and wait for it."""
     subprocess.run(["/usr/bin/brctl", "download", str(real)], check=False, capture_output=True)
@@ -1336,7 +1352,7 @@ def cmd_inbox(a: argparse.Namespace) -> None:
                     continue
             if not p.is_file() or p.suffix.lower() not in (".csv", ".zip"):
                 continue
-            if time.time() - p.stat().st_mtime < SETTLE_SECONDS:
+            if not settled(p):
                 settling.append(p)
                 continue
             digest = sha256_file(p)
