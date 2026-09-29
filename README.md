@@ -67,7 +67,7 @@ All outputs converge on the Obsidian vault (`/Users/alexhedtke/Exobrain/`) as th
 | `run-process-supernote.sh` | `transcript-processing/` | Shell | launchd wrapper for Supernote processing -- mirror of `run-process-transcript.sh` for handwritten notes | Claude CLI |
 | `things3-obsidian-sync.py` | `things3-sync/` | Python | Mirror Things 3 projects/areas into Obsidian as backlinkable notes | Things 3 MCP, AppleScript |
 | `vault-snapshot.sh` | `scripts/` | Shell | Daily 06:00 -- builds compact Dashboard + Projects digest for session-start hook injection | bash |
-| `session-memory-consolidator.sh` | `scripts/` | Shell | Daily 23:00 -- backfills missing session memories from today's transcripts | bash, Claude CLI |
+| `session_memory.py` | `scripts/` | Python | Session-memory engine (`bin/session-memory`); its `consolidate` subcommand runs daily at 23:00 and backfills missing session memories from today's transcripts | Claude CLI |
 | `get-weather.py` | `weather/` | Python | Weather script for Kansas City via Open-Meteo API (no key needed). Used by `/daily-briefing`. | `openmeteo_requests`, `openmeteo_sdk` |
 | `backup-exobrain.sh` | root | Shell | Daily (2 AM) collective archive of the harness, the vault, and every sibling repo's gitignored data, uploaded through the Drive API's resumable-upload protocol (`backup/drive-upload.py`, never the DriveFS mount). Grandfather-father-son retention (`KEEP_DAILY`/`KEEP_WEEKLY`/`KEEP_MONTHLY` in `config.sh`) is pruned Drive-side; `com.exobrain.backup-resume` finishes an interrupted upload every 30 min | python3, Google OAuth client in `.env` |
 | `cowork-sync` | `bin/` | Shell | Keeps the harness `CLAUDE.md` and the iCloud "Claude Cowork" copy identical in both directions (hash both ends against the last agreed hash, copy the side that changed, refuse to guess on a conflict; `--status`/`--push`/`--pull`). Run by `com.exobrain.cowork-sync` | `security/bin/mist-injection-scan` |
@@ -261,7 +261,7 @@ The same machine also runs launchd jobs owned by sibling repos and gitignored di
 | `com.exobrain.mount-reminders` | `mount-reminders/com.exobrain.mount-reminders.plist` | every 10 min; RunAtLoad | `mount-reminders/on-mount.sh` | Raise a banner when a named volume mounts and there is work waiting on it. | yes |
 | `com.exobrain.quest-watch` | `running-quest/com.exobrain.quest-watch.plist` | every 30 min; RunAtLoad | `running-quest/quest_watch.py` | The running quest's Mac-side loop: verify, celebrate, nudge. | yes |
 | `com.exobrain.haircut-check` | `salon-ramon/com.exobrain.haircut-check.plist` | Calendar: 10:00 | `salon-ramon/run-haircut-check.sh` | Haircut booking nudge -- Salon Ramón, Brookside, every 6 weeks. | yes |
-| `com.exobrain.session-memory-consolidator` | `scripts/com.exobrain.session-memory-consolidator.plist` | Calendar: 23:00 | `scripts/session-memory-consolidator.sh` | Daily session-memory consolidator. | yes |
+| `com.exobrain.session-memory-consolidator` | `scripts/com.exobrain.session-memory-consolidator.plist` | Calendar: 23:00 | `scripts/session_memory.py consolidate` (python spawned directly; no shell wrapper, see scripts/README.md) | Daily session-memory consolidator. | yes |
 | `com.exobrain.vault-snapshot` | `scripts/com.exobrain.vault-snapshot.plist` | Calendar: 06:00 | `scripts/vault-snapshot.sh` | Build a compact snapshot of the Obsidian vault for session-start injection. | yes |
 | `com.exobrain.substack-sync` | `substack-sync/com.exobrain.substack-sync.plist` | Calendar: 07:23 | `substack-sync/run.sh` | Mirror Substack posts into becomingstronger.github.io/posts.json. | yes |
 | `com.exobrain.things3-sync` | `things3-sync/com.exobrain.things3-sync.plist` | every 15 min; RunAtLoad | `things3-sync/run-things3-sync.sh` | Things 3 ↔ Obsidian sync runner. | yes |
@@ -433,7 +433,7 @@ Exobrain harness/
 |-- scripts/
 |   |-- README.md
 |   |-- vault-snapshot.sh               # Daily 06:00 -- compact Dashboard + Projects digest
-|   |-- session-memory-consolidator.sh  # Daily 23:00 -- backfill missing session memories
+|   |-- session_memory.py               # Session-memory engine; `consolidate` runs daily 23:00
 |   |-- com.exobrain.vault-snapshot.plist
 |   |-- com.exobrain.session-memory-consolidator.plist
 |

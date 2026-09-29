@@ -36,6 +36,14 @@ Subcommands (also via ``bin/session-memory``):
     lint         Report broken links, duplicate ids, malformed frontmatter.
     prune        Delete `_skip` coverage markers older than 30 days. Session
                  notes are kept: every zettel cites the one it came from.
+    consolidate [--parallel N] [--dry-run]
+        Nightly backstop (launchd ``com.exobrain.session-memory-consolidator``,
+        23:00): ``write`` for every transcript modified today in every
+        ``~/.claude/projects/*/`` dir, a few in parallel, then ``prune``.
+        launchd runs this entry point directly, with no shell wrapper: a
+        Homebrew interpreter exec'd by a launchd shell cannot read
+        ``~/Documents`` (TCC, EPERM), which cost the 2026-09-28 run 60 of its
+        65 sessions before Python ran a line.
     condense <transcript.jsonl> [--since ISO]
         Print the condensed transcript the writer would send (debugging).
 
@@ -61,6 +69,9 @@ import subprocess
 import sys
 import tempfile
 import time
+import urllib.error
+import urllib.request
+from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 
 HERE = Path(__file__).resolve().parent
@@ -73,6 +84,7 @@ MAPS = ROOT / "Maps"
 INDEX = ROOT / "Index.md"
 LOG_DIR = Path(os.environ.get("EXOBRAIN_LOG_DIR") or Path.home() / "Library/Logs/exobrain")
 LOG = LOG_DIR / "session-memory-writer.log"
+FAIL_LOG = LOG_DIR / "session-memory-failures.log"
 LOCK_DIR = Path(tempfile.gettempdir()) / "session-memory-locks"
 FRAME = HARNESS / "security/bin/mist-frame"
 SCAN = HARNESS / "security/bin/mist-injection-scan"
@@ -926,6 +938,105 @@ def cmd_prune(_args) -> int:
     return 0
 
 
+def wait_for_network(host: str = "api.anthropic.com", max_wait: int = 300) -> bool:
+    """Block until an HTTPS round trip to host succeeds, or give up after max_wait seconds.
+
+    launchd fires a missed 23:00 job the moment the Mac wakes, before Wi-Fi has
+    reassociated, and ``claude`` then dies instantly with ENOTFOUND. Any HTTP answer
+    (a 401 included) proves DNS, TCP and TLS work; only resolve/connect failures retry.
+    """
+    deadline = time.time() + max_wait
+    delay = 2.0
+    while True:
+        try:
+            urllib.request.urlopen(f"https://{host}", timeout=8)
+            return True
+        except urllib.error.HTTPError:
+            return True
+        except (urllib.error.URLError, OSError):
+            pass
+        remaining = deadline - time.time()
+        if remaining <= 0:
+            return False
+        time.sleep(min(delay, remaining))
+        delay = min(delay * 2, 30)
+
+
+def _todays_transcripts(today: dt.date) -> list[Path]:
+    """Top-level transcripts modified since local midnight, across every project dir.
+
+    Nested subagent transcripts are sidechains that belong to their parent, so only
+    ``~/.claude/projects/<slug>/<session>.jsonl`` counts.
+    """
+    midnight = dt.datetime.combine(today, dt.time()).timestamp()
+    projects = Path.home() / ".claude" / "projects"
+    return sorted(p for p in projects.glob("*/*.jsonl")
+                  if p.is_file() and p.stat().st_mtime >= midnight)
+
+
+def cmd_consolidate(args) -> int:
+    # The guard hook applies to anything the writers spawn; the writers themselves run
+    # claude with no tools. Set here, not in the plist, so a manual run behaves the same.
+    os.environ["MIST_UNATTENDED"] = "1"
+    stamp = lambda: f"[{dt.datetime.now():%a %b %d %H:%M:%S %Z %Y}]"
+    today = dt.date.today()
+    transcripts = _todays_transcripts(today)
+    if args.dry_run:
+        print(f"{stamp()} dry run: {len(transcripts)} transcript(s) modified today, nothing written")
+        for t in transcripts:
+            print(f"  {t}")
+        return 0
+    if not wait_for_network():
+        print(f"{stamp()} No network after 300s. Skipping consolidation.")
+        return 0
+    print(f"{stamp()} Starting session-memory consolidation")
+    cmd_prune(None)
+    if not transcripts:
+        print(f"{stamp()} No transcripts modified today. Done.")
+        return 0
+    print(f"{stamp()} {len(transcripts)} transcript(s) modified today")
+
+    # The run must survive system sleep (a 2026-07-13 run stalled 10 hours across one);
+    # caffeinate holds the assertion until this process exits.
+    keepawake = subprocess.Popen(["/usr/bin/caffeinate", "-is", "-w", str(os.getpid())])
+    me = str(Path(__file__).resolve())
+
+    def run_one(t: Path) -> tuple[Path, int, str]:
+        cmd = [sys.executable, me, "write", str(t), "--trigger", "consolidator", "--quiet"]
+        try:
+            r = subprocess.run(cmd, capture_output=True, text=True, timeout=CLAUDE_TIMEOUT_SEC + 120)
+        except subprocess.TimeoutExpired:
+            return t, 124, "writer timed out"
+        tail = (r.stderr or r.stdout).strip().splitlines()
+        return t, r.returncode, tail[-1] if tail else ""
+
+    failures: list[str] = []
+    try:
+        with ThreadPoolExecutor(max_workers=args.parallel) as ex:
+            for t, rc, tail in ex.map(run_one, transcripts):
+                if rc != 0:
+                    failures.append(f"{t.parent.name}/{t.name}: exit {rc}: {tail}")
+    finally:
+        keepawake.terminate()
+
+    notes_today = len([p for p in SESSIONS.glob(f"{today:%Y-%m-%d}_*.md")
+                       if not p.name.endswith("_skip.md")])
+    if failures:
+        reason = f"{len(failures)} writer failure(s); {notes_today} note(s) still written"
+        LOG_DIR.mkdir(parents=True, exist_ok=True)
+        with FAIL_LOG.open("a", encoding="utf-8") as fh:
+            fh.write(f"[{dt.datetime.now():%Y%m%d_%H%M%S}] FAILED ({reason})\n")
+            fh.writelines(f"  {f}\n" for f in failures[:12])
+        notify(f"Session-memory consolidator: {reason}", "console", "Basso")
+        print(f"{stamp()} Done (FAILED: {reason})")
+        return 1
+    if notes_today:
+        notify(f"Consolidated {notes_today} session note(s) for {today}",
+               "obsidian://open?vault=Exobrain&file=Claude/Index")
+    print(f"{stamp()} Done ({notes_today} note(s) today)")
+    return 0
+
+
 def cmd_condense(args) -> int:
     c = condense(Path(args.transcript).expanduser(), since=parse_iso(args.since))
     print(f"# cwd={c['cwd']} model={c['model']} turns={c['user_turns']} "
@@ -951,6 +1062,10 @@ def main(argv=None) -> int:
     sub.add_parser("index").set_defaults(fn=cmd_index)
     sub.add_parser("lint").set_defaults(fn=cmd_lint)
     sub.add_parser("prune").set_defaults(fn=cmd_prune)
+    k = sub.add_parser("consolidate")
+    k.add_argument("--parallel", type=int, default=3)
+    k.add_argument("--dry-run", action="store_true", help="list today's transcripts, write nothing")
+    k.set_defaults(fn=cmd_consolidate)
     c = sub.add_parser("condense")
     c.add_argument("transcript")
     c.add_argument("--since")

@@ -4,6 +4,7 @@
 #   session-memory digest [--date YYYY-MM-DD]
 #   session-memory backfill [--limit N]     zettels from older Sessions notes
 #   session-memory index | lint | prune | migrate
+#   session-memory consolidate [--parallel N] [--dry-run]   (launchd calls the .py directly)
 #   session-memory condense <transcript.jsonl> [--since ISO]
 # Logic lives in scripts/session_memory.py (read its docstring first).
 exec /usr/bin/env python3 "$(cd "$(dirname "$0")/.." && pwd)/scripts/session_memory.py" "$@"
