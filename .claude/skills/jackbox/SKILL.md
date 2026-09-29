@@ -36,8 +36,8 @@ The wrapper sources `scripts/env.sh` (installs node deps on first run, loads a k
 
 | Role | Model | Effort | Wall time |
 |---|---|---|---|
-| answers, slogans, drawings | `claude-opus-5` | `medium` (`JACKBOX_EFFORT`) | answer 2.6s, 4 slogans 3.2s, 16-stroke design 10s |
-| text votes (pairwise + ranking) | `claude-opus-5` | `low` | 2.6s |
+| answers, slogans, drawings | `claude-opus-5-5` | `medium` (`JACKBOX_EFFORT`) | answer 2.6s, 4 slogans 3.2s, 16-stroke design 10s |
+| text votes (pairwise + ranking) | `claude-opus-5-5` | `low` | 2.6s |
 | vision votes | `claude-sonnet-5` | `low` | unmeasured live |
 
 Haiku 4.5 through the CLI always thinks and took 5-8s per vote, so it lost to Opus at low effort on both speed and quality. Override any model with `JACKBOX_ANSWER_MODEL` / `JACKBOX_JUDGE_MODEL` / `JACKBOX_VISION_MODEL`. Drawing itself is milliseconds; the design call is the cost.

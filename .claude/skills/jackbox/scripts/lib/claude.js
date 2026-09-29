@@ -11,8 +11,8 @@ const path = require('path');
 const humor = require('./humor');
 
 const MODELS = {
-  answer: process.env.JACKBOX_ANSWER_MODEL || 'claude-opus-5',
-  judge: process.env.JACKBOX_JUDGE_MODEL || 'claude-opus-5',
+  answer: process.env.JACKBOX_ANSWER_MODEL || 'claude-opus-5-5',
+  judge: process.env.JACKBOX_JUDGE_MODEL || 'claude-opus-5-5',
   vision: process.env.JACKBOX_VISION_MODEL || 'claude-sonnet-5',
 };
 const EFFORT = process.env.JACKBOX_EFFORT || 'medium';   // low | medium | high; writing only

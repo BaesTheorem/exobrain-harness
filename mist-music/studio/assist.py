@@ -37,7 +37,7 @@ def claude_available() -> bool:
 
 
 def write_lyrics(theme: str, style: str = "", language: str = "en", structure: str = "",
-                 model: str = "claude-sonnet-5", timeout: int = 120) -> str:
+                 model: str = "claude-sonnet-5-5", timeout: int = 120) -> str:
     """Ask Claude for lyrics in the [Verse]/[Chorus] form ACE-Step expects."""
     exe = find_claude()
     if not exe:
@@ -71,7 +71,7 @@ def write_lyrics(theme: str, style: str = "", language: str = "en", structure: s
     return text
 
 
-def suggest_caption(description: str, model: str = "claude-sonnet-5", timeout: int = 90) -> str:
+def suggest_caption(description: str, model: str = "claude-sonnet-5-5", timeout: int = 90) -> str:
     """One-sentence brief -> comma-separated ACE-Step style tags."""
     exe = find_claude()
     if not exe:
