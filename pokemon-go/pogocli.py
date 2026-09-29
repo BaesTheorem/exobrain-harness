@@ -1359,9 +1359,9 @@ def cmd_inbox(a: argparse.Namespace) -> None:
                 done.append(f"skipped {p.name}: {e}")
             imports = read_json(IMPORTS, {})
     # A file that was still landing gets one more look, since launchd will not fire again for it.
-    if settling and not a.dry_run and not getattr(a, "_retry", False):
+    if settling and not a.dry_run and not getattr(a, "retried", False):
         time.sleep(SETTLE_SECONDS + 2)
-        a._retry = True
+        a.retried = True
         return cmd_inbox(a)
     stamp = f"[{dt.datetime.now():%Y-%m-%d %H:%M:%S}]"
     for line in done:
