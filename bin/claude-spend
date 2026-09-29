@@ -1,0 +1,112 @@
+#!/usr/bin/env python3
+"""Estimate what Claude Code usage would cost at API rates.
+
+Scans ~/.claude/projects/**/*.jsonl (Claude Code session transcripts), dedupes
+assistant messages by (message.id, requestId) since one API response is logged
+once per content block, and prices tokens per model per month.
+
+Usage: claude-spend [--json]
+
+Rates are $/MTok: input, output, cache write 5m, cache write 1h, cache read.
+Source: /claude-api skill model table (cached 2026-09-25); cache write = 1.25x
+(5m) / 2x (1h) base input, cache read as listed per model.
+"""
+import glob
+import json
+import os
+import sys
+from collections import defaultdict
+from datetime import datetime
+
+RATES = {
+    "claude-fable-5-1": (10, 50, 12.5, 20, 0.25),
+    "claude-fable-5": (10, 50, 12.5, 20, 0.25),
+    "claude-opus-5-5": (4, 20, 5, 8, 0.20),
+    "claude-opus-5": (5, 25, 6.25, 10, 0.50),
+    "claude-opus-4-8": (5, 25, 6.25, 10, 0.50),
+    "claude-sonnet-5-5": (2, 10, 2.5, 4, 0.20),
+    "claude-sonnet-5": (2, 10, 2.5, 4, 0.20),
+    "claude-haiku-4-5": (1, 5, 1.25, 2, 0.10),
+}
+
+
+def rate_for(model):
+    for k in sorted(RATES, key=len, reverse=True):
+        if model.startswith(k):
+            return RATES[k]
+    return None
+
+
+def main():
+    seen = set()
+    tok = defaultdict(lambda: defaultdict(float))  # (month, model) -> field -> n
+    unknown = defaultdict(int)
+    first = last = None
+    for path in glob.glob(os.path.expanduser("~/.claude/projects/**/*.jsonl"), recursive=True):
+        with open(path, errors="replace") as fh:
+            for line in fh:
+                try:
+                    e = json.loads(line)
+                except ValueError:
+                    continue
+                if e.get("type") != "assistant":
+                    continue
+                m = e.get("message") or {}
+                u = m.get("usage")
+                model = m.get("model", "")
+                if not u or not model or model.startswith("<"):
+                    continue
+                key = (m.get("id"), e.get("requestId"))
+                if key in seen:
+                    continue
+                seen.add(key)
+                ts = e.get("timestamp", "")[:10]
+                if not ts:
+                    continue
+                first = min(first or ts, ts)
+                last = max(last or ts, ts)
+                month = ts[:7]
+                cc = u.get("cache_creation") or {}
+                d = tok[(month, model)]
+                d["in"] += u.get("input_tokens", 0)
+                d["out"] += u.get("output_tokens", 0)
+                d["cr"] += u.get("cache_read_input_tokens", 0)
+                w5 = cc.get("ephemeral_5m_input_tokens")
+                w1 = cc.get("ephemeral_1h_input_tokens")
+                if w5 is None and w1 is None:
+                    d["w5"] += u.get("cache_creation_input_tokens", 0)
+                else:
+                    d["w5"] += w5 or 0
+                    d["w1"] += w1 or 0
+                d["msgs"] += 1
+                if rate_for(model) is None:
+                    unknown[model] += d["msgs"] and 1
+
+    rows = []
+    for (month, model), d in sorted(tok.items()):
+        r = rate_for(model)
+        cost = None
+        if r:
+            cost = (d["in"] * r[0] + d["out"] * r[1] + d["w5"] * r[2] + d["w1"] * r[3] + d["cr"] * r[4]) / 1e6
+        rows.append({"month": month, "model": model, "msgs": int(d["msgs"]), "in": int(d["in"]), "out": int(d["out"]),
+                     "cache_w5m": int(d["w5"]), "cache_w1h": int(d["w1"]), "cache_read": int(d["cr"]), "usd": cost})
+    if "--json" in sys.argv:
+        print(json.dumps({"first": first, "last": last, "rows": rows, "unpriced": unknown}, indent=1))
+        return
+    print(f"transcripts span {first} .. {last}")
+    print(f"{'month':8} {'model':22} {'msgs':>6} {'in':>9} {'out':>10} {'w5m':>11} {'w1h':>11} {'cread':>13} {'usd':>9}")
+    tot = defaultdict(float)
+    for r in rows:
+        usd = f"{r['usd']:9.2f}" if r["usd"] is not None else "      n/a"
+        print(f"{r['month']:8} {r['model']:22} {r['msgs']:6} {r['in']:9} {r['out']:10} {r['cache_w5m']:11} {r['cache_w1h']:11} {r['cache_read']:13} {usd}")
+        if r["usd"] is not None:
+            tot[r["month"]] += r["usd"]
+    print()
+    for mo, v in sorted(tot.items()):
+        print(f"{mo}  ${v:,.2f}")
+    if unknown:
+        print("unpriced models:", dict(unknown))
+
+
+if __name__ == "__main__":
+    main()
