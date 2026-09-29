@@ -17,6 +17,11 @@ logged by hand in cli-tools.json. Add to it with log-tool.py rather than editing
 directly, and search it before writing a new script -- the point of the registry is that
 work already automated once never gets redone by hand.
 
+Every tool, discovered or hand-logged, also carries a natural-language description from
+tool-descriptions.json (keyed by tool name, written by `log-tool.py describe`): what it is,
+what it was created for, and the kinds of task it fits in future. The scan reports how many
+tools still lack one so the backlog stays visible.
+
 Usage:  python3 tools-registry-scan.py
 """
 import os
@@ -44,6 +49,10 @@ ILLEGAL = re.compile(r'[\\/:#^\[\]|*?"<>]')
 # Hand-logged CLI tools and scripts: the ones with no launcher, no launchd job, and no
 # bin/ entry point, plus third-party CLIs worth remembering. Written by log-tool.py.
 MANUAL_LOG = os.path.join(os.path.dirname(os.path.abspath(__file__)), "cli-tools.json")
+
+# Natural-language description per tool, keyed by name. Written by `log-tool.py describe`
+# (and by `add --description`). Covers what it is, why it was built, and what to use it for.
+DESCRIPTIONS = os.path.join(os.path.dirname(os.path.abspath(__file__)), "tool-descriptions.json")
 
 
 def port_live(port):
@@ -227,9 +236,30 @@ def load_manual():
             "repo_dir": repo, "launcher": "", "command": e.get("command", ""),
             "source": e.get("source", "built"), "added": e.get("added", ""),
             "notes": e.get("notes", ""),
-            "description": e.get("description", ""), "use_when": e.get("use_when", ""),
         })
     return items
+
+
+def load_descriptions():
+    """Description sidecar, lower-cased tool name -> description text."""
+    try:
+        data = json.load(open(DESCRIPTIONS))
+    except FileNotFoundError:
+        return {}
+    except Exception as e:
+        print(f"WARN: could not read {DESCRIPTIONS}: {e}")
+        return {}
+    return {k.lower(): v for k, v in data.items()}
+
+
+def apply_descriptions(items, prose):
+    """Attach each tool's description; return the names still undescribed."""
+    missing = []
+    for item in items:
+        item["description"] = prose.get(item["name"].lower(), "")
+        if not item["description"]:
+            missing.append(item["name"])
+    return missing
 
 
 def merge(*groups):
@@ -354,10 +384,12 @@ def write_note(item):
         f"source: {yaml_str(item.get('source') or 'built')}",
         f"added: {yaml_str(item.get('added'))}",
         f"description: {yaml_str(item.get('description'))}",
-        f"use_when: {yaml_str(item.get('use_when'))}",
         "---",
     ]
     body = []
+    if item.get("description"):
+        body.append(item["description"])
+        body.append("")
     if item.get("notes"):
         body.append(item["notes"])
         body.append("")
@@ -498,6 +530,7 @@ def main():
     loaded = loaded_labels()
     # Manual entries come first so a hand-written note wins over the bare bin/ discovery.
     items = merge(load_manual(), scan_apps(), scan_jobs(loaded), scan_cli())
+    undescribed = apply_descriptions(items, load_descriptions())
     for it in items:
         write_note(it)
     apps = sum(1 for i in items if i["category"] == "app")
@@ -506,6 +539,9 @@ def main():
     live = sum(1 for i in items if i.get("live"))
     print(f"Synced {len(items)} tools ({apps} apps, {jobs} jobs, {clis} cli) -> {VAULT_FOLDER}")
     print(f"Live right now: {live}")
+    if undescribed:
+        print(f"Missing descriptions: {len(undescribed)} "
+              f"(run `log-tool.py missing`, then `log-tool.py describe`)")
 
     # Downloaded substrate (runtimes, brew, npm, pip, uv)
     wipe(VAULT_DEPS)

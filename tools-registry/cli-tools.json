@@ -29,9 +29,7 @@
     "repo_dir": "shopping",
     "source": "built",
     "added": "2026-09-22",
-    "notes": "Read-only Amazon product/price lookup over headless Playwright. Anonymous, no creds. Amazon /s? search is bm-verify (Akamai) gated against curl but a real browser clears it; /dp/ works either way. Selectors scoped to avoid sponsored-carousel contamination.",
-    "description": "",
-    "use_when": ""
+    "notes": "Read-only Amazon product/price lookup over headless Playwright. Anonymous, no creds. Amazon /s? search is bm-verify (Akamai) gated against curl but a real browser clears it; /dp/ works either way. Selectors scoped to avoid sponsored-carousel contamination."
   },
   {
     "name": "analyze-leaf",
@@ -79,9 +77,7 @@
     "repo_dir": "/Users/alexhedtke/Documents/claude-animation",
     "source": "built",
     "added": "2026-09-24",
-    "notes": "p5.brush watercolour animation kit (fork of JohnHeibel/ClaudeAnimationBase). song-sync writes bpm/offset/lyric cues. Use via /animate.",
-    "description": "",
-    "use_when": ""
+    "notes": "p5.brush watercolour animation kit (fork of JohnHeibel/ClaudeAnimationBase). song-sync writes bpm/offset/lyric cues. Use via /animate."
   },
   {
     "name": "claude-stable-path",
@@ -121,9 +117,7 @@
     "repo_dir": "/Users/alexhedtke/Documents/Exobrain harness/job-search",
     "source": "built",
     "added": "2026-09-28",
-    "notes": "Dice job board discovery lane for /job-search: parses server-rendered job cards via curl_cffi Chrome impersonation, gates remote/full-time/contract/comp (band rule), KC-metro onsite seats at the onsite floor. Dice ignores its own remote filter.",
-    "description": "",
-    "use_when": ""
+    "notes": "Dice job board discovery lane for /job-search: parses server-rendered job cards via curl_cffi Chrome impersonation, gates remote/full-time/contract/comp (band rule), KC-metro onsite seats at the onsite floor. Dice ignores its own remote filter."
   },
   {
     "name": "discord-digest-fetch.py",
@@ -267,9 +261,7 @@
     "repo_dir": "~/tools/ghidra_12.1.3_PUBLIC",
     "source": "vendored",
     "added": "2026-09-20",
-    "notes": "Standalone zip in ~/tools (cask needs sudo, blocked in non-interactive shells; the release zip does not). analyzeHeadless for batch/scripted runs, ghidraRun for the GUI. Set JAVA_HOME to the openjdk@21 path or it errors 'Unable to locate a Java Runtime'. Downloaded from github.com/NationalSecurityAgency/ghidra releases 2026-09-20.",
-    "description": "NSA Ghidra 12.1.3: SRE suite. Disassembler + decompiler for x86/x64/ARM/etc PE/ELF/Mach-O; headless mode scriptable in Jython.",
-    "use_when": "Reverse engineering a binary: decompile a function to C, trace a crypter/packer's decrypt routine, recover algorithms/keys, analyze malware or firmware statically. Needs JDK 21 (openjdk@21 installed). Pair with bin/pe-triage (fast triage) and speakeasy (dynamic)."
+    "notes": "Standalone zip in ~/tools (cask needs sudo, blocked in non-interactive shells; the release zip does not). analyzeHeadless for batch/scripted runs, ghidraRun for the GUI. Set JAVA_HOME to the openjdk@21 path or it errors 'Unable to locate a Java Runtime'. Downloaded from github.com/NationalSecurityAgency/ghidra releases 2026-09-20."
   },
   {
     "name": "gridpoint-build-install",
@@ -350,9 +342,7 @@
     "repo_dir": "/Users/alexhedtke/Documents/mist-anims",
     "source": "built",
     "added": "2026-09-24",
-    "notes": "MIST's bipyramid crystal: 11 animations x 7 looks, transparent WebP (256) + WebM (512) + GIF. Private repo BaesTheorem/mist-anims.",
-    "description": "",
-    "use_when": ""
+    "notes": "MIST's bipyramid crystal: 11 animations x 7 looks, transparent WebP (256) + WebM (512) + GIF. Private repo BaesTheorem/mist-anims."
   },
   {
     "name": "MIST Studio",
@@ -361,8 +351,6 @@
     "source": "built",
     "added": "2026-09-23",
     "notes": "Port 5032, launchd com.exobrain.mist-studio (plist source in studio/, copy in ~/Library/LaunchAgents). Backends in Settings: HF Space ACE-Step/Ace-Step-v1.5 (every GPU call reserves ~180s of the daily free ZeroGPU pool), self-hosted acestep-api on a rented GPU (no quota), mock. Stems = local demucs (segment 7). Lyrics = claude -p with settings off. Art = mist-image. Tests: pytest tests/test_mist_studio.py.",
-    "description": "Suno-style song studio on ACE-Step 1.5: describe or write songs, cover uploaded tracks, repaint sections, split stems, library with cover art",
-    "use_when": "Alex wants to make songs interactively, cover a track he uploads, get stems, or browse generated music; chat one-offs still use mist-music gen",
     "category": "app"
   },
   {
@@ -484,9 +472,7 @@
     "repo_dir": "/Users/alexhedtke/Documents/Exobrain harness/ttrpg-memorial",
     "source": "built",
     "added": "2026-09-22",
-    "notes": "MD3 flat/sharp memorial card for a retired TTRPG character; palette seeded from the portrait via vendored material-color-utilities",
-    "description": "",
-    "use_when": ""
+    "notes": "MD3 flat/sharp memorial card for a retired TTRPG character; palette seeded from the portrait via vendored material-color-utilities"
   },
   {
     "name": "tv",

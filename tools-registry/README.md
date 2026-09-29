@@ -9,8 +9,9 @@ and CLI tools -- so the inventory never has to be remembered by hand.
 - **Scheduled jobs** -- `~/Library/LaunchAgents/{com.exobrain,com.mist,com.nightwatch,com.alexhedtke}*.plist`
 - **CLI entry points** -- executables in any `bin/` dir under a `~/Documents` project (depth ≤ 3)
 
-For each tool it resolves repo dir, git remote, port, schedule, and live status, then writes
-one note per tool into the Obsidian vault's `Tools/` folder. `Tools.base` (vault root) renders
+For each tool it resolves repo dir, git remote, port, schedule, live status, and its
+description (see below), then writes one note per tool into the Obsidian vault's `Tools/`
+folder. `Tools.base` (vault root) renders
 them with views: Apps, Scheduled Jobs, CLI Tools & Scripts, Running Now, By Repo, All. The
 folder is wiped and rewritten each run (notes are a disposable projection -- never hand-edit
 them).
@@ -33,6 +34,26 @@ python3 tools-registry/log-tool.py remove --name pdf-split.py
 the JSON by name, and re-runs the scan so the vault reflects the change immediately. Manual
 entries win over auto-discovery on a name collision, which is how you attach real notes to a
 `bin/` executable.
+
+## Descriptions
+
+Every tool, discovered or hand-logged, carries a natural-language `description` in
+`tool-descriptions.json` (a name-sorted `{name: text}` object). It is the field a future
+session searches when it needs a capability and does not remember the tool's name, so it
+covers three things in a few plain sentences: what the tool is (what it reads, produces, or
+talks to), what it was created for (the problem that caused it to be built), and the kinds
+of task it fits in future (two to four concrete triggers). Invocation gotchas go in `notes`.
+
+```
+python3 tools-registry/log-tool.py describe --name com.exobrain.backup --description "..."
+python3 tools-registry/log-tool.py missing     # every registered tool with no description
+```
+
+`add --description` writes to the same file. `search` matches descriptions across the whole
+registry, not only the hand-logged entries, so `search "notif"` finds `mist-notify` even
+though it lives in a `bin/` dir. The scan prints how many tools still lack a description.
+The file ships with the public repo, so descriptions name no third parties and carry no
+private data.
 
 The registry only pays off if it is consulted, so the rule in `CLAUDE.md` ("Automate It, Then
 Log It") is the other half of this directory: search before writing a new script, log after
