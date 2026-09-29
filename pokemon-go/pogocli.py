@@ -1002,7 +1002,7 @@ def pogolens_box_to_csv(mons: list[dict[str, Any]]) -> str:
         pct = f"{sum(ivs) / 45 * 100:.1f}" if all(v is not None for v in ivs) else ""
         nick = m["nameOnScreen"] if species and norm(m["nameOnScreen"]) != norm(species) else ""
         charged = m.get("chargedMoves") or []
-        row = [str(n), species or m["nameOnScreen"], form if species else "", sid if species else "",
+        row: list[str] = [str(n), species or m["nameOnScreen"], form if species else "", sid if species else "",
                {"m": "\u2642", "f": "\u2640"}.get(m.get("gender") or "", ""), str(m["cp"]), str(m.get("hpMax") or ""),
                *["" if v is None else str(v) for v in ivs], pct,
                str(levels[0]) if levels else "", str(levels[-1]) if levels else "",
@@ -1026,12 +1026,16 @@ def cmd_box_pull(a: argparse.Namespace) -> None:
                         "--domain-identifier", POGOLENS_BUNDLE, "--source", "Documents/pogolens-box.json", "--destination", str(raw)],
                        capture_output=True, text=True, check=False)
     if r.returncode != 0 or not raw.exists():
-        raise SystemExit("pogo: could not copy the box off the phone: " + (r.stderr or r.stdout).strip().splitlines()[-1:][0] if (r.stderr or r.stdout).strip() else "pogo: devicectl copy failed")
+        detail = (r.stderr or r.stdout).strip().splitlines()
+        raise SystemExit("pogo: could not copy the box off the phone: " + (detail[-1] if detail else "devicectl copy failed"))
     mons = json.loads(raw.read_text(encoding="utf-8"))
+    # A confirmed read whose CP and HP fit no IV combination is a counter caught mid-animation.
+    kept = [m for m in mons if not (m.get("speciesKey") and m.get("dust") is not None and not m.get("candidates"))]
     csv_path = pulls / f"pogolens-pull-{stamp}.csv"
-    csv_path.write_text(pogolens_box_to_csv(mons), encoding="utf-8")
+    csv_path.write_text(pogolens_box_to_csv(kept), encoding="utf-8")
     snap = import_box(csv_path)
-    print(f"pulled {len(mons)} records from the phone; imported {snap['count']} Pokemon, {len(snap['issues'])} row(s) dropped as misreads")
+    print(f"pulled {len(mons)} records from the phone; {len(mons) - len(kept)} dropped as animating CP/HP, "
+          f"{len(snap['issues'])} as misread names; imported {snap['count']} Pokemon")
 
 
 def cmd_box(a: argparse.Namespace) -> None:
