@@ -49,6 +49,36 @@ Event times are LeekDuck's local-time strings and are printed as this machine's
 local time. IV results assume a normal (not weather-boosted, not lucky-trade)
 encounter; hatches and raid catches are level 20, so pass `--level 20` for those.
 
+## Your account: two exports, one inbox
+
+Niantic publishes no player API, so your own data arrives as files. Two exist, and they
+hold different things:
+
+| Export | How to get it | What it holds | Lane |
+|---|---|---|---|
+| **Box scan CSV** from Poke Genie (iOS/Android) or Calcy IV (Android) | Scan your storage in the app (screenshots or screen recording; no login, reads pixels only), then Export CSV and Save to Files into **iCloud Drive / Pokemon GO** | Every Pokémon: species, form, CP, HP, IVs, level, moves, lucky/shadow/favorite, Great/Ultra/Little League rank | `pogo box` |
+| **Official data request** | In Pokémon GO: Main Menu > Settings > Help, submit a data access request (the Scopely privacy policy: "through the game's in-app help menu", answered "within 30 days"; `privacy@nianticlabs.com` is the slower fallback). Save the zip into the same iCloud folder | Trainer stats (level, XP, stardust, coins, distance, buddy), Pokémon **by species name only**, eggs, items, friends, in-app purchases, location history, and event logs (encounters, spins, raids, gym battles, sessions) | `pogo account` |
+
+`pogo inbox` watches `iCloud Drive/Pokemon GO` and `~/Downloads`, hydrates evicted iCloud
+files with `brctl download`, recognises either file by its header or contents, imports it once
+(sha256 in `data/imports.json`), and posts a banner. `com.exobrain.pogo-inbox-watch.plist`
+runs it on every change to those folders and hourly; it spawns python directly for the same
+TCC reason as the session-memory consolidator. After the first box import, a banner nudges
+once a month when the scan is older than 30 days.
+
+```
+pogo box import scan.csv                 pogo account import PokemonGO_Data.zip
+pogo box stats                           pogo account show
+pogo box list azumarill --league great   pogo account activity --months 12
+pogo box list --min-iv 96 --sort cp      pogo account spend
+pogo box dupes                           pogo inbox --dry-run
+pogo box diff
+```
+
+Everything lands in `pokemon-go/data/` (gitignored; its README explains the layout) and is
+covered by the nightly backup. Location coordinates stay inside the unzipped export and are
+never summarised out or printed.
+
 ## Data sources
 
 | Source | Used for | Refresh | Terms |

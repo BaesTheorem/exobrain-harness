@@ -283,3 +283,7 @@ mist-music/studio/uploads/
 mist-music/studio/config.json
 mist-music/studio/downloads/
 running-quest/.state.json
+
+# Pokemon GO account exports and box scans (personal data; README explains the layout)
+pokemon-go/data/*
+!pokemon-go/data/README.md

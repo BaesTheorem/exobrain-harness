@@ -123,3 +123,124 @@ def test_research_rows_keep_shiny_and_cp_range():
         {"name": "Foongus", "shiny": True, "cp": "386-419"},
         {"name": "Skwovet", "shiny": False, "cp": "?-?"},
     ]}]
+
+
+# ---- your account: box CSVs, the data-request export, the inbox classifier ----
+
+GENIE = """Index,Name,Form,Pokemon,Gender,CP,HP,Atk IV,Def IV,Sta IV,IV Avg,Level Min,Level Max,Quick Move,Charge Move,Charge Move 2,Lucky,Shadow/Purified,Favorite,Rank # (G),Name (G)
+1,Ninetales,Alola,38,♀,1500,127,0,15,15,66.7,20.0,20.0,Powder Snow,Weather Ball,Psyshock,0,1,0,12,Ninetales
+2,Seismitoad,Normal,537,♂,1498,162,1,15,14,66.7,22.5,22.5,Mud Shot,Earth Power,Sludge Bomb,0,0,1,80,Seismitoad
+3,Seismitoad,Normal,537,♂,1400,150,8,10,10,62.2,20.0,20.0,Mud Shot,Earth Power,,0,0,0,900,Seismitoad
+4,Machamp,Normal,68,♂,2500,163,15,15,15,100,40.0,40.0,Counter,Dynamic Punch,Rock Slide,1,2,0,,
+5,,,,,,,,,,,,,,,,,,,,
+"""
+
+CALCY = """Ancestor?,Scan date,Nr,Name,Nickname,Gender,Level,possibleLevels,CP,HP,ØATT IV,ØDEF IV,ØHP IV,ØIV%,Unique?,Fast move,Special move,Star,Form,Lucky,Shadow,GL Rank
+0,1/1/2020 00:00:00,194,Wooper,box1,♂,20,20,500,85,0,15,15,66.7,1,Water Gun,Frustration,0,0,1,1,40
+0,1/2/2020 00:00:00,38,Ninetales,box2,♀,20,20,1500,127,12,12,12,80.0,0,Charm,Psyshock,1,61,0,0,90
+1,1/2/2020 00:00:00,38,Ninetales,-,-,18,18,1400,120,12,12,12,80.0,0,Charm,Psyshock,0,61,0,0,
+0,1/4/2020 00:00:00,,,junk,,20,20,abc,0,-1,-1,-1,0,0,-,-,0,0,1,0,
+"""
+
+GAMEPLAY = """Start date: 2016-07-09
+Level: 41
+Total XP: 12345678
+Pokecoin: 120
+Stardust: 987654
+Distance walked: 3456.7 km
+Buddy nickname: Loki
+Pokemon Home Trainer Name: SomeTrainer
+
+Pokemon in your collection:
+V0006_POKEMON_CHARIZARD (some detail)
+BULBASAUR
+V0150_POKEMON_MEWTWO
+
+You have hatched 812 eggs and currently have 7 eggs.
+You have 1450 items.
+"""
+
+
+def test_pokegenie_csv_is_detected_and_parsed():
+    dialect, mons, issues = pogo.parse_box_csv(GENIE)
+    assert dialect == "pokegenie"
+    assert [m["name"] for m in mons] == ["Ninetales", "Seismitoad", "Seismitoad", "Machamp"]
+    fox = mons[0]
+    assert (fox["form"], fox["gender"], fox["atk"], fox["def"], fox["sta"]) == ("Alola", "f", 0, 15, 15)
+    assert fox["shadow"] is True and fox["purified"] is False and fox["iv_pct"] == 66.7
+    assert fox["level"] == 20.0 and fox["rank"] == {"great": 12}
+    assert mons[1]["favorite"] is True and mons[1]["charged"] == ["Earth Power", "Sludge Bomb"]
+    champ = mons[3]
+    assert champ["iv_pct"] == 100 and champ["lucky"] is True and champ["purified"] is True and champ["rank"] == {}
+    assert issues and "row 6" in issues[0]  # the empty trailing row is reported, not crashed on
+
+
+def test_calcy_csv_skips_ancestor_rows_and_junk():
+    dialect, mons, issues = pogo.parse_box_csv(CALCY)
+    assert dialect == "calcyiv"
+    assert [m["name"] for m in mons] == ["Wooper", "Ninetales"]  # ancestor row and junk row dropped
+    wooper, fox = mons
+    assert wooper["shadow"] is True and wooper["lucky"] is True and wooper["nickname"] == "box1"
+    assert wooper["charged"] == ["Frustration"] and wooper["rank"] == {"great": 40}
+    assert fox["iv_exact"] is False and fox["favorite"] is True and fox["form"] == "61"
+    assert any("row 5" in i for i in issues)
+
+
+def test_unknown_csv_is_rejected():
+    dialect, mons, issues = pogo.parse_box_csv("name,age\nJohn,30\n")
+    assert dialect == "" and mons == [] and "not a Poke Genie" in issues[0]
+
+
+def test_gameplay_txt_parses_stats_and_species_list():
+    g = pogo.parse_gameplay(GAMEPLAY)
+    assert g["level"] == 41 and g["total_xp"] == 12345678 and g["distance_km"] == 3456.7
+    assert g["start_date"] == "2016-07-09" and g["buddy"] == "Loki"
+    assert g["pokemon"] == ["Charizard", "Bulbasaur", "Mewtwo"]
+    assert (g["eggs_hatched"], g["eggs_held"], g["items"]) == (812, 7, 1450)
+
+
+def test_parse_when_handles_the_export_timestamp_shapes():
+    assert pogo.parse_when("2026-09-28T13:00:00Z").year == 2026
+    assert pogo.parse_when("2026-09-28 13:00:00 UTC").hour == 13
+    assert pogo.parse_when("1/2/2020 00:00:00").month == 1
+    assert pogo.parse_when("1690000000").tzinfo is not None
+    assert pogo.parse_when("1690000000000").year == 2023
+    assert pogo.parse_when("-") is None and pogo.parse_when("") is None
+    assert pogo.month_key(pogo.parse_when("2026-09-28")) == "2026-09"
+
+
+def test_dupe_groups_put_the_best_copy_first():
+    _, mons, _ = pogo.parse_box_csv(GENIE)
+    groups = pogo.dupe_groups(mons)
+    assert len(groups) == 1 and [m["cp"] for m in groups[0]] == [1498, 1400]  # 66.7% before 62.2%
+
+
+def test_inbox_classifier_and_import_round_trip(tmp_path, monkeypatch):
+    monkeypatch.setattr(pogo, "DATA_DIR", tmp_path / "data")
+    monkeypatch.setattr(pogo, "BOX_DIR", tmp_path / "data" / "box")
+    monkeypatch.setattr(pogo, "ACCOUNT_DIR", tmp_path / "data" / "account")
+    monkeypatch.setattr(pogo, "IMPORTS", tmp_path / "data" / "imports.json")
+    csv_path = tmp_path / "scan.csv"
+    csv_path.write_text(GENIE, encoding="utf-8")
+    other = tmp_path / "other.csv"
+    other.write_text("name,age\nJohn,30\n", encoding="utf-8")
+    import zipfile
+    zpath = tmp_path / "export.zip"
+    with zipfile.ZipFile(zpath, "w") as z:
+        z.writestr("Gameplay.txt", GAMEPLAY)
+        z.writestr("InAppPurchases.tsv", "Time\tCurrency\tMoney spent on purchase\tChange in pokecoins\n2022-06-29T07:21:13Z\tUSD\t9.99\t1200\n2022-07-01T00:00:00Z\tUSD\t0\t-550\n")
+        z.writestr("FriendList.tsv", "Friend\tFriendship initiated by\nA\tYou\nB\tThem\n")
+        z.writestr("Pokestop_spin1.csv", "Time,Detail\n2026-08-01T10:00:00Z,x\n2026-09-02T10:00:00Z,y\n")
+    assert pogo.classify_export(csv_path) == "box"
+    assert pogo.classify_export(other) == ""
+    assert pogo.classify_export(zpath) == "account"
+    snap = pogo.import_box(csv_path)
+    assert snap["count"] == 4 and (tmp_path / "data" / "box" / "latest.json").exists()
+    summary = pogo.import_account(zpath)
+    assert summary["gameplay"]["level"] == 41
+    assert summary["purchases"]["money_by_currency"] == {"USD": 9.99}
+    assert summary["purchases"]["pokecoins_bought"] == 1200 and summary["purchases"]["pokecoins_spent"] == 550
+    assert summary["friends"] == {"count": 2, "you_initiated": 1}
+    assert summary["journey"]["spins"]["rows"] == 2 and summary["journey"]["spins"]["months"] == {"2026-08": 1, "2026-09": 1}
+    imports = pogo.read_json(tmp_path / "data" / "imports.json", {})
+    assert {v["kind"] for v in imports.values()} == {"box", "account"}
