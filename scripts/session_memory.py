@@ -844,7 +844,7 @@ def rebuild_index() -> None:
              f"zettels: {len(store.notes)}", "---", header.rstrip(),
              "# MIST memory",
              "",
-             "Sessions/ are source notes (14 days), Zettel/ the permanent ideas, Maps/ one "
+             "Sessions/ are source notes (kept), Zettel/ the permanent ideas, Maps/ one "
              "list per tag. The writer runs before every "
              "context compaction and nightly; see the /session-memory skill.",
              "",
