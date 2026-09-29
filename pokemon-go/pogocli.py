@@ -999,7 +999,8 @@ def pogolens_box_to_csv(mons: list[dict[str, Any]]) -> str:
         species = names.get(int(sid)) if sid.isdigit() else None
         levels = sorted({c["level"] for c in m.get("candidates", [])})
         ivs = [m.get("atk"), m.get("def"), m.get("sta")]
-        pct = f"{sum(ivs) / 45 * 100:.1f}" if all(v is not None for v in ivs) else ""
+        known = [int(v) for v in ivs if v is not None]
+        pct = f"{sum(known) / 45 * 100:.1f}" if len(known) == 3 else ""
         nick = m["nameOnScreen"] if species and norm(m["nameOnScreen"]) != norm(species) else ""
         charged = m.get("chargedMoves") or []
         row: list[str] = [str(n), species or m["nameOnScreen"], form if species else "", sid if species else "",
