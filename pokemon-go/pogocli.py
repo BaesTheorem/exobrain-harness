@@ -1323,6 +1323,7 @@ def cmd_inbox(a: argparse.Namespace) -> None:
         ICLOUD_INBOX.mkdir(parents=True, exist_ok=True)  # shows up in Files on the phone as iCloud Drive/Pokemon GO
     imports = read_json(IMPORTS, {})
     done: list[str] = []
+    settling: list[Path] = []
     for d in dirs:
         if not d.is_dir():
             continue
@@ -1336,6 +1337,7 @@ def cmd_inbox(a: argparse.Namespace) -> None:
             if not p.is_file() or p.suffix.lower() not in (".csv", ".zip"):
                 continue
             if time.time() - p.stat().st_mtime < SETTLE_SECONDS:
+                settling.append(p)
                 continue
             digest = sha256_file(p)
             if digest in imports:
@@ -1356,6 +1358,11 @@ def cmd_inbox(a: argparse.Namespace) -> None:
             except SystemExit as e:
                 done.append(f"skipped {p.name}: {e}")
             imports = read_json(IMPORTS, {})
+    # A file that was still landing gets one more look, since launchd will not fire again for it.
+    if settling and not a.dry_run and not getattr(a, "_retry", False):
+        time.sleep(SETTLE_SECONDS + 2)
+        a._retry = True
+        return cmd_inbox(a)
     stamp = f"[{dt.datetime.now():%Y-%m-%d %H:%M:%S}]"
     for line in done:
         print(f"{stamp} {line}")
