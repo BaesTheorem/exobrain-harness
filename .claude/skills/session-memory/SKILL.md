@@ -1,6 +1,6 @@
 ---
 name: session-memory
-description: Cross-session continuity and context-aware data prioritization. MIST's session memory is a Zettelkasten in the vault (Claude/): per-session notes, daily digests, permanent one-idea zettels and generated maps. Written automatically before every context compaction and nightly; loaded at session start. Also use when the user says "save session", "what did we do last time", "what do you remember about", "context", or asks to look something up in MIST's memory.
+description: Cross-session continuity and context-aware data prioritization. MIST's session memory is a Zettelkasten in the vault (Claude/): per-session notes, permanent one-idea zettels and generated maps. Written automatically before every context compaction and nightly; loaded at session start. Also use when the user says "save session", "what did we do last time", "what do you remember about", "context", or asks to look something up in MIST's memory.
 ---
 
 # Session Memory
@@ -13,7 +13,6 @@ Three moments: **save** (before compaction, nightly, or on request), **load** (s
 |---|---|---|---|
 | Entry point | `Index.md` | Open threads, every map with its count, recent zettels. Generated. | rebuilt on every write |
 | Session notes | `Sessions/YYYY-MM-DD_HHMM.md` (`_delta`, `_skip`) | One note per Claude Code session: what happened, decided, pulled, left open | 14 days |
-| Digests | `Digests/YYYY-MM-DD_DIGEST.md` | The shape of one day across sessions, ~150 words | 30 days |
 | Zettels | `Zettel/<id> <title>.md` | One durable idea each, in MIST's words, standing alone | forever |
 | Maps | `Maps/<tag>.md` | One list per tag, newest first. Generated. | rebuilt on every write |
 
@@ -25,7 +24,7 @@ Maps and the Index are projections: never hand-edit them, fix the zettel frontma
 
 ## Save
 
-**Automatic.** The `PreCompact` hook (`.claude/hooks/pre-compact.sh`, registered in `~/.claude/settings.json`) runs `bin/session-memory write <transcript>` in the background before the CLI summarizes the history, so the note comes from the full transcript. The 23:00 consolidator (`scripts/session-memory-consolidator.sh`) runs the same writer over every transcript touched that day, in every project dir, then writes the digest and prunes. The writer:
+**Automatic.** The `PreCompact` hook (`.claude/hooks/pre-compact.sh`, registered in `~/.claude/settings.json`) runs `bin/session-memory write <transcript>` in the background before the CLI summarizes the history, so the note comes from the full transcript. The 23:00 consolidator (`scripts/session-memory-consolidator.sh`) runs the same writer over every transcript touched that day, in every project dir, then prunes. The writer:
 
 1. condenses the transcript (user and assistant text, tool names, truncated results; no thinking, no sidechains, no `<system-reminder>` blocks) and frames it as UNTRUSTED;
 2. skips sessions already covered (`session_id` + `covered_through`), writes a `_delta` when only the tail is new, and skips trivial sessions (one question, under ~1500 chars of reply); a 10-minute cooldown per session absorbs compaction storms;
@@ -44,7 +43,7 @@ where `$TRANSCRIPT` is this session's jsonl (`~/.claude/projects/<slug>/<session
 
 ## Load
 
-The startup hook prints the last 3 digests, the last 3 session notes, and the Index body (open threads, maps with counts). Synthesize them into a **Session Context Profile**:
+The startup hook prints the last 3 session notes and the Index body (open threads, maps with counts). Synthesize them into a **Session Context Profile**:
 
 1. **Continuity**: what was Alex working on, which open threads are live (the Index lists every active `open-thread` zettel).
 2. **Data freshness**: what was already pulled today; read raw health data from the daily note's `<!-- health-raw-data -->` comments before hitting Fitbit/Withings again. Same for weather (<3h), calendar (read today), Gmail (`after:` timestamp).
@@ -69,8 +68,10 @@ Quote a zettel by its wikilink when it informs an answer, and update it (through
 
 ## Integration Points
 
-- **Startup hook** (`session-start.sh`): loads digests, session notes, Index.
+- **Startup hook** (`session-start.sh`): loads session notes and the Index.
 - **PreCompact hook** + **consolidator**: the two automatic save paths.
 - **Daily briefing / evening winddown / weekly review**: read today's or the week's Sessions notes and the open-thread zettels instead of re-scanning everything.
 - **Process transcript**: the writer captures the routing decisions when that session compacts or at 23:00.
-- **Heartbeat check**: `scripts/run-heartbeat-check.sh` flags a missing digest for yesterday.
+- **Heartbeat check** and the startup hook warn when the newest Sessions note is older than 26 hours.
+
+Daily digests existed until 2026-09-28. Alex had them removed: the Index's open threads and the recent session notes cover cross-day continuity, and it saved one model run a night.
