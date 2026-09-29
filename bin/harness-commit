@@ -14,7 +14,8 @@
 #      files, added lines only for modified ones. Rule files (CLAUDE.md,
 #      .claude/, security/, tests/, shell runners, READMEs) are scanned with
 #      `--exclude instructions`, as the nightly sweep does, since they quote
-#      the phrases legitimately.
+#      the phrases legitimately. The scanner source and its test file are
+#      skipped outright: they are made of the signatures.
 # auto-commit-harness.sh (launchd, 23:30) stays as the nightly sweep for
 # whatever interactive sessions left uncommitted.
 #
@@ -119,10 +120,25 @@ is_rule_file() {
 	return 1
 }
 
+# The scanner's own signatures and the tests that fire them quote every attack
+# shape by construction (the remote-script pipe, the override phrase), so a
+# scan there only ever reports the fixtures. Unattended writes to these files
+# are already refused by the guard hook (source code in the harness).
+is_fixture_file() {
+	case "$1" in
+		security/scan_injection.py|tests/test_injection_controls.py) return 0 ;;
+	esac
+	return 1
+}
+
 HITS=""
 SCAN_FAIL=""
 while IFS=$'\t' read -r status path; do
 	[ -n "$path" ] || continue
+	if is_fixture_file "$path"; then
+		log "scan skipped for $path (signature fixtures)"
+		continue
+	fi
 	EXCL=()
 	is_rule_file "$path" && EXCL=(--exclude instructions)
 	err="$(mktemp -t harness-commit-scan)"

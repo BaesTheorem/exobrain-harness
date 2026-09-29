@@ -135,7 +135,11 @@ BASH_DENY: list[tuple[str, str]] = [
     (re.escape(CANARY), "guard canary"),
     # `curl | python3 -c '<parse>'` is an API read with the script inline in the
     # command; only a bare interpreter (or `python3 -`) executes the download.
-    (r"\b(curl|wget)\b[^|\n]{0,200}\|\s*(sudo\s+)?(sh|bash|zsh|python3?|perl|ruby|node)\b(?!\s+-[cme]\b)", "pipe from the network into an interpreter"),
+    # A quoted heredoc (`python3 <<'EOF'`) replaces stdin with literal text, so
+    # the interpreter never sees the download (denied 2026-09-29). An unquoted
+    # heredoc stays denied: `$(cat)` inside it expands against the pipe.
+    (r"\b(curl|wget)\b[^|\n]{0,200}\|\s*(sudo\s+)?(sh|bash|zsh|python3?|perl|ruby|node)\b(?!\s+-[cme]\b)"
+     r"(?![^|;&\n]*(?<!<)<<(?!<)-?\s*['\"])", "pipe from the network into an interpreter"),
     (r"\bbase64\s+(-d|--decode)\b[^|\n]{0,80}\|\s*(sh|bash|zsh|python3?)\b", "decode into an interpreter"),
     (r"\beval\s+[\"']?\$\(", "eval of a command substitution"),
     # Code fetched by a substitution and handed to an interpreter as its
@@ -563,7 +567,17 @@ def _line_reason(line: str, cwd: str) -> tuple[str | None, str]:
             if tok in REDIRECTS:
                 nxt = toks[i + 1] if i + 1 < len(toks) else ""
                 if not (tok == ">&" and (nxt.isdigit() or nxt == "-")):  # `2>&1` duplicates a descriptor
-                    targets.extend((t, cwd) for t in _operands(toks, i + 1))
+                    # The run after the redirect, minus a trailing descriptor
+                    # that belongs to the next redirect: `> /tmp/out.json 2>&1`
+                    # was read as a second write to a file named `2`, denied
+                    # under a ~/.claude cwd (2026-09-29).
+                    j = i + 1
+                    while j < len(toks) and not _is_op(toks[j]):
+                        j += 1
+                    run = toks[i + 1:j]
+                    if len(run) > 1 and run[-1].isdigit() and j < len(toks) and toks[j] in REDIRECTS:
+                        run = run[:-1]
+                    targets.extend((t, cwd) for t in _operands(run, 0))
                 i += 2
                 continue
             for ch in tok:
