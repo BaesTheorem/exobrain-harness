@@ -287,3 +287,6 @@ running-quest/.state.json
 # Pokemon GO account exports and box scans (personal data; README explains the layout)
 pokemon-go/data/*
 !pokemon-go/data/README.md
+
+# ASD-STE100 spec: free of charge but ASD does not permit redistribution; fetch-spec.sh rebuilds it
+writing-style/ste100/spec/

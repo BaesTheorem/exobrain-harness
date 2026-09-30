@@ -1,0 +1,108 @@
+#!/usr/bin/env python3
+"""Check text against the ASD-STE100 Issue 9 dictionary and sentence-length rules.
+
+Usage:
+    ste-check [--procedural] < text.txt
+    ste-check --lookup WORD
+
+Reads the extracted spec at writing-style/ste100/spec/ste100.txt (override with
+the STE100_TXT environment variable). Run writing-style/ste100/fetch-spec.sh to
+create that file.
+
+For each sentence, the script prints the word count and flags:
+    WORD(?)          not in the dictionary (can be a valid technical noun or verb)
+    WORD(REJ->ALT)   the dictionary rejects it and gives ALT as the alternative
+    WORD(proper?)    capitalized mid-sentence, probably a proper noun
+    LONG>N           more than 25 words (20 with --procedural)
+
+Limits: matches by word, not part of speech, so "file" shows REJ (the verb
+sense) even when used as a noun. Judge the (?) words by the technical noun
+and technical verb categories (rules 1.5 and 1.12).
+"""
+
+import os
+import re
+import sys
+from pathlib import Path
+
+REPO = Path(__file__).resolve().parent.parent
+SPEC = Path(os.environ.get("STE100_TXT") or REPO / "writing-style/ste100/spec/ste100.txt")
+POS = r"\((?:n|v|adj|adv|prep|conj|pron|art|TN|TV)\)"
+DICT_START = 1580  # the dictionary body starts after the intro's help categories
+
+
+def load():
+    if not SPEC.exists():
+        sys.exit(f"spec text not found at {SPEC}; run writing-style/ste100/fetch-spec.sh")
+    lines = SPEC.read_text().splitlines()[DICT_START:]
+    approved: dict[str, set[str]] = {}
+    rejected: dict[str, str] = {}
+    head = None
+    for line in lines:
+        col = line[:24]
+        m = re.match(rf"^([A-Z][A-Z'-]*)(,?)\s*({POS})?", col)
+        if m and (m.group(3) or m.group(2) or head):
+            word = m.group(1).lower()
+            if m.group(3):
+                head = word
+                approved.setdefault(word, set()).add(m.group(3))
+            if head:  # inflected forms, e.g. "SWALLOWS," or "IS, WAS"
+                for form in re.findall(r"[A-Z][A-Z'-]*", col.split("(")[0]):
+                    approved.setdefault(form.lower(), set()).add(f"form of {head}")
+            continue
+        if head and col.startswith("(also"):  # "(also ARE, WERE)"
+            for form in re.findall(r"[A-Z][A-Z'-]+", col):
+                approved.setdefault(form.lower(), set()).add(f"form of {head}")
+            continue
+        m = re.match(rf"^([a-z][a-z'-]*)\s*{POS}\s+(.*)", line)
+        if m:
+            head = None
+            alt = re.split(r"\s{2,}", m.group(2).strip())[0]
+            rejected.setdefault(m.group(1), alt)
+        elif line.strip() == "":
+            head = None
+    return approved, rejected
+
+
+def is_approved(word: str, approved: dict[str, set[str]]) -> bool:
+    if word in approved:
+        return True
+    return any(
+        word.endswith(suf) and word[: -len(suf)] + add in approved
+        for suf, add in (("ies", "y"), ("es", ""), ("s", ""))
+    )
+
+
+def main():
+    approved, rejected = load()
+    if len(sys.argv) > 2 and sys.argv[1] == "--lookup":
+        w = sys.argv[2].lower()
+        print(w, "APPROVED" if w in approved else "NOT APPROVED", sorted(approved.get(w, [])))
+        if w in rejected:
+            print(w, "REJECTED, use:", rejected[w])
+        return
+    limit = 20 if "--procedural" in sys.argv else 25
+    text = sys.stdin.read()
+    for i, sent in enumerate(re.split(r"(?<=[.!?:])\s+", text.strip()), 1):
+        words = re.findall(r"[A-Za-z][A-Za-z'-]*", sent)
+        nums = re.findall(r"\b\d[\d.,]*\b", sent)
+        count = len(words) + len(nums)
+        issues = []
+        for w in words:
+            lw = w.lower()
+            if is_approved(lw, approved):
+                continue
+            if lw in rejected:
+                issues.append(f"{w}(REJ->{rejected[lw]})")
+            elif w[0].isupper() and w != words[0]:
+                issues.append(f"{w}(proper?)")
+            else:
+                issues.append(f"{w}(?)")
+        flag = f" LONG>{limit}" if count > limit else ""
+        print(f"[{i}] {count}w{flag}: {sent}")
+        if issues:
+            print("     ", " ".join(issues))
+
+
+if __name__ == "__main__":
+    main()
