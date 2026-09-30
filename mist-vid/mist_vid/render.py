@@ -346,6 +346,8 @@ def main():
     ap.add_argument("project")
     ap.add_argument("-o", "--out", default="work/out.mp4")
     ap.add_argument("--preview", action="store_true")
+    ap.add_argument("--hevc-q", type=int, default=None,
+                    help="encode with VideoToolbox HEVC at this quality (1-100, ~65 = visually clean); fast delivery")
     ap.add_argument("--from", dest="t0", default=None)
     ap.add_argument("--to", dest="t1", default=None)
     ap.add_argument("--stills", default=None, help="comma-separated anchors to export as JPG")
@@ -376,10 +378,14 @@ def main():
            "-r", f"{P.fps_num}/{P.fps_den}", "-i", "-",
            "-vf", "scale=out_color_matrix=bt709:out_range=tv:flags=bicubic+accurate_rnd+full_chroma_int,format=yuv420p",
            "-colorspace", "bt709", "-color_primaries", "bt709", "-color_trc", "bt709"]
-    if a.preview:
-        enc += ["-c:v", "h264_videotoolbox", "-b:v", "14M"]
+    vui = "colour_primaries=1:transfer_characteristics=1:matrix_coefficients=1"
+    if a.hevc_q is not None:
+        enc += ["-c:v", "hevc_videotoolbox", "-q:v", str(a.hevc_q), "-tag:v", "hvc1", "-bsf:v", f"hevc_metadata={vui}"]
+    elif a.preview:
+        enc += ["-c:v", "h264_videotoolbox", "-b:v", "14M", "-bsf:v", f"h264_metadata={vui}"]
     else:
-        enc += ["-c:v", "libx264", "-preset", "slow", "-crf", "15", "-tune", "film", "-x264-params", "keyint=48:min-keyint=12"]
+        enc += ["-c:v", "libx264", "-preset", "slow", "-crf", "15", "-tune", "film",
+                "-x264-params", "keyint=48:min-keyint=12", "-bsf:v", f"h264_metadata={vui}"]
     enc += ["-movflags", "+faststart", vid]
     proc = subprocess.Popen(enc, stdin=subprocess.PIPE)
     stdin = proc.stdin

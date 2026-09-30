@@ -91,11 +91,14 @@ Run all commands from the project folder. All outputs go into `work/`.
    mist-vid render edit.yaml -o work/preview.mp4 --preview --audio work/mix.wav
    mist-vid review work/preview.mp4 edit.yaml work/rev
    mist-vid hear work/mix.wav 0-18 101-110
-   mist-vid render edit.yaml -o final.mp4 --audio work/mix.wav
+   mist-vid render edit.yaml -o final.mp4 --hevc-q 68 --audio work/mix.wav
    ```
 
-   A preview uses the VideoToolbox encoder. The delivery render uses libx264 with the
-   slow preset at CRF 15.
+   A preview uses the VideoToolbox H.264 encoder. `--hevc-q 68` encodes the delivery
+   file with VideoToolbox HEVC at GPU speed (approximately 15 Mbit/s with film
+   grain). Without a flag, the render uses libx264 with the slow preset at CRF 15.
+   That setting spends approximately 60 Mbit/s on grain and runs at approximately
+   5 frames per second.
 
 ## Edit file reference
 
