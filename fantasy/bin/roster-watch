@@ -217,8 +217,10 @@ def main() -> int:
             # backfield split resolving, a starter going down) before any box score
             # we read does. Per-player override via "own_jump" on the watchlist entry.
             jump = float(wp.get("own_jump", 10.0))
+            # Once the player is ours, a climb is the market agreeing with a move we
+            # already made. Only a drop (the role breaking) still needs a read.
             moved = cur["owned"] - prev.get("owned", cur["owned"])
-            if abs(moved) >= jump:
+            if (-moved if cur["team"] == team_id else abs(moved)) >= jump:
                 events.append({"kind": "watch_ownership", "player": wp["name"], "from": prev.get("owned"),
                                "to": cur["owned"], "why": wp["why"], "trigger": wp["trigger"], "judgment": True})
         wstate[str(wp["id"])] = cur
