@@ -464,8 +464,8 @@ to a coin flip and is not the thing to optimize. **Play for the bye, not the
 berth.** Since the seeding tiebreaker is total points for, raw points matter
 independently of record.
 
-**2. Waivers are reverse-standings priority, not FAAB, which inverts §4's bidding
-advice.** The FAAB dead-zone guidance does not apply here. What applies instead:
+**2. Waivers are reverse-standings priority, not FAAB, which inverts the FAAB
+bidding advice (`references/evidence.md` F1).** The FAAB dead-zone guidance does not apply here. What applies instead:
 
 - **Priority resets every week based on standings, so hoarding it is worthless.**
   There is no cost to using your claim. A manager "saving" waiver priority in a
@@ -791,27 +791,13 @@ note that the "against" case aligns with the formal H2H math in §8.
 This is where the real edge lives, since the draft strategy differences wash out
 to 10-20 points.
 
-### Waivers and FAAB
+### Waivers
 
-FantasyPros analyzed **600,000+ player adds from 2024**. On a $100 budget
-(their figures are per $1,000, divided by 10 here):
-
-| Position | Median winning bid |
-|---|---|
-| WR | $2.90 |
-| QB | $2.10 |
-| RB | $2.10 |
-| TE | $2.00 |
-| DST | $1.00 |
-| K | $0.30 |
-
-Week 1 median winning bid: **$1.10**, with outliers up to $76.
-
-**The FAAB dead zone: bids of 10-19% of budget "rarely returned winning
-production."** Too expensive to be churn, too cheap to lock a genuine weekly
-starter. Advise Alex to bid either small (churn the bottom of the roster
-constantly) or decisively large (20%+ for a player he believes is a true
-difference-maker). The middle is where budget goes to die.
+This league runs reverse-standings priority, not FAAB, so §0 governs claims.
+The FAAB bid research (median winning bids, the 10-19% dead zone) lives in
+`references/evidence.md` F1 for any FAAB league. It stays out of this file
+because Claude Code reads a dollar sign followed by a digit as an argument
+slot and overwrites it with whatever follows the slash command.
 
 ### Lineups: the variance rule
 

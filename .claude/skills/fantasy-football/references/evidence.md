@@ -524,6 +524,9 @@ Week 1 redraft: 12,227 adds, median winning bid $11, outliers to $766.
 
 **"FAAB dead zone": bids of $100-$190 per $1,000 (10-19% of budget) "rarely
 returned winning production."**
+Operating advice for a FAAB league: bid either small (constant bottom-of-roster
+churn) or decisively large (20%+ for a player he believes is a true weekly
+starter). The middle is where budget goes to die.
 
 Dynasty: 340,000+ adds; ~71% won for ≤2.5% of budget; under 5% went for 10%+.
 
