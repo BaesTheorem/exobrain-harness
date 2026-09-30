@@ -7,6 +7,7 @@ by that currency, ranks by our lineup gain, and runs the best through the
 season simulator (paired seeds) for the change in playoff and title odds.
 
     python3 trade_scan.py [--top 12] [--sims 6000] [--min-gain 25]
+    python3 trade_scan.py --package "Gordon,Harvey:Javonte Williams"   # score named deals, no gates
 """
 import argparse
 import copy
@@ -38,6 +39,8 @@ def main():
     ap.add_argument("--our-view", choices=["espn", "board"], default="espn",
                     help="value OUR side by the in-season blend (espn), or by our draft board's value over replacement (vor.json)")
     ap.add_argument("--json", action="store_true", help="the ranked proposals as JSON instead of a table")
+    ap.add_argument("--package", action="append", default=[],
+                    help="'give1,give2:get' name fragments; score only these deals and skip the plausibility gates (repeatable)")
     args = ap.parse_args()
 
     teams, games, reg = ss.load(2026)
@@ -118,6 +121,13 @@ def main():
     plausible = [c for c in cands if c["d_us"] >= args.min_gain and c["d_them"] >= args.their_floor
                  and (c["raw"] <= 20 if len(c["give"]) == 1 else True)]
     plausible.sort(key=lambda c: -c["d_us"])
+    if args.package:
+        def wanted(c, spec):
+            give, get = spec.split(":")
+            gv = [norm(g) for g in give.split(",")]
+            return (norm(get) in norm(c["get"][0]) and len(gv) == len(c["give"])
+                    and all(any(g in norm(n) for n in c["give"]) for g in gv))
+        plausible = [next(c for c in cands if wanted(c, spec)) for spec in args.package]
     print(f"candidates {len(cands):,}; plausible {len(plausible)} (our gain >= {args.min_gain}, their lineup change >= {args.their_floor}, raw balance)\n")
 
     # Paired simulation: same seed for baseline and every candidate.
