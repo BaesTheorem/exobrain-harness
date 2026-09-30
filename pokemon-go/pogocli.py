@@ -1400,6 +1400,21 @@ def hydrate_icloud(real: Path, timeout: int = 90) -> bool:
     return real.exists()
 
 
+def hash_local(p: Path, hydrate: bool) -> str | None:
+    """sha256 of an inbox file, or None when it cannot be read this run. Current macOS evicts
+    iCloud files in place (dataless, no `.icloud` placeholder), and reading one from launchd
+    fails with EDEADLK, so ask iCloud for it once and retry; the next scan picks it up."""
+    for attempt in (1, 2):
+        try:
+            return sha256_file(p)
+        except OSError as e:
+            if attempt == 2 or not hydrate:
+                print(f"[{dt.datetime.now():%Y-%m-%d %H:%M:%S}] skipped {p.name}: {e.strerror}", file=sys.stderr)
+                return None
+            hydrate_icloud(p)
+    return None
+
+
 def notify(msg: str, link: str = "console", sound: str = "Purr") -> None:
     if NOTIFY.exists():
         subprocess.run([str(NOTIFY), msg, "Pokemon GO", sound, link, "--group", "pokemon-go"], check=False)
@@ -1428,7 +1443,9 @@ def cmd_inbox(a: argparse.Namespace) -> None:
             if not settled(p):
                 settling.append(p)
                 continue
-            digest = sha256_file(p)
+            digest = hash_local(p, hydrate=not a.dry_run)
+            if digest is None:
+                continue
             if digest in imports:
                 continue
             kind = classify_export(p)
