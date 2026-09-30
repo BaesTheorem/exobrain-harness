@@ -392,6 +392,37 @@ def write_outputs(y: np.ndarray, sr: int, stem: Path, meta: dict[str, str], roll
     return out
 
 
+def write_listening(y: np.ndarray, sr: int, stem: Path, meta: dict[str, str], passes: int = 2,
+                    tail: float = 8.0, clip: float = 15.0) -> dict[str, Path]:
+    """Versions for a plain player that cannot loop.
+
+    <stem>-<passes>x.mp3  `passes` full passes, then `tail` seconds of the next pass under a fade
+    <stem>-seam.mp3       `clip` seconds before the join and `clip` seconds after it
+    """
+    ffmpeg = shutil.which("ffmpeg") or "/opt/homebrew/bin/ffmpeg"
+    t = int(tail * sr)
+    long = np.vstack([np.tile(y, (passes, 1)), y[:t]])
+    ramp = int(0.02 * sr)  # the file starts mid-sound; 20 ms keeps the first sample from clicking
+    long[:ramp] *= np.linspace(0.0, 1.0, ramp)[:, None]
+    long[-t:] *= (0.5 + 0.5 * np.cos(np.linspace(0.0, np.pi, t)))[:, None]
+    c = int(clip * sr)
+    seam = np.vstack([y[-c:], y[:c]])
+    fi, fo = int(0.5 * sr), int(1.5 * sr)
+    seam[:fi] *= np.linspace(0.0, 1.0, fi)[:, None]
+    seam[-fo:] *= np.linspace(1.0, 0.0, fo)[:, None]
+    out = {"long": stem.with_name(f"{stem.name}-{passes}x.mp3"), "seam": stem.with_name(f"{stem.name}-seam.mp3")}
+    tags: list[str] = []
+    for k, v in meta.items():
+        tags += ["-metadata", f"{k}={v}"]
+    with tempfile.TemporaryDirectory() as td:
+        for key, sig in (("long", long), ("seam", seam)):
+            wav = Path(td) / f"{key}.wav"
+            wavfile.write(wav, sr, sig.astype(np.float32))
+            subprocess.run([ffmpeg, "-y", "-loglevel", "error", "-i", str(wav), "-c:a", "libmp3lame",
+                            "-b:a", "320k", *tags, str(out[key])], check=True)
+    return out
+
+
 def decode(path: Path, sr: int = SR) -> np.ndarray:
     """Any audio file -> float64 stereo at sr, via ffmpeg."""
     ffmpeg = shutil.which("ffmpeg") or "/opt/homebrew/bin/ffmpeg"

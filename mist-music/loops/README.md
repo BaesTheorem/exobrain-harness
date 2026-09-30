@@ -26,6 +26,7 @@ uv run mist-music/loops/descendendo_ascendit.py            # render to tmp/audio
 uv run mist-music/loops/descendendo_ascendit.py --dump     # the score and the score checks
 uv run --with matplotlib mist-music/loops/descendendo_ascendit.py --check    # render, then measure
 uv run --with matplotlib mist-music/loops/descendendo_ascendit.py --measure  # measure the last render
+uv run mist-music/loops/descendendo_ascendit.py --listen   # versions for a player that cannot loop
 ```
 
 `--check` renders the piece, then measures it:
@@ -35,12 +36,14 @@ uv run --with matplotlib mist-music/loops/descendendo_ascendit.py --measure  # m
 - the loudness and the true peak
 - a spectrogram of the first cycle
 
-Each render writes two files to `tmp/audio/`:
+Each render writes two files to `tmp/audio/`, and `--listen` writes two more:
 
 | File | Contents |
 |---|---|
 | `<slug>-loop.flac` | One period, lossless. It loops with no seam in a gapless player. |
 | `<slug>.mp3` | The period, with 2 s of its own tail before it and 2 s of its own head after it. |
+| `<slug>-2x.mp3` | With `--listen`: two full periods, then 8 s of the next one under a fade. For a player that cannot loop. |
+| `<slug>-seam.mp3` | With `--listen`: 15 s before the join and 15 s after it. |
 
 An MP3 decoder adds a delay and padding at the edges of the file. The 2 s of
 roll keep those edges out of the loop window, which is `[2, 2 + period)`

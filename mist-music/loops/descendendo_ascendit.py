@@ -270,6 +270,8 @@ def main() -> None:
     ap.add_argument("--dump", action="store_true", help="print the score and the score checks, no audio")
     ap.add_argument("--check", action="store_true", help="render, then measure harmony, seam, loudness, spectrogram")
     ap.add_argument("--measure", action="store_true", help="measure the files of the last render, no render")
+    ap.add_argument("--listen", action="store_true",
+                    help="from the last render: two passes and a clip across the join, for a player that cannot loop")
     ap.add_argument("--wet", type=float, default=-4.5, help="reverb level against the dry mix, dB")
     ap.add_argument("--air", type=float, default=2.5, help="high shelf above 5 kHz on the mix, dB")
     ap.add_argument("--out", type=Path, default=lk.OUT)
@@ -285,6 +287,13 @@ def main() -> None:
 
     if not check_score():
         sys.exit("score check failed")
+    if args.listen:
+        y = lk.decode(args.out / f"{SLUG}-loop.flac")
+        meta = {"title": TITLE, "artist": "MIST", "album": "Strange Loops"}
+        out = lk.write_listening(y, lk.SR, args.out / SLUG, meta, passes=2)
+        print(f"![{TITLE}, twice through]({out['long']})")
+        print(f"![{TITLE}, across the join]({out['seam']})")
+        return
     if args.measure:
         files = {"flac": args.out / f"{SLUG}-loop.flac", "mp3": args.out / f"{SLUG}.mp3"}
         y = lk.decode(files["flac"])
