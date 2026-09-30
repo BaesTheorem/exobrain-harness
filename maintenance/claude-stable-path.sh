@@ -66,9 +66,18 @@ say() { echo "$(ts) $*" >>"$LOG"; }
 [ "${1:-}" = "--now" ] || sleep 5
 
 # Newest release on disk, by version order rather than mtime: a rollback rewrites
-# mtimes but never makes an older release the current one.
-NEWEST=$(ls "$VERSIONS" 2>/dev/null | sort -t. -k1,1n -k2,2n -k3,3n | tail -1)
-if [ -z "$NEWEST" ] || [ ! -x "$VERSIONS/$NEWEST" ]; then
+# mtimes but never makes an older release the current one. An empty or
+# non-executable entry is an update that never finished downloading (2026-09-29:
+# a 0-byte 2.1.285 failed every run), so skip it and take the next release down.
+NEWEST=""
+for v in $(ls "$VERSIONS" 2>/dev/null | sort -t. -k1,1nr -k2,2nr -k3,3nr); do
+  if [ -s "$VERSIONS/$v" ] && [ -x "$VERSIONS/$v" ]; then
+    NEWEST=$v
+    break
+  fi
+  say "WARN skipped $v: empty or not executable (unfinished update?)"
+done
+if [ -z "$NEWEST" ]; then
   say "FAIL no installed version found under $VERSIONS"
   exit 1
 fi
