@@ -189,6 +189,9 @@ uv run mist-music/piano/<piece>.py --balance    # render, then melody vs accompa
   - `--balance` (in the first render, the melody was as loud as the accompaniment)
   - a chromatic test of the key mapping, with a wrong-key positive control
 - In the Salamander bank, accompaniment below velocity 37 is almost silent. The measured table is in the README.
+- **A melody over pedaled arpeggios needs about 28 velocity steps over the accompaniment** (about 14 dB per note) to reach 3 to 5 LU. In *Descendendo ascendit, for piano*, a gap of 16 to 24 steps gave only +0.6 to +1.7 LU. Check 6-bar windows too, not only sections.
+- The `climax` left-hand pattern doubles the bass an octave down. A bass under B1 then goes off the keyboard (below A0), so raise those bars' bass by an octave.
+- **To loop a piano piece**, fold the performance into one period: `descendendo_ascendit_piano.py --loop` renders the MIDI, adds everything past the last barline to the start, reverbs it circularly, and writes the loop files through `mist-music/loops/loopkit.py` (see §1c for the `#loop` embed).
 - `--tuning just` renders the same performance in adaptive just intonation (`*-just` files) for an A/B comparison. It reduced the beating of the thirds from 16 to 22 per second to approximately 4. To measure tuning effects, compare single overtone pairs. A roughness sum over the whole spectrum did not detect the effect.
 - `MIDI_SOUNDFONT=~/Library/Audio/Sounds/Banks/SalamanderGrandPiano-SF2-V3+20200602/SalamanderGrandPiano-V3+20200602.sf2 mid2mp3 in.mid` gives any piano-only MIDI file the sampled grand. Use the GM bank for files with more than one instrument.
 

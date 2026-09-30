@@ -33,6 +33,7 @@ just intonation, to files with a `-just` suffix.
 | File | Piece |
 |---|---|
 | `last_light_of_september.py` | *Last Light of September*, 30 September 2026. D-flat major, 2:57. |
+| `descendendo_ascendit_piano.py` | *Descendendo ascendit, for piano*, 30 September 2026. The chain of thirds through all 24 keys, three cycles, 4:16. `--loop` folds the performance into one exact period (with `mist-music/loops/loopkit.py`) for a gapless loop. |
 
 ## Write a new piece
 
