@@ -14,6 +14,7 @@ from __future__ import annotations
 import argparse
 import os
 import subprocess
+import zlib
 
 import numpy as np
 
@@ -64,7 +65,7 @@ def fade(x: np.ndarray, fin: float, fout: float) -> np.ndarray:
 def synth(name: str, dur: float) -> np.ndarray:
     n = int(dur * SR)
     t = np.arange(n) / SR
-    rng = np.random.default_rng(abs(hash(name)) % 2 ** 31)
+    rng = np.random.default_rng(zlib.crc32(name.encode()))  # hash() is salted per process
     if name == "boom":      # cinematic sub hit with a noise transient
         f = 55 * np.exp(-t * 3.0) + 32
         ph = 2 * np.pi * np.cumsum(f) / SR
