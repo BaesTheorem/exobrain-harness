@@ -12,7 +12,8 @@ what the old terminal-notifier path never could:
 - **Image attachments**, subtitle, thread grouping, replace-by-id, urgency
   (interruption level)
 - **Click targets** with the same semantics as mist-notify's 4th arg
-  (`console`, `console:<sid>`, URL/scheme, file path) plus `cmd:<shell>` for
+  (`console`, `console:<sid>`, `console:notif.<nid>` for a chat the Console
+  seeds from the notification on the tap, URL/scheme, file path) plus `cmd:<shell>` for
   buttons.
 
 `mist-notify` composes a JSON spec, invokes `open -n -a "MIST Notifier" --args

@@ -10,20 +10,30 @@
 #
 # Positional args (all optional after the message):
 #   1 message   2 title (MIST)   3 sound (Purr; "none" = silent)   4 link
-# The link is what a banner click opens. It is validated: web URLs, Obsidian and
-# Things links that only navigate, the Console, folders, app bundles and plain
-# files pass; file:// and other schemes, executables, scripts and Obsidian URIs
-# that run a command are replaced by "console" and noted in the history line.
-# Never build a "cmd:" action target from third-party text.
-#   - "console"        -> raise the MIST Console (its current chat). Use for briefings/triage.
-#   - "console:<sid>"  -> raise the Console AND switch to that chat (the chat that produced this).
-#   - a URL/scheme  (https://, http://localhost:5014, obsidian://, things:///...)  -> opened directly
-#   - a file path or app name                                                      -> opened with `open`
-#   - omitted                                                                      -> defaults to the MIST Console; when fired
-#     from inside a Console chat ($MIST_CONSOLE_SESSION set), "console" and the
-#     omitted default both auto-upgrade to that chat, so a click always lands on
-#     the conversation the notification came from. Pass "console!" to force the
-#     Console's current chat without the upgrade.
+# A banner click always lands in a MIST Console chat (Alex, 2026-09-30):
+#   - fired from inside a Console chat ($MIST_CONSOLE_SESSION set): that chat,
+#     because it already holds the context ("console:<sid>");
+#   - fired headless (a watcher, launchd, a routine): a NEW chat that the
+#     Console opens on the click, seeded with the full notification text, the
+#     surrounding context (--context / --context-file / $MIST_NOTIFY_CONTEXT)
+#     and the line "Alex wants to chat about this", so MIST answers with the
+#     alert in front of her ("console:notif.<id>"). A chat is only created when
+#     the banner is tapped; an ignored banner costs nothing.
+# The 4th arg is the notification's SOURCE link. It is validated (web URLs,
+# Obsidian and Things links that only navigate, the Console, folders, app
+# bundles and plain files pass; file://, other schemes, executables, scripts and
+# Obsidian URIs that run a command are dropped and noted in the history line)
+# and becomes an "Open link" button on the banner and the chat's seed, not the
+# click. Pass --direct to make the source link the click target instead, for
+# the rare banner where opening the source is better than a chat (a payment
+# page, a booking that expires). Never build a "cmd:" target from third-party
+# text.
+#   - "console"        -> the routing above (this chat, else a seeded new chat)
+#   - "console:<sid>"  -> that chat
+#   - "console!"       -> the Console's current chat, no upgrade (a banner about the Console itself)
+#   - a URL/scheme  (https://, http://localhost:5014, obsidian://, things:///...)  -> "Open link" button
+#   - a file path or app name                                                      -> "Open" button
+#   - omitted                                                                      -> same as "console"
 #
 # Full-featured flags (delivered by MIST Notifier.app; silently dropped when
 # only the terminal-notifier fallback is available):
@@ -38,6 +48,12 @@
 #   --group <id>             notification-center stacking group (threadIdentifier)
 #   --id <id>                stable identifier: reposting replaces the banner in place
 #   --urgency passive|active|timeSensitive
+#   --context "text"         surrounding context for the seeded chat (what the
+#                            caller knows: the state that fired, the log line,
+#                            the numbers). Capped at 4000 chars. Default:
+#                            $MIST_NOTIFY_CONTEXT (run-routine.sh sets it).
+#   --context-file <path>    same, read from a file (its last 4000 chars)
+#   --direct                 the source link is the click target (see above)
 #   --dry-run                print the composed spec JSON and exit without delivering
 #   --voice                  ALSO speak the message aloud. Off by default:
 #                            watchers fire unattended and a banner should not
@@ -57,12 +73,17 @@ shift
 
 TITLE="MIST"; SOUND="Purr"; LINK=""
 SUBTITLE=""; IMAGE=""; GROUP=""; NID=""; URGENCY=""
-REPLY=0; REPLY_SID=""; VOICE=0; DRY=0
+REPLY=0; REPLY_SID=""; VOICE=0; DRY=0; DIRECT=0
+CONTEXT="${MIST_NOTIFY_CONTEXT:-}"
 ACTIONS=()
 POSN=0
 while [ $# -gt 0 ]; do
   case "$1" in
     --dry-run)  DRY=1; shift;;
+    --direct)   DIRECT=1; shift;;
+    --context)  CONTEXT="${2:-}"; shift 2;;
+    --context-file)
+      CONTEXT="$(tail -c 4000 "${2:-/dev/null}" 2>/dev/null || true)"; shift 2;;
     --subtitle) SUBTITLE="${2:-}"; shift 2;;
     --image)    IMAGE="${2:-}"; shift 2;;
     --group)    GROUP="${2:-}"; shift 2;;
@@ -85,17 +106,29 @@ while [ $# -gt 0 ]; do
   esac
 done
 
-# A notification's click should land on the chat that produced it. Every shell a
-# Console chat spawns carries $MIST_CONSOLE_SESSION, so an omitted link or a bare
-# "console" is really "this chat": upgrade it to console:<sid>. Headless callers
-# (launchd watchers, cron) have no sid and keep the plain Console raise; /focus
-# no-ops if the sid is gone, so a stale env var degrades to the same. "console!"
-# opts out (current chat on purpose, e.g. a banner about the Console itself).
-if [ "$LINK" = "console!" ]; then
-  LINK="console"
-elif { [ -z "$LINK" ] || [ "$LINK" = "console" ]; } && [ -n "${MIST_CONSOLE_SESSION:-}" ]; then
-  LINK="console:$MIST_CONSOLE_SESSION"
-fi
+# Routing (see the header). Every shell a Console chat spawns carries
+# $MIST_CONSOLE_SESSION, so from inside a chat the click lands there. Headless
+# callers get "console:notif.<id>": the Console's /focus route opens a chat
+# seeded from this notification's history line when the banner is tapped.
+# /focus no-ops if a sid is gone, so a stale env var degrades to a plain raise.
+# The caller's own link (a URL, a note, a folder) moves to a button unless
+# --direct. "console!" keeps the Console's current chat, no upgrade.
+NOTIF_ID="$(date +%s)-$$-$RANDOM"
+SOURCE=""
+case "$LINK" in
+  "console!") LINK="console";;
+  ""|console)
+    if [ -n "${MIST_CONSOLE_SESSION:-}" ]; then LINK="console:$MIST_CONSOLE_SESSION"
+    else LINK="console:notif.$NOTIF_ID"; fi;;
+  console:*) ;;
+  *)
+    if [ "$DIRECT" = "1" ]; then :
+    else
+      SOURCE="$LINK"
+      if [ -n "${MIST_CONSOLE_SESSION:-}" ]; then LINK="console:$MIST_CONSOLE_SESSION"
+      else LINK="console:notif.$NOTIF_ID"; fi
+    fi;;
+esac
 
 CONSOLE_BUNDLE="com.exobrain.mist-console"
 CONSOLE_PORT="5014"
@@ -106,6 +139,8 @@ HISTORY="$HOME/Library/Logs/exobrain/notifications-history.jsonl"
 SPEC="$(MSG="$MSG" TITLE="$TITLE" SOUND="$SOUND" LINK="$LINK" SUBTITLE="$SUBTITLE" \
         IMAGE="$IMAGE" GROUP="$GROUP" NID="$NID" URGENCY="$URGENCY" REPLY="$REPLY" \
         REPLY_SID="$REPLY_SID" ACTIONS="$(IFS=$'\x1f'; echo "${ACTIONS[*]:-}")" \
+        NOTIF_ID="$NOTIF_ID" SOURCE="$SOURCE" CONTEXT="$CONTEXT" \
+        ORIGIN="${MIST_NOTIFY_SOURCE:-}" \
         python3 - <<'PY'
 import json, os, re, sys
 e = os.environ.get
@@ -153,8 +188,24 @@ ok, why = link_ok(link)
 if not ok:
     rejected.append({"link": link, "why": why})
     link = "console"
+# nid: the handle the Console uses to find this line in the history when the
+# banner is tapped ("console:notif.<nid>"). Every notification carries one so
+# the bell panel can reopen any of them as a chat later.
 spec = {"title": e("TITLE"), "body": e("MSG"), "sound": e("SOUND") or "default",
-        "link": link}
+        "link": link, "nid": e("NOTIF_ID")}
+source = e("SOURCE") or ""
+if source:
+    ok, why = link_ok(source)
+    if ok:
+        spec["source"] = source
+    else:
+        rejected.append({"link": source, "why": why})
+        source = ""
+ctx = (e("CONTEXT") or "").strip()
+if ctx:
+    spec["context"] = ctx[-4000:]
+if e("ORIGIN"):
+    spec["origin"] = e("ORIGIN")
 for k, env in (("subtitle", "SUBTITLE"), ("image", "IMAGE"), ("group", "GROUP"),
                ("id", "NID"), ("urgency", "URGENCY")):
     if e(env):
@@ -174,6 +225,15 @@ for a in (e("ACTIONS") or "").split("\x1f"):
                 rejected.append({"action": label, "target": target, "why": why})
                 continue
         acts.append({"label": label, "target": target})
+# The source link rides along as a button, after the caller's own buttons and
+# only if one of them does not already open it. Three is the banner's limit.
+if source and len(acts) < 3 and all(a["target"] != source for a in acts):
+    low = source.lower()
+    label = ("Open note" if low.startswith("obsidian://")
+             else "Open in Things" if low.startswith("things:///")
+             else "Open link" if "://" in source
+             else "Open")
+    acts.append({"label": label, "target": source})
 if acts:
     spec["actions"] = acts[:3]
 if rejected:

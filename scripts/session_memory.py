@@ -1003,12 +1003,20 @@ def cmd_consolidate(args) -> int:
 
     def run_one(t: Path) -> tuple[Path, int, str]:
         cmd = [sys.executable, me, "write", str(t), "--trigger", "consolidator", "--quiet"]
-        try:
-            r = subprocess.run(cmd, capture_output=True, text=True, timeout=CLAUDE_TIMEOUT_SEC + 120)
-        except subprocess.TimeoutExpired:
-            return t, 124, "writer timed out"
-        tail = (r.stderr or r.stdout).strip().splitlines()
-        return t, r.returncode, tail[-1] if tail else ""
+        # One retry: a writer's exit 1 is almost always the model answering
+        # without the JSON block (2026-09-29: one such flake left the whole
+        # nightly run flagged FAIL although 26 notes were written and the note
+        # landed fine on the next PreCompact write). A second call is cheap
+        # next to a sticky FAIL that a person has to go and read.
+        for attempt in (1, 2):
+            try:
+                r = subprocess.run(cmd, capture_output=True, text=True, timeout=CLAUDE_TIMEOUT_SEC + 120)
+            except subprocess.TimeoutExpired:
+                return t, 124, "writer timed out"
+            tail = (r.stderr or r.stdout).strip().splitlines()
+            if r.returncode != 1 or attempt == 2:
+                return t, r.returncode, tail[-1] if tail else ""
+        return t, 1, ""
 
     failures: list[str] = []
     try:
