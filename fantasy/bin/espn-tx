@@ -14,6 +14,7 @@ Every write verifies the result with a read. --dry-run prints the payload.
 
 import argparse
 import json
+import re
 import sys
 from pathlib import Path
 
@@ -74,6 +75,12 @@ def main() -> int:
         if args.single and len(parts) > 1:
             print(f"REFUSED: {len(' '.join(args.text))} chars would post as {len(parts)} messages; "
                   f"cap is {_chat.MAX_CONTENT}. Shorten it.", file=sys.stderr)
+            return 2
+        # topic is a thread id; a team name posts to a topic that does not
+        # exist and fails after the fact (2026-09-30), so refuse it up front
+        if not re.fullmatch(r"[0-9a-f]{8}(-[0-9a-f]{4}){3}-[0-9a-f]{12}", args.topic):
+            print(f"REFUSED: topic must be a thread id (the [bracketed] id in `espn chat`), "
+                  f"not {args.topic!r}", file=sys.stderr)
             return 2
         res = w.chat_send(args.topic, " ".join(args.text), dry_run=args.dry_run)
         print(json.dumps(res, indent=1, default=str))
