@@ -304,6 +304,20 @@ class EspnWriter:
                 return [m["content"] for m in t["messages"]]
         return []
 
+    def decline_trade(self, transaction_id: str) -> dict[str, Any]:
+        """Decline an incoming trade offer, verified by it leaving the pending list.
+
+        The route is a TRADE_DECLINE transaction that names the offer in
+        relatedTransactionId (confirmed 2026-09-30: ESPN answered EXECUTED and
+        the offer left the pending list). The same shape probably withdraws an
+        offer we sent, but that is untested.
+        """
+        body = self._base("TRADE_DECLINE")
+        body["relatedTransactionId"] = transaction_id
+        resp = self._post(body)
+        still = any(t.get("id") == transaction_id for t in self.pending())
+        return {"verified": not still, "id": transaction_id, "response": resp}
+
     def cancel(self, transaction_id: str) -> dict[str, Any]:
         """Cancel one pending claim, verified by it leaving the pending list.
 
