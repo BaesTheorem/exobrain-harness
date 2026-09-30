@@ -40,6 +40,7 @@ Pythagorean comma flat. The Shepard version pays it back with a glide.)
     uv run mist-music/piano/descendendo_ascendit_piano.py --dump     # voicings + harmony warnings
     uv run mist-music/piano/descendendo_ascendit_piano.py --balance  # melody against accompaniment
     uv run mist-music/piano/descendendo_ascendit_piano.py --loop     # the endless version, one exact period
+    uv run mist-music/piano/descendendo_ascendit_piano.py --notes-json   # every performed note, timed, for video
 """
 
 import sys
@@ -263,8 +264,32 @@ def render_loop(wet_db: float = -9.0) -> None:
     print(f"![Descendendo ascendit, for piano, across the join]({files['seam']})")
 
 
+def export_notes(path: Path) -> None:
+    """Every performed note of the concert version, with its time in the MP3, for syncing video to it.
+    compose() and perform() are seeded, so these are the same notes that --render plays."""
+    import json
+    piece = PIECE
+    bars_, chords, notes, _ = pk.compose(piece)
+    pk.perform(piece, bars_, chords, notes)
+    grid, times = pk.tempo_map(piece, bars_)
+    beat = [round(float(np.interp(b, grid, times)), 4) for b in range(len(bars_) * pk.BEATS + 1)]
+    data = {
+        "title": piece.title,
+        "bars": beat[::pk.BEATS],
+        "beats": beat,
+        "chords": [b.chords for b in bars_],
+        "notes": [{"on": round(n.on, 4), "off": round(n.off, 4), "p": n.pitch + piece.transpose, "v": n.vel,
+                   "hand": n.hand, "role": n.role, "bar": int(n.beat // pk.BEATS)}
+                  for n in sorted(notes, key=lambda n: n.on)],
+    }
+    path.write_text(json.dumps(data, separators=(",", ":")))
+    print(f"wrote {path} ({len(data['notes'])} notes, {len(bars_)} bars)")
+
+
 if __name__ == "__main__":
     if "--loop" in sys.argv:
         render_loop()
+    elif "--notes-json" in sys.argv:
+        export_notes(lk.OUT / "descendendo-ascendit-for-piano.notes.json")
     else:
         pk.main(PIECE)
