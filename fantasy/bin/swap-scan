@@ -27,7 +27,10 @@ INVARIANTS
   armed the whole QB waiver chain (Young and Geno both drop him, so exactly
   one lands). Filing a third claim on the same drop would have let the wire
   decide which one we got. Each swap row now carries `pending_drop`, read
-  from the live pending list, and roster-watch skips those rows.
+  from the live pending list, and roster-watch skips those rows. Extended
+  2026-09-30: a player on our side of a pending trade counts too. Godwin
+  showed as a free +23.7 drop while he sat in the Allen offer, and dropping
+  him would have voided it.
 
     swap-scan [--gate 20] [--top 3] [--json]
 """
@@ -167,17 +170,26 @@ def bye_holes(api: Espn, roster: list[dict], week: int, weeks: int = LOOKAHEAD) 
     return out
 
 
+def committed_ids(txs: list[dict], me: int) -> list[int]:
+    """Player ids of ours already promised away: a claim's DROP or a trade's outgoing side.
+
+    Trade items are type TRADE with `fromTeamId` us, in either direction
+    (our offer out, or an offer in that we could accept).
+    """
+    return [i["playerId"] for t in txs for i in (t.get("items") or [])
+            if i.get("playerId") and i.get("fromTeamId") == me
+            and ((t.get("type") == "WAIVER" and i.get("type") == "DROP") or i.get("type") == "TRADE")]
+
+
 def pending_drops(api: Espn) -> set[str]:
-    """Normalized names of our players already listed as a DROP in a pending claim.
+    """Normalized names of our players already listed as a DROP in a pending claim,
+    or on our side of a pending trade (a drop voids the trade).
 
     Never raises: an unreadable pending list must not stop the scan, but it
     must not read as "nothing committed" either, so the miss is printed.
     """
     try:
-        txs = api.pending_transactions()
-        me = int(api.creds["team_id"])
-        ids = [i.get("playerId") for t in txs if t.get("type") == "WAIVER"
-               for i in (t.get("items") or []) if i.get("type") == "DROP" and i.get("fromTeamId") == me]
+        ids = committed_ids(api.pending_transactions(), int(api.creds["team_id"]))
         names = api.names_for([i for i in ids if i])
         return {norm(n) for n in names.values()}
     except Exception as exc:  # noqa: BLE001 - the scan runs without it, loudly
@@ -204,7 +216,7 @@ def render(out: dict, holes: list[dict], heat_ok: bool, volume_ok: bool) -> int:
     best = None
     for r in out["swaps"]:
         dflags = f"  [{' '.join(r['drop_flags'])}]" if r["drop_flags"] else ""
-        spent = "  PENDING DROP: already spent in a claim, not a free drop" if r.get("pending_drop") else ""
+        spent = "  PENDING DROP: already spent in a claim or trade, not a free drop" if r.get("pending_drop") else ""
         print(f"  DROP {r['drop']:<22} {r['pos']:<4} rate {r['drop_rate']}/wk{dflags}{spent}")
         for c in r["candidates"]:
             gain = float(c["gain"])

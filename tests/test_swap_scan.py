@@ -74,3 +74,20 @@ def test_a_drop_spent_in_a_pending_claim_is_marked():
     assert by_drop["Bench WR"]["pending_drop"] is True
     assert by_drop["Bench TE"]["pending_drop"] is False
     assert by_drop["Bench WR"]["candidates"][0]["gain"] >= out["gate"], "the PASS is still reported, just marked"
+
+
+def test_our_side_of_a_pending_trade_is_committed():
+    """2026-09-30: Godwin showed as a free +23.7 drop while he sat in the Allen
+    offer, and a drop voids the trade. Our outgoing trade items count; the
+    player we would receive, a claim's ADD and another team's DROP do not."""
+    me = 12
+    txs = [
+        {"type": "TRADE_PROPOSAL", "items": [
+            {"type": "TRADE", "fromTeamId": me, "toTeamId": 2, "playerId": 1},
+            {"type": "TRADE", "fromTeamId": 2, "toTeamId": me, "playerId": 2}]},
+        {"type": "WAIVER", "items": [
+            {"type": "ADD", "fromTeamId": 0, "toTeamId": me, "playerId": 3},
+            {"type": "DROP", "fromTeamId": me, "toTeamId": 0, "playerId": 4}]},
+        {"type": "WAIVER", "items": [{"type": "DROP", "fromTeamId": 5, "toTeamId": 0, "playerId": 6}]},
+    ]
+    assert sorted(swap_scan.committed_ids(txs, me)) == [1, 4]
