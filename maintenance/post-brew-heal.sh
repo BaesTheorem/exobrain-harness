@@ -78,6 +78,7 @@ while IFS= read -r py; do
 done <<VENVS
 $HOME/Documents/Exobrain harness/imessage/.venv/bin/mist-imessage-python3
 $HOME/Documents/Exobrain harness/maintenance/venv/bin/mist-tcc-python3
+$HOME/Documents/Exobrain harness/fantasy/venv/bin/mist-fantasy-python3
 $HOME/Documents/Exobrain harness/mist-voice/.venv/bin/python
 $HOME/Documents/Exobrain harness/claude-bot/.venv/bin/python
 $HOME/Documents/claude-home/.venv/bin/python
