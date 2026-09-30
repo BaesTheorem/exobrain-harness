@@ -203,6 +203,15 @@ def test_extract_json_handles_fence_and_bare(sm):
     assert sm.extract_json("nothing here") is None
 
 
+def test_extract_json_drops_trailing_commas_outside_strings(sm):
+    # The 2026-09-29 failure shape: a comma after the last member of "memory".
+    reply = ('```json\n{\n  "memory": {\n    "body": "keep, } and ,]",\n  },\n'
+             '  "ops": [1, 2,],\n  "path": "C:\\\\",\n}\n```')
+    assert sm.extract_json(reply) == {"memory": {"body": "keep, } and ,]"},
+                                      "ops": [1, 2], "path": "C:\\"}
+    assert sm.extract_json('```json\n{"a": 1 "b": 2}\n```') is None
+
+
 def test_write_skips_the_writers_own_transcripts(sm, tmp_path, monkeypatch):
     monkeypatch.setattr(sm, "run_claude", lambda prompt, label: pytest.fail("model called"))
     monkeypatch.setattr(sm, "MIN_ASSISTANT_CHARS", 1)

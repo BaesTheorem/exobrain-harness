@@ -510,26 +510,60 @@ def run_claude(prompt: str, label: str) -> dict | None:
     if r.returncode != 0:
         log(f"{label}: claude exit {r.returncode}: {(r.stderr or r.stdout)[-300:]}")
         return None
+    reply_session = None
     try:
         outer = json.loads(r.stdout)
         text = outer.get("result") or ""
         cost = outer.get("total_cost_usd")
+        reply_session = outer.get("session_id")
     except json.JSONDecodeError:
         text, cost = r.stdout, None
     data = extract_json(text)
+    # On failure, name the headless run's transcript: the raw reply is only there.
     log(f"{label}: {time.time() - t0:.0f}s, cost ${cost if cost is not None else '?'}"
-        + ("" if data is not None else ", no JSON in reply"))
+        + ("" if data is not None else
+           f", reply did not parse as a JSON object (reply transcript {reply_session or '?'})"))
     return data
+
+
+_TRAILING_CLOSE = re.compile(r"[ \t\r\n]*[}\]]")
+
+
+def _drop_trailing_commas(s: str) -> str:
+    """Remove each comma outside a string that comes just before a closing } or ].
+
+    The model sometimes closes an object after a trailing comma, which strict
+    json.loads rejects: on 2026-09-29 one such reply cost session 421d5540 its
+    note and flagged the nightly run FAIL. Commas inside string values stay.
+    """
+    out: list[str] = []
+    in_str = escaped = False
+    for i, ch in enumerate(s):
+        if in_str:
+            if escaped:
+                escaped = False
+            elif ch == "\\":
+                escaped = True
+            elif ch == '"':
+                in_str = False
+        elif ch == '"':
+            in_str = True
+        elif ch == "," and _TRAILING_CLOSE.match(s, i + 1):
+            continue
+        out.append(ch)
+    return "".join(out)
 
 
 def extract_json(text: str) -> dict | None:
     m = re.search(r"```json\s*(\{.*?\})\s*```", text, re.S)
     cand = m.group(1) if m else text[text.find("{"): text.rfind("}") + 1]
-    try:
-        d = json.loads(cand)
-    except (json.JSONDecodeError, ValueError):
-        return None
-    return d if isinstance(d, dict) else None
+    for attempt in (cand, _drop_trailing_commas(cand)):
+        try:
+            d = json.loads(attempt)
+        except (json.JSONDecodeError, ValueError):
+            continue
+        return d if isinstance(d, dict) else None
+    return None
 
 
 # --------------------------------------------------------------------------
@@ -1003,11 +1037,11 @@ def cmd_consolidate(args) -> int:
 
     def run_one(t: Path) -> tuple[Path, int, str]:
         cmd = [sys.executable, me, "write", str(t), "--trigger", "consolidator", "--quiet"]
-        # One retry: a writer's exit 1 is almost always the model answering
-        # without the JSON block (2026-09-29: one such flake left the whole
-        # nightly run flagged FAIL although 26 notes were written and the note
-        # landed fine on the next PreCompact write). A second call is cheap
-        # next to a sticky FAIL that a person has to go and read.
+        # One retry: a writer's exit 1 is a model call or reply it could not
+        # use. On 2026-09-29 one reply with a trailing comma in its JSON flagged
+        # the whole nightly run FAIL although 26 notes were written.
+        # extract_json now drops trailing commas, and this retry covers other
+        # malformed replies. A second call is cheap next to a sticky FAIL.
         for attempt in (1, 2):
             try:
                 r = subprocess.run(cmd, capture_output=True, text=True, timeout=CLAUDE_TIMEOUT_SEC + 120)
