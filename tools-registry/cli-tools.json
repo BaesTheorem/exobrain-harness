@@ -403,11 +403,11 @@
   },
   {
     "name": "pianokit",
-    "command": "uv run mist-music/piano/last_light_of_september.py [--dump] [--balance] [--midi-only]",
+    "command": "uv run mist-music/piano/last_light_of_september.py [--dump] [--balance] [--tuning just] [--midi-only]",
     "repo_dir": "~/Documents/Exobrain harness/mist-music/piano",
     "source": "built",
     "added": "2026-09-30",
-    "notes": "Each piece is a uv script that imports pianokit. Needs fluidsynth, ffmpeg, and the 1.27 GB Salamander SF2 in ~/Library/Audio/Sounds/Banks (download in the README). Accompaniment below velocity 37 is almost silent in that bank. --balance shows whether the melody sits 3-5 LU above the accompaniment. Output goes to tmp/audio/."
+    "notes": "Each piece is a uv script that imports pianokit. Needs fluidsynth, ffmpeg, and the 1.27 GB Salamander SF2 in ~/Library/Audio/Sounds/Banks (download in the README). Accompaniment below velocity 37 is almost silent in that bank. --balance shows whether the melody sits 3-5 LU above the accompaniment. --tuning just writes MIDI Tuning Standard messages per chord (files get a -just suffix). Output goes to tmp/audio/."
   },
   {
     "name": "priory",
