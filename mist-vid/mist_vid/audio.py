@@ -197,7 +197,9 @@ def master(mix: np.ndarray, out: str, lufs: float = -14.0, ceiling_db: float = -
     g = 0.0 if il is None else lufs - il
     lim = 10 ** (ceiling_db / 20)
     subprocess.run(["ffmpeg", "-v", "error", "-y", "-i", tmp, "-af",
-                    f"volume={g:.2f}dB,alimiter=limit={lim:.4f}:attack=3:release=60:level=disabled",
+                    # 4x oversampling makes the limiter catch inter-sample (true) peaks
+                    f"volume={g:.2f}dB,aresample=192000,alimiter=limit={lim:.4f}:attack=3:release=60:level=disabled,"
+                    f"aresample=48000",
                     "-c:a", "pcm_s24le", out], check=True)
     os.remove(tmp)
     return il, g
