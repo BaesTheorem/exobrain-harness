@@ -9,7 +9,7 @@
    "basis": "ESPN+Sleeper projection vs ECR + CBS/FFT",
    "status": "settling",
    "a_pts": 0.0,
-   "b_pts": 17.1
+   "b_pts": 22.6
   },
   {
    "id": 2,
@@ -19,8 +19,8 @@
    "claim": "board took Barkley at pk10 over Lamb; consensus has Barkley RB9 (259.5) vs our RB4 (294.4)",
    "basis": "the Barkley-at-the-wheel bet",
    "status": "settling",
-   "a_pts": 12.0,
-   "b_pts": 50.7
+   "a_pts": 21.0,
+   "b_pts": 70.9
   },
   {
    "id": 3,
@@ -30,8 +30,8 @@
    "claim": "board took Kyren at pk36 over Smith (ECR gap 20)",
    "basis": "Ringer #33 vs consensus 42",
    "status": "settling",
-   "a_pts": 31.2,
-   "b_pts": 36.0
+   "a_pts": 53.0,
+   "b_pts": 48.5
   },
   {
    "id": 4,
@@ -41,8 +41,8 @@
    "claim": "board took Downs at pk114 over Godwin (ECR gap 15)",
    "basis": "same WR-tail optimism cluster",
    "status": "settling",
-   "a_pts": 19.9,
-   "b_pts": 17.1
+   "a_pts": 32.6,
+   "b_pts": 22.6
   },
   {
    "id": 5,
@@ -53,7 +53,7 @@
    "basis": "RB depth vs consensus WR",
    "status": "settling",
    "a_pts": 9.3,
-   "b_pts": 46.8
+   "b_pts": 69.4
   },
   {
    "id": 6,
@@ -64,7 +64,7 @@
    "basis": "board tail vs consensus tail (intra-board sanity pair)",
    "status": "settling",
    "a_pts": 0.0,
-   "b_pts": 9.8
+   "b_pts": 13.9
   },
   {
    "id": 7,
@@ -74,7 +74,7 @@
    "claim": "signed divergence: 29 percent target share, 0.53 WOPR, 75 percent snaps across his 8 games. Volume is the stickiest signal we measure and it says WR9, not WR14.",
    "basis": "pre-draft sign-off",
    "status": "settling",
-   "a_pts": 22.2,
+   "a_pts": 38.0,
    "b_pts": 21.2
   },
   {
@@ -86,7 +86,7 @@
    "basis": "pre-draft sign-off",
    "status": "settling",
    "a_pts": 25.1,
-   "b_pts": 25.0
+   "b_pts": 48.3
   },
   {
    "id": 9,
@@ -97,7 +97,7 @@
    "basis": "examiner --live flag; 16 ECR ranks past consensus",
    "status": "settling",
    "a_pts": 32.4,
-   "b_pts": 21.6
+   "b_pts": 32.8
   }
  ]
 }
