@@ -48,6 +48,22 @@ On the M1 Air's Metal GPU (`--use-angle=metal`) frames take about 100–275 ms e
    - Use a new filename for each version.
    - Credit a Kevin MacLeod track per the CLAUDE.md music rule.
 
+## Abstract and mathematical videos (luminous 3D)
+
+For a geometric or mathematical piece, the p5.brush look is the wrong medium. Write a three.js page instead
+and render it through the same `render.mjs`: `node render.mjs --page=<page>.html` (the page defines
+`window.ready`, `renderAt`, `renderSheet`, `gpuInfo` and `DUR`), and pass review switches with
+`--query=nobloom=1&tm=none`. The worked example is branch `video/descendendo` (`descendendo.html`,
+`src/descendendo/scene.js`, `vendor/three-geo.bundle.js` with EffectComposer, UnrealBloomPass and Line2).
+
+- **Sync to the performance, not to a detected beat.** For a pianokit piece, export every performed note with
+  its time in the MP3 (`--notes-json` in `mist-music/piano/descendendo_ascendit_piano.py`) and draw from that.
+- **One mapping, morphed.** Put every element through one position function with a few continuous
+  parameters, and make the chapter transitions a change of those parameters. Then every transition is exact.
+- **Keep the camera heading continuous.** Interpolating an azimuth between chapters that differ by more than a
+  turn spins the camera through the transition. Carry one heading across the whole film.
+- **Speed:** about 32 ms per 1080p frame with bloom on 2 workers, so a 4:19 video at 60 fps renders in about 9 minutes.
+
 ## Gotchas
 
 - `npm install` once per fresh clone. If it's missing, render.mjs dies with `ERR_MODULE_NOT_FOUND: puppeteer-core`.
