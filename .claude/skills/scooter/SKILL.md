@@ -34,7 +34,8 @@ com.exobrain.niu-kqi` and let it prompt again.
    from `v5/device/bluetooth_secret` by MAC, which any logged-in account can fetch.
    `kqi mac` prints the real MAC (macOS hides it from scans; the tool connects briefly and
    reads it from `system_profiler`). Its BLE name is `NIU Link <device-name>`; the MAC is in the gitignored `secrets/scooter.json`, never in this skill.
-2. **The scooter is on and within range.** It does not advertise when off. `kqi find` shows
+2. **The scooter is on or in standby, and within range.** With the dashboard off it keeps
+   advertising for a while; after a long idle it sleeps and needs a power-button press. `kqi find` shows
    what matched and remembers the CoreBluetooth address; `kqi scan` lists everything nearby
    when `find` sees nothing; `kqi probe` dumps its GATT with no credentials.
 3. **First contact may need the button.** If the connection drops right after connecting,
