@@ -31,7 +31,7 @@ def setup(ctx: Context) -> None:
     q.add("about", ["That's me 🫡", "Now you know ✨", "Nice to meet you ^_^",
                     "The short version anyway 👀"])
 
-    @h.command("!help", "!commands", description="List available commands")
+    @h.command("!help", "!commands", description="List available commands", dm=True)
     async def help_cmd(message: discord.Message, args: list[str], ctx: Context):
         is_admin = h.is_admin(message.author)
         lines = [f"**{name}** commands:"]
@@ -45,7 +45,7 @@ def setup(ctx: Context) -> None:
             lines.append(f"{triggers}{tag} -- {cmd.description or 'no description'}")
         await message.channel.send(q.tag("\n".join(lines), "help"))
 
-    @h.command("!ping", description="Check that the bot is alive", cooldown=3.0)
+    @h.command("!ping", description="Check that the bot is alive", cooldown=3.0, dm=True)
     async def ping_cmd(message: discord.Message, args: list[str], ctx: Context):
         latency_ms = round(ctx.client.latency * 1000)
         uptime = round(time.monotonic() - _START)
@@ -54,7 +54,7 @@ def setup(ctx: Context) -> None:
             mention_author=False,
         )
 
-    @h.command("!about", description=f"About {name}")
+    @h.command("!about", description=f"About {name}", dm=True)
     async def about_cmd(message: discord.Message, args: list[str], ctx: Context):
         await message.reply(
             q.tag(

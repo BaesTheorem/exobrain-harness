@@ -59,10 +59,9 @@ INVARIANTS (do not break these in an edit):
     shells in private contexts too. Alex edits rules from the Console, not from
     Discord.
   - Guest replies are opt-in (reply_to_others) and rate-limited.
-  - Only the owner can switch the model (gated on username, not admin_ids, so
-    it works in a DM). Guests can set their OWN thinking depth (settings key
-    suffixed with their user id); nothing a guest does changes Alex's chats,
-    and guests always stay on the guest model.
+  - Only the owner can switch the model or the effort (gated on username, not
+    admin_ids, so it works in a DM). Guests can view the settings, and a
+    guest's plain-words switch is ordinary chat text, never applied.
 """
 
 from __future__ import annotations
@@ -242,15 +241,11 @@ def setup(ctx: Context) -> None:
     def current_model() -> str:
         return ctx.db.get_setting(_KEY_MODEL, default_model)
 
-    def _effort_key(user) -> str:
-        # Alex's knob is global; each guest gets a private one.
-        return _KEY_EFFORT if user is None or _is_owner(user) else f"{_KEY_EFFORT}:{user.id}"
-
     def model_for(user) -> str:
         return current_model() if user is None or _is_owner(user) else guest_model
 
-    def effort_for(user) -> str:
-        return ctx.db.get_setting(_effort_key(user), default_effort)
+    def effort_for(user) -> str:  # noqa: ARG001 -- one global knob, owner-set
+        return ctx.db.get_setting(_KEY_EFFORT, default_effort)
 
     def settings_summary(user=None) -> str:
         effort = effort_for(user)
@@ -274,15 +269,16 @@ def setup(ctx: Context) -> None:
         return f"Switched to `{canon}` ^_^ ({settings_summary(user)})"
 
     def set_effort(user, level: str) -> str:
+        if not _is_owner(user):
+            return f"Only Alex can change how hard I think ^_^ ({settings_summary(user)})"
         canon = normalize_effort(level)
         if canon is None:
             return f"Effort is one of {', '.join(f'`{e}`' for e in EFFORT_LEVELS)} or `default`."
-        ctx.db.set_setting(_effort_key(user), canon)
-        log.info("chatter effort (%s) -> %s", _effort_key(user), canon)
-        scope = "" if _is_owner(user) else " for our chats"
-        return f"Thinking depth set to `{canon}`{scope} ✨ ({settings_summary(user)})"
+        ctx.db.set_setting(_KEY_EFFORT, canon)
+        log.info("chatter effort -> %s", canon)
+        return f"Thinking depth set to `{canon}` ✨ ({settings_summary(user)})"
 
-    # ---- prefix commands (guilds AND DMs; model = owner, effort = anyone) --
+    # ---- prefix commands (guilds AND DMs; switching = owner only) ----------
 
     h = ctx.handler
 
@@ -298,7 +294,7 @@ def setup(ctx: Context) -> None:
         await message.reply(text, mention_author=False)
 
     @h.command("!effort", "!think", "!thinking",
-               description="Show or set MIST's thinking depth for your chats", dm=True)
+               description="Show MIST's thinking depth; Alex can set it", dm=True)
     async def effort_cmd(message: discord.Message, args: list[str], ctx: Context):
         user = message.author
         if not args:
@@ -327,7 +323,7 @@ def setup(ctx: Context) -> None:
                 text = set_model(user, model)
             await interaction.response.send_message(text, ephemeral=True)
 
-        @app_commands.command(name="effort", description="Set MIST's thinking depth for your chats")
+        @app_commands.command(name="effort", description="Show MIST's thinking depth (only Alex can set it)")
         @app_commands.describe(level="Effort level; 'default' lets the CLI choose")
         @app_commands.choices(level=[app_commands.Choice(name=e, value=e)
                                      for e in (*EFFORT_LEVELS, "default")])
@@ -535,11 +531,11 @@ def setup(ctx: Context) -> None:
 
     async def _apply_switch(message: discord.Message, guest: bool) -> bool:
         """Apply a plain-words model/effort switch. Returns True when the rest
-        of the message still needs a chat reply. A guest's model request is
+        of the message still needs a chat reply. A guest's switch request is
         left alone and goes to the chat as ordinary text."""
-        sw = switchintent.parse(message.clean_content or "")
         if guest:
-            sw.model = None
+            return True
+        sw = switchintent.parse(message.clean_content or "")
         if not sw.any:
             return True
         user = message.author

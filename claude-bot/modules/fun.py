@@ -125,7 +125,7 @@ def setup(ctx: Context) -> None:
                         "I just read it, I don't write it 👀", "Spooky ^_^"])
     q.add("fun.mock", ["cOuLdN'T hAvE sAiD iT bEtTeR 🫡", "you're welcome 👀", "art ✨", "no notes ^_^"])
 
-    @h.command("!roll", "!dice", "!r", description="Roll dice: `2d6+5`, `d20 adv`, or `stats`", cooldown=1.5)
+    @h.command("!roll", "!dice", "!r", description="Roll dice: `2d6+5`, `d20 adv`, or `stats`", cooldown=1.5, dm=True)
     async def roll_cmd(message: discord.Message, args: list[str], ctx: Context):
         text = " ".join(args).lower().strip()
         words = text.split()
@@ -152,7 +152,7 @@ def setup(ctx: Context) -> None:
             return
         await message.reply(q.tag(body, "fun.roll"), mention_author=False)
 
-    @h.command("!pick", "!choose", description="Pick one: `!pick tacos, sushi, ramen`", min_args=1)
+    @h.command("!pick", "!choose", description="Pick one: `!pick tacos, sushi, ramen`", min_args=1, dm=True)
     async def pick_cmd(message: discord.Message, args: list[str], ctx: Context):
         raw = " ".join(args)
         opts = [o.strip() for o in re.split(r",| or ", raw) if o.strip()]
@@ -163,14 +163,14 @@ def setup(ctx: Context) -> None:
             return
         await message.reply(q.tag(f"🤔 I pick **{random.choice(opts)}**.", "fun.pick"), mention_author=False)
 
-    @h.command("!fight", description="They Fight Crime! generator", cooldown=2.0)
+    @h.command("!fight", description="They Fight Crime! generator", cooldown=2.0, dm=True)
     async def fight_cmd(message: discord.Message, args: list[str], ctx: Context):
         await message.reply(q.tag(_fight(), "fun.fight"), mention_author=False)
 
-    @h.command("!8ball", "!8", description="Ask the magic 8-ball a yes/no question", min_args=1, cooldown=1.5)
+    @h.command("!8ball", "!8", description="Ask the magic 8-ball a yes/no question", min_args=1, cooldown=1.5, dm=True)
     async def eightball_cmd(message: discord.Message, args: list[str], ctx: Context):
         await message.reply(q.tag(f"🎱 {random.choice(_EIGHTBALL)}", "fun.8ball"), mention_author=False)
 
-    @h.command("!mock", description="sPoNgEbOb-MoCk some text", min_args=1)
+    @h.command("!mock", description="sPoNgEbOb-MoCk some text", min_args=1, dm=True)
     async def mock_cmd(message: discord.Message, args: list[str], ctx: Context):
         await message.reply(q.tag(f"🧽 {_mock(' '.join(args))}", "fun.mock"), mention_author=False)
