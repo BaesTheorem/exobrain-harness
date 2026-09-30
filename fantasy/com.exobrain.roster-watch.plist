@@ -6,7 +6,7 @@
 	<string>com.exobrain.roster-watch</string>
 	<key>ProgramArguments</key>
 	<array>
-		<string>/opt/homebrew/bin/python3</string>
+		<string>/Users/alexhedtke/.local/share/uv/python/cpython-3.13.5-macos-aarch64-none/bin/python3.13</string>
 		<string>/Users/alexhedtke/Documents/Exobrain harness/fantasy/bin/roster-watch</string>
 	</array>
 	<key>WorkingDirectory</key>

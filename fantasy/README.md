@@ -124,6 +124,26 @@ transactions aimed at the team against the last run. New events go to
 `fantasy-incident` routine via the Console's `run-routine.sh`. Install like
 `lineup-watch` with `com.exobrain.roster-watch.plist`.
 
+The plist runs the job under an interpreter that holds **Full Disk Access**
+(the uv-managed CPython under `~/.local/share/uv/python/`), not
+`/opt/homebrew/bin/python3`. The routine it starts spawns the Things 3 MCP
+server, which reads the Things database in its Group Container, and macOS
+charges that read to the launchd job's root process. When the root has no
+Full Disk Access, sandboxd raises the "would like to access data from other
+apps" dialog, and for a bare binary that grant never persists: the row lands
+in TCC.db with no code requirement, whatever the signature (ad-hoc and
+Apple Development both tested on 2026-09-30), so the dialog returns on every
+incident. A root with Full Disk Access never reaches that check at all. The
+same rule is why the Console's own routines (root `/bin/bash`, which holds
+Full Disk Access here) and Console chats never see it.
+
+Two traps when changing the root: `bash -c "python ..."` with one command
+execs it, so python becomes the root anyway; and the Homebrew python
+launcher execs `Python.app`, which makes python its own responsible process
+even as a child of a bash wrapper. If the uv python ever loses Full Disk
+Access or moves (its path carries the patch version), the dialog comes back
+and this paragraph is the explanation.
+
 ## Tool 6: `bin/forecast` (the weekly prediction-and-review loop)
 
 Alex's standing instruction from 2026-09-17: every week opens with MIST's own
