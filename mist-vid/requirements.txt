@@ -1,0 +1,12 @@
+numpy
+scipy
+librosa
+soundfile
+soxr
+opencv-python-headless
+pillow
+pyyaml
+moderngl
+scenedetect[opencv-headless]
+torch
+beat_this @ https://github.com/CPJKU/beat_this/archive/main.zip

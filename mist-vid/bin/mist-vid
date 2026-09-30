@@ -1,0 +1,8 @@
+#!/usr/bin/env bash
+# mist-vid -- GPU storybook compositor for music videos cut from film footage.
+# Thin shim: run the package under this tool's venv (moderngl, librosa, scenedetect, beat_this live there).
+set -euo pipefail
+DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+PY="$DIR/.venv/bin/python"
+[ -x "$PY" ] || { echo "mist-vid: no venv. Run: uv venv --python 3.12 $DIR/.venv && uv pip install --python $DIR/.venv/bin/python -r $DIR/requirements.txt" >&2; exit 1; }
+PYTHONPATH="$DIR${PYTHONPATH:+:$PYTHONPATH}" exec "$PY" -m mist_vid "$@"

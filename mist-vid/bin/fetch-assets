@@ -1,0 +1,45 @@
+#!/usr/bin/env bash
+# fetch-assets -- download mist-vid's third-party assets into assets/ (gitignored).
+#   gl-transitions (MIT, per-shader licences in each header), IM Fell + Cinzel Decorative fonts (OFL),
+#   ambientCG Paper001 (CC0), Kenney RPG Audio + Impact Sounds (CC0), rife-ncnn-vulkan macOS build (MIT).
+set -euo pipefail
+DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+A="${MIST_VID_ASSETS:-$DIR/assets}"
+T="$(mktemp -d)"; trap 'rm -rf "$T"' EXIT
+mkdir -p "$A/fonts" "$A/paper" "$A/sfx" "$A/rife"
+run() { if command -v mist-progress >/dev/null; then mist-progress run --label "$1" -- "${@:2}"; else "${@:2}"; fi; }
+
+if [ ! -d "$A/gl-transitions/transitions" ]; then
+  run "gl-transitions" curl -L -o "$T/glt.tgz" https://codeload.github.com/gl-transitions/gl-transitions/tar.gz/refs/heads/master
+  tar xzf "$T/glt.tgz" -C "$T" && rm -rf "$A/gl-transitions" && mv "$T/gl-transitions-master" "$A/gl-transitions"
+fi
+
+for d in imfellenglish imfellenglishsc imfellfrenchcanon imfellfrenchcanonsc imfelldoublepica imfellgreatprimer cinzeldecorative; do
+  curl -s "https://api.github.com/repos/google/fonts/contents/ofl/$d" \
+    | python3 -c "import json,sys; [print(x['download_url']) for x in json.load(sys.stdin) if x['name'].endswith(('.ttf','OFL.txt'))]" \
+    | while read -r u; do
+        f="$(basename "$u")"; [ "$f" = "OFL.txt" ] && f="OFL-$d.txt"
+        [ -f "$A/fonts/$f" ] || curl -sL -o "$A/fonts/$f" "$u"
+      done
+done
+
+if [ ! -f "$A/paper/Paper001/Paper001_2K-JPG_Color.jpg" ]; then
+  run "paper texture" curl -L -A "Mozilla/5.0" -o "$T/paper.zip" "https://ambientcg.com/get?file=Paper001_2K-JPG.zip"
+  mkdir -p "$A/paper/Paper001" && unzip -q -o "$T/paper.zip" -d "$A/paper/Paper001"
+fi
+
+for p in rpg-audio impact-sounds; do
+  [ -d "$A/sfx/$p" ] && continue
+  u="$(curl -sL -A "Mozilla/5.0" "https://kenney.nl/assets/$p" | grep -oE 'https://kenney.nl/media/pages/assets/[^"]+\.zip' | head -1)"
+  run "Kenney $p" curl -L -A "Mozilla/5.0" -o "$T/$p.zip" "$u"
+  unzip -q -o "$T/$p.zip" -d "$A/sfx/$p"
+done
+
+if [ ! -x "$A/rife/rife-ncnn-vulkan" ]; then
+  run "RIFE (436 MB zip, keeps ~30 MB)" curl -L -o "$T/rife.zip" \
+    https://github.com/nihui/rife-ncnn-vulkan/releases/download/20221029/rife-ncnn-vulkan-20221029-macos.zip
+  unzip -q "$T/rife.zip" -d "$T"
+  R="$T/rife-ncnn-vulkan-20221029-macos"
+  cp "$R/rife-ncnn-vulkan" "$R/LICENSE" "$A/rife/" && cp -R "$R/rife-v4.6" "$A/rife/"
+fi
+echo "assets ready in $A"
