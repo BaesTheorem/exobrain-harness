@@ -188,6 +188,7 @@ uv run mist-music/piano/<piece>.py --balance    # render, then melody vs accompa
   - `--balance` (in the first render, the melody was as loud as the accompaniment)
   - a chromatic test of the key mapping, with a wrong-key positive control
 - In the Salamander bank, accompaniment below velocity 37 is almost silent. The measured table is in the README.
+- `--tuning just` renders the same performance in adaptive just intonation (`*-just` files) for an A/B comparison. It reduced the beating of the thirds from 16 to 22 per second to approximately 4. To measure tuning effects, compare single overtone pairs. A roughness sum over the whole spectrum did not detect the effect.
 - `MIDI_SOUNDFONT=~/Library/Audio/Sounds/Banks/SalamanderGrandPiano-SF2-V3+20200602/SalamanderGrandPiano-V3+20200602.sf2 mid2mp3 in.mid` gives any piano-only MIDI file the sampled grand. Use the GM bank for files with more than one instrument.
 
 ---

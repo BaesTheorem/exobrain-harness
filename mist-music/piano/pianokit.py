@@ -19,6 +19,7 @@ Tokens
 Left-hand patterns: wave, wave2, calm, rise, climax, rolled, octave.
 Right-hand textures: solo; duet (a third or sixth under the long notes);
 octaves (the melody doubled an octave up, with an inner chord tone).
+Tuning: equal temperament, or adaptive just intonation with --tuning just.
 """
 
 from __future__ import annotations
@@ -104,6 +105,32 @@ PATTERNS: dict[str, dict[int, tuple[int | None, ...]]] = {
 }
 
 
+# Adaptive just intonation. Each chord's root keeps its equal-tempered pitch, so
+# nothing drifts across a piece, and every other pitch class takes a 5-limit
+# ratio above that root: pure 5:4 thirds (14 cents under the piano's), 3:2
+# fifths, 6:5 minor thirds.
+JUST_RATIOS: dict[int, float] = {0: 1, 1: 16 / 15, 2: 9 / 8, 3: 6 / 5, 4: 5 / 4, 5: 4 / 3, 6: 45 / 32,
+                                 7: 3 / 2, 8: 8 / 5, 9: 5 / 3, 10: 16 / 9, 11: 15 / 8}
+# Chord sevenths at 9:5 sit a pure minor third over the fifth (D-F in G7). The
+# 7:4 barbershop seventh is purer alone but 31 cents flat, which bends melody
+# lines that pass through it. 7sus4 keeps 16:9 so the sus fourth and the
+# seventh stay a pure fourth apart. In m7b5 the upper three notes form a pure
+# minor triad.
+JUST_QUALITY: dict[str, dict[int, float]] = {
+    "7": {10: 9 / 5},
+    "m7": {10: 9 / 5},
+    "m7b5": {6: 36 / 25, 10: 9 / 5},
+}
+
+
+def just_offsets(root: int, quality: str) -> list[float]:
+    """Cents away from equal temperament for each pitch class, while one chord sounds."""
+    out = [0.0] * 12
+    for iv, ratio in {**JUST_RATIOS, **JUST_QUALITY.get(quality, {})}.items():
+        out[(root + iv) % 12] = 1200 * math.log2(ratio) - 100 * iv
+    return out
+
+
 def voice(root: int, quality: str, bass: int) -> list[int]:
     """Five left-hand notes: the bass, then four chord tones in open spacing."""
     tones, shape = QUALITIES[quality]
@@ -128,6 +155,8 @@ def voice(root: int, quality: str, bass: int) -> list[int]:
 @dataclass
 class Chord:
     symbol: str
+    root: int
+    quality: str
     pcs: frozenset[int]
     bass: int
     voicing: list[int]
@@ -159,7 +188,8 @@ def parse_chords(spec: str, bar: int) -> list[Chord]:
             raise ValueError(f"bar {bar + 1}: {symbol} does not match bass {note_name(bass)}")
         tones, _ = QUALITIES[m[2]]
         n = beats if beats is not None else share
-        out.append(Chord(symbol, frozenset((root + t) % 12 for t in tones), bass, voice(root, m[2], bass), pos, n))
+        out.append(Chord(symbol, root, m[2], frozenset((root + t) % 12 for t in tones), bass,
+                         voice(root, m[2], bass), pos, n))
         pos += n
     if abs(pos - (bar + 1) * BEATS) > 1e-9:
         raise ValueError(f"bar {bar + 1}: chords fill {pos - bar * BEATS} beats, not {BEATS}")
@@ -442,6 +472,48 @@ def perform(piece: Piece, bars: list[Bar], chords: list[Chord], notes: list[Note
     return pedals
 
 
+def tuning_changes(chords: list[Chord], notes: list[Note], transpose: int) -> list[tuple[float, list[float]]]:
+    """(seconds, offsets) for each chord whose just tuning differs from the one before.
+
+    A change lands 3 ms before the first note of its chord and after every note
+    of the chords before it. The MIDI Tuning messages are non-real-time, so
+    notes that already sound keep their pitch and never slide.
+    """
+    changes: list[tuple[float, list[float]]] = []
+    prev: list[float] | None = None
+    for ch in chords:
+        offsets = just_offsets((ch.root + transpose) % 12, ch.quality)
+        if offsets == prev:
+            continue
+        mine = [n.on for n in notes if ch.start - 1e-9 <= n.beat < ch.end - 1e-9]
+        before = [n.on for n in notes if n.beat < ch.start - 1e-9]
+        at = min(mine) - 0.003 if mine else max(before, default=0.0) + 0.003
+        if before and max(before) >= at:
+            raise SystemExit(f"{ch.symbol} at beat {ch.start:g}: a note of the chord before it starts later")
+        changes.append((max(0.0, at), offsets))
+        prev = offsets
+    return changes
+
+
+def _tuning_sysex(offsets: list[float]) -> mido.Message:
+    """MIDI Tuning Standard: non-real-time single-note tuning change, bank 0, program 0, keys 21-108."""
+    data = [0x7E, 0x7F, 0x08, 0x07, 0, 0, 88]
+    for key in range(21, 109):
+        target = 100 * key + offsets[key % 12]
+        semitone = int(target // 100)
+        frac = round((target - 100 * semitone) / 100 * 16384)
+        if frac == 16384:
+            semitone, frac = semitone + 1, 0
+        data += [key, semitone, frac >> 7, frac & 0x7F]
+    return mido.Message("sysex", data=data)
+
+
+def _select_tuning(channel: int) -> list[tuple[int, int, mido.Message]]:
+    """RPN 4 (tuning bank) and RPN 3 (tuning program) set to 0, then the null RPN, at tick 0."""
+    ccs = [(101, 0), (100, 4), (6, 0), (101, 0), (100, 3), (6, 0), (101, 127), (100, 127)]
+    return [(0, -1, mido.Message("control_change", control=c, value=v, channel=channel)) for c, v in ccs]
+
+
 def _note_events(notes: list[Note], channel: int, on_tick, off_tick) -> list[tuple[int, int, mido.Message]]:
     """Note on/off pairs; a repeated key is released one tick before it is struck again."""
     ev: list[tuple[int, int, mido.Message]] = []
@@ -471,8 +543,10 @@ def _track(name: str, channel: int, events: list[tuple[int, int, mido.Message]])
     return tr
 
 
-def write_performance(path: Path, piece: Piece, notes: list[Note], pedals: list[tuple[float, int]]) -> float:
-    """Real-time MIDI: 60 BPM, so one beat is one second and every tick is 1/960 s."""
+def write_performance(path: Path, piece: Piece, notes: list[Note], pedals: list[tuple[float, int]],
+                      tuning: list[tuple[float, list[float]]] | None = None) -> float:
+    """Real-time MIDI: 60 BPM, so one beat is one second and every tick is 1/960 s.
+    With a tuning, both hands select tuning 0/0 and the changes ride on the right-hand track."""
     tpb = 960
     mid = mido.MidiFile(type=1, ticks_per_beat=tpb)
     conductor = mido.MidiTrack()
@@ -488,6 +562,10 @@ def write_performance(path: Path, piece: Piece, notes: list[Note], pedals: list[
         ev = _note_events([n for n in notes if n.hand == hand], ch, lambda n: tick(n.on), lambda n: tick(n.off))
         if hand == "lh":
             ev += [(tick(s), 1, mido.Message("control_change", control=64, value=v, channel=1)) for s, v in pedals]
+        if tuning:
+            ev += _select_tuning(ch)
+            if hand == "rh":
+                ev += [(tick(s), 1, _tuning_sysex(offsets)) for s, offsets in tuning]
         # A silent controller at the very end keeps the renderer running through the tail.
         ev.append((tick(end), 1, mido.Message("control_change", control=91, value=0, channel=ch)))
         mid.tracks.append(_track(name, ch, ev))
@@ -673,11 +751,16 @@ def balance(piece: Piece, bars: list[Bar], perf_mid: Path, sf2: Path) -> None:
         first += len(sec)
 
 
-def dump(bars: list[Bar], chords: list[Chord], transpose: int) -> None:
+def dump(bars: list[Bar], chords: list[Chord], transpose: int, just: bool = False) -> None:
     for i, b in enumerate(bars):
         here = [c for c in chords if int(c.start // BEATS) == i]
         harmony = "  ".join(f"{c.symbol}[{' '.join(note_name(p + transpose) for p in c.voicing)}]" for c in here)
         print(f"{i + 1:>3} {b.lh:<7}{b.rh:<8}{b.bpm:>4g} {b.mel:>3}/{b.acc:<3} {harmony}\n{'':>28}{b.melody}")
+        for c in here if just else []:
+            offsets = just_offsets((c.root + transpose) % 12, c.quality)
+            tones = sorted({(pc + transpose) % 12 for pc in c.pcs}, key=lambda pc: (pc - c.root - transpose) % 12)
+            cents = ", ".join(f"{_FLAT_NAMES[pc]} {offsets[pc]:+.1f}" for pc in tones)
+            print(f"{'':>28}just {c.symbol}: {cents}")
 
 
 def main(piece: Piece) -> None:
@@ -689,20 +772,28 @@ def main(piece: Piece) -> None:
     ap.add_argument("--midi-only", action="store_true", help="write the MIDI files and stop")
     ap.add_argument("--dump", action="store_true", help="print each bar's voicings and melody")
     ap.add_argument("--balance", action="store_true", help="measure melody against accompaniment per section")
+    ap.add_argument("--tuning", choices=("equal", "just"), default="equal",
+                    help="just: retune every chord to pure ratios above its root (writes *-just files)")
     args = ap.parse_args()
+    just = args.tuning == "just"
 
     bars, chords, notes, warnings = compose(piece)
     for w in warnings:
         print(f"warning: {w}")
     if args.dump:
-        dump(bars, chords, piece.transpose)
+        dump(bars, chords, piece.transpose, just)
     pedals = perform(piece, bars, chords, notes)
     for n in notes:
         n.pitch += piece.transpose
+    tuning = tuning_changes(chords, notes, piece.transpose) if just else None
     slug = re.sub(r"[^a-z0-9]+", "-", piece.title.lower()).strip("-")
+    tag = "-just" if just else ""
     args.out.mkdir(parents=True, exist_ok=True)
-    perf_mid, score_mid, mp3 = (args.out / f"{slug}.mid", args.out / f"{slug}-score.mid", args.out / f"{slug}.mp3")
-    end = write_performance(perf_mid, piece, notes, pedals)
+    perf_mid, score_mid, mp3 = (args.out / f"{slug}{tag}.mid", args.out / f"{slug}-score.mid",
+                                args.out / f"{slug}{tag}.mp3")
+    end = write_performance(perf_mid, piece, notes, pedals, tuning)
+    if tuning:
+        print(f"{len(tuning)} tuning changes (adaptive just intonation, roots in equal temperament)")
     write_score(score_mid, piece, bars, chords, notes)
     lo, hi = min(n.pitch for n in notes), max(n.pitch for n in notes)
     print(f"{len(bars)} bars, {len(notes)} notes, {note_name(lo)}-{note_name(hi)}, {end - TAIL:.1f} s performed")
@@ -714,7 +805,8 @@ def main(piece: Piece) -> None:
     with tempfile.TemporaryDirectory() as td:
         wav = Path(td) / "dry.wav"
         render(perf_mid, wav, args.soundfont)
-        seconds = master(wav, mp3, {"title": piece.title, "artist": piece.artist, "comment": piece.comment},
+        title = f"{piece.title} (just intonation)" if just else piece.title
+        seconds = master(wav, mp3, {"title": title, "artist": piece.artist, "comment": piece.comment},
                          wet_db=args.wet, target_lufs=args.lufs)
     lufs, peak = loudness(mp3)
     print(f"wrote {mp3}  ({seconds:.1f} s, {lufs:.1f} LUFS, true peak {peak:.1f} dBTP)")

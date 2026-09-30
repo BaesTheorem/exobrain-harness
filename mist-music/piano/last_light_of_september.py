@@ -19,6 +19,7 @@ higher (transpose=1).
 
     uv run mist-music/piano/last_light_of_september.py          # MIDI + MP3 in tmp/audio/
     uv run mist-music/piano/last_light_of_september.py --dump   # print every bar's voicing
+    uv run mist-music/piano/last_light_of_september.py --tuning just   # adaptive just intonation
 """
 
 import pianokit as pk

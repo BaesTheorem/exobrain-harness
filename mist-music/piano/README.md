@@ -27,7 +27,8 @@ uv run mist-music/piano/last_light_of_september.py --midi-only
 
 `uv` installs mido, numpy, and scipy from the header of the script. FluidSynth
 and ffmpeg come from Homebrew. `--wet` sets the hall level and `--lufs` sets
-the loudness target.
+the loudness target. `--tuning just` renders the same performance in adaptive
+just intonation, to files with a `-just` suffix.
 
 | File | Piece |
 |---|---|
@@ -42,6 +43,35 @@ names are in the docstring of `pianokit.py`.
 2. Mark an intended non-chord tone with `!`, for example `G5!:1`.
 3. Render with `--balance`. In each section with a melody, the melody must be 3 to 5 LU above the accompaniment.
 4. If the melody is too low, decrease the accompaniment velocities before you increase the melody.
+
+## Just intonation
+
+With `--tuning just`, the piano retunes for each chord. The root of the chord
+keeps its equal-tempered pitch, so the piece cannot move out of tune over its
+length. Each other note takes a 5-limit ratio above the root: the major third
+is 5:4 (13.7 cents below equal temperament), the fifth 3:2, and the minor third
+6:5. Chord sevenths use 9:5. The 7:4 seventh is purer in the chord, but it is
+31 cents flat. In this piece, it made a melody step of only 153 cents (bars 32
+to 33).
+
+`pianokit` writes the tunings into the MIDI file as MIDI Tuning Standard
+messages, 3 ms before each chord. The messages are non-real-time, so a note
+that sounds when a message arrives keeps its pitch.
+
+Measured on the D-flat major chord, one note at a time:
+
+| Overtones that meet | Equal temperament | Just intonation |
+|---|---|---|
+| Major third, D-flat 5th vs F 4th | 15.8 beats/s | 4.5 beats/s |
+| Minor third, F 6th vs A-flat 5th | 22.0 beats/s | 3.8 beats/s |
+| Fifth, D-flat 3rd vs A-flat 2nd | 0.5 beats/s | 0.9 beats/s |
+
+The thirds continue to beat, because piano overtones are sharper than
+whole-number multiples of the fundamental frequency. On this piano, a major
+third with no beats is approximately 20 cents below equal temperament. A
+Sethares roughness sum for all overtone peaks did not find the difference, and
+it also missed a mistuned control chord. Measurements of single overtone pairs
+found it.
 
 ## The soundfont
 
