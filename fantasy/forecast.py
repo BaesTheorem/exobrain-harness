@@ -811,8 +811,11 @@ def settle_week(api: Espn, path: Path) -> dict:
     rec = json.loads(path.read_text())
     week, my_id = rec["week"], rec["team_id"]
     data = api.league("mTeam", "mRoster", "mMatchup", "mMatchupScore", "mSettings", "mStatus", period=week)
-    if int(data.get("scoringPeriodId") or 0) <= week:
-        raise SystemExit(f"forecast: week {week} is not over yet (ESPN is on period {data.get('scoringPeriodId')})")
+    # scoringPeriodId echoes the requested period back, so it can never pass for
+    # a finished week; the league's own current period is status.latestScoringPeriod
+    current = int((data.get("status") or {}).get("latestScoringPeriod") or data.get("scoringPeriodId") or 0)
+    if current <= week:
+        raise SystemExit(f"forecast: week {week} is not over yet (ESPN is on period {current})")
     mv = matchup_view(api, week, data, my_id)
     if mv is None or not mv.get("opp"):
         raise SystemExit("forecast: could not read the finished matchup")
