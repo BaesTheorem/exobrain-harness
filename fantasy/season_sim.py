@@ -21,6 +21,7 @@ is this league's format. Two noise terms, both stated rather than fitted:
 Run in season with actual standings folded in later; for now it is preseason.
 
     python3 season_sim.py [--sims 20000] [--sigma 22] [--tau 8] [--seed 1]
+    python3 season_sim.py --after-week 5    # the table after week 5, not the season
 """
 
 import argparse
@@ -185,8 +186,13 @@ def simulate(teams, games, reg, sims, sigma, tau, seed, actuals=None) -> tuple:
         losses[:, idx[a]] += as_ < hs
         pf[:, idx[h]] += hs
         pf[:, idx[a]] += as_
-    # Seeding: wins, then points for (the league's tiebreak).
-    order = np.lexsort((-pf, -wins), axis=1)  # sims x n, best first
+    # Seeding: win percentage, then points for (the league's tiebreak), which
+    # is ESPN's playoffSeed order. Not raw wins: idle weeks leave teams on
+    # unequal games mid-season (a 3-0 idle team sits above a 3-1 team with
+    # more points), and --after-week ranked those backwards until 2026-09-30.
+    # At season end every team has played 13, so the two orders agree.
+    pct = wins / np.maximum(wins + losses, 1)
+    order = np.lexsort((-pf, -pct), axis=1)  # sims x n, best first
     seed_of = np.empty_like(order)
     rows = np.arange(sims)[:, None]
     seed_of[rows, order] = np.arange(n)[None, :]
@@ -229,6 +235,31 @@ def ci(x, lo, hi):
     return a, b
 
 
+def after_week(teams, games, reg, args, actuals):
+    """The league table after week `reg`: finish distribution and top-two odds per team."""
+    ids, _mu, wins, _losses, _pf, ranks, probs = simulate(
+        teams, games, reg, args.sims, args.sigma, args.tau, args.seed, actuals)
+    played = max(actuals) if actuals else 0
+    me = int(Espn().creds.get("team_id", 0))
+    rows = sorted(((teams[t]["name"], float(probs["seed1"][i]), float(probs["bye"][i]),
+                    float(wins[:, i].mean()), ranks[:, i], t == me) for i, t in enumerate(ids)),
+                  key=lambda r: -r[2])
+    if args.json:
+        print(json.dumps({"after_week": reg, "weeks_played": played, "sims": args.sims,
+                          "teams": {nm: {"first": round(f, 4), "top2": round(b, 4), "wins_mean": round(w, 2),
+                                         "rank_dist": {int(k): round(float((r == k).mean()), 4)
+                                                       for k in np.unique(r)}, "mine": m}
+                                    for nm, f, b, w, r, m in rows}}, indent=1))
+        return
+    print(f"## Standings after week {reg} ({args.sims:,} sims; weeks 1-{played} played; "
+          f"sigma_week={args.sigma}, tau_season={args.tau})\n")
+    print("| Team | Wins (mean) | First | Top two | Finish median (90% CI) |")
+    print("|---|---|---|---|---|")
+    for nm, f, b, w, r, m in rows:
+        lo, hi = ci(r, 5, 95)
+        print(f"| {'**' + nm + '**' if m else nm} | {w:.2f} | {f:.0%} | {b:.0%} | {np.median(r):.0f} ({lo:.0f}-{hi:.0f}) |")
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--sims", type=int, default=20000)
@@ -238,12 +269,23 @@ def main():
     ap.add_argument("--season", type=int, default=2026)
     ap.add_argument("--through-week", type=int, default=None, metavar="N",
                     help="treat weeks 1..N as played (default: auto-detect; 0 = preseason)")
+    ap.add_argument("--after-week", type=int, default=None, metavar="N",
+                    help="stop the schedule after week N and report the standings then "
+                         "(Bye column = P(top two after week N)); writes no summary file")
     ap.add_argument("--json", action="store_true", help="also print a JSON summary (our odds first)")
     args = ap.parse_args()
     say = (lambda *a, **k: None) if args.json else print   # --json: the summary is the only stdout
 
     teams, games, reg = load(args.season)
     actuals = completed_weeks(args.season, games, reg, args.through_week)
+    if args.after_week:
+        # Standings after week N are the same simulation on a shorter schedule:
+        # the seeding step ranks by wins then points for, which is the table.
+        reg = args.after_week
+        games = [g for g in games if g[0] <= reg]
+        actuals = {w: v for w, v in actuals.items() if w <= reg}
+        after_week(teams, games, reg, args, actuals)
+        return
     board = board_scores(teams)
 
     say("## Scoreboard 1: our system (value over replacement by our board, from ESPN's pick record)\n")

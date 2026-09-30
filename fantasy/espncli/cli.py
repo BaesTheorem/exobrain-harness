@@ -227,7 +227,9 @@ def cmd_teams(api: Espn, args: argparse.Namespace) -> None:
             "trades": tc.get("trades", 0), "proj_rank": t.get("currentProjectedRank"),
             "mine": t["id"] == mine,
         })
-    rows.sort(key=lambda r: (-r["wins"], -r["pf"]))
+    # ESPN seeds on win percentage, then points for. Raw wins misorders the
+    # table mid-season, when idle weeks leave teams on unequal games.
+    rows.sort(key=lambda r: (-(r["wins"] + r["ties"] / 2) / max(r["wins"] + r["losses"] + r["ties"], 1), -r["pf"]))
     for i, r in enumerate(rows, 1):
         r["rank"] = i
         r["rec"] = f"{r['wins']}-{r['losses']}" + (f"-{r['ties']}" if r["ties"] else "")
