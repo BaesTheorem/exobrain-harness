@@ -1,6 +1,6 @@
 ---
 name: music
-description: "Alex's music toolset -- generate full songs from a text prompt, render sheet music (MIDI/MusicXML/photo/PDF) to audio, transcribe audio to notation, and build captioned lyric videos from a track + a still image + lyrics. Use when Alex says 'make a song', 'generate music', 'lyric video', 'captioned lyrics video', 'karaoke video', 'transcribe this audio', 'read this sheet music', 'turn this MIDI into audio', 'set these lyrics to the track', or otherwise wants to create, convert, or caption music."
+description: "Alex's music toolset -- generate full songs from a text prompt, compose solo piano pieces in Python (pianokit: written score -> performed MIDI -> sampled grand MP3), render sheet music (MIDI/MusicXML/photo/PDF) to audio, transcribe audio to notation, and build captioned lyric videos from a track + a still image + lyrics. Use when Alex says 'make a song', 'generate music', 'compose a piano piece', 'write a piano song in Python', 'lyric video', 'captioned lyrics video', 'karaoke video', 'transcribe this audio', 'read this sheet music', 'turn this MIDI into audio', 'set these lyrics to the track', or otherwise wants to create, convert, or caption music."
 metadata:
   tools_dir: "/Users/alexhedtke/Documents/Exobrain harness"
   mist_music: "mist-music/bin/mist-music (gen / render / transcribe / play); venv mist-music/.venv"
@@ -21,6 +21,7 @@ we never re-tread ground.
 | Generate a full MP3 song from a prompt (vocals/lyrics/production) | `mist-music gen` | §1 |
 | Hear sheet music (MIDI / MusicXML / photo / scan / PDF of a score) | `mist-music render` | §1 |
 | Transcribe an audio clip → MIDI + MusicXML | `mist-music transcribe` | §1 |
+| **Compose a solo piano piece in code** (Python score, performed and rendered on a sampled grand) | `mist-music/piano/` (pianokit) | §1b |
 | **Captioned lyric video** from a track + a still + lyrics | `lyrics-video/` pipeline | §2 |
 
 Both keep user media (audio, images, rendered output) gitignored; the scripts
@@ -165,6 +166,29 @@ saved. `render`/`transcribe` default to `mist-music/out/` (gitignored).
 - **Top-tier vocals:** ACE-Step vocals can be artifacty. For the best voice Alex
   may take an instrumental bed to **Suno** (free tier, browser-only -- *not* wired
   as a backend). A Suno `--backend` is the noted future upgrade.
+
+---
+
+## §1b · Piano in code (`mist-music/piano/`, pianokit)
+
+When Alex asks for a piano piece "in Python" or "in code", write the score as a
+piece file. Then let `pianokit` play it. Do not use `gen` for this task,
+because ACE-Step makes audio and this task is composition. Read
+`mist-music/piano/README.md` before you write a piece.
+
+```bash
+uv run mist-music/piano/<piece>.py --dump       # voicings + harmony warnings, before audio
+uv run mist-music/piano/<piece>.py --balance    # render, then melody vs accompaniment per section
+```
+
+- **Write the music, then let the engine play it.** Write the melody note by note. Write the harmony as chord symbols with explicit bass notes. `pianokit` adds the voicing, the patterns, the rubato, the pedal, and small variations in time and velocity. A random melody is not beautiful. A melody with a clear shape, on good harmony and with a performance model, can be.
+- Output goes to `tmp/audio/<slug>.mp3`, with the MIDI files next to it. Embed the MP3 in the Console with a raw path.
+- **You cannot hear the render, so measure it.** These tests found faults in the first piece:
+  - the RMS level for each 4 s, against the planned dynamic arc
+  - `--balance` (in the first render, the melody was as loud as the accompaniment)
+  - a chromatic test of the key mapping, with a wrong-key positive control
+- In the Salamander bank, accompaniment below velocity 37 is almost silent. The measured table is in the README.
+- `MIDI_SOUNDFONT=~/Library/Audio/Sounds/Banks/SalamanderGrandPiano-SF2-V3+20200602/SalamanderGrandPiano-V3+20200602.sf2 mid2mp3 in.mid` gives any piano-only MIDI file the sampled grand. Use the GM bank for files with more than one instrument.
 
 ---
 

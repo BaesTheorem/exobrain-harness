@@ -14,6 +14,10 @@ upload, repaint a section, split stems, keep a library with cover art. See
    optionally conditioned on a melody clip or sheet music), on a cloud GPU so it
    never touches this 8GB machine's RAM.
 
+The `piano/` folder is not part of the CLI. It holds solo piano pieces, written
+as Python scores, and `pianokit`, which plays them with rubato, pedal, and
+dynamics on a sampled grand piano. See `piano/README.md`.
+
 The reliable core (render + transcribe) runs **entirely locally** and needs no key.
 `gen` uses a free public Hugging Face Space, so it needs **no key either** (an
 `HF_TOKEN` is used only if present, for higher quota).

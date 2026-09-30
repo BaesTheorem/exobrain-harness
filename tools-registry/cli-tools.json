@@ -402,6 +402,14 @@
     "notes": "Builds ~/Applications/Open in Google Calendar.app and registers it as the default .ics handler, so calendar invites open in Google Calendar instead of Apple Calendar. Self-contained: the installer inlines a full RFC 5545 parser (line unfolding, TZID to UTC, all-day, DURATION without DTEND, RRULE, VALARM skipping). 1-5 events open pre-filled create pages, 6+ opens the import page. Private repo BaesTheorem/ic-to-gcal."
   },
   {
+    "name": "pianokit",
+    "command": "uv run mist-music/piano/last_light_of_september.py [--dump] [--balance] [--midi-only]",
+    "repo_dir": "~/Documents/Exobrain harness/mist-music/piano",
+    "source": "built",
+    "added": "2026-09-30",
+    "notes": "Each piece is a uv script that imports pianokit. Needs fluidsynth, ffmpeg, and the 1.27 GB Salamander SF2 in ~/Library/Audio/Sounds/Banks (download in the README). Accompaniment below velocity 37 is almost silent in that bank. --balance shows whether the melody sits 3-5 LU above the accompaniment. Output goes to tmp/audio/."
+  },
+  {
     "name": "priory",
     "command": "~/Documents/the-priory/bin/priory <status|ingest|feeds-load|serve|embed-warmup>",
     "repo_dir": "/Users/alexhedtke/Documents/the-priory",
