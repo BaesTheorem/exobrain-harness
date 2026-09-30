@@ -1,6 +1,6 @@
 ---
 name: music
-description: "Alex's music toolset -- generate full songs from a text prompt, compose solo piano pieces in Python (pianokit: written score -> performed MIDI -> sampled grand MP3), render sheet music (MIDI/MusicXML/photo/PDF) to audio, transcribe audio to notation, and build captioned lyric videos from a track + a still image + lyrics. Use when Alex says 'make a song', 'generate music', 'compose a piano piece', 'write a piano song in Python', 'lyric video', 'captioned lyrics video', 'karaoke video', 'transcribe this audio', 'read this sheet music', 'turn this MIDI into audio', 'set these lyrics to the track', or otherwise wants to create, convert, or caption music."
+description: "Alex's music toolset -- generate full songs from a text prompt, compose solo piano pieces in Python (pianokit: written score -> performed MIDI -> sampled grand MP3), compose pieces that loop with no seam in Python (loopkit: Shepard tones, just intonation, one circular period, gapless Console loop player), render sheet music (MIDI/MusicXML/photo/PDF) to audio, transcribe audio to notation, and build captioned lyric videos from a track + a still image + lyrics. Use when Alex says 'make a song', 'generate music', 'compose a piano piece', 'write a piano song in Python', 'make a loop', 'a piece that loops forever', 'Shepard tone', 'endlessly rising', 'strange loop', 'mathematically beautiful music', 'just intonation piece', 'lyric video', 'captioned lyrics video', 'karaoke video', 'transcribe this audio', 'read this sheet music', 'turn this MIDI into audio', 'set these lyrics to the track', or otherwise wants to create, convert, or caption music."
 metadata:
   tools_dir: "/Users/alexhedtke/Documents/Exobrain harness"
   mist_music: "mist-music/bin/mist-music (gen / render / transcribe / play); venv mist-music/.venv"
@@ -22,6 +22,7 @@ we never re-tread ground.
 | Hear sheet music (MIDI / MusicXML / photo / scan / PDF of a score) | `mist-music render` | §1 |
 | Transcribe an audio clip → MIDI + MusicXML | `mist-music transcribe` | §1 |
 | **Compose a solo piano piece in code** (Python score, performed and rendered on a sampled grand) | `mist-music/piano/` (pianokit) | §1b |
+| **Compose a piece that loops with no seam** (Shepard tones, pure tuning, math structures; plays as a gapless loop in the Console) | `mist-music/loops/` (loopkit) | §1c |
 | **Captioned lyric video** from a track + a still + lyrics | `lyrics-video/` pipeline | §2 |
 
 Both keep user media (audio, images, rendered output) gitignored; the scripts
@@ -190,6 +191,27 @@ uv run mist-music/piano/<piece>.py --balance    # render, then melody vs accompa
 - In the Salamander bank, accompaniment below velocity 37 is almost silent. The measured table is in the README.
 - `--tuning just` renders the same performance in adaptive just intonation (`*-just` files) for an A/B comparison. It reduced the beating of the thirds from 16 to 22 per second to approximately 4. To measure tuning effects, compare single overtone pairs. A roughness sum over the whole spectrum did not detect the effect.
 - `MIDI_SOUNDFONT=~/Library/Audio/Sounds/Banks/SalamanderGrandPiano-SF2-V3+20200602/SalamanderGrandPiano-V3+20200602.sf2 mid2mp3 in.mid` gives any piano-only MIDI file the sampled grand. Use the GM bank for files with more than one instrument.
+
+---
+
+## §1c · Loops in code (`mist-music/loops/`, loopkit)
+
+When Alex asks for music that loops, goes up or down with no end, uses Shepard
+tones or pure (just) tuning, or comes from a mathematical structure, write a
+piece file on `loopkit`. Read `mist-music/loops/README.md` before you write one.
+The first piece is `descendendo_ascendit.py`, a strange loop through all 24 keys.
+
+```bash
+uv run mist-music/loops/<piece>.py --dump                        # score + score checks, no audio
+uv run --with matplotlib mist-music/loops/<piece>.py --check     # render (parallel, cached per layer) + measure
+uv run --with matplotlib mist-music/loops/<piece>.py --measure   # measure the last render again
+```
+
+- Each note is a Shepard stack, and the piece renders ONE period circularly: note tails, the reverb, the filters, and the limiter all wrap. The output is periodic to the sample.
+- **Console loop embed.** Put the loop window on the MP3 embed: `![title](/abs/path/<slug>.mp3#loop=2,<2 + period>)`. The Console plays that window as a gapless loop through Web Audio, with a pass counter. `#loop` with no numbers loops the whole file. The MP3 has 2 s of its own music before and after the period, because an MP3 decoder adds a delay and padding at the file edges. The `-loop.flac` file is one period, for other gapless players. The loop player loads after a Cmd-R in the Console (it is front-end code).
+- **You cannot hear the render, so measure it.** Check the seam with a control: the sample step across the wrap must be in the range of the steps in the period, and a window that is a few samples too long must show a step. Check the harmony with a control: find the triad in each bar, then move the labels by one bar.
+- Pure tuning drifts by a comma per cycle. Give the `Loop` a `glide` that pays it back, or the loop does not close. Name chords from the first cycle, because the raw chain drifts away from equal temperament in later cycles.
+- Write the layer balance as LUFS targets and set the gains from the cached stems. A mix-only change takes approximately 1 minute. A full render of 216 s takes approximately 10 minutes.
 
 ---
 
