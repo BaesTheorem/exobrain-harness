@@ -29,9 +29,10 @@ Where the call runs depends on WHO can read the channel:
   - **Shared** (any other server): neutral cwd, no MCP, no tools. She writes
     chat text and nothing of Alex's is reachable, whatever anyone types.
 
-Model and thinking depth are switchable at runtime (`!model`, `!effort`, and
-the matching slash commands) and persist in the settings table across
-restarts. The catalog of selectable models is discovered from the installed
+Model and thinking depth are switchable at runtime (`!model`, `!effort`, the
+matching slash commands, or plain words like "switch to sonnet" / "think
+harder", parsed by switchintent.py before any CLI runs) and persist in the
+settings table across restarts. The catalog of selectable models is discovered from the installed
 CLI binary (see models.py), so a CLI update is all a new model needs.
 
 She replies when someone @mentions her, replies to one of her messages, or DMs
@@ -58,8 +59,10 @@ INVARIANTS (do not break these in an edit):
     shells in private contexts too. Alex edits rules from the Console, not from
     Discord.
   - Guest replies are opt-in (reply_to_others) and rate-limited.
-  - The model/effort commands are owner-gated on username, not on admin_ids,
-    so they work in a DM and nobody else can flip her model.
+  - Only the owner can switch the model (gated on username, not admin_ids, so
+    it works in a DM). Guests can set their OWN thinking depth (settings key
+    suffixed with their user id); nothing a guest does changes Alex's chats,
+    and guests always stay on the guest model.
 """
 
 from __future__ import annotations
@@ -76,6 +79,7 @@ import discord
 import attachments
 from config import load_owner_username
 from handler import Context
+import switchintent
 from models import EFFORT_LEVELS, ModelCatalog, find_claude_bin, normalize_effort
 
 log = logging.getLogger("fletcher")
@@ -142,8 +146,10 @@ PRIVATE_NOTE = (
     "DELETE or MOVE something that already exists, say what you're about to "
     "touch and let him confirm -- creating something new needs no ceremony."
     "\n\nHe can switch your model and thinking depth with `!model <name>` and "
-    "`!effort <level>` (or the slash commands); `!model` alone shows the "
-    "current settings and options."
+    "`!effort <level>` (or the slash commands), or just by saying it (\"switch "
+    "to sonnet\", \"think harder\"): the bot applies those before you see the "
+    "message and has already confirmed them, so don't repeat the confirmation. "
+    "`!model` alone shows the current settings and options."
     "\n\nKeep the reply short and in your voice either way: tell him what's on "
     "it or what you did, don't dump a formatted agenda or a receipt."
 )
@@ -229,67 +235,77 @@ def setup(ctx: Context) -> None:
 
     # ---- runtime settings (persisted) --------------------------------------
 
+    def _is_owner(user: discord.User | discord.Member) -> bool:
+        # Discord usernames are globally unique, so name-matching is reliable.
+        return user.name.lower() == owner.lower()
+
     def current_model() -> str:
         return ctx.db.get_setting(_KEY_MODEL, default_model)
 
-    def current_effort() -> str:
-        return ctx.db.get_setting(_KEY_EFFORT, default_effort)
+    def _effort_key(user) -> str:
+        # Alex's knob is global; each guest gets a private one.
+        return _KEY_EFFORT if user is None or _is_owner(user) else f"{_KEY_EFFORT}:{user.id}"
 
-    def settings_summary() -> str:
-        effort = current_effort()
+    def model_for(user) -> str:
+        return current_model() if user is None or _is_owner(user) else guest_model
+
+    def effort_for(user) -> str:
+        return ctx.db.get_setting(_effort_key(user), default_effort)
+
+    def settings_summary(user=None) -> str:
+        effort = effort_for(user)
         effort_txt = effort if effort != "default" else "default (CLI picks)"
-        return f"model `{current_model()}` · effort `{effort_txt}`"
+        return f"model `{model_for(user)}` · effort `{effort_txt}`"
 
     def model_options() -> str:
         known = catalog.models()
         ids = ", ".join(f"`{m}`" for m in known) if known else "(couldn't read the CLI binary)"
         return f"aliases: `fable` `opus` `sonnet` `haiku` · full ids: {ids} · add `[1m]` for 1M context"
 
-    def set_model(name: str) -> str:
-        """Apply a model choice; returns the reply text."""
+    def set_model(user, name: str) -> str:
+        """Apply a model choice (owner only); returns the reply text."""
+        if not _is_owner(user):
+            return f"Only Alex can change my model ^_^ ({settings_summary(user)})"
         canon = catalog.normalize(name)
         if canon is None:
             return f"I don't know a model called `{name}`. {model_options()}"
         ctx.db.set_setting(_KEY_MODEL, canon)
         log.info("chatter model -> %s", canon)
-        return f"Switched to `{canon}` ^_^ ({settings_summary()})"
+        return f"Switched to `{canon}` ^_^ ({settings_summary(user)})"
 
-    def set_effort(level: str) -> str:
+    def set_effort(user, level: str) -> str:
         canon = normalize_effort(level)
         if canon is None:
             return f"Effort is one of {', '.join(f'`{e}`' for e in EFFORT_LEVELS)} or `default`."
-        ctx.db.set_setting(_KEY_EFFORT, canon)
-        log.info("chatter effort -> %s", canon)
-        return f"Thinking depth set to `{canon}` ✨ ({settings_summary()})"
+        ctx.db.set_setting(_effort_key(user), canon)
+        log.info("chatter effort (%s) -> %s", _effort_key(user), canon)
+        scope = "" if _is_owner(user) else " for our chats"
+        return f"Thinking depth set to `{canon}`{scope} ✨ ({settings_summary(user)})"
 
-    def _is_owner(user: discord.User | discord.Member) -> bool:
-        # Discord usernames are globally unique, so name-matching is reliable.
-        return user.name.lower() == owner.lower()
-
-    # ---- prefix commands (work in guilds AND DMs, owner only) --------------
+    # ---- prefix commands (guilds AND DMs; model = owner, effort = anyone) --
 
     h = ctx.handler
 
-    @h.command("!model", description="Show or switch the chatter model (owner only)", dm=True)
+    @h.command("!model", description="Show MIST's chat model; Alex can switch it", dm=True)
     async def model_cmd(message: discord.Message, args: list[str], ctx: Context):
-        if not _is_owner(message.author):
-            return
+        user = message.author
         if not args or args[0].lower() in ("list", "show", "?"):
-            text = f"{settings_summary()}\n{model_options()}"
+            text = settings_summary(user)
+            if _is_owner(user):
+                text += f"\n{model_options()}"
         else:
-            text = set_model(args[0])
+            text = set_model(user, args[0])
         await message.reply(text, mention_author=False)
 
     @h.command("!effort", "!think", "!thinking",
-               description="Show or set the chatter thinking depth (owner only)", dm=True)
+               description="Show or set MIST's thinking depth for your chats", dm=True)
     async def effort_cmd(message: discord.Message, args: list[str], ctx: Context):
-        if not _is_owner(message.author):
-            return
+        user = message.author
         if not args:
-            text = (f"{settings_summary()}\nlevels: "
+            text = (f"{settings_summary(user)}\nlevels: "
                     f"{', '.join(f'`{e}`' for e in EFFORT_LEVELS)}, or `default`")
         else:
-            text = set_effort(args[0])
+            text = set_effort(user, args[0])
         await message.reply(text, mention_author=False)
 
     # ---- slash commands (guilds; Discord syncs these per guild) ------------
@@ -300,25 +316,24 @@ def setup(ctx: Context) -> None:
         model_choices = [app_commands.Choice(name=a, value=a) for a in ("fable", "opus", "sonnet", "haiku")]
         model_choices += [app_commands.Choice(name=m, value=m) for m in catalog.models()[:20]]
 
-        @app_commands.command(name="model", description="Show or switch MIST's chat model (owner only)")
+        @app_commands.command(name="model", description="Show MIST's chat model (only Alex can switch it)")
         @app_commands.describe(model="Model alias or full id; leave empty to show current")
         @app_commands.choices(model=model_choices)
         async def model_slash(interaction: discord.Interaction, model: str | None = None):
-            if not _is_owner(interaction.user):
-                await interaction.response.send_message("Only my owner can change that.", ephemeral=True)
-                return
-            text = set_model(model) if model else f"{settings_summary()}\n{model_options()}"
+            user = interaction.user
+            if not model:
+                text = settings_summary(user) + (f"\n{model_options()}" if _is_owner(user) else "")
+            else:
+                text = set_model(user, model)
             await interaction.response.send_message(text, ephemeral=True)
 
-        @app_commands.command(name="effort", description="Set MIST's thinking depth (owner only)")
+        @app_commands.command(name="effort", description="Set MIST's thinking depth for your chats")
         @app_commands.describe(level="Effort level; 'default' lets the CLI choose")
         @app_commands.choices(level=[app_commands.Choice(name=e, value=e)
                                      for e in (*EFFORT_LEVELS, "default")])
         async def effort_slash(interaction: discord.Interaction, level: str | None = None):
-            if not _is_owner(interaction.user):
-                await interaction.response.send_message("Only my owner can change that.", ephemeral=True)
-                return
-            text = set_effort(level) if level else settings_summary()
+            user = interaction.user
+            text = set_effort(user, level) if level else settings_summary(user)
             await interaction.response.send_message(text, ephemeral=True)
 
         guilds = [discord.Object(id=g) for g in ctx.config.guild_ids]
@@ -468,10 +483,9 @@ def setup(ctx: Context) -> None:
     if guard:
         _env["MIST_UNATTENDED"] = "1"
 
-    def _cli_args(private: bool, model: str) -> tuple[list[str], str]:
+    def _cli_args(private: bool, model: str, effort: str) -> tuple[list[str], str]:
         """Per-context flags and cwd. Private = full harness; shared = sandbox."""
         args = ["--model", model]
-        effort = current_effort()
         if effort != "default":
             args += ["--effort", effort]
         if private:
@@ -488,10 +502,10 @@ def setup(ctx: Context) -> None:
                  "--tools", "", "--setting-sources", "", "--no-session-persistence"]
         return args, "/tmp"
 
-    async def _ask_claude(prompt: str, system: str, private: bool,
+    async def _ask_claude(prompt: str, system: str, private: bool, effort: str,
                           model: str | None = None, fallback: str | None = None) -> str:
         model = model or current_model()
-        extra, cwd = _cli_args(private, model)
+        extra, cwd = _cli_args(private, model, effort)
         proc = await asyncio.create_subprocess_exec(
             claude_bin, "-p", prompt,
             "--system-prompt", system,
@@ -511,13 +525,35 @@ def setup(ctx: Context) -> None:
         spent = any(marker in text for marker in _CREDITS_MARKERS)
         if spent and fallback and fallback != model:
             log.warning("chatter: %s is out of credits; falling back to %s", model, fallback)
-            return await _ask_claude(prompt, system, private, model=fallback)
+            return await _ask_claude(prompt, system, private, effort, model=fallback)
         if proc.returncode != 0:
             raise RuntimeError(f"claude CLI exited {proc.returncode}: {err.decode()[:300]}")
         data = json.loads(out.decode())
         if data.get("is_error"):
             raise RuntimeError(f"claude CLI error: {data.get('result')}")
         return (data.get("result") or "").strip()
+
+    async def _apply_switch(message: discord.Message, guest: bool) -> bool:
+        """Apply a plain-words model/effort switch. Returns True when the rest
+        of the message still needs a chat reply. A guest's model request is
+        left alone and goes to the chat as ordinary text."""
+        sw = switchintent.parse(message.clean_content or "")
+        if guest:
+            sw.model = None
+        if not sw.any:
+            return True
+        user = message.author
+        notes = []
+        if sw.model:
+            notes.append(set_model(user, sw.model))
+        if sw.effort or sw.step:
+            level = sw.effort or switchintent.stepped(effort_for(user), sw.step)
+            notes.append(set_effort(user, level))
+        try:
+            await message.reply("\n".join(notes), mention_author=False)
+        except discord.HTTPException:
+            pass
+        return sw.substantive
 
     @ctx.handler.message_handlers.append
     async def chatter(message: discord.Message, ctx: Context) -> bool:  # noqa: ARG001
@@ -531,6 +567,8 @@ def setup(ctx: Context) -> None:
             except discord.HTTPException:
                 pass
             return True
+        if not await _apply_switch(message, guest):
+            return True  # the message was only a switch; confirmation already sent
         try:
             prompt = await _build_prompt(message, private)
             system = system_prompt + (PRIVATE_NOTE if private else SHARED_NOTE)
@@ -540,9 +578,10 @@ def setup(ctx: Context) -> None:
                 if guest:
                     async with guest_lock:  # one guest CLI at a time
                         reply = await _ask_claude(prompt, system, private=False,
+                                                  effort=effort_for(message.author),
                                                   model=guest_model, fallback=current_model())
                 else:
-                    reply = await _ask_claude(prompt, system, private)
+                    reply = await _ask_claude(prompt, system, private, effort_for(message.author))
         except Exception as exc:
             log.exception("chatter failed to generate a reply")
             try:
