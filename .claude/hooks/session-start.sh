@@ -448,6 +448,37 @@ if [ -n "$ROUTINE_FAILS" ]; then
   ISSUES=$((ISSUES + 1))
 fi
 
+# Disk headroom on the Data volume. The backup builds a ~13GB archive and its
+# preflight wants BACKUP_MIN_FREE_GB (20) on the staging volume; the 2026-10-01
+# pass found it aborting 16 times at 17GB free. Below 60 the caches and the next
+# few archives get it there again. Levers: memory storage-cleanup-levers.
+DATA_FREE_GB=$(( $(df -k /System/Volumes/Data 2>/dev/null | awk 'NR==2 {print $4}') / 1048576 ))
+if [ "$DATA_FREE_GB" -lt 30 ]; then
+  echo "FAIL: Disk ${DATA_FREE_GB}GB free on the Data volume (backup needs 30) -- see memory storage-cleanup-levers"
+  ISSUES=$((ISSUES + 1))
+elif [ "$DATA_FREE_GB" -lt 60 ]; then
+  echo "WARN: Disk ${DATA_FREE_GB}GB free on the Data volume -- see memory storage-cleanup-levers"
+  ISSUES=$((ISSUES + 1))
+else
+  echo "OK: Disk (${DATA_FREE_GB}GB free)"
+fi
+
+# Drive backup folder materialization. The uploader pushes archives through the
+# Drive API, so they should sit in Drive as cloud-only placeholders. If the
+# folder is pinned "Available offline" in Finder, DriveFS downloads every
+# archive straight back onto this disk (77GB of them on 2026-10-01). Dataless
+# placeholders report 0 blocks, so summing st_blocks over the folder is the test.
+BACKUP_DRIVE_DIR="$HOME/My Drive/${BACKUP_DRIVE_FOLDER_NAME:-Exobrain backups}"
+if [ -d "$BACKUP_DRIVE_DIR" ]; then
+  BACKUP_LOCAL_GB=$(find "$BACKUP_DRIVE_DIR" -maxdepth 1 -type f -exec stat -f %b {} + 2>/dev/null | awk '{s+=$1} END {printf "%d", s*512/1073741824}')
+  if [ "${BACKUP_LOCAL_GB:-0}" -ge 2 ]; then
+    echo "WARN: Drive backup folder holds ${BACKUP_LOCAL_GB}GB locally -- it is pinned Available offline; right-click it in Finder, Google Drive > Online only, then bin/drive-evict its files"
+    ISSUES=$((ISSUES + 1))
+  else
+    echo "OK: Drive backup folder cloud-only (${BACKUP_LOCAL_GB}GB local)"
+  fi
+fi
+
 # Watcher health -- check for recent failures (last 24h). Suppress the WARN when
 # processing has succeeded SINCE the failure: the 30-min poll self-recovers
 # transient API errors, and a newer processing-log.json proves recovery.
