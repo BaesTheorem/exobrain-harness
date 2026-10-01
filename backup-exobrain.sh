@@ -41,10 +41,12 @@
 #
 # Notes / constraints:
 #   - Runs under /bin/bash (macOS bash 3.2): no associative arrays, no mapfile.
-#   - bsdtar (libarchive) is the system tar: supports -r (append to an
-#     uncompressed archive), -T (files-from), and -s (name substitution).
-#   - The archive is built uncompressed in a local temp dir, verified, then
-#     gzipped and moved to the staging dir only once it's known-good.
+#   - bsdtar (libarchive) is the system tar: supports @archive (copy the entries
+#     of another archive in), -T (files-from), and -s (name substitution).
+#   - The archive streams straight into gzip: each section is its own tar
+#     writing into a FIFO, and one `tar -czf out @fifo1 @fifo2 ...` merges them.
+#     No uncompressed copy ever touches disk, so the build needs room for the
+#     .tar.gz only. The gzip is verified, then moved to the staging dir.
 #   - The uploader is fed to python3 via stdin (never `python3 script.py`):
 #     under launchd, bash in this job provably has TCC access to ~/Documents
 #     (tar has read it nightly for months) but a python child may not, and the
@@ -179,27 +181,26 @@ if [ -n "$AGE_SECS" ] && [ "$AGE_SECS" -lt 72000 ]; then
 fi
 
 # --- Free-space preflight ------------------------------------------------------
-# The archive is staged locally (tar, then its gzip) before uploading, so a full
-# disk kills the run mid-write (observed 2026-07: ENOSPC at 21.6GB). Fail fast
-# and loud instead; an exact pre-gzip check runs later.
-# The build needs room for the tar AND its gzip at once (~2.5x the final archive),
-# which the internal disk stopped having on 2026-10-01 (30GB tar, 17GB left). When
-# the secondary-copy disk is mounted with more free space, build there instead.
-free_kb() { df -k "$1" | awk 'NR==2 {print $4}'; }
-WORK_PARENT="${TMPDIR:-/tmp}"
-if [ -n "$LOCAL_BACKUP_DIR" ] && [ -d "$LOCAL_BACKUP_DIR" ] \
-   && [ "$(free_kb "$LOCAL_BACKUP_DIR")" -gt "$(free_kb "$WORK_PARENT")" ]; then
-    WORK_PARENT="$LOCAL_BACKUP_DIR"
-fi
-AVAIL_GB=$(( $(free_kb "$WORK_PARENT") / 1048576 ))
+# The .tar.gz is built locally and sits next to the previous staged one until the
+# upload confirms, so a full disk kills the run mid-write (observed 2026-07:
+# ENOSPC at 21.6GB). Fail fast and loud instead. Until 2026-10-01 the build also
+# held a 30GB uncompressed tar, which the internal disk could no longer fit;
+# the streamed build removed that, so the need is about the archive size (~13GB).
+AVAIL_GB=$(( $(df -k "${TMPDIR:-/tmp}" | awk 'NR==2 {print $4}') / 1048576 ))
 if [ "$AVAIL_GB" -lt "$BACKUP_MIN_FREE_GB" ]; then
     fail "backup aborted: ${AVAIL_GB}GB free on staging volume, need ${BACKUP_MIN_FREE_GB}GB"
 fi
 
-# --- Build the archive in a temp dir ------------------------------------------
-WORK="$(mktemp -d "$WORK_PARENT/exobrain-backup.XXXXXX")"
-echo "[$(date)] Building in $WORK (${AVAIL_GB}GB free)"
-trap 'rm -rf "$WORK"; rm -rf "$LOCK_DIR"' EXIT
+# --- Build the archive in a local temp dir ------------------------------------
+WORK="$(mktemp -d "${TMPDIR:-/tmp}/exobrain-backup.XXXXXX")"
+# Section producers block on their FIFO until the merge reaches them; if the run
+# dies first, nothing else would ever unblock them.
+PRODUCER_PIDS=()
+kill_producers() {
+    local p
+    for p in ${PRODUCER_PIDS[@]+"${PRODUCER_PIDS[@]}"}; do kill "$p" 2>/dev/null || true; done
+}
+trap 'kill_producers; rm -rf "$WORK"; rm -rf "$LOCK_DIR"' EXIT
 
 # Every deliberate failure path here calls fail(), which logs and raises a banner.
 # An *undeliberate* one (a `set -e` trip on a command nobody expected to return
@@ -207,8 +208,6 @@ trap 'rm -rf "$WORK"; rm -rf "$LOCK_DIR"' EXIT
 # went unnoticed for four days. Report those with the same volume, naming the line
 # so the next one takes minutes instead of an evening.
 trap 'rc=$?; [ $rc -ne 0 ] && fail "backup died unexpectedly at line $LINENO (exit $rc); see backup.log"' ERR
-COLLECTIVE_TAR="$WORK/collective.tar"
-
 # The backup reads a live filesystem, so a file can disappear between the moment
 # it lands in the file list and the moment tar reads it -- a running app doing an
 # atomic write through a .tmp file is enough (mist-console's
@@ -216,18 +215,43 @@ COLLECTIVE_TAR="$WORK/collective.tar"
 # --ignore-failed-read, and it exits 1 for the whole archive over that one file.
 # Those files are transient partial writes; nothing is lost by skipping them.
 # Tolerate exactly that error, log every skip, and still fail on anything else.
-run_tar() {
-    local err="$WORK/tar.err" rc=0
-    tar "$@" 2>"$err" || rc=$?
-    if [ "$rc" -ne 0 ] && [ -s "$err" ] \
+#
+# Each section is a background tar writing into its own FIFO. The open of the
+# FIFO blocks until the merge (below) reaches that section, so the sections are
+# read one at a time, in order, exactly like the old append chain. The shell
+# opens the FIFO before tar starts, so a tar that dies early still hands the
+# merge an EOF (and a truncated-archive error) instead of a hang.
+SECTION_LABELS=()
+MERGE_INPUTS=()
+add_section() {
+    local label="$1" n="${#MERGE_INPUTS[@]}"
+    shift
+    local fifo="$WORK/section$n.fifo"
+    mkfifo "$fifo"
+    (
+        rc=0
+        exec 4>"$fifo"
+        echo "[$(date)]   reading $label"
+        tar -cf - "$@" >&4 2>"$WORK/section$n.err" || rc=$?
+        echo "$rc" > "$WORK/section$n.rc"
+    ) &
+    PRODUCER_PIDS+=("$!")
+    SECTION_LABELS+=("$label")
+    MERGE_INPUTS+=("@$fifo")
+}
+
+# Section exit status, with the vanished-file tolerance above.
+check_section() {
+    local n="$1" label="$2" rc err="$WORK/section$1.err"
+    rc="$(cat "$WORK/section$n.rc" 2>/dev/null || echo missing)"
+    [ "$rc" = 0 ] && return 0
+    if [ "$rc" != missing ] && [ -s "$err" ] \
        && ! grep -qEv 'Cannot stat: No such file or directory|Error exit delayed from previous errors\.' "$err"; then
         sed 's/^/[vanished mid-backup, skipped] /' "$err" >&2
-        rc=0
-    elif [ "$rc" -ne 0 ]; then
-        cat "$err" >&2
+        return 0
     fi
-    rm -f "$err"
-    return "$rc"
+    [ -s "$err" ] && cat "$err" >&2
+    fail "section $label failed (tar exit $rc)"
 }
 
 HARNESS_PARENT="$(dirname "$HARNESS_DIR")"
@@ -238,7 +262,7 @@ VAULT_BASENAME="$(basename "$VAULT_DIR")"
 # 1. Harness -- whole folder, minus runtime caches. Captures the harness's own
 #    gitignored data automatically (tar doesn't honor .gitignore).
 echo "[$(date)] Adding harness: $HARNESS_BASENAME"
-run_tar -cf "$COLLECTIVE_TAR" \
+add_section "harness" \
     --exclude='__pycache__' \
     --exclude='*.pyc' \
     --exclude='.DS_Store' \
@@ -253,7 +277,7 @@ run_tar -cf "$COLLECTIVE_TAR" \
 
 # 2. Vault -- full (it's small and lives in no git repo, so this is its only net).
 echo "[$(date)] Adding vault: $VAULT_BASENAME"
-run_tar -rf "$COLLECTIVE_TAR" \
+add_section "vault" \
     --exclude='.DS_Store' \
     -C "$VAULT_PARENT" \
     "$VAULT_BASENAME"
@@ -286,7 +310,7 @@ EXTRA_LIST="$WORK/extras.list"
 if [ -s "$EXTRA_LIST" ]; then
     extra_count=$(wc -l < "$EXTRA_LIST" | tr -d ' ')
     echo "[$(date)]   + home-extras ($extra_count files)"
-    run_tar -rf "$COLLECTIVE_TAR" -s "|^|home-extras/|" -C "$HOME" -T "$EXTRA_LIST"
+    add_section "home-extras" -s "|^|home-extras/|" -C "$HOME" -T "$EXTRA_LIST"
 fi
 
 # 3. Every sibling repo's gitignored data, namespaced under repos-gitignored/.
@@ -348,21 +372,24 @@ while IFS= read -r gitdir; do
     count=$(wc -l < "$list" | tr -d ' ')
     echo "[$(date)]   + $name ($count files)"
     # -s prepends the namespace so repos can't collide on a shared relative path.
-    run_tar -rf "$COLLECTIVE_TAR" -s "|^|repos-gitignored/$name/|" -C "$repo" -T "$list"
-    rm -f "$list"
+    # The list stays on disk: the section reads it later, when the merge gets there.
+    add_section "$name" -s "|^|repos-gitignored/$name/|" -C "$repo" -T "$list"
 done < <(find "$REPO_SCAN_ROOT" -maxdepth 2 -type d -name .git 2>/dev/null)
 
-# --- Compress, verify, then stage locally --------------------------------------
-# Exact space check: the gzip output is strictly smaller than the tar, so free
-# space >= tar size guarantees the compress step cannot hit ENOSPC.
-TAR_BYTES=$(stat -f %z "$COLLECTIVE_TAR")
-AVAIL_BYTES=$(( $(df -k "$WORK" | awk 'NR==2 {print $4}') * 1024 ))
-if [ "$AVAIL_BYTES" -lt "$TAR_BYTES" ]; then
-    fail "backup aborted before compress: need $((TAR_BYTES / 1073741824))GB free for gzip, have $((AVAIL_BYTES / 1073741824))GB"
+# --- Merge the sections into one gzip, verify, then stage locally ---------------
+# The merge copies each section's entries into one .tar.gz as it reads the FIFOs.
+# A section that fails mid-stream truncates its input, so the merge fails too.
+echo "[$(date)] Merging ${#MERGE_INPUTS[@]} sections into $ARCHIVE_NAME..."
+rc=0
+tar -czf "$WORK/$ARCHIVE_NAME" "${MERGE_INPUTS[@]}" 2>"$WORK/merge.err" || rc=$?
+if [ "$rc" -ne 0 ]; then
+    kill_producers
+    cat "$WORK/merge.err" >&2
+    fail "streamed merge failed (tar exit $rc); see backup.err"
 fi
-echo "[$(date)] Compressing..."
-gzip -c "$COLLECTIVE_TAR" > "$WORK/$ARCHIVE_NAME"
-rm -f "$COLLECTIVE_TAR"
+for p in "${PRODUCER_PIDS[@]}"; do wait "$p" || true; done
+PRODUCER_PIDS=()
+for i in "${!SECTION_LABELS[@]}"; do check_section "$i" "${SECTION_LABELS[$i]}"; done
 
 [ -s "$WORK/$ARCHIVE_NAME" ] || fail "collective archive missing or empty"
 tar -tzf "$WORK/$ARCHIVE_NAME" >/dev/null 2>&1 || fail "collective archive is corrupted"
