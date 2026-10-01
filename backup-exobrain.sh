@@ -223,6 +223,9 @@ trap 'rc=$?; [ $rc -ne 0 ] && fail "backup died unexpectedly at line $LINENO (ex
 # read one at a time, in order, exactly like the old append chain. The shell
 # opens the FIFO before tar starts, so a tar that dies early still hands the
 # merge an EOF (and a truncated-archive error) instead of a hang.
+# --no-read-sparse: bsdtar 3.5.3 garbles sparse entries when @archive copies
+# them, and the whole .tar.gz then fails to list ("Line too long"; a Chrome
+# BrowserMetrics-spare.pma did it on 2026-10-01). Stored dense, they gzip to ~0.
 SECTION_LABELS=()
 MERGE_INPUTS=()
 add_section() {
@@ -234,7 +237,7 @@ add_section() {
         rc=0
         exec 4>"$fifo"
         echo "[$(date)]   reading $label"
-        tar -cf - "$@" >&4 2>"$WORK/section$n.err" || rc=$?
+        tar -cf - --no-read-sparse "$@" >&4 2>"$WORK/section$n.err" || rc=$?
         echo "$rc" > "$WORK/section$n.rc"
     ) &
     PRODUCER_PIDS+=("$!")
