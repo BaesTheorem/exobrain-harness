@@ -81,6 +81,9 @@ BACKUP_EXCLUDE_REPOS=(
 # Per-repo cap on gitignored-data size (MB). Repos over the cap are skipped with
 # a loud log line instead of silently sinking the backup (disk, Drive quota).
 BACKUP_REPO_MAX_MB=2048
+# Files in the harness tmp/ over this size (MB), and every frames/ dir in it, are
+# left out of the backup: render output and downloaded media, made again on demand.
+BACKUP_TMP_MAX_MB=20
 # Abort a run early if the local staging volume has less than this much free.
 BACKUP_MIN_FREE_GB=20
 

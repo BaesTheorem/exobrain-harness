@@ -261,8 +261,26 @@ VAULT_BASENAME="$(basename "$VAULT_DIR")"
 
 # 1. Harness -- whole folder, minus runtime caches. Captures the harness's own
 #    gitignored data automatically (tar doesn't honor .gitignore).
+#    The harness tmp/ is scratch that grew to 16GB on 2026-10-01, mostly render
+#    output and downloaded media (mp4, mkv, iso, zip) that can be made or fetched
+#    again. Its code and notes are small and often exist nowhere else, so skip
+#    only big files and frames/ dirs, by a list made now (bsdtar has no size test).
 echo "[$(date)] Adding harness: $HARNESS_BASENAME"
+TMP_SKIP="$WORK/harness-tmp.exclude"
+: > "$TMP_SKIP"
+if [ -d "$HARNESS_DIR/tmp" ]; then
+    (
+        cd "$HARNESS_PARENT" || exit 0
+        find "$HARNESS_BASENAME/tmp" \( -type d -name frames -prune -print \) \
+            -o \( -type f -size +"${BACKUP_TMP_MAX_MB:-20}"M -print \)
+    ) | sed 's/[][*?\\]/\\&/g' > "$TMP_SKIP" || true
+    if [ -s "$TMP_SKIP" ]; then
+        skip_mb=$( (cd "$HARNESS_PARENT" && sed 's/\\\(.\)/\1/g' "$TMP_SKIP" | tr '\n' '\0' | xargs -0 du -sk 2>/dev/null || true) | awk '{s+=$1} END {print int(s/1024)}')
+        echo "[$(date)]   - harness tmp/: $(wc -l < "$TMP_SKIP" | tr -d ' ') large files and frames/ dirs SKIPPED (${skip_mb}MB; over ${BACKUP_TMP_MAX_MB:-20}MB, see config.sh BACKUP_TMP_MAX_MB)"
+    fi
+fi
 add_section "harness" \
+    -X "$TMP_SKIP" \
     --exclude='__pycache__' \
     --exclude='*.pyc' \
     --exclude='.DS_Store' \
