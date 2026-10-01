@@ -1,0 +1,28 @@
+# Copy to ~/.config/gmail-mirror/mbsyncrc and put your address in both places.
+# The app password lives in the login Keychain (service "mbsync-gmail"), see README.
+
+IMAPAccount gmail
+Host imap.gmail.com
+User you@gmail.com
+PassCmd "security find-generic-password -a you@gmail.com -s mbsync-gmail -w"
+TLSType IMAPS
+AuthMechs LOGIN
+
+IMAPStore gmail-remote
+Account gmail
+
+MaildirStore gmail-local
+Path ~/Mail/gmail/
+Inbox ~/Mail/gmail/INBOX
+SubFolders Verbatim
+
+# All Mail holds every message once (labels are copies of it), so one channel is
+# the whole account. Pull only new mail and flag changes, never deletions: this
+# is a hedge against losing the account, so nothing on the server can empty it.
+Channel gmail-all
+Far :gmail-remote:"[Gmail]/All Mail"
+Near :gmail-local:AllMail
+Create Near
+Sync PullNew PullFlags
+Expunge None
+SyncState *
