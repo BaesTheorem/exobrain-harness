@@ -115,6 +115,8 @@ EXTRA_INCLUDES=(
     "Documents/ytmusic-manager/browser.json"    # YT Music auth (not a git repo)
     "Documents/osrs-companion/credentials.json" # OSRS agent auth (not a git repo)
     "Documents/home-assistant/config"           # HA hand-built config (history DB excluded below)
+    "My Drive/Supernote"                        # handwritten notes; Drive is the only other copy (account-lockout hedge)
+    "My Drive/Plaud"                            # raw transcripts; same reason
 )
 
 # Optional second backup destination OFF Google Drive (external disk or another

@@ -182,13 +182,23 @@ fi
 # The archive is staged locally (tar, then its gzip) before uploading, so a full
 # disk kills the run mid-write (observed 2026-07: ENOSPC at 21.6GB). Fail fast
 # and loud instead; an exact pre-gzip check runs later.
-AVAIL_GB=$(( $(df -k "${TMPDIR:-/tmp}" | awk 'NR==2 {print $4}') / 1048576 ))
+# The build needs room for the tar AND its gzip at once (~2.5x the final archive),
+# which the internal disk stopped having on 2026-10-01 (30GB tar, 17GB left). When
+# the secondary-copy disk is mounted with more free space, build there instead.
+free_kb() { df -k "$1" | awk 'NR==2 {print $4}'; }
+WORK_PARENT="${TMPDIR:-/tmp}"
+if [ -n "$LOCAL_BACKUP_DIR" ] && [ -d "$LOCAL_BACKUP_DIR" ] \
+   && [ "$(free_kb "$LOCAL_BACKUP_DIR")" -gt "$(free_kb "$WORK_PARENT")" ]; then
+    WORK_PARENT="$LOCAL_BACKUP_DIR"
+fi
+AVAIL_GB=$(( $(free_kb "$WORK_PARENT") / 1048576 ))
 if [ "$AVAIL_GB" -lt "$BACKUP_MIN_FREE_GB" ]; then
     fail "backup aborted: ${AVAIL_GB}GB free on staging volume, need ${BACKUP_MIN_FREE_GB}GB"
 fi
 
-# --- Build the archive in a local temp dir ------------------------------------
-WORK="$(mktemp -d "${TMPDIR:-/tmp}/exobrain-backup.XXXXXX")"
+# --- Build the archive in a temp dir ------------------------------------------
+WORK="$(mktemp -d "$WORK_PARENT/exobrain-backup.XXXXXX")"
+echo "[$(date)] Building in $WORK (${AVAIL_GB}GB free)"
 trap 'rm -rf "$WORK"; rm -rf "$LOCK_DIR"' EXIT
 
 # Every deliberate failure path here calls fail(), which logs and raises a banner.
@@ -264,8 +274,15 @@ EXTRA_LIST="$WORK/extras.list"
         else
             printf '%s\n' "$rel"
         fi
-    done | grep -Ev 'home-assistant_v2\.db|\.log(\.|$)|(^|/)(deps|tts|node_modules|\.venv|\.git)/|(^|/)\.DS_Store$|(^|/)__pycache__/|\.pyc$'
-) > "$EXTRA_LIST" 2>/dev/null || true
+    done | grep -Ev 'home-assistant_v2\.db|\.log(\.|$)|(^|/)(deps|tts|node_modules|\.venv|\.git)/|(^|/)\.DS_Store$|(^|/)__pycache__/|\.pyc$' \
+      | while IFS= read -r f; do
+            # Skip Drive stream placeholders (size > 0, zero blocks on disk): a read
+            # would trigger a download, which can EDEADLK and kill the whole tar.
+            set -- $(stat -f '%z %b' "$f" 2>/dev/null || echo "0 0")
+            if [ "$1" -gt 0 ] && [ "$2" -eq 0 ]; then echo "[$(date)]   ! dataless, skipped: $f" >&2; continue; fi
+            printf '%s\n' "$f"
+        done
+) > "$EXTRA_LIST" || true
 if [ -s "$EXTRA_LIST" ]; then
     extra_count=$(wc -l < "$EXTRA_LIST" | tr -d ' ')
     echo "[$(date)]   + home-extras ($extra_count files)"
