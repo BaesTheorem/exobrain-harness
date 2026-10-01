@@ -320,6 +320,8 @@ EXTRA_LIST="$WORK/extras.list"
       | while IFS= read -r f; do
             # Skip Drive stream placeholders (size > 0, zero blocks on disk): a read
             # would trigger a download, which can EDEADLK and kill the whole tar.
+            # Symlinks pass: lstat reports their own size with zero blocks.
+            if [ -L "$f" ]; then printf '%s\n' "$f"; continue; fi
             set -- $(stat -f '%z %b' "$f" 2>/dev/null || echo "0 0")
             if [ "$1" -gt 0 ] && [ "$2" -eq 0 ]; then echo "[$(date)]   ! dataless, skipped: $f" >&2; continue; fi
             printf '%s\n' "$f"
