@@ -19,6 +19,12 @@ Analysis (outputs under work/):
   hear   MIX.wav A-B ...                    transcribe windows of a mix (dialogue QA)
   beats  SONG                               beat_this beats + downbeats -> work/*.npy, bar map
   align  SONG MOVIE START DUR               find a song inside the film's audio, show edits
+
+Lyric videos (text stays in files; commands print ids, times and statistics only):
+  lyrics "ARTIST" "TITLE" [DURATION] [--pick ID]   LRCLIB synced lyrics -> work/lyrics_rows.json
+  wordtime VOCAL_STEM.wav                   word timings (MMS_FA forced alignment) -> work/words_final.json
+  wordcheck VOCAL_STEM.wav                  onset instrument: word starts vs. random times
+  wordstrips VOCAL_STEM.wav ROWS OUT.jpg    spectrogram strips with word-start markers, e.g. 0,5,12
 """
 from __future__ import annotations
 
@@ -83,6 +89,18 @@ def main(argv: list[str]) -> int:
         A.beats(rest[0])
     elif cmd == "align":
         A.align(rest[0], rest[1], float(rest[2]), float(rest[3]))
+    elif cmd in ("lyrics", "wordtime", "wordcheck", "wordstrips"):
+        from . import align as AL
+        if cmd == "lyrics":
+            pick = int(rest[rest.index("--pick") + 1]) if "--pick" in rest else None
+            args = [x for i, x in enumerate(rest) if x != "--pick" and (i == 0 or rest[i - 1] != "--pick")]
+            AL.lyrics(args[0], args[1], float(args[2]) if len(args) > 2 else None, pick=pick)
+        elif cmd == "wordtime":
+            AL.words(rest[0])
+        elif cmd == "wordcheck":
+            AL.check(rest[0])
+        else:
+            AL.strips(rest[0], rest[1], rest[2])
     else:
         print(f"unknown command {cmd!r}\n{__doc__}")
         return 2

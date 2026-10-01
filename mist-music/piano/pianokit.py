@@ -26,6 +26,7 @@ from __future__ import annotations
 
 import argparse
 import bisect
+import json
 import math
 import random
 import re
@@ -794,6 +795,13 @@ def main(piece: Piece) -> None:
     end = write_performance(perf_mid, piece, notes, pedals, tuning)
     if tuning:
         print(f"{len(tuning)} tuning changes (adaptive just intonation, roots in equal temperament)")
+    # The performed time of every beat (rubato and holds included), for syncing video or lights to the audio.
+    grid, times = tempo_map(piece, bars)
+    beat_times = [round(float(np.interp(b, grid, times)), 4) for b in range(len(bars) * BEATS + 1)]
+    firsts = np.cumsum([0] + [len(s) for s in piece.sections[:-1]])
+    timing = {"title": piece.title, "beats_per_bar": BEATS, "beats": beat_times, "bars": beat_times[::BEATS],
+              "section_bars": [int(b) + 1 for b in firsts], "last_note_off": round(end - TAIL, 3)}
+    (args.out / f"{slug}.timing.json").write_text(json.dumps(timing, indent=1))
     write_score(score_mid, piece, bars, chords, notes)
     lo, hi = min(n.pitch for n in notes), max(n.pitch for n in notes)
     print(f"{len(bars)} bars, {len(notes)} notes, {note_name(lo)}-{note_name(hi)}, {end - TAIL:.1f} s performed")
