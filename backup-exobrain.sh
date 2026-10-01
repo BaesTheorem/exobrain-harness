@@ -91,7 +91,9 @@ ARCHIVE_NAME="exobrain-collective-$TIMESTAMP.tar.gz"
 
 # Regenerable junk to keep OUT of the per-repo gitignored capture. These are
 # caches/builds, never irreplaceable data, and (in node_modules' case) huge.
-CACHE_RE='(^|/)(\.venv|venv|node_modules|__pycache__|\.next|\.nuxt|\.parcel-cache|\.pytest_cache|\.mypy_cache|\.ruff_cache|\.gradle|\.terraform)(/|$)|\.pyc$|(^|/)\.DS_Store$'
+# build, .build, target and DerivedData (Xcode, SwiftPM, Rust, Gradle output)
+# joined 2026-10-01: they had pushed four repos past BACKUP_REPO_MAX_MB.
+CACHE_RE='(^|/)(\.venv|venv|node_modules|__pycache__|\.next|\.nuxt|\.parcel-cache|\.pytest_cache|\.mypy_cache|\.ruff_cache|\.gradle|\.terraform|build|\.build|target|DerivedData)(/|$)|\.pyc$|(^|/)\.DS_Store$'
 
 fail() {
     echo "[$(date)] ERROR: $1" >&2
