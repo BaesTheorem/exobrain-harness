@@ -1,0 +1,12 @@
+{
+  "defaultWiki": "bg3.wiki",
+  "wikis": {
+    "bg3.wiki": {
+      "sitename": "bg3.wiki",
+      "server": "https://bg3.wiki",
+      "articlepath": "/wiki",
+      "scriptpath": "/w",
+      "readOnly": true
+    }
+  }
+}

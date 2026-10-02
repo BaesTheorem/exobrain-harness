@@ -1,0 +1,111 @@
+#!/bin/sh
+''''exec "$(dirname "$0")/.venv/bin/python" "$0" "$@" # '''
+"""Read the text on the PS5 screen with Apple's on-device OCR (Vision via ocrmac).
+
+Asks the running ps5-session daemon for a fresh frame, recognizes text in a region,
+and prints one line per text box, top to bottom: ``y x conf text`` in 1280x720 pixels
+(origin top-left). Far cheaper than looking at a screenshot when all MIST needs is the
+words: dialogue options, tooltips, menu labels, combat log.
+
+  ps5read                     whole screen
+  ps5read --region left       left half (BG3 split screen: player 1)
+  ps5read --region right      right half (player 2)
+  ps5read --region top|bottom horizontal split halves
+  ps5read --box 600,400,1280,720   any pixel box x0,y0,x1,y1
+  ps5read --frame some.png    read a saved image instead of the live screen
+  ps5read --json              machine-readable output
+
+Runs on the playstation venv (shebang). Socket: $PS5_LIVE_DIR/ctl.sock.
+"""
+
+
+import argparse
+import json
+import os
+import pathlib
+import socket
+import sys
+import tempfile
+
+from ocrmac import ocrmac
+from PIL import Image
+
+W, H = 1280, 720
+REGIONS = {
+    "full": (0, 0, W, H),
+    "left": (0, 0, W // 2, H),
+    "right": (W // 2, 0, W, H),
+    "top": (0, 0, W, H // 2),
+    "bottom": (0, H // 2, W, H),
+}
+
+
+def live_dir() -> pathlib.Path:
+    env = os.environ.get("PS5_LIVE_DIR")
+    return (
+        pathlib.Path(env)
+        if env
+        else pathlib.Path(__file__).resolve().parents[1] / "tmp" / "ps5-live"
+    )
+
+
+def snap_live() -> str:
+    path = os.path.join(tempfile.gettempdir(), "ps5read-frame.png")
+    with socket.socket(socket.AF_UNIX, socket.SOCK_STREAM) as s:
+        s.settimeout(10)
+        s.connect(str(live_dir() / "ctl.sock"))
+        s.sendall(f"snap {path}\n".encode())
+        reply = s.recv(4096).decode().strip()
+    if not reply.startswith("ok"):
+        sys.exit(f"err daemon: {reply}")
+    return path
+
+
+def main() -> None:
+    ap = argparse.ArgumentParser(description=(__doc__ or "").split("\n\n")[0])
+    ap.add_argument("--region", choices=sorted(REGIONS), default="full")
+    ap.add_argument("--box", help="x0,y0,x1,y1 in 1280x720 pixels (overrides --region)")
+    ap.add_argument("--frame", help="read this image instead of the live screen")
+    ap.add_argument("--min-conf", type=float, default=0.3)
+    ap.add_argument("--fast", action="store_true", help="fast recognition level")
+    ap.add_argument("--json", action="store_true")
+    args = ap.parse_args()
+
+    src = args.frame or snap_live()
+    img = Image.open(src).convert("RGB")
+    if img.size != (W, H):
+        img = img.resize((W, H))
+    x0, y0, x1, y1 = (
+        (int(v) for v in args.box.split(",")) if args.box else REGIONS[args.region]
+    )
+    crop = img.crop((x0, y0, x1, y1))
+    cw, ch = crop.size
+    level = "fast" if args.fast else "accurate"
+    rows = []
+    for text, conf, (bx, by, bw, bh) in ocrmac.OCR(
+        crop, recognition_level=level
+    ).recognize():
+        if conf < args.min_conf:
+            continue
+        px = x0 + bx * cw
+        py = y0 + (1.0 - by - bh) * ch  # Vision boxes start bottom-left
+        rows.append(
+            {
+                "x": round(px),
+                "y": round(py),
+                "w": round(bw * cw),
+                "h": round(bh * ch),
+                "conf": round(conf, 2),
+                "text": text,
+            }
+        )
+    rows.sort(key=lambda r: (r["y"] // 8, r["x"]))
+    if args.json:
+        print(json.dumps(rows, indent=1))
+        return
+    for r in rows:
+        print(f"{r['y']:4d} {r['x']:4d} {r['conf']:.2f} {r['text']}")
+
+
+if __name__ == "__main__":
+    main()

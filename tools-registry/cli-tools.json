@@ -56,6 +56,14 @@
     "notes": "Full-subreddit post scan via Arctic Shift archive API (no Reddit creds). Writes reddit/data/kc-events-scan.json: all posts + megathread comment trees. Feeds /local-events. Staleness asserted on newest-post age, never HTTP 200. Recon: vault recon/2026-08-23-reddit-access-paths.md"
   },
   {
+    "name": "bg3wiki-mcp",
+    "command": "claude mcp get bg3wiki   (user-scope MCP: npx -y @professional-wiki/mediawiki-mcp-server, CONFIG=playstation/bg3/bg3wiki.mcp.json)",
+    "repo_dir": "playstation/bg3",
+    "source": "built",
+    "added": "2026-10-01",
+    "notes": "Read-only; config sets bg3.wiki as the default wiki. Loads in new sessions only. bg3.wiki has Cargo (structured tables), CirrusSearch and TextExtracts; the Controls page redirects to Options, whose tables need HTML parsing (TextExtracts drops tables). Polite UA set via MCP_USER_AGENT."
+  },
+  {
     "name": "Bookmarklets page",
     "command": "open \"/Users/alexhedtke/Documents/Exobrain harness/bookmarklets/index.html\"",
     "repo_dir": "/Users/alexhedtke/Documents/Exobrain harness/bookmarklets",
@@ -488,6 +496,14 @@
     "source": "built",
     "added": "2026-10-01",
     "notes": "Talks to tmp/ps5-live/ctl.sock (override with PS5_LIVE_DIR). Stick axes: X left -1..right 1, Y up -1..down 1. Exit 1 on an err reply. Use a new filename per snap so the Console does not show a cached image."
+  },
+  {
+    "name": "ps5read",
+    "command": "playstation/ps5read [--region full|left|right|top|bottom] [--box x0,y0,x1,y1] [--frame img.png] [--json]",
+    "repo_dir": "playstation",
+    "source": "built",
+    "added": "2026-10-01",
+    "notes": "Needs ps5-session running (or --frame). Prints 'y x conf text' in 1280x720 pixels, origin top-left. Uses ocrmac (Apple Vision) from the playstation venv via a sh header, because the harness path has a space and a shebang cannot. About 0.7 s per full frame."
   },
   {
     "name": "Rental Harmony",
