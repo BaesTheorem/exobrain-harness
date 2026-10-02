@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Battlefront reflexes for MIST: a fast loop that drives the ps5-session daemon.
 
-Reads the live frame (player 1, top half of a horizontal split screen) about 8 times a
+Reads the live frame (``--half top`` for player 1, ``bottom`` for player 2) about 8 times a
 second through ``ps5ctl snap``, then:
 
 - fires (holds R2) while the reticle is red, which the game shows over an enemy;
@@ -31,7 +31,7 @@ import numpy as np
 from PIL import Image
 
 LIVE = pathlib.Path(__file__).resolve().parents[1] / "tmp" / "ps5-live"
-HALF = 360  # player 1 owns rows 0..359
+HALF = 360  # each player's view is 360 rows: player 1 on top, player 2 below
 RETICLE_BOX = (slice(90, 230), slice(585, 695))
 RADAR_C = (140, 245)
 RADAR_R = 55
@@ -40,7 +40,8 @@ RETICLE_C = (640, 180)
 CELL = 16  # blob grid cell, pixels
 # screen zones that never hold a target: radar, ammo HUD, health HUD, PS5 toast, own body
 MASK_ZONES = [(80, 180, 205, 310), (40, 40, 170, 105), (1105, 45, 1245, 125),
-              (510, 10, 770, 70), (535, 195, 745, 360)]  # fmt: skip
+              (510, 10, 770, 70), (535, 195, 745, 360),
+              (60, 150, 115, 290)]  # kill/death/CP icons beside player 2's radar  # fmt: skip
 AIM_GIVE_UP = 2.5  # seconds aiming at a blob without a red reticle
 RIM_DIST = 42  # blips at or beyond this radius are pinned command post markers
 
@@ -69,6 +70,7 @@ class Pilot:
         self.log_path = self.dir / "autopilot.log"
         self.state_path = self.dir / "autopilot.state.json"
         self.hz = args.hz
+        self.row0 = 0 if args.half == "top" else HALF
         yy, xx = np.mgrid[0:HALF, 0:1280]
         self.disk = (xx - RADAR_C[0]) ** 2 + (yy - RADAR_C[1]) ** 2 <= RADAR_R**2
         self.firing = False
@@ -373,6 +375,12 @@ def main() -> None:
     parser = argparse.ArgumentParser(description=(__doc__ or "").split("\n\n")[0])
     parser.add_argument("--dir", default=str(LIVE))
     parser.add_argument("--hz", type=float, default=8.0)
+    parser.add_argument(
+        "--half",
+        choices=("top", "bottom"),
+        default="top",
+        help="top = player 1, bottom = player 2",
+    )
     args = parser.parse_args()
     Pilot(args).run()
 
