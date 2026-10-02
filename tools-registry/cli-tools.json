@@ -458,12 +458,28 @@
     "notes": "Run with the playstation venv interpreter. Credentials land in ~/.pyremoteplay/.profile.json (secret). The redirect URL's code is single use; a failed exchange means sign in again. register needs the PS5 Link Device PIN screen open. Console address: --host, then PS5_HOST, then UDP 9302 discovery."
   },
   {
+    "name": "ps5-session",
+    "command": "nohup playstation/.venv/bin/python playstation/ps5-session.py > tmp/ps5-live/daemon.out 2>&1 &!",
+    "repo_dir": "playstation",
+    "source": "built",
+    "added": "2026-10-01",
+    "notes": "One session per PSN account; starting it drops a local controller on the same account (the couch player picks Guest). Needs a registered profile (ps5-pair). Writes tmp/ps5-live/latest.jpg every 0.5 s, logs to tmp/ps5-live/session.log, pid in session.pid. Exit 2 when the console ends the session. Stop with 'ps5ctl quit'."
+  },
+  {
     "name": "ps5-smoke",
     "command": "playstation/.venv/bin/python playstation/ps5-smoke.py [--seconds N] [--press BTN --undo BTN] [--resolution 720p]",
     "repo_dir": "playstation",
     "source": "built",
     "added": "2026-10-01",
     "notes": "Needs a registered profile first (ps5-pair). Saves PNGs to tmp/ps5-smoke/. Default taps RIGHT at 3s and LEFT at 5s on the home screen; pass empty strings for a frames-only run. Exit 0 = frames decoded and taps sent."
+  },
+  {
+    "name": "ps5ctl",
+    "command": "playstation/ps5ctl <command> [args]   (tap BTN, press/release BTN, move X Y MS, look X Y MS, stick left|right X Y, center, wait MS, snap PATH, status, quit; ';' chains)",
+    "repo_dir": "playstation",
+    "source": "built",
+    "added": "2026-10-01",
+    "notes": "Talks to tmp/ps5-live/ctl.sock (override with PS5_LIVE_DIR). Stick axes: X left -1..right 1, Y up -1..down 1. Exit 1 on an err reply. Use a new filename per snap so the Console does not show a cached image."
   },
   {
     "name": "Rental Harmony",

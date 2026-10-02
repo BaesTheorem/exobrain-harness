@@ -76,3 +76,40 @@ def resolve_host(explicit: str | None) -> str:
         fail("no PS5 answered discovery on the LAN; pass --host or set PS5_HOST")
     print(f"discovered {found.get('host-name', 'PS5')} at {found['host-ip']}")
     return found["host-ip"]
+
+
+def install_av_compat() -> None:
+    """Patch pyremoteplay's AVReceiver for current PyAV (renamed enums, layout names).
+
+    pyremoteplay 0.7.6 (2022) sets codec flags through ``Flags.LOW_DELAY`` and
+    ``Flags2.FAST`` and builds its AudioResampler from a channel count. PyAV 14 and later
+    spell the flags in lower case and want a layout name. Call once before a session.
+    """
+    import av
+    from pyremoteplay.receiver import AVReceiver
+
+    flags = av.codec.context.Flags
+    flags2 = av.codec.context.Flags2
+    low_delay = getattr(flags, "low_delay", None) or flags.LOW_DELAY
+    fast = getattr(flags2, "fast", None) or flags2.FAST
+
+    def video_codec(codec_name: str):
+        ctx = av.codec.Codec(codec_name, "r").create()
+        if codec_name.startswith("h264"):
+            ctx.options = AVReceiver.AV_CODEC_OPTIONS_H264
+        elif codec_name.startswith("hevc"):
+            ctx.options = AVReceiver.AV_CODEC_OPTIONS_HEVC
+        ctx.pix_fmt = "yuv420p"
+        ctx.flags = low_delay
+        ctx.flags2 = fast
+        ctx.thread_type = av.codec.context.ThreadType.AUTO
+        return ctx
+
+    def audio_resampler(
+        audio_format: str = "s16", channels: int = 2, rate: int = 48000
+    ):
+        layout = "mono" if channels == 1 else "stereo"
+        return av.audio.resampler.AudioResampler(audio_format, layout, rate)
+
+    AVReceiver.video_codec = staticmethod(video_codec)
+    AVReceiver.audio_resampler = staticmethod(audio_resampler)

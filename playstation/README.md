@@ -63,3 +63,22 @@ All scripts take `--host`, then `$PS5_HOST`, then a LAN discovery broadcast
   Direct-by-IP works fine: `RPDevice('<ip>').get_status()`.
 - A status of `200 Ok` means awake; `620 Server Standby` means rest mode (wakeable
   once paired).
+## Live link (play through it)
+
+`.venv/bin/python ps5-session.py` holds one Remote Play session open, writes the latest
+frame to `tmp/ps5-live/latest.jpg` every 0.5 s, and serves a one-line command protocol
+on `tmp/ps5-live/ctl.sock`. Start it in the background (`nohup ... &!`), then drive it
+with `ps5ctl`:
+
+```bash
+./ps5ctl status                      # frames, fps, uptime
+./ps5ctl tap X                       # press and release (aliases: x o sq tri opt)
+./ps5ctl 'move 0 -1 1500; tap R1'    # walk forward 1.5 s, then fire
+./ps5ctl look 0.6 0 400              # turn right for 0.4 s
+./ps5ctl snap /tmp/now.png           # full-size PNG of the current frame
+./ps5ctl quit
+```
+
+Stick axes: X left -1 to right 1, Y up -1 to down 1. One session per PSN account: the
+console drops a local controller signed in as the same account when the link connects,
+so the person on the couch plays as Guest (or another profile).

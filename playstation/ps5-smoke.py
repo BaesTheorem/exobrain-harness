@@ -22,7 +22,7 @@ import time
 from pyremoteplay import RPDevice
 from pyremoteplay.profile import Profiles
 
-from ps5lib import fail, resolve_host
+from ps5lib import fail, install_av_compat, resolve_host
 from pyremoteplay.receiver import QueueReceiver
 
 DEFAULT_OUT = pathlib.Path(__file__).resolve().parents[1] / "tmp" / "ps5-smoke"
@@ -44,6 +44,7 @@ class CountingReceiver(QueueReceiver):
 
 
 async def run(args: argparse.Namespace) -> int:
+    install_av_compat()
     profiles = Profiles.load()
     users = profiles.usernames
     if not users:
