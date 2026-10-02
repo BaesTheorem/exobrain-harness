@@ -144,6 +144,14 @@
     "notes": "Scan tracked files for leaked personal data (IP/MAC shapes, names, credentials) before anything ships. Used by /exobrain-audit and /cybersecurity-bodyguard."
   },
   {
+    "name": "fanedit-cc-align",
+    "command": "python3 align.py <part#> --report; python3 qa.py <part#> [--shift 3]",
+    "repo_dir": "~/Documents/hobbit-cc",
+    "source": "built",
+    "added": "2026-10-01",
+    "notes": "Needs work/part<N>.srt from whisper.cpp with -ml 1 -sow (word-level). fill_gaps.sh re-runs no-VAD whisper on >30 s silent windows (action scenes) into part<N>.extra.srt; loop hallucinations are filtered on load. Sources in subs-src/ come from the legacy rest.opensubtitles.org search (X-User-Agent: TemporaryUserAgent; IMDb ids need 7 digits). Drop non-SDH and ad cues. qa.py --shift 3 is the positive control."
+  },
+  {
     "name": "fantasy consensus judge",
     "command": "python3 fantasy/consensus.py && python3 fantasy/draftbot/grade.py --judge both",
     "repo_dir": "fantasy",
@@ -289,6 +297,14 @@
     "notes": "Native SurrealEngine clone of HP1 for Apple silicon. Compiled launcher, so scan_apps() cannot infer its repo."
   },
   {
+    "name": "hiker-mealplan",
+    "command": "python3 mealplan.py",
+    "repo_dir": "tmp/hiker-food",
+    "source": "built",
+    "added": "2026-10-01",
+    "notes": "Reads the vegan Hiker Food Chart xlsx in the vault (Attachments/Hiker Food Chart). Edit solve() keyword args for targets. Uses min(label kcal, macro kcal); drops rows that disagree by >20%. scipy milp."
+  },
+  {
     "name": "imessage-reader.py",
     "command": "python3 imessage/imessage-reader.py recent | chat <phone-number>",
     "repo_dir": "~/Documents/Exobrain harness",
@@ -432,6 +448,22 @@
     "source": "built",
     "added": "2026-08-27",
     "notes": "The Priory news aggregator CLI (deterministic Ground News + Base Rate Times clone). Web UI on 127.0.0.1:5025. Postgres 17 db 'priory'. See FORK.md for divergence from upstream MuckScraper."
+  },
+  {
+    "name": "ps5-pair",
+    "command": "playstation/.venv/bin/python playstation/ps5-pair.py {login-url|status|register --redirect-url URL --pin NNNNNNNN}",
+    "repo_dir": "playstation",
+    "source": "built",
+    "added": "2026-10-01",
+    "notes": "Run with the playstation venv interpreter. Credentials land in ~/.pyremoteplay/.profile.json (secret). The redirect URL's code is single use; a failed exchange means sign in again. register needs the PS5 Link Device PIN screen open. Console address: --host, then PS5_HOST, then UDP 9302 discovery."
+  },
+  {
+    "name": "ps5-smoke",
+    "command": "playstation/.venv/bin/python playstation/ps5-smoke.py [--seconds N] [--press BTN --undo BTN] [--resolution 720p]",
+    "repo_dir": "playstation",
+    "source": "built",
+    "added": "2026-10-01",
+    "notes": "Needs a registered profile first (ps5-pair). Saves PNGs to tmp/ps5-smoke/. Default taps RIGHT at 3s and LEFT at 5s on the home screen; pass empty strings for a frames-only run. Exit 0 = frames decoded and taps sent."
   },
   {
     "name": "Rental Harmony",

@@ -25,14 +25,36 @@ Build gotchas discovered the hard way:
   `ARCHFLAGS="-arch arm64"` + `--no-binary netifaces`.
 - `pyee>=10` breaks the import (`ExecutorEventEmitter` moved); pin `pyee==9.1.1`.
 - `async-timeout` is needed by `pyps4-2ndscreen` but not declared -- install explicitly.
-- `av` (video decode for actually viewing the stream) is optional; without it you can
-  still send controller input and wake/standby commands.
+- `av` (PyAV) decodes the video. The `cp312-abi3` wheel installs on Python 3.14; `numpy`
+  and `pillow` turn frames into arrays and PNGs. Without `av` you can still send
+  controller input and wake/standby commands.
 
-## Pairing (one-time, requires a human at the console)
+## Pairing (one-time, needs a person at the console for about 3 minutes)
 
-1. On the PS5: Settings → System → Remote Play → Link Device → note the 8-digit PIN.
-2. On the Mac: `.venv/bin/pyremoteplay <console-ip> --register` and follow the PSN
-   sign-in flow (opens a login URL; paste the redirect URL back), then enter the PIN.
+The library's own CLI pairs through `input()` prompts. `ps5-pair.py` takes the same
+inputs as arguments, so a chat session can drive it:
+
+1. `.venv/bin/python ps5-pair.py login-url` prints the PSN sign-in URL. Sign in with the
+   PlayStation account. The browser lands on a redirect page that can look like an error.
+   Copy the full URL from the address bar (it carries a single-use code).
+2. On the PS5: Settings -> System -> Remote Play -> Link Device. An 8-digit PIN appears.
+3. `.venv/bin/python ps5-pair.py register --redirect-url '<url>' --pin <8 digits>` while
+   the PIN screen is still open.
+4. `.venv/bin/python ps5-pair.py status` shows the console and the registered users.
+
+## Smoke test (frames in, buttons out)
+
+`.venv/bin/python ps5-smoke.py` streams for 8 seconds, counts decoded frames, saves one
+PNG per second to `tmp/ps5-smoke/`, taps RIGHT at 3 s and LEFT at 5 s (moves the home
+screen selection and back), and prints PASS or FAIL. `--press '' --undo ''` for a
+frames-only run. This is the first thing to run after pairing, and the test to rerun
+after a console firmware update: the library is unmaintained, so a protocol change
+shows up here first.
+
+## Console address
+
+All scripts take `--host`, then `$PS5_HOST`, then a LAN discovery broadcast
+(`ps5lib.discover()`, UDP 9302). Nothing hardcodes the console's address.
 
 ## Discovery notes
 

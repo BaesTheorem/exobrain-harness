@@ -4,3 +4,6 @@ pyremoteplay==0.7.6
 pyee==9.1.1          # >=10 removed top-level ExecutorEventEmitter
 async-timeout        # used by pyps4-2ndscreen but not declared
 netifaces==0.11.0    # must be built from source on arm64 (see README)
+av>=19             # cp312-abi3 wheel works on 3.14; H.264 decode for frames
+numpy
+pillow
