@@ -499,6 +499,15 @@ def cmd_render(run: Path, out: Path) -> None:
         board_calls = sum(1 for c in calls if str(c["name"]).startswith("mcp__board__"))
         sections += [f"## {log.stem}", "", f"{len(lines)} web calls, {board_calls} board calls.", ""] + lines + [""]
     (out / "Research Trail.md").write_text("\n".join(trail + [""] + sections) + "\n", encoding="utf-8")
+
+    reports = [p for p in posts if p["kind"] == "report"]
+    if reports:
+        r = reports[-1]
+        (out / "Final Report.md").write_text("\n".join([
+            f"# {cfg['title']}: final report", "",
+            f"Written by the {nm.get(r['author'], r['author'])} as post #{r['id']} ({r['ts'][:16].replace('T', ' ')}). "
+            "Full context: [[Message Board]], [[Panelist Notebooks]], [[Research Trail]].", "",
+            _demote(r["body"]), ""]), encoding="utf-8")
     print(f"wrote {out}")
 
 

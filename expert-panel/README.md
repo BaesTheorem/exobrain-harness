@@ -24,7 +24,7 @@ Each panelist is a different headless `claude -p` process. A panelist loads none
 4. Start the run: `nohup caffeinate -i bin/expert-panel run runs/<name> > runs/<name>/orchestrator.log 2>&1 &`
 5. Monitor the run with `bin/expert-panel watch runs/<name>`. Each line is a question, a round change, a wait for answers or an error.
 6. Answer each question with `bin/expert-panel answer runs/<name> <id> "text"`. To read the text from stdin, use `-` as the text.
-7. When the run is complete, make the markdown with `bin/expert-panel render runs/<name> <out-dir>`. The result is the full board, the notebooks of the panelists, and the research trail (each search and fetch).
+7. When the run is complete, make the markdown with `bin/expert-panel render runs/<name> <out-dir>`. The result is the full board, the notebooks of the panelists, the research trail (each search and fetch), and the final report of the chair as a separate file.
 
 `pending` shows the unanswered questions. `say` sends a note to all panelists. `status` shows the round and the cost.
 
