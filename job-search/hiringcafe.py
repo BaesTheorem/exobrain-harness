@@ -4,7 +4,12 @@
 The public site moved from hiring.cafe to hiringcafe.com. There is no documented
 REST API; the working data path is the Next.js page-data route:
 
-    https://hiringcafe.com/_next/data/<BUILD_ID>/index.json?searchState=<url-encoded JSON>
+    https://hiringcafe.com/_next/data/<BUILD_ID>/classic.json?searchState=<url-encoded JSON>
+
+Route change (2026-10-01): index.json now answers with only a __N_REDIRECT
+stub and no ssrHits, which read as a silent "0 hits". The search moved to
+classic.json. search() now exits loudly when ssrHits is absent, so the next
+route change shows up as an error, not as an empty day.
 
 BUILD_ID rotates on every deploy, so it is scraped from the homepage each run
 rather than pinned. No Playwright, no auth. (An earlier attempt used
@@ -82,9 +87,13 @@ def search(bid, query, page=0):
     state = {"searchQuery": query, "defaultToUserLocation": False}
     if page:
         state["page"] = page
-    url = ("https://hiringcafe.com/_next/data/%s/index.json?searchState=%s"
+    url = ("https://hiringcafe.com/_next/data/%s/classic.json?searchState=%s"
            % (bid, urllib.parse.quote(json.dumps(state))))
-    return json.loads(_get(url)).get("pageProps", {}).get("ssrHits", [])
+    props = json.loads(_get(url)).get("pageProps", {})
+    if "ssrHits" not in props:
+        sys.exit("hiring.cafe page data has no ssrHits (keys: %s) -- route moved, re-probe"
+                 % sorted(props)[:8])
+    return props["ssrHits"]
 
 
 def gate(hit, max_age_days):
