@@ -66,6 +66,7 @@ Every place a model reads third-party text, with what runs it and what holds it.
 | GitHub contributions (`.claude/skills/github`) | issues, comments, repo files, review replies | interactive, standing authorization | Fable, Opus fallback | skill rule: repo and issue text is data; honeypot audit; no untrusted execution |
 | AirDrop to Console (`airdrop-to-console`) | images from anyone in range while discoverability is Everyone | interactive Console chat | chat's model | caption marks the sender unverified and the image as data |
 | Startup context (`session-start.sh`) | digests and memories written from all of the above | every session | every model | framed as notes, scanned, annotated |
+| Expert panel (`expert-panel/`) | web pages | headless, `/tmp` cwd, one `claude -p` per panelist per round | set per run in `panel.json` (Opus by Alex's choice) | sandbox: `--setting-sources ""`, `--strict-mcp-config` with only the board server, tools limited to WebSearch and WebFetch, `dontAsk` plus `--permission-prompts none`, `CLAUDE*`/`MIST_*` env stripped; `check` proves it with a positive control; the panel's questions reach the operator as data |
 | Web research subagents (`news-briefing`, `deep-research`) | web pages | Agent tool subagents | Sonnet, Haiku | orchestrator writes the output; subagents return summaries. Inherit the guard when the parent is unattended. |
 
 Not model surfaces, but adjacent: `discord/discord-digest-fetch.py`,

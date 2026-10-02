@@ -1,0 +1,4 @@
+#!/bin/sh
+# Isolated expert panel on a shared message board. See ../README.md.
+here=$(cd -P "$(dirname "$0")" && pwd)
+exec python3 "$here/../panel.py" "$@"

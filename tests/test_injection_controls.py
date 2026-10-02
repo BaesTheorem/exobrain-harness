@@ -534,6 +534,7 @@ UNATTENDED_RUNNERS = [
     "claude-bot/modules/chatter.py",
     "phone/server.py",
     "zulip/com.exobrain.zulip-listener.plist",
+    "expert-panel/panel.py",
 ]
 
 
