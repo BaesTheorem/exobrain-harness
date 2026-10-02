@@ -210,7 +210,7 @@ class Link:
             await asyncio.sleep(int(words[1]) / 1000)
             return f"ok wait {words[1]}ms"
         if op == "snap":
-            return "ok " + self.snap(words[1] if len(words) > 1 else None)
+            return "ok " + self.snap(" ".join(words[1:]) if len(words) > 1 else None)
         if op == "status":
             return "ok " + json.dumps(self.status())
         if op == "quit":

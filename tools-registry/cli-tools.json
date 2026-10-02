@@ -450,6 +450,14 @@
     "notes": "The Priory news aggregator CLI (deterministic Ground News + Base Rate Times clone). Web UI on 127.0.0.1:5025. Postgres 17 db 'priory'. See FORK.md for divergence from upstream MuckScraper."
   },
   {
+    "name": "ps5-autopilot",
+    "command": "nohup playstation/.venv/bin/python playstation/ps5-autopilot.py > tmp/ps5-live/autopilot.out 2>&1 &!   (mode: echo '{\"mode\": \"hunt|hold|pause\"}' > tmp/ps5-live/autopilot.json)",
+    "repo_dir": "playstation",
+    "source": "built",
+    "added": "2026-10-01",
+    "notes": "Needs ps5-session running. HUD coordinates are for Battlefront Classic Collection at 1280x720, player 1 in the top half. R2 fires, R1 swaps weapon, X jumps (and selects in menus). Pause it before menus: on a results screen it taps X after 3 s without a radar. Stuck detection fires falsely on featureless snow. Log: tmp/ps5-live/autopilot.log, counters: autopilot.state.json."
+  },
+  {
     "name": "ps5-pair",
     "command": "playstation/.venv/bin/python playstation/ps5-pair.py {login-url|status|register --redirect-url URL --pin NNNNNNNN}",
     "repo_dir": "playstation",
