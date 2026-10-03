@@ -9,6 +9,7 @@ Commands:
     govee temp KELVIN [TARGET]      2000-9000
     govee name DEVICE ALIAS         give a bulb a short name
     govee sync-names                copy the Govee app names into the aliases (cloud API)
+    govee google-script             print a Google Home script: warm white by day, red at night
 
 TARGET is "all" (default), an alias, an alias group, an IP, or the tail of the
 device id. An alias group is the alias without its "-N" suffix ("vanity"
@@ -197,9 +198,56 @@ def sync_names() -> int:
     return 0
 
 
+DAY_COLOR = "2000K"  # the H6008 minimum, per the cloud capability range
+NIGHT_COLOR = "FF0000"
+
+
+def google_script(room: str) -> int:
+    """Print a Google Home script editor script: one day and one night automation per bulb.
+
+    A script action cannot target "the device that started it", so each bulb gets its own
+    pair. Google names a device "<name> - <room>"; the room is a placeholder unless --room
+    or a "room" field in the cache gives it.
+    """
+    cache = load_cache()
+    bulbs = sorted((e for e in cache.values() if e.get("name")), key=lambda e: e["name"])
+    if not bulbs:
+        raise SystemExit("govee: no bulb names in the cache; run `govee sync-names` first")
+    out = [
+        "metadata:",
+        "  name: Govee power-on color",
+        "  description: When a Govee bulb turns on, set warm white by day and red after sunset.",
+        "automations:",
+    ]
+    periods = [("SUNRISE", "SUNSET", f"temperature: {DAY_COLOR}"), ("SUNSET", "SUNRISE", f"spectrumRGB: {NIGHT_COLOR}")]
+    for e in bulbs:
+        device = f"{e['name']} - {e.get('room') or room}"
+        for after, before, color in periods:
+            out += [
+                "  - starters:",
+                "      - type: device.state.OnOff",
+                f"        device: {device}",
+                "        state: on",
+                "        is: true",
+                "    condition:",
+                "      type: time.between",
+                f"      after: {after}",
+                f"      before: {before}",
+                "    actions:",
+                "      - type: device.command.ColorAbsolute",
+                f"        devices: {device}",
+                "        color:",
+                f"          {color}",
+            ]
+    print("\n".join(out))
+    return 0
+
+
 async def run(args: argparse.Namespace) -> int:
     if args.cmd == "sync-names":
         return sync_names()
+    if args.cmd == "google-script":
+        return google_script(args.room)
     cache = load_cache()
     controller = await discover(cache, full=args.cmd == "scan")
     try:
@@ -267,6 +315,8 @@ def main() -> int:
     n.add_argument("device")
     n.add_argument("alias")
     sub.add_parser("sync-names", help="copy the Govee app names into the aliases")
+    g = sub.add_parser("google-script", help="print a Google Home script for the power-on color rule")
+    g.add_argument("--room", default="ROOM", help="Google Home room name for bulbs with no room in the cache")
     return asyncio.run(run(p.parse_args()))
 
 

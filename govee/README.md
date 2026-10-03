@@ -19,6 +19,7 @@ govee color COLOR [TARGET]      red, #ff8800, 255,136,0, or warm/cool/daylight
 govee temp KELVIN [TARGET]
 govee name DEVICE ALIAS
 govee sync-names                copy the Govee app names into the aliases (needs GOVEE_API_KEY in the harness .env)
+govee google-script [--room R]    print a Google Home script: 2000K by day, red after sunset
 govee --check <command>         read the status back after a set command
 ```
 
@@ -29,3 +30,10 @@ TARGET is `all` (the default), an alias, an alias group (`vanity` selects `vanit
 - The LAN API does not acknowledge a set command. Use `--check` to make sure that the command had an effect.
 - The LAN API cannot start scenes on basic bulbs such as the H6008. You must use the cloud API for scenes.
 - A bulb does not reply when the wall switch is in the OFF position.
+
+## Power-on color rule
+
+`govee google-script` writes a script for the Google Home script editor (home.google.com > Automations > Add > script). Each bulb gets two automations. When the bulb turns on between sunrise and sunset, Google sets it to 2000 K. When it turns on between sunset and sunrise, Google sets it to red. The rule runs in the Google cloud, so it does not need this computer.
+
+Google names a device "<name> - <room>". Give the room with `--room`, or add a `room` field to a bulb in `data/devices.json`.
+
