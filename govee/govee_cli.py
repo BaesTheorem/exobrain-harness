@@ -202,7 +202,7 @@ DAY_COLOR = "2700K"  # the real H6008 floor: the API advertises 2000K, but the b
 NIGHT_COLOR = "FF0000"
 
 
-def google_script(room: str) -> int:
+def google_script(room: str | None) -> int:
     """Print a Google Home script editor script: one day and one night automation per bulb.
 
     A script action cannot target "the device that started it", so each bulb gets its own
@@ -211,6 +211,11 @@ def google_script(room: str) -> int:
     """
     cache = load_cache()
     bulbs = sorted((e for e in cache.values() if e.get("name")), key=lambda e: e["name"])
+    if room is None:
+        skipped = [e["name"] for e in bulbs if not e.get("room")]
+        bulbs = [e for e in bulbs if e.get("room")]
+        if skipped:
+            print(f"govee: skipped {', '.join(skipped)} (no room; set one with --room)", file=sys.stderr)
     if not bulbs:
         raise SystemExit("govee: no bulb names in the cache; run `govee sync-names` first")
     out = [
@@ -316,7 +321,7 @@ def main() -> int:
     n.add_argument("alias")
     sub.add_parser("sync-names", help="copy the Govee app names into the aliases")
     g = sub.add_parser("google-script", help="print a Google Home script for the power-on color rule")
-    g.add_argument("--room", default="ROOM", help="Google Home room name for bulbs with no room in the cache")
+    g.add_argument("--room", help="Google Home room for bulbs with no room in the cache (default: skip them)")
     return asyncio.run(run(p.parse_args()))
 
 

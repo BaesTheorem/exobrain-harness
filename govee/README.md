@@ -19,7 +19,7 @@ govee color COLOR [TARGET]      red, #ff8800, 255,136,0, or warm/cool/daylight
 govee temp KELVIN [TARGET]
 govee name DEVICE ALIAS
 govee sync-names                copy the Govee app names into the aliases (needs GOVEE_API_KEY in the harness .env)
-govee google-script [--room R]    print a Google Home script: 2700K by day, red after sunset
+govee google-script [--room R]    print a Google Home script: 2700K by day, red after sunset (skips bulbs with no room)
 govee --check <command>         read the status back after a set command
 ```
 
