@@ -6,7 +6,7 @@ Commands:
     govee on|off [TARGET]
     govee brightness PCT [TARGET]   1-100
     govee color COLOR [TARGET]      name (red, warm), #rrggbb, or r,g,b
-    govee temp KELVIN [TARGET]      2000-9000
+    govee temp KELVIN [TARGET]      2700-6500 on the H6008 (it clamps values outside)
     govee name DEVICE ALIAS         give a bulb a short name
     govee sync-names                copy the Govee app names into the aliases (cloud API)
     govee google-script             print a Google Home script: warm white by day, red at night
@@ -60,7 +60,7 @@ NAMED_COLORS = {
     "pink": (255, 80, 160),
     "white": (255, 255, 255),
 }
-NAMED_TEMPS = {"candle": 2000, "warm": 2700, "soft": 3000, "neutral": 4000, "daylight": 5500, "cool": 6500}
+NAMED_TEMPS = {"warm": 2700, "soft": 3000, "neutral": 4000, "daylight": 5500, "cool": 6500}
 
 
 def load_cache() -> dict[str, dict]:
@@ -198,7 +198,7 @@ def sync_names() -> int:
     return 0
 
 
-DAY_COLOR = "2000K"  # the H6008 minimum, per the cloud capability range
+DAY_COLOR = "2700K"  # the real H6008 floor: the API advertises 2000K, but the bulb clamps to 2700K
 NIGHT_COLOR = "FF0000"
 
 
