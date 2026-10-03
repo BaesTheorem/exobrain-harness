@@ -8,9 +8,11 @@ Commands:
     govee color COLOR [TARGET]      name (red, warm), #rrggbb, or r,g,b
     govee temp KELVIN [TARGET]      2000-9000
     govee name DEVICE ALIAS         give a bulb a short name
+    govee sync-names                copy the Govee app names into the aliases (cloud API)
 
-TARGET is "all" (default), an alias, an IP, or the tail of the device id.
-Commas select several targets: "desk,lamp".
+TARGET is "all" (default), an alias, an alias group, an IP, or the tail of the
+device id. An alias group is the alias without its "-N" suffix ("vanity"
+selects vanity-1 to vanity-4). Commas select several targets: "desk,vanity".
 
 The device cache (data/devices.json, gitignored) keeps the IP and alias of each
 bulb, so a command probes the known IPs directly and does not wait on a full
@@ -28,12 +30,18 @@ from __future__ import annotations
 import argparse
 import asyncio
 import json
+import os
+import re
 import sys
+import urllib.request
 from pathlib import Path
 
 from govee_local_api import GoveeController, GoveeDevice  # pyright: ignore[reportMissingImports]
 
-DATA = Path(__file__).resolve().parent / "data" / "devices.json"
+HERE = Path(__file__).resolve().parent
+DATA = HERE / "data" / "devices.json"
+ENV = HERE.parent / ".env"
+CLOUD = "https://openapi.api.govee.com/router/api/v1"
 DISCOVERY_WAIT = 2.5
 STATUS_WAIT = 1.5
 
@@ -88,10 +96,11 @@ async def discover(cache: dict[str, dict], full: bool) -> GoveeController:
         update_enabled=False,
     )
     for entry in cache.values():
-        controller.add_device_to_discovery_queue(entry["ip"])
+        if entry.get("ip"):
+            controller.add_device_to_discovery_queue(entry["ip"])
     await controller.start()
     controller.send_discovery_message()
-    expected = len(cache)
+    expected = sum(1 for e in cache.values() if e.get("ip"))
     deadline = asyncio.get_running_loop().time() + DISCOVERY_WAIT
     while asyncio.get_running_loop().time() < deadline:
         await asyncio.sleep(0.1)
@@ -123,6 +132,11 @@ def select(cache: dict[str, dict], devices: list[GoveeDevice], target: str) -> l
             if want in {d.ip, (cache.get(d.fingerprint, {}).get("alias") or "").lower()}
             or d.fingerprint.lower().replace(":", "").endswith(want.replace(":", ""))
         ]
+        hits += [
+            d
+            for d in devices
+            if re.fullmatch(re.escape(want) + r"-\d+", (cache.get(d.fingerprint, {}).get("alias") or "").lower())
+        ]
         if not hits:
             raise SystemExit(f"govee: no bulb matches {want!r} (run `govee status` to see names)")
         chosen += [d for d in hits if d not in chosen]
@@ -148,7 +162,44 @@ def print_status(cache: dict[str, dict], devices: list[GoveeDevice]) -> None:
         print(f"{label(cache, d):<12} {d.ip:<15} {power} {d.brightness:>3}%  {shade}")
 
 
+def slug(name: str) -> str:
+    """'Alex's bedroom 2' -> 'bedroom-2'. Drops possessives so aliases stay short."""
+    words = [w for w in re.findall(r"[a-z0-9']+", name.lower()) if not w.endswith("'s")]
+    return "-".join(w.replace("'", "") for w in words) or name
+
+
+def api_key() -> str:
+    key = os.environ.get("GOVEE_API_KEY", "")
+    if not key and ENV.exists():
+        for line in ENV.read_text().splitlines():
+            if line.startswith("GOVEE_API_KEY="):
+                key = line.split("=", 1)[1].strip().strip('"')
+    if not key:
+        raise SystemExit("govee: GOVEE_API_KEY is not set (harness .env)")
+    return key
+
+
+def sync_names() -> int:
+    req = urllib.request.Request(f"{CLOUD}/user/devices", headers={"Govee-API-Key": api_key()})
+    with urllib.request.urlopen(req, timeout=15) as resp:
+        body = json.load(resp)
+    if body.get("code") != 200:
+        raise SystemExit(f"govee: cloud API said {body.get('code')} {body.get('message')}")
+    cache = load_cache()
+    for dev in body["data"]:
+        if ":" not in dev["device"]:  # app-side groups have numeric ids and no LAN presence
+            continue
+        entry = cache.setdefault(dev["device"], {})
+        entry.update(sku=dev["sku"], name=dev.get("deviceName", ""), alias=slug(dev.get("deviceName", "")))
+    save_cache(cache)
+    for fp, e in sorted(cache.items(), key=lambda kv: kv[1].get("alias", "")):
+        print(f"{e.get('alias', fp[-5:]):<12} {e.get('ip') or 'not on LAN':<15} {e.get('name', '')}")
+    return 0
+
+
 async def run(args: argparse.Namespace) -> int:
+    if args.cmd == "sync-names":
+        return sync_names()
     cache = load_cache()
     controller = await discover(cache, full=args.cmd == "scan")
     try:
@@ -215,6 +266,7 @@ def main() -> int:
     n = sub.add_parser("name")
     n.add_argument("device")
     n.add_argument("alias")
+    sub.add_parser("sync-names", help="copy the Govee app names into the aliases")
     return asyncio.run(run(p.parse_args()))
 
 
