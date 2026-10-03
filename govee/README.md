@@ -19,7 +19,7 @@ govee color COLOR [TARGET]      red, #ff8800, 255,136,0, or warm/cool/daylight
 govee temp KELVIN [TARGET]
 govee name DEVICE ALIAS
 govee sync-names                copy the Govee app names into the aliases (needs GOVEE_API_KEY in the harness .env)
-govee google-script [--room R]    print a Google Home script: 2700K by day, red after sunset (skips bulbs with no room)
+govee google-script [--room R]    print a Google Home script for the power-on rule (skips bulbs with no room)
 govee --check <command>         read the status back after a set command
 ```
 
@@ -33,7 +33,15 @@ TARGET is `all` (the default), an alias, an alias group (`vanity` selects `vanit
 
 ## Power-on color rule
 
-`govee google-script` writes a script for the Google Home script editor (home.google.com > Automations > Add > script). Each bulb gets two automations. When the bulb turns on between sunrise and sunset, Google sets it to 2700 K, the warmest white the H6008 makes (the API advertises 2000 K, but the bulb clamps a lower value to 2700 K). When it turns on between sunset and sunrise, Google sets it to red. The rule runs in the Google cloud, so it does not need this computer.
+`govee google-script` writes a script for the Google Home script editor (home.google.com > Automations > Add > script). Each bulb gets three automations. When the bulb turns on, Google sets its color and brightness for the time of day:
+
+| Period | Color | Brightness |
+| --- | --- | --- |
+| Sunrise to 2 hours before sunset | 6500 K | 100% |
+| The 2 hours before sunset | 2700 K | 100% |
+| Sunset to sunrise | red | 30% |
+
+6500 K is the coolest white the H6008 makes and gives the most alertness. 2700 K is its warmest white (the API advertises 2000 K, but the bulb clamps a lower value to 2700 K). Red light has almost no effect on melatonin. The rule runs in the Google cloud, so it does not need this computer.
 
 Google names a device "<name> - <room>". Give the room with `--room`, or add a `room` field to a bulb in `data/devices.json`.
 

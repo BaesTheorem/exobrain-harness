@@ -198,8 +198,17 @@ def sync_names() -> int:
     return 0
 
 
-DAY_COLOR = "2700K"  # the real H6008 floor: the API advertises 2000K, but the bulb clamps to 2700K
-NIGHT_COLOR = "FF0000"
+# Power-on rule periods: (after, before, color field, brightness %, label).
+# Day light is for wakefulness: 6500K is the H6008 maximum and the most melanopic white
+# (Chellappa 2011; Brown 2022 asks for >=250 melanopic EDI lux at the eye by day).
+# The last two hours before sunset step down to 2700K, the real H6008 floor (the API
+# advertises 2000K, but the bulb clamps to 2700K). Night is dim red, which has almost no
+# melanopic effect.
+PERIODS = [
+    ("SUNRISE", "SUNSET-2hour", "temperature: 6500K", 100, "day"),
+    ("SUNSET-2hour", "SUNSET", "temperature: 2700K", 100, "late afternoon"),
+    ("SUNSET", "SUNRISE", "spectrumRGB: FF0000", 30, "night"),
+]
 
 
 def google_script(room: str | None) -> int:
@@ -221,13 +230,12 @@ def google_script(room: str | None) -> int:
     out = [
         "metadata:",
         "  name: Govee power-on color",
-        "  description: When a Govee bulb turns on, set warm white by day and red after sunset.",
+        "  description: When a Govee bulb turns on, set 6500K by day, 2700K in the 2 hours before sunset, dim red at night.",
         "automations:",
     ]
-    periods = [("SUNRISE", "SUNSET", f"temperature: {DAY_COLOR}"), ("SUNSET", "SUNRISE", f"spectrumRGB: {NIGHT_COLOR}")]
     for e in bulbs:
         device = f"{e['name']} - {e.get('room') or room}"
-        for after, before, color in periods:
+        for after, before, color, brightness, _label in PERIODS:
             out += [
                 "  - starters:",
                 "      - type: device.state.OnOff",
@@ -243,6 +251,9 @@ def google_script(room: str | None) -> int:
                 f"        devices: {device}",
                 "        color:",
                 f"          {color}",
+                "      - type: device.command.BrightnessAbsolute",
+                f"        devices: {device}",
+                f"        brightness: {brightness}",
             ]
     print("\n".join(out))
     return 0
