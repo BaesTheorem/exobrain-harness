@@ -1,0 +1,5 @@
+#!/bin/sh
+# govee: LAN control for Govee lights. See govee/README.md.
+DIR="$(cd "$(dirname "$(readlink -f "$0")")/.." && pwd)"
+[ -x "$DIR/.venv/bin/python" ] || { python3 -m venv "$DIR/.venv" && "$DIR/.venv/bin/pip" -q install -r "$DIR/requirements.txt"; } >&2
+exec "$DIR/.venv/bin/python" "$DIR/govee_cli.py" "$@"

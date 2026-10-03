@@ -290,3 +290,7 @@ pokemon-go/data/*
 
 # ASD-STE100 spec: free of charge but ASD does not permit redistribution; fetch-spec.sh rebuilds it
 writing-style/ste100/spec/
+
+# Govee LAN cache: bulb IPs, device ids, room aliases (see govee/data/README.md)
+govee/data/*
+!govee/data/README.md
