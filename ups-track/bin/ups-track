@@ -1,0 +1,110 @@
+#!/usr/bin/env -S uv run --quiet --script
+# /// script
+# requires-python = ">=3.11"
+# dependencies = ["patchright", "mcp>=2"]
+# ///
+"""Track a UPS package without UPS API keys.
+
+The official Tracking API needs a UPS shipper account, and ups.com sends an
+Akamai "Access Denied" to curl, curl_cffi and every headless browser (tested
+2026-10-03). A headed Chrome under patchright gets through. So this opens real
+Chrome with its window off-screen, loads the public tracking page, and reads
+the JSON that the page itself fetches from Track/GetStatus.
+
+    ups-track 1Z...            # summary + scan history
+    ups-track 1Z... --json     # the raw GetStatus record
+    ups-track --mcp            # stdio MCP server with one tool: track_package
+"""
+import asyncio
+import json
+import sys
+from pathlib import Path
+
+PROFILE = Path.home() / ".cache" / "ups-track" / "chrome-profile"
+TRACK_URL = "https://www.ups.com/track?loc=en_US&tracknum={}&requester=ST/trackdetails"
+
+
+async def fetch(tracking: str) -> dict:
+    from patchright.async_api import async_playwright
+
+    PROFILE.mkdir(parents=True, exist_ok=True)
+    async with async_playwright() as p:
+        ctx = await p.chromium.launch_persistent_context(
+            str(PROFILE), channel="chrome", headless=False, no_viewport=True,
+            args=["--window-position=-3000,-3000", "--window-size=1200,900"])
+        try:
+            page = await ctx.new_page()
+            fut: asyncio.Future = asyncio.get_running_loop().create_future()
+
+            async def on_resp(r):
+                if "Track/GetStatus" in r.url and not fut.done():
+                    try:
+                        fut.set_result(await r.json())
+                    except Exception as e:  # noqa: BLE001  report any parse failure to the caller
+                        fut.set_exception(e)
+
+            page.on("response", on_resp)
+            await page.goto(TRACK_URL.format(tracking), timeout=60000)
+            try:
+                data = await asyncio.wait_for(fut, timeout=30)
+            except TimeoutError:
+                raise RuntimeError(f"ups.com sent no tracking data for {tracking} "
+                                   "(unknown number, or the page was blocked)") from None
+        finally:
+            await ctx.close()
+    details = data.get("trackDetails") or []
+    if not details:
+        raise RuntimeError(f"UPS returned no trackDetails: {data.get('statusText')}")
+    return details[0]
+
+
+def summary(d: dict) -> dict:
+    acts = [{"date": a.get("date"), "time": a.get("time"),
+             "status": " ".join((a.get("activityScan") or "").split()), "location": a.get("location")}
+            for a in d.get("shipmentProgressActivities") or []]
+    return {
+        "tracking": d.get("trackingNumber"),
+        "status": d.get("packageStatus"),
+        "delivered": bool(d.get("isDelivered")) or d.get("packageStatusType") == "D",
+        "received_by": d.get("receivedBy"),
+        "error": d.get("errorText"),
+        "scans": acts,
+    }
+
+
+def track(tracking: str) -> dict:
+    return summary(asyncio.run(fetch(tracking)))
+
+
+def serve() -> None:
+    from mcp.server.mcpserver import MCPServer
+
+    mcp = MCPServer("ups-track")
+
+    @mcp.tool()
+    async def track_package(tracking_number: str) -> str:
+        """Current UPS status and full scan history for one tracking number (no UPS account needed)."""
+        return json.dumps(summary(await fetch(tracking_number.strip())), indent=1)
+
+    mcp.run()
+
+
+def main() -> None:
+    args = sys.argv[1:]
+    if args[:1] == ["--mcp"]:
+        serve()
+        return
+    if not args or args[0].startswith("-"):
+        print(__doc__)
+        sys.exit(2)
+    if "--json" in args:
+        print(json.dumps(asyncio.run(fetch(args[0])), indent=1))
+        return
+    s = track(args[0])
+    print(f"{s['tracking']}: {s['status']}" + (f" (received by {s['received_by']})" if s["received_by"] else ""))
+    for a in s["scans"]:
+        print(f"  {a['date']} {a['time']:>10}  {a['status']}  [{a['location']}]")
+
+
+if __name__ == "__main__":
+    main()
