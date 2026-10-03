@@ -57,6 +57,14 @@ def test_position_cap_needs_a_same_position_drop():
     assert "Hot WR" not in {c["add"] for c in by_drop["Bench TE"]["candidates"]}
 
 
+def test_a_streamer_on_the_bench_is_not_a_drop_for_a_skill_player():
+    ros = [*roster(), r("Stream DST", "D/ST", 20, 4.0, 90.0)]
+    out = swap_scan.scan(2, ros, pool(), position_max={"WR": 8, "TE": 3, "QB": 4})
+    by_drop = {s["drop"]: s for s in out["swaps"]}
+    assert by_drop["Stream DST"]["candidates"] == [], "a WR gain over a D/ST season rate is not a swap"
+    assert by_drop["Bench WR"]["candidates"][0]["add"] == "Hot WR", "positive control: the WR drop still offers"
+
+
 def test_role_and_heat_are_evidence_not_gate():
     vol = {"hot wr|WR": {"flags": ["ROLE-UP"], "last": {"snap": 0.9, "tgt_share": 0.25, "opps": 9.0}}}
     out = swap_scan.scan(2, roster(), pool(), {}, heat={"meh wr|WR": 5000}, volume=vol)

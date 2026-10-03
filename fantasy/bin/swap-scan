@@ -31,6 +31,12 @@ INVARIANTS
   2026-09-30: a player on our side of a pending trade counts too. Godwin
   showed as a free +23.7 drop while he sat in the Allen offer, and dropping
   him would have voided it.
+- **A bench K or D/ST is only offered against the same position.** Found
+  2026-10-03: MIST added the Cowboys D/ST at 11:37 PM as the week 5 stream
+  (dropping Vele), and 27 minutes later the gate bannered the reverse swap at
+  +46.6, because a streamer's season rate is near zero next to any WR. A
+  streamer is held for one week's matchup, which stream-scan prices; a season
+  rate cannot see that.
 
     swap-scan [--gate 20] [--top 3] [--json]
 """
@@ -55,6 +61,7 @@ REG_SEASON_END = 14
 GATE = 20.0
 ONE_OF = {"QB", "TE"}                 # never a second one on the roster
 FLEX_POS = {"RB", "WR", "TE"}
+STREAM_POS = {"K", "D/ST"}            # weekly streamers: stream-scan prices them, not a season rate
 LOOKAHEAD = 2                         # weeks of bye holes to show
 VOLUME = FANTASY / ".cache" / "volume-{season}.json"
 SLEEPER_TRENDING = "https://api.sleeper.app/v1/players/nfl/trending/add?lookback_hours=24&limit=150"
@@ -103,7 +110,7 @@ def vkey(r: dict) -> str:
 def allowed(cand: dict, drop: dict, held: dict[str, int], position_max: dict[str, int]) -> bool:
     """Flex-eligible or same position, never a second QB/TE, under the cap once the drop is gone."""
     if cand["pos"] != drop["pos"]:
-        if cand["pos"] not in FLEX_POS or cand["pos"] in ONE_OF:
+        if drop["pos"] in STREAM_POS or cand["pos"] not in FLEX_POS or cand["pos"] in ONE_OF:
             return False
     cap = position_max.get(cand["pos"])
     after = held.get(cand["pos"], 0) - (1 if cand["pos"] == drop["pos"] else 0)
