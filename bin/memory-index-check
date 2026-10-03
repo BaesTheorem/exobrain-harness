@@ -1,0 +1,86 @@
+#!/usr/bin/env python3
+"""memory-index-check: lint MIST's memory index so it keeps loading in full.
+
+Claude Code loads MEMORY.md at session start, but only up to a size cap
+(24.4KB; lines past the cap are cut off without a notice in the session). The
+index also has sub-index files (index_<domain>.md) for memories that do not fit
+on the primary index. This check reports:
+
+  - MEMORY.md size against the cap, with a warning band under it
+  - index lines over the length budget
+  - memory files that no index (primary or sub) links to
+  - links to files that do not exist
+
+Exit 0 when clean, 1 on WARN, 2 on FAIL. The session-start hook prints the
+one-line summary. Run it by hand after you add or rename a memory.
+
+INVARIANTS:
+- Read-only. It never edits the index or a memory file.
+- A file is "indexed" when any index_*.md or MEMORY.md links it as (name.md).
+"""
+
+from __future__ import annotations
+
+import os
+import re
+import sys
+from pathlib import Path
+
+CAP = 24_400  # bytes: the loader truncates past this
+WARN_HEADROOM = 1_500  # bytes left before the cap that counts as a warning
+LINE_BUDGET = 450  # chars: a group line of 8 links is ~420; longer than this hides prose that belongs in a topic file
+MEMORY_DIR = Path(
+    os.environ.get(
+        "MIST_MEMORY_DIR",
+        Path.home() / ".claude/projects/-Users-alexhedtke-Documents-Exobrain-harness/memory",
+    )
+)
+LINK = re.compile(r"\]\(([^)\s]+\.md)\)")
+
+
+def main() -> int:
+    primary = MEMORY_DIR / "MEMORY.md"
+    if not primary.exists():
+        print(f"FAIL: memory index missing at {primary}")
+        return 2
+    indexes = [primary, *sorted(MEMORY_DIR.glob("index_*.md"))]
+    linked: set[str] = set()
+    for idx in indexes:
+        linked |= set(LINK.findall(idx.read_text()))
+
+    size = len(primary.read_bytes())
+    long_lines = [n for n, line in enumerate(primary.read_text().splitlines(), 1) if len(line) > LINE_BUDGET]
+    memories = {f.name for f in MEMORY_DIR.glob("*.md")} - {"MEMORY.md"} - {i.name for i in indexes}
+    unindexed = sorted(memories - linked)
+    broken = sorted(name for name in linked if not (MEMORY_DIR / name).exists())
+
+    problems: list[str] = []
+    level = 0
+    if size > CAP:
+        problems.append(f"MEMORY.md is {size}B, over the {CAP}B cap (tail lines are cut off at load)")
+        level = 2
+    elif size > CAP - WARN_HEADROOM:
+        problems.append(f"MEMORY.md is {size}B, within {CAP - size}B of the cap")
+        level = max(level, 1)
+    if broken:
+        problems.append(f"{len(broken)} broken link(s): {', '.join(broken[:5])}")
+        level = 2
+    if unindexed:
+        problems.append(f"{len(unindexed)} memory file(s) in no index: {', '.join(unindexed[:5])}" + (" ..." if len(unindexed) > 5 else ""))
+        level = max(level, 1)
+    if long_lines:
+        problems.append(f"{len(long_lines)} index line(s) over {LINE_BUDGET} chars: {long_lines[:8]}")
+        level = max(level, 1)
+
+    tag = ["OK", "WARN", "FAIL"][level]
+    if problems:
+        print(f"{tag}: memory index -- " + "; ".join(problems) + " -- fix with bin/memory-index-check")
+    else:
+        print(f"OK: memory index ({size}B of {CAP}B, {len(linked)} memories indexed across {len(indexes)} files)")
+    if "-v" in sys.argv and unindexed:
+        print("\n".join(unindexed))
+    return level
+
+
+if __name__ == "__main__":
+    sys.exit(main())

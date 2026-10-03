@@ -510,6 +510,13 @@ if [ -n "$NEWEST_NOTE" ]; then
   fi
 fi
 
+# Memory index health -- MEMORY.md is cut off past 24.4KB at load, and a memory
+# that no index links to is invisible to every session. bin/memory-index-check
+# prints one OK/WARN/FAIL line.
+if [ -x "$HARNESS/bin/memory-index-check" ]; then
+  python3 "$HARNESS/bin/memory-index-check" 2>/dev/null || true
+fi
+
 # Processing log integrity
 LOG="$HARNESS/processing-log.json"
 if [ -f "$LOG" ]; then
