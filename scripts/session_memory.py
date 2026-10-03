@@ -97,7 +97,8 @@ TOOL_RESULT_CHARS = 320
 CLAUDE_TIMEOUT_SEC = 600
 MIN_USER_TURNS = 1
 MIN_ASSISTANT_CHARS = 1500         # a one-question lookup; long single-prompt builds still qualify
-REWRITE_COOLDOWN_SEC = 600         # one write per session per 10 min (compaction storms)
+SANDBOX_SLUG_PREFIXES = ("-private-tmp", "-tmp")   # project dirs for cwd under /tmp
+REWRITE_COOLDOWN_SEC = 600        # one write per session per 10 min (compaction storms)
 KINDS = ("decision", "fact", "pattern", "preference", "person", "open-thread", "tool")
 STATUSES = ("active", "resolved", "superseded")
 LOCAL_TZ = dt.datetime.now().astimezone().tzinfo
@@ -1000,12 +1001,15 @@ def _todays_transcripts(today: dt.date) -> list[Path]:
     """Top-level transcripts modified since local midnight, across every project dir.
 
     Nested subagent transcripts are sidechains that belong to their parent, so only
-    ``~/.claude/projects/<slug>/<session>.jsonl`` counts.
+    ``~/.claude/projects/<slug>/<session>.jsonl`` counts. Sessions whose cwd is under
+    /tmp are sandboxes (expert-panel seats, CLI tests), not Alex's sessions, so their
+    slugs are skipped: one panel run once wrote 61 session notes in a day.
     """
     midnight = dt.datetime.combine(today, dt.time()).timestamp()
     projects = Path.home() / ".claude" / "projects"
     return sorted(p for p in projects.glob("*/*.jsonl")
-                  if p.is_file() and p.stat().st_mtime >= midnight)
+                  if p.is_file() and p.stat().st_mtime >= midnight
+                  and not p.parent.name.startswith(SANDBOX_SLUG_PREFIXES))
 
 
 def cmd_consolidate(args) -> int:

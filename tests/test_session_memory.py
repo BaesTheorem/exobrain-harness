@@ -222,3 +222,14 @@ def test_write_skips_the_writers_own_transcripts(sm, tmp_path, monkeypatch):
     ns = type("A", (), {"transcript": str(p), "trigger": "consolidator", "force": False,
                         "dry_run": False, "quiet": True})()
     assert sm.cmd_write(ns) == 0 and not list(sm.SESSIONS.glob("*.md"))
+
+
+def test_consolidator_skips_tmp_sandbox_projects(sm, tmp_path, monkeypatch):
+    import datetime as dt
+    monkeypatch.setattr(Path, "home", lambda: tmp_path)
+    projects = tmp_path / ".claude" / "projects"
+    for slug in ("-Users-alex-harness", "-private-tmp-expert-panel-run", "-tmp-x"):
+        (projects / slug).mkdir(parents=True)
+        (projects / slug / "s.jsonl").write_text("{}\n")
+    found = sm._todays_transcripts(dt.date.today())
+    assert [p.parent.name for p in found] == ["-Users-alex-harness"]
