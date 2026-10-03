@@ -37,9 +37,9 @@ TARGET is `all` (the default), an alias, an alias group (`vanity` selects `vanit
 
 | Period | Color | Brightness |
 | --- | --- | --- |
-| Sunrise to 2 hours before sunset | 6500 K | 100% |
+| 7:30 AM to 2 hours before sunset | 6500 K | 100% |
 | The 2 hours before sunset | 2700 K | 100% |
-| Sunset to sunrise | red | 30% |
+| Sunset to 7:30 AM | red | 30% |
 
 6500 K is the coolest white the H6008 makes and gives the most alertness. 2700 K is its warmest white (the API advertises 2000 K, but the bulb clamps a lower value to 2700 K). Red light has almost no effect on melatonin. The rule runs in the Google cloud, so it does not need this computer.
 

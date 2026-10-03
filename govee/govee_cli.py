@@ -205,9 +205,9 @@ def sync_names() -> int:
 # advertises 2000K, but the bulb clamps to 2700K). Night is dim red, which has almost no
 # melanopic effect.
 PERIODS = [
-    ("SUNRISE", "SUNSET-2hour", "temperature: 6500K", 100, "day"),
+    ("07:30", "SUNSET-2hour", "temperature: 6500K", 100, "day"),
     ("SUNSET-2hour", "SUNSET", "temperature: 2700K", 100, "late afternoon"),
-    ("SUNSET", "SUNRISE", "spectrumRGB: FF0000", 30, "night"),
+    ("SUNSET", "07:30", "spectrumRGB: FF0000", 30, "night"),
 ]
 
 
@@ -230,7 +230,7 @@ def google_script(room: str | None) -> int:
     out = [
         "metadata:",
         "  name: Govee power-on color",
-        "  description: When a Govee bulb turns on, set 6500K by day, 2700K in the 2 hours before sunset, dim red at night.",
+        "  description: When a Govee bulb turns on, set 6500K from 7:30 AM, 2700K in the 2 hours before sunset, dim red at night.",
         "automations:",
     ]
     for e in bulbs:
