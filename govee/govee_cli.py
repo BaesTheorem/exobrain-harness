@@ -230,7 +230,7 @@ def google_script(room: str | None) -> int:
     out = [
         "metadata:",
         "  name: Govee power-on color",
-        "  description: When a Govee bulb turns on, set 6500K from 7:30 AM, 2700K in the 2 hours before sunset, dim red at night.",
+        "  description: Turn the bulbs on at 7:30 AM. When a Govee bulb turns on, set 6500K from 7:30 AM, 2700K in the 2 hours before sunset, dim red at night.",
         "automations:",
     ]
     for e in bulbs:
@@ -255,6 +255,13 @@ def google_script(room: str | None) -> int:
                 f"        devices: {device}",
                 f"        brightness: {brightness}",
             ]
+    # Wake: at the start of the day period, turn every bulb on, even if it is off.
+    after, _before, color, brightness, _label = PERIODS[0]
+    devices = [f"        - {e['name']} - {e.get('room') or room}" for e in bulbs]
+    out += ["  - starters:", "      - type: time.schedule", f"        at: {after}", "    actions:"]
+    out += ["      - type: device.command.OnOff", "        devices:", *devices, "        on: true"]
+    out += ["      - type: device.command.ColorAbsolute", "        devices:", *devices, "        color:", f"          {color}"]
+    out += ["      - type: device.command.BrightnessAbsolute", "        devices:", *devices, f"        brightness: {brightness}"]
     print("\n".join(out))
     return 0
 
