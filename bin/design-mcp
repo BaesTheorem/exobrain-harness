@@ -37,6 +37,9 @@ ENDPOINT = "https://api.anthropic.com/v1/design/mcp"
 TOKEN_URL = "https://platform.claude.com/v1/oauth/token"
 KEYCHAIN_SERVICE = "Claude Code-credentials"
 SCOPES = "user:design:read user:design:write"
+# Cloudflare in front of the token endpoint refuses the default Python-urllib
+# User-Agent (error 1010), so every request names itself.
+USER_AGENT = "claude-code-design-mcp/1.0"
 LOCK = os.path.expanduser("~/.claude/.design_oauth_refresh.lock")
 TEXT_EXT = {".md", ".txt", ".css", ".html", ".htm", ".js", ".mjs", ".json", ".svg", ".csv", ".tsx", ".ts", ".jsx", ".yml", ".yaml", ".xml"}
 
@@ -94,7 +97,8 @@ class Creds:
                                "client_id": d.get("clientId") or os.environ.get("CLAUDE_CODE_DESIGN_OAUTH_CLIENT_ID", ""),
                                "scope": SCOPES}).encode()
             req = urllib.request.Request(TOKEN_URL, data=body, method="POST",
-                                         headers={"Content-Type": "application/json", "Accept": "application/json"})
+                                         headers={"Content-Type": "application/json", "Accept": "application/json",
+                                                  "User-Agent": USER_AGENT})
             with urllib.request.urlopen(req, timeout=30) as r:
                 tok = json.loads(r.read().decode())
             d["accessToken"] = tok["access_token"]
@@ -123,7 +127,8 @@ class Upstream:
 
     def post(self, msg, retry=True):
         data = json.dumps(msg).encode()
-        headers = {"Authorization": "Bearer " + self.creds.token(), "Content-Type": "application/json",
+        headers = {"Authorization": "Bearer " + self.creds.token(), "User-Agent": USER_AGENT,
+                   "Content-Type": "application/json",
                    "Accept": "application/json, text/event-stream", "X-Anthropic-Client": "claude-cli-design-tool"}
         if self.session:
             headers["Mcp-Session-Id"] = self.session
