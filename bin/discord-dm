@@ -9,6 +9,8 @@ DISCORD_NOTIFY_CHAT_ID in the harness .env. Discord caps a message at 2000
 characters, so longer text is cut. Exit 0 on send, 1 on any failure (logged to
 stderr), so a caller can treat it as best effort.
 """
+from __future__ import annotations
+
 import json
 import os
 import sys

@@ -15,6 +15,7 @@ INVARIANTS:
 - Host is api.luma.com; the old api.lu.ma host rejects create with the
   identical bare 400, so never "fix" the host back.
 """
+from __future__ import annotations
 
 import argparse
 import json
