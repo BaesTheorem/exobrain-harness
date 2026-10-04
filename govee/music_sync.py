@@ -219,7 +219,7 @@ async def run(args: argparse.Namespace) -> int:
     quiet_since: float | None = None
     stop = asyncio.Event()
     loop = asyncio.get_running_loop()
-    for sig in (signal.SIGINT, signal.SIGTERM):
+    for sig in (signal.SIGINT, signal.SIGTERM, signal.SIGHUP):  # SIGHUP: the Terminal window closed
         loop.add_signal_handler(sig, stop.set)
 
     if not args.dry_run:
