@@ -93,14 +93,18 @@ def sheet_id(url: str) -> str:
     return m.group(1)
 
 
-def remember_source(url: str | None) -> str:
+def remember_source(url: str | None, as_of: str | None = None) -> dict:
+    """The sheet URL and the date its data dates from, remembered between runs."""
+    saved = json.loads(SOURCE_PATH.read_text()) if SOURCE_PATH.exists() else {}
     if url:
-        DATA.mkdir(parents=True, exist_ok=True)
-        SOURCE_PATH.write_text(json.dumps({"url": url}))
-        return url
-    if SOURCE_PATH.exists():
-        return json.loads(SOURCE_PATH.read_text())["url"]
-    raise RuntimeError("no sheet URL given and none remembered in data/sheet_source.json")
+        saved["url"] = url
+    if as_of:
+        saved["as_of"] = as_of
+    if "url" not in saved:
+        raise RuntimeError("no sheet URL given and none remembered in data/sheet_source.json")
+    DATA.mkdir(parents=True, exist_ok=True)
+    SOURCE_PATH.write_text(json.dumps(saved))
+    return saved
 
 
 def _fill(cell) -> str:
@@ -235,7 +239,7 @@ def note_path(site: SheetSite) -> Path:
     return SITES_DIR / f"{safe_filename(title(site))} (sheet {site.row}).md"
 
 
-def render(site: SheetSite, existing: str = "") -> str:
+def render(site: SheetSite, existing: str = "", as_of: str | None = None) -> str:
     miles = miles_from_home(site.lat, site.lon) if site.lat is not None and site.lon is not None else None
     prox = proximity(site.confidence, miles)
     within = prox == "near" if prox != "unplaceable" else None
@@ -258,12 +262,20 @@ def render(site: SheetSite, existing: str = "") -> str:
         "sheet_status": site.status or None,
         "abandoned": site.abandoned or None,
         "abandoned_since": site.abandoned_date or None,
+        # Every row is someone else's recon from when the sheet was written. Nothing here
+        # is verified until Alex goes, and then he flips this by hand in the note, so a
+        # re-import keeps whatever value the note already has.
+        "data_as_of": as_of,
+        "verified": bool(re.search(r"^verified: true$", existing, re.M)),
     }
     lines = ["---", *(f"{k}: {_yaml_scalar(v)}" for k, v in fm.items()), "tags:",
-             "  - urbex/site", "  - urbex/sheet"]
+             "  - urbex/site", "  - urbex/sheet", "  - urbex/unverified"]
     if within:
         lines.append("  - urbex/near-home")
     lines += ["---", "", f"### {title(site)}", ""]
+    lines += ["> [!warning] Old and unverified",
+              f"> This entry comes from a shared spreadsheet with data from {as_of or 'an unknown date'}. "
+              "Nobody has checked it since. The site can be demolished, secured, or reused.", ""]
 
     where = site.address or "no address given"
     if miles is not None and distance_is_meaningful(site.confidence):
@@ -299,13 +311,13 @@ def render(site: SheetSite, existing: str = "") -> str:
     return "\n".join(lines)
 
 
-def write_notes(sites: list[SheetSite]) -> list[Path]:
+def write_notes(sites: list[SheetSite], as_of: str | None = None) -> list[Path]:
     SITES_DIR.mkdir(parents=True, exist_ok=True)
     written = []
     for s in sites:
         path = note_path(s)
         existing = path.read_text() if path.exists() else ""
-        body = render(s, existing)
+        body = render(s, existing, as_of)
         if body != existing:
             path.write_text(body)
             written.append(path)

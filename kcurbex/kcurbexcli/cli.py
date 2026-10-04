@@ -206,9 +206,10 @@ def cmd_watch(args) -> int:
 
 
 def cmd_sheet(args) -> int:
-    sites = sheet.fetch(sheet.remember_source(args.url))
+    source = sheet.remember_source(args.url, args.as_of)
+    sites = sheet.fetch(source["url"])
     sheet.locate(sites)
-    written = sheet.write_notes(sites)
+    written = sheet.write_notes(sites, source.get("as_of"))
     vault.write_base()
     by_conf = {c: sum(s.confidence == c for s in sites) for c in ("exact", "neighborhood", "region", "unknown")}
     print(f"{len(sites)} sheet sites, {len(written)} note(s) written; geocodes: {by_conf}")
@@ -281,6 +282,7 @@ def main() -> int:
     sp.set_defaults(fn=cmd_sync_calendar)
 
     sp = sub.add_parser("sheet"); sp.add_argument("url", nargs="?")
+    sp.add_argument("--as-of", help="when the sheet's data dates from, e.g. 2021-11 (remembered)")
     sp.set_defaults(fn=cmd_sheet)
 
     sp = sub.add_parser("watch"); sp.add_argument("--days", type=int, default=365)

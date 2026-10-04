@@ -180,6 +180,10 @@ properties:
     displayName: Risk
   sheet_status:
     displayName: Sheet status
+  data_as_of:
+    displayName: Data as of
+  verified:
+    displayName: Verified
 views:
   - type: table
     name: Within 3 miles
@@ -234,6 +238,8 @@ views:
       - formula.distance
       - risk
       - sheet_status
+      - data_as_of
+      - verified
       - address
     sort:
       - property: miles_from_home

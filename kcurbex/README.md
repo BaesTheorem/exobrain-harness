@@ -83,6 +83,10 @@ bare town name gets `region`. The URL, the pulled rows, and the geocode cache st
 `data/`. When you give no URL, the command reads the remembered sheet again and geocodes only the
 new addresses.
 
+Each sheet note gets `data_as_of` (from `--as-of`, remembered), `verified: false`, an
+`urbex/unverified` tag, and a warning callout. If you visit a site, set `verified: true`
+in its note. A re-import keeps that value.
+
 ## Obsidian output
 
 - `Areas/Adventure & Creativity/Urbex/Sites/<title> (<topic id>).md` -- one note per report
