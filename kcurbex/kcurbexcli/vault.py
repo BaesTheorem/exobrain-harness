@@ -176,6 +176,10 @@ properties:
     displayName: Near home?
   url:
     displayName: Thread
+  risk:
+    displayName: Risk
+  sheet_status:
+    displayName: Sheet status
 views:
   - type: table
     name: Within 3 miles
@@ -218,6 +222,22 @@ views:
     sort:
       - property: posted
         direction: DESC
+  - type: table
+    name: From the sheet
+    filters:
+      and:
+        - source == "sheet"
+    order:
+      - file.name
+      - formula.near
+      - formula.pin
+      - formula.distance
+      - risk
+      - sheet_status
+      - address
+    sort:
+      - property: miles_from_home
+        direction: ASC
   - type: table
     name: Needs locating
     filters:

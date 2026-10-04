@@ -9,6 +9,7 @@ Subcommands:
   meetups          list the parsed meetup threads
   auth-calendar    one-time Google Calendar consent (needed once, by hand)
   sync-calendar    push upcoming meetups to Google Calendar
+  sheet [URL]      import a Google Sheet of sites into the vault (URL remembered in data/)
   watch            the unattended pass: scan, geocode new, project, sync, notify
 """
 
@@ -23,7 +24,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
-from kcurbexcli import gcal, meetups as M, scan as S, vault  # noqa: E402
+from kcurbexcli import gcal, meetups as M, scan as S, sheet, vault  # noqa: E402
 from kcurbexcli.auth import HERE, Session  # noqa: E402
 from kcurbexcli.geo import miles_from_home, proximity  # noqa: E402
 
@@ -204,6 +205,16 @@ def cmd_watch(args) -> int:
     return 0
 
 
+def cmd_sheet(args) -> int:
+    sites = sheet.fetch(sheet.remember_source(args.url))
+    sheet.locate(sites)
+    written = sheet.write_notes(sites)
+    vault.write_base()
+    by_conf = {c: sum(s.confidence == c for s in sites) for c in ("exact", "neighborhood", "region", "unknown")}
+    print(f"{len(sites)} sheet sites, {len(written)} note(s) written; geocodes: {by_conf}")
+    return 0
+
+
 def _geocode_with_claude(timeout: int = 900) -> bool:
     """Geocode the pending reports headlessly. Returns whether it produced a file."""
     prompt = (
@@ -268,6 +279,9 @@ def main() -> int:
 
     sp = sub.add_parser("sync-calendar"); sp.add_argument("--all", action="store_true")
     sp.set_defaults(fn=cmd_sync_calendar)
+
+    sp = sub.add_parser("sheet"); sp.add_argument("url", nargs="?")
+    sp.set_defaults(fn=cmd_sheet)
 
     sp = sub.add_parser("watch"); sp.add_argument("--days", type=int, default=365)
     sp.set_defaults(fn=cmd_watch)

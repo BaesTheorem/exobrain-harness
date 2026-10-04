@@ -52,6 +52,7 @@ output (see `data/README.md`).
     bin/kcurbex auth-calendar   # one-time Google Calendar consent
     bin/kcurbex sync-calendar   # push upcoming meetups to Google Calendar
     bin/kcurbex watch           # the unattended pass (what launchd runs)
+    bin/kcurbex sheet [URL]     # import a shared Google Sheet of sites (URL kept in data/)
 
 ## Geocoding
 
@@ -71,11 +72,23 @@ proximity filter as a false hit. The
 vault marks those `proximity: unplaceable` with a null distance, and they collect in
 the database's "Needs locating" view.
 
+## Spreadsheet import
+
+Explorers also share Google Sheets of locations. `kcurbex sheet URL` reads the
+first tab as CSV for the values and as XLSX for the row colors, which the sheet uses as
+its legend (visited, high risk, not researched, and others). Street addresses go to the
+US Census geocoder first, then to Nominatim. An address with no city is assumed to be in
+Kansas City (Topeka for `S.W.`-style addresses) and gets `neighborhood` confidence. A
+bare town name gets `region`. The URL, the pulled rows, and the geocode cache stay in
+`data/`. When you give no URL, the command reads the remembered sheet again and geocodes only the
+new addresses.
+
 ## Obsidian output
 
 - `Areas/Adventure & Creativity/Urbex/Sites/<title> (<topic id>).md` -- one note per report
+- `Areas/Adventure & Creativity/Urbex/Sites/<name> (sheet <row>).md` -- one note per sheet row
 - `Areas/Adventure & Creativity/Urbex/KC Urbex Sites.base` -- views: Within 3 miles,
-  All sites by distance, Newest first, Needs locating
+  All sites by distance, Newest first, From the sheet, Needs locating
 
 Notes are a projection of `data/reports.json`. Anything written below the `## Notes`
 marker is preserved across regeneration; everything above it is rewritten.
