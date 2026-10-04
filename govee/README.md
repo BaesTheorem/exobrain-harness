@@ -41,7 +41,7 @@ TARGET is `all` (the default), an alias, an alias group (`vanity` selects `vanit
 | The 2 hours before sunset | 2700 K | 100% |
 | Sunset to 7:30 AM | red | 30% |
 
-Bulbs in one alias group (`bedroom-2` and `bedroom-3`, or `vanity-1` to `vanity-4`) stay in the same state. When one bulb of a group turns on, the automation turns on the full group and sets its color. When one bulb turns off, the full group turns off.
+Bulbs in one group stay in the same state. A bulb's group is the `group` field in `data/devices.json`, or else its alias without the `-N` suffix. A group name is also a TARGET. When one bulb of a group turns on, the automation turns on the full group and sets its color. When one bulb turns off, the full group turns off.
 
 At 7:30 AM, one more automation turns every bulb on at 6500 K and 100%, even if it is off. A bulb that is off at the wall switch has no power, so it cannot turn on.
 

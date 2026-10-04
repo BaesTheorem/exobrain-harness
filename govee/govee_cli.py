@@ -13,7 +13,9 @@ Commands:
 
 TARGET is "all" (default), an alias, an alias group, an IP, or the tail of the
 device id. An alias group is the alias without its "-N" suffix ("vanity"
-selects vanity-1 to vanity-4). Commas select several targets: "desk,vanity".
+selects vanity-1 to vanity-4). A "group" field on a bulb in the cache puts it in
+that group as well ("bedroom" selects the bedroom and vanity bulbs). Commas select
+several targets: "desk,vanity".
 
 The device cache (data/devices.json, gitignored) keeps the IP and alias of each
 bulb, so a command probes the known IPs directly and does not wait on a full
@@ -122,6 +124,11 @@ def label(cache: dict[str, dict], d: GoveeDevice) -> str:
     return cache.get(d.fingerprint, {}).get("alias") or d.fingerprint[-5:]
 
 
+def group_of(entry: dict) -> str:
+    """The bulb's "group" field, else its alias without "-N". Bulbs in one group stay in one state."""
+    return (entry.get("group") or re.sub(r"-\d+$", "", entry.get("alias") or entry.get("name") or "")).lower()
+
+
 def select(cache: dict[str, dict], devices: list[GoveeDevice], target: str) -> list[GoveeDevice]:
     if target == "all":
         return sorted(devices, key=lambda d: label(cache, d))
@@ -137,6 +144,7 @@ def select(cache: dict[str, dict], devices: list[GoveeDevice], target: str) -> l
             d
             for d in devices
             if re.fullmatch(re.escape(want) + r"-\d+", (cache.get(d.fingerprint, {}).get("alias") or "").lower())
+            or group_of(cache.get(d.fingerprint, {})) == want
         ]
         if not hits:
             raise SystemExit(f"govee: no bulb matches {want!r} (run `govee status` to see names)")
@@ -209,11 +217,6 @@ PERIODS = [
     ("SUNSET-2hour", "SUNSET", "temperature: 2700K", 100, "late afternoon"),
     ("SUNSET", "07:30", "spectrumRGB: FF0000", 30, "night"),
 ]
-
-
-def group_of(entry: dict) -> str:
-    """'bedroom-2' -> 'bedroom'. Bulbs with the same group stay in the same state."""
-    return re.sub(r"-\d+$", "", entry.get("alias") or entry["name"])
 
 
 def google_script(room: str | None) -> int:
