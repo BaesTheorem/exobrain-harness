@@ -18,7 +18,7 @@ FAIL_LOG="$LOG_DIR/plaud-failures.log"
 # The click opens the failure log, which holds the detail the banner truncates.
 notify_fail() {
     local NOTIFY="$SCRIPT_DIR/mist-voice/bin/mist-notify"
-    [ -x "$NOTIFY" ] && "$NOTIFY" "$1" "Exobrain ERROR" Basso "$FAIL_LOG" --group plaud || true
+    [ -x "$NOTIFY" ] && "$NOTIFY" "$1" "Exobrain ERROR" Basso "$FAIL_LOG" --group plaud --discord || true
 }
 
 # Headless-run environment: nobody answers a permission prompt (anything that

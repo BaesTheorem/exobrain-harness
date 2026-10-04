@@ -130,7 +130,7 @@ def _notify(title, message):
     mist = os.path.join(_harness_dir(), "mist-voice", "bin", "mist-notify")
     if os.path.exists(mist):
         try:
-            subprocess.run([mist, message, "MIST URGENT", "Basso"], check=False, timeout=15)
+            subprocess.run([mist, message, "MIST URGENT", "Basso", "--discord"], check=False, timeout=15)
         except Exception:
             pass
 

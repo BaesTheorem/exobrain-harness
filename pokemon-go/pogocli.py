@@ -1417,7 +1417,7 @@ def hash_local(p: Path, hydrate: bool) -> str | None:
 
 def notify(msg: str, link: str = "console", sound: str = "Purr") -> None:
     if NOTIFY.exists():
-        subprocess.run([str(NOTIFY), msg, "Pokemon GO", sound, link, "--group", "pokemon-go"], check=False)
+        subprocess.run([str(NOTIFY), msg, "Pokemon GO", sound, link, "--group", "pokemon-go", "--discord"], check=False)
 
 
 def cmd_inbox(a: argparse.Namespace) -> None:

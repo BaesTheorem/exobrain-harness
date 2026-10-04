@@ -129,7 +129,7 @@ def _frame_fallback(what: str, err: Exception) -> None:
     if NOTIFY.exists():
         subprocess.run([str(NOTIFY), f"chat-watch fell back to hand-marked framing: mist-frame failed "
                         f"({type(err).__name__}). Replies still go out; check security/bin/mist-frame.",
-                        "Fantasy Chat", "none", "console", "--group", "security", "--id", "chat-watch-framer"],
+                        "Fantasy Chat", "none", "console", "--group", "security", "--id", "chat-watch-framer", "--discord"],
                        capture_output=True, check=False)
 
 
@@ -221,7 +221,7 @@ def unanswered_messages() -> list[dict]:
 def notify(text: str) -> None:
     if NOTIFY.exists():
         subprocess.run([str(NOTIFY), text, "Fantasy Chat", "none", "console",
-                        "--group", "fantasy", "--id", "chat-watch"],
+                        "--group", "fantasy", "--id", "chat-watch", "--discord"],
                        capture_output=True, check=False)
 
 
@@ -402,7 +402,7 @@ def escalate(messages: list[dict], reason: str) -> bool:
             r = subprocess.run(
                 [str(NOTIFY), f"{who}: {one_line[:180]}", f"Fantasy DM: {reason}",
                  "none", f"console:{sid}" if sid else "console",
-                 "--group", "fantasy", "--id", f"chat-esc-{group[-1].get('id', 'x')}"],
+                 "--discord", "--group", "fantasy", "--id", f"chat-esc-{group[-1].get('id', 'x')}"],
                 capture_output=True, check=False)
             delivered = delivered or r.returncode == 0
 

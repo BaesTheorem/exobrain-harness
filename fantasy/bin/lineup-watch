@@ -212,7 +212,7 @@ def hold_awake(locks: dict, now: datetime, window: int, dry: bool) -> str:
 
 def notify(msg: str, final: bool, dry: bool, ident: str) -> None:
     args = [str(NOTIFY), msg, "MIST lineup watch", "default", ROSTER_URL,
-            "--group", "lineup-watch", "--id", ident,
+            "--group", "lineup-watch", "--id", ident, "--discord",
             "--urgency", "timeSensitive" if final else "active",
             "--action", "Ask MIST=console"]
     if dry:

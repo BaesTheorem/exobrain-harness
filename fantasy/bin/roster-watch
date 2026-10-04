@@ -307,7 +307,7 @@ def main() -> int:
                          f"--drop \"{swap['drop']}\")"),
             "--action", reply_button("Skip", f"Skip the {swap['add']} swap; leave {swap['drop']} alone"),
         ]
-    subprocess.run([str(NOTIFY), msg, "MIST roster watch", "default", link, "--group", "roster-watch",
+    subprocess.run([str(NOTIFY), msg, "MIST roster watch", "default", link, "--group", "roster-watch", "--discord",
                     *actions], check=False, capture_output=True, timeout=20)
     if judgment and not args.no_routine and RUNNER.exists():
         with ROUTINE_LOG.open("a") as logf:

@@ -54,6 +54,8 @@
 #                            $MIST_NOTIFY_CONTEXT (run-routine.sh sets it).
 #   --context-file <path>    same, read from a file (its last 4000 chars)
 #   --direct                 the source link is the click target (see above)
+#   --discord                ALSO send the text to Alex as a Discord DM (bin/discord-dm).
+#                            Every watcher passes this (standing rule, 2026-10-03).
 #   --dry-run                print the composed spec JSON and exit without delivering
 #   --voice                  ALSO speak the message aloud. Off by default:
 #                            watchers fire unattended and a banner should not
@@ -73,13 +75,14 @@ shift
 
 TITLE="MIST"; SOUND="Purr"; LINK=""
 SUBTITLE=""; IMAGE=""; GROUP=""; NID=""; URGENCY=""
-REPLY=0; REPLY_SID=""; VOICE=0; DRY=0; DIRECT=0
+REPLY=0; REPLY_SID=""; VOICE=0; DRY=0; DIRECT=0; DISCORD=0
 CONTEXT="${MIST_NOTIFY_CONTEXT:-}"
 ACTIONS=()
 POSN=0
 while [ $# -gt 0 ]; do
   case "$1" in
     --dry-run)  DRY=1; shift;;
+    --discord)  DISCORD=1; shift;;
     --direct)   DIRECT=1; shift;;
     --context)  CONTEXT="${2:-}"; shift 2;;
     --context-file)
@@ -244,6 +247,15 @@ if rejected:
 print(json.dumps(spec))
 PY
 )"
+
+if [ "$DISCORD" = "1" ] && [ "$DRY" != "1" ]; then
+  # Best effort and in the background, so a slow Discord never delays the banner.
+  DM="**$TITLE**"; [ -n "$SUBTITLE" ] && DM="$DM ($SUBTITLE)"
+  DM="$DM
+$MSG"; [ -n "$LINK" ] && case "$LINK" in http*|obsidian:*|things:*) DM="$DM
+<$LINK>";; esac
+  ( printf '%s' "$DM" | "$DIR/../bin/discord-dm" - >/dev/null 2>>"$HOME/Library/Logs/exobrain/discord-dm.log" & ) || true
+fi
 
 if [ "$DRY" = "1" ]; then
   printf '%s\n' "$SPEC"

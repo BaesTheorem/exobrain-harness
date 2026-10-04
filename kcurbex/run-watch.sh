@@ -32,6 +32,6 @@ else
     # looks identical to "no new sites" from the outside.
     "$HARNESS/mist-voice/bin/mist-notify" \
         "KC Urbex watcher failed (exit $code) -- check ~/.claude/channels/kcurbex/watch.log" \
-        "KC Urbex" "Silent" "console" 2>/dev/null || true
+        "KC Urbex" "Silent" "console" --discord 2>/dev/null || true
     exit "$code"
 fi
