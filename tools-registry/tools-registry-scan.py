@@ -54,6 +54,11 @@ MANUAL_LOG = os.path.join(os.path.dirname(os.path.abspath(__file__)), "cli-tools
 # (and by `add --description`). Covers what it is, why it was built, and what to use it for.
 DESCRIPTIONS = os.path.join(os.path.dirname(os.path.abspath(__file__)), "tool-descriptions.json")
 
+# Gitignored twins of the two files above, for tools whose names must stay out of the
+# public repo (`log-tool.py add|describe --private`). Merged into every read.
+MANUAL_LOG_PRIVATE = MANUAL_LOG.replace(".json", ".private.json")
+DESCRIPTIONS_PRIVATE = DESCRIPTIONS.replace(".json", ".private.json")
+
 
 def port_live(port):
     if not port:
@@ -221,13 +226,22 @@ def scan_cli():
     return items
 
 
-def load_manual():
-    """Hand-logged tools from cli-tools.json (see log-tool.py)."""
+def read_json(path, empty, required):
+    """Parse path; a missing optional file is empty, any other failure warns."""
     try:
-        entries = json.load(open(MANUAL_LOG))
+        return json.load(open(path))
+    except FileNotFoundError:
+        if required:
+            print(f"WARN: could not read {path}: missing")
+        return empty
     except Exception as e:
-        print(f"WARN: could not read {MANUAL_LOG}: {e}")
-        return []
+        print(f"WARN: could not read {path}: {e}")
+        return empty
+
+
+def load_manual():
+    """Hand-logged tools from cli-tools.json plus its private twin (see log-tool.py)."""
+    entries = read_json(MANUAL_LOG, [], True) + read_json(MANUAL_LOG_PRIVATE, [], False)
     items = []
     for e in entries:
         repo = os.path.expanduser(e.get("repo_dir", "") or "")
@@ -241,14 +255,8 @@ def load_manual():
 
 
 def load_descriptions():
-    """Description sidecar, lower-cased tool name -> description text."""
-    try:
-        data = json.load(open(DESCRIPTIONS))
-    except FileNotFoundError:
-        return {}
-    except Exception as e:
-        print(f"WARN: could not read {DESCRIPTIONS}: {e}")
-        return {}
+    """Description sidecars (public + private), lower-cased tool name -> description text."""
+    data = {**read_json(DESCRIPTIONS, {}, False), **read_json(DESCRIPTIONS_PRIVATE, {}, False)}
     return {k.lower(): v for k, v in data.items()}
 
 

@@ -32,6 +32,10 @@ Usage:
   python3 tools-registry/log-tool.py missing
   python3 tools-registry/log-tool.py remove --name pdf-split.py
 
+Pass --private to `add` or `describe` for a tool whose name or notes must stay out of the
+public repo. It then goes to cli-tools.private.json / tool-descriptions.private.json, which
+are gitignored; every read (search, list, missing, the scan) merges both files.
+
 INVARIANTS:
   - cli-tools.json stays a name-sorted JSON array; `add` on an existing name updates
     that entry in place rather than appending a duplicate.
@@ -39,6 +43,8 @@ INVARIANTS:
     and is the ONLY place descriptions live (cli-tools.json entries carry no prose fields).
   - Adding, describing, or removing re-runs the vault projection so Tools.base never
     lags the log.
+  - A name lives in exactly one of the public and private files; writing it to one
+    removes it from the other.
 """
 import os
 import re
@@ -51,44 +57,64 @@ import subprocess
 HERE = os.path.dirname(os.path.abspath(__file__))
 LOG = os.path.join(HERE, "cli-tools.json")
 DESCRIPTIONS = os.path.join(HERE, "tool-descriptions.json")
+LOG_PRIVATE = os.path.join(HERE, "cli-tools.private.json")
+DESCRIPTIONS_PRIVATE = os.path.join(HERE, "tool-descriptions.private.json")
 SCAN = os.path.join(HERE, "tools-registry-scan.py")
 
 
-def load():
-    with open(LOG) as fh:
-        return json.load(fh)
+def _read(path, empty):
+    try:
+        with open(path) as fh:
+            return json.load(fh)
+    except FileNotFoundError:
+        return empty
 
 
-def save(entries):
+def load(private=None):
+    """Hand-logged entries: one file when private is True/False, both merged when None."""
+    if private is None:
+        return load(False) + load(True)
+    return _read(LOG_PRIVATE if private else LOG, [])
+
+
+def save(entries, private=False):
     entries.sort(key=lambda e: e["name"].lower())
-    with open(LOG, "w") as fh:
+    with open(LOG_PRIVATE if private else LOG, "w") as fh:
         json.dump(entries, fh, indent=2, ensure_ascii=False)
         fh.write("\n")
 
 
-def load_descriptions():
-    try:
-        with open(DESCRIPTIONS) as fh:
-            return json.load(fh)
-    except FileNotFoundError:
-        return {}
+def load_descriptions(private=None):
+    """Descriptions: one file when private is True/False, both merged when None."""
+    if private is None:
+        return {**load_descriptions(False), **load_descriptions(True)}
+    return _read(DESCRIPTIONS_PRIVATE if private else DESCRIPTIONS, {})
 
 
-def save_descriptions(desc):
+def save_descriptions(desc, private=False):
     ordered = dict(sorted(desc.items(), key=lambda kv: kv[0].lower()))
-    with open(DESCRIPTIONS, "w") as fh:
+    with open(DESCRIPTIONS_PRIVATE if private else DESCRIPTIONS, "w") as fh:
         json.dump(ordered, fh, indent=2, ensure_ascii=False)
         fh.write("\n")
 
 
-def set_description(name, text):
-    """Store text under the tool's name, replacing any existing key that differs only in case."""
-    desc = load_descriptions()
+def drop_description(name, private):
+    desc = load_descriptions(private)
+    kept = {k: v for k, v in desc.items() if k.lower() != name.lower()}
+    if len(kept) != len(desc):
+        save_descriptions(kept, private)
+
+
+def set_description(name, text, private=False):
+    """Store text under the tool's name, replacing any key that differs only in case,
+    in either file."""
+    drop_description(name, not private)
+    desc = load_descriptions(private)
     for existing in list(desc):
         if existing.lower() == name.lower():
             del desc[existing]
     desc[name] = text.strip()
-    save_descriptions(desc)
+    save_descriptions(desc, private)
 
 
 def description_of(name):
@@ -130,7 +156,7 @@ def show(e, desc):
 def cmd_list(args):
     entries = load()
     desc = {k.lower(): v for k, v in load_descriptions().items()}
-    print(f"{len(entries)} hand-logged tools in cli-tools.json:\n")
+    print(f"{len(entries)} hand-logged tools in cli-tools.json (+ private):\n")
     for e in entries:
         show(e, desc)
     print("\nAlso auto-discovered (no logging needed): /Applications launchers, launchd")
@@ -161,7 +187,11 @@ def cmd_search(args):
 
 
 def cmd_add(args):
-    entries = load()
+    other = load(not args.private)
+    kept = [e for e in other if e["name"].lower() != args.name.lower()]
+    if len(kept) != len(other):
+        save(kept, not args.private)
+    entries = load(args.private)
     entry = {
         "name": args.name,
         "command": args.command or "",
@@ -181,9 +211,9 @@ def cmd_add(args):
     else:
         entries.append(entry)
         print(f"Logged: {args.name}")
-    save(entries)
+    save(entries, args.private)
     if args.description:
-        set_description(args.name, args.description)
+        set_description(args.name, args.description, args.private)
     elif not description_of(args.name):
         print(f"WARN: {args.name} has no description; add one with "
               f"`log-tool.py describe --name '{args.name}' --description ...`")
@@ -200,7 +230,7 @@ def cmd_describe(args):
         print(f"WARN: {args.name} is not in the registry (no launcher, job, bin/ entry, or "
               f"cli-tools.json record). Storing the description anyway; it will attach once "
               f"the tool exists, or `add` it now.")
-    set_description(args.name, args.description)
+    set_description(args.name, args.description, args.private)
     print(f"Described: {args.name}")
     reproject()
     return 0
@@ -220,17 +250,17 @@ def cmd_missing(args):
 
 
 def cmd_remove(args):
-    entries = load()
-    kept = [e for e in entries if e["name"].lower() != args.name.lower()]
-    if len(kept) == len(entries):
+    found = False
+    for private in (False, True):
+        entries = load(private)
+        kept = [e for e in entries if e["name"].lower() != args.name.lower()]
+        if len(kept) != len(entries):
+            found = True
+            save(kept, private)
+        drop_description(args.name, private)
+    if not found:
         print(f"Not logged: {args.name}")
         return 1
-    save(kept)
-    desc = load_descriptions()
-    for existing in list(desc):
-        if existing.lower() == args.name.lower():
-            del desc[existing]
-    save_descriptions(desc)
     reproject()
     print(f"Removed: {args.name}")
     return 0
@@ -257,12 +287,16 @@ def main():
     p.add_argument("--source", default="built", choices=["built", "installed", "vendored"])
     p.add_argument("--category", default="cli", choices=["cli", "app", "scheduled-job"])
     p.add_argument("--added", help="ISO date; defaults to today")
+    p.add_argument("--private", action="store_true", help="store in the gitignored "
+                   "*.private.json files so it never reaches the public repo")
     p.set_defaults(func=cmd_add)
 
     p = sub.add_parser("describe", help="set the description of any registered tool")
     p.add_argument("--name", required=True, help="exact tool name as shown in Tools.base")
     p.add_argument("--description", required=True, help="what it is, what it was created "
                    "for, and the kinds of task it fits in future")
+    p.add_argument("--private", action="store_true", help="store in the gitignored "
+                   "*.private.json files so it never reaches the public repo")
     p.set_defaults(func=cmd_describe)
 
     p = sub.add_parser("missing", help="list registered tools with no description")

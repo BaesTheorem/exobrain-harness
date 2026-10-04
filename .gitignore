@@ -294,3 +294,6 @@ writing-style/ste100/spec/
 # Govee LAN cache: bulb IPs, device ids, room aliases (see govee/data/README.md)
 govee/data/*
 !govee/data/README.md
+
+# Tools registry entries whose names must stay out of the public repo (log-tool.py --private)
+tools-registry/*.private.json
