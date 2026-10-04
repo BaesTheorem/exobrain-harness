@@ -41,6 +41,8 @@ TARGET is `all` (the default), an alias, an alias group (`vanity` selects `vanit
 | The 2 hours before sunset | 2700 K | 100% |
 | Sunset to 7:30 AM | red | 30% |
 
+Bulbs in one alias group (`bedroom-2` and `bedroom-3`, or `vanity-1` to `vanity-4`) stay in the same state. When one bulb of a group turns on, the automation turns on the full group and sets its color. When one bulb turns off, the full group turns off.
+
 At 7:30 AM, one more automation turns every bulb on at 6500 K and 100%, even if it is off. A bulb that is off at the wall switch has no power, so it cannot turn on.
 
 6500 K is the coolest white the H6008 makes and gives the most alertness. 2700 K is its warmest white (the API advertises 2000 K, but the bulb clamps a lower value to 2700 K). Red light has almost no effect on melatonin. The rule runs in the Google cloud, so it does not need this computer.

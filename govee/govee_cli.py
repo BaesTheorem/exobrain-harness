@@ -211,12 +211,19 @@ PERIODS = [
 ]
 
 
+def group_of(entry: dict) -> str:
+    """'bedroom-2' -> 'bedroom'. Bulbs with the same group stay in the same state."""
+    return re.sub(r"-\d+$", "", entry.get("alias") or entry["name"])
+
+
 def google_script(room: str | None) -> int:
-    """Print a Google Home script editor script: one day and one night automation per bulb.
+    """Print a Google Home script editor script: one automation per bulb and period, plus sync.
 
     A script action cannot target "the device that started it", so each bulb gets its own
-    pair. Google names a device "<name> - <room>"; the room is a placeholder unless --room
-    or a "room" field in the cache gives it.
+    starters. Bulbs in one alias group ("bedroom-2", "bedroom-3") move together: when one
+    turns on or off, the actions apply to the whole group. Google names a device
+    "<name> - <room>"; the room is a placeholder unless --room or a "room" field in the
+    cache gives it.
     """
     cache = load_cache()
     bulbs = sorted((e for e in cache.values() if e.get("name")), key=lambda e: e["name"])
@@ -230,11 +237,16 @@ def google_script(room: str | None) -> int:
     out = [
         "metadata:",
         "  name: Govee power-on color",
-        "  description: Turn the bulbs on at 7:30 AM. When a Govee bulb turns on, set 6500K from 7:30 AM, 2700K in the 2 hours before sunset, dim red at night.",
+        "  description: Turn the bulbs on at 7:30 AM. When a Govee bulb turns on, set 6500K from 7:30 AM, 2700K in the 2 hours before sunset, dim red at night. Bulbs in one group turn on and off together.",
         "automations:",
     ]
+    groups: dict[str, list[str]] = {}
+    for e in bulbs:
+        groups.setdefault(group_of(e), []).append(f"{e['name']} - {e.get('room') or room}")
     for e in bulbs:
         device = f"{e['name']} - {e.get('room') or room}"
+        group = [f"        - {d}" for d in groups[group_of(e)]]
+        sync = len(group) > 1
         for after, before, color, brightness, _label in PERIODS:
             out += [
                 "  - starters:",
@@ -247,13 +259,23 @@ def google_script(room: str | None) -> int:
                 f"      after: {after}",
                 f"      before: {before}",
                 "    actions:",
-                "      - type: device.command.ColorAbsolute",
-                f"        devices: {device}",
-                "        color:",
-                f"          {color}",
-                "      - type: device.command.BrightnessAbsolute",
-                f"        devices: {device}",
-                f"        brightness: {brightness}",
+            ]
+            if sync:
+                out += ["      - type: device.command.OnOff", "        devices:", *group, "        on: true"]
+            out += ["      - type: device.command.ColorAbsolute", "        devices:", *group, "        color:", f"          {color}"]
+            out += ["      - type: device.command.BrightnessAbsolute", "        devices:", *group, f"        brightness: {brightness}"]
+        if sync:
+            out += [
+                "  - starters:",
+                "      - type: device.state.OnOff",
+                f"        device: {device}",
+                "        state: on",
+                "        is: false",
+                "    actions:",
+                "      - type: device.command.OnOff",
+                "        devices:",
+                *group,
+                "        on: false",
             ]
     # Wake: at the start of the day period, turn every bulb on, even if it is off.
     after, _before, color, brightness, _label = PERIODS[0]
