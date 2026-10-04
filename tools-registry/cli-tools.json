@@ -386,6 +386,14 @@
     "category": "app"
   },
   {
+    "name": "mist-chatterbox-voice",
+    "command": ".venv-chatterbox/bin/python scripts/serve_chatterbox.py --port 8088",
+    "repo_dir": "mist-voice",
+    "source": "built",
+    "added": "2026-10-03",
+    "notes": "Separate venv .venv-chatterbox (requirements-chatterbox.txt). Loads model + speaker conditioning once; one synthesis at a time. First start downloads ~1.5 GB of weights. Console voice.py starts it on demand."
+  },
+  {
     "name": "mist-progress",
     "command": "mist-progress run --label \"<what it is>\" -- <command>",
     "repo_dir": "~/Documents/mist-console",
