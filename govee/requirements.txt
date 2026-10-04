@@ -1,1 +1,2 @@
 govee-local-api==3.1.0
+numpy>=2

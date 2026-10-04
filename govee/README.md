@@ -31,6 +31,28 @@ TARGET is `all` (the default), an alias, an alias group (`vanity` selects `vanit
 - The LAN API cannot start scenes on basic bulbs such as the H6008. You must use the cloud API for scenes.
 - A bulb does not reply when the wall switch is in the OFF position.
 
+## Music sync
+
+`bin/govee-music` moves bulbs with the audio of one app, by default Pocket Bard on the dining room bulbs:
+
+```
+govee-music                              Pocket Bard -> dining-room, color follows the music
+govee-music --mood red                   fixed color, brightness follows the sound
+govee-music --mood warm --min 20 --max 70
+govee-music --process Spotify --target bedroom
+govee-music --dry-run -v                 analysis only, one line each second, no bulb changes
+```
+
+The audio comes from a Core Audio process tap through [AudioTee](https://github.com/makeusabrew/audiotee) (MIT), so only that app is captured and the speakers keep playing. Loudness sets the brightness, a bass hit adds a short flash, and the spectral centroid moves the color from purple and red (dark, low) through amber to green and cyan (bright, high). The color drifts in seconds, the brightness answers in a tenth of a second. The bulbs' settings are read at the start and put back at exit.
+
+Setup:
+
+1. Compile AudioTee: `git clone https://github.com/makeusabrew/audiotee.git ~/.local/src/audiotee && cd ~/.local/src/audiotee && swift build -c release`. Set `AUDIOTEE` to the binary's path if you put it elsewhere.
+2. The first run asks macOS for System Audio Recording permission for the terminal or app that runs it. If the run reports no audio, permit it in System Settings > Privacy & Security > Screen & System Audio Recording.
+3. The target app must be playing. `--system` taps all apps when the named process is not running.
+
+The H6008 takes 20 commands each second on the LAN (tested), and the bulb fades between values, so the effect is a swell and breathe, not a strobe.
+
 ## Power-on color rule
 
 `govee google-script` writes a script for the Google Home script editor (home.google.com > Automations > Add > script). Each bulb gets three automations. When the bulb turns on, Google sets its color and brightness for the time of day:

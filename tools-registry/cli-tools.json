@@ -56,6 +56,14 @@
     "notes": "Full-subreddit post scan via Arctic Shift archive API (no Reddit creds). Writes reddit/data/kc-events-scan.json: all posts + megathread comment trees. Feeds /local-events. Staleness asserted on newest-post age, never HTTP 200. Recon: vault recon/2026-08-23-reddit-access-paths.md"
   },
   {
+    "name": "audiotee",
+    "command": "~/.local/src/audiotee/.build/release/audiotee --include-processes PID --sample-rate 16000 --chunk-duration 0.05",
+    "repo_dir": "~/.local/src/audiotee",
+    "source": "built",
+    "added": "2026-10-04",
+    "notes": "Build: swift build -c release. Raw PCM to stdout, JSON logs to stderr. Any explicit --sample-rate converts to 16-bit signed int (mono by default); no rate keeps the device rate as 32-bit float. --mute silences the tapped process at the speakers. Needs System Audio Recording permission for the RESPONSIBLE app (the Console when MIST runs it from a chat, Terminal when Alex runs it); without it the tap runs and records silence, no error. PID translate fails inside the Claude Code sandbox: run with the sandbox off. The harness govee-music daemon wraps it."
+  },
+  {
     "name": "bg3wiki-mcp",
     "command": "claude mcp get bg3wiki   (user-scope MCP: npx -y @professional-wiki/mediawiki-mcp-server, CONFIG=playstation/bg3/bg3wiki.mcp.json)",
     "repo_dir": "playstation/bg3",
