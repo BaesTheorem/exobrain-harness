@@ -71,6 +71,12 @@ class EspnWriter:
         raise last or EspnError("no write host answered")
 
     def _base(self, kind: str) -> dict[str, Any]:
+        # scoringPeriodId is always the current week. A later week is refused
+        # by ESPN with 409 TRAN_INVALID_SCORINGPERIOD_NOT_CURRENT ("Transaction
+        # type can only be executed in the current scoring period"), tested
+        # 2026-10-04 with a week 5 D/ST swap during week 4. So a bye fill or
+        # a Thursday streamer for next week waits for Tuesday; do not add a
+        # --week flag here again.
         settings = self.api.league("mSettings")
         return {"isLeagueManager": False, "teamId": self.team_id, "type": kind,
                 "memberId": self.api.creds["SWID"],
