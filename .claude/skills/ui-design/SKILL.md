@@ -55,9 +55,26 @@ If the tool is missing from the session, stop and give Alex these two lines:
 - [ ] Then `/design consent`, which grants the agent read and write access to
       Design projects (revoke later with `/design revoke`).
 
+Checked 2026-10-03 after both steps: a fresh CLI session (2.1.289) loads
+`DesignSync` (design-system projects only) but not the `Design` tool, so the
+`Design` tool is gated on something beyond login and consent. Until it shows
+up, the seed goes in by hand (see "Manual lane") and the handoff comes back
+through the web app's export.
+
 After that, every session on this machine reuses the stored credential,
 including the Console's headless backends. Do not retry the tool in a loop and
 do not ask for tokens or codes.
+
+## Manual lane (no `Design` tool)
+
+1. Commit the seed to `design/seed/` in the repo (BRIEF.md, tokens, current
+   screenshots) and reveal it in Finder.
+2. Alex makes the project in the pane, drags the seed folder in, and points
+   Claude Design at `BRIEF.md`. He pastes the project URL into the chat;
+   `mist-design link <url> --name "<name>"` records it.
+3. For the handoff, Alex uses Export, then "Handoff to Claude Code", then
+   "Send to local coding agent", and pastes the prompt it gives into the chat.
+   The prompt carries the bundle URL; fetch it into `design/handoff/<date>/`.
 
 ## Procedure
 
