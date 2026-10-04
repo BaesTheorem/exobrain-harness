@@ -1,0 +1,67 @@
+#!/usr/bin/env python3
+"""Call one Claude Design MCP tool from the shell, through bin/design-mcp.
+
+Usage:
+    design-call --list                      # tool names
+    design-call TOOL '{"arg": "value"}'     # one call; prints the result text
+    design-call TOOL @args.json             # arguments from a file
+
+For a session where the claude-design MCP server did not connect: the proxy
+still works, and this speaks JSON-RPC to it over stdio. Image blocks in a
+result are written to /tmp/design-call-<n>.png and their paths printed.
+"""
+import base64
+import json
+import os
+import subprocess
+import sys
+
+PROXY = os.path.join(os.path.dirname(os.path.realpath(__file__)), "design-mcp")
+
+
+def rpc(proc, msg_id, method, params):
+    proc.stdin.write(json.dumps({"jsonrpc": "2.0", "id": msg_id, "method": method, "params": params}) + "\n")
+    proc.stdin.flush()
+    while True:
+        line = proc.stdout.readline()
+        if not line:
+            raise SystemExit("design-call: the proxy closed the stream; run bin/design-mcp by hand to read its error")
+        reply = json.loads(line)
+        if reply.get("id") == msg_id:
+            if "error" in reply:
+                raise SystemExit("design-call: " + json.dumps(reply["error"]))
+            return reply["result"]
+
+
+def main():
+    if len(sys.argv) < 2:
+        raise SystemExit(__doc__)
+    proc = subprocess.Popen([PROXY], stdin=subprocess.PIPE, stdout=subprocess.PIPE, text=True)
+    rpc(proc, 1, "initialize", {"protocolVersion": "2025-06-18", "capabilities": {},
+                                "clientInfo": {"name": "design-call", "version": "1"}})
+    proc.stdin.write(json.dumps({"jsonrpc": "2.0", "method": "notifications/initialized"}) + "\n")
+    if sys.argv[1] == "--list":
+        for t in rpc(proc, 2, "tools/list", {})["tools"]:
+            print(t["name"])
+        return
+    raw = sys.argv[2] if len(sys.argv) > 2 else "{}"
+    if raw.startswith("@"):
+        with open(raw[1:]) as f:
+            raw = f.read()
+    result = rpc(proc, 2, "tools/call", {"name": sys.argv[1], "arguments": json.loads(raw)})
+    n = 0
+    for block in result.get("content", []):
+        if block.get("type") == "text":
+            print(block["text"])
+        elif block.get("type") == "image":
+            n += 1
+            path = f"/tmp/design-call-{n}.png"
+            with open(path, "wb") as f:
+                f.write(base64.b64decode(block["data"]))
+            print(path)
+    if result.get("isError"):
+        sys.exit(1)
+
+
+if __name__ == "__main__":
+    main()
