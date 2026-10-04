@@ -75,6 +75,21 @@ Cold one-shot (reloads model each call, slow -- fine for scripts/pre-render):
 .venv/bin/python scripts/say.py "text" -o out.wav --play
 ```
 
+Both XTTS scripts read the reference clip through `scripts/audio_io.py`, not
+torchcodec. torchcodec needs a system FFmpeg of version 4 to 8, and Homebrew
+moved to FFmpeg 9 on 2026-08-25, so every XTTS call failed until this fix.
+
+### Chatterbox (second engine)
+
+The same clone on Chatterbox Turbo (MIT) through mlx-audio, in its own venv.
+A warm sentence renders in about 1.2x its own length (XTTS: about 1.6x). The
+MIST Console shows it as the "Chatterbox" voice and starts it on first use.
+```bash
+uv venv --python 3.12 .venv-chatterbox
+uv pip install --python .venv-chatterbox/bin/python -r requirements-chatterbox.txt
+.venv-chatterbox/bin/python scripts/serve_chatterbox.py --port 8088
+```
+
 The service also exposes speech-to-text for the phone audio path:
 - `POST /stt` with `{"pcm16_8k": "<base64>"}` (raw PCM16 mono 8kHz phone audio)
   returns `{"text": ...}`. Transcribes via faster-whisper, lazy-loaded on first

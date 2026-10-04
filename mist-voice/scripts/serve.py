@@ -26,7 +26,11 @@ os.environ.setdefault("PYTORCH_ENABLE_MPS_FALLBACK", "1")
 
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 import base64, audioop, json
-from TTS.api import TTS
+import sys
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+import audio_io  # noqa: E402 -- must patch torchaudio before TTS reads audio
+audio_io.patch()
+from TTS.api import TTS  # noqa: E402
 
 REFS = sorted(glob.glob(os.path.join(ROOT, "samples", "reference", "*.wav")))
 MODEL = None        # a TTS.api object -- SAME path as the approved demo

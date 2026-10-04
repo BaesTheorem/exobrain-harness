@@ -28,6 +28,8 @@ def main():
     if not refs:
         sys.exit(f"No reference clips in {REF_DIR}. Build the sample pack first.")
 
+    import audio_io
+    audio_io.patch()
     from TTS.api import TTS
     from pronounce import fix_pronunciation
     tts = TTS("tts_models/multilingual/multi-dataset/xtts_v2").to(args.device)

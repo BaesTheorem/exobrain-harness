@@ -1,0 +1,3 @@
+# Chatterbox voice service (scripts/serve_chatterbox.py), separate venv: .venv-chatterbox
+mlx-audio==0.5.7
+misaki[en]==0.9.4
