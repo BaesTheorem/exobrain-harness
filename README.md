@@ -161,6 +161,7 @@ Skills are invoked with `/skill-name` in Claude Code. Each is defined in `.claud
 | `/anbernic` | Manage an Anbernic RG35XXSP retro handheld over WiFi: push game files, list the cards, on-device maintenance over SSH | SSH |
 | `/animate` | Hand-painted 2D animated videos and music videos in code (p5.js + p5.brush, the Clawd rig, headless Chrome frames), optionally synced to a generated song | claude-animation repo, ffmpeg |
 | `/astro-cartography` | Printable astrocartography PDF packets (planetary lines on world maps, city sweeps, relocated angles) from birth data | astro-cartography repo |
+| `/council` | Convene a council of fictional advisors (each an isolated agent reading only its own canon note) to debate a decision: opening round, debate, vote, verdict with cruxes, filed in the vault | Agent subagents, vault notes |
 | `/chess` | Play annotated chess against Maia (human-like engine, 1100-1900) in chat, with Stockfish annotations and a board image per move | Maia, Stockfish |
 | `/shopping` | One pipeline for buying at the lowest real price: Target and Walmart at the nearest stores, Amazon, weekly ads, in-store clearance, promo codes tested on a live cart, ranked by net cost | `shopping/bin/shop` |
 | `/duel` | Play Yu-Gi-Oh! against the user live in EDOPro with a deck from MIST's roster, then review the game log to tune decks and coach | EDOPro |
