@@ -1,0 +1,10 @@
+#!/bin/sh
+# Rebuild mykcmo/civic-config.json (gitignored) from the newest myKCMO APK,
+# for when the city's app update rotates the MyCivic API signing key.
+#   mykcmo-refresh-key            refresh now
+#   mykcmo-refresh-key --check    signed probe only (exit 2 = key rejected)
+#   mykcmo-refresh-key --auto     refresh only if the probe is rejected
+# Needs apkeep and jadx (brew install apkeep jadx).
+DIR="$(cd "$(dirname "$0")/.." && pwd)"
+PATH="/opt/homebrew/bin:$PATH"
+exec "$DIR/.venv/bin/python" "$DIR/refresh_key.py" "$@"

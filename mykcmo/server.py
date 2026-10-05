@@ -1,22 +1,23 @@
 """myKCMO MCP server: Kansas City, MO 311 service requests over stdio.
 
-Two halves:
-- READ (data.kcmo.org, Socrata dataset d4px-6rwg): search, track, stats over
-  the live myKCMO 311 feed since March 2021.
-- WRITE (webrai.mycivicapps.com): file a real 311 request. The city web form
-  has a soft anti-spam gate (optional reCAPTCHA v3, else a distorted-text
-  image captcha). We take the image path with a human (MIST) reading the
-  captcha via vision, so submitting is a three-step, agent-in-the-loop flow:
-  get_report_subtypes -> prepare_311_report (returns a captcha image to read)
-  -> submit_311_report (with the read answer). See webrai.py and README for
-  why this is scoped to Alex's own, human-confirmed, one-at-a-time requests.
+Three parts:
+- HISTORY (data.kcmo.org, Socrata dataset d4px-6rwg): search, track, stats
+  over the 311 feed since March 2021. Lags real time by 2-7 days.
+- APP API (civicapi.py, api.mycivicapps.com): the backend of the official
+  myKCMO app. Catalog, form questions, duplicate check, filing with photos,
+  "my reports" and live status. Signed with a key from the APK, rebuilt by
+  bin/mykcmo-refresh-key when the city rotates it.
+- WEB FORM FALLBACK (webrai.py): the captcha-gated web form, for when the
+  app key is rejected and cannot be refreshed.
 
 INVARIANTS:
 - Read tools are read-only against data.kcmo.org.
 - All SoQL string literals pass through _soql_str (single quotes doubled).
 - Status matching is case-insensitive (the dataset mixes "resolved"/"Resolved").
-- report_submit.php is hit only by submit_311_report, only after a human read
-  the captcha and the caller passed confirm=True.
+- report_submit.php is hit only by submit_311_report_webform, only after a
+  human read the captcha and the caller passed confirm=True.
+- report_an_issue is hit only by submit_311_report, only with confirm=True.
+- Other people's reporter_* contact fields never leave civicapi (strip_reporter).
 """
 
 import json
@@ -25,6 +26,7 @@ import urllib.parse
 import urllib.request
 from datetime import datetime
 
+import civicapi
 import webrai
 from mcp.server import MCPServer
 
@@ -60,11 +62,13 @@ SUMMARY_FIELDS = (
 mcp = MCPServer(
     "mykcmo",
     instructions=(
-        "Kansas City, MO 311 service requests (myKCMO). Reads come from the "
-        "city's open-data portal and lag real time by 2-7 days. Writes file a "
-        "REAL case with the city: list_report_categories -> get_report_subtypes "
-        "-> prepare_311_report (returns a captcha image to read with vision) -> "
-        "submit_311_report(confirm=True). Confirm with Alex before submitting."
+        "Kansas City, MO 311 service requests (myKCMO). Live data: my_311_reports, "
+        "get_311_report_status, live_311_map (the city's app backend). History and "
+        "stats: search_311_requests etc. (open data, 2-7 day lag). Filing creates a "
+        "REAL case: list_report_categories -> get_report_subtypes (questions) -> "
+        "prepare_311_report (review, no captcha) -> submit_311_report(confirm=True). "
+        "Confirm with Alex before submitting. The *_webform tools are a captcha "
+        "fallback for when the app key is rejected."
     ),
 )
 
@@ -349,33 +353,7 @@ def _contact_defaults() -> dict:
 
 
 @mcp.tool()
-def list_report_categories() -> list[str]:
-    """List the report types Kansas City accepts (pothole, illegal dumping,
-    streetlights, etc.). Pass one of these to get_report_subtypes and
-    prepare_311_report.
-    """
-    return sorted(webrai.REPORT_TYPES)
-
-
-@mcp.tool()
-def get_report_subtypes(report_type: str) -> dict:
-    """For a report type (label like "A Pothole" or a raw "10871_x" value),
-    return its sub-types, the template kind, whether a location/description is
-    required, and any disclaimer text. Only "Standard" template types can be
-    auto-filed here; custom "form_type" types need the app/web form.
-    """
-    info = webrai.fetch_subtypes(report_type)
-    info["auto_submittable"] = info["template"].lower() == "standard"
-    if not info["auto_submittable"]:
-        info["note"] = (
-            "This type uses a custom form (template != Standard); file it via "
-            "the web form or myKCMO app. report_issue_info() has the links."
-        )
-    return info
-
-
-@mcp.tool()
-def prepare_311_report(
+def prepare_311_report_webform(
     report_type: str,
     description: str,
     sub_type: str = "",
@@ -396,7 +374,11 @@ def prepare_311_report(
     MIST must Read to solve), and a `review` summary of exactly what will be
     filed. Contact fields fall back to MYKCMO_CONTACT_* env vars.
 
-    Next: Read captcha_image_path, then call submit_311_report(pending_id,
+    FALLBACK ONLY: use prepare_311_report (the app API, no captcha) unless it
+    reports that the API key was rejected and mykcmo-refresh-key cannot fix it.
+    Standard-template types only.
+
+    Next: Read captcha_image_path, then call submit_311_report_webform(pending_id,
     captcha_answer, confirm=True) after Alex confirms the review.
     """
     info = webrai.fetch_subtypes(report_type)
@@ -486,7 +468,7 @@ def prepare_311_report(
         "captcha_raw_path": img_path,
         "action_needed": (
             "Read captcha_image_path to solve the captcha, confirm the review "
-            "with Alex, then call submit_311_report(pending_id, captcha_answer, "
+            "with Alex, then call submit_311_report_webform(pending_id, captcha_answer, "
             "confirm=True)."
         ),
         "review": {
@@ -506,12 +488,12 @@ def prepare_311_report(
 
 
 @mcp.tool()
-def submit_311_report(
+def submit_311_report_webform(
     pending_id: str,
     captcha_answer: str,
     confirm: bool = False,
 ) -> dict:
-    """File the report staged by prepare_311_report. This creates a REAL 311
+    """File the report staged by prepare_311_report_webform. This creates a REAL 311
     case with Kansas City. Requires confirm=True (get Alex's OK first) and the
     captcha_answer MIST read from the prepared captcha image.
 
@@ -524,9 +506,9 @@ def submit_311_report(
             "Alex, then call again with confirm=True."
         )
     state = _PENDING.get(pending_id)
-    if not state:
+    if not state or "opener" not in state:
         raise ValueError(
-            "Unknown or expired pending_id. Call prepare_311_report again."
+            "Unknown or expired pending_id. Call prepare_311_report_webform again."
         )
     payload = dict(state["payload"])
     payload["custom_captcha"] = captcha_answer.strip()
@@ -564,6 +546,261 @@ def submit_311_report(
         "raw": result["raw"],
     }
 
+
+# ---------------------------------------------------------------------------
+# App-API write side (civicapi.py): the backend of the official myKCMO app.
+# No captcha, every report type (including custom forms), photos, and live
+# status. "My reports" are keyed by the device id in civic-config.json, which
+# the KC 311 iPhone app shares, so reports filed on the phone show up here.
+# ---------------------------------------------------------------------------
+
+
+def _key_error(exc: Exception) -> dict:
+    return {
+        "ok": False,
+        "error": f"The MyCivic API rejected the signature ({exc}). The city rotated the app key. "
+        "Run mykcmo/bin/mykcmo-refresh-key, or fall back to prepare_311_report_webform.",
+    }
+
+
+def _subtype(cat: dict, sub_type: str) -> dict | None:
+    subs = civicapi.subcategories(cat)
+    if not subs:
+        return None
+    if not sub_type:
+        raise ValueError(f"{cat['name']!r} needs a sub_type. Options: " + ", ".join(s["name"] for s in subs))
+    low = sub_type.strip().lower()
+    for s in subs:
+        if low in (s["name"].lower(), s["subcat_id"]):
+            return s
+    raise ValueError(f"Unknown sub_type {sub_type!r}. Options: " + ", ".join(s["name"] for s in subs))
+
+
+def _question_view(q: dict) -> dict:
+    kinds = {1: "yes/no", 2: "MM/yyyy", 3: "text", 4: "choice", 5: "MM-dd-yyyy HH:mm", 6: "MM-dd-yyyy", 7: "HH:mm"}
+    out = {"caption": q["caption"], "kind": kinds.get(int(q["type"]), str(q["type"])),
+           "required": str(q.get("IS_INPUT_REQUIRED", "")).lower() in ("yes", "1")}
+    if q.get("dropdown_options"):
+        out["options"] = [o["value"] for o in q["dropdown_options"]]
+        out["multiple"] = q.get("allow_multiple_select") == "yes"
+    return out
+
+
+@mcp.tool()
+def list_report_categories() -> list[str]:
+    """List the 41 report types Kansas City accepts (pothole, illegal dumping,
+    streetlights, etc.), from the live app catalog. Pass one to
+    get_report_subtypes and prepare_311_report.
+    """
+    return [c["name"] for c in civicapi.catalog()["categories"]]
+
+
+@mcp.tool()
+def get_report_subtypes(report_type: str) -> dict:
+    """For a report type, return its sub-types and, per sub-type, the form
+    questions to answer, whether a location is required, the city's
+    disclaimer, and whether a duplicate at the same address is blocked.
+    """
+    cat = civicapi.find_category(report_type)
+    subs = civicapi.subcategories(cat) or [None]
+    out = []
+    for sub in subs:
+        out.append({
+            "sub_type": sub["name"] if sub else "",
+            "questions": [_question_view(q) for q in civicapi.questions(cat, sub)],
+            "location_required": civicapi.flag(cat, sub, "location_required") == "yes",
+            "duplicates": {"0": "allowed", "1": "warn", "2": "blocked"}.get(
+                civicapi.flag(cat, sub, "prevent_duplicate_issue") or "0", "allowed"),
+            "disclaimer": civicapi.flag(cat, sub, "disclaimer_text") if civicapi.flag(cat, sub, "enable_disclaimer") == "yes" else None,
+        })
+    return {"report_type": cat["name"], "multiple_subtypes": cat.get("allow_multiple_subtypes") == "yes", "sub_types": out}
+
+
+@mcp.tool()
+def prepare_311_report(
+    report_type: str,
+    description: str = "",
+    sub_type: str = "",
+    address: str = "",
+    latitude: float | None = None,
+    longitude: float | None = None,
+    answers: dict[str, str | list[str]] | None = None,
+    photo_paths: list[str] | None = None,
+    anonymous: bool = False,
+    share_options: str = "private",
+) -> dict:
+    """Stage a real 311 report through the myKCMO app API. Submits NOTHING.
+
+    Validates the type, sub_type and form answers (keyed by question caption;
+    see get_report_subtypes), geocodes `address` unless latitude/longitude are
+    given, asks the city whether a duplicate exists at that address, and
+    returns a `pending_id` plus a `review` of exactly what will be filed.
+    Contact info comes from MYKCMO_CONTACT_* unless anonymous=True.
+
+    Next: show the review to Alex, then submit_311_report(pending_id, confirm=True).
+    """
+    try:
+        cat = civicapi.find_category(report_type)
+        sub = _subtype(cat, sub_type)
+        qs = civicapi.questions(cat, sub)
+        given = {k.strip().lower(): v for k, v in (answers or {}).items()}
+        encoded: dict[str, str] = {}
+        missing = []
+        for q in qs:
+            val = given.get(q["caption"].strip().lower())
+            if val in (None, "", []):
+                if str(q.get("IS_INPUT_REQUIRED", "")).lower() in ("yes", "1") and int(q["type"]) != 1:
+                    missing.append(_question_view(q))
+                encoded[q["caption"]] = "NO" if int(q["type"]) == 1 else ""
+                continue
+            encoded[q["caption"]] = civicapi.encode_answer(q, val)
+        if missing:
+            return {"ok": False, "error": "Answer the required questions in `answers`.", "questions": missing}
+        if civicapi.flag(cat, sub, "description_required") == "yes" and not description.strip():
+            return {"ok": False, "error": f"{cat['name']!r} requires a description."}
+
+        loc = None
+        needs_loc = civicapi.flag(cat, sub, "location_required") == "yes"
+        if latitude is not None and longitude is not None:
+            loc = {"street": address or f"{latitude:.5f}, {longitude:.5f}", "lat": latitude, "lon": longitude,
+                   "city": "Kansas City", "state": "MO", "zip": ""}
+        elif address:
+            loc = civicapi.geocode(address)
+        elif needs_loc:
+            return {"ok": False, "error": f"{cat['name']!r} requires a location: pass address or latitude+longitude."}
+
+        dup = {"allow_duplicate": "0", "message": ""}
+        if loc and (civicapi.flag(cat, sub, "prevent_duplicate_issue") or "0") != "0":
+            dup = civicapi.check_duplicate(cat, sub, loc)
+        if dup["allow_duplicate"] == "2":
+            return {"ok": False, "duplicate": "blocked", "error": dup["message"]}
+
+        photos = [os.path.expanduser(p) for p in (photo_paths or [])]
+        for ph in photos:
+            if not os.path.exists(ph):
+                return {"ok": False, "error": f"Photo not found: {ph}"}
+        contact = None if anonymous else {k: v for k, v in _contact_defaults().items() if v}
+        cfg = civicapi.load_config()
+        pending_id = cfg["device_uid"][:4] + os.urandom(4).hex()
+        _PENDING[pending_id] = {"cat": cat, "sub": sub, "loc": loc, "notes": description, "answers": encoded,
+                                "contact": contact, "share": share_options, "photos": photos}
+    except civicapi.KeyRejected as exc:
+        return _key_error(exc)
+
+    review = {
+        "type": cat["name"],
+        "sub_type": sub["name"] if sub else "",
+        "answers": encoded,
+        "description": description,
+        "location": loc["street"] if loc else "(none)",
+        "coordinates": f"{loc['lat']},{loc['lon']}" if loc else "(none)",
+        "photos": len(photos),
+        "contact": "anonymous" if not contact else " ".join(
+            str(contact.get(k, "")) for k in ("first_name", "last_name", "email", "phone")).strip(),
+        "visibility": share_options,
+        "disclaimer": civicapi.flag(cat, sub, "disclaimer_text") if civicapi.flag(cat, sub, "enable_disclaimer") == "yes" else None,
+    }
+    if dup["allow_duplicate"] == "1":
+        review["duplicate_warning"] = dup["message"]
+    return {"ok": True, "pending_id": pending_id, "review": review,
+            "action_needed": "Confirm the review with Alex, then submit_311_report(pending_id, confirm=True)."}
+
+
+@mcp.tool()
+def submit_311_report(pending_id: str, confirm: bool = False) -> dict:
+    """File the report staged by prepare_311_report. This creates a REAL 311
+    case with Kansas City. Requires confirm=True after Alex OKs the review.
+    Returns the work order number; track it with my_311_reports.
+    """
+    if not confirm:
+        raise ValueError("Refusing to file: this creates a real city 311 case. Confirm with Alex, then pass confirm=True.")
+    st = _PENDING.get(pending_id)
+    if not st or "cat" not in st:
+        raise ValueError("Unknown or expired pending_id. Call prepare_311_report again.")
+    try:
+        cfg = civicapi.load_config()
+        zip_bytes, meta = civicapi.photo_zip(st["photos"]) if st["photos"] else (None, [])
+        issue = civicapi.build_issue(st["cat"], st["sub"], st["loc"], st["notes"], st["answers"],
+                                     st["contact"], st["share"], meta, cfg)
+        result = civicapi.submit(issue, zip_bytes, cfg)
+    except civicapi.KeyRejected as exc:
+        return _key_error(exc)
+    status = result.get("response_status") or {}
+    if status.get("response_code") != 1:
+        return {"ok": False, "error": status.get("response_message") or "Submission failed.", "raw": result}
+    _PENDING.pop(pending_id, None)
+    auto = civicapi.flag(st["cat"], st["sub"], "autoresponse_text")
+    return {"ok": True, "work_order": status.get("work_order"), "message": status.get("response_message"),
+            "city_says": auto or None, "track_with": "my_311_reports (live, no feed lag)"}
+
+
+@mcp.tool()
+def my_311_reports(start: int = 0) -> dict:
+    """Reports filed from this harness or the KC 311 iPhone app (they share a
+    device id), with live status straight from the city's app backend.
+    """
+    try:
+        data = civicapi.my_reports(start)
+    except civicapi.KeyRejected as exc:
+        return _key_error(exc)
+    keep = ("id", "display_wo", "category", "subcategory", "status", "description", "added_on",
+            "last_action_date", "new_update_count")
+    return {"total": data.get("total_record"), "has_more": bool(int(data.get("has_more") or 0)),
+            "reports": [{k: r.get(k) for k in keep} for r in data.get("my_issues", [])]}
+
+
+@mcp.tool()
+def get_311_report_status(issue_id: str) -> dict:
+    """Live detail and staff timeline for one report, by its MyCivic id (the
+    `id` from my_311_reports). Other people's contact info is removed.
+    """
+    try:
+        d = civicapi.report_detail(issue_id)
+    except civicapi.KeyRejected as exc:
+        return _key_error(exc)
+    timeline = [{"when": h.get("dateofupdate"), "title": h.get("title"), "details": h.get("details")}
+                for h in sorted(d.get("history_object") or [], key=lambda h: str(h.get("timestamp", "")))]
+    return {"case_number": d.get("display_wo"), "status": d.get("status"), "type": d.get("type"),
+            "sub_type": d.get("subtype"), "address": d.get("address"), "description": d.get("description"),
+            "photos": d.get("issue_image") or [], "timeline": timeline,
+            "resolution": d.get("issue_resolution") or [], "can_add_note": d.get("citizen_allow_to_send_note") == 1}
+
+
+@mcp.tool()
+def live_311_map(latitude: float | None = None, longitude: float | None = None, status: str = "open",
+                 report_types: list[str] | None = None, limit: int = 50) -> list[dict]:
+    """Public 311 reports near a point, live from the app backend (no 2-7 day
+    lag, unlike nearby_311_requests). status: open, closed or all. Defaults to
+    MYKCMO_HOME_LAT/LON. Reporter contact info is never included.
+    """
+    lat = latitude if latitude is not None else float(os.environ.get("MYKCMO_HOME_LAT", "39.0997"))
+    lon = longitude if longitude is not None else float(os.environ.get("MYKCMO_HOME_LON", "-94.5786"))
+    types = [civicapi.find_category(t)["name"] for t in report_types] if report_types else None
+    try:
+        rows = civicapi.public_map(lat, lon, status, types)
+    except civicapi.KeyRejected as exc:
+        return [_key_error(exc)]
+    import math
+
+    def dist(r: dict) -> float:
+        dy = (float(r.get("issue_latitude") or 0) - lat) * 111_000
+        dx = (float(r.get("issue_longitude") or 0) - lon) * 111_000 * math.cos(math.radians(lat))
+        return math.hypot(dx, dy)
+
+    rows.sort(key=dist)
+    def case_no(r: dict) -> str | None:
+        tp = r.get("thirdparty_params") or {}
+        if isinstance(tp, str):
+            try:
+                tp = json.loads(tp)
+            except ValueError:
+                return None
+        return tp.get("case_number") if isinstance(tp, dict) else None
+
+    return [{"id": r.get("report_id"), "case_number": case_no(r),
+             "type": r.get("issue_name"), "sub_type": r.get("subtype"), "status": r.get("issue_status"),
+             "address": r.get("issue_address"), "meters": round(dist(r)),
+             "submitted": r.get("issue_submitted_date")} for r in rows[:limit]]
 
 if __name__ == "__main__":
     mcp.run()

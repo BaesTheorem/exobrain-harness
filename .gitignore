@@ -304,3 +304,6 @@ tools-registry/*.private.json
 
 # reference art for models (third-party images, not redistributed)
 3dprint/models/*/reference/
+
+# MyCivic API key + device id, rebuilt by mykcmo/bin/mykcmo-refresh-key
+mykcmo/civic-config.json
