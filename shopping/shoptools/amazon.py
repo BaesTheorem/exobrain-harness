@@ -1,26 +1,12 @@
-#!/usr/bin/env python3
-"""amz -- read-only Amazon product and price lookup over a headless browser.
+"""Amazon lane: read-only product, price and order lookup over a headless browser.
 
-Anonymous. No account, no cookies, no credentials. Amazon's `/s?` search is
-gated by Akamai Bot Manager (a `bm-verify` JS challenge, NOT an auth check),
-so plain curl gets a 1.4KB challenge stub while a real browser engine gets the
-full page. That is the whole reason this exists instead of a requests script.
+Amazon's `/s?` search is gated by Akamai Bot Manager (a `bm-verify` JavaScript challenge,
+NOT an auth check), so plain curl gets a 1.4 KB challenge stub while a real browser engine
+gets the full page. That is why this lane drives Playwright instead of a requests script.
 
-  amz search <query> [-n N] [--json]   search results: asin, price, rating
-  amz show <ASIN> [--json]             one product: price, rating, bullets, specs
-  amz url <ASIN>                       print the canonical product URL
-
-Account-level commands reuse a session exported from Chrome. The sign-in is
-always done by hand in a real browser; this tool has no password and cannot
-log in. See shopping/secrets/README.md.
-
-  amz auth --from-chrome               export the live amazon.com session
-  amz auth --status                    which auth cookies are held, and expiry
-  amz orders [--year YYYY] [--json]    order history for the signed-in account
-
-All commands take --headed to watch the browser, and --timeout SECONDS.
-
-Read-only by construction: it never signs in, adds to cart, or buys anything.
+Account-level commands reuse a session exported from Chrome (chrome_cookies.py). The
+sign-in is always done by hand in a real browser; this tool has no password and cannot
+log in. Read-only by construction: it never signs in, adds to cart, or buys anything.
 """
 
 from __future__ import annotations
@@ -28,42 +14,16 @@ from __future__ import annotations
 import argparse
 import json
 import re
-import subprocess
 import sys
 from datetime import datetime, timezone
-from pathlib import Path
 from urllib.parse import quote_plus
 
-sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+from . import chrome_cookies
+from .common import ua
 
-from shoptools import chrome_cookies  # noqa: E402
-
-CHROME = "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome"
-
-
-def _ua() -> str:
-    """Match the installed Chrome's major version.
-
-    Not cosmetic. Amazon binds a session to the browser identity: the exported
-    cookies authenticate fine under the real Chrome major, and bounce to the
-    sign-in page under a stale one. A hardcoded 129 against Chrome 153 was a
-    real bug, and it fails as "your session expired", which sends you off
-    re-exporting cookies that were never the problem.
-    """
-    major = "153"
-    try:
-        out = subprocess.run([CHROME, "--version"], capture_output=True, text=True, timeout=10).stdout
-        if m := re.search(r"(\d+)\.", out):
-            major = m.group(1)
-    except (OSError, subprocess.SubprocessError):
-        pass
-    return ("Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 "
-            f"(KHTML, like Gecko) Chrome/{major}.0.0.0 Safari/537.36")
-
-
-UA = _ua()
 DP = "https://www.amazon.com/dp/{}"
 SEARCH = "https://www.amazon.com/s?k={}"
+ORDERS = "https://www.amazon.com/gp/css/order-history"
 
 # Sponsored carousels and "customers also viewed" strips inject OTHER products'
 # titles and prices into the same HTML. Every selector below is scoped to a
@@ -95,15 +55,14 @@ def _first(page, selectors: tuple[str, ...]) -> str:
     return ""
 
 
-ORDERS = "https://www.amazon.com/gp/css/order-history"
-# A lapsed session renders the sign-in page, which parses as zero orders. That
-# is the failure this tool exists to make impossible, so it is checked by name.
-SIGNED_OUT = ("/ap/signin", "Sign in", "ap_email")
+def _money(s: str) -> float | None:
+    m = re.search(r"\d[\d,]*\.?\d*", s or "")
+    return float(m.group(0).replace(",", "")) if m else None
 
 
 def _browser(pw, headed: bool, cookies: list[dict] | None = None):
     b = pw.chromium.launch(headless=not headed)
-    ctx = b.new_context(user_agent=UA, locale="en-US", viewport={"width": 1440, "height": 900})
+    ctx = b.new_context(user_agent=ua(), locale="en-US", viewport={"width": 1440, "height": 900})
     if cookies:
         ctx.add_cookies(cookies)
     return b, ctx.new_page()
@@ -113,10 +72,10 @@ def _guard(page) -> None:
     """Fail loudly instead of returning an empty list that looks like 'no results'."""
     html = page.content()
     if "bm-verify" in html or re.search(r"Enter the characters|Robot Check", html):
-        raise SystemExit("amz: hit Amazon's bot challenge. Slow down and retry in a few minutes.")
+        raise SystemExit("amazon: hit the bot challenge. Slow down and retry in a few minutes.")
 
 
-def search(query: str, limit: int, headed: bool, timeout: int) -> list[dict]:
+def search(query: str, limit: int = 12, headed: bool = False, timeout: int = 45) -> list[dict]:
     from playwright.sync_api import sync_playwright
 
     out: list[dict] = []
@@ -137,10 +96,15 @@ def search(query: str, limit: int, headed: bool, timeout: int) -> list[dict]:
                     continue
                 seen.add(asin)
                 stars = card.query_selector("span.a-icon-alt")
+                formatted = _text(card.query_selector("span.a-price > span.a-offscreen"))
                 out.append({
+                    "retailer": "Amazon",
+                    "id": asin,
                     "asin": asin,
+                    "url": DP.format(asin),
                     "title": title,
-                    "price": _text(card.query_selector("span.a-price > span.a-offscreen")),
+                    "price": _money(formatted),
+                    "formatted": formatted,
                     "rating": (_text(stars).split(" out of")[0] if stars else ""),
                     "reviews": _text(card.query_selector("span.a-size-base.s-underline-text")),
                     "sponsored": bool(card.query_selector('[aria-label*="Sponsored"], .puis-sponsored-label-text')),
@@ -169,7 +133,7 @@ def _variants(html: str) -> dict[str, str]:
     return {a: " / ".join(v) for a, v in raw.items()}
 
 
-def show(asin: str, headed: bool, timeout: int, anon: bool = False) -> dict:
+def show(asin: str, headed: bool = False, timeout: int = 45, anon: bool = False) -> dict:
     from playwright.sync_api import sync_playwright
 
     jar = None
@@ -190,12 +154,16 @@ def show(asin: str, headed: bool, timeout: int, anon: bool = False) -> dict:
                 cells = row.query_selector_all("th, td")
                 if len(cells) == 2:
                     specs[_text(cells[0])] = _text(cells[1])
+            formatted = _first(page, BUYBOX)
             return {
+                "retailer": "Amazon",
+                "id": asin,
                 "asin": asin,
                 "variants": _variants(page.content()),
                 "url": DP.format(asin),
                 "title": _text(page.query_selector("#productTitle")),
-                "price": _first(page, BUYBOX),
+                "price": _money(formatted),
+                "formatted": formatted,
                 "rating": (stars.get_attribute("title") or "" if stars else ""),
                 "reviews": _text(page.query_selector("#acrCustomerReviewText")),
                 "availability": _text(page.query_selector("#availability")),
@@ -206,6 +174,19 @@ def show(asin: str, headed: bool, timeout: int, anon: bool = False) -> dict:
             }
         finally:
             b.close()
+
+
+def show_many(asins: list[str], all_variants: bool = False, headed: bool = False,
+              timeout: int = 45, anon: bool = False) -> list[dict]:
+    products = [show(x, headed, timeout, anon) for x in asins]
+    if all_variants:
+        seen = {p["asin"] for p in products}
+        for p in list(products):
+            for v in p["variants"]:
+                if v not in seen:
+                    seen.add(v)
+                    products.append(show(v, headed, timeout, anon))
+    return products
 
 
 def orders(year: str | None, headed: bool, timeout: int) -> list[dict]:
@@ -220,17 +201,17 @@ def orders(year: str | None, headed: bool, timeout: int) -> list[dict]:
             page.goto(url, wait_until="domcontentloaded", timeout=timeout * 1000)
             page.wait_for_timeout(2500)
             _guard(page)
+            # A lapsed session renders the sign-in page, which parses as zero orders.
             if "/ap/signin" in page.url or page.query_selector("#ap_email"):
                 raise SystemExit(
-                    "amz: the saved session is signed out or expired. "
-                    "Sign in to amazon.com in Chrome, then run `amz auth --from-chrome`.")
+                    "amazon: the saved session is signed out or expired. "
+                    "Sign in to amazon.com in Chrome, then run `shop amazon auth --from-chrome`.")
             for card in page.query_selector_all(".order-card"):
                 # Each header cell is a label/value pair. Read them by LABEL rather
                 # than by position: the column order varies by order type, and
-                # "Ship to" is deliberately never captured.
-                # Keys are lowercased because inner_text() returns RENDERED text and
-                # the .a-text-caps class is text-transform:uppercase, so the label
-                # arrives as "ORDER PLACED". Matching it verbatim silently yields "".
+                # "Ship to" is deliberately never captured. Keys are lowercased
+                # because inner_text() returns RENDERED text and .a-text-caps is
+                # text-transform:uppercase, so the label arrives as "ORDER PLACED".
                 head: dict[str, str] = {}
                 for cell in card.query_selector_all(".order-header__header-list-item"):
                     label = _text(cell.query_selector(".a-text-caps")).lower()
@@ -275,36 +256,55 @@ def cmd_auth(a) -> int:
     return 0
 
 
-def main() -> int:
+def print_product(p: dict, full: bool) -> None:
+    print(p["title"] or "(no title -- page may not have loaded)")
+    print(f"  {p['url']}")
+    print(f"  price: {p['formatted'] or '?'}   rating: {p['rating'] or '?'}   {p['reviews']}")
+    if p["availability"]:
+        print(f"  stock: {p['availability']}")
+    if p["delivery"]:
+        tag = "" if p["signed_in"] else "  (ANONYMOUS -- date is a guess, not your address)"
+        print(f"  ship:  {p['delivery']}{tag}")
+    if p["variants"].get(p["asin"]):
+        print(f"  variant: {p['variants'][p['asin']]}  ({len(p['variants'])} siblings; --all-variants to check each)")
+    if full:
+        for k, v in p["specs"].items():
+            print(f"  {k}: {v}")
+        for bullet in p["bullets"]:
+            print(f"  - {bullet}")
+    print()
+
+
+def main(argv: list[str] | None = None) -> int:
     # The shared flags live on a parent parser so they work on EITHER side of
-    # the subcommand. Defined only on the top-level parser, `amz show X --json`
-    # is an argparse error, which is exactly the form anyone would type first.
+    # the subcommand: `shop amazon show X --json` is the form anyone types first.
     common = argparse.ArgumentParser(add_help=False)
     common.add_argument("--json", action="store_true", help="emit raw JSON")
     common.add_argument("--headed", action="store_true", help="show the browser window")
     common.add_argument("--timeout", type=int, default=45, help="page load timeout in seconds")
-    ap = argparse.ArgumentParser(prog="amz", description=__doc__, parents=[common],
+    ap = argparse.ArgumentParser(prog="shop amazon", description=__doc__, parents=[common],
                                  formatter_class=argparse.RawDescriptionHelpFormatter)
     sub = ap.add_subparsers(dest="cmd", required=True)
-    s = sub.add_parser("search", parents=[common]); s.add_argument("query", nargs="+"); s.add_argument("-n", type=int, default=12)
-    d = sub.add_parser("show", parents=[common]); d.add_argument("asin", nargs="+")
+    s = sub.add_parser("search", parents=[common], help="search results: asin, price, rating")
+    s.add_argument("query", nargs="+"); s.add_argument("-n", type=int, default=12)
+    d = sub.add_parser("show", parents=[common], help="one product: price, delivery, bullets, specs")
+    d.add_argument("asin", nargs="+")
     d.add_argument("--anon", action="store_true", help="skip the session (delivery dates become meaningless)")
     d.add_argument("--all-variants", action="store_true",
                    help="also load every sibling color/size ASIN; each has its own stock and delivery date")
-    u = sub.add_parser("url", parents=[common]); u.add_argument("asin")
-    au = sub.add_parser("auth", parents=[common])
+    u = sub.add_parser("url", parents=[common], help="print the canonical product URL"); u.add_argument("asin")
+    au = sub.add_parser("auth", parents=[common], help="export or inspect the Chrome session")
     au.add_argument("--from-chrome", action="store_true", help="re-export the live session from the browser")
     au.add_argument("--status", action="store_true", help="show held cookies and expiry (default)")
     au.add_argument("--browser", choices=list(chrome_cookies.BROWSERS), default="chrome")
-    o = sub.add_parser("orders", parents=[common]); o.add_argument("--year", help="e.g. 2026")
-    a = ap.parse_args()
+    o = sub.add_parser("orders", parents=[common], help="order history for the signed-in account")
+    o.add_argument("--year", help="e.g. 2026")
+    a = ap.parse_args(argv)
 
     if a.cmd == "url":
         print(DP.format(a.asin)); return 0
-
     if a.cmd == "auth":
         return cmd_auth(a)
-
     if a.cmd == "orders":
         rows = orders(a.year, a.headed, a.timeout)
         if a.json:
@@ -314,7 +314,6 @@ def main() -> int:
         for r in rows:
             print(f"{r['placed']:<18} {r['total']:>10}  {'; '.join(r['items'])[:80]}")
         return 0
-
     if a.cmd == "search":
         rows = search(" ".join(a.query), a.n, a.headed, a.timeout)
         if a.json:
@@ -324,38 +323,12 @@ def main() -> int:
         for r in rows:
             tag = "[ad] " if r["sponsored"] else ""
             stars = f"{r['rating']}* {r['reviews']}" if r["rating"] else ""
-            print(f"{r['asin']}  {r['price'] or '-':>10}  {stars:>14}  {tag}{r['title'][:70]}")
+            print(f"{r['asin']}  {r['formatted'] or '-':>10}  {stars:>14}  {tag}{r['title'][:70]}")
         return 0
 
-    products = [show(x, a.headed, a.timeout, a.anon) for x in a.asin]
-    if a.all_variants:
-        seen = {p["asin"] for p in products}
-        for p in list(products):
-            for v in p["variants"]:
-                if v not in seen:
-                    seen.add(v)
-                    products.append(show(v, a.headed, a.timeout, a.anon))
+    products = show_many(a.asin, a.all_variants, a.headed, a.timeout, a.anon)
     if a.json:
         print(json.dumps(products if len(products) > 1 else products[0], indent=2)); return 0
     for p in products:
-        print(p["title"] or "(no title -- page may not have loaded)")
-        print(f"  {p['url']}")
-        print(f"  price: {p['price'] or '?'}   rating: {p['rating'] or '?'}   {p['reviews']}")
-        if p["availability"]:
-            print(f"  stock: {p['availability']}")
-        if p["delivery"]:
-            tag = "" if p["signed_in"] else "  (ANONYMOUS -- date is a guess, not your address)"
-            print(f"  ship:  {p['delivery']}{tag}")
-        if p["variants"].get(p["asin"]):
-            print(f"  variant: {p['variants'][p['asin']]}  ({len(p['variants'])} siblings; --all-variants to check each)")
-        if len(products) == 1:
-            for k, v in p["specs"].items():
-                print(f"  {k}: {v}")
-            for bullet in p["bullets"]:
-                print(f"  - {bullet}")
-        print()
+        print_product(p, full=len(products) == 1)
     return 0
-
-
-if __name__ == "__main__":
-    raise SystemExit(main())

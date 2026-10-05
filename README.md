@@ -98,12 +98,11 @@ Self-contained subsystems, each with its own README. Several are local-first int
 | `mist-console/` | Pointer + rebuild doc for the MIST Console, the desktop chat app (private repo). The Console runs `claude` headlessly in this harness's cwd, so `CLAUDE.md` and all skills load. |
 | `mist-image/` | Text-to-image CLI (pure stdlib). Generation runs on a cloud GPU, nothing local. |
 | `mist-music/` | Music CLI: generate full songs from a prompt, render sheet music/MIDI to audio, transcribe audio to notation. |
-| `mist-terminal/` | Double-clickable MIST.app that launches Claude Code as MIST in a themed terminal with a spoken greeting. |
 | `playstation/` | Remote control of the household PS5 via pyremoteplay (Sony Remote Play protocol). |
 | `reddit/` | Subreddit anecdote miner -- pulls public posts + comment threads into an anonymized JSON corpus for pattern mining. |
 | `resume-builder/` | Reusable PDF builder for resumes and cover letters, so tailoring to a JD never means hand-rebuilding HTML/CSS. |
+| `shopping/` | `shop`: one CLI for retail price lookup (Target, Walmart, Flipp weekly ads, Amazon), promo-code harvest, live Shopify cart tests and net-cost ranking. Read-only toward money. |
 | `tools-registry/` | Rebuilds the vault's `Tools/` inventory notes from installed apps + LaunchAgents. launchd daily. |
-| `wifi-roam/` | Keeps the Mac on the best-throughput known wifi instead of clinging to whatever it first joined. |
 | `writing-style/` | Learns Alex's personal writing voice from his own correspondence and distills it into a `Writing Voice.md` reference. |
 
 ### Skills
@@ -163,7 +162,7 @@ Skills are invoked with `/skill-name` in Claude Code. Each is defined in `.claud
 | `/animate` | Hand-painted 2D animated videos and music videos in code (p5.js + p5.brush, the Clawd rig, headless Chrome frames), optionally synced to a generated song | claude-animation repo, ffmpeg |
 | `/astro-cartography` | Printable astrocartography PDF packets (planetary lines on world maps, city sweeps, relocated angles) from birth data | astro-cartography repo |
 | `/chess` | Play annotated chess against Maia (human-like engine, 1100-1900) in chat, with Stockfish annotations and a board image per move | Maia, Stockfish |
-| `/discount` | Find the lowest real price for one item: every retailer, promo code, cashback portal, and discounted gift card, tested on a live cart where possible | `shopping/bin/discount` |
+| `/shopping` | One pipeline for buying at the lowest real price: Target and Walmart at the nearest stores, Amazon, weekly ads, in-store clearance, promo codes tested on a live cart, ranked by net cost | `shopping/bin/shop` |
 | `/duel` | Play Yu-Gi-Oh! against the user live in EDOPro with a deck from MIST's roster, then review the game log to tune decks and coach | EDOPro |
 | `/fantasy-football` | Evidence-based partner for a season-long redraft league: draft prep and live draft, lineups, waivers, trades, league analysis | `fantasy/`, ESPN CLI |
 | `/game-dev` | Game design and development partner; auto-starts the Godot and Blender MCP hosts, then helps with mechanics, levels, balance, playtesting, assets | godot-ai, blender-mcp |
@@ -520,9 +519,9 @@ Exobrain harness/
 |-- Standalone modules (each with its own README -- see Standalone Modules table)
 |   |-- airdrop-to-console/  claude-bot/  disposable-email/  flipper/
 |   |-- job-search/  lyrics-video/  maintenance/  mem-watchdog/
-|   |-- mist-console/  mist-image/  mist-music/  mist-terminal/  mist-voice/
-|   |-- playstation/  reddit/  resume-builder/  tools-registry/
-|   |-- wifi-roam/  writing-style/
+|   |-- mist-console/  mist-image/  mist-music/  mist-voice/
+|   |-- playstation/  reddit/  resume-builder/  shopping/  tools-registry/
+|   |-- writing-style/
 |
 |-- Subdirectory apps
 |   |-- mood-tracker/                   # Mood journal web app

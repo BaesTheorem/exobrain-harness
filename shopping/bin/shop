@@ -1,0 +1,204 @@
+#!/usr/bin/env python3
+"""shop -- one pipeline for finding the lowest real price of an item.
+
+  shop find <query> [--at target,walmart,flipp,amazon] [-n N] [--json]
+      Search every retailer lane at once. Target and Walmart prices are for the
+      stores nearest HOME_ZIP; Flipp is the weekly grocery ads; Amazon is a real
+      browser behind Akamai. A lane that fails says so instead of vanishing.
+
+  shop price <url | target:<tcin> | walmart:<id> | flipp:<id> | ASIN>... [--all-variants] [--json]
+      One item in full: price at the nearest store, stock and pickup, seller, UPC,
+      variants, delivery promise (Amazon, signed-in). Paste a product URL and the
+      retailer is read from it.
+
+  shop stores                      Target stores nearest HOME_ZIP (store context changes the price)
+  shop codes <domain>              Promo-code candidates: SimplyCodes, Wethrift, common guesses
+  shop cart <shopify-url> --codes A B --harvest --max-stack 3
+                                   Test codes and combinations on a live Shopify cart (never checks out)
+  shop best <offers.json>          Rank every source x every legal code subset by net cost
+  shop clearance <upc> [store]     In-store penny and clearance price via Penny Lane
+  shop amazon <search|show|orders|auth|url> ...
+                                   The full Amazon tool, including order history and the Chrome session
+
+Read-only toward money: nothing here signs in, enters payment, or submits an order.
+Needs HOME_ZIP in the harness .env. Python deps: curl_cffi, playwright (+ chromium).
+"""
+
+from __future__ import annotations
+
+import argparse
+import json
+import os
+import sys
+from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+
+from shoptools import cart, codes, lanes, rank  # noqa: E402
+from shoptools.common import LaneError  # noqa: E402
+
+PENNY = Path.home() / "Documents/penny-lane/bin/penny"
+
+
+def _row(r: dict) -> str:
+    price = r.get("formatted") or (f"${r['price']:.2f}" if r.get("price") is not None else "-")
+    extra = ""
+    if r.get("seller") and r["seller"] not in ("Walmart.com", "Walmart"):
+        extra += f"  seller: {r['seller']}"
+    if r.get("availability") and r["availability"] not in ("IN_STOCK", "In stock"):
+        extra += f"  {r['availability']}"
+    if r.get("valid_to"):
+        extra += f"  thru {r['valid_to']}"
+    if r.get("sponsored"):
+        extra += "  [ad]"
+    return f"{r.get('retailer') or '?':<12} {price:>10}  {str(r.get('id') or ''):<12} {r.get('title', '')[:70]}{extra}"
+
+
+def cmd_find(a) -> int:
+    at = tuple(x.strip() for x in a.at.split(",")) if a.at else lanes.SEARCH_LANES
+    rows, errors = lanes.find(" ".join(a.query), at, a.n)
+    if a.json:
+        print(json.dumps({"rows": rows, "errors": errors}, indent=2))
+    else:
+        for r in sorted(rows, key=lambda r: (r.get("price") is None, r.get("price") or 0)):
+            print(_row(r))
+    for lane, err in errors.items():
+        print(f"warn: {lane} lane failed: {err}", file=sys.stderr)
+    if not rows:
+        print("No rows from any lane. That is suspect; widen the query before believing it.", file=sys.stderr)
+        return 1
+    return 0
+
+
+def cmd_price(a) -> int:
+    out: list[dict] = []
+    for spec in a.item:
+        try:
+            out.extend(lanes.price(spec, all_variants=a.all_variants))
+        except LaneError as e:
+            print(f"shop: {e}", file=sys.stderr)
+            return 1
+    if a.json:
+        print(json.dumps(out if len(out) > 1 else out[0], indent=2))
+        return 0
+    for r in out:
+        if r.get("retailer") == "Amazon":
+            from shoptools import amazon
+            amazon.print_product(r, full=len(out) == 1)
+            continue
+        print(_row(r))
+        print(f"  {r['url']}")
+        for k in ("upc", "size", "reg_price", "was", "sale_story", "in_store_only"):
+            if r.get(k):
+                print(f"  {k}: {r[k]}")
+        if r.get("store"):
+            print(f"  store: {r['store']['name']} ({r['store']['id']}), priced by location {r.get('price_location')}")
+        if r.get("fulfillment"):
+            print(f"  fulfillment: {json.dumps(r['fulfillment'])}")
+        if r.get("promotions"):
+            print(f"  promotions: {'; '.join(r['promotions'])}")
+        if r.get("variants"):
+            v = r["variants"]
+            shown = v if isinstance(v, int) else "; ".join(f"{x['id']} {x['name']}" for x in v)
+            print(f"  variants: {shown}")
+        print()
+    return 0
+
+
+def cmd_clearance(a) -> int:
+    if not PENNY.exists():
+        raise SystemExit("shop clearance needs Penny Lane at ~/Documents/penny-lane (see the /penny skill)")
+    if a.retailer:
+        argv = [str(PENNY), "lookup", a.retailer, a.item] + ([a.store] if a.store else [])
+    else:
+        argv = [str(PENNY), "upc", a.item] + ([a.store] if a.store else [])
+    os.execv(argv[0], argv)
+
+
+def main(argv: list[str]) -> int:
+    # `shop amazon ...` is the whole former amz tool; hand it its own argv untouched.
+    if argv[:1] == ["amazon"]:
+        from shoptools import amazon
+        return amazon.main(argv[1:])
+
+    ap = argparse.ArgumentParser(prog="shop", description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
+    sub = ap.add_subparsers(dest="cmd", required=True)
+    sub.add_parser("amazon", help="Amazon lane: search, show, orders, auth, url")
+
+    f = sub.add_parser("find", help="search every retailer lane at once")
+    f.add_argument("query", nargs="+")
+    f.add_argument("--at", help=f"comma list of lanes, default all: {','.join(lanes.SEARCH_LANES)}")
+    f.add_argument("-n", type=int, default=8, help="rows per lane")
+    f.add_argument("--json", action="store_true")
+
+    p = sub.add_parser("price", help="one item in full, from a URL, retailer:id or ASIN")
+    p.add_argument("item", nargs="+")
+    p.add_argument("--all-variants", action="store_true", help="Amazon: load every sibling color/size ASIN too")
+    p.add_argument("--json", action="store_true")
+
+    st = sub.add_parser("stores", help="Target stores nearest HOME_ZIP")
+    st.add_argument("--json", action="store_true")
+
+    c = sub.add_parser("codes", help="promo-code candidates for a store domain")
+    c.add_argument("domain")
+    c.add_argument("--extra", nargs="*", default=[])
+    c.add_argument("--no-guess", action="store_true")
+    c.add_argument("--json", action="store_true")
+
+    s = sub.add_parser("cart", help="test codes on a live Shopify cart (never checks out)")
+    s.add_argument("url")
+    s.add_argument("--variant", type=int)
+    s.add_argument("--qty", type=int, default=1)
+    s.add_argument("--codes", nargs="*", default=[])
+    s.add_argument("--harvest", action="store_true", help="also test harvested + guessed codes")
+    s.add_argument("--max-stack", type=int, default=3)
+    s.add_argument("--selling-plan", type=int,
+                   help="subscription plan id (selling_plan_groups in <handle>.js); some codes are subscription-only")
+    s.add_argument("--json", action="store_true")
+
+    b = sub.add_parser("best", help="rank offers.json by net cost")
+    b.add_argument("offers", type=Path)
+    b.add_argument("--json", action="store_true")
+
+    cl = sub.add_parser("clearance", help="in-store penny/clearance price via Penny Lane")
+    cl.add_argument("item", help="UPC, or an item id when --retailer is given")
+    cl.add_argument("store", nargs="?", help="store id (Penny Lane's configured stores by default)")
+    cl.add_argument("--retailer", help="homedepot|dollargeneral|lowes|walmart, to look up by item id instead of UPC")
+
+    a = ap.parse_args(argv)
+    if a.cmd == "find":
+        return cmd_find(a)
+    if a.cmd == "price":
+        return cmd_price(a)
+    if a.cmd == "stores":
+        rows = lanes.target_stores(8)
+        if a.json:
+            print(json.dumps(rows, indent=2))
+        else:
+            for r in rows:
+                print(f"{r['id']:<6} {r['name']:<28} {r['miles']} mi")
+        return 0
+    if a.cmd == "codes":
+        out = codes.harvest(codes.bare_domain(a.domain), a.extra, guess=not a.no_guess)
+        if a.json:
+            print(json.dumps(out, indent=2))
+        else:
+            for c in out:
+                print(f"{c['code']:<24} {','.join(c['sources'])}")
+        return 0
+    if a.cmd == "cart":
+        out = cart.run(a.url, a.codes, a.variant, a.qty, a.harvest, a.max_stack, a.selling_plan)
+        print(json.dumps(out, indent=2)) if a.json else cart.print_result(out)
+        return 0
+    if a.cmd == "best":
+        out = rank.run(a.offers)
+        print(json.dumps(out, indent=2)) if a.json else rank.print_result(out)
+        return 0
+    if a.cmd == "clearance":
+        return cmd_clearance(a)
+    ap.error(f"unknown command {a.cmd}")
+    return 2
+
+
+if __name__ == "__main__":
+    raise SystemExit(main(sys.argv[1:]))
