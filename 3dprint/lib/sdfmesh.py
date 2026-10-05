@@ -140,6 +140,31 @@ def tube(X, Y, Z, pts, radii, k: int = 6):
     return (d - np.asarray(radii)[i]).min(axis=1).reshape(shape)
 
 
+def splat_spheres(F, xs, ys, zs, centers, radii, margin: float = 0.6):
+    """F = min(F, |p - c| - r) for every sphere, in place, touching only the
+    voxels within r + margin of each centre. F has shape (len(ys), len(xs),
+    len(zs)) on a uniform lattice. A union of spheres sampled densely along a
+    curve is a tube, so this meshes thousands of vines and thorns at the
+    cost of their own volume instead of the whole grid."""
+    res = float(xs[1] - xs[0])
+    x0, y0, z0 = float(xs[0]), float(ys[0]), float(zs[0])
+    nx, ny, nz = len(xs), len(ys), len(zs)
+    for (cx, cy, cz), r in zip(np.asarray(centers, dtype=np.float64), np.asarray(radii, dtype=np.float64), strict=True):
+        R = r + margin
+        i0, i1 = max(0, int(np.ceil((cx - R - x0) / res))), min(nx, int(np.floor((cx + R - x0) / res)) + 1)
+        j0, j1 = max(0, int(np.ceil((cy - R - y0) / res))), min(ny, int(np.floor((cy + R - y0) / res)) + 1)
+        k0, k1 = max(0, int(np.ceil((cz - R - z0) / res))), min(nz, int(np.floor((cz + R - z0) / res)) + 1)
+        if i0 >= i1 or j0 >= j1 or k0 >= k1:
+            continue
+        dx = (xs[i0:i1] - cx) ** 2
+        dy = (ys[j0:j1] - cy) ** 2
+        dz = (zs[k0:k1] - cz) ** 2
+        d = np.sqrt(dy[:, None, None] + dx[None, :, None] + dz[None, None, :]) - r
+        sub = F[j0:j1, i0:i1, k0:k1]
+        np.minimum(sub, d, out=sub, casting="unsafe")
+    return F
+
+
 def thorn(base, direction, length, r_base, r_tip=0.05, n=16):
     """Sample points and radii for a straight tapered thorn."""
     d = np.asarray(direction, dtype=np.float64)

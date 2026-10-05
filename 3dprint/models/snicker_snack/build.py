@@ -17,12 +17,11 @@ through it holds the sword face-on when worn.
 
 Run:
   bin/cad build models/snicker_snack/build.py
-  bin/cad build models/snicker_snack/build.py -p variant=kit --name snicker_snack_kit
   .venv/bin/python models/snicker_snack/build.py stage=2d     (2D design maps only)
 
-PARAMS: variant=full|kit (kit = the support-free six-piece print set; halves
-is an alias), res (voxel mm, 0.1), faces (print mesh budget), preview_faces
-(Console preview budget), stage=all|2d.
+PARAMS: res (voxel mm, 0.1), faces (print mesh budget), preview_faces
+(Console preview budget), stage=all|2d. variant=halves is refused: the thorn
+thicket has no clean split (see main).
 """
 
 from __future__ import annotations
@@ -83,13 +82,31 @@ TIERS = [(5, 126, 4.6, 2.5, 26, 2.7, 2.5, 0.50, 0.13, 0.08, 0.4),
 RING_Y, RING_R, RING_WALL, RING_HW, HOLE_R = 191.9, 2.7, 0.9, 1.5, 1.8
 # gem centres on the guard (front view)
 GEMS = [(0.0, 151.6), (0.0, 143.6)]
-# The quillon in 3D: the painted guard is turned 90 degrees about the blade and
-# joined to itself, so seen from above the guard is a cross and every side
-# shows the same artwork. The copy leaves out the blade collar and the gems.
-Z_JOIN = 0.25           # fillet radius where the two guards meet
-# alignment pins for the body halves: (x, y, depth); 1.75 mm filament in 1.9 mm holes
-PINS = [(0.0, 184.3, 3.2), (0.0, 143.6, 1.6)]
-PIN_R = 0.95
+# The quillon as a thorny thicket. The painted guard's vines are read as a
+# skeleton with a radius at every point (the medial axis) and rebuilt as round
+# canes (spheres along the skeleton), so a vine is as thick as it is wide.
+# Copies of the painted vine set, turned about the blade and each weaving in
+# and out of its own plane, make the mass, and hooked prickles sit along the
+# canes. The painted copy keeps the face's outline; grown rose canes make the
+# mass. Prickles never grow into the gems.
+THICKET = [  # painted layers: angle about the blade (deg), scale, in-plane tilt (deg), seed
+    (0, 1.00, 0.0, 11),
+]
+# Grown rose canes fill the thicket around the painted layer: each roots on
+# the boss, curls like a bramble (steady curvature about a slowly turning
+# axis), is kept inside a rounded envelope around the boss so the canes wrap
+# into a dense mass, and stays out of a small tunnel in front of each gem.
+CANES = 46              # main canes
+CANE_SEED = 7
+CANE_STEP = 0.25        # mm between samples along a cane
+ENVELOPE = (0.0, 146.5, 0.0, 18.0, 11.5, 14.5)   # centre x, y, z and semi-axes of the mass
+WEAVE = 2.4             # mm the canes weave out of their plane at full reach
+THICKET_JOIN = 0.3      # fillet where the thicket meets the collar
+PRICKLE_SPACING = 2.6   # mm between prickles along a cane
+GUARD_Y = 147.0         # centre of the guard, for scaling and tilting the copies
+CANE_MIN_R = 0.3        # skeleton points thinner than this are dropped (sub-print tips)
+CANE_MAX_R = 1.1        # cane radius cap away from the central boss
+BOSS_MAX_R = 3.0        # radius cap for the boss itself
 
 
 def label(mask) -> tuple[np.ndarray, int]:
@@ -252,7 +269,6 @@ def design_2d(mask, rgb, xs, ys, res):
     # the heart of the guard is thicker than its tips
     swell = 0.7 * np.clip(1 - np.hypot(X / 16.0, (Y - 147.0) / 9.0), 0, 1) ** 1.2
     H = H + (1 - wC) * swell
-    H_guard = ndi.gaussian_filter(np.where(S, H, H_EDGE), 0.8)   # before the gems: the turned copy
 
     gems = np.zeros(S.shape, bool)
     for (gx, gy), (a, dh) in zip(GEMS, [(1.0, 0.55), (1.45, 0.85)], strict=True):
@@ -266,18 +282,20 @@ def design_2d(mask, rgb, xs, ys, res):
 
     H = np.where(S, H, H_EDGE)
     H = ndi.gaussian_filter(H, 0.8)
-    # the crossguard alone for the copy turned into z: no blade, no collar,
-    # and only its main connected piece. The hanging claw tendrils reach the
-    # guard through the collar, so turned into z they would float in front
-    # of it; they stay beside the collar as painted.
-    D_guard = np.maximum(D, -sm.sdf2d(C, res))
-    glab, gn = label(D_guard < 0)
+    # blade and collar keep the heightfield; the guard becomes the thicket.
+    # D_gfull is the whole painted guard (its hanging claws reach it through
+    # the collar), D_gmain only its main connected piece, for the turned copies.
+    sdf_c = sm.sdf2d(C, res)
+    D_bc = np.maximum(D, sdf_c)
+    D_gfull = np.maximum(D, -sdf_c)
+    D_gmain = D_gfull.copy()
+    glab, gn = label(D_gfull < 0)
     if gn > 1:
-        sizes = np.bincount(glab.ravel())[1:]
-        main_piece = int(np.argmax(sizes)) + 1
-        D_guard = np.where((glab > 0) & (glab != main_piece), 0.1, D_guard)
+        main_piece = int(np.argmax(np.bincount(glab.ravel())[1:])) + 1
+        D_gmain = np.where((glab > 0) & (glab != main_piece), 0.1, D_gfull)
     maps = {"S": S, "C": C, "rec": rec, "dark": dark, "gems": gems, "LT": LT,
-            "D_guard": D_guard.astype(np.float32), "H_guard": H_guard.astype(np.float32)}
+            "D_bc": D_bc.astype(np.float32), "D_gfull": D_gfull.astype(np.float32),
+            "D_gmain": D_gmain.astype(np.float32)}
     return D.astype(np.float32), H.astype(np.float32), maps
 
 
@@ -406,14 +424,6 @@ def ring_hole(X, Y, Z):
     return np.maximum(np.hypot(Y - RING_Y, Z) - HOLE_R, np.abs(X) - 3.0)
 
 
-def pin_holes(X, Y, Z):
-    out = None
-    for px, py, depth in PINS:
-        f = np.maximum(np.hypot(X - px, Y - py) - PIN_R, np.abs(Z) - depth)
-        out = f if out is None else np.minimum(out, f)
-    return out
-
-
 # (kind, function, box x0 x1 y0 y1 z0 z1, smooth radius); boxes carry a
 # margin wider than the blend so fields meet without seams
 PARTS = [
@@ -424,7 +434,6 @@ PARTS = [
     ("union", ring, (-3.4, 3.4, 187.0, 197.5, -5.0, 5.0), 0.3),
 ]
 CUTS = [("cut", ring_hole, (-3.2, 3.2, 190.0, 195.2, -2.6, 2.6), 0.0)]
-PIN_CUT = ("cut", pin_holes, (-1.5, 1.5, 140.0, 188.0, -3.5, 3.5), 0.0)
 
 
 def rose_sepals(X, Y, Z):
@@ -445,28 +454,288 @@ def irange(arr, lo, hi):
     return int(np.searchsorted(arr, lo)), int(np.searchsorted(arr, hi, side="right"))
 
 
+def skeleton_points(Dg, xs, ys):
+    """Medial axis of a guard outline: (x, y, r) for every skeleton pixel,
+    r = distance to the outline. Spheres of radius r on these points rebuild
+    the outline in the plane and make every vine round across it.
+
+    The painted widths wobble, so r is smoothed along the cane (median over
+    1 mm), spurs (points much thinner than their neighbourhood, which the
+    medial axis sends toward bumps in the outline) are dropped, and canes away
+    from the central boss are capped at CANE_MAX_R."""
+    from scipy.spatial import KDTree
+    from skimage.morphology import medial_axis
+
+    sk = np.asarray(medial_axis(Dg < 0), dtype=bool)
+    iy, ix = np.nonzero(sk)
+    r = -Dg[iy, ix].astype(np.float64)
+    pts = np.stack([xs[ix], ys[iy]], 1)
+    tree = KDTree(pts)
+    r_med = np.array([np.median(r[nb]) for nb in tree.query_ball_point(pts, 1.0)])
+    keep = (r >= CANE_MIN_R) & (r >= 0.55 * r_med)
+    cap = CANE_MAX_R + (BOSS_MAX_R - CANE_MAX_R) * (1 - sm.smoothstep(3.0, 6.0, np.abs(pts[:, 0])))
+    r_s = np.minimum(r_med, cap)
+    return np.stack([pts[keep, 0], pts[keep, 1], r_s[keep]], 1)
+
+
+def thin_cane(P, R):
+    """Keep samples along an ordered cane so neighbours stay within 0.3 r."""
+    keep = np.zeros(len(P), bool)
+    keep[0] = keep[-1] = True
+    last = 0
+    for k in range(1, len(P)):
+        if np.linalg.norm(P[k] - P[last]) >= max(0.1, 0.3 * min(R[k], R[last])):
+            keep[k] = True
+            last = k
+    return keep
+
+
+def thin_out(pts):
+    """Greedy thinning: neighbours closer than 0.3 r are covered by the
+    bigger sphere (the surface between kept spheres dips < 0.012 r)."""
+    from scipy.spatial import KDTree
+
+    tree = KDTree(pts[:, :2])
+    taken = np.zeros(len(pts), bool)
+    keep = []
+    for i in np.argsort(-pts[:, 2], kind="stable"):
+        if taken[i]:
+            continue
+        keep.append(i)
+        taken[tree.query_ball_point(pts[i, :2], max(0.1, 0.3 * pts[i, 2]))] = True
+    return pts[np.array(keep)]
+
+
+def prickle(base, tangent, r_cane, rng, colour):
+    """Samples for one rose prickle on a cane: broad base, short, hooked
+    back along the cane and down toward the blade."""
+    tangent = tangent / (np.linalg.norm(tangent) + 1e-9)
+    n1 = np.cross(tangent, np.array([0.0, 1.0, 0.0]) if abs(tangent[1]) < 0.9 else np.array([1.0, 0.0, 0.0]))
+    n1 /= np.linalg.norm(n1)
+    n2 = np.cross(tangent, n1)
+    th = rng.uniform(0, 2 * np.pi)
+    d = np.cos(th) * n1 + np.sin(th) * n2 - 0.25 * tangent + np.array([0.0, -0.2, 0.0])
+    d /= np.linalg.norm(d)
+    length = r_cane + rng.uniform(0.6, 1.0)
+    t = np.linspace(0.0, 1.0, 14)[:, None]
+    hook = -0.5 * tangent + np.array([0.0, -0.5, 0.0])
+    pc = base + length * t * d + 0.5 * (length - r_cane) * t ** 2 * hook
+    rb = float(np.clip(0.62 * r_cane, 0.32, 0.62))
+    radii = rb * (1 - t[:, 0]) ** 1.3 + 0.12 * t[:, 0]   # tip above the 0.1 mm grid
+    cols = (1 - t) * np.asarray(colour) + t * np.array([0.55, 0.27, 0.17])
+    return pc, radii, cols
+
+
+def grow_cane(rng, start, direction, length, r0, r1, gems, branch=True):
+    """One bramble cane as [(points, radii, tangents)], side shoots included.
+
+    The cane turns at a steady curvature about an axis that drifts slowly,
+    so it curls. Inside the outer part of ENVELOPE it is steered back toward
+    the centre, near the boss it is pushed out, and it is pushed sideways out
+    of a tunnel in front of and behind each gem."""
+    cx, cy, cz, ax, ay, az = ENVELOPE
+    p, d = np.array(start, float), np.array(direction, float) / np.linalg.norm(direction)
+    kappa = rng.uniform(0.12, 0.26)                     # rad per mm
+    axis = rng.normal(size=3)
+    n = max(4, int(length / CANE_STEP))
+    pts, tans = [], []
+    for _ in range(n):
+        pts.append(p.copy())
+        tans.append(d.copy())
+        axis += rng.normal(size=3) * 0.15
+        a_perp = axis - np.dot(axis, d) * d
+        if np.linalg.norm(a_perp) > 1e-6:
+            d = d + np.cross(a_perp / np.linalg.norm(a_perp), d) * kappa * CANE_STEP
+        q = np.array([(p[0] - cx) / ax, (p[1] - cy) / ay, (p[2] - cz) / az])
+        e = float(np.linalg.norm(q))
+        if e > 0.82:                                     # curl back in at the edge of the mass
+            d = d - (q / e) * (e - 0.82) * 1.6 * CANE_STEP * 4
+        rho = np.hypot(p[0], p[2])
+        if rho < 2.6 and rho > 1e-6:                     # do not bore through the boss
+            d = d + np.array([p[0], 0.0, p[2]]) / rho * (2.6 - rho) * CANE_STEP * 2
+        for gy, a, boss in gems:                         # keep the gems in view
+            g = np.array([p[0], p[1] - gy])
+            gr = float(np.linalg.norm(g))
+            if gr < a + 1.3 and abs(p[2]) > boss - 0.6:
+                push = g / gr if gr > 1e-6 else np.array([1.0, 0.0])
+                d = d + np.array([push[0], push[1], 0.0]) * (a + 1.3 - gr) * CANE_STEP * 6
+        d /= np.linalg.norm(d)
+        p = p + d * CANE_STEP
+    P, T = np.array(pts), np.array(tans)
+    R = r0 + (r1 - r0) * np.linspace(0, 1, n) ** 0.8
+    out = [(P, R, T)]
+    if branch:
+        for _ in range(rng.integers(0, 3)):
+            k = int(rng.uniform(0.3, 0.75) * n)
+            side = np.cross(T[k], rng.normal(size=3))
+            side /= np.linalg.norm(side) + 1e-9
+            out += grow_cane(rng, P[k], T[k] + 0.9 * side, rng.uniform(4.0, 9.0), R[k] * 0.75, 0.42, gems,
+                             branch=False)
+    return out
+
+
+def rose_canes(gems):
+    """The grown part of the thicket: CANES bramble canes rooted on the boss."""
+    rng = np.random.default_rng(CANE_SEED)
+    canes = []
+    for _ in range(CANES):
+        y0 = rng.uniform(138.0, 155.5)
+        phi = rng.uniform(0, 2 * np.pi)
+        er = np.array([np.cos(phi), 0.0, np.sin(phi)])
+        start = er * 2.0 + np.array([0.0, y0, 0.0])
+        direction = er + rng.normal(size=3) * 0.5
+        canes += grow_cane(rng, start, direction, rng.uniform(14.0, 26.0), rng.uniform(0.7, 0.9), 0.45, gems)
+    return canes
+
+
+def build_thicket(maps, rgb, xs, ys, gems):
+    """Sphere centres, radii and colours for every cane and prickle.
+    gems: [(gy, radius, boss radius)] for the windows over the gems."""
+    from scipy.spatial import KDTree
+
+    res = float(xs[1] - xs[0])
+    full = skeleton_points(maps["D_gfull"], xs, ys)
+    main = skeleton_points(maps["D_gmain"], xs, ys)
+    centres, radii, colours, layer_of, kinds = [], [], [], [], []
+    for li, (phi_deg, scale, tilt_deg, seed) in enumerate(THICKET):
+        rng = np.random.default_rng(seed)
+        pts = full if phi_deg == 0 else main
+        p1, p2, p3 = rng.uniform(0, 2 * np.pi, 3)
+        phi, tau = np.radians(phi_deg), np.radians(tilt_deg)
+
+        def place(x, y, phi=phi, tau=tau, scale=scale, p1=p1, p2=p2, p3=p3, front=(phi_deg == 0)):
+            dy = y - GUARD_Y
+            x2 = scale * (x * np.cos(tau) - dy * np.sin(tau))
+            y2 = GUARD_Y + scale * (x * np.sin(tau) + dy * np.cos(tau))
+            amp = WEAVE * sm.smoothstep(2.5, 9.0, np.abs(x2))
+            if front:   # the painted copy stays in its plane where it holds the collar
+                amp = amp * sm.smoothstep(132.0, 142.0, y2)
+            w = amp * (np.sin(0.42 * x2 + p1) * np.cos(0.37 * (y2 - GUARD_Y) + p2)
+                       + 0.45 * np.sin(0.8 * x2 - 0.6 * y2 + p3))
+            return np.stack([x2 * np.cos(phi) - w * np.sin(phi), y2, x2 * np.sin(phi) + w * np.cos(phi)], -1)
+
+        canes = thin_out(pts)
+        c3 = place(canes[:, 0], canes[:, 1])
+        ix = np.clip(np.round((canes[:, 0] - xs[0]) / res).astype(int), 0, len(xs) - 1)
+        iy = np.clip(np.round((canes[:, 1] - ys[0]) / res).astype(int), 0, len(ys) - 1)
+        centres.append(c3)
+        radii.append(canes[:, 2] * scale)
+        colours.append(rgb[iy, ix])
+        layer_of.append(np.full(len(c3), li))
+        kinds.append(np.zeros(len(c3), bool))
+
+        # prickles: every PRICKLE_SPACING along the thinner canes
+        tree = KDTree(pts[:, :2])
+        sites: list[np.ndarray] = []
+        for q in canes[(canes[:, 2] >= 0.45) & (canes[:, 2] <= 1.35)][rng.permutation(
+                int(((canes[:, 2] >= 0.45) & (canes[:, 2] <= 1.35)).sum()))]:
+            if all(np.hypot(*(q[:2] - s_[:2])) >= PRICKLE_SPACING for s_ in sites[-400:]):
+                sites.append(q)
+        normal = np.array([-np.sin(phi), 0.0, np.cos(phi)])
+        for q in sites:
+            nb = pts[tree.query_ball_point(q[:2], 0.7), :2]
+            if len(nb) < 3:
+                continue
+            t2 = np.linalg.svd(nb - nb.mean(0), full_matrices=False)[2][0]
+            a = place(np.array([q[0]]), np.array([q[1]]))[0]
+            b = place(np.array([q[0] + 0.2 * t2[0]]), np.array([q[1] + 0.2 * t2[1]]))[0]
+            tan = (b - a) / (np.linalg.norm(b - a) + 1e-9)
+            n2 = np.cross(tan, normal)
+            n2 /= np.linalg.norm(n2) + 1e-9
+            th = rng.uniform(0, 2 * np.pi)
+            d = np.cos(th) * normal + np.sin(th) * n2 + np.array([0.0, -0.3, 0.0])
+            d /= np.linalg.norm(d)
+            # a rose prickle: broad base, short, hooked toward the blade
+            r_cane = q[2] * scale
+            length = r_cane + rng.uniform(0.6, 1.0)
+            t = np.linspace(0.0, 1.0, 14)[:, None]
+            pc = a + length * t * d + 0.5 * (length - r_cane) * t ** 2 * np.array([0.0, -1.0, 0.0])
+            rb = float(np.clip(0.62 * r_cane, 0.32, 0.62))
+            centres.append(pc)
+            radii.append(rb * (1 - t[:, 0]) ** 1.3 + 0.12 * t[:, 0])   # tip above the 0.1 mm grid
+            base_col = rgb[int(np.clip(round((q[1] - ys[0]) / res), 0, len(ys) - 1)),
+                           int(np.clip(round((q[0] - xs[0]) / res), 0, len(xs) - 1))]
+            colours.append((1 - t) * base_col + t * np.array([0.55, 0.27, 0.17]))
+            layer_of.append(np.full(len(pc), li))
+            kinds.append(np.ones(len(pc), bool))
+
+    # grown rose canes, coloured olive to bronze with lighter tips, with prickles
+    rng = np.random.default_rng(CANE_SEED + 1)
+    for ci, (P, Rr, T) in enumerate(rose_canes(gems)):
+        mix = rng.uniform()
+        base = (1 - mix) * np.array([0.30, 0.34, 0.14]) + mix * np.array([0.42, 0.33, 0.17])
+        f_ = np.linspace(0, 1, len(P))[:, None]
+        cane_col = (1 - f_) * base + f_ * np.array([0.47, 0.50, 0.23])
+        keep_pts = thin_cane(P, Rr)
+        centres.append(P[keep_pts])
+        radii.append(Rr[keep_pts])
+        colours.append(cane_col[keep_pts])
+        layer_of.append(np.full(int(keep_pts.sum()), 100 + ci))
+        kinds.append(np.zeros(int(keep_pts.sum()), bool))
+        arc = np.concatenate([[0.0], np.cumsum(np.linalg.norm(np.diff(P, axis=0), axis=1))])
+        for at in np.arange(rng.uniform(0.8, 2.0), arc[-1] - 0.6, PRICKLE_SPACING):
+            k = int(np.searchsorted(arc, at))
+            if Rr[k] < 0.4:
+                continue
+            pc, pr, pk = prickle(P[k], T[k], Rr[k], rng, cane_col[k])
+            centres.append(pc)
+            radii.append(pr)
+            colours.append(pk)
+            layer_of.append(np.full(len(pc), 100 + ci))
+            kinds.append(np.ones(len(pc), bool))
+
+    C3 = np.concatenate(centres)
+    R = np.concatenate(radii)
+    K = np.concatenate(colours)
+    L = np.concatenate(layer_of)
+    prickle_mask = np.concatenate(kinds)
+    # prickles never grow into a gem; canes are left alone, because cutting one
+    # can sever a whole arm of a copy
+    keep = np.ones(len(C3), bool)
+    for gy, a, boss in gems:
+        near = np.hypot(C3[:, 0], C3[:, 1] - gy) < a + 0.8
+        keep &= ~(prickle_mask & near & (np.abs(C3[:, 2]) > boss - 0.5))
+    order = np.argsort(C3[keep, 1], kind="stable")
+    return C3[keep][order], R[keep][order], K[keep][order], L[keep][order]
+
+
+def gem_parts(maps, xs, ys):
+    """Domed gems on the front and back of the guard's boss, in gold bezels."""
+    out, windows = [], []
+    for (gx, gy), a in zip(GEMS, (1.0, 1.45), strict=True):
+        j, i = int(np.searchsorted(ys, gy)), int(np.searchsorted(xs, gx))
+        boss = min(float(-maps["D_gfull"][j, i]), BOSS_MAX_R)
+        windows.append((gy, a, boss))
+        for sz in (1.0, -1.0):
+            zc = sz * (boss - 0.45 * a)
+
+            def dome(X, Y, Z, gy=gy, a=a, zc=zc):
+                return np.sqrt(X ** 2 + (Y - gy) ** 2 + (Z - zc) ** 2) - a
+
+            zb = sz * (boss - 0.1)
+
+            def bezel(X, Y, Z, gy=gy, a=a, zb=zb):
+                return np.sqrt((np.hypot(X, Y - gy) - 0.95 * a) ** 2 + (Z - zb) ** 2) - 0.24
+
+            box = (-a - 1.0, a + 1.0, gy - a - 1.0, gy + a + 1.0, min(zc, zb) - a - 1.0, max(zc, zb) + a + 1.0)
+            out.append(("union", dome, box, 0.12, (0.80, 0.86, 0.32)))
+            out.append(("union", bezel, box, 0.12, (0.66, 0.50, 0.22)))
+    return out, windows
+
+
 class Fields:
     """Every field of the sword on the global lattice, evaluated over index
     boxes: rows (j0, j1), columns (b0, b1), depth samples (k0, k1).
 
-    body:   blade, collar and painted guard in the x-y plane, plus the grip,
-            leaf cup, rose and loop.
-    zguard: the painted guard turned 90 degrees about the blade (y axis), so
-            it lies in the y-z plane; its outline and heights come from the
-            same art, read along z instead of x.
-    """
+    body: blade and collar as a double-sided heightfield, the thicket of
+    canes and prickles as splatted spheres, then the grip, leaf cup, rose,
+    loop and gems as 3D parts, and the cuts (loop hole, pin holes)."""
 
-    def __init__(self, D, H, maps, xs, ys, zs, parts, cuts):
-        self.D, self.H, self.xs, self.ys, self.zs = D, H, xs, ys, zs
+    def __init__(self, D_bc, H, xs, ys, zs, parts, cuts, thicket):
+        self.D, self.H, self.xs, self.ys, self.zs = D_bc, H, xs, ys, zs
         self.parts, self.cuts = parts, cuts
-        res = float(xs[1] - xs[0])
-        rows = np.arange(len(ys))[:, None] * np.ones((1, len(zs)))
-        cols = ((zs - xs[0]) / res)[None, :] * np.ones((len(ys), 1))
-        coords = [rows.ravel(), cols.ravel()]
-        self.DZ = ndi.map_coordinates(maps["D_guard"], coords, order=1, cval=10.0).reshape(rows.shape)
-        self.HZ = ndi.map_coordinates(maps["H_guard"], coords, order=1, cval=0.0).reshape(rows.shape)
-        self.DZ = self.DZ.astype(np.float32)
-        self.HZ = self.HZ.astype(np.float32)
+        self.tc, self.tr = thicket[0], thicket[1]
+        self.r_max = float(self.tr.max()) if len(self.tr) else 0.0
 
     def _boxes(self, items, ry, rx, rz):
         for kind, fn, box, k in items:
@@ -479,10 +748,23 @@ class Fields:
             if a0 < a1 and b0 < b1 and c0 < c1:
                 yield kind, fn, k, (a0, a1, b0, b1, c0, c1)
 
+    def thicket(self, ry, rx, rz, margin=0.6):
+        (j0, j1), (b0, b1), (k0, k1) = ry, rx, rz
+        T = np.full((j1 - j0, b1 - b0, k1 - k0), 5.0, np.float32)
+        pad = self.r_max + margin
+        lo, hi = np.searchsorted(self.tc[:, 1], [self.ys[j0] - pad, self.ys[j1 - 1] + pad])
+        c, r = self.tc[lo:hi], self.tr[lo:hi]
+        inside = ((c[:, 0] > self.xs[b0] - pad) & (c[:, 0] < self.xs[b1 - 1] + pad)
+                  & (c[:, 2] > self.zs[k0] - pad) & (c[:, 2] < self.zs[k1 - 1] + pad))
+        if inside.any():
+            sm.splat_spheres(T, self.xs[b0:b1], self.ys[j0:j1], self.zs[k0:k1], c[inside], r[inside], margin)
+        return T
+
     def body(self, ry, rx, rz, cuts=True):
         (j0, j1), (b0, b1), (k0, k1) = ry, rx, rz
         absz = np.abs(self.zs[k0:k1])[None, None, :]
         F = np.maximum(self.D[j0:j1, b0:b1, None], absz - self.H[j0:j1, b0:b1, None]).astype(np.float32)
+        F = sm.smin(F, self.thicket(ry, rx, rz), THICKET_JOIN).astype(np.float32)
         items = self.parts + (self.cuts if cuts else [])
         for kind, fn, k, (a0, a1, c_b0, c_b1, c0, c1) in self._boxes(items, ry, rx, rz):
             sub = F[a0 - j0:a1 - j0, c_b0 - b0:c_b1 - b0, c0 - k0:c1 - k0]
@@ -491,32 +773,20 @@ class Fields:
             sub[...] = sm.smin(sub, val, k) if kind == "union" else np.maximum(sub, -val)
         return F
 
-    def zguard(self, ry, rx, rz):
-        (j0, j1), (b0, b1), (k0, k1) = ry, rx, rz
-        absx = np.abs(self.xs[b0:b1])[None, :, None]
-        return np.maximum(self.DZ[j0:j1, None, k0:k1], absx - self.HZ[j0:j1, None, k0:k1])
-
-    def cut_only(self, F, ry, rx, rz):
-        j0, b0, k0 = ry[0], rx[0], rz[0]
-        for _, fn, _, (a0, a1, c_b0, c_b1, c0, c1) in self._boxes(self.cuts, ry, rx, rz):
-            sub = F[a0 - j0:a1 - j0, c_b0 - b0:c_b1 - b0, c0 - k0:c1 - k0]
-            sub[...] = np.maximum(sub, -fn(self.xs[c_b0:c_b1][None, :, None], self.ys[a0:a1][:, None, None],
-                                           self.zs[c0:c1][None, None, :]))
-        return F
-
 
 def full_sword(f: Fields, ry, rx, rz):
-    F = sm.smin(f.body(ry, rx, rz, cuts=False), f.zguard(ry, rx, rz), Z_JOIN)
-    return f.cut_only(F, ry, rx, rz)
+    return f.body(ry, rx, rz)
 
 
 def zneed_rows(f: Fields, maps, margin=0.6):
-    """Depth (|z|) each lattice row needs: the flat parts' thickness, the
-    turned guard's reach (the art's width at that row) and the 3D parts."""
-    S = maps["S"]
-    need = np.where(S, f.H, 0.0).max(axis=1)
-    reach = np.where(maps["D_guard"] < 0, np.abs(f.xs)[None, :], 0.0).max(axis=1)
-    need = np.maximum(need, reach + 0.3)
+    """Depth (|z|) each lattice row needs: the blade and collar, the thicket
+    spheres that reach the row, and the 3D parts."""
+    need = np.where(maps["D_bc"] < 0, f.H, 0.0).max(axis=1)
+    res = float(f.ys[1] - f.ys[0])
+    for (_cx, cy, cz), r in zip(f.tc, f.tr, strict=True):
+        j0, j1 = int((cy - r - f.ys[0]) / res), int((cy + r - f.ys[0]) / res) + 2
+        j0, j1 = max(j0, 0), min(j1, len(need))
+        need[j0:j1] = np.maximum(need[j0:j1], abs(cz) + r)
     for _, _, box, _ in f.parts + f.cuts:
         a0, a1 = irange(f.ys, box[2], box[3])
         need[a0:a1] = np.maximum(need[a0:a1], max(abs(box[4]), abs(box[5])))
@@ -542,47 +812,6 @@ def mesh_piece(f: Fields, combine, xr, yr, zr, zneed=None):
                               zbounds=zb if zneed is not None else None)
 
 
-def kit_pieces(f: Fields):
-    """The support-free print kit: the body split at the mid-plane, and each
-    arm of the turned guard (the guard minus the body) split along x = 0.05.
-    Returns (name, combine, x range mm, y range mm, z range mm)."""
-    def body_half(sz):
-        return lambda f_, ry, rx, rz: np.maximum(f_.body(ry, rx, rz), -sz * f_.zs[rz[0]:rz[1]][None, None, :])
-
-    def arm(sz, sx):
-        def combine(f_, ry, rx, rz):
-            F = np.maximum(f_.zguard(ry, rx, rz), -f_.body(ry, rx, rz, cuts=False))
-            F = np.maximum(F, -sz * f_.zs[rz[0]:rz[1]][None, None, :])
-            return np.maximum(F, -sx * (f_.xs[rx[0]:rx[1]][None, :, None] - 0.05))
-        return combine
-
-    return [
-        ("body_front", body_half(1), (-24.0, 24.0), (-1.0, 197.6), (-0.2, 7.2)),
-        ("body_back", body_half(-1), (-24.0, 24.0), (-1.0, 197.6), (-7.2, 0.2)),
-        ("arm_front_right", arm(1, 1), (-0.2, 4.2), (106.0, 162.0), (-0.2, 22.2)),
-        ("arm_front_left", arm(1, -1), (-4.2, 0.3), (106.0, 162.0), (-0.2, 22.2)),
-        ("arm_back_right", arm(-1, 1), (-0.2, 4.2), (106.0, 162.0), (-22.2, 0.2)),
-        ("arm_back_left", arm(-1, -1), (-4.2, 0.3), (106.0, 162.0), (-22.2, 0.2)),
-    ]
-
-
-def lay_flat(name, m):
-    """Turn a kit piece onto its cut face with exact sign flips and swaps
-    (no rounding), cut face at z = 0."""
-    import trimesh
-
-    v = np.array(m.vertices)
-    x, y, z = v[:, 0].copy(), v[:, 1].copy(), v[:, 2].copy()
-    if name == "body_back":
-        x, z = -x, -z
-    elif name.startswith("arm_") and name.endswith("_right"):
-        x, z = -z, x                      # turn about y by -90 degrees: the x = 0.05 cut goes down
-    elif name.startswith("arm_") and name.endswith("_left"):
-        x, z = z, -x                      # turn about y by +90 degrees
-    v = np.stack([x, y, z - z.min()], 1)
-    return trimesh.Trimesh(v, np.asarray(m.faces), process=False)
-
-
 # ---------------------------------------------------------------- preview
 
 def delight(rgb, maps):
@@ -606,34 +835,41 @@ def delight(rgb, maps):
     return hsv2rgb(hsv)
 
 
-def preview_glb(mesh, f: Fields, rgb, path: Path, colors: dict):
-    """Vertex-coloured GLB for the Console viewer: blade and guard take the
-    painting's own colours (the turned guard reads the art along z), the 3D
-    parts take their part colour. Written Y-up as glTF expects; the viewer
-    turns it back to lie flat."""
+def preview_glb(mesh, f: Fields, rgb, thicket_colours, path: Path, colors: dict):
+    """Vertex-coloured GLB for the Console viewer and the renders: blade and
+    collar take the painting's colours, each cane and prickle the colour it
+    was built with, the 3D parts their part colour. Written Y-up as glTF
+    expects; the viewer turns it back to lie flat."""
     import trimesh
+    from scipy.spatial import KDTree
 
-    xs, ys, zs = f.xs, f.ys, f.zs
+    xs, ys = f.xs, f.ys
     V = np.asarray(mesh.vertices)
     res = xs[1] - xs[0]
     ix = np.clip(np.round((V[:, 0] - xs[0]) / res).astype(int), 0, len(xs) - 1)
     iy = np.clip(np.round((V[:, 1] - ys[0]) / res).astype(int), 0, len(ys) - 1)
-    iz = np.clip(np.round((V[:, 2] - zs[0]) / res).astype(int), 0, len(zs) - 1)
-    jx = np.clip(np.round((V[:, 2] - xs[0]) / res).astype(int), 0, len(xs) - 1)   # art column at x = z
     col = rgb[iy, ix].copy()
     best = np.abs(np.maximum(f.D[iy, ix], np.abs(V[:, 2]) - f.H[iy, ix]))
-    fz = np.abs(np.maximum(f.DZ[iy, iz], np.abs(V[:, 0]) - f.HZ[iy, iz]))
-    col = np.where((fz < best)[:, None], rgb[iy, jx], col)
-    best = np.minimum(best, fz)
+    if len(f.tc):
+        dq, iq = KDTree(f.tc).query(V, k=8)
+        dist = np.asarray(dq).reshape(len(V), 8)
+        idx = np.asarray(iq, dtype=np.int64).reshape(len(V), 8)
+        g = dist - f.tr[idx]
+        pick = np.argmin(g, axis=1)
+        rows = np.arange(len(V))
+        ft = np.abs(g[rows, pick])
+        win = ft < best
+        col[win] = thicket_colours[idx[rows, pick]][win]
+        best = np.minimum(best, ft)
     X, Y, Z = V[:, 0], V[:, 1], V[:, 2]
     for fn, c in colors.items():
-        f = np.abs(fn(X, Y, Z))
-        win = f < best
+        fv = np.abs(fn(X, Y, Z))
+        win = fv < best
         shade = 1.0
         if fn is rose:
             shade = 0.72 + 0.28 * np.clip((Y - ROSE_Y) / 10.0, 0, 1)[:, None]
         col = np.where(win[:, None], np.array(c)[None, :] * shade, col)
-        best = np.minimum(best, f)
+        best = np.minimum(best, fv)
     # glTF vertex colours are linear; the painting is sRGB
     col = np.clip(col, 0, 1)
     lin = np.where(col <= 0.04045, col / 12.92, ((col + 0.055) / 1.055) ** 2.4)
@@ -676,7 +912,6 @@ def _matte(path: Path):
 # -------------------------------------------------------------------- main
 
 def main(params: dict, out_dir: Path, name: str):
-    import trimesh
 
     P = dict(DEFAULTS)
     P.update(params)
@@ -690,7 +925,7 @@ def main(params: dict, out_dir: Path, name: str):
     t0 = time.time()
     img, fg, solid = trace_art()
     axis = fit_axis(fg)
-    xs, ys, zs = sm.lattice((-24.0, 24.0), (-1.0, 197.6), (-22.4, 22.4), res)
+    xs, ys, zs = sm.lattice((-24.0, 24.0), (-1.0, 197.6), (-24.0, 24.0), res)
     mask, rgb, scale = resample(img, solid, axis, xs, ys)
     log(f"art traced: {scale:.4f} mm per pixel, lattice {len(xs)} x {len(ys)} x {len(zs)}")
     D, H, maps = design_2d(mask, rgb, xs, ys, res)
@@ -699,34 +934,30 @@ def main(params: dict, out_dir: Path, name: str):
     if P["stage"] == "2d":
         return None
 
-    variant = "kit" if P["variant"] in ("kit", "halves") else "full"
-    meshes = {}
-    if variant == "full":
-        f = Fields(D, H, maps, xs, ys, zs, PARTS, CUTS)
-        t1 = time.time()
-        m = mesh_piece(f, full_sword, (0, len(xs)), (0, len(ys)), (0, len(zs)), zneed_rows(f, maps))
-        log(f"marching cubes (full): {len(m.faces):,} faces in {time.time() - t1:.1f}s")
-        sword = sm.ensure_closed(sm.decimate(m, int(P["faces"])))
-        meshes["sword"] = sword
-        pv = sm.ensure_closed(sm.decimate(sword, int(P["preview_faces"])))
-        preview_glb(pv, f, delight(rgb, maps), out_dir / f"{name}_preview.glb", dict(COLORS))
-        log(f"preview {out_dir / (name + '_preview.glb')} ({len(pv.faces):,} faces)")
-    else:
-        f = Fields(D, H, maps, xs, ys, zs, PARTS, CUTS + [PIN_CUT])
-        cursor = None
-        for piece, combine, xr, yr, zr in kit_pieces(f):
-            t1 = time.time()
-            box = [irange(xs, *xr), irange(ys, *yr), irange(zs, *zr)]
-            m = mesh_piece(f, combine, *box)
-            budget = int(P["faces"]) if piece.startswith("body") else int(P["faces"]) // 4
-            m = lay_flat(piece, sm.decimate(m, budget))
-            # line the pieces up left to right on the bed, 3 mm apart
-            v = np.array(m.vertices)
-            start = -2.0 - (v[:, 0].max() - v[:, 0].min()) if cursor is None else cursor
-            v[:, 0] += start - v[:, 0].min()
-            cursor = v[:, 0].max() + 3.0
-            meshes[piece] = sm.ensure_closed(trimesh.Trimesh(v, np.asarray(m.faces), process=False))
-            log(f"{piece}: {len(meshes[piece].faces):,} faces in {time.time() - t1:.1f}s")
+    if P["variant"] in ("kit", "halves"):
+        # A plane through a 3D thicket leaves loose arcs of cane in each half
+        # (measured: four per half, one of them 8 mm of guard), so there is no
+        # support-free split. Print the one piece in resin.
+        raise SystemExit("snicker_snack: the thorn thicket does not split into connected halves; "
+                         "build the one piece and print it in resin (or FDM with tree supports)")
+    paint = delight(rgb, maps)
+    gems, windows = gem_parts(maps, xs, ys)
+    t1 = time.time()
+    tc, tr, tk, tl = build_thicket(maps, paint, xs, ys, windows)
+    log(f"thicket: {len(tc):,} spheres in {len(THICKET)} turned copies of the painted guard "
+        f"({time.time() - t1:.1f}s)")
+    parts = PARTS + [(kind, fn, box, k) for kind, fn, box, k, _ in gems]
+    colors = dict(COLORS)
+    colors.update({fn: c for _, fn, _, _, c in gems})
+    f = Fields(maps["D_bc"], H, xs, ys, zs, parts, CUTS, (tc, tr))
+    t1 = time.time()
+    m = mesh_piece(f, full_sword, (0, len(xs)), (0, len(ys)), (0, len(zs)), zneed_rows(f, maps))
+    log(f"marching cubes: {len(m.faces):,} faces in {time.time() - t1:.1f}s")
+    sword = sm.ensure_closed(sm.decimate(m, int(P["faces"])))
+    meshes = {"sword": sword}
+    pv = sm.ensure_closed(sm.decimate(sword, int(P["preview_faces"])))
+    preview_glb(pv, f, paint, tk, out_dir / f"{name}_preview.glb", colors)
+    log(f"preview {out_dir / (name + '_preview.glb')} ({len(pv.faces):,} faces)")
     log(f"total {time.time() - t0:.1f}s")
     return meshes
 

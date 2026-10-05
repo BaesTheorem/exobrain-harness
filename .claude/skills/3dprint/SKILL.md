@@ -118,17 +118,22 @@ from `models/snicker_snack/build.py`:
 4. **3D parts.** Ellipsoid petals and leaves, helix vines, rounded rings,
    and curved tapering tubes (`catmull_rom` + `tube`, with `thorn` for spikes),
    joined with `smin` (smooth union). Evaluate each only inside its box.
-   Depth that a picture cannot show comes from the picture itself, not from
-   invented parts. To extend a painted element into the third axis, read the
-   same 2D outline and height maps along another axis: the Snicker-Snack
-   guard is the painted guard joined to itself turned 90 degrees about the
-   blade (`Fields.zguard`), a cross from above with the art on every side. An
-   added crown of thorn vines was rejected as looking like a succulent.
+   Depth that a picture cannot show: build it from the picture's own
+   elements, and make it volumetric. What Alex accepted for the Snicker-Snack
+   guard, after three misses (radial horns read as a succulent; the painted
+   panel turned 90 degrees read as flat cards):
+   - every painted vine rebuilt as a round tube from the medial axis
+     (`skeleton_points`: radius = distance to the outline, smoothed along the
+     vine, spurs dropped, capped away from the centre), splatted as spheres
+     with `splat_spheres`, so the face keeps the painted outline;
+   - a thicket of grown canes around it (`grow_cane`: steady curvature about a
+     drifting axis, steered back inside an ellipsoid envelope, pushed out of a
+     tunnel in front of each focal detail), with hooked prickles.
 5. **Mesh.** `mesh_from_field` (shared slab rows keep it closed), then
    `decimate` to about 600k faces and `ensure_closed`. `ensure_closed` runs
    `tidy` last: it welds near-coincident vertices and snaps to a 0.1 um grid,
    so the STL a slicer loads has the same topology as the mesh in memory.
-6. **Support-free kit.** A double-sided part lying flat needs supports under
+6. **Support-free kit (flat parts only).** A double-sided part lying flat needs supports under
    every lower face. Intersect the field with z >= 0 and z <= 0 (the lattice
    puts z = 0 between samples, so the cut is clean), add pin holes, lay both
    halves cut face down: no supports, both faces print as top surfaces. A
@@ -137,6 +142,8 @@ from `models/snicker_snack/build.py`:
    the body surface and glues on in one position, and split it along its own
    mid-plane. Lay each piece on its cut face with exact sign flips and swaps.
    `mesh_from_field(zbounds=...)` samples only the depth each slab needs.
+   A 3D tangle (a thicket, a cage) has no such split: any plane leaves loose
+   arcs in each piece. Print it whole, in resin, or FDM with tree supports.
 
 A full replica is double-sided. Do not offer a flat back unless Alex asks.
 
