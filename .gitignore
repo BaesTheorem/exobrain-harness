@@ -297,3 +297,7 @@ govee/data/*
 
 # Tools registry entries whose names must stay out of the public repo (log-tool.py --private)
 tools-registry/*.private.json
+
+# 3dprint: venv and generated meshes/gcode/previews
+3dprint/.venv/
+3dprint/out/

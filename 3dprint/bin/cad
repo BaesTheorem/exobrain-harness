@@ -1,0 +1,7 @@
+#!/bin/sh
+# cad: build, check, preview and slice 3D-printable models. See 3dprint/README.md.
+HERE="$(cd "$(dirname "$0")/.." && pwd)"
+if [ ! -x "$HERE/.venv/bin/python" ]; then
+  echo "cad: no venv; run $HERE/bin/cad-setup" >&2; exit 2
+fi
+exec "$HERE/.venv/bin/python" "$HERE/lib/cad_cli.py" "$@"

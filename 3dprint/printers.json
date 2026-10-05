@@ -1,0 +1,21 @@
+{
+  "default": "generic",
+  "printers": {
+    "generic": {
+      "bed": [220, 220],
+      "height": 250,
+      "nozzle": 0.4,
+      "gcode_flavor": "marlin2",
+      "confirmed": false,
+      "note": "Conservative default (Ender-3 class bed). Replace once the second printer's model is known."
+    },
+    "bambu": {
+      "bed": [256, 256],
+      "height": 256,
+      "nozzle": 0.4,
+      "gcode_flavor": "marlin2",
+      "confirmed": false,
+      "note": "Housemate's Bambu Lab printer. Model unconfirmed: P1/X1 class is 256 cubed, an A1 mini is 180 cubed. Final slicing happens in Bambu Studio, not here."
+    }
+  }
+}

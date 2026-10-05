@@ -1,0 +1,16 @@
+#!/bin/sh
+# cad-setup: install or rebuild the 3D print toolchain (venv + brew apps + BOSL2).
+set -e
+HERE="$(cd "$(dirname "$0")/.." && pwd)"
+cd "$HERE"
+command -v uv >/dev/null || { echo "need uv: see https://docs.astral.sh/uv/getting-started/installation/" >&2; exit 2; }
+[ -x .venv/bin/python ] || uv venv --python 3.12 .venv
+uv pip install --python .venv/bin/python -r requirements.txt
+if command -v brew >/dev/null; then
+  for cask in openscad@snapshot prusaslicer; do brew list --cask "$cask" >/dev/null 2>&1 || brew install --cask "$cask"; done
+  brew list f3d >/dev/null 2>&1 || brew install f3d
+fi
+LIB="$HOME/Documents/OpenSCAD/libraries"
+mkdir -p "$LIB"
+if [ -d "$LIB/BOSL2/.git" ]; then git -C "$LIB/BOSL2" pull -q; else git clone -q --depth 1 https://github.com/BelfrySCAD/BOSL2.git "$LIB/BOSL2"; fi
+"$HERE/bin/cad" info
