@@ -55,7 +55,7 @@ The H6008 takes 20 commands each second on the LAN (tested), and the bulb fades 
 
 ## Power-on color rule
 
-`govee google-script` writes a script for the Google Home script editor (home.google.com > Automations > Add > script). Each bulb gets three automations. When the bulb turns on, Google sets its color and brightness for the time of day:
+`govee google-script` writes a script for the Google Home script editor (home.google.com > Automations > Add > script). After you paste and save the script, activate it. A saved script that is not active does nothing, and Google shows no error. Each bulb gets three automations. When the bulb turns on, Google sets its color and brightness for the time of day:
 
 | Period | Color | Brightness |
 | --- | --- | --- |
