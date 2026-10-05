@@ -1,11 +1,11 @@
 ---
 name: local-events
-description: Discover upcoming Kansas City events Alex would enjoy. Searches Meetup, venue calendars, and library listings. Highlights favorite artists, tech/AI meetups, live music, and social opportunities. Use when the user asks "what's going on in KC", "any events coming up", "things to do this weekend", "local events", "concerts near me", or when triggered by the weekly review on Sundays.
+description: Discover upcoming Kansas City events (next 90 days) Alex would enjoy. Searches Meetup, venue calendars, and library listings. Highlights favorite artists, tech/AI meetups, live music, and social opportunities. Use when the user asks "what's going on in KC", "any events coming up", "things to do this weekend", "local events", "concerts near me", or when triggered by the weekly review on Sundays.
 ---
 
 # Local Events
 
-Scans multiple sources for Kansas City events in the next 30 days, filtered for Alex's evolving interests. Runs weekly on Sundays and writes picks to the daily note.
+Scans multiple sources for Kansas City events in the next 90 days, filtered for Alex's evolving interests. Every scan, ad-hoc or the weekly scheduled run, covers the full 90-day window. The events log stops a repeat, so each weekly run surfaces only what is new in the window: events announced since the last run, and events that the window now reaches. Writes picks to the daily note.
 
 ## Evolving Preferences
 
@@ -99,8 +99,8 @@ Search these sources in parallel where possible.
 Meetup is read through the harness's own CLI (`/meetup` skill, `meetup/README.md`), not WebSearch. It hits the site's GraphQL endpoint directly, needs no login, and returns normalized JSON:
 
 ```bash
-meetup/bin/meetup events --days 30 --type physical --limit 0 --json     # the whole in-person feed near KC
-meetup/bin/meetup search "<keyword>" --days 30 --limit 15 --json         # per interest keyword, relevance-ranked
+meetup/bin/meetup events --days 90 --type physical --limit 0 --json     # the whole in-person feed near KC
+meetup/bin/meetup search "<keyword>" --days 90 --limit 15 --json         # per interest keyword, relevance-ranked
 ```
 
 Run `events` once for the full window (it is the same feed the site shows for KC) and score every record against the preferences file. Then run `search` for the high-interest keywords (AI, cybersecurity, board games, D&D, effective altruism, rationality, philosophy) to catch anything the feed ranked low. Meetup's keyword search is fuzzy and semantic, so read titles before trusting a hit, and prefer the default relevance sort over `--sort date` for keywords.
@@ -116,7 +116,7 @@ Check major venue calendars for upcoming shows:
 - recordBar: `https://www.therecordbar.com/events`
 - T-Mobile Center: `https://www.t-mobilecenter.com/events`
 
-For each venue, use `defuddle parse "[URL]" -m` (via Bash) to extract clean content from the events page -- this strips navigation, ads, and boilerplate, saving 60-80% of tokens vs raw WebFetch. Only fall back to WebFetch if defuddle fails. Extract shows in the next 30 days and cross-reference artist names against the `favoriteArtists` list from the preferences file.
+For each venue, use `defuddle parse "[URL]" -m` (via Bash) to extract clean content from the events page -- this strips navigation, ads, and boilerplate, saving 60-80% of tokens vs raw WebFetch. Only fall back to WebFetch if defuddle fails. Extract shows in the next 90 days and cross-reference artist names against the `favoriteArtists` list from the preferences file.
 
 ### 3. KC Library Events
 - Kansas City Public Library: `https://kclibrary.org/events`
@@ -134,6 +134,7 @@ This writes `reddit/data/kc-events-scan.json` (gitignored): **every** post from 
 
 Judgment happens here, not in the script: read the snapshot and scan **all** posts for potential events, not just "Things To Do 📍" flair (event announcements also hide under Discussion, Bars/Nightlife, Food and Drink). Score candidates through the same rubric.
 
+- **Megathread comments are nested inside the post record** (`posts[i].comments`), not in a top-level `megathreads` key. The snapshot has only `megathread_count`. Find the megathread by its title and read its `comments` field.
 - **Check `status` first.** `"ok"` = proceed. `"stale"` = Arctic Shift's ingestion has lagged >48h; log it, skip the source this run, notify only if it persists across 2+ runs. `"blocked"` = network/API failure; silent-skip per watcher discipline.
 - Reddit posts paraphrase and get details wrong -- verify dates/links against the venue before surfacing, and megathread comments need corroboration before becoming action items (tour-dates rule).
 - Background: vault `recon/2026-08-23-reddit-access-paths.md`. Arctic Shift is one volunteer's tolerated archive; if it dies, old.reddit.com HTML (with `--compressed` + browser UA) is the independent fallback surface.
@@ -188,7 +189,7 @@ This is the one that has burned us. Any statement about a favorite artist's tour
 
 ```markdown
 ### Local Events
-*Next 30 days -- updated [today's date]*
+*Next 90 days -- updated [today's date]*
 
 #### 🎵 Favorite Artist Alert
 - **[Artist] at [Venue]** -- [Date] [Time] | [Link](url)
@@ -201,6 +202,10 @@ This is the one that has burned us. Any statement about a favorite artist's tour
 #### Coming Up
 - **[Event Name]** -- [Venue], [Date] [Time] | [Free/$Price] | [Link](url)
   *Why: [1-line reason]*
+
+#### Further Out
+- **[Event Name]** -- [Venue], [Date] [Time] | [Free/$Price] | [Link](url)
+  *Why: [1-line reason]*
 ```
 
 Rules:
@@ -210,6 +215,7 @@ Rules:
 - Sort by date within each section
 - Include price if known, "Free" if free, omit if unknown
 - Keep the "Why" line short and specific (not "this seems fun" but "cybersec meetup -- good for networking + Sec+ study group potential")
+- "Coming Up" is days 8-30, "Further Out" is days 31-90. Further Out is for things that need lead time (tickets that sell out, tours, conferences, festivals), not every recurring meetup
 - Maximum 15 events per update (quality over quantity)
 - If no events match high/medium priority, say so (don't pad with low-priority filler)
 
@@ -233,7 +239,7 @@ After the scan completes (run from the harness root; every banner is clickable p
 
 **Always**:
 ```bash
-mist-voice/bin/mist-notify "[N] new events found for the next 30 days" "Exobrain" Purr console
+mist-voice/bin/mist-notify "[N] new events found for the next 90 days" "Exobrain" Purr console
 ```
 
 **Favorite artist alert** (urgent):
