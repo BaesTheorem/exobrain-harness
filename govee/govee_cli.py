@@ -145,6 +145,7 @@ def select(cache: dict[str, dict], devices: list[GoveeDevice], target: str) -> l
             for d in devices
             if re.fullmatch(re.escape(want) + r"-\d+", (cache.get(d.fingerprint, {}).get("alias") or "").lower())
             or group_of(cache.get(d.fingerprint, {})) == want
+            or (cache.get(d.fingerprint, {}).get("floor") or "").lower() == want
         ]
         if not hits:
             raise SystemExit(f"govee: no bulb matches {want!r} (run `govee status` to see names)")

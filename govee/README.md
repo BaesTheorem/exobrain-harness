@@ -23,7 +23,7 @@ govee google-script [--room R]    print a Google Home script for the power-on ru
 govee --check <command>         read the status back after a set command
 ```
 
-TARGET is `all` (the default), an alias, an alias group (`vanity` selects `vanity-1` to `vanity-4`), an IP, or the last part of the device id. Use commas for more than one target.
+TARGET is `all` (the default), an alias, an alias group (`vanity` selects `vanity-1` to `vanity-4`), a floor (the `floor` field in `data/devices.json`, for example `floor-2`), an IP, or the last part of the device id. Use commas for more than one target.
 
 ## Limits
 
