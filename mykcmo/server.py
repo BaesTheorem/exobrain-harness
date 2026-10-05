@@ -843,26 +843,30 @@ def live_311_map(latitude: float | None = None, longitude: float | None = None, 
 
 
 @mcp.tool()
-def request_311_updates(report_ids: list[str] | None = None, method: str = "Email", confirm: bool = False) -> dict:
+def request_311_updates(report_ids: list[str] | None = None, method: str = "Email", confirm: bool = False,
+                        only_due: bool = False) -> dict:
     """File a "311 Request Update" for each open report in my_311_reports (or
-    only `report_ids`). Without confirm=True it returns the list it would
-    send. With confirm=True it files one REAL request per report. method:
-    Email or Phone Call; the contact comes from MYKCMO_CONTACT_*.
+    only `report_ids`). only_due=True keeps reports with no movement and no
+    update request for 7 days (the rule the app and the daily job use).
+    Without confirm=True it returns the list it would send. With confirm=True
+    it files one REAL request per report. method: Email or Phone Call; the
+    contact comes from MYKCMO_CONTACT_*.
     """
     try:
         mine = civicapi.my_reports().get("my_issues", [])
     except civicapi.KeyRejected as exc:
         return _key_error(exc)
     closed = ("resolved", "closed", "cancel", "complete")
-    targets = [r for r in mine if not any(c in str(r.get("status", "")).lower() for c in closed)
-               and (not report_ids or str(r.get("id")) in report_ids)]
+    pool = civicapi.due_for_update(mine) if only_due else [
+        r for r in mine if not civicapi.is_update_request(r)
+        and not any(c in str(r.get("status", "")).lower() for c in closed)]
+    targets = [r for r in pool if not report_ids or str(r.get("id")) in report_ids]
     contact = _contact_defaults()
     reach = contact["email"] if method == "Email" else contact["phone"]
     plan = []
     for r in targets:
         cn = civicapi.case_number(r)
-        plan.append({"id": r["id"], "case_number": cn,
-                     "reference": f"request #{cn}" if cn else f"myKCMO app report {r['id']}",
+        plan.append({"id": r["id"], "case_number": cn, "reference": civicapi.reference(r),
                      "sub_type": r.get("subcategory") or r.get("sub_type"), "address": r.get("address") or ""})
     if not confirm:
         return {"ok": True, "would_file": plan, "contact": f"{method}: {reach}",

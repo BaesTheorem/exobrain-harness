@@ -18,6 +18,7 @@ Live data, from the myKCMO app backend (`civicapi.py`):
 | `submit_311_report` | File the staged report (needs `confirm=True`), with photos |
 | `my_311_reports` | Reports filed from this harness or the KC 311 iPhone app, with live status |
 | `get_311_report_status` | One report's live detail and staff timeline |
+| `request_311_updates` | File a 311 Request Update for open reports (`only_due=True`: no movement for 7 days); dry run unless `confirm=True` |
 | `live_311_map` | Public reports near a point, live, sorted by distance |
 | `prepare_streetcar_report` | Stage a KC Streetcar report: a See Say text, an email, and a form entry, with a recommended channel |
 | `submit_streetcar_report` | Post the staged report to the streetcar Google Form (second channel, needs `confirm=True`) |
@@ -70,6 +71,16 @@ Nominatim), and the nearest intersection (US Census TIGER roads, with
 OpenStreetMap Overpass as the fallback). Free-text questions that ask where
 the problem is get the same facts. A pattern list (`WHERE`, `NOT_WHERE`)
 keeps out questions about the reporter, such as "E-mail Address".
+
+### Automatic update requests
+
+`auto_updates.py` runs each morning at 10:30 (launchd
+`com.exobrain.mykcmo-auto-updates`, plist in this folder). It files a 311
+Request Update for each open report that has had no movement and no update
+request for 7 days (`civicapi.due_for_update`), then sends one banner and
+one Discord DM. Filed update requests appear in the city's "my reports" list
+for the shared device id, so this job and the KC 311 iPhone app read the
+same record and never ask twice.
 
 ### Key rotation
 

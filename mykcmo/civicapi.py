@@ -396,3 +396,63 @@ def case_number(record: dict) -> str:
         except ValueError:
             tp = {}
     return str(tp.get("case_number", "")) if isinstance(tp, dict) else ""
+
+
+# ---------------------------------------------------------------------------
+# Automatic update requests. The city's own records are the shared state: a
+# filed "311 Request Update" shows in myissues for this device id, so the
+# iPhone app and the Mac job see each other's requests and never ask twice.
+# ---------------------------------------------------------------------------
+
+UPDATE_CATEGORY = "311 Request Update"
+STALE_DAYS = 7
+_CLOSED = ("resolved", "closed", "cancel", "complete")
+
+
+def _ts(record: dict) -> float:
+    """Latest movement on a report: updated_on (UTC), last_action_date, added_on."""
+    from datetime import datetime, timezone
+
+    best = float(record.get("added_on") or 0)
+    raw = str(record.get("updated_on") or "")
+    try:
+        best = max(best, datetime.strptime(raw, "%Y-%m-%d %H:%M:%S").replace(tzinfo=timezone.utc).timestamp())
+    except ValueError:
+        pass
+    raw = str(record.get("last_action_date") or "")
+    try:
+        best = max(best, datetime.strptime(raw, "%m/%d/%Y").replace(tzinfo=timezone.utc).timestamp())
+    except ValueError:
+        pass
+    return best
+
+
+def is_update_request(record: dict) -> bool:
+    return UPDATE_CATEGORY.lower() in str(record.get("name") or record.get("issue_type") or "").lower()
+
+
+def reference(record: dict) -> str:
+    cn = case_number(record)
+    return f"request #{cn}" if cn else f"myKCMO app report {record.get('id')}"
+
+
+def last_asked(record: dict, mine: list[dict]) -> float:
+    """When an update was last requested for this report (0 if never)."""
+    keys = {f"report {record.get('id')}"} | ({f"#{cn}", cn} if (cn := case_number(record)) else set())
+    asks = [float(r.get("added_on") or 0) for r in mine if is_update_request(r)
+            and any(k and k in str(r.get("description") or "") for k in keys)]
+    return max(asks, default=0.0)
+
+
+def due_for_update(mine: list[dict], now: float | None = None, days: int = STALE_DAYS) -> list[dict]:
+    """Open reports with no movement and no update request for `days` days."""
+    import time
+
+    now = now or time.time()
+    out = []
+    for r in mine:
+        if is_update_request(r) or any(c in str(r.get("status", "")).lower() for c in _CLOSED):
+            continue
+        if now - max(_ts(r), last_asked(r, mine)) >= days * 86400:
+            out.append(r)
+    return out
