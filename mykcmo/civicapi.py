@@ -25,6 +25,7 @@ import json
 import os
 import secrets
 import uuid
+import urllib.error
 import urllib.request
 from pathlib import Path
 
@@ -328,12 +329,27 @@ def report_detail(issue_id: str, cfg: dict | None = None) -> dict:
 
 def public_map(lat: float, lon: float, status: str = "open", types: list[str] | None = None,
                cfg: dict | None = None) -> list[dict]:
+    """Public reports near a point. The server answers HTTP 500 when one call
+    names too many categories, so ask in groups of 5, all at once, and merge (each call takes about 6 s)."""
+    from concurrent.futures import ThreadPoolExecutor
+
     names = types or [c["name"] for c in catalog(cfg)["categories"]]
-    data = call("reported_issues_map", {
-        "menu_id": MENU_REPORT, "lat": str(lat), "lng": str(lon),
-        "FilterOptions": json.dumps({"status": status, "issue_type": ",".join(names)}),
-    }, cfg=cfg)
-    return (data.get("response_status") or {}).get("response_data") or []
+    groups = [names[i:i + 5] for i in range(0, len(names), 5)]
+
+    def one(group: list[str]) -> list[dict]:
+        try:
+            data = call("reported_issues_map", {
+                "menu_id": MENU_REPORT, "lat": str(lat), "lng": str(lon),
+                "FilterOptions": json.dumps({"status": status, "issue_type": ",".join(group)}),
+            }, cfg=cfg)
+        except urllib.error.HTTPError:
+            return []
+        return (data.get("response_status") or {}).get("response_data") or []
+
+    with ThreadPoolExecutor(max_workers=len(groups) or 1) as pool:
+        rows = [r for chunk in pool.map(one, groups) for r in chunk]
+    seen: set[str] = set()
+    return [r for r in rows if not (str(r.get("report_id")) in seen or seen.add(str(r.get("report_id"))))]
 
 
 def geocode(address: str) -> dict:

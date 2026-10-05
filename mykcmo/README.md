@@ -19,6 +19,8 @@ Live data, from the myKCMO app backend (`civicapi.py`):
 | `my_311_reports` | Reports filed from this harness or the KC 311 iPhone app, with live status |
 | `get_311_report_status` | One report's live detail and staff timeline |
 | `live_311_map` | Public reports near a point, live, sorted by distance |
+| `prepare_streetcar_report` | Stage a KC Streetcar report: a See Say text, an email, and a form entry, with a recommended channel |
+| `submit_streetcar_report` | Post the staged report to the streetcar Google Form (second channel, needs `confirm=True`) |
 
 History and stats, from the open-data feed (2-7 day lag):
 
@@ -59,6 +61,16 @@ web form path cannot send, and it accepts photos.
   server compares the pin position, thus a geocoded address that is 50 m
   away can go through the check.
 
+### Location autofill
+
+`kcplace.py` finds where a report comes from: explicit coordinates first,
+then the first photo's EXIF GPS, then the geocoded address. It adds one line
+to the description with the GPS point, the nearest address (OpenStreetMap
+Nominatim), and the nearest intersection (US Census TIGER roads, with
+OpenStreetMap Overpass as the fallback). Free-text questions that ask where
+the problem is get the same facts. A pattern list (`WHERE`, `NOT_WHERE`)
+keeps out questions about the reporter, such as "E-mail Address".
+
 ### Key rotation
 
 When the city ships an app update with a new key, signed calls do not work. The server answers
@@ -76,6 +88,23 @@ The launchd agent `com.exobrain.mykcmo-key-watch` (plist in this folder, copy
 it to `~/Library/LaunchAgents/`) runs `--auto --notify` at 11:15 each day.
 On a rotation it refreshes the key, rebuilds and reinstalls the KC 311 iPhone
 app, and sends a banner and a Discord DM.
+
+## KC Streetcar
+
+The KC Streetcar Authority is not part of 311, and no myKCMO category goes to
+it. Its own channels (checked 2026-10-05):
+
+| Channel | Goes to | Use for |
+| --- | --- | --- |
+| See Say text line 816-837-4800 (also an app, and TellKCStreetcar.com) | A streetcar dispatcher, with two-way text | Safety, behavior, cleanliness, and damage, on board or at a stop |
+| Email info@kcstreetcar.org | The Authority's canonical inbox | Tracker and display problems, service, feedback. Photos attach |
+| Google Form on kcstreetcar.org/contact | The Google account that owns the form (not visible from outside) | A second channel only. No photos |
+
+`prepare_streetcar_report` writes all three and recommends one by issue
+kind. The See Say web form is behind Cloudflare Turnstile, so it is for a
+person in a browser. The text line is the path that a script can prepare.
+Stop names follow the See Say form. Stop positions come from OpenStreetMap
+(ODbL).
 
 ## Fallback: the web form
 

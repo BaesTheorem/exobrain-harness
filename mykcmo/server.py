@@ -27,6 +27,8 @@ import urllib.request
 from datetime import datetime
 
 import civicapi
+import kcplace as geo
+import streetcar
 import webrai
 from mcp.server import MCPServer
 
@@ -68,7 +70,8 @@ mcp = MCPServer(
         "REAL case: list_report_categories -> get_report_subtypes (questions) -> "
         "prepare_311_report (review, no captcha) -> submit_311_report(confirm=True). "
         "Confirm with Alex before submitting. The *_webform tools are a captcha "
-        "fallback for when the app key is rejected."
+        "fallback for when the app key is rejected. Streetcar problems are not 311: "
+        "use prepare_streetcar_report -> submit_streetcar_report(confirm=True)."
     ),
 )
 
@@ -628,6 +631,7 @@ def prepare_311_report(
     photo_paths: list[str] | None = None,
     anonymous: bool = False,
     share_options: str = "private",
+    add_location_line: bool = True,
 ) -> dict:
     """Stage a real 311 report through the myKCMO app API. Submits NOTHING.
 
@@ -636,6 +640,12 @@ def prepare_311_report(
     given, asks the city whether a duplicate exists at that address, and
     returns a `pending_id` plus a `review` of exactly what will be filed.
     Contact info comes from MYKCMO_CONTACT_* unless anonymous=True.
+
+    Location: explicit latitude/longitude win, then the first photo's EXIF
+    GPS, then the geocoded `address`. With add_location_line, the description
+    gets one line with the GPS point, the nearest address and the nearest
+    intersection, and empty free-text questions that ask where (location,
+    address, intersection, cross street) get the same facts.
 
     Next: show the review to Alex, then submit_311_report(pending_id, confirm=True).
     """
@@ -660,14 +670,33 @@ def prepare_311_report(
             return {"ok": False, "error": f"{cat['name']!r} requires a description."}
 
         loc = None
+        source = ""
         needs_loc = civicapi.flag(cat, sub, "location_required") == "yes"
+        photo_gps = next((g for p in (photo_paths or []) if (g := geo.exif_gps(os.path.expanduser(p)))), None)
         if latitude is not None and longitude is not None:
             loc = {"street": address or f"{latitude:.5f}, {longitude:.5f}", "lat": latitude, "lon": longitude,
                    "city": "Kansas City", "state": "MO", "zip": ""}
+            source = "given point"
+        elif photo_gps:
+            loc = {"street": address, "lat": photo_gps[0], "lon": photo_gps[1],
+                   "city": "Kansas City", "state": "MO", "zip": ""}
+            source = "photo GPS"
         elif address:
             loc = civicapi.geocode(address)
+            source = "geocoded address"
         elif needs_loc:
-            return {"ok": False, "error": f"{cat['name']!r} requires a location: pass address or latitude+longitude."}
+            return {"ok": False, "error": f"{cat['name']!r} requires a location: pass address, latitude+longitude, "
+                    "or a photo with GPS."}
+
+        place = geo.describe(loc["lat"], loc["lon"], source) if loc and add_location_line else None
+        if loc and place and not loc["street"]:
+            loc["street"] = place["address"].split(",")[0] or f"{loc['lat']:.5f}, {loc['lon']:.5f}"
+        if place:
+            if "Location: GPS" not in description:
+                description = (description.rstrip() + "\n\n" + place["line"]).strip()
+            for q in qs:
+                if int(q["type"]) == 3 and not encoded.get(q["caption"]) and (fill := geo.answer_for(q["caption"], place)):
+                    encoded[q["caption"]] = fill
 
         dup = {"allow_duplicate": "0", "message": ""}
         if loc and (civicapi.flag(cat, sub, "prevent_duplicate_issue") or "0") != "0":
@@ -693,7 +722,8 @@ def prepare_311_report(
         "answers": encoded,
         "description": description,
         "location": loc["street"] if loc else "(none)",
-        "coordinates": f"{loc['lat']},{loc['lon']}" if loc else "(none)",
+        "coordinates": f"{loc['lat']},{loc['lon']} ({source})" if loc else "(none)",
+        "intersection": place["intersection"] if place else None,
         "photos": len(photos),
         "contact": "anonymous" if not contact else " ".join(
             str(contact.get(k, "")) for k in ("first_name", "last_name", "email", "phone")).strip(),
@@ -801,6 +831,99 @@ def live_311_map(latitude: float | None = None, longitude: float | None = None, 
              "type": r.get("issue_name"), "sub_type": r.get("subtype"), "status": r.get("issue_status"),
              "address": r.get("issue_address"), "meters": round(dist(r)),
              "submitted": r.get("issue_submitted_date")} for r in rows[:limit]]
+
+# ---------------------------------------------------------------------------
+# KC Streetcar (streetcar.py): not part of 311. Default channel is an email
+# to info@kcstreetcar.org (send it with the Gmail tools); the Authority's
+# Google Form is the second channel, same prepare -> confirm -> submit flow.
+# ---------------------------------------------------------------------------
+
+
+@mcp.tool()
+def prepare_streetcar_report(
+    description: str,
+    latitude: float | None = None,
+    longitude: float | None = None,
+    photo_path: str = "",
+    stop: str = "",
+    car_number: str = "NA",
+    when: str = "",
+    comment: str = "",
+    staff_name: str = "",
+    kind: str = "Issue",
+) -> dict:
+    """Stage a report for the KC Streetcar Authority. Sends NOTHING.
+
+    Returns three channels and a `recommended` pick:
+    - `see_say`: a text for 816-837-4800, the See Say line that reaches a
+      streetcar dispatcher now (safety, behavior, cleanliness, damage, on
+      board or at a stop). Two-way: dispatch can text back.
+    - `email`: to/subject/body for info@kcstreetcar.org, the canonical inbox
+      (tracker/display problems, service, feedback). Attach the photo.
+    - the Google Form (`pending_id`), a second channel with no photos that
+      routes to an inbox we cannot see. Location: explicit point, else the photo's
+    EXIF GPS, else MYKCMO_HOME_LAT/LON; the nearest stop, address and
+    intersection are filled in. `stop` overrides the nearest-stop guess.
+    `when` is "YYYY-MM-DD HH:MM" (default now). car_number: 801-814 or NA.
+    kind: Tracker/Display, Service Disruption, Safety, Accessibility,
+    Station Condition, or Other (goes in the email subject).
+    The form requires an email: MYKCMO_CONTACT_EMAIL.
+
+    Next: show the review to Alex and send the recommended channel after he
+    confirms. The form only on request: submit_streetcar_report(pending_id, confirm=True).
+    """
+    contact = _contact_defaults()
+    if not contact["email"]:
+        return {"ok": False, "error": "The streetcar form requires an email. Set MYKCMO_CONTACT_EMAIL."}
+    source = "given point"
+    if (latitude is None or longitude is None) and photo_path:
+        gps = geo.exif_gps(os.path.expanduser(photo_path))
+        if gps:
+            latitude, longitude, source = gps[0], gps[1], "photo GPS"
+    if latitude is None or longitude is None:
+        return {"ok": False, "error": "Pass latitude+longitude or a photo with GPS, so the report names the stop."}
+    loc = streetcar.location_text(latitude, longitude, source)
+    if stop:
+        loc = f"{stop} stop (reported). " + loc
+    try:
+        at = datetime.strptime(when, "%Y-%m-%d %H:%M") if when else datetime.now()
+    except ValueError:
+        return {"ok": False, "error": "when must be YYYY-MM-DD HH:MM."}
+    fields = streetcar.build(
+        email=contact["email"], name=f"{contact['first_name']} {contact['last_name']}".strip(),
+        phone=contact["phone"], when=at, location=loc, car=car_number, description=description,
+        comment=comment, staff=staff_name,
+    )
+    pending_id = "sc" + os.urandom(5).hex()
+    _PENDING[pending_id] = {"streetcar": fields}
+    email = streetcar.email_draft(when=at, location=loc, car=car_number, description=description, kind=kind,
+                                  contact=contact, has_photo=bool(photo_path))
+    sms = streetcar.sms_draft(location=loc, car=car_number, description=description, kind=kind)
+    return {"ok": True, "recommended": streetcar.recommended_channel(kind), "see_say": sms, "email": email,
+            "attach": photo_path or None, "see_say_web": streetcar.SEE_SAY_WEB, "pending_id": pending_id, "review": {
+        "to": "KC Streetcar Authority (official comment form)", "when": at.strftime("%Y-%m-%d %H:%M"),
+        "location": loc, "car": car_number or "NA", "description": description, "comment": comment,
+        "contact": f"{contact['first_name']} {contact['last_name']} <{contact['email']}> {contact['phone']}".strip(),
+    }}
+
+
+@mcp.tool()
+def submit_streetcar_report(pending_id: str, confirm: bool = False) -> dict:
+    """Second channel: post the staged report to the KC Streetcar Google Form.
+    The default channel is the email from prepare_streetcar_report. This posts
+    a REAL comment. Requires confirm=True after Alex OKs it."""
+    if not confirm:
+        raise ValueError("Refusing to send: this posts a real comment to KC Streetcar. Confirm with Alex first.")
+    st = _PENDING.get(pending_id)
+    if not st or "streetcar" not in st:
+        raise ValueError("Unknown or expired pending_id. Call prepare_streetcar_report again.")
+    result = streetcar.submit(st["streetcar"])
+    if result["ok"]:
+        _PENDING.pop(pending_id, None)
+        return {"ok": True, "message": "Recorded by the KC Streetcar comment form."}
+    return {"ok": False, "error": "The form did not confirm the response.", **result,
+            "fallback": f"Email {streetcar.EMAIL_FALLBACK} or call {streetcar.PHONE}."}
+
 
 if __name__ == "__main__":
     mcp.run()
