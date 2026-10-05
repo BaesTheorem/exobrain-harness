@@ -384,3 +384,15 @@ def geocode(address: str) -> dict:
     street = " ".join(abbr.get(w, w) for w in street.split())
     return {"street": street, "lat": float(hits[0]["lat"]), "lon": float(hits[0]["lon"]),
             "city": a.get("city", "Kansas City"), "state": "MO", "zip": a.get("postcode", "")}
+
+
+def case_number(record: dict) -> str:
+    """The city's 311 case number, or "" before the report syncs to the city
+    CRM. Until then display_wo holds MyCivic's own id, so never use it."""
+    tp = record.get("thirdparty_params") or {}
+    if isinstance(tp, str):
+        try:
+            tp = json.loads(tp) if tp else {}
+        except ValueError:
+            tp = {}
+    return str(tp.get("case_number", "")) if isinstance(tp, dict) else ""

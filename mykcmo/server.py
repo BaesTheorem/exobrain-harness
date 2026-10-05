@@ -773,10 +773,19 @@ def my_311_reports(start: int = 0) -> dict:
         data = civicapi.my_reports(start)
     except civicapi.KeyRejected as exc:
         return _key_error(exc)
-    keep = ("id", "display_wo", "category", "subcategory", "status", "description", "added_on",
-            "last_action_date", "new_update_count")
     return {"total": data.get("total_record"), "has_more": bool(int(data.get("has_more") or 0)),
-            "reports": [{k: r.get(k) for k in keep} for r in data.get("my_issues", [])]}
+            "reports": [{
+                "id": r.get("id"),
+                "case_number": civicapi.case_number(r) or None,
+                "type": r.get("name") or r.get("issue_type"),
+                "sub_type": r.get("subcategory") or r.get("sub_type"),
+                "status": r.get("status"),
+                "address": r.get("address"),
+                "description": r.get("description"),
+                "added_on": r.get("added_on"),
+                "new_updates": r.get("new_update_count"),
+            } for r in data.get("my_issues", [])],
+            "note": "case_number is null until the report syncs to the city's 311 system."}
 
 
 @mcp.tool()
@@ -790,7 +799,7 @@ def get_311_report_status(issue_id: str) -> dict:
         return _key_error(exc)
     timeline = [{"when": h.get("dateofupdate"), "title": h.get("title"), "details": h.get("details")}
                 for h in sorted(d.get("history_object") or [], key=lambda h: str(h.get("timestamp", "")))]
-    return {"case_number": d.get("display_wo"), "status": d.get("status"), "type": d.get("type"),
+    return {"case_number": civicapi.case_number(d) or None, "status": d.get("status"), "type": d.get("type"),
             "sub_type": d.get("subtype"), "address": d.get("address"), "description": d.get("description"),
             "photos": d.get("issue_image") or [], "timeline": timeline,
             "resolution": d.get("issue_resolution") or [], "can_add_note": d.get("citizen_allow_to_send_note") == 1}
@@ -831,6 +840,52 @@ def live_311_map(latitude: float | None = None, longitude: float | None = None, 
              "type": r.get("issue_name"), "sub_type": r.get("subtype"), "status": r.get("issue_status"),
              "address": r.get("issue_address"), "meters": round(dist(r)),
              "submitted": r.get("issue_submitted_date")} for r in rows[:limit]]
+
+
+@mcp.tool()
+def request_311_updates(report_ids: list[str] | None = None, method: str = "Email", confirm: bool = False) -> dict:
+    """File a "311 Request Update" for each open report in my_311_reports (or
+    only `report_ids`). Without confirm=True it returns the list it would
+    send. With confirm=True it files one REAL request per report. method:
+    Email or Phone Call; the contact comes from MYKCMO_CONTACT_*.
+    """
+    try:
+        mine = civicapi.my_reports().get("my_issues", [])
+    except civicapi.KeyRejected as exc:
+        return _key_error(exc)
+    closed = ("resolved", "closed", "cancel", "complete")
+    targets = [r for r in mine if not any(c in str(r.get("status", "")).lower() for c in closed)
+               and (not report_ids or str(r.get("id")) in report_ids)]
+    contact = _contact_defaults()
+    reach = contact["email"] if method == "Email" else contact["phone"]
+    plan = []
+    for r in targets:
+        cn = civicapi.case_number(r)
+        plan.append({"id": r["id"], "case_number": cn,
+                     "reference": f"request #{cn}" if cn else f"myKCMO app report {r['id']}",
+                     "sub_type": r.get("subcategory") or r.get("sub_type"), "address": r.get("address") or ""})
+    if not confirm:
+        return {"ok": True, "would_file": plan, "contact": f"{method}: {reach}",
+                "action_needed": "Confirm with Alex, then call again with confirm=True."}
+    if not reach:
+        return {"ok": False, "error": f"No contact for {method}. Set MYKCMO_CONTACT_EMAIL or MYKCMO_CONTACT_PHONE."}
+    results = []
+    for p in plan:
+        answers = {
+            "What is your request number?": p["case_number"] or p["reference"],
+            "If you do not have your request number, please provide us the location reported.": p["address"],
+            "How would you like us to contact you?": method,
+            "Please provide us the contact information for your preferred method.": reach,
+        }
+        staged = prepare_311_report("311 Request Update", description=f"Please send an update on {p['reference']}: "
+                                    f"{p['sub_type']} at {p['address']}.", answers=answers, add_location_line=False)
+        if not staged.get("ok"):
+            results.append({**p, "ok": False, "error": staged.get("error")})
+            continue
+        sent = submit_311_report(staged["pending_id"], confirm=True)
+        results.append({**p, "ok": sent.get("ok"), "work_order": sent.get("work_order"), "error": sent.get("error")})
+    return {"ok": all(r["ok"] for r in results), "results": results}
+
 
 # ---------------------------------------------------------------------------
 # KC Streetcar (streetcar.py): not part of 311. Default channel is an email
