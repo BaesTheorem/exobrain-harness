@@ -7,6 +7,7 @@ Subcommands:
   fix     <mesh> [-o OUT]
   view    <mesh> [-o PNG] [--views iso,top,front,right,bottom] [--size WxH] [--crop y=a:b]
   slice   <mesh> [--printer NAME] [--layer MM] [--infill PCT] [--supports] [--gcode OUT]
+  render  <mesh> [--material clay|color] [--up y] [--focus X,Y,Z --frame MM] [-o PNG]
   convert <in> <out>
   info
 
@@ -477,15 +478,52 @@ def cmd_slice(args) -> int:
         mo = re.search(pat, text)
         if mo:
             info[key] = mo.group(1)
-    supports_needed = "support" in r.stdout.lower() and "alert" in r.stdout.lower()
+    # "Alert if supports needed" is a progress step printed on every slice; the
+    # real signal is the stability warning and the issue list on the next line.
+    out_all = r.stdout + r.stderr
+    issues = ""
+    mo = re.search(r"Detected print stability issues:\s*\n\s*\n?.*?\n(.+?)\n", out_all)
+    if mo:
+        issues = mo.group(1).strip()
+    supports_needed = "Detected print stability issues" in out_all
     fil_m = float(info.get("filament_m", 0)) / 1000
     print(f"{mesh.name} on {pname}: layer {args.layer} mm, infill {args.infill}%"
           + (", supports" if args.supports else ""))
     print(f"  print time {info.get('time', '?')}, filament {fil_m:.2f} m / {info.get('filament_g', '?')} g PLA"
           + (f", {info['layers']} layers" if "layers" in info else ""))
-    if supports_needed and not args.supports:
-        print("  ! slicer flagged overhangs that need supports")
+    if supports_needed:
+        print(f"  ! slicer stability warning: {issues or 'see PrusaSlicer output'}")
     print(f"  gcode {gcode} (generic profile; for the Bambu, slice the STL/3MF in Bambu Studio)")
+    return 0
+
+
+# ----------------------------------------------------------------- render
+
+def find_blender() -> str:
+    for c in (shutil.which("blender"), "/Applications/Blender.app/Contents/MacOS/Blender"):
+        if c and Path(c).exists():
+            return c
+    die("Blender not found (brew install --cask blender)")
+    raise AssertionError
+
+
+def cmd_render(args) -> int:
+    mesh = Path(args.mesh).resolve()
+    if not mesh.exists():
+        die(f"no such file {mesh}")
+    out = Path(args.output).resolve() if args.output else mesh.with_name(f"{mesh.stem}_{args.material}.png")
+    cmd = [find_blender(), "-b", "--factory-startup", "-P", str(HERE / "lib" / "blender_render.py"), "--",
+           str(mesh), str(out), "--material", args.material, "--up", args.up,
+           "--azimuth", str(args.azimuth), "--elevation", str(args.elevation),
+           "--size", args.size, "--samples", str(args.samples), "--lens", str(args.lens)]
+    if args.focus:
+        cmd += ["--focus", args.focus]
+    if args.frame:
+        cmd += ["--frame", str(args.frame)]
+    r = subprocess.run(cmd, capture_output=True, text=True)
+    if r.returncode != 0 or not out.exists():
+        die(f"blender failed:\n{(r.stdout + r.stderr).strip()[-1500:]}")
+    print(out)
     return 0
 
 
@@ -575,6 +613,20 @@ def main(argv: list[str] | None = None) -> int:
     sl.add_argument("--supports", action="store_true")
     sl.add_argument("--gcode")
     sl.set_defaults(fn=cmd_slice)
+
+    rd = sub.add_parser("render", help="studio render in Blender (Cycles, GPU): clay or vertex colours")
+    rd.add_argument("mesh")
+    rd.add_argument("-o", "--output")
+    rd.add_argument("--material", default="clay", choices=["clay", "color"])
+    rd.add_argument("--up", default="z", choices=["x", "y", "z"], help="model axis that points up in the shot")
+    rd.add_argument("--azimuth", type=float, default=-30.0)
+    rd.add_argument("--elevation", type=float, default=10.0)
+    rd.add_argument("--focus", help="centre of the shot, model mm: X,Y,Z")
+    rd.add_argument("--frame", type=float, help="height of the framed region, mm")
+    rd.add_argument("--size", default="1080x1620")
+    rd.add_argument("--samples", type=int, default=96)
+    rd.add_argument("--lens", type=float, default=70.0)
+    rd.set_defaults(fn=cmd_render)
 
     cv = sub.add_parser("convert", help="convert between stl/obj/3mf/ply/off")
     cv.add_argument("src")

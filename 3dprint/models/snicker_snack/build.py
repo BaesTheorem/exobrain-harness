@@ -53,7 +53,7 @@ SLOPE = 0.22            # bevel rise per mm in from the edge (12 degrees)
 FULLER = 0.32           # depth of the purple fuller panels
 # guard vines
 R_CAP = 1.5             # vines wider than 3 mm get a flat top
-KZ = 0.95               # vine depth / vine width
+KZ = 1.05               # vine depth / vine width: a touch deeper than wide
 H_MIN_VINE = 0.5        # the thinnest vine tip stays 1.0 mm thick
 FATTEN = 0.12           # outward offset of the guard outline so thin tips print
 
@@ -80,6 +80,21 @@ TIERS = [(5, 126, 4.6, 2.5, 26, 2.7, 2.5, 0.50, 0.13, 0.08, 0.4),
          (3, 30, 6.9, 0.85, 6, 2.1, 1.3, 0.42, 0.30, 0.0, 0.2)]
 # loop: a ring in the y-z plane, hole along x
 RING_Y, RING_R, RING_WALL, RING_HW, HOLE_R = 191.9, 2.7, 0.9, 1.5, 1.8
+# gem centres on the guard (front view)
+GEMS = [(0.0, 151.6), (0.0, 143.6)]
+# The thorny quillon. The painting shows the guard as a tangle of thorny vines;
+# in 3D the thorns are the quillon. Eight vines leave the base of the grip, fan
+# out toward both faces and curve up around the hand, and the vines of the
+# painted filigree carry thorns that stand out of both faces.
+CROWN = [(35, 0.80), (70, 1.0), (110, 1.0), (145, 0.80)]   # angle from +x toward +z (deg), reach
+CROWN_PROFILE = [(1.2, 154.8), (4.4, 154.3), (7.4, 155.3), (9.4, 157.0), (10.9, 159.2)]  # (radius, y)
+CROWN_R = [1.25, 1.1, 0.85, 0.55, 0.12]
+CROWN_TWIST = 8.0                                           # deg wound around the grip, root to tip
+CROWN_THORNS = [(0.42, 1.5, 0.42), (0.70, 1.2, 0.34)]       # place along the vine, length, base radius
+FILIGREE_THORNS = 11                                        # per side of the axis, per face
+THORN_SPACING = 4.2
+THORN_COLOR = (0.42, 0.36, 0.18)
+CROWN_COLOR = (0.31, 0.38, 0.15)
 # alignment pins for the halves: (x, y, depth); 1.75 mm filament in 1.9 mm holes
 PINS = [(0.0, 184.3, 3.2), (0.0, 143.6, 1.6)]
 PIN_R = 0.95
@@ -243,11 +258,11 @@ def design_2d(mask, rgb, xs, ys, res):
     H = H - (1 - wC) * pk * 0.55 * h_tube
 
     # the heart of the guard is thicker than its tips
-    swell = 0.45 * np.clip(1 - np.hypot(X / 16.0, (Y - 147.0) / 9.0), 0, 1) ** 1.2
+    swell = 0.7 * np.clip(1 - np.hypot(X / 16.0, (Y - 147.0) / 9.0), 0, 1) ** 1.2
     H = H + (1 - wC) * swell
 
     gems = np.zeros(S.shape, bool)
-    for gx, gy, a, dh in [(0.0, 151.6, 1.0, 0.55), (0.0, 143.6, 1.45, 0.85)]:
+    for (gx, gy), (a, dh) in zip(GEMS, [(1.0, 0.55), (1.45, 0.85)], strict=True):
         rho = np.hypot(X - gx, Y - gy)
         base = float(H[np.searchsorted(ys, gy), np.searchsorted(xs, gx)])
         dome = base + 0.05 + dh * np.sqrt(np.clip(1 - (rho / a) ** 2, 0, 1))
@@ -395,6 +410,83 @@ def pin_holes(X, Y, Z):
     return out
 
 
+def _tube_part(pts, radii, thorns, k_thorn=0.12):
+    """A union part for one vine (or a lone thorn) and the thorns on it."""
+    lo, hi = pts.min(0) - (radii.max() + 1.2), pts.max(0) + (radii.max() + 1.2)
+    for tp, _ in thorns:
+        lo, hi = np.minimum(lo, tp.min(0) - 1.2), np.maximum(hi, tp.max(0) + 1.2)
+
+    def fn(X, Y, Z):
+        f = sm.tube(X, Y, Z, pts, radii)
+        for tp, tr in thorns:
+            f = sm.smin(f, sm.tube(X, Y, Z, tp, tr), k_thorn)
+        return f
+
+    return fn, (lo[0], hi[0], lo[1], hi[1], lo[2], hi[2])
+
+
+def crown_vines():
+    """The eight vines of the crown, front four mirrored to the back."""
+    prof = np.array(CROWN_PROFILE)
+    n = len(prof)
+    out = []
+    for phi0, reach in CROWN:
+        ctrl = []
+        for j, (r, y) in enumerate(prof):
+            rr = prof[0, 0] + (r - prof[0, 0]) * reach
+            phi = np.radians(phi0 + CROWN_TWIST * j / (n - 1))
+            ctrl.append((rr * np.cos(phi), y, rr * np.sin(phi)))
+        pts = sm.catmull_rom(ctrl, 24)
+        radii = np.interp(np.arange(len(pts)), np.arange(n) * 24, CROWN_R)
+        thorns = []
+        for frac, length, rb in CROWN_THORNS:
+            i = int(frac * (len(pts) - 1))
+            tan = pts[min(i + 1, len(pts) - 1)] - pts[max(i - 1, 0)]
+            tan /= np.linalg.norm(tan)
+            er = np.array([pts[i][0], 0.0, pts[i][2]])
+            er /= np.linalg.norm(er)
+            d = er - 0.4 * tan + np.array([0.0, -0.35, 0.0])
+            d /= np.linalg.norm(d)
+            thorns.append(sm.thorn(pts[i] + 0.3 * radii[i] * d, d, 0.7 * radii[i] + length, rb))
+        for sz in (1.0, -1.0):               # front, then the mirror image at the back
+            flip = np.array([1.0, 1.0, sz])
+            out.append(_tube_part(pts * flip, radii, [(tp * flip, tr) for tp, tr in thorns]))
+    return out
+
+
+def filigree_thorns(H, maps, xs, ys):
+    """Thorns standing out of both faces of the painted filigree, on the
+    centre lines of its thicker vines, kept clear of the axis and the gems.
+    Picked on the right side and mirrored so the guard stays symmetric."""
+    from skimage.morphology import skeletonize
+
+    S, C, LT = maps["S"], maps["C"], maps["LT"]
+    sk = np.asarray(skeletonize(S & ~C & (LT >= 0.75)), dtype=bool)
+    iy, ix = np.nonzero(sk)
+    X, Y = xs[ix], ys[iy]
+    # keep clear of the blade collar: its edge is not a vine
+    off_collar = sm.edt(~C)[iy, ix] * (xs[1] - xs[0]) > 1.2
+    ok = (X > 4.5) & (Y > 112.0) & off_collar
+    for gx, gy in GEMS:
+        ok &= np.hypot(X - gx, Y - gy) > 2.6
+    iy, ix, X, Y = iy[ok], ix[ok], X[ok], Y[ok]
+    chosen: list[tuple[float, float, float, float]] = []
+    for k in np.argsort(-LT[iy, ix], kind="stable"):
+        if all(np.hypot(X[k] - c[0], Y[k] - c[1]) >= THORN_SPACING for c in chosen):
+            chosen.append((float(X[k]), float(Y[k]), float(H[iy[k], ix[k]]), float(LT[iy[k], ix[k]])))
+        if len(chosen) >= FILIGREE_THORNS:
+            break
+    parts = []
+    for x0, y0, h0, lt in chosen:
+        for sx in (1.0, -1.0):
+            for sz in (1.0, -1.0):
+                d = np.array([0.55 * sx, -0.25, sz])
+                tp, tr = sm.thorn((sx * x0, y0, sz * 0.3 * h0), d, 0.7 * h0 + 1.8,
+                                  float(np.clip(0.42 * lt, 0.32, 0.55)))
+                parts.append(_tube_part(tp, tr, []))
+    return parts, chosen
+
+
 # (kind, function, box x0 x1 y0 y1 z0 z1, smooth radius); boxes carry a
 # margin wider than the blend so fields meet without seams
 PARTS = [
@@ -405,10 +497,18 @@ PARTS = [
     ("union", ring, (-3.4, 3.4, 187.0, 197.5, -5.0, 5.0), 0.3),
     ("cut", ring_hole, (-3.2, 3.2, 190.0, 195.2, -2.6, 2.6), 0.0),
 ]
-COLORS = {  # preview colours for the 3D parts, 0..1
-    grip_core: (0.40, 0.25, 0.14), grip_vines: (0.38, 0.52, 0.20), calyx: (0.33, 0.46, 0.16),
-    rose: (0.60, 0.10, 0.22), ring: (0.74, 0.60, 0.32),
+def rose_sepals(X, Y, Z):
+    """The green sepals under the bloom, for colouring only (rose() builds them)."""
+    fields = [leaf_from_base(X, Y, Z, 1.5, ROSE_Y + 1.2, np.radians(60 * k + 30), 140, 2.8, 1.6, 0.8, 0.05, 0.4)
+              for k in range(6)]
+    return np.minimum.reduce(fields)
+
+
+COLORS = {  # preview colours for the 3D parts (sRGB, 0..1); later entries win ties
+    grip_core: (0.40, 0.25, 0.14), grip_vines: (0.33, 0.44, 0.17), calyx: (0.36, 0.47, 0.17),
+    rose: (0.60, 0.10, 0.22), ring: (0.64, 0.48, 0.22),
 }
+OVERRIDES = {rose_sepals: (0.24, 0.36, 0.13)}   # painted over whatever part they sit in
 
 
 def irange(arr, lo, hi):
@@ -441,7 +541,28 @@ def make_field(D, H, xs, ys, zs, parts, cut=None):
 
 # ---------------------------------------------------------------- preview
 
-def preview_glb(mesh, D, H, rgb, xs, ys, path: Path):
+def delight(rgb, maps):
+    """The painting carries its own highlights and a render adds real ones.
+    In the guard, each colour becomes a saturation-weighted local average, so
+    pale highlight streaks take the colour of the vine around them."""
+    from skimage.color import rgb2hsv
+
+    w = rgb2hsv(np.clip(rgb, 0, 1))[..., 1] ** 2 + 1e-4
+    num = np.stack([ndi.gaussian_filter(rgb[..., c] * w, 5.0) for c in range(3)], -1)
+    delit = num / ndi.gaussian_filter(w, 5.0)[..., None]
+    g = ndi.gaussian_filter((maps["S"] & ~maps["C"]).astype(float), 2.0)[..., None]
+    out = g * delit + (1 - g) * rgb
+    # everywhere: cap the paint's brightness (its highlight streaks) and give
+    # back a little saturation, so the render's own light does the shading
+    from skimage.color import hsv2rgb
+
+    hsv = rgb2hsv(np.clip(out, 0, 1))
+    hsv[..., 2] = np.minimum(hsv[..., 2], 0.80)
+    hsv[..., 1] = np.clip(hsv[..., 1] * 1.12, 0, 1)
+    return hsv2rgb(hsv)
+
+
+def preview_glb(mesh, D, H, rgb, xs, ys, path: Path, colors: dict):
     """Vertex-coloured GLB for the Console viewer: blade and guard take the
     painting's own colours, the 3D parts take their part colour. Written
     Y-up as glTF expects; the viewer turns it back to lie flat."""
@@ -454,7 +575,7 @@ def preview_glb(mesh, D, H, rgb, xs, ys, path: Path):
     col = rgb[iy, ix].copy()
     best = np.abs(np.maximum(D[iy, ix], np.abs(V[:, 2]) - H[iy, ix]))
     X, Y, Z = V[:, 0], V[:, 1], V[:, 2]
-    for fn, c in COLORS.items():
+    for fn, c in colors.items():
         f = np.abs(fn(X, Y, Z))
         win = f < best
         shade = 1.0
@@ -466,6 +587,11 @@ def preview_glb(mesh, D, H, rgb, xs, ys, path: Path):
     col = np.clip(col, 0, 1)
     lin = np.where(col <= 0.04045, col / 12.92, ((col + 0.055) / 1.055) ** 2.4)
     rgba = np.concatenate([lin * 255, np.full((len(V), 1), 255)], 1).astype(np.uint8)
+    for fn, c in OVERRIDES.items():
+        on = np.abs(fn(X, Y, Z)) < 0.08
+        cl = np.clip(np.array(c), 0, 1)
+        lc = np.where(cl <= 0.04045, cl / 12.92, ((cl + 0.055) / 1.055) ** 2.4)
+        rgba[on, :3] = (lc * 255).astype(np.uint8)
     yup = np.stack([V[:, 0], V[:, 2], -V[:, 1]], 1)
     m = trimesh.Trimesh(yup, np.asarray(mesh.faces), vertex_colors=rgba, process=False)
     m.export(str(path))
@@ -513,7 +639,7 @@ def main(params: dict, out_dir: Path, name: str):
     t0 = time.time()
     img, fg, solid = trace_art()
     axis = fit_axis(fg)
-    xs, ys, zs = sm.lattice((-24.0, 24.0), (-1.0, 197.6), (-7.0, 7.0), res)
+    xs, ys, zs = sm.lattice((-24.0, 24.0), (-1.0, 197.6), (-11.8, 11.8), res)
     mask, rgb, scale = resample(img, solid, axis, xs, ys)
     log(f"art traced: {scale:.4f} mm per pixel, lattice {len(xs)} x {len(ys)} x {len(zs)}")
     D, H, maps = design_2d(mask, rgb, xs, ys, res)
@@ -524,7 +650,20 @@ def main(params: dict, out_dir: Path, name: str):
 
     variant = P["variant"]
     cuts = ["front", "back"] if variant == "halves" else [None]
-    parts = PARTS + ([("cut", pin_holes, (-1.5, 1.5, 140.0, 188.0, -3.5, 3.5), 0.0)] if variant == "halves" else [])
+    colors = dict(COLORS)
+    quillon = []
+    for fn, box in crown_vines():
+        quillon.append(("union", fn, box, 0.3))
+        colors[fn] = CROWN_COLOR
+    thorn_parts, picked = filigree_thorns(H, maps, xs, ys)
+    for fn, box in thorn_parts:
+        quillon.append(("union", fn, box, 0.15))
+        colors[fn] = THORN_COLOR
+    log(f"quillon: {len(CROWN) * 2} crown vines, {len(thorn_parts)} filigree thorns at "
+        + ", ".join(f"({x:.1f}, {y:.1f})" for x, y, _, _ in picked))
+    parts = PARTS + quillon
+    if variant == "halves":
+        parts = parts + [("cut", pin_holes, (-1.5, 1.5, 140.0, 188.0, -3.5, 3.5), 0.0)]
     meshes = {}
     for cut in cuts:
         t1 = time.time()
@@ -545,7 +684,7 @@ def main(params: dict, out_dir: Path, name: str):
     if variant != "halves":
         sword = meshes["sword"]
         pv = sm.ensure_closed(sm.decimate(sword, int(P["preview_faces"])))
-        preview_glb(pv, D, H, rgb, xs, ys, out_dir / f"{name}_preview.glb")
+        preview_glb(pv, D, H, delight(rgb, maps), xs, ys, out_dir / f"{name}_preview.glb", colors)
         log(f"preview {out_dir / (name + '_preview.glb')} ({len(pv.faces):,} faces)")
     log(f"total {time.time() - t0:.1f}s")
     return meshes

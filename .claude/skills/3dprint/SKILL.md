@@ -5,7 +5,7 @@ metadata:
   toolkit: "/Users/alexhedtke/Documents/Exobrain harness/3dprint (bin/cad, bin/cad-setup, README.md)"
   venv: "3dprint/.venv (Python 3.12: build123d 0.13, trimesh 5, manifold3d, pymeshfix, scikit-image, fast-simplification, lxml)"
   worked_example: "3dprint/models/snicker_snack/build.py (painting -> double-sided replica pendant)"
-  apps: "OpenSCAD snapshot (brew cask openscad@snapshot, manifold backend), PrusaSlicer 2.9 (cask), f3d 3.5 (formula), BOSL2 in ~/Documents/OpenSCAD/libraries"
+  apps: "OpenSCAD snapshot (brew cask openscad@snapshot, manifold backend), PrusaSlicer 2.9 (cask), f3d 3.5 (formula), Blender 5.2 (cask, for cad render), BOSL2 in ~/Documents/OpenSCAD/libraries"
   console: "![name](/abs/path.stl|3mf|obj|glb) renders an orbitable 3D viewer in the MIST Console (static/model.js)"
 ---
 
@@ -44,8 +44,15 @@ model Alex can orbit. No GUI in the loop until the final slice. Read
    the mesh, when the cause is in the design. `cad fix` (pymeshfix) is for
    meshes from elsewhere.
 5. **Estimate.** `cad slice <stl> --layer 0.2 --infill 15 [--supports]` gives
-   print time and grams through PrusaSlicer with a generic profile.
-6. **Hand off.** The house printer is a housemate's Bambu Lab; PrusaSlicer has
+   print time and grams through PrusaSlicer with a generic profile, and repeats
+   PrusaSlicer's own stability warning (floating parts, collapsing overhangs,
+   low bed adhesion) when it raises one. No warning means support-free.
+6. **Show it.** `cad render <mesh> --material clay|color --up y` makes a studio
+   render in Blender (Cycles on the GPU, about 15 s at 1080x1620). Clay shows the
+   form; color uses a GLB's vertex colours. `--focus X,Y,Z --frame MM
+   --azimuth --elevation` frame a close-up. When Alex asks to see a part, give
+   both, plus the interactive embed.
+7. **Hand off.** The house printer is a housemate's Bambu Lab; PrusaSlicer has
    no profile for it. Give Alex the STL or 3MF (the Console's download button
    on the viewer) and say to slice it in Bambu Studio. The `bambu` profile in
    `printers.json` is unconfirmed (256 mm bed assumed).
@@ -109,7 +116,11 @@ from `models/snicker_snack/build.py`:
    relief: recess one colour class, raise another, sink deep shadow. Preview
    the shaded relief as a PNG (seconds) before any meshing (a minute).
 4. **3D parts.** Ellipsoid petals and leaves, helix vines, rounded rings,
+   and curved tapering tubes (`catmull_rom` + `tube`, with `thorn` for spikes),
    joined with `smin` (smooth union). Evaluate each only inside its box.
+   Depth that a picture cannot show (a guard that must protect a hand, say) is
+   added as 3D parts around the traced relief: the Snicker-Snack quillon is a
+   crown of tube vines plus thorns placed on the relief's skeleton.
 5. **Mesh.** `mesh_from_field` (shared slab rows keep it closed), then
    `decimate` to about 600k faces and `ensure_closed`. `ensure_closed` runs
    `tidy` last: it welds near-coincident vertices and snaps to a 0.1 um grid,
@@ -149,7 +160,14 @@ black without an environment map (`_matte` in the Snicker-Snack script).
   `cad view --crop`. Edge lines are only drawn under 20k faces because they
   turn a dense mesh black.
 - PrusaSlicer refuses 100% infill with its default gyroid; `cad slice` switches
-  to rectilinear at 100%.
+  to rectilinear at 100%. Its "Alert if supports needed" line is a progress step
+  printed on every slice, not a warning.
+- Blender lights: a 19 cm part needs area lights of about 8 to 12 W at half a
+  metre; 60 W blows it out under AgX. The first Cycles render on a fresh Blender
+  takes about 2 minutes while Metal compiles kernels, later ones a few seconds.
+- A painting's colours carry its highlights. For a coloured render, average
+  them away by saturation and cap the brightness (`delight` in the Snicker-Snack
+  script), or the render looks bleached.
 - trimesh's `slice_plane` and ray queries need shapely and rtree, which are not
   installed. Measure from vertices or the design maps instead.
 - Any transform after the last `ensure_closed` can collapse two float32

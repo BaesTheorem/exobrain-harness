@@ -13,6 +13,7 @@ that it will print, look at it, and estimate the print. No GUI in the loop.
 | `lib/sdfmesh.py` + [scikit-image](https://scikit-image.org/) | Signed distance field modelling: image silhouettes to heightfield reliefs, true 3D primitives, marching cubes in slabs, decimation, cleanup. For organic and image-traced parts that B-rep CAD handles badly. | venv |
 | [f3d](https://f3d.app/) 3.5 | Headless renders of a mesh to PNG so the result can be inspected. | `brew install f3d` |
 | [PrusaSlicer](https://www.prusa3d.com/prusaslicer/) 2.9 | Headless slicing for print time and filament estimates, plus `--info` manifold checks. | `brew install --cask prusaslicer` |
+| [Blender](https://www.blender.org/) 5.2 | Studio renders (`cad render`): Cycles on the GPU, clay or the model's vertex colours. | `brew install --cask blender` |
 
 `bin/cad-setup` installs or rebuilds all of it. `bin/cad info` prints versions.
 
@@ -26,6 +27,7 @@ bin/cad fix    broken.stl                               # repair normals/holes/d
 bin/cad view   part.stl --views iso,top,front,right     # contact sheet PNG
 bin/cad view   part.stl --crop "y=150:197"              # close-up of one region
 bin/cad slice  part.stl --layer 0.2 --infill 15         # PrusaSlicer estimate (generic profile)
+bin/cad render part.glb --material color --up y         # Blender studio render; --material clay for form only
 bin/cad convert part.stl part.3mf
 ```
 

@@ -109,6 +109,45 @@ def wrap_angle(a):
     return (a + np.pi) % (2 * np.pi) - np.pi
 
 
+def catmull_rom(ctrl, n_per_seg: int = 24) -> np.ndarray:
+    """Dense points on a Catmull-Rom spline that passes through every
+    control point (N x 3). Point i * n_per_seg is control point i."""
+    P = np.asarray(ctrl, dtype=np.float64)
+    P = np.vstack([P[0], P, P[-1]])
+    t = np.linspace(0.0, 1.0, n_per_seg, endpoint=False)[:, None]
+    out = []
+    for i in range(1, len(P) - 2):
+        p0, p1, p2, p3 = P[i - 1], P[i], P[i + 1], P[i + 2]
+        out.append(0.5 * (2 * p1 + (p2 - p0) * t + (2 * p0 - 5 * p1 + 4 * p2 - p3) * t ** 2
+                          + (3 * p1 - p0 - 3 * p2 + p3) * t ** 3))
+    out.append(P[-2][None, :])
+    return np.vstack(out)
+
+
+def tube(X, Y, Z, pts, radii, k: int = 6):
+    """Field of a tube of varying radius along densely sampled points: the
+    minimum of |p - s| - r(s) over the k nearest samples. Sample spacing well
+    under the radius keeps the surface smooth. Vines, horns and thorns."""
+    from scipy.spatial import KDTree
+
+    shape = np.broadcast_shapes(np.shape(X), np.shape(Y), np.shape(Z))
+    Q = np.stack([np.broadcast_to(X, shape), np.broadcast_to(Y, shape),
+                  np.broadcast_to(Z, shape)], -1).reshape(-1, 3)
+    kk = min(k, len(pts))
+    d, i = KDTree(np.asarray(pts)).query(Q, k=kk)
+    d = np.asarray(d).reshape(len(Q), kk)
+    i = np.asarray(i).reshape(len(Q), kk)
+    return (d - np.asarray(radii)[i]).min(axis=1).reshape(shape)
+
+
+def thorn(base, direction, length, r_base, r_tip=0.05, n=16):
+    """Sample points and radii for a straight tapered thorn."""
+    d = np.asarray(direction, dtype=np.float64)
+    d = d / np.linalg.norm(d)
+    s = np.linspace(0.0, 1.0, n)[:, None]
+    return np.asarray(base, dtype=np.float64) + s * length * d, np.linspace(r_base, r_tip, n)
+
+
 # ---------------------------------------------------------------- meshing
 
 def mesh_from_field(field, xs, ys, zs, slab: int = 128, level: float = 0.0, progress=None):

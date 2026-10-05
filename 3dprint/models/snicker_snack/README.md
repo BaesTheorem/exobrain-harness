@@ -4,6 +4,12 @@ A pencil-length replica of Snicker-Snack, the vorpal greatsword with the rose
 pommel from Dungeons & Dragons. The two faces are sculpted. A loop on top of
 the rose lets it hang on a necklace chain or a keychain.
 
+The crossguard is a quillon of thorns. The painted vine filigree extends to
+the sides, and thorns point out from its two faces. A crown of eight thorny
+vines goes out from the bottom of the grip to the front and to the rear, and
+curves up around the hand. Thus the guard protects the hand on all four
+sides.
+
 The model comes from one front-view painting. The script `build.py` traces the
 painting, makes the silhouette symmetric, and adds the depth. Its docstring
 gives the method.
@@ -13,12 +19,12 @@ gives the method.
 | Feature | Size |
 | --- | --- |
 | Tip to rose top | 189 mm |
-| Overall, with the loop | 42.6 x 194.5 x 12.1 mm |
+| Overall, with the loop | 42.6 x 194.5 x 21.6 mm |
 | Blade | 7 to 10 mm wide, 2.5 to 2.7 mm thick through the middle, 0.9 mm edges |
-| Crossguard | 42.6 mm wide, 5.5 mm thick at the lower gem |
+| Crossguard | 42.6 mm wide, 21.6 mm deep across the thorn crown |
 | Rose pommel | 12 mm across, circular |
 | Loop | 3.6 mm hole, 7.2 mm outer diameter, 3 mm wide |
-| Mass | approximately 6 g of PLA, solid |
+| Mass | approximately 6.4 g of PLA, solid |
 
 The loop's hole runs parallel to the crossguard. A chain through it holds the
 sword face-on against the chest. A jump ring is not necessary. Put the chain
@@ -39,8 +45,9 @@ There are two methods. `bin/cad build` makes the files for each:
 
 Suggested settings: 0.12 mm layers, 0.4 mm nozzle, PLA, 100% infill (the parts
 are thin, so infill is mostly walls). PrusaSlicer, with its generic printer
-settings, gives 42 minutes and 3 g for each half. A Bambu Lab printer is
-faster. Slice in Bambu Studio for accurate numbers.
+settings, gives 48 minutes and 3.2 g for each half, with no overhang warnings.
+It reports low bed adhesion, so add a brim. A Bambu Lab printer is faster.
+Slice in Bambu Studio for accurate numbers.
 
 ## Rebuild
 
@@ -55,6 +62,13 @@ bin/cad build models/snicker_snack/build.py -p variant=halves --name snicker_sna
 
 `out/snicker_snack/analysis/relief.png` (shaded front face) and `regions.png`
 (blade, fuller, pockets, gems) show the 2D design before the meshing step.
+
+Studio renders (Blender, Cycles on the GPU), from the coloured preview:
+
+```
+bin/cad render out/snicker_snack/snicker_snack_preview.glb --material color --up y
+bin/cad render out/snicker_snack/snicker_snack_preview.glb --material clay --up y --focus 0,160,0 --frame 74 --azimuth -60 --elevation 18
+```
 
 Snicker-Snack and its art belong to Wizards of the Coast. This is a fan-made
 model for personal use.
