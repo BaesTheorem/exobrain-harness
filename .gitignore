@@ -301,3 +301,6 @@ tools-registry/*.private.json
 # 3dprint: venv and generated meshes/gcode/previews
 3dprint/.venv/
 3dprint/out/
+
+# reference art for models (third-party images, not redistributed)
+3dprint/models/*/reference/

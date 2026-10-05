@@ -555,6 +555,14 @@
     "notes": "Books haircuts at Salon Ramon over Rosy Salon Software: ramon slots/book/appointments/cancel, dry-run unless --confirm and verified against a server read. Auth lifts the Google-signed-in JSESSIONID out of Chrome (ramon login) and re-scrapes the 30-minute JWT each run. schedule.py owns the 6-week cadence; launchd com.exobrain.haircut-check runs daily at 10:00. Replaced the Booksy/Rich Forever tool on 2026-09-10."
   },
   {
+    "name": "sdfmesh",
+    "command": "import sdfmesh  (3dprint/lib, on the path inside cad build model scripts)",
+    "repo_dir": "3dprint/lib",
+    "source": "built",
+    "added": "2026-10-05",
+    "notes": "Fields are negative inside. mesh_from_field(field(j0,j1), xs, ys, zs) meshes in y slabs that share a row, so the result is closed. lattice() puts z = 0 between samples for clean mid-plane cuts. Always finish with ensure_closed after any transform: tidy() welds vertices within 2 um and snaps to a 0.1 um grid so an STL round trip keeps the topology. decimate() needs fast-simplification; local_thickness() costs about 2 s on a 1M-pixel map."
+  },
+  {
     "name": "supernote-parser.py",
     "command": "python3 transcript-processing/supernote-parser.py <note.note>",
     "repo_dir": "~/Documents/Exobrain harness",
@@ -601,6 +609,14 @@
     "source": "built",
     "added": "2026-08-16",
     "notes": "Refresh the vendored UI libraries (Beer CSS, mdui, material-color-utilities, Material Symbols) pinned in vendor.json."
+  },
+  {
+    "name": "verify-quotes",
+    "command": "python3 .claude/skills/council/scripts/verify-quotes.py NOTE.md CORPUS_DIR  |  --text \"one phrase\" CORPUS_DIR",
+    "repo_dir": "~/Documents/Exobrain harness/.claude/skills/council/scripts",
+    "source": "built",
+    "added": "2026-10-05",
+    "notes": "Reads every \"> [!quote]\" callout in a note. Match ignores case, punctuation and typography; \"...\" splits a quote into fragments that must occur in order in one file. FUZZY (ratio >= 0.85) means OCR or transcript noise: open the file and copy the real words. Prints up to 3 files per hit with context so you can confirm the speaker. Exit 1 if any quote is missing. Run a positive and a negative control on each new corpus."
   },
   {
     "name": "wait-for-network.sh",

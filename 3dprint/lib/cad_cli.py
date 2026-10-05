@@ -5,14 +5,16 @@ Subcommands:
   scad    <model.scad> [-D k=v ...] [--out DIR] [--name N] [--no-preview]
   check   <mesh> [--printer NAME]
   fix     <mesh> [-o OUT]
-  view    <mesh> [-o PNG] [--views iso,top,front,right,bottom] [--size WxH]
+  view    <mesh> [-o PNG] [--views iso,top,front,right,bottom] [--size WxH] [--crop y=a:b]
   slice   <mesh> [--printer NAME] [--layer MM] [--infill PCT] [--supports] [--gcode OUT]
   convert <in> <out>
   info
 
-A build123d model script sets a module-level ``result``: one Shape, or a dict
-of name -> Shape for multi-part prints. The CLI injects a ``PARAMS`` dict
-(from -p k=v) into the script namespace before it runs.
+A model script sets a module-level ``result``: one build123d Shape or
+trimesh.Trimesh, or a dict of name -> either for multi-part prints. The CLI
+injects ``PARAMS`` (from -p k=v), ``OUT_DIR`` and ``NAME`` into the script
+namespace before it runs, and puts lib/ on the import path (sdfmesh lives
+there).
 
 INVARIANTS:
   - ``check`` exits 1 when the mesh is not watertight or does not fit the
@@ -26,7 +28,6 @@ from __future__ import annotations
 import argparse
 import json
 import math
-import os
 import re
 import shutil
 import subprocess
@@ -102,7 +103,8 @@ def parse_kv(items: list[str] | None) -> dict:
 
 
 def out_dir(args, src: Path) -> tuple[str, Path]:
-    name = args.name or src.stem
+    # models/<name>/build.py is named after its folder
+    name = args.name or (src.parent.name if src.stem == "build" else src.stem)
     d = Path(args.out) if args.out else OUT_ROOT / name
     d.mkdir(parents=True, exist_ok=True)
     return name, d
@@ -120,6 +122,30 @@ def load_mesh(path: Path) -> "trimesh.Trimesh":
 
 
 # ------------------------------------------------------------------ build
+
+def export_meshes(meshes: dict, name: str, d: Path, formats: list[str]) -> list[Path]:
+    """Export trimesh results (from sdfmesh or any mesh workflow). STEP needs
+    exact B-rep geometry, so mesh results skip it."""
+    import trimesh
+
+    written: list[Path] = []
+    multi = len(meshes) > 1
+    for key, mesh in meshes.items():
+        base = f"{name}_{key}" if multi else name
+        if "stl" in formats:
+            p = d / f"{base}.stl"
+            mesh.export(str(p))
+            written.append(p)
+        if "3mf" in formats and not multi:
+            p = d / f"{base}.3mf"
+            trimesh.Scene({key: mesh}).export(str(p))
+            written.append(p)
+    if multi and "3mf" in formats:
+        p = d / f"{name}.3mf"
+        trimesh.Scene(dict(meshes)).export(str(p))
+        written.append(p)
+    return written
+
 
 def export_shapes(shapes: dict, name: str, d: Path, formats: list[str]) -> list[Path]:
     from build123d import Mesher, export_step, export_stl
@@ -161,17 +187,26 @@ def cmd_build(args) -> int:
     formats = [f.strip().lower() for f in args.formats.split(",")]
 
     import build123d  # noqa: F401  (import error surfaces here, before exec)
+    import trimesh
 
-    ns: dict = {"__name__": "__cad__", "__file__": str(src), "PARAMS": params}
+    # OUT_DIR and NAME let a script write extra artifacts (a coloured preview,
+    # debug maps) next to the exports; lib/ is importable for helpers such as
+    # sdfmesh.
+    ns: dict = {"__name__": "__cad__", "__file__": str(src), "PARAMS": params,
+                "OUT_DIR": d, "NAME": name}
     sys.path.insert(0, str(src.parent))
+    sys.path.insert(0, str(HERE / "lib"))
     code = compile(src.read_text(), str(src), "exec")
     exec(code, ns)  # noqa: S102 - the model script is Alex's own code
     result = ns.get("result")
     if result is None:
-        die("model script must set `result` (a Shape or {name: Shape})")
+        die("model script must set `result` (a Shape, a trimesh, or a dict of either)")
     shapes = result if isinstance(result, dict) else {"part": result}
 
-    written = export_shapes(shapes, name, d, formats)
+    if all(isinstance(v, trimesh.Trimesh) for v in shapes.values()):
+        written = export_meshes(shapes, name, d, formats)
+    else:
+        written = export_shapes(shapes, name, d, formats)
     (d / f"{name}.params.json").write_text(json.dumps(params, indent=2) + "\n")
     for p in written:
         log(f"wrote {p}")
@@ -331,11 +366,37 @@ def cmd_fix(args) -> int:
 
 # ------------------------------------------------------------------- view
 
-def render_views(mesh: Path, out_png: Path, views: list[str], size: tuple[int, int]) -> Path:
+def crop_mesh(mesh: Path, spec: str, td: str) -> Path:
+    """Cut a mesh to an axis box ("y=150:192" or "x=-5:5,y=100:140") so f3d
+    frames that region; f3d always fits the camera to the whole file."""
+    import numpy as np
+    import trimesh
+
+    m = load_mesh(mesh)
+    keep = np.ones(len(m.faces), dtype=bool)
+    centres = m.triangles_center
+    for part in spec.split(","):
+        axis, rng = part.split("=")
+        lo, hi = (float(v) for v in rng.split(":"))
+        k = "xyz".index(axis.strip())
+        keep &= (centres[:, k] >= lo) & (centres[:, k] <= hi)
+    m = cast("trimesh.Trimesh", m.submesh([np.nonzero(keep)[0]], append=True))
+    out = Path(td) / f"{mesh.stem}_crop.stl"
+    trimesh.Trimesh(m.vertices, m.faces).export(str(out))
+    return out
+
+
+def render_views(mesh: Path, out_png: Path, views: list[str], size: tuple[int, int],
+                 crop: str | None = None) -> Path:
     from PIL import Image, ImageDraw
 
     tiles: list[tuple[str, Path]] = []
     with tempfile.TemporaryDirectory() as td:
+        if crop:
+            mesh = crop_mesh(mesh, crop, td)
+        # edge lines help on a few-thousand-face CAD part and black out a dense
+        # mesh; a binary STL is 84 bytes plus 50 per face
+        edges = mesh.suffix.lower() == ".stl" and (mesh.stat().st_size - 84) / 50 < 20000
         for v in views:
             if v not in VIEWS:
                 die(f"unknown view {v!r}; known: {', '.join(VIEWS)}")
@@ -344,8 +405,9 @@ def render_views(mesh: Path, out_png: Path, views: list[str], size: tuple[int, i
             cmd = [F3D, str(mesh), "--output", str(png), "--resolution", f"{size[0]},{size[1]}",
                    "--up=+Z", f"--camera-direction={direction}", f"--camera-view-up={up}",
                    "--grid", "--grid-absolute", "--axis", "--anti-aliasing", "--ambient-occlusion",
-                   "--background-color=#f4f1ea", "--color=#8aa0b8", "--edges", "--line-width=0.6",
-                   "--verbose=error"]
+                   "--background-color=#f4f1ea", "--color=#8aa0b8", "--verbose=error"]
+            if edges:
+                cmd += ["--edges", "--line-width=0.6"]
             r = subprocess.run(cmd, capture_output=True, text=True)
             if r.returncode != 0 or not png.exists():
                 die(f"f3d failed on {v}: {r.stderr.strip()[-400:]}")
@@ -371,7 +433,7 @@ def cmd_view(args) -> int:
     out = Path(args.output) if args.output else mesh.with_suffix(".png")
     w, h = (int(x) for x in args.size.lower().split("x"))
     views = [v.strip() for v in args.views.split(",")]
-    p = render_views(mesh, out, views, (w, h))
+    p = render_views(mesh, out, views, (w, h), crop=args.crop)
     print(p)
     return 0
 
@@ -394,6 +456,8 @@ def cmd_slice(args) -> int:
            "--fill-density", f"{args.infill}%", "--perimeters", "3",
            "--temperature", "210", "--bed-temperature", "60", "--first-layer-temperature", "215",
            "--gcode-flavor", prof.get("gcode_flavor", "marlin2")]
+    if args.infill >= 100:
+        cmd += ["--fill-pattern", "rectilinear"]   # the default gyroid refuses 100%
     if args.supports:
         cmd += ["--support-material", "--support-material-auto"]
     for ini in prof.get("prusa_ini", []):
@@ -500,6 +564,7 @@ def main(argv: list[str] | None = None) -> int:
     v.add_argument("-o", "--output")
     v.add_argument("--views", default="iso,top,front,right")
     v.add_argument("--size", default="640x480")
+    v.add_argument("--crop", help='only this region, e.g. "y=150:197" or "x=-8:8,y=100:140"')
     v.set_defaults(fn=cmd_view)
 
     sl = sub.add_parser("slice", help="slice with PrusaSlicer for time and filament estimates")
@@ -520,7 +585,6 @@ def main(argv: list[str] | None = None) -> int:
     i.set_defaults(fn=cmd_info)
 
     args = ap.parse_args(argv)
-    os.chdir(HERE)
     return args.fn(args)
 
 

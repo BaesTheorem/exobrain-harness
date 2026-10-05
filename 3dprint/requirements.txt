@@ -7,3 +7,5 @@ pillow
 networkx
 lxml
 pymeshfix
+scikit-image
+fast-simplification
