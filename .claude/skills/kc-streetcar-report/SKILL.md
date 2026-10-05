@@ -7,6 +7,16 @@ description: Draft and send an issue report email to the KC Streetcar team (info
 
 Draft a concise, actionable issue report email to the KC Streetcar operations team.
 
+## Pick the channel first
+
+The KC Streetcar Authority is not part of 311. It has three channels (checked 2026-10-05):
+
+- **See Say** (text 816-837-4800, the See Say app, or TellKCStreetcar.com): goes straight to a streetcar dispatcher, who can text back. Use it for safety, behavior, cleanliness, broken glass, graffiti, and vandalism, on board or at a stop. For an emergency, call 911.
+- **Email info@kcstreetcar.org**: the canonical inbox. Use it for tracker and display problems, service gaps, accessibility, and feedback. This skill's workflow below covers it.
+- **The Google Form on kcstreetcar.org/contact**: a second channel with no photos, routed to an inbox we cannot see. Only on request.
+
+The `mykcmo` MCP tool `prepare_streetcar_report` writes the See Say text, the email, and the form entry in one call, fills in the nearest stop, address, and intersection, and recommends a channel. Use it for the location facts, then send the email below. The KC 311 iPhone app has the same flow with the photo attached.
+
 **Setup**: Before first use, replace `[Your Name]`, `[Your Phone]`, and `[Your Email]` placeholders below (in Step 3 and the Email Template) with your own contact info. Keep that contact info out of the public repo if you are sharing this skill.
 
 ## Workflow

@@ -18,25 +18,29 @@ from PIL.ExifTags import GPSTAGS
 # KC Streetcar stations: (name, latitude, longitude)
 # Coordinates are approximate, based on cross-street positions along Main St.
 # Matching threshold: 300m (~0.003 degrees)
+# Names as the Authority's See Say form writes them; positions from
+# OpenStreetMap (railway=tram_stop, ODbL), averaged over each stop's two
+# platforms. Matches mykcmo/streetcar.py. Pulled 2026-10-05.
 STATIONS = [
-    ("River Market North (3rd & Grand)",    39.1068, -94.5783),
-    ("River Market (4th & Delaware)",       39.1048, -94.5793),
-    ("City Market (5th & Walnut)",          39.1028, -94.5808),
-    ("Metro Center (7th & Main)",           39.0993, -94.5835),
-    ("Library (9th & Main)",                39.0968, -94.5835),
-    ("Power & Light (13th & Main)",         39.0918, -94.5838),
-    ("Kauffman Center (16th & Main)",       39.0882, -94.5840),
-    ("Crossroads (19th & Main)",            39.0845, -94.5840),
-    ("Union Station (Pershing & Main)",     39.0830, -94.5865),
-    ("Crown Center (Pershing & Grand)",     39.0836, -94.5787),
-    ("27th & Main",                         39.0755, -94.5850),
-    ("Armour (31st & Main)",                39.0641, -94.5856),
-    ("Linwood (Linwood & Main)",            39.0590, -94.5855),
-    ("39th & Main",                         39.0527, -94.5853),
-    ("Westport (Westport Rd & Main)",       39.0505, -94.5852),
-    ("Art Museums (45th & Main)",           39.0437, -94.5850),
-    ("Plaza Transit Center (47th & Main)",  39.0410, -94.5848),
-    ("UMKC (51st & Brookside)",             39.0340, -94.5780),
+    ("Riverfront (Berkley Riverfront)", 39.11715, -94.57212),
+    ("River Market (3rd & Grand)", 39.11043, -94.58133),
+    ("River Market West (4th & Delaware)", 39.10880, -94.58438),
+    ("City Market (5th & Walnut)", 39.10851, -94.58189),
+    ("North Loop (7th & Main)", 39.10524, -94.58303),
+    ("Library (9th & Main)", 39.10311, -94.58307),
+    ("Metro Center (12th & Main)", 39.09994, -94.58321),
+    ("Power & Light (14th & Main)", 39.09684, -94.58334),
+    ("Kauffman Center (16th & Main)", 39.09451, -94.58347),
+    ("Crossroads (19th & Main)", 39.09041, -94.58368),
+    ("Union Station (Pershing & Main)", 39.08467, -94.58406),
+    ("WWI Museum & Memorial (27th & Main)", 39.07853, -94.58453),
+    ("Union Hill (31st & Main)", 39.07107, -94.58531),
+    ("Armour (35th & Main)", 39.06377, -94.58569),
+    ("Westport (39th & Main)", 39.05643, -94.58612),
+    ("Southmoreland (43rd & Main)", 39.04937, -94.58655),
+    ("Art Museums (45th & Main)", 39.04591, -94.58674),
+    ("Plaza (Cleaver II & Brookside)", 39.04109, -94.58612),
+    ("UMKC (51st & Brookside)", 39.03547, -94.58412),
 ]
 
 MAX_MATCH_DISTANCE_M = 500  # must be within 500m of a station
