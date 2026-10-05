@@ -65,6 +65,8 @@ The H6008 takes 20 commands each second on the LAN (tested), and the bulb fades 
 
 Bulbs in one group stay in the same state. A bulb's group is the `group` field in `data/devices.json`, or else its alias without the `-N` suffix. A group name is also a TARGET. When one bulb of a group turns on, the automation turns on the full group and sets its color. When one bulb turns off, the full group turns off.
 
+A bulb with a `color` field in `data/devices.json` (hex RGB, for example `FFBF00` for the floor 2 amber) has that color at any time of day, at 100%. It has no period rules and the 7:30 AM wake does not include it.
+
 A bulb that is already on when a period starts also changes. At 2 hours before sunset and at sunset, one automation for each group sets the new color and brightness if any bulb of the group is on.
 
 At 7:30 AM, one more automation turns every bulb on at 6500 K and 100%, even if it is off. A bulb that is off at the wall switch has no power, so it cannot turn on.

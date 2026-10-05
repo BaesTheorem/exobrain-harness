@@ -51,7 +51,7 @@ STATUS_WAIT = 1.5
 NAMED_COLORS = {
     "red": (255, 0, 0),
     "orange": (255, 100, 0),
-    "amber": (255, 160, 20),
+    "amber": (255, 191, 0),
     "yellow": (255, 220, 0),
     "green": (0, 255, 0),
     "teal": (0, 200, 150),
@@ -227,7 +227,8 @@ def google_script(room: str | None) -> int:
     starters. Bulbs in one alias group ("bedroom-2", "bedroom-3") move together: when one
     turns on or off, the actions apply to the whole group. Google names a device
     "<name> - <room>"; the room is a placeholder unless --room or a "room" field in the
-    cache gives it.
+    cache gives it. A bulb with a "color" field (hex RGB, for example "FFBF00") has one fixed
+    color at any time of day: it gets no period rules and is not part of the 7:30 AM wake.
     """
     cache = load_cache()
     bulbs = sorted((e for e in cache.values() if e.get("name")), key=lambda e: e["name"])
@@ -241,29 +242,31 @@ def google_script(room: str | None) -> int:
     out = [
         "metadata:",
         "  name: Govee power-on color",
-        "  description: Turn the bulbs on at 7:30 AM. When a Govee bulb turns on, and when a period starts while it is on, set 6500K from 7:30 AM, 2700K in the 2 hours before sunset, dim red at night. Bulbs in one group turn on and off together.",
+        "  description: Turn the bulbs on at 7:30 AM. When a Govee bulb turns on, and when a period starts while it is on, set 6500K from 7:30 AM, 2700K in the 2 hours before sunset, dim red at night. Bulbs with a fixed color (floor 2 amber) get it at any time. Bulbs in one group turn on and off together.",
         "automations:",
     ]
     groups: dict[str, list[str]] = {}
     for e in bulbs:
         groups.setdefault(group_of(e), []).append(f"{e['name']} - {e.get('room') or room}")
+    timed = [e for e in bulbs if not e.get("color")]
+    timed_groups = {group_of(e) for e in timed}
     for e in bulbs:
         device = f"{e['name']} - {e.get('room') or room}"
         group = [f"        - {d}" for d in groups[group_of(e)]]
         sync = len(group) > 1
-        for after, before, color, brightness, _label in PERIODS:
+        fixed = e.get("color")
+        periods = [("", "", f"spectrumRGB: {fixed.upper()}", 100, "fixed")] if fixed else PERIODS
+        for after, before, color, brightness, _label in periods:
             out += [
                 "  - starters:",
                 "      - type: device.state.OnOff",
                 f"        device: {device}",
                 "        state: on",
                 "        is: true",
-                "    condition:",
-                "      type: time.between",
-                f"      after: {after}",
-                f"      before: {before}",
-                "    actions:",
             ]
+            if after:
+                out += ["    condition:", "      type: time.between", f"      after: {after}", f"      before: {before}"]
+            out += ["    actions:"]
             if sync:
                 out += ["      - type: device.command.OnOff", "        devices:", *group, "        on: true"]
             out += ["      - type: device.command.ColorAbsolute", "        devices:", *group, "        color:", f"          {color}"]
@@ -284,7 +287,9 @@ def google_script(room: str | None) -> int:
     # Boundaries: a bulb that is already on when a later period starts changes with it.
     # The power-on rules alone leave it at the color it had when it was turned on.
     for after, _before, color, brightness, _label in PERIODS[1:]:
-        for members in groups.values():
+        for name, members in groups.items():
+            if name not in timed_groups:
+                continue
             group = [f"        - {d}" for d in members]
             out += [
                 "  - starters:",
@@ -301,7 +306,7 @@ def google_script(room: str | None) -> int:
             out += ["      - type: device.command.BrightnessAbsolute", "        devices:", *group, f"        brightness: {brightness}"]
     # Wake: at the start of the day period, turn every bulb on, even if it is off.
     after, _before, color, brightness, _label = PERIODS[0]
-    devices = [f"        - {e['name']} - {e.get('room') or room}" for e in bulbs]
+    devices = [f"        - {e['name']} - {e.get('room') or room}" for e in timed]
     out += ["  - starters:", "      - type: time.schedule", f"        at: {after}", "    actions:"]
     out += ["      - type: device.command.OnOff", "        devices:", *devices, "        on: true"]
     out += ["      - type: device.command.ColorAbsolute", "        devices:", *devices, "        color:", f"          {color}"]
