@@ -129,7 +129,7 @@ Two things this setup can't leave to the skill alone:
 
 ## Design
 
-**Claude Design is the UI step.** Anything with a screen is designed with Alex in Claude Design before its UI code is written, and the design comes back into the repo as the source the build follows. The `/ui-design` skill is the procedure: find or create the repo's project (`design/claude-design.json`), seed it with a brief, the house tokens and two or three Dribbble or Awwwards references, open the Console's design pane (`mist-design open`) beside the chat, stop while Alex designs, then pull the handoff into `design/handoff/<date>/` and build from it. The CLI's native `Design` tool and `/design` command do the reading and writing; they need a one-time `/design-login` from an interactive terminal.
+**A brief comes before the UI code.** Anything with a screen gets a short design brief in the chat first: the screens, the states each one has (empty, loading, error, done), the constraints from this file (flat and sharp, Material Symbols Sharp, reduced motion), the platform (Mac window, phone, both), and one or two references. Alex approves the brief, then the build follows it. A mockup, when one helps, is a static HTML page rendered with `/browser-render` and embedded in the chat, so it lands in the chat's artifacts drawer. Claude Design was removed from the harness and the Console on 2026-10-05; do not reintroduce it.
 
 When building a UI, look for an appropriate example from https://dribbble.com/ or https://www.awwwards.com/ and use that as reference for the brief.
 Furthermore, never build graphics or any other assets from scratch what you can find open source asset libraries for. 
