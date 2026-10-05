@@ -118,17 +118,25 @@ from `models/snicker_snack/build.py`:
 4. **3D parts.** Ellipsoid petals and leaves, helix vines, rounded rings,
    and curved tapering tubes (`catmull_rom` + `tube`, with `thorn` for spikes),
    joined with `smin` (smooth union). Evaluate each only inside its box.
-   Depth that a picture cannot show (a guard that must protect a hand, say) is
-   added as 3D parts around the traced relief: the Snicker-Snack quillon is a
-   crown of tube vines plus thorns placed on the relief's skeleton.
+   Depth that a picture cannot show comes from the picture itself, not from
+   invented parts. To extend a painted element into the third axis, read the
+   same 2D outline and height maps along another axis: the Snicker-Snack
+   guard is the painted guard joined to itself turned 90 degrees about the
+   blade (`Fields.zguard`), a cross from above with the art on every side. An
+   added crown of thorn vines was rejected as looking like a succulent.
 5. **Mesh.** `mesh_from_field` (shared slab rows keep it closed), then
    `decimate` to about 600k faces and `ensure_closed`. `ensure_closed` runs
    `tidy` last: it welds near-coincident vertices and snaps to a 0.1 um grid,
    so the STL a slicer loads has the same topology as the mesh in memory.
-6. **Two-piece print.** A double-sided part lying flat needs supports under
+6. **Support-free kit.** A double-sided part lying flat needs supports under
    every lower face. Intersect the field with z >= 0 and z <= 0 (the lattice
    puts z = 0 between samples, so the cut is clean), add pin holes, lay both
-   halves cut face down: no supports, both faces print as top surfaces.
+   halves cut face down: no supports, both faces print as top surfaces. A
+   feature that stands out of that plane (the turned guard) has no flat side:
+   cut it off the body as (feature minus body), so its root takes the shape of
+   the body surface and glues on in one position, and split it along its own
+   mid-plane. Lay each piece on its cut face with exact sign flips and swaps.
+   `mesh_from_field(zbounds=...)` samples only the depth each slab needs.
 
 A full replica is double-sided. Do not offer a flat back unless Alex asks.
 
@@ -170,6 +178,10 @@ black without an environment map (`_matte` in the Snicker-Snack script).
   script), or the render looks bleached.
 - trimesh's `slice_plane` and ray queries need shapely and rtree, which are not
   installed. Measure from vertices or the design maps instead.
+- `ensure_closed` falls back to MeshFix, which keeps only the largest piece.
+  It now reports every repair and every dropped piece on stderr; read those
+  lines, because a real part (a tendril that turned out to float) can vanish
+  there without the closed-mesh check noticing.
 - Any transform after the last `ensure_closed` can collapse two float32
   vertices on export and open a pin-hole. Flip with exact sign changes and run
   `ensure_closed` after the transform.

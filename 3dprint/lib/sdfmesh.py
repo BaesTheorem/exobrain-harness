@@ -150,12 +150,18 @@ def thorn(base, direction, length, r_base, r_tip=0.05, n=16):
 
 # ---------------------------------------------------------------- meshing
 
-def mesh_from_field(field, xs, ys, zs, slab: int = 128, level: float = 0.0, progress=None):
+def mesh_from_field(field, xs, ys, zs, slab: int = 128, level: float = 0.0, progress=None,
+                    zbounds=None):
     """Mesh the level set of `field` over the lattice.
 
     field(j0, j1) must return a float array of shape (j1 - j0, len(xs),
     len(zs)) for the rows ys[j0:j1]. Slabs overlap by one row; vertices are
-    built from integer lattice indices so shared rows match exactly."""
+    built from integer lattice indices so shared rows match exactly.
+
+    With zbounds(j0, j1) -> (k0, k1), each slab samples only zs[k0:k1] and
+    field is called as field(j0, j1, k0, k1). Use it when a tall feature
+    spans few rows: the bounds must hold every surface crossing of rows j0
+    to j1 - 1 inclusive (both shared rows), plus a sample of margin."""
     import trimesh
     from skimage.measure import marching_cubes
 
@@ -166,13 +172,18 @@ def mesh_from_field(field, xs, ys, zs, slab: int = 128, level: float = 0.0, prog
     j0 = 0
     while j0 < ny - 1:
         j1 = min(ny, j0 + slab + 1)
-        F = field(j0, j1)
+        if zbounds is None:
+            k0 = 0
+            F = field(j0, j1)
+        else:
+            k0, k1 = zbounds(j0, j1)
+            F = field(j0, j1, k0, k1)
         if F.min() < level < F.max():
             v, f, _, _ = marching_cubes(F, level=level, allow_degenerate=False)
             idx = np.empty_like(v, dtype=np.float64)
             idx[:, 0] = v[:, 1]            # x index
             idx[:, 1] = v[:, 0] + j0       # y index (global)
-            idx[:, 2] = v[:, 2]            # z index
+            idx[:, 2] = v[:, 2] + k0       # z index (global)
             verts.append(idx * res + origin)
             faces.append(f + nv)
             nv += len(v)
@@ -205,6 +216,12 @@ def decimate(mesh, faces: int):
     return out
 
 
+def _report(msg: str) -> None:
+    import sys
+
+    print(f"[sdfmesh] {msg}", file=sys.stderr, flush=True)
+
+
 def drop_specks(mesh, min_faces: int = 50):
     """Remove pieces under `min_faces` triangles. Decimation can leave
     zero-volume two-triangle flaps that a slicer reports as loose parts."""
@@ -214,6 +231,10 @@ def drop_specks(mesh, min_faces: int = 50):
     if len(parts) <= 1:
         return mesh
     keep = [q for q in parts if len(q.faces) >= min_faces]
+    dropped = len(parts) - len(keep)
+    if dropped:
+        lost = sum(len(q.faces) for q in parts) - sum(len(q.faces) for q in keep)
+        _report(f"dropped {dropped} loose piece(s) under {min_faces} faces ({lost} faces)")
     return cast("trimesh.Trimesh", trimesh.util.concatenate(keep)) if keep else mesh
 
 
@@ -261,9 +282,13 @@ def ensure_closed(mesh):
         return mesh
     import pymeshfix
 
+    bodies = len(mesh.split(only_watertight=False))
     mf = pymeshfix.MeshFix(np.asarray(mesh.vertices), np.asarray(mesh.faces))
     mf.repair()
     out = tidy(trimesh.Trimesh(mf.points, mf.faces, process=True))
+    # MeshFix keeps only the largest piece: say so, a real part may have gone
+    _report(f"MeshFix repaired the mesh: {len(mesh.faces)} -> {len(out.faces)} faces, "
+            f"{bodies} -> {len(out.split(only_watertight=False))} bodies")
     if out.volume < 0:
         out.invert()
     return out

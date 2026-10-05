@@ -17,11 +17,12 @@ through it holds the sword face-on when worn.
 
 Run:
   bin/cad build models/snicker_snack/build.py
-  bin/cad build models/snicker_snack/build.py -p variant=halves --name snicker_snack_halves
+  bin/cad build models/snicker_snack/build.py -p variant=kit --name snicker_snack_kit
   .venv/bin/python models/snicker_snack/build.py stage=2d     (2D design maps only)
 
-PARAMS: variant=full|halves, res (voxel mm, 0.1), faces (print mesh budget),
-preview_faces (Console preview budget), stage=all|2d.
+PARAMS: variant=full|kit (kit = the support-free six-piece print set; halves
+is an alias), res (voxel mm, 0.1), faces (print mesh budget), preview_faces
+(Console preview budget), stage=all|2d.
 """
 
 from __future__ import annotations
@@ -43,7 +44,7 @@ sys.path.insert(0, str(ROOT / "lib"))
 import sdfmesh as sm  # noqa: E402
 
 REF = HERE / "reference" / "snicker_snack.png"
-DEFAULTS = {"variant": "full", "res": 0.1, "faces": 600000, "preview_faces": 250000, "stage": "all"}
+DEFAULTS = {"variant": "full", "res": 0.1, "faces": 700000, "preview_faces": 300000, "stage": "all"}
 
 LENGTH = 190.0          # tip to rose top, an unsharpened pencil
 
@@ -82,20 +83,11 @@ TIERS = [(5, 126, 4.6, 2.5, 26, 2.7, 2.5, 0.50, 0.13, 0.08, 0.4),
 RING_Y, RING_R, RING_WALL, RING_HW, HOLE_R = 191.9, 2.7, 0.9, 1.5, 1.8
 # gem centres on the guard (front view)
 GEMS = [(0.0, 151.6), (0.0, 143.6)]
-# The thorny quillon. The painting shows the guard as a tangle of thorny vines;
-# in 3D the thorns are the quillon. Eight vines leave the base of the grip, fan
-# out toward both faces and curve up around the hand, and the vines of the
-# painted filigree carry thorns that stand out of both faces.
-CROWN = [(35, 0.80), (70, 1.0), (110, 1.0), (145, 0.80)]   # angle from +x toward +z (deg), reach
-CROWN_PROFILE = [(1.2, 154.8), (4.4, 154.3), (7.4, 155.3), (9.4, 157.0), (10.9, 159.2)]  # (radius, y)
-CROWN_R = [1.25, 1.1, 0.85, 0.55, 0.12]
-CROWN_TWIST = 8.0                                           # deg wound around the grip, root to tip
-CROWN_THORNS = [(0.42, 1.5, 0.42), (0.70, 1.2, 0.34)]       # place along the vine, length, base radius
-FILIGREE_THORNS = 11                                        # per side of the axis, per face
-THORN_SPACING = 4.2
-THORN_COLOR = (0.42, 0.36, 0.18)
-CROWN_COLOR = (0.31, 0.38, 0.15)
-# alignment pins for the halves: (x, y, depth); 1.75 mm filament in 1.9 mm holes
+# The quillon in 3D: the painted guard is turned 90 degrees about the blade and
+# joined to itself, so seen from above the guard is a cross and every side
+# shows the same artwork. The copy leaves out the blade collar and the gems.
+Z_JOIN = 0.25           # fillet radius where the two guards meet
+# alignment pins for the body halves: (x, y, depth); 1.75 mm filament in 1.9 mm holes
 PINS = [(0.0, 184.3, 3.2), (0.0, 143.6, 1.6)]
 PIN_R = 0.95
 
@@ -260,6 +252,7 @@ def design_2d(mask, rgb, xs, ys, res):
     # the heart of the guard is thicker than its tips
     swell = 0.7 * np.clip(1 - np.hypot(X / 16.0, (Y - 147.0) / 9.0), 0, 1) ** 1.2
     H = H + (1 - wC) * swell
+    H_guard = ndi.gaussian_filter(np.where(S, H, H_EDGE), 0.8)   # before the gems: the turned copy
 
     gems = np.zeros(S.shape, bool)
     for (gx, gy), (a, dh) in zip(GEMS, [(1.0, 0.55), (1.45, 0.85)], strict=True):
@@ -273,7 +266,18 @@ def design_2d(mask, rgb, xs, ys, res):
 
     H = np.where(S, H, H_EDGE)
     H = ndi.gaussian_filter(H, 0.8)
-    maps = {"S": S, "C": C, "rec": rec, "dark": dark, "gems": gems, "LT": LT}
+    # the crossguard alone for the copy turned into z: no blade, no collar,
+    # and only its main connected piece. The hanging claw tendrils reach the
+    # guard through the collar, so turned into z they would float in front
+    # of it; they stay beside the collar as painted.
+    D_guard = np.maximum(D, -sm.sdf2d(C, res))
+    glab, gn = label(D_guard < 0)
+    if gn > 1:
+        sizes = np.bincount(glab.ravel())[1:]
+        main_piece = int(np.argmax(sizes)) + 1
+        D_guard = np.where((glab > 0) & (glab != main_piece), 0.1, D_guard)
+    maps = {"S": S, "C": C, "rec": rec, "dark": dark, "gems": gems, "LT": LT,
+            "D_guard": D_guard.astype(np.float32), "H_guard": H_guard.astype(np.float32)}
     return D.astype(np.float32), H.astype(np.float32), maps
 
 
@@ -410,83 +414,6 @@ def pin_holes(X, Y, Z):
     return out
 
 
-def _tube_part(pts, radii, thorns, k_thorn=0.12):
-    """A union part for one vine (or a lone thorn) and the thorns on it."""
-    lo, hi = pts.min(0) - (radii.max() + 1.2), pts.max(0) + (radii.max() + 1.2)
-    for tp, _ in thorns:
-        lo, hi = np.minimum(lo, tp.min(0) - 1.2), np.maximum(hi, tp.max(0) + 1.2)
-
-    def fn(X, Y, Z):
-        f = sm.tube(X, Y, Z, pts, radii)
-        for tp, tr in thorns:
-            f = sm.smin(f, sm.tube(X, Y, Z, tp, tr), k_thorn)
-        return f
-
-    return fn, (lo[0], hi[0], lo[1], hi[1], lo[2], hi[2])
-
-
-def crown_vines():
-    """The eight vines of the crown, front four mirrored to the back."""
-    prof = np.array(CROWN_PROFILE)
-    n = len(prof)
-    out = []
-    for phi0, reach in CROWN:
-        ctrl = []
-        for j, (r, y) in enumerate(prof):
-            rr = prof[0, 0] + (r - prof[0, 0]) * reach
-            phi = np.radians(phi0 + CROWN_TWIST * j / (n - 1))
-            ctrl.append((rr * np.cos(phi), y, rr * np.sin(phi)))
-        pts = sm.catmull_rom(ctrl, 24)
-        radii = np.interp(np.arange(len(pts)), np.arange(n) * 24, CROWN_R)
-        thorns = []
-        for frac, length, rb in CROWN_THORNS:
-            i = int(frac * (len(pts) - 1))
-            tan = pts[min(i + 1, len(pts) - 1)] - pts[max(i - 1, 0)]
-            tan /= np.linalg.norm(tan)
-            er = np.array([pts[i][0], 0.0, pts[i][2]])
-            er /= np.linalg.norm(er)
-            d = er - 0.4 * tan + np.array([0.0, -0.35, 0.0])
-            d /= np.linalg.norm(d)
-            thorns.append(sm.thorn(pts[i] + 0.3 * radii[i] * d, d, 0.7 * radii[i] + length, rb))
-        for sz in (1.0, -1.0):               # front, then the mirror image at the back
-            flip = np.array([1.0, 1.0, sz])
-            out.append(_tube_part(pts * flip, radii, [(tp * flip, tr) for tp, tr in thorns]))
-    return out
-
-
-def filigree_thorns(H, maps, xs, ys):
-    """Thorns standing out of both faces of the painted filigree, on the
-    centre lines of its thicker vines, kept clear of the axis and the gems.
-    Picked on the right side and mirrored so the guard stays symmetric."""
-    from skimage.morphology import skeletonize
-
-    S, C, LT = maps["S"], maps["C"], maps["LT"]
-    sk = np.asarray(skeletonize(S & ~C & (LT >= 0.75)), dtype=bool)
-    iy, ix = np.nonzero(sk)
-    X, Y = xs[ix], ys[iy]
-    # keep clear of the blade collar: its edge is not a vine
-    off_collar = sm.edt(~C)[iy, ix] * (xs[1] - xs[0]) > 1.2
-    ok = (X > 4.5) & (Y > 112.0) & off_collar
-    for gx, gy in GEMS:
-        ok &= np.hypot(X - gx, Y - gy) > 2.6
-    iy, ix, X, Y = iy[ok], ix[ok], X[ok], Y[ok]
-    chosen: list[tuple[float, float, float, float]] = []
-    for k in np.argsort(-LT[iy, ix], kind="stable"):
-        if all(np.hypot(X[k] - c[0], Y[k] - c[1]) >= THORN_SPACING for c in chosen):
-            chosen.append((float(X[k]), float(Y[k]), float(H[iy[k], ix[k]]), float(LT[iy[k], ix[k]])))
-        if len(chosen) >= FILIGREE_THORNS:
-            break
-    parts = []
-    for x0, y0, h0, lt in chosen:
-        for sx in (1.0, -1.0):
-            for sz in (1.0, -1.0):
-                d = np.array([0.55 * sx, -0.25, sz])
-                tp, tr = sm.thorn((sx * x0, y0, sz * 0.3 * h0), d, 0.7 * h0 + 1.8,
-                                  float(np.clip(0.42 * lt, 0.32, 0.55)))
-                parts.append(_tube_part(tp, tr, []))
-    return parts, chosen
-
-
 # (kind, function, box x0 x1 y0 y1 z0 z1, smooth radius); boxes carry a
 # margin wider than the blend so fields meet without seams
 PARTS = [
@@ -495,8 +422,11 @@ PARTS = [
     ("union", calyx, (-7.0, 7.0, 152.0, 162.0, -7.0, 7.0), 0.25),
     ("union", rose, (-7.6, 7.6, 175.5, 192.0, -7.6, 7.6), 0.3),
     ("union", ring, (-3.4, 3.4, 187.0, 197.5, -5.0, 5.0), 0.3),
-    ("cut", ring_hole, (-3.2, 3.2, 190.0, 195.2, -2.6, 2.6), 0.0),
 ]
+CUTS = [("cut", ring_hole, (-3.2, 3.2, 190.0, 195.2, -2.6, 2.6), 0.0)]
+PIN_CUT = ("cut", pin_holes, (-1.5, 1.5, 140.0, 188.0, -3.5, 3.5), 0.0)
+
+
 def rose_sepals(X, Y, Z):
     """The green sepals under the bloom, for colouring only (rose() builds them)."""
     fields = [leaf_from_base(X, Y, Z, 1.5, ROSE_Y + 1.2, np.radians(60 * k + 30), 140, 2.8, 1.6, 0.8, 0.05, 0.4)
@@ -515,28 +445,142 @@ def irange(arr, lo, hi):
     return int(np.searchsorted(arr, lo)), int(np.searchsorted(arr, hi, side="right"))
 
 
-def make_field(D, H, xs, ys, zs, parts, cut=None):
-    absz = np.abs(zs)[None, None, :]
+class Fields:
+    """Every field of the sword on the global lattice, evaluated over index
+    boxes: rows (j0, j1), columns (b0, b1), depth samples (k0, k1).
 
-    def field(j0, j1):
-        F = np.maximum(D[j0:j1, :, None], absz - H[j0:j1, :, None]).astype(np.float32)
-        for kind, fn, box, k in parts:
-            a0, a1 = irange(ys, box[2], box[3])
-            a0, a1 = max(a0, j0), min(a1, j1)
-            if a0 >= a1:
-                continue
-            b0, b1 = irange(xs, box[0], box[1])
-            c0, c1 = irange(zs, box[4], box[5])
-            sub = F[a0 - j0:a1 - j0, b0:b1, c0:c1]
-            val = fn(xs[b0:b1][None, :, None], ys[a0:a1][:, None, None], zs[c0:c1][None, None, :])
+    body:   blade, collar and painted guard in the x-y plane, plus the grip,
+            leaf cup, rose and loop.
+    zguard: the painted guard turned 90 degrees about the blade (y axis), so
+            it lies in the y-z plane; its outline and heights come from the
+            same art, read along z instead of x.
+    """
+
+    def __init__(self, D, H, maps, xs, ys, zs, parts, cuts):
+        self.D, self.H, self.xs, self.ys, self.zs = D, H, xs, ys, zs
+        self.parts, self.cuts = parts, cuts
+        res = float(xs[1] - xs[0])
+        rows = np.arange(len(ys))[:, None] * np.ones((1, len(zs)))
+        cols = ((zs - xs[0]) / res)[None, :] * np.ones((len(ys), 1))
+        coords = [rows.ravel(), cols.ravel()]
+        self.DZ = ndi.map_coordinates(maps["D_guard"], coords, order=1, cval=10.0).reshape(rows.shape)
+        self.HZ = ndi.map_coordinates(maps["H_guard"], coords, order=1, cval=0.0).reshape(rows.shape)
+        self.DZ = self.DZ.astype(np.float32)
+        self.HZ = self.HZ.astype(np.float32)
+
+    def _boxes(self, items, ry, rx, rz):
+        for kind, fn, box, k in items:
+            a0, a1 = irange(self.ys, box[2], box[3])
+            b0, b1 = irange(self.xs, box[0], box[1])
+            c0, c1 = irange(self.zs, box[4], box[5])
+            a0, a1 = max(a0, ry[0]), min(a1, ry[1])
+            b0, b1 = max(b0, rx[0]), min(b1, rx[1])
+            c0, c1 = max(c0, rz[0]), min(c1, rz[1])
+            if a0 < a1 and b0 < b1 and c0 < c1:
+                yield kind, fn, k, (a0, a1, b0, b1, c0, c1)
+
+    def body(self, ry, rx, rz, cuts=True):
+        (j0, j1), (b0, b1), (k0, k1) = ry, rx, rz
+        absz = np.abs(self.zs[k0:k1])[None, None, :]
+        F = np.maximum(self.D[j0:j1, b0:b1, None], absz - self.H[j0:j1, b0:b1, None]).astype(np.float32)
+        items = self.parts + (self.cuts if cuts else [])
+        for kind, fn, k, (a0, a1, c_b0, c_b1, c0, c1) in self._boxes(items, ry, rx, rz):
+            sub = F[a0 - j0:a1 - j0, c_b0 - b0:c_b1 - b0, c0 - k0:c1 - k0]
+            val = fn(self.xs[c_b0:c_b1][None, :, None], self.ys[a0:a1][:, None, None],
+                     self.zs[c0:c1][None, None, :])
             sub[...] = sm.smin(sub, val, k) if kind == "union" else np.maximum(sub, -val)
-        if cut == "front":
-            F = np.maximum(F, -zs[None, None, :])
-        elif cut == "back":
-            F = np.maximum(F, zs[None, None, :])
         return F
 
-    return field
+    def zguard(self, ry, rx, rz):
+        (j0, j1), (b0, b1), (k0, k1) = ry, rx, rz
+        absx = np.abs(self.xs[b0:b1])[None, :, None]
+        return np.maximum(self.DZ[j0:j1, None, k0:k1], absx - self.HZ[j0:j1, None, k0:k1])
+
+    def cut_only(self, F, ry, rx, rz):
+        j0, b0, k0 = ry[0], rx[0], rz[0]
+        for _, fn, _, (a0, a1, c_b0, c_b1, c0, c1) in self._boxes(self.cuts, ry, rx, rz):
+            sub = F[a0 - j0:a1 - j0, c_b0 - b0:c_b1 - b0, c0 - k0:c1 - k0]
+            sub[...] = np.maximum(sub, -fn(self.xs[c_b0:c_b1][None, :, None], self.ys[a0:a1][:, None, None],
+                                           self.zs[c0:c1][None, None, :]))
+        return F
+
+
+def full_sword(f: Fields, ry, rx, rz):
+    F = sm.smin(f.body(ry, rx, rz, cuts=False), f.zguard(ry, rx, rz), Z_JOIN)
+    return f.cut_only(F, ry, rx, rz)
+
+
+def zneed_rows(f: Fields, maps, margin=0.6):
+    """Depth (|z|) each lattice row needs: the flat parts' thickness, the
+    turned guard's reach (the art's width at that row) and the 3D parts."""
+    S = maps["S"]
+    need = np.where(S, f.H, 0.0).max(axis=1)
+    reach = np.where(maps["D_guard"] < 0, np.abs(f.xs)[None, :], 0.0).max(axis=1)
+    need = np.maximum(need, reach + 0.3)
+    for _, _, box, _ in f.parts + f.cuts:
+        a0, a1 = irange(f.ys, box[2], box[3])
+        need[a0:a1] = np.maximum(need[a0:a1], max(abs(box[4]), abs(box[5])))
+    return need + margin
+
+
+def mesh_piece(f: Fields, combine, xr, yr, zr, zneed=None):
+    """Mesh combine(f, ry, rx, rz) over the global index box xr, yr, zr. With
+    zneed, each slab samples only the depth its rows need."""
+    (b0, b1), (jy0, jy1), (kz0, kz1) = xr, yr, zr
+
+    def field(j0, j1, k0=0, k1=None):
+        k1 = (kz1 - kz0) if k1 is None else k1
+        return combine(f, (jy0 + j0, jy0 + j1), (b0, b1), (kz0 + k0, kz0 + k1))
+
+    def zb(j0, j1):
+        assert zneed is not None
+        lim = float(zneed[jy0 + j0:jy0 + j1].max())
+        k0, k1 = irange(f.zs, -lim, lim)
+        return max(k0, kz0) - kz0, min(k1, kz1) - kz0
+
+    return sm.mesh_from_field(field, f.xs[b0:b1], f.ys[jy0:jy1], f.zs[kz0:kz1], slab=96,
+                              zbounds=zb if zneed is not None else None)
+
+
+def kit_pieces(f: Fields):
+    """The support-free print kit: the body split at the mid-plane, and each
+    arm of the turned guard (the guard minus the body) split along x = 0.05.
+    Returns (name, combine, x range mm, y range mm, z range mm)."""
+    def body_half(sz):
+        return lambda f_, ry, rx, rz: np.maximum(f_.body(ry, rx, rz), -sz * f_.zs[rz[0]:rz[1]][None, None, :])
+
+    def arm(sz, sx):
+        def combine(f_, ry, rx, rz):
+            F = np.maximum(f_.zguard(ry, rx, rz), -f_.body(ry, rx, rz, cuts=False))
+            F = np.maximum(F, -sz * f_.zs[rz[0]:rz[1]][None, None, :])
+            return np.maximum(F, -sx * (f_.xs[rx[0]:rx[1]][None, :, None] - 0.05))
+        return combine
+
+    return [
+        ("body_front", body_half(1), (-24.0, 24.0), (-1.0, 197.6), (-0.2, 7.2)),
+        ("body_back", body_half(-1), (-24.0, 24.0), (-1.0, 197.6), (-7.2, 0.2)),
+        ("arm_front_right", arm(1, 1), (-0.2, 4.2), (106.0, 162.0), (-0.2, 22.2)),
+        ("arm_front_left", arm(1, -1), (-4.2, 0.3), (106.0, 162.0), (-0.2, 22.2)),
+        ("arm_back_right", arm(-1, 1), (-0.2, 4.2), (106.0, 162.0), (-22.2, 0.2)),
+        ("arm_back_left", arm(-1, -1), (-4.2, 0.3), (106.0, 162.0), (-22.2, 0.2)),
+    ]
+
+
+def lay_flat(name, m):
+    """Turn a kit piece onto its cut face with exact sign flips and swaps
+    (no rounding), cut face at z = 0."""
+    import trimesh
+
+    v = np.array(m.vertices)
+    x, y, z = v[:, 0].copy(), v[:, 1].copy(), v[:, 2].copy()
+    if name == "body_back":
+        x, z = -x, -z
+    elif name.startswith("arm_") and name.endswith("_right"):
+        x, z = -z, x                      # turn about y by -90 degrees: the x = 0.05 cut goes down
+    elif name.startswith("arm_") and name.endswith("_left"):
+        x, z = z, -x                      # turn about y by +90 degrees
+    v = np.stack([x, y, z - z.min()], 1)
+    return trimesh.Trimesh(v, np.asarray(m.faces), process=False)
 
 
 # ---------------------------------------------------------------- preview
@@ -562,18 +606,25 @@ def delight(rgb, maps):
     return hsv2rgb(hsv)
 
 
-def preview_glb(mesh, D, H, rgb, xs, ys, path: Path, colors: dict):
+def preview_glb(mesh, f: Fields, rgb, path: Path, colors: dict):
     """Vertex-coloured GLB for the Console viewer: blade and guard take the
-    painting's own colours, the 3D parts take their part colour. Written
-    Y-up as glTF expects; the viewer turns it back to lie flat."""
+    painting's own colours (the turned guard reads the art along z), the 3D
+    parts take their part colour. Written Y-up as glTF expects; the viewer
+    turns it back to lie flat."""
     import trimesh
 
+    xs, ys, zs = f.xs, f.ys, f.zs
     V = np.asarray(mesh.vertices)
     res = xs[1] - xs[0]
     ix = np.clip(np.round((V[:, 0] - xs[0]) / res).astype(int), 0, len(xs) - 1)
     iy = np.clip(np.round((V[:, 1] - ys[0]) / res).astype(int), 0, len(ys) - 1)
+    iz = np.clip(np.round((V[:, 2] - zs[0]) / res).astype(int), 0, len(zs) - 1)
+    jx = np.clip(np.round((V[:, 2] - xs[0]) / res).astype(int), 0, len(xs) - 1)   # art column at x = z
     col = rgb[iy, ix].copy()
-    best = np.abs(np.maximum(D[iy, ix], np.abs(V[:, 2]) - H[iy, ix]))
+    best = np.abs(np.maximum(f.D[iy, ix], np.abs(V[:, 2]) - f.H[iy, ix]))
+    fz = np.abs(np.maximum(f.DZ[iy, iz], np.abs(V[:, 0]) - f.HZ[iy, iz]))
+    col = np.where((fz < best)[:, None], rgb[iy, jx], col)
+    best = np.minimum(best, fz)
     X, Y, Z = V[:, 0], V[:, 1], V[:, 2]
     for fn, c in colors.items():
         f = np.abs(fn(X, Y, Z))
@@ -639,7 +690,7 @@ def main(params: dict, out_dir: Path, name: str):
     t0 = time.time()
     img, fg, solid = trace_art()
     axis = fit_axis(fg)
-    xs, ys, zs = sm.lattice((-24.0, 24.0), (-1.0, 197.6), (-11.8, 11.8), res)
+    xs, ys, zs = sm.lattice((-24.0, 24.0), (-1.0, 197.6), (-22.4, 22.4), res)
     mask, rgb, scale = resample(img, solid, axis, xs, ys)
     log(f"art traced: {scale:.4f} mm per pixel, lattice {len(xs)} x {len(ys)} x {len(zs)}")
     D, H, maps = design_2d(mask, rgb, xs, ys, res)
@@ -648,44 +699,34 @@ def main(params: dict, out_dir: Path, name: str):
     if P["stage"] == "2d":
         return None
 
-    variant = P["variant"]
-    cuts = ["front", "back"] if variant == "halves" else [None]
-    colors = dict(COLORS)
-    quillon = []
-    for fn, box in crown_vines():
-        quillon.append(("union", fn, box, 0.3))
-        colors[fn] = CROWN_COLOR
-    thorn_parts, picked = filigree_thorns(H, maps, xs, ys)
-    for fn, box in thorn_parts:
-        quillon.append(("union", fn, box, 0.15))
-        colors[fn] = THORN_COLOR
-    log(f"quillon: {len(CROWN) * 2} crown vines, {len(thorn_parts)} filigree thorns at "
-        + ", ".join(f"({x:.1f}, {y:.1f})" for x, y, _, _ in picked))
-    parts = PARTS + quillon
-    if variant == "halves":
-        parts = parts + [("cut", pin_holes, (-1.5, 1.5, 140.0, 188.0, -3.5, 3.5), 0.0)]
+    variant = "kit" if P["variant"] in ("kit", "halves") else "full"
     meshes = {}
-    for cut in cuts:
+    if variant == "full":
+        f = Fields(D, H, maps, xs, ys, zs, PARTS, CUTS)
         t1 = time.time()
-        field = make_field(D, H, xs, ys, zs, parts, cut)
-        m = sm.mesh_from_field(field, xs, ys, zs, slab=96)
-        log(f"marching cubes ({cut or 'full'}): {len(m.faces):,} faces in {time.time() - t1:.1f}s")
-        m = sm.decimate(m, int(P["faces"]))
-        if cut:
-            v = np.array(m.vertices)
-            if cut == "back":          # turn over about y; exact sign flips keep vertices exact
-                v[:, 0] *= -1
-                v[:, 2] *= -1
-            v[:, 2] -= v[:, 2].min()   # cut face on the bed
-            # front half to the left of x = 0, back half to the right
-            v[:, 0] += (-2.0 - v[:, 0].max()) if cut == "front" else (2.0 - v[:, 0].min())
-            m = trimesh.Trimesh(v, np.asarray(m.faces), process=False)
-        meshes[cut or "sword"] = sm.ensure_closed(m)
-    if variant != "halves":
-        sword = meshes["sword"]
+        m = mesh_piece(f, full_sword, (0, len(xs)), (0, len(ys)), (0, len(zs)), zneed_rows(f, maps))
+        log(f"marching cubes (full): {len(m.faces):,} faces in {time.time() - t1:.1f}s")
+        sword = sm.ensure_closed(sm.decimate(m, int(P["faces"])))
+        meshes["sword"] = sword
         pv = sm.ensure_closed(sm.decimate(sword, int(P["preview_faces"])))
-        preview_glb(pv, D, H, delight(rgb, maps), xs, ys, out_dir / f"{name}_preview.glb", colors)
+        preview_glb(pv, f, delight(rgb, maps), out_dir / f"{name}_preview.glb", dict(COLORS))
         log(f"preview {out_dir / (name + '_preview.glb')} ({len(pv.faces):,} faces)")
+    else:
+        f = Fields(D, H, maps, xs, ys, zs, PARTS, CUTS + [PIN_CUT])
+        cursor = None
+        for piece, combine, xr, yr, zr in kit_pieces(f):
+            t1 = time.time()
+            box = [irange(xs, *xr), irange(ys, *yr), irange(zs, *zr)]
+            m = mesh_piece(f, combine, *box)
+            budget = int(P["faces"]) if piece.startswith("body") else int(P["faces"]) // 4
+            m = lay_flat(piece, sm.decimate(m, budget))
+            # line the pieces up left to right on the bed, 3 mm apart
+            v = np.array(m.vertices)
+            start = -2.0 - (v[:, 0].max() - v[:, 0].min()) if cursor is None else cursor
+            v[:, 0] += start - v[:, 0].min()
+            cursor = v[:, 0].max() + 3.0
+            meshes[piece] = sm.ensure_closed(trimesh.Trimesh(v, np.asarray(m.faces), process=False))
+            log(f"{piece}: {len(meshes[piece].faces):,} faces in {time.time() - t1:.1f}s")
     log(f"total {time.time() - t0:.1f}s")
     return meshes
 
