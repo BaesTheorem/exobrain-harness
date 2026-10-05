@@ -19,7 +19,7 @@ govee color COLOR [TARGET]      red, #ff8800, 255,136,0, or warm/cool/daylight
 govee temp KELVIN [TARGET]
 govee name DEVICE ALIAS
 govee sync-names                copy the Govee app names into the aliases (needs GOVEE_API_KEY in the harness .env)
-govee google-script [--room R]    print a Google Home script for the power-on rule (skips bulbs with no room)
+govee google-script [--room R] [TARGET]   print a Google Home script for the power-on rule (skips bulbs with no room)
 govee --check <command>         read the status back after a set command
 ```
 
@@ -72,6 +72,8 @@ A bulb that is already on when a period starts also changes. At 2 hours before s
 At 7:30 AM, one more automation turns every bulb on at 6500 K and 100%, even if it is off. A bulb that is off at the wall switch has no power, so it cannot turn on.
 
 6500 K is the coolest white the H6008 makes and gives the most alertness. 2700 K is its warmest white (the API advertises 2000 K, but the bulb clamps a lower value to 2700 K). Red light has almost no effect on melatonin. The rule runs in the Google cloud, so it does not need this computer.
+
+Give a TARGET to limit the script to some bulbs: `govee google-script bedroom` writes the rules for the bedroom group only. The 7:30 AM wake then turns on only those bulbs.
 
 Google names a device "<name> - <room>". Give the room with `--room`, or add a `room` field to a bulb in `data/devices.json`.
 

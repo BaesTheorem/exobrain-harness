@@ -9,7 +9,7 @@ Commands:
     govee temp KELVIN [TARGET]      2700-6500 on the H6008 (it clamps values outside)
     govee name DEVICE ALIAS         give a bulb a short name
     govee sync-names                copy the Govee app names into the aliases (cloud API)
-    govee google-script             print a Google Home script: warm white by day, red at night
+    govee google-script [TARGET]    print a Google Home script: warm white by day, red at night
 
 TARGET is "all" (default), an alias, an alias group, an IP, or the tail of the
 device id. An alias group is the alias without its "-N" suffix ("vanity"
@@ -220,7 +220,19 @@ PERIODS = [
 ]
 
 
-def google_script(room: str | None) -> int:
+def entry_matches(entry: dict, target: str) -> bool:
+    """True if a cache entry is selected by TARGET: its alias, alias group, "group" field, or floor."""
+    if target == "all":
+        return True
+    alias = (entry.get("alias") or "").lower()
+    return any(
+        want in {alias, group_of(entry), (entry.get("floor") or "").lower()}
+        or re.fullmatch(re.escape(want) + r"-\d+", alias) is not None
+        for want in (w.strip().lower() for w in target.split(","))
+    )
+
+
+def google_script(room: str | None, target: str = "all") -> int:
     """Print a Google Home script editor script: one automation per bulb and period, plus sync.
 
     A script action cannot target "the device that started it", so each bulb gets its own
@@ -231,14 +243,14 @@ def google_script(room: str | None) -> int:
     color at any time of day: it gets no period rules and is not part of the 7:30 AM wake.
     """
     cache = load_cache()
-    bulbs = sorted((e for e in cache.values() if e.get("name")), key=lambda e: e["name"])
+    bulbs = sorted((e for e in cache.values() if e.get("name") and entry_matches(e, target)), key=lambda e: e["name"])
     if room is None:
         skipped = [e["name"] for e in bulbs if not e.get("room")]
         bulbs = [e for e in bulbs if e.get("room")]
         if skipped:
             print(f"govee: skipped {', '.join(skipped)} (no room; set one with --room)", file=sys.stderr)
     if not bulbs:
-        raise SystemExit("govee: no bulb names in the cache; run `govee sync-names` first")
+        raise SystemExit(f"govee: no named bulb matches {target!r}; run `govee sync-names` or check the target")
     out = [
         "metadata:",
         "  name: Govee power-on color",
@@ -319,7 +331,7 @@ async def run(args: argparse.Namespace) -> int:
     if args.cmd == "sync-names":
         return sync_names()
     if args.cmd == "google-script":
-        return google_script(args.room)
+        return google_script(args.room, args.target)
     cache = load_cache()
     controller = await discover(cache, full=args.cmd == "scan")
     try:
@@ -389,6 +401,7 @@ def main() -> int:
     sub.add_parser("sync-names", help="copy the Govee app names into the aliases")
     g = sub.add_parser("google-script", help="print a Google Home script for the power-on color rule")
     g.add_argument("--room", help="Google Home room for bulbs with no room in the cache (default: skip them)")
+    g.add_argument("target", nargs="?", default="all", help="only these bulbs: alias, group, or floor (default: all)")
     return asyncio.run(run(p.parse_args()))
 
 
