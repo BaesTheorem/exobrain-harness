@@ -1,0 +1,88 @@
+#!/usr/bin/env python3
+"""Run matter.js shell commands without the interactive prompt.
+
+    matter "nodes list" "attributes levelcontrol read all 1 1"
+    matter --timeout 120 "commission pair --pairingCode 12345678901"
+
+Each argument is one shell command. The script sends it, waits for the
+shell's "Done." line (or the timeout), then sends the next one and exits.
+The controller's fabric and keys live in ~/.matter/shell-0, outside the repo.
+"""
+
+import argparse
+import os
+import re
+import select
+import subprocess
+import sys
+import time
+from pathlib import Path
+
+ROOT = Path(__file__).resolve().parent.parent
+SHELL = ROOT / "node_modules/@matter/nodejs-shell/dist/esm/app.js"
+ANSI = re.compile(r"\x1b\[[0-9;]*[A-Za-z]")
+
+
+def main() -> int:
+    ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
+    ap.add_argument("commands", nargs="+")
+    ap.add_argument("--timeout", type=float, default=60, help="seconds to wait for each command")
+    ap.add_argument("-v", "--verbose", action="store_true", help="keep DEBUG and INFO log lines")
+    args = ap.parse_args()
+
+    if not SHELL.exists():
+        subprocess.run(["npm", "install", "--silent"], cwd=ROOT, check=True)
+    proc = subprocess.Popen(
+        ["node", str(SHELL)],
+        cwd=SHELL.parent.parent.parent,
+        stdin=subprocess.PIPE,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.STDOUT,
+    )
+    assert proc.stdin and proc.stdout
+    fd = proc.stdout.fileno()
+    os.set_blocking(fd, False)
+    buf = ""
+
+    def pump(until: str, timeout: float) -> bool:
+        nonlocal buf
+        end = time.monotonic() + timeout
+        while time.monotonic() < end:
+            ready, _, _ = select.select([fd], [], [], 0.2)
+            if ready:
+                chunk = os.read(fd, 65536)
+                if not chunk:
+                    return False
+                buf += ANSI.sub("", chunk.decode(errors="replace"))
+                *lines, buf = buf.split("\n")
+                hit = False
+                for line in lines:
+                    if not args.verbose and re.search(r"\b(DEBUG|INFO)\b", line):
+                        continue
+                    if line.strip():
+                        print(line, flush=True)
+                    hit = hit or until in line
+                if hit:
+                    return True
+        return False
+
+    pump("Started Node", 30)
+    status = 0
+    for cmd in args.commands:
+        proc.stdin.write((cmd + "\n").encode())
+        proc.stdin.flush()
+        if not pump("Done.", args.timeout):
+            print(f"matter: no 'Done.' after {args.timeout:.0f}s for: {cmd}", file=sys.stderr)
+            status = 1
+            break
+    proc.stdin.write(b"exit\n")
+    proc.stdin.flush()
+    try:
+        proc.wait(10)
+    except subprocess.TimeoutExpired:
+        proc.kill()
+    return status
+
+
+if __name__ == "__main__":
+    sys.exit(main())

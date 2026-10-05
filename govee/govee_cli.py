@@ -240,7 +240,7 @@ def google_script(room: str | None) -> int:
     out = [
         "metadata:",
         "  name: Govee power-on color",
-        "  description: Turn the bulbs on at 7:30 AM. When a Govee bulb turns on, set 6500K from 7:30 AM, 2700K in the 2 hours before sunset, dim red at night. Bulbs in one group turn on and off together.",
+        "  description: Turn the bulbs on at 7:30 AM. When a Govee bulb turns on, and when a period starts while it is on, set 6500K from 7:30 AM, 2700K in the 2 hours before sunset, dim red at night. Bulbs in one group turn on and off together.",
         "automations:",
     ]
     groups: dict[str, list[str]] = {}
@@ -280,6 +280,24 @@ def google_script(room: str | None) -> int:
                 *group,
                 "        on: false",
             ]
+    # Boundaries: a bulb that is already on when a later period starts changes with it.
+    # The power-on rules alone leave it at the color it had when it was turned on.
+    for after, _before, color, brightness, _label in PERIODS[1:]:
+        for members in groups.values():
+            group = [f"        - {d}" for d in members]
+            out += [
+                "  - starters:",
+                "      - type: time.schedule",
+                f"        at: {after}",
+                "    condition:",
+                "      type: or",
+                "      conditions:",
+            ]
+            for d in members:  # any bulb on counts: one can be dark at its wall switch
+                out += ["        - type: device.state.OnOff", f"          device: {d}", "          state: on", "          is: true"]
+            out += ["    actions:"]
+            out += ["      - type: device.command.ColorAbsolute", "        devices:", *group, "        color:", f"          {color}"]
+            out += ["      - type: device.command.BrightnessAbsolute", "        devices:", *group, f"        brightness: {brightness}"]
     # Wake: at the start of the day period, turn every bulb on, even if it is off.
     after, _before, color, brightness, _label = PERIODS[0]
     devices = [f"        - {e['name']} - {e.get('room') or room}" for e in bulbs]

@@ -65,6 +65,8 @@ The H6008 takes 20 commands each second on the LAN (tested), and the bulb fades 
 
 Bulbs in one group stay in the same state. A bulb's group is the `group` field in `data/devices.json`, or else its alias without the `-N` suffix. A group name is also a TARGET. When one bulb of a group turns on, the automation turns on the full group and sets its color. When one bulb turns off, the full group turns off.
 
+A bulb that is already on when a period starts also changes. At 2 hours before sunset and at sunset, one automation for each group sets the new color and brightness if any bulb of the group is on.
+
 At 7:30 AM, one more automation turns every bulb on at 6500 K and 100%, even if it is off. A bulb that is off at the wall switch has no power, so it cannot turn on.
 
 6500 K is the coolest white the H6008 makes and gives the most alertness. 2700 K is its warmest white (the API advertises 2000 K, but the bulb clamps a lower value to 2700 K). Red light has almost no effect on melatonin. The rule runs in the Google cloud, so it does not need this computer.
