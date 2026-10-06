@@ -37,6 +37,11 @@ INVARIANTS
   +46.6, because a streamer's season rate is near zero next to any WR. A
   streamer is held for one week's matchup, which stream-scan prices; a season
   rate cannot see that.
+- **An injured add is not a candidate.** Found 2026-10-06: the gate bannered
+  Tyquan Thornton at +41.7 the day after he dislocated his ankle (surgery,
+  3 to 4 months out). The rate is built from his 28-point week and cannot see
+  the injury. A wire player marked OUT, IR or SUSP is skipped. A one-week OUT
+  is lost with them, which costs less than a dead roster spot.
 
     swap-scan [--gate 20] [--top 3] [--json]
 """
@@ -62,6 +67,7 @@ GATE = 20.0
 ONE_OF = {"QB", "TE"}                 # never a second one on the roster
 FLEX_POS = {"RB", "WR", "TE"}
 STREAM_POS = {"K", "D/ST"}            # weekly streamers: stream-scan prices them, not a season rate
+UNAVAILABLE = {"OUT", "IR", "SUSP"}    # wire injury tags: the rate cannot see the absence
 LOOKAHEAD = 2                         # weeks of bye holes to show
 VOLUME = FANTASY / ".cache" / "volume-{season}.json"
 SLEEPER_TRENDING = "https://api.sleeper.app/v1/players/nfl/trending/add?lookback_hours=24&limit=150"
@@ -138,7 +144,7 @@ def scan(week: int, roster: list[dict], pool: list[dict], position_max: dict[str
     for drop in bench:
         scored = []
         for c in pool:
-            if not allowed(c, drop, held, position_max):
+            if c.get("status") in UNAVAILABLE or not allowed(c, drop, held, position_max):
                 continue
             v = volume.get(vkey(c)) or {}
             flags = v.get("flags") or []

@@ -99,3 +99,12 @@ def test_our_side_of_a_pending_trade_is_committed():
         {"type": "WAIVER", "items": [{"type": "DROP", "fromTeamId": 5, "toTeamId": 0, "playerId": 6}]},
     ]
     assert sorted(swap_scan.committed_ids(txs, me)) == [1, 4]
+
+
+def test_an_injured_add_is_not_a_candidate():
+    hurt = r("Hurt WR", "WR", 20, 12.0, 200.0, avail="WVR")
+    hurt["status"] = "OUT"
+    out = swap_scan.scan(2, roster(), [*pool(), hurt], position_max={"WR": 8, "TE": 3, "QB": 4})
+    adds = {c["add"] for s in out["swaps"] for c in s["candidates"]}
+    assert "Hot WR" in adds, "the healthy twin still shows"
+    assert "Hurt WR" not in adds, "Thornton, 2026-10-06: OUT on the wire is not an add"
