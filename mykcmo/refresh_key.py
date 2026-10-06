@@ -12,8 +12,8 @@ writes the config.
     refresh_key.py --auto    --check, and refresh only when the key is rejected
     refresh_key.py --auto --notify
                              the weekly launchd form: banner + Discord DM on a
-                             rotation (fixed or not), then rebuild the KC 311
-                             iPhone app so it carries the new key
+                             rotation (fixed or not), then upload a KC 311
+                             TestFlight build so it carries the new key
 
 INVARIANTS:
 - The config is written only after a signed get_main call succeeds with it.
@@ -145,7 +145,8 @@ def check() -> int:
 
 HARNESS = civicapi.HERE.parent
 NOTIFY = HARNESS / "mist-voice" / "bin" / "mist-notify"
-APP_INSTALL = Path.home() / "Documents" / "kc311" / "ios" / "scripts" / "install.sh"
+# KC 311 is on TestFlight, so new builds go there, never straight to a phone.
+APP_UPLOAD = Path.home() / "Documents" / "kc311" / "ios" / "scripts" / "testflight.sh"
 
 
 def notify(msg: str, context: str) -> None:
@@ -157,11 +158,11 @@ def notify(msg: str, context: str) -> None:
 
 
 def rebuild_app() -> str:
-    if not APP_INSTALL.exists():
+    if not APP_UPLOAD.exists():
         return "no KC 311 app to rebuild"
-    run = subprocess.run([str(APP_INSTALL)], capture_output=True, text=True)
-    tail = (run.stdout + run.stderr).strip().splitlines()[-3:]
-    return ("app rebuilt and installed" if run.returncode == 0 else "app rebuild FAILED") + ": " + " | ".join(tail)
+    run = subprocess.run([str(APP_UPLOAD)], capture_output=True, text=True)
+    tail = (run.stdout + run.stderr).strip().splitlines()[-2:]
+    return ("TestFlight build uploaded" if run.returncode == 0 else "TestFlight upload FAILED") + ": " + " | ".join(tail)
 
 
 def main() -> int:
