@@ -102,8 +102,10 @@ def event_body(m: Meeting, prepped: dict | None) -> dict:
         lines.append(f"Agenda: {m.agenda_url}")
     if m.url:
         lines.append(f"Meeting page: {m.url}")
-    if m.extra.get("comment") and m.extra["comment"] not in m.join_link:
-        lines += ["", m.extra["comment"]]
+    comment = m.extra.get("comment") or ""
+    rest = comment.replace(m.join_link, "").replace("Meeting Link:", "").strip() if m.join_link else comment
+    if rest:  # skip a comment that only repeats the join link
+        lines += ["", comment]
     if not m.extra.get("time_known", True):
         lines += ["", "NOTE: the source gives no start time; 9:00 AM is a placeholder."]
     src = {"legistar": "Legistar", "edc": "edckc.com", "hold": "its 2026 meeting cadence"}[m.source]
@@ -161,6 +163,9 @@ def write_calendar(cfg: dict, st: dict, meetings: list[Meeting], dry: bool) -> t
         adopt = None
         if m.source != "hold" and m.key not in st["synced"]:
             adopt = st["synced"].get(hk, {}).get("event_id")
+            if not adopt:  # state lost or rebuilt: ask the calendar itself
+                found = gcal.find(cal, hk)
+                adopt = found["id"] if found else None
         try:
             action, ev = gcal.upsert(cal, m.key, event_body(m, p), adopt=adopt)
         except gcal.NotAuthorized as e:
@@ -302,6 +307,10 @@ def cmd_sync(cfg: dict, args) -> int:
             if m.extra.get("pages") and (datetime.now().timestamp() - float(st.get("last_edc", 0))) / 3600 > 2:
                 continue  # walled-page work waits for the daily browser pass
             rec = do_prep(cfg, st, m)
+            fresh = load_state()  # a manual `prep` may have saved meanwhile
+            fresh["synced"].update(st["synced"])
+            fresh["prepped"].update(st["prepped"])
+            st = fresh
             save_state(st)
             if rec:
                 preps.append((m, rec))
@@ -331,6 +340,10 @@ def cmd_prep(cfg: dict, args) -> int:
         print(f"already prepped: {st['prepped'][m.key]['note']}")
         return 0
     rec = do_prep(cfg, st, m)
+    # A prep runs for many minutes; a sync pass may have saved state meanwhile.
+    st = load_state()
+    if rec:
+        st["prepped"][m.key] = rec
     save_state(st)
     if not rec:
         return 1
