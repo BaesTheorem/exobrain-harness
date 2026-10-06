@@ -9,7 +9,7 @@
    "basis": "ESPN+Sleeper projection vs ECR + CBS/FFT",
    "status": "settling",
    "a_pts": 0.0,
-   "b_pts": 22.6
+   "b_pts": 31.7
   },
   {
    "id": 2,
@@ -19,8 +19,8 @@
    "claim": "board took Barkley at pk10 over Lamb; consensus has Barkley RB9 (259.5) vs our RB4 (294.4)",
    "basis": "the Barkley-at-the-wheel bet",
    "status": "settling",
-   "a_pts": 21.0,
-   "b_pts": 70.9
+   "a_pts": 23.0,
+   "b_pts": 112.2
   },
   {
    "id": 3,
@@ -30,7 +30,7 @@
    "claim": "board took Kyren at pk36 over Smith (ECR gap 20)",
    "basis": "Ringer #33 vs consensus 42",
    "status": "settling",
-   "a_pts": 53.0,
+   "a_pts": 89.7,
    "b_pts": 48.5
   },
   {
@@ -41,8 +41,8 @@
    "claim": "board took Downs at pk114 over Godwin (ECR gap 15)",
    "basis": "same WR-tail optimism cluster",
    "status": "settling",
-   "a_pts": 32.6,
-   "b_pts": 22.6
+   "a_pts": 37.2,
+   "b_pts": 31.7
   },
   {
    "id": 5,
@@ -53,7 +53,7 @@
    "basis": "RB depth vs consensus WR",
    "status": "settling",
    "a_pts": 9.3,
-   "b_pts": 69.4
+   "b_pts": 77.1
   },
   {
    "id": 6,
@@ -64,7 +64,7 @@
    "basis": "board tail vs consensus tail (intra-board sanity pair)",
    "status": "settling",
    "a_pts": 0.0,
-   "b_pts": 13.9
+   "b_pts": 20.5
   },
   {
    "id": 7,
@@ -75,7 +75,7 @@
    "basis": "pre-draft sign-off",
    "status": "settling",
    "a_pts": 38.0,
-   "b_pts": 21.2
+   "b_pts": 52.0
   },
   {
    "id": 8,
@@ -86,7 +86,7 @@
    "basis": "pre-draft sign-off",
    "status": "settling",
    "a_pts": 25.1,
-   "b_pts": 48.3
+   "b_pts": 60.2
   },
   {
    "id": 9,
@@ -97,7 +97,7 @@
    "basis": "examiner --live flag; 16 ECR ranks past consensus",
    "status": "settling",
    "a_pts": 32.4,
-   "b_pts": 32.8
+   "b_pts": 36.1
   }
  ]
 }
