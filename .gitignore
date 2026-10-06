@@ -307,3 +307,6 @@ tools-registry/*.private.json
 
 # MyCivic API key + device id, rebuilt by mykcmo/bin/mykcmo-refresh-key
 mykcmo/civic-config.json
+
+# GPS location log (points, geocache, named places): personal data
+location/data/

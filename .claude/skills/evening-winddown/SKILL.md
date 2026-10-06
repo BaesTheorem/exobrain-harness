@@ -27,6 +27,12 @@ Gather all data in parallel where possible, then present conversationally.
 **Health so far**:
 Follow the `/health` skill's **Evening Update** section. Pull today's final Fitbit activity totals and update the Health Log note. Steps vs 15,000 goal -- say how many short but don't nag (it's bedtime).
 
+**Where Alex went (GPS)**: run `location/bin/where today` (add `--json` for the raw segments). It gives stays with place names, moves with km and mode, and hours with no data. Overland on the phone queues points and syncs when the phone is on home Wi-Fi with the Mac awake, so an empty or short day usually means "not synced yet", not "stayed home"; say which. Use it as evidence, not a log to recite:
+- Cross-check today's calendar entries and done tasks against the stays. If an entry had a location and no stay is near it at that time, record it as "did not happen, or happened elsewhere" and ask Alex in one line. If a stay matches a plan, count the plan as attended.
+- Name an unplanned stay longer than 30 min that is not Home, in case it is worth a note (a new place, a person).
+- A day with no stay outside Home is worth one neutral line for the Self-Care and Social scores. Do not nag.
+Unknown places come from Nominatim. When Alex names one, add it to the gitignored `location/data/places.json` (`[{"name", "lat", "lon", "radius_m"}]`) so the next day uses his name. Details: `location/README.md`.
+
 **Loki (cat)**: read the **last 7 daily notes** in `Areas/Health & Fitness/Loki Health Log/` (today + the prior 6, by `YYYY-MM-DD.md` filename -- don't re-query the API). Pull `weight_lbs` and `visits` from each note's frontmatter and look across the window for **emerging trends**, not just today's snapshot:
 - **Weight trajectory**: is the 7-day weight drifting up or down? A steady multi-day slide (or climb) matters more than any single day; ignore single-visit outliers (e.g. a 4.75 lb half-on-the-scale reading).
 - **Visit frequency**: is the daily visit count trending away from her normal band (more frequent could signal urinary/GI issues; much less could signal constipation or that she's avoiding the box)?
@@ -198,6 +204,7 @@ Append to the **pre-resolved target daily note filename from Step 0**. Do NOT re
 **Completed**: [count] tasks, [count] events attended
 **Rolled over**: [list any deferred tasks with brief reason]
 **Steps**: [count] ([% of goal])
+**Places**: [stays outside Home, in order, with times; km moved; plans with no matching stay; or "home all day" / "no GPS data after HH:MM"]
 **Focus**: [N] pomodoros / [total] min
 [bulleted list of today's pomodoro entries verbatim from the Pomodoro Log section, or "_no sessions logged_" if none]
 

@@ -569,6 +569,23 @@ else
   ISSUES=$((ISSUES + 1))
 fi
 
+# GPS points freshness (location/receiver.py, fed by Overland on the phone).
+# The receiver can be up while the phone stopped sending, so check the newest
+# day file, not the launchd job. Silent until the first point arrives.
+GPS_DIR="$HARNESS/location/data/points"
+if [ -d "$GPS_DIR" ]; then
+  GPS_NEWEST=$(ls "$GPS_DIR" 2>/dev/null | grep -oE '^20[0-9]{2}-[0-9]{2}-[0-9]{2}' | sort | tail -1)
+  if [ -n "$GPS_NEWEST" ]; then
+    GPS_AGE_D=$(( ($(date +%s) - $(date -j -f %Y-%m-%d "$GPS_NEWEST" +%s)) / 86400 ))
+    if [ "$GPS_AGE_D" -gt 2 ]; then
+      echo "WARN: GPS points stale (newest day $GPS_NEWEST) -- check Overland on the phone and com.exobrain.overland-receiver (see location/README.md)"
+      ISSUES=$((ISSUES + 1))
+    else
+      echo "OK: GPS points (newest day $GPS_NEWEST)"
+    fi
+  fi
+fi
+
 # Energy data freshness. The Energy Log note's mtime proves nothing: the HVAC
 # block is rewritten every few minutes even while the Evergy half is dead (it
 # failed for 18 days behind exit 0 in 2026-09 and nothing here noticed). Read the

@@ -1,0 +1,3 @@
+#!/bin/bash
+# Where Alex went on a day, from GPS points. See location/README.md.
+exec /opt/homebrew/bin/python3 "$(dirname "$(readlink -f "$0")")/../where.py" "$@"
