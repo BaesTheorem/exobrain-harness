@@ -249,6 +249,9 @@ SCRIPT_WRITES = re.compile(
 
 # A literal argument list handed to subprocess.
 SUBPROCESS_ARGV = re.compile(r"\bsubprocess\.\w+\(\s*\[([^\]]*)\]")
+# A variable handed to subprocess, and a literal list assigned to a name.
+SUBPROCESS_VAR = re.compile(r"\bsubprocess\.\w+\(\s*([A-Za-z_]\w*)\s*[,)]")
+ASSIGNED_LIST = r"(?m)^[ \t]*{name}[ \t]*=[ \t]*\[([^\]]*)\]"
 
 # Anything in a command that names a file: absolute, home-relative, dot-relative,
 # a relative path with a slash, or a bare secret/rule filename. Relative forms
@@ -456,18 +459,23 @@ def _script_reason(script: str, cwd: str | None = None) -> str | None:
     A literal argv handed to subprocess is judged as the command line it is,
     so running `fantasy/bin/roster-news` from a script that also writes a note
     is not a write to the tool (2026-09-28), while `["cp", x, "fantasy/bin/y"]`
-    still is.
+    still is. So is a list assigned to a name that subprocess then runs
+    (`args = ["mist-voice/bin/mist-notify", ...]`, 2026-10-06).
     """
     if not SCRIPT_WRITES.search(script):
         return None
-    for m in SUBPROCESS_ARGV.finditer(script):
+    argv_lists = list(SUBPROCESS_ARGV.finditer(script))
+    for name in {m.group(1) for m in SUBPROCESS_VAR.finditer(script)}:
+        argv_lists += re.finditer(ASSIGNED_LIST.format(name=re.escape(name)), script)
+    for m in argv_lists:
         argv = [lit[1:-1] for lit in STRING_LITERAL.findall(m.group(1)) if lit[:3] not in ('"""', "'''")]
         # The whole shell check, not only the write test: `["git", "push"]`
         # is the same push as the command line.
         why = check_bash(shlex.join(argv), cwd or str(HARNESS)) if argv else None
         if why:
             return why
-    script = SUBPROCESS_ARGV.sub("[]", script)
+    for m in sorted(argv_lists, key=lambda m: m.start(1), reverse=True):
+        script = script[:m.start(1)] + script[m.end(1):]
     for path in _script_paths(script):
         why = check_write_path(path, cwd)
         if why:

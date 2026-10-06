@@ -374,6 +374,10 @@ def test_guard_reads_python_as_python_and_copies_as_copies():
         (f"cd '{HARNESS}'; python3 - <<'EOF'\nimport subprocess,os\np=os.path.expanduser('~/Exobrain/Daily notes/x.md')\n"
          "out=subprocess.run(['python3','fantasy/bin/roster-news','--hours','36'],capture_output=True,text=True).stdout\n"
          "open(p,'w').write(out)\nEOF", None),
+        (f"cd '{HARNESS}'; python3 - <<'EOF'\nimport subprocess, json\n"
+         "args = [\"mist-voice/bin/mist-notify\", \"msg\", \"title\",\n        \"--urgency\", \"timeSensitive\"]\n"
+         "args += [\"--action\", \"Skip=cmd:/usr/bin/curl -d '\" + json.dumps({'t': 1}) + \"'\"]\n"
+         "r = subprocess.run(args, capture_output=True, text=True)\nEOF", None),
         (f"cp {results}/mcp-gmail-get_thread-1790604069110.txt /tmp/js0928/; ls /tmp/js0928", None),
         (f"jq -r '.items[].title' '{results}/r.txt'; rm -f '{results}/r.txt'", None),
     ]
@@ -392,6 +396,8 @@ def test_guard_reads_python_as_python_and_copies_as_copies():
         f"ln -sf /tmp/evil '{HARNESS}/.claude/hooks/session-start.sh'",
         f"python3 -c \"\nimport os\nopen('{HARNESS}/CLAUDE.md','w').write('x')\n\"",
         f"cd '{HARNESS}'; python3 - <<'EOF'\nimport subprocess\nsubprocess.run(['cp','/tmp/x','fantasy/bin/espn'])\nEOF",
+        f"cd '{HARNESS}'; python3 - <<'EOF'\nimport subprocess\nargv = ['cp', '/tmp/x',\n  'fantasy/bin/espn']\nsubprocess.run(argv)\nEOF",
+        f"cd '{HARNESS}'; python3 - <<'EOF'\nimport subprocess\nargv = ['ls']\nsubprocess.run(argv)\nopen('fantasy/bin/espn','w').write('x')\nEOF",
         "python3 - <<'EOF'\nimport os\nos.system('sudo rm -rf /var/log')\nEOF",
         f"rm -f '{results}/../../memory/MEMORY.md'",
         f"cp /tmp/x '{HOME}/.claude/projects/-x/{sid}.jsonl'",
