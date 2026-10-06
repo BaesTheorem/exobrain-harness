@@ -1,0 +1,206 @@
+{
+  "_comment": "Bodies to sync. legistar names must match EventBodyName exactly (trailing spaces are stripped). edc entries match the iCal SUMMARY. minutes = calendar block length when the source gives no end time.",
+  "calendar_id": "primary",
+  "color_id": "7",
+  "sync_days": 60,
+  "prep_lead_days": 5,
+  "prep_max_per_pass": 3,
+  "edc_min_hours_between": 20,
+  "vault_dir": "~/Exobrain/Areas/Contribution & Impact/KC Civic",
+  "legistar": [
+    {
+      "name": "Council",
+      "short": "City Council",
+      "tier": "core",
+      "minutes": 150
+    },
+    {
+      "name": "Business Session",
+      "short": "Council Business Session",
+      "tier": "core",
+      "minutes": 60
+    },
+    {
+      "name": "Transportation, Infrastructure and Operations Committee",
+      "short": "Transportation Committee",
+      "tier": "core",
+      "minutes": 90
+    },
+    {
+      "name": "Finance, Governance and Public Safety Committee",
+      "short": "Finance Committee",
+      "tier": "core",
+      "minutes": 120
+    },
+    {
+      "name": "Neighborhood Planning and Development Committee",
+      "short": "Neighborhood Planning Committee",
+      "tier": "core",
+      "minutes": 120
+    },
+    {
+      "name": "Public Improvement Advisory Committee (PIAC)",
+      "short": "PIAC",
+      "tier": "1",
+      "minutes": 120
+    },
+    {
+      "name": "City Plan Commission",
+      "short": "City Plan Commission",
+      "tier": "1",
+      "minutes": 180,
+      "pages": [
+        "https://www.kcmo.gov/cpc"
+      ]
+    },
+    {
+      "name": "Land Bank Board of Commissioners",
+      "short": "Land Bank Board",
+      "tier": "2",
+      "minutes": 90
+    },
+    {
+      "name": "Vision Zero Task Force",
+      "short": "Vision Zero Task Force",
+      "tier": "2",
+      "minutes": 90
+    },
+    {
+      "name": "Board of Zoning Adjustment",
+      "short": "Board of Zoning Adjustment",
+      "tier": "2",
+      "minutes": 180
+    },
+    {
+      "name": "Multi-Modal Transportation Commission",
+      "short": "Multi-Modal Transportation Commission",
+      "tier": "2",
+      "minutes": 90
+    }
+  ],
+  "edc": {
+    "ical": "https://edckc.com/?post_type=tribe_events&ical=1&eventDisplay=list",
+    "home": "https://edckc.com/events/",
+    "bodies": [
+      {
+        "match": "TIF Board Meeting",
+        "short": "TIF Commission",
+        "tier": "1"
+      },
+      {
+        "match": "PIEA Board Meeting",
+        "short": "PIEA Board",
+        "tier": "2"
+      },
+      {
+        "match": "LCRA Board Meeting",
+        "short": "LCRA Board",
+        "tier": "2"
+      }
+    ]
+  },
+  "hold_skip_dates": [
+    "2026-11-26",
+    "2026-11-24",
+    "2026-12-22",
+    "2026-12-24",
+    "2026-12-29",
+    "2026-12-31"
+  ],
+  "holds": [
+    {
+      "body": "Council",
+      "short": "City Council",
+      "tier": "core",
+      "weekday": "thu",
+      "time": "14:00",
+      "minutes": 150,
+      "location": "26th Floor, Council Chamber",
+      "pattern": "every Thursday at 2:00 PM (29 of 29 meetings in 2026), but it skips about one Thursday in four"
+    },
+    {
+      "body": "Transportation, Infrastructure and Operations Committee",
+      "short": "Transportation Committee",
+      "tier": "core",
+      "weekday": "tue",
+      "time": "09:00",
+      "minutes": 90,
+      "location": "26th Floor, Council Chamber",
+      "pattern": "Tuesdays at 9:00 AM (26 of 26 in 2026), skipping about one week in four"
+    },
+    {
+      "body": "Finance, Governance and Public Safety Committee",
+      "short": "Finance Committee",
+      "tier": "core",
+      "weekday": "tue",
+      "time": "10:30",
+      "minutes": 120,
+      "location": "26th Floor, Council Chamber",
+      "pattern": "Tuesdays at 10:30 AM (26 of 33 in 2026; a small number moved to 9:30 AM or another day), skipping about one week in four"
+    },
+    {
+      "body": "Neighborhood Planning and Development Committee",
+      "short": "Neighborhood Planning Committee",
+      "tier": "core",
+      "weekday": "tue",
+      "time": "13:30",
+      "minutes": 120,
+      "location": "26th Floor, Council Chamber",
+      "pattern": "Tuesdays at 1:30 PM (27 of 29 in 2026), skipping about one week in four"
+    },
+    {
+      "body": "City Plan Commission",
+      "short": "City Plan Commission",
+      "tier": "1",
+      "weekday": "wed",
+      "time": "09:00",
+      "minutes": 180,
+      "nth": [
+        1,
+        3
+      ],
+      "location": "10th floor Council Committee Room, City Hall, and Zoom",
+      "pattern": "the 1st and 3rd Wednesday at 9:00 AM (18 of 19 in 2026, and the official CPC schedule)"
+    },
+    {
+      "body": "Board of Zoning Adjustment",
+      "short": "Board of Zoning Adjustment",
+      "tier": "2",
+      "weekday": "wed",
+      "time": "09:00",
+      "minutes": 180,
+      "nth": [
+        2,
+        4
+      ],
+      "location": "City Hall, hybrid",
+      "pattern": "the 2nd and 4th Wednesday at 9:00 AM (17 of 17 in 2026)"
+    },
+    {
+      "body": "Land Bank Board of Commissioners",
+      "short": "Land Bank Board",
+      "tier": "2",
+      "weekday": "wed",
+      "time": "11:00",
+      "minutes": 90,
+      "nth": [
+        3
+      ],
+      "location": "",
+      "pattern": "usually the 3rd Wednesday at 11:00 AM (7 of 11 in 2026; it sometimes moves)"
+    },
+    {
+      "body": "Multi-Modal Transportation Commission",
+      "short": "Multi-Modal Transportation Commission",
+      "tier": "2",
+      "weekday": "thu",
+      "time": "10:00",
+      "minutes": 90,
+      "nth": [
+        3
+      ],
+      "location": "",
+      "pattern": "the 3rd Thursday at 10:00 or 10:30 AM since June 2026"
+    }
+  ]
+}

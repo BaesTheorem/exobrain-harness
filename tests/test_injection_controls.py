@@ -535,6 +535,8 @@ UNATTENDED_RUNNERS = [
     "phone/server.py",
     "zulip/com.exobrain.zulip-listener.plist",
     "expert-panel/panel.py",
+    "kc-civic/run-sync.sh",
+    "kc-civic/kccivic/prep.py",
 ]
 
 

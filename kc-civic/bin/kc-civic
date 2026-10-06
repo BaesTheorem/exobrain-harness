@@ -1,0 +1,11 @@
+#!/bin/bash
+# Launcher for the kc-civic CLI (see kccivic/cli.py).
+#
+# A wrapper because the repo path has a space in it, which a #! line cannot hold.
+# /bin/bash, not /bin/sh: under launchd /bin/sh cannot read scripts in ~/Documents
+# (exit 126). uv by absolute path: launchd's PATH has no ~/.local/bin.
+set -euo pipefail
+HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+UV="${UV:-$HOME/.local/bin/uv}"
+cd "$HERE"
+exec "$UV" run --no-project --quiet --python 3.12 --with patchright python -m kccivic.cli "$@"

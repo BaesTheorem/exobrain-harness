@@ -310,3 +310,9 @@ mykcmo/civic-config.json
 
 # GPS location log (points, geocache, named places): personal data
 location/data/
+
+# kc-civic: calendar token, sync state, agenda packets, Alex's policy lens.
+kc-civic/secrets/*
+!kc-civic/secrets/README.md
+kc-civic/data/*
+!kc-civic/data/README.md
