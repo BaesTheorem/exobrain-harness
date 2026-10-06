@@ -29,9 +29,26 @@ alltrails/bin/alltrails trail us/missouri/moon-loop --reviews 5
 alltrails/bin/alltrails reviews smith-creek-loop-trail --since 2026-05-01
 alltrails/bin/alltrails gpx cedar-creek-trail-system -o cedar-creek.gpx
 alltrails/bin/alltrails weather 10033751
+alltrails/bin/alltrails auth --from-chrome
+alltrails/bin/alltrails upload "Day 1.gpx" "Day 2.gpx"
+alltrails/bin/alltrails delete-map 425420749
 ```
 
 A trail reference can be a trail id, a full slug (`us/missouri/moon-loop`), a short slug (`moon-loop`), or an AllTrails URL. Add `--json` to `search`, `trail`, `reviews`, or `weather` to get structured output. Put `--fresh` before the command name to ignore the cache.
+
+## Your account: auth, upload, delete-map
+
+These commands use your own AllTrails account. The tool never logs in for you.
+
+1. Sign in at alltrails.com in Chrome.
+2. Run `auth --from-chrome`. It copies the session cookies out of Chrome into `secrets/cookies.json`, which git ignores.
+3. Run `upload` with one or more GPX files. Each file becomes a custom route through the web route builder ("Upload a route", then "Save"). The tool prints the share link for each route.
+
+Uploaded routes are public, so anyone with the link can open them. AllTrails does not let you share a private route. Add `--private` to keep the routes private. Each `<trk>` in the GPX file becomes one segment, so give each day its own track. GPX waypoints show as markers on the map.
+
+`delete-map` removes routes by their map id, which `upload` prints.
+
+The site blocks API requests that do not come from inside the page. Thus the tool sends account requests with `fetch` inside the page. If the session expires, sign in again in Chrome and run `auth --from-chrome` again. The free-trial window that opens on the page is closed with Escape and never clicked.
 
 ## Limits
 

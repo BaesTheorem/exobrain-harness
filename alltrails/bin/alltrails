@@ -1,7 +1,7 @@
 #!/usr/bin/env -S uv run --quiet --script
 # /// script
 # requires-python = ">=3.10"
-# dependencies = ["playwright"]
+# dependencies = ["playwright", "cryptography"]
 # ///
 """alltrails: trail search, details, reviews, GPX and trailhead weather from AllTrails.
 
@@ -11,6 +11,9 @@ Two data lanes:
   * reviews, gpx: the public trail web pages, loaded in system Chrome with the window
     off screen (plain HTTP gets a DataDome 403). Data comes from the Next.js flight
     payload embedded in the page, not from screen text.
+  * auth, upload, delete-map: Alex's own account. `auth --from-chrome` copies the
+    session he signed in with in Chrome; the login itself is never automated.
+    `upload` drives the web route builder ("Upload a route", then Save).
 
 All AllTrails data is crowd-sourced. Confirm length, elevation, difficulty and
 conditions with the land manager before a plan depends on them.
@@ -22,7 +25,11 @@ import hashlib
 import json
 import math
 import re
+import shutil
+import sqlite3
+import subprocess
 import sys
+import tempfile
 import time
 import urllib.request
 from datetime import datetime, timezone
@@ -31,6 +38,8 @@ from xml.sax.saxutils import escape
 
 ROOT = Path(__file__).resolve().parent.parent
 CACHE = ROOT / "cache"
+SECRETS = ROOT / "secrets"
+COOKIE_FILE = SECRETS / "cookies.json"
 MCP_URL = "https://www.alltrails.com/mcp"
 BASE = "https://www.alltrails.com"
 MCP_TTL = 6 * 3600
@@ -260,6 +269,153 @@ def get_track(slug: str, fresh: bool = False) -> list[tuple[float, float]]:
     return pts
 
 
+# ---------- account lane ----------
+# Chrome cookie crypto restated from shopping/shoptools/chrome_cookies.py (top-level
+# dirs are islands). macOS v10 cookies: AES-128-CBC, key = PBKDF2-HMAC-SHA1(Keychain
+# "Chrome Safe Storage", "saltysalt", 1003, 16), IV = 16 spaces, and Chrome >= 130
+# prepends a 32-byte domain hash to the plaintext.
+
+CHROME_PROFILE = Path.home() / "Library/Application Support/Google/Chrome/Default"
+NEEDED_COOKIES = {"access_token", "refresh_token"}
+
+
+def _chrome_cookies(domain: str) -> list[dict]:
+    from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes
+
+    db = next((p for p in (CHROME_PROFILE / "Network/Cookies", CHROME_PROFILE / "Cookies") if p.exists()), None)
+    if db is None:
+        raise SystemExit(f"no Chrome cookie DB under {CHROME_PROFILE}")
+    secret = subprocess.run(["security", "find-generic-password", "-ws", "Chrome Safe Storage"],
+                            capture_output=True, text=True, check=True).stdout.strip()
+    key = hashlib.pbkdf2_hmac("sha1", secret.encode(), b"saltysalt", 1003, dklen=16)
+    with tempfile.TemporaryDirectory() as tmp:
+        copy = Path(tmp) / "Cookies"
+        shutil.copy2(db, copy)
+        con = sqlite3.connect(copy)
+        rows = con.execute("select host_key, path, is_secure, is_httponly, expires_utc, name, encrypted_value, samesite "
+                           "from cookies where host_key like ?", (f"%{domain}",)).fetchall()
+        con.close()
+    jar = []
+    for host, path, secure, httponly, expires_utc, name, enc, samesite in rows:
+        if enc[:3] == b"v20":
+            raise SystemExit("Chrome moved these cookies to v20 App-Bound encryption, which this tool cannot read.")
+        if enc[:3] != b"v10":
+            continue
+        dec = Cipher(algorithms.AES(key), modes.CBC(b" " * 16)).decryptor()
+        plain = dec.update(enc[3:]) + dec.finalize()
+        if plain and plain[-1] <= 16:
+            plain = plain[: -plain[-1]]
+        value = None
+        for cand in (plain[32:], plain):
+            try:
+                value = cand.decode("utf-8")
+                break
+            except UnicodeDecodeError:
+                continue
+        if value is None:
+            continue
+        jar.append({"name": name, "value": value, "domain": host, "path": path or "/", "secure": bool(secure),
+                    "httpOnly": bool(httponly), "sameSite": {0: "None", 1: "Lax", 2: "Strict"}.get(samesite, "Lax"),
+                    "expires": (expires_utc // 1_000_000 - 11644473600) if expires_utc else -1})
+    return jar
+
+
+def cmd_auth(a: argparse.Namespace) -> None:
+    jar = _chrome_cookies("alltrails.com")
+    missing = NEEDED_COOKIES - {c["name"] for c in jar}
+    if missing:
+        raise SystemExit(f"Chrome has no AllTrails session (missing {sorted(missing)}). Sign in at alltrails.com in Chrome, then run this again.")
+    SECRETS.mkdir(parents=True, exist_ok=True)
+    COOKIE_FILE.write_text(json.dumps(jar))
+    COOKIE_FILE.chmod(0o600)
+    print(f"Saved {len(jar)} AllTrails cookies to {COOKIE_FILE}")
+
+
+class Session:
+    """Off-screen Chrome signed in with the saved cookies. Records the API headers the site sends."""
+
+    def __enter__(self):
+        from playwright.sync_api import sync_playwright
+
+        if not COOKIE_FILE.exists():
+            raise SystemExit("no saved session. Run `alltrails auth --from-chrome` first.")
+        self._pw = sync_playwright().start()
+        self.browser = self._pw.chromium.launch(channel="chrome", headless=False, timeout=60000, args=[
+            "--window-position=-2400,-2400", "--disable-blink-features=AutomationControlled"])
+        self.ctx = self.browser.new_context(viewport={"width": 1400, "height": 900})
+        self.ctx.add_cookies(json.loads(COOKIE_FILE.read_text()))
+        self.page = self.ctx.new_page()
+        self.api_headers: dict[str, str] = {}
+
+        def grab(req):
+            if "/api/alltrails/" in req.url and "x-at-key" in req.headers:
+                self.api_headers = {k: v for k, v in req.headers.items() if k.startswith("x-")}
+        self.page.on("request", grab)
+        return self
+
+    def open(self, url: str) -> None:
+        self.page.goto(url, wait_until="domcontentloaded", timeout=45000)
+        self.page.wait_for_timeout(6000)
+        self.page.keyboard.press("Escape")  # the free-trial upsell modal; never click into it
+        self.page.wait_for_timeout(600)
+        if self.page.get_by_role("link", name="Log in").count():
+            raise SystemExit("the saved session is signed out. Sign in at alltrails.com in Chrome, then run `alltrails auth --from-chrome`.")
+
+    def fetch(self, method: str, url: str, body: object | None = None) -> tuple[int, str]:
+        """Call the site API from inside the page. Requests from outside the page get a DataDome 403."""
+        headers = {**self.api_headers, "content-type": "application/json"}
+        return tuple(self.page.evaluate(
+            "async ([m, u, h, b]) => { const r = await fetch(u, {method: m, headers: h, body: b, credentials: 'include'});"
+            " return [r.status, (await r.text()).slice(0, 300)]; }",
+            [method, url, headers, None if body is None else json.dumps(body)]))  # type: ignore[return-value]
+
+    def __exit__(self, *exc):
+        self.browser.close()
+        self._pw.stop()
+
+
+def cmd_upload(a: argparse.Namespace) -> None:
+    with Session() as s:
+        for f in a.files:
+            path = Path(f).resolve()
+            if not path.exists():
+                raise SystemExit(f"no such file: {f}")
+            s.open(f"{BASE}/explore/custom-routes/new")
+            pg = s.page
+            pg.get_by_role("button", name="Upload a route").first.click()
+            pg.wait_for_timeout(1500)
+            pg.locator("input[type=file]").first.set_input_files(str(path))
+            pg.wait_for_timeout(1500)
+            with pg.expect_response(lambda r: r.url.split("?")[0].endswith("/api/alltrails/maps/gpx"), timeout=60000) as up:
+                pg.get_by_role("button", name="Upload", exact=True).click()
+            m = up.value.json()["maps"][0]
+            pg.wait_for_timeout(4000)
+            mid = m["id"]
+            with pg.expect_response(lambda r, mid=mid: r.request.method == "PUT" and f"/api/alltrails/maps/{mid}" in r.url, timeout=60000) as sv:
+                pg.get_by_role("button", name="Save", exact=True).click()
+            saved = sv.value.json()["maps"][0]
+            if a.private:
+                req = json.loads(sv.value.request.post_data or "{}")
+                req["map"]["contentPrivacy"] = "urn:alltrails:visibility:private"
+                status, _ = s.fetch("PUT", f"{BASE}/api/alltrails/maps/{mid}", req)
+                if status >= 300:
+                    raise SystemExit(f"saved map {mid} but could not make it private: HTTP {status}")
+            km = ((saved.get("summaryStats") or {}).get("distanceTotal") or 0) / 1000
+            print(f"{saved['name']}  [map {mid}]")
+            print(f"  {BASE}/explore/custom-routes/{saved['slug']}")
+            if km:
+                print(f"  AllTrails measures it at {km / 1.609344:.1f} mi")
+            print("  private" if a.private else "  public: anyone with the link can open it")
+
+
+def cmd_delete_map(a: argparse.Namespace) -> None:
+    with Session() as s:
+        s.open(f"{BASE}/explore")
+        for mid in a.ids:
+            status, text = s.fetch("DELETE", f"{BASE}/api/alltrails/maps/{mid}")
+            print(f"map {mid}: {'deleted' if status < 300 else f'HTTP {status} {text}'}")
+
+
 # ---------- output ----------
 
 def mi(m: float | None) -> str:
@@ -403,6 +559,16 @@ def main() -> None:
     w.add_argument("ref")
     w.add_argument("--json", action="store_true")
     w.set_defaults(fn=cmd_weather)
+    au = sub.add_parser("auth", help="copy your AllTrails session out of Chrome")
+    au.add_argument("--from-chrome", action="store_true", required=True)
+    au.set_defaults(fn=cmd_auth)
+    u = sub.add_parser("upload", help="upload GPX files to your account as custom routes")
+    u.add_argument("files", nargs="+")
+    u.add_argument("--private", action="store_true", help="keep the routes private (private routes cannot be shared)")
+    u.set_defaults(fn=cmd_upload)
+    dm = sub.add_parser("delete-map", help="delete custom routes from your account by map id")
+    dm.add_argument("ids", nargs="+", type=int)
+    dm.set_defaults(fn=cmd_delete_map)
     a = ap.parse_args()
     a.fn(a)
 
