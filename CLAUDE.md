@@ -134,6 +134,21 @@ Two things this setup can't leave to the skill alone:
 When building a UI, look for an appropriate example from https://dribbble.com/ or https://www.awwwards.com/ and use that as reference for the brief.
 Furthermore, never build graphics or any other assets from scratch what you can find open source asset libraries for. 
 
+**UI components come from these libraries, in this order.** Each one is open source, written and maintained by people (no AI-generated component registries or "prompt to UI" kits), and had an upstream commit or release in the last three months when this list was checked (2026-10-05). Do not hand-roll a component that one of them already ships. Pinned copies of the first four live in `~/Documents/material-design/` (read its README and `vendor.json` first).
+
+| Library | Use it for | License |
+| --- | --- | --- |
+| [Beer CSS](https://github.com/beercss/beercss) | MD3 as plain CSS classes, no build step. **Default for every web UI.** | MIT |
+| [mdui](https://github.com/zdhxiong/mdui) | MD3 as real `<mdui-*>` custom elements, when classes are not enough | MIT |
+| [material-color-utilities](https://github.com/material-foundation/material-color-utilities) | MD3 tonal palettes and color roles from one source color | Apache-2.0 |
+| [Material Symbols](https://github.com/google/material-design-icons) | Icons, Outlined cut, self-hosted from `fonts/` | Apache-2.0 |
+| [Flutter Material 3](https://github.com/flutter/flutter) / [Material Components Android](https://github.com/material-components/material-components-android) | Native phone and desktop apps | BSD-3 / Apache-2.0 |
+| [Open Props](https://github.com/argyleink/open-props) | Token scale (spacing, type, easing) for UIs that are deliberately not MD3 | MIT |
+| [Web Awesome](https://github.com/shoelace-style/webawesome) | General web components outside MD3. Free core only | MIT |
+| [Observable Plot](https://github.com/observablehq/plot) / [uPlot](https://github.com/leeoniya/uPlot) | Charts, and fast time series | ISC / MIT |
+
+Retired, do not cite in new work: material-web (maintenance mode), Shoelace (sunset, replaced by Web Awesome), Pico CSS (archived). Before you adopt a library that is not on this list, check that its upstream is alive and that people, not a generator, wrote it, then add it here.
+
 
 **Music is Kevin MacLeod by default**. When an app, game, video, or briefing needs background music, take it from Kevin MacLeod's catalog at incompetech.com (Creative Commons BY 4.0). Check that the direct MP3 URL actually responds before bundling a track, keep the files next to a `CREDITS` file, and attribute every track in the product's credits screen and README with incompetech's own wording: `"Title" Kevin MacLeod (incompetech.com). Licensed under Creative Commons: By Attribution 4.0 License. http://creativecommons.org/licenses/by/4.0/`.
 
