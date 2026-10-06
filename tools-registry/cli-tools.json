@@ -24,6 +24,14 @@
     "notes": "Scans govinfo BILLSTATUS bulk zips for a whole Congress and returns every AI-related bill plus a per-member index (sponsor/cosponsor, party, date, bucket). Primary-source whip lists without an API key or rate limit. Zips: https://www.govinfo.gov/bulkdata/BILLSTATUS/119/{s,hr}/BILLSTATUS-119-{s,hr}.zip"
   },
   {
+    "name": "alltrails",
+    "command": "alltrails/bin/alltrails {search,trail,reviews,gpx,weather} ...",
+    "repo_dir": "alltrails",
+    "source": "built",
+    "added": "2026-10-06",
+    "notes": "AllTrails data is crowd-sourced: lengths, elevation, difficulty, routes and reviews are user-contributed, so confirm them against the land manager (USFS/NPS/state) before a plan depends on them; output labels stats 'AllTrails (crowd-sourced)'. search/trail/weather hit the official MCP endpoint https://www.alltrails.com/mcp (no auth; also registered user-scope as MCP server 'alltrails'). reviews/gpx launch system Chrome NON-headless off screen (--window-position=-2400,-2400) because DataDome 403s plain HTTP and in-page fetches to /api/alltrails/*; data parsed from the Next.js flight payload (reviews from /trail/<slug>, polyline from /explore/trail/<slug>, T-row lengths are UTF-8 bytes). Only the first embedded page of reviews (~5, newest first). GPX has no elevation. 4 s gap between page loads; cache in alltrails/cache (gitignored): MCP 6 h, pages 12 h; --fresh before the subcommand skips it."
+  },
+  {
     "name": "analyze-leaf",
     "command": "python3 flipper/analyze-leaf.py <dump.nfc>",
     "repo_dir": "flipper",

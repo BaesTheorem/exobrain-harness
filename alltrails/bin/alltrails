@@ -1,0 +1,414 @@
+#!/usr/bin/env -S uv run --quiet --script
+# /// script
+# requires-python = ">=3.10"
+# dependencies = ["playwright"]
+# ///
+"""alltrails: trail search, details, reviews, GPX and trailhead weather from AllTrails.
+
+Two data lanes:
+  * search, trail, weather: the official AllTrails MCP endpoint (https://www.alltrails.com/mcp),
+    plain HTTPS JSON-RPC, no key.
+  * reviews, gpx: the public trail web pages, loaded in system Chrome with the window
+    off screen (plain HTTP gets a DataDome 403). Data comes from the Next.js flight
+    payload embedded in the page, not from screen text.
+
+All AllTrails data is crowd-sourced. Confirm length, elevation, difficulty and
+conditions with the land manager before a plan depends on them.
+"""
+from __future__ import annotations
+
+import argparse
+import hashlib
+import json
+import math
+import re
+import sys
+import time
+import urllib.request
+from datetime import datetime, timezone
+from pathlib import Path
+from xml.sax.saxutils import escape
+
+ROOT = Path(__file__).resolve().parent.parent
+CACHE = ROOT / "cache"
+MCP_URL = "https://www.alltrails.com/mcp"
+BASE = "https://www.alltrails.com"
+MCP_TTL = 6 * 3600
+PAGE_TTL = 12 * 3600
+PAGE_GAP = 4.0  # seconds between two browser page loads
+LABEL = "AllTrails (crowd-sourced)"
+CAVEAT = "Crowd-sourced data. Confirm with the land manager (USFS, NPS, state) before you depend on it."
+
+
+# ---------- cache ----------
+
+def _cache_path(kind: str, key: str) -> Path:
+    h = hashlib.sha1(key.encode()).hexdigest()[:16]
+    return CACHE / kind / f"{h}.json"
+
+
+def cache_get(kind: str, key: str, ttl: float) -> object | None:
+    p = _cache_path(kind, key)
+    if p.exists() and time.time() - p.stat().st_mtime < ttl:
+        return json.loads(p.read_text())
+    return None
+
+
+def cache_put(kind: str, key: str, value: object) -> None:
+    p = _cache_path(kind, key)
+    p.parent.mkdir(parents=True, exist_ok=True)
+    p.write_text(json.dumps(value))
+
+
+# ---------- MCP lane ----------
+
+def mcp_call(tool: str, args: dict, fresh: bool = False) -> dict:
+    key = tool + json.dumps(args, sort_keys=True)
+    if not fresh:
+        hit = cache_get("mcp", key, MCP_TTL)
+        if hit is not None:
+            return hit  # type: ignore[return-value]
+    body = json.dumps({"jsonrpc": "2.0", "id": 1, "method": "tools/call",
+                       "params": {"name": tool, "arguments": {"input": args}}}).encode()
+    req = urllib.request.Request(MCP_URL, data=body, method="POST", headers={
+        "Content-Type": "application/json",
+        "Accept": "application/json, text/event-stream",
+        "MCP-Protocol-Version": "2025-06-18",
+        "User-Agent": "exobrain-alltrails/1.0",
+    })
+    with urllib.request.urlopen(req, timeout=40) as r:
+        raw = r.read().decode()
+    if raw.lstrip().startswith("event:") or raw.lstrip().startswith("data:"):
+        raw = "\n".join(line[5:] for line in raw.splitlines() if line.startswith("data:"))
+    msg = json.loads(raw)
+    if "error" in msg:
+        raise SystemExit(f"MCP error: {msg['error']}")
+    res = msg["result"]
+    if res.get("isError"):
+        raise SystemExit("MCP tool error: " + " ".join(c.get("text", "") for c in res.get("content", [])))
+    data = res.get("structuredContent") or json.loads(res["content"][0]["text"])
+    cache_put("mcp", key, data)
+    return data
+
+
+def norm_slug(s: str) -> str:
+    """Accept a URL, 'trail/us/x/y', 'us/x/y' or a bare slug. Return 'us/x/y' or the bare slug."""
+    s = s.strip().split("?")[0].rstrip("/")
+    s = re.sub(r"^https?://(www\.)?alltrails\.com/", "", s)
+    s = re.sub(r"^(explore/)?trail/", "", s)
+    return s
+
+
+def resolve(ref: str) -> tuple[int, str]:
+    """Return (trail_id, 'us/state/slug') for an id, slug or URL."""
+    if ref.isdigit():
+        d = mcp_call("get_trail_details", {"trail_id": int(ref), "locale": "en-US"})["trail"]
+        return int(ref), d["slug"]
+    slug = norm_slug(ref)
+    ids = cache_get("ids", "map", 10**9) or {}
+    assert isinstance(ids, dict)
+    for k, v in ids.items():
+        if k == slug or k.endswith("/" + slug):
+            return int(v), k
+    leaf = slug.split("/")[-1]
+    name = re.sub(r"--\d+$", "", leaf).replace("-", " ")
+    res = mcp_call("search_trails_by_name", {"search_query": name, "limit": 10, "locale": "en-US"})
+    for t in res.get("trails", []):
+        s = t["slug"].removeprefix("trail/")
+        if s == slug or s.split("/")[-1] == leaf:
+            ids[s] = t["id"]
+            cache_put("ids", "map", ids)
+            return int(t["id"]), s
+    if "/" not in slug:
+        raise SystemExit(f"cannot resolve '{ref}'. Give the full slug, for example us/missouri/{leaf}, or a trail id.")
+    flight = page_flight(f"{BASE}/trail/{slug}")
+    m = re.search(r'"trailId":(\d+)', flight)
+    if not m:
+        raise SystemExit(f"no trail id found on the page for '{ref}'")
+    ids[slug] = int(m.group(1))
+    cache_put("ids", "map", ids)
+    return int(m.group(1)), slug
+
+
+# ---------- browser lane ----------
+
+def page_flight(url: str, fresh: bool = False) -> str:
+    """Load a page off screen in system Chrome and return the decoded Next.js flight text."""
+    if not fresh:
+        hit = cache_get("pages", url, PAGE_TTL)
+        if isinstance(hit, str):
+            return hit
+    from playwright.sync_api import sync_playwright
+
+    stamp = CACHE / "last_page_load"
+    if stamp.exists():
+        wait = PAGE_GAP - (time.time() - stamp.stat().st_mtime)
+        if wait > 0:
+            time.sleep(wait)
+    with sync_playwright() as p:
+        b = p.chromium.launch(channel="chrome", headless=False, timeout=60000, args=[
+            "--window-position=-2400,-2400", "--disable-blink-features=AutomationControlled"])
+        try:
+            pg = b.new_context(viewport={"width": 1280, "height": 900}).new_page()
+            pg.goto(url, wait_until="domcontentloaded", timeout=45000)
+            pg.wait_for_timeout(6000)
+            html = pg.content()
+            title = pg.title()
+        finally:
+            b.close()
+    CACHE.mkdir(parents=True, exist_ok=True)
+    stamp.touch()
+    chunks = re.findall(r'self\.__next_f\.push\(\[1,(".*?")\]\)</script>', html, re.S)
+    flight = "".join(json.loads(c) for c in chunks)
+    if not flight:
+        raise SystemExit(f"no page data at {url} (title: {title!r}). AllTrails bot protection can block a run; wait and try again.")
+    cache_put("pages", url, flight)
+    return flight
+
+
+def flight_text_row(flight: str, ref: str) -> str | None:
+    """Resolve a '$68' style reference to its T (text) row."""
+    rid = ref.lstrip("$")
+    row = re.compile(r"([0-9a-f]+):")
+    pos = 0
+    while pos < len(flight):
+        m = row.match(flight, pos)
+        if not m:  # not at a row start; skip to the next line
+            nl = flight.find("\n", pos)
+            if nl < 0:
+                return None
+            pos = nl + 1
+            continue
+        start = m.end()
+        if flight.startswith("T", start):
+            comma = flight.index(",", start)
+            nbytes = int(flight[start + 1:comma], 16)
+            end = comma + 1
+            used = 0
+            while used < nbytes and end < len(flight):  # T length counts UTF-8 bytes
+                used += len(flight[end].encode())
+                end += 1
+            if m.group(1) == rid:
+                return flight[comma + 1:end]
+            pos = end
+        else:
+            nl = flight.find("\n", start)
+            pos = len(flight) if nl < 0 else nl + 1
+    return None
+
+
+def decode_polyline(enc: str, precision: int = 5) -> list[tuple[float, float]]:
+    i = lat = lng = 0
+    out = []
+    while i < len(enc):
+        vals = []
+        for _ in range(2):
+            shift = result = 0
+            while True:
+                b = ord(enc[i]) - 63
+                i += 1
+                result |= (b & 0x1F) << shift
+                shift += 5
+                if b < 0x20:
+                    break
+            vals.append(~(result >> 1) if result & 1 else result >> 1)
+        lat += vals[0]
+        lng += vals[1]
+        out.append((lat / 10**precision, lng / 10**precision))
+    return out
+
+
+def track_km(pts: list[tuple[float, float]]) -> float:
+    d = 0.0
+    for (a1, o1), (a2, o2) in zip(pts, pts[1:], strict=False):
+        x = math.sin(math.radians(a2 - a1) / 2) ** 2 + math.cos(math.radians(a1)) * math.cos(math.radians(a2)) * math.sin(math.radians(o2 - o1) / 2) ** 2
+        d += 6371.0 * 2 * math.asin(math.sqrt(x))
+    return d
+
+
+def get_reviews(slug: str, fresh: bool = False) -> dict:
+    flight = page_flight(f"{BASE}/trail/{slug}", fresh)
+    i = flight.find('"reviews":{"perPage"')
+    if i < 0:
+        raise SystemExit("no review data on the page")
+    obj, _ = json.JSONDecoder().raw_decode(flight, flight.find("{", i + 9))
+    resp = obj.get("response", {})
+    out = []
+    for r in resp.get("trail_reviews", []):
+        out.append({
+            "date": (r.get("date") or r.get("metadata", {}).get("created") or "")[:10],
+            "rating": r.get("rating"),
+            "activity": (r.get("activity") or {}).get("name"),
+            "conditions": sorted({o.get("name") for o in (r.get("obstacles") or []) if o.get("name")}),
+            "comment": (r.get("comment") or "").strip(),
+        })
+    return {"reviews": out, "community_difficulty": (resp.get("communityRating") or {}).get("displayDifficulty"),
+            "has_more": (resp.get("pageInfo") or {}).get("hasNextPage")}
+
+
+def get_track(slug: str, fresh: bool = False) -> list[tuple[float, float]]:
+    flight = page_flight(f"{BASE}/explore/trail/{slug}", fresh)
+    m = re.search(r'"polyline":\{"pointsData":"([^"]+)"', flight)
+    if not m:
+        raise SystemExit("no route geometry on the explore page")
+    enc = m.group(1)
+    if enc.startswith("$"):
+        enc = flight_text_row(flight, enc) or ""
+    pts = decode_polyline(enc)
+    if len(pts) < 2:
+        raise SystemExit("route geometry was empty")
+    return pts
+
+
+# ---------- output ----------
+
+def mi(m: float | None) -> str:
+    return "?" if m is None else f"{m / 1609.344:.1f} mi"
+
+
+def ft(m: float | None) -> str:
+    return "?" if m is None else f"{m * 3.28084:,.0f} ft"
+
+
+def print_reviews(rv: dict, n: int, since: str | None) -> None:
+    rows = [r for r in rv["reviews"] if not since or r["date"] >= since][:n]
+    print(f"Recent reviews, newest first ({LABEL}):")
+    if rv.get("community_difficulty"):
+        print(f"  Community difficulty: {rv['community_difficulty']}")
+    if not rows:
+        print("  (no reviews in range)")
+    for r in rows:
+        cond = f" [{', '.join(r['conditions'])}]" if r["conditions"] else ""
+        print(f"  {r['date']}  {r['rating']}/5  {r['activity'] or ''}{cond}")
+        if r["comment"]:
+            for line in r["comment"].splitlines():
+                if line.strip():
+                    print(f"      {line.strip()}")
+    if rv.get("has_more") and len(rows) >= len(rv["reviews"]):
+        print("  (only the first page of reviews is in the page data; read more on the website)")
+
+
+def cmd_search(a: argparse.Namespace) -> None:
+    args: dict = {"search_query": a.query, "limit": a.limit, "locale": "en-US"}
+    if a.near:
+        lat, lon = (float(x) for x in a.near.split(","))
+        args.update(latitude=lat, longitude=lon)
+    res = mcp_call("search_trails_by_name", args, a.fresh)
+    if a.json:
+        print(json.dumps(res, indent=2))
+        return
+    print(f"Search '{a.query}' ({LABEL})")
+    for t in res.get("trails", []):
+        print(f"- {t['name']}  [{t['id']}]  {t['slug'].removeprefix('trail/')}")
+        print(f"    {t.get('location_label')}. {t.get('difficulty')}, {t.get('route_type')}, "
+              f"{mi(t.get('length_meters'))}, +{ft(t.get('elevation_gain_meters'))}, rating {t.get('avg_rating')}")
+    print(CAVEAT)
+
+
+def cmd_trail(a: argparse.Namespace) -> None:
+    tid, slug = resolve(a.ref)
+    d = mcp_call("get_trail_details", {"trail_id": tid, "locale": "en-US"}, a.fresh)["trail"]
+    rv = get_reviews(slug, a.fresh) if a.reviews else None
+    if a.json:
+        print(json.dumps({"source": LABEL, "trail": d, "reviews": rv}, indent=2))
+        return
+    g = d.get("trail_geo_stats") or {}
+    at = d.get("average_time_to_complete") or {}
+    c = d.get("total_user_content_stats") or {}
+    loc = d.get("location") or {}
+    print(f"{d['name']}  [{tid}]  {BASE}/trail/{d['slug']}")
+    print(f"  Park: {(d.get('park') or {}).get('name')}. Near {loc.get('city')}, {loc.get('region')}")
+    print(f"  Stats, {LABEL}:")
+    print(f"    Length {mi(g.get('length_meters'))}, gain {ft(g.get('elevation_gain_meters'))}, "
+          f"high point {ft(g.get('elevation_max_meters'))}")
+    print(f"    {d.get('difficulty')}, {d.get('route_type')}, avg time {at.get('value')} {at.get('unit')}")
+    print(f"    Rating {d.get('avg_rating')} from {c.get('reviews_count')} reviews, {c.get('completed_hikes_count')} completions")
+    print(f"  Activities: {', '.join(d.get('activities') or [])}")
+    print(f"  Features: {', '.join(d.get('features') or [])}")
+    for k in ("curated_description", "getting_there", "parking_facilities", "tips", "accessibility"):
+        if d.get(k):
+            print(f"\n  {k.replace('_', ' ').capitalize()}:\n    " + d[k].strip().replace("\n\n", "\n").replace("\n", "\n    "))
+    if d.get("review_summary"):
+        print(f"\n  Review summary (generated by AllTrails): {d['review_summary']}")
+    if rv:
+        print()
+        print_reviews(rv, a.reviews, None)
+    print(f"\n{CAVEAT}")
+
+
+def cmd_reviews(a: argparse.Namespace) -> None:
+    _, slug = resolve(a.ref)
+    rv = get_reviews(slug, a.fresh)
+    if a.json:
+        rows = [r for r in rv["reviews"] if not a.since or r["date"] >= a.since][: a.limit]
+        print(json.dumps({"source": LABEL, **rv, "reviews": rows}, indent=2))
+        return
+    print_reviews(rv, a.limit, a.since)
+    print(CAVEAT)
+
+
+def cmd_gpx(a: argparse.Namespace) -> None:
+    tid, slug = resolve(a.ref)
+    pts = get_track(slug, a.fresh)
+    name = mcp_call("get_trail_details", {"trail_id": tid, "locale": "en-US"})["trail"]["name"]
+    out = Path(a.output or f"{slug.split('/')[-1]}.gpx")
+    now = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+    seg = "\n".join(f'      <trkpt lat="{la:.5f}" lon="{lo:.5f}"/>' for la, lo in pts)
+    out.write_text(
+        '<?xml version="1.0" encoding="UTF-8"?>\n'
+        '<gpx version="1.1" creator="exobrain-alltrails" xmlns="http://www.topografix.com/GPX/1/1">\n'
+        f"  <metadata><name>{escape(name)}</name><desc>{escape(LABEL + ' route for ' + BASE + '/trail/' + slug + '. ' + CAVEAT)}</desc><time>{now}</time></metadata>\n"
+        f"  <trk><name>{escape(name)}</name><src>{escape(LABEL)}</src><trkseg>\n{seg}\n  </trkseg></trk>\n</gpx>\n")
+    print(f"Wrote {out} ({len(pts)} points, {track_km(pts) / 1.609344:.2f} mi by track) for {name} [{tid}]. Source: {LABEL}.")
+
+
+def cmd_weather(a: argparse.Namespace) -> None:
+    tid, slug = resolve(a.ref)
+    w = mcp_call("get_trail_weather_overview", {"trail_id": tid, "units": "i", "locale": "en-US"}, a.fresh)
+    if a.json:
+        print(json.dumps(w, indent=2))
+        return
+    print(f"Trailhead forecast for {slug} (from AllTrails, 7 days):")
+    print(f"  Alerts: {w.get('weather_alert_text')}")
+    for f in w.get("daily_forecasts", []):
+        print(f"  {f['day_of_week']:<10} high {f['high_temperature']:.0f}F  low {f['low_temperature']:.0f}F")
+
+
+def main() -> None:
+    ap = argparse.ArgumentParser(prog="alltrails", description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
+    ap.add_argument("--fresh", action="store_true", help="ignore the cache")
+    sub = ap.add_subparsers(dest="cmd", required=True)
+    s = sub.add_parser("search", help="find trails by name")
+    s.add_argument("query")
+    s.add_argument("--near", help="LAT,LON to bias results")
+    s.add_argument("--limit", type=int, default=5)
+    s.add_argument("--json", action="store_true")
+    s.set_defaults(fn=cmd_search)
+    t = sub.add_parser("trail", help="trail details (id, slug or URL)")
+    t.add_argument("ref")
+    t.add_argument("--reviews", type=int, default=0, metavar="N", help="also show N recent reviews")
+    t.add_argument("--json", action="store_true")
+    t.set_defaults(fn=cmd_trail)
+    r = sub.add_parser("reviews", help="recent reviews with dates")
+    r.add_argument("ref")
+    r.add_argument("--since", help="YYYY-MM-DD")
+    r.add_argument("--limit", type=int, default=10)
+    r.add_argument("--json", action="store_true")
+    r.set_defaults(fn=cmd_reviews)
+    g = sub.add_parser("gpx", help="write the route as a GPX track")
+    g.add_argument("ref")
+    g.add_argument("-o", "--output")
+    g.set_defaults(fn=cmd_gpx)
+    w = sub.add_parser("weather", help="7-day trailhead forecast")
+    w.add_argument("ref")
+    w.add_argument("--json", action="store_true")
+    w.set_defaults(fn=cmd_weather)
+    a = ap.parse_args()
+    a.fn(a)
+
+
+if __name__ == "__main__":
+    try:
+        main()
+    except KeyboardInterrupt:
+        sys.exit(130)
