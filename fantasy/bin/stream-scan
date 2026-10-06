@@ -61,10 +61,36 @@ def fair(weather: str) -> bool:
     return w == "dome" or not any(b in w for b in K_BAD_WEATHER)
 
 
-def scan(ours: dict, slate: list[dict], dst_pool: list[dict], k_pool: list[dict]) -> dict:
-    """Pure: our D/ST and K rows, the slate, the two pools -> verdicts."""
+def bench_swap(d: dict, bench: list[dict], slate: list[dict]) -> dict | None:
+    """A rostered bench D/ST that faces a lower implied total than the starter
+    (or the starter is on bye). The fix is a lineup move, not a claim."""
+    _, opp, _ = implied_for(d["team"], slate)
+    best = None
+    for b in bench:
+        _, b_opp, _ = implied_for(b["team"], slate)
+        if b_opp is None or b["opp"] == "BYE":
+            continue
+        if (d["opp"] == "BYE" or opp is None or b_opp < opp) and (best is None or b_opp < best[1]):
+            best = (b, b_opp)
+    return best and {"name": best[0]["name"], "opp": best[0]["opp"], "opp_implied": best[1],
+                     "proj": round(best[0].get("proj") or 0, 1)}
+
+
+def scan(ours: dict, slate: list[dict], dst_pool: list[dict], k_pool: list[dict],
+         bench_dst: list[dict] | None = None) -> dict:
+    """Pure: our D/ST and K rows, the slate, the two pools -> verdicts. A better
+    D/ST on our own bench is the comparison bar before any free agent."""
     out: dict = {"dst": None, "k": None}
     d = ours.get("D/ST")
+    if d:
+        swap = bench_swap(d, bench_dst or [], slate)
+        if swap:
+            out["dst"] = {"ours": d["name"], "team": d["team"], "opp": d["opp"],
+                          "opp_implied": implied_for(d["team"], slate)[1],
+                          "proj": round(d.get("proj") or 0, 1), "bye": d["opp"] == "BYE",
+                          "best_fa": [], "stream": False, "start_bench": swap,
+                          "why": f"bench {swap['name']} faces {swap['opp_implied']} implied; start it over {d['name']}"}
+            d = None
     if d:
         own, opp, weather = implied_for(d["team"], slate)
         cands = [r for r in dst_pool if r.get("implied_opp") is not None and r["implied_opp"] <= DST_FA_MAX]
@@ -116,7 +142,8 @@ def main() -> int:
     dst_pool = espn("stream", "--pos", "DST", "-n", "40")
     k_pool = espn("stream", "--pos", "K", "-n", "40")
     assert isinstance(slate, list) and isinstance(dst_pool, list) and isinstance(k_pool, list)
-    out = scan(ours, slate, dst_pool, k_pool)
+    bench_dst = [r for r in team["roster"] if r["slot"] == "BE" and r.get("pos") == "D/ST"]
+    out = scan(ours, slate, dst_pool, k_pool, bench_dst)
     out["week"] = week
     out["byes_ahead"] = upcoming_byes(team, week)
     if args.json:
@@ -128,7 +155,7 @@ def main() -> int:
         if not v:
             print(f"  {label.upper()}: no starter in the slot")
             continue
-        verdict = "STREAM" if v["stream"] else "hold  "
+        verdict = "STREAM" if v["stream"] else "BENCH " if v.get("start_bench") else "hold  "
         line = f"  {verdict}  {label.upper():<4} {v['ours']:<18} {v['opp']:<5}"
         line += f" opp implied {v['opp_implied']}" if label == "dst" else f" own implied {v['own_implied']} {v['weather']}"
         print(line + f"  proj {v['proj']}  -- {v['why']}")

@@ -101,6 +101,14 @@ def stream_gate_event(st: dict) -> dict | None:
     gs = st.setdefault("stream_gate", {})
     for label in ("dst", "k"):
         v = scan.get(label)
+        if v and v.get("start_bench"):
+            b = v["start_bench"]
+            pair = f"{v['ours']}|{b['name']}|BE|{scan.get('week')}"
+            if gs.get(label) == pair:
+                continue
+            gs[label] = pair
+            return {"kind": "stream_gate", "slot": "D/ST", "ours": v["ours"], "add": b["name"],
+                    "avail": "BE", "why": v["why"], "judgment": False}
         if not v or not v.get("stream") or not v.get("best_fa"):
             gs[label] = None
             continue
@@ -277,7 +285,10 @@ def main() -> int:
         elif ev["kind"] == "watched_team_moved":
             heads.append(f"{ev['team']} made a roster move")
         elif ev["kind"] == "stream_gate":
-            heads.append(f"stream {ev['slot']}: {ev['add']} ({ev['avail']}) over {ev['ours']}, {ev['why']}")
+            if ev["avail"] == "BE":
+                heads.append(f"lineup {ev['slot']}: {ev['why']}")
+            else:
+                heads.append(f"stream {ev['slot']}: {ev['add']} ({ev['avail']}) over {ev['ours']}, {ev['why']}")
         elif ev["kind"] == "swap_gate":
             fl = f", volume {'/'.join(ev['flags'])}" if ev.get("flags") else ""
             heads.append(f"wire: add {ev['add']} ({ev['add_pos']}, {ev['avail']}) for "
@@ -290,7 +301,15 @@ def main() -> int:
     actions = ["--action", "Ask MIST=console"]
     swap = next((ev for ev in events if ev["kind"] == "swap_gate"), None)
     stream = next((ev for ev in events if ev["kind"] == "stream_gate"), None)
-    if stream and not swap:
+    if stream and not swap and stream["avail"] == "BE":
+        actions = [
+            "--action", reply_button(
+                "Do it", f"Lineup from roster-watch: start {stream['add']} over {stream['ours']} "
+                         f"({stream['why']}; espn-tx move \"{stream['ours']}\" --to BE, then "
+                         f"espn-tx move \"{stream['add']}\" --to {stream['slot']})"),
+            "--action", reply_button("Skip", f"Keep {stream['ours']} in the {stream['slot']} slot"),
+        ]
+    elif stream and not swap:
         how = "--fa" if stream["avail"] == "FA" else ""
         actions = [
             "--action", reply_button(
