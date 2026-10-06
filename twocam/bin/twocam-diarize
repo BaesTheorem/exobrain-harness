@@ -18,6 +18,7 @@ import argparse
 import json
 import os
 import subprocess
+import tempfile
 import warnings
 from pathlib import Path
 
@@ -32,7 +33,7 @@ SR = 16000
 
 def main() -> None:
     ap = argparse.ArgumentParser()
-    ap.add_argument("input", type=Path)
+    ap.add_argument("input", help="file, or GoPro chapters joined with +")
     ap.add_argument("-o", "--out", type=Path, required=True)
     ap.add_argument("--speakers", type=int)
     ap.add_argument("--start", type=float, default=0.0, help="seconds to skip at the start")
@@ -40,7 +41,14 @@ def main() -> None:
 
     token = os.environ.get("HF_TOKEN") or Path(
         os.environ.get("HF_TOKEN_FILE", "~/Documents/one-pace/.hf_token")).expanduser().read_text().strip()
-    raw = subprocess.run(["ffmpeg", "-v", "error", "-ss", str(args.start), "-i", str(args.input),
+    parts = str(args.input).split("+")  # GoPro chapters joined with +
+    if len(parts) > 1:
+        lst = Path(tempfile.mkstemp(suffix=".txt")[1])
+        lst.write_text("".join(f"file '{Path(p).resolve()}'\n" for p in parts))
+        src = ["-f", "concat", "-safe", "0", "-i", str(lst)]
+    else:
+        src = ["-i", parts[0]]
+    raw = subprocess.run(["ffmpeg", "-v", "error", "-ss", str(args.start), *src,
                           "-map", "0:a:0", "-ac", "1", "-ar", str(SR), "-f", "f32le", "-"],
                          capture_output=True, check=True).stdout
     wav = torch.from_numpy(np.frombuffer(raw, dtype=np.float32).copy()).unsqueeze(0)

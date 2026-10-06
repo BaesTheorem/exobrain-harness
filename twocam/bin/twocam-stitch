@@ -40,8 +40,20 @@ SR = 8000  # analysis sample rate, Hz
 HOP = 0.1  # analysis window, seconds
 
 
-def load_audio(path: Path, sr: int = SR) -> np.ndarray:
-    cmd = ["ffmpeg", "-v", "error", "-i", str(path), "-map", "0:a:0", "-ac", "1",
+def src_args(spec: str | Path) -> list[str]:
+    """ffmpeg input args for one camera. "C1.MP4+C2.MP4" joins GoPro chapters in order."""
+    parts = str(spec).split("+")
+    if len(parts) == 1:
+        return ["-i", parts[0]]
+    lst = tempfile.NamedTemporaryFile("w", suffix=".txt", delete=False)
+    for part in parts:
+        lst.write("file '" + str(Path(part).resolve()).replace("'", "'\\''") + "'\n")
+    lst.close()
+    return ["-f", "concat", "-safe", "0", "-i", lst.name]
+
+
+def load_audio(path: str | Path, sr: int = SR) -> np.ndarray:
+    cmd = ["ffmpeg", "-v", "error", *src_args(path), "-map", "0:a:0", "-ac", "1",
            "-ar", str(sr), "-f", "f32le", "-"]
     raw = subprocess.run(cmd, capture_output=True, check=True).stdout
     return np.frombuffer(raw, dtype=np.float32).copy()
@@ -233,8 +245,8 @@ def render(info: dict, out: Path, audio: str, height: int | None, preview: float
     vf += "[v]"
     aidx = 0 if audio == "a" else 1
     cmd = ["ffmpeg", "-hide_banner", "-stats", "-v", "error", "-y",
-           "-ss", f"{info['a_start']:.4f}", "-t", f"{dur:.3f}", "-i", info["a"],
-           "-ss", f"{info['b_start']:.4f}", "-t", f"{dur:.3f}", "-i", info["b"],
+           "-ss", f"{info['a_start']:.4f}", "-t", f"{dur:.3f}", *src_args(info["a"]),
+           "-ss", f"{info['b_start']:.4f}", "-t", f"{dur:.3f}", *src_args(info["b"]),
            "-filter_complex", vf, "-map", "[v]", "-map", f"{aidx}:a:0",
            "-c:v", "hevc_videotoolbox", "-q:v", "62", "-tag:v", "hvc1",
            "-c:a", "aac", "-b:a", "192k", "-movflags", "+faststart", str(out)]
@@ -256,8 +268,8 @@ def main() -> None:
             print(f"{p.name} {q.name} score={score:6.2f} lag={(i - len(b) + 1) / 2000:8.2f}s")
         return
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    ap.add_argument("a", type=Path)
-    ap.add_argument("b", type=Path)
+    ap.add_argument("a", help="camera A file, or chapters joined with +")
+    ap.add_argument("b", help="camera B file, or chapters joined with +")
     ap.add_argument("-o", "--out", type=Path)
     ap.add_argument("--audio", choices=["auto", "a", "b"], default="auto")
     ap.add_argument("--invert", action="store_true")

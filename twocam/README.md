@@ -50,5 +50,6 @@ audio.
   can be incorrect. Thus the diarized path with a manual `--map` is the default.
 - `--audio auto` keeps the track with the higher speech-to-noise ratio.
 - GoPro splits a recording into 4 GB chapters (GH01xxxx, GH02xxxx, and other).
-  Connect the chapters of each camera before the stitch.
+  Give the chapters of one camera as one argument, in order, joined with +
+  (GH013777.MP4+GH023777.MP4). Both tools accept this form.
 - Output speed on an M-series Air is approximately 0.9x real time for 4K input.
