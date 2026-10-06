@@ -1,0 +1,291 @@
+#!/usr/bin/env python3
+"""twocam-stitch: cut two camera angles of one conversation into a single video.
+
+Each camera sits near one person and films the other person. Both cameras
+record audio. The script:
+
+1. Syncs the two files by cross-correlation of their audio.
+2. Finds the active speaker from the level difference between the two mics:
+   the mic near the speaker is louder.
+3. Shows the camera that films the speaker, with a minimum shot length so the
+   edit does not flicker.
+4. Keeps the audio track with the better signal-to-noise ratio (or the one you
+   choose) and renders one file with ffmpeg.
+
+Usage:
+  twocam-stitch pair FILE [FILE ...]          score every A/B pair, to match files
+  twocam-stitch A.mp4 B.mp4 -o out.mp4        sync, cut and render
+  twocam-stitch A.mp4 B.mp4 --dry-run          print sync, audio pick and cut list
+
+Flags for render: --audio auto|a|b, --invert (show the louder camera instead),
+--turns TURNS.json (from twocam-diarize) with --map SPEAKER_00=A,... to cut by voice,
+--min-shot SECONDS, --height 1080 (scale down), --preview SECONDS (render only
+the start).
+"""
+
+from __future__ import annotations
+
+import argparse
+import itertools
+import json
+import subprocess
+import sys
+import tempfile
+from pathlib import Path
+
+import numpy as np
+from scipy import signal
+
+SR = 8000  # analysis sample rate, Hz
+HOP = 0.1  # analysis window, seconds
+
+
+def load_audio(path: Path, sr: int = SR) -> np.ndarray:
+    cmd = ["ffmpeg", "-v", "error", "-i", str(path), "-map", "0:a:0", "-ac", "1",
+           "-ar", str(sr), "-f", "f32le", "-"]
+    raw = subprocess.run(cmd, capture_output=True, check=True).stdout
+    return np.frombuffer(raw, dtype=np.float32).copy()
+
+
+def probe(path: Path) -> dict:
+    out = subprocess.run(["ffprobe", "-v", "error", "-show_entries",
+                          "format=duration:stream=codec_type,width,height,r_frame_rate",
+                          "-of", "json", str(path)], capture_output=True, check=True).stdout
+    return json.loads(out)
+
+
+def xcorr_lag(a: np.ndarray, b: np.ndarray) -> tuple[float, float]:
+    """Return (lag_seconds, confidence). lag > 0: event at time t in A is at t - lag in B."""
+    a = (a - a.mean()) / (a.std() + 1e-9)
+    b = (b - b.mean()) / (b.std() + 1e-9)
+    c = signal.fftconvolve(a, b[::-1], mode="full")
+    c = np.abs(c)
+    i = int(np.argmax(c))
+    peak = c[i]
+    # confidence = peak over the 99.9th percentile of the rest of the curve
+    mask = np.ones_like(c, dtype=bool)
+    mask[max(0, i - SR // 10): i + SR // 10] = False
+    conf = float(peak / (np.percentile(c[mask], 99.9) + 1e-9))
+    lag = (i - (len(b) - 1)) / SR
+    return lag, conf
+
+
+def band_rms_db(x: np.ndarray) -> np.ndarray:
+    sos = signal.butter(4, [250, 3500], btype="band", fs=SR, output="sos")
+    y = signal.sosfilt(sos, x)
+    n = int(HOP * SR)
+    frames = y[: len(y) // n * n].reshape(-1, n)
+    return 10 * np.log10(np.mean(frames**2, axis=1) + 1e-12)
+
+
+def audio_quality(x: np.ndarray) -> dict:
+    db = band_rms_db(x)
+    noise = float(np.percentile(db, 10))
+    speech = float(np.percentile(db, 95))
+    clip = float(np.mean(np.abs(x) > 0.99))
+    return {"noise_db": round(noise, 1), "speech_db": round(speech, 1),
+            "snr_db": round(speech - noise, 1), "clip_frac": clip}
+
+
+def segments_from_labels(lab: np.ndarray, min_shot: float) -> list[tuple[float, int]]:
+    """lab: per-window camera index (0/1). Return [(start_seconds, cam)] with short shots merged."""
+    runs: list[list] = []  # [start_idx, length, cam]
+    for i, v in enumerate(lab):
+        if runs and runs[-1][2] == v:
+            runs[-1][1] += 1
+        else:
+            runs.append([i, 1, int(v)])
+    min_n = int(min_shot / HOP)
+    changed = True
+    while changed and len(runs) > 1:
+        changed = False
+        k = min(range(len(runs)), key=lambda j: runs[j][1])
+        if runs[k][1] >= min_n:
+            break
+        # merge the shortest run into its longer neighbour
+        if k == 0:
+            nb = 1
+        elif k == len(runs) - 1:
+            nb = k - 1
+        else:
+            nb = k - 1 if runs[k - 1][1] >= runs[k + 1][1] else k + 1
+        runs[nb][1] += runs[k][1]
+        if nb > k:
+            runs[nb][0] = runs[k][0]
+        del runs[k]
+        # join neighbours that now have the same camera
+        merged: list[list] = []
+        for r in runs:
+            if merged and merged[-1][2] == r[2]:
+                merged[-1][1] += r[1]
+            else:
+                merged.append(r)
+        runs = merged
+        changed = True
+    return [(r[0] * HOP, r[2]) for r in runs]
+
+
+def analyse(a_path: Path, b_path: Path, min_shot: float, invert: bool,
+            turns: list | None = None, smap: dict | None = None) -> dict:
+    a, b = load_audio(a_path), load_audio(b_path)
+    lag, conf = xcorr_lag(a, b)
+    # drift check: correlate the first and the last 60 s of the overlap separately
+    shift = int(round(lag * SR))
+    a_start = max(0, shift)
+    b_start = max(0, -shift)
+    overlap = min(len(a) - a_start, len(b) - b_start)
+    aa = a[a_start:a_start + overlap]
+    bb = b[b_start:b_start + overlap]
+    w = min(60 * SR, overlap // 3)
+    drift = None
+    if w > SR * 10:
+        l1, _ = xcorr_lag(aa[:w], bb[:w])
+        l2, _ = xcorr_lag(aa[-w:], bb[-w:])
+        drift = round((l2 - l1) * 1000, 1)
+
+    da, db = band_rms_db(aa), band_rms_db(bb)
+    n = min(len(da), len(db))
+    da, db = da[:n], db[:n]
+    loud = np.maximum(da, db)
+    floor = np.percentile(loud, 20)
+    voiced = loud > floor + 8
+    diff = signal.medfilt(da - db, 5)
+    # two-means split of the level difference over voiced windows; this cancels a
+    # fixed gain difference between the two cameras
+    v = diff[voiced]
+    if len(v) < 20:
+        sys.exit("too little speech to tell the speakers apart")
+    c0, c1 = np.percentile(v, 25), np.percentile(v, 75)
+    for _ in range(50):
+        m = np.abs(v - c0) < np.abs(v - c1)
+        n0, n1 = v[m].mean() if m.any() else c0, v[~m].mean() if (~m).any() else c1
+        if abs(n0 - c0) < 1e-4 and abs(n1 - c1) < 1e-4:
+            break
+        c0, c1 = n0, n1
+    thresh = (c0 + c1) / 2
+    speaker_cams: dict | None = None
+    if turns is not None:
+        # Diarized path: one camera per voice, from the voice's mean level difference
+        # over all of its speech. The voice that is louder at A sits near A.
+        act = np.full(n, "", dtype=object)
+        off = a_start / SR
+        for t in turns:
+            i0 = max(0, int((t["start"] - off) / HOP))
+            i1 = min(n, int((t["end"] - off) / HOP))
+            act[i0:i1] = t["speaker"]
+        means = {s: float(np.mean(diff[(act == s) & voiced])) for s in set(act[act != ""])
+                 if np.sum((act == s) & voiced) >= 10}
+        order = sorted(means, key=means.get)
+        gaps = [means[order[k + 1]] - means[order[k]] for k in range(len(order) - 1)]
+        cut = int(np.argmax(gaps)) + 1 if gaps else 1
+        speaker_cams = {s: (0 if k < cut else 1) for k, s in enumerate(order)}
+        if invert:
+            speaker_cams = {s: 1 - c for s, c in speaker_cams.items()}
+        if smap:
+            # a manual map wins: the level split is weak when both cameras share a table
+            speaker_cams.update({s: "AB".index(c) for s, c in smap.items() if s in speaker_cams})
+        lab = np.empty(n, dtype=int)
+        cur = speaker_cams.get(next((s for s in act if s in speaker_cams), ""), 0)
+        for i in range(n):
+            if act[i] in speaker_cams:
+                cur = speaker_cams[act[i]]
+            lab[i] = cur
+        speaker_cams = {s: {"mean_diff_db": round(means[s], 2), "show": "AB"[c],
+                            "talk_s": round(float(np.sum(act == s)) * HOP, 1)}
+                        for s, c in speaker_cams.items()}
+    else:
+        # louder at A -> speaker sits at A -> show B (camera index 1), unless inverted
+        louder_a = diff > thresh
+        lab = np.empty(n, dtype=int)
+        cur = 0 if np.mean(louder_a[voiced]) < 0.5 else 1
+        for i in range(n):
+            if voiced[i]:
+                cur = 1 if louder_a[i] else 0
+                if invert:
+                    cur = 1 - cur
+            lab[i] = cur
+    segs = segments_from_labels(lab, min_shot)
+    qa, qb = audio_quality(aa), audio_quality(bb)
+    return {
+        "a": str(a_path), "b": str(b_path),
+        "lag_s": round(lag, 4), "sync_confidence": round(conf, 2), "drift_ms": drift,
+        "a_start": a_start / SR, "b_start": b_start / SR, "duration": overlap / SR,
+        "gain_split_db": [round(float(c0), 1), round(float(c1), 1)],
+        "audio_a": qa, "audio_b": qb, "speakers": speaker_cams,
+        "segments": segs,
+    }
+
+
+def render(info: dict, out: Path, audio: str, height: int | None, preview: float | None) -> None:
+    if audio == "auto":
+        audio = "a" if info["audio_a"]["snr_db"] >= info["audio_b"]["snr_db"] else "b"
+    dur = info["duration"] if preview is None else min(preview, info["duration"])
+    with tempfile.NamedTemporaryFile("w", suffix=".cmd", delete=False) as f:
+        for t, cam in info["segments"]:
+            if t < dur:
+                f.write(f"{t:.3f} streamselect@sel map {cam};\n")
+        cmdfile = f.name
+    # sendcmd takes one input, so it rides on camera A's stream and targets the selector
+    vf = (f"[0:v]sendcmd=f='{cmdfile}'[a0];"
+          f"[a0][1:v]streamselect@sel=inputs=2:map={info['segments'][0][1]}")
+    if height:
+        vf += f",scale=-2:{height}"
+    vf += "[v]"
+    aidx = 0 if audio == "a" else 1
+    cmd = ["ffmpeg", "-hide_banner", "-stats", "-v", "error", "-y",
+           "-ss", f"{info['a_start']:.4f}", "-t", f"{dur:.3f}", "-i", info["a"],
+           "-ss", f"{info['b_start']:.4f}", "-t", f"{dur:.3f}", "-i", info["b"],
+           "-filter_complex", vf, "-map", "[v]", "-map", f"{aidx}:a:0",
+           "-c:v", "hevc_videotoolbox", "-q:v", "62", "-tag:v", "hvc1",
+           "-c:a", "aac", "-b:a", "192k", "-movflags", "+faststart", str(out)]
+    subprocess.run(cmd, check=True)
+    Path(cmdfile).unlink()
+
+
+def main() -> None:
+    if len(sys.argv) > 1 and sys.argv[1] == "pair":
+        files = [Path(p) for p in sys.argv[2:]]
+        clips = {p: load_audio(p, 2000)[: 2000 * 240] for p in files}  # first 4 min, 2 kHz
+        for p, q in itertools.combinations(files, 2):
+            a, b = clips[p], clips[q]
+            a = (a - a.mean()) / (a.std() + 1e-9)
+            b = (b - b.mean()) / (b.std() + 1e-9)
+            c = np.abs(signal.fftconvolve(a, b[::-1], mode="full"))
+            i = int(np.argmax(c))
+            score = c[i] / (np.percentile(c, 99.9) + 1e-9)
+            print(f"{p.name} {q.name} score={score:6.2f} lag={(i - len(b) + 1) / 2000:8.2f}s")
+        return
+    ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
+    ap.add_argument("a", type=Path)
+    ap.add_argument("b", type=Path)
+    ap.add_argument("-o", "--out", type=Path)
+    ap.add_argument("--audio", choices=["auto", "a", "b"], default="auto")
+    ap.add_argument("--invert", action="store_true")
+    ap.add_argument("--min-shot", type=float, default=2.0)
+    ap.add_argument("--height", type=int)
+    ap.add_argument("--preview", type=float)
+    ap.add_argument("--dry-run", action="store_true")
+    ap.add_argument("--turns", type=Path, help="twocam-diarize JSON for file A (A timeline)")
+    ap.add_argument("--map", help="SPEAKER_00=B,SPEAKER_01=A: camera that shows each voice")
+    args = ap.parse_args()
+    turns = json.loads(args.turns.read_text()) if args.turns else None
+    smap = dict(kv.split("=") for kv in args.map.split(",")) if args.map else None
+    info = analyse(args.a, args.b, args.min_shot, args.invert, turns, smap)
+    segs = info["segments"]
+    on_b = sum((segs[i + 1][0] if i + 1 < len(segs) else info["duration"]) - t
+               for i, (t, cam) in enumerate(segs) if cam == 1)
+    summary = {k: v for k, v in info.items() if k != "segments"}
+    summary["cuts"] = len(segs) - 1
+    summary["share_on_b"] = round(on_b / info["duration"], 2)
+    print(json.dumps(summary, indent=2))
+    if args.dry_run:
+        for t, cam in segs:
+            print(f"{int(t // 60):02d}:{t % 60:05.2f}  {'AB'[cam]}")
+        return
+    if not args.out:
+        sys.exit("give -o OUT or --dry-run")
+    render(info, args.out, args.audio, args.height, args.preview)
+
+
+if __name__ == "__main__":
+    main()

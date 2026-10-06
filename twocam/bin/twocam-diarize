@@ -1,0 +1,62 @@
+#!/usr/bin/env python3
+"""twocam-diarize: speaker turns for one video or audio file, as JSON for twocam-stitch.
+
+Runs pyannote speaker-diarization-community-1 on the first audio track and writes
+[{"start": s, "end": s, "speaker": "SPEAKER_00"}, ...] with overlaps resolved.
+
+Run it with a Python that has pyannote.audio 4.x (for example the One Pace venv):
+  PY=~/Documents/one-pace/.subs-venv/bin/python
+  $PY twocam/bin/twocam-diarize INPUT.mp4 -o turns.json [--speakers N]
+
+The Hugging Face token comes from $HF_TOKEN or the file named in $HF_TOKEN_FILE
+(default ~/Documents/one-pace/.hf_token).
+"""
+
+from __future__ import annotations
+
+import argparse
+import json
+import os
+import subprocess
+import warnings
+from pathlib import Path
+
+warnings.filterwarnings("ignore")
+
+import numpy as np  # noqa: E402
+import torch  # noqa: E402
+from pyannote.audio import Pipeline  # noqa: E402
+
+SR = 16000
+
+
+def main() -> None:
+    ap = argparse.ArgumentParser()
+    ap.add_argument("input", type=Path)
+    ap.add_argument("-o", "--out", type=Path, required=True)
+    ap.add_argument("--speakers", type=int)
+    ap.add_argument("--start", type=float, default=0.0, help="seconds to skip at the start")
+    args = ap.parse_args()
+
+    token = os.environ.get("HF_TOKEN") or Path(
+        os.environ.get("HF_TOKEN_FILE", "~/Documents/one-pace/.hf_token")).expanduser().read_text().strip()
+    raw = subprocess.run(["ffmpeg", "-v", "error", "-ss", str(args.start), "-i", str(args.input),
+                          "-map", "0:a:0", "-ac", "1", "-ar", str(SR), "-f", "f32le", "-"],
+                         capture_output=True, check=True).stdout
+    wav = torch.from_numpy(np.frombuffer(raw, dtype=np.float32).copy()).unsqueeze(0)
+    pipe = Pipeline.from_pretrained("pyannote/speaker-diarization-community-1", token=token)
+    if torch.backends.mps.is_available():
+        pipe.to(torch.device("mps"))
+    kw = {"num_speakers": args.speakers} if args.speakers else {}
+    out = pipe({"waveform": wav, "sample_rate": SR}, **kw)
+    turns = [{"start": round(t.start + args.start, 2), "end": round(t.end + args.start, 2), "speaker": s}
+             for t, _, s in out.exclusive_speaker_diarization.itertracks(yield_label=True)]
+    args.out.write_text(json.dumps(turns))
+    total: dict[str, float] = {}
+    for t in turns:
+        total[t["speaker"]] = total.get(t["speaker"], 0) + t["end"] - t["start"]
+    print(json.dumps({k: round(v, 1) for k, v in sorted(total.items())}))
+
+
+if __name__ == "__main__":
+    main()
