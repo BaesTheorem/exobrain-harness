@@ -413,18 +413,37 @@ def _ts(record: dict) -> float:
     """Latest movement on a report: updated_on (UTC), last_action_date, added_on."""
     from datetime import datetime, timezone
 
-    best = float(record.get("added_on") or 0)
+    import time
+
+    # myissues' epoch fields run hours ahead (added_on +2 h on 2026-10-05);
+    # updated_on, a UTC string, is right. Nothing may be later than now.
+    best = filed(record)
     raw = str(record.get("updated_on") or "")
     try:
         best = max(best, datetime.strptime(raw, "%Y-%m-%d %H:%M:%S").replace(tzinfo=timezone.utc).timestamp())
     except ValueError:
         pass
+    best = min(best, time.time())
     raw = str(record.get("last_action_date") or "")
     try:
         best = max(best, datetime.strptime(raw, "%m/%d/%Y").replace(tzinfo=timezone.utc).timestamp())
     except ValueError:
         pass
     return best
+
+
+def filed(record: dict) -> float:
+    """Filing time: the earlier of added_on and updated_on, never after now."""
+    import time
+    from datetime import datetime, timezone
+
+    times = [float(record.get("added_on") or 0) or time.time()]
+    try:
+        times.append(datetime.strptime(str(record.get("updated_on") or ""), "%Y-%m-%d %H:%M:%S")
+                     .replace(tzinfo=timezone.utc).timestamp())
+    except ValueError:
+        pass
+    return min(min(times), time.time())
 
 
 def is_update_request(record: dict) -> bool:
@@ -439,7 +458,7 @@ def reference(record: dict) -> str:
 def last_asked(record: dict, mine: list[dict]) -> float:
     """When an update was last requested for this report (0 if never)."""
     keys = {f"report {record.get('id')}"} | ({f"#{cn}", cn} if (cn := case_number(record)) else set())
-    asks = [float(r.get("added_on") or 0) for r in mine if is_update_request(r)
+    asks = [filed(r) for r in mine if is_update_request(r)
             and any(k and k in str(r.get("description") or "") for k in keys)]
     return max(asks, default=0.0)
 
