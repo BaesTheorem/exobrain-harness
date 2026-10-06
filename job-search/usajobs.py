@@ -28,6 +28,11 @@ after annualizing per-hour rates, title pre-filter.
 
 Usage:
     python3 usajobs.py "IT specialist" "security analyst" --days 7
+    python3 usajobs.py --control 887688300 887667200   # full record per posting
+
+--control is the JD-read path for a known posting: it prints the band and the
+full MatchedObjectDescriptor as JSON. Use it instead of a hand-built curl, so
+the key stays inside this script (unattended runs may not read .env).
 """
 
 import argparse
@@ -70,6 +75,16 @@ def env_creds():
     return creds.get("USAJOBS_API_KEY"), creds.get("USAJOBS_EMAIL")
 
 
+def api_get(key, email, p):
+    req = urllib.request.Request(
+        "https://data.usajobs.gov/api/search?" + urllib.parse.urlencode(p),
+        headers={"Host": "data.usajobs.gov",
+                 "User-Agent": email,
+                 "Authorization-Key": key})
+    with urllib.request.urlopen(req, timeout=30) as r:
+        return json.loads(r.read().decode("utf-8", "replace"))
+
+
 def search(key, email, query, days, local=False):
     p = {
         "Keyword": query,
@@ -84,14 +99,29 @@ def search(key, email, query, days, local=False):
         p["Radius"] = str(LOCAL_RADIUS_MILES)
     else:
         p["RemoteIndicator"] = "True"
-    params = urllib.parse.urlencode(p)
-    req = urllib.request.Request(
-        "https://data.usajobs.gov/api/search?" + params,
-        headers={"Host": "data.usajobs.gov",
-                 "User-Agent": email,
-                 "Authorization-Key": key})
-    with urllib.request.urlopen(req, timeout=30) as r:
-        return json.loads(r.read().decode("utf-8", "replace"))
+    return api_get(key, email, p)
+
+
+def show_control(key, email, cid):
+    try:
+        # The API silently ignores a ControlNumber parameter and returns the
+        # whole board. Keyword matches the control number, so match the ID too.
+        d = api_get(key, email, {"Keyword": cid})
+    except OSError as e:
+        print("== %s LOOKUP FAILED: %s" % (cid, e))
+        return
+    items = [it for it in d.get("SearchResult", {}).get("SearchResultItems", [])
+             if str(it.get("MatchedObjectId")) == str(cid)]
+    if not items:
+        print("== %s NOT FOUND (closed or withdrawn postings drop out of the API)" % cid)
+        return
+    desc = items[0].get("MatchedObjectDescriptor", {})
+    lo, hi = annual_band(desc.get("PositionRemuneration"))
+    print("== %s %s @ %s | $%s - $%s | closes %s"
+          % (cid, desc.get("PositionTitle", ""), desc.get("OrganizationName", ""),
+             f"{int(lo or 0):,}", f"{int(hi or 0):,}",
+             (desc.get("ApplicationCloseDate") or "")[:10] or "?"))
+    print(json.dumps(desc, indent=1, ensure_ascii=False))
 
 
 def annual_band(remuneration):
@@ -132,7 +162,9 @@ def gate(d, floor):
 
 def main():
     ap = argparse.ArgumentParser()
-    ap.add_argument("queries", nargs="+")
+    ap.add_argument("queries", nargs="*")
+    ap.add_argument("--control", nargs="+", metavar="ID",
+                    help="print the full record for these control numbers")
     ap.add_argument("--days", type=int, default=7, help="max posting age")
     args = ap.parse_args()
 
@@ -142,6 +174,13 @@ def main():
         print("Request one (free) at https://developer.usajobs.gov/apirequest/")
         print("then add USAJOBS_API_KEY=... and USAJOBS_EMAIL=... to the harness .env")
         return
+
+    if args.control:
+        for cid in args.control:
+            show_control(key, email, cid)
+        return
+    if not args.queries:
+        ap.error("give at least one query, or --control ID")
 
     print("remote floor $%s | LOCAL (%s, %dmi) onsite floor $%s | max age %dd\n"
           % (f"{COMP_FLOOR:,}", LOCAL_LOCATION, LOCAL_RADIUS_MILES,

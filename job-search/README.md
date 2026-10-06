@@ -91,6 +91,8 @@ Daily unattended discovery scan for the `/job-search` skill.
   search with mechanical comp gating. Needs `USAJOBS_API_KEY` + `USAJOBS_EMAIL` in the
   harness `.env` (free key: https://developer.usajobs.gov/apirequest/); without them it
   prints instructions and exits 0 so the headless scan logs the lane as skipped, not failed.
+  `--control ID ...` prints the full record for known postings (the JD-read path; the API
+  ignores a `ControlNumber` parameter, so the script matches by keyword and checks the ID).
 - **`com.exobrain.job-scan.plist`** -- source copy of the launchd job. Runs daily at 09:00
   (deliberately staggered after the other morning jobs).
   The live copy is a **real file** at `~/Library/LaunchAgents/com.exobrain.job-scan.plist`
