@@ -355,10 +355,10 @@
   {
     "name": "kc-crash-geocoder",
     "command": "uv run --with shapely python geocode_crashes.py",
-    "repo_dir": "/Users/alexhedtke/Documents/kc311/safety",
+    "repo_dir": "/Users/alexhedtke/Exobrain/Areas/Contribution & Impact/KC Civic/KC 311 Analyses/Traffic safety",
     "source": "built",
     "added": "2026-10-05",
-    "notes": "Needs layers/centerlines.geojson + layers/osm_highways.geojson (fetch_layers.py, fetch_osm_highways.py) and crashes_kcmo.csv. Ramp ids (RP nnnn) cannot be placed. Median error 11 m vs MoDOT coords."
+    "notes": "Needs layers/centerlines.geojson + layers/osm_highways.geojson (fetch_layers.py, fetch_osm_highways.py) and crashes_kcmo.csv. Ramp ids (RP nnnn) cannot be placed. Median error 11 m vs MoDOT coords. Lives in the vault since 2026-10-06."
   },
   {
     "name": "kcurbex",
