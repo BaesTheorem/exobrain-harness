@@ -111,7 +111,10 @@ shop grocery coupons cosentinos [--grep TERM]   # digital coupons at the Downtow
 
 **No price lane, and why:**
 - Instacart storefronts (the online shops of Price Chopper, Cosentino's, Costco same-day, Hen
-  House, ALDI and Sprouts) hide prices from guests. A lane needs Alex's own Instacart session.
+  House, ALDI and Sprouts) give no prices to plain HTTP. **Exception, found 2026-10-07:** a
+  headless browser in guest mode (no login) sees Costco Same-Day prices. No lane exists yet, and
+  the guest ZIP comes from the IP. Price Chopper's and Cosentino's storefronts did not open in
+  that test.
 - Sun Fresh publishes no catalog on its Freshop back end, so the circular is the only source.
 - Trader Joe's and Hy-Vee block plain HTTP (Akamai, Cloudflare). Trader Joe's has no ad and
   Hy-Vee's ad is on Flipp. No Dillons/Kroger store near downtown was confirmed.

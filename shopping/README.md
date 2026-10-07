@@ -229,7 +229,13 @@ Gotchas, each one measured:
   Apollo persisted queries whose hashes the client computes at runtime (`PersistedQueryLink`,
   `useGETForHashedQueries:false`), so there is no hash list to lift, and open-supermarkets'
   2026-08 probe found the `Items` operation answers `Not Authenticated` to a guest. Instacart's
-  `/v3/` API is 401 from here (above). Not pursued past that; a lane would need Alex's session.
+  `/v3/` API is 401 from here (above).
+  **Correction (2026-10-07):** that holds for plain HTTP only. A headless Playwright browser
+  with no login sees prices on sameday.costco.com: the landing page offers "Browse as a guest",
+  the guest session is placed by IP (zone 64151 from this Mac), and `/store/costco/s?k=milk`
+  rendered 55 "Current price: $X" rows, loaded by the `Items` GraphQL operation (status 200).
+  shopmypricechopper.com did not route to a store in the same test, and mymarketdelivers.com
+  failed TLS. No lane is built yet.
 - **Hen House and United Market** publish their ad through AWG's `adstudio.com` JavaScript
   viewer; no item feed was found in the page or its state file. Price Chopper's digital coupons
   sit behind member sign-in (`SignIn`/`Register` are the only public routes beside `store` and
