@@ -80,6 +80,8 @@ evidence for what does not work.
 ```
 shop grocery stores [--near ZIP]           # every KC store, miles from home, lanes, open/closed status
 shop grocery search <query> [--at LANES]   # costco, wholefoods, pricechopper, cosentinos, sunfresh in one table
+shop grocery search <query> --at costco-sameday,pricechopper-online,cosentinos-online,henhouse-online,aldi-online [--zip Z]
+                                           #   Instacart storefront prices as a guest (headless), priced for HOME_ZIP
 shop grocery ad <store> [--grep TERM]      # whole weekly ad: pricechopper [--store-id N], cosentinos [--upcoming],
                                            #   sunfresh [--store-id N], costco, aldi, hyvee, sprouts, walmart, target
 shop grocery coupons cosentinos [--grep TERM]   # digital coupons at the Downtown Market
@@ -88,12 +90,13 @@ shop grocery coupons cosentinos [--grep TERM]   # digital coupons at the Downtow
 | Store | What the tool gives | Kind of price |
 | --- | --- | --- |
 | **Costco** | product search on costco.com, the coupon book (Flipp), warehouse list | online price; warehouse shelf prices are not published |
+| **Costco Same-Day**, **Price Chopper**, **Cosentino's**, **Hen House**, **ALDI** online | product search on each Instacart storefront as a guest (`--at costco-sameday,pricechopper-online,cosentinos-online,henhouse-online,aldi-online`) | online (Instacart) price, unit price, sale badge; usually above the shelf price |
 | **Sun Fresh** | the weekly circular, read with OCR | ad price |
 | **Cosentino's Downtown Market** (10 E 13th St) | the weekly ad (OCR), next week's ad, digital coupons | ad price, coupon |
 | **Price Chopper KC** (50 stores, 4 operators) | the full Flipp ad, plus one store's highlights | ad price |
 | **Whole Foods** (301 E 51st St) | product search | shelf price, sale price |
 | **ALDI, Hy-Vee, Sprouts, Walmart, Target** | weekly ad through Flipp | ad price |
-| **Midtown Market** (3967 Main St), **United Market KC** (3110 Prospect), **Hen House** | store directory only | walk-in |
+| **Midtown Market** (3967 Main St), **United Market KC** (3110 Prospect) | store directory only | walk-in |
 
 - **The Midtown Costco (#375, Linwood) closed on 2026-10-01** and reopens as a Business Center
   in spring 2027. The nearest open warehouse is North Kansas City #1268. The old Prospect Sun
@@ -108,13 +111,19 @@ shop grocery coupons cosentinos [--grep TERM]   # digital coupons at the Downtow
   an item, and remember that an ad lane shows only the items on sale this week.
 - Distances use the home point from `MYKCMO_HOME_LAT/LON`. Use `--near 64105` to measure from
   a ZIP.
+- **The Instacart lanes are behind `--at`, never in the default table.** They open a headless
+  guest browser (8 to 17 s the first time per store, about 2 s after that, cookies cached in
+  `shopping/.cache/`), and the prices are Instacart's online prices, which usually run above the
+  shelf price. Each row says `[Instacart, above shelf]`, and a note under the table gives the
+  ZIP, shop and retailer location that priced it (`--zip` to price another ZIP). Use them for
+  "what does Price Chopper or Cosentino's charge for X" when the ad does not list it, and say
+  "online price" when you quote one. Never open a visible browser for them.
 
 **No price lane, and why:**
-- Instacart storefronts (the online shops of Price Chopper, Cosentino's, Costco same-day, Hen
-  House, ALDI and Sprouts) give no prices to plain HTTP. **Exception, found 2026-10-07:** a
-  headless browser in guest mode (no login) sees Costco Same-Day prices. No lane exists yet, and
-  the guest ZIP comes from the IP. Price Chopper's and Cosentino's storefronts did not open in
-  that test.
+- Instacart storefronts give no prices to plain HTTP, only to a guest browser, which is the
+  lane above (Costco Same-Day, Price Chopper, Cosentino's, Hen House, ALDI). Sprouts runs on
+  Instacart too and is not configured; add an `instacart` object to its chain in
+  `grocery_stores.json` when it is wanted.
 - Sun Fresh publishes no catalog on its Freshop back end, so the circular is the only source.
 - Trader Joe's and Hy-Vee block plain HTTP (Akamai, Cloudflare). Trader Joe's has no ad and
   Hy-Vee's ad is on Flipp. No Dillons/Kroger store near downtown was confirmed.

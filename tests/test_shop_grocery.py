@@ -252,3 +252,123 @@ def test_fmt_row_shapes():
                             "size": "2 pc", "valid_from": "2026-10-07", "valid_to": "2026-10-13", "page": 1})
     assert line.startswith("Sun Fresh") and "$1.49/lb" in line and "p1" in line and "thru 2026-10-13" in line
     assert grocery.fmt_row({"retailer": "X", "title": "y"}).split()[-2:] == ["-", "y"]
+
+
+# ------------------------------------------------------------------ Instacart guest lane (instacart_guest.py)
+
+from shoptools import instacart_guest  # noqa: E402
+
+SF = {"host": "sameday.costco.com", "slug": "costco", "retailer": "Costco Same-Day", "chain": "costco"}
+PRICED_AT = {"zip": "64105", "id": "16700663", "retailer_location": "11020", "name": "Costco Same-Day via Instacart, ZIP 64105"}
+
+
+def _header(text):
+    return {"content": {"__typename": "SearchContentManagementSearchItemGridHeader",
+                        "viewSection": {"titleFormattedAttributesString": {"sections": [{"text": text}]}}}}
+
+
+def _grid(*ids):
+    return {"content": {"__typename": "SearchContentManagementSearchItemGrid", "itemIds": list(ids), "items": []}}
+
+
+def _carousel(*ids):
+    return {"content": {"__typename": "SearchContentManagementSearchItemCarousel", "itemIds": list(ids)}}
+
+
+def _placements(*pl):
+    return {"data": {"searchResultsPlacements": {"placements": [
+        {"content": {"__typename": "ContentManagementCardListsSlot", "title": "Search Campaigns Slot"}}, *pl]}}}
+
+
+def test_parse_placements_keeps_only_the_results_grids_in_order():
+    d = _placements(
+        _header('Results for "milk"'), _grid("items_11020-1", "items_11020-2"),
+        {"content": {"__typename": "AdsSearchDisplayCreativePlacement", "placement": {"itemIds": ["items_11020-ad"]}}},
+        _grid("items_11020-3", "items_11020-1"),
+        _carousel("items_11020-carousel"),
+        _header("Related items"), _grid("items_11020-9"),
+    )
+    assert instacart_guest.parse_placements(d) == ["items_11020-1", "items_11020-2", "items_11020-3"]
+
+
+def test_parse_placements_junk_query_is_empty():
+    # A junk query answers 'No results for "..."' and then a "Related items" grid full of ids.
+    d = _placements(_header('No results for "zqxjkv"'), _header("Related items"), _grid("items_11020-5", "items_11020-6"))
+    assert instacart_guest.parse_placements(d) == []
+    assert instacart_guest.parse_placements({"data": {}}) == []
+
+
+# Two items from a real `Items` response (2026-10-07), trimmed to the fields the parser reads.
+ITEMS = {"data": {"items": [
+    {"id": "items_11020-127637", "name": "Toblerone Swiss Milk Chocolate Bar, 3.52 oz, 6-Count", "size": "each",
+     "productId": "127637", "legacyId": "127192808", "brandName": "toblerone",
+     "evergreenUrl": "127637-toblerone-milk-chocolate-swiss-with-honey-almond-nougat-6-ea",
+     "availability": {"available": True, "stockLevel": "inStock"},
+     "price": {"id": "items_11020-127637", "viewSection": {
+         "badge": {"genericSaleLabelString": "Sale", "badgeVariant": "retailerPromotion", "offerLabelString": "$3.60 off; limit 10"},
+         "itemCard": {"fullPriceString": "reg. $12.56", "priceString": "$8.96", "pricePerUnitString": None,
+                      "pricingUnitString": "6 ct", "plainFullPriceString": "$12.56", "priceScreenReaderString": "Current price: $8.96"},
+         "itemDetails": {"fullPriceString": "$12.56", "pricePerUnitString": "$0.25 each", "priceString": "$8.96", "pricingUnitString": "6 ct"},
+         "fullPriceString": "$12.56", "priceString": "$8.96", "priceValueString": "8.96"}}},
+    {"id": "items_11020-16902650", "name": "Kirkland Signature Whole Milk, 1 gal", "size": "each", "productId": "16902650",
+     "brandName": "kirkland signature", "evergreenUrl": "16902650-kirkland-signature-homogenized-milk-1-gal-4-qt",
+     "availability": {"available": True, "stockLevel": "highlyInStock"},
+     "price": {"id": "items_11020-16902650", "viewSection": {
+         "badge": None,
+         "itemCard": {"fullPriceString": None, "priceString": "$3.17", "pricePerUnitString": None, "pricingUnitString": None},
+         "itemDetails": {"fullPriceString": None, "pricePerUnitString": None, "priceString": "$3.17"},
+         "fullPriceString": None, "priceString": "$3.17", "priceValueString": "3.17"}}},
+    {"id": "items_11020-999", "name": "Unpriced Thing", "size": "2 lb", "productId": "999", "evergreenUrl": "999-unpriced",
+     "availability": {"available": False, "stockLevel": "outOfStock"}, "price": None},
+]}}
+
+
+def test_parse_items_rows():
+    rows = instacart_guest.parse_items(ITEMS, SF, PRICED_AT)
+    assert [r["id"] for r in rows] == ["127637", "16902650", "999"]
+    sale, milk, bare = rows
+    assert sale["retailer"] == "Costco Same-Day" and sale["kind"] == "online" and sale["via"] == "Instacart"
+    assert sale["price"] == 8.96 and sale["formatted"] == "$8.96" and sale["reg_price"] == 12.56
+    assert sale["size"] == "6 ct" and sale["unit_price"] == "$0.25 each" and sale["offer"] == "$3.60 off; limit 10"
+    assert sale["url"] == "https://sameday.costco.com/store/costco/products/127637-toblerone-milk-chocolate-swiss-with-honey-almond-nougat-6-ea"
+    assert sale["availability"] == "InStock" and sale["store"] is PRICED_AT and "above the shelf price" in sale["note"]
+    assert milk["price"] == 3.17 and milk["reg_price"] is None and milk["size"] is None and milk["availability"] == "InStock"
+    assert bare["price"] is None and bare["formatted"] is None and bare["size"] == "2 lb" and bare["availability"] == "outOfStock"
+    assert instacart_guest.parse_items({"data": {"items": []}}, SF, PRICED_AT) == []
+
+
+def test_fmt_row_labels_instacart_rows():
+    line = grocery.fmt_row(instacart_guest.parse_items(ITEMS, SF, PRICED_AT)[0])
+    assert line.startswith("Costco Same-Day") and "online" in line and "$8.96" in line and "(reg $12.56)" in line
+    assert "($0.25 each)" in line and "$3.60 off" in line and line.endswith("[Instacart, above shelf]")
+
+
+def test_edit_url_rewrites_only_the_variables():
+    url = ("https://sameday.costco.com/graphql?operationName=Items&variables=%7B%22ids%22%3A%5B%22items_11020-1%22%5D%2C"
+           "%22shopId%22%3A%2294153%22%2C%22zoneId%22%3A%22305%22%2C%22postalCode%22%3A%2264151%22%7D"
+           "&extensions=%7B%22persistedQuery%22%3A%7B%22version%22%3A1%2C%22sha256Hash%22%3A%22abc%22%7D%7D")
+    new = instacart_guest._edit_url(url, postalCode="64105", shopId="16700663", ids=["items_11020-2", "items_11020-3"])
+    v = instacart_guest._vars(new)
+    assert v == {"ids": ["items_11020-2", "items_11020-3"], "shopId": "16700663", "zoneId": "305", "postalCode": "64105"}
+    assert "sha256Hash" in new and "operationName=Items" in new and new.startswith("https://sameday.costco.com/graphql?")
+
+
+def test_storefronts_come_from_the_data_file():
+    sf = instacart_guest.storefronts()
+    assert {"costco-sameday", "pricechopper-online", "cosentinos-online", "henhouse-online", "aldi-online"} <= set(sf)
+    assert sf["costco-sameday"] == {"host": "sameday.costco.com", "slug": "costco", "retailer": "Costco Same-Day", "chain": "costco"}
+    assert sf["cosentinos-online"]["host"].startswith("www.")   # the bare mymarketdelivers.com has no TLS
+    assert set(grocery.INSTACART_LANES) == set(sf)
+    assert grocery.canon("costco-online") == "costco-sameday" and grocery.canon("pc-online") == "pricechopper-online"
+
+
+def test_stale_cache_is_ignored(tmp_path, monkeypatch):
+    f = tmp_path / "instacart-guest.json"
+    monkeypatch.setattr(instacart_guest, "CACHE_FILE", f)
+    assert instacart_guest._load_cache() == {"hosts": {}}
+    f.write_text(json.dumps({"saved": 0, "hosts": {"x": {"ops": {}}}, "storage_state": {"cookies": []}}))
+    assert instacart_guest._load_cache() == {"hosts": {}}
+    f.write_text("not json")
+    assert instacart_guest._load_cache() == {"hosts": {}}
+    instacart_guest._save_cache({"hosts": {"h": {"ops": {"Items": "u"}}}})
+    assert instacart_guest._load_cache()["hosts"] == {"h": {"ops": {"Items": "u"}}}

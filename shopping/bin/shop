@@ -31,10 +31,13 @@
       Kansas City grocery directory: Price Chopper (50 stores, operators), Cosentino's Market,
       Sun Fresh, Costco warehouses (Midtown #375 closed 2026-10-01), Whole Foods, the walk-in
       independents; distance from home, which lanes cover each, status notes.
-  shop grocery search <query> [--at wholefoods,costco,pricechopper,cosentinos,sunfresh,aldi,...] [-n N] [--json]
+  shop grocery search <query> [--at wholefoods,costco,pricechopper,cosentinos,sunfresh,aldi,...] [-n N] [--zip Z] [--json]
       One table across the grocery lanes: Whole Foods shelf prices, Costco.com online prices
       (warehouse prices are not published), Price Chopper's weekly ad, Cosentino's coupons and
       ad, Sun Fresh's ad (OCR'd), plus ALDI/Hy-Vee/Dillons/Sprouts ads. Failures print as warnings.
+      --at costco-sameday,pricechopper-online,cosentinos-online,henhouse-online,aldi-online adds
+      the Instacart storefronts, read as a guest in a headless browser and priced for HOME_ZIP
+      (or --zip); not in the default set because the first run per host takes several seconds.
   shop grocery ad <store> [--grep TERM] [--upcoming] [--store-id ID] [--json]
       The whole weekly ad: pricechopper, costco (coupon book), cosentinos, sunfresh, aldi, hyvee,
       dillons, sprouts, walmart, target, samsclub. Cosentino's and Sun Fresh are image-only PDFs
@@ -228,12 +231,15 @@ def cmd_grocery(a) -> int:
         return 0
     if a.gcmd == "search":
         at = tuple(x.strip() for x in a.at.split(",")) if a.at else grocery.SEARCH_LANES
-        rows, errors = grocery.search(" ".join(a.query), at, a.n)
+        rows, errors = grocery.search(" ".join(a.query), at, a.n, zip_code=a.zip)
         if a.json:
             print(json.dumps({"rows": rows, "errors": errors}, indent=2))
         else:
             for r in sorted(rows, key=lambda r: (r.get("price") is None, r.get("price") or 0)):
                 print(grocery.fmt_row(r))
+            # Instacart rows are priced for one shop per ZIP; say which, once per lane.
+            for name in dict.fromkeys((r.get("store") or {}).get("name") for r in rows if r.get("via")):
+                print(f"note: {name}; Instacart prices usually run above the shelf price")
         for lane, err in errors.items():
             print(f"warn: {lane} lane failed: {err}", file=sys.stderr)
         if not rows:
@@ -354,8 +360,11 @@ def main(argv: list[str]) -> int:
     g2 = gs.add_parser("search", help="one table across the grocery lanes")
     g2.add_argument("query", nargs="+")
     g2.add_argument("--at", help="comma list of lanes, default wholefoods,costco,pricechopper,cosentinos,sunfresh; "
-                                 "also aldi,hyvee,dillons,sprouts,walmart,target,samsclub (Flipp ads)")
+                                 "also aldi,hyvee,dillons,sprouts,walmart,target,samsclub (Flipp ads) and the Instacart "
+                                 "storefronts costco-sameday,pricechopper-online,cosentinos-online,henhouse-online,"
+                                 "aldi-online (headless guest browser, priced for --zip or HOME_ZIP)")
     g2.add_argument("-n", type=int, default=8, help="rows per lane")
+    g2.add_argument("--zip", help="ZIP that prices the Instacart lanes (default HOME_ZIP)")
     g2.add_argument("--json", action="store_true")
     g3 = gs.add_parser("ad", help="the whole weekly ad for one store")
     g3.add_argument("store")

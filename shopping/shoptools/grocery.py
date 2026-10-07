@@ -1,20 +1,22 @@
 """Kansas City grocery lanes: store directory, shelf and online prices, weekly ads, coupons.
 
-Browse only. Nothing here signs in, builds a cart or opens a browser; every lane is plain HTTP
-plus, for the two image-only circulars, Apple Vision OCR (circular_ocr.py). Measured live on
-2026-10-07; what each chain exposes decides the lane it gets:
+Browse only. Nothing here signs in or builds a cart; every lane is plain HTTP plus, for the two
+image-only circulars, Apple Vision OCR (circular_ocr.py), and for the Instacart storefronts a
+headless guest browser (instacart_guest.py). Measured live on 2026-10-07; what each chain
+exposes decides the lane it gets:
 
 - Whole Foods: `wholefoodsmarket.com/api/search` returns shelf prices for one store id, no key.
 - Costco: `search.costco.com` typeahead (public x-api-key from the page) gives names and item
   numbers; the product page embeds a schema.org Offer with the ONLINE price. Warehouse prices
   are not published anywhere; the Flipp coupon book is the only in-warehouse signal.
 - Price Chopper KC: full weekly ad on Flipp (merchant "Price Chopper KC"), ad highlights per
-  store on mypricechopper.com, 50 stores with operators from the same site. Shelf prices live
-  on an Instacart storefront that needs a session (README).
+  store on mypricechopper.com, 50 stores with operators from the same site. Online prices from
+  its Instacart storefront as a guest (lane `pricechopper-online`, behind --at).
 - Cosentino's Market: the weekly ad is a PDF in the site's Strapi `ads` collection (OCR'd);
   digital coupons come from Midax EZConnect. Both need public keys shipped in the site's JS
   bundle; they are scraped from the live bundle and cached, never hardcoded, so a rotation
-  heals itself on the next run.
+  heals itself on the next run. Online prices: Instacart storefront (`cosentinos-online`).
+- Costco Same-Day (sameday.costco.com): Instacart storefront as a guest (`costco-sameday`).
 - Sun Fresh: Freshop has the stores and the circular PDF but an empty catalog (0 products for
   every store while another Freshop banner returns priced rows), so the lane is the OCR'd ad.
 - ALDI, Hy-Vee, Dillons, Sprouts, Walmart, Target, Sam's Club: Flipp flyer items, free.
@@ -22,6 +24,7 @@ plus, for the two image-only circulars, Apple Vision OCR (circular_ocr.py). Meas
 
 Rows share the shop core keys (retailer, id, url, title, price, formatted) plus `kind`
 ("shelf", "online", "ad", "coupon"), `size`, `valid_from`/`valid_to`, `store` and `page`.
+Instacart rows add `via: "Instacart"`, `unit_price`, `offer` and the ZIP that priced them.
 """
 
 from __future__ import annotations
@@ -33,7 +36,7 @@ import re
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 
-from . import circular_ocr
+from . import circular_ocr, instacart_guest
 from .common import ROOT, LaneError, home_latlon, home_zip, session
 
 DATA_FILE = Path(__file__).with_name("grocery_stores.json")
@@ -41,12 +44,17 @@ DATA = json.loads(DATA_FILE.read_text())
 CACHE = ROOT / ".cache"
 
 SEARCH_LANES = ("wholefoods", "costco", "pricechopper", "cosentinos", "sunfresh")
+# Instacart storefront lanes (headless guest browser, several seconds cold): only behind --at.
+INSTACART_LANES = tuple(instacart_guest.storefronts())
 FLIPP_MERCHANTS = {
     "pricechopper": "Price Chopper KC", "costco": "Costco", "aldi": "ALDI", "hyvee": "Hy-Vee", "dillons": "Dillons",
     "sprouts": "Sprouts Farmers Market", "walmart": "Walmart", "target": "Target", "samsclub": "Sam's Club",
 }
 ALIASES = {"pc": "pricechopper", "price-chopper": "pricechopper", "cosentino": "cosentinos", "cosentino's": "cosentinos",
-           "sun-fresh": "sunfresh", "wf": "wholefoods", "whole-foods": "wholefoods", "hy-vee": "hyvee", "sams": "samsclub"}
+           "sun-fresh": "sunfresh", "wf": "wholefoods", "whole-foods": "wholefoods", "hy-vee": "hyvee", "sams": "samsclub",
+           "costco-online": "costco-sameday", "costco-instacart": "costco-sameday", "sameday": "costco-sameday",
+           "pc-online": "pricechopper-online", "pricechopper-instacart": "pricechopper-online",
+           "cosentinos-instacart": "cosentinos-online", "cosentino-online": "cosentinos-online"}
 AD_STORES = tuple(FLIPP_MERCHANTS) + ("cosentinos", "sunfresh")
 COUPON_STORES = ("cosentinos",)
 
@@ -519,8 +527,14 @@ def directory(near: str | None = None) -> tuple[list[dict], dict[str, str]]:
 # ------------------------------------------------------------------ dispatch
 
 
-def search(query: str, lanes: tuple[str, ...] = SEARCH_LANES, n: int = 8) -> tuple[list[dict], dict[str, str]]:
-    """Run the grocery lanes in parallel. Returns (rows, {lane: error}) like lanes.find."""
+def search(query: str, lanes: tuple[str, ...] = SEARCH_LANES, n: int = 8,
+           zip_code: str | None = None) -> tuple[list[dict], dict[str, str]]:
+    """Run the grocery lanes in parallel. Returns (rows, {lane: error}) like lanes.find.
+
+    The Instacart lanes share one Playwright and run one after another on this thread (the sync
+    Playwright API is single-threaded, and one browser per run is the polite shape); the HTTP
+    lanes run in the pool meanwhile. `zip_code` prices the Instacart lanes (default HOME_ZIP).
+    """
     def one(lane: str) -> list[dict]:
         lane = canon(lane)
         if lane == "wholefoods":
@@ -547,20 +561,31 @@ def search(query: str, lanes: tuple[str, ...] = SEARCH_LANES, n: int = 8) -> tup
             return sunfresh_ad_rows(query)[0][:n]
         if lane in FLIPP_MERCHANTS:
             return flyer_rows(lane, query, current_only=True)[:n]
-        raise LaneError(f"unknown grocery lane {lane!r}; choose from {', '.join(dict.fromkeys(SEARCH_LANES + tuple(FLIPP_MERCHANTS)))}")
+        raise LaneError(f"unknown grocery lane {lane!r}; choose from "
+                        f"{', '.join(dict.fromkeys(SEARCH_LANES + tuple(FLIPP_MERCHANTS) + INSTACART_LANES))}")
+
+    def take(lane: str, fn) -> None:
+        try:
+            got = fn()
+        except (LaneError, KeyError, ValueError, TypeError) as e:
+            errors[lane] = str(e) or e.__class__.__name__
+            return
+        if not got:
+            errors[lane] = "0 rows (try a broader query before concluding it is not sold there)"
+        rows.extend(got)
 
     rows: list[dict] = []
     errors: dict[str, str] = {}
-    with ThreadPoolExecutor(max_workers=len(lanes)) as ex:
-        for lane, fut in [(ln, ex.submit(one, ln)) for ln in lanes]:
-            try:
-                got = fut.result()
-            except (LaneError, KeyError, ValueError, TypeError) as e:
-                errors[lane] = str(e) or e.__class__.__name__
-                continue
-            if not got:
-                errors[lane] = "0 rows (try a broader query before concluding it is not sold there)"
-            rows.extend(got)
+    http_lanes = [ln for ln in lanes if canon(ln) not in INSTACART_LANES]
+    ic_lanes = [ln for ln in lanes if canon(ln) in INSTACART_LANES]
+    with ThreadPoolExecutor(max_workers=max(1, len(http_lanes))) as ex:
+        futs = [(ln, ex.submit(one, ln)) for ln in http_lanes]
+        if ic_lanes:
+            with instacart_guest.GuestBrowser() as gb:
+                for ln in ic_lanes:
+                    take(ln, lambda ln=ln: gb.search(canon(ln), query, n, zip_code))
+        for lane, fut in futs:
+            take(lane, fut.result)
     return rows, errors
 
 
@@ -600,13 +625,19 @@ def fmt_row(r: dict) -> str:
         extra += f"  {r['size']}"
     if r.get("reg_price"):
         extra += f"  (reg ${r['reg_price']:.2f})"
+    if r.get("unit_price"):
+        extra += f"  ({r['unit_price']})"
     if r.get("availability") and r["availability"] != "InStock":
         extra += f"  {r['availability']}"
+    if r.get("offer"):
+        extra += f"  {r['offer']}"
     if r.get("valid_to"):
         today = _today()
         extra += f"  from {r['valid_from']}" if (r.get("valid_from") or "") > today else f"  thru {r['valid_to']}"
     if r.get("page"):
         extra += f"  p{r['page']}"
+    if r.get("via"):
+        extra += f"  [{r['via']}, above shelf]"
     kind = r.get("kind") or ""
     return f"{(r.get('retailer') or '?')[:18]:<18} {kind:<6} {price:>10}  {(r.get('title') or '')[:64]}{extra}"
 

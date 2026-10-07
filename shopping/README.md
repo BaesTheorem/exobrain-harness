@@ -11,7 +11,9 @@ shop fbm <query> [--radius KM] [--min N] [--max N] [--days D] [--condition ...] 
 shop ebay <query> [--condition new,used,...] [--min N] [--max N] [--auction|--bin] [--local MI] [--sort ...]
 shop ebay --sold <query> [--days D] [--condition any|new|used]   # sold listings + median/quartiles
 shop grocery stores [--near ZIP|LAT,LON]      # KC grocery directory: distance, lanes, closures
-shop grocery search <query> [--at wholefoods,costco,pricechopper,cosentinos,sunfresh,aldi,...] [-n N]
+shop grocery search <query> [--at wholefoods,costco,pricechopper,cosentinos,sunfresh,aldi,...] [-n N] [--zip Z]
+shop grocery search <query> --at costco-sameday,pricechopper-online,cosentinos-online,henhouse-online,aldi-online
+                                              # Instacart storefront prices as a guest (headless browser)
 shop grocery ad <store> [--grep TERM] [--upcoming] [--store-id ID]   # the whole weekly ad
 shop grocery coupons <store> [--grep TERM] [--location ID]            # digital coupons (Cosentino's)
 shop stores                                   # Target stores nearest HOME_ZIP
@@ -176,10 +178,10 @@ that price is a ceiling. Those rows are flagged and the stats give a median with
 ### Grocery lanes (`shoptools/grocery.py`, `circular_ocr.py`, `grocery_stores.json`)
 
 `shop grocery` is browse-only for Kansas City grocery stores: directory, prices, weekly ads and
-coupons. It never signs in, builds a cart or opens a browser, and it is **not part of `shop
-find`**: groceries are a different market from the retail lanes, and the two OCR lanes take
-about 10 s cold. Every lane was run live on 2026-10-07 with a query that returned rows and a
-junk query that returned none. `grocery_stores.json` holds the fixed facts (store ids, closures,
+coupons. It never signs in or builds a cart (the Instacart lanes open a headless guest browser,
+never a visible one), and it is **not part of `shop find`**: groceries are a different market
+from the retail lanes, and the two OCR lanes take about 10 s cold. Every lane was run live on
+2026-10-07 with a query that returned rows and a junk query that returned none. `grocery_stores.json` holds the fixed facts (store ids, closures,
 operators, what each lane covers); the chains with a store API are enriched live. Distances
 are from the harness home point (`MYKCMO_HOME_LAT/LON`), or `--near ZIP` (Nominatim, one call).
 
@@ -187,11 +189,14 @@ are from the harness home point (`MYKCMO_HOME_LAT/LON`), or `--near ZIP` (Nomina
 | --- | --- | --- | --- |
 | Whole Foods (51st St, store 10457) | `search` | `wholefoodsmarket.com/api/search?text=&store=` (no key) | shelf `regularPrice`/`salePrice` |
 | Costco | `search`, `ad`, directory | `search.costco.com` typeahead (public `x-api-key`, read from the search page and cached) + the product page's schema.org Offer; Flipp merchant `Costco ` | online prices, item numbers; the weekly coupon book; warehouses with distance |
-| Price Chopper KC (50 stores) | `ad`, directory | Flipp merchant `Price Chopper KC` (230 items this week); `mypricechopper.com/public/stores` and `FrontPageAdGroupsForPreferredStore/<StoreId>` | full weekly ad; store list with operator (Ball, Cosentino, McKeever, Queen); `--store-id` adds that store's highlights |
-| Cosentino's Market (Downtown, Brookside, Overland Park) | `ad`, `coupons`, directory | Strapi `bagr.iprosystems.com/api` (`locations`, `ads`) with the site's public bearer token; Midax EZConnect `search-offers`/`offers` with the site's `x-api-key` | weekly ad PDF OCR'd (current, `--upcoming` for next week); digital coupons (60 at the downtown store) |
+| Costco Same-Day | `search --at costco-sameday` | `sameday.costco.com` Instacart storefront, guest session (below) | same-day online prices, unit price, sale badge, stock, for the shop that serves `HOME_ZIP` |
+| Price Chopper KC (50 stores) | `ad`, directory, `search --at pricechopper-online` | Flipp merchant `Price Chopper KC` (230 items this week); `mypricechopper.com/public/stores` and `FrontPageAdGroupsForPreferredStore/<StoreId>`; `www.shopmypricechopper.com` Instacart storefront | full weekly ad; store list with operator (Ball, Cosentino, McKeever, Queen); `--store-id` adds that store's highlights; online prices at the store Instacart picks for the ZIP |
+| Cosentino's Market (Downtown, Brookside, Overland Park) | `ad`, `coupons`, directory, `search --at cosentinos-online` | Strapi `bagr.iprosystems.com/api` (`locations`, `ads`) with the site's public bearer token; Midax EZConnect `search-offers`/`offers` with the site's `x-api-key`; `www.mymarketdelivers.com` Instacart storefront | weekly ad PDF OCR'd (current, `--upcoming` for next week); digital coupons (60 at the downtown store); online prices |
 | Sun Fresh (Westport is nearest) | `ad`, directory | Freshop `api.freshop.ncrcloud.com/1/stores` and `/circulars?store_id=` (`app_key=sun_fresh`) | circular PDF OCR'd per store (`--store-id`) |
-| ALDI, Hy-Vee, Dillons, Sprouts, Walmart, Target, Sam's Club | `ad` | Flipp flyers at `HOME_ZIP` | weekly ad items with prices |
-| Midtown Market (3967 Main), United Market KC (3110 Prospect), Hen House | directory only | Loc8NearMe reviews dated Aug 2026; `unitedmarketkc.com/static/state.js`; `henhouse.com` | address, status, note. No price surface found |
+| ALDI | `ad`, `search --at aldi-online` | Flipp flyer; `www.aldi.us` Instacart storefront | weekly ad items; online prices |
+| Hen House (Johnson County) | directory, `search --at henhouse-online` | `henhouse.com`; `henhouse.instacart.com` storefront | online prices at the store Instacart picks for the ZIP |
+| Hy-Vee, Dillons, Sprouts, Walmart, Target, Sam's Club | `ad` | Flipp flyers at `HOME_ZIP` | weekly ad items with prices |
+| Midtown Market (3967 Main), United Market KC (3110 Prospect) | directory only | Loc8NearMe reviews dated Aug 2026; `unitedmarketkc.com/static/state.js` | address, status, note. No price surface found |
 
 Gotchas, each one measured:
 
@@ -222,20 +227,48 @@ Gotchas, each one measured:
   the ad, not a price list**: some deals are missed, some lines attach to the wrong price, and
   page 1 of the Cosentino's ad (all-caps display type) reads worse than the inside pages. Every
   row carries the page number and the PDF URL. OCR output is cached beside the PDF for 30 days.
-- **Instacart storefronts hold the shelf prices and need a session.** Price Chopper
-  (shopmypricechopper.com), Cosentino's (mymarketdelivers.com), Costco same-day, Hen House and
-  ALDI all run on Instacart. The storefront search page for a guest returns the retailer, zone
-  and shop ids but **no prices** in its HTML (482 KB, zero `$` amounts); products load through
-  Apollo persisted queries whose hashes the client computes at runtime (`PersistedQueryLink`,
-  `useGETForHashedQueries:false`), so there is no hash list to lift, and open-supermarkets'
-  2026-08 probe found the `Items` operation answers `Not Authenticated` to a guest. Instacart's
-  `/v3/` API is 401 from here (above).
-  **Correction (2026-10-07):** that holds for plain HTTP only. A headless Playwright browser
-  with no login sees prices on sameday.costco.com: the landing page offers "Browse as a guest",
-  the guest session is placed by IP (zone 64151 from this Mac), and `/store/costco/s?k=milk`
-  rendered 55 "Current price: $X" rows, loaded by the `Items` GraphQL operation (status 200).
-  shopmypricechopper.com did not route to a store in the same test, and mymarketdelivers.com
-  failed TLS. No lane is built yet.
+- **Instacart storefronts give prices to a guest browser, not to plain HTTP.** Price Chopper
+  (`www.shopmypricechopper.com`), Cosentino's (`www.mymarketdelivers.com`), Costco Same-Day
+  (`sameday.costco.com`), Hen House (`henhouse.instacart.com`) and ALDI (`www.aldi.us`) are
+  white-label Instacart sites. The search page's HTML carries no prices and the `/v3/` API is
+  401, but the page's own GraphQL works for an implicit guest: `shoptools/instacart_guest.py`
+  is one generic lane over host plus store slug (configured per chain in `grocery_stores.json`,
+  five lanes on 2026-10-07: `costco-sameday`, `pricechopper-online`, `cosentinos-online`,
+  `henhouse-online`, `aldi-online`). They are **behind `--at` only**: the first run per host
+  loads the page in headless Chromium (8 to 17 s), and the prices are Instacart's, which usually
+  run above the shelf price, so they should not sit beside shelf and ad rows unasked. Measured:
+  - **Cold path.** `/store/<slug>/s?k=<query>` renders about 30 to 55 priced cards. Costco shows a
+    landing page first ("Sign in via Costco.com / Browse as a guest"); the lane clicks the guest
+    button. The other four hosts open straight to the store. The page sends three persisted
+    GraphQL GETs the lane records from `page.on("response")`: `DefaultShop`,
+    `SearchResultsPlacements` and `Items`. The guest cookies (`__Host-instacart_sid`) and those
+    URLs go in `.cache/instacart-guest.json`, 14 days.
+  - **Warm path, no browser (about 2 s a lane, 5 s for three).** Playwright's request context
+    replays the three URLs with the cookies and edited variables. **The shop id prices the
+    items**: `DefaultShop` with `postalCode` and coordinates returns the shop and retailer
+    location that serve that ZIP (Costco at 10001 and 94103 returned other locations), `Items`
+    with the wrong `shopId` returns names and no prices, and `postalCode`/`zoneId` alone change
+    nothing (zone 1 at ZIP 10001 priced the same as zone 305 at 64151 for the same shop). So the
+    lane resolves the shop for `HOME_ZIP` (or `--zip`) with the home point or a Nominatim ZIP
+    centroid, and prints the ZIP, shop and retailer location under the table. The zone id stays
+    the IP's (64151 here); it is sent because the query requires it, not because it prices.
+  - `SearchResultsPlacements` is a list of grid headers and grids: the grids after a header that
+    reads `Results for "..."` are the results, in rank order; `Related items` grids follow, and a
+    junk query answers `No results for "..."` plus 30 related ids, so the parser keeps only the
+    `Results for` grids and a junk query is 0 rows. `Items` accepts 30 ids a call (the page asks
+    for 6). Rows carry `priceString`, `fullPriceString` (sale), `itemDetails.pricePerUnitString`,
+    `badge.offerLabelString` and `availability.stockLevel`; the product URL is
+    `/store/<slug>/products/<evergreenUrl>`.
+  - A replay that fails (HTTP, GraphQL `errors`, a rotated query hash) drops the host from the
+    cache and takes the cold path again, once with the cached cookies and once fresh.
+  - **Traps.** The bare `mymarketdelivers.com` is a different host with no TLS
+    (`ERR_SSL_PROTOCOL_ERROR`, IP 74.208.236.44); `www.` is the Instacart CNAME. Bare
+    `shopmypricechopper.com` 302s to `www.`; `shop.aldi.us` 308s to `www.aldi.us`. Costco at
+    ZIP 64111 resolves to retailer location 11021 and at 64105 to 11020 (same prices on the
+    items checked); which warehouses those are is not verified. The sync Playwright API is
+    single-threaded, so the Instacart lanes run one after another on one browser while the
+    HTTP lanes run in the pool. No address is ever saved (the ZIP picker's "save address" form
+    wants a street address; the lane does not use it) and nothing is added to a cart.
 - **Hen House and United Market** publish their ad through AWG's `adstudio.com` JavaScript
   viewer; no item feed was found in the page or its state file. Price Chopper's digital coupons
   sit behind member sign-in (`SignIn`/`Register` are the only public routes beside `store` and
@@ -270,9 +303,9 @@ General, Lowe's and Walmart stores. That app has its own repo and skill (`/penny
 
 ## Walled from here, do not burn time
 
-Hy-Vee (Cloudflare 403), Kroger and Dillons (connection refused), Instacart's `/v3/` API (401),
-Lowe's, Bass Pro, DICK'S, Tractor Supply store stock. Instacart product and search pages do
-server-render prices. Store-stock lanes that do work but are not in `shop` yet, all via
+Hy-Vee (Cloudflare 403), Kroger and Dillons (connection refused), Instacart's `/v3/` API (401;
+the storefront GraphQL works for a guest browser, see the grocery lanes), Lowe's, Bass Pro,
+DICK'S, Tractor Supply store stock. Store-stock lanes that do work but are not in `shop` yet, all via
 `curl_cffi`: REI category pages with `?r=stores%3A<id>`, Academy's `inventory_pick` list,
 SCHEELS per-store inventory on the product page, Home Depot's GraphQL
 `fulfillment.locations.inventory.quantity`, Harbor Freight's `api.harborfreight.com`
