@@ -8,6 +8,8 @@ A CLI that controls Govee lights on the local network through the Govee LAN API 
 2. Run `bin/govee scan`. The first run makes `.venv` and installs `requirements.txt`.
 3. Give each bulb a name: `bin/govee name 3F:F4 desk`.
 
+A bulb with LAN Control off (for example, the bulb that relays an H5125 remote, which needs LAN Control off) gives no LAN reply. Run `bin/govee sync-names` once so the cache has it. Then each command and status for that bulb goes through the Govee cloud API, with `GOVEE_API_KEY` from the harness `.env`.
+
 ## Commands
 
 ```

@@ -24,8 +24,10 @@ multicast scan.
 INVARIANTS:
 - The LAN API never acknowledges a command. A set command is fire-and-forget,
   so the CLI confirms only when --check reads status back.
-- Each bulb must have "LAN Control" turned on in the Govee app, or it does not
-  reply to a scan.
+- A bulb with "LAN Control" off in the Govee app does not reply to a scan. A
+  command or status for a cached bulb that gives no LAN reply goes through the
+  cloud API instead (GOVEE_API_KEY). The bulb that relays the H5125 remote must
+  keep LAN Control off, so it is always a cloud bulb.
 """
 
 from __future__ import annotations
@@ -129,7 +131,7 @@ def group_of(entry: dict) -> str:
     return (entry.get("group") or re.sub(r"-\d+$", "", entry.get("alias") or entry.get("name") or "")).lower()
 
 
-def select(cache: dict[str, dict], devices: list[GoveeDevice], target: str) -> list[GoveeDevice]:
+def select(cache: dict[str, dict], devices: list[GoveeDevice], target: str, strict: bool = True) -> list[GoveeDevice]:
     if target == "all":
         return sorted(devices, key=lambda d: label(cache, d))
     chosen: list[GoveeDevice] = []
@@ -147,7 +149,7 @@ def select(cache: dict[str, dict], devices: list[GoveeDevice], target: str) -> l
             or group_of(cache.get(d.fingerprint, {})) == want
             or (cache.get(d.fingerprint, {}).get("floor") or "").lower() == want
         ]
-        if not hits:
+        if not hits and strict:
             raise SystemExit(f"govee: no bulb matches {want!r} (run `govee status` to see names)")
         chosen += [d for d in hits if d not in chosen]
     return chosen
@@ -187,6 +189,51 @@ def api_key() -> str:
     if not key:
         raise SystemExit("govee: GOVEE_API_KEY is not set (harness .env)")
     return key
+
+
+def cloud_post(path: str, payload: dict) -> dict:
+    body = json.dumps({"requestId": os.urandom(8).hex(), "payload": payload}).encode()
+    headers = {"Govee-API-Key": api_key(), "Content-Type": "application/json"}
+    req = urllib.request.Request(f"{CLOUD}/device/{path}", data=body, headers=headers)
+    with urllib.request.urlopen(req, timeout=15) as resp:
+        return json.load(resp)
+
+
+def cloud_capabilities(args: argparse.Namespace) -> list[dict]:
+    """The cloud API capabilities for a set command, in the order the LAN path sends them."""
+    if args.cmd in {"on", "off"}:
+        return [{"type": "devices.capabilities.on_off", "instance": "powerSwitch", "value": int(args.cmd == "on")}]
+    if args.cmd == "brightness":
+        return [{"type": "devices.capabilities.range", "instance": "brightness", "value": max(1, min(100, args.pct))}]
+    if args.cmd == "temp":
+        kelvin = max(2000, min(9000, args.kelvin))
+    elif args.cmd == "color" and args.color.lower() in NAMED_TEMPS:
+        kelvin = NAMED_TEMPS[args.color.lower()]
+    else:
+        r, g, b = parse_color(args.color)
+        return [{"type": "devices.capabilities.color_setting", "instance": "colorRgb", "value": (r << 16) | (g << 8) | b}]
+    return [{"type": "devices.capabilities.color_setting", "instance": "colorTemperatureK", "value": kelvin}]
+
+
+def cloud_run(args: argparse.Namespace, bulbs: dict[str, dict]) -> None:
+    """Send a set command, or read status, through the cloud for bulbs that do not answer on the LAN."""
+    for fp, e in sorted(bulbs.items(), key=lambda kv: kv[1].get("alias", "")):
+        name = e.get("alias") or fp[-5:]
+        dev = {"sku": e.get("sku", "H6008"), "device": fp}
+        try:
+            if args.cmd in {"on", "off", "brightness", "color", "temp"}:
+                for cap in cloud_capabilities(args):
+                    res = cloud_post("control", {**dev, "capability": cap})
+                    if res.get("code") != 200:
+                        print(f"govee: cloud refused {name}: {res.get('code')} {res.get('msg')}", file=sys.stderr)
+            if args.cmd in {"scan", "status"} or args.check:
+                caps = {c["instance"]: c["state"]["value"] for c in cloud_post("state", dev)["payload"]["capabilities"]}
+                kelvin = caps.get("colorTemperatureK")
+                shade = f"{kelvin}K" if kelvin else f"#{caps.get('colorRgb', 0):06x}"
+                power = "on " if caps.get("powerSwitch") else "off"
+                print(f"{name:<12} {'cloud':<15} {power} {caps.get('brightness', 0):>3}%  {shade}")
+        except OSError as exc:
+            print(f"govee: cloud call for {name} failed: {exc}", file=sys.stderr)
 
 
 def sync_names() -> int:
@@ -337,12 +384,6 @@ async def run(args: argparse.Namespace) -> int:
     try:
         devices = controller.devices
         remember(cache, devices)
-        missing = [e.get("alias") or fp[-5:] for fp, e in cache.items() if fp not in {d.fingerprint for d in devices}]
-        if missing:
-            print(f"govee: no reply from {', '.join(missing)} (off at the wall switch, or LAN Control off)", file=sys.stderr)
-        if not devices:
-            return 1
-
         if args.cmd == "name":
             (d,) = select(cache, devices, args.device)
             cache[d.fingerprint]["alias"] = args.alias
@@ -350,10 +391,19 @@ async def run(args: argparse.Namespace) -> int:
             print(f"{d.ip} is now {args.alias!r}")
             return 0
 
-        targets = select(cache, devices, getattr(args, "target", "all"))
+        target = getattr(args, "target", "all")
+        lan = {d.fingerprint for d in devices}
+        # A bulb with LAN Control off (for example the one that relays the H5125 remote) or
+        # off at the wall gets no LAN reply. The cloud reaches the first kind.
+        offline = {fp: e for fp, e in cache.items() if fp not in lan and ":" in fp and entry_matches(e, target)}
+        if offline:
+            names = ", ".join(sorted(e.get("alias") or fp[-5:] for fp, e in offline.items()))
+            print(f"govee: no LAN reply from {names}; using the cloud for them", file=sys.stderr)
+        targets = select(cache, devices, target, strict=not offline)
         if args.cmd in {"scan", "status"}:
             await read_status(controller, targets)
             print_status(cache, targets)
+            cloud_run(args, offline)
             return 0
 
         for d in targets:
@@ -373,6 +423,7 @@ async def run(args: argparse.Namespace) -> int:
         if args.check:
             await read_status(controller, targets)
             print_status(cache, targets)
+        cloud_run(args, offline)
         return 0
     finally:
         await controller.cleanup().wait()
