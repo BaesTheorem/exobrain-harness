@@ -11,6 +11,13 @@
       variants, delivery promise (Amazon, signed-in). Paste a product URL and the
       retailer is read from it.
 
+  shop fbm <query> [--radius KM] [--min N] [--max N] [--days D] [--condition new,used_good]
+                   [--sort date|price|price_desc|distance] [--exact] [-n N] [--json]
+      Facebook Marketplace listings around home (used market, kept out of `find` unless
+      you pass --at fbm). Rides the facebook/ toolkit's session cookies; read-only.
+      `shop price fbm:<id>` or a marketplace/item URL gives the description, condition,
+      photos, seller and pin. --refresh-docid recaptures the GraphQL doc_id when it drifts.
+
   shop stores                      Target stores nearest HOME_ZIP (store context changes the price)
   shop codes <domain>              Promo-code candidates: SimplyCodes, Wethrift, common guesses
   shop cart <shopify-url> --codes A B --harvest --max-stack 3
@@ -86,6 +93,11 @@ def cmd_price(a) -> int:
             from shoptools import amazon
             amazon.print_product(r, full=len(out) == 1)
             continue
+        if r.get("retailer") == "FB Marketplace":
+            from shoptools import fbm
+            fbm.print_row(r, full=True)
+            print()
+            continue
         print(_row(r))
         print(f"  {r['url']}")
         for k in ("upc", "size", "reg_price", "was", "sale_story", "in_store_only"):
@@ -102,6 +114,34 @@ def cmd_price(a) -> int:
             shown = v if isinstance(v, int) else "; ".join(f"{x['id']} {x['name']}" for x in v)
             print(f"  variants: {shown}")
         print()
+    return 0
+
+
+def cmd_fbm(a) -> int:
+    from shoptools import fbm
+    if a.refresh_docid:
+        print(f"doc_id: {fbm.refresh_doc_id()}")
+        if not a.query:
+            return 0
+    if not a.query:
+        raise SystemExit("shop fbm: give a query (or --refresh-docid alone)")
+    condition = [c.strip() for c in a.condition.split(",")] if a.condition else None
+    try:
+        rows, warnings = fbm.search(" ".join(a.query), n=a.n, radius_km=a.radius, min_price=a.min, max_price=a.max,
+                                    days=a.days, condition=condition, sort=a.sort, exact=a.exact)
+    except LaneError as e:
+        print(f"shop: {e}", file=sys.stderr)
+        return 1
+    if a.json:
+        print(json.dumps({"rows": rows, "warnings": warnings}, indent=2))
+    else:
+        for r in rows:
+            fbm.print_row(r)
+    for w in warnings:
+        print(f"warn: {w}", file=sys.stderr)
+    if not rows:
+        print("No listings. Widen --radius, drop --exact or the price bounds before believing it.", file=sys.stderr)
+        return 1
     return 0
 
 
@@ -127,9 +167,23 @@ def main(argv: list[str]) -> int:
 
     f = sub.add_parser("find", help="search every retailer lane at once")
     f.add_argument("query", nargs="+")
-    f.add_argument("--at", help=f"comma list of lanes, default all: {','.join(lanes.SEARCH_LANES)}")
+    f.add_argument("--at", help=f"comma list of lanes, default {','.join(lanes.SEARCH_LANES)}; "
+                                f"optional: {','.join(lanes.OPTIONAL_LANES)}")
     f.add_argument("-n", type=int, default=8, help="rows per lane")
     f.add_argument("--json", action="store_true")
+
+    m = sub.add_parser("fbm", help="Facebook Marketplace listings around home (used market)")
+    m.add_argument("query", nargs="*")
+    m.add_argument("--radius", type=int, default=40, help="km from home, default 40")
+    m.add_argument("--min", type=float, help="minimum price, dollars")
+    m.add_argument("--max", type=float, help="maximum price, dollars")
+    m.add_argument("--days", type=int, help="listed within the last D days")
+    m.add_argument("--condition", help="comma list of new,used_like_new,used_good,used_fair")
+    m.add_argument("--sort", default="date", choices=["date", "price", "price_desc", "distance"])
+    m.add_argument("--exact", action="store_true", help="exact phrase; Facebook's default search is fuzzy")
+    m.add_argument("-n", type=int, default=24)
+    m.add_argument("--refresh-docid", action="store_true", help="recapture the GraphQL doc_id (headless browser)")
+    m.add_argument("--json", action="store_true")
 
     p = sub.add_parser("price", help="one item in full, from a URL, retailer:id or ASIN")
     p.add_argument("item", nargs="+")
@@ -170,6 +224,8 @@ def main(argv: list[str]) -> int:
         return cmd_find(a)
     if a.cmd == "price":
         return cmd_price(a)
+    if a.cmd == "fbm":
+        return cmd_fbm(a)
     if a.cmd == "stores":
         rows = lanes.target_stores(8)
         if a.json:

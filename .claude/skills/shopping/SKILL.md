@@ -1,6 +1,6 @@
 ---
 name: shopping
-description: "One pipeline for buying anything at the lowest real price. Finds every retailer that sells the exact item (Target and Walmart at the nearest stores, Amazon, weekly grocery ads, in-store clearance), collects every promo code, cashback portal and discounted gift card, tests the codes and code combinations on a live cart where possible, and ranks each source by net cost. Use when Alex says '/shopping', '/discount', 'find me a coupon', 'promo code for', 'cheapest place to buy', 'best price on', 'any discount on', 'is it cheaper at Target', 'what does X cost', 'is this on sale', 'do these codes stack', 'check this ASIN', or pastes a product link and asks what it should cost."
+description: "One pipeline for buying anything at the lowest real price. Finds every retailer that sells the exact item (Target and Walmart at the nearest stores, Amazon, weekly grocery ads, in-store clearance, used listings on Facebook Marketplace around home), collects every promo code, cashback portal and discounted gift card, tests the codes and code combinations on a live cart where possible, and ranks each source by net cost. Use when Alex says '/shopping', '/discount', 'find me a coupon', 'promo code for', 'cheapest place to buy', 'best price on', 'any discount on', 'is it cheaper at Target', 'what does X cost', 'is this on sale', 'do these codes stack', 'check this ASIN', 'anything on Marketplace', 'used X near me', or pastes a product or Marketplace link and asks what it should cost."
 ---
 
 # /shopping
@@ -24,8 +24,9 @@ Target variants are listed in the `price` output, Walmart's count is).
 
 ```
 shop find <query>                    # Target + Walmart (nearest stores) + Flipp weekly ads + Amazon, one table
-shop find <query> --at target,amazon # limit the lanes
-shop price <url | target:<tcin> | walmart:<id> | flipp:<id> | ASIN> [--all-variants] [--json]
+shop find <query> --at target,amazon # limit the lanes (--at fbm adds Facebook Marketplace)
+shop fbm <query> [--max N] [--days D] [--radius KM] [--condition ...] [--sort price|date] [--exact]
+shop price <url | target:<tcin> | walmart:<id> | flipp:<id> | fbm:<id> | ASIN> [--all-variants] [--json]
 shop clearance <upc> [store]         # in-store penny or clearance price via Penny Lane
 ```
 
@@ -47,8 +48,15 @@ shop clearance <upc> [store]         # in-store penny or clearance price via Pen
   candidate retailers, then open each page. WebSearch synthesis is zero-evidence.
 - **In-store clearance**: `shop clearance <upc>` asks Penny Lane for the live shelf price at Alex's
   Home Depot, Dollar General, Lowe's and Walmart stores. The `/penny` skill runs that app itself.
-- **Used/open-box** only if Alex asks: eBay, Back Market, REI Re/Supply, Amazon Warehouse. Listed
-  separately.
+- **Used/open-box** only if Alex asks, and always listed separately from the new-item ranking.
+  **Facebook Marketplace is in the tool:** `shop fbm <query> --max 200 --days 7 --radius 40
+  --condition used_good,used_like_new --sort price` searches around home over Alex's own
+  Facebook session (read-only), and `shop price fbm:<id>` or the listing URL returns the
+  description, condition, photos, seller rating and pin. Facebook's search is fuzzy, so add
+  `--exact` for a model name. If it answers "run refresh-cookies", run `facebook/bin/fb
+  refresh-cookies`; if it warns about the `doc_id`, run `shop fbm --refresh-docid`. A fallback
+  warning means the radius was the account's, not `--radius`. Still by hand: eBay, Back Market,
+  REI Re/Supply, Amazon Warehouse.
 
 For every source record: price, shipping to the home ZIP, sales tax (read it off a cart or the
 store's estimate, never assume a rate), stock or delivery date, seller.

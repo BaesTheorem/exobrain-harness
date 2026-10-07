@@ -5,8 +5,9 @@ workflow; this directory is the tool. Everything is read-only toward money: noth
 in, enters payment, or submits an order.
 
 ```
-shop find <query> [--at target,walmart,flipp,amazon] [-n N] [--json]
-shop price <url | target:<tcin> | walmart:<id> | flipp:<id> | ASIN>... [--all-variants] [--json]
+shop find <query> [--at target,walmart,flipp,amazon,fbm] [-n N] [--json]
+shop price <url | target:<tcin> | walmart:<id> | flipp:<id> | fbm:<id> | ASIN>... [--all-variants] [--json]
+shop fbm <query> [--radius KM] [--min N] [--max N] [--days D] [--condition ...] [--sort ...] [--exact]
 shop stores                                   # Target stores nearest HOME_ZIP
 shop codes <domain> [--extra CODE ...] [--no-guess]
 shop cart <shopify-product-url> --codes A B --harvest --max-stack 3 [--qty N] [--selling-plan ID]
@@ -17,7 +18,9 @@ shop amazon search|show|url|orders|auth ...   # the full Amazon tool
 
 `bin/shop` is a plain Python 3 entry point over the `shoptools/` package. It needs `curl_cffi`
 and `playwright` (with the chromium browser) in the system Python, and `HOME_ZIP=<zip>` in the
-harness `.env`, because shelf prices, store stock and weekly ads are all local. `shop clearance`
+harness `.env`, because shelf prices, store stock and weekly ads are all local. The Marketplace
+lane also needs `MYKCMO_HOME_LAT`/`MYKCMO_HOME_LON` (the harness-wide home point) and the
+Facebook session from the `facebook/` toolkit. `shop clearance`
 also needs Penny Lane at `~/Documents/penny-lane` (the `/penny` skill).
 
 ## Lanes
@@ -95,6 +98,41 @@ Traps the selectors exist to avoid, do not loosen them to regex:
 The session comes from Chrome's cookie store (`shoptools/chrome_cookies.py`, `shop amazon auth
 --from-chrome`). The login itself is never automated; see `secrets/README.md`. PA-API 5.0 needs
 an Associates account with qualifying sales, so it is walled for personal use.
+
+### Facebook Marketplace (`shoptools/fbm.py`, session cookies + GraphQL)
+
+The used market around home. It is **not in the default `find` table**: used listings are a
+different market from new retail, so they join only with `--at fbm`, or through `shop fbm`
+with its own filters. `shop price fbm:<id>` (or a `marketplace/item/<id>` URL) returns the
+description, condition, every photo, the seller's rating and join date, shipping, and the
+approximate pin. Read-only: no messages, saves or reactions.
+
+- **The logged-out web is a hard wall from this IP.** The search page 302s to `/login`, and
+  every anonymous GraphQL call answers `Rate limit exceeded` (code 1675004), whatever the
+  `doc_id` (measured 2026-10-07). The Apify actor's "cookies optional" does not hold here.
+- So the lane rides the session cookies the `facebook/` toolkit keeps in
+  `facebook/secrets/cookies.txt` (`facebook/bin/fb refresh-cookies` re-pulls them from Chrome).
+  It reads that file as data and imports nothing from the toolkit. The cookies are Alex's
+  account: keep searches modest. Facebook's realistic response to automation is an identity
+  checkpoint, which the lane reports as "run refresh-cookies", not a ban.
+- **Two routes from one GET.** The search HTML embeds the first 24 results and the request
+  tokens (`fb_dtsg`, `lsd`, `jazoest`). With the tokens,
+  `CometMarketplaceSearchContentPaginationQuery` on `/api/graphql/` takes the home point
+  (`MYKCMO_HOME_LAT/LON`), an explicit radius, price bounds **in cents**, condition and age,
+  and pages 24 at a time. The embedded page is the fallback: it obeys the URL filters but its
+  radius is the account's saved Marketplace location (3 km on 2026-10-07), so a fallback
+  result is reported as a warning.
+- **The `doc_id` drifts** with Facebook's Relay bundles and is not in the page HTML. The current
+  one is a constant, overridden by `secrets/fbm-doc-id.txt` or `FBM_DOC_ID`;
+  `shop fbm --refresh-docid` recaptures it with one headless, read-only Playwright pass. A
+  rejected id falls back to the embedded page and says so, so drift never reads as "nothing
+  for sale".
+- **Facebook's search is fuzzy.** `query=bike` returned ellipticals and skates; `--exact` sends
+  `exact=true`. The `ctime_days` filter is advisory (days=7 returned a 10-day-old listing), so
+  `--days` is enforced again on `creation_time`. Sort by price or date is applied client-side
+  to the pages fetched; `--sort distance` only shapes the fallback page.
+- Item pages split the listing across two Relay blobs (one carries only `listing_photos`),
+  so `item_target` merges every `marketplace_product_details_page.target` on the page.
 
 ### Codes, cart tests, ranking
 

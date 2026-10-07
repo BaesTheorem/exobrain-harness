@@ -579,6 +579,14 @@
     "notes": "Fields are negative inside. mesh_from_field(field(j0,j1), xs, ys, zs) meshes in y slabs that share a row, so the result is closed. lattice() puts z = 0 between samples for clean mid-plane cuts. Always finish with ensure_closed after any transform: tidy() welds vertices within 2 um and snaps to a 0.1 um grid so an STL round trip keeps the topology. decimate() needs fast-simplification; local_thickness() costs about 2 s on a 1M-pixel map."
   },
   {
+    "name": "subtile-ocr",
+    "command": "~/.cargo/bin/subtile-ocr -l eng [--dump-raw] -o out.srt in.idx",
+    "repo_dir": "~/.cargo/bin",
+    "source": "built",
+    "added": "2026-10-07",
+    "notes": "Installed with cargo install subtile-ocr. Input is VobSub .idx/.sub: copy the dvd_subtitle stream from the VOBs into an MKV with ffmpeg, then mkvextract tracks. -t and -d had no effect on DVD subs here. Small images (one-word lines) come back blank; dump raw images with --dump-raw, upscale 4x, negate, pad white, and run tesseract --psm 8. Some disc cues carry broken end times; clamp them."
+  },
+  {
     "name": "supernote-parser.py",
     "command": "python3 transcript-processing/supernote-parser.py <note.note>",
     "repo_dir": "~/Documents/Exobrain harness",

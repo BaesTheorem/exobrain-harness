@@ -24,3 +24,12 @@ Sessions expire. `amz auth --status` prints the expiry of each auth cookie;
 re-export when it lapses. A lapsed session renders signed-out pages, which is
 why every account-level command raises on a sign-in wall instead of returning
 an empty list.
+
+## `fbm-doc-id.txt`
+
+Not a secret, just runtime state that must not be committed: the current
+`doc_id` of Facebook's Marketplace search pagination query, written by
+`shop fbm --refresh-docid`. Absent, the lane uses the constant in
+`shoptools/fbm.py` (or `FBM_DOC_ID`). The Facebook session itself is not here;
+the lane reads `facebook/secrets/cookies.txt`, which `facebook/bin/fb
+refresh-cookies` rebuilds.

@@ -261,9 +261,12 @@ def parse_target(spec: str) -> tuple[str, str]:
         return "amazon", m.group(1)
     if "flipp.com" in spec and (m := re.search(r"/item/(\d+)", spec)):
         return "flipp", m.group(1)
+    if "facebook.com" in spec and (m := re.search(r"/marketplace/item/(\d+)", spec)):
+        return "fbm", m.group(1)
     if ASIN_RE.match(spec):
         return "amazon", spec
-    raise SystemExit(f"shop: cannot tell the retailer from {spec!r}; use target:<tcin>, walmart:<id>, flipp:<id>, an ASIN or a product URL")
+    raise SystemExit(f"shop: cannot tell the retailer from {spec!r}; use target:<tcin>, walmart:<id>, flipp:<id>, "
+                     "fbm:<listing id>, an ASIN or a product URL")
 
 
 def price(spec: str, all_variants: bool = False) -> list[dict]:
@@ -274,6 +277,9 @@ def price(spec: str, all_variants: bool = False) -> list[dict]:
         return [walmart_item(ident)]
     if lane == "flipp":
         return [flipp_item(ident)]
+    if lane == "fbm":
+        from . import fbm
+        return [fbm.item(ident)]
     if lane == "amazon":
         from . import amazon
         return amazon.show_many([ident], all_variants=all_variants)
@@ -281,6 +287,9 @@ def price(spec: str, all_variants: bool = False) -> list[dict]:
 
 
 SEARCH_LANES = ("target", "walmart", "flipp", "amazon")
+# Used listings are a different market from new retail, so Marketplace joins `find` only on
+# request (--at fbm), per the skill's "used only if Alex asks". `shop fbm` is its own command.
+OPTIONAL_LANES = ("fbm",)
 
 
 def find(query: str, lanes: tuple[str, ...] = SEARCH_LANES, n: int = 8) -> tuple[list[dict], dict[str, str]]:
@@ -295,7 +304,10 @@ def find(query: str, lanes: tuple[str, ...] = SEARCH_LANES, n: int = 8) -> tuple
         if lane == "amazon":
             from . import amazon
             return amazon.search(query, n)
-        raise SystemExit(f"shop: unknown lane {lane!r}; choose from {', '.join(SEARCH_LANES)}")
+        if lane == "fbm":
+            from . import fbm
+            return fbm.search(query, n)[0]
+        raise SystemExit(f"shop: unknown lane {lane!r}; choose from {', '.join(SEARCH_LANES + OPTIONAL_LANES)}")
 
     rows: list[dict] = []
     errors: dict[str, str] = {}
