@@ -80,7 +80,8 @@ from config import load_owner_username
 from handler import Context
 import staged
 import switchintent
-from models import EFFORT_LEVELS, ModelCatalog, find_claude_bin, normalize_effort
+import watches
+from models import EFFORT_LEVELS, SANDBOX_ARGS, ModelCatalog, find_claude_bin, normalize_effort
 
 log = logging.getLogger("fletcher")
 
@@ -185,6 +186,17 @@ GUEST_NOTE = (
     "only lines marked Alex are his. Keep Alex's private life out of it exactly "
     "as above. If they ask for something only Alex can do, say so lightly and "
     "move on."
+    "\n\nTHE ONE THING YOU CAN SET UP FOR THEM: a self-watch. If they ask you to "
+    "notice a pattern in their own posting and say something when it happens "
+    "(\"remind me when I've gone on about X five times\", \"tell me when I'm "
+    "doing the thing again\"), you can set that: put this as the LAST line of "
+    "your reply, on its own, exactly in this shape:\n"
+    '!watch 5/30m ask "a yes/no question about their recent messages" say "the text to post"\n'
+    "Use their numbers if they gave any (N posts / M minutes), and write the "
+    "question so YES means the pattern is present. The bot runs that line for "
+    "the person speaking and nobody else, and replies in this channel when it "
+    "fires (never a DM). \"!watch off\" cancels, \"!watch\" shows theirs. Keep "
+    "the rest of the reply short and in your voice; the bot adds the confirmation."
 )
 
 
@@ -497,13 +509,11 @@ def setup(ctx: Context) -> None:
             if private_denied:
                 args += ["--disallowed-tools", *private_denied]
             return args, private_cwd
-        # Shared servers: neutral cwd, no MCP at all, no built-in tools at all,
-        # and no settings sources, so no hooks, no CLAUDE.md, no memory. The
-        # persona is exactly the --system-prompt and nothing of Alex's is in
-        # the process. Verified 2026-09-21: with --setting-sources "" the
-        # session no longer knows the words Exobrain or MIST unless told.
-        args += ["--strict-mcp-config", "--mcp-config", '{"mcpServers":{}}',
-                 "--tools", "", "--setting-sources", "", "--no-session-persistence"]
+        # Shared servers: the sandbox (models.SANDBOX_ARGS): neutral cwd, no
+        # MCP, no tools, no settings sources, so no hooks, CLAUDE.md or memory.
+        # Verified 2026-09-21: with --setting-sources "" the session no longer
+        # knows the words Exobrain or MIST unless told.
+        args += list(SANDBOX_ARGS)
         return args, "/tmp"
 
     async def _ask_claude(prompt: str, system: str, private: bool, effort: str,
@@ -622,6 +632,17 @@ def setup(ctx: Context) -> None:
 
         if not reply:
             return True
+        # A trailing !watch line is MIST invoking the watch command on behalf
+        # of the person speaking (watches.py). Code parses it, it applies to
+        # the author's own username only, and the confirmation replaces it.
+        reply, watch_line = watches.extract_command(reply)
+        if watch_line:
+            try:
+                note = watches.apply_command(message.author.name, watches.parse_command(watch_line))
+            except ValueError as exc:
+                note = f"(watch not set: {exc})"
+            log.info("chatter: watch command for %s -> %s", message.author.name, note[:80])
+            reply = f"{reply}\n{note}".strip()
         # Standing per-person line (bin/discord-append): the person she is
         # answering is the guest who addressed her, or, on Alex's cue, the
         # author of the message his cue replies to. Keyed by login username.

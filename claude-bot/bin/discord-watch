@@ -1,0 +1,66 @@
+#!/usr/bin/env python3
+"""discord-watch: manage per-person pattern watches for the MIST Discord bot.
+
+A watch fires when a user posts COUNT+ times in one channel within WINDOW
+minutes AND a sandboxed model call answers yes to a question about those
+messages; MIST then replies in that channel with the SAY text, at most once
+per COOLDOWN. Members set their own with `!watch ...` in Discord (or by
+asking MIST in words); this CLI is the admin view, for any username.
+
+    discord-watch add USERNAME --ask "yes/no question" --say "text"
+                  [--count 5] [--window 30] [--cooldown 30] [--channel NAME]
+    discord-watch remove USERNAME
+    discord-watch list
+
+The map lives in ~/.claude/channels/discord/watches.json, outside the repo
+(a username next to their words is a name-to-identity mapping). The bot
+reads it on every message, so no restart is needed after a change.
+"""
+
+from __future__ import annotations
+
+import argparse
+import sys
+from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+import watches  # noqa: E402 -- path set up above
+
+
+def main() -> int:
+    ap = argparse.ArgumentParser(description=__doc__.split("\n\n")[0])
+    sub = ap.add_subparsers(dest="cmd", required=True)
+    a = sub.add_parser("add", help="set or replace the watch for a username")
+    a.add_argument("username")
+    a.add_argument("--ask", required=True, help="yes/no question about their recent messages")
+    a.add_argument("--say", required=True, help="what MIST posts when the answer is yes")
+    a.add_argument("--count", type=int, default=watches.DEFAULTS["count"])
+    a.add_argument("--window", type=int, default=watches.DEFAULTS["window_min"], help="minutes")
+    a.add_argument("--cooldown", type=int, default=watches.DEFAULTS["cooldown_min"], help="minutes")
+    a.add_argument("--channel", help="only in a channel whose name contains this")
+    r = sub.add_parser("remove", help="drop the watch for a username")
+    r.add_argument("username")
+    sub.add_parser("list", help="show every watch")
+    args = ap.parse_args()
+
+    if args.cmd == "add":
+        try:
+            rule = watches.add(args.username, ask=args.ask, say=args.say, count=args.count,
+                               window_min=args.window, cooldown_min=args.cooldown, channel=args.channel)
+        except ValueError as exc:
+            print(exc, file=sys.stderr)
+            return 1
+        print(f"@{args.username.lstrip('@')}: {watches.describe(rule)}")
+    elif args.cmd == "remove":
+        print("removed" if watches.remove(args.username) else "no watch for that username")
+    else:
+        data = watches.load()
+        if not data:
+            print("no watches set")
+        for user, rule in data.items():
+            print(f"@{user}: {watches.describe(rule)}")
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())

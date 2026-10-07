@@ -29,6 +29,14 @@ ALIASES = ("fable", "opus", "sonnet", "haiku")
 # and let the CLI pick its own (currently xhigh for Opus-class models).
 EFFORT_LEVELS = ("low", "medium", "high", "xhigh", "max")
 
+# The sandbox every shared-context CLI run gets: no MCP at all, no built-in
+# tools, no settings sources (so no hooks, no CLAUDE.md, no memory), and no
+# session file. The persona is exactly the --system-prompt and nothing of
+# Alex's is in the process. chatter.py and clippy.py both use this list, so
+# a change here is a change for every third-party-facing call.
+SANDBOX_ARGS = ("--strict-mcp-config", "--mcp-config", '{"mcpServers":{}}',
+                "--tools", "", "--setting-sources", "", "--no-session-persistence")
+
 _ALIAS_RE = re.compile(rb"claude-(fable|opus|sonnet|haiku)-[0-9][0-9-]*")
 # A clean alias is family + short version with no dated / -v1 / -fast suffix,
 # e.g. claude-opus-5, claude-opus-4-8, claude-fable-5-1. Version parts are at

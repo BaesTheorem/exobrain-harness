@@ -12,7 +12,7 @@
     <key>WorkingDirectory</key>
     <string>/Users/alexhedtke/Documents/Exobrain harness/discord</string>
     <key>StartInterval</key>
-    <integer>14400</integer>
+    <integer>1800</integer>
     <key>RunAtLoad</key>
     <true/>
     <key>StandardOutPath</key>

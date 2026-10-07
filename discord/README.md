@@ -48,7 +48,7 @@ The hook uses `last_successful_fetch` (not file mtime) to detect stale digests -
 |------|---------|
 | `discord-send.py` | Post a message to a channel as MIST (outbound half of the digest fetcher) |
 | `run-discord-digest.sh` | launchd wrapper for discord-digest-fetch.py |
-| `com.exobrain.discord-digest.plist` | launchd timer for the digest fetcher (runs every 4 hours) |
+| `com.exobrain.discord-digest.plist` | launchd timer for the digest fetcher (runs every 30 minutes) |
 | `README.md` | This file |
 
 ### `discord-send.py`
