@@ -10,7 +10,8 @@
   trip layers  TRIP_DIR   USFS land ownership and USGS NHD creeks for the map
   trip check   TRIP_DIR   land status of every waypoint (camps must be on USFS land)
   trip web     TRIP_DIR   render the interactive page into TRIP_DIR/build/site
-  trip shots   TRIP_DIR   serve the page locally, screenshot desktop and phone, report JS errors
+  trip shots   TRIP_DIR   serve the page locally, screenshot desktop and phone, report JS errors, render og.jpg
+                         (run web again afterwards so og:image carries the new cache-buster)
   trip alltrails TRIP_DIR upload each plan's GPX to AllTrails (alltrails/bin/alltrails), store links
   trip publish TRIP_DIR   copy the site to the personal site as an unlisted page and push
   trip build   TRIP_DIR   route + elev + layers + check + web
@@ -21,6 +22,7 @@ Outputs go to TRIP_DIR/build/ (gitignored). Shared caches go to backpacking/cach
 from __future__ import annotations
 
 import argparse
+import hashlib
 import heapq
 import json
 import math
@@ -366,6 +368,8 @@ def cmd_web(a):
     data = {"config": cfg, "plans": plans, "marks": mile_marks(cfg, plans), "links": links, **layers}
     html = (ROOT / "web" / "template.html").read_text()
     og = f"{SITE_URL}/trips/{pub['dir']}/og.jpg" if pub.get("dir") else "og.jpg"
+    if (site / "og.jpg").exists():  # cache-buster: chat apps keep an old preview for the same URL
+        og += "?v=" + hashlib.sha1((site / "og.jpg").read_bytes()).hexdigest()[:8]
     html = html.replace("__DATA__", json.dumps(data, separators=(",", ":"))).replace("__OGIMG__", og)
     html = html.replace("__TITLE__", cfg["page_title"]).replace("__DESC__", cfg["page_description"])
     icons = {"bug_report", "camping", "download", "emergency", "hiking", "map", "my_location", "picture_as_pdf", "route", "signpost", "target", "water", "water_drop"}
@@ -407,9 +411,11 @@ def cmd_shots(a):
                     pg.evaluate("document.querySelector('.why') && document.querySelector('.why').scrollIntoView()")
                     pg.wait_for_timeout(400)
                     pg.screenshot(path=str(shots / "desk-why.png"))
-                    pg.evaluate("document.querySelector('.panel').scrollTop = 0")
-                    pg.wait_for_timeout(300)
-                    pg.screenshot(path=str(site / "og-src.png"), clip={"x": 0, "y": 0, "width": 1200, "height": 630})
+            # Link preview: render at exactly 1200x630 so the whole layout fits; a crop of a wider shot cuts the panel.
+            og = b.new_context(viewport={"width": 1200, "height": 630}, device_scale_factor=1).new_page()
+            og.goto("http://127.0.0.1:8766/", wait_until="networkidle")
+            og.wait_for_timeout(2500)
+            og.screenshot(path=str(site / "og-src.png"))
             b.close()
     finally:
         srv.terminate()
@@ -473,11 +479,11 @@ def cmd_publish(a):
         subprocess.run([*git, "commit", "-q", "-m", a.message or f"Update the {cfg['title']} trip plan"], check=True)
         subprocess.run([*git, "push", "-q"], check=True)
     url = f"{SITE_URL}/trips/{pub['dir']}/"
-    marker = json.dumps(cfg["page_title"])[1:-1]
-    for _ in range(60):
+    want = (site / "index.html").read_bytes()  # wait for this exact file: the old version has the same title
+    for i in range(60):
         try:
-            with urllib.request.urlopen(urllib.request.Request(url, headers=UA), timeout=20) as r:
-                if r.status == 200 and marker in r.read().decode():
+            with urllib.request.urlopen(urllib.request.Request(f"{url}?nc={time.time():.0f}{i}", headers=UA), timeout=20) as r:
+                if r.status == 200 and r.read() == want:
                     break
         except Exception:  # noqa: BLE001 - poll until the Pages deploy lands
             pass
