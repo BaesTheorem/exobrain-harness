@@ -372,7 +372,7 @@ def cmd_web(a):
         og += "?v=" + hashlib.sha1((site / "og.jpg").read_bytes()).hexdigest()[:8]
     html = html.replace("__DATA__", json.dumps(data, separators=(",", ":"))).replace("__OGIMG__", og)
     html = html.replace("__TITLE__", cfg["page_title"]).replace("__DESC__", cfg["page_description"])
-    icons = {"bug_report", "camping", "download", "emergency", "hiking", "map", "my_location", "picture_as_pdf", "route", "signpost", "target", "water", "water_drop"}
+    icons = {"bug_report", "camping", "schedule", "download", "emergency", "hiking", "map", "my_location", "picture_as_pdf", "route", "signpost", "target", "water", "water_drop"}
     icons |= {c[0] for c in cfg.get("conditions", [])} | {r["icon"] for r in cfg.get("why", [])}
     html = html.replace("__ICONS__", ",".join(sorted(icons)))  # Google Fonts wants the subset sorted
     (site / "index.html").write_text(html)

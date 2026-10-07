@@ -104,6 +104,8 @@ a { color: inherit; }
 .row:hover, .row.hot { background: rgba(255,255,255,.12); }
 .row b { font-size: 19px; font-weight: 600; }
 .row small { grid-column: 1 / -1; font-size: 12px; opacity: .8; }
+.row .tm { font-weight: 600; opacity: 1; white-space: nowrap; }
+.row .tm .ms { font-size: 14px; vertical-align: -2px; margin-right: 3px; }
 
 /* profile */
 .prof { position: relative; height: 150px; margin: 4px 0 0; touch-action: none; }
@@ -242,6 +244,15 @@ const $ = (s) => document.querySelector(s);
 const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
 const sum = (a, f) => a.reduce((x, y) => x + f(y), 0);
 const counted = (days) => days.filter((d) => !d.optional);
+/* Leisurely pace: walking time + 1 h per 1,000 ft of climb, then ~10 min rest per hour.
+   Full packs 1.5 to 2 mph, day packs (side trips) about 2.5 mph. Pace overrides come from C.pace. */
+const PACE = Object.assign({ full: [1.5, 2], day: [2.25, 2.75], climb: 1000, rest: 1 / 6 }, C.pace || {});
+function hrs(d) {
+  const [slow, fast] = d.side || d.optional ? PACE.day : PACE.full, c = d.gain / PACE.climb;
+  return [(d.miles / fast + c) * (1 + PACE.rest), (d.miles / slow + c) * (1 + PACE.rest)];
+}
+function fmtH(h) { const m = Math.round(h * 60 / 15) * 15; return m < 60 ? `${Math.max(15, m)} min` : `${Math.floor(m / 60)} h${m % 60 ? " " + (m % 60) + " min" : ""}`; }
+function span(d) { const [a, b] = hrs(d); const x = fmtH(a), y = fmtH(b); return x === y ? `about ${x}` : `${x} to ${y}`; }
 
 /* ---------- static text ---------- */
 $("#brandt").textContent = C.title; $("#brands").textContent = C.subtitle;
@@ -321,13 +332,14 @@ function selectTrip(i, fit = true) {
   $("#chips").innerHTML = (p.rec ? '<span class="chip rec">Recommended</span>' : "") +
     `<span class="chip"><i style="background:#f2c500"></i>${esc(p.difficulty || C.difficulty)}</span>` +
     `<span class="chip"><i style="background:#b9d400"></i>${gain.toLocaleString()} ft gain</span>` +
+    `<span class="chip"><i style="background:#111"></i>${fmtH(sum(days, (d) => hrs(d)[0]))} to ${fmtH(sum(days, (d) => hrs(d)[1]))} walking, with breaks</span>` +
     `<span class="chip"><i style="background:var(--blue)"></i>${taps ? `Tap water at ${taps} stop${taps > 1 ? "s" : ""}` : "No tap water: filter or carry"}</span>`;
   const nDays = new Set(days.map((d) => d.name.split(":")[0].replace(/ (evening|morning|afternoon)$/, ""))).size;
   $("#dayshd").textContent = `Backpacking, ${nDays} day${nDays > 1 ? "s" : ""}`;
   $("#days").innerHTML = days.map((d, j) => {
     const [day, what] = d.name.split(": ");
     const tag = d.optional ? "Optional side trip" : d.side ? "Side trip · day packs" : "";
-    return `<button class="row${d.side || d.optional ? " side" : ""}" data-j="${j}"><span>${esc(day)} · ${esc((what || "").replace(" side trip", ""))}${tag ? `<i class="stag">${tag}</i>` : ""}</span><b>${d.miles.toFixed(1)} mi</b><small>${d.side || d.optional ? `Round trip from camp, ${(d.miles / 2).toFixed(1)} mi each way · ` : ""}${d.gain.toLocaleString()} ft gain · ${Math.round(d.min)} to ${Math.round(d.max)} ft</small></button>`;
+    return `<button class="row${d.side || d.optional ? " side" : ""}" data-j="${j}"><span>${esc(day)} · ${esc((what || "").replace(" side trip", ""))}${tag ? `<i class="stag">${tag}</i>` : ""}</span><b>${d.miles.toFixed(1)} mi</b><small><span class="tm"><span class="ms">schedule</span>${span(d)}</span> · ${d.side || d.optional ? `Round trip from camp, ${(d.miles / 2).toFixed(1)} mi each way · ` : ""}${d.gain.toLocaleString()} ft gain · ${Math.round(d.min)} to ${Math.round(d.max)} ft</small></button>`;
   }).join("");
   document.querySelectorAll("#days .row").forEach((r) => {
     const j = +r.dataset.j;
