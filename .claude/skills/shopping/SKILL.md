@@ -1,6 +1,6 @@
 ---
 name: shopping
-description: "One pipeline for buying anything at the lowest real price. Finds every retailer that sells the exact item (Target and Walmart at the nearest stores, Amazon, weekly grocery ads, in-store clearance, eBay, used listings on Facebook Marketplace around home, and eBay sold prices for what a used item is worth), collects every promo code, cashback portal and discounted gift card, tests the codes and code combinations on a live cart where possible, and ranks each source by net cost. Use when Alex says '/shopping', '/discount', 'find me a coupon', 'promo code for', 'cheapest place to buy', 'best price on', 'any discount on', 'is it cheaper at Target', 'what does X cost', 'is this on sale', 'do these codes stack', 'check this ASIN', 'anything on Marketplace', 'used X near me', 'check eBay', 'what did X sell for', 'what is this worth used', 'is this a fair price', or pastes a product or Marketplace link and asks what it should cost."
+description: "One pipeline for buying anything at the lowest real price. Finds every retailer that sells the exact item (Target and Walmart at the nearest stores, Amazon, weekly grocery ads and Kansas City grocery lanes (Costco, Sun Fresh, Cosentino's, Price Chopper, Whole Foods), in-store clearance, eBay, used listings on Facebook Marketplace around home, and eBay sold prices for what a used item is worth), collects every promo code, cashback portal and discounted gift card, tests the codes and code combinations on a live cart where possible, and ranks each source by net cost. Use when Alex says '/shopping', '/discount', 'find me a coupon', 'promo code for', 'cheapest place to buy', 'best price on', 'any discount on', 'is it cheaper at Target', 'what does X cost', 'is this on sale', 'do these codes stack', 'check this ASIN', 'anything on Marketplace', 'used X near me', 'check eBay', 'what did X sell for', 'what is this worth used', 'is this a fair price', 'grocery prices', 'what's on sale at Price Chopper', 'Cosentino's ad', 'Sun Fresh ad', 'Costco price on', 'cheapest groceries near me', 'grocery coupons', or pastes a product or Marketplace link and asks what it should cost."
 ---
 
 # /shopping
@@ -39,9 +39,9 @@ shop clearance <upc> [store]         # in-store penny or clearance price via Pen
   hour; retrying extends the block. No other route exists (headless Chromium gets the same block).
 - **Walmart**: read the seller. Marketplace sellers post wild markups, and `find` prints the seller
   when it is not Walmart.
-- **Flipp** is the only lane into local grocery pricing (Hy-Vee, Dillons, Price Chopper, ALDI,
-  Dollar General, Costco). `shop price flipp:<id>` returns the **size**, which is what tells a 28 oz
-  jar from a 16 oz one.
+- **Flipp** carries the weekly ads for Hy-Vee, Dillons, Price Chopper, ALDI, Sprouts, Dollar
+  General and Costco. `shop price flipp:<id>` returns the **size**, which is what tells a 28 oz
+  jar from a 16 oz one. For groceries, use `shop grocery` first (see "Groceries" below).
 - **Amazon**: the on-page "clip coupon" and Subscribe & Save are discounts too; read them from the
   buy box. The delivery date is only real when the session is loaded (`shop amazon auth --status`).
   `search` cannot enumerate the catalog, so never claim "cheapest on Amazon".
@@ -70,6 +70,66 @@ shop clearance <upc> [store]         # in-store penny or clearance price via Pen
 
 For every source record: price, shipping to the home ZIP, sales tax (read it off a cart or the
 store's estimate, never assume a rate), stock or delivery date, seller.
+
+### Groceries (Kansas City, focus on Downtown)
+
+Scope is price browsing: shelf prices, weekly ads, digital coupons and store facts. Delivery and
+carts come later. `shopping/README.md` "Grocery lanes" has each endpoint, key source and the
+evidence for what does not work.
+
+```
+shop grocery stores [--near ZIP]           # every KC store, miles from home, lanes, open/closed status
+shop grocery search <query> [--at LANES]   # costco, wholefoods, pricechopper, cosentinos, sunfresh in one table
+shop grocery ad <store> [--grep TERM]      # whole weekly ad: pricechopper [--store-id N], cosentinos [--upcoming],
+                                           #   sunfresh [--store-id N], costco, aldi, hyvee, sprouts, walmart, target
+shop grocery coupons cosentinos [--grep TERM]   # digital coupons at the Downtown Market
+```
+
+| Store | What the tool gives | Kind of price |
+| --- | --- | --- |
+| **Costco** | product search on costco.com, the coupon book (Flipp), warehouse list | online price; warehouse shelf prices are not published |
+| **Sun Fresh** | the weekly circular, read with OCR | ad price |
+| **Cosentino's Downtown Market** (10 E 13th St) | the weekly ad (OCR), next week's ad, digital coupons | ad price, coupon |
+| **Price Chopper KC** (50 stores, 4 operators) | the full Flipp ad, plus one store's highlights | ad price |
+| **Whole Foods** (301 E 51st St) | product search | shelf price, sale price |
+| **ALDI, Hy-Vee, Sprouts, Walmart, Target** | weekly ad through Flipp | ad price |
+| **Midtown Market** (3967 Main St), **United Market KC** (3110 Prospect), **Hen House** | store directory only | walk-in |
+
+- **The Midtown Costco (#375, Linwood) closed on 2026-10-01** and reopens as a Business Center
+  in spring 2027. The nearest open warehouse is North Kansas City #1268. The old Prospect Sun
+  Fresh is now United Market KC.
+- **OCR ad rows are an index into the ad, not a price list.** Some deals are missing and a small
+  number of lines attach to the wrong price. Each row gives the page and the PDF link: open the
+  page before you quote a Sun Fresh or Cosentino's price as fact. The first run compiles a Swift
+  OCR helper (about 16 s), and later runs use the cache.
+- Costco's search is fuzzy and mixes in non-food items. Read the item name, and compare unit
+  price (per oz, per count), never the package price.
+- A zero-row lane is a fact about the query. Widen the term before you say a store does not carry
+  an item, and remember that an ad lane shows only the items on sale this week.
+- Distances use the home point from `MYKCMO_HOME_LAT/LON`. Use `--near 64105` to measure from
+  a ZIP.
+
+**No price lane, and why:**
+- Instacart storefronts (the online shops of Price Chopper, Cosentino's, Costco same-day, Hen
+  House, ALDI and Sprouts) hide prices from guests. A lane needs Alex's own Instacart session.
+- Sun Fresh publishes no catalog on its Freshop back end, so the circular is the only source.
+- Trader Joe's and Hy-Vee block plain HTTP (Akamai, Cloudflare). Trader Joe's has no ad and
+  Hy-Vee's ad is on Flipp. No Dillons/Kroger store near downtown was confirmed.
+
+**Other grocery servers found (2026-10-07), not installed:**
+- **Instacart connector** (`fig-mcp.instacart.com/mcp`, made by Instacart, on claude.ai). It has
+  product search and a real cart for Hy-Vee, Costco, ALDI, Sprouts, Hen House and Price Chopper.
+  Alex must sign in through the claude.ai connector settings. Instacart prices are often higher
+  than shelf prices. This is the route for delivery later.
+- **thehesiod/costco-mcp**: itemized Costco warehouse receipts and online orders through
+  Costco's GraphQL. It needs a browser refresh token (approximately 90 days). Use it for "what did
+  I pay at Costco".
+- **CupOfOwls/kroger-mcp**: Kroger/Dillons search with store pricing, free developer key. Install
+  it only if a Dillons near KC is confirmed (`search_locations` for 64105).
+- **woke/fresh-cli** (Amazon Fresh), **cmoog/traderjoes** (daily Trader Joe's price dump, Chicago
+  store prices), **abracadabra50/open-supermarkets** (multi-store CLI and MCP).
+- Rejected: the Strider Labs `@striderlabs/*` grocery servers (generated stubs) and the
+  printing-press CLIs (generated, no license).
 
 ## 3. Collect every discount
 
