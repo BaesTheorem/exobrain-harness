@@ -1,0 +1,122 @@
+{
+  "_about": "Kansas City grocery directory for `shop grocery`. Business addresses only; nothing personal. Chains with a live store API (Price Chopper, Sun Fresh, Cosentino's Market, Costco) are enriched at runtime from that API; the entries here are the fixed ids and the facts an API does not carry (closures, operators, what each lane covers). Verified 2026-10-07.",
+  "chains": {
+    "pricechopper": {
+      "name": "Price Chopper KC",
+      "lanes": ["ad"],
+      "notes": "50 stores, four operators (Ball, Cosentino, McKeever, Queen). Weekly ad: Flipp merchant 4282 'Price Chopper KC' (full ad, ~230 items) with mypricechopper.com FrontPageAdGroupsForPreferredStore/<StoreId> as the highlights fallback. Shelf prices are only on shopmypricechopper.com, an Instacart storefront that needs a session (see README).",
+      "flipp_merchant": "Price Chopper KC",
+      "stores_api": "https://www.mypricechopper.com/public/stores"
+    },
+    "cosentinos": {
+      "name": "Cosentino's Market",
+      "lanes": ["ad", "coupons"],
+      "notes": "Three Cosentino's Market stores (Downtown, Brookside, Overland Park). Weekly ad: PDF from the site's Strapi `ads` collection, OCR'd. Digital coupons: Midax EZConnect, keyed by LocationCouponID. Cosentino's also operates Price Chopper stores; those are under pricechopper. Online shop is mymarketdelivers.com (Instacart; session needed).",
+      "default_coupon_location": "200284"
+    },
+    "sunfresh": {
+      "name": "Sun Fresh Market",
+      "lanes": ["ad"],
+      "notes": "Freshop (NCR) back end, app_key sun_fresh. The products endpoint is empty for every store (0 rows; app_key festival_foods returns priced rows, so the endpoint works and Sun Fresh has no catalog). The circular is an image-only PDF per store, so the lane OCRs it. Not on Flipp or Instacart.",
+      "freshop_app_key": "sun_fresh"
+    },
+    "costco": {
+      "name": "Costco",
+      "lanes": ["search", "ad"],
+      "notes": "Online search: search.costco.com typeahead (names, item numbers) then the product page's schema.org Offer for the online price. Online price is not the warehouse price; warehouse prices are not published. Weekly coupon book: Flipp merchant 2519 'Costco ' (trailing space in Flipp's data). Same-day grocery is sameday.costco.com (Instacart; session needed).",
+      "flipp_merchant": "Costco"
+    },
+    "wholefoods": {
+      "name": "Whole Foods Market",
+      "lanes": ["search"],
+      "notes": "wholefoodsmarket.com/api/search?text=&store=<id>: shelf regularPrice/salePrice, no key. One store id per location."
+    },
+    "henhouse": {
+      "name": "Hen House Market",
+      "lanes": [],
+      "notes": "Ball's Foods. Online shop henhouse.instacart.com (session needed). Weekly ad is an AWG adstudio.com JavaScript viewer with no public item feed found (checked 2026-10-07). No lane; directory only."
+    },
+    "unitedmarket": {
+      "name": "United Market KC",
+      "lanes": [],
+      "notes": "AWG Nuxt site like Hen House; same adstudio.com ad viewer, no public item feed found. Opened 2026-05-20. No lane; directory only."
+    },
+    "midtownmarket": {
+      "name": "Midtown Market",
+      "lanes": [],
+      "notes": "Independent international grocer. No website of its own (midtownmarket.com is an unrelated store in Kentucky). Walk-in only."
+    }
+  },
+  "coordinate_overrides": {
+    "_about": "chain:id -> [lat, lon, why]. Applied over live API coordinates that are wrong.",
+    "cosentinos:200144": [39.0151, -94.5908, "Strapi places Brookside at the downtown store's coordinates; 14 W 62nd Terrace is at 62nd and Brookside Blvd."]
+  },
+  "stores": [
+    {
+      "chain": "wholefoods",
+      "name": "Whole Foods Market (51st St)",
+      "address": "301 E 51st St",
+      "city": "Kansas City",
+      "state": "MO",
+      "zip": "64112",
+      "lat": 39.0355,
+      "lon": -94.5775,
+      "ids": {"store": "10457"},
+      "status": "open"
+    },
+    {
+      "chain": "costco",
+      "name": "Costco Midtown #375",
+      "address": "241 E Linwood Blvd",
+      "city": "Kansas City",
+      "state": "MO",
+      "zip": "64111",
+      "lat": 39.0668,
+      "lon": -94.5796,
+      "ids": {"warehouse": "375"},
+      "status": "closed",
+      "note": "Closed 2026-10-01; reopens as a Costco Business Center in spring 2027. Not in the warehouse locator any more. Nearest open warehouse is N Kansas City #1268, 1600 NW 88th St."
+    },
+    {
+      "chain": "midtownmarket",
+      "name": "Midtown Market International Grocery",
+      "address": "3967 Main St",
+      "city": "Kansas City",
+      "state": "MO",
+      "zip": "64111",
+      "lat": 39.0557,
+      "lon": -94.5856,
+      "ids": {},
+      "status": "open (unconfirmed first-hand)",
+      "note": "Near the 39th St streetcar stop. Open per third-party listings with customer reviews dated August 2026 (Loc8NearMe; Yelp lists it as Midtown Market International Grocery Store). No digital price surface: walk-in only.",
+      "source": "https://www.loc8nearme.com/missouri/kansas-city/midtown-market/6039254/"
+    },
+    {
+      "chain": "unitedmarket",
+      "name": "United Market KC",
+      "address": "3110 Prospect Ave",
+      "city": "Kansas City",
+      "state": "MO",
+      "zip": "64129",
+      "lat": 39.0659,
+      "lon": -94.5541,
+      "ids": {"store": "505"},
+      "status": "open",
+      "note": "Daily 7:00 AM - 8:00 PM per unitedmarketkc.com.",
+      "source": "https://unitedmarketkc.com/static/state.js"
+    },
+    {
+      "chain": "henhouse",
+      "name": "Hen House Market",
+      "address": "see henhouse.com/locations",
+      "city": "Johnson County",
+      "state": "KS",
+      "zip": "",
+      "lat": null,
+      "lon": null,
+      "ids": {},
+      "status": "open",
+      "note": "All Hen House stores are in Johnson County, KS; none downtown. Listed for completeness."
+    }
+  ]
+}

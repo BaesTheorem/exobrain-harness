@@ -27,6 +27,21 @@
       Apify actor caffein.dev/ebay-sold-listings (APIFY_TOKEN; about $0.004 per result).
       eBay's own sold routes are walled from here; see shoptools/ebay.py.
 
+  shop grocery stores [--near ZIP|LAT,LON] [--json]
+      Kansas City grocery directory: Price Chopper (50 stores, operators), Cosentino's Market,
+      Sun Fresh, Costco warehouses (Midtown #375 closed 2026-10-01), Whole Foods, the walk-in
+      independents; distance from home, which lanes cover each, status notes.
+  shop grocery search <query> [--at wholefoods,costco,pricechopper,cosentinos,sunfresh,aldi,...] [-n N] [--json]
+      One table across the grocery lanes: Whole Foods shelf prices, Costco.com online prices
+      (warehouse prices are not published), Price Chopper's weekly ad, Cosentino's coupons and
+      ad, Sun Fresh's ad (OCR'd), plus ALDI/Hy-Vee/Dillons/Sprouts ads. Failures print as warnings.
+  shop grocery ad <store> [--grep TERM] [--upcoming] [--store-id ID] [--json]
+      The whole weekly ad: pricechopper, costco (coupon book), cosentinos, sunfresh, aldi, hyvee,
+      dillons, sprouts, walmart, target, samsclub. Cosentino's and Sun Fresh are image-only PDFs
+      read with Apple Vision; rows carry the page number, treat them as an index into the ad.
+  shop grocery coupons <store> [--grep TERM] [--location ID] [--json]
+      Digital coupons where a public feed exists (Cosentino's Market EZConnect, downtown store).
+
   shop stores                      Target stores nearest HOME_ZIP (store context changes the price)
   shop codes <domain>              Promo-code candidates: SimplyCodes, Wethrift, common guesses
   shop cart <shopify-url> --codes A B --harvest --max-stack 3
@@ -193,6 +208,61 @@ def cmd_ebay(a) -> int:
     return 0
 
 
+def cmd_grocery(a) -> int:
+    from shoptools import grocery
+    if a.gcmd == "stores":
+        try:
+            stores, errors = grocery.directory(a.near)
+        except (LaneError, ValueError) as e:
+            print(f"shop: {e}", file=sys.stderr)
+            return 1
+        if a.json:
+            print(json.dumps({"stores": stores, "errors": errors}, indent=2))
+        else:
+            for s in stores:
+                print(grocery.fmt_store(s))
+                if s.get("note"):
+                    print(f"          {s['note']}")
+        for chain, err in errors.items():
+            print(f"warn: {chain} store list failed: {err}", file=sys.stderr)
+        return 0
+    if a.gcmd == "search":
+        at = tuple(x.strip() for x in a.at.split(",")) if a.at else grocery.SEARCH_LANES
+        rows, errors = grocery.search(" ".join(a.query), at, a.n)
+        if a.json:
+            print(json.dumps({"rows": rows, "errors": errors}, indent=2))
+        else:
+            for r in sorted(rows, key=lambda r: (r.get("price") is None, r.get("price") or 0)):
+                print(grocery.fmt_row(r))
+        for lane, err in errors.items():
+            print(f"warn: {lane} lane failed: {err}", file=sys.stderr)
+        if not rows:
+            print("No rows from any grocery lane. Widen the query before believing it.", file=sys.stderr)
+            return 1
+        return 0
+    try:
+        if a.gcmd == "ad":
+            rows, meta = grocery.ad(a.store, a.grep, upcoming=a.upcoming, store_id=a.store_id)
+        else:
+            rows, meta = grocery.coupons(a.store, a.grep, a.location), {}
+    except LaneError as e:
+        print(f"shop: {e}", file=sys.stderr)
+        return 1
+    if a.json:
+        print(json.dumps({"rows": rows, "meta": meta}, indent=2))
+        return 0 if rows else 1
+    if meta:
+        print(f"{meta.get('title') or ''}  {meta.get('url') or ''}".strip())
+        if meta.get("store"):
+            print(f"store: {meta['store']}  pages: {meta.get('pages') or '?'}")
+    for r in rows:
+        print(grocery.fmt_row(r))
+    if not rows:
+        print("No rows. For an OCR'd ad, open the PDF; for Flipp, widen --grep.", file=sys.stderr)
+        return 1
+    return 0
+
+
 def cmd_clearance(a) -> int:
     if not PENNY.exists():
         raise SystemExit("shop clearance needs Penny Lane at ~/Documents/penny-lane (see the /penny skill)")
@@ -276,6 +346,29 @@ def main(argv: list[str]) -> int:
     b.add_argument("offers", type=Path)
     b.add_argument("--json", action="store_true")
 
+    g = sub.add_parser("grocery", help="Kansas City grocery stores: directory, prices, weekly ads, coupons")
+    gs = g.add_subparsers(dest="gcmd", required=True)
+    g1 = gs.add_parser("stores", help="store directory with distance, lanes and status")
+    g1.add_argument("--near", help="ZIP or LAT,LON to measure from (default: home)")
+    g1.add_argument("--json", action="store_true")
+    g2 = gs.add_parser("search", help="one table across the grocery lanes")
+    g2.add_argument("query", nargs="+")
+    g2.add_argument("--at", help="comma list of lanes, default wholefoods,costco,pricechopper,cosentinos,sunfresh; "
+                                 "also aldi,hyvee,dillons,sprouts,walmart,target,samsclub (Flipp ads)")
+    g2.add_argument("-n", type=int, default=8, help="rows per lane")
+    g2.add_argument("--json", action="store_true")
+    g3 = gs.add_parser("ad", help="the whole weekly ad for one store")
+    g3.add_argument("store")
+    g3.add_argument("--grep", help="only rows whose title, size or description has every word")
+    g3.add_argument("--upcoming", action="store_true", help="cosentinos: next week's ad instead of the current one")
+    g3.add_argument("--store-id", help="sunfresh: Freshop store id; pricechopper: add that store's front-page highlights")
+    g3.add_argument("--json", action="store_true")
+    g4 = gs.add_parser("coupons", help="digital coupons for one store")
+    g4.add_argument("store")
+    g4.add_argument("--grep", help="product-line search")
+    g4.add_argument("--location", help="cosentinos: EZConnect location id (default: Downtown Market)")
+    g4.add_argument("--json", action="store_true")
+
     cl = sub.add_parser("clearance", help="in-store penny/clearance price via Penny Lane")
     cl.add_argument("item", help="UPC, or an item id when --retailer is given")
     cl.add_argument("store", nargs="?", help="store id (Penny Lane's configured stores by default)")
@@ -314,6 +407,8 @@ def main(argv: list[str]) -> int:
         out = rank.run(a.offers)
         print(json.dumps(out, indent=2)) if a.json else rank.print_result(out)
         return 0
+    if a.cmd == "grocery":
+        return cmd_grocery(a)
     if a.cmd == "clearance":
         return cmd_clearance(a)
     ap.error(f"unknown command {a.cmd}")

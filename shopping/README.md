@@ -10,6 +10,10 @@ shop price <url | target:<tcin> | walmart:<id> | flipp:<id> | fbm:<id> | ASIN>..
 shop fbm <query> [--radius KM] [--min N] [--max N] [--days D] [--condition ...] [--sort ...] [--exact]
 shop ebay <query> [--condition new,used,...] [--min N] [--max N] [--auction|--bin] [--local MI] [--sort ...]
 shop ebay --sold <query> [--days D] [--condition any|new|used]   # sold listings + median/quartiles
+shop grocery stores [--near ZIP|LAT,LON]      # KC grocery directory: distance, lanes, closures
+shop grocery search <query> [--at wholefoods,costco,pricechopper,cosentinos,sunfresh,aldi,...] [-n N]
+shop grocery ad <store> [--grep TERM] [--upcoming] [--store-id ID]   # the whole weekly ad
+shop grocery coupons <store> [--grep TERM] [--location ID]            # digital coupons (Cosentino's)
 shop stores                                   # Target stores nearest HOME_ZIP
 shop codes <domain> [--extra CODE ...] [--no-guess]
 shop cart <shopify-product-url> --codes A B --harvest --max-stack 3 [--qty N] [--selling-plan ID]
@@ -24,7 +28,8 @@ harness `.env`, because shelf prices, store stock and weekly ads are all local. 
 needs `EBAY_CLIENT_ID`/`EBAY_CLIENT_SECRET` (active listings) and `APIFY_TOKEN` (sold prices).
 The Marketplace lane also needs `MYKCMO_HOME_LAT`/`MYKCMO_HOME_LON` (the harness-wide home point) and the
 Facebook session from the `facebook/` toolkit. `shop clearance`
-also needs Penny Lane at `~/Documents/penny-lane` (the `/penny` skill).
+also needs Penny Lane at `~/Documents/penny-lane` (the `/penny` skill). The grocery circular
+lanes need `pypdf` and `swiftc` (Xcode command line tools) for the one-time Vision OCR build.
 
 ## Lanes
 
@@ -62,8 +67,9 @@ Walmart. `/store/finder` hits the "Robot or human?" wall, so store choice is Wal
 
 ### Flipp (weekly ads)
 
-`backflipp.wishabi.com/flipp/items/search?postal_code=<zip>&q=<term>` is the only lane into
-local grocery pricing: Hy-Vee, Dillons, Price Chopper, ALDI, Dollar General, Costco. The item
+`backflipp.wishabi.com/flipp/items/search?postal_code=<zip>&q=<term>` is the cross-store lane
+into local grocery pricing: Hy-Vee, Dillons, Price Chopper, ALDI, Dollar General, Costco. The
+per-store grocery lanes are below. The item
 detail carries the **size** in `description` (`28 oz.`), the merchant as a bare string, the
 sale story and the ad's valid dates. Run a broad positive control first: a zero-item result
 means nothing until a wider query returns rows.
@@ -166,6 +172,71 @@ to open by hand. The output adds median, quartiles and range, with shipping and 
 
 **Best Offer Accepted:** on a BOA sale eBay shows the listing price, not the accepted offer, so
 that price is a ceiling. Those rows are flagged and the stats give a median without them.
+
+### Grocery lanes (`shoptools/grocery.py`, `circular_ocr.py`, `grocery_stores.json`)
+
+`shop grocery` is browse-only for Kansas City grocery stores: directory, prices, weekly ads and
+coupons. It never signs in, builds a cart or opens a browser, and it is **not part of `shop
+find`**: groceries are a different market from the retail lanes, and the two OCR lanes take
+about 10 s cold. Every lane was run live on 2026-10-07 with a query that returned rows and a
+junk query that returned none. `grocery_stores.json` holds the fixed facts (store ids, closures,
+operators, what each lane covers); the chains with a store API are enriched live. Distances
+are from the harness home point (`MYKCMO_HOME_LAT/LON`), or `--near ZIP` (Nominatim, one call).
+
+| Store | Lane | Source | What you get |
+| --- | --- | --- | --- |
+| Whole Foods (51st St, store 10457) | `search` | `wholefoodsmarket.com/api/search?text=&store=` (no key) | shelf `regularPrice`/`salePrice` |
+| Costco | `search`, `ad`, directory | `search.costco.com` typeahead (public `x-api-key`, read from the search page and cached) + the product page's schema.org Offer; Flipp merchant `Costco ` | online prices, item numbers; the weekly coupon book; warehouses with distance |
+| Price Chopper KC (50 stores) | `ad`, directory | Flipp merchant `Price Chopper KC` (230 items this week); `mypricechopper.com/public/stores` and `FrontPageAdGroupsForPreferredStore/<StoreId>` | full weekly ad; store list with operator (Ball, Cosentino, McKeever, Queen); `--store-id` adds that store's highlights |
+| Cosentino's Market (Downtown, Brookside, Overland Park) | `ad`, `coupons`, directory | Strapi `bagr.iprosystems.com/api` (`locations`, `ads`) with the site's public bearer token; Midax EZConnect `search-offers`/`offers` with the site's `x-api-key` | weekly ad PDF OCR'd (current, `--upcoming` for next week); digital coupons (60 at the downtown store) |
+| Sun Fresh (Westport is nearest) | `ad`, directory | Freshop `api.freshop.ncrcloud.com/1/stores` and `/circulars?store_id=` (`app_key=sun_fresh`) | circular PDF OCR'd per store (`--store-id`) |
+| ALDI, Hy-Vee, Dillons, Sprouts, Walmart, Target, Sam's Club | `ad` | Flipp flyers at `HOME_ZIP` | weekly ad items with prices |
+| Midtown Market (3967 Main), United Market KC (3110 Prospect), Hen House | directory only | Loc8NearMe reviews dated Aug 2026; `unitedmarketkc.com/static/state.js`; `henhouse.com` | address, status, note. No price surface found |
+
+Gotchas, each one measured:
+
+- **Costco's online price is not the warehouse price**, and warehouse prices are not published
+  anywhere. The page's schema.org `availability` says `OutOfStock` for everything (Bounty paper
+  towels included) without a delivery ZIP context, so it is dropped. The typeahead is site-wide:
+  "chicken" returns chicken coops. The GRS search API (`gdx-api.costco.com/catalog/search`) the
+  page itself calls answers `400 APIGATEWAY.INTERNAL.FAULT` to every body shape tried and 403
+  to GET; the Lucidworks `www_costco_com_en_us` collection is 403. The warehouse locator
+  (`AjaxWarehouseBrowseLookupView`) works; Midtown #375 (241 E Linwood) closed 2026-10-01 and
+  is gone from it, so the directory carries the closure as a static entry.
+- **Cosentino's keys are scraped, not hardcoded.** The Vite bundle (`/assets/index-*.js`) ships
+  the EZConnect `x-api-key` and the Strapi bearer token in the clear; `cosentinos_keys()` reads
+  them from the live bundle, caches them in `.cache/cosentinos-keys.json`, and refetches once on a
+  401/403, so a rotation heals itself. Without the key EZConnect returns `403 Forbidden`.
+  Strapi's Brookside location carries the downtown store's coordinates, so the data file
+  overrides it (`coordinate_overrides`).
+- **Sun Fresh has no catalog.** `/1/products?app_key=sun_fresh&q=milk` returns `total 0` for
+  every store, while `app_key=festival_foods` returns priced rows from the same endpoint, so the
+  endpoint works and Sun Fresh simply does not publish prices. Not on Flipp, not on Instacart.
+- **The circulars are image-only PDFs** (one JPEG a page; `pdftotext` returns 6 bytes). Tesseract
+  read 2 price tokens off a page with about 25 deals; Apple Vision reads 88 positioned text boxes
+  in under 3 s. `circular_ocr.py` compiles `visionocr.swift` once with `swiftc` into `.cache/`,
+  pulls the page JPEGs out with pypdf (rendering with `pdftoppm` took 56 s a page), and groups
+  boxes into deals: a price token, then the name lines stacked under it. Ad prices are
+  typographic (`$149` is $1.49, `099` is 99 cents, `99%` is Vision reading the cents sign,
+  `5/$5` is five for $5) and `parse_price` knows the shapes. **Treat the rows as an index into
+  the ad, not a price list**: some deals are missed, some lines attach to the wrong price, and
+  page 1 of the Cosentino's ad (all-caps display type) reads worse than the inside pages. Every
+  row carries the page number and the PDF URL. OCR output is cached beside the PDF for 30 days.
+- **Instacart storefronts hold the shelf prices and need a session.** Price Chopper
+  (shopmypricechopper.com), Cosentino's (mymarketdelivers.com), Costco same-day, Hen House and
+  ALDI all run on Instacart. The storefront search page for a guest returns the retailer, zone
+  and shop ids but **no prices** in its HTML (482 KB, zero `$` amounts); products load through
+  Apollo persisted queries whose hashes the client computes at runtime (`PersistedQueryLink`,
+  `useGETForHashedQueries:false`), so there is no hash list to lift, and open-supermarkets'
+  2026-08 probe found the `Items` operation answers `Not Authenticated` to a guest. Instacart's
+  `/v3/` API is 401 from here (above). Not pursued past that; a lane would need Alex's session.
+- **Hen House and United Market** publish their ad through AWG's `adstudio.com` JavaScript
+  viewer; no item feed was found in the page or its state file. Price Chopper's digital coupons
+  sit behind member sign-in (`SignIn`/`Register` are the only public routes beside `store` and
+  `FrontPageAd`), so no coupon lane there.
+- **Midtown Market** has no site of its own (`midtownmarket.com` is a store in Kentucky). Yelp
+  403s plain fetches; Loc8NearMe shows reviews dated August 2026, so the directory lists it as
+  open, unconfirmed first-hand, walk-in only.
 
 ### Codes, cart tests, ranking
 

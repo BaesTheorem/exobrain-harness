@@ -316,3 +316,6 @@ kc-civic/secrets/*
 !kc-civic/secrets/README.md
 kc-civic/data/*
 !kc-civic/data/README.md
+# shopping: runtime cache for the grocery lanes (compiled Vision OCR helper, keys scraped
+# from retailer JS bundles, downloaded ad PDFs and their OCR). Rebuilt on demand; never commit.
+shopping/.cache/

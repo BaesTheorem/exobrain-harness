@@ -6,7 +6,9 @@ was measured live on 2026-10-05; the gotchas are in comments next to the code th
 
 Walled from here, do not burn time: Hy-Vee (Cloudflare 403), Kroger and Dillons (connection
 refused), Instacart's /v3/ API (401), Lowe's, Bass Pro, DICK'S. Walmart's /store/finder and
-Target's bare PDP HTML are JavaScript shells. Flipp is the only lane into KC grocery pricing.
+Target's bare PDP HTML are JavaScript shells. Flipp is the only cross-store lane into KC grocery
+pricing; the per-store grocery lanes (Whole Foods, Costco, Price Chopper, Cosentino's, Sun Fresh)
+live in grocery.py.
 """
 
 from __future__ import annotations
