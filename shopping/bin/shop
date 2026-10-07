@@ -18,6 +18,15 @@
       `shop price fbm:<id>` or a marketplace/item URL gives the description, condition,
       photos, seller and pin. --refresh-docid recaptures the GraphQL doc_id when it drifts.
 
+  shop ebay <query> [--condition new,used,...] [--min N] [--max N] [--auction|--bin] [--local MI]
+                    [--sort best|price|price_desc|newest|ending] [-n N] [--json]
+      Active eBay listings (official Browse API; EBAY_CLIENT_ID/SECRET in .env). Shipping is
+      quoted to HOME_ZIP. Joins the default `find` table, new condition only, once keys exist.
+  shop ebay --sold <query> [--days D] [--condition any|new|used] [--min N] [--max N] [-n N]
+      What it actually sold for: sold listings plus median, quartiles and range, through the
+      Apify actor caffein.dev/ebay-sold-listings (APIFY_TOKEN; about $0.004 per result).
+      eBay's own sold routes are walled from here; see shoptools/ebay.py.
+
   shop stores                      Target stores nearest HOME_ZIP (store context changes the price)
   shop codes <domain>              Promo-code candidates: SimplyCodes, Wethrift, common guesses
   shop cart <shopify-url> --codes A B --harvest --max-stack 3
@@ -54,6 +63,8 @@ def _row(r: dict) -> str:
         extra += f"  seller: {r['seller']}"
     if r.get("availability") and r["availability"] not in ("IN_STOCK", "In stock"):
         extra += f"  {r['availability']}"
+    if r.get("shipping"):
+        extra += f"  +${r['shipping']:.2f} ship"
     if r.get("valid_to"):
         extra += f"  thru {r['valid_to']}"
     if r.get("sponsored"):
@@ -62,7 +73,7 @@ def _row(r: dict) -> str:
 
 
 def cmd_find(a) -> int:
-    at = tuple(x.strip() for x in a.at.split(",")) if a.at else lanes.SEARCH_LANES
+    at = tuple(x.strip() for x in a.at.split(",")) if a.at else lanes.default_lanes()
     rows, errors = lanes.find(" ".join(a.query), at, a.n)
     if a.json:
         print(json.dumps({"rows": rows, "errors": errors}, indent=2))
@@ -96,6 +107,11 @@ def cmd_price(a) -> int:
         if r.get("retailer") == "FB Marketplace":
             from shoptools import fbm
             fbm.print_row(r, full=True)
+            print()
+            continue
+        if r.get("retailer") == "eBay":
+            from shoptools import ebay
+            ebay.print_row(r, full=True)
             print()
             continue
         print(_row(r))
@@ -145,6 +161,38 @@ def cmd_fbm(a) -> int:
     return 0
 
 
+def cmd_ebay(a) -> int:
+    from shoptools import ebay
+    query = " ".join(a.query)
+    try:
+        if a.sold:
+            if a.condition and a.condition not in ("any", "new", "used"):
+                raise SystemExit("shop ebay --sold: --condition is any, new or used")
+            rows = ebay.sold(query, n=a.n, days=a.days, condition=a.condition or "any",
+                             min_price=a.min, max_price=a.max)
+        else:
+            buying = "AUCTION" if a.auction else "FIXED_PRICE" if a.bin else None
+            cond = [c.strip() for c in a.condition.split(",")] if a.condition else None
+            rows = ebay.search(query, n=a.n, min_price=a.min, max_price=a.max, condition=cond,
+                               buying=buying, local_miles=a.local, sort=a.sort)
+    except LaneError as e:
+        print(f"shop: {e}", file=sys.stderr)
+        return 1
+    c = ebay.comps(rows) if a.sold else None
+    if a.json:
+        print(json.dumps({"rows": rows, "comps": c} if a.sold else {"rows": rows}, indent=2))
+        return 0 if rows else 1
+    for r in rows:
+        ebay.print_row(r)
+    if c and rows:
+        print()
+        ebay.print_comps(c, query)
+    if not rows:
+        print("No listings. Widen the query or the price bounds before believing it.", file=sys.stderr)
+        return 1
+    return 0
+
+
 def cmd_clearance(a) -> int:
     if not PENNY.exists():
         raise SystemExit("shop clearance needs Penny Lane at ~/Documents/penny-lane (see the /penny skill)")
@@ -184,6 +232,20 @@ def main(argv: list[str]) -> int:
     m.add_argument("-n", type=int, default=24)
     m.add_argument("--refresh-docid", action="store_true", help="recapture the GraphQL doc_id (headless browser)")
     m.add_argument("--json", action="store_true")
+
+    e = sub.add_parser("ebay", help="eBay active listings (Browse API) or --sold prices (Apify)")
+    e.add_argument("query", nargs="+")
+    e.add_argument("--sold", action="store_true", help="sold listings and price stats instead of active ones")
+    e.add_argument("--condition", help="active: comma list of new,open_box,refurbished,used,parts; sold: any|new|used")
+    e.add_argument("--min", type=float)
+    e.add_argument("--max", type=float)
+    e.add_argument("--days", type=int, default=90, help="--sold: how far back, default 90")
+    e.add_argument("--auction", action="store_true")
+    e.add_argument("--bin", action="store_true", help="Buy It Now only")
+    e.add_argument("--local", type=int, metavar="MILES", help="local pickup within MILES of HOME_ZIP")
+    e.add_argument("--sort", default="best", choices=["best", "price", "price_desc", "newest", "ending"])
+    e.add_argument("-n", type=int, default=30)
+    e.add_argument("--json", action="store_true")
 
     p = sub.add_parser("price", help="one item in full, from a URL, retailer:id or ASIN")
     p.add_argument("item", nargs="+")
@@ -226,6 +288,8 @@ def main(argv: list[str]) -> int:
         return cmd_price(a)
     if a.cmd == "fbm":
         return cmd_fbm(a)
+    if a.cmd == "ebay":
+        return cmd_ebay(a)
     if a.cmd == "stores":
         rows = lanes.target_stores(8)
         if a.json:

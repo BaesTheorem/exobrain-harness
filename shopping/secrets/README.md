@@ -25,6 +25,11 @@ re-export when it lapses. A lapsed session renders signed-out pages, which is
 why every account-level command raises on a sign-in wall instead of returning
 an empty list.
 
+## `ebay-token.json`
+
+A cached eBay Browse API application token (about two hours), `chmod 600`. Rebuilt on
+demand from `EBAY_CLIENT_ID`/`EBAY_CLIENT_SECRET` in the harness `.env`; delete it freely.
+
 ## `fbm-doc-id.txt`
 
 Not a secret, just runtime state that must not be committed: the current

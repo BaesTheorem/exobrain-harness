@@ -45,12 +45,12 @@ def session():
     return requests.Session(impersonate="chrome")
 
 
-def _env(name: str) -> str:
+def env(name: str) -> str:
     """One value from the environment or the harness .env (gitignored)."""
     v = os.environ.get(name, "")
-    env = HARNESS / ".env"
-    if not v and env.exists():
-        for line in env.read_text().splitlines():
+    dotenv = HARNESS / ".env"
+    if not v and dotenv.exists():
+        for line in dotenv.read_text().splitlines():
             if line.startswith(name + "="):
                 v = line.split("=", 1)[1].strip().strip("\"'")
     return v
@@ -59,7 +59,7 @@ def _env(name: str) -> str:
 @functools.lru_cache(maxsize=1)
 def home_zip() -> str:
     """HOME_ZIP. Shelf prices, store stock and weekly ads are all local, so there is no default."""
-    v = _env("HOME_ZIP")
+    v = env("HOME_ZIP")
     if not v:
         raise SystemExit("shop: HOME_ZIP is not set. Put HOME_ZIP=<zip> in the harness .env; local prices need it.")
     return v
@@ -68,7 +68,7 @@ def home_zip() -> str:
 @functools.lru_cache(maxsize=1)
 def home_latlon() -> tuple[float, float]:
     """Home point for radius searches. MYKCMO_HOME_LAT/LON are the harness-wide home geocode."""
-    lat, lon = _env("MYKCMO_HOME_LAT"), _env("MYKCMO_HOME_LON")
+    lat, lon = env("MYKCMO_HOME_LAT"), env("MYKCMO_HOME_LON")
     if not lat or not lon:
         raise SystemExit("shop: MYKCMO_HOME_LAT/MYKCMO_HOME_LON are not set in the harness .env; "
                          "radius searches need a home point.")

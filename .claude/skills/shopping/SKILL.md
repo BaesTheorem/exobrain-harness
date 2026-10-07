@@ -1,6 +1,6 @@
 ---
 name: shopping
-description: "One pipeline for buying anything at the lowest real price. Finds every retailer that sells the exact item (Target and Walmart at the nearest stores, Amazon, weekly grocery ads, in-store clearance, used listings on Facebook Marketplace around home), collects every promo code, cashback portal and discounted gift card, tests the codes and code combinations on a live cart where possible, and ranks each source by net cost. Use when Alex says '/shopping', '/discount', 'find me a coupon', 'promo code for', 'cheapest place to buy', 'best price on', 'any discount on', 'is it cheaper at Target', 'what does X cost', 'is this on sale', 'do these codes stack', 'check this ASIN', 'anything on Marketplace', 'used X near me', or pastes a product or Marketplace link and asks what it should cost."
+description: "One pipeline for buying anything at the lowest real price. Finds every retailer that sells the exact item (Target and Walmart at the nearest stores, Amazon, weekly grocery ads, in-store clearance, eBay, used listings on Facebook Marketplace around home, and eBay sold prices for what a used item is worth), collects every promo code, cashback portal and discounted gift card, tests the codes and code combinations on a live cart where possible, and ranks each source by net cost. Use when Alex says '/shopping', '/discount', 'find me a coupon', 'promo code for', 'cheapest place to buy', 'best price on', 'any discount on', 'is it cheaper at Target', 'what does X cost', 'is this on sale', 'do these codes stack', 'check this ASIN', 'anything on Marketplace', 'used X near me', 'check eBay', 'what did X sell for', 'what is this worth used', 'is this a fair price', or pastes a product or Marketplace link and asks what it should cost."
 ---
 
 # /shopping
@@ -26,6 +26,8 @@ Target variants are listed in the `price` output, Walmart's count is).
 shop find <query>                    # Target + Walmart (nearest stores) + Flipp weekly ads + Amazon, one table
 shop find <query> --at target,amazon # limit the lanes (--at fbm adds Facebook Marketplace)
 shop fbm <query> [--max N] [--days D] [--radius KM] [--condition ...] [--sort price|date] [--exact]
+shop ebay <query> [--condition new,used,...] [--max N] [--auction|--bin] [--local MI] [--sort price]
+shop ebay --sold <query> [--days 90] [--condition used]   # what it actually sold for
 shop price <url | target:<tcin> | walmart:<id> | flipp:<id> | fbm:<id> | ASIN> [--all-variants] [--json]
 shop clearance <upc> [store]         # in-store penny or clearance price via Penny Lane
 ```
@@ -55,8 +57,16 @@ shop clearance <upc> [store]         # in-store penny or clearance price via Pen
   description, condition, photos, seller rating and pin. Facebook's search is fuzzy, so add
   `--exact` for a model name. If it answers "run refresh-cookies", run `facebook/bin/fb
   refresh-cookies`; if it warns about the `doc_id`, run `shop fbm --refresh-docid`. A fallback
-  warning means the radius was the account's, not `--radius`. Still by hand: eBay, Back Market,
-  REI Re/Supply, Amazon Warehouse.
+  warning means the radius was the account's, not `--radius`. **eBay is in the tool too:**
+  `shop ebay <query> --condition used --sort price` (shipping quoted to home, `--local 25` for
+  pickup) and `shop price ebay:<item number>`. Still by hand: Back Market, REI Re/Supply,
+  Amazon Warehouse.
+- **What a used item is worth:** `shop ebay --sold <query> --days 90 --condition used` gives the
+  sold listings plus median, quartiles and range. Use the median as the fair price for a
+  Marketplace or eBay listing, and say so when a listing sits far above it. A best-offer sale's
+  shown price is a ceiling; the output gives a median without those. Never scrape eBay's sold
+  search from this machine (the IP gets a captcha and retrying hardens it); without
+  `APIFY_TOKEN` the command prints the sold URL for Alex to open.
 
 For every source record: price, shipping to the home ZIP, sales tax (read it off a cart or the
 store's estimate, never assume a rate), stock or delivery date, seller.

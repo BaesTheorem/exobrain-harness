@@ -8,6 +8,8 @@ in, enters payment, or submits an order.
 shop find <query> [--at target,walmart,flipp,amazon,fbm] [-n N] [--json]
 shop price <url | target:<tcin> | walmart:<id> | flipp:<id> | fbm:<id> | ASIN>... [--all-variants] [--json]
 shop fbm <query> [--radius KM] [--min N] [--max N] [--days D] [--condition ...] [--sort ...] [--exact]
+shop ebay <query> [--condition new,used,...] [--min N] [--max N] [--auction|--bin] [--local MI] [--sort ...]
+shop ebay --sold <query> [--days D] [--condition any|new|used]   # sold listings + median/quartiles
 shop stores                                   # Target stores nearest HOME_ZIP
 shop codes <domain> [--extra CODE ...] [--no-guess]
 shop cart <shopify-product-url> --codes A B --harvest --max-stack 3 [--qty N] [--selling-plan ID]
@@ -18,8 +20,9 @@ shop amazon search|show|url|orders|auth ...   # the full Amazon tool
 
 `bin/shop` is a plain Python 3 entry point over the `shoptools/` package. It needs `curl_cffi`
 and `playwright` (with the chromium browser) in the system Python, and `HOME_ZIP=<zip>` in the
-harness `.env`, because shelf prices, store stock and weekly ads are all local. The Marketplace
-lane also needs `MYKCMO_HOME_LAT`/`MYKCMO_HOME_LON` (the harness-wide home point) and the
+harness `.env`, because shelf prices, store stock and weekly ads are all local. The eBay lane
+needs `EBAY_CLIENT_ID`/`EBAY_CLIENT_SECRET` (active listings) and `APIFY_TOKEN` (sold prices).
+The Marketplace lane also needs `MYKCMO_HOME_LAT`/`MYKCMO_HOME_LON` (the harness-wide home point) and the
 Facebook session from the `facebook/` toolkit. `shop clearance`
 also needs Penny Lane at `~/Documents/penny-lane` (the `/penny` skill).
 
@@ -133,6 +136,36 @@ approximate pin. Read-only: no messages, saves or reactions.
   to the pages fetched; `--sort distance` only shapes the fallback page.
 - Item pages split the listing across two Relay blobs (one carries only `listing_photos`),
   so `item_target` merges every `marketplace_product_details_page.target` on the page.
+
+### eBay (`shoptools/ebay.py`, Browse API + Apify for sold prices)
+
+**Active listings** come from eBay's official Browse API (`item_summary/search`,
+`item/get_item_by_legacy_id`) with an application token. It needs `EBAY_CLIENT_ID` and
+`EBAY_CLIENT_SECRET` in the harness `.env`, a free production keyset from
+developer.ebay.com/my/keys. The token lasts about two hours and is cached in
+`secrets/ebay-token.json`. `X-EBAY-C-ENDUSERCTX` carries `HOME_ZIP`, so shipping is quoted to
+home, and `--local MI` filters to local pickup within that radius. Once the keys exist, eBay
+joins the default `find` table, new condition only; used eBay goes through `shop ebay`.
+
+**Sold prices** are what a used item is actually worth, and every route eBay owns is walled
+(measured 2026-10-07):
+
+| Route | Result |
+| --- | --- |
+| Finding API `findCompletedItems` | Decommissioned 2025-02-04, "replaced by the Browse API", which has no sold data |
+| Marketplace Insights API | The official sold API. Docs behind a sign-in; Buy APIs in production are "intended for eBay partners only", by application through the eBay Partner Network |
+| Website sold filter (`LH_Sold=1&LH_Complete=1`) | curl_cffi, headless Chromium, headless Chrome with Alex's eBay cookies and off-screen real Chrome all hit "Pardon Our Interruption", then a captcha. Active search from this IP got the same. Do not retry: each attempt hardens the block |
+| SerpApi eBay engine | Documents its Sold and Complete options as "deprecated and no longer supported" |
+| Terapeak, 130point | Terapeak is on the same walled domain; 130point and its backend return 403 |
+
+So `shop ebay --sold` runs the Apify actor `caffein.dev/ebay-sold-listings` (3.7k users,
+active the day it was chosen, $0.004 per result; Apify's free plan includes $5 of usage a
+month). It scrapes the sold search from Apify's network, needs `APIFY_TOKEN` and no eBay login,
+and each run is capped with `maxTotalChargeUsd`. Without a token it prints the sold-search URL
+to open by hand. The output adds median, quartiles and range, with shipping and without.
+
+**Best Offer Accepted:** on a BOA sale eBay shows the listing price, not the accepted offer, so
+that price is a ceiling. Those rows are flagged and the stats give a median without them.
 
 ### Codes, cart tests, ranking
 

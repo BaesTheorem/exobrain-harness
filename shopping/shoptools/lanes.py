@@ -263,10 +263,12 @@ def parse_target(spec: str) -> tuple[str, str]:
         return "flipp", m.group(1)
     if "facebook.com" in spec and (m := re.search(r"/marketplace/item/(\d+)", spec)):
         return "fbm", m.group(1)
+    if "ebay.com" in spec and (m := re.search(r"/itm/(?:[^/?]+/)?(\d{9,})", spec)):
+        return "ebay", m.group(1)
     if ASIN_RE.match(spec):
         return "amazon", spec
     raise SystemExit(f"shop: cannot tell the retailer from {spec!r}; use target:<tcin>, walmart:<id>, flipp:<id>, "
-                     "fbm:<listing id>, an ASIN or a product URL")
+                     "fbm:<listing id>, ebay:<item number>, an ASIN or a product URL")
 
 
 def price(spec: str, all_variants: bool = False) -> list[dict]:
@@ -280,6 +282,9 @@ def price(spec: str, all_variants: bool = False) -> list[dict]:
     if lane == "fbm":
         from . import fbm
         return [fbm.item(ident)]
+    if lane == "ebay":
+        from . import ebay
+        return [ebay.item(ident)]
     if lane == "amazon":
         from . import amazon
         return amazon.show_many([ident], all_variants=all_variants)
@@ -289,7 +294,13 @@ def price(spec: str, all_variants: bool = False) -> list[dict]:
 SEARCH_LANES = ("target", "walmart", "flipp", "amazon")
 # Used listings are a different market from new retail, so Marketplace joins `find` only on
 # request (--at fbm), per the skill's "used only if Alex asks". `shop fbm` is its own command.
-OPTIONAL_LANES = ("fbm",)
+# eBay joins the default table once its keys are in .env, searching new condition only there.
+OPTIONAL_LANES = ("fbm", "ebay")
+
+
+def default_lanes() -> tuple[str, ...]:
+    from . import ebay
+    return SEARCH_LANES + (("ebay",) if ebay.have_keys() else ())
 
 
 def find(query: str, lanes: tuple[str, ...] = SEARCH_LANES, n: int = 8) -> tuple[list[dict], dict[str, str]]:
@@ -307,6 +318,10 @@ def find(query: str, lanes: tuple[str, ...] = SEARCH_LANES, n: int = 8) -> tuple
         if lane == "fbm":
             from . import fbm
             return fbm.search(query, n)[0]
+        if lane == "ebay":
+            from . import ebay
+            # `find` compares new retail; used eBay goes through `shop ebay --condition used`.
+            return ebay.search(query, n, condition=["new"], sort="price")
         raise SystemExit(f"shop: unknown lane {lane!r}; choose from {', '.join(SEARCH_LANES + OPTIONAL_LANES)}")
 
     rows: list[dict] = []
