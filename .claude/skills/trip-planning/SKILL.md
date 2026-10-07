@@ -45,6 +45,17 @@ Access notes:
   click`, because the package omits `click`). When it fails or its price disagrees with LetsFG,
   trust LetsFG and the airline's own page.
 - **Kiwi, Skiplagged, trivago, OctoTrip** are hosted servers with no auth.
+- **In a session that started before a server was added**, its tools are not loaded. Call it
+  from the shell: `bin/mcp-call <server>` lists tools, `bin/mcp-call <server> <tool> k=v ...`
+  calls one. Works for HTTP servers with no auth and for stdio servers.
+- **Skiplagged rate-limits hard** (Cloudflare 1015, about 1 call a minute when agents share it).
+  Space calls 60 s apart and give it to one agent only. Its hotel search returns nothing for
+  stays of 28 nights or more.
+- **Bag prices**: Kiwi `adults_hand_bags=1` adds the cabin bag fee but drops carriers it
+  cannot price (Volaris). fli `carry_on` has no effect. When no tool prices the bag, mark the
+  fee as an estimate.
+- **Airbnb, 28 nights or more**: listings show only a monthly rate. Total = monthly x nights / 30,
+  and taxes can still be added at checkout.
 - **Gondola** needs a free account (OAuth). Its server rejects Claude Code's default loopback
   port, so the server is registered with its own client (`--client-id gond_mcp_...
   --callback-port 47615`). If the token is lost, run `claude mcp login gondola`; do not remove
@@ -67,7 +78,7 @@ guess.
 - When the dates can move, start with `fli dates` (free) to find the cheap days, then spend
   LetsFG credits only on those days.
 - Run the fixed-date search on LetsFG and on one second source (fli or Skiplagged). When the
-  two disagree by more than approximately $15, open the airline's own page for the truth.
+  two disagree by more than approximately 15 USD, open the airline's own page for the truth.
 - LetsFG credits: 75 a day, 90 banked. A new search costs 1, more dates or airports on a route you
   just searched cost 0.5, and the same search again costs double. Plan the date and airport
   grid first, then search it once. A 429 says when credits come back.
@@ -94,7 +105,7 @@ with the layover length.
 
 Then check the airline's own site for the same flights. Booking direct makes changes,
 cancellations and irregular operations simpler. When the direct fare is within approximately
-$20 of the LetsFG fare, recommend the direct booking.
+20 USD of the LetsFG fare, recommend the direct booking.
 
 ## 4. Search hotels
 
@@ -107,6 +118,9 @@ $20 of the LetsFG fare, recommend the direct booking.
   `free_cancellation_until`.
 - For a group or a stay of 4 or more nights, also search the `airbnb` MCP. Add the cleaning and
   service fees to the nightly rate before you compare.
+- For a long stay, a private room or apartment on Airbnb beats every hotel by a wide margin.
+  Wifi evidence, best first: an Airbnb speed test, a speed the host states, then recent reviews.
+  Check the supermarket distance with OpenStreetMap Overpass (`shop=supermarket` around the pin).
 - Prefer a refundable rate when the dates can still move. For the area, read reviews from the
   primary source, and never rely on a WebSearch synthesis.
 

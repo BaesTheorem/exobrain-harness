@@ -1,0 +1,87 @@
+#!/usr/bin/env python3
+"""mcp-call: call a tool on a configured MCP server from the shell.
+
+Reads the server's URL or command from ~/.claude.json (user scope, or the
+project entry for the current directory) and runs the official MCP Inspector
+CLI against it. Servers that need OAuth do not work here; use their own CLI.
+
+  mcp-call <server>                      list the server's tools (name + args)
+  mcp-call <server> <tool> key=value ... call a tool; values that parse as JSON are sent as JSON
+  mcp-call <server> <tool> --json '{...}' call a tool with one JSON object of arguments
+"""
+
+import hashlib
+import json
+import os
+import shlex
+import subprocess
+import tempfile
+import sys
+from pathlib import Path
+
+INSPECTOR = ["npx", "-y", "@modelcontextprotocol/inspector", "--cli"]
+
+
+def server_config(name: str) -> dict:
+    cfg = json.loads((Path.home() / ".claude.json").read_text())
+    servers = dict(cfg.get("mcpServers", {}))
+    servers.update(cfg.get("projects", {}).get(os.getcwd(), {}).get("mcpServers", {}))
+    if name not in servers:
+        sys.exit(f"mcp-call: no MCP server named {name!r}. Known: {', '.join(sorted(servers))}")
+    return servers[name]
+
+
+def target_args(srv: dict) -> list[str]:
+    if srv.get("type") in ("http", "sse"):
+        return [srv["url"], "--transport", srv["type"]]
+    # The Inspector parses dash arguments meant for the server (npx -y, --flag) as its own, so
+    # launch stdio servers through a one-line script that takes no arguments.
+    launcher = Path(tempfile.gettempdir()) / f"mcp-call-{os.getuid()}-{hashlib.sha1(json.dumps(srv).encode()).hexdigest()[:10]}.sh"
+    exports = "".join(f"export {k}={shlex.quote(v)}\n" for k, v in srv.get("env", {}).items())
+    launcher.write_text(f"#!/bin/sh\n{exports}exec {shlex.join([srv['command'], *srv.get('args', [])])}\n")
+    launcher.chmod(0o700)
+    return [str(launcher)]
+
+
+def tool_args(pairs: list[str]) -> list[str]:
+    if pairs[:1] == ["--json"]:
+        obj = json.loads(pairs[1])
+    else:
+        obj = {}
+        for p in pairs:
+            k, _, v = p.partition("=")
+            try:
+                obj[k] = json.loads(v)
+            except json.JSONDecodeError:
+                obj[k] = v
+    out: list[str] = []
+    for k, v in obj.items():
+        out += ["--tool-arg", f"{k}={v if isinstance(v, str) else json.dumps(v)}"]
+    return out
+
+
+def main() -> None:
+    if len(sys.argv) < 2 or sys.argv[1] in ("-h", "--help"):
+        sys.exit(__doc__)
+    tgt = target_args(server_config(sys.argv[1]))
+    if len(sys.argv) == 2:
+        r = subprocess.run([*INSPECTOR, *tgt, "--method", "tools/list"], capture_output=True, text=True)
+        if r.returncode:
+            sys.exit(r.stderr or r.stdout)
+        for t in json.loads(r.stdout)["tools"]:
+            props = t.get("inputSchema", {}).get("properties", {})
+            req = set(t.get("inputSchema", {}).get("required", []))
+            args = ", ".join(f"{k}{'*' if k in req else ''}:{v.get('type', '?')}" for k, v in props.items())
+            print(f"{t['name']}({args})\n    {(t.get('description') or '').splitlines()[0][:150]}")
+        return
+    cmd = [*INSPECTOR, *tgt, "--method", "tools/call", "--tool-name", sys.argv[2], *tool_args(sys.argv[3:])]
+    r = subprocess.run(cmd, capture_output=True, text=True)
+    if r.returncode:
+        sys.exit(r.stderr or r.stdout)
+    res = json.loads(r.stdout)
+    texts = [c.get("text", "") for c in res.get("content", []) if c.get("type") == "text"]
+    print("\n".join(texts) if texts else json.dumps(res.get("structuredContent", res), indent=1))
+
+
+if __name__ == "__main__":
+    main()

@@ -385,6 +385,14 @@
     "notes": "Each piece is a uv script that imports loopkit. Layers render in parallel processes, and each stem is cached in tmp/loopkit-cache/<slug>/ (83 MB per 216 s stem), so a mix-only change takes about 1 minute; a full 216 s render takes about 10 minutes and peaks near 1.4 GB. Use --dump for the score checks, --check to render and measure, --measure to re-measure the last render. Name chords from the first cycle when the tuning drifts by a comma. Embed the MP3 with #loop=2,<2+period> for a gapless loop in the Console (needs a Cmd-R after a front-end update)."
   },
   {
+    "name": "mcp-call",
+    "command": "bin/mcp-call <server> [tool k=v ...]",
+    "repo_dir": "/Users/alexhedtke/Documents/Exobrain harness",
+    "source": "built",
+    "added": "2026-10-07",
+    "notes": "Uses npx @modelcontextprotocol/inspector --cli. OAuth servers do not work (use their own CLI). stdio servers launch through a temp script in $TMPDIR because the Inspector eats dash arguments (npx -y). Output: text content of the tool result, else structuredContent JSON."
+  },
+  {
     "name": "mid2mp3 / mp32mid",
     "command": "mid2mp3 <file.mid> | mp32mid <file.mp3>",
     "repo_dir": "~/.local/bin",
