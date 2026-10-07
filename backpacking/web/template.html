@@ -1,0 +1,440 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="robots" content="noindex, nofollow, noarchive">
+<title>__TITLE__</title>
+<meta name="description" content="__DESC__">
+<meta property="og:title" content="__TITLE__">
+<meta property="og:description" content="__DESC__">
+<meta property="og:image" content="__OGIMG__">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="og:type" content="website">
+<meta name="twitter:card" content="summary_large_image">
+<link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,300..500,0,0&icon_names=__ICONS__&display=block">
+<style>
+@font-face { font-family: Outfit; src: url("Outfit.ttf") format("truetype"); font-weight: 100 900; font-display: swap; }
+:root {
+  --blue: #012FFF; --lime: #E1FF4F; --ink: #111; --mute: #666; --page: #d6d6d6;
+  --glass: rgba(242,242,242,.72); --glass-line: rgba(255,255,255,.75); --row: rgba(0,0,0,.08);
+  --radius: 22px;
+}
+* { box-sizing: border-box; }
+html, body { margin: 0; height: 100%; }
+body { font-family: Outfit, system-ui, sans-serif; color: var(--ink); background: radial-gradient(120% 90% at 30% 20%, #e6e6e6 0%, #d4d4d4 60%, #c8c8c8 100%) fixed; -webkit-font-smoothing: antialiased; }
+.ms { font-family: "Material Symbols Outlined"; font-weight: 400; font-style: normal; font-size: 20px; line-height: 1; display: inline-block; letter-spacing: normal; text-transform: none; white-space: nowrap; direction: ltr; -webkit-font-feature-settings: "liga"; font-feature-settings: "liga"; }
+button { font: inherit; color: inherit; }
+a { color: inherit; }
+
+/* layout */
+.app { display: grid; grid-template-columns: minmax(0, 1.25fr) minmax(380px, 520px); height: 100vh; height: 100dvh; }
+.mapcol { position: relative; min-height: 0; }
+#map { position: absolute; inset: 0; background: #59654c; }
+.panel { overflow-y: auto; padding: 22px 22px 40px; display: flex; flex-direction: column; gap: 12px; }
+
+/* top bar over the map */
+.topbar { position: absolute; z-index: 600; left: 18px; right: 18px; top: 16px; display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; pointer-events: none; }
+.brand { display: flex; align-items: center; gap: 10px; padding: 10px 16px 10px 12px; border-radius: 999px; background: var(--glass); border: 1px solid var(--glass-line); backdrop-filter: blur(14px); -webkit-backdrop-filter: blur(14px); pointer-events: auto; }
+.brand svg { width: 30px; height: 18px; flex: none; }
+.brand b { display: block; font-size: 18px; font-weight: 600; letter-spacing: -.01em; }
+.brand span { display: block; font-size: 11.5px; color: var(--mute); }
+.tabs { display: flex; gap: 4px; padding: 4px; border-radius: 999px; background: var(--glass); border: 1px solid var(--glass-line); backdrop-filter: blur(14px); -webkit-backdrop-filter: blur(14px); pointer-events: auto; }
+.tab { border: 0; background: transparent; padding: 9px 15px; border-radius: 999px; font-size: 13.5px; cursor: pointer; white-space: nowrap; }
+.tabs[hidden] { display: none; }
+.tab[aria-selected="true"] { background: #111; color: #fff; }
+.tab:focus-visible, .row:focus-visible, .mrow:focus-visible, .btn:focus-visible { outline: 2px solid var(--blue); outline-offset: 2px; }
+
+/* map controls */
+.mapctl { position: absolute; z-index: 600; left: 18px; bottom: 22px; display: flex; gap: 6px; padding: 5px; border-radius: 999px; background: var(--glass); border: 1px solid var(--glass-line); backdrop-filter: blur(14px); -webkit-backdrop-filter: blur(14px); }
+.mapctl button { width: 40px; height: 40px; border: 0; border-radius: 50%; background: rgba(255,255,255,.55); cursor: pointer; display: grid; place-items: center; font-size: 20px; }
+.mapctl button.on { background: #111; color: #fff; }
+.mapctl button:hover { background: rgba(255,255,255,.9); }
+.mapctl button.on:hover { background: #333; }
+.legend { position: absolute; z-index: 600; right: 18px; bottom: 22px; padding: 10px 14px; border-radius: 16px; background: var(--glass); border: 1px solid var(--glass-line); backdrop-filter: blur(14px); -webkit-backdrop-filter: blur(14px); font-size: 12px; display: grid; gap: 5px; }
+.legend div { display: flex; align-items: center; gap: 8px; }
+.sw { width: 18px; height: 11px; border-radius: 3px; flex: none; }
+
+/* leaflet tweaks */
+.leaflet-container { font-family: Outfit, system-ui, sans-serif; }
+.imagery { filter: contrast(1.1) saturate(1.15); }
+.leaflet-control-attribution { font-size: 10px; background: rgba(240,240,240,.75) !important; border-radius: 8px 0 0 0; }
+.leaflet-control-zoom { display: none; }
+.mk { position: relative; }
+.mk .halo { position: absolute; left: -17px; top: -17px; width: 34px; height: 34px; border-radius: 50%; background: rgba(240,240,240,.45); border: 1px solid rgba(255,255,255,.75); backdrop-filter: blur(4px); }
+.mk .dot { position: absolute; left: -6px; top: -6px; width: 12px; height: 12px; border-radius: 50%; background: #fff; box-shadow: 0 1px 3px rgba(0,0,0,.35); }
+.mk .num { position: absolute; left: 6px; top: -27px; width: 20px; height: 20px; border-radius: 50%; background: #111; color: #fff; font-size: 11.5px; font-weight: 600; display: grid; place-items: center; }
+.mk .lab { position: absolute; top: -9px; white-space: nowrap; font-size: 14px; font-weight: 500; color: #111; text-shadow: 0 0 3px #eee, 0 0 6px #eee, 0 0 10px #eee; }
+.mk .lab.r { left: 22px; } .mk .lab.l { right: 22px; }
+.mk.dim { opacity: .45; }
+.mk .tap { position: absolute; left: -30px; top: 4px; width: 26px; height: 26px; border-radius: 50%; background: var(--blue); color: #fff; display: grid; place-items: center; border: 2px solid #fff; box-shadow: 0 1px 4px rgba(0,0,0,.35); }
+.mk .tap .ms { font-size: 16px; }
+.mk .tapi { display: inline-flex; align-items: center; gap: 2px; margin-left: 6px; padding: 2px 8px 2px 5px; border-radius: 999px; background: var(--blue); color: #fff; font-size: 11.5px; font-weight: 500; text-shadow: none; vertical-align: 1px; }
+.creeklab { position: absolute; transform: translate(-50%, -50%); white-space: nowrap; font-size: 12.5px; font-style: italic; font-weight: 500; color: #1f5fe0; text-shadow: 0 0 3px #fff, 0 0 6px #fff, 0 0 9px rgba(255,255,255,.9); pointer-events: none; }
+.campmk { position: absolute; left: -14px; top: 10px; width: 28px; height: 28px; border-radius: 50%; background: #111; color: var(--lime); display: grid; place-items: center; border: 2px solid #fff; box-shadow: 0 1px 4px rgba(0,0,0,.4); }
+.campmk .ms { font-size: 17px; }
+.mk .dot.tapdot { left: -8px; top: -8px; width: 16px; height: 16px; background: var(--blue); border: 2.5px solid #fff; }
+.mk .sidei { display: inline-block; margin-left: 6px; padding: 1px 8px; border-radius: 999px; border: 1.5px dashed #111; background: rgba(225,255,79,.92); color: #111; font-size: 11px; font-weight: 600; text-shadow: none; vertical-align: 1px; }
+.mk .sidei[hidden] { display: none; }
+.stag { display: inline-block; margin-left: 8px; padding: 1px 8px; border-radius: 999px; border: 1.5px dashed rgba(255,255,255,.85); font-style: normal; font-size: 11px; font-weight: 500; vertical-align: 2px; white-space: nowrap; }
+.stag.dark { border-color: #111; background: var(--lime); color: #111; }
+.row.side { background: repeating-linear-gradient(135deg, rgba(255,255,255,.07) 0 6px, transparent 6px 12px); }
+.row.side:hover, .row.side.hot { background: rgba(255,255,255,.14); }
+.cursor { width: 16px; height: 16px; margin: -8px 0 0 -8px; border-radius: 50%; background: var(--blue); border: 3px solid #fff; box-shadow: 0 1px 4px rgba(0,0,0,.4); }
+
+/* cards */
+.card { background: var(--glass); border: 1px solid var(--glass-line); border-radius: var(--radius); padding: 18px 20px; }
+.eyebrow { font-size: 12px; color: var(--mute); }
+.card h1 { font-size: 26px; font-weight: 400; margin: 4px 0 0; letter-spacing: -.01em; line-height: 1.15; }
+.card h2 { font-size: 17px; font-weight: 500; margin: 0 0 10px; }
+.big { display: flex; justify-content: flex-end; align-items: flex-start; margin: 2px 0 6px; }
+.big span { font-size: 72px; font-weight: 200; line-height: .95; letter-spacing: -.035em; }
+.big sup { font-size: 15px; font-weight: 300; margin: 8px 0 0 4px; color: #444; }
+.chips { display: flex; flex-wrap: wrap; gap: 8px; }
+.chip { display: inline-flex; align-items: center; gap: 7px; font-size: 12.5px; padding: 6px 12px; border-radius: 999px; background: rgba(255,255,255,.6); }
+.chip i { width: 7px; height: 7px; border-radius: 50%; }
+.chip.rec { background: var(--blue); color: #fff; }
+.blue { background: var(--blue); color: #fff; border-radius: var(--radius); padding: 16px 18px 10px; }
+.blue .hd { display: flex; align-items: center; gap: 8px; font-size: 16px; margin-bottom: 6px; }
+.row { display: grid; grid-template-columns: 1fr auto; gap: 2px 12px; align-items: baseline; width: 100%; text-align: left; background: none; border: 0; border-top: 1px solid rgba(255,255,255,.2); padding: 9px 4px; color: #fff; cursor: pointer; border-radius: 8px; }
+.row:hover, .row.hot { background: rgba(255,255,255,.12); }
+.row b { font-size: 19px; font-weight: 600; }
+.row small { grid-column: 1 / -1; font-size: 12px; opacity: .8; }
+
+/* profile */
+.prof { position: relative; height: 150px; margin: 4px 0 0; touch-action: none; }
+.prof svg { width: 100%; height: 100%; display: block; overflow: visible; }
+.prof .ax { position: absolute; right: 0; top: 0; bottom: 18px; display: flex; flex-direction: column; justify-content: space-between; font-size: 10.5px; color: var(--mute); pointer-events: none; }
+.prof .tip { position: absolute; top: -6px; transform: translateX(-50%); background: #111; color: #fff; font-size: 11.5px; padding: 4px 8px; border-radius: 8px; white-space: nowrap; pointer-events: none; opacity: 0; }
+.prof.active .tip { opacity: 1; }
+.xax { display: flex; justify-content: space-between; font-size: 11px; color: var(--mute); margin-top: -14px; }
+.daybar { display: flex; gap: 3px; height: 30px; margin-top: 10px; }
+.daybar div { border-radius: 8px; display: flex; justify-content: space-between; align-items: center; padding: 0 8px; font-size: 11px; min-width: 0; overflow: hidden; white-space: nowrap; }
+.daybar b { font-weight: 600; font-size: 12px; }
+.daybar span, .daybar b { text-shadow: 0 0 4px rgba(0,0,0,.25); }
+
+/* milestones and conditions */
+.mlist { display: grid; gap: 2px; }
+.mrow { display: flex; gap: 12px; text-align: left; background: none; border: 0; border-top: 1px solid var(--row); padding: 10px 4px; cursor: pointer; border-radius: 10px; }
+.mrow:first-child { border-top: 0; }
+.mrow:hover { background: rgba(255,255,255,.5); }
+.mrow .n { width: 24px; height: 24px; border-radius: 50%; background: #111; color: #fff; font-size: 12px; font-weight: 600; display: grid; place-items: center; flex: none; margin-top: 1px; }
+.mrow b { font-size: 14.5px; font-weight: 500; }
+.mrow p, .cc p { margin: 3px 0 0; font-size: 13px; line-height: 1.45; color: #333; }
+.mrow .mi { margin-left: auto; font-size: 12px; color: var(--mute); white-space: nowrap; padding-left: 8px; }
+.cgrid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.why .wi { display: flex; gap: 12px; padding: 10px 0; border-top: 1px solid var(--row); }
+.why .wi:first-of-type { border-top: 0; padding-top: 2px; }
+.why .wi > .ms { color: var(--blue); font-size: 22px; margin-top: 1px; }
+.why .wi b { font-size: 14.5px; font-weight: 500; }
+.wtag { display: inline-block; margin-left: 8px; padding: 1px 8px; border-radius: 999px; background: var(--blue); color: #fff; font-style: normal; font-size: 11px; font-weight: 500; vertical-align: 2px; }
+.why .wi[hidden] { display: none; }
+.why .wi p { margin: 3px 0 0; font-size: 13px; line-height: 1.5; color: #333; }
+.cc { background: rgba(255,255,255,.45); border-radius: 16px; padding: 12px 14px; }
+.cc .ms { color: var(--blue); font-size: 22px; }
+.cc b { display: block; font-size: 14px; font-weight: 500; margin-top: 4px; }
+.erow { display: flex; justify-content: space-between; gap: 12px; padding: 9px 4px; border-top: 1px solid rgba(255,255,255,.2); font-size: 14px; }
+.erow a { color: #fff; font-weight: 600; text-decoration: none; white-space: nowrap; }
+.btns { display: flex; flex-wrap: wrap; gap: 8px; }
+.btn { display: inline-flex; align-items: center; gap: 7px; padding: 10px 15px; border-radius: 999px; background: #111; color: #fff; text-decoration: none; font-size: 13.5px; border: 0; cursor: pointer; }
+.btn.ghost { background: rgba(255,255,255,.6); color: #111; }
+.btn .ms { font-size: 18px; }
+.src { font-size: 11.5px; line-height: 1.55; color: var(--mute); }
+.src a { color: #333; }
+
+/* phone */
+@media (max-width: 860px) {
+  .app { grid-template-columns: 1fr; height: auto; }
+  .mapcol { height: 62vh; height: 62svh; position: sticky; top: 0; z-index: 1; }
+  .panel { overflow: visible; padding: 14px 12px 40px; position: relative; z-index: 2; margin-top: -18px; }
+  .topbar { left: 10px; right: 10px; top: 10px; flex-direction: column; align-items: stretch; }
+  .brand { align-self: flex-start; }
+  .tabs { align-self: stretch; justify-content: space-between; }
+  .tab { flex: 1; padding: 8px 6px; font-size: 12.5px; }
+  .legend { display: none; }
+  .mapctl { left: 10px; bottom: 30px; }
+  .big span { font-size: 60px; }
+  .cgrid { grid-template-columns: 1fr; }
+  .mk .lab { font-size: 12.5px; }
+}
+@media (prefers-reduced-motion: reduce) { * { transition: none !important; animation: none !important; } }
+</style>
+</head>
+<body>
+<div class="app">
+  <div class="mapcol">
+    <div id="map" role="region" aria-label="Map of the route"></div>
+    <div class="topbar">
+      <div class="brand"><svg viewBox="0 0 34 20" aria-hidden="true"><path d="M0 20 L11 4 L17 12 L22 6 L34 20 Z" fill="#111"/></svg>
+        <div><b id="brandt"></b><span id="brands"></span></div></div>
+      <div class="tabs" role="tablist" aria-label="Trip length" id="tabs"></div>
+    </div>
+    <div class="mapctl">
+      <button id="fit" title="Fit the route" aria-label="Fit the route"><span class="ms">route</span></button>
+      <button id="zin" title="Zoom in" aria-label="Zoom in">+</button>
+      <button id="zout" title="Zoom out" aria-label="Zoom out">&minus;</button>
+      <button id="locate" title="Show my location" aria-label="Show my location"><span class="ms">my_location</span></button>
+    </div>
+    <div class="legend" aria-label="Legend" id="legend"></div>
+  </div>
+
+  <main class="panel">
+    <section class="card" aria-live="polite">
+      <div class="eyebrow" id="eyebrow"></div>
+      <h1 id="title"></h1>
+      <div class="big"><span id="miles"></span><sup>mi</sup></div>
+      <div class="chips" id="chips"></div>
+    </section>
+
+    <section class="blue" aria-label="Days">
+      <div class="hd"><span class="ms">hiking</span><span id="dayshd"></span></div>
+      <div id="days"></div>
+    </section>
+
+    <section class="card why" aria-label="Why this route" id="why"></section>
+
+    <section class="card" aria-label="Elevation">
+      <h2>Elevation</h2>
+      <div class="prof" id="prof"><svg id="profsvg" preserveAspectRatio="none"></svg><div class="ax"><span id="axhi"></span><span id="axlo"></span></div><div class="tip" id="tip"></div></div>
+      <div class="xax" id="xax"></div>
+      <div class="daybar" id="daybar"></div>
+    </section>
+
+    <section class="card">
+      <div class="btns" id="btns">
+        <a class="btn" id="atl" target="_blank" rel="noopener"><span class="ms">map</span>Open on AllTrails</a>
+        <a class="btn ghost" id="gpx" download><span class="ms">download</span>GPX</a>
+      </div>
+    </section>
+
+    <section class="card" aria-label="Milestones">
+      <h2>Milestones</h2>
+      <div class="mlist" id="mlist"></div>
+    </section>
+
+    <section class="card" aria-label="Before you go">
+      <h2>Before you go</h2>
+      <div class="cgrid" id="cgrid"></div>
+    </section>
+
+    <section class="blue" aria-label="Emergency" id="emerg">
+      <div class="hd"><span class="ms">emergency</span>Emergency</div>
+    </section>
+
+    <section class="card src" id="src"></section>
+  </main>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
+<script>
+const DATA = __DATA__;
+const C = DATA.config;
+const WP = C.waypoints;
+const PLANS = C.plans;
+const DAYCOL = ["linear-gradient(90deg,#d7f14a,#9fc9ff)", "linear-gradient(90deg,#b9e9a0,#7fa8ff)", "linear-gradient(90deg,#9ad7c4,#4a72ff)", "#012FFF"];
+const DAYINK = ["#1b1b1b", "#1b1b1b", "#fff", "#fff"];
+const reduce = matchMedia("(prefers-reduced-motion: reduce)").matches;
+const $ = (s) => document.querySelector(s);
+const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+const sum = (a, f) => a.reduce((x, y) => x + f(y), 0);
+const counted = (days) => days.filter((d) => !d.optional);
+
+/* ---------- static text ---------- */
+$("#brandt").textContent = C.title; $("#brands").textContent = C.subtitle;
+const LEG = [
+  ['<span class="sw" style="background:#3f6b33"></span>', "National Forest, camping allowed"],
+  ['<span class="sw" style="background:#a9ab9f"></span>', "Private land, stay on the trail"],
+];
+if (Object.values(WP).some((w) => w.tap)) LEG.push(['<span class="sw" style="width:12px;height:12px;margin:0 3px;border-radius:50%;background:var(--blue);border:2px solid #fff;box-shadow:0 0 0 1px rgba(0,0,0,.2)"></span>', "Tap water"]);
+if (DATA.main) LEG.push(['<svg class="sw" viewBox="0 0 18 11" aria-hidden="true"><path d="M1 7 C5 2, 9 10, 17 4" fill="none" stroke="#2f7dff" stroke-width="2.4" stroke-linecap="round"/></svg>', `${esc(C.water.main)}, filter water here`]);
+if (DATA.creeks) LEG.push(['<svg class="sw" viewBox="0 0 18 11" aria-hidden="true"><path d="M1 7 C5 2, 9 10, 17 4" fill="none" stroke="#8fc3ff" stroke-width="1.4" stroke-linecap="round"/></svg>', "Other year-round creeks"]);
+if (Object.values(WP).some((w) => w.camp)) LEG.push(['<span class="sw" style="width:14px;height:14px;margin:0 2px;border-radius:50%;background:#111;border:2px solid #fff;box-shadow:0 0 0 1px rgba(0,0,0,.2)"></span>', "Camp (National Forest land)"]);
+LEG.push(['<span class="sw" style="background:var(--lime);border:1px solid #9bb000"></span>', PLANS.length > 1 ? "Selected trip" : "Route"]);
+if (PLANS.some((p) => p.days.some((d) => d.side || d.optional))) LEG.push(['<svg class="sw" viewBox="0 0 18 11" aria-hidden="true"><rect width="18" height="11" rx="3" fill="#2f3a24"/><g fill="#E1FF4F"><circle cx="3.5" cy="5.5" r="2.2"/><circle cx="9" cy="5.5" r="2.2"/><circle cx="14.5" cy="5.5" r="2.2"/></g></svg>', "Side trip, day packs"]);
+if (PLANS.length > 1) LEG.push(['<span class="sw" style="background:#fff;border:1px solid #bbb"></span>', "Other trips"]);
+$("#legend").innerHTML = LEG.map(([sw, t]) => `<div>${sw}${t}</div>`).join("");
+$("#cgrid").innerHTML = C.conditions.map(([ic, t, d]) => `<div class="cc"><span class="ms">${ic}</span><b>${esc(t)}</b><p>${esc(d)}</p></div>`).join("");
+$("#emerg").insertAdjacentHTML("beforeend", C.emergency.map(([l, shown, tel]) => `<div class="erow"><span>${esc(l)}</span><a href="tel:${tel}">${esc(shown)}</a></div>`).join(""));
+$("#src").innerHTML = C.sources_html;
+if (C.pdf) $("#btns").insertAdjacentHTML("beforeend", `<a class="btn ghost" href="${esc(C.pdf.split("/").pop())}" download><span class="ms">picture_as_pdf</span>PDF</a>`);
+
+/* ---------- map ---------- */
+const [S, W, N, E] = C.bbox;
+const map = L.map("map", { zoomControl: false, zoomSnap: 0.25, attributionControl: true, maxBounds: [[S, W], [N, E]], maxBoundsViscosity: 0.8, minZoom: 11, maxZoom: 17 });
+map.attributionControl.setPrefix(false);
+L.tileLayer("https://basemap.nationalmap.gov/arcgis/rest/services/USGSImageryOnly/MapServer/tile/{z}/{y}/{x}", { maxZoom: 17, maxNativeZoom: 16, attribution: "Imagery: USGS National Map", className: "imagery" }).addTo(map);
+L.geoJSON(DATA.private, { interactive: false, style: { stroke: false, fillColor: "#dcdcd6", fillOpacity: 0.2 } }).addTo(map);
+L.geoJSON(DATA.fs, { interactive: false, style: { color: "#ecf8be", weight: 1.2, opacity: 0.85, fill: false } }).addTo(map);
+if (DATA.creeks) L.geoJSON(DATA.creeks, { interactive: false, style: { color: "#8fc3ff", weight: 1.4, opacity: 0.75 } }).addTo(map);
+if (DATA.main) {
+  L.geoJSON(DATA.main, { interactive: false, style: { color: "#ffffff", weight: 5, opacity: 0.35 } }).addTo(map);
+  L.geoJSON(DATA.main, { interactive: false, style: { color: "#2f7dff", weight: 2.6, opacity: 1 } }).addTo(map);
+  const lines = DATA.main.type === "MultiLineString" ? DATA.main.coordinates : [DATA.main.coordinates];
+  const lb = C.water.label_box || C.bbox;
+  const pts = lines.flat().filter((c) => c[1] > lb[0] && c[1] < lb[2] && c[0] > lb[1] && c[0] < lb[3]).sort((p, q) => q[1] - p[1]);
+  (C.water.label_at || [0.12, 0.42, 0.72]).forEach((f) => {
+    const c = pts[Math.floor(pts.length * f)];
+    if (c) L.marker([c[1], c[0]], { interactive: false, keyboard: false, icon: L.divIcon({ className: "", iconSize: [0, 0], html: `<div class="creeklab">${esc(C.water.main)}</div>` }) }).addTo(map);
+  });
+}
+map.attributionControl.addAttribution("Water: USGS NHD · Land: USFS · Trails © <a href=\"https://www.openstreetmap.org/copyright\">OpenStreetMap</a>");
+
+const MAIN_STYLE = { color: "#E1FF4F", weight: 5, opacity: 1, lineJoin: "round", dashArray: null };
+const SIDE_STYLE = { color: "#E1FF4F", weight: 6, opacity: 1, lineJoin: "round", lineCap: "round", dashArray: "0.5 11" };
+const layers = {};
+PLANS.forEach((p) => {
+  const days = DATA.plans[p.id].days;
+  layers[p.id] = {
+    other: L.layerGroup(days.map((d) => L.polyline(d.line, { color: "#fff", weight: 3, opacity: 0.9, interactive: false }))),
+    halo: L.layerGroup(days.map((d) => L.polyline(d.line, { color: "#1d2a12", weight: 10, opacity: 0.5, interactive: false }))),
+    sel: days.map((d) => L.polyline(d.line, d.side || d.optional ? SIDE_STYLE : MAIN_STYLE)),
+  };
+});
+const ORDER = C.milestones;   // global numbering
+const numOf = (id) => ORDER.indexOf(id) + 1;
+const markers = {};
+ORDER.forEach((id) => {
+  const w = WP[id];
+  const html = `<div class="mk"><div class="halo"></div><div class="dot${w.tap ? " tapdot" : ""}"${w.tap ? ' title="Tap water"' : ""}></div><div class="num">${numOf(id)}</div><div class="lab ${w.side || "r"}">${esc(w.label || w.name)}<span class="sidei" hidden>Side trip</span></div></div>`;
+  const mk = L.marker([w.lat, w.lon], { icon: L.divIcon({ className: "", html, iconSize: [0, 0] }), keyboard: false, title: w.name });
+  mk.on("click", () => flyTo(w));
+  markers[id] = mk;
+});
+const camps = Object.values(WP).filter((w) => w.camp).map((w) => L.marker([w.lat, w.lon], { icon: L.divIcon({ className: "", html: `<div class="campmk" title="${esc(w.name)}"><span class="ms">camping</span></div>`, iconSize: [0, 0] }), keyboard: false, title: w.name }).addTo(map));
+const cursor = L.marker([0, 0], { icon: L.divIcon({ className: "", html: '<div class="cursor"></div>', iconSize: [0, 0] }), interactive: false, keyboard: false });
+
+let cur = null;
+function selectTrip(i, fit = true) {
+  const p = PLANS[i]; cur = p;
+  Object.entries(layers).forEach(([k, l]) => { map.removeLayer(l.other); map.removeLayer(l.halo); l.sel.forEach((s) => map.removeLayer(s)); if (k !== p.id) l.other.addTo(map); });
+  const L1 = layers[p.id]; L1.halo.addTo(map); L1.sel.forEach((s, j) => { s.addTo(map); s.off(); s.on("mouseover", () => hotDay(j)); s.on("mouseout", () => hotDay(-1)); s.on("click", () => fitDay(j)); });
+  document.querySelectorAll(".tab").forEach((b, j) => b.setAttribute("aria-selected", j === i ? "true" : "false"));
+  const days = DATA.plans[p.id].days, main = counted(days);
+  const miles = sum(main, (d) => d.miles), gain = sum(main, (d) => d.gain);
+  const taps = (p.milestones || []).filter((id) => WP[id].tap).length;
+  $("#eyebrow").textContent = p.eyebrow; $("#title").textContent = p.title; $("#miles").textContent = miles.toFixed(1);
+  $("#chips").innerHTML = (p.rec ? '<span class="chip rec">Recommended</span>' : "") +
+    `<span class="chip"><i style="background:#f2c500"></i>${esc(p.difficulty || C.difficulty)}</span>` +
+    `<span class="chip"><i style="background:#b9d400"></i>${gain.toLocaleString()} ft gain</span>` +
+    `<span class="chip"><i style="background:var(--blue)"></i>${taps ? `Tap water at ${taps} stop${taps > 1 ? "s" : ""}` : "No tap water: filter or carry"}</span>`;
+  const nDays = new Set(days.map((d) => d.name.split(":")[0].replace(/ (evening|morning|afternoon)$/, ""))).size;
+  $("#dayshd").textContent = `Backpacking, ${nDays} day${nDays > 1 ? "s" : ""}`;
+  $("#days").innerHTML = days.map((d, j) => {
+    const [day, what] = d.name.split(": ");
+    const tag = d.optional ? "Optional side trip" : d.side ? "Side trip · day packs" : "";
+    return `<button class="row${d.side || d.optional ? " side" : ""}" data-j="${j}"><span>${esc(day)} · ${esc((what || "").replace(" side trip", ""))}${tag ? `<i class="stag">${tag}</i>` : ""}</span><b>${d.miles.toFixed(1)} mi</b><small>${d.side || d.optional ? "Out and back from camp · " : ""}${d.gain.toLocaleString()} ft gain · ${Math.round(d.min)} to ${Math.round(d.max)} ft</small></button>`;
+  }).join("");
+  document.querySelectorAll("#days .row").forEach((r) => {
+    const j = +r.dataset.j;
+    r.addEventListener("mouseenter", () => hotDay(j)); r.addEventListener("mouseleave", () => hotDay(-1));
+    r.addEventListener("focus", () => hotDay(j)); r.addEventListener("blur", () => hotDay(-1));
+    r.addEventListener("click", () => fitDay(j));
+  });
+  const link = DATA.links[p.id]; $("#atl").hidden = !link; if (link) $("#atl").href = link;
+  $("#gpx").href = `${p.id}.gpx`;
+  const on = new Set(p.milestones || []), notes = p.notes || {}, side = new Set(p.side_trips || []);
+  ORDER.forEach((id) => {
+    const mk = markers[id];
+    if (on.has(id)) { mk.addTo(map); const pill = mk.getElement().querySelector(".sidei"); if (pill) pill.hidden = !side.has(id); }
+    else map.removeLayer(mk);
+  });
+  const marks = DATA.marks[p.id] || {};
+  $("#mlist").innerHTML = ORDER.filter((id) => on.has(id)).map((id) => {
+    const w = WP[id], m = marks[id], dname = m ? days[m.day].name.split(":")[0] : "";
+    const at = side.has(id) ? "" : m ? (m.mile < 0.05 ? (m.day === 0 ? "Start" : dname) : `${dname} · mi ${m.mile}`) : "";
+    return `<button class="mrow${side.has(id) ? " side" : ""}" data-id="${id}"><span class="n">${numOf(id)}</span><span><b>${esc(w.name)}</b>${side.has(id) ? '<i class="stag dark">Side trip</i>' : ""}<p>${esc((notes[id] ? notes[id] + " " : "") + (w.text || ""))}</p></span><span class="mi">${esc(at)}</span></button>`;
+  }).join("");
+  document.querySelectorAll(".mrow").forEach((b) => b.addEventListener("click", () => { flyTo(WP[b.dataset.id]); if (innerWidth < 860) scrollTo({ top: 0, behavior: reduce ? "auto" : "smooth" }); }));
+  const why = (C.why || []).filter((r) => !r.plans || r.plans.includes(p.id));
+  $("#why").hidden = !why.length;
+  $("#why").innerHTML = "<h2>Why this route</h2>" + why.map((r) => `<div class="wi"><span class="ms">${r.icon}</span><div><b>${esc(r.title)}</b>${r.tag && PLANS.length > 1 ? `<i class="wtag">${esc(r.tag)}</i>` : ""}<p>${esc(r.text)}</p></div></div>`).join("");
+  drawProfile(main);
+  if (fit) fitTrip();
+  if (PLANS.length > 1) history.replaceState(null, "", "#" + p.id);
+}
+function fitTrip() { map.flyToBounds(L.featureGroup(layers[cur.id].sel).getBounds(), { ...padFor(), duration: reduce ? 0 : 0.8, animate: !reduce }); }
+function fitDay(j) { map.flyToBounds(layers[cur.id].sel[j].getBounds(), { ...padFor(), duration: reduce ? 0 : 0.8, animate: !reduce }); }
+function padFor() { const top = PLANS.length > 1 ? 150 : 100; return innerWidth < 860 ? { paddingTopLeft: [36, top], paddingBottomRight: [36, 90] } : { paddingTopLeft: [80, 110], paddingBottomRight: [80, 90] }; }
+function hotDay(j) {
+  const days = DATA.plans[cur.id].days;
+  layers[cur.id].sel.forEach((s, k) => s.setStyle({ color: j < 0 || k === j ? "#E1FF4F" : "#a7b56a", weight: (days[k].side || days[k].optional ? 6 : 5) + (k === j ? 2 : 0) }));
+  document.querySelectorAll("#days .row").forEach((r, k) => r.classList.toggle("hot", k === j));
+}
+function flyTo(w) { map.flyTo([w.lat, w.lon], 15, { duration: reduce ? 0 : 0.8, animate: !reduce }); }
+
+/* ---------- elevation ---------- */
+let prof = null;
+function drawProfile(days) {
+  const svg = $("#profsvg"), Wd = 1000, H = 150, B = 18;
+  const pts = []; const bounds = []; let off = 0;
+  days.forEach((d, j) => {
+    const pr = d.profile;
+    pr.forEach(([m, e], i) => { const win = pr.slice(Math.max(0, i - 2), i + 3); pts.push([off + m, win.reduce((a, x) => a + x[1], 0) / win.length, j]); });
+    off += d.miles; bounds.push(off);
+  });
+  const lo = Math.min(...pts.map((q) => q[1])) - 30, hi = Math.max(...pts.map((q) => q[1])) + 15;
+  const X = (m) => (m / off) * Wd, Y = (e) => (H - B) - ((e - lo) / (hi - lo)) * (H - B);
+  const line = "M" + pts.map((q) => X(q[0]).toFixed(1) + "," + Y(q[1]).toFixed(1)).join(" L");
+  svg.setAttribute("viewBox", `0 0 ${Wd} ${H}`);
+  svg.innerHTML = `<defs><linearGradient id="pg" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#3d5a2e"/><stop offset="1" stop-color="#3d5a2e" stop-opacity=".04"/></linearGradient></defs>` +
+    `<path d="${line} L${Wd},${H - B} L0,${H - B} Z" fill="url(#pg)"/>` +
+    bounds.slice(0, -1).map((b) => `<line x1="${X(b)}" x2="${X(b)}" y1="0" y2="${H - B}" stroke="rgba(0,0,0,.25)" stroke-dasharray="3 3" vector-effect="non-scaling-stroke"/>`).join("") +
+    `<path d="${line}" fill="none" stroke="#c6e600" stroke-width="2.2" vector-effect="non-scaling-stroke"/>` +
+    `<line id="pcur" x1="0" x2="0" y1="0" y2="${H - B}" stroke="#012FFF" stroke-width="1.5" vector-effect="non-scaling-stroke" opacity="0"/>`;
+  $("#xax").innerHTML = [0, Math.round(off / 2), off].map((m) => `<span>${m === off ? off.toFixed(1) : m} mi</span>`).join("");
+  $("#axhi").textContent = Math.round(hi - 15) + " ft"; $("#axlo").textContent = Math.round(lo + 30) + " ft";
+  $("#daybar").innerHTML = days.map((d, j) => {
+    const fr = d.miles / off, lab = fr >= 0.14 ? `<span>${esc(d.name.split(":")[0].replace(/^Day (\d) (evening|morning)$/, "Day $1 $2"))}</span>` : "";
+    const bg = d.side ? `repeating-linear-gradient(135deg, rgba(255,255,255,.28) 0 4px, transparent 4px 9px), ${DAYCOL[j % 4]}` : DAYCOL[j % 4];
+    return `<div style="flex:${fr.toFixed(3)};background:${bg};color:${DAYINK[j % 4]}" title="${d.side ? "Side trip" : ""}">${lab}<b>${d.miles.toFixed(1)}</b></div>`;
+  }).join("");
+  prof = { pts, off, X, days, bounds };
+}
+function lineAt(dayIdx, mile) {
+  const ln = prof.days[dayIdx].line; let acc = 0;
+  const hav = (a, b) => { const R = 3958.8, r = Math.PI / 180; const d1 = (b[0] - a[0]) * r, d2 = (b[1] - a[1]) * r; const x = Math.sin(d1 / 2) ** 2 + Math.cos(a[0] * r) * Math.cos(b[0] * r) * Math.sin(d2 / 2) ** 2; return 2 * R * Math.asin(Math.sqrt(x)); };
+  for (let i = 1; i < ln.length; i++) { const s = hav(ln[i - 1], ln[i]); if (acc + s >= mile) { const f = s ? (mile - acc) / s : 0; return [ln[i - 1][0] + (ln[i][0] - ln[i - 1][0]) * f, ln[i - 1][1] + (ln[i][1] - ln[i - 1][1]) * f]; } acc += s; }
+  return ln[ln.length - 1];
+}
+function profMove(clientX) {
+  const box = $("#prof").getBoundingClientRect(); const f = Math.min(1, Math.max(0, (clientX - box.left) / box.width));
+  const m = f * prof.off; let best = prof.pts[0];
+  for (const q of prof.pts) { if (Math.abs(q[0] - m) < Math.abs(best[0] - m)) best = q; }
+  const j = best[2], start = j ? prof.bounds[j - 1] : 0;
+  const pc = $("#pcur"); pc.setAttribute("x1", prof.X(best[0])); pc.setAttribute("x2", prof.X(best[0])); pc.setAttribute("opacity", "1");
+  const tip = $("#tip"); tip.style.left = (f * 100) + "%"; tip.textContent = `${prof.days[j].name.split(":")[0]} · mi ${(best[0] - start).toFixed(1)} · ${Math.round(best[1])} ft`;
+  $("#prof").classList.add("active"); cursor.setLatLng(lineAt(j, best[0] - start)).addTo(map);
+  const all = DATA.plans[cur.id].days; hotDay(all.indexOf(prof.days[j]));
+}
+function profLeave() { $("#prof").classList.remove("active"); $("#pcur") && $("#pcur").setAttribute("opacity", "0"); map.removeLayer(cursor); hotDay(-1); }
+const pe = $("#prof");
+pe.addEventListener("pointermove", (e) => profMove(e.clientX));
+pe.addEventListener("pointerdown", (e) => profMove(e.clientX));
+pe.addEventListener("pointerleave", profLeave);
+
+/* ---------- tabs and controls ---------- */
+$("#tabs").hidden = PLANS.length < 2;
+$("#tabs").innerHTML = PLANS.map((p, i) => `<button class="tab" role="tab" data-i="${i}">${esc(p.tab)} · ${Math.round(sum(counted(DATA.plans[p.id].days), (d) => d.miles))} mi</button>`).join("");
+document.querySelectorAll(".tab").forEach((b) => b.addEventListener("click", () => selectTrip(+b.dataset.i)));
+$("#fit").addEventListener("click", fitTrip);
+$("#zin").addEventListener("click", () => map.zoomIn());
+$("#zout").addEventListener("click", () => map.zoomOut());
+let me = null;
+$("#locate").addEventListener("click", () => {
+  if (!navigator.geolocation) return;
+  $("#locate").classList.add("on");
+  navigator.geolocation.getCurrentPosition((q) => {
+    const ll = [q.coords.latitude, q.coords.longitude];
+    if (me) me.setLatLng(ll); else me = L.circleMarker(ll, { radius: 8, color: "#fff", weight: 3, fillColor: "#012FFF", fillOpacity: 1 }).addTo(map);
+    map.flyTo(ll, Math.max(map.getZoom(), 14), { animate: !reduce });
+  }, () => $("#locate").classList.remove("on"), { enableHighAccuracy: true, timeout: 10000 });
+});
+const startIdx = Math.max(0, PLANS.findIndex((p) => "#" + p.id === location.hash), PLANS.findIndex((p) => p.rec && !location.hash));
+map.fitBounds(L.featureGroup(layers[PLANS[startIdx].id].sel).getBounds(), padFor());
+selectTrip(startIdx, false);
+</script>
+</body>
+</html>

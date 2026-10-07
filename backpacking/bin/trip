@@ -1,0 +1,515 @@
+#!/usr/bin/env -S uv run --quiet --script
+# /// script
+# requires-python = ">=3.10"
+# dependencies = ["shapely", "playwright", "pillow"]
+# ///
+"""trip: build a backpacking trip plan from a trip.json.
+
+  trip route   TRIP_DIR   route each day on OpenStreetMap trails, write GPX per plan
+  trip elev    TRIP_DIR   sample USGS 3DEP elevations along each day (cached)
+  trip layers  TRIP_DIR   USFS land ownership and USGS NHD creeks for the map
+  trip check   TRIP_DIR   land status of every waypoint (camps must be on USFS land)
+  trip web     TRIP_DIR   render the interactive page into TRIP_DIR/build/site
+  trip shots   TRIP_DIR   serve the page locally, screenshot desktop and phone, report JS errors
+  trip alltrails TRIP_DIR upload each plan's GPX to AllTrails (alltrails/bin/alltrails), store links
+  trip publish TRIP_DIR   copy the site to the personal site as an unlisted page and push
+  trip build   TRIP_DIR   route + elev + layers + check + web
+
+Everything a trip needs is in TRIP_DIR/trip.json (schema in backpacking/README.md).
+Outputs go to TRIP_DIR/build/ (gitignored). Shared caches go to backpacking/cache/.
+"""
+from __future__ import annotations
+
+import argparse
+import heapq
+import json
+import math
+import secrets
+import shutil
+import string
+import subprocess
+import sys
+import time
+import urllib.parse
+import urllib.request
+from collections import defaultdict
+from concurrent.futures import ThreadPoolExecutor
+from pathlib import Path
+
+ROOT = Path(__file__).resolve().parent.parent
+HARNESS = ROOT.parent
+CACHE = ROOT / "cache"
+UA = {"User-Agent": "exobrain-trip-planner/1.0"}
+SITE_REPO = Path.home() / "Documents/becomingstronger.github.io"
+SITE_URL = "https://becomingstronger.github.io"
+FS_OWNERSHIP = "https://apps.fs.usda.gov/arcx/rest/services/EDW/EDW_BasicOwnership_02/MapServer/0/query"
+NHD_FLOWLINES = "https://hydro.nationalmap.gov/arcgis/rest/services/nhd/MapServer/6/query"
+EPQS = "https://epqs.nationalmap.gov/v1/json"
+PERENNIAL, ARTIFICIAL_PATH = 46006, 55800
+
+
+# ---------- helpers ----------
+
+def hav(a, b):
+    r = 3958.8
+    la1, lo1 = map(math.radians, a)
+    la2, lo2 = map(math.radians, b)
+    x = math.sin((la2 - la1) / 2) ** 2 + math.cos(la1) * math.cos(la2) * math.sin((lo2 - lo1) / 2) ** 2
+    return 2 * r * math.asin(math.sqrt(x))
+
+
+def length(line):
+    return sum(hav(a, b) for a, b in zip(line, line[1:], strict=False))
+
+
+def get_json(url, timeout=90, tries=3):
+    last = None
+    for _ in range(tries):
+        try:
+            with urllib.request.urlopen(urllib.request.Request(url, headers=UA), timeout=timeout) as r:
+                return json.loads(r.read())
+        except Exception as e:  # noqa: BLE001 - network calls retry on any failure, then re-raise
+            last = e
+            time.sleep(2)
+    raise SystemExit(f"fetch failed: {url[:120]}: {last}")
+
+
+def cached(name, fn):
+    p = CACHE / name
+    if p.exists():
+        return json.loads(p.read_text())
+    CACHE.mkdir(parents=True, exist_ok=True)
+    v = fn()
+    p.write_text(json.dumps(v))
+    return v
+
+
+def load(trip_dir):
+    d = Path(trip_dir).resolve()
+    cfg = json.loads((d / "trip.json").read_text())
+    (d / "build").mkdir(exist_ok=True)
+    return d, cfg
+
+
+def bjson(d, name, value=None):
+    p = d / "build" / name
+    if value is None:
+        return json.loads(p.read_text())
+    p.write_text(json.dumps(value, separators=(",", ":")))
+    return value
+
+
+# ---------- route ----------
+
+def osm_graph(cfg):
+    """Graph of the trail relations plus any highway in the extra boxes. Off-relation ways cost 3x,
+    so routing stays on the marked trail unless a spur road is the only way to a waypoint."""
+    nodes, ways = {}, []
+    for rid in cfg["osm"]["relations"]:
+        data = cached(f"osm-rel-{rid}.json", lambda rid=rid: get_json(f"https://api.openstreetmap.org/api/0.6/relation/{rid}/full.json"))
+        for e in data["elements"]:
+            if e["type"] == "node":
+                nodes[e["id"]] = (e["lat"], e["lon"])
+            elif e["type"] == "way":
+                ways.append((e["nodes"], 1.0, e.get("tags", {}).get("name", "")))
+    for s, w, n, e in cfg["osm"].get("extra_bbox", []):
+        key = f"osm-map-{s}-{w}-{n}-{e}.json"
+        data = cached(key, lambda s=s, w=w, n=n, e=e: get_json(f"https://api.openstreetmap.org/api/0.6/map.json?bbox={w},{s},{e},{n}"))
+        for el in data["elements"]:
+            if el["type"] == "node":
+                nodes[el["id"]] = (el["lat"], el["lon"])
+            elif el["type"] == "way" and ("highway" in el.get("tags", {}) or "abandoned:highway" in el.get("tags", {})):
+                ways.append((el["nodes"], 3.0, el["tags"].get("name", "")))
+    g = defaultdict(list)
+    for ns, cost, _ in ways:
+        for a, b in zip(ns, ns[1:], strict=False):
+            if a in nodes and b in nodes:
+                d = hav(nodes[a], nodes[b])
+                g[a].append((b, d, d * cost))
+                g[b].append((a, d, d * cost))
+    return nodes, g
+
+
+def shortest(g, a, b):
+    dist, prev, pq = {a: 0.0}, {}, [(0.0, a)]
+    while pq:
+        d, u = heapq.heappop(pq)
+        if u == b:
+            break
+        if d > dist[u]:
+            continue
+        for v, _, c in g[u]:
+            if d + c < dist.get(v, 1e18):
+                dist[v] = d + c
+                prev[v] = u
+                heapq.heappush(pq, (d + c, v))
+    if b not in dist:
+        raise SystemExit("no trail path between two waypoints; add an extra_bbox that covers the gap")
+    out = [b]
+    while out[-1] != a:
+        out.append(prev[out[-1]])
+    return out[::-1]
+
+
+def read_gpx_track(path):
+    import xml.etree.ElementTree as ET
+    ns = {"g": "http://www.topografix.com/GPX/1/1"}
+    return [(float(p.get("lat")), float(p.get("lon"))) for p in ET.parse(path).getroot().iterfind(".//g:trkpt", ns)]
+
+
+def cmd_route(a):
+    d, cfg = load(a.trip)
+    nodes, g = osm_graph(cfg)
+    wp = cfg["waypoints"]
+    snap_cache = {}
+
+    def snap(wid):
+        if wid not in snap_cache:
+            p = (wp[wid]["lat"], wp[wid]["lon"])
+            n = min(g, key=lambda k: hav(nodes[k], p))
+            off = hav(nodes[n], p)
+            if off > 0.15:
+                print(f"  warning: waypoint {wid} is {off:.2f} mi from the nearest mapped path")
+            snap_cache[wid] = n
+        return snap_cache[wid]
+
+    plans = {}
+    for plan in cfg["plans"]:
+        days = []
+        for day in plan["days"]:
+            if day.get("track_gpx"):
+                line = read_gpx_track(d / day["track_gpx"])
+            else:
+                seq = []
+                for x, y in zip(day["via"], day["via"][1:], strict=False):
+                    part = shortest(g, snap(x), snap(y))
+                    seq += part if not seq else part[1:]
+                line = [nodes[n] for n in seq]
+            days.append({"name": day["name"], "side": bool(day.get("side")), "optional": bool(day.get("optional")),
+                         "miles": round(length(line), 2), "line": [[round(la, 6), round(lo, 6)] for la, lo in line]})
+            print(f"{plan['id']:>10} | {day['name'][:56]:56s} {days[-1]['miles']:5.2f} mi")
+        plans[plan["id"]] = {"days": days}
+        tot = sum(x["miles"] for x in days if not x["optional"])
+        print(f"{plan['id']:>10} | total {tot:.1f} mi")
+    bjson(d, "routes.json", plans)
+    write_gpx(d, cfg, plans)
+
+
+def write_gpx(d, cfg, plans):
+    from xml.sax.saxutils import escape
+    out = d / "build" / "site"
+    out.mkdir(parents=True, exist_ok=True)
+    for plan in cfg["plans"]:
+        days = plans[plan["id"]]["days"]
+        ids = set(plan.get("milestones", []))
+        x = ['<?xml version="1.0" encoding="UTF-8"?>',
+             '<gpx version="1.1" creator="exobrain backpacking" xmlns="http://www.topografix.com/GPX/1/1">',
+             f'<metadata><name>{escape(plan["gpx_name"])}</name><desc>Trail geometry from OpenStreetMap contributors (ODbL).</desc></metadata>']
+        for wid, w in cfg["waypoints"].items():
+            if wid in ids or w.get("camp"):
+                label = w["name"] + (" (approx.)" if w.get("approx") else "")
+                x.append(f'<wpt lat="{w["lat"]:.7f}" lon="{w["lon"]:.7f}"><name>{escape(label)}</name></wpt>')
+        for day in days:
+            nm = day["name"] + (" (optional)" if day["optional"] else "") + f" ({day['miles']:.1f} mi)"
+            pts = "".join(f'<trkpt lat="{la:.6f}" lon="{lo:.6f}"/>' for la, lo in day["line"])
+            x.append(f"<trk><name>{escape(nm)}</name><trkseg>{pts}</trkseg></trk>")
+        x.append("</gpx>")
+        (out / f"{plan['id']}.gpx").write_text("\n".join(x))
+
+
+# ---------- elevation ----------
+
+def cmd_elev(a):
+    d, _ = load(a.trip)
+    plans = bjson(d, "routes.json")
+    cache_p = CACHE / "epqs.json"
+    cache = json.loads(cache_p.read_text()) if cache_p.exists() else {}
+
+    def elev(p):
+        k = f"{p[0]:.5f},{p[1]:.5f}"
+        if k not in cache:
+            q = urllib.parse.urlencode({"x": f"{p[1]:.6f}", "y": f"{p[0]:.6f}", "units": "Feet", "wkid": 4326})
+            for _ in range(4):
+                try:
+                    cache[k] = float(get_json(f"{EPQS}?{q}", timeout=30, tries=1)["value"])
+                    break
+                except (SystemExit, KeyError, TypeError, ValueError):
+                    time.sleep(1)
+        return cache.get(k)
+
+    for pid, plan in plans.items():
+        for day in plan["days"]:
+            line = day["line"]
+            samp, acc, last = [(0.0, line[0])], 0.0, 0.0
+            for p, q in zip(line, line[1:], strict=False):
+                acc += hav(p, q)
+                if acc - last >= 0.06:
+                    samp.append((acc, q))
+                    last = acc
+            samp.append((acc, line[-1]))
+            with ThreadPoolExecutor(10) as ex:
+                el = list(ex.map(lambda s: elev(s[1]), samp))
+            prof = [(round(m, 3), round(e, 1)) for (m, _), e in zip(samp, el, strict=False) if e is not None]
+            gain, ref = 0.0, prof[0][1]
+            for _, e in prof:  # 10 ft hysteresis so DEM noise does not inflate the gain
+                if e - ref > 10:
+                    gain += e - ref
+                    ref = e
+                elif ref - e > 10:
+                    ref = e
+            day.update(profile=prof, gain=round(gain), min=min(e for _, e in prof), max=max(e for _, e in prof))
+            print(f"{pid:>10} | {day['name'][:56]:56s} +{day['gain']:5d} ft")
+    cache_p.write_text(json.dumps(cache))
+    bjson(d, "routes.json", plans)
+
+
+# ---------- layers ----------
+
+def esri_geojson(url, bbox, fields, page=2000):
+    s, w, n, e = bbox
+    feats, off = [], 0
+    while True:
+        q = urllib.parse.urlencode({"geometry": f"{w},{s},{e},{n}", "geometryType": "esriGeometryEnvelope", "inSR": 4326,
+                                    "spatialRel": "esriSpatialRelIntersects", "outFields": fields, "returnGeometry": "true",
+                                    "outSR": 4326, "geometryPrecision": 5, "resultOffset": off, "resultRecordCount": page, "f": "geojson"})
+        got = get_json(f"{url}?{q}", timeout=150)
+        feats += got.get("features", [])
+        if len(got.get("features", [])) < page:
+            return feats
+        off += page
+
+
+def cmd_layers(a):
+    from shapely.geometry import box, mapping, shape
+    from shapely.ops import linemerge, unary_union
+    d, cfg = load(a.trip)
+    s, w, n, e = cfg["bbox"]
+    frame = box(w, s, e, n)
+    own = cached(f"usfs-own-{s}-{w}-{n}-{e}.json", lambda: esri_geojson(FS_OWNERSHIP, cfg["bbox"], "ownerclassification"))
+    fs_parts = [shape(f["geometry"]) for f in own if f["properties"]["ownerclassification"] == "USDA FOREST SERVICE"]
+    fs = unary_union(fs_parts).intersection(frame) if fs_parts else frame.buffer(-1)
+    nhd = cached(f"nhd-{s}-{w}-{n}-{e}.json", lambda: esri_geojson(NHD_FLOWLINES, cfg["bbox"], "gnis_name,fcode"))
+    main_name = cfg.get("water", {}).get("main")
+
+    def merged(fs_):
+        if not fs_:
+            return None
+        gg = unary_union([shape(f["geometry"]) for f in fs_]).intersection(frame)
+        try:
+            gg = linemerge(gg)
+        except ValueError:
+            pass
+        return mapping(gg.simplify(0.00006))
+
+    main = [f for f in nhd if f["properties"].get("gnis_name") == main_name and f["properties"]["fcode"] in (PERENNIAL, ARTIFICIAL_PATH)]
+    others = [f for f in nhd if f["properties"].get("gnis_name") not in (None, "", main_name) and f["properties"]["fcode"] == PERENNIAL
+              and f["properties"]["gnis_name"] not in cfg.get("water", {}).get("exclude", [])]
+    bjson(d, "layers.json", {"fs": mapping(fs.simplify(0.00008)), "private": mapping(frame.difference(fs).simplify(0.0001)),
+                              "main": merged(main), "creeks": merged(others)})
+    bjson(d, "fs_full.json", mapping(fs))
+    print(f"USFS land parts: {len(getattr(fs, 'geoms', [fs]))}; main creek '{main_name}': {len(main)} segments; other year-round creeks: {len(others)} segments")
+
+
+def cmd_check(a):
+    from shapely.geometry import Point, shape
+    d, cfg = load(a.trip)
+    fs = shape(bjson(d, "fs_full.json"))
+    bad = 0
+    for wid, w in cfg["waypoints"].items():
+        p = Point(w["lon"], w["lat"])
+        inside = fs.contains(p)
+        edge_ft = p.distance(fs.boundary) * 69 * 5280
+        flag = ""
+        if w.get("camp") and not inside:
+            flag, bad = "  <-- CAMP NOT ON USFS LAND", bad + 1
+        print(f"{wid:14s} {'USFS' if inside else 'not USFS':9s} {edge_ft:6.0f} ft to boundary{flag}")
+    if bad:
+        raise SystemExit(f"{bad} camp(s) off National Forest land; move them before you publish")
+
+
+# ---------- web ----------
+
+def mile_marks(cfg, plans):
+    """For each plan and milestone: which day passes nearest, and at what mile of that day."""
+    out = {}
+    for plan in cfg["plans"]:
+        days = plans[plan["id"]]["days"]
+        marks = {}
+        for wid in plan.get("milestones", []):
+            p = (cfg["waypoints"][wid]["lat"], cfg["waypoints"][wid]["lon"])
+            best = None
+            for j, day in enumerate(days):
+                acc = 0.0
+                for i, q in enumerate(day["line"]):
+                    if i:
+                        acc += hav(day["line"][i - 1], q)
+                    dd = hav(p, q)
+                    if best is None or dd < best[0] - 1e-9:
+                        best = (dd, j, acc)
+            marks[wid] = {"day": best[1], "mile": round(best[2], 1), "off": round(best[0], 2)}
+        out[plan["id"]] = marks
+    return out
+
+
+def cmd_web(a):
+    d, cfg = load(a.trip)
+    plans = bjson(d, "routes.json")
+    layers = bjson(d, "layers.json")
+    site = d / "build" / "site"
+    site.mkdir(parents=True, exist_ok=True)
+    for f in ("Outfit.ttf", "OFL.txt"):
+        shutil.copy(ROOT / "fonts" / f, site / f)
+    if cfg.get("pdf") and (d / cfg["pdf"]).exists():
+        shutil.copy(d / cfg["pdf"], site / Path(cfg["pdf"]).name)
+    links = json.loads((d / "links.json").read_text()) if (d / "links.json").exists() else {}
+    pub = json.loads((d / "publish.json").read_text()) if (d / "publish.json").exists() else {}
+    data = {"config": cfg, "plans": plans, "marks": mile_marks(cfg, plans), "links": links, **layers}
+    html = (ROOT / "web" / "template.html").read_text()
+    og = f"{SITE_URL}/trips/{pub['dir']}/og.jpg" if pub.get("dir") else "og.jpg"
+    html = html.replace("__DATA__", json.dumps(data, separators=(",", ":"))).replace("__OGIMG__", og)
+    html = html.replace("__TITLE__", cfg["page_title"]).replace("__DESC__", cfg["page_description"])
+    icons = {"bug_report", "camping", "download", "emergency", "hiking", "map", "my_location", "picture_as_pdf", "route", "signpost", "target", "water", "water_drop"}
+    icons |= {c[0] for c in cfg.get("conditions", [])} | {r["icon"] for r in cfg.get("why", [])}
+    html = html.replace("__ICONS__", ",".join(sorted(icons)))  # Google Fonts wants the subset sorted
+    (site / "index.html").write_text(html)
+    print(f"wrote {site / 'index.html'} ({len(html) // 1024} KB)")
+
+
+def serve(site, port=8766):
+    return subprocess.Popen([sys.executable, "-m", "http.server", str(port), "-d", str(site)],
+                            stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+
+
+def cmd_shots(a):
+    from playwright.sync_api import sync_playwright
+    d, cfg = load(a.trip)
+    site, shots = d / "build" / "site", d / "build" / "shots"
+    shots.mkdir(exist_ok=True)
+    srv = serve(site)
+    time.sleep(1)
+    errs = []
+    try:
+        with sync_playwright() as p:
+            b = p.chromium.launch(channel="chrome")
+            for name, vp, mobile in (("desk", {"width": 1440, "height": 900}, False), ("phone", {"width": 390, "height": 844}, True)):
+                ctx = b.new_context(viewport=vp, is_mobile=mobile, has_touch=mobile, device_scale_factor=2 if mobile else 1)
+                pg = ctx.new_page()
+                pg.on("pageerror", lambda e: errs.append("pageerror: " + str(e)))
+                pg.goto("http://127.0.0.1:8766/", wait_until="networkidle")
+                pg.wait_for_timeout(2500)
+                pg.screenshot(path=str(shots / f"{name}.png"))
+                if not mobile:
+                    for i, plan in enumerate(cfg["plans"]):
+                        if len(cfg["plans"]) > 1:
+                            pg.click(f".tab >> nth={i}")
+                            pg.wait_for_timeout(1500)
+                        pg.screenshot(path=str(shots / f"desk-{plan['id']}.png"))
+                    pg.evaluate("document.querySelector('.why') && document.querySelector('.why').scrollIntoView()")
+                    pg.wait_for_timeout(400)
+                    pg.screenshot(path=str(shots / "desk-why.png"))
+                    pg.evaluate("document.querySelector('.panel').scrollTop = 0")
+                    pg.wait_for_timeout(300)
+                    pg.screenshot(path=str(site / "og-src.png"), clip={"x": 0, "y": 0, "width": 1200, "height": 630})
+            b.close()
+    finally:
+        srv.terminate()
+    from PIL import Image
+    Image.open(site / "og-src.png").convert("RGB").save(site / "og.jpg", quality=85)
+    (site / "og-src.png").unlink()
+    print("shots in", shots)
+    print("errors:", errs or "none")
+    if errs:
+        raise SystemExit(1)
+
+
+# ---------- publish ----------
+
+def cmd_alltrails(a):
+    d, cfg = load(a.trip)
+    site = d / "build" / "site"
+    links = json.loads((d / "links.json").read_text()) if (d / "links.json").exists() else {}
+    tool = HARNESS / "alltrails" / "bin" / "alltrails"
+    if a.replace and links.get("_map_ids"):
+        subprocess.run([str(tool), "delete-map", *map(str, links["_map_ids"].values())], check=False)
+        links = {}
+    ids = links.get("_map_ids", {})
+    for plan in cfg["plans"]:
+        if plan["id"] in links:
+            continue
+        gpx = site / f"{plan['id']}.gpx"
+        named = site / f"{plan['gpx_name']}.gpx"
+        shutil.copy(gpx, named)
+        out = subprocess.run([str(tool), "upload", str(named)], capture_output=True, text=True, check=True).stdout
+        named.unlink()
+        url = next(line.strip() for line in out.splitlines() if "/explore/custom-routes/" in line)
+        mid = int(out.split("[map ")[1].split("]")[0])
+        links[plan["id"]] = url
+        ids[plan["id"]] = mid
+        print(plan["id"], url)
+    links["_map_ids"] = ids
+    (d / "links.json").write_text(json.dumps(links, indent=1))
+
+
+def cmd_publish(a):
+    d, cfg = load(a.trip)
+    pub_p = d / "publish.json"
+    pub = json.loads(pub_p.read_text()) if pub_p.exists() else {}
+    if not pub.get("dir"):
+        tok = "".join(secrets.choice(string.ascii_lowercase + string.digits) for _ in range(10))
+        pub = {"dir": f"{cfg['slug']}-{tok}"}
+        pub_p.write_text(json.dumps(pub))
+        cmd_web(a)  # re-render so og:image carries the final URL
+    site = d / "build" / "site"
+    dest = SITE_REPO / "trips" / pub["dir"]
+    if dest.exists():
+        shutil.rmtree(dest)
+    shutil.copytree(site, dest)
+    git = ["git", "-C", str(SITE_REPO)]
+    subprocess.run([*git, "pull", "-q"], check=True)
+    subprocess.run([*git, "add", f"trips/{pub['dir']}"], check=True)
+    if subprocess.run([*git, "diff", "--cached", "--quiet"], check=False).returncode == 0:
+        print("no changes to publish")
+    else:
+        subprocess.run([*git, "commit", "-q", "-m", a.message or f"Update the {cfg['title']} trip plan"], check=True)
+        subprocess.run([*git, "push", "-q"], check=True)
+    url = f"{SITE_URL}/trips/{pub['dir']}/"
+    marker = json.dumps(cfg["page_title"])[1:-1]
+    for _ in range(60):
+        try:
+            with urllib.request.urlopen(urllib.request.Request(url, headers=UA), timeout=20) as r:
+                if r.status == 200 and marker in r.read().decode():
+                    break
+        except Exception:  # noqa: BLE001 - poll until the Pages deploy lands
+            pass
+        time.sleep(10)
+    else:
+        raise SystemExit(f"not live after 10 minutes: {url}")
+    print("live:", url)
+
+
+def cmd_build(a):
+    cmd_route(a)
+    cmd_elev(a)
+    cmd_layers(a)
+    cmd_check(a)
+    cmd_web(a)
+
+
+def main():
+    ap = argparse.ArgumentParser(prog="trip", description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
+    sub = ap.add_subparsers(dest="cmd", required=True)
+    for name, fn in (("route", cmd_route), ("elev", cmd_elev), ("layers", cmd_layers), ("check", cmd_check), ("web", cmd_web),
+                     ("shots", cmd_shots), ("alltrails", cmd_alltrails), ("publish", cmd_publish), ("build", cmd_build)):
+        p = sub.add_parser(name)
+        p.add_argument("trip")
+        if name == "alltrails":
+            p.add_argument("--replace", action="store_true", help="delete the maps this trip uploaded before, then upload again")
+        if name == "publish":
+            p.add_argument("-m", "--message")
+        p.set_defaults(fn=fn)
+    a = ap.parse_args()
+    a.fn(a)
+
+
+if __name__ == "__main__":
+    main()

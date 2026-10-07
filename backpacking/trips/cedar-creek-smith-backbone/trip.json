@@ -1,0 +1,250 @@
+{
+  "slug": "cedar-creek-smith-backbone",
+  "title": "Cedar Creek",
+  "subtitle": "Mark Twain National Forest · Missouri",
+  "page_title": "Smith Creek and Devil's Backbone: a one-night backpacking plan",
+  "page_description": "One night on the Cedar Creek Trail, Mark Twain National Forest: Smith Creek Loop, Rutherford Bridge and Devil's Backbone, about 10 miles round trip.",
+  "difficulty": "Moderate (USFS)",
+  "bbox": [
+    38.77,
+    -92.21,
+    38.86,
+    -92.07
+  ],
+  "osm": {
+    "relations": [
+      7176641
+    ],
+    "extra_bbox": [
+      [
+        38.8,
+        -92.17,
+        38.82,
+        -92.145
+      ]
+    ]
+  },
+  "water": {
+    "main": "Cedar Creek",
+    "label_box": [
+      38.795,
+      -92.175,
+      38.84,
+      -92.12
+    ],
+    "label_at": [
+      0.2,
+      0.55,
+      0.85
+    ]
+  },
+  "waypoints": {
+    "smith_th": {
+      "name": "Smith Creek Trailhead",
+      "label": "Smith Creek Trailhead",
+      "side": "r",
+      "lat": 38.8240898,
+      "lon": -92.1377923,
+      "text": "Start and finish. A small gravel lot: the Forest Service says most lots here hold about 3 vehicles.",
+      "source": "OSM node, USFS trailhead page"
+    },
+    "bridge": {
+      "name": "Rutherford Bridge",
+      "label": "Rutherford Bridge",
+      "side": "l",
+      "lat": 38.8179933,
+      "lon": -92.1440028,
+      "text": "An iron road bridge more than 100 years old, now a footbridge over Cedar Creek. The bridge itself is on private land.",
+      "source": "OSM, compulsivehiker.com"
+    },
+    "camp": {
+      "name": "Camp on National Forest land",
+      "camp": true,
+      "lat": 38.81844,
+      "lon": -92.14185,
+      "text": "The first National Forest ground on the trail east of the bridge, 0.15 mi from it. Walk back down to the creek for water.",
+      "source": "USFS EDW ownership"
+    },
+    "overlook": {
+      "name": "Overlook above Cedar Creek",
+      "label": "Overlook",
+      "side": "r",
+      "lat": 38.8182489,
+      "lon": -92.1386117,
+      "text": "Bluffs 100 to 150 ft above the creek, with cedars on the edge.",
+      "source": "OSM viewpoint, rivrvlogr.com"
+    },
+    "south_jct": {
+      "name": "Smith Creek Loop, south side",
+      "route_only": true,
+      "lat": 38.8110568,
+      "lon": -92.136533,
+      "source": "OSM USFS guidepost"
+    },
+    "boydsville": {
+      "name": "Boydsville",
+      "label": "Boydsville",
+      "side": "l",
+      "lat": 38.814145,
+      "lon": -92.1115892,
+      "text": "The east end of the loop, at the Boydsville North Trailhead. The loop turns back west here along the north side.",
+      "source": "OSM USFS trailhead node"
+    },
+    "backbone_th": {
+      "name": "Backbone Road turnoff",
+      "route_only": true,
+      "lat": 38.8098507,
+      "lon": -92.1566659,
+      "source": "OSM trailhead node"
+    },
+    "ridge": {
+      "name": "Devil's Backbone",
+      "label": "Devil's Backbone",
+      "side": "r",
+      "lat": 38.8044752,
+      "lon": -92.1516701,
+      "text": "A narrow ridge cut by erosion on both sides. The last half mile is on Backbone Road, past the point where the trail turns away.",
+      "source": "USGS GNIS 749635"
+    }
+  },
+  "milestones": [
+    "smith_th",
+    "bridge",
+    "ridge",
+    "overlook",
+    "boydsville"
+  ],
+  "plans": [
+    {
+      "id": "1-night",
+      "tab": "1 night",
+      "gpx_name": "Cedar Creek Smith Creek and Devil's Backbone (1 night)",
+      "eyebrow": "1 night · 4 hikers",
+      "title": "Smith Creek and Devil's Backbone",
+      "rec": false,
+      "milestones": [
+        "smith_th",
+        "bridge",
+        "ridge",
+        "overlook",
+        "boydsville"
+      ],
+      "side_trips": [
+        "ridge"
+      ],
+      "notes": {
+        "ridge": "Side trip on the first afternoon, out and back from camp with day packs."
+      },
+      "days": [
+        {
+          "name": "Day 1: Smith Creek Trailhead to camp",
+          "via": [
+            "smith_th",
+            "bridge",
+            "camp"
+          ]
+        },
+        {
+          "name": "Day 1 afternoon: Devil's Backbone side trip",
+          "via": [
+            "camp",
+            "bridge",
+            "backbone_th",
+            "ridge",
+            "backbone_th",
+            "bridge",
+            "camp"
+          ],
+          "side": true
+        },
+        {
+          "name": "Day 2: Smith Creek Loop back to the trailhead",
+          "via": [
+            "camp",
+            "overlook",
+            "south_jct",
+            "boydsville",
+            "smith_th"
+          ]
+        }
+      ]
+    }
+  ],
+  "why": [
+    {
+      "icon": "landscape",
+      "title": "The best of Cedar Creek, without the road miles.",
+      "text": "This trip keeps the three highlights of the trail system: the Smith Creek bluffs, Rutherford Bridge and Devil's Backbone. It leaves out the Southern Loop, which the Forest Service and a trip report describe as mostly gravel road and cattle pasture."
+    },
+    {
+      "icon": "water_drop",
+      "title": "Camp beside Cedar Creek.",
+      "text": "Cedar Creek is the largest stream on the trail and the one most likely to run in a dry fall. On Oct 4, 2026 a hiker found every Moon Loop crossing dry. The bridge stands on private land, so camp on the National Forest land that starts 0.15 mi east of it, and walk back down to the creek for water."
+    },
+    {
+      "icon": "hiking",
+      "title": "Light packs on the side trip.",
+      "text": "Day 1 carries full packs only 0.8 mi, from the trailhead to camp. Devil's Backbone is then an afternoon out and back with day packs. Day 2 carries the packs around the Smith Creek Loop and back to the car."
+    },
+    {
+      "icon": "route",
+      "title": "The whole Smith Creek Loop, once.",
+      "text": "Day 2 leaves camp past the overlook, follows the south side of the loop to Boydsville, and comes back on the north side to the trailhead. Day 2 shares no trail with Day 1. The only stretch walked twice is the 0.14 mi between camp and the bridge, on the way to Devil's Backbone and back (measured on the route data)."
+    },
+    {
+      "icon": "local_drink",
+      "title": "There is no tap water on this route.",
+      "text": "The taps at Pine Ridge and Dry Fork are off this route. Filter from Cedar Creek, or leave water in the car at the trailhead for the end of Day 2."
+    }
+  ],
+  "conditions": [
+    [
+      "water_drop",
+      "Water",
+      "No taps on the route. Cedar Creek usually runs. Smith Creek was dry on an October 2020 trip report. Bring a filter and a pre-filter."
+    ],
+    [
+      "water",
+      "Mud and high water",
+      "Horses use the trail. Reviews from May to July 2026 report deep mud, and one hiker turned back at a high Smith Creek. The Smith Creek crossing has no bridge. Do not go after heavy rain."
+    ],
+    [
+      "bug_report",
+      "Ticks",
+      "Clouds of seed ticks on Moon Loop in August 2026, none on Oct 4. Treat clothes with permethrin."
+    ],
+    [
+      "target",
+      "Hunting",
+      "Youth firearms Oct 24 to 25 and firearms deer season Nov 14 to 24, 2026 (MDC). Archery runs all fall. Wear blaze orange."
+    ],
+    [
+      "local_parking",
+      "Parking",
+      "The Smith Creek Trailhead lot is small, about 3 vehicles. Four hikers fit in one or two cars."
+    ],
+    [
+      "signpost",
+      "Navigation",
+      "The Smith Creek Loop has orange diamond markers. Reports range from poorly marked to very well marked, so download the route to every phone."
+    ]
+  ],
+  "emergency": [
+    [
+      "Callaway County",
+      "911",
+      "911"
+    ],
+    [
+      "Callaway Community Hospital",
+      "(573) 642-3376",
+      "+15736423376"
+    ],
+    [
+      "Ranger district, weekdays 8:00 to 4:30",
+      "(417) 967-4194",
+      "+14179674194"
+    ]
+  ],
+  "sources_html": "Sources: USFS <a href=\"https://fs.usda.gov/r09/marktwain/recreation/trails/cedar-creek-trail-system\">Cedar Creek Trail System</a> and <a href=\"https://fs.usda.gov/r09/marktwain/recreation/smith-creek-trailhead\">Smith Creek Trailhead</a> pages and the trail brochure. MDC <a href=\"https://mdc.mo.gov/newsroom/mdc-sets-deer-turkey-hunting-dates-2026-2027-seasons\">2026 to 2027 deer dates</a>. USGS GNIS for Devil's Backbone. Trip reports at compulsivehiker.com and rivrvlogr.com. AllTrails reviews are crowd-sourced and were used only for dated condition reports. Miles are measured on OpenStreetMap trail data, elevation from USGS 3DEP. Map imagery: USGS National Map. Streams: USGS National Hydrography Dataset. Land ownership: USFS. Trails © OpenStreetMap contributors (ODbL). Design after TheTrail by RonDesignLab. Type: Outfit (OFL). Plan prepared October 6, 2026."
+}
