@@ -1,0 +1,77 @@
+#!/usr/bin/env -S uv run --quiet --script
+# /// script
+# requires-python = ">=3.11"
+# dependencies = ["python-substack>=0.9.1", "pycookiecheat"]
+# ///
+"""Turn an Obsidian note into a Substack draft (never publishes).
+
+Usage: substack-draft NOTE.md [--title T] [--pub URL] [--dry-run]
+
+- A first line `Subtitle: ...` becomes the subtitle; the title defaults to
+  the note's filename.
+- Obsidian embeds `![[img.png]]` resolve against the vault attachments
+  folder and upload to Substack. Links keep their URLs; link titles drop.
+- Each source line becomes its own paragraph, the way Obsidian shows it.
+- Auth is the logged-in Chrome session (substack.sid cookie), read through
+  pycookiecheat. A Keychain prompt can appear on first use.
+"""
+
+import argparse
+import re
+from pathlib import Path
+
+from substack import Api, mdrender
+from substack.post import Post
+
+ATTACHMENTS = Path.home() / "Exobrain/attachments"
+
+
+def to_markdown(text: str) -> tuple[str, str]:
+    lines = text.splitlines()
+    subtitle = ""
+    if lines and lines[0].startswith("Subtitle:"):
+        subtitle = lines.pop(0).removeprefix("Subtitle:").strip()
+    body = "\n".join(lines)
+    body = re.sub(
+        r"!\[\[([^\]|]+)(?:\|[^\]]*)?\]\]",
+        lambda m: f"![](<{ATTACHMENTS / m.group(1)}>)",
+        body,
+    )
+    body = re.sub(r'\]\((\S+) "[^"]*"\)', r"](\1)", body)
+    body = "\n\n".join(line for line in body.splitlines() if line.strip())
+    return subtitle, body
+
+
+def main() -> None:
+    ap = argparse.ArgumentParser()
+    ap.add_argument("note", type=Path)
+    ap.add_argument("--title")
+    ap.add_argument("--pub", default="https://becomingstronger.substack.com")
+    ap.add_argument("--dry-run", action="store_true")
+    a = ap.parse_args()
+
+    subtitle, body = to_markdown(a.note.read_text())
+    title = a.title or a.note.stem
+    if a.dry_run:
+        doc = mdrender.markdown_to_doc(body, api=None)
+        kinds = [b["type"] for b in doc]
+        print(f"{title} | {subtitle}")
+        print(f"{len(doc)} blocks, {kinds.count('captionedImage')} images, "
+              f"{body.count('](') - kinds.count('captionedImage')} links")
+        return
+
+    from pycookiecheat import chrome_cookies
+
+    cookies = chrome_cookies("https://substack.com")
+    api = Api(
+        cookies_string="; ".join(f"{k}={v}" for k, v in cookies.items()),
+        publication_url=a.pub,
+    )
+    post = Post(title=title, subtitle=subtitle, user_id=api.get_user_id())
+    post.from_markdown(body, api=api)
+    draft = api.post_draft(post.get_draft())
+    print(f"{a.pub.rstrip('/')}/publish/post/{draft['id']}")
+
+
+if __name__ == "__main__":
+    main()

@@ -62,3 +62,7 @@ Notes:
   launchd, and the site repo lives there.
 - Install the plist into `~/Library/LaunchAgents/` as a real copy, not a symlink.
 - Pushes authenticate through the osxkeychain credential helper.
+
+## substack-draft
+
+`bin/substack-draft NOTE.md` makes a Substack draft from an Obsidian note. It never publishes. Use `--dry-run` to count blocks, images, and links before upload.
