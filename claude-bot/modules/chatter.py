@@ -78,6 +78,7 @@ import discord
 import attachments
 from config import load_owner_username
 from handler import Context
+import staged
 import switchintent
 from models import EFFORT_LEVELS, ModelCatalog, find_claude_bin, normalize_effort
 
@@ -572,6 +573,18 @@ def setup(ctx: Context) -> None:
             return True
         if not await _apply_switch(message, guest):
             return True  # the message was only a switch; confirmation already sent
+        # A reply Alex pre-arranged (bin/discord-stage) goes out verbatim on his
+        # explicit cue in a server, with no model call: a shared-server CLI has
+        # no memory, so this is the only way a line agreed elsewhere reaches
+        # the room exactly as approved. Owner-only, and never on a DM or on an
+        # always-respond auto-trigger, so a stray message cannot fire it.
+        if not guest and message.guild is not None and _addressed_me(message):
+            canned = staged.take(guild=message.guild.name,
+                                 channel=getattr(message.channel, "name", None))
+            if canned:
+                log.info("chatter: posting staged reply in #%s", getattr(message.channel, "name", "?"))
+                await message.reply(canned[:DISCORD_LIMIT], mention_author=False)
+                return True
         try:
             prompt = await _build_prompt(message, private)
             system = system_prompt + (PRIVATE_NOTE if private else SHARED_NOTE)

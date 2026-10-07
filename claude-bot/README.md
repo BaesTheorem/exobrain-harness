@@ -31,6 +31,7 @@ Feature phases land as additional modules:
 | 8 ✅ | `modules/preview.py` | link previews: X/Twitter, TikTok, Instagram, Reddit, Tumblr, Telegram, Facebook/Bilibili/VK/... and Discord message links get a playable or readable repost when Discord's own unfurl falls short (Fletcher `preview_messagelink_function`) |
 | 9 ✅ | `modules/threads.py` | `!preference use_threads` + auto-join: opted-in users are added to every new public thread (Fletcher `use_threads`) |
 | 10 ✅ | `modules/gphotos.py` | any Google Photos video link → MIST replies with a [gphotos-embed](https://github.com/BaesTheorem/gphotos-embed) link that plays inline |
+| 11 ✅ | `staged.py` + `bin/discord-stage` | staged reply: the owner pre-arranges one message (`discord-stage "text" [--guild X] [--channel Y] [--ttl H]`); on his next @mention or reply to MIST in a server she posts it verbatim, no model call, then drops it. Lives in `~/.claude/channels/discord/staged-reply.json`, outside the repo. `show` / `clear` to inspect or cancel |
 
 ## Setup
 

@@ -1,0 +1,68 @@
+#!/usr/bin/env python3
+"""discord-stage: pre-arrange MIST's next Discord reply, word for word.
+
+In a shared server the bot runs a sandboxed CLI with no memory, so a line
+agreed in a Console chat cannot reach her. Stage it here instead. The next
+time Alex @mentions MIST or replies to her in a server, the bot posts the
+staged text verbatim (no model call) and drops the entry. Nothing is posted
+until that cue, so staging is safe to do ahead of time.
+
+    discord-stage "text"            stage (replaces any existing entry)
+    discord-stage - < file          stage text from stdin
+    discord-stage show              print the current entry
+    discord-stage clear             drop it without posting
+
+Options for staging: --guild NAME and --channel NAME restrict where it fires
+(case-insensitive substring of the server or channel name); --ttl HOURS sets
+the expiry (default 24). The bot reads the file on every cue, so no restart
+is needed after staging.
+
+The entry lives in ~/.claude/channels/discord/staged-reply.json, outside the
+repo.
+"""
+
+from __future__ import annotations
+
+import argparse
+import sys
+import time
+from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+import staged  # noqa: E402 -- path set up above
+
+
+def main() -> int:
+    ap = argparse.ArgumentParser(description=__doc__.split("\n\n")[0])
+    ap.add_argument("text", nargs="?", help="text to stage, 'show', 'clear', or '-' for stdin")
+    ap.add_argument("--guild", help="only fire in a server whose name contains this")
+    ap.add_argument("--channel", help="only fire in a channel whose name contains this")
+    ap.add_argument("--ttl", type=float, default=staged.DEFAULT_TTL_HOURS, help="hours until it expires")
+    args = ap.parse_args()
+
+    if args.text in (None, "show"):
+        entry = staged.peek()
+        if entry is None:
+            print("nothing staged")
+            return 0
+        where = ", ".join(f"{k}={entry[k]}" for k in ("guild", "channel") if entry.get(k)) or "anywhere"
+        left = (entry["expires_at"] - time.time()) / 3600
+        print(f"staged ({where}, expires in {left:.1f}h):\n{entry['text']}")
+        return 0
+    if args.text == "clear":
+        print("cleared" if staged.clear() else "nothing staged")
+        return 0
+
+    text = sys.stdin.read() if args.text == "-" else args.text
+    try:
+        entry = staged.stage(text, guild=args.guild, channel=args.channel, ttl_hours=args.ttl)
+    except ValueError as exc:
+        print(exc, file=sys.stderr)
+        return 1
+    where = ", ".join(f"{k}={entry[k]}" for k in ("guild", "channel") if entry.get(k)) or "anywhere"
+    print(f"staged ({where}, {args.ttl:g}h). She posts it on your next @mention or reply in a server.")
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())
