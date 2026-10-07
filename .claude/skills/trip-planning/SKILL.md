@@ -36,8 +36,8 @@ Access notes:
 - **LetsFG CLI**: `letsfg search MCI LAX 2026-11-20 --return 2026-11-24 --currency USD --json`.
   Token in `~/.letsfg/config.json`, refreshes itself. The default currency is EUR, so always pass
   `--currency USD`. Use the CLI from scripts and routines. The CLI has no hotel command.
-- **LetsFG MCP** needs its own OAuth. If it answers 401, Alex runs `/mcp` in a terminal session
-  and authenticates `letsfg`.
+- **LetsFG MCP** needs its own OAuth. If it answers 401, re-run the login (see
+  [[reference_mcp_login_from_console]]: `claude mcp login letsfg --no-browser` inside `script`).
 - **Flight reliability**: `curl -s -X POST https://letsfg.co/api/trips/check-flight -H
   'Content-Type: application/json' -d '{"flightCode":"WN1234"}'`. No auth. 5 to 20 s each, so run
   it only on the 3 to 5 finalists.
@@ -45,7 +45,10 @@ Access notes:
   click`, because the package omits `click`). When it fails or its price disagrees with LetsFG,
   trust LetsFG and the airline's own page.
 - **Kiwi, Skiplagged, trivago, OctoTrip** are hosted servers with no auth.
-- **Gondola** needs a free account (OAuth through `/mcp`). It can also book, cancel and look up
+- **Gondola** needs a free account (OAuth). Its server rejects Claude Code's default loopback
+  port, so the server is registered with its own client (`--client-id gond_mcp_...
+  --callback-port 47615`). If the token is lost, run `claude mcp login gondola`; do not remove
+  and re-add the server without those two flags. It can also book, cancel and look up
   a card's rental cover; this skill uses only its search and cover tools.
 
 Home airport is MCI. Read the home address from [[user_contact_and_home]] only when ground
