@@ -33,3 +33,6 @@ employer boards, which is why it is not tracked. Schema:
 
 The two `*.example.json` files here are tracked, with fake entries, to show the
 shapes. Copy one without the `.example` infix to start a real list.
+
+`kcmo.py` keeps `kcmo-snapshot.json` here (City of KCMO posting ids with first and last
+seen dates). It rebuilds itself; the run after a fresh clone is a baseline.

@@ -361,6 +361,14 @@
     "notes": "Needs layers/centerlines.geojson + layers/osm_highways.geojson (fetch_layers.py, fetch_osm_highways.py) and crashes_kcmo.csv. Ramp ids (RP nnnn) cannot be placed. Median error 11 m vs MoDOT coords. Lives in the vault since 2026-10-06."
   },
   {
+    "name": "kcmo-jobs",
+    "command": "python3 job-search/kcmo.py [--no-save]",
+    "repo_dir": "job-search",
+    "source": "built",
+    "added": "2026-10-06",
+    "notes": "Re-runs itself under ~/.local/bin/uv with patchright; needs Google Chrome. Opens an off-screen Chrome window for ~1 min. First run is a baseline (state/kcmo-snapshot.json). Floors from comp_floors (.env JOB_ONSITE_FLOOR)."
+  },
+  {
     "name": "kcurbex",
     "command": "kcurbex/bin/kcurbex",
     "repo_dir": "kcurbex",

@@ -176,6 +176,15 @@ Use multiple sources and triangulate -- no single source is authoritative for "o
 
     Survivors and leads still need status-aware dedup + a listing note (`source: talify`); the Talify detail page is the apply entry point ("Apply Externally").
 
+15. **City of Kansas City, MO** (ADDED 2026-10-06, after Alex heard about a city CISO opening) -- run `python3 "Exobrain harness/job-search/kcmo.py"` every discovery pass. The city's real board is a PeopleSoft Candidate Gateway at psweb.kcmo.org (kcmo.gov "Search Jobs"). **NEOGOV is dead for this employer**: `governmentjobs.com/careers/kcmo` says "No jobs at this time" while the PeopleSoft board held 117, and aggregator copies of city postings (careersingovernment.com) go dead without notice. Facts measured 2026-10-06, baked into the script:
+    - The list needs a real browser ("View All Jobs" is a PeopleSoft postback), so the script re-runs itself under uv with patchright and drives an off-screen Chrome. One page holds every posting; the script checks the parsed count against the "N jobs found." header and prints a `~ COVERAGE` line on a mismatch.
+    - Detail pages give a starting pay only ("Pay Starting at: $X per month"), so a start under the onsite floor is a LEAD (band top unknown), not a decline. Every seat is onsite in KC, so the onsite floor applies.
+    - **WATCH** titles (CISO, information security, cybersecurity, CIO/CTO) skip the senior-title drop and always print, because Alex asked to track the CISO role and analyst seats under a new CISO. A NEW WATCH row is worth a mention to Alex even when it fails the gates.
+    - The script also reads the kcmo.gov executive careers page (Cloudflare, same browser), where executive recruitments can appear outside PeopleSoft.
+    - The snapshot (`state/kcmo-snapshot.json`) gives the NEW tag; the first run is a baseline.
+
+    Survivors and leads need status-aware dedup + a listing note (`source: kcmo`); the printed psweb.kcmo.org detail URL is the apply entry point. Capture the close date: city postings run about two weeks.
+
 ### Specific employer boards to watch (warm-connection lane)
 
 Some employers get scanned directly on every discovery pass because Alex has an inside referral path there -- a warm intro is worth more than cold volume, so these clear a lower bar than the open market. **The specific employers, their careers-portal URLs, the referral context, and any per-employer gate exceptions live in the gitignored `Projects/Get new job/Claude Reference.md` under "Warm-Connection Watch Lane" -- read it at the start of every scan and scan each firm listed there on top of the open-market search.** Employer identities and referral details are kept out of this file because the repo is public.
@@ -339,6 +348,7 @@ A scan is **not** a full scan until every lane below has either run or been expl
 | 13 | USAJOBS via `usajobs.py` (remote pass + LOCAL KC pass) | | Keyed lane; if the key is missing the script says so and exits 0 -- report skipped-with-reason. Remote pass gates at the standard floor, local pass at the onsite floor. Federal deadlines are hard; flag anything closing inside 14 days. |
 | 14 | Workday-direct via `workday.py` | | Polls every pinned + auto-discovered Workday tenant and diffs. Covers the ATS lane 11 can't see. Survivors arrive with comp gated and `canApply` verified, but still need dedup + a note. |
 | 15 | Missouri Talify via `talify.py` | | State board (jobs.mo.gov front-end). Remote pass is expected-dry; the yield is the KC-local pass at the onsite floor. Off-lane KC titles print for Alex to overrule. |
+| 16 | City of KCMO via `kcmo.py` | | PeopleSoft board + kcmo.gov executive page, off-screen Chrome. Onsite floor; starting pay only, so sub-floor starts are leads. WATCH rows (CISO / security leadership) always reported. |
 
 **Report the tally honestly**, including the skipped lanes. A scan that ran 4 of the lanes below is a partial scan; say so in the hub-note log and to Alex rather than labeling it full. Under-running is recoverable; a false "I checked everything" is not, because it silently retires leads.
 
@@ -725,6 +735,7 @@ When called as part of the daily briefing (every day, weekends included):
    - `python3 "Exobrain harness/job-search/ats-watchlist.py"` -- new postings since yesterday's snapshot across every tracked employer's Greenhouse/Lever/Ashby board. Each new posting: JD read, 4 gates, status-aware dedup, note. Report polled/failed/baselined counts honestly in the hub log.
    - `python3 "Exobrain harness/job-search/usajobs.py" "IT specialist" "security analyst" --days 7` -- skips itself with instructions if the API key is absent; log the lane as skipped-with-reason in that case.
    - `python3 "Exobrain harness/job-search/talify.py" --days 3` (see Source #14) -- Missouri state board, remote + KC-local passes. Survivors/leads get the normal JD read + note pipeline with `source: talify`; a dry day is the documented expectation, not a failed lane.
+   - `python3 "Exobrain harness/job-search/kcmo.py"` (see Source #15) -- City of Kansas City, MO board. Survivors/leads get the JD read + note pipeline with `source: kcmo`; report any WATCH row in the hub log by name.
    - `python3 "Exobrain harness/job-search/workday.py"` (see Source #13) -- new postings across every pinned + auto-discovered Workday tenant. Survivors come pre-gated on all four gates with `canApply` verified and the JD already fetched, so they go straight to status-aware dedup and a note; LEADS have no comp in the JD and need the usual judgment call. Report polled/failed/baselined counts honestly. To pin a new board Alex hands over, `--add "<board URL with its filters>"` and read back the resolved facet labels before trusting it.
 
 2c. **AI safety fellowship scan** (ADDED 2026-07-25 -- see Source #9 and "AI Safety Fellowship Lane" for the gate variant):

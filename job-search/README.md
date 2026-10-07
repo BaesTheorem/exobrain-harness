@@ -87,6 +87,15 @@ Daily unattended discovery scan for the `/job-search` skill.
   pre-filter at a reduced min, then gate each detail page's band top at the real floor.
   Detail pages are HTML-only (`.json` answers 406). Off-lane KC titles that cleared the comp
   pre-filter are printed for overrule rather than silently dropped.
+- **`kcmo.py`** (added 2026-10-06) -- City of Kansas City, MO. The city left NEOGOV
+  (`governmentjobs.com/careers/kcmo` shows "No jobs at this time"); its real board is a
+  PeopleSoft Candidate Gateway at psweb.kcmo.org. "View All Jobs" is a PeopleSoft postback,
+  so the script re-runs itself under `uv` with patchright and drives an off-screen Chrome,
+  then checks the parsed count against the board's own "N jobs found." header. It also reads
+  the kcmo.gov executive careers page (behind Cloudflare, same browser). Detail pages give a
+  starting pay only, so a start under the onsite floor prints as a lead, not a decline. WATCH
+  titles (CISO, information security, cybersecurity, CIO/CTO) always print, whatever the
+  seniority or comp. Snapshot in `state/kcmo-snapshot.json`; the first run is a baseline.
 - **`usajobs.py`** (added 2026-08-14) -- official federal API, remote-only public-hiring-path
   search with mechanical comp gating. Needs `USAJOBS_API_KEY` + `USAJOBS_EMAIL` in the
   harness `.env` (free key: https://developer.usajobs.gov/apirequest/); without them it
