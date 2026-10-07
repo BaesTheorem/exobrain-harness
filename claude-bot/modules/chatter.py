@@ -582,8 +582,15 @@ def setup(ctx: Context) -> None:
             canned = staged.take(guild=message.guild.name,
                                  channel=getattr(message.channel, "name", None))
             if canned:
+                # When the cue is itself a reply to someone else's message, the
+                # staged text threads under THAT message, so the line reads as
+                # MIST answering them. A cue that replies to MIST herself, or
+                # to nothing, gets the reply on the cue.
+                target = await _resolve_reply(message)
+                if target is None or (ctx.client.user and target.author.id == ctx.client.user.id):
+                    target = message
                 log.info("chatter: posting staged reply in #%s", getattr(message.channel, "name", "?"))
-                await message.reply(canned[:DISCORD_LIMIT], mention_author=False)
+                await target.reply(canned[:DISCORD_LIMIT], mention_author=False)
                 return True
         try:
             prompt = await _build_prompt(message, private)
