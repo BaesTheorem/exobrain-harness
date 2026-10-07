@@ -1,0 +1,59 @@
+#!/usr/bin/env python3
+"""discord-append: a standing line MIST adds to every reply to one person.
+
+Keyed by the Discord login username (unique, cannot be spoofed by a display
+name). Applies when that person addresses MIST in a server, and when Alex
+cues her by replying to that person's message. The line goes on its own last
+line of her reply. A one-shot staged reply (bin/discord-stage) is posted
+verbatim and skips the append.
+
+    discord-append add USERNAME "text"      set or replace
+    discord-append remove USERNAME
+    discord-append list
+
+The map lives in ~/.claude/channels/discord/appends.json, outside the repo,
+because a username next to a message is a name-to-identity mapping. The bot
+reads it on every reply, so no restart is needed after a change.
+"""
+
+from __future__ import annotations
+
+import argparse
+import sys
+from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+import staged  # noqa: E402 -- path set up above
+
+
+def main() -> int:
+    ap = argparse.ArgumentParser(description=__doc__.split("\n\n")[0])
+    sub = ap.add_subparsers(dest="cmd", required=True)
+    a = sub.add_parser("add", help="set or replace the line for a username")
+    a.add_argument("username")
+    a.add_argument("text")
+    r = sub.add_parser("remove", help="drop the line for a username")
+    r.add_argument("username")
+    sub.add_parser("list", help="show every append")
+    args = ap.parse_args()
+
+    if args.cmd == "add":
+        try:
+            staged.set_append(args.username, args.text)
+        except ValueError as exc:
+            print(exc, file=sys.stderr)
+            return 1
+        print(f"every reply to @{args.username.lstrip('@')} now ends with: {args.text.strip()}")
+    elif args.cmd == "remove":
+        print("removed" if staged.remove_append(args.username) else "no append for that username")
+    else:
+        data = staged.list_appends()
+        if not data:
+            print("no appends set")
+        for user, text in data.items():
+            print(f"@{user}: {text}")
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())

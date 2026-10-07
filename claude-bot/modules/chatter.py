@@ -622,6 +622,15 @@ def setup(ctx: Context) -> None:
 
         if not reply:
             return True
+        # Standing per-person line (bin/discord-append): the person she is
+        # answering is the guest who addressed her, or, on Alex's cue, the
+        # author of the message his cue replies to. Keyed by login username.
+        subject = message.author.name if guest else None
+        if not guest and message.guild is not None:
+            replied = await _resolve_reply(message)
+            if replied is not None and not _is_owner(replied.author) and not replied.author.bot:
+                subject = replied.author.name
+        reply = staged.with_append(reply, subject)
         first = True
         for i in range(0, len(reply), DISCORD_LIMIT):
             chunk = reply[i : i + DISCORD_LIMIT]

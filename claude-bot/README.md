@@ -32,6 +32,7 @@ Feature phases land as additional modules:
 | 9 ✅ | `modules/threads.py` | `!preference use_threads` + auto-join: opted-in users are added to every new public thread (Fletcher `use_threads`) |
 | 10 ✅ | `modules/gphotos.py` | any Google Photos video link → MIST replies with a [gphotos-embed](https://github.com/BaesTheorem/gphotos-embed) link that plays inline |
 | 11 ✅ | `staged.py` + `bin/discord-stage` | staged reply: the owner pre-arranges one message (`discord-stage "text" [--guild X] [--channel Y] [--ttl H]`); on his next @mention or reply to MIST in a server she posts it verbatim, no model call, then drops it. If the cue is itself a reply to someone else, the staged text threads under that person's message. Lives in `~/.claude/channels/discord/staged-reply.json`, outside the repo. `show` / `clear` to inspect or cancel |
+| 12 ✅ | `staged.py` + `bin/discord-append` | standing per-person append: `discord-append add USERNAME "text"` puts that line at the end of every reply MIST makes to that user (when they address her, or when the owner cues her by replying to their message). Keyed by login username, never display name. Lives in `~/.claude/channels/discord/appends.json`, outside the repo. `list` / `remove` |
 
 ## Setup
 

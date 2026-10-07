@@ -13,12 +13,20 @@ One entry at a time, in a gitignored file outside the repo
 version control. An optional guild or channel filter keeps it from firing in
 the wrong room, and a TTL stops a forgotten entry from surfacing days later.
 
+The second store here is the standing per-person append: a line MIST adds
+to the end of every reply she makes to a given Discord user (keyed by the
+login username, which Discord keeps unique, never by display name). Alex
+sets it through `bin/discord-append`; it lives in
+~/.claude/channels/discord/appends.json, outside the repo, because a
+username next to a message is a name-to-identity mapping.
+
 INVARIANTS (do not break these in an edit):
-  - Only the owner's own cue consumes an entry; a guest can never trigger it
-    (chatter.py checks the owner gate before calling take()).
+  - Only the owner's own cue consumes a staged entry; a guest can never
+    trigger it (chatter.py checks the owner gate before calling take()).
   - take() is the only path that deletes on a match. A miss (wrong room,
     expired) leaves the entry alone, except that an expired entry is dropped.
-  - The file is the only state: no entry survives in memory across a restart.
+  - The files are the only state: nothing survives in memory across a restart.
+  - Appends key on the username, never on a display name or nick.
 """
 
 from __future__ import annotations
@@ -28,7 +36,61 @@ import time
 from pathlib import Path
 
 STORE = Path.home() / ".claude" / "channels" / "discord" / "staged-reply.json"
+APPENDS = Path.home() / ".claude" / "channels" / "discord" / "appends.json"
 DEFAULT_TTL_HOURS = 24.0
+
+
+# ---- standing per-person appends -------------------------------------------
+
+def _load_appends(store: Path) -> dict[str, str]:
+    if not store.exists():
+        return {}
+    try:
+        data = json.loads(store.read_text())
+    except (OSError, ValueError):
+        return {}
+    return {str(k).lower(): str(v) for k, v in data.items()} if isinstance(data, dict) else {}
+
+
+def set_append(username: str, text: str, *, store: Path = APPENDS) -> None:
+    """Add or replace the line appended to every reply to `username`."""
+    username = username.strip().lstrip("@").lower()
+    text = text.strip()
+    if not username or not text:
+        raise ValueError("username and text are both required")
+    data = _load_appends(store)
+    data[username] = text
+    store.parent.mkdir(parents=True, exist_ok=True)
+    store.write_text(json.dumps(data, indent=2, ensure_ascii=False) + "\n")
+
+
+def remove_append(username: str, *, store: Path = APPENDS) -> bool:
+    """Drop the append for `username`. True when there was one."""
+    data = _load_appends(store)
+    if data.pop(username.strip().lstrip("@").lower(), None) is None:
+        return False
+    store.write_text(json.dumps(data, indent=2, ensure_ascii=False) + "\n")
+    return True
+
+
+def list_appends(*, store: Path = APPENDS) -> dict[str, str]:
+    return _load_appends(store)
+
+
+def append_for(username: str | None, *, store: Path = APPENDS) -> str | None:
+    """The line to add to a reply aimed at `username`, or None."""
+    if not username:
+        return None
+    return _load_appends(store).get(username.lower())
+
+
+def with_append(reply: str, username: str | None, *, store: Path = APPENDS) -> str:
+    """`reply` with the person's line on its own last line, when one is set."""
+    line = append_for(username, store=store)
+    if not line:
+        return reply
+    reply = reply.rstrip()
+    return f"{reply}\n{line}" if reply else line
 
 
 def stage(text: str, *, guild: str | None = None, channel: str | None = None,
