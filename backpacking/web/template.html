@@ -76,6 +76,7 @@ a { color: inherit; }
 .creeklab { position: absolute; transform: translate(-50%, -50%); white-space: nowrap; font-size: 12.5px; font-style: italic; font-weight: 500; color: #1f5fe0; text-shadow: 0 0 3px #fff, 0 0 6px #fff, 0 0 9px rgba(255,255,255,.9); pointer-events: none; }
 .campmk { position: absolute; left: -14px; top: 10px; width: 28px; height: 28px; border-radius: 50%; background: #111; color: var(--lime); display: grid; place-items: center; border: 2px solid #fff; box-shadow: 0 1px 4px rgba(0,0,0,.4); }
 .campmk .ms { font-size: 17px; }
+.campmk.mscamp { left: -14px; top: -14px; }
 .mk .dot.tapdot { left: -8px; top: -8px; width: 16px; height: 16px; background: var(--blue); border: 2.5px solid #fff; }
 .mk .sidei { display: inline-block; margin-left: 6px; padding: 1px 8px; border-radius: 999px; border: 1.5px dashed #111; background: rgba(225,255,79,.92); color: #111; font-size: 11px; font-weight: 600; text-shadow: none; vertical-align: 1px; }
 .mk .sidei[hidden] { display: none; }
@@ -298,12 +299,13 @@ const numOf = (id) => ORDER.indexOf(id) + 1;
 const markers = {};
 ORDER.forEach((id) => {
   const w = WP[id];
-  const html = `<div class="mk"><div class="halo"></div><div class="dot${w.tap ? " tapdot" : ""}"${w.tap ? ' title="Tap water"' : ""}></div><div class="num">${numOf(id)}</div><div class="lab ${w.side || "r"}">${esc(w.label || w.name)}<span class="sidei" hidden>Side trip</span></div></div>`;
+  const pin = w.camp ? `<div class="campmk mscamp" title="${esc(w.name)}"><span class="ms">camping</span></div>` : `<div class="dot${w.tap ? " tapdot" : ""}"${w.tap ? ' title="Tap water"' : ""}></div>`;
+  const html = `<div class="mk"><div class="halo"></div>${pin}<div class="num">${numOf(id)}</div><div class="lab ${w.side || "r"}">${esc(w.label || w.name)}<span class="sidei" hidden>Side trip</span></div></div>`;
   const mk = L.marker([w.lat, w.lon], { icon: L.divIcon({ className: "", html, iconSize: [0, 0] }), keyboard: false, title: w.name });
   mk.on("click", () => flyTo(w));
   markers[id] = mk;
 });
-const camps = Object.values(WP).filter((w) => w.camp).map((w) => L.marker([w.lat, w.lon], { icon: L.divIcon({ className: "", html: `<div class="campmk" title="${esc(w.name)}"><span class="ms">camping</span></div>`, iconSize: [0, 0] }), keyboard: false, title: w.name }).addTo(map));
+const camps = Object.entries(WP).filter(([id, w]) => w.camp && !ORDER.includes(id)).map(([, w]) => w).map((w) => L.marker([w.lat, w.lon], { icon: L.divIcon({ className: "", html: `<div class="campmk" title="${esc(w.name)}"><span class="ms">camping</span></div>`, iconSize: [0, 0] }), keyboard: false, title: w.name }).addTo(map));
 const cursor = L.marker([0, 0], { icon: L.divIcon({ className: "", html: '<div class="cursor"></div>', iconSize: [0, 0] }), interactive: false, keyboard: false });
 
 let cur = null;

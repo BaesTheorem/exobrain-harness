@@ -55,15 +55,18 @@
       "lat": 38.8179933,
       "lon": -92.1440028,
       "text": "An iron road bridge more than 100 years old, now a footbridge over Cedar Creek. The bridge itself is on private land.",
-      "source": "OSM, compulsivehiker.com"
+      "source": "OSM, compulsivehiker.com",
+      "route_only": true
     },
     "camp": {
-      "name": "Camp on National Forest land",
+      "name": "Camp",
       "camp": true,
       "lat": 38.81844,
       "lon": -92.14185,
-      "text": "The first National Forest ground on the trail east of the bridge, 0.15 mi from it. Walk back down to the creek for water.",
-      "source": "USFS EDW ownership"
+      "text": "National Forest land beside Cedar Creek, 0.15 mi east of Rutherford Bridge, an iron footbridge more than 100 years old. The bridge itself is on private land, so do not camp at it. Walk back down to the creek for water.",
+      "source": "USFS EDW ownership",
+      "label": "Camp",
+      "side": "l"
     },
     "overlook": {
       "name": "Overlook above Cedar Creek",
@@ -109,7 +112,7 @@
   },
   "milestones": [
     "smith_th",
-    "bridge",
+    "camp",
     "ridge",
     "overlook",
     "boydsville"
@@ -124,7 +127,7 @@
       "rec": false,
       "milestones": [
         "smith_th",
-        "bridge",
+        "camp",
         "ridge",
         "overlook",
         "boydsville"
