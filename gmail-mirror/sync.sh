@@ -24,6 +24,13 @@ alarm() {
 
 [ -f "$CONF" ] || { alarm "config missing: $CONF (see gmail-mirror/README.md)"; exit 1; }
 
+# A run that fires as the Mac wakes finds no DNS yet. No network is a skipped
+# run, not a stale mirror: the next hourly run catches up.
+if ! "$HERE/../scripts/wait-for-network.sh" mail.google.com 90 >/dev/null 2>&1; then
+    echo "[$(date)] no network after 90s; skipped"
+    exit 0
+fi
+
 echo "[$(date)] mbsync start"
 if mbsync -c "$CONF" -q gmail-all; then
     date +%s > "$STATE/last-ok"
