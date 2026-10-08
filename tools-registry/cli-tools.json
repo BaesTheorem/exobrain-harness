@@ -476,7 +476,7 @@
   {
     "name": "orrery-models",
     "command": "blender -b --factory-startup --python tools/assets/build_models.py -- [rocks skull spindle windlauer garden bral] [--preview DIR]",
-    "repo_dir": "/Users/alexhedtke/Documents/wildspace-orrery",
+    "repo_dir": "/Users/alexhedtke/Documents/the-great-wheel",
     "source": "built",
     "added": "2026-10-08",
     "notes": "Run tools/assets/fetch_models.py first (sources go to the gitignored sources/models/). Output: site/assets/models/*.glb (Draco for the big ones). Blender 4.2+; preview renders use EEVEE. The skull source is CC BY-SA 4.0, so skull.glb is too."
