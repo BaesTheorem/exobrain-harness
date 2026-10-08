@@ -474,6 +474,14 @@
     "notes": "Builds ~/Applications/Open in Google Calendar.app and registers it as the default .ics handler, so calendar invites open in Google Calendar instead of Apple Calendar. Self-contained: the installer inlines a full RFC 5545 parser (line unfolding, TZID to UTC, all-day, DURATION without DTEND, RRULE, VALARM skipping). 1-5 events open pre-filled create pages, 6+ opens the import page. Private repo BaesTheorem/ic-to-gcal."
   },
   {
+    "name": "orrery-models",
+    "command": "blender -b --factory-startup --python tools/assets/build_models.py -- [rocks skull spindle windlauer garden bral] [--preview DIR]",
+    "repo_dir": "/Users/alexhedtke/Documents/wildspace-orrery",
+    "source": "built",
+    "added": "2026-10-08",
+    "notes": "Run tools/assets/fetch_models.py first (sources go to the gitignored sources/models/). Output: site/assets/models/*.glb (Draco for the big ones). Blender 4.2+; preview renders use EEVEE. The skull source is CC BY-SA 4.0, so skull.glb is too."
+  },
+  {
     "name": "penny-lane",
     "command": "~/Documents/penny-lane/bin/penny <serve|stores|sources|verify|sweep|watch|predict|all|lookup|upc|top|open>",
     "repo_dir": "~/Documents/penny-lane",
