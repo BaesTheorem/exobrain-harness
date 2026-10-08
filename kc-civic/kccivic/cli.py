@@ -206,8 +206,12 @@ def drop_stale_holds(cfg: dict, st: dict, live: set[str], dry: bool) -> list[str
     cal = gcal.calendar_id(cfg.get("calendar_id", "primary"))
     now = datetime.now(TZ)
     dropped = []
+    owned = {r.get("event_id") for k, r in st["synced"].items() if not k.startswith("hold-")}
     for key, rec in list(st["synced"].items()):
         if not key.startswith("hold-") or key in live:
+            continue
+        if rec.get("event_id") in owned:  # a published meeting adopted this event; forget the hold only
+            st["synced"].pop(key)
             continue
         start = datetime.fromisoformat(rec["start"])
         if start - now > holds.HOLD_CUTOFF:
@@ -289,6 +293,7 @@ def cmd_list(cfg: dict, args) -> int:
 
 def cmd_sync(cfg: dict, args) -> int:
     st = load_state()
+    loaded = set(st["synced"])
     meetings = gather(cfg, st, args)
     created, err = write_calendar(cfg, st, meetings, args.dry_run)
     today = datetime.now(TZ).date().isoformat()
@@ -308,6 +313,8 @@ def cmd_sync(cfg: dict, args) -> int:
                 continue  # walled-page work waits for the daily browser pass
             rec = do_prep(cfg, st, m)
             fresh = load_state()  # a manual `prep` may have saved meanwhile
+            for k in loaded - st["synced"].keys():  # removed this pass (adopted or dropped hold)
+                fresh["synced"].pop(k, None)
             fresh["synced"].update(st["synced"])
             fresh["prepped"].update(st["prepped"])
             st = fresh

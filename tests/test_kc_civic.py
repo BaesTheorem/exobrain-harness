@@ -60,3 +60,20 @@ def test_holds_follow_nth_weekday_skip_dates_and_cutoff():
     days = [m.start.date().isoformat() for m in holds.generate(cfg, 45, {"2026-11-04"}, now=now)]
     assert days == ["2026-10-21", "2026-11-18"]
     assert holds.hold_key("City Council", datetime(2026, 10, 8).date()) == "hold-city-council-2026-10-08"
+
+
+def test_drop_stale_holds_spares_an_adopted_event(monkeypatch):
+    # 2026-10-08: a prep pass resurrected an adopted hold record, and the
+    # hold drop then deleted the published Council meeting it pointed at.
+    from kccivic import cli, gcal
+    deleted = []
+    monkeypatch.setattr(gcal, "delete", lambda cal, eid: deleted.append(eid))
+    soon = datetime.now(TZ).isoformat()
+    st = {"synced": {
+        "legistar-1": {"event_id": "ev1", "start": soon},
+        "hold-city-council-x": {"event_id": "ev1", "start": soon},
+        "hold-city-council-y": {"event_id": "ev2", "start": soon},
+    }}
+    cli.drop_stale_holds({}, st, set(), dry=False)
+    assert deleted == ["ev2"]
+    assert set(st["synced"]) == {"legistar-1"}
