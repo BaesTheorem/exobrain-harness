@@ -2,7 +2,7 @@
 name: duel
 description: "Play Yu-Gi-Oh! against Alex in EDOPro, live, with MIST picking a deck from her roster and making every decision from this session; afterwards, review the game log to tune her decks and coach Alex. Use when Alex says 'duel me', 'let's duel', 'play yugioh', 'play against you', 'sit down at EDOPro', 'rematch', 'new duel', 'reconnect the bot', names a deck or format he wants to face, asks why the bot played something, or says 'review the game', 'coach me', 'how did I play', 'what should I have done', 'what was in my hand', 'tune your deck', 'how's your record'."
 metadata:
-  repo: "/Users/alexhedtke/Documents/mist-windbot (local-only, no remote; read its README first)"
+  repo: "/Users/alexhedtke/Documents/duelbot (local-only, no remote; read its README first)"
   client: "/Applications/ProjectIgnis (EDOPro)"
   brain: "launchd com.exobrain.mist-duel-brain, http://127.0.0.1:8777, backend=live"
   coaching_note: "/Users/alexhedtke/Exobrain/Areas/Adventure & Creativity/Yu-Gi-Oh/Coaching.md"
@@ -20,7 +20,7 @@ decision sits unanswered for 240 s, and the log says so when it happens.
 Two modes. **Play** (steps 0-5) when Alex wants a game. **Review** (the last
 section) when he wants to go over one, or you want to tune a deck.
 
-All commands below are in `~/Documents/mist-windbot/bin/`. Use `B=~/Documents/mist-windbot/bin`.
+All commands below are in `~/Documents/duelbot/bin/`. Use `B=~/Documents/duelbot/bin`.
 
 ## 0. Pick a deck
 
