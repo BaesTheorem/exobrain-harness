@@ -31,10 +31,15 @@ def test_all_met_passes():
     assert judge(note(*[(f"d{i}", "core", "Met") for i in range(5)]))[0] == "PASS"
 
 
-def test_required_unmet_is_a_knockout_even_at_high_score():
-    rows = [("Windows Server", "required", "Unmet")] + [(f"d{i}", "core", "Met") for i in range(9)]
+def test_knockout_unmet_vetoes_even_at_high_score():
+    rows = [("Bachelor's, no equivalent", "knockout", "Unmet")] + [(f"d{i}", "core", "Met") for i in range(9)]
     verdict, score, reasons = judge(note(*rows))
     assert verdict == "FAIL" and score == 0.9 and reasons[0].startswith("knockout")
+
+
+def test_unmet_required_skill_is_scored_not_vetoed():
+    rows = [("Familiarity with Jira", "required", "Unmet")] + [(f"d{i}", "core", "Met") for i in range(9)]
+    assert judge(note(*rows))[:2] == ("PASS", 0.9)
 
 
 def test_partials_count_half_and_threshold_is_080():
@@ -55,7 +60,7 @@ def test_thin_table_is_incomplete_and_missing_table_is_unscored():
 
 
 def test_enforce_declines_and_keeps_raw_jd(tmp_path):
-    txt = note(("Windows Server", "required", "Unmet"), *[(f"d{i}", "core", "Met") for i in range(5)])
+    txt = note(("Windows Server", "knockout", "Unmet"), *[(f"d{i}", "core", "Met") for i in range(5)])
     verdict, score, reasons = judge(txt)
     out = fg.enforce("x", txt, score, reasons, fg.scorecard_rows(txt))
     fm, _ = fg.frontmatter(out)

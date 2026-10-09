@@ -23,7 +23,7 @@ Decision:
     INVALID     a numbered row does not parse, or a verdict contradicts its own
                 levels (Met while Alex is below what the JD asks, or Unmet while
                 he reaches it). Fix the table; an INVALID note is never enforced.
-    FAIL        an Unmet row of a KNOCKOUT_KINDS kind, or
+    FAIL        an Unmet `knockout` row, or
                 score < 0.80, where score = (Met + 0.5 * Partial) / scored rows
     INCOMPLETE  fewer than MIN_ROWS scored rows (the scorer skimmed)
     UNSCORED    no scorecard section
@@ -61,12 +61,11 @@ MIN_ROWS = 5
 WEIGHT = {"met": 1.0, "partial": 0.5, "unmet": 0.0}
 KINDS = ("knockout", "required", "core", "preferred")
 SCORED = ("knockout", "required", "core")
-# Which kinds veto on an Unmet row. Alex's rule 4a reads "not fail ANY of the
-# employer's stated hard requirements", so `required` vetoes today. The
-# `knockout` kind exists so the veto can be narrowed to true hard bars (degree
-# with no equivalent clause, citizenship, clearance, license) by deleting
-# "required" here, a policy change that is Alex's call, not the script's.
-KNOCKOUT_KINDS = ("knockout", "required")
+# Which kinds veto on an Unmet row. Narrowed to `knockout` by Alex on
+# 2026-10-09: an unmet `required` skill or tool line is scored, not a veto.
+# Blind controls showed employers interviewing him past such lines (Nerdio's
+# "deploying AVD", Horizon3's "familiarity with Jira").
+KNOCKOUT_KINDS = ("knockout",)
 LEVEL = {"own/build": 5, "own": 5, "build": 5, "administer": 4, "operate": 3,
          "support": 2, "exposure": 1, "none": 0, "n/a": None}
 PROTECTED = {"applied", "interviewing", "offer"}

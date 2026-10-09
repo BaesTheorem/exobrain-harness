@@ -251,7 +251,7 @@ Added 2026-10-09. A sysadmin seat (server builds, AVD deployment, backup and DR)
    - Years lines count only time spent in that specialty at the level asked. Job titles do not count.
    - When no Boundaries row covers the line, use the closest row that shares the same mechanism. Score Unmet only for genuinely new territory, and record a question for Alex.
    - An area that the Boundaries table marks "not confirmed" is Partial at most.
-4. Run `python3 job-search/fit-gate.py --note "<note path>" --enforce`. It fails the note when any `knockout` or `required` row is Unmet (the vetoing kinds are `KNOCKOUT_KINDS` in the script), or when (Met + 0.5 x Partial) / (required + core rows) is under 0.80. On a fail it sets `status: skipped` and `declined: true` and writes `## Why skipped` from the failing rows. It also stamps `fit_score` and `fit_gate` into the frontmatter. A note with fewer than 5 scored rows is INCOMPLETE, and you must finish the table.
+4. Run `python3 job-search/fit-gate.py --note "<note path>" --enforce`. It fails the note when any `knockout` row is Unmet, or when (Met + 0.5 x Partial) / (knockout + required + core rows) is under 0.80. An unmet `required` skill or tool line costs score but does not veto (Alex, 2026-10-09: blind controls showed employers interviewing him past those lines). On a fail it sets `status: skipped` and `declined: true` and writes `## Why skipped` from the failing rows. It also stamps `fit_score` and `fit_gate` into the frontmatter. A note with fewer than 5 scored rows is INCOMPLETE, and you must finish the table.
 5. **The script's verdict is the gate.** Do not override it in prose, do not label a role Strong Fit that the script failed, and do not count it as a survivor. If you think the table is wrong, fix the row and say why. If a Boundaries row is wrong, Alex corrects the Reference.
 
 Format:
@@ -276,7 +276,7 @@ Before writing a tailored resume or cover letter, have the model **predict the r
 Then: rewrite only what the scorecard says is weak, within the surgical tailoring rules in [[Claude Reference]]. Do not invent experience to fill a gap; an honest gap goes in `## Gaps` on the listing note.
 
 **What the output feeds:**
-- **Knockouts drive the verdict.** A missing required/knockout attribute is a predicted auto-reject -- say so in the fit report and recommend skip or a targeted warm-intro path instead of a cold application. This is the cheapest possible filter and it runs before any package work.
+- **Knockouts drive the verdict.** A missing hard bar (the `knockout` kind in the Fit scorecard: degree with no equivalent clause, citizenship, clearance, named license or certification) is a predicted auto-reject. An unmet skill or tool line is a gap to address, not an auto-reject -- say so in the fit report and recommend skip or a targeted warm-intro path instead of a cold application. This is the cheapest possible filter and it runs before any package work.
 - **Nice-to-haves drive tailoring priority.** They tell you which of Alex's real experience to surface first, and in what order.
 - **The skills column populates `## ATS keywords`** on the listing note -- ordered by scorecard weight, not as a flat list.
 - **The traits column is prose guidance, never resume content.** Alex's resume has no place to assert traits, and stuffing trait language produces exactly the generic prose that fails the human 20-second read. Demonstrate a trait through a concrete accomplishment bullet or don't address it.
@@ -450,7 +450,7 @@ When Alex shares a job posting URL or text, evaluate fit:
 
 3a. **Write the gate-4 Fit scorecard and run `fit-gate.py --enforce`** (see "Gate 4: Fit Scorecard"). Its verdict caps the fit score in the report below: a FAIL is Weak Fit or Skip, never Moderate or Strong.
 
-3b. **Run the scorecard simulation** (see "JD Scorecard Simulation" above). Do this before writing the fit report, because the knockout flags decide the verdict: a required/knockout attribute Alex cannot answer is a predicted auto-reject, and the honest recommendation is skip-or-warm-intro rather than a cold application. Carry the skills column into `## ATS keywords` on the listing note.
+3b. **Run the scorecard simulation** (see "JD Scorecard Simulation" above). Do this before writing the fit report, because the knockout flags decide the verdict: a hard bar (`knockout` kind) Alex cannot answer is a predicted auto-reject, and the honest recommendation is skip-or-warm-intro rather than a cold application. Carry the skills column into `## ATS keywords` on the listing note.
 
 4. **Output a fit report**:
    ```
