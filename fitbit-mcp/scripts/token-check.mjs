@@ -56,7 +56,7 @@ const RE_ESCALATE_AFTER_MS = 24 * 60 * 60 * 1000;
 // module load, so this has to happen before that import.
 dotenv.config({ path: path.join(HARNESS, '.env') });
 
-const { initializeAuth, getAccessToken } = await import('../build/auth.js');
+const { initializeAuth, getAccessToken, lastRefreshFailedTransiently } = await import('../build/auth.js');
 
 const PROFILE_URL = 'https://api.fitbit.com/1/user/-/profile.json';
 const OK = 'OK';
@@ -96,6 +96,9 @@ async function check() {
   // The refresh, if one is due, happens in here, on the shared race-safe path.
   const token = await getAccessToken();
   if (!token) {
+    if (lastRefreshFailedTransiently()) {
+      return [INCONCLUSIVE, 'Fitbit token endpoint failed server-side; the refresh token is unspent'];
+    }
     return [NEEDS_REAUTH, 'no usable token: the refresh chain is broken'];
   }
 

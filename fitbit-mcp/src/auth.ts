@@ -265,6 +265,25 @@ const REFRESH_SKEW_MS = 5 * 60 * 1000;
 const RECOVERY_THROTTLE_MS = 60 * 1000;
 let lastRecoveryAttempt = 0;
 
+/**
+ * True when the most recent refresh failed on Fitbit's side (a 5xx, or no HTTP
+ * answer at all) rather than with a rejected grant. A 502 from the token endpoint
+ * comes back as HTML, which simple-oauth2 reports as a 406 "not JSON compatible",
+ * so the real status has to be read off the raw response. The refresh token is
+ * still unspent in that case, so a caller must not call the chain broken.
+ */
+let lastRefreshFailureTransient = false;
+
+export function lastRefreshFailedTransiently(): boolean {
+  return lastRefreshFailureTransient;
+}
+
+function isTransientRefreshError(err: unknown): boolean {
+  const e = err as { data?: { res?: { statusCode?: number } }; output?: { statusCode?: number } };
+  const status = e?.data?.res?.statusCode ?? e?.output?.statusCode;
+  return status === undefined || status >= 500;
+}
+
 /** True when the token is missing, already expired, or inside the skew window. */
 function needsRefresh(data: FitbitTokenData | null): boolean {
   if (!data || !data.access_token) return true;
@@ -333,10 +352,12 @@ export async function getAccessToken(): Promise<string | null> {
     tokenData = refreshedToken.token as FitbitTokenData;
 
     await saveTokenToFile(tokenData);
+    lastRefreshFailureTransient = false;
     console.error('Token refreshed and saved successfully.');
     return accessToken;
   } catch (refreshError) {
     console.error('Failed to refresh token:', refreshError);
+    lastRefreshFailureTransient = isTransientRefreshError(refreshError);
     // A lost race outside Fitbit's two-minute retry grace looks exactly like this.
     // One more read: if another instance rotated it, that token is still good.
     const rescued = await loadTokenFromFile();
