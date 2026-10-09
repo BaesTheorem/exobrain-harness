@@ -60,7 +60,7 @@ title_suffix is for TRUTHFUL context only, never for retitling. Its one sanction
 use is noting why a role ended, and only on applications with no cover letter field
 (the letter is the better venue when one exists). Off by default; leave it out.
 """
-import argparse, datetime, html, json, os, subprocess, tempfile
+import argparse, datetime, html, json, os, subprocess, sys, tempfile
 from pathlib import Path
 
 HERE = Path(__file__).resolve().parent
@@ -257,6 +257,17 @@ def _clean_metadata(src, dst, title, author):
         os.replace(tmp, dst)  # qpdf missing: still better than the raw print
 
 
+# Alex, 2026-10-09: a resume is never more than two pages, a cover letter never more than one.
+MAX_PAGES = {"resume": 2, "cover": 1}
+
+
+def _check_pages(path, kind):
+    import pypdf
+    n = len(pypdf.PdfReader(path).pages)
+    if n > MAX_PAGES[kind]:
+        sys.exit(f"FAIL: {path} is {n} pages; a {kind} must be at most {MAX_PAGES[kind]}. Trim the tailoring and rebuild.")
+
+
 def _verify(path):
     import pypdf
     m = pypdf.PdfReader(path).metadata or {}
@@ -289,6 +300,7 @@ def main():
         title = f"Resume - {data['name']}"
         render_pdf(build_resume_html(data, tailor), out, title)
         print(f"Resume -> {out}\n  metadata: {_verify(out)}")
+        _check_pages(out, "resume")
 
     elif args.cmd == "cover":
         body = Path(args.md).read_text(encoding="utf-8")
@@ -296,6 +308,7 @@ def main():
         title = f"Cover Letter - {data['name']}"
         render_pdf(build_cover_html(data, body, args.company), out, title)
         print(f"Cover letter -> {out}\n  metadata: {_verify(out)}")
+        _check_pages(out, "cover")
 
 
 if __name__ == "__main__":

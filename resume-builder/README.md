@@ -85,6 +85,9 @@ dates, employers, or section structure. The summary must always open with
 total tenure and enterprise tenure, taken from `resume_data.json`, followed by the
 role-relevant focus.
 
+## Page limits
+`build.py` exits non-zero when a resume runs past **2 pages** or a cover letter past **1** (Alex, 2026-10-09). Trim the tailoring (summary, `skills_append`, bullet wording) until it passes; never ship the over-length PDF it leaves behind.
+
 ## ATS / AI-screening practices baked in
 See the vault note **[[ATS & AI-Screening Playbook]]** (`Projects/Get new job/`).
 The builder handles the document-side defenses automatically:
