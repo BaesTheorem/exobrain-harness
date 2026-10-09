@@ -27,6 +27,8 @@ Decision:
                 score < THRESHOLD (0.65), where score = (Met + 0.5 * Partial) / scored rows
     INCOMPLETE  fewer than MIN_ROWS scored rows (the scorer skimmed)
     UNSCORED    no scorecard section
+    NOJD        no archived JD on the note (under MIN_JD_CHARS of posting text). Treated as a FAIL: --enforce declines it,
+                and --restore brings it back once a JD and a passing table exist
     OVERRIDE    the frontmatter has `fit_override: "<reason>"`. Alex's deliberate
                 exception; reported with the reason, never enforced
     PASS        otherwise
@@ -131,6 +133,20 @@ def scorecard_rows(txt: str) -> list[dict] | None:
     return rows
 
 
+JD_CALLOUT = re.compile(r"^> \[!\w+\]-? Raw JD[^\n]*\n((?:>[^\n]*\n?)*)", re.M)
+JD_SECTION = re.compile(r"^#{1,3} (?:Raw Job Description|Full job description|Raw JD)[^\n]*\n(.*?)(?=^#{1,2} |\Z)",
+                        re.M | re.S | re.I)
+# A real posting runs 2,000+ characters; under 1,000 is a search-result row or a
+# placeholder. Measured 2026-10-09: 409 of 530 archived JDs are 2,000+, and every
+# sub-1,000 block on a candidate note was a stub.
+MIN_JD_CHARS = 1000
+
+
+def has_jd(txt: str) -> bool:
+    m = JD_CALLOUT.search(txt) or JD_SECTION.search(txt)
+    return bool(m) and len(m.group(1)) >= MIN_JD_CHARS
+
+
 def judge(rows: list[dict] | None) -> tuple[str, float | None, list[str]]:
     if rows is None:
         return "UNSCORED", None, []
@@ -216,6 +232,10 @@ def main() -> int:
         txt = open(p, encoding="utf-8").read()
         rows = scorecard_rows(txt)
         verdict, score, reasons = judge(rows)
+        if not has_jd(txt):
+            # Gate 4 is unscorable without the posting text. A note built from a
+            # search-result row (Blue Rose, 2026-09-19) sat as a candidate for three weeks.
+            verdict, score, reasons = "NOJD", 0.0, [f"no JD archived on the note (under {MIN_JD_CHARS} characters of posting text); gate 4 cannot be scored"]
         override = field(frontmatter(txt)[0], "fit_override")
         if override and verdict in ("FAIL", "INVALID", "INCOMPLETE", "UNSCORED"):
             reasons = [f"overridden ({verdict}): {override}"] + reasons
@@ -230,7 +250,7 @@ def main() -> int:
         fm, end = frontmatter(txt)
         fm = set_field(set_field(fm, "fit_score", f"{score:.2f}"), "fit_gate", verdict.lower())
         txt = f"---\n{fm}\n---\n" + txt[end:]
-        if a.enforce and verdict == "FAIL" and field(fm, "status") not in PROTECTED:
+        if a.enforce and verdict in ("FAIL", "NOJD") and field(fm, "status") not in PROTECTED:
             txt = enforce(p, txt, score, reasons, rows or [])
             print(f"{'':16}-> declined (status skipped)")
         if a.restore and verdict == "PASS":

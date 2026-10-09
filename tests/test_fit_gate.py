@@ -97,3 +97,9 @@ def test_pipe_inside_a_quote_is_reported_not_dropped():
 def test_knockout_kind_vetoes_and_preferred_does_not():
     rows = [("Bachelor's, no equivalent", "knockout", "Unmet")] + [(f"d{i}", "core", "Met") for i in range(9)]
     assert judge(note(*rows))[0] == "FAIL"
+
+
+def test_note_without_archived_jd_is_detected():
+    assert fg.has_jd(note(("d", "core", "Met")) + "> " + "real posting text " * 80 + "\n")
+    assert not fg.has_jd(note(("d", "core", "Met")))  # a one-line callout is a stub
+    assert not fg.has_jd("---\ntype: job-listing\n---\n# X\n\n## Snapshot\n- Indeed row only\n")
