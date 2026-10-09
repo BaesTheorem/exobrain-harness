@@ -46,11 +46,14 @@ echo "$(date '+%Y-%m-%d %H:%M:%S') rotate-logs: ${rotated} rotated, ${pruned} pr
 # Disk hygiene, same weekly cadence. The 2026-10-08 cleanup found 11GB in the
 # uv cache, 4GB in npm, 2GB in brew and 11GB of finished scratch in the harness
 # tmp/ dir; none of it has an owner that prunes it. Package caches re-fill on
-# demand. tmp/ entries are scratch by convention and go after TMP_DAYS.
+# demand (uv is the exception, see below). tmp/ entries are scratch by convention and go after TMP_DAYS.
 TMP_DIR="$(cd "$(dirname "$0")/.." && pwd)/tmp"
 TMP_DAYS=21
 export PATH="/opt/homebrew/bin:/usr/local/bin:$HOME/.local/bin:$PATH"
-command -v uv >/dev/null && uv cache prune -q 2>/dev/null
+# No uv prune: the Console, the hotkey agent and the MCP servers run as
+# `uv run --script`, and each holds a shared lock on ~/.cache/uv for its whole
+# lifetime because its environment lives in the cache (environments-v2). The
+# lock never frees on a running Mac, and prune would time out at 300s.
 command -v npm >/dev/null && npm cache verify >/dev/null 2>&1
 command -v brew >/dev/null && brew cleanup -s --prune=all >/dev/null 2>&1
 if [ -d "$TMP_DIR" ]; then
