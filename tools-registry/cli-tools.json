@@ -272,6 +272,14 @@
     "notes": "Refresh facebook/secrets/cookies.txt from the live Chrome/Brave session on macOS. Direct AES-128-CBC decrypt of the on-disk cookie store; key = PBKDF2-HMAC-SHA1(Keychain 'Chrome Safe Storage', 'saltysalt', 1003, 16). SHA1 not SHA256. Copied-profile browser launch does NOT work (key bound to original profile). --browser chrome|brave, --dry-run."
   },
   {
+    "name": "fit-gate",
+    "command": "python3 job-search/fit-gate.py [--note PATH ...] [--all] [--write] [--enforce]",
+    "repo_dir": "/Users/alexhedtke/Documents/Exobrain harness/job-search",
+    "source": "built",
+    "added": "2026-10-09",
+    "notes": "Reads the '## Fit scorecard' table on job listing notes. Threshold 0.80 and MIN_ROWS 5 are constants in the file. --enforce never touches applied/interviewing/offer notes and never declines an unscored note."
+  },
+  {
     "name": "geo",
     "command": "geoguessr/bin/geo",
     "repo_dir": "/Users/alexhedtke/Documents/Exobrain harness/geoguessr",

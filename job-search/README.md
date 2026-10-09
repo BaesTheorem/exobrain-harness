@@ -19,6 +19,15 @@ Daily unattended discovery scan for the `/job-search` skill.
   on failure (added 2026-08-10: half the 7/21-8/10 runs died on "Connection closed
   mid-response" with no retry and no visible trace), and a clickable `mist-notify` failure
   banner pointing at the failed attempt's log.
+- **`fit-gate.py`** (added 2026-10-09) -- gate 4 (strong fit) as arithmetic. Each listing
+  note carries a `## Fit scorecard` table: one row per JD line, with the level the JD verb
+  asks for, Alex's real level from the Capability Boundaries table in the gitignored
+  Claude Reference, and Met / Partial / Unmet. The script fails a note when any required
+  row is Unmet or when (Met + 0.5 x Partial) / scored rows is under 0.80. `--enforce`
+  declines a failed note (`status: skipped`, `declined: true`, a generated
+  `## Why skipped`). With no arguments it audits every active candidate and reports
+  notes that have no scorecard. It exists because a sysadmin seat passed as a strong fit
+  at roughly 50% real overlap: the audit matched topics, not verbs.
 - **`nicheboards.py`** (added 2026-08-14) -- niche-board lane through the boards' own data
   paths instead of Google X-ray (whose lagged index + silent wrong-domain results kept the
   lane looking dry). Himalayas public JSON API (search param ignored, `limit` silently

@@ -229,6 +229,29 @@ Do NOT hand-build resume/cover-letter HTML per JD anymore. Use the reusable buil
 - Canonical resume content lives in `resume-builder/data/resume_data.json` (source of truth). Tailoring rules are still surgical-only per [[Claude Reference]]; the builder does not relax them.
 - The builder bakes in the document-side ATS / AI-screening defenses (clean metadata, selectable single-column text, human filename, no Skia/Chrome fingerprint). The **prose** defense is still yours: run `/de-ai` on every tailored summary/bullet and cover letter. Full rationale: [[ATS & AI-Screening Playbook]] (`Projects/Get new job/`). Read it before tailoring.
 
+## Gate 4: Fit Scorecard (mandatory, mechanical)
+
+Added 2026-10-09. A sysadmin seat (server builds, AVD deployment, backup and DR) passed gate 4 as "his day job restated" at roughly 50% real overlap. The audit had matched topics, not verbs: "supported users on AVD" was read as "deploys AVD", and "uses Exchange" as "administers retention policy." A fluent "Why this fits" paragraph is not evidence. Gate 4 is now a table plus arithmetic, and a script makes the decision.
+
+**Every listing note that passes gates 1-3 carries a `## Fit scorecard` section** placed before `## ATS keywords`. This applies to audits, scans, and applies, and to near-miss notes that die on gate 4.
+
+1. Read the **Capability Boundaries (verb level)** table in the gitignored Claude Reference. It records Alex's real level per area: Own/Build > Administer > Operate > Support > Exposure > None.
+2. Write one row per JD line. Use Kind `required` for every stated qualification, Kind `core` for every primary duty (merge only near-duplicates), and Kind `preferred` for nice-to-haves. Quote the JD.
+3. Score each row against the Boundaries table. **The JD's verb sets the level it asks for, and a lower level than asked is never Met.** "Deploy", "build", "architect", "engineer" and "own" ask for Own/Build. "Configure", "manage" and "maintain" ask for Administer. Areas the table marks "not confirmed" are Partial at most. When a row is not in the table, use the closest row; never a higher level.
+4. Run `python3 job-search/fit-gate.py --note "<note path>" --enforce`. It fails the note when any `required` row is Unmet, or when (Met + 0.5 x Partial) / (required + core rows) is under 0.80. On a fail it sets `status: skipped` and `declined: true` and writes `## Why skipped` from the failing rows. It also stamps `fit_score` and `fit_gate` into the frontmatter. A note with fewer than 5 scored rows is INCOMPLETE, and you must finish the table.
+5. **The script's verdict is the gate.** Do not override it in prose, do not label a role Strong Fit that the script failed, and do not count it as a survivor. If you think the table is wrong, fix the row and say why. If a Boundaries row is wrong, Alex corrects the Reference.
+
+Format:
+
+```
+## Fit scorecard
+| # | JD line | Kind | Asks | Alex | Verdict | Evidence |
+|---|---|---|---|---|---|---|
+| 1 | "Deploy, configure, and maintain AVD environments" | core | Own/Build | Support | Unmet | Boundaries: AVD deployment |
+```
+
+`python3 job-search/fit-gate.py` with no arguments audits every active candidate in the tracker. It reports UNSCORED notes, which predate the rule or skipped it.
+
 ## JD Scorecard Simulation (run before any tailoring)
 
 Before writing a tailored resume or cover letter, have the model **predict the rubric the screener will score against**, then write to that rubric. This runs in mode 1 (audit) to sharpen the verdict and in mode 3 (cover letter) as a required input.
@@ -411,6 +434,8 @@ When Alex shares a job posting URL or text, evaluate fit:
    - UltiPro: browser-blocks bot fetchers AND renders expired postings with full content. Always look for an explicit "posted" or "expires" date in the listing -- if absent and >30 days from posting, treat as suspect.
 
    **Reporting**: When agents return verified-open roles, the verification_signals frontmatter must include the apply-form check explicitly: e.g., "Apply form loaded successfully on Greenhouse 2026-05-08 with active Submit button." If the apply form check was not performed, the role is "verification incomplete" -- not "verified open."
+
+3a. **Write the gate-4 Fit scorecard and run `fit-gate.py --enforce`** (see "Gate 4: Fit Scorecard"). Its verdict caps the fit score in the report below: a FAIL is Weak Fit or Skip, never Moderate or Strong.
 
 3b. **Run the scorecard simulation** (see "JD Scorecard Simulation" above). Do this before writing the fit report, because the knockout flags decide the verdict: a required/knockout attribute Alex cannot answer is a predicted auto-reject, and the honest recommendation is skip-or-warm-intro rather than a cold application. Carry the skills column into `## ATS keywords` on the listing note.
 
@@ -769,8 +794,8 @@ When called as part of the daily briefing (every day, weekends included):
         - Fully remote (JD says remote, not just LinkedIn label -- Cyderes 2026-05-19 was hybrid despite "Remote" label)
         - Full-time permanent (not contract, contract-to-hire, 1099, temp)
         - **Comp band reaches the floor** (band rule, Alex 2026-08-10: a listed range passes if the floor falls anywhere within it -- DQ only when the band's top is below the floor; a bottom under the floor is a pass-with-flag. The floor's value lives in the gitignored Claude Reference.md), OR brief market-data check (Glassdoor/Salary.com/ZipRecruiter median for that title) shows strong evidence the role's band reaches the floor -- *if unlisted and you can't reach high confidence in <2 min of research, DQ*
-        - Strong fit ≥80% (no failed JD hard reqs -- degree, years, named tools, clearance, bilingual -- AND ≥80% of top responsibilities/qualifications match Alex's resume)
-     c. Create a per-listing note **only** if all 4 gates pass. Use the schema in "Per-Listing Notes & Bases Tracker" above. Set `verified: true` and record the comp-evidence inference (if applicable) in `verification_signals`.
+        - Strong fit: write the `## Fit scorecard` table and let `fit-gate.py --enforce` decide (see "Gate 4: Fit Scorecard"). No failed required line, and a score of at least 0.80 at the verb level the JD asks for.
+     c. Create a per-listing note **only** if all 4 gates pass, with the scorecard in it. A role that fails only gate 4 becomes a near-miss note (the script declines it). Use the schema in "Per-Listing Notes & Bases Tracker" above. Set `verified: true` and record the comp-evidence inference (if applicable) in `verification_signals`.
    - Pacing: no numerical cap, but follow `/linkedin` qualitative rules -- batch JD reads in small groups (2-4 per turn) with reasoning between, vary keyword angles day-to-day, no tight loops. The natural ceiling is "I've exhausted reasonable search angles," not an arbitrary count.
    - Target volume: 2-5 new verified candidates per day → hits the 10-20 weekly app goal.
 
