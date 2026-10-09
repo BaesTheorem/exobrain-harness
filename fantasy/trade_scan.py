@@ -88,7 +88,9 @@ def main():
     for tid, t in teams.items():
         if tid == me:
             continue
-        theirs = [p for p in t["players"] if p["pos"] not in SKIP_POS and status.get((tid, p["name"]), "") not in SKIP_STATUS]
+        # A named --package is a deliberate injury-discount buy, so it keeps OUT targets.
+        theirs = [p for p in t["players"] if p["pos"] not in SKIP_POS
+                  and (args.package or status.get((tid, p["name"]), "") not in SKIP_STATUS)]
         base_them = t["espn"]
         for b in theirs:
             for a in mine:
