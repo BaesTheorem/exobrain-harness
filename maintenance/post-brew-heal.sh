@@ -49,7 +49,11 @@ for p in "$HOME"/Library/LaunchAgents/com.exobrain.*.plist "$HOME"/Library/Launc
   label=$(basename "$p" .plist)
   info=$(launchctl print "gui/$UID_N/$label" 2>/dev/null) || continue   # not loaded = not ours to decide
   if echo "$info" | grep -qE "last exit code = 78|OS_REASON_CODESIGNING|OS_REASON_DYLD"; then
-    echo "re-bootstrapping $label"
+    # Record the line that matched. Without it there is no way to tell a brew
+    # break from a job that failed for its own reason (a run at login after a
+    # reboot looked like this for weeks, see nest-nightlog on 2026-10-09).
+    why=$(echo "$info" | grep -E "last exit code = 78|OS_REASON_CODESIGNING|OS_REASON_DYLD" | head -1 | sed 's/^[[:space:]]*//')
+    echo "re-bootstrapping $label ($why)"
     launchctl bootout "gui/$UID_N/$label" 2>/dev/null
     # bootout returns before launchd finishes tearing the service down; an
     # immediate bootstrap can race it and fail (took claude-bot down for 9h on
@@ -129,8 +133,10 @@ if [ ${#broken[@]} -gt 0 ]; then
     --action "Ask MIST to fix=console" \
     --group brew-heal --id brew-heal --urgency active 2>/dev/null
 elif [ ${#healed[@]} -gt 0 ]; then
-  "$NOTIFY" "Homebrew changed and everything self-healed: ${healed[*]}" \
-    "Brew update absorbed" "" "$LOG" \
+  # The 07:40 backstop also lands here with no brew change at all, so the
+  # banner must not claim one.
+  "$NOTIFY" "Self-heal fixed: ${healed[*]}" \
+    "Launchd jobs self-healed" "" "$LOG" \
     --subtitle "Click to open post-brew-heal.log" \
     --group brew-heal --id brew-heal 2>/dev/null
 fi
