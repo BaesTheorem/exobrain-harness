@@ -13,14 +13,22 @@ Table format (columns in this order, extra columns ignored):
     |---|---|---|---|---|---|---|
     | 1 | "Deploy and maintain AVD environments" | core | Own/Build | Support | Unmet | Boundaries: AVD deployment |
 
-    Kind     required (a stated qualification) | core (a primary duty) | preferred
+    Kind     knockout (a hard bar: degree with no equivalent clause, citizenship,
+                       clearance, license) | required (a stated qualification) |
+             core (a primary duty) | preferred (not scored)
+    Asks / Alex  Own/Build | Administer | Operate | Support | Exposure | None | n/a
     Verdict  Met | Partial | Unmet
 
 Decision:
-    FAIL        any `required` row is Unmet (a knockout), or
-                score < 0.80, where score = (Met + 0.5 * Partial) / (required + core rows)
-    INCOMPLETE  fewer than MIN_ROWS required + core rows (the scorer skimmed)
+    INVALID     a numbered row does not parse, or a verdict contradicts its own
+                levels (Met while Alex is below what the JD asks, or Unmet while
+                he reaches it). Fix the table; an INVALID note is never enforced.
+    FAIL        an Unmet row of a KNOCKOUT_KINDS kind, or
+                score < 0.80, where score = (Met + 0.5 * Partial) / scored rows
+    INCOMPLETE  fewer than MIN_ROWS scored rows (the scorer skimmed)
     UNSCORED    no scorecard section
+    OVERRIDE    the frontmatter has `fit_override: "<reason>"`. Alex's deliberate
+                exception; reported with the reason, never enforced
     PASS        otherwise
 
 Usage:
@@ -51,6 +59,16 @@ ROOT = "/Users/alexhedtke/Exobrain/Projects/Get new job/Job Listings"
 THRESHOLD = 0.80
 MIN_ROWS = 5
 WEIGHT = {"met": 1.0, "partial": 0.5, "unmet": 0.0}
+KINDS = ("knockout", "required", "core", "preferred")
+SCORED = ("knockout", "required", "core")
+# Which kinds veto on an Unmet row. Alex's rule 4a reads "not fail ANY of the
+# employer's stated hard requirements", so `required` vetoes today. The
+# `knockout` kind exists so the veto can be narrowed to true hard bars (degree
+# with no equivalent clause, citizenship, clearance, license) by deleting
+# "required" here, a policy change that is Alex's call, not the script's.
+KNOCKOUT_KINDS = ("knockout", "required")
+LEVEL = {"own/build": 5, "own": 5, "build": 5, "administer": 4, "operate": 3,
+         "support": 2, "exposure": 1, "none": 0, "n/a": None}
 PROTECTED = {"applied", "interviewing", "offer"}
 
 
@@ -71,39 +89,62 @@ def set_field(fm: str, key: str, value: str) -> str:
     return fm + "\n" + line
 
 
+def level(cell: str) -> int | None:
+    key = cell.lower().replace(" ", "")
+    return LEVEL.get(key)
+
+
 def scorecard_rows(txt: str) -> list[dict] | None:
+    """Parse the table. A numbered row that cannot be parsed comes back with an
+    `error` key instead of being dropped, so a malformed table cannot pass."""
     m = re.search(r"^## Fit scorecard[^\n]*\n(.*?)(?=^#{1,2} |^> \[!|\Z)", txt, re.S | re.M)
     if not m:
         return None
     rows = []
     for line in m.group(1).splitlines():
         cells = [c.strip() for c in line.strip().strip("|").split("|")]
-        if len(cells) < 6 or set(cells[0]) <= set("-: ") or cells[0] == "#":
+        if not re.match(r"\|\s*\d+\s*\|", line.strip()):
+            continue
+        if len(cells) < 6:
+            rows.append({"error": f"row {cells[0]}: {len(cells)} cells (a pipe inside a quote?)"})
             continue
         kind, verdict = cells[2].lower(), cells[5].lower().strip("* ")
-        if kind not in ("required", "core", "preferred") or verdict not in WEIGHT:
+        if kind not in KINDS or verdict not in WEIGHT:
+            rows.append({"error": f"row {cells[0]}: kind {cells[2]!r} / verdict {cells[5]!r} not recognized"})
             continue
-        rows.append({"line": cells[1], "kind": kind, "verdict": verdict,
-                     "evidence": cells[6] if len(cells) > 6 else ""})
+        row = {"line": cells[1], "kind": kind, "verdict": verdict,
+               "asks": level(cells[3]), "alex": level(cells[4]),
+               "evidence": cells[6] if len(cells) > 6 else ""}
+        a, b = row["asks"], row["alex"]
+        if a is not None and b is not None:
+            if verdict == "met" and b < a:
+                row["error"] = f"row {cells[0]}: Met, but Alex {cells[4]} is below the {cells[3]} the JD asks"
+            elif verdict == "unmet" and a > 0 and b >= a:
+                row["error"] = f"row {cells[0]}: Unmet, but Alex {cells[4]} reaches the {cells[3]} the JD asks"
+        rows.append(row)
     return rows
 
 
 def judge(rows: list[dict] | None) -> tuple[str, float | None, list[str]]:
     if rows is None:
         return "UNSCORED", None, []
-    scored = [r for r in rows if r["kind"] in ("required", "core")]
+    errors = [r["error"] for r in rows if "error" in r]
+    good = [r for r in rows if "line" in r]
+    scored = [r for r in good if r["kind"] in SCORED]
+    score = sum(WEIGHT[r["verdict"]] for r in scored) / len(scored) if scored else None
+    if errors:
+        return "INVALID", score, errors
     if len(scored) < MIN_ROWS:
-        return "INCOMPLETE", None, [f"only {len(scored)} required/core rows (minimum {MIN_ROWS})"]
-    score = sum(WEIGHT[r["verdict"]] for r in scored) / len(scored)
+        return "INCOMPLETE", None, [f"only {len(scored)} scored rows (minimum {MIN_ROWS})"]
     reasons = [f"knockout: {r['line']}" for r in scored
-               if r["kind"] == "required" and r["verdict"] == "unmet"]
+               if r["kind"] in KNOCKOUT_KINDS and r["verdict"] == "unmet"]
     if score < THRESHOLD:
         reasons.append(f"score {score:.2f} < {THRESHOLD:.2f}")
     return ("FAIL" if reasons else "PASS"), score, reasons
 
 
 def why_skipped(score: float | None, reasons: list[str], rows: list[dict]) -> str:
-    unmet = [r for r in rows if r["kind"] in ("required", "core") and r["verdict"] == "unmet"]
+    unmet = [r for r in rows if r.get("kind") in SCORED and r.get("verdict") == "unmet"]
     out = ["## Why skipped",
            f"Gate 4 failed in `job-search/fit-gate.py` (score {score:.2f}, threshold {THRESHOLD:.2f}).", ""]
     out += [f"- {r}" for r in reasons if not r.startswith("knockout")]
@@ -155,12 +196,16 @@ def main() -> int:
         txt = open(p, encoding="utf-8").read()
         rows = scorecard_rows(txt)
         verdict, score, reasons = judge(rows)
+        override = field(frontmatter(txt)[0], "fit_override")
+        if override and verdict in ("FAIL", "INVALID", "INCOMPLETE", "UNSCORED"):
+            reasons = [f"overridden ({verdict}): {override}"] + reasons
+            verdict = "OVERRIDE"
         tally[verdict] = tally.get(verdict, 0) + 1
         shown = f"{score:.2f}" if score is not None else "  - "
         print(f"{verdict:<10} {shown}  {os.path.basename(p)[:-3]}")
         for r in reasons:
             print(f"{'':16}{r[:150]}")
-        if not (a.write or a.enforce) or score is None:
+        if not (a.write or a.enforce) or score is None or verdict == "OVERRIDE":
             continue
         fm, end = frontmatter(txt)
         fm = set_field(set_field(fm, "fit_score", f"{score:.2f}"), "fit_gate", verdict.lower())

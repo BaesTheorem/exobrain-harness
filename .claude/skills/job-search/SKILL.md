@@ -233,12 +233,25 @@ Do NOT hand-build resume/cover-letter HTML per JD anymore. Use the reusable buil
 
 Added 2026-10-09. A sysadmin seat (server builds, AVD deployment, backup and DR) passed gate 4 as "his day job restated" at roughly 50% real overlap. The audit had matched topics, not verbs: "supported users on AVD" was read as "deploys AVD", and "uses Exchange" as "administers retention policy." A fluent "Why this fits" paragraph is not evidence. Gate 4 is now a table plus arithmetic, and a script makes the decision.
 
+**Before any artifact work** (cover letter, tailored resume, apply pipeline, interview prep), run `fit-gate.py --note` on the listing. If the verdict is not PASS or OVERRIDE, stop and tell Alex the score and the failing rows. If he wants to go ahead anyway, record his reason as `fit_override: "<reason>"` in the frontmatter. The exception then shows in the tracker and the script reports it as OVERRIDE. On 2026-10-09 another session built a resume for a role that the gate had just failed, and nothing recorded why.
+
 **Every listing note that passes gates 1-3 carries a `## Fit scorecard` section** placed before `## ATS keywords`. This applies to audits, scans, and applies, and to near-miss notes that die on gate 4.
 
 1. Read the **Capability Boundaries (verb level)** table in the gitignored Claude Reference. It records Alex's real level per area: Own/Build > Administer > Operate > Support > Exposure > None.
-2. Write one row per JD line. Use Kind `required` for every stated qualification, Kind `core` for every primary duty (merge only near-duplicates), and Kind `preferred` for nice-to-haves. Quote the JD.
-3. Score each row against the Boundaries table. **The JD's verb sets the level it asks for, and a lower level than asked is never Met.** "Deploy", "build", "architect", "engineer" and "own" ask for Own/Build. "Configure", "manage" and "maintain" ask for Administer. Areas the table marks "not confirmed" are Partial at most. When a row is not in the table, use the closest row; never a higher level.
-4. Run `python3 job-search/fit-gate.py --note "<note path>" --enforce`. It fails the note when any `required` row is Unmet, or when (Met + 0.5 x Partial) / (required + core rows) is under 0.80. On a fail it sets `status: skipped` and `declined: true` and writes `## Why skipped` from the failing rows. It also stamps `fit_score` and `fit_gate` into the frontmatter. A note with fewer than 5 scored rows is INCOMPLETE, and you must finish the table.
+2. Write one row per JD bullet. Merge only literal duplicates, because how rows are split changes the score. Split a bullet that names several areas ("shared mailboxes, guest users, SharePoint and Teams sites") into one row per area. Kinds:
+   - `knockout`: a hard bar the employer cannot waive in practice. That is a degree with no "or equivalent" clause, citizenship, clearance, or a named license or certification.
+   - `required`: any other stated qualification. A list under a Requirements, Qualifications or Minimum heading counts as required even without the word. A list under Competencies, Skills, or What we look for is `core`.
+   - `core`: a primary duty. Do not score summary or intro sentences.
+   - `preferred`: preferred, nice-to-have, plus, or "recommended". These rows are not scored.
+3. Score each row against the Boundaries table. **The JD's verb sets the level it asks for, and a lower level than asked is never Met.** The script rejects a Met row whose Alex level is below its Asks level. Level rules:
+   - "deploy, build, architect, engineer, design" ask Own/Build. "configure, manage, maintain, administer" ask Administer. "use, operate, run, apply, perform" ask Operate. "support users on, troubleshoot for users" asks Support. "familiarity, knowledge, understanding, exposure" asks Exposure, so an Exposure row meets it.
+   - A softener ("assist, aid, participate in, help with, contribute to") lowers the ask by one level.
+   - The object decides the area, not the verb alone. "Own frontline support operations" is ticket-queue work (the ITIL row). It is not Own/Build of a platform.
+   - Credential rows (degree, years, citizenship) use `n/a` in both level columns.
+   - Years lines count only time spent in that specialty at the level asked. Job titles do not count.
+   - When no Boundaries row covers the line, use the closest row that shares the same mechanism. Score Unmet only for genuinely new territory, and record a question for Alex.
+   - An area that the Boundaries table marks "not confirmed" is Partial at most.
+4. Run `python3 job-search/fit-gate.py --note "<note path>" --enforce`. It fails the note when any `knockout` or `required` row is Unmet (the vetoing kinds are `KNOCKOUT_KINDS` in the script), or when (Met + 0.5 x Partial) / (required + core rows) is under 0.80. On a fail it sets `status: skipped` and `declined: true` and writes `## Why skipped` from the failing rows. It also stamps `fit_score` and `fit_gate` into the frontmatter. A note with fewer than 5 scored rows is INCOMPLETE, and you must finish the table.
 5. **The script's verdict is the gate.** Do not override it in prose, do not label a role Strong Fit that the script failed, and do not count it as a survivor. If you think the table is wrong, fix the row and say why. If a Boundaries row is wrong, Alex corrects the Reference.
 
 Format:

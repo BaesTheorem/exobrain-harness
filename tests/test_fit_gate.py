@@ -62,3 +62,21 @@ def test_enforce_declines_and_keeps_raw_jd(tmp_path):
     assert fg.field(fm, "status") == "skipped" and fg.field(fm, "declined") == "true"
     assert out.index("## Why skipped") < out.index("## Fit scorecard")
     assert "> text | with | pipes" in out
+
+
+def test_met_below_asked_level_is_invalid():
+    txt = HEAD + '| 1 | "Deploy AVD" | core | Own/Build | Support | Met | e |\n' + "\n".join(
+        f'| {i} | "d{i}" | core | Administer | Administer | Met | e |' for i in range(2, 7)) + "\n"
+    verdict, _, reasons = judge(txt)
+    assert verdict == "INVALID" and "below" in reasons[0]
+
+
+def test_pipe_inside_a_quote_is_reported_not_dropped():
+    txt = note(*[(f"d{i}", "core", "Met") for i in range(5)]).replace(
+        '| 1 | "d0" | core | A | A | Met | e |', '| 1 | "a | b" | core | Met |')
+    assert judge(txt)[0] == "INVALID"
+
+
+def test_knockout_kind_vetoes_and_preferred_does_not():
+    rows = [("Bachelor's, no equivalent", "knockout", "Unmet")] + [(f"d{i}", "core", "Met") for i in range(9)]
+    assert judge(note(*rows))[0] == "FAIL"
