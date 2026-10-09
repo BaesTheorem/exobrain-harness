@@ -563,6 +563,14 @@
     "notes": "AppleScript applet bundle, so there is no shell launcher for scan_apps() to parse."
   },
   {
+    "name": "repo-offload",
+    "command": "bin/repo-offload <repo-dir>...",
+    "repo_dir": "bin",
+    "source": "built",
+    "added": "2026-10-08",
+    "notes": "Refuses a repo with unpushed commits or a dirty worktree. Local-only branches and stashes go to ~/Documents/repo-bundles/<name>.bundle (BUNDLE_DIR). Ledger at ~/Exobrain/Projects/Offloaded repos.md (LEDGER). Restore: gh repo clone, then git fetch <bundle> 'refs/*:refs/*'."
+  },
+  {
     "name": "ringer_board",
     "command": "python3 fantasy/ringer_board.py --format ppr",
     "repo_dir": "/Users/alexhedtke/Documents/Exobrain harness",

@@ -1,0 +1,79 @@
+#!/bin/bash
+# repo-offload: remove a local git clone whose work is fully on GitHub.
+#
+# The remote stays. Anything the remote does not have (local-only branches,
+# stashes) is saved first as a git bundle, so the delete loses nothing. The
+# clone is refused when a tracked branch is ahead of its upstream or the
+# worktree has modified or untracked files: push or commit those first.
+#
+# Usage: repo-offload <repo-dir>...
+#   BUNDLE_DIR  where bundles go (default ~/Documents/repo-bundles)
+#   LEDGER      markdown table that records each offload
+#               (default ~/Exobrain/Projects/Offloaded repos.md)
+#
+# Restore: gh repo clone <remote> ~/Documents/<name>
+#          git -C ~/Documents/<name> fetch <bundle> 'refs/*:refs/*'
+set -uo pipefail
+
+BUNDLE_DIR="${BUNDLE_DIR:-$HOME/Documents/repo-bundles}"
+LEDGER="${LEDGER:-$HOME/Exobrain/Projects/Offloaded repos.md}"
+
+fail() { echo "SKIP $1: $2" >&2; return 1; }
+
+offload() {
+    local dir="$1" name remote last size
+    dir="$(cd "$dir" 2>/dev/null && pwd -P)" || { fail "$1" "not a directory"; return 1; }
+    [ -d "$dir/.git" ] || { fail "$dir" "not a git repo"; return 1; }
+    name="$(basename "$dir")"
+    remote="$(git -C "$dir" remote get-url origin 2>/dev/null)" || { fail "$name" "no origin remote"; return 1; }
+
+    git -C "$dir" fetch -q origin || { fail "$name" "fetch failed"; return 1; }
+    if [ -n "$(git -C "$dir" status --porcelain)" ]; then
+        fail "$name" "worktree has modified or untracked files"; return 1
+    fi
+    local ahead=""
+    for b in $(git -C "$dir" for-each-ref --format='%(refname:short)' refs/heads/); do
+        if git -C "$dir" show-ref --verify --quiet "refs/remotes/origin/$b"; then
+            n=$(git -C "$dir" rev-list --count "origin/$b..$b")
+            [ "$n" != "0" ] && ahead="$ahead $b(+$n)"
+        fi
+    done
+    [ -z "$ahead" ] || { fail "$name" "unpushed commits:$ahead"; return 1; }
+
+    # Local-only refs: branches with no origin counterpart, plus stashes.
+    local extra="" bundle="none"
+    for b in $(git -C "$dir" for-each-ref --format='%(refname:short)' refs/heads/); do
+        git -C "$dir" show-ref --verify --quiet "refs/remotes/origin/$b" || extra="$extra $b"
+    done
+    git -C "$dir" rev-parse -q --verify refs/stash >/dev/null && extra="$extra refs/stash"
+    if [ -n "$extra" ]; then
+        mkdir -p "$BUNDLE_DIR"
+        bundle="$BUNDLE_DIR/$name.bundle"
+        # shellcheck disable=SC2086
+        git -C "$dir" bundle create "$bundle" $extra >/dev/null 2>&1 \
+            && git -C "$dir" bundle verify "$bundle" >/dev/null 2>&1 \
+            || { fail "$name" "bundle failed"; return 1; }
+    fi
+
+    last="$(git -C "$dir" log -1 --format=%cs 2>/dev/null)"
+    size="$(du -sh "$dir" | cut -f1)"
+    rm -rf "$dir" || { fail "$name" "rm failed"; return 1; }
+
+    mkdir -p "$(dirname "$LEDGER")"
+    if [ ! -f "$LEDGER" ]; then
+        {
+            echo "# Offloaded repos"
+            echo
+            echo "Local clones removed by repo-offload. The GitHub remote holds the work. Restore with gh repo clone, then git fetch the bundle (if any) with refs/*:refs/* for the local-only branches and stashes."
+            echo
+            echo "| Repo | Remote | Last commit | Freed | Bundle | Offloaded |"
+            echo "| --- | --- | --- | --- | --- | --- |"
+        } > "$LEDGER"
+    fi
+    echo "| $name | $remote | $last | $size | ${bundle/#$HOME/~} | $(date +%F) |" >> "$LEDGER"
+    echo "offloaded $name ($size, last commit $last, bundle: $bundle)"
+}
+
+rc=0
+for d in "$@"; do offload "$d" || rc=1; done
+exit $rc

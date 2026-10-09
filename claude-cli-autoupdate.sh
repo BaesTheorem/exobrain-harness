@@ -66,6 +66,16 @@ fi
 # version we report is the version `claude` actually runs.
 "$HARNESS/maintenance/claude-stable-path.sh" --now >>"$LOG" 2>&1 || true
 
+# The native updater leaves every previous version behind in the versions tree
+# (ten of them, 2.2GB, by 2026-10-08). Keep the newest two: the current one and
+# one to fall back to.
+VERSIONS_DIR="$HOME/.local/share/claude/versions"
+if [ -d "$VERSIONS_DIR" ]; then
+  ls "$VERSIONS_DIR" | sort -t. -k1,1n -k2,2n -k3,3n | sed '$d' | sed '$d' | while read -r old; do
+    rm -f "$VERSIONS_DIR/$old" && echo "$(ts) pruned version $old" >>"$LOG"
+  done
+fi
+
 # Re-resolve: an update that migrates install methods moves the binary out from
 # under us, so the pre-update path may no longer exist.
 CLAUDE_BIN="$(command -v claude)"
