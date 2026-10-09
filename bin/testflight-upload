@@ -1,0 +1,73 @@
+#!/usr/bin/env bash
+# Archive an XcodeGen iOS project in Release and upload it to TestFlight.
+#
+#   testflight-upload DIR --scheme NAME [--prep "cmd"] [--archive-only | --upload-only]
+#
+# DIR holds project.yml. --prep runs in DIR before xcodegen (copy resources,
+# make credentials). The build number is a timestamp, so every Info.plist must
+# read CFBundleVersion from $(CURRENT_PROJECT_VERSION); the script checks the
+# archive and stops when it does not. The team comes from DEVELOPMENT_TEAM in
+# DIR/Config/*.xcconfig. --archive-only builds and exports locally without an
+# upload: use it before the App Store Connect record exists. The local export
+# is what registers explicit bundle ids (a development archive signs with the
+# wildcard profile), and the New App form lists only registered ids.
+# --upload-only sends the last archive.
+set -euo pipefail
+DIR=$1; shift
+SCHEME="" PREP="" MODE=both
+while (($#)); do
+  case $1 in
+    --scheme) SCHEME=$2; shift 2 ;;
+    --prep) PREP=$2; shift 2 ;;
+    --archive-only) MODE=archive; shift ;;
+    --upload-only) MODE=upload; shift ;;
+    *) echo "unknown option $1" >&2; exit 2 ;;
+  esac
+done
+[[ -n $SCHEME ]] || { echo "--scheme is required" >&2; exit 2; }
+cd "$DIR"
+export DEVELOPER_DIR=${DEVELOPER_DIR:-/Applications/Xcode.app/Contents/Developer}
+PATH="/opt/homebrew/bin:$PATH"
+OUT=build/testflight
+ARCHIVE=$OUT/$SCHEME.xcarchive
+TEAM=$(cat Config/*.xcconfig 2>/dev/null | sed -n 's/^DEVELOPMENT_TEAM *= *//p' | head -1)
+[[ -n $TEAM ]] || { echo "no DEVELOPMENT_TEAM in $DIR/Config/*.xcconfig" >&2; exit 1; }
+
+if [[ $MODE != upload ]]; then
+  [[ -z $PREP ]] || bash -c "$PREP"
+  xcodegen generate --quiet
+  BUILD=$(date +%Y%m%d%H%M)
+  rm -rf "$ARCHIVE"
+  xcodebuild -project "$SCHEME.xcodeproj" -scheme "$SCHEME" -configuration Release -quiet \
+    -destination 'generic/platform=iOS' -archivePath "$ARCHIVE" \
+    -allowProvisioningUpdates CURRENT_PROJECT_VERSION="$BUILD" archive
+  for plist in $(find "$ARCHIVE/Products/Applications" -name Info.plist -path '*.app*/Info.plist' -maxdepth 4); do
+    got=$(/usr/libexec/PlistBuddy -c 'Print :CFBundleVersion' "$plist")
+    [[ $got == "$BUILD" ]] || { echo "$plist has CFBundleVersion $got, not $BUILD: use \$(CURRENT_PROJECT_VERSION)" >&2; exit 1; }
+  done
+  echo "Archived $SCHEME build $BUILD"
+fi
+
+[[ -d $ARCHIVE ]] || { echo "no archive at $DIR/$ARCHIVE" >&2; exit 1; }
+DEST=upload
+[[ $MODE != archive ]] || DEST=export
+cat > "$OUT/ExportOptions.plist" <<PL
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0"><dict>
+  <key>method</key><string>app-store-connect</string>
+  <key>destination</key><string>$DEST</string>
+  <key>teamID</key><string>$TEAM</string>
+  <key>signingStyle</key><string>automatic</string>
+  <key>manageAppVersionAndBuildNumber</key><false/>
+</dict></plist>
+PL
+rm -rf "$OUT/export"
+xcodebuild -exportArchive -archivePath "$ARCHIVE" -exportOptionsPlist "$OUT/ExportOptions.plist" \
+  -exportPath "$OUT/export" -allowProvisioningUpdates 2>&1 | grep -vE 'Progress [0-9]+%' | tail -20
+test "${PIPESTATUS[0]}" -eq 0
+if [[ $DEST == upload ]]; then
+  echo "Uploaded $SCHEME. It shows in TestFlight after Apple processes it."
+else
+  echo "Exported $SCHEME locally; its bundle ids are registered."
+fi
