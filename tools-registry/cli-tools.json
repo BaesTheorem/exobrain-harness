@@ -104,6 +104,14 @@
     "notes": "Pins the auto-updating claude CLI to one unchanging path (~/.local/share/claude/stable/claude) so its TCC grants, above all Full Disk Access, stop dying every release. Runs on WatchPaths via com.exobrain.claude-stable-path."
   },
   {
+    "name": "contact-check",
+    "command": "python3 job-search/contact-check.py [--note PATH]",
+    "repo_dir": "job-search",
+    "source": "built",
+    "added": "2026-10-09",
+    "notes": "Reads only Markdown tables with Name and Title columns; free-form contact bullets are not checked. --note exits 1 on a hit; the no-arg audit skips closed/withdrawn/rejected/skipped notes."
+  },
+  {
     "name": "crm-overdue-scan",
     "command": "python3 crm/overdue-scan.py",
     "repo_dir": "/Users/alexhedtke/Documents/Exobrain harness",
