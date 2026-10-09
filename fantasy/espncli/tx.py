@@ -315,11 +315,29 @@ class EspnWriter:
 
         The route is a TRADE_DECLINE transaction that names the offer in
         relatedTransactionId (confirmed 2026-09-30: ESPN answered EXECUTED and
-        the offer left the pending list). The same shape probably withdraws an
-        offer we sent, but that is untested.
+        the offer left the pending list). It does NOT withdraw an offer we
+        sent: ESPN answers 401 AUTH_UNAUTHORIZED_FOR_TEAM (2026-10-09). Use
+        withdraw_trade for that.
         """
         body = self._base("TRADE_DECLINE")
         body["relatedTransactionId"] = transaction_id
+        resp = self._post(body)
+        still = any(t.get("id") == transaction_id for t in self.pending())
+        return {"verified": not still, "id": transaction_id, "response": resp}
+
+    def withdraw_trade(self, transaction_id: str, dry_run: bool = False) -> dict[str, Any]:
+        """Withdraw a trade offer we sent, verified by it leaving the pending list.
+
+        The route is a TRADE_PROPOSAL with executionType CANCEL that names the
+        offer in relatedTransactionId (confirmed 2026-10-09: the offer left the
+        pending list). TRADE_DECLINE answers 401, and the types TRADE_CANCEL
+        and TRADE_WITHDRAW answer 400 Invalid Input.
+        """
+        body = self._base("TRADE_PROPOSAL")
+        body["executionType"] = "CANCEL"
+        body["relatedTransactionId"] = transaction_id
+        if dry_run:
+            return {"dry_run": True, "body": body}
         resp = self._post(body)
         still = any(t.get("id") == transaction_id for t in self.pending())
         return {"verified": not still, "id": transaction_id, "response": resp}

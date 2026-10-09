@@ -9,6 +9,7 @@
     espn-tx pending                           # claims and trades in flight, sent AND received
     espn-tx cancel <transaction id>
     espn-tx decline <transaction id>     # an incoming trade offer
+    espn-tx withdraw <transaction id>    # a trade offer we sent
 
 Every write verifies the result with a read. --dry-run prints the payload.
 """
@@ -39,6 +40,7 @@ def main() -> int:
     sub.add_parser("pending")
     p = sub.add_parser("cancel"); p.add_argument("id")
     p = sub.add_parser("decline"); p.add_argument("id")
+    p = sub.add_parser("withdraw"); p.add_argument("id")
     p = sub.add_parser("chat"); p.add_argument("topic"); p.add_argument("text", nargs="+")
     p.add_argument("--single", action="store_true",
                    help="refuse to send if ESPN's length cap would split the text into several posts")
@@ -62,6 +64,10 @@ def main() -> int:
     if args.cmd == "decline":
         print(json.dumps(w.decline_trade(args.id), indent=1)[:800])
         return 0
+    if args.cmd == "withdraw":
+        res = w.withdraw_trade(args.id, dry_run=args.dry_run)
+        print(json.dumps(res, indent=1)[:800])
+        return 0 if res.get("verified", args.dry_run) else 1
     if args.cmd == "cancel":
         print(json.dumps(w.cancel(args.id), indent=1)[:800])
         return 0
