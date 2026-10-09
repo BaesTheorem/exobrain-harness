@@ -305,21 +305,21 @@ Two stores. **Session memory** is a Zettelkasten in the vault at `~/Exobrain/Cla
 | **Things 3** | Local (Python, `uv tool run things-mcp`) | Task CRUD via Things 3 database | None (local app) |
 | **Fitbit** | Local (Node.js, custom build) | Health data: steps, HR, sleep, AZM, calories | OAuth2 (client ID + secret in `.mcp.json`) |
 | **Withings** | Local (Node.js, `npx gchallen/withings-mcp`) | Weight, body composition, blood pressure | OAuth2 (tokens in `.env`) |
-| **Google Calendar** | Claude Desktop managed | Event CRUD, free time queries | Google OAuth (Desktop-managed) |
-| **Gmail** | Claude Desktop managed | Email search, read, draft | Google OAuth (Desktop-managed) |
-| **Google Drive** | Claude Desktop managed | File search and fetch | Google OAuth (Desktop-managed) |
+| **Google Calendar** | claude.ai connector | Event CRUD, free time queries | Google OAuth (managed by claude.ai) |
+| **Gmail** | claude.ai connector | Email search, read, draft | Google OAuth (managed by claude.ai) |
+| **Google Drive** | claude.ai connector | File search and fetch | Google OAuth (managed by claude.ai) |
 | **Discord** | Claude plugin (`discord@claude-plugins-official`) | Message fetch (digest) | Bot token (plugin-managed) |
 | **Plaud** | Local, user scope (`npx -y @plaud-ai/mcp@0.3.13`) | Recording list, transcripts, AI summary notes, audio links | OAuth (tokens in `~/.plaud/`, auto-refreshed) |
 | **LinkedIn** | Local, user scope (`bin/linkedin-mcp`, a wrapper that launches `mcp-server-linkedin` in real headless mode) | Read-only profile/company/job lookups for job-search and CRM | Browser session (never sends messages) |
 | **Zulip** | Local, project `.mcp.json` (`zulip/.venv/bin/python -m zulipmcp.mcp`) | Read and post in "The Claudes" Zulip org | `zulip/.zuliprc` (gitignored; setup in `zulip/README.md`) |
 | **myKCMO** | Local, user scope (`mykcmo/bin/mykcmo-mcp`) | Kansas City 311: read requests from the open-data portal, file a new report (captcha + confirm gate) | Optional `MYKCMO_*` keys in `.env` |
 | **Pokemon Go** | Local, project `.mcp.json` (`pokemon-go/bin/pokemon-go-mcp`, a launcher for the fork at `~/Documents/pokemon-go-mcp`) | LeekDuck events, raids, research, eggs, Team GO Rocket lineups, promo codes (43 tools, read-only); `pokemon-go/bin/pogo` is the CLI twin with Pokedex, PvPoke and CP/IV math | None (public community data) |
-| **MyChart** | Claude Desktop managed (hosted by [OpenRecord](https://github.com/Fan-Pier-Labs/openrecord)) | Full MyChart patient portal: meds, labs, imaging, vitals, messages, billing, insurance, referrals, preventive care, care team, immunizations, visits, documents, emergency contacts, refill requests (35+ tools, read + write) | MyChart credentials + TOTP (session auto-renews) |
+| **MyChart** | claude.ai connector (hosted by [OpenRecord](https://github.com/Fan-Pier-Labs/openrecord)) | Full MyChart patient portal: meds, labs, imaging, vitals, messages, billing, insurance, referrals, preventive care, care team, immunizations, visits, documents, emergency contacts, refill requests (35+ tools, read + write) | MyChart credentials + TOTP (session auto-renews) |
 
 **Fitbit MCP location**: `/Users/alexhedtke/Documents/Exobrain harness/fitbit-mcp/` (patched fork, see `fitbit-mcp/FORK.md`)
 **Fitbit token**: `/Users/alexhedtke/Documents/Exobrain harness/fitbit-mcp/.fitbit-token.json` (auto-refreshed)
 **Withings tokens**: `/Users/alexhedtke/Documents/Exobrain harness/.env` (auto-refreshed)
-**MyChart MCP**: Hosted at `openrecord.fanpierlabs.com` ([source](https://github.com/Fan-Pier-Labs/openrecord)). Currently using hosted version; plan to self-host later (Railway one-click or AWS Fargate). Credentials configured via OpenRecord web UI, MCP URL added to Claude Desktop. Supports multiple MyChart instances (pass `instance` param to target specific hospitals).
+**MyChart MCP**: Hosted at `openrecord.fanpierlabs.com` ([source](https://github.com/Fan-Pier-Labs/openrecord)). Currently using hosted version; plan to self-host later (Railway one-click or AWS Fargate). Credentials configured via OpenRecord web UI, MCP URL added as a custom connector in claude.ai. Supports multiple MyChart instances (pass `instance` param to target specific hospitals).
 
 ---
 
@@ -597,7 +597,7 @@ These directories exist in the owner's working tree but are wholly gitignored, b
 
 - **macOS** (Apple Silicon or Intel)
 - **Claude Code CLI** installed and authenticated (`claude` in PATH)
-- **Claude Desktop app** with Google Calendar, Gmail, Google Drive MCPs configured
+- **claude.ai account** with the Google Calendar, Gmail, and Google Drive connectors connected
 - **Obsidian** with vault at a known path
 - **Things 3** installed (macOS app)
 - **Full Disk Access** granted to Terminal/Claude Code (for iMessage reading)
@@ -728,14 +728,14 @@ claude mcp add --scope user mykcmo -- "$PWD/mykcmo/bin/mykcmo-mcp"
 
 Zulip goes in `.mcp.json` as `"zulip": {"command": "<repo>/zulip/.venv/bin/python", "args": ["-m", "zulipmcp.mcp"]}` after building the venv per `zulip/README.md`.
 
-### Step 5: Configure Claude Desktop MCP Servers
+### Step 5: Connect the claude.ai Connectors
 
-In Claude Desktop settings, enable:
-- Google Calendar MCP
-- Gmail MCP
-- Google Drive MCP
+In claude.ai, open Settings > Connectors and connect:
+- Google Calendar
+- Gmail
+- Google Drive
 
-These use Google OAuth managed by Claude Desktop -- follow the in-app auth flow.
+Each connector uses Google OAuth that claude.ai manages. Claude Code loads the connectors from the signed-in account as `mcp__claude_ai_*` tools, so no desktop app is necessary. A connector connects when the session first uses it.
 
 ### Step 6: Install Discord Plugin
 
