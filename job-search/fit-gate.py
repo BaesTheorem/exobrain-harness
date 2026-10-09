@@ -24,7 +24,7 @@ Decision:
                 levels (Met while Alex is below what the JD asks, or Unmet while
                 he reaches it). Fix the table; an INVALID note is never enforced.
     FAIL        an Unmet `knockout` row, or
-                score < 0.80, where score = (Met + 0.5 * Partial) / scored rows
+                score < THRESHOLD (0.65), where score = (Met + 0.5 * Partial) / scored rows
     INCOMPLETE  fewer than MIN_ROWS scored rows (the scorer skimmed)
     UNSCORED    no scorecard section
     OVERRIDE    the frontmatter has `fit_override: "<reason>"`. Alex's deliberate
@@ -39,6 +39,9 @@ Usage:
     fit-gate.py --enforce           --write, and decline FAIL notes: status skipped,
                                     declined true, and a `## Why skipped` section
                                     that quotes the failing rows
+    fit-gate.py --restore           --write, and undo this script's own decline on
+                                    notes that now PASS (after a rule or threshold
+                                    change). A decline it did not write is left alone.
 
 Built 2026-10-09 after a sysadmin seat passed as "his day job restated" at
 roughly 50% real overlap.
@@ -56,7 +59,11 @@ import re
 import sys
 
 ROOT = "/Users/alexhedtke/Exobrain/Projects/Get new job/Job Listings"
-THRESHOLD = 0.80
+# Calibrated 2026-10-09 against 30 past applications scored blind (vault note
+# "Fit Gate Calibration 2026-10-09"): every one that got a screen scored 0.66+,
+# none of 12 under 0.65 did, and 0.80 would have blocked 3 of the 5 screens.
+# Re-run the calibration when about ten more outcomes exist.
+THRESHOLD = 0.65
 MIN_ROWS = 5
 WEIGHT = {"met": 1.0, "partial": 0.5, "unmet": 0.0}
 KINDS = ("knockout", "required", "core", "preferred")
@@ -163,6 +170,19 @@ def enforce(path: str, txt: str, score: float | None, reasons: list[str], rows: 
     return f"---\n{fm}\n---\n" + body
 
 
+GENERATED = re.compile(r"## Why skipped\nGate 4 failed in `job-search/fit-gate.py`.*?(?=^## |\Z)", re.S | re.M)
+
+
+def restore(txt: str) -> str | None:
+    """Reverse enforce(): only when the Why skipped block is the one it wrote."""
+    fm, end = frontmatter(txt)
+    body = txt[end:]
+    if field(fm, "declined") != "true" or not GENERATED.search(body):
+        return None
+    fm = set_field(set_field(fm, "status", "candidate"), "declined", "false")
+    return f"---\n{fm}\n---\n" + GENERATED.sub("", body, count=1)
+
+
 def notes(paths: list[str], include_all: bool) -> list[str]:
     if paths:
         return paths
@@ -188,6 +208,7 @@ def main() -> int:
     ap.add_argument("--all", action="store_true")
     ap.add_argument("--write", action="store_true")
     ap.add_argument("--enforce", action="store_true")
+    ap.add_argument("--restore", action="store_true")
     a = ap.parse_args()
 
     tally: dict[str, int] = {}
@@ -204,7 +225,7 @@ def main() -> int:
         print(f"{verdict:<10} {shown}  {os.path.basename(p)[:-3]}")
         for r in reasons:
             print(f"{'':16}{r[:150]}")
-        if not (a.write or a.enforce) or score is None or verdict == "OVERRIDE":
+        if not (a.write or a.enforce or a.restore) or score is None or verdict == "OVERRIDE":
             continue
         fm, end = frontmatter(txt)
         fm = set_field(set_field(fm, "fit_score", f"{score:.2f}"), "fit_gate", verdict.lower())
@@ -212,6 +233,11 @@ def main() -> int:
         if a.enforce and verdict == "FAIL" and field(fm, "status") not in PROTECTED:
             txt = enforce(p, txt, score, reasons, rows or [])
             print(f"{'':16}-> declined (status skipped)")
+        if a.restore and verdict == "PASS":
+            back = restore(txt)
+            if back is not None:
+                txt = back
+                print(f"{'':16}-> restored (status candidate)")
         with open(p, "w", encoding="utf-8") as f:
             f.write(txt)
     print("\n" + "  ".join(f"{k} {v}" for k, v in sorted(tally.items())))

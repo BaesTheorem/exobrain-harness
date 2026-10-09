@@ -23,7 +23,7 @@ Daily unattended discovery scan for the `/job-search` skill.
   note carries a `## Fit scorecard` table: one row per JD line, with the level the JD verb
   asks for, Alex's real level from the Capability Boundaries table in the gitignored
   Claude Reference, and Met / Partial / Unmet. The script fails a note when any required
-  row is Unmet or when (Met + 0.5 x Partial) / scored rows is under 0.80. `--enforce`
+  row is Unmet or when (Met + 0.5 x Partial) / scored rows is under 0.65 (calibrated 2026-10-09 on past applications). `--enforce`
   declines a failed note (`status: skipped`, `declined: true`, a generated
   `## Why skipped`). With no arguments it audits every active candidate and reports
   notes that have no scorecard. It exists because a sysadmin seat passed as a strong fit

@@ -42,11 +42,23 @@ def test_unmet_required_skill_is_scored_not_vetoed():
     assert judge(note(*rows))[:2] == ("PASS", 0.9)
 
 
-def test_partials_count_half_and_threshold_is_080():
-    rows = [(f"m{i}", "core", "Met") for i in range(3)] + [(f"p{i}", "core", "Partial") for i in range(2)]
-    assert judge(note(*rows))[:2] == ("PASS", 0.8)
-    rows = [(f"m{i}", "core", "Met") for i in range(3)] + [(f"p{i}", "core", "Partial") for i in range(3)]
-    assert judge(note(*rows))[0] == "FAIL"
+def test_partials_count_half_and_threshold_is_065():
+    rows = [(f"m{i}", "core", "Met") for i in range(3)] + [("p", "core", "Partial"), ("u", "core", "Unmet")]
+    assert judge(note(*rows))[:2] == ("PASS", 0.7)
+    rows = [(f"m{i}", "core", "Met") for i in range(3)] + [(f"u{i}", "core", "Unmet") for i in range(2)]
+    assert judge(note(*rows))[:2] == ("FAIL", 0.6)
+
+
+def test_restore_reverses_only_its_own_decline():
+    txt = note(("Windows Server", "knockout", "Unmet"), *[(f"d{i}", "core", "Met") for i in range(5)])
+    verdict, score, reasons = judge(txt)
+    declined = fg.enforce("x", txt, score, reasons, fg.scorecard_rows(txt))
+    back = fg.restore(declined)
+    fm, _ = fg.frontmatter(back)
+    assert fg.field(fm, "status") == "candidate" and fg.field(fm, "declined") == "false"
+    assert "## Why skipped" not in back and "## Fit scorecard" in back
+    manual = declined.replace("Gate 4 failed in `job-search/fit-gate.py`", "Comp under the floor.")
+    assert fg.restore(manual) is None
 
 
 def test_preferred_rows_do_not_score():
