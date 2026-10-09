@@ -94,7 +94,7 @@ Standard flow when scanning emails produces actionable items:
 1. Scan emails with `gmail_search_messages` (date-filtered)
 2. Read full bodies of relevant messages with `gmail_read_message`
 3. Identify actionable items (replies needed, decisions, follow-ups)
-4. **Route events to Google Calendar FIRST.** Any email containing a specific date/time for a meeting, call, appointment, or event → create via `gcal_create_event` immediately (check for duplicates first). This is the #1 most commonly missed routing step. Ambiguous timing → Things 3 inbox task `Review: [event]`
+4. **Route events to Google Calendar FIRST.** Any email containing a specific date/time for a meeting, call, appointment, or event → create via `gcal_create_event` immediately (check for duplicates first). This is the #1 most commonly missed routing step. Ambiguous timing → Things 3 inbox task `Review: [event]`. **A firm time plus an open decision (register? RSVP? attend?) still goes on the calendar**: title it `[Event] (REGISTER FIRST)` or `(RSVP?)`, put the link in the description, and add the `Review:` task beside it. The task alone is not enough, because a task does not block time or fire a reminder. (2026-10-07: an InfraGard webinar with a fixed date and time became only a `Review:` task and never reached the calendar.)
 5. Check Things 3 for existing tasks (`search_todos`)
 6. Create tasks for genuinely new action items (`add_todo`)
 7. For job-related items, update the matching listing note in `Projects/Get new job/Job Listings/` (set `status` and `application_date`; `Job Listings.base` is the tracker view) and append to `## Job Search Log` in `Projects/Get new job/Get new job.md`
@@ -114,7 +114,7 @@ Standard flow when scanning emails produces actionable items:
 When called as part of the daily briefing:
 
 1. **Scan last 24h**: `gmail_search_messages` with `after:` yesterday's date. Surface actionable items, important threads, recruiter messages, and messages from People/ contacts.
-2. **Route events**: Any email with a specific date/time → `gcal_create_event` (check duplicates). Vague timing → Things 3 inbox task `Review: [event]`. This is the #1 most commonly missed routing -- scan email bodies for dates/times, not just subject lines.
+2. **Route events**: Any email with a specific date/time → `gcal_create_event` (check duplicates). Vague timing → Things 3 inbox task `Review: [event]`. A firm time that needs registration or an RSVP gets BOTH a calendar hold marked `(REGISTER FIRST)` and the `Review:` task (see step 4 above). This is the #1 most commonly missed routing -- scan email bodies for dates/times, not just subject lines.
 3. **Route tasks**: Actionable items → Things 3 (check for existing tasks first).
 4. **Job alerts**: Search for job alert emails (Indeed, LinkedIn, Dice, ZipRecruiter). Read full bodies, deduplicate, categorize as Strong/Moderate/Skip per the `/job-search` skill's audit logic. For Strong/Moderate fits: create Things 3 task, create Obsidian note, append to job hub. Do NOT include job alerts in briefing output unless an exceptional fit.
 5. **CRM enrichment** (outgoing emails): Search `from:me` for last 24h. For outgoing emails to People/ contacts, update `last_contact`. If substantive new info, enrich the People note per `/crm` mode 9 (Continuous integration). For incoming from contacts, also scan for enrichment signals.
