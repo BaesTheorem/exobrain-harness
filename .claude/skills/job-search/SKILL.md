@@ -545,7 +545,8 @@ Generate an ATS-compliant, tailored cover letter:
    - **Body 2**: Secondary match + how Alex's unique background (AI governance, security upskilling, technical projects) adds value beyond the basic requirements
    - **Body 3** (optional): Culture/mission alignment if the company has clear values
    - **Closing**: Enthusiasm + availability + call to action
-5. Run through `/de-ai` principles -- the letter must sound like a real human, not ChatGPT. No "I am writing to express my interest," no "I am excited to leverage my synergies," no corporate fluff. Alex's voice: direct, genuine, slightly informal, knowledgeable.
+5. **Never address a gap in the letter unless it works around a hard requirement** (Alex, 2026-10-09). A knockout Alex fails but can argue around (degree with an equivalency case, a named cert in progress) can earn a sentence. Every other gap stays out: it hands the screener a reason to reject that the JD alone would not have given them. Non-knockout gaps live in `## Gaps` on the listing note and in interview prep.
+6. Run through `/de-ai` principles -- the letter must sound like a real human, not ChatGPT. No "I am writing to express my interest," no "I am excited to leverage my synergies," no corporate fluff. Alex's voice: direct, genuine, slightly informal, knowledgeable.
 
 **Output**: The cover letter text, plus a list of ATS keywords embedded and where they appear. After Alex approves the text, generate the PDF via the builder (`build.py cover --md ... --company ... --tag ...` with `--out` pointed at the listing's folder `Job Listings/<Company> - <Role>/`, see "Resume + Cover Letter Generation" above) so it lands in that folder with clean metadata, NOT in `~/Downloads/`. Generate a tailored resume alongside it (`build.py resume --tailor ...`) whenever the role meaningfully benefits per [[Claude Reference]].
 
