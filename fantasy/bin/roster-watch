@@ -186,7 +186,12 @@ def main() -> int:
                            "type": t.get("type"), "from": seen[tid].get("status"), "to": t.get("status"),
                            "items": t.get("items"), "judgment": mine})
             seen[tid]["status"] = t.get("status")
+    from espncli.tx import self_closed  # noqa: PLC0415
+    ours_closed = self_closed()
     for tid in list(seen):
+        if tid not in now_ids and tid in ours_closed:
+            seen.pop(tid)  # we withdrew it (espn-tx withdraw); nothing to judge
+            continue
         if tid not in now_ids and seen[tid].get("mine") and seen[tid].get("status") == "PENDING":
             # A claim that vanished from pending was processed (executed or failed);
             # the roster diff above says which. An outgoing trade offer that vanished

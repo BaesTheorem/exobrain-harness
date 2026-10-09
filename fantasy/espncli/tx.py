@@ -21,6 +21,7 @@ from __future__ import annotations
 import json
 import urllib.error
 import urllib.request
+from pathlib import Path
 from typing import Any
 
 from . import chat
@@ -28,6 +29,23 @@ from .client import BENCH, IR, SLOT, SLOT_BY_NAME, UA, Espn, EspnError
 
 WRITES = "https://lm-api-writes.fantasy.espn.com/apis/v3/games/ffl"
 FALLBACK = "https://fantasy.espn.com/apis/v3/games/ffl"
+# Ids of offers we closed ourselves. bin/roster-watch reads it so that our own
+# withdrawal is not announced as a resolved trade that needs judgment.
+SELF_CLOSED = Path(__file__).resolve().parent.parent / ".cache" / "self-closed.json"
+
+
+def self_closed() -> set[str]:
+    """Transaction ids that MIST or Alex closed through this module."""
+    try:
+        return set(json.loads(SELF_CLOSED.read_text()))
+    except (OSError, ValueError):
+        return set()
+
+
+def record_self_closed(transaction_id: str) -> None:
+    ids = sorted(self_closed() | {transaction_id})
+    SELF_CLOSED.parent.mkdir(parents=True, exist_ok=True)
+    SELF_CLOSED.write_text(json.dumps(ids, indent=1))
 
 
 def _slot_name(slot: int | None) -> str | int | None:
@@ -323,6 +341,8 @@ class EspnWriter:
         body["relatedTransactionId"] = transaction_id
         resp = self._post(body)
         still = any(t.get("id") == transaction_id for t in self.pending())
+        if not still:
+            record_self_closed(transaction_id)
         return {"verified": not still, "id": transaction_id, "response": resp}
 
     def withdraw_trade(self, transaction_id: str, dry_run: bool = False) -> dict[str, Any]:
