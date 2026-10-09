@@ -63,14 +63,24 @@ def fair(weather: str) -> bool:
 
 def bench_swap(d: dict, bench: list[dict], slate: list[dict]) -> dict | None:
     """A rostered bench D/ST that faces a lower implied total than the starter
-    (or the starter is on bye). The fix is a lineup move, not a claim."""
+    (or the starter is on bye). The fix is a lineup move, not a claim.
+
+    A locked starter cannot be swapped, and a starter whose line is gone from
+    the API (the game kicked off) is not a starter with no matchup. On
+    2026-10-08 the Cowboys locked at 7:15 PM, their line vanished, and this
+    fired ten minutes later telling the watcher to start the Rams against a
+    25.8 implied total over a unit already on the field."""
+    if "(locked)" in (d.get("kick") or "") or d.get("actual") is not None:
+        return None
     _, opp, _ = implied_for(d["team"], slate)
+    if opp is None and d["opp"] != "BYE":
+        return None
     best = None
     for b in bench:
         _, b_opp, _ = implied_for(b["team"], slate)
-        if b_opp is None or b["opp"] == "BYE":
+        if b_opp is None or b["opp"] == "BYE" or "(locked)" in (b.get("kick") or ""):
             continue
-        if (d["opp"] == "BYE" or opp is None or b_opp < opp) and (best is None or b_opp < best[1]):
+        if (d["opp"] == "BYE" or b_opp < opp) and (best is None or b_opp < best[1]):
             best = (b, b_opp)
     return best and {"name": best[0]["name"], "opp": best[0]["opp"], "opp_implied": best[1],
                      "proj": round(best[0].get("proj") or 0, 1)}
