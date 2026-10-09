@@ -1,0 +1,120 @@
+#!/usr/bin/env python3
+"""Read TestFlight feedback (screenshot reports and crash reports) from App Store Connect.
+
+    testflight-feedback                    # every app, newest first
+    testflight-feedback --app 6819509706   # one app (App Store Connect app id)
+    testflight-feedback --since 2026-10-01 # only reports on or after this date
+    testflight-feedback --save DIR         # also download screenshots and crash logs
+    testflight-feedback --builds           # recent builds and their processing state
+    testflight-feedback --json             # raw records
+
+Key: ASC_KEY_ID, ASC_ISSUER_ID and ASC_KEY_PATH in the harness .env (a team
+key with the Developer role). Needs PyJWT with cryptography for the ES256 token.
+"""
+from __future__ import annotations
+
+import argparse
+import json
+import sys
+import time
+import urllib.error
+import urllib.request
+from pathlib import Path
+
+import jwt
+
+HARNESS = Path(__file__).resolve().parent.parent
+API = "https://api.appstoreconnect.apple.com/v1"
+
+
+def env() -> dict[str, str]:
+    out: dict[str, str] = {}
+    for line in (HARNESS / ".env").read_text().splitlines():
+        k, _, v = line.strip().partition("=")
+        if k.startswith("ASC_"):
+            out[k] = v.strip().strip('"').strip("'")
+    return out
+
+
+def token(e: dict[str, str]) -> str:
+    now = int(time.time())
+    key = Path(e["ASC_KEY_PATH"]).expanduser().read_text()
+    return jwt.encode({"iss": e["ASC_ISSUER_ID"], "iat": now, "exp": now + 1200, "aud": "appstoreconnect-v1"},
+                      key, algorithm="ES256", headers={"kid": e["ASC_KEY_ID"], "typ": "JWT"})
+
+
+def get(url: str, tok: str) -> dict:
+    req = urllib.request.Request(url if url.startswith("http") else API + url, headers={"Authorization": "Bearer " + tok})
+    try:
+        with urllib.request.urlopen(req, timeout=60) as r:
+            return json.load(r)
+    except urllib.error.HTTPError as err:
+        sys.exit(f"App Store Connect {err.code} for {url}: {err.read()[:300].decode(errors='replace')}")
+
+
+def paged(url: str, tok: str) -> list[dict]:
+    rows: list[dict] = []
+    while url:
+        page = get(url, tok)
+        rows += page.get("data", [])
+        url = page.get("links", {}).get("next", "")
+    return rows
+
+
+def download(url: str, dest: Path) -> None:
+    with urllib.request.urlopen(url, timeout=120) as r:
+        dest.write_bytes(r.read())
+
+
+def main() -> None:
+    ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
+    ap.add_argument("--app", help="App Store Connect app id (default: every app)")
+    ap.add_argument("--since", default="", help="YYYY-MM-DD; only reports on or after this date")
+    ap.add_argument("--save", type=Path, help="folder for screenshots and crash logs")
+    ap.add_argument("--builds", action="store_true", help="record recent builds instead of feedback")
+    ap.add_argument("--json", action="store_true")
+    a = ap.parse_args()
+    tok = token(env())
+    apps = [{"id": a.app, "attributes": {"name": a.app}}] if a.app else paged("/apps?limit=200", tok)
+
+    if a.builds:
+        for app in apps:
+            for b in get(f"/builds?filter[app]={app['id']}&sort=-uploadedDate&limit=5", tok)["data"]:
+                at = b["attributes"]
+                print(app["attributes"]["name"], at["version"], at["processingState"], at["uploadedDate"][:16], sep="\t")
+        return
+
+    reports = []
+    for app in apps:
+        for kind in ("betaFeedbackScreenshotSubmissions", "betaFeedbackCrashSubmissions"):
+            for r in paged(f"/apps/{app['id']}/{kind}?limit=200", tok):
+                if r["attributes"]["createdDate"][:10] >= a.since:
+                    r["app"] = app["attributes"]["name"]
+                    r["kind"] = "crash" if "Crash" in kind else "screenshot"
+                    reports.append(r)
+    reports.sort(key=lambda r: r["attributes"]["createdDate"], reverse=True)
+    if a.json:
+        print(json.dumps(reports, indent=1))
+        return
+    if not reports:
+        print("No TestFlight feedback.")
+    for r in reports:
+        at = r["attributes"]
+        print(f"{at['createdDate'][:16]}Z  {r['app']}  {r['kind']}  {at.get('deviceModel')} iOS {at.get('osVersion')}")
+        print(f"  {at.get('comment') or '(no comment)'}")
+        if not a.save:
+            continue
+        a.save.mkdir(parents=True, exist_ok=True)
+        for i, shot in enumerate(at.get("screenshots") or []):
+            dest = a.save / f"{r['id']}-{i}.jpg"
+            download(shot["url"], dest)
+            print(f"  screenshot: {dest}")
+        if r["kind"] == "crash":
+            log = get(f"/betaFeedbackCrashSubmissions/{r['id']}/crashLog", tok)["data"]["attributes"]
+            dest = a.save / f"{r['id']}.crash"
+            dest.write_text(log.get("logText", ""))
+            print(f"  crash log: {dest}")
+
+
+if __name__ == "__main__":
+    main()
