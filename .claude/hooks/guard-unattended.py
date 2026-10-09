@@ -272,6 +272,10 @@ STRING_LITERAL = re.compile(
 # A literal whose whole content is an absolute or home-relative path. These may
 # contain spaces (this repo's own directory has one); relative paths may not.
 ROOTED_PATH = re.compile(r"(?:~|\$HOME|\.{1,2})?/[^\n\"'`]*")
+# A literal that is a bare filename. Only literals count: in code, `s.count`
+# has the same shape. A job scan did `cd job-search` and then patched
+# 'dedup-lookup.py' from a heredoc, and nothing saw the write (2026-10-09).
+BARE_FILENAME = re.compile(r"[\w][\w.-]*\.[A-Za-z0-9]+")
 
 
 def _log(line: str) -> None:
@@ -446,7 +450,7 @@ def _script_paths(script: str) -> list[str]:
     for m in STRING_LITERAL.finditer(script):
         body = m.group(0)
         body = body[3:-3] if body[:3] in ('"""', "'''") else body[1:-1]
-        if ROOTED_PATH.fullmatch(body) or PATH_TOKEN.fullmatch(body):
+        if ROOTED_PATH.fullmatch(body) or PATH_TOKEN.fullmatch(body) or BARE_FILENAME.fullmatch(body):
             paths.append(body)
     code = STRING_LITERAL.sub('""', script)
     paths.extend(m.group(0) for m in PATH_TOKEN.finditer(code))
