@@ -40,11 +40,20 @@ else
     alarm "mbsync failed (exit $?); the local mirror is stale"
 fi
 
+# A real mount has a different device id than /Volumes itself. A leftover
+# mountpoint folder after an eject does not.
+VOL="$(dirname "$SSD_DIR")"
+mounted() { [ -d "$VOL" ] && [ "$(stat -f %d "$VOL" 2>/dev/null)" != "$(stat -f %d /Volumes)" ]; }
+
 # The disk copy runs even when mbsync failed: what is local is still worth copying.
-if [ -d "$(dirname "$SSD_DIR")" ]; then
+if mounted; then
     mkdir -p "$SSD_DIR"
     if rsync -a "$MAILDIR/" "$SSD_DIR/"; then
         echo "[$(date)] copied to $SSD_DIR"
+    elif ! mounted; then
+        # Ejected mid-copy (eject-assist stops holders, then unmounts). The next
+        # run with the disk mounted catches up, so this is a skip, not a fault.
+        echo "[$(date)] disk ejected during copy; skipped"
     else
         alarm "copy to $SSD_DIR failed"
     fi
