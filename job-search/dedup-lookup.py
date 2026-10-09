@@ -37,7 +37,7 @@ def load():
                     txt = open(p, encoding="utf-8", errors="replace").read(4000)
                 except OSError:
                     continue
-                if not re.search(r"^type:\s*job-listing", txt, re.M):
+                if not re.search(r"^type:\s*['\"]?job-listing\b", txt, re.M):
                     continue
                 out.append({"name": fn[:-3], "path": p, "status": field(txt, "status"),
                             "reapply": field(txt, "reapply"), "company": field(txt, "company"),

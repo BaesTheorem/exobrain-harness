@@ -108,7 +108,7 @@ def scan_vault():
                     text = f.read(65536)
             except OSError:
                 continue
-            if "type: job-listing" not in text[:600]:
+            if not re.search(r"^type:\s*['\"]?job-listing\b", text[:600], re.M):
                 continue
             for ats, pat in TOKEN_PATTERNS:
                 for tok in pat.findall(text):

@@ -418,7 +418,7 @@ def discover_vault() -> dict:
                     text = f.read(65536)
             except OSError:
                 continue
-            if "type: job-listing" not in text[:600]:
+            if not re.search(r"^type:\s*['\"]?job-listing\b", text[:600], re.M):
                 continue
             for m in WORKDAY_HOST.finditer(text):
                 try:
