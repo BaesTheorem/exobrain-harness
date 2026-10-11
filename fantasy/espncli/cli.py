@@ -131,6 +131,7 @@ def entry_row(api: Espn, e: dict, week: int) -> dict:
         "opp": api.opponent(tid, week),
         "kickoff": kick,
         "kick": when(kick) + (" (locked)" if started else ""),
+        "locked": started,
         "status": short_status(p.get("injuryStatus")),
         "proj": week_proj(p, api.season, week),
         "actual": actual,
@@ -501,7 +502,11 @@ def cmd_check(api: Espn, args: argparse.Namespace) -> None:
             kind = {"D": "DOUBTFUL", "SUSP": "SUSPENDED"}.get(st, st)
         elif st == "Q":
             kind = "QUESTIONABLE"
-        if kind:
+        if kind and r["locked"]:
+            # ESPN locks a starter at his kickoff, so an in-game injury tag has no fix.
+            problems.append({"kind": kind, "slot": r["slot"], "player": r["name"],
+                             "kick": r["kick"], "fix": "locked at kickoff, no move possible"})
+        elif kind:
             b = best_bench_for(r["slotId"], r["id"])
             problems.append({"kind": kind, "slot": r["slot"], "player": r["name"],
                              "kick": r["kick"],
