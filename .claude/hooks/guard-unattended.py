@@ -135,10 +135,11 @@ BASH_DENY: list[tuple[str, str]] = [
     (re.escape(CANARY), "guard canary"),
     # `curl | python3 -c '<parse>'` is an API read with the script inline in the
     # command; only a bare interpreter (or `python3 -`) executes the download.
+    # Flags before the script flag (`python3 -I -c`) do not change that.
     # A quoted heredoc (`python3 <<'EOF'`) replaces stdin with literal text, so
     # the interpreter never sees the download (denied 2026-09-29). An unquoted
     # heredoc stays denied: `$(cat)` inside it expands against the pipe.
-    (r"\b(curl|wget)\b[^|\n]{0,200}\|\s*(sudo\s+)?(sh|bash|zsh|python3?|perl|ruby|node)\b(?!\s+-[cme]\b)"
+    (r"\b(curl|wget)\b[^|\n]{0,200}\|\s*(sudo\s+)?(sh|bash|zsh|python3?|perl|ruby|node)\b(?!(?:\s+-[A-Za-z]+)*?\s+-[cme]\b)"
      r"(?![^|;&\n]*(?<!<)<<(?!<)-?\s*['\"])", "pipe from the network into an interpreter"),
     (r"\bbase64\s+(-d|--decode)\b[^|\n]{0,80}\|\s*(sh|bash|zsh|python3?)\b", "decode into an interpreter"),
     (r"\beval\s+[\"']?\$\(", "eval of a command substitution"),
