@@ -130,3 +130,10 @@ def test_gate1_decline_is_restorable():
     declined = fg.enforce("x", txt, 1.0, ["gate 1: on-site outside KC"], fg.scorecard_rows(txt))
     assert "Gate 1 failed" in declined
     assert "## Why skipped" not in fg.restore(declined)
+
+
+def test_gate3_unlisted_comp_needs_a_recorded_inference():
+    assert fg.gate3(fm_of(comp_listed="false"))[0] == "NOCOMP"
+    assert fg.gate3(fm_of(comp_listed="true", comp_max=""))[0] == "NOCOMP"
+    assert fg.gate3(fm_of(comp_listed="false", comp_inference='"same-employer band $90-110K"')) is None
+    assert fg.gate3(fm_of(comp_listed="true", comp_max="90000")) is None

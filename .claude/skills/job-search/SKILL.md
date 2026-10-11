@@ -8,7 +8,7 @@ description: Job search assistant -- audit postings for fit, research companies/
 Alex is actively job hunting. This skill handles the full pipeline: evaluating fit, researching the company, tailoring cover letters, and tracking application volume.
 
 **Weekly goal**: 10-20 applications submitted per week. **The week runs Sunday through Saturday** (Alex 2026-10-11), the same window as `/weekly-review`. Saturday is the last day of the week, and Sunday starts a new count at zero.
-**Compensation floor**: the comp floor and the onsite floor live in the gitignored harness `.env` as `JOB_COMP_FLOOR` / `JOB_ONSITE_FLOOR` (the scan scripts read them there; the rationale is in the gitignored `Projects/Get new job/Claude Reference.md`). Never write either number into this repo. **Band rule (Alex 2026-08-10): a listed salary range passes gate 3 if the floor falls anywhere within it.** DQ only when the TOP of the band is below the floor. A band whose bottom is under the floor is a pass-with-flag: surface it and note the risk that the offer lands below the floor. A single listed number must meet the floor outright. If salary is unlisted, still include the role but flag the unknown comp.
+**Compensation floor**: the comp floor and the onsite floor live in the gitignored harness `.env` as `JOB_COMP_FLOOR` / `JOB_ONSITE_FLOOR` (the scan scripts read them there; the rationale is in the gitignored `Projects/Get new job/Claude Reference.md`). Never write either number into this repo. **Band rule (Alex 2026-08-10): a listed salary range passes gate 3 if the floor falls anywhere within it.** DQ only when the TOP of the band is below the floor. A band whose bottom is under the floor is a pass-with-flag: surface it and note the risk that the offer lands below the floor. A single listed number must meet the floor outright. **No listed pay is a DQ by default** (Alex 2026-10-11). The exception is a confident inference that the band reaches the floor, from specific evidence (same-employer postings, role level, firm size), recorded as `comp_inference: "<evidence>"` on the note. "Probably fine" is not evidence. `fit-gate.py` declines an unlisted note without that field (NOCOMP). Script LEADS (comp unlisted) are candidates for this inference, not survivors.
 
 **Two lanes, two gate sets.** The standard lane (remote-only, full-time permanent) covers everything below unless stated otherwise. Paid **AI safety fellowships** run location-agnostic on a modified gate set with a higher floor when relocation is required -- see "AI Safety Fellowship Lane" before scanning or auditing one.
 
@@ -523,7 +523,7 @@ When Alex provides a list of companies to investigate for open positions:
 4. **Every reported role MUST include**:
    - Job title and company
    - Location (and remote/hybrid status)
-   - Salary if listed (band rule: DQ only if the band's top is below the comp floor, whose value lives in the gitignored Claude Reference.md; flag band risk when the bottom is below the floor; omit if unlisted but note it)
+   - Salary if listed (band rule: DQ only if the band's top is below the comp floor, whose value lives in the gitignored Claude Reference.md; flag band risk when the bottom is below the floor; unlisted comp is a DQ unless a confident `comp_inference` is recorded)
    - A direct link to the posting -- preferably the firm's own careers portal, not just a job board mirror
    - A brief fit assessment (1-2 lines: why it matches, any notable gaps)
    - Verification method (e.g., "confirmed on firm portal 2026-04-01" or "LinkedIn ID 43xxxxx, posted March 2026")
@@ -646,6 +646,7 @@ applied: false             # boolean -- used as the .base checkbox
 comp_min: 65000            # USD/yr; null if unlisted
 comp_max: 80000            # USD/yr; null if unlisted
 comp_listed: true
+comp_inference:            # only when comp_listed is false: the specific evidence that the band reaches the floor; without it, fit-gate.py declines (NOCOMP)
 remote: true
 location: "Remote US"
 location_evidence: remote-ats  # remote-jd | remote-ats | kc-local | warm-exception | fellowship | label | relocation (see "Gate 1: Location Evidence")
