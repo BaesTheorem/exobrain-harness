@@ -62,11 +62,19 @@ false, oldest first, then rewrite the file with those lines marked
   `fantasy/bin/espn raw --views mTransactions2 --json --limit 0`: a row with
   `memberId` `TradeTaskProcessor`, `executionType` `CANCEL`, and
   `relatedTransactionId` pointing at ours means it expired unanswered (the
-  original keeps `status: PENDING`); otherwise the roster diff says whether
-  it went through. Log it, and if it expired put the re-send to Alex with
-  buttons (Re-send now / Wait for Tuesday / Drop it), built the way the
-  note at the top of this file describes. Never re-send on
-  your own.
+  original keeps `status: PENDING`); a CANCEL row carrying the other
+  manager's `memberId`, or a `TRADE_DECLINE` row pointing at ours, means
+  rejected; otherwise the roster diff says whether it went through. Log it.
+  **An expiry or a rejection ends the offer** (playbook *Trades*, current
+  rule, Alex 2026-10-11: no new outgoing proposals, and a re-send is a new
+  proposal). Do not ask Alex about a re-send and do not send one; the only
+  exception is an entry in the playbook's *Standing offers* list, which the
+  Tuesday routine handles. Mention the expiry in the summary banner so Alex
+  can reopen it from the chat if he wants.
+  *Superseded 2026-10-11 (kept as data):* the step used to put the re-send to
+  Alex with buttons (Re-send now / Wait for Tuesday / Drop it). It lost to
+  the Trades rule change and to Alex's 2:30 PM call that same day: if the
+  Jefferson offer fails, next week runs on the roster we hold.
   **If it went through, refill the slot it emptied, immediately and without
   asking** (standing authorization, 2026-09-10). An accepted trade that sends
   away a starter leaves a hole that scores zero, and Lineup Protection is OFF.
