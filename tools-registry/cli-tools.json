@@ -80,6 +80,14 @@
     "notes": "Read-only; config sets bg3.wiki as the default wiki. Loads in new sessions only. bg3.wiki has Cargo (structured tables), CirrusSearch and TextExtracts; the Controls page redirects to Options, whose tables need HTML parsing (TextExtracts drops tables). Polite UA set via MCP_USER_AGENT."
   },
   {
+    "name": "birth-chart-auto",
+    "command": "python chart.py NAME YYYY-MM-DD HH:MM \"City, State\" ; python pipeline/prose.py brief|check work/<slug> <slug>",
+    "repo_dir": "~/Documents/birth-charts",
+    "source": "built",
+    "added": "2026-10-11",
+    "notes": "Needs .venv from requirements.txt. Ephemeris files fetch on first run (git fallback; EPHE_VIA_GIT=1 forces it). render.py falls back to HTML if Chromium cannot start. Time 'unknown' draws noon. Builds refuse prose_<slug>.json that fails prose.py check."
+  },
+  {
     "name": "Bookmarklets page",
     "command": "open \"/Users/alexhedtke/Documents/Exobrain harness/bookmarklets/index.html\"",
     "repo_dir": "/Users/alexhedtke/Documents/Exobrain harness/bookmarklets",
@@ -110,6 +118,14 @@
     "source": "built",
     "added": "2026-08-31",
     "notes": "Pins the auto-updating claude CLI to one unchanging path (~/.local/share/claude/stable/claude) so its TCC grants, above all Full Disk Access, stop dying every release. Runs on WatchPaths via com.exobrain.claude-stable-path."
+  },
+  {
+    "name": "comp-infer",
+    "command": "python3 job-search/comp-infer.py --note \"<listing note>\" [--write] | --url <ATS URL> --title <title> [--onsite] [--no-agent]",
+    "repo_dir": "~/Documents/Exobrain harness/job-search",
+    "source": "built",
+    "added": "2026-10-11",
+    "notes": "Exit 0 CONFIDENT, 1 NOT CONFIDENT, 2 NO DATA. Floors from .env via comp_floors. Agent fallback runs claude -p on Sonnet with WebSearch/WebFetch (about 1 to 3 min); its figures count only when found on the cited page. Pages behind JS or bot walls cannot confirm, so they read as NOT CONFIDENT. --write only on CONFIDENT. Inside mist-progress the pty can swallow the output; run it directly."
   },
   {
     "name": "contact-check",
@@ -423,6 +439,14 @@
     "source": "built",
     "added": "2026-09-30",
     "notes": "Each piece is a uv script that imports loopkit. Layers render in parallel processes, and each stem is cached in tmp/loopkit-cache/<slug>/ (83 MB per 216 s stem), so a mix-only change takes about 1 minute; a full 216 s render takes about 10 minutes and peaks near 1.4 GB. Use --dump for the score checks, --check to render and measure, --measure to re-measure the last render. Name chords from the first cycle when the tuning drifts by a comma. Embed the MP3 with #loop=2,<2+period> for a gapless loop in the Console (needs a Cmd-R after a front-end update)."
+  },
+  {
+    "name": "lowes-stores",
+    "command": "scripts/lowes-stores.py <ATP run id>",
+    "repo_dir": "~/Documents/penny-lane",
+    "source": "built",
+    "added": "2026-10-11",
+    "notes": "Recent All the Places runs often have near-zero lowes_us features (Lowe's blocks the scraper); pick a run whose stats/_results.json shows 1,000+ features. 2026-07-11-13-32-25 had 1,763. Refuses to write under 1,000 stores."
   },
   {
     "name": "mcp-call",

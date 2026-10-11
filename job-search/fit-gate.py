@@ -198,7 +198,7 @@ def gate3(fm: str) -> tuple[str, list[str]] | None:
     listed = field(fm, "comp_listed").lower() != "false" and field(fm, "comp_max") not in ("", "null")
     if listed or field(fm, "comp_inference"):
         return None
-    return "NOCOMP", ["gate 3: comp unlisted and no comp_inference recorded"]
+    return "NOCOMP", ["gate 3: comp unlisted and no comp_inference recorded (run job-search/comp-infer.py --note <path> --write)"]
 
 
 def judge(rows: list[dict] | None) -> tuple[str, float | None, list[str]]:
