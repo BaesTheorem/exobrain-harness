@@ -25,7 +25,18 @@ decimal lat/lng and an IANA tz string yourself; do not ask the user for coordina
 the city is unambiguous. If birth time is unknown, warn that houses/Ascendant are
 unreliable and offer a solar chart instead (noon, and skip house-based claims).
 
-## Workflow
+## Fast path (single natal packet)
+
+`.venv/bin/python chart.py "Name" YYYY-MM-DD HH:MM "City, State"` geocodes offline,
+computes, and builds a complete rule-table packet (`--auto`, no LLM). Then write only the
+signatures + synthesis: `pipeline/prose.py brief work/<slug> <slug>`, save
+`prose_<slug>.json`, `prose.py check` (it rejects wrong signs, houses, aspects and element
+counts), and `make.py work/<slug> --auto --dest ~/Downloads/"Birth Charts"`. Run the de-AI
+pass on the prose JSON. Use the full workflow below when Alex wants a fully hand-written
+packet or a synastry packet. `AGENTS.md` in the repo is the same procedure for other
+people's assistants.
+
+## Workflow (hand-written packets, synastry)
 
 1. **Work dir**: `mkdir work/<slug-pair>` in the repo; write `subjects.yaml` (copy
    `subjects.example.yaml` shape; `synastry: [slug-a, slug-b]` only when a pair packet
