@@ -79,6 +79,7 @@ RESUME_CSS = """
   h2 { font-size: 12.5pt; font-weight: 700; text-transform: uppercase; margin: 14px 0 5px 0; letter-spacing: .3px; }
   p { margin: 0 0 7px 0; }
   .role { font-weight: 700; margin: 8px 0 3px 0; }
+  .role-note { font-style: italic; margin: -2px 0 3px 0; }
   ul { margin: 0 0 6px 0; padding-left: 20px; }
   li { margin: 0 0 4px 0; }
   .skill { margin: 0 0 4px 0; }
@@ -163,6 +164,8 @@ def build_resume_html(data, tailor):
         bullets = exp_override.get(job.get("id"), job["bullets"])
         role_title = _with_suffix(job["title"], title_suffix.get(job.get("id")))
         parts.append(f'<div class="role">{esc(role_title)}</div>')
+        if job.get("note"):
+            parts.append(f'<div class="role-note">{esc(job["note"])}</div>')
         parts.append(_ul(bullets))
 
     parts.append("<h2>Education and Certifications</h2>")

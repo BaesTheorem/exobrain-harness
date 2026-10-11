@@ -66,6 +66,8 @@ one-page letter. `tailoring/example_cover.md` shows the correct shape.
 ```
 Job ids for `experience_bullets` and `title_suffix` are the `id` fields in `data/resume_data.json` (e.g. `job1`, `job2`).
 
+Canonical experience entries can carry an optional `"note"` string. It prints in italics on its own line under the role line, for employment context such as a contract-to-hire conversion. It lives in `data/resume_data.json`, so every build shows it.
+
 `leadership_include` switches on a canonical Leadership entry carrying `"optional": true`,
 by id. Those entries are real and documented, they are just irrelevant to most JDs, so they
 stay off unless the employer or the role makes them relevant. Currently: `ea_kc` (Effective
