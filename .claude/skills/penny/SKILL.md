@@ -89,6 +89,18 @@ for 3 days per (kind, item, store).
 - Dollar General `availableStockStore` read exactly 5 for every penny item at every
   store on 2026-09-30: treat DG "stocked" as a hint, not a count.
 
+## Public site
+
+`https://baestheorem.github.io/penny-lane/` is a read-only copy for anyone in
+the KC metro. Browsers cannot call the retailer APIs (CORS, probed
+2026-10-11), so `bin/penny publish` (run at the end of `pulse` and `all`
+when `publish.enabled`) exports `data/site/data/site.json` and force-pushes
+one amended commit to `gh-pages`. Visitor location, stores and alert rules
+live in their browser (`web/static/static-api.js`). New pennies post to ntfy
+topics `pennylane-kc-<retailer>-<store>`. The metro set centers on
+`publish.center_zip`, never on Alex's zip: do not add watched-only data
+(sweep finds, named DG checking stores) to the export.
+
 ## Phone
 
 Settings → Phone access shows a QR with the token and the discovery URL. The
