@@ -81,7 +81,12 @@ def load(season):
         for e in (t.get("roster") or {}).get("entries", []):
             p = e["playerPoolEntry"]["player"]
             games = games_played(cl.pro(p.get("proTeamId")).get("games", {}), week)
-            rate = ros_rate(week, week_proj(p, season, week), season_proj(p, season), season_actual(p, season), games)
+            # `games` counts weeks before this one, so the points must too. ESPN's
+            # season total is live, and mid-week it carries this week's partial
+            # points over a count that excludes this week (2026-10-11: bye odds
+            # 41% on a Sunday afternoon against 37% on the clean total).
+            before = (season_actual(p, season) or 0.0) - (week_actual(p, season, week) or 0.0)
+            rate = ros_rate(week, week_proj(p, season, week), season_proj(p, season), before, games)
             players.append({"name": p["fullName"], "pos": POS.get(p.get("defaultPositionId"), "?"),
                             "proj": rate * NFL_WEEKS, "preseason": season_proj(p, season) or 0.0})
         teams[t["id"]] = {"name": team_name(t).strip(), "players": players,
