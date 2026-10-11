@@ -95,7 +95,14 @@ Follow `fantasy/routines/COMMON.md` first. If today is not Tuesday, stop.
    If you find you have already filed in the wrong order, do not file another
    claim to compensate. Say so in the summary and hand Alex the exact cancel
    and reorder to make in the web UI.
-4. **Trades, from week 3 on.** The edge is a leaguemate's recency and
+4. **Trades: do not plan on them (Alex, 2026-10-11).** The league has made
+   0 trades and accepted 0 of our 11 offers, so **write no new proposals and
+   send no banner for one**. Plan every roster move on the roster we hold.
+   An offer still pending stays up; incoming offers are the incident
+   routine's. The buy-low and sell-high reads below still feed the watch list
+   and the waiver and lineup calls. The rest of this step is the superseded
+   version, kept for the record (playbook *Corrections ledger*, 2026-10-11):
+   The edge is a leaguemate's recency and
    endowment bias, so timing is the input: buy a volume player after a bad
    week or two, sell a thin-volume touchdown scorer after a big one. Start
    with `fantasy/bin/volume league --flag BUY` (rival players whose volume

@@ -53,7 +53,8 @@ autonomously; you decide, act, and record. Work from the harness directory
 3. **Never** move a player whose kickoff has passed, drop a starter, drop a
    player who is in a pending trade offer (`fantasy/bin/espn-tx pending`
    lists them; a drop voids the offer), add a second QB or TE, or
-   send/accept/reject a trade on your own. Trades are evaluated and put to
+   send/accept/reject a trade on your own. Do not plan on trades or write new
+   proposals (playbook *Trades*, 2026-10-11). Incoming offers are evaluated and put to
    Alex with a `mist-voice/bin/mist-notify` banner carrying buttons.
    **Not `mist-ask`** (found 2026-09-16): it requires `$MIST_CONSOLE_SESSION`,
    `run-routine.sh` does not set it, so it exits nonzero in every routine run.

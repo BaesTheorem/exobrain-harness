@@ -42,6 +42,14 @@ INVARIANTS
   3 to 4 months out). The rate is built from his 28-point week and cannot see
   the injury. A wire player marked OUT, IR or SUSP is skipped. A one-week OUT
   is lost with them, which costs less than a dead roster spot.
+- **A backup QB or TE is priced on the weeks he starts, not the weeks left.**
+  Found 2026-10-11: the gate bannered Rodgers for Deshaun Watson at +20.6
+  (2.3 a week x 9 weeks), but a bench QB behind a healthy starter only
+  scores in the starter's bye weeks plus an allowance for an injury, about
+  two weeks here, so the real gain was about +5. When the drop is a bench
+  player at a one-of position whose starter is rostered, the multiplier is
+  `backup_weeks[pos]` (the starter's remaining byes plus
+  BACKUP_INJURY_WEEKS), capped at the weeks left.
 
     swap-scan [--gate 20] [--top 3] [--json]
 """
@@ -68,6 +76,7 @@ ONE_OF = {"QB", "TE"}                 # never a second one on the roster
 FLEX_POS = {"RB", "WR", "TE"}
 STREAM_POS = {"K", "D/ST"}            # weekly streamers: stream-scan prices them, not a season rate
 UNAVAILABLE = {"OUT", "IR", "SUSP"}    # wire injury tags: the rate cannot see the absence
+BACKUP_INJURY_WEEKS = 1               # starts a QB/TE backup gets from the starter missing time
 LOOKAHEAD = 2                         # weeks of bye holes to show
 VOLUME = FANTASY / ".cache" / "volume-{season}.json"
 SLEEPER_TRENDING = "https://api.sleeper.app/v1/players/nfl/trending/add?lookback_hours=24&limit=150"
@@ -126,9 +135,10 @@ def allowed(cand: dict, drop: dict, held: dict[str, int], position_max: dict[str
 def scan(week: int, roster: list[dict], pool: list[dict], position_max: dict[str, int],
          games: dict[str, int] | None = None, heat: dict[str, int] | None = None,
          volume: dict[str, dict] | None = None, gate: float = GATE, top: int = 3,
-         committed: set[str] | None = None) -> dict:
+         committed: set[str] | None = None, backup_weeks: dict[str, int] | None = None) -> dict:
     """Pure: rows in, ranked swaps out. `games` is pro-team abbrev -> games played;
-    `committed` is the normalized names already listed as a DROP in a pending claim."""
+    `committed` is the normalized names already listed as a DROP in a pending claim;
+    `backup_weeks` is position -> weeks a bench QB/TE will start (starter byes + injury)."""
     games, heat, volume = games or {}, heat or {}, volume or {}
     committed = committed or set()
     remaining = max(REG_SEASON_END - week, 0)
@@ -140,8 +150,13 @@ def scan(week: int, roster: list[dict], pool: list[dict], position_max: dict[str
     for p in [*roster, *pool]:
         p["rate"] = ros_rate(week, p.get("proj"), p.get("season_proj"), p.get("season_actual"), games.get(p.get("team") or ""))
     bench.sort(key=lambda p: p["rate"])
+    starting = {p["pos"] for p in roster if p["slotId"] not in (BENCH, IR)}
+    backup_weeks = backup_weeks or {}
     results = []
     for drop in bench:
+        weeks = remaining
+        if drop["pos"] in ONE_OF and drop["pos"] in starting:
+            weeks = min(remaining, backup_weeks.get(drop["pos"], BACKUP_INJURY_WEEKS))
         scored = []
         for c in pool:
             if c.get("status") in UNAVAILABLE or not allowed(c, drop, held, position_max):
@@ -151,7 +166,7 @@ def scan(week: int, roster: list[dict], pool: list[dict], position_max: dict[str
             scored.append({
                 "add": c["name"], "pos": c["pos"], "avail": c["avail"], "team": c.get("team"),
                 "owned": round(float(c.get("owned") or 0), 1), "trend": round(float(c.get("trend") or 0), 1),
-                "add_rate": round(c["rate"], 2), "gain": round((c["rate"] - drop["rate"]) * remaining, 1),
+                "add_rate": round(c["rate"], 2), "gain": round((c["rate"] - drop["rate"]) * weeks, 1),
                 "heat": heat.get(vkey(c), 0), "flags": flags,
                 "role": bool({"BUY", "ROLE-UP"} & set(flags)),
                 "snap": (v.get("last") or {}).get("snap"), "tgt_share": (v.get("last") or {}).get("tgt_share"),
@@ -160,7 +175,7 @@ def scan(week: int, roster: list[dict], pool: list[dict], position_max: dict[str
         scored.sort(key=lambda r: -r["gain"])
         results.append({"drop": drop["name"], "pos": drop["pos"], "drop_rate": round(drop["rate"], 2),
                         "drop_flags": (volume.get(vkey(drop)) or {}).get("flags") or [],
-                        "pending_drop": norm(drop["name"]) in committed,
+                        "pending_drop": norm(drop["name"]) in committed, "weeks": weeks,
                         "candidates": scored[:top]})
     return {"week": week, "remaining_weeks": remaining, "gate": gate, "held": held,
             "position_max": position_max, "swaps": results}
@@ -180,6 +195,16 @@ def bye_holes(api: Espn, roster: list[dict], week: int, weeks: int = LOOKAHEAD) 
             cover.sort(key=lambda b: -b["rate"])
             out.append({"week": w, "slot": s["slot"], "player": s["name"], "pos": s["pos"],
                         "cover": [{"name": b["name"], "pos": b["pos"], "rate": round(b["rate"], 1)} for b in cover[:2]]})
+    return out
+
+
+def backup_weeks(api: Espn, roster: list[dict], week: int) -> dict[str, int]:
+    """Per one-of position: the starter's bye weeks left plus the injury allowance."""
+    out = {}
+    for s in roster:
+        if s["pos"] in ONE_OF and s["slotId"] not in (BENCH, IR):
+            byes = sum(api.opponent(api_team_id(api, s), w) == "BYE" for w in range(week + 1, REG_SEASON_END + 1))
+            out[s["pos"]] = byes + BACKUP_INJURY_WEEKS
     return out
 
 
@@ -230,7 +255,8 @@ def render(out: dict, holes: list[dict], heat_ok: bool, volume_ok: bool) -> int:
     for r in out["swaps"]:
         dflags = f"  [{' '.join(r['drop_flags'])}]" if r["drop_flags"] else ""
         spent = "  PENDING DROP: already spent in a claim or trade, not a free drop" if r.get("pending_drop") else ""
-        print(f"  DROP {r['drop']:<22} {r['pos']:<4} rate {r['drop_rate']}/wk{dflags}{spent}")
+        backup = f"  BACKUP: priced on {r['weeks']} start(s), not {remaining}" if r["weeks"] != remaining else ""
+        print(f"  DROP {r['drop']:<22} {r['pos']:<4} rate {r['drop_rate']}/wk{dflags}{spent}{backup}")
         for c in r["candidates"]:
             gain = float(c["gain"])
             best = gain if best is None else max(best, gain)
@@ -274,7 +300,7 @@ def main() -> int:
     heat = sleeper_heat(api.season, week)
     volume = load_volume(api.season)
     out = scan(week, roster, pool, position_max, games, heat, volume, args.gate, args.top,
-               committed=pending_drops(api))
+               committed=pending_drops(api), backup_weeks=backup_weeks(api, roster, week))
     holes = bye_holes(api, roster, week)
     out["bye_holes"] = holes
     if args.json:

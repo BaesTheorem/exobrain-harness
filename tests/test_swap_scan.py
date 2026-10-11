@@ -108,3 +108,14 @@ def test_an_injured_add_is_not_a_candidate():
     adds = {c["add"] for s in out["swaps"] for c in s["candidates"]}
     assert "Hot WR" in adds, "the healthy twin still shows"
     assert "Hurt WR" not in adds, "Thornton, 2026-10-06: OUT on the wire is not an add"
+
+
+def test_a_backup_qb_is_priced_on_the_weeks_he_starts():
+    # 2026-10-11: Rodgers for Deshaun Watson bannered at +20.6 over 9 weeks; a backup starts about 2
+    ros = roster() + [r("Bench QB", "QB", 20, 12.0, 200.0)]
+    out = swap_scan.scan(5, ros, pool(), position_max={"QB": 4}, backup_weeks={"QB": 2})
+    qb = {s["drop"]: s for s in out["swaps"]}["Bench QB"]
+    assert qb["weeks"] == 2 and out["remaining_weeks"] == 9
+    free = next(c for c in qb["candidates"] if c["add"] == "Free QB")
+    assert free["gain"] < out["gate"], "a backup upgrade must not clear the season gate"
+    assert {s["drop"]: s for s in out["swaps"]}["Bench WR"]["weeks"] == 9, "skill drops keep the full horizon"
