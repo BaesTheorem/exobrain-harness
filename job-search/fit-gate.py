@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Gate 4 (strong fit) as arithmetic, not as a feeling.
+"""Gate 4 (strong fit) as arithmetic, not as a feeling. Also checks gate 1.
 
 Every listing note that survives gates 1-3 carries a `## Fit scorecard` table,
 one row per JD line, each scored against the verb-level Capability Boundaries
@@ -19,7 +19,27 @@ Table format (columns in this order, extra columns ignored):
     Asks / Alex  Own/Build | Administer | Operate | Support | Exposure | None | n/a
     Verdict  Met | Partial | Unmet
 
-Decision:
+Gate 1 (location) runs first, from the `location_evidence` frontmatter field:
+    remote-jd       the JD text itself says the seat is remote
+    remote-ats      the employer ATS location or remote-type field says remote
+    kc-local        on-site or hybrid, confirmed inside the KC metro (on-site floor)
+    warm-exception  a documented per-firm exception in the Claude Reference
+    fellowship      fellowship lane, location-agnostic (also implied by role_type)
+    label           only an aggregator label (LinkedIn "Remote") says remote
+    relocation      the seat is on-site or hybrid outside the KC metro
+
+    NOLOC       the field is missing or `label`. An aggregator label is not
+                evidence (RGA EAM Analyst, 2026-09-24: LinkedIn said Remote, the
+                ATS said Hybrid in St. Louis, and the note sat as a candidate
+                for 17 days). Treated as a FAIL until the evidence is recorded
+    RELOC       `relocation`. A FAIL
+    CONFLICT    a lane script (workday.py) declined the same req and wrote
+                `lane_decline` on the note. Reported, never enforced, because a
+                lane reads coarse location buckets and can be wrong (one employer files a fully
+                remote seat under its home-office city). Resolve it
+                by correcting `location_evidence` and deleting `lane_decline`
+
+Decision (gate 4):
     INVALID     a numbered row does not parse, or a verdict contradicts its own
                 levels (Met while Alex is below what the JD asks, or Unmet while
                 he reaches it). Fix the table; an INVALID note is never enforced.
@@ -30,7 +50,7 @@ Decision:
     NOJD        no archived JD on the note (under MIN_JD_CHARS of posting text). Treated as a FAIL: --enforce declines it,
                 and --restore brings it back once a JD and a passing table exist
     OVERRIDE    the frontmatter has `fit_override: "<reason>"`. Alex's deliberate
-                exception; reported with the reason, never enforced
+                exception, for gate 1 or gate 4; reported with the reason, never enforced
     PASS        otherwise
 
 Usage:
@@ -52,6 +72,8 @@ INVARIANTS
 - The threshold and weights live here and nowhere else; the skill cites this file.
 - --enforce never touches a note that is applied, interviewing, or offer.
 - A note without a scorecard is never declined by --enforce, only reported.
+- Gate 1 reads only `location_evidence` (and role_type), never the `remote`
+  boolean: that boolean is what an aggregator label filled in.
 """
 from __future__ import annotations
 
@@ -147,6 +169,23 @@ def has_jd(txt: str) -> bool:
     return bool(m) and len(m.group(1)) >= MIN_JD_CHARS
 
 
+LOC_OK = {"remote-jd", "remote-ats", "kc-local", "warm-exception", "fellowship"}
+
+
+def gate1(fm: str) -> tuple[str, list[str]] | None:
+    """None when gate 1 is satisfied, else (verdict, reasons)."""
+    if field(fm, "lane_decline"):
+        return "CONFLICT", [f"lane decline: {field(fm, 'lane_decline')}"]
+    if field(fm, "role_type") == "fellowship":
+        return None
+    ev = field(fm, "location_evidence").lower()
+    if ev in LOC_OK:
+        return None
+    if ev == "relocation":
+        return "RELOC", [f"gate 1: on-site or hybrid outside the KC metro ({field(fm, 'location')})"]
+    return "NOLOC", [f"gate 1 unverified: location_evidence is {ev or 'missing'}; record what the JD or ATS says"]
+
+
 def judge(rows: list[dict] | None) -> tuple[str, float | None, list[str]]:
     if rows is None:
         return "UNSCORED", None, []
@@ -166,6 +205,8 @@ def judge(rows: list[dict] | None) -> tuple[str, float | None, list[str]]:
 
 
 def why_skipped(score: float | None, reasons: list[str], rows: list[dict]) -> str:
+    if any(r.startswith("gate 1") for r in reasons):
+        return "## Why skipped\nGate 1 failed in `job-search/fit-gate.py`.\n\n" + "".join(f"- {r}\n" for r in reasons) + "\n"
     unmet = [r for r in rows if r.get("kind") in SCORED and r.get("verdict") == "unmet"]
     out = ["## Why skipped",
            f"Gate 4 failed in `job-search/fit-gate.py` (score {score:.2f}, threshold {THRESHOLD:.2f}).", ""]
@@ -186,7 +227,7 @@ def enforce(path: str, txt: str, score: float | None, reasons: list[str], rows: 
     return f"---\n{fm}\n---\n" + body
 
 
-GENERATED = re.compile(r"## Why skipped\nGate 4 failed in `job-search/fit-gate.py`.*?(?=^## |\Z)", re.S | re.M)
+GENERATED = re.compile(r"## Why skipped\nGate [14] failed in `job-search/fit-gate.py`.*?(?=^## |\Z)", re.S | re.M)
 
 
 def restore(txt: str) -> str | None:
@@ -236,8 +277,12 @@ def main() -> int:
             # Gate 4 is unscorable without the posting text. A note built from a
             # search-result row (Blue Rose, 2026-09-19) sat as a candidate for three weeks.
             verdict, score, reasons = "NOJD", 0.0, [f"no JD archived on the note (under {MIN_JD_CHARS} characters of posting text); gate 4 cannot be scored"]
+        loc = gate1(frontmatter(txt)[0])
+        if loc and verdict != "INVALID":
+            # Gate 1 outranks gate 4: a perfect fit in the wrong city is still a no.
+            verdict, reasons = loc[0], loc[1]
         override = field(frontmatter(txt)[0], "fit_override")
-        if override and verdict in ("FAIL", "INVALID", "INCOMPLETE", "UNSCORED"):
+        if override and verdict in ("FAIL", "INVALID", "INCOMPLETE", "UNSCORED", "NOLOC", "RELOC", "CONFLICT"):
             reasons = [f"overridden ({verdict}): {override}"] + reasons
             verdict = "OVERRIDE"
         tally[verdict] = tally.get(verdict, 0) + 1
@@ -245,12 +290,16 @@ def main() -> int:
         print(f"{verdict:<10} {shown}  {os.path.basename(p)[:-3]}")
         for r in reasons:
             print(f"{'':16}{r[:150]}")
-        if not (a.write or a.enforce or a.restore) or score is None or verdict == "OVERRIDE":
+        if not (a.write or a.enforce or a.restore) or verdict == "OVERRIDE":
+            continue
+        if score is None and verdict not in ("NOLOC", "RELOC", "CONFLICT"):
             continue
         fm, end = frontmatter(txt)
-        fm = set_field(set_field(fm, "fit_score", f"{score:.2f}"), "fit_gate", verdict.lower())
+        if score is not None:
+            fm = set_field(fm, "fit_score", f"{score:.2f}")
+        fm = set_field(fm, "fit_gate", verdict.lower())
         txt = f"---\n{fm}\n---\n" + txt[end:]
-        if a.enforce and verdict in ("FAIL", "NOJD") and field(fm, "status") not in PROTECTED:
+        if a.enforce and verdict in ("FAIL", "NOJD", "NOLOC", "RELOC") and field(fm, "status") not in PROTECTED:
             txt = enforce(p, txt, score, reasons, rows or [])
             print(f"{'':16}-> declined (status skipped)")
         if a.restore and verdict == "PASS":

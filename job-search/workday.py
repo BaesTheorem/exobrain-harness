@@ -52,6 +52,9 @@ import urllib.parse
 import urllib.request
 
 from comp_floors import comp_floor
+from note_link import active_notes
+from note_link import match as note_match
+from note_link import record as note_record
 
 UA = ("Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 "
       "(KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36")
@@ -627,6 +630,17 @@ def main() -> None:
         if (key, jid) in reposts:
             tag += " ** REPOST **"
         print("  [%s]%s %-52s %s" % (key, tag, j["title"][:52], why))
+
+    # A decline on a req that already has a candidate note from another source
+    # goes onto that note, so fit-gate.py reports the conflict (RGA, 2026-10-11).
+    notes = active_notes()
+    for key, _jid, j, why, d in declines:
+        if d is None or not (why.startswith("gate") or why.startswith("ATS says")):
+            continue
+        title = d["title"] or j["title"]
+        for p in note_match(notes, boards[key]["host"], title, d["req"]):
+            if note_record(p, "workday.py", d["req"], title, why, d["url"] or j["url"]):
+                print("  -> lane decline written to note: %s" % os.path.basename(p)[:-3])
 
     if reposts:
         print("\nREPOSTS (%d) -- a req id the snapshot already held, back at the top"

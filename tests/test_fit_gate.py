@@ -103,3 +103,30 @@ def test_note_without_archived_jd_is_detected():
     assert fg.has_jd(note(("d", "core", "Met")) + "> " + "real posting text " * 80 + "\n")
     assert not fg.has_jd(note(("d", "core", "Met")))  # a one-line callout is a stub
     assert not fg.has_jd("---\ntype: job-listing\n---\n# X\n\n## Snapshot\n- Indeed row only\n")
+
+
+def fm_of(**kv):
+    return "\n".join(f"{k}: {v}" for k, v in kv.items())
+
+
+def test_gate1_aggregator_label_is_not_evidence():
+    assert fg.gate1(fm_of(remote="true"))[0] == "NOLOC"
+    assert fg.gate1(fm_of(remote="true", location_evidence="label"))[0] == "NOLOC"
+
+
+def test_gate1_verified_remote_local_and_fellowship_pass():
+    for ev in ("remote-jd", "remote-ats", "kc-local", "warm-exception"):
+        assert fg.gate1(fm_of(location_evidence=ev)) is None
+    assert fg.gate1(fm_of(role_type="fellowship")) is None
+
+
+def test_gate1_relocation_fails_and_lane_decline_conflicts():
+    assert fg.gate1(fm_of(location_evidence="relocation"))[0] == "RELOC"
+    assert fg.gate1(fm_of(location_evidence="remote-jd", lane_decline='"x"'))[0] == "CONFLICT"
+
+
+def test_gate1_decline_is_restorable():
+    txt = note(*[(f"d{i}", "core", "Met") for i in range(5)])
+    declined = fg.enforce("x", txt, 1.0, ["gate 1: on-site outside KC"], fg.scorecard_rows(txt))
+    assert "Gate 1 failed" in declined
+    assert "## Why skipped" not in fg.restore(declined)

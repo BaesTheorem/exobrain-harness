@@ -230,6 +230,26 @@ Do NOT hand-build resume/cover-letter HTML per JD anymore. Use the reusable buil
 - Canonical resume content lives in `resume-builder/data/resume_data.json` (source of truth). Tailoring rules are still surgical-only per [[Claude Reference]]; the builder does not relax them.
 - The builder bakes in the document-side ATS / AI-screening defenses (clean metadata, selectable single-column text, human filename, no Skia/Chrome fingerprint). The **prose** defense is still yours: run `/de-ai` on every tailored summary/bullet and cover letter. Full rationale: [[ATS & AI-Screening Playbook]] (`Projects/Get new job/`). Read it before tailoring.
 
+## Gate 1: Location Evidence (mandatory, mechanical)
+
+Added 2026-10-11. RGA's Enterprise Access Management Analyst entered the tracker on 2026-09-24 because LinkedIn labeled it "Remote". The JD said nothing about location, and RGA's Workday site was down, so nothing confirmed the label. The note recorded the risk and stayed a candidate for 17 days. The Workday record says Hybrid in Creve Coeur, MO, which is relocation.
+
+Every listing note carries `location_evidence` in its frontmatter. `fit-gate.py` reads it before it scores gate 4:
+
+| Value | Definition | Gate 1 |
+|---|---|---|
+| `remote-jd` | The JD text says the seat is remote. Quote the line in `verification_signals`. | pass |
+| `remote-ats` | The employer ATS location or remote-type field says remote. | pass |
+| `kc-local` | On-site or hybrid, confirmed inside the KC metro. The on-site floor applies. | pass |
+| `warm-exception` | A documented per-firm exception in the Claude Reference. | pass |
+| `fellowship` | Fellowship lane (also implied by `role_type: fellowship`). | pass |
+| `label` | Only an aggregator label (LinkedIn, Indeed, Himalayas) says remote. | NOLOC |
+| `relocation` | On-site or hybrid outside the KC metro. | RELOC |
+
+A missing field is NOLOC. `--enforce` declines NOLOC and RELOC notes like a gate-4 FAIL, and `--restore` brings a note back when the evidence is recorded. **An aggregator label is never evidence.** If the JD is silent and the ATS cannot be read, the role is a lead in the hub log, not a candidate. `fit_override` also covers gate 1, for a seat Alex chooses to take outside the rule.
+
+**Lane declines go back onto the note.** When `workday.py` declines a req that matches an active candidate note (same board named in the note, and the same title or req id), `job-search/note_link.py` writes `lane_decline` into the frontmatter and adds a dated `## Lane decline` section. `fit-gate.py` then reports CONFLICT. It does not decline the note, because a lane reads coarse location buckets (one employer files a fully remote seat under its home-office city). To resolve a CONFLICT, read the ATS record, set `location_evidence`, and delete `lane_decline`.
+
 ## Gate 4: Fit Scorecard (mandatory, mechanical)
 
 Added 2026-10-09. A sysadmin seat (server builds, AVD deployment, backup and DR) passed gate 4 as "his day job restated" at roughly 50% real overlap. The audit had matched topics, not verbs: "supported users on AVD" was read as "deploys AVD", and "uses Exchange" as "administers retention policy." A fluent "Why this fits" paragraph is not evidence. Gate 4 is now a table plus arithmetic, and a script makes the decision.
@@ -628,6 +648,7 @@ comp_max: 80000            # USD/yr; null if unlisted
 comp_listed: true
 remote: true
 location: "Remote US"
+location_evidence: remote-ats  # remote-jd | remote-ats | kc-local | warm-exception | fellowship | label | relocation (see "Gate 1: Location Evidence")
 role_type: standard        # standard | fellowship -- fellowship triggers the modified gate set
 term_months:               # fellowship only: program length in months; null for standard roles
 relocation: false          # true if the seat requires moving; selects the higher relocation floor in the fellowship lane
@@ -809,7 +830,7 @@ When called as part of the daily briefing (every day, weekends included):
    - For each fresh candidate from references[]:
      a. Call `mcp__linkedin__get_job_details` -- **read the actual JD before any fit label**. No title-only audits.
      b. Apply the 4-gate hard requirements (`feedback-job-hard-requirements`) -- or, if the posting is a paid AI safety fellowship, the fellowship variant in "AI Safety Fellowship Lane":
-        - Fully remote (JD says remote, not just LinkedIn label -- Cyderes 2026-05-19 was hybrid despite "Remote" label)
+        - Fully remote (JD says remote, not just LinkedIn label -- Cyderes 2026-05-19 and RGA 2026-09-24 were hybrid despite "Remote" labels). Record the source in `location_evidence`; `fit-gate.py` declines a note without it
         - Full-time permanent (not contract, contract-to-hire, 1099, temp)
         - **Comp band reaches the floor** (band rule, Alex 2026-08-10: a listed range passes if the floor falls anywhere within it -- DQ only when the band's top is below the floor; a bottom under the floor is a pass-with-flag. The floor's value lives in the gitignored Claude Reference.md), OR brief market-data check (Glassdoor/Salary.com/ZipRecruiter median for that title) shows strong evidence the role's band reaches the floor -- *if unlisted and you can't reach high confidence in <2 min of research, DQ*
         - Strong fit: write the `## Fit scorecard` table and let `fit-gate.py --enforce` decide (see "Gate 4: Fit Scorecard"). No unmet knockout, and a score of at least 0.65 at the verb level the JD asks for.
