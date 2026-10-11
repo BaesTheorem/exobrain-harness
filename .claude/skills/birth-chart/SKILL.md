@@ -32,8 +32,10 @@ computes, and builds a complete rule-table packet (`--auto`, no LLM). Then write
 signatures + synthesis: `pipeline/prose.py brief work/<slug> <slug>`, save
 `prose_<slug>.json`, `prose.py check` (it rejects wrong signs, houses, aspects and element
 counts), and `make.py work/<slug> --auto --dest ~/Downloads/"Birth Charts"`. Run the de-AI
-pass on the prose JSON. Use the full workflow below when Alex wants a fully hand-written
-packet or a synastry packet. `AGENTS.md` in the repo is the same procedure for other
+pass on the prose JSON. For a pair add `--with "Name" DATE TIME "Place"`: both natal
+packets plus a rule-table synastry packet; its written layer is `prose.py brief|check
+work/<dir> synastry` (possessive claims, owner swaps rejected). Use the full workflow
+below when Alex wants a fully hand-written packet. `AGENTS.md` in the repo is the same procedure for other
 people's assistants.
 
 ## Workflow (hand-written packets, synastry)
