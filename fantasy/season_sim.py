@@ -142,11 +142,20 @@ def completed_weeks(season, games, reg, explicit=None):
     nonzero total. Half a week of real scores mixed into a simulation is worse
     than none: it would fold in the early games and quietly zero out whoever
     plays Monday night.
+
+    The nonzero test alone is not enough: by Sunday afternoon every team has
+    some points (Thursday's game, a D/ST, an early kicker), so the week in
+    progress passed it and was simulated as already decided (2026-10-11, the
+    week 5 bye odds came back conditioned on a win). So without an explicit
+    N, a week also has to sit before the scoring period ESPN is on now.
     """
     if explicit == 0:
         return {}
+    current = None if explicit is not None else Espn.current_week(Espn(fresh=True).league("mStatus"))
     actuals = {}
     for w in range(1, reg + 1):
+        if current is not None and w >= current:
+            break
         playing = {t for wk, h, a in games if wk == w for t in (h, a)}
         if not playing:
             continue
