@@ -7,7 +7,7 @@ description: Job search assistant -- audit postings for fit, research companies/
 
 Alex is actively job hunting. This skill handles the full pipeline: evaluating fit, researching the company, tailoring cover letters, and tracking application volume.
 
-**Weekly goal**: 10-20 applications submitted per week.
+**Weekly goal**: 10-20 applications submitted per week. **The week runs Sunday through Saturday** (Alex 2026-10-11), the same window as `/weekly-review`. Saturday is the last day of the week, and Sunday starts a new count at zero.
 **Compensation floor**: the comp floor and the onsite floor live in the gitignored harness `.env` as `JOB_COMP_FLOOR` / `JOB_ONSITE_FLOOR` (the scan scripts read them there; the rationale is in the gitignored `Projects/Get new job/Claude Reference.md`). Never write either number into this repo. **Band rule (Alex 2026-08-10): a listed salary range passes gate 3 if the floor falls anywhere within it.** DQ only when the TOP of the band is below the floor. A band whose bottom is under the floor is a pass-with-flag: surface it and note the risk that the offer lands below the floor. A single listed number must meet the floor outright. If salary is unlisted, still include the role but flag the unknown comp.
 
 **Two lanes, two gate sets.** The standard lane (remote-only, full-time permanent) covers everything below unless stated otherwise. Paid **AI safety fellowships** run location-agnostic on a modified gate set with a higher floor when relocation is required -- see "AI Safety Fellowship Lane" before scanning or auditing one.
@@ -819,7 +819,7 @@ When called as part of the daily briefing (every day, weekends included):
 
 4. **Contact research + cold outreach surfacing**: For **every** new verified candidate, run the mandatory Contact Research (see "Contact Research" section above) -- recruiter(s), hiring manager(s), same-role employees, likely teammates -- and record them on the listing note. Then, for candidates scoring Strong Fit (especially high comp + remote), follow mode 1 step 6: draft outreach and create `/crm potential <name>` Things 3 tasks for the top 1-2 targets. Cap outreach-task creation at the top 1-2 candidates per day to keep MCP pacing reasonable; the contact *capture* on the note applies to all qualifying candidates.
 
-5. **Weekly pace check**: Count apps submitted since Monday vs 10-20 goal. If behind mid-week, suggest time blocks from calendar gaps.
+5. **Weekly pace check**: Count apps submitted since the most recent Sunday (today, if today is Sunday) vs 10-20 goal. If behind mid-week, suggest time blocks from calendar gaps.
 
 6. **Upcoming interviews**: Surface any job-related events from today's calendar.
 
