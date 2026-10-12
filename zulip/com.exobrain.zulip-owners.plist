@@ -11,6 +11,7 @@
          editing: cp to ~/Library/LaunchAgents, then bootout + bootstrap. -->
     <key>ProgramArguments</key>
     <array>
+        <string>/Users/alexhedtke/.local/bin/mist-launch</string>
         <string>/Users/alexhedtke/Documents/Exobrain harness/zulip/.venv/bin/python</string>
         <string>/Users/alexhedtke/Documents/Exobrain harness/zulip/bin/zulip-admin</string>
         <string>reconcile-owners</string>
@@ -25,5 +26,11 @@
     <string>/Users/alexhedtke/Library/Logs/exobrain/zulip-owners.log</string>
     <key>StandardErrorPath</key>
     <string>/Users/alexhedtke/Library/Logs/exobrain/zulip-owners.log</string>
+    <!-- Login Items shows the job under this app instead of its executable's name;
+         only honored because mist-launch is signed by the same team. -->
+    <key>AssociatedBundleIdentifiers</key>
+    <array>
+        <string>com.exobrain.mist-console</string>
+    </array>
 </dict>
 </plist>

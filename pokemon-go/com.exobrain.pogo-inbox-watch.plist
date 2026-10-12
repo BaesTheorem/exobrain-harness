@@ -8,6 +8,7 @@
          shell is denied ~/Documents by TCC (see scripts/README.md). -->
     <key>ProgramArguments</key>
     <array>
+        <string>/Users/alexhedtke/.local/bin/mist-launch</string>
         <string>/opt/homebrew/bin/python3</string>
         <string>/Users/alexhedtke/Documents/Exobrain harness/pokemon-go/pogocli.py</string>
         <string>inbox</string>
@@ -37,5 +38,11 @@
         <key>PATH</key>
         <string>/Users/alexhedtke/.local/bin:/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin</string>
     </dict>
+    <!-- Login Items shows the job under this app instead of its executable's name;
+         only honored because mist-launch is signed by the same team. -->
+    <key>AssociatedBundleIdentifiers</key>
+    <array>
+        <string>com.exobrain.mist-console</string>
+    </array>
 </dict>
 </plist>

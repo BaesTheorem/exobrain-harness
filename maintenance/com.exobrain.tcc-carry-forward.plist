@@ -13,6 +13,7 @@
          grant. -->
     <key>ProgramArguments</key>
     <array>
+        <string>/Users/alexhedtke/.local/bin/mist-launch</string>
         <string>/Users/alexhedtke/Documents/Exobrain harness/maintenance/venv/bin/mist-tcc-python3</string>
         <string>/Users/alexhedtke/Documents/Exobrain harness/maintenance/tcc_carry_forward.py</string>
         <string>--prune</string>
@@ -42,5 +43,11 @@
          free. -->
     <key>RunAtLoad</key>
     <true/>
+    <!-- Login Items shows the job under this app instead of its executable's name;
+         only honored because mist-launch is signed by the same team. -->
+    <key>AssociatedBundleIdentifiers</key>
+    <array>
+        <string>com.exobrain.mist-console</string>
+    </array>
 </dict>
 </plist>

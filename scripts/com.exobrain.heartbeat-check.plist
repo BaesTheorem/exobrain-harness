@@ -8,6 +8,7 @@
          ~/Library/Logs/exobrain/heartbeat.log itself. -->
     <key>ProgramArguments</key>
     <array>
+        <string>/Users/alexhedtke/.local/bin/mist-launch</string>
         <string>/bin/bash</string>
         <string>-c</string>
         <string>exec /bin/bash "$HOME/Documents/Exobrain harness/scripts/run-heartbeat-check.sh" &gt;&gt; "$HOME/Library/Logs/exobrain/heartbeat.out" 2&gt;&amp;1</string>
@@ -21,5 +22,11 @@
     </dict>
     <key>RunAtLoad</key>
     <false/>
+    <!-- Login Items shows the job under this app instead of its executable's name;
+         only honored because mist-launch is signed by the same team. -->
+    <key>AssociatedBundleIdentifiers</key>
+    <array>
+        <string>com.exobrain.mist-console</string>
+    </array>
 </dict>
 </plist>

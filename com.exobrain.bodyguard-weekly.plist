@@ -7,6 +7,7 @@
 
     <key>ProgramArguments</key>
     <array>
+        <string>/Users/alexhedtke/.local/bin/mist-launch</string>
         <string>/bin/bash</string>
         <string>/Users/alexhedtke/Documents/Exobrain harness/.claude/skills/cybersecurity-bodyguard/scripts/weekly-scan.sh</string>
     </array>
@@ -31,5 +32,11 @@
     <!-- Don't re-run if missed (laptop asleep at 8am Sunday) -- just run on next wake -->
     <key>StartOnMount</key>
     <false/>
+    <!-- Login Items shows the job under this app instead of its executable's name;
+         only honored because mist-launch is signed by the same team. -->
+    <key>AssociatedBundleIdentifiers</key>
+    <array>
+        <string>com.exobrain.mist-console</string>
+    </array>
 </dict>
 </plist>

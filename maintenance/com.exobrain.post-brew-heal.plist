@@ -5,6 +5,7 @@
   <key>Label</key><string>com.exobrain.post-brew-heal</string>
   <key>ProgramArguments</key>
   <array>
+    <string>/Users/alexhedtke/.local/bin/mist-launch</string>
     <string>/bin/bash</string>
     <string>/Users/alexhedtke/Documents/Exobrain harness/maintenance/post-brew-heal.sh</string>
   </array>
@@ -18,5 +19,11 @@
   <dict><key>Hour</key><integer>7</integer><key>Minute</key><integer>40</integer></dict>
   <key>StandardOutPath</key><string>/Users/alexhedtke/Library/Logs/exobrain/post-brew-heal.log</string>
   <key>StandardErrorPath</key><string>/Users/alexhedtke/Library/Logs/exobrain/post-brew-heal.log</string>
+  <!-- Login Items shows the job under this app instead of its executable's name;
+       only honored because mist-launch is signed by the same team. -->
+  <key>AssociatedBundleIdentifiers</key>
+  <array>
+      <string>com.exobrain.mist-console</string>
+  </array>
 </dict>
 </plist>

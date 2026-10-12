@@ -12,6 +12,7 @@
          therefore lives inside token-check.mjs. -->
     <key>ProgramArguments</key>
     <array>
+        <string>/Users/alexhedtke/.local/bin/mist-launch</string>
         <string>/opt/homebrew/bin/node</string>
         <string>/Users/alexhedtke/Documents/Exobrain harness/fitbit-mcp/scripts/token-check.mjs</string>
     </array>
@@ -33,5 +34,11 @@
 
     <key>StandardErrorPath</key>
     <string>/Users/alexhedtke/Library/Logs/exobrain/fitbit-token.err</string>
+    <!-- Login Items shows the job under this app instead of its executable's name;
+         only honored because mist-launch is signed by the same team. -->
+    <key>AssociatedBundleIdentifiers</key>
+    <array>
+        <string>com.exobrain.mist-console</string>
+    </array>
 </dict>
 </plist>

@@ -19,6 +19,7 @@
 
     <key>ProgramArguments</key>
     <array>
+        <string>/Users/alexhedtke/.local/bin/mist-launch</string>
         <string>/bin/bash</string>
         <string>/Users/alexhedtke/Documents/Exobrain harness/job-search/run-job-scan.sh</string>
     </array>
@@ -31,5 +32,11 @@
 
     <key>ThrottleInterval</key>
     <integer>30</integer>
+    <!-- Login Items shows the job under this app instead of its executable's name;
+         only honored because mist-launch is signed by the same team. -->
+    <key>AssociatedBundleIdentifiers</key>
+    <array>
+        <string>com.exobrain.mist-console</string>
+    </array>
 </dict>
 </plist>

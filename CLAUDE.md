@@ -183,6 +183,10 @@ Alex writes his own content into the daily note. Treat these two mechanisms as *
    ```
    Before rewriting any section, grep for `> [!alex]` blocks in the current file, preserve them in place, and splice your new content around them. If a callout contradicts something you generated, defer to the callout -- it is an explicit correction.
 
+## launchd jobs
+
+**Every launchd plist is declared through `~/.local/bin/mist-launch`**, the Team-signed exec launcher from `maintenance/mist-launch/`, with `AssociatedBundleIdentifiers` naming `com.exobrain.mist-console`. Two reasons (2026-10-12): launchd gives a job the TCC grants of the program its plist declares, and the launcher holds Full Disk Access, so a job reads `~/Documents` whatever interpreter it runs and no Homebrew Python bump needs a new grant; and Login Items then shows the fleet under MIST Console instead of 90 rows called "bash" and "python". So a new plist starts `<string>/Users/alexhedtke/.local/bin/mist-launch</string>` followed by the real command, and carries the association key. `maintenance/mist-launch/sweep.py --repo <repo> --apply` re-declares a repo's installed plists; `--installed <label>` handles a plist no repo tracks. The launcher must be re-signed with `install.sh` after a certificate renewal. Plists stay real copies in `~/Library/LaunchAgents/`, never symlinks.
+
 ## Things 3 + Calendar
 
 See `/things3` and `/calendar` skills for conventions, MCP tools, and dedup rules.

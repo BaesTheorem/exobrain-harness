@@ -6,6 +6,7 @@
     <string>com.exobrain.kc-civic</string>
     <key>ProgramArguments</key>
     <array>
+        <string>/Users/alexhedtke/.local/bin/mist-launch</string>
         <string>/bin/bash</string>
         <string>/Users/alexhedtke/Documents/Exobrain harness/kc-civic/run-sync.sh</string>
     </array>
@@ -26,5 +27,11 @@
     <string>/Users/alexhedtke/Library/Logs/exobrain/kc-civic.launchd.out.log</string>
     <key>StandardErrorPath</key>
     <string>/Users/alexhedtke/Library/Logs/exobrain/kc-civic.launchd.err.log</string>
+    <!-- Login Items shows the job under this app instead of its executable's name;
+         only honored because mist-launch is signed by the same team. -->
+    <key>AssociatedBundleIdentifiers</key>
+    <array>
+        <string>com.exobrain.mist-console</string>
+    </array>
 </dict>
 </plist>

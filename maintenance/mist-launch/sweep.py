@@ -44,6 +44,7 @@ AGENTS = HOME / "Library/LaunchAgents"
 APP = "/Applications/MIST Console.app"
 BUNDLE_ID = "com.exobrain.mist-console"
 TCC_DB = "/Library/Application Support/com.apple.TCC/TCC.db"
+BACKUPS = HOME / ".local/share/mist-launch/backups"   # previous plists, never inside LaunchAgents
 
 
 def sh(*cmd: str, check: bool = False) -> subprocess.CompletedProcess:
@@ -109,6 +110,24 @@ def rewrite(text: str, launcher: str) -> str:
     return text
 
 
+def reload_job(uid: int, label: str, plist: Path) -> subprocess.CompletedProcess:
+    """bootout, wait for the teardown to finish, then bootstrap. A KeepAlive
+    job's process can take seconds to exit; a bootstrap issued while launchd
+    is still tearing the old instance down fails with EIO (seen 2026-10-12 on
+    the Zulip listener)."""
+    import time
+    sh("launchctl", "bootout", f"gui/{uid}/{label}")
+    for _ in range(60):
+        if sh("launchctl", "print", f"gui/{uid}/{label}").returncode != 0:
+            break
+        time.sleep(0.25)
+    boot = sh("launchctl", "bootstrap", f"gui/{uid}", str(plist))
+    if boot.returncode != 0 and "Input/output error" in boot.stderr:
+        time.sleep(2)
+        boot = sh("launchctl", "bootstrap", f"gui/{uid}", str(plist))
+    return boot
+
+
 def main() -> int:
     ap = argparse.ArgumentParser(description=(__doc__ or "").split("\n\n")[0])
     ap.add_argument("--repo", default=str(Path(__file__).resolve().parents[2]))
@@ -116,10 +135,17 @@ def main() -> int:
     ap.add_argument("--only", action="append", default=[], help="label(s) to limit to")
     ap.add_argument("--skip", action="append", default=[], help="label(s) to leave alone")
     ap.add_argument("--force-repo", action="store_true", help="overwrite an installed copy that drifted from the repo")
+    ap.add_argument("--installed", metavar="PREFIX", action="append", default=[],
+                    help="also rewrite installed plists whose label starts with PREFIX and that no repo tracks "
+                         "(the installed file is the only copy; a .pre-mist-launch backup is kept)")
     args = ap.parse_args()
     repo = Path(args.repo).resolve()
 
     tracked = sh("git", "-C", str(repo), "ls-files", "*.plist", "**/*.plist").stdout.split()
+    if args.installed:
+        # installed-only plists: operate on the file in ~/Library/LaunchAgents itself
+        repo = AGENTS
+        tracked = [p.name for p in AGENTS.glob("*.plist") if any(p.name.startswith(pre) for pre in args.installed)]
     loaded = loaded_labels()
     launcher = str(LAUNCHER)
     plan, skipped = [], []
@@ -146,7 +172,7 @@ def main() -> int:
             skipped.append((rel, "no ProgramArguments")); continue
         if argv[0] == launcher:
             skipped.append((rel, "already through mist-launch")); continue
-        drift = src.read_bytes() != installed.read_bytes()
+        drift = src.resolve() != installed.resolve() and src.read_bytes() != installed.read_bytes()
         plan.append((rel, label, argv[0], drift))
 
     width = max((len(x[1]) for x in plan), default=20)
@@ -191,20 +217,22 @@ def main() -> int:
         if lint.returncode != 0 or (check.get("ProgramArguments") or [None])[0] != launcher:
             os.unlink(tmp_path)
             print(f"FAIL {label}: rewritten plist did not verify ({lint.stdout.strip()})"); fail += 1; continue
-        backup = installed.with_suffix(".plist.pre-mist-launch")
+        BACKUPS.mkdir(parents=True, exist_ok=True)
+        backup = BACKUPS / (installed.name + ".pre-mist-launch")
         shutil.copy2(installed, backup)
         src.write_text(new)
-        shutil.copy2(tmp_path, installed)
+        if src.resolve() != installed.resolve():
+            shutil.copy2(tmp_path, installed)
         os.unlink(tmp_path)
-        sh("launchctl", "bootout", f"gui/{uid}/{label}")
-        boot = sh("launchctl", "bootstrap", f"gui/{uid}", str(installed))
+        boot = reload_job(uid, label, installed)
         if boot.returncode != 0:
             # restore the previous plist and job so nothing stays unloaded
             shutil.copy2(backup, installed)
             src.write_text(original)
             sh("launchctl", "bootstrap", f"gui/{uid}", str(installed))
             print(f"FAIL {label}: bootstrap refused ({boot.stderr.strip()[:120]}); restored"); fail += 1; continue
-        backup.unlink(missing_ok=True)
+        if src.resolve() != installed.resolve():
+            backup.unlink(missing_ok=True)   # the repo still holds the previous text
         print(f"ok   {label}"); ok += 1
     print(f"\n{ok} rewritten and re-bootstrapped, {fail} failed")
     return 1 if fail else 0

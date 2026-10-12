@@ -490,6 +490,14 @@
     "notes": "Separate venv .venv-chatterbox (requirements-chatterbox.txt). Loads model + speaker conditioning once; one synthesis at a time. First start downloads ~1.5 GB of weights. Console voice.py starts it on demand."
   },
   {
+    "name": "mist-launch",
+    "command": "maintenance/mist-launch/install.sh; maintenance/mist-launch/sweep.py --repo <repo> --apply",
+    "repo_dir": "maintenance/mist-launch",
+    "source": "built",
+    "added": "2026-10-12",
+    "notes": "install.sh builds and signs with the Console's team identity into ~/.local/bin/mist-launch; grant it Full Disk Access once. sweep.py refuses to apply without the grant; --installed <label> for plists no repo tracks; backups in ~/.local/share/mist-launch/backups. Re-run install.sh after a certificate renewal."
+  },
+  {
     "name": "mist-progress",
     "command": "mist-progress run --label \"<what it is>\" -- <command>",
     "repo_dir": "~/Documents/mist-console",

@@ -8,6 +8,7 @@
 	     Access for ~/Documents under launchd, and a /bin/sh wrapper exits 126. -->
 	<key>ProgramArguments</key>
 	<array>
+		<string>/Users/alexhedtke/.local/bin/mist-launch</string>
 		<string>/opt/homebrew/bin/python3</string>
 		<string>/Users/alexhedtke/Documents/Exobrain harness/running-quest/quest_watch.py</string>
 	</array>
@@ -19,5 +20,11 @@
 	<string>/Users/alexhedtke/Library/Logs/exobrain/quest-watch.out</string>
 	<key>StandardErrorPath</key>
 	<string>/Users/alexhedtke/Library/Logs/exobrain/quest-watch.err</string>
+	<!-- Login Items shows the job under this app instead of its executable's name;
+	     only honored because mist-launch is signed by the same team. -->
+	<key>AssociatedBundleIdentifiers</key>
+	<array>
+	    <string>com.exobrain.mist-console</string>
+	</array>
 </dict>
 </plist>

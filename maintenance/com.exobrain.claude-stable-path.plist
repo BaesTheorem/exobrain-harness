@@ -7,6 +7,7 @@
 
     <key>ProgramArguments</key>
     <array>
+        <string>/Users/alexhedtke/.local/bin/mist-launch</string>
         <string>/bin/bash</string>
         <string>/Users/alexhedtke/Documents/Exobrain harness/maintenance/claude-stable-path.sh</string>
     </array>
@@ -31,5 +32,11 @@
     <string>/Users/alexhedtke/Library/Logs/exobrain/claude-stable-path.out</string>
     <key>StandardErrorPath</key>
     <string>/Users/alexhedtke/Library/Logs/exobrain/claude-stable-path.out</string>
+    <!-- Login Items shows the job under this app instead of its executable's name;
+         only honored because mist-launch is signed by the same team. -->
+    <key>AssociatedBundleIdentifiers</key>
+    <array>
+        <string>com.exobrain.mist-console</string>
+    </array>
 </dict>
 </plist>

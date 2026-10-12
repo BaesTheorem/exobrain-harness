@@ -6,6 +6,7 @@
 	<string>com.exobrain.mykcmo-key-watch</string>
 	<key>ProgramArguments</key>
 	<array>
+		<string>/Users/alexhedtke/.local/bin/mist-launch</string>
 		<string>/Users/alexhedtke/Documents/Exobrain harness/mykcmo/.venv/bin/python</string>
 		<string>/Users/alexhedtke/Documents/Exobrain harness/mykcmo/refresh_key.py</string>
 		<string>--auto</string>
@@ -27,5 +28,11 @@
 	<string>/Users/alexhedtke/Library/Logs/exobrain/mykcmo-key-watch.log</string>
 	<key>StandardErrorPath</key>
 	<string>/Users/alexhedtke/Library/Logs/exobrain/mykcmo-key-watch.log</string>
+	<!-- Login Items shows the job under this app instead of its executable's name;
+	     only honored because mist-launch is signed by the same team. -->
+	<key>AssociatedBundleIdentifiers</key>
+	<array>
+	    <string>com.exobrain.mist-console</string>
+	</array>
 </dict>
 </plist>
