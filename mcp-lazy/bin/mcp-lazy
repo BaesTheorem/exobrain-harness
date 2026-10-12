@@ -227,6 +227,11 @@ class Shim:
             self.reply(rid, {})
             return
         running = self.child is not None and self.child.poll() is None
+        if method == "server/discover" and not running and "initialize" in self.cache:
+            # Newer clients probe with this before initialize. Refuse it so the
+            # client falls back to the cached initialize, not a cold start.
+            self.send({"jsonrpc": "2.0", "id": rid, "error": {"code": -32601, "message": "Method not found"}})
+            return
         if method in CACHED and not running and method in self.cache:
             self.reply(rid, self.cache[method])
             return
@@ -244,6 +249,8 @@ class Shim:
                     self.start()
                     self.reply(rid, self.init_result)
                     return
+                if not (self.child and self.child.poll() is None):
+                    log(f"{self.name} cold start for {msg.get('method')}")
                 self.start()
                 if rid is not None and "method" in msg:
                     self.pending.add(rid)
