@@ -18,6 +18,12 @@
         <string>-c</string>
         <string>/usr/bin/python3 "/Users/alexhedtke/Library/Application Support/mem-watchdog/mem-watchdog.py"</string>
     </array>
+    <!-- Login Items names a launchd job after its executable ("Bash") unless
+         the job is associated with an app; this shows it as MIST Console. -->
+    <key>AssociatedBundleIdentifiers</key>
+    <array>
+        <string>com.exobrain.mist-console</string>
+    </array>
     <key>RunAtLoad</key>
     <true/>
     <key>KeepAlive</key>
