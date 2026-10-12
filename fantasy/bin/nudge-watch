@@ -1,0 +1,260 @@
+#!/usr/bin/env python3
+"""nudge-watch: a lineup tip for another manager, drafted only while it is true.
+
+A nudge is one short DM about a fixable hole in another team's lineup: a
+starter whose team does not play, or a weaker starter over a better bench
+player. Each spec is a JSON file in fantasy/.cache/nudges/ (gitignored,
+because it names a DM thread). launchd runs this every 30 minutes
+(com.exobrain.nudge-watch). For each armed spec, once ESPN is on the spec's
+week, it reads that team's lineup and tries the rules in order:
+
+  - the first rule that holds becomes a chat-draft, so the text reaches Alex
+    as a Send / Rewrite / Skip banner and a Discord DM;
+  - when a different rule holds later (the slot was filled with the weaker
+    player), the pending draft is replaced;
+  - when no rule holds any more (the manager fixed it), the pending draft is
+    skipped, so a late tap on Send cannot post a stale tip.
+
+    nudge-watch [--dry-run] [--assume-week N]
+    nudge-watch list
+
+Spec shape. Rules are tried in order; "{Player Name}" in a text becomes that
+player's projection for the week:
+
+    {"id": "w6-x", "week": 6, "team": 3, "who": "Team name", "topic": "<DM thread id>",
+     "status": "armed",
+     "rules": [{"name": "...", "lineup": ["A"], "bench": ["B"], "not_lineup": ["C"],
+                "above": [["B", "A"]], "text": "(o.o) ... {B} ... -MIST"}]}
+
+INVARIANTS
+  - Nothing here posts to ESPN. `chat-draft send`, run on Alex's tap, does.
+  - One message per spec. A sent or skipped draft retires the spec.
+  - A rule holds only while every player in lineup/bench/above is unlocked,
+    every bench player has no injury status, and each "above" pair is true
+    on this week's projections.
+  - No new drafts from 22:00 to 08:00. Stale drafts are skipped at any hour.
+"""
+
+from __future__ import annotations
+
+import argparse
+import datetime as dt
+import json
+import pathlib
+import re
+import subprocess
+import sys
+
+HERE = pathlib.Path(__file__).resolve().parent
+FANTASY = HERE.parent
+SPECS = FANTASY / ".cache" / "nudges"
+DRAFTS = FANTASY / ".cache" / "chat-drafts"
+ESPN = HERE / "espn"
+CHAT_DRAFT = HERE / "chat-draft"
+NOTIFY = FANTASY.parent / "mist-voice" / "bin" / "mist-notify"
+QUIET_FROM, QUIET_TO = 22, 8
+BENCH, IR = 20, 21
+
+sys.path.insert(0, str(FANTASY))
+from espncli import chat  # noqa: E402
+
+
+def log(msg: str) -> None:
+    print(f"{dt.datetime.now():%Y-%m-%d %H:%M:%S} {msg}", flush=True)
+
+
+def run_json(argv: list[str]) -> dict:
+    r = subprocess.run([sys.executable, *argv], capture_output=True, text=True, check=False, timeout=120)
+    if r.returncode != 0:
+        raise RuntimeError(f"{pathlib.Path(argv[0]).name} rc={r.returncode}: {r.stderr.strip()[:300]}")
+    return json.loads(r.stdout)
+
+
+def team_week(team: int, week: int | None) -> dict:
+    # --no-pending: that banner is about our own roster, which this watcher never reads or touches.
+    argv = [str(ESPN), "team", "--team", str(team), "--json", "--no-pending"]
+    return run_json(argv + (["--week", str(week)] if week else []))
+
+
+def thread_anchor(topic: str) -> str:
+    """Id of the newest message in the DM thread; chat-draft send refuses if they write after it."""
+    threads = run_json([str(ESPN), "chat", "--json", "--no-pending"])
+    rows = threads if isinstance(threads, list) else threads.get("threads", [])
+    t = next((t for t in rows if t.get("id") == topic), None)
+    if not t or not t.get("messages"):
+        raise RuntimeError(f"DM thread {topic} not found or empty")
+    return t["messages"][-1]["id"]
+
+
+def draft_status(draft_id: str | None) -> str | None:
+    if not draft_id:
+        return None
+    try:
+        return json.loads((DRAFTS / f"{draft_id}.json").read_text()).get("status")
+    except (OSError, json.JSONDecodeError):
+        return None
+
+
+def is_locked(row: dict, now: dt.datetime) -> bool:
+    if row.get("locked"):
+        return True
+    k = row.get("kickoff")
+    return bool(k) and dt.datetime.fromisoformat(k) <= now
+
+
+def evaluate(rule: dict, roster: list[dict], now: dt.datetime) -> tuple[bool, bool, str]:
+    """(holds, dead, why). Dead means a named player is locked, so the rule cannot hold again."""
+    by = {r["name"]: r for r in roster}
+    named = rule.get("lineup", []) + rule.get("bench", []) + [n for pair in rule.get("above", []) for n in pair]
+    missing = sorted({n for n in named if n not in by})
+    if missing:
+        return False, False, f"not on the roster: {', '.join(missing)}"
+    if any(is_locked(by[n], now) for n in named):
+        return False, True, "a named player is locked"
+    for n in rule.get("lineup", []):
+        if by[n]["slotId"] in (BENCH, IR):
+            return False, False, f"{n} is not in the lineup"
+    for n in rule.get("not_lineup", []):
+        if n in by and by[n]["slotId"] not in (BENCH, IR):
+            return False, False, f"{n} is still in the lineup"
+    for n in rule.get("bench", []):
+        if by[n]["slotId"] != BENCH:
+            return False, False, f"{n} is not on the bench"
+        if by[n].get("status"):
+            return False, False, f"{n} is {by[n]['status']}"
+    for a, b in rule.get("above", []):
+        if (by[a].get("proj") or 0.0) <= (by[b].get("proj") or 0.0):
+            return False, False, f"{a} no longer projects above {b}"
+    return True, False, "holds"
+
+
+def fill(text: str, roster: list[dict]) -> str:
+    proj = {r["name"]: r.get("proj") or 0.0 for r in roster}
+    return re.sub(r"\{([^{}]+)\}", lambda m: f"{proj[m.group(1)]:.1f}", text)
+
+
+def notify(spec: dict, msg: str, dry: bool) -> None:
+    if dry:
+        log(f"DRY-RUN notify: {msg}")
+        return
+    subprocess.run([str(NOTIFY), msg, "Fantasy nudge", "none", "console", "--group", "fantasy",
+                    "--id", f"nudge-{spec['id']}", "--discord",
+                    "--context", f"nudge-watch spec {spec['id']} (fantasy/.cache/nudges)"],
+                   check=False, capture_output=True, timeout=30)
+
+
+def skip_draft(draft_id: str, why: str, dry: bool) -> None:
+    if dry:
+        log(f"DRY-RUN skip draft {draft_id}: {why}")
+        return
+    subprocess.run([sys.executable, str(CHAT_DRAFT), "skip", draft_id, "--why", why],
+                   check=False, capture_output=True, timeout=60)
+
+
+def save_draft(spec: dict, rule: dict, text: str, dry: bool) -> str | None:
+    if dry:
+        log(f"DRY-RUN draft ({rule['name']}): {text}")
+        return None
+    out = run_json([str(CHAT_DRAFT), "save", "--topic", spec["topic"], "--reply-to", thread_anchor(spec["topic"]),
+                    "--who", spec["who"],
+                    "--incoming", f"[no new message from them: lineup check, {rule['name']}]",
+                    "--text", text, "--why", f"nudge-watch {spec['id']}: {rule['name']}", "--discord"])
+    return out.get("id")
+
+
+def step(spec: dict, now: dt.datetime, args: argparse.Namespace) -> None:
+    sid, dry = spec["id"], args.dry_run
+    st = draft_status(spec.get("draft"))
+    if st in ("sent", "skipped"):
+        spec["status"] = st
+        log(f"{sid}: draft {spec['draft']} was {st} by Alex; spec retired")
+        return
+
+    d = team_week(spec["team"], args.assume_week or None)
+    current = args.assume_week or d["week"]
+    if current < spec["week"]:
+        log(f"{sid}: ESPN is on week {current}, waiting for week {spec['week']}")
+        return
+    if current > spec["week"]:
+        if st == "pending":
+            skip_draft(spec["draft"], "the week is over", dry)
+        spec["status"] = "expired"
+        log(f"{sid}: week {spec['week']} is over; spec expired")
+        return
+
+    results = [(r, *evaluate(r, d["roster"], now)) for r in spec["rules"]]
+    live = next(((r, why) for r, holds, _dead, why in results if holds), None)
+    if live is None:
+        whys = "; ".join(f"{r['name']}: {why}" for r, _h, _d, why in results)
+        if st == "pending":
+            skip_draft(spec["draft"], f"condition cleared ({whys})", dry)
+            notify(spec, f"{spec['who']} fixed the lineup on their own, so the drafted DM is withdrawn.", dry)
+            spec.update(status="armed", draft=None, rule=None, text=None)
+        if all(dead for _r, _h, dead, _w in results):
+            spec["status"] = "expired"
+            log(f"{sid}: every rule is past its lock; spec expired")
+        else:
+            log(f"{sid}: no rule holds ({whys})")
+        return
+
+    rule = live[0]
+    text = fill(rule["text"], d["roster"])
+    if len(chat.split_message(text)) != 1:
+        log(f"{sid}: rule '{rule['name']}' text is over ESPN's {chat.MAX_CONTENT}-character cap; not drafted")
+        return
+    if st == "pending" and spec.get("text") == text:
+        log(f"{sid}: draft {spec['draft']} still matches rule '{rule['name']}'")
+        return
+    if st == "pending":   # stale text: withdraw it now, at any hour, so Send cannot post it
+        skip_draft(spec["draft"], f"replaced: rule '{rule['name']}' now holds", dry)
+        spec.update(status="armed", draft=None, rule=None, text=None)
+    if not (QUIET_TO <= now.astimezone().hour < QUIET_FROM):
+        log(f"{sid}: rule '{rule['name']}' holds; quiet hours, drafting after {QUIET_TO}:00")
+        return
+    new_id = save_draft(spec, rule, text, dry)
+    if not dry:
+        spec.update(status="drafted", draft=new_id, rule=rule["name"], text=text, drafted_at=f"{now.astimezone():%Y-%m-%d %H:%M}")
+    log(f"{sid}: drafted {new_id} for rule '{rule['name']}'")
+
+
+def main() -> int:
+    ap = argparse.ArgumentParser(description=(__doc__ or "").split("\n\n")[0])
+    ap.add_argument("cmd", nargs="?", default="run", choices=("run", "list"))
+    ap.add_argument("--dry-run", action="store_true", help="evaluate and log; draft, skip and save nothing")
+    ap.add_argument("--assume-week", type=int, default=0, help="test: treat ESPN as on week N")
+    args = ap.parse_args()
+
+    specs = []
+    for p in sorted(SPECS.glob("*.json")):
+        try:
+            specs.append((p, json.loads(p.read_text())))
+        except (OSError, json.JSONDecodeError) as e:
+            log(f"unreadable spec {p.name}: {e}")
+    if args.cmd == "list":
+        for _p, s in specs:
+            print(f"{s['id']}  {s.get('status')}  week {s['week']}  team {s['team']}  "
+                  f"draft {s.get('draft') or '-'}  rule {s.get('rule') or '-'}")
+        return 0
+
+    now = dt.datetime.now(dt.timezone.utc)
+    armed = [(p, s) for p, s in specs if s.get("status") in ("armed", "drafted")]
+    if not armed:
+        log("no armed nudges")
+        return 0
+    rc = 0
+    for p, spec in armed:
+        try:
+            step(spec, now, args)
+        except (RuntimeError, OSError, ValueError, KeyError, subprocess.SubprocessError) as e:
+            log(f"{spec.get('id')}: error: {e}")
+            rc = 1
+            continue
+        if not args.dry_run:
+            tmp = p.with_suffix(".tmp")
+            tmp.write_text(json.dumps(spec, indent=1, ensure_ascii=False))
+            tmp.replace(p)
+    return rc
+
+
+if __name__ == "__main__":
+    sys.exit(main())

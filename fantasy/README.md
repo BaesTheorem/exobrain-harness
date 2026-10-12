@@ -216,6 +216,39 @@ bin/chat-watch --self-test           # exercise the Fable -> Opus fallback chain
 Logs: `~/Library/Logs/exobrain/chat-watch.log`. State (handled ids, drafts per
 day): `.cache/chat-watch.json`.
 
+## Tool 8: `bin/nudge-watch` (launchd, at 30-minute intervals)
+
+A nudge is one short DM to the manager of a different team about a lineup
+problem that the manager can correct. Two examples: a starter on a team that
+does not play this week, and a bench player who projects more points than a
+starter. A nudge is useful when the opponent of a rival can win with a lineup
+change. The value of that game to us comes first, from
+`season_sim.py --force`. Each spec is a JSON file in `.cache/nudges/`
+(gitignored, because it identifies a DM thread). The docstring shows the
+format: the team, the thread, and the rules in sequence, each with its
+message text.
+
+When ESPN is on the week of the spec, the watcher reads the lineup of that
+team at each check. The first rule that holds becomes a `chat-draft`, with
+the Send / Rewrite / Skip banner and a Discord DM. If a different rule holds
+at a subsequent check, the watcher replaces the draft. If no rule holds (the
+manager corrected the lineup), the watcher skips the draft and sends Alex a
+notice. Thus a delayed tap on Send cannot post a message that is no longer correct.
+
+A rule holds only while all of its players are unlocked and all of its bench
+players are healthy. Nothing goes out without Alex's tap. Each spec sends
+one message at most, and the watcher makes no new drafts from 22:00 to 08:00.
+
+```sh
+bin/nudge-watch list
+bin/nudge-watch --dry-run                  # what it can do now
+bin/nudge-watch --dry-run --assume-week 6  # test a spec before its week opens
+```
+
+Install like `lineup-watch`, with `com.exobrain.nudge-watch.plist`. Logs:
+`~/Library/Logs/exobrain/nudge-watch.log`. When no spec is armed, a check
+writes one log line and stops.
+
 ## The scans (2026-09-20): `bin/volume`, `bin/swap-scan`, `bin/stream-scan`, `bin/league-scan`
 
 All read-only, all `--json`, all built the night Alex asked what else would

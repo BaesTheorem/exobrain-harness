@@ -117,6 +117,8 @@ def raise_banner(draft: dict) -> bool:
                                       f"fantasy/bin/chat-draft send {did} --text <the new reply>"),
         "--action", button("Skip", f"Skip fantasy chat draft {did}. Run: fantasy/bin/chat-draft skip {did}"),
     ]
+    if draft.get("discord"):   # a watcher's draft: every watcher alert also goes to Discord
+        argv.append("--discord")
     r = subprocess.run(argv, capture_output=True, text=True, check=False)
     return r.returncode == 0
 
@@ -137,6 +139,7 @@ def cmd_save(a: argparse.Namespace) -> int:
         "text": " ".join(a.text),
         "why": a.why or "",
         "chunks": chat.split_message(" ".join(a.text)),
+        "discord": a.discord,
     }
     store(draft)
     banner = False if a.quiet else raise_banner(draft)
@@ -233,6 +236,7 @@ def main() -> int:
     p.add_argument("--text", required=True, nargs="+", help="the proposed reply")
     p.add_argument("--why", help="the rule or reasoning, for the log")
     p.add_argument("--quiet", action="store_true", help="store only, no banner")
+    p.add_argument("--discord", action="store_true", help="also send the banner text as a Discord DM")
     p.set_defaults(fn=cmd_save)
 
     p = sub.add_parser("list"); p.add_argument("--all", action="store_true"); p.set_defaults(fn=cmd_list)
