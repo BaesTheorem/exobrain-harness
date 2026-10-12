@@ -413,20 +413,22 @@ class History:
             if pid not in seen and self.samples[pid] and now - self.samples[pid][-1][0] > 900:
                 del self.samples[pid]
 
-    def growth(self, pid, window, now):
-        """GB gained over `window` seconds, or None without a sample that old."""
+    def growth(self, pid, window, now, band=150):
+        """Rise of the footprint floor over `window` seconds, or None without a sample that old.
+
+        Compares the minimum of the samples in the last `band` seconds with the
+        minimum of the samples within `band` of the window start. A point-to-point
+        difference reads a sawtooth (a video tab that swings 0.5 to 1.7 GB between
+        GC passes, 2026-10-12) as a leak. A real leak raises the floor too.
+        """
         dq = self.samples.get(pid)
         if not dq or now - dq[0][0] < window * 0.8:
             return None
-        base = None
-        for t, gb in dq:
-            if now - t >= window:
-                base = gb
-            else:
-                break
-        if base is None:
+        start = [gb for t, gb in dq if abs((now - t) - window) <= band]
+        recent = [gb for t, gb in dq if now - t <= band]
+        if not start or not recent:
             return None
-        return dq[-1][1] - base
+        return min(recent) - min(start)
 
 
 # -------------------------------------------------------------- notifier -----
