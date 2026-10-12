@@ -1,0 +1,383 @@
+#!/opt/homebrew/bin/python3 -I
+"""mcp-lazy: start a stdio MCP server only when a session first calls one of its tools.
+
+Every Claude Code session starts its own copy of each stdio MCP server. On an 8 GB Mac,
+twelve rarely used servers cost about 600 MB per chat. This shim takes the server's place
+in the Claude config. It answers initialize and the list requests from a cache of the
+real server's answers, so the session sees the same server name and tool names. The real
+server starts on the first request the cache cannot answer (a tools/call), and the shim
+then pipes bytes both ways. After MCP_LAZY_IDLE seconds without a request, it stops the
+server again; the next call starts it again.
+
+  mcp-lazy <name>          run as the MCP server <name> (the Claude config calls this)
+  mcp-lazy wrap <name>...  move servers from the Claude config into servers.local.json
+  mcp-lazy unwrap <name>.. put the original entries back into the Claude config
+  mcp-lazy status          record each server: wrapped or not, cache age, tool count
+  mcp-lazy refresh [name]  start each wrapped server once and rewrite its cache
+
+INVARIANTS
+- A cache miss is never an error: with no cache, the shim starts the server at once and
+  acts as a plain pipe. A stale cache only costs a wrong tool list until the next start,
+  because every real start rewrites the cache.
+- The shim never sends its own request ids to the client. Ids it uses with the server
+  start with "mcp-lazy-" and their responses never reach stdout.
+- stdout carries only JSON-RPC lines. Diagnostics go to stderr.
+"""
+
+import json
+import os
+import subprocess
+import sys
+import threading
+import time
+from pathlib import Path
+
+HERE = Path(__file__).resolve().parent.parent
+SERVERS = Path(os.environ.get("MCP_LAZY_SERVERS", HERE / "servers.local.json"))
+CACHE = Path(os.environ.get("MCP_LAZY_CACHE", Path.home() / ".cache" / "mcp-lazy"))
+CLAUDE_JSON = Path.home() / ".claude.json"
+PROJECT_JSON = HERE.parent / ".mcp.json"
+SELF = str(Path(__file__).resolve())
+PY = "/opt/homebrew/bin/python3"
+CACHED = ("tools/list", "prompts/list", "resources/list", "resources/templates/list")
+IDLE = float(os.environ.get("MCP_LAZY_IDLE", "1200"))
+
+
+def log(msg: str) -> None:
+    print(f"mcp-lazy: {msg}", file=sys.stderr, flush=True)
+
+
+def load_json(p: Path) -> dict:
+    try:
+        return json.loads(p.read_text())
+    except (OSError, ValueError):
+        return {}
+
+
+def write_json(p: Path, obj: dict) -> None:
+    p.parent.mkdir(parents=True, exist_ok=True)
+    tmp = p.with_suffix(p.suffix + ".tmp")
+    tmp.write_text(json.dumps(obj, indent=2) + "\n")
+    os.chmod(tmp, 0o600)
+    tmp.replace(p)
+
+
+class Shim:
+    def __init__(self, name: str, spec: dict):
+        self.name, self.spec = name, spec
+        self.idle = float(spec.get("idle", IDLE))
+        self.cache_path = CACHE / f"{name}.json"
+        self.cache = load_json(self.cache_path)
+        self.out_lock = threading.Lock()
+        self.state_lock = threading.RLock()
+        self.child: subprocess.Popen | None = None
+        self.init_params: dict | None = None
+        self.init_result: dict = {}
+        self.waiters: dict[str, tuple[threading.Event, list]] = {}
+        self.seq = 0
+        self.last = time.monotonic()
+        self.pending: set = set()  # client request ids in flight at the server
+
+    # ---- output ----
+    def send(self, obj: dict) -> None:
+        with self.out_lock:
+            sys.stdout.write(json.dumps(obj, separators=(",", ":")) + "\n")
+            sys.stdout.flush()
+
+    def reply(self, rid, result: dict) -> None:
+        self.send({"jsonrpc": "2.0", "id": rid, "result": result})
+
+    def error(self, rid, msg: str) -> None:
+        self.send({"jsonrpc": "2.0", "id": rid, "error": {"code": -32603, "message": f"mcp-lazy[{self.name}]: {msg}"}})
+
+    # ---- server process ----
+    def to_child(self, obj: dict) -> None:
+        child = self.child
+        if not child or not child.stdin:
+            raise OSError("server not running")
+        child.stdin.write((json.dumps(obj, separators=(",", ":")) + "\n").encode())
+        child.stdin.flush()
+
+    def ask(self, method: str, params: dict | None, timeout: float = 60) -> dict:
+        self.seq += 1
+        rid = f"mcp-lazy-{self.seq}"
+        ev, box = threading.Event(), []
+        self.waiters[rid] = (ev, box)
+        msg: dict = {"jsonrpc": "2.0", "id": rid, "method": method}
+        if params is not None:
+            msg["params"] = params
+        self.to_child(msg)
+        if not ev.wait(timeout):
+            self.waiters.pop(rid, None)
+            raise TimeoutError(f"{method} timed out after {timeout:.0f}s")
+        resp = box[0]
+        if "error" in resp:
+            raise RuntimeError(f"{method}: {resp['error']}")
+        return resp.get("result", {})
+
+    def start(self) -> None:
+        """Start the server and do the initialize handshake. Caller holds state_lock."""
+        if self.child and self.child.poll() is None:
+            return
+        env = {**os.environ, **self.spec.get("env", {})}
+        env.pop("MCP_LAZY_IDLE", None)
+        self.child = subprocess.Popen(
+            [self.spec["command"], *self.spec.get("args", [])],
+            stdin=subprocess.PIPE, stdout=subprocess.PIPE, env=env,
+            cwd=self.spec.get("cwd") or None,
+        )
+        threading.Thread(target=self.pump, args=(self.child,), daemon=True).start()
+        params = self.init_params or {"protocolVersion": "2025-06-18", "capabilities": {},
+                                      "clientInfo": {"name": "mcp-lazy", "version": "1"}}
+        t0 = time.monotonic()
+        init = self.ask("initialize", params, timeout=float(self.spec.get("start_timeout", 120)))
+        self.init_result = init
+        self.to_child({"jsonrpc": "2.0", "method": "notifications/initialized"})
+        log(f"{self.name} started in {time.monotonic() - t0:.1f}s (pid {self.child.pid})")
+        threading.Thread(target=self.recache, args=(init,), daemon=True).start()
+
+    def recache(self, init: dict) -> None:
+        new = {"initialize": init, "updated": time.time()}
+        caps = init.get("capabilities", {})
+        wanted = [("tools/list", "tools"), ("prompts/list", "prompts"),
+                  ("resources/list", "resources"), ("resources/templates/list", "resources")]
+        for method, cap in wanted:
+            if cap not in caps:
+                continue
+            try:
+                new[method] = self.ask(method, {})
+            except (OSError, TimeoutError, RuntimeError) as e:
+                log(f"{self.name} {method} for cache: {e}")
+        self.cache = new
+        write_json(self.cache_path, new)
+
+    def stop(self) -> None:
+        with self.state_lock:
+            child, self.child = self.child, None
+        if child and child.poll() is None:
+            try:
+                if child.stdin:
+                    child.stdin.close()
+                child.wait(5)
+            except (OSError, subprocess.TimeoutExpired):
+                child.terminate()
+                try:
+                    child.wait(5)
+                except subprocess.TimeoutExpired:
+                    child.kill()
+
+    def pump(self, child: subprocess.Popen) -> None:
+        assert child.stdout
+        for raw in child.stdout:
+            try:
+                msg = json.loads(raw)
+            except ValueError:
+                continue
+            rid = msg.get("id") if isinstance(msg, dict) else None
+            if isinstance(rid, str) and rid.startswith("mcp-lazy-") and "method" not in msg:
+                ev, box = self.waiters.pop(rid, (None, None))
+                if ev and box is not None:
+                    box.append(msg)
+                    ev.set()
+                continue
+            if rid is not None and "method" not in msg:
+                self.pending.discard(rid)
+            with self.out_lock:
+                sys.stdout.write(raw.decode())
+                sys.stdout.flush()
+        # The server exited: fail what it still owed, go back to lazy mode.
+        for rid in list(self.pending):
+            self.error(rid, "server exited before it answered")
+        self.pending.clear()
+        for ev, box in list(self.waiters.values()):
+            box.append({"error": "server exited"})
+            ev.set()
+        self.waiters.clear()
+        with self.state_lock:
+            if self.child is child:
+                self.child = None
+
+    def reaper(self) -> None:
+        while self.idle > 0:
+            time.sleep(min(60, self.idle / 2))
+            with self.state_lock:
+                running = self.child and self.child.poll() is None
+                quiet = time.monotonic() - self.last > self.idle and not self.pending
+            if running and quiet:
+                log(f"{self.name} idle {self.idle:.0f}s, stopping it")
+                self.stop()
+
+    # ---- client side ----
+    def handle(self, msg: dict) -> None:
+        method, rid = msg.get("method"), msg.get("id")
+        if method is None:  # a response to a server-initiated request
+            self.forward(msg)
+            return
+        self.last = time.monotonic()
+        if method == "initialize":
+            self.init_params = msg.get("params")
+            if "initialize" in self.cache:
+                self.reply(rid, self.cache["initialize"])
+                return
+            self.forward(msg, handshake=True)
+            return
+        if method == "notifications/initialized":
+            return  # start() sends its own
+        if method == "ping" and rid is not None:
+            self.reply(rid, {})
+            return
+        running = self.child is not None and self.child.poll() is None
+        if method in CACHED and not running and method in self.cache:
+            self.reply(rid, self.cache[method])
+            return
+        if rid is None and not running:
+            return  # a notification for a server that is not running (cancel, roots changed)
+        self.forward(msg)
+
+    def forward(self, msg: dict, handshake: bool = False) -> None:
+        rid = msg.get("id")
+        try:
+            with self.state_lock:
+                if handshake:
+                    # No cache yet: start now, answer initialize with the live result.
+                    self.init_params = msg.get("params")
+                    self.start()
+                    self.reply(rid, self.init_result)
+                    return
+                self.start()
+                if rid is not None and "method" in msg:
+                    self.pending.add(rid)
+                self.to_child(msg)
+        except (OSError, TimeoutError, RuntimeError, KeyError) as e:
+            log(f"{self.name}: {e}")
+            if rid is not None and "method" in msg:
+                self.pending.discard(rid)
+                self.error(rid, f"could not start the server: {e}")
+
+    def run(self) -> None:
+        threading.Thread(target=self.reaper, daemon=True).start()
+        for line in sys.stdin:
+            line = line.strip()
+            if not line:
+                continue
+            try:
+                msg = json.loads(line)
+            except ValueError:
+                continue
+            if isinstance(msg, dict):
+                self.handle(msg)
+        self.stop()
+
+
+# ---- config management ----
+def config_files() -> list[tuple[Path, list[str]]]:
+    """Each Claude config file and the key path to its mcpServers table."""
+    out = [(CLAUDE_JSON, ["mcpServers"]), (PROJECT_JSON, ["mcpServers"])]
+    return [(p, k) for p, k in out if p.exists()]
+
+
+def table(cfg: dict, keys: list[str]) -> dict:
+    for k in keys:
+        cfg = cfg.setdefault(k, {})
+    return cfg
+
+
+def set_entry(path: Path, name: str, entry: dict) -> None:
+    """Write one server entry. User scope goes through the claude CLI, which locks
+    ~/.claude.json against the running sessions that also rewrite it."""
+    if path == CLAUDE_JSON:
+        subprocess.run(["claude", "mcp", "remove", "--scope", "user", name], capture_output=True)
+        subprocess.run(["claude", "mcp", "add-json", "--scope", "user", name, json.dumps(entry)],
+                       check=True, capture_output=True)
+        return
+    cfg = json.loads(path.read_text())
+    table(cfg, ["mcpServers"])[name] = entry
+    write_json(path, cfg)
+
+
+def shim_entry(name: str) -> dict:
+    return {"type": "stdio", "command": PY, "args": ["-I", "-S", SELF, name], "env": {}}
+
+
+def is_shim(entry: dict) -> bool:
+    return SELF in entry.get("args", []) or entry.get("command") == SELF
+
+
+def wrap(names: list[str]) -> None:
+    servers = load_json(SERVERS)
+    for path, keys in config_files():
+        tbl = table(json.loads(path.read_text()), keys)
+        for n in names:
+            e = tbl.get(n)
+            if not e or is_shim(e):
+                continue
+            if e.get("type", "stdio") != "stdio":
+                log(f"{n} in {path.name} is {e['type']}, not stdio: it starts no process, skipped")
+                continue
+            servers.setdefault(n, {}).setdefault("sources", {})[str(path)] = e
+            servers[n].update({k: e[k] for k in ("command", "args", "env", "cwd") if k in e})
+            write_json(SERVERS, servers)  # before the config changes, so no entry is ever lost
+            set_entry(path, n, shim_entry(n))
+            print(f"wrapped {n} in {path}")
+
+
+def unwrap(names: list[str]) -> None:
+    servers = load_json(SERVERS)
+    for n in names:
+        for src, entry in servers.get(n, {}).get("sources", {}).items():
+            set_entry(Path(src), n, entry)
+            print(f"restored {n} in {src}")
+        servers.pop(n, None)
+        write_json(SERVERS, servers)
+
+
+def status() -> None:
+    servers = load_json(SERVERS)
+    for n in sorted(servers):
+        c = load_json(CACHE / f"{n}.json")
+        age = f"{(time.time() - c['updated']) / 3600:.1f} h old" if "updated" in c else "no cache"
+        tools = len(c.get("tools/list", {}).get("tools", []))
+        print(f"{n:14} wrapped  cache {age:12} {tools} tools  idle {servers[n].get('idle', IDLE):.0f}s")
+
+
+def refresh(names: list[str]) -> None:
+    servers = load_json(SERVERS)
+    for n in names or sorted(servers):
+        sh = Shim(n, servers[n])
+        try:
+            with sh.state_lock:
+                sh.start()
+            for _ in range(600):  # recache runs on its own thread
+                if load_json(sh.cache_path).get("updated", 0) > time.time() - 60:
+                    break
+                time.sleep(0.1)
+            print(f"{n}: {len(sh.cache.get('tools/list', {}).get('tools', []))} tools cached")
+        except (OSError, TimeoutError, RuntimeError) as e:
+            print(f"{n}: FAILED {e}")
+        finally:
+            sh.stop()
+
+
+def main() -> None:
+    a = sys.argv[1:]
+    if not a or a[0] in ("-h", "--help"):
+        print(__doc__)
+        return
+    cmd, rest = a[0], a[1:]
+    if cmd == "wrap":
+        wrap(rest)
+    elif cmd == "unwrap":
+        unwrap(rest)
+    elif cmd == "status":
+        status()
+    elif cmd == "refresh":
+        refresh(rest)
+    else:
+        spec = load_json(SERVERS).get(cmd)
+        if not spec:
+            sys.exit(f"mcp-lazy: no server {cmd!r} in {SERVERS}")
+        Shim(cmd, spec).run()
+
+
+if __name__ == "__main__":
+    main()
