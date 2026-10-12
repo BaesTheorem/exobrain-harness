@@ -139,7 +139,9 @@ def main():
     webview.settings["ALLOW_DOWNLOADS"] = True
     webview.create_window(TITLE, URL, width=WIN_W, height=WIN_H,
                           min_size=(900, 640), js_api=Api())
-    webview.start()
+    # pywebview defaults to private mode, which wipes WKWebView's localStorage on every
+    # launch; apps that keep saves or settings in the browser need it off.
+    webview.start(private_mode=False)
 
 
 if __name__ == "__main__":
