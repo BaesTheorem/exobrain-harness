@@ -22,6 +22,13 @@ Run in season with actual standings folded in later; for now it is preseason.
 
     python3 season_sim.py [--sims 20000] [--sigma 22] [--tau 8] [--seed 1]
     python3 season_sim.py --after-week 5    # the table after week 5, not the season
+    python3 season_sim.py --live            # fold the week in progress in at ESPN's live projection
+    python3 season_sim.py --live --force 6:Chefs   # the Chefs win their week 6 game
+
+`--force` answers "what is someone else's game worth to us": run it once per
+result and read the difference in our bye odds. A forced game keeps the two
+simulated scores and only decides which side gets the higher one, so points
+for stays on the same distribution.
 """
 
 import argparse
@@ -173,7 +180,46 @@ def completed_weeks(season, games, reg, explicit=None):
     return actuals
 
 
-def simulate(teams, games, reg, sims, sigma, tau, seed, actuals=None) -> tuple:
+def live_week(season):
+    """The week in progress, every matchup at ESPN's live projected finish.
+
+    Returns (week, {team_id: points}), or None when any side has no live
+    projection yet (before the first kickoff of the week). The live figure
+    is ESPN's: banked points plus the projection for players still to play.
+    """
+    cl = Espn(fresh=True)
+    data = cl.league("mMatchup", "mMatchupScore", "mStatus")
+    week = Espn.current_week(data)
+    out = {}
+    for m in data.get("schedule", []):
+        if m.get("matchupPeriodId") != week or not (m.get("home") and m.get("away")):
+            continue
+        for side in (m["home"], m["away"]):
+            live = side.get("totalProjectedPointsLive")
+            if live is None:
+                return None
+            out[side["teamId"]] = float(live)
+    return (week, out) if out else None
+
+
+def parse_force(specs, teams, games):
+    """`W:TEAM` strings to {(week, frozenset(pair)): winner_id}; TEAM is an id or a name fragment."""
+    out = {}
+    for spec in specs or []:
+        wk, _, who = spec.partition(":")
+        if not wk.isdigit() or not who:
+            sys.exit(f"--force wants WEEK:TEAM, got {spec!r}")
+        hits = [t for t in teams if who == str(t) or who.lower() in teams[t]["name"].lower()]
+        if len(hits) != 1:
+            sys.exit(f"--force {spec!r}: {len(hits)} teams match {who!r}")
+        game = [(h, a) for w, h, a in games if w == int(wk) and hits[0] in (h, a)]
+        if not game:
+            sys.exit(f"--force {spec!r}: {teams[hits[0]]['name']} has no game in week {wk}")
+        out[(int(wk), frozenset(game[0]))] = hits[0]
+    return out
+
+
+def simulate(teams, games, reg, sims, sigma, tau, seed, actuals=None, force=None) -> tuple:
     ids = sorted(teams)
     idx = {tid: i for i, tid in enumerate(ids)}
     n = len(ids)
@@ -194,6 +240,10 @@ def simulate(teams, games, reg, sims, sigma, tau, seed, actuals=None) -> tuple:
             as_ = np.full(sims, actuals[w][a])
         else:
             hs, as_ = scores[:, w - 1, idx[h]], scores[:, w - 1, idx[a]]
+            winner = (force or {}).get((w, frozenset((h, a))))
+            if winner is not None:
+                hi, lo = np.maximum(hs, as_), np.minimum(hs, as_)
+                hs, as_ = (hi, lo) if winner == h else (lo, hi)
         wins[:, idx[h]] += hs > as_
         wins[:, idx[a]] += as_ > hs
         losses[:, idx[h]] += hs < as_
@@ -249,10 +299,10 @@ def ci(x, lo, hi):
     return a, b
 
 
-def after_week(teams, games, reg, args, actuals):
+def after_week(teams, games, reg, args, actuals, force=None):
     """The league table after week `reg`: finish distribution and top-two odds per team."""
     ids, _mu, wins, _losses, _pf, ranks, probs = simulate(
-        teams, games, reg, args.sims, args.sigma, args.tau, args.seed, actuals)
+        teams, games, reg, args.sims, args.sigma, args.tau, args.seed, actuals, force)
     played = max(actuals) if actuals else 0
     me = int(Espn().creds.get("team_id", 0))
     rows = sorted(((teams[t]["name"], float(probs["seed1"][i]), float(probs["bye"][i]),
@@ -287,18 +337,31 @@ def main():
                     help="stop the schedule after week N and report the standings then "
                          "(Bye column = P(top two after week N)); writes no summary file")
     ap.add_argument("--json", action="store_true", help="also print a JSON summary (our odds first)")
+    ap.add_argument("--live", action="store_true",
+                    help="treat the week in progress as played, at ESPN's live projected finish")
+    ap.add_argument("--force", action="append", metavar="WEEK:TEAM",
+                    help="TEAM (id or name fragment) wins its game in WEEK; repeatable")
     args = ap.parse_args()
     say = (lambda *a, **k: None) if args.json else print   # --json: the summary is the only stdout
 
     teams, games, reg = load(args.season)
     actuals = completed_weeks(args.season, games, reg, args.through_week)
+    if args.live:
+        live = live_week(args.season)
+        if live is None:
+            sys.exit("--live: ESPN has no live projection for every team yet")
+        actuals[live[0]] = live[1]
+    force = parse_force(args.force, teams, games)
+    for (wk, pair), winner in sorted(force.items(), key=lambda kv: kv[0][0]):
+        loser = next(iter(pair - {winner}))
+        print(f"forced: week {wk}, {teams[winner]['name']} beat {teams[loser]['name']}", file=sys.stderr)
     if args.after_week:
         # Standings after week N are the same simulation on a shorter schedule:
         # the seeding step ranks by wins then points for, which is the table.
         reg = args.after_week
         games = [g for g in games if g[0] <= reg]
         actuals = {w: v for w, v in actuals.items() if w <= reg}
-        after_week(teams, games, reg, args, actuals)
+        after_week(teams, games, reg, args, actuals, force)
         return
     board = board_scores(teams)
 
@@ -315,7 +378,7 @@ def main():
         say(f"| {i} | {t['name']} | {t['espn']:.0f} | {t['espn'] / NFL_WEEKS:.1f} |")
 
     ids, mu, wins, losses, pf, ranks, probs = simulate(
-        teams, games, reg, args.sims, args.sigma, args.tau, args.seed, actuals)
+        teams, games, reg, args.sims, args.sigma, args.tau, args.seed, actuals, force)
     played = f"weeks 1-{max(actuals)} played" if actuals else "preseason, nothing played"
     say(f"\n## Season simulation ({args.sims:,} seasons; {played}; "
           f"sigma_week={args.sigma}, tau_season={args.tau}; "
@@ -336,7 +399,8 @@ def main():
     summary = {"names": [teams[t]["name"] for t in ids], "mu": mu.tolist(),
                "weeks_played": max(actuals) if actuals else 0,
                "probs": {k: v.tolist() for k, v in probs.items()}}
-    json.dump(summary, open(HERE / "draftbot" / "season_sim_latest.json", "w"), indent=1)
+    if not (force or args.live):   # a scenario is not the outlook; keep the file to settled weeks
+        json.dump(summary, open(HERE / "draftbot" / "season_sim_latest.json", "w"), indent=1)
     if args.json:
         me = int(Espn().creds.get("team_id", 0))
         i = ids.index(me) if me in ids else None

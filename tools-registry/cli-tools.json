@@ -265,11 +265,11 @@
   },
   {
     "name": "fantasy season_sim",
-    "command": "python3 fantasy/season_sim.py [--sims N --sigma 22 --tau 8]",
-    "repo_dir": "/Users/alexhedtke/Documents/Exobrain harness/fantasy",
+    "command": "python3 fantasy/season_sim.py [--json] [--live] [--force WEEK:TEAM] [--after-week N]",
+    "repo_dir": "fantasy",
     "source": "built",
     "added": "2026-09-07",
-    "notes": "Two draft scoreboards (our VOR board vs ESPN projections, from live rosters + ESPN's pick record) and a Monte Carlo of the season on the real schedule: wins/PF with 50/90% CIs, P(playoffs/bye/#1 seed/champion/most PF/last). Noise terms are stated assumptions, not fitted. Rerun in season."
+    "notes": "Rosters valued on espncli.value.ros_rate. Without --live the week in progress is ignored until ESPN moves to the next scoring period. --force keeps both simulated scores and only picks which side gets the higher one; repeatable. Forced or live runs do not write draftbot/season_sim_latest.json."
   },
   {
     "name": "fantasy trade_scan",
