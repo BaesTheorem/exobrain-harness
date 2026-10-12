@@ -930,6 +930,10 @@ Ranked by how confidently the evidence says to skip it:
   map at the top of this skill, apply its rule, and say which rule you
   applied. If there is no rule, decide from the evidence here and write the
   rule into the playbook before answering.
+- **Name the owner with every team** (Alex, 2026-10-11): each mention of a
+  team to Alex carries the owner's name in parentheses, from the *Team owners*
+  table in the playbook's *League at a glance*. Not in league chat posts, and
+  never in anything committed, since this repo is public.
 - **Confirm format first.** Scoring (PPR/half/standard), league size, roster slots,
   superflex, waiver system. Half this document's advice inverts on these.
 - **Lead with opportunity metrics.** Target share, routes, snap share, touch share.
