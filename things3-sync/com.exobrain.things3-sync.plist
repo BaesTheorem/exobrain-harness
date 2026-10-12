@@ -14,6 +14,14 @@
     <key>StartInterval</key>
     <integer>900</integer>
 
+    <key>WatchPaths</key>
+    <array>
+        <string>/Users/alexhedtke/Library/Group Containers/JLMPQHK86H.com.culturedcode.ThingsMac/ThingsData-VE3Z1/Things Database.thingsdatabase/main.sqlite-wal</string>
+    </array>
+
+    <key>ThrottleInterval</key>
+    <integer>30</integer>
+
     <key>StandardOutPath</key>
     <string>/Users/alexhedtke/Library/Logs/exobrain/things3-sync.log</string>
 
