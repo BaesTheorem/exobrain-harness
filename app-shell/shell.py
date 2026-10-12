@@ -86,10 +86,37 @@ def ensure_server():
     die(f"The server never came up at {HEALTH}. {tail}")
 
 
+def _set_dock_icon():
+    """Put the bundle's icon on the app (the Dock tile and the app switcher)."""
+    icon = os.environ.get("APPSHELL_ICON", "")
+    if not (icon and os.path.exists(icon)):
+        return
+    try:
+        from AppKit import NSApplication, NSImage
+        img = NSImage.alloc().initWithContentsOfFile_(icon)
+        if img:
+            app = NSApplication.sharedApplication()
+            app.setApplicationIconImage_(img)
+            app.dockTile().display()
+    except Exception:
+        pass  # cosmetic only; never block the window
+
+
+def _icon_after_launch():
+    """The Dock shows Python.app's generic icon for a tile that the app set before it
+    finished launching, so set the icon again once the window is up (on the main thread)."""
+    try:
+        from PyObjCTools import AppHelper
+        AppHelper.callAfter(_set_dock_icon)
+    except Exception:
+        pass
+
+
 def _macos_identity():
     """Menu-bar name + Dock icon. The bundle's executable re-execs the brew
     Python framework, so AppKit reads Python.app's Info.plist; patch the
-    in-memory bundle dict and set the Dock icon before the run loop starts."""
+    in-memory bundle dict and set the Dock icon before the run loop starts
+    (and again after launch, see _icon_after_launch)."""
     try:
         from Foundation import NSBundle
         bundle = NSBundle.mainBundle()
@@ -97,14 +124,9 @@ def _macos_identity():
             if info:
                 info["CFBundleName"] = TITLE
                 info["CFBundleDisplayName"] = TITLE
-        icon = os.environ.get("APPSHELL_ICON", "")
-        if icon and os.path.exists(icon):
-            from AppKit import NSApplication, NSImage
-            img = NSImage.alloc().initWithContentsOfFile_(icon)
-            if img:
-                NSApplication.sharedApplication().setApplicationIconImage_(img)
     except Exception:
         pass  # cosmetic only; never block the window
+    _set_dock_icon()
 
 
 class Api:
@@ -137,8 +159,9 @@ def main():
     # An <a download> click is a no-op in WKWebView unless downloads are on;
     # with this, pywebview routes it through WKDownload to a save panel.
     webview.settings["ALLOW_DOWNLOADS"] = True
-    webview.create_window(TITLE, URL, width=WIN_W, height=WIN_H,
-                          min_size=(900, 640), js_api=Api())
+    window = webview.create_window(TITLE, URL, width=WIN_W, height=WIN_H,
+                                   min_size=(900, 640), js_api=Api())
+    window.events.shown += _icon_after_launch
     # pywebview defaults to private mode, which wipes WKWebView's localStorage on every
     # launch; apps that keep saves or settings in the browser need it off.
     webview.start(private_mode=False)
