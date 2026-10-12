@@ -184,6 +184,14 @@
     "notes": "Decodes and patches the Flipper Zero dolphin state file (/int/.dolphin.state). Sets DolphinFlagHappyMode so butthurt is always reported as 0 (mood system off) and rewrites the saved_struct checksum. Pull the file with flipper-ble read, patch, write back, reboot os."
   },
   {
+    "name": "dribbble_refs.py",
+    "command": "/opt/homebrew/bin/python3 tools/dribbble_refs.py OUT_DIR SHOT_URL [SHOT_URL ...]",
+    "repo_dir": "/Users/alexhedtke/Documents/turn-to",
+    "source": "built",
+    "added": "2026-10-12",
+    "notes": "Dribbble refuses bare curl; this uses headless Chromium with a normal user agent and fetches the images through the browser context. Saves only images 600 px wide or more plus og:image."
+  },
+  {
     "name": "exposure_audit.py",
     "command": "python3 .claude/skills/cybersecurity-bodyguard/scripts/exposure_audit.py",
     "repo_dir": "~/Documents/Exobrain harness",
@@ -538,6 +546,14 @@
     "notes": "Narrate a note or piped text in Alex's cloned MIST voice. Slower than real time, so pre-render only. Needs serve.py running."
   },
   {
+    "name": "ocr_book.py (Turn To)",
+    "command": "~/Documents/turn-to/.venv/bin/python tools/ocr_book.py BOOK.pdf OUT_DIR [--first N --last N] [--unit line|token]",
+    "repo_dir": "/Users/alexhedtke/Documents/turn-to",
+    "source": "built",
+    "added": "2026-10-12",
+    "notes": "Renders each page with pdftoppm at 360 dpi and reads it with Apple LiveText through ocrmac; skips pages already done, so a run resumes. LiveText beats the Vision framework on book scans but misses isolated single digits and reads Palatino .' as ! or a bare quote. Run three workers on disjoint page ranges (about 1 page/s total on the Air)."
+  },
+  {
     "name": "Open in Google Calendar (.ics handler)",
     "command": "./install-gcal-opener.sh",
     "repo_dir": "/Users/alexhedtke/Documents/ic-to-gcal",
@@ -626,6 +642,14 @@
     "notes": "Needs ps5-session running (or --frame). Prints 'y x conf text' in 1280x720 pixels, origin top-left. Uses ocrmac (Apple Vision) from the playstation venv via a sh header, because the harness path has a space and a shebang cannot. About 0.7 s per full frame."
   },
   {
+    "name": "render_dice.py",
+    "command": "/Applications/Blender.app/Contents/MacOS/Blender -b --factory-startup -P tools/render_dice.py -- OUT_DIR HDRI [--size 512] [--samples 96] [--yaws 0,23,-31,47]",
+    "repo_dir": "/Users/alexhedtke/Documents/turn-to",
+    "source": "built",
+    "added": "2026-10-12",
+    "notes": "Cycles on Metal, about 6 s per render on the Air. Writes d6-<face>-<turn>.png with a shadow-catcher shadow on alpha; fade the broad shadow radially before cropping or a dark box shows on dark backgrounds."
+  },
+  {
     "name": "Rental Harmony",
     "category": "app",
     "command": "",
@@ -705,6 +729,14 @@
     "source": "built",
     "added": "2026-08-16",
     "notes": "Rebuilds this whole registry (Tools, Dependencies, Project Dependencies). Runs daily at 07:15 via com.exobrain.tools-registry."
+  },
+  {
+    "name": "Turn To book pipeline",
+    "command": "tools/recover_headings.py, parse_sections.py, merge_parses.py, page_geometry.py, page_images.py, annotate_rules.py, build_book.py (see README)",
+    "repo_dir": "/Users/alexhedtke/Documents/turn-to",
+    "source": "built",
+    "added": "2026-10-12",
+    "notes": "Order and flags are in the turn-to README. Book data (scans, OCR, book.json, page images) lives in books/ and is gitignored. corrections.json, overrides.json and plates.json in each book folder hold the hand fixes."
   },
   {
     "name": "tv",
