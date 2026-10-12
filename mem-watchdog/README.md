@@ -130,17 +130,16 @@ Three macOS gotchas dictate the layout:
    copies the script into place.
 2. **The plist must be a real copy** in `~/Library/LaunchAgents/`, not a symlink
    into this repo (launchd rejects symlinked agents).
-3. **The job is declared as `/bin/bash -c "..."`**, not as `/usr/bin/python3`.
-   TCC grants a launchd job the access of the program its plist declares, and
-   the job's processes inherit it. Bash holds Full Disk Access on this machine;
-   Xcode's python3 does not, and a job declared as python3 cannot read anything
-   under `~/Documents`, which is where the notifier lives. v3 lost every
-   banner, DM and bell-panel entry to this between 2026-09 and 2026-10-11
-   (82 KB of `Operation not permitted` in `launchd-stderr.log`). Verified with
-   a two-job probe (same script: python3 fails, bash passes) and by the live
-   job: bash exec-optimizes its single command, so `ps` shows the python3
-   image under the job's pid, and the first alert still went out through the
-   notifier and to Discord.
+3. **The job is declared through `~/.local/bin/mist-launch`** (the harness's
+   team-signed launcher, `maintenance/mist-launch/`), then `/bin/bash -c`. TCC
+   gives a launchd job the access of the program its plist declares; the
+   launcher holds Full Disk Access, so the notifier under `~/Documents` is
+   readable. The bash declaration before it worked for the same reason (bash
+   has Full Disk Access here) and fixed v3's silent failure: declared as
+   `/usr/bin/python3`, every banner, DM and bell-panel entry was lost between
+   2026-09 and 2026-10-11 (82 KB of `Operation not permitted` in
+   `launchd-stderr.log`). The launcher also makes Login Items show the job under
+   MIST Console instead of as a row called "bash".
 
 ```sh
 RT="$HOME/Library/Application Support/mem-watchdog"
