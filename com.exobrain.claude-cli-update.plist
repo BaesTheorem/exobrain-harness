@@ -15,8 +15,6 @@
          StartCalendarInterval events after a cold boot, so RunAtLoad fires the
          check on login/boot. `claude update` is idempotent, so an extra run is
          harmless. -->
-    <key>RunAtLoad</key>
-    <true/>
 
     <!-- Four times a day (local time), not just overnight. Releases ship during
          US business hours: 2.1.280 published at 10:44 AM on 2026-09-22 carrying
