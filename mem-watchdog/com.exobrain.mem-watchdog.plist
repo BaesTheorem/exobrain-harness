@@ -4,17 +4,28 @@
 <dict>
     <key>Label</key>
     <string>com.exobrain.mem-watchdog</string>
+    <!-- Rooted in /bin/bash on purpose. TCC grants a launchd job the access of
+         the program the plist declares, and the job's processes inherit it:
+         bash holds Full Disk Access here, /usr/bin/python3 does not. Declared
+         as python3, each call into the harness under ~/Documents (the notifier,
+         the Discord DM) failed with "Operation not permitted" (2026-09 to
+         2026-10-11). Verified with a two-job probe and the live job: bash
+         exec-optimizes its single command, so the process image IS python3,
+         and the grant still holds. -->
     <key>ProgramArguments</key>
     <array>
-        <string>/usr/bin/python3</string>
-        <string>/Users/alexhedtke/Library/Application Support/mem-watchdog/mem-watchdog.py</string>
+        <string>/bin/bash</string>
+        <string>-c</string>
+        <string>/usr/bin/python3 "/Users/alexhedtke/Library/Application Support/mem-watchdog/mem-watchdog.py"</string>
     </array>
     <key>RunAtLoad</key>
     <true/>
     <key>KeepAlive</key>
     <true/>
+    <!-- Standard, not Background: the one process that must act under memory
+         pressure should not be the lowest-priority process on the machine. -->
     <key>ProcessType</key>
-    <string>Background</string>
+    <string>Standard</string>
     <key>StandardErrorPath</key>
     <string>/Users/alexhedtke/Library/Application Support/mem-watchdog/launchd-stderr.log</string>
     <key>StandardOutPath</key>

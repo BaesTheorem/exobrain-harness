@@ -19,6 +19,7 @@ from __future__ import annotations
 
 import json
 import re
+import shlex
 import subprocess
 from pathlib import Path
 
@@ -86,7 +87,12 @@ def fmt_schedule(p: dict, home: str) -> str:
 
 def target_script(p: dict, root: Path, plist_dir: Path) -> tuple[Path | None, str]:
     """Return (script path in this repo or None, how to display what runs)."""
-    args = p.get("ProgramArguments") or [p.get("Program", "")]
+    args = list(p.get("ProgramArguments") or [p.get("Program", "")])
+    if "-c" in args:  # sh -c "<command>": the script is inside the command string
+        try:
+            args = args + shlex.split(args[args.index("-c") + 1])
+        except (ValueError, IndexError):
+            pass
     if "-m" in args:  # python -m package.module
         mod = args[args.index("-m") + 1]
         for base in (plist_dir, plist_dir.parent):
