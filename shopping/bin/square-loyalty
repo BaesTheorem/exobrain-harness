@@ -1,0 +1,135 @@
+#!/usr/bin/env python3
+"""Read a Square Loyalty balance and program from any Square Online store.
+
+Usage:
+    square-loyalty STORE [--phone +1XXXXXXXXXX] [--menu]
+
+STORE is the Square Online domain, for example crowscoffee.square.site.
+The phone defaults to SQUARE_LOYALTY_PHONE from the harness .env.
+
+It uses the same public endpoints as the store's own web page:
+the loyalty program, the account lookup by phone (balance and lifetime
+points), and with --menu the catalog, ranked by price, with each item
+marked if it earns points or can be redeemed.
+"""
+
+import argparse
+import http.cookiejar
+import json
+import os
+import re
+import sys
+import urllib.parse
+import urllib.request
+from pathlib import Path
+
+UA = "Mozilla/5.0 (Macintosh; Intel Mac OS X 14_0) AppleWebKit/605.1.15"
+ENV = Path(__file__).resolve().parents[2] / ".env"
+
+
+def env_phone() -> str | None:
+    if os.environ.get("SQUARE_LOYALTY_PHONE"):
+        return os.environ["SQUARE_LOYALTY_PHONE"]
+    if ENV.exists():
+        m = re.search(r"^SQUARE_LOYALTY_PHONE=(.+)$", ENV.read_text(), re.M)
+        if m:
+            return m.group(1).strip().strip('"')
+    return None
+
+
+class Store:
+    def __init__(self, domain: str):
+        self.base = f"https://{domain}"
+        self.jar = http.cookiejar.CookieJar()
+        self.op = urllib.request.build_opener(urllib.request.HTTPCookieProcessor(self.jar))
+        html = self.get_text("/s/order")
+        m = re.search(r"__BOOTSTRAP_STATE__\s*=\s*", html)
+        if not m:
+            sys.exit("no bootstrap state on the order page (not a Square Online store?)")
+        state, _ = json.JSONDecoder().raw_decode(html[m.end():])
+        self.merchant = state["storeInfo"]["merchant_id"]
+        self.site = str(state["siteData"]["site"]["properties"]["catalogSiteId"])
+        owner = re.search(r'"owner_id"\s*:\s*"?(\d+)', html) or re.search(
+            r'"(?:id|owner|user)\w*"\s*:\s*(\d{8,12})\b', html
+        )
+        self.owner = owner.group(1) if owner else None
+
+    def req(self, path: str, data: dict | None = None, headers: dict | None = None):
+        h = {"User-Agent": UA, "Accept": "application/json"}
+        h.update(headers or {})
+        body = None
+        if data is not None:
+            body = json.dumps(data).encode()
+            h["Content-Type"] = "application/json"
+        r = urllib.request.Request(self.base + path, data=body, headers=h)
+        with self.op.open(r, timeout=30) as resp:
+            return resp.read().decode()
+
+    def get_text(self, path: str) -> str:
+        return self.req(path, headers={"Accept": "text/html"})
+
+    def buyer(self, path: str, data: dict | None = None):
+        h = {"Square-Merchant-Token": self.merchant}
+        xsrf = next((c.value for c in self.jar if c.name == "customer_xsrf"), None)
+        if xsrf:
+            h["X-XSRF-TOKEN"] = urllib.parse.unquote(xsrf)
+        return json.loads(self.req(f"/app/accounts/v1{path}?lang=en", data, h))
+
+    def products(self) -> list[dict]:
+        if not self.owner:
+            sys.exit("could not find the store owner id for the catalog API")
+        api = f"/app/store/api/v28/editor/users/{self.owner}/sites/{self.site}"
+        prods = json.loads(self.req(f"{api}/products?per_page=200"))["data"]
+        for p in prods:
+            p["skus"] = json.loads(self.req(f"{api}/products/{p['id']}/skus")).get("data", [])
+        return prods
+
+
+def main() -> None:
+    ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
+    ap.add_argument("store", help="Square Online domain, e.g. crowscoffee.square.site")
+    ap.add_argument("--phone", default=env_phone(), help="E.164 phone (default SQUARE_LOYALTY_PHONE)")
+    ap.add_argument("--menu", action="store_true", help="rank menu items by price, marked earn/redeem")
+    ap.add_argument("--json", action="store_true")
+    a = ap.parse_args()
+
+    s = Store(a.store)
+    s.buyer("/loyalty/programs")  # sets the customer_xsrf cookie
+    programs = s.buyer("/loyalty/programs").get("programs", [])
+    if not programs:
+        sys.exit("store has no active Square Loyalty program")
+    prog = programs[0]
+    acct = s.buyer("/loyalty/account/search", {"phone": a.phone})["data"]["loyalty_account"] if a.phone else {}
+
+    earn = {r["category_data"]["category_id"] for r in prog.get("accrual_rules", []) if r.get("category_data")}
+    redeem = {c for t in prog["reward_tiers"] for c in t["definition"].get("catalog_object_ids", [])}
+    out = {"program": prog, "account": acct}
+    if a.menu:
+        rows = []
+        for p in s.products():
+            cats = set(p.get("categoryIds", []))
+            for k in p["skus"] or [{"name": "", "price": p["price"]["low"]}]:
+                price = k.get("price")
+                if isinstance(price, dict):
+                    price = next((price[k] for k in ("current", "regular", "low") if price.get(k) is not None), 0)
+                rows.append({"item": f"{p['name']} / {k.get('name', '')}".rstrip(" /"), "price": float(price or 0),
+                             "earns": bool(cats & earn), "redeemable": bool(cats & redeem)})
+        out["menu"] = sorted(rows, key=lambda r: r["price"])
+
+    if a.json:
+        print(json.dumps(out, indent=2))
+        return
+    t = prog["terminology"]
+    print(f"Program: {t['other']} ({prog['status']}), expiry {prog.get('expiration_policy', {}).get('expiration_duration', 'none')}")
+    for tier in prog["reward_tiers"]:
+        cap = tier["definition"].get("max_discount_money", {}).get("amount")
+        print(f"  {tier['points']} {t['other']}: {tier['name'].strip()}" + (f" (max ${cap / 100:.2f})" if cap else ""))
+    if acct:
+        print(f"Balance: {acct.get('balance', 0)} {t['other']} (lifetime {acct.get('lifetime_points', 0)})")
+    for r in out.get("menu", []):
+        flags = ("earn " if r["earns"] else "     ") + ("redeem" if r["redeemable"] else "")
+        print(f"  ${r['price']:6.2f}  {flags:12} {r['item']}")
+
+
+if __name__ == "__main__":
+    main()
