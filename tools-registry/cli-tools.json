@@ -650,6 +650,14 @@
     "notes": "Cycles on Metal, about 6 s per render on the Air. Writes d6-<face>-<turn>.png with a shadow-catcher shadow on alpha; fade the broad shadow radially before cropping or a dark box shows on dark backgrounds."
   },
   {
+    "name": "rea",
+    "command": "rea decompile /abs/binary <function> --provider ghidra --format json   # MCP: mcp__rea__* (170 tools); rea --help for all commands",
+    "repo_dir": "/Users/alexhedtke/Documents/rea",
+    "source": "built",
+    "added": "2026-10-12",
+    "notes": "npm global rea-agents@6.4.0 (~/.npm-global/bin/rea); source clone at ~/Documents/rea, scratch at ~/Documents/rea-work. Ghidra provider = brew ghidra 12.1.4 + openjdk@21; GHIDRA_INSTALL_DIR and JAVA_HOME set in ~/.zprofile and in the MCP env. REA accepts Ghidra 12.1.x only, so a brew bump to 12.2 breaks it. MCP is user-scope, wrapped by mcp-lazy (idle 0). First Ghidra query imports and auto-analyzes, ~40 s for a tiny binary; raise REA_GHIDRA_STARTUP_TIMEOUT_MS for big ones. Output is swallowed inside mist-progress run, so redirect to a file. Update: rea update, then rea setup --client claude_code --yes and re-run mcp-lazy wrap rea."
+  },
+  {
     "name": "Rental Harmony",
     "category": "app",
     "command": "",
