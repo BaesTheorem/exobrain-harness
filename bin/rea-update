@@ -1,0 +1,106 @@
+#!/bin/bash
+# rea-update: keep the REA reverse engineering toolkit at its newest npm release.
+#
+# The reverse-engineer-anything skill runs this before its first REA call of a task.
+# When the installed rea matches npm, it prints one line and exits 0 (about 1 s).
+# When npm has a newer release, it:
+#   1. puts the original MCP entry back from mcp-lazy (setup must see the real entry)
+#   2. runs `rea update`, then `rea setup --client claude_code --yes`
+#   3. pins the provider paths in the MCP env to version-free Homebrew paths
+#   4. re-wraps the server in mcp-lazy (idle 0) and refreshes the tool cache
+#   5. re-inserts the MIST update-check block into the reinstalled skill
+#   6. pulls the source clone at ~/Documents/rea, commits and pushes the skill
+# Exit status: 0 current or updated, 1 update failed, 2 npm not reachable (skip).
+#
+# INVARIANTS
+# - The skill block between the mist:update-check markers survives every update.
+# - A failed update leaves the rea MCP entry wrapped again, never half-configured.
+set -u
+
+HARNESS="$HOME/Documents/Exobrain harness"
+SKILL="$HARNESS/.claude/skills/reverse-engineer-anything/SKILL.md"
+LAZY="$HARNESS/mcp-lazy/bin/mcp-lazy"
+LAZY_SERVERS="$HARNESS/mcp-lazy/servers.local.json"
+CLAUDE_JSON="$HOME/.claude.json"
+
+export GHIDRA_INSTALL_DIR=/opt/homebrew/opt/ghidra/libexec
+export JAVA_HOME=/opt/homebrew/opt/openjdk@21/libexec/openjdk.jdk/Contents/Home
+export HOPPER_LAUNCHER_PATH="$HOME/Applications/Hopper Disassembler.app/Contents/MacOS/hopper"
+IDA_CONFIG="$HOME/.config/rea/ida-mcp.json"
+[ -f "$IDA_CONFIG" ] && export REA_IDA_MCP_CONFIG="$IDA_CONFIG"
+
+ensure_skill_block() {
+  grep -q '<!-- mist:update-check' "$SKILL" && return 0
+  /opt/homebrew/bin/python3 -I - "$SKILL" <<'EOF'
+import sys
+path = sys.argv[1]
+text = open(path).read()
+block = """
+<!-- mist:update-check (bin/rea-update puts this back after every REA update; keep it) -->
+## Before every task: check for an REA update
+
+Before the first REA call of a task, run
+`"$HOME/Documents/Exobrain harness/bin/rea-update"`. It compares the installed
+`rea` with the newest npm release. When they are different, it installs the
+update, refreshes the Claude Code registration and this skill, and wraps the MCP
+server in mcp-lazy again. If it reports an update, the MCP server in this
+session is still the old version. Then use the `rea` CLI for this task, or tell
+Alex to start a new chat. Exit status 2 means npm was not reachable: continue
+with the installed version.
+<!-- /mist:update-check -->
+"""
+end = text.index("\n---\n", 4) + 5
+open(path, "w").write(text[:end] + block + text[end:])
+EOF
+}
+
+current=$(rea --version 2>/dev/null)
+latest=$(npm view rea-agents version --fetch-timeout=8000 --fetch-retries=0 2>/dev/null)
+if [ -z "$latest" ]; then
+  echo "rea-update: npm not reachable; using installed rea ${current:-none}"
+  ensure_skill_block
+  exit 2
+fi
+if [ "$current" = "$latest" ]; then
+  echo "rea-update: rea $current is current"
+  ensure_skill_block
+  exit 0
+fi
+
+echo "rea-update: updating rea ${current:-none} -> $latest"
+"$LAZY" unwrap rea >/dev/null 2>&1
+status=0
+rea update >/tmp/rea-update.log 2>&1 || npm install --global "rea-agents@$latest" >>/tmp/rea-update.log 2>&1 || status=1
+if [ $status -eq 0 ]; then
+  rea setup --client claude_code --yes >>/tmp/rea-update.log 2>&1 || status=1
+fi
+
+# Setup writes Cellar paths that break on the next brew patch release; pin the opt paths.
+tmp=$(mktemp)
+jq --arg g "$GHIDRA_INSTALL_DIR" --arg j "$JAVA_HOME" --arg h "$HOPPER_LAUNCHER_PATH" \
+  '.mcpServers.rea.env.GHIDRA_INSTALL_DIR=$g | .mcpServers.rea.env.JAVA_HOME=$j | .mcpServers.rea.env.HOPPER_LAUNCHER_PATH=$h' \
+  "$CLAUDE_JSON" >"$tmp" && [ -s "$tmp" ] && cat "$tmp" >"$CLAUDE_JSON"
+rm -f "$tmp"
+
+"$LAZY" wrap rea >/dev/null
+tmp=$(mktemp)
+jq '.rea.idle = 0' "$LAZY_SERVERS" >"$tmp" && [ -s "$tmp" ] && cat "$tmp" >"$LAZY_SERVERS"
+rm -f "$tmp"
+"$LAZY" refresh rea >/dev/null 2>&1
+
+ensure_skill_block
+git -C "$HOME/Documents/rea" pull --quiet --ff-only 2>/dev/null
+
+if [ $status -ne 0 ]; then
+  echo "rea-update: update FAILED; log in /tmp/rea-update.log. rea $(rea --version 2>/dev/null) stays installed."
+  exit 1
+fi
+
+cd "$HARNESS" || exit 0
+skill_dir=.claude/skills/reverse-engineer-anything
+if [ -n "$(git status --porcelain -- "$skill_dir")" ]; then
+  git add -- "$skill_dir" &&
+    git commit --quiet -m "reverse-engineer-anything: update the skill to rea $latest" -- "$skill_dir" &&
+    git push --quiet 2>/dev/null
+fi
+echo "rea-update: rea $(rea --version) installed. This session's MCP server is still the old version; use the rea CLI or start a new chat."

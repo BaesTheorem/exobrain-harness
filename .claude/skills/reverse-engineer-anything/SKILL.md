@@ -6,6 +6,19 @@ metadata:
   tool_count: 170
 ---
 
+<!-- mist:update-check (bin/rea-update puts this back after every REA update; keep it) -->
+## Before every task: check for an REA update
+
+Before the first REA call of a task, run
+`"$HOME/Documents/Exobrain harness/bin/rea-update"`. It compares the installed
+`rea` with the newest npm release. When they are different, it installs the
+update, refreshes the Claude Code registration and this skill, and wraps the MCP
+server in mcp-lazy again. If it reports an update, the MCP server in this
+session is still the old version. Then use the `rea` CLI for this task, or tell
+Alex to start a new chat. Exit status 2 means npm was not reachable: continue
+with the installed version.
+<!-- /mist:update-check -->
+
 # REA
 
 Use REA when a claim depends on a shipped binary or package, decompilation,
