@@ -8,6 +8,7 @@ import importlib.util
 import json
 import os
 import sys
+from datetime import datetime, timedelta
 from pathlib import Path
 
 import pytest
@@ -115,7 +116,8 @@ def test_store_create_update_and_links(sm):
 
 def test_index_projects_maps_and_open_threads(sm):
     store = sm.Store()
-    when = sm.parse_iso("2026-09-28T21:14:00-05:00")
+    # the index lists open threads from the last two weeks, so the thread must be recent
+    when = datetime.now().astimezone() - timedelta(days=1)
     store.create({"title": "Ask Alex about the network", "kind": "open-thread",
                   "tags": ["mist-console"], "body": "Unanswered."}, when, "[[s1]]")
     store.create({"title": "A fact", "kind": "fact", "tags": ["mist-console", "ios"],
