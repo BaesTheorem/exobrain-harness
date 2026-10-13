@@ -42,11 +42,11 @@ stock that this machine sits above nearly always, so it fired once an hour for
 weeks (692 banners between 2026-08-25 and 2026-10-11) and told Alex nothing.
 v4 alerts on state, flow and growth:
 
-- **critical pressure**: the kernel level reaches 4. Banner with sound, Discord
-  DM, re-alert at most every 30 min while it lasts.
+- **critical pressure**: the kernel level reaches 4. Banner with sound,
+  re-alert at most every 30 min while it lasts.
 - **sustained pressure**: level 2 for `PRESSURE_SUSTAIN_SECS` (10 min) with the
   10-minute thrash average above `THRASH_PAGES_PER_SEC` (3000 pages/s, about
-  47 MB/s). Silent banner + DM, at most once per 2 h and `PRESSURE_DAILY_CAP`
+  47 MB/s). Silent banner, at most once per 2 h and `PRESSURE_DAILY_CAP`
   (3) per day. One "cleared" message when pressure has been normal for 10 min.
 - **swap high-water mark**: swap used above `SWAP_WARN_GB` (12GB; 13GB preceded
   the 2026-10-08 freeze), with hysteresis. Silent.
@@ -59,8 +59,8 @@ v4 alerts on state, flow and growth:
 
 Every alert carries a `--context` block (pressure, swap, thrash, the top five by
 footprint, the live Claude Code sessions and their MCP children) so the MIST
-chat that opens on click has the numbers, and a `--discord` DM per the standing
-watcher rule.
+chat that opens on click has the numbers. This watcher sends no Discord DM: Alex
+opted it out of the standing watcher rule on 2026-10-12.
 
 **The Console's web view is a known offender.** Its WebContent process grows
 with rendered content (every viewed chat's log stays in the page's DOM, hidden)

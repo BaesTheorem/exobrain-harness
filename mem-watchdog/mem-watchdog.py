@@ -27,7 +27,7 @@ adds SLOPE_GB_10MIN in ten minutes gets one alert naming the rate and the
 time to physical RAM, so a leak is reported at 1-2 GB instead of 5.
 
 Alerts go through the harness notifier (mist-voice/bin/mist-notify): clickable
-banner that opens a seeded MIST chat, Discord DM, bell-panel history, and an
+banner that opens a seeded MIST chat, bell-panel history, and an
 action button that carries the remedy when one exists. The Console's web view
 is a known offender: above CONSOLE_RELOAD_GB the watchdog asks the Console to
 reload its page when nobody is typing and no chat is streaming (POST /ui/reload;
@@ -439,11 +439,12 @@ def _mist_notify_path():
 
 
 def _deliver(title, message, sound, urgency, actions, context, nid):
-    """Deliver through mist-notify (banner + Discord + bell panel), else fall
+    """Deliver through mist-notify (banner + bell panel, no Discord DM by
+    Alex's choice, 2026-10-12), else fall
     back to terminal-notifier, else osascript. Runs in a worker thread."""
     mist = _mist_notify_path()
     if mist:
-        argv = [mist, message, title, sound or "none", "console", "--group", "memory", "--discord"]
+        argv = [mist, message, title, sound or "none", "console", "--group", "memory"]
         if nid:
             argv += ["--id", nid]
         if urgency:
