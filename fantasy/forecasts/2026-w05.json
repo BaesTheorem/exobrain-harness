@@ -709,6 +709,554 @@
    "pf": 413.9
   }
  ],
- "settled": null,
- "forecast_note": "Roster as it stands at 6:17 PM Tuesday. Three waiver claims process Wednesday about 2:00 AM at priority 10 of 13 and are not in these lines: Devaughn Vele for Ryan Flournoy (Alex's tap, 10:26 AM), Deshaun Watson for Marcus Mariota (Alex's tap, 10:38 AM), and Aaron Rodgers for Mariota behind it as the same-drop backstop (this routine, 6:11 PM). If Watson or Rodgers lands he is the QB fallback the Daniels line assumes at 0.15 and the week 7 bye cover; if Vele lands the Flournoy line leaves. Two trade proposals (Montgomery + Harvey for DeVonta Smith, or for Justin Jefferson) are with Alex on buttons; either would move the RB and WR lines after the one-day review, and the lineup routine fills the slot. Chase's Wednesday practice report decides whether his 0.7 moves; Daniels' decides his 0.85."
+ "settled": {
+  "settled_at": "2026-10-13T18:00-05:00",
+  "players": [
+   {
+    "name": "Jayden Daniels",
+    "pos": "QB",
+    "slot": "QB",
+    "mist": {
+     "actual": 32.3,
+     "where": "above",
+     "in50": false,
+     "in90": false,
+     "error": 17.8,
+     "width50": 10,
+     "width90": 27
+    },
+    "baseline": {
+     "actual": 32.3,
+     "where": "above",
+     "in50": false,
+     "in90": false,
+     "error": 16.8,
+     "width50": 9.7,
+     "width90": 24.9
+    }
+   },
+   {
+    "name": "David Montgomery",
+    "pos": "RB",
+    "slot": "RB",
+    "mist": {
+     "actual": 1.1,
+     "where": "below",
+     "in50": false,
+     "in90": false,
+     "error": -7.4,
+     "width50": 8,
+     "width90": 20
+    },
+    "baseline": {
+     "actual": 1.1,
+     "where": "below",
+     "in50": false,
+     "in90": false,
+     "error": -8.6,
+     "width50": 10.0,
+     "width90": 26.2
+    }
+   },
+   {
+    "name": "Rhamondre Stevenson",
+    "pos": "RB",
+    "slot": "RB",
+    "mist": {
+     "actual": 17.5,
+     "where": "in90",
+     "in50": false,
+     "in90": true,
+     "error": 6.5,
+     "width50": 8.5,
+     "width90": 22
+    },
+    "baseline": {
+     "actual": 17.5,
+     "where": "in90",
+     "in50": false,
+     "in90": true,
+     "error": 5.8,
+     "width50": 8.2,
+     "width90": 22.7
+    }
+   },
+   {
+    "name": "Ja'Marr Chase",
+    "pos": "WR",
+    "slot": "WR",
+    "mist": {
+     "actual": 19.7,
+     "where": "in50",
+     "in50": true,
+     "in90": true,
+     "error": 7.2,
+     "width50": 17,
+     "width90": 32
+    },
+    "baseline": {
+     "actual": 19.7,
+     "where": "in50",
+     "in50": true,
+     "in90": true,
+     "error": 4.5,
+     "width50": 12.8,
+     "width90": 30.5
+    }
+   },
+   {
+    "name": "Christian Watson",
+    "pos": "WR",
+    "slot": "WR",
+    "mist": {
+     "actual": 32.3,
+     "where": "above",
+     "in50": false,
+     "in90": false,
+     "error": 21.8,
+     "width50": 10,
+     "width90": 26
+    },
+    "baseline": {
+     "actual": 32.3,
+     "where": "above",
+     "in50": false,
+     "in90": false,
+     "error": 19.5,
+     "width50": 10.8,
+     "width90": 25.1
+    }
+   },
+   {
+    "name": "Trey McBride",
+    "pos": "TE",
+    "slot": "TE",
+    "mist": {
+     "actual": 21.6,
+     "where": "in90",
+     "in50": false,
+     "in90": true,
+     "error": 5.6,
+     "width50": 10.5,
+     "width90": 26
+    },
+    "baseline": {
+     "actual": 21.6,
+     "where": "in50",
+     "in50": true,
+     "in90": true,
+     "error": 6.4,
+     "width50": 12.3,
+     "width90": 32.9
+    }
+   },
+   {
+    "name": "Josh Downs",
+    "pos": "WR",
+    "slot": "FLEX",
+    "mist": {
+     "actual": 7.7,
+     "where": "in50",
+     "in50": true,
+     "in90": true,
+     "error": -1.8,
+     "width50": 8.5,
+     "width90": 21
+    },
+    "baseline": {
+     "actual": 7.7,
+     "where": "in50",
+     "in50": true,
+     "in90": true,
+     "error": -0.6,
+     "width50": 9.6,
+     "width90": 24.6
+    }
+   },
+   {
+    "name": "Cowboys D/ST",
+    "pos": "D/ST",
+    "slot": "D/ST",
+    "mist": {
+     "actual": -2.0,
+     "where": "in90",
+     "in50": false,
+     "in90": true,
+     "error": -8.0,
+     "width50": 7.0,
+     "width90": 19
+    },
+    "baseline": {
+     "actual": -2.0,
+     "where": "below",
+     "in50": false,
+     "in90": false,
+     "error": -9.0,
+     "width50": 7.9,
+     "width90": 18.1
+    }
+   },
+   {
+    "name": "Cam Little",
+    "pos": "K",
+    "slot": "K",
+    "mist": {
+     "actual": 9.0,
+     "where": "in50",
+     "in50": true,
+     "in90": true,
+     "error": 0.5,
+     "width50": 6.5,
+     "width90": 14
+    },
+    "baseline": {
+     "actual": 9.0,
+     "where": "in50",
+     "in50": true,
+     "in90": true,
+     "error": 0.9,
+     "width50": 7.1,
+     "width90": 17.1
+    }
+   },
+   {
+    "name": "Kenneth Walker III",
+    "unsettled": "not on the roster at week end"
+   },
+   {
+    "name": "RJ Harvey",
+    "pos": "RB",
+    "slot": "BE",
+    "mist": {
+     "actual": 0.7,
+     "where": "below",
+     "in50": false,
+     "in90": false,
+     "error": -8.3,
+     "width50": 8.5,
+     "width90": 21.5
+    },
+    "baseline": {
+     "actual": 0.7,
+     "where": "below",
+     "in50": false,
+     "in90": false,
+     "error": -8.3,
+     "width50": 9.4,
+     "width90": 23.8
+    }
+   },
+   {
+    "name": "Rams D/ST",
+    "pos": "D/ST",
+    "slot": "BE",
+    "mist": {
+     "actual": -1.0,
+     "where": "in90",
+     "in50": false,
+     "in90": true,
+     "error": -5.0,
+     "width50": 6.5,
+     "width90": 17
+    },
+    "baseline": {
+     "actual": -1.0,
+     "where": "in90",
+     "in50": false,
+     "in90": true,
+     "error": -5.7,
+     "width50": 7.0,
+     "width90": 17.7
+    }
+   },
+   {
+    "name": "Malik Washington",
+    "pos": "WR",
+    "slot": "BE",
+    "mist": {
+     "actual": 12.1,
+     "where": "in50",
+     "in50": true,
+     "in90": true,
+     "error": 3.6,
+     "width50": 7.5,
+     "width90": 18
+    },
+    "baseline": {
+     "actual": 12.1,
+     "where": "in50",
+     "in50": true,
+     "in90": true,
+     "error": 4.4,
+     "width50": 8.8,
+     "width90": 22.8
+    }
+   },
+   {
+    "name": "Marcus Mariota",
+    "unsettled": "not on the roster at week end"
+   },
+   {
+    "name": "Ollie Gordon II",
+    "pos": "RB",
+    "slot": "BE",
+    "mist": {
+     "actual": 14.8,
+     "where": "in90",
+     "in50": false,
+     "in90": true,
+     "error": 6.8,
+     "width50": 7.5,
+     "width90": 20
+    },
+    "baseline": {
+     "actual": 14.8,
+     "where": "in50",
+     "in50": true,
+     "in90": true,
+     "error": 5.5,
+     "width50": 9.4,
+     "width90": 24.6
+    }
+   },
+   {
+    "name": "Ryan Flournoy",
+    "unsettled": "not on the roster at week end"
+   },
+   {
+    "name": "Jordyn Tyson",
+    "pos": "WR",
+    "slot": "IR",
+    "mist": {
+     "actual": 0.0,
+     "where": "in50",
+     "in50": true,
+     "in90": true,
+     "error": 0.0,
+     "width50": 0,
+     "width90": 1
+    },
+    "baseline": {
+     "actual": 0.0,
+     "where": "in50",
+     "in50": true,
+     "in90": true,
+     "error": 0.0,
+     "width50": 0.0,
+     "width90": 0.0
+    }
+   }
+  ],
+  "team_total": {
+   "mist": {
+    "actual": 139.2,
+    "where": "in90",
+    "in50": false,
+    "in90": true,
+    "error": 29.2,
+    "width50": 27,
+    "width90": 68
+   },
+   "baseline": {
+    "actual": 139.2,
+    "where": "in90",
+    "in50": false,
+    "in90": true,
+    "error": 25.3,
+    "width50": 31.5,
+    "width90": 77.9
+   }
+  },
+  "opp_total": {
+   "mist": {
+    "actual": 95.0,
+    "where": "in90",
+    "in50": false,
+    "in90": true,
+    "error": -17.0,
+    "width50": 27,
+    "width90": 66
+   },
+   "baseline": {
+    "actual": 95.0,
+    "where": "in90",
+    "in50": false,
+    "in90": true,
+    "error": -18.9,
+    "width50": 30.8,
+    "width90": 74.8
+   }
+  },
+  "result": {
+   "won": true,
+   "us": 139.16,
+   "them": 95.04,
+   "mist_win_prob": 0.51,
+   "baseline_win_prob": 0.507,
+   "mist_brier": 0.2401,
+   "baseline_brier": 0.243
+  },
+  "standing": {
+   "rank": 2,
+   "mist": {
+    "actual": 2,
+    "where": "in90",
+    "in50": false,
+    "in90": true,
+    "error": null,
+    "width50": 2,
+    "width90": 4
+   },
+   "baseline": {
+    "actual": 2,
+    "where": "in90",
+    "in50": false,
+    "in90": true,
+    "error": null,
+    "width50": 3,
+    "width90": 4
+   },
+   "mist_p_first": 0.02,
+   "baseline_p_first": 0.001,
+   "mist_p_top2": 0.13,
+   "baseline_p_top2": 0.162,
+   "first_brier_mist": 0.0004,
+   "first_brier_baseline": 0.0
+  },
+  "standings_after": [
+   {
+    "team_id": 1,
+    "team": "The Oprah Winfreys",
+    "w": 4,
+    "l": 0,
+    "pf": 444.5
+   },
+   {
+    "team_id": 12,
+    "team": "Chaos Legion",
+    "w": 4,
+    "l": 1,
+    "pf": 648.8
+   },
+   {
+    "team_id": 5,
+    "team": "End-Zone Dancers",
+    "w": 4,
+    "l": 1,
+    "pf": 625.4
+   },
+   {
+    "team_id": 9,
+    "team": "Waiting for Gordon",
+    "w": 3,
+    "l": 1,
+    "pf": 407.9
+   },
+   {
+    "team_id": 4,
+    "team": "Njigba Please!",
+    "w": 3,
+    "l": 2,
+    "pf": 665.4
+   },
+   {
+    "team_id": 13,
+    "team": "Goedel, Escher, Butkus",
+    "w": 3,
+    "l": 2,
+    "pf": 626.5
+   },
+   {
+    "team_id": 7,
+    "team": "Namaslay",
+    "w": 2,
+    "l": 2,
+    "pf": 474.8
+   },
+   {
+    "team_id": 11,
+    "team": "The Mighty Marmots",
+    "w": 2,
+    "l": 2,
+    "pf": 452.9
+   },
+   {
+    "team_id": 6,
+    "team": "KC Breathmints",
+    "w": 2,
+    "l": 3,
+    "pf": 533.2
+   },
+   {
+    "team_id": 3,
+    "team": "The Chefs",
+    "w": 1,
+    "l": 3,
+    "pf": 451.9
+   },
+   {
+    "team_id": 2,
+    "team": "The Winners",
+    "w": 1,
+    "l": 4,
+    "pf": 608.5
+   },
+   {
+    "team_id": 10,
+    "team": "Cutie Mark Crusaders",
+    "w": 1,
+    "l": 4,
+    "pf": 548.0
+   },
+   {
+    "team_id": 14,
+    "team": "Ayahuasca Rodgers",
+    "w": 0,
+    "l": 5,
+    "pf": 540.4
+   }
+  ],
+  "source_error": {
+   "espn": {
+    "mae": 6.15,
+    "n": 14
+   },
+   "sleeper": {
+    "mae": 6.89,
+    "n": 13
+   },
+   "cbs": {
+    "mae": 6.9,
+    "n": 13
+   },
+   "fantasypros": {
+    "mae": 5.61,
+    "n": 5
+   },
+   "consensus": {
+    "mae": 6.18,
+    "n": 14
+   },
+   "mist": {
+    "mae": 7.16,
+    "n": 14
+   }
+  },
+  "coverage": {
+   "mist": {
+    "n": 16,
+    "cov50": 0.312,
+    "cov90": 0.75,
+    "mae": 9.16
+   },
+   "baseline": {
+    "n": 16,
+    "cov50": 0.438,
+    "cov90": 0.688,
+    "mae": 8.76
+   }
+  }
+ },
+ "forecast_note": "Roster as it stands at 6:17 PM Tuesday. Three waiver claims process Wednesday about 2:00 AM at priority 10 of 13 and are not in these lines: Devaughn Vele for Ryan Flournoy (Alex's tap, 10:26 AM), Deshaun Watson for Marcus Mariota (Alex's tap, 10:38 AM), and Aaron Rodgers for Mariota behind it as the same-drop backstop (this routine, 6:11 PM). If Watson or Rodgers lands he is the QB fallback the Daniels line assumes at 0.15 and the week 7 bye cover; if Vele lands the Flournoy line leaves. Two trade proposals (Montgomery + Harvey for DeVonta Smith, or for Justin Jefferson) are with Alex on buttons; either would move the RB and WR lines after the one-day review, and the lineup routine fills the slot. Chase's Wednesday practice report decides whether his 0.7 moves; Daniels' decides his 0.85.",
+ "review_note": "Coverage 5 of 16 inside the 50% band (0.31) and 12 of 16 inside the 90% (0.75), MAE 9.16; the baseline ran 0.44, 0.69 and 8.76. The win probability of 0.51 landed on a 139.2 to 95.0 win (Brier 0.24, baseline 0.243), and the #2 finish sat inside the 90% band [2, 6] but outside the 50% [3, 5]: End-Zone Dancers and Njigba Please! both lost, which I gave about 0.3 each. Season: 0.49 and 0.93 on 67 lines, so the aggregate bands are shaped right, but this is the second week in a row at 0.31; a third week under 0.35 is the signal to stop shading the 50% band off the tier quantiles. Source error so far: consensus 5.18, ESPN 5.18, MIST 5.24, Sleeper 6.09, CBS 6.34, FantasyPros 6.48; my medians lost last week's lead, and no source has lost three weeks running against the consensus, so no reweighting. The four misses, judged. Christian Watson 32.3 above the 90 (2 to 28): a reasoning error. I called his role down on two weeks when only week 4 pointed down (68% snaps, 10% share); week 3 was 80% and 10 targets, which is up. The two-week rule from the week 4 review was mis-applied, not wrong; week 5 restored the role (80% snaps, 26% share) and the median should have sat near 0.86x of consensus with a touchdown shade, about 12, not 10.5. Lesson: count the weeks that actually point the same way before calling a role change. Jayden Daniels 32.3 above the 90 (0 to 27): variance inside the right shape; the 0.15 no-start mass pulled the band down and the 27 top was the QB tier q95 on a start. He ran for the extra. David Montgomery 1.1 below the 90 (floor 2): an in-game groin exit, variance, and the tier q05 floor at 0.15x covers it thinly by design. RJ Harvey 0.7 below the 90 (floor 1.5): a satellite back on 42% snaps whose points are target-dependent has a true floor at 0, and the starter-tier q05 does not describe him. Method note, no ledger entry: a sub-50%-snap committee or receiving back gets a 90% floor of 0 from now on. Standing miss: variance, two underdog results landed our way. No rule changes."
 }

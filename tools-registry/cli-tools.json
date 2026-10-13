@@ -385,6 +385,14 @@
     "notes": "Reads the vegan Hiker Food Chart xlsx in the vault (Attachments/Hiker Food Chart). Edit solve() keyword args for targets. Uses min(label kcal, macro kcal); drops rows that disagree by >20%. scipy milp."
   },
   {
+    "name": "hp1-actor-dumps",
+    "command": "python3 scripts/actor-dumps.py RUN_LOG [NAME_PREFIX ...] [--moving]",
+    "repo_dir": "/Users/alexhedtke/Documents/hp1-sorcerers-stone-macos",
+    "source": "built",
+    "added": "2026-10-13",
+    "notes": "Reads the engine's 'dumpactors CLASS' log lines; run the level first with --exec-at=T:dumpactors baseChar at some level times. --moving keeps rows with non-zero acceleration. Prefix match is case-insensitive."
+  },
+  {
     "name": "hp1-fn",
     "command": "python3 scripts/re/fn.py AActor::execPlayAnim 10302b17 [--dll Engine.dll] [--list]",
     "repo_dir": "~/Documents/hp1-sorcerers-stone-macos/scripts/re",
@@ -415,6 +423,14 @@
     "source": "built",
     "added": "2026-10-12",
     "notes": "Boots the native engine muted with --url, --quit-after and --shot; a perl alarm watchdog kills hangs at 3x the run time + 60 s. Frames come from the renderer (ReadPixels after present), so no screen-recording permission is needed; PPMs are converted to PNG with /usr/bin/python3 PIL. Log lands in OUT/run.log."
+  },
+  {
+    "name": "hp1-upkg",
+    "command": "python3 scripts/re/upkg.py FILE [--list PATTERN] [--dump NAME ...]",
+    "repo_dir": "/Users/alexhedtke/Documents/hp1-sorcerers-stone-macos",
+    "source": "built",
+    "added": "2026-10-13",
+    "notes": "Generic UE1 package reader (version 64+ name tables). Shows the script state frame of RF_HasStack exports and the property tags; class-specific data after the tags is only counted. Object references resolve through the import table."
   },
   {
     "name": "imessage-reader.py",
