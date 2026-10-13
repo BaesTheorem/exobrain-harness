@@ -385,6 +385,38 @@
     "notes": "Reads the vegan Hiker Food Chart xlsx in the vault (Attachments/Hiker Food Chart). Edit solve() keyword args for targets. Uses min(label kcal, macro kcal); drops rows that disagree by >20%. scipy milp."
   },
   {
+    "name": "hp1-fn",
+    "command": "python3 scripts/re/fn.py AActor::execPlayAnim 10302b17 [--dll Engine.dll] [--list]",
+    "repo_dir": "~/Documents/hp1-sorcerers-stone-macos/scripts/re",
+    "source": "built",
+    "added": "2026-10-12",
+    "notes": "Reads native/re/decomp/<dll>.c written by ExportDecomp.java. Patterns match an entry address exactly or a substring of the qualified name; --max caps output."
+  },
+  {
+    "name": "hp1-ghidra-export",
+    "command": "analyzeHeadless <proj_dir> HP1 -import <file.dll> -scriptPath scripts/re -postScript ExportDecomp.java <out_dir>",
+    "repo_dir": "~/Documents/hp1-sorcerers-stone-macos/scripts/re",
+    "source": "built",
+    "added": "2026-10-12",
+    "notes": "Needs JAVA_HOME=openjdk@21 and Homebrew ghidra 12.1.4 (libexec/support/analyzeHeadless). GHIDRA_HEADLESS_MAXMEM=3G suits the 8 GB Mac. Engine.dll (2 MB) takes ~14 min including analysis. Output: <dll>.c (every function, '// ==== <addr> <name>' headers) and <dll>.functions.tsv. MSVC ILT exports are 5-byte JMP stubs; the decompiler follows them, so exported names print with their real bodies."
+  },
+  {
+    "name": "hp1-layout",
+    "command": "python3 scripts/re/layout.py AActor 0x164 0x16c",
+    "repo_dir": "~/Documents/hp1-sorcerers-stone-macos/scripts/re",
+    "source": "built",
+    "added": "2026-10-12",
+    "notes": "Parses native/hp1-script-source/pubsrc/Engine/Inc/EngineClasses.h. MSVC 32-bit packing: BITFIELD runs pack into DWORDs, BYTE aligns to 1, others to 4; UObject base is 0x28. Validated: Mesh 0x164, AnimLast 0x22c, class size 0x25c match the retail code."
+  },
+  {
+    "name": "hp1-run-test",
+    "command": "scripts/run-test.sh Lev_Tut1 46 5,15,30,45 [/tmp/out]",
+    "repo_dir": "~/Documents/hp1-sorcerers-stone-macos/scripts",
+    "source": "built",
+    "added": "2026-10-12",
+    "notes": "Boots the native engine muted with --url, --quit-after and --shot; a perl alarm watchdog kills hangs at 3x the run time + 60 s. Frames come from the renderer (ReadPixels after present), so no screen-recording permission is needed; PPMs are converted to PNG with /usr/bin/python3 PIL. Log lands in OUT/run.log."
+  },
+  {
     "name": "imessage-reader.py",
     "command": "python3 imessage/imessage-reader.py recent | chat <phone-number>",
     "repo_dir": "~/Documents/Exobrain harness",
@@ -655,7 +687,7 @@
     "repo_dir": "/Users/alexhedtke/Documents/rea",
     "source": "built",
     "added": "2026-10-12",
-    "notes": "npm global rea-agents (~/.npm-global/bin/rea); source clone at ~/Documents/rea, scratch at ~/Documents/rea-work. Providers: brew ghidra 12.1.4 + openjdk@21, and Hopper demo in ~/Applications (installed by rea setup --install-hopper). GHIDRA_INSTALL_DIR, JAVA_HOME and HOPPER_LAUNCHER_PATH are in ~/.zshenv and in the MCP env. REA accepts Ghidra 12.1.x only. MCP is user-scope behind mcp-lazy (idle 0). First Ghidra query takes ~40 s on a tiny binary; raise REA_GHIDRA_STARTUP_TIMEOUT_MS for big ones. Output is swallowed inside mist-progress run, so redirect to a file. Update with bin/rea-update (the skill runs it first); never bare rea setup, which replaces the mcp-lazy stub and backs the skill up as SKILL.md.rea.backup."
+    "notes": "npm global rea-agents (~/.npm-global/bin/rea); source clone at ~/Documents/rea, scratch at ~/Documents/rea-work. Providers: brew ghidra 12.1.4 + openjdk@21 (REA accepts 12.1.x only), and Hopper demo in ~/Applications. Hopper needs Spotlight indexing ON (its launcher finds the app by mdfind) and Automation permission for the calling app to control Hopper. IDA Free 9.3 + loopback-patched ida-free-mcp plugin installed, waiting for an npm release with the native IDA profile. Provider env is in ~/.zshenv and in the MCP env. MCP is user-scope behind mcp-lazy (idle 0). First Ghidra query takes ~40 s on a tiny binary. Output is swallowed inside mist-progress run, so redirect to a file. Update with bin/rea-update (the skill runs it first); never bare rea setup."
   },
   {
     "name": "render_dice.py",
