@@ -757,8 +757,11 @@ def submit_311_report(pending_id: str, confirm: bool = False) -> dict:
         return _key_error(exc)
     status = result.get("response_status") or {}
     # report_an_issue can send the code as the string "1" (the iOS app checks it as a string).
-    if str(status.get("response_code")) != "1":
-        return {"ok": False, "error": status.get("response_message") or "Submission failed.", "raw": result}
+    # A 311 Request Update filed on 10/13/26 came back with another code and the message
+    # "Success", and the city's records show it filed, so that message counts as success too.
+    message = str(status.get("response_message") or "")
+    if str(status.get("response_code")) != "1" and message.strip().lower() != "success":
+        return {"ok": False, "error": message or "Submission failed.", "raw": result}
     _PENDING.pop(pending_id, None)
     auto = civicapi.flag(st["cat"], st["sub"], "autoresponse_text")
     return {"ok": True, "work_order": status.get("work_order"), "message": status.get("response_message"),
@@ -888,7 +891,7 @@ def request_311_updates(report_ids: list[str] | None = None, method: str = "Emai
             results.append({**p, "ok": False, "error": staged.get("error")})
             continue
         sent = submit_311_report(staged["pending_id"], confirm=True)
-        results.append({**p, "ok": sent.get("ok"), "work_order": sent.get("work_order"), "error": sent.get("error")})
+        results.append({**p, "ok": sent.get("ok"), "work_order": sent.get("work_order"), "error": sent.get("error"), "raw": sent.get("raw")})
     return {"ok": all(r["ok"] for r in results), "results": results}
 
 

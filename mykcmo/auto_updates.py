@@ -47,6 +47,8 @@ def main() -> int:
         lines.append(f"Failed: {len(bad) or 'all'}. {result.get('error') or '; '.join(str(r.get('error')) for r in bad)}")
     msg = "\n".join(lines)
     print(msg)
+    for r in bad:   # the city's full reply, in the log only, for the next diagnosis
+        print("raw reply:", r.get("raw"))
     subprocess.run([str(HERE.parent / "mist-voice" / "bin" / "mist-notify"), msg, "KC 311 updates", "Glass",
                     "--discord", "--context", "mykcmo/auto_updates.py daily run"], check=False)
     return 0 if not bad else 1
