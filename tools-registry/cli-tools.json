@@ -562,6 +562,14 @@
     "notes": "Builds ~/Applications/Open in Google Calendar.app and registers it as the default .ics handler, so calendar invites open in Google Calendar instead of Apple Calendar. Self-contained: the installer inlines a full RFC 5545 parser (line unfolding, TZID to UTC, all-day, DURATION without DTEND, RRULE, VALARM skipping). 1-5 events open pre-filled create pages, 6+ opens the import page. Private repo BaesTheorem/ic-to-gcal."
   },
   {
+    "name": "opfp-sync",
+    "command": "~/Documents/one-pace/opfp-sync.sh [--force]",
+    "repo_dir": "~/Documents/one-pace",
+    "source": "built",
+    "added": "2026-10-12",
+    "notes": "Skips if checked <7 days ago (stamp .opfp_last_check) unless --force. Stashes the local rename.py patch across a ff-only pull. Deletes upstream-deleted NFOs only when no video uses the name. Called from dubpace-update.sh before rename.py; notifies only on failure or a core-file change."
+  },
+  {
     "name": "orrery-models",
     "command": "blender -b --factory-startup --python tools/assets/build_models.py -- [rocks skull spindle windlauer garden bral] [--preview DIR]",
     "repo_dir": "/Users/alexhedtke/Documents/the-great-wheel",
@@ -642,20 +650,20 @@
     "notes": "Needs ps5-session running (or --frame). Prints 'y x conf text' in 1280x720 pixels, origin top-left. Uses ocrmac (Apple Vision) from the playstation venv via a sh header, because the harness path has a space and a shebang cannot. About 0.7 s per full frame."
   },
   {
+    "name": "rea",
+    "command": "rea decompile /abs/binary <function> --provider ghidra|hopper --format json   # MCP: mcp__rea__* (170 tools); rea --help for all commands",
+    "repo_dir": "/Users/alexhedtke/Documents/rea",
+    "source": "built",
+    "added": "2026-10-12",
+    "notes": "npm global rea-agents (~/.npm-global/bin/rea); source clone at ~/Documents/rea, scratch at ~/Documents/rea-work. Providers: brew ghidra 12.1.4 + openjdk@21, and Hopper demo in ~/Applications (installed by rea setup --install-hopper). GHIDRA_INSTALL_DIR, JAVA_HOME and HOPPER_LAUNCHER_PATH are in ~/.zshenv and in the MCP env. REA accepts Ghidra 12.1.x only. MCP is user-scope behind mcp-lazy (idle 0). First Ghidra query takes ~40 s on a tiny binary; raise REA_GHIDRA_STARTUP_TIMEOUT_MS for big ones. Output is swallowed inside mist-progress run, so redirect to a file. Update with bin/rea-update (the skill runs it first); never bare rea setup, which replaces the mcp-lazy stub and backs the skill up as SKILL.md.rea.backup."
+  },
+  {
     "name": "render_dice.py",
     "command": "/Applications/Blender.app/Contents/MacOS/Blender -b --factory-startup -P tools/render_dice.py -- OUT_DIR HDRI [--size 512] [--samples 96] [--yaws 0,23,-31,47]",
     "repo_dir": "/Users/alexhedtke/Documents/turn-to",
     "source": "built",
     "added": "2026-10-12",
     "notes": "Cycles on Metal, about 6 s per render on the Air. Writes d6-<face>-<turn>.png with a shadow-catcher shadow on alpha; fade the broad shadow radially before cropping or a dark box shows on dark backgrounds."
-  },
-  {
-    "name": "rea",
-    "command": "rea decompile /abs/binary <function> --provider ghidra --format json   # MCP: mcp__rea__* (170 tools); rea --help for all commands",
-    "repo_dir": "/Users/alexhedtke/Documents/rea",
-    "source": "built",
-    "added": "2026-10-12",
-    "notes": "npm global rea-agents@6.4.0 (~/.npm-global/bin/rea); source clone at ~/Documents/rea, scratch at ~/Documents/rea-work. Ghidra provider = brew ghidra 12.1.4 + openjdk@21; GHIDRA_INSTALL_DIR and JAVA_HOME set in ~/.zprofile and in the MCP env. REA accepts Ghidra 12.1.x only, so a brew bump to 12.2 breaks it. MCP is user-scope, wrapped by mcp-lazy (idle 0). First Ghidra query imports and auto-analyzes, ~40 s for a tiny binary; raise REA_GHIDRA_STARTUP_TIMEOUT_MS for big ones. Output is swallowed inside mist-progress run, so redirect to a file. Update: rea update, then rea setup --client claude_code --yes and re-run mcp-lazy wrap rea."
   },
   {
     "name": "Rental Harmony",
