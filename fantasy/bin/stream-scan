@@ -14,10 +14,18 @@ a claim: the roster is full, so a stream is a swap and the drop is Alex's
 tap. Bye weeks for our D/ST or K show up here two weeks ahead, since the
 claim has to go in the Tuesday before.
 
+Pending claims count as roster. On 2026-10-13 it offered Blake Grupe over Cam
+Little while a claim for Spencer Shrader sat in the queue: the bar was the
+wrong kicker and the alert did not say that a K was already on the way. Now a
+pending add is ours (the bar is our best K or D/ST by the rule's own number),
+a pending drop is gone, and the suggested drop is the weakest player still on
+the roster, because a claim cannot drop a player who has not landed.
+
     stream-scan [--json] [--weeks 2]
 
 INVARIANTS
 - Read-only. Never files anything.
+- A pending add is never offered as a free agent, and never named as a drop.
 - The thresholds are the playbook's numbers, named as constants here; change
   them in both places or not at all.
 """
@@ -32,6 +40,7 @@ from pathlib import Path
 
 HERE = Path(__file__).resolve().parent
 ESPN = HERE / "espn"
+sys.path.insert(0, str(HERE.parent))
 DST_OURS_MIN = 24.0     # our D/ST's opponent implied total at or above this ...
 DST_FA_MAX = 19.0       # ... while a free agent's opponent is at or below this
 K_GAP_MIN = 4.0         # a free-agent kicker's offense implied this many points above ours
@@ -83,14 +92,19 @@ def bench_swap(d: dict, bench: list[dict], slate: list[dict]) -> dict | None:
         if (d["opp"] == "BYE" or b_opp < opp) and (best is None or b_opp < best[1]):
             best = (b, b_opp)
     return best and {"name": best[0]["name"], "opp": best[0]["opp"], "opp_implied": best[1],
-                     "proj": round(best[0].get("proj") or 0, 1)}
+                     "proj": round(best[0].get("proj") or 0, 1), "pending": bool(best[0].get("pending"))}
 
 
 def scan(ours: dict, slate: list[dict], dst_pool: list[dict], k_pool: list[dict],
-         bench_dst: list[dict] | None = None) -> dict:
-    """Pure: our D/ST and K rows, the slate, the two pools -> verdicts. A better
-    D/ST on our own bench is the comparison bar before any free agent."""
+         bench_dst: list[dict] | None = None, bench_k: list[dict] | None = None,
+         adds: set[int] | frozenset[int] = frozenset(), drops: set[int] | frozenset[int] = frozenset()) -> dict:
+    """Pure: our D/ST and K rows, the slate, the two pools, and the player ids in
+    pending claims -> verdicts. A better D/ST on our own bench, or one already
+    claimed, is the comparison bar before any free agent."""
     out: dict = {"dst": None, "k": None}
+    bench_dst = [*(bench_dst or []), *({**r, "name": f"{r['name']} (pending)", "pending": True} for r in dst_pool if r.get("id") in adds)]
+    bench_dst = [r for r in bench_dst if r.get("id") not in drops]
+    dst_pool = [r for r in dst_pool if r.get("id") not in adds]
     d = ours.get("D/ST")
     if d:
         swap = bench_swap(d, bench_dst or [], slate)
@@ -114,30 +128,71 @@ def scan(ours: dict, slate: list[dict], dst_pool: list[dict], k_pool: list[dict]
                       "why": ("bye week: a second D/ST is needed" if d["opp"] == "BYE" else
                               f"ours faces {opp} implied (>= {DST_OURS_MIN:g}) and a free agent faces <= {DST_FA_MAX:g}" if fire else
                               f"ours faces {opp} implied; threshold is >= {DST_OURS_MIN:g} with a free agent at <= {DST_FA_MAX:g}")}
-    k = ours.get("K")
-    if k:
+    rostered_k = [r for r in [ours.get("K"), *(bench_k or [])] if r and r.get("id") not in drops]
+    pending_k = [{**r, "pending": True} for r in k_pool if r.get("id") in adds]
+    k_pool = [r for r in k_pool if r.get("id") not in adds]
+
+    def k_implied(r: dict) -> float:
+        own = implied_for(r["team"], slate)[0] if r.get("opp") != "BYE" else None
+        return own if own is not None else float("-inf")
+
+    effective_k = rostered_k + pending_k
+    if effective_k:
+        k = max(effective_k, key=k_implied)
+        drop = min(rostered_k, key=k_implied) if rostered_k else None
         own, opp, weather = implied_for(k["team"], slate)
         cands = [r for r in k_pool if r.get("implied_own") is not None and own is not None
                  and r["implied_own"] - own >= K_GAP_MIN and fair(r.get("weather") or "")]
         cands.sort(key=lambda r: -(r.get("implied_own") or 0))
         fire = bool(cands)
-        out["k"] = {"ours": k["name"], "team": k["team"], "opp": k["opp"], "own_implied": own, "weather": weather,
+        label = f"{k['name']} (pending)" if k.get("pending") else k["name"]
+        out["k"] = {"ours": k["name"], "pending": bool(k.get("pending")), "drop": drop and drop["name"],
+                    "team": k["team"], "opp": k["opp"], "own_implied": own, "weather": weather,
                     "proj": round(k.get("proj") or 0, 1), "bye": k["opp"] == "BYE",
                     "best_fa": [{"name": r["name"], "team": r["team"], "own_implied": r["implied_own"],
                                  "proj": round(r.get("proj") or 0, 1), "avail": r["avail"], "weather": r.get("weather")} for r in cands[:3]],
-                    "stream": fire or k["opp"] == "BYE",
+                    "stream": (fire or k["opp"] == "BYE") and drop is not None,
                     "why": ("bye week: a second K is needed" if k["opp"] == "BYE" else
-                            f"a free-agent offense is implied >= {K_GAP_MIN:g} above ours ({own}) in fair weather" if fire else
-                            f"ours is implied {own}; no free-agent offense is >= {K_GAP_MIN:g} higher in fair weather")}
+                            f"a free-agent offense is implied >= {K_GAP_MIN:g} above our best K, {label} ({own}), in fair weather" if fire else
+                            f"our best K, {label}, is implied {own}; no free-agent offense is >= {K_GAP_MIN:g} higher in fair weather")}
     return out
 
 
-def upcoming_byes(team: dict, week: int) -> list[dict]:
+def upcoming_byes(team: dict, week: int, pending_names: dict[str, list[str]] | None = None) -> list[dict]:
+    """Starter byes in the lookahead, each with what already covers it: a
+    rostered backup on a different bye, or a pending claim at the position."""
+    roster = team.get("roster", [])
     out = []
-    for r in team.get("roster", []):
+    for r in roster:
         if r["slot"] in ("D/ST", "K") and r.get("bye") and week < int(r["bye"]) <= week + LOOKAHEAD:
-            out.append({"slot": r["slot"], "player": r["name"], "week": int(r["bye"])})
+            cover = [b["name"] for b in roster if b is not r and b.get("pos") == r.get("pos")
+                     and b.get("bye") and int(b["bye"]) != int(r["bye"])]
+            cover += [f"{n} (pending)" for n in (pending_names or {}).get(r.get("pos") or r["slot"], [])]
+            out.append({"slot": r["slot"], "player": r["name"], "week": int(r["bye"]), "covered_by": cover})
     return out
+
+
+def pending_ids() -> tuple[set[int], set[int], str | None]:
+    """Player ids we add and drop in pending claims and trades. An unreadable
+    queue is reported, never read as an empty one."""
+    try:
+        from espncli.client import Espn  # noqa: PLC0415
+        api = Espn()
+        me = int(api.creds["team_id"])
+        adds: set[int] = set()
+        drops: set[int] = set()
+        for t in api.pending_transactions():
+            for i in t.get("items") or []:
+                pid = i.get("playerId")
+                if pid is None:
+                    continue
+                if i.get("type") == "DROP" or (i.get("type") != "ADD" and i.get("fromTeamId") == me):
+                    drops.add(int(pid))
+                elif i.get("type") == "ADD" or i.get("toTeamId") == me:
+                    adds.add(int(pid))
+        return adds, drops, None
+    except Exception as exc:  # noqa: BLE001 - the scan still runs, with the gap stated
+        return set(), set(), f"pending claims unreadable ({exc}); the bar ignores them"
 
 
 def main() -> int:
@@ -153,13 +208,21 @@ def main() -> int:
     k_pool = espn("stream", "--pos", "K", "-n", "40")
     assert isinstance(slate, list) and isinstance(dst_pool, list) and isinstance(k_pool, list)
     bench_dst = [r for r in team["roster"] if r["slot"] == "BE" and r.get("pos") == "D/ST"]
-    out = scan(ours, slate, dst_pool, k_pool, bench_dst)
+    bench_k = [r for r in team["roster"] if r["slot"] == "BE" and r.get("pos") == "K"]
+    adds, drops, pending_err = pending_ids()
+    out = scan(ours, slate, dst_pool, k_pool, bench_dst, bench_k, adds, drops)
     out["week"] = week
-    out["byes_ahead"] = upcoming_byes(team, week)
+    pending_names: dict[str, list[str]] = {}
+    for pos, pool in (("D/ST", dst_pool), ("K", k_pool)):
+        pending_names[pos] = [r["name"] for r in pool if r.get("id") in adds]
+    out["byes_ahead"] = upcoming_byes(team, week, pending_names)
+    out["pending_error"] = pending_err
     if args.json:
         json.dump(out, sys.stdout, indent=2, default=str)
         return 0
     print(f"Stream scan -- week {week}\n")
+    if pending_err:
+        print(f"  WARNING: {pending_err}\n")
     for label in ("dst", "k"):
         v = out.get(label)
         if not v:
@@ -169,13 +232,16 @@ def main() -> int:
         line = f"  {verdict}  {label.upper():<4} {v['ours']:<18} {v['opp']:<5}"
         line += f" opp implied {v['opp_implied']}" if label == "dst" else f" own implied {v['own_implied']} {v['weather']}"
         print(line + f"  proj {v['proj']}  -- {v['why']}")
+        if v.get("drop") and v["drop"] != v["ours"]:
+            print(f"            drop if streamed: {v['drop']}")
         for c in v["best_fa"]:
             imp = f"opp implied {c['opp_implied']}" if label == "dst" else f"own implied {c['own_implied']} {c['weather']}"
             print(f"            {c['name']:<20} {c['avail']:<3} {imp}  proj {c['proj']}")
     if out["byes_ahead"]:
         print("\n  byes ahead (claim the Tuesday before):")
         for b in out["byes_ahead"]:
-            print(f"    week {b['week']}  {b['slot']:<5} {b['player']}")
+            cover = f"  covered by {', '.join(b['covered_by'])}" if b.get("covered_by") else "  NOT covered"
+            print(f"    week {b['week']}  {b['slot']:<5} {b['player']}{cover}")
     print(f"\n  D/ST rule: ours faces >= {DST_OURS_MIN:g} implied while a free agent faces <= {DST_FA_MAX:g}. "
           f"K rule: a free agent's offense >= {K_GAP_MIN:g} above ours, fair weather. Both from the playbook; a STREAM is a candidate, the drop is Alex's.")
     return 0

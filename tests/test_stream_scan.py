@@ -61,3 +61,37 @@ def test_bye_starter_still_yields_to_the_bench():
     bye = {"name": "Cowboys D/ST", "team": "DAL", "opp": "BYE", "proj": 0.0, "kick": ""}
     v = stream_scan.scan({"D/ST": bye}, SLATE_AFTER_KICKOFF, [], [], [BENCH_RAMS])["dst"]
     assert v["start_bench"]["name"] == "Rams D/ST"
+
+
+# 2026-10-13: Grupe over Cam Little fired while a Shrader claim was pending.
+K_SLATE = [{"home": {"abbrev": "JAX"}, "away": {"abbrev": "HOU"}, "implied_home": 22.8, "implied_away": 20.0},
+           {"home": {"abbrev": "IND"}, "away": {"abbrev": "TEN"}, "implied_home": 25.8, "implied_away": 18.8},
+           {"home": {"abbrev": "LAR"}, "away": {"abbrev": "ARI"}, "implied_home": 32.0, "implied_away": 19.5}]
+LITTLE = {"id": 1, "name": "Cam Little", "team": "JAX", "opp": "HOU", "proj": 9.5}
+SHRADER = {"id": 2, "name": "Spencer Shrader", "team": "IND", "opp": "TEN", "proj": 11.0,
+           "implied_own": 25.8, "avail": "WVR", "weather": "dome"}
+GRUPE = {"id": 3, "name": "Blake Grupe", "team": "LAR", "opp": "ARI", "proj": 9.9,
+         "implied_own": 32.0, "avail": "WVR", "weather": "86°F Mostly sunny"}
+
+
+def test_pending_k_becomes_the_bar_and_is_never_offered():
+    v = stream_scan.scan({"K": LITTLE}, K_SLATE, [], [SHRADER, GRUPE], adds={2})["k"]
+    assert v["ours"] == "Spencer Shrader" and v["pending"] and v["own_implied"] == 25.8
+    assert [c["name"] for c in v["best_fa"]] == ["Blake Grupe"]
+    assert v["drop"] == "Cam Little"          # the claim cannot drop a player who has not landed
+
+
+def test_pending_k_inside_the_gap_holds():
+    close = {**GRUPE, "implied_own": 28.0}
+    v = stream_scan.scan({"K": LITTLE}, K_SLATE, [], [SHRADER, close], adds={2})["k"]
+    assert not v["stream"]
+
+
+def test_pending_drop_is_not_the_bar():
+    assert stream_scan.scan({"K": LITTLE}, K_SLATE, [], [SHRADER, GRUPE], drops={1})["k"] is None
+
+
+def test_pending_dst_suppresses_the_claim_but_is_no_lineup_move():
+    pending = {"id": -16, "name": "Jets D/ST", "team": "DAL", "opp": "TB", "implied_opp": 19.5, "proj": 7.5, "avail": "WVR"}
+    v = stream_scan.scan({"D/ST": STARTER}, SLATE, [pending], [], adds={-16})["dst"]
+    assert v["start_bench"]["pending"] and not v["stream"]

@@ -103,6 +103,9 @@ def stream_gate_event(st: dict) -> dict | None:
         v = scan.get(label)
         if v and v.get("start_bench"):
             b = v["start_bench"]
+            if b.get("pending"):     # better D/ST already claimed: no lineup move until it lands
+                gs[label] = None
+                continue
             pair = f"{v['ours']}|{b['name']}|BE|{scan.get('week')}"
             if gs.get(label) == pair:
                 continue
@@ -118,7 +121,8 @@ def stream_gate_event(st: dict) -> dict | None:
             continue
         gs[label] = pair
         return {"kind": "stream_gate", "slot": "D/ST" if label == "dst" else "K", "ours": v["ours"],
-                "add": cand["name"], "avail": cand["avail"], "why": v["why"], "judgment": False}
+                "drop": v.get("drop") or v["ours"], "add": cand["name"], "avail": cand["avail"],
+                "why": v["why"], "judgment": False}
     return None
 
 
@@ -293,7 +297,7 @@ def main() -> int:
             if ev["avail"] == "BE":
                 heads.append(f"lineup {ev['slot']}: {ev['why']}")
             else:
-                heads.append(f"stream {ev['slot']}: {ev['add']} ({ev['avail']}) over {ev['ours']}, {ev['why']}")
+                heads.append(f"stream {ev['slot']}: {ev['add']} ({ev['avail']}) for {ev.get('drop') or ev['ours']}, {ev['why']}")
         elif ev["kind"] == "swap_gate":
             fl = f", volume {'/'.join(ev['flags'])}" if ev.get("flags") else ""
             heads.append(f"wire: add {ev['add']} ({ev['add_pos']}, {ev['avail']}) for "
@@ -318,9 +322,9 @@ def main() -> int:
         how = "--fa" if stream["avail"] == "FA" else ""
         actions = [
             "--action", reply_button(
-                "Do it", f"Stream from roster-watch: add {stream['add']} for {stream['ours']} at {stream['slot']} "
-                         f"({stream['why']}; espn-tx claim {how} \"{stream['add']}\" --drop \"{stream['ours']}\")"),
-            "--action", reply_button("Skip", f"Skip the {stream['add']} stream; keep {stream['ours']}"),
+                "Do it", f"Stream from roster-watch: add {stream['add']} for {stream['drop']} at {stream['slot']} "
+                         f"({stream['why']}; espn-tx claim {how} \"{stream['add']}\" --drop \"{stream['drop']}\")"),
+            "--action", reply_button("Skip", f"Skip the {stream['add']} stream; keep {stream['drop']}"),
         ]
     if swap:
         how = "--fa" if swap["avail"] == "FA" else ""
