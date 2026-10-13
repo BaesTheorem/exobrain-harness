@@ -756,7 +756,8 @@ def submit_311_report(pending_id: str, confirm: bool = False) -> dict:
     except civicapi.KeyRejected as exc:
         return _key_error(exc)
     status = result.get("response_status") or {}
-    if status.get("response_code") != 1:
+    # report_an_issue can send the code as the string "1" (the iOS app checks it as a string).
+    if str(status.get("response_code")) != "1":
         return {"ok": False, "error": status.get("response_message") or "Submission failed.", "raw": result}
     _PENDING.pop(pending_id, None)
     auto = civicapi.flag(st["cat"], st["sub"], "autoresponse_text")
