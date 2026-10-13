@@ -19,6 +19,7 @@ import json
 import os
 import re
 import sys
+import urllib.error
 import urllib.parse
 import urllib.request
 from pathlib import Path
@@ -99,7 +100,14 @@ def main() -> None:
     if not programs:
         sys.exit("store has no active Square Loyalty program")
     prog = programs[0]
-    acct = s.buyer("/loyalty/account/search", {"phone": a.phone})["data"]["loyalty_account"] if a.phone else {}
+    acct = {}
+    if a.phone:
+        try:
+            acct = s.buyer("/loyalty/account/search", {"phone": a.phone})["data"]["loyalty_account"]
+        except urllib.error.HTTPError as e:
+            if e.code != 404:  # 404 = "Square Loyalty not found": no account on this phone
+                raise
+            acct = {"not_found": a.phone}
 
     earn = {r["category_data"]["category_id"] for r in prog.get("accrual_rules", []) if r.get("category_data")}
     redeem = {c for t in prog["reward_tiers"] for c in t["definition"].get("catalog_object_ids", [])}
@@ -124,7 +132,9 @@ def main() -> None:
     for tier in prog["reward_tiers"]:
         cap = tier["definition"].get("max_discount_money", {}).get("amount")
         print(f"  {tier['points']} {t['other']}: {tier['name'].strip()}" + (f" (max ${cap / 100:.2f})" if cap else ""))
-    if acct:
+    if acct.get("not_found"):
+        print(f"No loyalty account on {acct['not_found']}")
+    elif acct:
         print(f"Balance: {acct.get('balance', 0)} {t['other']} (lifetime {acct.get('lifetime_points', 0)})")
     for r in out.get("menu", []):
         flags = ("earn " if r["earns"] else "     ") + ("redeem" if r["redeemable"] else "")
