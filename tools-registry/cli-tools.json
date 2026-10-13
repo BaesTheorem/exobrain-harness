@@ -393,6 +393,14 @@
     "notes": "Reads the engine's 'dumpactors CLASS' log lines; run the level first with --exec-at=T:dumpactors baseChar at some level times. --moving keeps rows with non-zero acceleration. Prefix match is case-insensitive."
   },
   {
+    "name": "hp1-camera-log",
+    "command": "python3 scripts/camera-log.py RUN_LOG [--close 100]",
+    "repo_dir": "/Users/alexhedtke/Documents/hp1-sorcerers-stone-macos",
+    "source": "built",
+    "added": "2026-10-13",
+    "notes": "Reads the 'Gamepad test' lines that --fake-gamepad runs log once a second, and dumpprops lines for player Location/Rotation, player.cam Location and player.myHUD DebugString. Rows with CutState are cutscene cameras."
+  },
+  {
     "name": "hp1-fn",
     "command": "python3 scripts/re/fn.py AActor::execPlayAnim 10302b17 [--dll Engine.dll] [--list]",
     "repo_dir": "~/Documents/hp1-sorcerers-stone-macos/scripts/re",
