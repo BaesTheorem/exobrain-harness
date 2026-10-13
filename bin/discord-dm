@@ -3,11 +3,15 @@
 
     discord-dm "message"            # text from the argument
     echo "message" | discord-dm -   # text from stdin
+    discord-dm --check              # exit 0 if the token and channel are set
 
 Token: DISCORD_BOT_TOKEN in ~/.claude/channels/discord/.env. Channel:
 DISCORD_NOTIFY_CHAT_ID in the harness .env. Discord caps a message at 2000
 characters, so longer text is cut. Exit 0 on send, 1 on any failure (logged to
 stderr), so a caller can treat it as best effort.
+
+Do not read either .env to confirm the setup before a send: run --check. The
+unattended guard blocks any command that names a .env file.
 """
 from __future__ import annotations
 
@@ -32,9 +36,14 @@ def env_value(path: Path, key: str) -> str | None:
     return None
 
 
-def send(text: str) -> bool:
+def config() -> tuple[str | None, str | None]:
     token = os.environ.get("DISCORD_BOT_TOKEN") or env_value(BOT_ENV, "DISCORD_BOT_TOKEN")
     chan = os.environ.get("DISCORD_NOTIFY_CHAT_ID") or env_value(HARNESS / ".env", "DISCORD_NOTIFY_CHAT_ID")
+    return token, chan
+
+
+def send(text: str) -> bool:
+    token, chan = config()
     if not (token and chan):
         print("discord-dm: missing bot token or DISCORD_NOTIFY_CHAT_ID", file=sys.stderr)
         return False
@@ -57,5 +66,9 @@ if __name__ == "__main__":
     if len(sys.argv) < 2:
         print(__doc__)
         sys.exit(2)
+    if sys.argv[1] == "--check":
+        token, chan = config()
+        print(f"token: {'set' if token else 'MISSING'}, channel: {'set' if chan else 'MISSING'}")
+        sys.exit(0 if token and chan else 1)
     msg = sys.stdin.read() if sys.argv[1] == "-" else " ".join(sys.argv[1:])
     sys.exit(0 if msg.strip() and send(msg.strip()) else 1)
