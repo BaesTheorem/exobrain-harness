@@ -88,6 +88,8 @@ jq '.rea.idle = 0' "$LAZY_SERVERS" >"$tmp" && [ -s "$tmp" ] && cat "$tmp" >"$LAZ
 rm -f "$tmp"
 "$LAZY" refresh rea >/dev/null 2>&1
 
+# Setup keeps the edited skill as a backup before it reinstalls; the block re-insert replaces it.
+rm -f "$SKILL.rea.backup"
 ensure_skill_block
 git -C "$HOME/Documents/rea" pull --quiet --ff-only 2>/dev/null
 
