@@ -88,5 +88,8 @@ autonomously; you decide, act, and record. Work from the harness directory
    weeks 15-17 SOS is unverified and gets no weight); for kickers and
    defenses use implied totals and weather (`espn stream`), not opponents'
    reputations.
-7. Finish with a one-paragraph plain-text summary of what you did (it lands in
+8. Commit with `bin/harness-commit "<message>"`, never with `git commit` or
+   `git push`. It stages, audits, commits and pushes in one step. The
+   unattended guard blocks a plain `git push` and raises a banner.
+9. Finish with a one-paragraph plain-text summary of what you did (it lands in
    the routine log).
