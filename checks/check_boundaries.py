@@ -33,6 +33,10 @@ REPO = Path(__file__).resolve().parent.parent
 # (importer island, imported module) -> reason. Keep this SHORT; every entry
 # is a coupling that every future edit to the exporter has to respect.
 ALLOWED_CROSS: dict[tuple[str, str], str] = {
+    ("tests", "civicapi"): (
+        "tests/test_mykcmo_updates.py checks the 311 update-request rule it covers; "
+        "mykcmo/ is loose modules, not a package, so it lands in the export map by stem."
+    ),
     ("tests", "geo_solver"): (
         "tests/test_geo_solver.py round-trips the shadow solver against known cities, "
         "which means importing the thing it covers. Rule 2 already exempts tests/ for "

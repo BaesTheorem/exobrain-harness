@@ -405,6 +405,9 @@ def case_number(record: dict) -> str:
 # ---------------------------------------------------------------------------
 
 UPDATE_CATEGORY = "311 Request Update"
+# The city files an update request as "Administration or Questions", so the
+# category alone misses it. Every request this harness files opens with this text.
+UPDATE_TEXT = "Please send an update on"
 STALE_DAYS = 7
 _CLOSED = ("resolved", "closed", "cancel", "complete")
 
@@ -447,7 +450,8 @@ def filed(record: dict) -> float:
 
 
 def is_update_request(record: dict) -> bool:
-    return UPDATE_CATEGORY.lower() in str(record.get("name") or record.get("issue_type") or "").lower()
+    return (UPDATE_CATEGORY.lower() in str(record.get("name") or record.get("issue_type") or "").lower()
+            or str(record.get("description") or "").lstrip().startswith(UPDATE_TEXT))
 
 
 def reference(record: dict) -> str:

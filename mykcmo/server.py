@@ -885,7 +885,7 @@ def request_311_updates(report_ids: list[str] | None = None, method: str = "Emai
             "How would you like us to contact you?": method,
             "Please provide us the contact information for your preferred method.": reach,
         }
-        staged = prepare_311_report("311 Request Update", description=f"Please send an update on {p['reference']}: "
+        staged = prepare_311_report("311 Request Update", description=f"{civicapi.UPDATE_TEXT} {p['reference']}: "
                                     f"{p['sub_type']} at {p['address']}.", answers=answers, add_location_line=False)
         if not staged.get("ok"):
             results.append({**p, "ok": False, "error": staged.get("error")})
