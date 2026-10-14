@@ -243,11 +243,21 @@ def main() -> int:
         wstate[str(wp["id"])] = cur
     rosters = {str(t["id"]): sorted(e["playerId"] for e in (t.get("roster") or {}).get("entries", [])) for t in data["teams"]}
     prev_r = st.setdefault("rosters", {})
+    # Names too: a dropped player is gone from every roster by the time we see the
+    # diff, so his name has to come from the last run.
+    names = st.get("roster_names", {})
+    for t in data["teams"]:
+        for e in (t.get("roster") or {}).get("entries", []):
+            names[str(e["playerId"])] = e["playerPoolEntry"]["player"]["fullName"]
     for wt in wl.get("teams", []):
         key = str(wt["id"])
         if key in prev_r and prev_r[key] != rosters.get(key):
-            events.append({"kind": "watched_team_moved", "team": wt["name"], "why": wt["why"], "judgment": True})
+            before, after = set(prev_r[key]), set(rosters.get(key, []))
+            events.append({"kind": "watched_team_moved", "team": wt["name"], "why": wt["why"], "judgment": True,
+                           "added": [names.get(str(i), str(i)) for i in sorted(after - before)],
+                           "dropped": [names.get(str(i), str(i)) for i in sorted(before - after)]})
     st["rosters"] = rosters
+    st["roster_names"] = {str(i): names[str(i)] for ids in rosters.values() for i in ids if str(i) in names}
 
     # 4. The waiver gate: a bench-for-wire swap worth 20+ points over the rest of
     #    the regular season. Banner only; the drop is Alex's decision.
@@ -292,7 +302,9 @@ def main() -> int:
         elif ev["kind"] == "watch_ownership":
             heads.append(f"watch: {ev['player']} {ev['from']}% -> {ev['to']}% rostered")
         elif ev["kind"] == "watched_team_moved":
-            heads.append(f"{ev['team']} made a roster move")
+            moves = [f"added {', '.join(ev['added'])}" if ev.get("added") else "",
+                     f"dropped {', '.join(ev['dropped'])}" if ev.get("dropped") else ""]
+            heads.append(f"{ev['team']} {' and '.join(m for m in moves if m) or 'made a roster move'}")
         elif ev["kind"] == "stream_gate":
             if ev["avail"] == "BE":
                 heads.append(f"lineup {ev['slot']}: {ev['why']}")
