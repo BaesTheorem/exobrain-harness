@@ -40,7 +40,9 @@ Two kinds of trouble, two kinds of response.
 **Diffuse pressure** (new in v4). v3 alerted when swap USED crossed 5.5GB, a
 stock that this machine sits above nearly always, so it fired once an hour for
 weeks (692 banners between 2026-08-25 and 2026-10-11) and told Alex nothing.
-v4 alerts on state, flow and growth:
+v4 alerts on state, flow and growth. Since 2026-10-14 only the critical
+and kill alerts raise a banner (`BANNER_KINDS`). The other kinds below go
+to the event log only:
 
 - **critical pressure**: the kernel level reaches 4. Banner with sound,
   re-alert at most every 30 min while it lasts.
