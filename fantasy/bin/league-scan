@@ -11,7 +11,12 @@ Tuesday routine updates observations from numbers instead of impressions:
               lineup from the roster that week, minus what was started.
               Small means an attentive manager; large means a set-and-forget
               roster and a lineup that can be beaten by its own bench
-  moves       adds and trades from ESPN's transaction counter
+  moves       adds and trades from ESPN's transaction counter. The trade
+              count goes up on ACCEPT, before the 24h review, so a trade
+              that is still in review is counted; it read 1 for two teams
+              on 2026-10-13 while their players had not moved (and 0 for
+              us after 11 offers sent). `espn activity --pending` shows
+              what is in review.
   offers      trade offers sent and received, and how received ones ended
               (accepted, expired unanswered, still pending)
 
@@ -168,6 +173,7 @@ def main() -> int:
         for team, z in zl:
             print(f"    {team:<26} {z}")
     print("\n  ZEROS = starters who scored 0.0 in a closed week; LEFT/WK = bench points that beat the lineup started;"
+          "\n  TRD = trades accepted, including any still in the 24h review (not proof that players moved);"
           "\n  RECEIVED = offers to that manager: a accepted, x expired unanswered, p pending. Owners are initials only.")
     return 0
 
