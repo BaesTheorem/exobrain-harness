@@ -22,6 +22,7 @@ INVARIANTS:
 
 import json
 import os
+import time
 import urllib.parse
 import urllib.request
 from datetime import datetime
@@ -795,14 +796,34 @@ def my_311_reports(start: int = 0) -> dict:
 @mcp.tool()
 def get_311_report_status(issue_id: str) -> dict:
     """Live detail and staff timeline for one report, by its MyCivic id (the
-    `id` from my_311_reports). Other people's contact info is removed.
+    `id` from my_311_reports). The timeline also holds each update request
+    that names the report, and all staff activity on it. Other people's
+    contact info is removed.
     """
     try:
         d = civicapi.report_detail(issue_id)
     except civicapi.KeyRejected as exc:
         return _key_error(exc)
-    timeline = [{"when": h.get("dateofupdate"), "title": h.get("title"), "details": h.get("details")}
-                for h in sorted(d.get("history_object") or [], key=lambda h: str(h.get("timestamp", "")))]
+    rows = [(float(h.get("timestamp") or 0), {"when": h.get("dateofupdate"), "title": h.get("title"),
+                                               "details": h.get("details")}) for h in d.get("history_object") or []]
+    # Update requests are separate city cases. Show each one, and all staff
+    # activity on it, on the report it names.
+    try:
+        mine = civicapi.my_reports().get("my_issues", [])
+    except civicapi.CivicError:
+        mine = []
+    for req in civicapi.update_requests_for({**d, "id": issue_id}, mine):
+        try:
+            rd = civicapi.report_detail(str(req.get("id")))
+        except civicapi.CivicError:
+            continue
+        at = float(rd.get("added_on") or 0)   # the detail endpoint's epoch is right
+        rows.append((at, {"when": time.strftime("%m/%d/%Y %I:%M %p", time.localtime(at)),
+                          "title": "Update requested", "details": f"Update request {req.get('id')}, now {rd.get('status')}."}))
+        rows += [(float(h.get("timestamp") or 0), {"when": h.get("dateofupdate"),
+                  "title": f"Update request {req.get('id')}: {h.get('title')}", "details": h.get("details")})
+                 for h in rd.get("history_object") or []]
+    timeline = [e for _, e in sorted(rows, key=lambda r: r[0])]
     # issue_resolution is left out: it is the city's whole list of canned closing
     # texts, not this report's outcome, and some contain other residents' names.
     return {"case_number": civicapi.case_number(d) or None, "status": d.get("status"), "type": d.get("type"),

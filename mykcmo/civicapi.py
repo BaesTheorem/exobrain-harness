@@ -459,12 +459,16 @@ def reference(record: dict) -> str:
     return f"request #{cn}" if cn else f"myKCMO app report {record.get('id')}"
 
 
+def update_requests_for(record: dict, mine: list[dict]) -> list[dict]:
+    """The update requests in `mine` that name this report."""
+    keys = {f"report {record.get('id')}"} | ({f"#{cn}", cn} if (cn := case_number(record)) else set())
+    return [r for r in mine if is_update_request(r)
+            and any(k and k in str(r.get("description") or "") for k in keys)]
+
+
 def last_asked(record: dict, mine: list[dict]) -> float:
     """When an update was last requested for this report (0 if never)."""
-    keys = {f"report {record.get('id')}"} | ({f"#{cn}", cn} if (cn := case_number(record)) else set())
-    asks = [filed(r) for r in mine if is_update_request(r)
-            and any(k and k in str(r.get("description") or "") for k in keys)]
-    return max(asks, default=0.0)
+    return max((filed(r) for r in update_requests_for(record, mine)), default=0.0)
 
 
 def due_for_update(mine: list[dict], now: float | None = None, days: int = STALE_DAYS) -> list[dict]:
