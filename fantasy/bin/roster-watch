@@ -253,9 +253,10 @@ def main() -> int:
         key = str(wt["id"])
         if key in prev_r and prev_r[key] != rosters.get(key):
             before, after = set(prev_r[key]), set(rosters.get(key, []))
-            events.append({"kind": "watched_team_moved", "team": wt["name"], "why": wt["why"], "judgment": True,
+            events.append({"kind": "watched_team_moved", "team": wt["name"],
                            "added": [names.get(str(i), str(i)) for i in sorted(after - before)],
-                           "dropped": [names.get(str(i), str(i)) for i in sorted(before - after)]})
+                           "dropped": [names.get(str(i), str(i)) for i in sorted(before - after)],
+                           "why": wt["why"], "judgment": True})
     st["rosters"] = rosters
     st["roster_names"] = {str(i): names[str(i)] for ids in rosters.values() for i in ids if str(i) in names}
 
