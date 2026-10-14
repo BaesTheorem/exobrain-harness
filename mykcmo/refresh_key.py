@@ -34,6 +34,7 @@ from pathlib import Path
 
 import civicapi
 
+PUSH_DEPLOY = Path.home() / "Documents" / "kc311" / "push" / "bin" / "deploy"
 PACKAGE = "com.civicapps.kansascitymo"
 CLASSES = {
     "key": ("com.my.city.app.apicontroller.WebServiceController", r'String KEY = "([^"]+)"'),
@@ -126,6 +127,10 @@ def refresh() -> int:
     civicapi.CONFIG_PATH.write_text(json.dumps(cfg, indent=2) + "\n")
     changed = [k for k in CLASSES if old.get(k) != cfg[k]]
     log(f"config written to {civicapi.CONFIG_PATH}; changed: {', '.join(changed) or 'nothing'}")
+    # The KC 311 push Worker holds its own copy of the key; send it the new one.
+    if changed and PUSH_DEPLOY.exists():
+        r = subprocess.run([str(PUSH_DEPLOY)], capture_output=True, text=True, check=False)
+        log(f"push worker redeploy: {'ok' if r.returncode == 0 else r.stderr.strip()[-300:]}")
     print(json.dumps({"ok": True, "changed": changed, "app_version": cfg["app_version"]}))
     return 0
 
