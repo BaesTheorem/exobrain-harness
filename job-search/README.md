@@ -5,7 +5,8 @@ Daily unattended discovery scan for the `/job-search` skill.
 - **`run-job-scan.sh`** -- launchd wrapper. Runs `claude --print` headless with the daily
   discovery prompt across every lane that works unattended: Gmail job alerts (if the
   claude.ai connector is reachable), `hiringcafe.py` + `indeed.py` + `nicheboards.py` +
-  `ats-watchlist.py` + `workday.py` + `usajobs.py` + `talify.py` scripted lanes,
+  `ats-watchlist.py` + `workday.py` + `usajobs.py` + `talify.py` + `kcmo.py` + `moreboards.py` +
+  `aggregator.py` + `jobspy_lane.py` scripted lanes,
   Greenhouse/Lever X-ray (Ashby/Workable dropped 2026-08-10 -- chronic wrong-domain false
   negatives, and hiring.cafe covers those ATS inventories), 80,000 Hours Algolia, LinkedIn
   (if the MCP is reachable), and the warm-connection + re-apply watchlists. Applies the 4
@@ -15,7 +16,7 @@ Daily unattended discovery scan for the `/job-search` skill.
   for survivors AND near-misses (`status: skipped`, so tomorrow doesn't re-read the same
   JD), appends a hub-note log entry, and fires a `mist-notify` ONLY when new verified
   candidates are added (silent on zero-survivor days). Inline scan (no parallel subagents)
-  to keep daily token cost low. 40-min timeout guard per attempt, **one automatic retry**
+  to keep daily token cost low. 50-min timeout guard per attempt (40 until 2026-10-13), **one automatic retry**
   on failure (added 2026-08-10: half the 7/21-8/10 runs died on "Connection closed
   mid-response" with no retry and no visible trace), and a clickable `mist-notify` failure
   banner pointing at the failed attempt's log.
@@ -105,6 +106,23 @@ Daily unattended discovery scan for the `/job-search` skill.
   starting pay only, so a start under the onsite floor prints as a lead, not a decline. WATCH
   titles (CISO, information security, cybersecurity, CIO/CTO) always print, whatever the
   seniority or comp. Snapshot in `state/kcmo-snapshot.json`; the first run is a baseline.
+- **`indeed.py`** (rewritten 2026-10-13) -- real Chrome in new headless mode through patchright.
+  Logged-out Indeed shows page 1 only (page 2 and later redirect to the sign-in page), so
+  each query loads page 1 sorted by date, with a remote pass and a KC-local pass, and prints
+  its row count next to Indeed's own total.
+- **`moreboards.py`** (added 2026-10-13) -- thirteen boards with public JSON or RSS paths in
+  one run: SimplyHired, SmartRecruiters, Workable, ClearanceJobs, Working Nomads, Jobicy,
+  RemoteOK, the Jibe careers APIs of Garmin, H&R Block and BJC, Oracle Health's Oracle HCM
+  search, HigherEdJobs RSS, and the HN "Who is hiring" thread. One gate for all of them
+  (remote US at the comp floor, KC metro at the onsite floor). A seen-file in `state/`
+  limits each run to postings it has not shown before.
+- **`aggregator.py`** (added 2026-10-13) -- the open job-board-aggregator dataset
+  (github.com/Feashliaa/job-board-aggregator, about 1.4M postings from seven ATS platforms,
+  rebuilt daily). Streams one gzip chunk at a time and keeps remote-US and KC-metro titles
+  first seen in the window. Its salary field is an estimate, so every row is a lead.
+- **`jobspy_lane.py`** (added 2026-10-13) -- Glassdoor and ZipRecruiter through the JobSpy
+  library, run under `uv` so nothing is installed. Remote and KC passes. ZipRecruiter
+  returned 0 rows on the first run (blocked), and the script says so.
 - **`usajobs.py`** (added 2026-08-14) -- official federal API, remote-only public-hiring-path
   search with mechanical comp gating. Needs `USAJOBS_API_KEY` + `USAJOBS_EMAIL` in the
   harness `.env` (free key: https://developer.usajobs.gov/apirequest/); without them it

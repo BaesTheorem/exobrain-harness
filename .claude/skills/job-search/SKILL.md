@@ -164,6 +164,8 @@ Use multiple sources and triangulate -- no single source is authoritative for "o
     - **The location field is a coarse bucket, not the truth.** Gating remote on the literal word "remote" silently killed an employer's entire remote inventory: Cigna posts every remote req as "United States Work at Home". The regex now covers work-at-home / work-from-home / telecommute / home-based / WFH / virtual / anywhere.
     - **Title and location contradict each other, and the title wins.** CrowdStrike's "Analyst I, Falcon Complete GovCloud (Hybrid, St Louis)" sits under location "USA - Remote". A hybrid/onsite marker in *either* field is now a gate-1 decline with the contradiction quoted.
 
+    **KC-metro seats** (added 2026-10-13): a Workday seat whose location names a KC-metro city passes gate 1 onsite or hybrid and gates at the onsite floor, tagged `[KC-LOCAL]`. Before that, every non-remote seat was declined, so the KC boards pinned the same day (KUMC, UMB, the Federal Reserve System board, BCBS KC) would have printed nothing.
+
     **Warm-referral boards**: pin with `--add ... --warm` when the employer is in the warm-connection lane. Those rows print a `** WARM REFERRAL **` tag in every bucket (including declines, so Alex can overrule a gate he'd never overrule cold), and their **off-lane titles are listed rather than silently dropped** -- at an employer where Alex has an inside path, a referral outweighs a title match, so he triages those himself. Marking a board warm does NOT create a remote-gate exception; that still needs Alex's explicit per-firm opt-in, same as the documented one. Identities and referral context live in the gitignored vault reference, never here.
 
     Survivors still need status-aware dedup and a listing note; `--full` re-gates everything instead of only the diff, and first poll of a board is a baseline.
@@ -185,6 +187,22 @@ Use multiple sources and triangulate -- no single source is authoritative for "o
     - The snapshot (`state/kcmo-snapshot.json`) gives the NEW tag; the first run is a baseline.
 
     Survivors and leads need status-aware dedup + a listing note (`source: kcmo`); the printed psweb.kcmo.org detail URL is the apply entry point. Capture the close date: city postings run about two weeks.
+
+16. **More boards via public JSON/RSS paths** (ADDED 2026-10-13, from a scouting pass that probed each path with curl) -- run `python3 "Exobrain harness/job-search/moreboards.py" "<angle1>" "<angle2>" "<angle3>" --days 3` every discovery pass. One script, thirteen boards, one gate (title KEEP/DROP plus an off-lane analyst filter, remote US at the comp floor, KC metro at the onsite floor, contract/part-time declined, band rule). A seen-file (`state/moreboards-seen.json`) keeps each run to postings not shown before; `--all` re-shows them.
+    - **SimplyHired** shows Indeed's listings server-rendered (`__NEXT_DATA__`), which reaches Indeed inventory past the page-1 login wall. Plain urllib 403s; curl_cffi does not. On an `l=Remote` search every row carries `remoteAttributes: ["Remote"]` while the location names the employer's city, so rows print as `City [SimplyHired: Remote]` and the JD read confirms the seat.
+    - **SmartRecruiters** cross-company search: quote the phrase (unquoted matches any word, about 13,000 rows). Its location and remote params do nothing, so gate 1 runs in the script.
+    - **Workable** cross-company API: `workplace=remote` and `location` work; no salary field, so rows are leads.
+    - **ClearanceJobs** API: Secret/TS/polygraph rows decline; Public Trust and unlisted pass through.
+    - **Working Nomads** (its own Elasticsearch index), **Jobicy** and **RemoteOK** APIs: remote-only, structured salary.
+    - **KC employers**: Garmin, H&R Block and BJC / Saint Luke's on the Jibe platform (`/api/jobs`), and Oracle Health (Cerner) through Oracle HCM requisition search.
+    - **HigherEdJobs** category RSS (IT support, network/system admin) and the monthly **HN "Who is hiring"** thread (Algolia API, remote posts that match the query, all leads).
+    - Each board prints one status line. `NOT RUN` or `PARTIAL` means that board did not run for some query; carry those lines into the hub log.
+
+17. **ATS aggregator dataset** (ADDED 2026-10-13) -- run `python3 "Exobrain harness/job-search/aggregator.py" --days 3` every discovery pass. github.com/Feashliaa/job-board-aggregator (MIT) scrapes every public board it knows on Workday, iCIMS, Greenhouse, Paylocity, BambooHR, Ashby and Lever once a day (about 1.4M rows) and publishes gzip chunks on GitHub Pages. This reaches employers that lanes 11 and 13 never see, because those poll only boards already in the tracker. The script streams one chunk at a time (peak about 420 MB) and keeps remote-US and KC-metro rows first seen in the window. **Its `salary` field is a lookup-table estimate, not the posted band, so it never counts for gate 3: every row is a LEAD** until the posting itself is read. The URL is the employer's own ATS posting. A `~ STALE` line means the dataset did not update; a `~ COVERAGE GAP` line names a chunk that failed.
+
+18. **Glassdoor and ZipRecruiter via JobSpy** (ADDED 2026-10-13) -- run `python3 "Exobrain harness/job-search/jobspy_lane.py" "<angle1>" "<angle2>" --days 3`. Both sites put Cloudflare in front of curl; the open-source JobSpy library (run under uv, nothing installed) reads their backends and returns posted date, remote flag, pay with interval, and the apply URL. REMOTE and KC passes. On the first run Glassdoor returned rows and **ZipRecruiter returned 0** (a `0 rows: likely blocked` line): report that as skipped, not dry. JobSpy's Google Jobs scraper returned no data and is not used.
+
+**Dead ends tested 2026-10-13 (do not re-try without a new data path):** Reddit and Bluesky APIs (auth now required), Climatebase, CareerBuilder, Monster, ZipRecruiter and Glassdoor direct (Cloudflare 403), ISACA (robot check), Remote.co and careers.isc2.org (timeout), YC Work at a Startup (406), Levels.fyi (encrypted payload), Wellfound (ignores filters), Arbeitnow (no US rows), Jobspresso (stale), CyberSecJobs (cleared only), NEOGOV agency RSS (empty), Common Crawl index (504). Adzuna and Jooble need free API keys (not yet in `.env`).
 
 ### Specific employer boards to watch (warm-connection lane)
 
@@ -410,6 +428,9 @@ A scan is **not** a full scan until every lane below has either run or been expl
 | 14 | Workday-direct via `workday.py` | | Polls every pinned + auto-discovered Workday tenant and diffs. Covers the ATS lane 11 can't see. Survivors arrive with comp gated and `canApply` verified, but still need dedup + a note. |
 | 15 | Missouri Talify via `talify.py` | | State board (jobs.mo.gov front-end). Remote pass is expected-dry; the yield is the KC-local pass at the onsite floor. Off-lane KC titles print for Alex to overrule. |
 | 16 | City of KCMO via `kcmo.py` | | PeopleSoft board + kcmo.gov executive page, off-screen Chrome. Onsite floor; starting pay only, so sub-floor starts are leads. WATCH rows (CISO / security leadership) always reported. |
+| 17 | More boards via `moreboards.py` | | Thirteen boards (SimplyHired, SmartRecruiters, Workable, ClearanceJobs, Working Nomads, Jobicy, RemoteOK, Garmin, H&R Block, BJC, Oracle Health, HigherEdJobs, HN). One status line per board; carry NOT RUN / PARTIAL lines. |
+| 18 | ATS aggregator via `aggregator.py` | | About 1.4M postings across seven ATSes. Every row is a LEAD (salary field is an estimate). |
+| 19 | Glassdoor / ZipRecruiter via `jobspy_lane.py` | | A 0-row site is blocked, not dry. |
 
 **Report the tally honestly**, including the skipped lanes. A scan that ran 4 of the lanes below is a partial scan; say so in the hub-note log and to Alex rather than labeling it full. Under-running is recoverable; a false "I checked everything" is not, because it silently retires leads.
 
@@ -804,6 +825,9 @@ When called as part of the daily briefing (every day, weekends included):
    - `python3 "Exobrain harness/job-search/usajobs.py" "IT specialist" "security analyst" --days 7` -- skips itself with instructions if the API key is absent; log the lane as skipped-with-reason in that case.
    - `python3 "Exobrain harness/job-search/talify.py" --days 3` (see Source #14) -- Missouri state board, remote + KC-local passes. Survivors/leads get the normal JD read + note pipeline with `source: talify`; a dry day is the documented expectation, not a failed lane.
    - `python3 "Exobrain harness/job-search/kcmo.py"` (see Source #15) -- City of Kansas City, MO board. Survivors/leads get the JD read + note pipeline with `source: kcmo`; report any WATCH row in the hub log by name.
+   - `python3 "Exobrain harness/job-search/moreboards.py" "<angle1>" "<angle2>" "<angle3>" --days 3` (see Source #16) -- thirteen JSON/RSS boards in one run; only postings not shown before.
+   - `python3 "Exobrain harness/job-search/aggregator.py" --days 3` (see Source #17) -- ATS-wide dataset; every row is a lead, the posting decides comp.
+   - `python3 "Exobrain harness/job-search/jobspy_lane.py" "<angle1>" "<angle2>" --days 3` (see Source #18) -- Glassdoor and ZipRecruiter.
    - `python3 "Exobrain harness/job-search/workday.py"` (see Source #13) -- new postings across every pinned + auto-discovered Workday tenant. Survivors come pre-gated on all four gates with `canApply` verified and the JD already fetched, so they go straight to status-aware dedup and a note; LEADS have no comp in the JD and need the usual judgment call. Report polled/failed/baselined counts honestly. To pin a new board Alex hands over, `--add "<board URL with its filters>"` and read back the resolved facet labels before trusting it.
 
 2c. **AI safety fellowship scan** (ADDED 2026-07-25 -- see Source #9 and "AI Safety Fellowship Lane" for the gate variant):
