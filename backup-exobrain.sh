@@ -78,6 +78,8 @@ LOCAL_BACKUP_DIR="${LOCAL_BACKUP_DIR:-}"
 LOCAL_BACKUP_KEEP="${LOCAL_BACKUP_KEEP:-3}"
 if ! declare -p EXTRA_INCLUDES >/dev/null 2>&1; then EXTRA_INCLUDES=(); fi
 if ! declare -p BACKUP_EXCLUDE_REPOS >/dev/null 2>&1; then BACKUP_EXCLUDE_REPOS=(); fi
+if ! declare -p BACKUP_REPO_CAPS >/dev/null 2>&1; then BACKUP_REPO_CAPS=(); fi
+if ! declare -p BACKUP_EXCLUDE_PATHS >/dev/null 2>&1; then BACKUP_EXCLUDE_PATHS=(); fi
 BACKUP_REPO_MAX_MB="${BACKUP_REPO_MAX_MB:-2048}"
 BACKUP_MIN_FREE_GB="${BACKUP_MIN_FREE_GB:-20}"
 BACKUP_SYNC_TIMEOUT_MIN="${BACKUP_SYNC_TIMEOUT_MIN:-960}"
@@ -137,6 +139,95 @@ fi
 echo $$ > "$LOCK_DIR/pid"
 trap 'rm -rf "$LOCK_DIR"' EXIT
 
+# --- Optional secondary copy to an off-Google destination ---------------------
+# Google Drive is both the backup target AND a primary data source, so a single
+# account lockout takes both at once. A copy on an external disk / other cloud
+# mount breaks that single point of failure. Disabled unless LOCAL_BACKUP_DIR is
+# set (config.sh). Copy via a .tmp then atomic mv so a partial is never mistaken
+# for a complete archive, and md5-verify what landed: a USB disk can short-write
+# where the boot volume would not, and an unverified second copy is worse than
+# none, because it reads as redundancy that isn't there.
+#
+# Retention here is keep-newest-N (LOCAL_BACKUP_KEEP), deliberately NOT the
+# cloud's GFS. The full GFS set runs to KEEP_DAILY+KEEP_WEEKLY+KEEP_MONTHLY
+# archives, ~9GB each, which would fill a shared external disk in a fortnight
+# and take whatever else lives on it down too. Drive holds the deep history;
+# this destination exists to survive a Google lockout, so a few recent restore
+# points is the whole job. The prune runs BEFORE the copy, so the delete that
+# makes room can't be skipped by the copy failing first.
+#
+# Nothing in this section may abort the run. The Drive upload is confirmed by
+# the time it runs, so a full or flaky external disk degrades to a warning.
+#
+# It runs at two points: right after each upload, and at the top of every run
+# (catch-up, below). The catch-up exists because the disk is often absent at
+# upload time: 7 of the 14 runs from 2026-10-03 to 10-14 found no disk, and
+# nothing retried when it was plugged in later.
+
+# md5 of staged archive $1: the ledger's confirmed value, else computed.
+staged_md5() {
+    local m="" name
+    name="$(basename "$1")"
+    if [ -f "$LEDGER" ]; then
+        m="$(awk -F'\t' -v n="$name" '$2 == n {print $4}' "$LEDGER" | tail -1)"
+    fi
+    [ -n "$m" ] || m="$(md5 -q "$1" 2>/dev/null || true)"
+    echo "$m"
+}
+
+# Keep the newest $1 archives in LOCAL_BACKUP_DIR, delete the rest. Only touches
+# files this script's own naming produces.
+prune_local_backups() {
+    local keep="$1" kept=0 f
+    while IFS= read -r f; do
+        [ -n "$f" ] || continue
+        kept=$((kept + 1))
+        if [ "$kept" -gt "$keep" ]; then
+            echo "[$(date)] Pruning older secondary copy: ${f##*/}"
+            rm -f "$f" || true
+        fi
+    done < <(ls -t "$LOCAL_BACKUP_DIR"/exobrain-collective-*.tar.gz 2>/dev/null)
+}
+
+# Copy staged archive $1 to LOCAL_BACKUP_DIR, md5-verified.
+secondary_copy() {
+    local src="$1" dest="$LOCAL_BACKUP_DIR/$(basename "$1")" keep need avail want got
+    keep="$LOCAL_BACKUP_KEEP"
+    [ "$keep" -ge 1 ] 2>/dev/null || keep=1
+    # Prune to keep-1 so that this run's copy lands at exactly $keep.
+    prune_local_backups $(( keep - 1 ))
+    rm -f "$LOCAL_BACKUP_DIR"/exobrain-collective-*.tar.gz.tmp 2>/dev/null || true
+
+    need=$(stat -f %z "$src")
+    avail=$(( $(df -k "$LOCAL_BACKUP_DIR" | awk 'NR==2 {print $4}') * 1024 ))
+    if [ "$avail" -lt $(( need + 1073741824 )) ]; then
+        echo "[$(date)] WARN: secondary copy skipped: $(( avail / 1073741824 ))GB free at $LOCAL_BACKUP_DIR, need $(( need / 1073741824 + 1 ))GB" >&2
+        return 0
+    fi
+
+    echo "[$(date)] Secondary copy -> $LOCAL_BACKUP_DIR ..."
+    if ! cp "$src" "$dest.tmp"; then
+        echo "[$(date)] WARN: secondary copy to $LOCAL_BACKUP_DIR failed (write error)" >&2
+        rm -f "$dest.tmp" 2>/dev/null || true
+        return 0
+    fi
+
+    want="$(staged_md5 "$src")"
+    got="$(md5 -q "$dest.tmp" 2>/dev/null || true)"
+    if [ -z "$want" ] || [ "$want" != "$got" ]; then
+        echo "[$(date)] WARN: secondary copy md5 mismatch (want '$want', got '$got'); discarding partial" >&2
+        rm -f "$dest.tmp" 2>/dev/null || true
+        return 0
+    fi
+
+    if ! mv -f "$dest.tmp" "$dest"; then
+        echo "[$(date)] WARN: could not finalize secondary copy at $dest" >&2
+        rm -f "$dest.tmp" 2>/dev/null || true
+        return 0
+    fi
+    echo "[$(date)] Secondary copy verified: $dest (md5 $got)"
+}
+
 # --- Finish any interrupted upload BEFORE anything else -------------------------
 # A staged archive absent from the ledger is an upload a prior run didn't finish
 # (deadline, reboot). The resumable session picks up at the server-acked offset;
@@ -156,6 +247,21 @@ for f in "$BACKUP_STAGING_DIR"/exobrain-collective-*.tar.gz; do
         fi
     fi
 done
+
+# --- Secondary copy catch-up -----------------------------------------------------
+# The newest confirmed upload stays in staging (BACKUP_LOCAL_KEEP), so a run that
+# finds the disk present and that archive missing from it copies it now. The
+# resume agent fires every 30 min and on every mount, so a plugged-in disk gets
+# the copy within minutes.
+if [ -n "$LOCAL_BACKUP_DIR" ] && [ -d "$LOCAL_BACKUP_DIR" ] && [ -f "$LEDGER" ]; then
+    newest_name="$(awk -F'\t' '{print $2}' "$LEDGER" | sort | tail -1)"
+    if [ -n "$newest_name" ] && [ -f "$BACKUP_STAGING_DIR/$newest_name" ] \
+       && [ ! -f "$LOCAL_BACKUP_DIR/$newest_name" ]; then
+        echo "[$(date)] Secondary copy catch-up: $newest_name is not on $LOCAL_BACKUP_DIR yet"
+        secondary_copy "$BACKUP_STAGING_DIR/$newest_name" \
+            || echo "[$(date)] WARN: secondary copy catch-up errored; Drive copy is confirmed" >&2
+    fi
+fi
 
 # --- Freshness guard ----------------------------------------------------------
 # RunAtLoad + the resume agent fire this often; skip building a new archive if a
@@ -381,15 +487,26 @@ while IFS= read -r gitdir; do
             done \
             | grep -Ev "$CACHE_RE"
     ) > "$list" 2>/dev/null || true
+    # Regenerable paths inside this repo (config.sh BACKUP_EXCLUDE_PATHS).
+    for rule in ${BACKUP_EXCLUDE_PATHS[@]+"${BACKUP_EXCLUDE_PATHS[@]}"}; do
+        [ "${rule%%:*}" = "$name" ] || continue
+        grep -Ev -- "${rule#*:}" "$list" > "$list.kept" || true
+        mv -f "$list.kept" "$list"
+    done
     [ -s "$list" ] || { rm -f "$list"; continue; }
 
     # Per-repo size cap: one repo's gitignored data ballooning (e.g. 14GB of
-    # game/VM assets) must not sink the whole backup. Skips are logged loudly,
-    # never silent; raise the cap or exclude the repo explicitly in config.sh.
+    # game/VM assets) must not sink the whole backup. A skip loses data without
+    # failing the run, so it is logged and also sent as one digest per run (below).
+    cap_mb="$BACKUP_REPO_MAX_MB"
+    for rule in ${BACKUP_REPO_CAPS[@]+"${BACKUP_REPO_CAPS[@]}"}; do
+        [ "${rule%%:*}" = "$name" ] && cap_mb="${rule#*:}"
+    done
     size_bytes=$(tr '\n' '\0' < "$list" | (cd "$repo" && xargs -0 stat -f %z 2>/dev/null) | awk '{s+=$1} END {print s+0}')
     size_mb=$(( size_bytes / 1048576 ))
-    if [ "$size_mb" -gt "$BACKUP_REPO_MAX_MB" ]; then
-        echo "[$(date)]   - $name SKIPPED (${size_mb}MB gitignored data over the ${BACKUP_REPO_MAX_MB}MB cap; see config.sh BACKUP_REPO_MAX_MB / BACKUP_EXCLUDE_REPOS)"
+    if [ "$size_mb" -gt "$cap_mb" ]; then
+        echo "[$(date)]   - $name SKIPPED (${size_mb}MB gitignored data over the ${cap_mb}MB cap; see config.sh BACKUP_REPO_CAPS / BACKUP_EXCLUDE_PATHS)"
+        CAP_SKIPS="${CAP_SKIPS:+$CAP_SKIPS, }$name (${size_mb}MB > ${cap_mb}MB)"
         rm -f "$list"
         continue
     fi
@@ -400,6 +517,15 @@ while IFS= read -r gitdir; do
     # The list stays on disk: the section reads it later, when the merge gets there.
     add_section "$name" -s "|^|repos-gitignored/$name/|" -C "$repo" -T "$list"
 done < <(find "$REPO_SCAN_ROOT" -maxdepth 2 -type d -name .git 2>/dev/null)
+
+# A cap skip went unseen for 23 days once (mist-console chats, 2026-09-21), because
+# only the log recorded it. One banner + Discord DM per run, never per repo.
+if [ -n "${CAP_SKIPS:-}" ] && [ -x "$SCRIPT_DIR/mist-voice/bin/mist-notify" ]; then
+    "$SCRIPT_DIR/mist-voice/bin/mist-notify" \
+        "Not in tonight's backup, over the size cap: $CAP_SKIPS. Exclude the regenerable paths or raise the cap in config.sh." \
+        "Exobrain backup: repos skipped" none "$SCRIPT_DIR/config.sh" --discord \
+        --context "backup-exobrain.sh run $TIMESTAMP; see ~/Library/Logs/exobrain/backup.log" 2>/dev/null || true
+fi
 
 # --- Merge the sections into one gzip, verify, then stage locally ---------------
 # The merge copies each section's entries into one .tar.gz as it reads the FIFOs.
@@ -439,91 +565,12 @@ elif [ "$rc" -ne 0 ]; then
     fail "upload of $ARCHIVE_NAME failed (exit $rc); bytes safe in $BACKUP_STAGING_DIR"
 fi
 
-# --- Optional secondary copy to an off-Google destination ---------------------
-# Google Drive is both the backup target AND a primary data source, so a single
-# account lockout takes both at once. A copy on an external disk / other cloud
-# mount breaks that single point of failure. Disabled unless LOCAL_BACKUP_DIR is
-# set (config.sh). Copy via a .tmp then atomic mv so a partial is never mistaken
-# for a complete archive, and md5-verify what landed: a USB disk can short-write
-# where the boot volume would not, and an unverified second copy is worse than
-# none, because it reads as redundancy that isn't there.
-#
-# Retention here is keep-newest-N (LOCAL_BACKUP_KEEP), deliberately NOT the
-# cloud's GFS. The full GFS set runs to KEEP_DAILY+KEEP_WEEKLY+KEEP_MONTHLY
-# archives, ~9GB each, which would fill a shared external disk in a fortnight
-# and take whatever else lives on it down too. Drive holds the deep history;
-# this destination exists to survive a Google lockout, so a few recent restore
-# points is the whole job. The prune runs BEFORE the copy, so the delete that
-# makes room can't be skipped by the copy failing first.
-#
-# Nothing in this section may abort the run. The Drive upload is confirmed by
-# the time we get here, so a full or flaky external disk degrades to a warning.
-staged_md5() {
-    local m=""
-    if [ -f "$LEDGER" ]; then
-        m="$(awk -F'\t' -v n="$ARCHIVE_NAME" '$2 == n {print $4}' "$LEDGER" | tail -1)"
-    fi
-    [ -n "$m" ] || m="$(md5 -q "$STAGED" 2>/dev/null || true)"
-    echo "$m"
-}
-
-# Keep the newest $1 archives in LOCAL_BACKUP_DIR, delete the rest. Only touches
-# files this script's own naming produces.
-prune_local_backups() {
-    local keep="$1" kept=0 f
-    while IFS= read -r f; do
-        [ -n "$f" ] || continue
-        kept=$((kept + 1))
-        if [ "$kept" -gt "$keep" ]; then
-            echo "[$(date)] Pruning older secondary copy: ${f##*/}"
-            rm -f "$f" || true
-        fi
-    done < <(ls -t "$LOCAL_BACKUP_DIR"/exobrain-collective-*.tar.gz 2>/dev/null)
-}
-
-secondary_copy() {
-    local dest="$LOCAL_BACKUP_DIR/$ARCHIVE_NAME" keep need avail want got
-    keep="$LOCAL_BACKUP_KEEP"
-    [ "$keep" -ge 1 ] 2>/dev/null || keep=1
-    # Prune to keep-1 so that this run's copy lands at exactly $keep.
-    prune_local_backups $(( keep - 1 ))
-    rm -f "$LOCAL_BACKUP_DIR"/exobrain-collective-*.tar.gz.tmp 2>/dev/null || true
-
-    need=$(stat -f %z "$STAGED")
-    avail=$(( $(df -k "$LOCAL_BACKUP_DIR" | awk 'NR==2 {print $4}') * 1024 ))
-    if [ "$avail" -lt $(( need + 1073741824 )) ]; then
-        echo "[$(date)] WARN: secondary copy skipped: $(( avail / 1073741824 ))GB free at $LOCAL_BACKUP_DIR, need $(( need / 1073741824 + 1 ))GB" >&2
-        return 0
-    fi
-
-    echo "[$(date)] Secondary copy -> $LOCAL_BACKUP_DIR ..."
-    if ! cp "$STAGED" "$dest.tmp"; then
-        echo "[$(date)] WARN: secondary copy to $LOCAL_BACKUP_DIR failed (write error)" >&2
-        rm -f "$dest.tmp" 2>/dev/null || true
-        return 0
-    fi
-
-    want="$(staged_md5)"
-    got="$(md5 -q "$dest.tmp" 2>/dev/null || true)"
-    if [ -z "$want" ] || [ "$want" != "$got" ]; then
-        echo "[$(date)] WARN: secondary copy md5 mismatch (want '$want', got '$got'); discarding partial" >&2
-        rm -f "$dest.tmp" 2>/dev/null || true
-        return 0
-    fi
-
-    if ! mv -f "$dest.tmp" "$dest"; then
-        echo "[$(date)] WARN: could not finalize secondary copy at $dest" >&2
-        rm -f "$dest.tmp" 2>/dev/null || true
-        return 0
-    fi
-    echo "[$(date)] Secondary copy verified: $dest (md5 $got)"
-}
-
+# --- Secondary copy (functions and rationale near the top) -----------------------
 if [ -n "$LOCAL_BACKUP_DIR" ]; then
     if [ -d "$LOCAL_BACKUP_DIR" ]; then
-        secondary_copy || echo "[$(date)] WARN: secondary copy step errored; Drive copy is confirmed" >&2
+        secondary_copy "$STAGED" || echo "[$(date)] WARN: secondary copy step errored; Drive copy is confirmed" >&2
     else
-        echo "[$(date)] WARN: LOCAL_BACKUP_DIR set but not present: $LOCAL_BACKUP_DIR (skipping)" >&2
+        echo "[$(date)] WARN: LOCAL_BACKUP_DIR not present: $LOCAL_BACKUP_DIR (the catch-up copies it when the disk is next seen)" >&2
     fi
 fi
 

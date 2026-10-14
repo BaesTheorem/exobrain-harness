@@ -80,7 +80,22 @@ BACKUP_EXCLUDE_REPOS=(
 )
 # Per-repo cap on gitignored-data size (MB). Repos over the cap are skipped with
 # a loud log line instead of silently sinking the backup (disk, Drive quota).
+# A cap skip also raises a banner and a Discord DM on every run, so an expected
+# skip belongs in BACKUP_EXCLUDE_REPOS or BACKUP_EXCLUDE_PATHS, never left to the cap.
 BACKUP_REPO_MAX_MB=2048
+# Per-repo cap overrides, "repo:MB" (bash 3.2 has no associative arrays).
+BACKUP_REPO_CAPS=(
+    "mist-console:8192"          # data/ holds every Console chat (JSONL), irreplaceable; 5.6GB on 2026-10-14
+)
+# Regenerable paths inside a repo's gitignored data, "repo:ERE" matched against
+# the repo-relative path. Use this instead of excluding the whole repo when the
+# repo also holds data that exists nowhere else.
+BACKUP_EXCLUDE_PATHS=(
+    "mist-console:^models/"                     # Whisper weights, downloaded again on demand (2GB)
+    "turn-to:^books/[^/]+/candidates/"          # source PDFs, fetched again with aa-get (3.8GB); OCR, notes and book.json stay
+    "turn-to:^books/[^/]+/app/pages/"           # page images, rendered again from the scans (3GB)
+    "claude-animation:^out/"                    # rendered frames and videos, made again from the scene code (3.6GB)
+)
 # Files in the harness tmp/ over this size (MB), and every frames/ dir in it, are
 # left out of the backup: render output and downloaded media, made again on demand.
 BACKUP_TMP_MAX_MB=20
@@ -125,7 +140,9 @@ EXTRA_INCLUDES=(
 # Optional second backup destination OFF Google Drive (external disk or another
 # cloud mount). Empty = disabled. Google Drive is both the backup target AND a
 # primary data source, so a single account lockout takes both at once; a copy
-# here breaks that single point of failure. Each verified archive is copied here.
+# here breaks that single point of failure. Each verified archive is copied here,
+# and if the disk is absent then, the resume agent copies the newest one when it
+# next finds the disk (it also fires on every mount).
 LOCAL_BACKUP_DIR="/Volumes/Extreme SSD/Exobrain backups"
 # How many archives to keep at LOCAL_BACKUP_DIR (newest first). Keep-newest-N,
 # not the cloud's GFS: the full GFS set is ~13 archives at ~9GB each, which
