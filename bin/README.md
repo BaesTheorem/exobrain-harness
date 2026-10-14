@@ -9,6 +9,7 @@ Loose command-line tools that belong to no single module. Each line below comes 
 | `deezer-dl` | Downloads a track from Deezer given a Deezer or Spotify link, for when Spotify's free tier cannot download. |
 | `drive-evict` | Drops the local bytes of Google Drive (or any File Provider) files, leaving cloud-only placeholders; same as Finder's "Remove Download". |
 | `drive-fetch` | Reads a Google Drive file's bytes through the Drive API, bypassing the DriveFS mount when its on-demand hydration wedges (EDEADLK). |
+| `icon-render` | Draws the icon that macOS shows for a file or app bundle into a PNG, as Finder and the Dock get it, to check how macOS frames a new app icon. |
 | `jackbox` | Plays Jackbox party games from the command line: launch a CDP-driven Chrome, join a room, run the autopilot. Used by the `/jackbox` skill. |
 | `letter-pdf` | Renders a plain-markdown letter into a formal, print-ready PDF. |
 | `linkedin-mcp` | Launches `mcp-server-linkedin` in real headless mode instead of macOS hidden-target mode, which breaks every navigation. Registered as the `linkedin` MCP server. |

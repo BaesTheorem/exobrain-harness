@@ -1,0 +1,27 @@
+#!/usr/bin/env swift
+// icon-render: draws the icon that macOS shows for a file or an app bundle into a
+// PNG, on a teal background, as Finder and the Dock get it from NSWorkspace. Use
+// it to see how macOS frames a new app icon (it rounds the corners of a
+// full-square icon, for example) before a person sees it.
+//
+//   icon-render PATH OUT.png [SIZE]     SIZE in pixels, default 256
+import AppKit
+
+let args = CommandLine.arguments
+guard args.count >= 3 else {
+    FileHandle.standardError.write("usage: icon-render PATH OUT.png [SIZE]\n".data(using: .utf8)!)
+    exit(2)
+}
+let size = CGFloat(Double(args.count > 3 ? args[3] : "256") ?? 256)
+let icon = NSWorkspace.shared.icon(forFile: args[1])
+icon.size = NSSize(width: size, height: size)
+let rep = NSBitmapImageRep(bitmapDataPlanes: nil, pixelsWide: Int(size), pixelsHigh: Int(size),
+                           bitsPerSample: 8, samplesPerPixel: 4, hasAlpha: true, isPlanar: false,
+                           colorSpaceName: .deviceRGB, bytesPerRow: 0, bitsPerPixel: 0)!
+NSGraphicsContext.saveGraphicsState()
+NSGraphicsContext.current = NSGraphicsContext(bitmapImageRep: rep)
+NSColor(calibratedRed: 0.16, green: 0.43, blue: 0.43, alpha: 1).setFill()
+NSRect(x: 0, y: 0, width: size, height: size).fill()
+icon.draw(in: NSRect(x: 0, y: 0, width: size, height: size))
+NSGraphicsContext.restoreGraphicsState()
+try rep.representation(using: .png, properties: [:])!.write(to: URL(fileURLWithPath: args[2]))
