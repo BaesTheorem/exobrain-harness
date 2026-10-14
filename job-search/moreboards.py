@@ -27,8 +27,8 @@ a single function plus an entry in SOURCES.
   jooble           Jooble REST API, keyed (JOOBLE_API_KEY in .env, 500-request
                    default limit, 2 calls per query). Aggregates many boards.
   adzuna           Adzuna API, keyed (ADZUNA_APP_ID/KEY). Free plan = 25 calls
-                   in total, so it is opt-in: --sources adzuna. Predicted
-                   salaries are discarded.
+                   in total; it runs daily and archives itself when they are
+                   gone (state/adzuna-quota.json). Predicted salaries dropped.
 
 Gates (the same rules as dice.py and indeed.py):
   title     KEEP an in-lane word, DROP seniority and specialist mismatches
@@ -447,21 +447,63 @@ def jooble(q, days):
     return out
 
 
+ADZUNA_QUOTA = Path(__file__).resolve().parent / "state" / "adzuna-quota.json"
+ADZUNA_FREE_CALLS = 25
+
+
+class ArchivedSource(Exception):
+    """The source is retired; main() reports it as ARCHIVED, not as a failure."""
+
+
+def _adzuna_quota() -> dict:
+    # One call was spent by hand on 2026-10-13 to test the key.
+    return (json.loads(ADZUNA_QUOTA.read_text()) if ADZUNA_QUOTA.exists()
+            else {"calls": 1, "limit": ADZUNA_FREE_CALLS, "archived": None})
+
+
+def _adzuna_archive(q: dict, why: str) -> None:
+    q["archived"] = f"{dt.date.today().isoformat()}: {why}"
+    ADZUNA_QUOTA.parent.mkdir(exist_ok=True)
+    ADZUNA_QUOTA.write_text(json.dumps(q, indent=1))
+    raise ArchivedSource(q["archived"])
+
+
 def adzuna(q, days):
-    """Adzuna API. The free plan is 25 test calls in total (paid plan GBP 8 a
-    month), so this source is NOT in the default run: pass --sources adzuna.
-    Salaries flagged salary_is_predicted are estimates and are dropped."""
+    """Adzuna API on the free plan: 25 calls in total (the paid plan is GBP 8 a
+    month). Alex chose 2026-10-13 to run it daily until the calls are gone, then
+    archive it. The script counts calls in state/adzuna-quota.json and archives
+    the source itself, when the count reaches the limit or when Adzuna answers
+    with an auth or quota error. Delete that file to re-enable it (for example
+    after a paid upgrade, with "limit" raised). Salaries flagged
+    salary_is_predicted are estimates and are dropped."""
+    quota = _adzuna_quota()
+    if quota.get("archived"):
+        raise ArchivedSource(quota["archived"])
     app_id, key = _env("ADZUNA_APP_ID"), _env("ADZUNA_APP_KEY")
     if not (app_id and key):
         raise RuntimeError("ADZUNA_APP_ID / ADZUNA_APP_KEY missing from .env")
     out = []
     for what, where in ((f"{q} remote", None), (q, "Kansas City")):
+        if quota["calls"] >= quota["limit"]:
+            _adzuna_archive(quota, f"used all {quota['limit']} free calls")
         params = {"app_id": app_id, "app_key": key, "results_per_page": 50, "what": what,
                   "max_days_old": days, "sort_by": "date", "content-type": "application/json"}
         if where:
             params |= {"where": where, "distance": 60}
-        d = json.loads(http("https://api.adzuna.com/v1/api/jobs/us/search/1?" + urllib.parse.urlencode(params)))
-        for j in d.get("results", []):
+        try:
+            body = http("https://api.adzuna.com/v1/api/jobs/us/search/1?" + urllib.parse.urlencode(params))
+        except Exception as e:  # noqa: BLE001  (classify the failure below)
+            resp = getattr(e, "response", None)
+            status = getattr(resp, "status_code", None)
+            text = (getattr(resp, "text", "") or str(e)).lower()
+            if status in (401, 403, 429) or re.search(r"limit|exceed|quota|plan|usage", text):
+                quota["calls"] += 1
+                _adzuna_archive(quota, f"Adzuna refused the call (HTTP {status}): {text[:80]}")
+            raise
+        quota["calls"] += 1
+        ADZUNA_QUOTA.parent.mkdir(exist_ok=True)
+        ADZUNA_QUOTA.write_text(json.dumps(quota, indent=1))
+        for j in json.loads(body).get("results", []):
             predicted = str(j.get("salary_is_predicted")) == "1"
             loc = (j.get("location") or {}).get("display_name", "")
             title = j.get("title") or ""
@@ -481,8 +523,9 @@ SOURCES = {
     "jibe-bjc": jibe("bjc"), "oracle-health": oracle_health, "higheredjobs": higheredjobs,
     "hn-hiring": hn_hiring, "jooble": jooble, "adzuna": adzuna,
 }
-# Rationed sources: run only when named in --sources.
-OPT_IN = {"adzuna"}
+# Rationed sources: run only when named in --sources. Empty since 2026-10-13:
+# adzuna runs daily and archives itself when its free calls are gone.
+OPT_IN: set[str] = set()
 # HN posts and HigherEdJobs titles are matched by keyword only, so they get
 # no date window beyond the thread / feed itself.
 NO_DATE_WINDOW = {"hn-hiring"}
@@ -549,9 +592,13 @@ def main() -> None:
             print(f"== {name}: unknown source")
             continue
         got, errs = [], []
+        archived = ""
         for q in a.queries:
             try:
                 got += fn(q, a.days)
+            except ArchivedSource as e:
+                archived = str(e)
+                break
             except Exception as e:  # noqa: BLE001  (one failing board must not stop the lane)
                 errs.append(f"{q!r}: {str(e)[:90]}")
         kept = 0
@@ -570,6 +617,11 @@ def main() -> None:
         status = "NOT RUN" if errs and not got else ("PARTIAL" if errs else "ok")
         print(f"== {name:16s} {status:8s} {len(got):4d} rows, {kept:3d} new in window"
               + (f"  ERRORS: {'; '.join(errs)}" if errs else ""))
+        if archived:
+            print(f"   ~ {name} ARCHIVED ({archived}). Not a failure; the source is retired.")
+        if name == "adzuna" and not archived:
+            quota = _adzuna_quota()
+            print(f"   ~ adzuna free calls used: {quota['calls']}/{quota['limit']}")
 
     print(f"\n{len(urls)} unique in window | {fresh_seen} already shown | "
           f"{len(buckets['survivor'])} survivors | {len(buckets['lead'])} leads | "
