@@ -409,6 +409,14 @@
     "notes": "Reads the 'Gamepad test' lines that --fake-gamepad runs log once a second, and dumpprops lines for player Location/Rotation, player.cam Location and player.myHUD DebugString. Rows with CutState are cutscene cameras."
   },
   {
+    "name": "hp1-check-staged",
+    "command": "scripts/check-staged.sh FILE...",
+    "repo_dir": "/Users/alexhedtke/Documents/hp1-sorcerers-stone-macos",
+    "source": "built",
+    "added": "2026-10-14",
+    "notes": "Paths are relative to native/SurrealEngine. Needs a configured build (build/CMakeFiles/SurrealCommon.dir/flags.make). Pair with patchutils: git diff -- FILE | grepdiff -E PATTERN --output-matching=hunk | git apply --cached. Checks compile only (no link)."
+  },
+  {
     "name": "hp1-fn",
     "command": "python3 scripts/re/fn.py AActor::execPlayAnim 10302b17 [--dll Engine.dll] [--list]",
     "repo_dir": "~/Documents/hp1-sorcerers-stone-macos/scripts/re",
