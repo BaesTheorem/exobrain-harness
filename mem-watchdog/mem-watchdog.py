@@ -489,9 +489,16 @@ def _deliver(title, message, sound, urgency, actions, context, nid):
         return "failed"
 
 
+# Only these kinds raise a banner. The other kinds (pressure, cleared, swap,
+# growth, level) go to the event log only.
+BANNER_KINDS = {"critical", "kill"}
+
+
 def notify(kind, title, message, sound="none", urgency=None, actions=(), context="", nid=None):
     """Non-blocking. The tick never waits on a banner, a DM or a stalled helper."""
     _log(EVENT_FILE, "NOTIFY[{}] {} | {}".format(kind, title, message))
+    if kind not in BANNER_KINDS:
+        return
     if not NOTIFY:
         return
 
