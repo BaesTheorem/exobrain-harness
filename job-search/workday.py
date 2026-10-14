@@ -51,7 +51,7 @@ import time
 import urllib.parse
 import urllib.request
 
-from comp_floors import comp_floor
+from comp_floors import comp_floor, onsite_floor
 from note_link import active_notes
 from note_link import match as note_match
 from note_link import record as note_record
@@ -60,6 +60,7 @@ UA = ("Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 "
       "(KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36")
 
 COMP_FLOOR = comp_floor()  # standard-lane floor, from the harness .env
+ONSITE_FLOOR = onsite_floor()  # any office requirement inside the KC metro
 HOURS_PER_YEAR = 2080
 
 VAULT = os.path.expanduser("~/Exobrain")
@@ -116,6 +117,12 @@ KEEP = re.compile(
 REMOTE = re.compile(
     r"\bremote\b|work at home|work from home|home[- ]based|telecommut|"
     r"\bwfh\b|\bvirtual\b|\banywhere\b", re.I)
+# Same list as dice.py / indeed.py. Workday location buckets read like
+# "Kansas City, MO", "Kansas City Kansas", "Overland Park, KS - Corporate".
+KC_METRO = re.compile(
+    r"kansas city|overland park|lenexa|olathe|lee'?s summit|independence, mo|"
+    r"shawnee|leawood|merriam|mission, ks|prairie village|north kansas city|"
+    r"liberty, mo|blue springs|grandview|raytown|gladstone|riverside, mo", re.I)
 # Checked against title AND location: the location field is the tenant's coarse
 # bucket and routinely says "Remote" for a seat the title marks hybrid or
 # city-bound (<Employer B>: "Analyst I ... (Hybrid, <City>)" under "USA - Remote").
@@ -296,14 +303,14 @@ def parse_comp(text: str) -> tuple[float | None, float | None, str]:
     return None, None, "not stated"
 
 
-def gate_comp(lo: float | None, hi: float | None) -> tuple[str, str]:
+def gate_comp(lo: float | None, hi: float | None, floor: int = COMP_FLOOR) -> tuple[str, str]:
     """Band rule: a listed range passes if the floor falls anywhere inside it."""
     if lo is None and hi is None:
         return "lead", "comp not stated in JD -- needs a judgment call"
     top = hi if hi is not None else lo
-    if top is not None and top < COMP_FLOOR:
+    if top is not None and top < floor:
         return "decline", "band top $%s under floor" % f"{int(top):,}"
-    if lo is not None and lo < COMP_FLOOR:
+    if lo is not None and lo < floor:
         return "pass", "BAND-STRADDLE: bottom $%s under floor" % f"{int(lo):,}"
     return "pass", "clears floor"
 
@@ -323,14 +330,19 @@ def gate(j: dict, d: dict) -> tuple[str, str]:
         return "decline", "gate 2: %s" % d["time_type"]
     where = d["loc"] or j["loc"]
     title = d["title"] or j["title"]
-    if HYBRID.search(title) or HYBRID.search(where):
-        return "decline", 'gate 1: hybrid/onsite marker in "%s | %s"' % (title, where)
     if NON_US.search(title) or NON_US.search(where):
         return "decline", 'gate 1: non-US seat in "%s | %s"' % (title, where)
-    if not REMOTE.search(where):
-        return "decline", "gate 1: %s" % where
-    verdict, why = gate_comp(d["lo"], d["hi"])
-    return verdict, ("gate 3: %s" % why) if verdict == "decline" else why
+    # A seat in the KC metro is in scope onsite or hybrid, at the onsite floor
+    # (added 2026-10-13 with the KC employer boards: KUMC, UMB, Federal Reserve).
+    local = KC_METRO.search(where) and (not REMOTE.search(where) or HYBRID.search(title + where))
+    if not local:
+        if HYBRID.search(title) or HYBRID.search(where):
+            return "decline", 'gate 1: hybrid/onsite marker in "%s | %s"' % (title, where)
+        if not REMOTE.search(where):
+            return "decline", "gate 1: %s" % where
+    verdict, why = gate_comp(d["lo"], d["hi"], ONSITE_FLOOR if local else COMP_FLOOR)
+    tag = " [KC-LOCAL: $%s onsite floor]" % f"{ONSITE_FLOOR:,}" if local else ""
+    return verdict, (("gate 3: %s" % why) if verdict == "decline" else why) + tag
 
 
 def detail(board: dict, path: str) -> dict:
