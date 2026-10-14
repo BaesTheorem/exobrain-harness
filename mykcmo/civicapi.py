@@ -466,6 +466,31 @@ def update_requests_for(record: dict, mine: list[dict]) -> list[dict]:
             and any(k and k in str(r.get("description") or "") for k in keys)]
 
 
+def merged_timeline(issue_id: str, detail: dict, mine: list[dict]) -> list[dict]:
+    """A report's staff timeline, plus each update request that names it and
+    all staff activity on that request, sorted by time. Update requests are
+    separate city cases; this puts them on the report they ask about.
+    Each entry: at (epoch), when, title, details."""
+    import time
+
+    def entries(d: dict, prefix: str = "") -> list[dict]:
+        return [{"at": float(h.get("timestamp") or 0), "when": h.get("dateofupdate"),
+                 "title": prefix + str(h.get("title") or ""), "details": h.get("details")}
+                for h in d.get("history_object") or []]
+
+    rows = entries(detail)
+    for req in update_requests_for({**detail, "id": issue_id}, mine):
+        try:
+            rd = report_detail(str(req.get("id")))
+        except CivicError:
+            continue
+        at = float(rd.get("added_on") or 0)   # the detail endpoint's epoch is right
+        rows.append({"at": at, "when": time.strftime("%m/%d/%Y %I:%M %p", time.localtime(at)),
+                     "title": "Update requested", "details": f"Update request {req.get('id')}, now {rd.get('status')}."})
+        rows += entries(rd, f"Update request {req.get('id')}: ")
+    return sorted(rows, key=lambda e: e["at"])
+
+
 def last_asked(record: dict, mine: list[dict]) -> float:
     """When an update was last requested for this report (0 if never)."""
     return max((filed(r) for r in update_requests_for(record, mine)), default=0.0)

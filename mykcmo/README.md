@@ -80,7 +80,20 @@ Request Update for each open report that has had no movement and no update
 request for 7 days (`civicapi.due_for_update`), then sends one banner and
 one Discord DM. Filed update requests appear in the city's "my reports" list
 for the shared device id, so this job and the KC 311 iPhone app read the
-same record and never ask twice.
+same record and never ask twice. The city stores an update request as
+"Administration or Questions", so `is_update_request` also reads the request
+text ("Please send an update on").
+
+### Ticket update alerts
+
+`watch_updates.py` runs every 5 minutes (launchd
+`com.exobrain.mykcmo-watch-updates`, plist in this folder). It reads "my
+reports" once. When the status or `updated_on` of a report, or of an update
+request that names it, changes, it reads the merged timeline
+(`civicapi.merged_timeline`) and sends the new entries as one banner and one
+Discord DM. The DM is the phone push. State is in `watch-state.json`
+(gitignored). If the file is missing, the next run records the current
+entries and sends nothing.
 
 ### Key rotation
 
