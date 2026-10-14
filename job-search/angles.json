@@ -1,0 +1,27 @@
+{
+  "titles": [
+    "IT analyst",
+    "security analyst",
+    "IAM analyst",
+    "cybersecurity analyst I",
+    "GRC analyst",
+    "IT auditor",
+    "M365 administrator",
+    "service desk analyst",
+    "SOC analyst",
+    "information security analyst",
+    "associate cybersecurity analyst",
+    "IT support specialist"
+  ],
+  "phrases": [
+    "access provisioning",
+    "Entra ID",
+    "phishing remediation",
+    "compromised account",
+    "Intune endpoint",
+    "email security",
+    "identity governance",
+    "Conditional Access",
+    "help desk"
+  ]
+}

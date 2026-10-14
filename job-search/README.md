@@ -106,6 +106,10 @@ Daily unattended discovery scan for the `/job-search` skill.
   starting pay only, so a start under the onsite floor prints as a lead, not a decline. WATCH
   titles (CISO, information security, cybersecurity, CIO/CTO) always print, whatever the
   seniority or comp. Snapshot in `state/kcmo-snapshot.json`; the first run is a baseline.
+- **`angles.py`** + **`angles.json`** (added 2026-10-13) -- the keyword rotation. `next` takes
+  the 3 titles and 2 duty phrases used least recently, prints the command line for every
+  keyword lane, and records the date in `state/angles-used.json`; a same-day rerun reprints
+  the same set. With 12 titles and 9 phrases every angle runs at least once every 5 days.
 - **`indeed.py`** (rewritten 2026-10-13) -- real Chrome in new headless mode through patchright.
   Logged-out Indeed shows page 1 only (page 2 and later redirect to the sign-in page), so
   each query loads page 1 sorted by date, with a remote pass and a KC-local pass, and prints
