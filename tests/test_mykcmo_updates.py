@@ -36,3 +36,8 @@ def test_recent_ask_blocks_a_second_one():
 def test_update_requests_for_finds_only_asks_naming_the_report():
     mine = [report("1", T0), ask("2", T0, "1"), ask("3", T0, "9"), report("4", T0)]
     assert [r["id"] for r in civicapi.update_requests_for(report("1", T0), mine)] == ["2"]
+
+
+def test_update_request_is_never_due_itself():
+    mine = [ask("2", T0, "1")]
+    assert civicapi.due_for_update(mine, now=T0 + 60 * DAY) == []
