@@ -1,7 +1,7 @@
 """Pages behind a Cloudflare challenge (edckc.com, kcmo.gov), read with a real Chrome.
 
 curl, curl_cffi and a plain request context all get 403 from these sites. A real
-Chrome window (patchright, placed off screen) passes the challenge, and a fetch()
+Chrome (patchright, headless with a normal UA) passes the challenge, and a fetch()
 run inside that page reuses the cleared session for feeds and PDFs.
 
 INVARIANTS:
@@ -20,15 +20,19 @@ from pathlib import Path
 from typing import Iterator
 
 
+UA = ("Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 "
+      "(KHTML, like Gecko) Chrome/155.0.0.0 Safari/537.36")  # headless says "HeadlessChrome"
+
+
 @contextmanager
 def browser_page(home: str) -> Iterator[object]:
     from patchright.sync_api import sync_playwright
 
     with sync_playwright() as p:
-        b = p.chromium.launch(channel="chrome", headless=False,
-                              args=["--window-position=-2600,-2600", "--window-size=1100,800"])
+        # Headless: a windowed Chrome placed off screen still comes forward and takes focus.
+        b = p.chromium.launch(channel="chrome", headless=True)
         try:
-            pg = b.new_page()
+            pg = b.new_page(user_agent=UA, viewport={"width": 1100, "height": 800})
             pg.goto(home, timeout=90000)
             for _ in range(30):
                 if "Just a moment" not in pg.title():

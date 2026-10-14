@@ -7,7 +7,7 @@ This tool syncs selected Kansas City, Missouri public meetings to Google Calenda
 | Source | Bodies | How it is read |
 |---|---|---|
 | [KCMO Legistar Web API](https://webapi.legistar.com/v1/kansascity/bodies) | City Council, Business Session, the three council committees, PIAC, City Plan Commission, Land Bank, Vision Zero Task Force, Board of Zoning Adjustment, Multi-Modal Transportation Commission | Plain HTTPS. No API key is necessary. The JSON contains raw control characters, so it is parsed with `strict=False`. |
-| [EDC of Kansas City events](https://edckc.com/events/) | TIF Commission, PIEA, LCRA | The iCal feed, read through an off-screen Chrome because the site has a Cloudflare challenge |
+| [EDC of Kansas City events](https://edckc.com/events/) | TIF Commission, PIEA, LCRA | The iCal feed, read through a headless Chrome because the site has a Cloudflare challenge |
 | kcmo.gov body pages (`pages` in `config.json`) | City Plan Commission | The same browser lane. The page holds the docket link and the testimony rules. |
 
 Change the body list in `config.json`. A Legistar `name` must match `EventBodyName`. Legistar posts a meeting only a small number of days before it occurs, so Thursday council sessions show up on the calendar during the week before.
@@ -45,7 +45,7 @@ bin/kc-civic status
 4. The calendar entry gets the prep note link and the verdict (`speak`, `written-comment`, `watch`, or `skip`).
 5. One digest notification for each pass (banner and Discord), and only when something new occurred.
 
-launchd runs it at 06:30, 12:30 and 18:30 (`com.exobrain.kc-civic.plist`). The browser work occurs only on the first pass of the day, so the off-screen Chrome runs while nobody uses the Mac.
+launchd runs it at 06:30, 12:30 and 18:30 (`com.exobrain.kc-civic.plist`). The browser work occurs only on the first pass of the day, and the headless Chrome never shows a window.
 
 ## Security
 

@@ -76,6 +76,8 @@ PS = ("https://psweb.kcmo.org/psc/ps/MOBILE/MOBL/c/HRS_HRAM_FL.HRS_CG_SEARCH_FL.
 LIST_URL = PS + "&Page=HRS_APP_SCHJOB"
 EXEC_URL = ("https://www.kcmo.gov/city-hall/departments/human-resources/"
             "job-opportunities-at-kcmo/kcmo-executive-careers")
+UA = ("Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 "
+      "(KHTML, like Gecko) Chrome/155.0.0.0 Safari/537.36")  # headless says "HeadlessChrome"
 SNAPSHOT = HERE / "state" / "kcmo-snapshot.json"
 
 
@@ -214,10 +216,10 @@ def main() -> None:
     exec_titles: list[str] = []
     exec_err = ""
     with sync_playwright() as p:
-        b = p.chromium.launch(channel="chrome", headless=False,
-                              args=["--window-position=-2600,-2600", "--window-size=1200,900"])
+        # Headless: a windowed Chrome placed off screen still comes forward and takes focus.
+        b = p.chromium.launch(channel="chrome", headless=True)
         try:
-            pg = b.new_page()
+            pg = b.new_page(user_agent=UA, viewport={"width": 1200, "height": 900})
             try:
                 rows, header = read_board(pg)
             except Exception as e:  # noqa: BLE001  (any browser failure = lane did not run)
