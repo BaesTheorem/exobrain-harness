@@ -2,7 +2,10 @@
   "default": "generic",
   "printers": {
     "generic": {
-      "bed": [220, 220],
+      "bed": [
+        220,
+        220
+      ],
       "height": 250,
       "nozzle": 0.4,
       "gcode_flavor": "marlin2",
@@ -10,12 +13,25 @@
       "note": "Conservative default (Ender-3 class bed). Replace once the second printer's model is known."
     },
     "bambu": {
-      "bed": [256, 256],
+      "bed": [
+        256,
+        256
+      ],
       "height": 256,
       "nozzle": 0.4,
       "gcode_flavor": "marlin2",
       "confirmed": false,
       "note": "Housemate's Bambu Lab printer. Model unconfirmed: P1/X1 class is 256 cubed, an A1 mini is 180 cubed. Final slicing happens in Bambu Studio, not here."
+    },
+    "ibox-mono": {
+      "bed": [
+        192,
+        120
+      ],
+      "height": 200,
+      "technology": "resin (MSLA)",
+      "confirmed": false,
+      "note": "Alex's QIDI i-Box Mono resin printer. 192x120x200 mm from a retailer listing (3djake), not from QIDI documentation. Slice in a resin slicer (ChituBox/Lychee); the slice command here is FDM only."
     }
   }
 }
