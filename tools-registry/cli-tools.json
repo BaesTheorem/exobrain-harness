@@ -698,6 +698,14 @@
     "notes": "Each piece is a uv script that imports pianokit. Needs fluidsynth, ffmpeg, and the 1.27 GB Salamander SF2 in ~/Library/Audio/Sounds/Banks (download in the README). Accompaniment below velocity 37 is almost silent in that bank. --balance shows whether the melody sits 3-5 LU above the accompaniment. --tuning just writes MIDI Tuning Standard messages per chord (files get a -just suffix). Output goes to tmp/audio/."
   },
   {
+    "name": "plaud-fetch.py",
+    "command": "python3 scripts/plaud-fetch.py [--refresh]",
+    "repo_dir": "/Users/alexhedtke/Documents/guardian-angel",
+    "source": "built",
+    "added": "2026-10-14",
+    "notes": "Spawns node on the local @plaud-ai/mcp dist/index.js (PLAUD_MCP_JS overrides) and calls list_files + get_transcript over stdio JSON-RPC, so it shares the MCP's login; if 'Not authenticated', run the MCP login tool first (callback listener on :8199 lives only 2 min). API returns 429 after ~100 transcripts: 1.5 s delay + backoff built in. ~8 recordings have no cloud transcript (no JSON reply). Output data/plaud/<file_id>.json, gitignored."
+  },
+  {
     "name": "priory",
     "command": "~/Documents/the-priory/bin/priory <status|ingest|feeds-load|serve|embed-warmup>",
     "repo_dir": "/Users/alexhedtke/Documents/the-priory",
