@@ -803,10 +803,12 @@ def get_311_report_status(issue_id: str) -> dict:
         return _key_error(exc)
     timeline = [{"when": h.get("dateofupdate"), "title": h.get("title"), "details": h.get("details")}
                 for h in sorted(d.get("history_object") or [], key=lambda h: str(h.get("timestamp", "")))]
+    # issue_resolution is left out: it is the city's whole list of canned closing
+    # texts, not this report's outcome, and some contain other residents' names.
     return {"case_number": civicapi.case_number(d) or None, "status": d.get("status"), "type": d.get("type"),
             "sub_type": d.get("subtype"), "address": d.get("address"), "description": d.get("description"),
             "photos": d.get("issue_image") or [], "timeline": timeline,
-            "resolution": d.get("issue_resolution") or [], "can_add_note": d.get("citizen_allow_to_send_note") == 1}
+            "can_add_note": d.get("citizen_allow_to_send_note") == 1}
 
 
 @mcp.tool()
