@@ -730,12 +730,12 @@ def _write(path: Path, sid: str, covered, prev, args) -> int:
         (LOG_DIR / "injection-scan.log").open("a", encoding="utf-8").write(
             f"[{dt.datetime.now():%Y%m%d_%H%M%S}] session-memory writer output flagged:\n"
             + "".join(f"  {ln}\n" for ln in flagged))
-    if not args.quiet:
+    # A routine save is silent. Only a scanner hit raises a banner.
+    if flagged and not args.quiet:
         rel = note_path.relative_to(VAULT).with_suffix("")
         link = "obsidian://open?vault=Exobrain&file=" + str(rel).replace(" ", "%20")
         title = meta["title"] or note_path.stem
-        notify(f"Session memory saved: {title}" + (f" (+{len(zlinks)} zettel)" if zlinks else ""),
-               link, "Basso" if flagged else "Purr")
+        notify(f"Session memory flagged by injection scan: {title}", link, "Basso")
     print(str(note_path))
     return 0
 
@@ -1076,9 +1076,6 @@ def cmd_consolidate(args) -> int:
         notify(f"Session-memory consolidator: {reason}", "console", "Basso")
         print(f"{stamp()} Done (FAILED: {reason})")
         return 1
-    if notes_today:
-        notify(f"Consolidated {notes_today} session note(s) for {today}",
-               "obsidian://open?vault=Exobrain&file=Claude/Index")
     print(f"{stamp()} Done ({notes_today} note(s) today)")
     return 0
 
