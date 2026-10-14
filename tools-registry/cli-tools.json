@@ -104,6 +104,14 @@
     "notes": "Static file:// page of draggable javascript: bookmarklets (Wayback snapshot, Wayback Save Page Now). Add new ones to the BM object in index.html."
   },
   {
+    "name": "census.py",
+    "command": "python3 scripts/census.py [--only SOURCE] [--json]",
+    "repo_dir": "/Users/alexhedtke/Documents/guardian-angel",
+    "source": "built",
+    "added": "2026-10-14",
+    "notes": "Stdlib only. Reads Plaud JSON transcripts, iMessage cache (uses imessage-reader.py decoder), Gmail Maildir ~/Mail/gmail (address from CENSUS_EMAIL or git config), ~/.claude/projects session logs (filters routine prompts, sidechains, skill bodies; >800-word messages = unknown tier), vault Alex's Notes + [!alex] callouts, Discord digest + claude-bot chatter, site posts.json. Full run ~3 min. Writes data/census.json (gitignored), never writes text. Do not wrap in mist-progress: the pty swallows the table."
+  },
+  {
     "name": "check_boundaries.py",
     "command": "python3 checks/check_boundaries.py <files>",
     "repo_dir": "~/Documents/Exobrain harness",
