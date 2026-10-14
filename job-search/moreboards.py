@@ -24,6 +24,11 @@ a single function plus an entry in SOURCES.
   higheredjobs     category RSS (IT support, network/system admin). No salary.
   hn-hiring        the monthly HN "Who is hiring" thread via the Algolia API.
                    Free text, so every in-lane remote post is a LEAD.
+  jooble           Jooble REST API, keyed (JOOBLE_API_KEY in .env, 500-request
+                   default limit, 2 calls per query). Aggregates many boards.
+  adzuna           Adzuna API, keyed (ADZUNA_APP_ID/KEY). Free plan = 25 calls
+                   in total, so it is opt-in: --sources adzuna. Predicted
+                   salaries are discarded.
 
 Gates (the same rules as dice.py and indeed.py):
   title     KEEP an in-lane word, DROP seniority and specialist mismatches
@@ -77,7 +82,8 @@ OFF_LANE = re.compile(
     r"investment|supply chain|logistics|payroll|benefits|hr|people|fp&a|business systems|"
     r"business process|data validation|data product|operations risk|claims|compensation|"
     r"treasury|investor|patient|chart|eligibility|building science|procurement|reporting|"
-    r"capital markets|operations)\b[^|]{0,45}\banalyst",
+    r"capital markets|operations|hris|human resources information|geographic information|gis|"
+    r"lis|validation|program|commissions)\b[^|]{0,45}\banalyst",
     re.I)
 OFF_LANE_AFTER = re.compile(
     r"\banalyst\b[^|]{0,6}\b(corporate development|product|revenue|marketing|pricing|"
@@ -408,13 +414,75 @@ def hn_hiring(q, days):
     return out
 
 
+def _env(key: str) -> str | None:
+    """Keys live in the gitignored harness .env, same lookup as comp_floors."""
+    if os.environ.get(key):
+        return os.environ[key]
+    env = Path(__file__).resolve().parent.parent / ".env"
+    for line in env.read_text().splitlines() if env.exists() else []:
+        if line.startswith(key + "="):
+            return line.split("=", 1)[1].strip().strip('"')
+    return None
+
+
+def jooble(q, days):
+    """Jooble REST API (POST /api/<key>). Key emailed on signup 2026-10-13;
+    default limit 500 requests, so two calls per query (remote + KC)."""
+    key = _env("JOOBLE_API_KEY")
+    if not key:
+        raise RuntimeError("JOOBLE_API_KEY missing from .env")
+    since = (dt.date.today() - dt.timedelta(days=days)).isoformat()
+    out = []
+    for where, extra in (("Remote", {}), ("Kansas City, MO", {"radius": "40"})):
+        d = json.loads(http(f"https://jooble.org/api/{key}", {
+            "keywords": q if where != "Remote" else f"{q} remote", "location": where,
+            "datecreatedfrom": since, "page": "1", "ResultOnPage": "50", **extra}))
+        for j in d.get("jobs", []):
+            lo, hi = money_band(j.get("salary") or "")
+            loc = j.get("location") or ""
+            out.append(row("jooble", html.unescape(j.get("title") or ""), j.get("company"), loc,
+                           j.get("link"), remote=bool(REMOTE.search(loc + " " + (j.get("title") or ""))),
+                           lo=lo, hi=hi, jtype=j.get("type") or "", posted=parse_iso(j.get("updated")),
+                           extra=f"via {j.get('source')}" if j.get("source") else ""))
+    return out
+
+
+def adzuna(q, days):
+    """Adzuna API. The free plan is 25 test calls in total (paid plan GBP 8 a
+    month), so this source is NOT in the default run: pass --sources adzuna.
+    Salaries flagged salary_is_predicted are estimates and are dropped."""
+    app_id, key = _env("ADZUNA_APP_ID"), _env("ADZUNA_APP_KEY")
+    if not (app_id and key):
+        raise RuntimeError("ADZUNA_APP_ID / ADZUNA_APP_KEY missing from .env")
+    out = []
+    for what, where in ((f"{q} remote", None), (q, "Kansas City")):
+        params = {"app_id": app_id, "app_key": key, "results_per_page": 50, "what": what,
+                  "max_days_old": days, "sort_by": "date", "content-type": "application/json"}
+        if where:
+            params |= {"where": where, "distance": 60}
+        d = json.loads(http("https://api.adzuna.com/v1/api/jobs/us/search/1?" + urllib.parse.urlencode(params)))
+        for j in d.get("results", []):
+            predicted = str(j.get("salary_is_predicted")) == "1"
+            loc = (j.get("location") or {}).get("display_name", "")
+            title = j.get("title") or ""
+            out.append(row("adzuna", title, (j.get("company") or {}).get("display_name"), loc,
+                           j.get("redirect_url"), remote=bool(REMOTE.search(title + " " + loc)),
+                           lo=None if predicted else j.get("salary_min"),
+                           hi=None if predicted else j.get("salary_max"),
+                           jtype=" ".join(x for x in (j.get("contract_type"), j.get("contract_time")) if x),
+                           posted=parse_iso(j.get("created"))))
+    return out
+
+
 SOURCES = {
     "simplyhired": simplyhired, "smartrecruiters": smartrecruiters, "workable": workable,
     "clearancejobs": clearancejobs, "workingnomads": workingnomads, "jobicy": jobicy,
     "remoteok": remoteok, "jibe-garmin": jibe("garmin"), "jibe-hrblock": jibe("hrblock"),
     "jibe-bjc": jibe("bjc"), "oracle-health": oracle_health, "higheredjobs": higheredjobs,
-    "hn-hiring": hn_hiring,
+    "hn-hiring": hn_hiring, "jooble": jooble, "adzuna": adzuna,
 }
+# Rationed sources: run only when named in --sources.
+OPT_IN = {"adzuna"}
 # HN posts and HigherEdJobs titles are matched by keyword only, so they get
 # no date window beyond the thread / feed itself.
 NO_DATE_WINDOW = {"hn-hiring"}
@@ -456,7 +524,8 @@ def main() -> None:
     ap = argparse.ArgumentParser()
     ap.add_argument("queries", nargs="+")
     ap.add_argument("--days", type=int, default=3)
-    ap.add_argument("--sources", default=",".join(SOURCES), help="comma list; default all")
+    ap.add_argument("--sources", default=",".join(k for k in SOURCES if k not in OPT_IN),
+                    help="comma list; default all except the rationed: " + ",".join(OPT_IN))
     ap.add_argument("--all", action="store_true", help="print rows already shown on earlier runs")
     ap.add_argument("--verbose", action="store_true", help="list declined rows")
     ap.add_argument("--no-save", action="store_true", help="do not update the seen-file")

@@ -115,7 +115,9 @@ Daily unattended discovery scan for the `/job-search` skill.
   RemoteOK, the Jibe careers APIs of Garmin, H&R Block and BJC, Oracle Health's Oracle HCM
   search, HigherEdJobs RSS, and the HN "Who is hiring" thread. One gate for all of them
   (remote US at the comp floor, KC metro at the onsite floor). A seen-file in `state/`
-  limits each run to postings it has not shown before.
+  limits each run to postings it has not shown before. Jooble (`JOOBLE_API_KEY`) runs by
+  default; Adzuna (`ADZUNA_APP_ID`/`ADZUNA_APP_KEY`, 25 free calls in total) runs only with
+  `--sources adzuna`.
 - **`aggregator.py`** (added 2026-10-13) -- the open job-board-aggregator dataset
   (github.com/Feashliaa/job-board-aggregator, about 1.4M postings from seven ATS platforms,
   rebuilt daily). Streams one gzip chunk at a time and keeps remote-US and KC-metro titles
