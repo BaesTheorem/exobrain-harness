@@ -16,6 +16,14 @@
     "notes": "Create Apple Reminders, including repeating ones (EventKit via mkreminder.swift). AppleScript cannot set recurrence."
   },
   {
+    "name": "aggregator.py (job-search ATS dataset lane)",
+    "command": "python3 job-search/aggregator.py --days 3 [--all]",
+    "repo_dir": "/Users/alexhedtke/Documents/Exobrain harness/job-search",
+    "source": "built",
+    "added": "2026-10-13",
+    "notes": "Streams 59 gzip chunks (~77 MB) one at a time, peak ~420 MB RSS. Dataset salary is an estimate, never gate 3. Seen-file in job-search/state/aggregator-seen.json."
+  },
+  {
     "name": "ai-bill-scan",
     "command": "python3 congress/ai_bill_scan.py /tmp/billstatus/*.zip -o /tmp/ai-bills.json",
     "repo_dir": "/Users/alexhedtke/Documents/Exobrain harness/congress",
@@ -465,12 +473,28 @@
     "notes": "Builds the native Inbox iPhone app (SwiftUI Gmail client) and pushes it to the paired iPhone over the devicectl tunnel. Free-team signing expires every 7 days; re-run this when the app stops launching. Phone must be unlocked and on USB or same network."
   },
   {
+    "name": "indeed.py (job-search Indeed lane)",
+    "command": "python3 job-search/indeed.py \"<angle>\" ... --days 3 [--no-local]",
+    "repo_dir": "/Users/alexhedtke/Documents/Exobrain harness/job-search",
+    "source": "built",
+    "added": "2026-10-13",
+    "notes": "Real Chrome headless via patchright under uv. Logged-out Indeed shows page 1 only (page 2+ is a sign-in wall); limit=50 triggers Cloudflare. Run 3+ angles for breadth."
+  },
+  {
     "name": "ios-sideload-refresh",
     "command": "ios-sideload/refresh.py",
     "repo_dir": "/Users/alexhedtke/Documents/Exobrain harness/ios-sideload",
     "source": "built",
     "added": "2026-08-23",
     "notes": "Rebuilds and wirelessly reinstalls iOS sideloads before their provisioning profiles expire. --status/--discover/--force/--quiet. Manual only: the twice-daily launchd agent was retired 2026-09-15 when the paid developer plan moved profiles from 7 days to a year."
+  },
+  {
+    "name": "jobspy_lane.py (job-search Glassdoor/ZipRecruiter lane)",
+    "command": "python3 job-search/jobspy_lane.py \"<angle>\" ... --days 3",
+    "repo_dir": "/Users/alexhedtke/Documents/Exobrain harness/job-search",
+    "source": "built",
+    "added": "2026-10-13",
+    "notes": "Re-execs under uv with python-jobspy. ZipRecruiter returned 0 rows (blocked) on 2026-10-13; Glassdoor works. Seen-file in job-search/state/jobspy-seen.json."
   },
   {
     "name": "kc-crash-geocoder",
@@ -576,6 +600,14 @@
     "source": "built",
     "added": "2026-09-05",
     "notes": "Charts a month's long-run climate history for any US county/point. tavg from NOAA nClimGrid county series (1895+); dewpoint and humidity from ERA5 via Open-Meteo (1940+, since nClimGrid has no moisture variables). PEP 723 script, runs via uv, no venv. Writes light + dark PNGs plus source CSV to weather/out/. Trend line carries a 95% band and the headline says 'no detectable trend' when the interval straddles zero. Renamed from monthly-temp-history 2026-09-05."
+  },
+  {
+    "name": "moreboards.py (job-search multi-board lane)",
+    "command": "python3 job-search/moreboards.py \"<angle>\" ... --days 3 [--sources a,b] [--all]",
+    "repo_dir": "/Users/alexhedtke/Documents/Exobrain harness/job-search",
+    "source": "built",
+    "added": "2026-10-13",
+    "notes": "Re-execs under the harness .venv for curl_cffi. Seen-file in job-search/state/moreboards-seen.json limits output to new postings; --no-save for test runs. SimplyHired remote flag comes from the search facet, verify in the JD."
   },
   {
     "name": "mp (missing-person toolkit)",
