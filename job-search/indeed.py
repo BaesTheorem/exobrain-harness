@@ -1,152 +1,244 @@
 #!/usr/bin/env python3
 """Indeed discovery lane for /job-search.
 
-Indeed 403s plain curl/requests/WebFetch, which is why this lane kept getting
-logged as "bot-hostile, skipped". A headless Chromium with a real UA and the
-AutomationControlled blink feature disabled does get through: HTTP 200 with the
-full server-rendered result list.
+Indeed 403s plain curl/requests/WebFetch. Real Chrome (patchright, channel
+"chrome", new headless mode, a normal non-Headless UA) gets HTTP 200 with the
+full server-rendered result list. The script re-execs itself under uv with
+patchright, same as kcmo.py, and never opens a visible window.
 
-Two gotchas worth knowing:
-  * The page HTML contains the substring "captcha" even on a clean load (it is
-    Indeed's challenge infrastructure being referenced, not served). Do NOT use
-    a naive `"captcha" in html` check as a block signal -- it produces a false
-    positive on every successful fetch. Count rendered job cards instead; that
-    is the positive control that the fetch actually worked.
-  * Results embed as JSON in a `window.mosaic.providerData` blob rather than
-    being scrapeable from the card markup alone. The blob is the reliable path.
+Facts measured 2026-10-13, baked in below:
+  * **Logged-out search shows page 1 only.** `start=10` and later redirect to
+    "Sign In | Indeed Accounts" with HTTP 200 and zero cards. That is what the
+    old script logged as "page 2 403 three times". It is a login wall, not
+    throttling, so retries cannot fix it. The lane therefore runs page 1 per
+    query with `sort=date` (newest 15-16 cards), and widens coverage with more
+    query angles and a short `--days` window instead of pagination. Each query
+    prints "shown N of TOTAL" so the coverage gap is visible.
+  * **A cold first load can hit Cloudflare** ("Just a moment...", HTTP 403).
+    Waiting on the same page and then reloading clears it; the next queries in
+    the same browser session load clean.
+  * `limit=50` triggers the Cloudflare challenge; do not add it.
+  * The page HTML contains "captcha" on a clean load. The positive control is
+    the rendered card count (`job_seen_beacon`), never a string search.
+  * The remote facet leaks onsite rows, so gate 1 reads each row's own location.
 
-Indeed is a mirror, not a source of truth: it over-reports "remote" and goes
-stale. Every hit here still needs confirming on the employer's own ATS before
-it earns a listing note.
+Two passes per query, same shape as usajobs.py / dice.py:
+  REMOTE  l=Remote + the remote work-attribute facet, gated at JOB_COMP_FLOOR
+  LOCAL   Kansas City, MO + 35 mi, gated at JOB_ONSITE_FLOOR (any office day)
+
+Indeed is a mirror, not a source of truth: verify every hit on the employer's
+own ATS before it earns a listing note.
 
 Usage:
-    python3 indeed.py "IT analyst" --days 7
+    python3 indeed.py "IT analyst" "identity access" --days 3 [--no-local]
 """
 
 import argparse
 import json
+import os
 import re
+import sys
 import urllib.parse
+from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+UV = os.environ.get("UV", str(Path.home() / ".local/bin/uv"))
+
+
+def _ensure_patchright() -> None:
+    """Re-run this script under uv with patchright when it is not importable."""
+    try:
+        import patchright  # noqa: F401  (import probe only)
+    except ImportError:
+        if os.environ.get("INDEED_REEXEC"):
+            print("indeed lane DID NOT RUN: patchright is not available under uv.")
+            sys.exit(0)
+        os.environ["INDEED_REEXEC"] = "1"
+        os.execv(UV, [UV, "run", "--no-project", "--quiet", "--python", "3.12",
+                      "--with", "patchright", "python", __file__, *sys.argv[1:]])
+
+
+from comp_floors import comp_floor, onsite_floor  # noqa: E402  (sys.path set above)
 
 UA = ("Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 "
-      "(KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36")
-
-# Indeed's "Remote" work-attribute facet token.
-REMOTE_FACET = "0kf:attr(DSQF7);"
+      "(KHTML, like Gecko) Chrome/141.0.0.0 Safari/537.36")
+REMOTE_FACET = "0kf:attr(DSQF7);"  # Indeed's "Remote" work-attribute token
+KC_LOCATION = "Kansas City, MO"
+KC_RADIUS = 35
+KC_METRO = re.compile(
+    r"kansas city|overland park|lenexa|olathe|lee'?s summit|independence, mo|"
+    r"shawnee|leawood|merriam|mission, ks|prairie village|north kansas city|"
+    r"liberty, mo|blue springs|grandview|raytown|gladstone|riverside, mo|"
+    r"belton|gardner|raymore|parkville|kearney|smithville", re.I)
 
 TITLE_DROP = re.compile(
     r"\b(senior|sr\.?|lead|principal|staff|manager|director|head of|architect"
-    r"|engineer i{3,}|epic|cerner|workday|sap|salesforce|mainframe|gis)\b", re.I)
+    r"|engineer i{3,}|vp|vice president|chief|epic|cerner|workday|sap|salesforce"
+    r"|mainframe|gis|sales|account executive|customer success)\b", re.I)
+# Mirrors dice.py: an in-lane title word is required, because Indeed relevance
+# is loose (2026-10-13: "security analyst" returned behavior analysts).
+KEEP = re.compile(
+    r"\b(analyst|it support|it operations|it specialist|helpdesk|help desk|"
+    r"service desk|security|identity|iam|grc|compliance|administrator|m365|"
+    r"microsoft 365|intune|endpoint|desktop support|technical support)\b", re.I)
+OFF_LANE = re.compile(r"\b(behavior analyst|bcba|financial analyst|data analyst|"
+                      r"business analyst|credit analyst|research analyst)\b", re.I)
+BODY_SHOP = re.compile(r"contract|temporary|temp|internship|per diem|seasonal", re.I)
 
 
-def fetch(query, days, pages=2):
-    from playwright.sync_api import sync_playwright
-    out = []
-    with sync_playwright() as p:
-        b = p.chromium.launch(args=["--disable-blink-features=AutomationControlled"])
-        pg = b.new_context(viewport={"width": 1500, "height": 1000},
-                           user_agent=UA).new_page()
-        for i in range(pages):
-            url = ("https://www.indeed.com/jobs?q=%s&l=Remote&sc=%s&fromage=%d&start=%d"
-                   % (urllib.parse.quote(query),
-                      urllib.parse.quote(REMOTE_FACET), days, i * 10))
-            # Indeed throttles intermittently: the same script can 403 one query
-            # and 200 the next. Back off and retry rather than writing the lane
-            # off as blocked.
-            html, cards, status = "", 0, None
-            for attempt in range(3):
-                r = pg.goto(url, wait_until="domcontentloaded", timeout=45000)
-                status = r.status if r else None
-                pg.wait_for_timeout(4000)
-                html = pg.content()
-                cards = html.count("job_seen_beacon")
-                if cards:
-                    break
-                if attempt < 2:
-                    wait = 8 * (attempt + 1)
-                    print("  page %d: HTTP %s, 0 cards -- backing off %ds"
-                          % (i + 1, status, wait))
-                    pg.wait_for_timeout(wait * 1000)
-            print("  page %d: HTTP %s, %d cards" % (i + 1, status, cards))
-            if not cards:
-                print("  still no cards after 3 tries -- treat this query as NOT RUN")
-                break
-            out.extend(parse(html))
-        b.close()
-    return out
+def search_url(query: str, days: int, local: bool) -> str:
+    params = {"q": query, "fromage": str(days), "sort": "date"}
+    if local:
+        params |= {"l": KC_LOCATION, "radius": str(KC_RADIUS)}
+    else:
+        params |= {"l": "Remote", "sc": REMOTE_FACET}
+    return "https://www.indeed.com/jobs?" + urllib.parse.urlencode(params)
 
 
-def parse(html):
-    """Pull job dicts out of the embedded mosaic provider blob."""
-    jobs = []
+def load(pg, url: str) -> tuple[str, int, str]:
+    """Load one results page. Returns (html, card count, status note)."""
+    note = ""
+    for attempt in range(3):
+        r = pg.goto(url, wait_until="domcontentloaded", timeout=45000)
+        status = r.status if r else None
+        # A Cloudflare interstitial can resolve on its own: poll for cards.
+        for _ in range(8):
+            pg.wait_for_timeout(2500)
+            html = pg.content()
+            cards = html.count("job_seen_beacon")
+            if cards:
+                return html, cards, f"HTTP {status}"
+        title = pg.title()
+        if "sign in" in title.lower():
+            return html, 0, "LOGIN WALL (Indeed sign-in page)"
+        note = f"HTTP {status} {title[:30]!r}"
+        if attempt < 2:
+            pg.wait_for_timeout(10000 * (attempt + 1))
+    return "", 0, note + " after 3 tries"
+
+
+def parse(html: str) -> tuple[list[dict], int | None]:
+    """Pull job dicts and the total-count field out of the mosaic blob."""
+    total = None
+    m = re.search(r'"totalJobCount":(\d+)', html)
+    if m:
+        total = int(m.group(1))
     m = re.search(r'window\.mosaic\.providerData\["mosaic-provider-jobcards"\]\s*=\s*(\{.*?\});',
                   html, re.S)
-    if m:
-        try:
-            data = json.loads(m.group(1))
-            results = (data.get("metaData", {})
-                           .get("mosaicProviderJobCardsModel", {})
-                           .get("results", []))
-            for j in results:
-                # jobTypes entries come back as bare strings on some cards and
-                # as {"label": ...} dicts on others; normalise both.
-                types = []
-                for t in (j.get("jobTypes") or []):
-                    types.append(t.get("label") if isinstance(t, dict) else str(t))
-                try:
-                    jobs.append({
-                        "title": j.get("displayTitle") or j.get("title"),
-                        "company": j.get("company"),
-                        "location": j.get("formattedLocation"),
-                        "salary": ((j.get("extractedSalary") or {}).get("min"),
-                                   (j.get("extractedSalary") or {}).get("max")),
-                        "salary_text": (j.get("salarySnippet") or {}).get("text"),
-                        "type": types,
-                        "age": j.get("formattedRelativeTime"),
-                        "url": "https://www.indeed.com/viewjob?jk=%s" % j.get("jobkey"),
-                    })
-                except Exception as e:
-                    # one malformed card must not abort the whole page
-                    print("  skipped a card: %s" % e)
-        except Exception as e:
-            print("  blob parse failed: %s" % e)
-    return jobs
+    if not m:
+        return [], total
+    try:
+        data = json.loads(m.group(1))
+    except json.JSONDecodeError as e:
+        print(f"  blob parse failed: {e}")
+        return [], total
+    jobs = []
+    for j in (data.get("metaData", {}).get("mosaicProviderJobCardsModel", {})
+              .get("results", [])):
+        # jobTypes entries are bare strings on some cards, {"label": ...} on others.
+        types = [t.get("label") if isinstance(t, dict) else str(t)
+                 for t in (j.get("jobTypes") or [])]
+        sal = j.get("extractedSalary") or {}
+        mult = {"hourly": 2080, "weekly": 52, "monthly": 12}.get(sal.get("type", ""), 1)
+        smin, smax = sal.get("min"), sal.get("max")
+        lo = smin * mult if smin else None
+        hi = smax * mult if smax else None
+        jobs.append({
+            "key": j.get("jobkey"),
+            "title": j.get("displayTitle") or j.get("title") or "",
+            "company": j.get("company") or "",
+            "location": j.get("formattedLocation") or "",
+            "remote_flag": bool(j.get("remoteLocation")),
+            "lo": lo, "hi": hi,
+            "salary_text": (j.get("salarySnippet") or {}).get("text") or "",
+            "type": types,
+            "age": j.get("formattedRelativeTime") or "",
+            "url": f"https://www.indeed.com/viewjob?jk={j.get('jobkey')}",
+        })
+    return jobs, total
 
 
-def main():
+def gate(j: dict, local: bool, floor: int, onsite: int) -> tuple[str, str]:
+    if (TITLE_DROP.search(j["title"]) or not KEEP.search(j["title"])
+            or OFF_LANE.search(j["title"])):
+        return "drop", "title pre-filter"
+    loc = j["location"].lower()
+    tag = ""
+    if local or "remote" not in loc:
+        if not KC_METRO.search(loc):
+            return "decline", f"gate1 location {j['location']!r}"
+        if "remote" not in loc:
+            floor, tag = onsite, f" [KC-LOCAL: ${onsite:,} onsite floor]"
+    if any(BODY_SHOP.search(t) for t in j["type"]):
+        return "decline", f"gate2 type {','.join(j['type'])}"
+    if j["hi"] is None:
+        return "lead", f"comp unlisted{tag}"
+    if j["hi"] < floor:
+        return "decline", f"gate3 band tops at ${int(j['hi']):,}{tag}"
+    flag = f" [BAND-STRADDLE: bottom ${int(j['lo']):,}]" if j["lo"] and j["lo"] < floor else ""
+    return "survivor", flag + tag
+
+
+def main() -> None:
     ap = argparse.ArgumentParser()
     ap.add_argument("queries", nargs="+")
-    ap.add_argument("--days", type=int, default=7)
-    ap.add_argument("--pages", type=int, default=2)
+    ap.add_argument("--days", type=int, default=3)
+    ap.add_argument("--no-local", action="store_true", help="skip the KC-local pass")
+    ap.add_argument("--verbose", action="store_true", help="list declined rows")
     args = ap.parse_args()
+    _ensure_patchright()
+    from patchright.sync_api import sync_playwright
 
-    seen, keep = set(), []
-    for q in args.queries:
-        print("== %s" % q)
-        for j in fetch(q, args.days, args.pages):
-            if not j["url"] or j["url"] in seen:
-                continue
-            seen.add(j["url"])
-            if j["title"] and TITLE_DROP.search(j["title"]):
-                continue
-            # Indeed's remote facet leaks: it happily returns Minneapolis /
-            # Herndon / Arlington rows for an l=Remote query. Trust the row's
-            # own location string over the facet.
-            loc = (j["location"] or "").lower()
-            if not ("remote" in loc or loc.strip() in ("united states", "")):
-                j["remote_suspect"] = True
-            keep.append(j)
+    floor, onsite = comp_floor(), onsite_floor()
+    passes = [False] + ([] if args.no_local else [True])
+    seen: dict[str, dict] = {}
+    buckets: dict[str, list] = {k: [] for k in ("survivor", "lead", "decline", "drop")}
+    not_run = []
+    with sync_playwright() as p:
+        b = p.chromium.launch(channel="chrome", headless=True, args=["--headless=new"])
+        try:
+            pg = b.new_context(user_agent=UA, viewport={"width": 1500, "height": 1000}).new_page()
+            for q in args.queries:
+                for local in passes:
+                    label = f"{q} [{'LOCAL KC' if local else 'REMOTE'}]"
+                    html, cards, note = load(pg, search_url(q, args.days, local))
+                    if not cards:
+                        print(f"== {label}: NOT RUN ({note})")
+                        not_run.append(label)
+                        continue
+                    jobs, total = parse(html)
+                    # totalJobCount is Indeed's own estimate and runs below the
+                    # row count on small result sets, so print both as-is.
+                    shown = f"{len(jobs)} rows, Indeed total {total if total is not None else '?'}"
+                    gap = ("  ~ COVERAGE: page 1 only (login wall)"
+                           if total and total > len(jobs) else "")
+                    print(f"== {label}: {note}, {shown}{gap}")
+                    for j in jobs:
+                        if not j["key"] or j["key"] in seen:
+                            continue
+                        seen[j["key"]] = j
+                        verdict, why = gate(j, local, floor, onsite)
+                        buckets[verdict].append((j, why))
+                    pg.wait_for_timeout(3000)
+        finally:
+            b.close()
 
-    print("\n%d post-title-filter of %d unique\n" % (len(keep), len(seen)))
-    for j in keep:
-        lo, hi = j["salary"]
-        comp = j["salary_text"] or (("$%s-$%s" % (int(lo), int(hi))) if lo and hi else "unlisted")
-        flag = "  [NOT REMOTE?]" if j.get("remote_suspect") else ""
-        print("-" * 72)
-        print("%s @ %s%s" % (j["title"], j["company"], flag))
-        print("  %s | %s | %s | %s" % (j["location"], comp, ",".join(j["type"]) or "?", j["age"]))
-        print("  %s" % j["url"])
-    print("\nVerify each on the employer's own ATS before creating a listing note.")
+    print(f"\n{len(seen)} unique | {len(buckets['survivor'])} survivors | "
+          f"{len(buckets['lead'])} leads | {len(buckets['decline'])} declined | "
+          f"{len(buckets['drop'])} title-dropped | {len(not_run)} query-passes NOT RUN\n")
+    sections = [("SURVIVORS -- verify on employer ATS", "survivor"),
+                ("LEADS -- comp unlisted, JD read decides", "lead")]
+    if args.verbose:
+        sections.append(("DECLINED", "decline"))
+    for head, key in sections:
+        print(head)
+        for j, why in buckets[key]:
+            comp = j["salary_text"] or "unlisted"
+            print(f"  {j['title']} @ {j['company']} | {j['location']} | {comp} | "
+                  f"{','.join(j['type']) or '?'} | {j['age']}{(' ' + why) if key != 'decline' else ' -- ' + why}")
+            print(f"    {j['url']}")
+        print()
+    print("Verify each on the employer's own ATS before creating a listing note.")
 
 
 if __name__ == "__main__":
