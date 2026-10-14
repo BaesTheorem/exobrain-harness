@@ -253,6 +253,11 @@ SUBPROCESS_ARGV = re.compile(r"\bsubprocess\.\w+\(\s*\[([^\]]*)\]")
 # A variable handed to subprocess, and a literal list assigned to a name.
 SUBPROCESS_VAR = re.compile(r"\bsubprocess\.\w+\(\s*([A-Za-z_]\w*)\s*[,)]")
 ASSIGNED_LIST = r"(?m)^[ \t]*{name}[ \t]*=[ \t]*\[([^\]]*)\]"
+# The path literal handed to a module loader.
+MODULE_LOADER = re.compile(
+    r"\b(?:spec_from_file_location\(\s*[^,()]+,\s*|runpy\.run_path\(\s*)"
+    r"(\"(?:[^\"\\\n]|\\.)*\"|'(?:[^'\\\n]|\\.)*')"
+)
 
 # Anything in a command that names a file: absolute, home-relative, dot-relative,
 # a relative path with a slash, or a bare secret/rule filename. Relative forms
@@ -481,6 +486,12 @@ def _script_reason(script: str, cwd: str | None = None) -> str | None:
             return why
     for m in sorted(argv_lists, key=lambda m: m.start(1), reverse=True):
         script = script[:m.start(1)] + script[m.end(1):]
+    # A file loaded as a module is read, not written: a job scan imported
+    # nicheboards.py to call one lane and wrote its results to /tmp
+    # (2026-10-14). The literal still counts if it appears anywhere else.
+    for m in reversed(list(MODULE_LOADER.finditer(script))):
+        if script.count(m.group(1)) == 1:
+            script = script[:m.start(1)] + script[m.end(1):]
     for path in _script_paths(script):
         why = check_write_path(path, cwd)
         if why:
