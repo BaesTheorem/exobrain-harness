@@ -26,13 +26,49 @@ def test_ros_rate_blends_prior_and_weekly_before_week_5_and_ppg_after():
     assert value.ros_rate(2, proj=10.0, season_proj=170.0) == pytest.approx(10.0)
     assert value.ros_rate(2, proj=20.0, season_proj=170.0) == pytest.approx(15.0)
     assert value.ros_rate(2, proj=0.0, season_proj=170.0) == pytest.approx(10.0), "a bye week is the prior, not half"
-    assert value.ros_rate(6, proj=99.0, season_proj=170.0, season_actual=60.0, games=5) == pytest.approx(11.0)
+    # season_proj is rest-of-season: 144 over the 12 games a 5-game team has left is 12 a game.
+    assert value.ros_rate(6, proj=99.0, season_proj=144.0, season_actual=60.0, games=5) == pytest.approx(12.0)
     assert value.ros_rate(2, proj=7.0, season_proj=None) == 7.0
+
+
+def test_ros_rate_divides_rest_of_season_by_games_left_not_17():
+    # Josh Allen, week 6 2026: 281.1 rest-of-season with 12 games left is 23.4 a game, not 16.5.
+    assert value.ros_rate(6, proj=0.0, season_proj=281.1, games=5) == pytest.approx(281.1 / 12)
+    # The bye already taken (4 team games before week 6) leaves 13.
+    assert value.ros_rate(6, proj=0.0, season_proj=130.0, games=4) == pytest.approx(10.0)
+    # Preseason (no games yet) is the whole 17-game season, as before.
+    assert value.ros_rate(1, proj=0.0, season_proj=170.0, games=0) == pytest.approx(10.0)
+
+
+def test_ros_rate_ppg_skips_weeks_missed_hurt():
+    # Jayden Daniels, week 6 2026: 64.66 in 3 games played of 5 team games.
+    hurt = value.ros_rate(6, proj=19.9, season_proj=261.3, season_actual=64.66, games=5, played=3)
+    assert hurt == pytest.approx(0.5 * 261.3 / 12 + 0.5 * 64.66 / 3)
+    # Without box scores the team count is the fallback, and it is lower.
+    assert value.ros_rate(6, proj=19.9, season_proj=261.3, season_actual=64.66, games=5) < hurt
+    # played=0 (no row with games) falls back too, never a division by zero.
+    assert value.ros_rate(6, proj=19.9, season_proj=120.0, season_actual=0.0, games=5, played=0) == pytest.approx(10.0)
 
 
 def test_games_played_counts_weeks_with_a_game():
     assert value.games_played({"1": [{}], "2": [{}], "3": [], "4": [{}]}, 5) == 3
     assert value.games_played({"1": [{}]}, 1) == 0
+
+
+def test_games_appeared_only_when_the_feed_covers_last_week():
+    rows = {"jayden daniels|QB": {"games": 3, "weeks": [{"week": 1}, {"week": 2}, {"week": 5}]},
+            "nobody|WR": {"games": 0, "weeks": []}}
+    assert value.games_appeared(rows, 6) == {"jayden daniels|QB": 3}
+    # Week 7 needs week 6 in the feed; a feed that stops at 5 gives nothing, not a stale count.
+    assert value.games_appeared(rows, 7) == {}
+    assert value.games_appeared({}, 6) == {}
+
+
+def test_load_volume_rows_missing_file_is_empty(tmp_path):
+    assert value.load_volume_rows(2026, tmp_path / "absent.json") == {}
+    f = tmp_path / "v.json"
+    f.write_text('{"players": {"a|WR": {"games": 2}}}')
+    assert value.load_volume_rows(2026, f) == {"a|WR": {"games": 2}}
 
 
 def test_player_sd_is_tiered_and_floored():

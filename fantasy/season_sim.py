@@ -43,7 +43,8 @@ import numpy as np
 HERE = pathlib.Path(__file__).resolve().parent
 sys.path.insert(0, str(HERE))
 from espncli.client import Espn, season_actual, season_proj, team_name, week_actual, week_proj  # noqa: E402
-from espncli.value import games_played, ros_rate  # noqa: E402
+from espncli.client import norm as cnorm  # noqa: E402
+from espncli.value import games_appeared, games_played, load_volume_rows, ros_rate  # noqa: E402
 
 POS = {1: "QB", 2: "RB", 3: "WR", 4: "TE", 5: "K", 16: "D/ST"}
 LINEUP = {"QB": 1, "RB": 2, "WR": 2, "TE": 1, "D/ST": 1, "K": 1}
@@ -82,6 +83,7 @@ def load(season):
     cl = Espn()
     data = cl.league("mTeam", "mRoster", "mMatchup", "mSettings", "mStatus")
     week = Espn.current_week(data)
+    appeared = games_appeared(load_volume_rows(season), week)
     teams = {}
     for t in data["teams"]:
         players = []
@@ -93,8 +95,10 @@ def load(season):
             # points over a count that excludes this week (2026-10-11: bye odds
             # 41% on a Sunday afternoon against 37% on the clean total).
             before = (season_actual(p, season) or 0.0) - (week_actual(p, season, week) or 0.0)
-            rate = ros_rate(week, week_proj(p, season, week), season_proj(p, season), before, games)
-            players.append({"name": p["fullName"], "pos": POS.get(p.get("defaultPositionId"), "?"),
+            pos = POS.get(p.get("defaultPositionId"), "?")
+            rate = ros_rate(week, week_proj(p, season, week), season_proj(p, season), before, games,
+                            appeared.get(f"{cnorm(p['fullName'])}|{pos}"))
+            players.append({"name": p["fullName"], "pos": pos,
                             "proj": rate * NFL_WEEKS, "preseason": season_proj(p, season) or 0.0})
         teams[t["id"]] = {"name": team_name(t).strip(), "players": players,
                           "espn": optimal_lineup(players)}

@@ -68,7 +68,7 @@ sys.path.insert(0, str(FANTASY))
 
 from espncli.cli import pool_rows, roster_rows  # noqa: E402
 from espncli.client import BENCH, IR, Espn, norm  # noqa: E402
-from espncli.value import games_played, ros_rate  # noqa: E402
+from espncli.value import games_appeared, games_played, ros_rate  # noqa: E402
 
 REG_SEASON_END = 14
 GATE = 20.0
@@ -147,8 +147,10 @@ def scan(week: int, roster: list[dict], pool: list[dict], position_max: dict[str
     for p in roster:
         if p["slotId"] != IR:
             held[p["pos"]] = held.get(p["pos"], 0) + 1
+    appeared = games_appeared(volume, week)
     for p in [*roster, *pool]:
-        p["rate"] = ros_rate(week, p.get("proj"), p.get("season_proj"), p.get("season_actual"), games.get(p.get("team") or ""))
+        p["rate"] = ros_rate(week, p.get("proj"), p.get("season_proj"), p.get("season_actual"),
+                             games.get(p.get("team") or ""), appeared.get(vkey(p)))
     bench.sort(key=lambda p: p["rate"])
     starting = {p["pos"] for p in roster if p["slotId"] not in (BENCH, IR)}
     backup_weeks = backup_weeks or {}
@@ -246,7 +248,7 @@ def render(out: dict, holes: list[dict], heat_ok: bool, volume_ok: bool) -> int:
     week, remaining, gate = out["week"], out["remaining_weeks"], out["gate"]
     print(f"Swap scan -- week {week}, {remaining} regular-season weeks remain "
           f"(weeks {week + 1}-{REG_SEASON_END}), gate +{gate:g} pts")
-    print("  rate = ros_rate: half preseason season_proj/17, half live weekly proj (season PPG from week 5)")
+    print("  rate = ros_rate: half ESPN rest-of-season proj per game left, half live weekly proj (season PPG over games played from week 5)")
     full = [f"{pos} {out['held'].get(pos, 0)}/{cap}" for pos, cap in out["position_max"].items()
             if out["held"].get(pos, 0) >= cap]
     print(f"  never a second QB or TE; at position max: {', '.join(full) or 'none'}"

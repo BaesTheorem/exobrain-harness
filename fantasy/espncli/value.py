@@ -3,15 +3,24 @@
 Two things every tool here used to re-derive on its own, each slightly
 differently, now live in one place:
 
-1. **Rest-of-season value per week** (`ros_rate`). ESPN's `season_proj` is the
-   STATIC PRESEASON number (Tyson sat on IR from 08-30 with 0.0 in weeks 1 and
-   2 and still carried 99.9 on 09-20), so it is a prior, never a value on its
-   own. Before week 5 the blend is half that prior and half ESPN's live weekly
+1. **Rest-of-season value per week** (`ros_rate`). ESPN's `season_proj` (stat
+   id `10<season>`) is a REST-OF-SEASON total that ESPN moves in season, so
+   the prior per game is that total over the games the player's team has
+   left. Measured 2026-10-14, week 6: Josh Allen carried 281.1 against 370 in
+   the draft room on 09-07 and 143 scored in five games, which only reads as
+   12 games at 23.4. (The static preseason number is `12<season>`, 362.0 for
+   Allen.) Until that date this divided by 17 and called the number static
+   preseason, which shrank every prior by games-left/17 and, with the PPG
+   below, let a scan rate Jayden Daniels under Jared Goff.
+   Before week 5 the blend is half that prior and half ESPN's live weekly
    projection, which tracks role and matchup; from week 5 the in-season half
    is season points per game, the playbook's Harstad blend (a naive 50/50 of
-   a preseason number and production beat either alone in 4 of 5 buckets).
-   A weekly projection of zero (bye, OUT) falls back to the prior alone, so a
-   bye week never halves a trade valuation.
+   a projection and production beat either alone in 4 of 5 buckets). PPG
+   divides by the games the player appeared in (`games_appeared`, from
+   bin/volume's box scores) when they are known, so a week missed hurt is
+   not a 0-point game; otherwise by his team's games. A weekly projection of
+   zero (bye, OUT) falls back to the prior alone, so a bye week never halves
+   a trade valuation.
 
 2. **Per-player weekly spread** (`player_sd`) and the win probability of a
    lineup against an opponent (`win_prob`, `best_swaps`). The playbook's
@@ -59,6 +68,7 @@ CV_TABLE = {
 }
 SD_FLOOR = 1.5            # points; even a 2-point projection can miss by more than its CV says
 SD_FILE = Path(__file__).resolve().parent.parent / ".cache" / "player-sd.json"
+VOLUME_FILE = Path(__file__).resolve().parent.parent / ".cache" / "volume-{season}.json"
 UNUSABLE = {"OUT", "IR", "SUSP", "D"}
 BENCH_SLOT, IR_SLOT = 20, 21
 
@@ -66,11 +76,15 @@ BENCH_SLOT, IR_SLOT = 20, 21
 # ---- currency -------------------------------------------------------------
 
 def ros_rate(week: int, proj: float | None, season_proj: float | None,
-             season_actual: float | None = None, games: int | None = None) -> float:
-    """Points per remaining week for a player, on the playbook's blend."""
-    prior = float(season_proj or 0.0) / NFL_WEEKS
-    if week >= BLEND_SWITCH_WEEK and games:
-        live = float(season_actual or 0.0) / games
+             season_actual: float | None = None, games: int | None = None,
+             played: int | None = None) -> float:
+    """Points per remaining week for a player, on the playbook's blend.
+
+    `games` is how many games his NFL team played before `week`; `played` is
+    how many of those he appeared in, when the box scores say."""
+    prior = float(season_proj or 0.0) / max(1, NFL_WEEKS - (games or 0))
+    if week >= BLEND_SWITCH_WEEK and (played or games):
+        live = float(season_actual or 0.0) / (played or games or 1)
     else:
         live = float(proj or 0.0)
     if prior <= 0:
@@ -82,9 +96,29 @@ def ros_rate(week: int, proj: float | None, season_proj: float | None,
 
 def games_played(pro_games: dict, week: int) -> int:
     """How many weeks before `week` a pro team had a game (byes excluded).
-    Overstates games for a player who missed one hurt, which makes his PPG
-    conservative, the right direction for a value used to justify a trade."""
+    17 minus this is the games left that `season_proj` covers. As a PPG
+    denominator it counts a week a player missed hurt as a 0-point game, so
+    it is only the fallback when `games_appeared` has no row for him."""
     return sum(1 for w in range(1, week) if pro_games.get(str(w)))
+
+
+def games_appeared(rows: dict[str, dict], week: int) -> dict[str, int]:
+    """`norm(name)|POS` -> games the player appeared in, from bin/volume's rows
+    (.cache/volume-<season>.json "players"). Empty unless the rows reach the
+    week before `week`: a count that stops at week 4 against a points total
+    through week 5 would inflate his PPG. K and D/ST have no rows."""
+    covered = max((w.get("week", 0) for r in rows.values() for w in r.get("weeks") or []), default=0)
+    if covered < week - 1:
+        return {}
+    return {k: int(r["games"]) for k, r in rows.items() if r.get("games")}
+
+
+def load_volume_rows(season: int, path: Path | None = None) -> dict[str, dict]:
+    """bin/volume's per-player rows, or {} when the feed has not been built."""
+    try:
+        return json.loads((path or Path(str(VOLUME_FILE).format(season=season))).read_text())["players"]
+    except (OSError, ValueError, KeyError):
+        return {}
 
 
 # ---- variance ---------------------------------------------------------------
