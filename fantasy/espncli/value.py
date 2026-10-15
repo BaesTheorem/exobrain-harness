@@ -186,13 +186,24 @@ def row_moments(r: dict, mults: dict[str, float],
     left, with the spread on sqrt of that share (independent increments;
     a touchdown-lumpy scorer is probably wider than this says)."""
     key = f"{norm(r.get('name') or '')}|{r.get('pos')}"
-    sd = player_sd(r.get("pos", "?"), r.get("proj"), mults.get(key, 1.0))
+    mean = row_mean(r)
+    sd = player_sd(r.get("pos", "?"), mean, mults.get(key, 1.0))
     if r.get("actual") is None:
-        return float(r.get("proj") or 0.0), sd
+        return float(mean or 0.0), sd
     left = (remaining or {}).get(r.get("team") or "", 0.0)
     if left <= 0:
         return float(r["actual"]), 0.0
-    return float(r["actual"]) + left * float(r.get("proj") or 0.0), sd * math.sqrt(left)
+    return float(r["actual"]) + left * float(mean or 0.0), sd * math.sqrt(left)
+
+
+def row_mean(r: dict) -> float | None:
+    """The expected points the variance rule uses: `mean` when the caller set
+    one (ESPN blended with the betting market, espncli.cli.attach_market),
+    else ESPN's projection. Measured 2026-10-15 on 833 rostered player-weeks:
+    the market alone beat ESPN by 0.162 points of absolute error a player
+    (95% CI 0.065 to 0.261) and the even blend by 0.108 (0.058 to 0.159)."""
+    m = r.get("mean")
+    return float(m) if m is not None else (float(r["proj"]) if r.get("proj") is not None else None)
 
 
 def is_starter(r: dict) -> bool:
@@ -309,7 +320,7 @@ def best_swaps(me: list[dict], opp: list[dict], mults: dict[str, float] | None =
     starters = [r for r in me if is_starter(r)]
     bench = [r for r in me if r.get("slotId") == BENCH_SLOT]
     for b in bench:
-        if b.get("actual") is not None or not usable(b) or b.get("proj") is None:
+        if b.get("actual") is not None or not usable(b) or row_mean(b) is None:
             continue
         for s in starters:
             if s.get("actual") is not None or s.get("slotId") not in (b.get("eligible") or []):
@@ -322,7 +333,7 @@ def best_swaps(me: list[dict], opp: list[dict], mults: dict[str, float] | None =
                     r["slotId"] = s["slotId"]
             p = win_prob(trial, opp, mults, remaining, corr)["p"]
             if p - base >= min_gain:
-                d_proj = float(b.get("proj") or 0) - float(s.get("proj") or 0)
+                d_proj = float(row_mean(b) or 0) - float(row_mean(s) or 0)
                 out.append({"bench": b["name"], "bench_pos": b.get("pos"), "starter": s["name"],
                             "slot": s.get("slot"), "slotId": s.get("slotId"),
                             "p_before": base, "p_after": round(p, 3), "d_p": round(p - base, 3),
@@ -344,7 +355,7 @@ def best_fill(me: list[dict], opp: list[dict] | None, slot_id: int, exclude: int
     if not bench:
         return None
     if not opp:
-        return max(bench, key=lambda b: float(b.get("proj") or 0.0))
+        return max(bench, key=lambda b: float(row_mean(b) or 0.0))
     scored = []
     for b in bench:
         trial = [dict(r) for r in me]
@@ -353,7 +364,7 @@ def best_fill(me: list[dict], opp: list[dict] | None, slot_id: int, exclude: int
                 r["slotId"] = BENCH_SLOT
             elif r.get("id") == b.get("id"):
                 r["slotId"] = slot_id
-        scored.append((win_prob(trial, opp, mults, remaining, corr)["p"], float(b.get("proj") or 0.0), b))
+        scored.append((win_prob(trial, opp, mults, remaining, corr)["p"], float(row_mean(b) or 0.0), b))
     scored.sort(key=lambda t: (-t[0], -t[1]))
     best = dict(scored[0][2])
     best["p_after"] = round(scored[0][0], 3)

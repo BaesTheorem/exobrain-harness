@@ -21,6 +21,7 @@ from __future__ import annotations
 import argparse
 import html
 import json
+import os
 import re
 import sys
 from datetime import datetime
@@ -179,9 +180,10 @@ def starters_actual(rows: list[dict]) -> float | None:
 def print_lineup(rows: list[dict], show_bench: bool = True) -> None:
     cols = [("SLOT", "slot", 5, "l"), ("PLAYER", "name", 24, "l"), ("POS", "pos", 4, "l"),
             ("TEAM", "team", 4, "l"), ("OPP", "opp", 5, "l"), ("KICKOFF", "kick", 19, "l"),
-            ("ST", "status", 4, "l"), ("PROJ", "proj_s", 6, "r"), ("ACT", "actual_s", 6, "r")]
+            ("ST", "status", 4, "l"), ("PROJ", "proj_s", 6, "r"), ("MKT", "market_s", 6, "r"),
+            ("ACT", "actual_s", 6, "r")]
     for r in rows:
-        r["proj_s"], r["actual_s"] = pts(r["proj"]), pts(r["actual"])
+        r["proj_s"], r["actual_s"], r["market_s"] = pts(r["proj"]), pts(r["actual"]), pts(r.get("market"))
     starters = [r for r in rows if r["slotId"] not in (BENCH, IR)]
     table(starters, cols)
     if show_bench:
@@ -322,6 +324,7 @@ def matchup_view(api: Espn, week: int, data: dict, team_id: int) -> dict | None:
         # priced as they stand; `opp_problems` says what an unfixed one is worth.
         mults = load_sd_multipliers()
         corr = load_corr()
+        out["market_rows"] = attach_market(api, week, me["rows"] + opp["rows"])
         # The gate is a player with points, not a team total: ESPN leaves the
         # team-level actual empty until the week closes.
         scored = any(r.get("actual") is not None for r in me["rows"] + opp["rows"])
@@ -479,6 +482,7 @@ def cmd_check(api: Espn, args: argparse.Namespace) -> None:
     opp_rows = (mv.get("opp") or {}).get("rows") if mv else None
     mults = load_sd_multipliers()
     corr = load_corr()
+    attach_market(api, week, rows)
     rem = (mv or {}).get("in_progress") or {}
 
     def best_bench_for(slot_id: int, exclude: int | None) -> dict | None:
@@ -1046,6 +1050,31 @@ def games_remaining(api: Espn, week: int) -> dict[str, float]:
             if side and side.get("abbrev"):
                 out[side["abbrev"]] = left
     return out
+
+
+def attach_market(api: Espn, week: int, rows: list[dict]) -> int:
+    """Blend ESPN's projection with the betting market's for every unlocked
+    row the books have a line on: `market` is the prop-implied points
+    (ffmodel.market, cached 30 minutes), `mean` the even blend the variance
+    rule uses (value.row_mean). Rows without a line keep ESPN's number alone.
+    ESPN_NO_MARKET=1 turns it off. Returns how many rows got a market."""
+    if os.environ.get("ESPN_NO_MARKET") == "1":
+        return 0
+    try:
+        from ffmodel.market import week_cached  # noqa: PLC0415 -- the props pull is slow; only lineup reads need it
+
+        mk = week_cached(api.season, week)
+    except Exception:  # noqa: BLE001 - a missing model or feed falls back to ESPN alone
+        return 0
+    n = 0
+    for r in rows:
+        m = mk.get(str(r.get("id")))
+        if not m or r.get("actual") is not None:
+            continue
+        r["market"] = m["market"]
+        r["mean"] = round((float(r["proj"]) + m["market"]) / 2, 1) if r.get("proj") is not None else m["market"]
+        n += 1
+    return n
 
 
 def local_iso(s: str | None) -> datetime | None:

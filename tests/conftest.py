@@ -23,6 +23,9 @@ REPO = Path(__file__).resolve().parent.parent
 SYNTHETIC_ENV = {
     "JOB_COMP_FLOOR": "50000",
     "JOB_ONSITE_FLOOR": "60000",
+    # espn check/matchup blend in the betting market's projection, which
+    # reads the live props feed; the fantasy tests run on planted rows only.
+    "ESPN_NO_MARKET": "1",
 }
 _session_patch = pytest.MonkeyPatch()
 

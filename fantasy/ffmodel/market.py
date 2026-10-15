@@ -406,6 +406,25 @@ def week(season: int, week_no: int, model: dict | None = None) -> dict[str, dict
     return out
 
 
+def week_cached(season: int, week_no: int, ttl: float = 1800.0) -> dict[str, dict]:
+    """week(), kept for `ttl` seconds in .cache/market-<season>-wNN.json, so a
+    watcher that runs every 15 minutes reads the books twice an hour, not four
+    times. Any failure returns {} and the caller falls back to ESPN alone."""
+    import time  # noqa: PLC0415
+
+    path = HERE.parent / ".cache" / f"market-{season}-w{week_no:02d}.json"
+    try:
+        if path.exists() and time.time() - path.stat().st_mtime < ttl:
+            return json.loads(path.read_text())
+        out = week(season, week_no)
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(json.dumps(out))
+        return out
+    except Exception as e:  # noqa: BLE001 - the lineup check must run without the market
+        print(f"market: unavailable ({e})", file=sys.stderr)
+        return {}
+
+
 def _implied(api, week_no: int, ev: dict) -> dict[str, float]:
     sys.path.insert(0, str(HERE.parent))
     from espncli.cli import nfl_events  # noqa: PLC0415
