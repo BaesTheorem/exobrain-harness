@@ -418,6 +418,27 @@ def leverage(teams, games, reg, actuals, me, sims, sigma, tau, seed, step=10.0):
             "pf_point": pf_point, "weeks": weeks, "playoff_per_point": playoff, "weight": weight}
 
 
+TAU_SWEEP = (4.0, 8.0, 12.0)   # per-week roster-strength SD; moved our bye odds 9 points on 09-14
+
+
+def tau_band(teams, games, reg, args, actuals, force, me, probs, ids):
+    """Our bye, playoff and title odds at each tau in TAU_SWEEP, as [low, high].
+    tau cannot be measured from this league (ros_rate is built from the same
+    actuals), so the playbook quotes the odds as a band (rule inventory R46,
+    moved to code 2026-10-15). The run's own tau is one of the points."""
+    if me not in ids:
+        return None
+    i = ids.index(me)
+    seen = {k: [float(probs[k][i])] for k in ("bye", "playoffs", "champ")}
+    for tau in TAU_SWEEP:
+        if tau == args.tau:
+            continue
+        p = simulate(teams, games, reg, max(4000, args.sims // 2), args.sigma, tau, args.seed, actuals, force)[-1]
+        for k in seen:
+            seen[k].append(float(p[k][i]))
+    return {k: [round(min(v), 4), round(max(v), 4)] for k, v in seen.items()}
+
+
 def ci(x, lo, hi):
     a, b = np.percentile(x, [lo, hi])
     return a, b
@@ -570,13 +591,22 @@ def main():
                "probs": {k: v.tolist() for k, v in probs.items()}}
     if not (force or args.live):   # a scenario is not the outlook; keep the file to settled weeks
         json.dump(summary, open(HERE / "draftbot" / "season_sim_latest.json", "w"), indent=1)
+    me_id = int(Espn().creds.get("team_id", 0))
+    band = tau_band(teams, games, reg, args, actuals, force, me_id, probs, ids)
+    if band:
+        say(f"\nOur odds across tau {TAU_SWEEP[0]:g}-{TAU_SWEEP[-1]:g} (roster-strength noise is not measured, so "
+            f"quote the band): bye {band['bye'][0]:.0%}-{band['bye'][1]:.0%}, title {band['champ'][0]:.0%}-"
+            f"{band['champ'][1]:.0%}. The title figure is an upper bound: in 504 real Sleeper leagues a team in "
+            f"our spot won 24-26%.")
     if args.json:
-        me = int(Espn().creds.get("team_id", 0))
+        me = me_id
         i = ids.index(me) if me in ids else None
-        mine = {k: round(float(v[i]), 4) for k, v in probs.items()} if i is not None else {}
+        mine: dict = {k: round(float(v[i]), 4) for k, v in probs.items()} if i is not None else {}
         if i is not None:
             mine["wins_mean"] = round(float(wins[:, i].mean()), 2)
             mine["finish_median"] = float(np.median(ranks[:, i]))
+            if band:
+                mine["band"] = band
         print(json.dumps({"weeks_played": summary["weeks_played"], "sims": args.sims, "mine": mine,
                           "teams": {teams[t]["name"]: {k: round(float(v[j]), 4) for k, v in probs.items()}
                                     for j, t in enumerate(ids)}}, indent=1))
