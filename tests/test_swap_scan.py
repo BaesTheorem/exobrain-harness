@@ -118,4 +118,27 @@ def test_a_backup_qb_is_priced_on_the_weeks_he_starts():
     assert qb["weeks"] == 2 and out["remaining_weeks"] == 9
     free = next(c for c in qb["candidates"] if c["add"] == "Free QB")
     assert free["gain"] < out["gate"], "a backup upgrade must not clear the season gate"
-    assert {s["drop"]: s for s in out["swaps"]}["Bench WR"]["weeks"] == 9, "skill drops keep the full horizon"
+    assert out["horizon"] == 9 + swap_scan.PLAYOFF_UNITS
+    assert {s["drop"]: s for s in out["swaps"]}["Bench WR"]["weeks"] == out["horizon"], "skill drops keep the full horizon"
+
+
+def test_the_gate_does_not_choke_in_the_last_regular_season_weeks():
+    """2026-10-14: the value stopped at week 14, so by week 13 a swap needed +20
+    a game to clear +20. The playoff weeks are where the roster's value is, so
+    the horizon counts them and the gate is per game: the planted +6 a game
+    still passes in week 13, and a +1 a game swap still does not."""
+    small = r("Small WR", "WR", 20, 7.0, 117.0)   # about +1 a game over the bench WR
+    out = swap_scan.scan(13, roster(), [*pool(), small], position_max={"WR": 8, "TE": 3, "QB": 4})
+    cands = {c["add"]: c for c in {s["drop"]: s for s in out["swaps"]}["Bench WR"]["candidates"]}
+    assert out["remaining_weeks"] == 1 and out["horizon"] > 20
+    assert cands["Hot WR"]["gain"] >= out["gate"], "a real upgrade in week 13 must still clear"
+    assert cands["Small WR"]["gain"] < out["gate"], "a +1 a game swap is noise at any horizon"
+
+
+def test_playoff_units_come_from_a_fresh_leverage_run(tmp_path):
+    cache = tmp_path / "leverage.json"
+    assert swap_scan.playoff_units_cached(cache) == swap_scan.PLAYOFF_UNITS, "no file: the default"
+    cache.write_text('{"weight": {"13": 0.9, "14": 1.0, "15": 1.5, "16": 8.0, "17": 9.5}}')
+    assert swap_scan.playoff_units_cached(cache) == 19.0
+    stale = cache.stat().st_mtime + swap_scan.LEVERAGE_MAX_AGE + 60
+    assert swap_scan.playoff_units_cached(cache, now=stale) == swap_scan.PLAYOFF_UNITS, "a stale run is ignored"

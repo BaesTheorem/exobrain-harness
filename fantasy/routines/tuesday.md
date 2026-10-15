@@ -51,8 +51,9 @@ Follow `fantasy/routines/COMMON.md` first. If today is not Tuesday, stop.
 3. **Waivers.** Claiming costs nothing here (priority resets weekly), so claim
    whenever the wire beats the bench. **Start with `fantasy/bin/swap-scan`**
    (Alex, 2026-09-20: actively monitor for these): it prices every
-   bench-for-wire swap as `(add - drop) x weeks left` against the playbook's
-   20-point gate and marks the ones that clear it, with position maximums
+   bench-for-wire swap as `(add - drop) x horizon` (the regular-season weeks
+   left plus weeks 15-17 at their `--leverage` weight, about 24 more) against
+   a gate of 2.5 points a game, and marks the ones that clear it, with position maximums
    applied (WR sits at 8/8 since the Bateman add, so a WR add needs a WR
    drop), never a second QB or TE, with Sleeper's 24-hour adds (`heat`, the
    national wire) and the volume flags beside each candidate, and the bye

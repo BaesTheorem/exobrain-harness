@@ -3,8 +3,9 @@
 
 The playbook's *Season operations* rule: at 16 rostered there is no free spot,
 so a claim is a swap and its value is `add - drop` over the rest of the
-regular season, not the add's projection by itself. The gate is +20 season
-points, or a bye-week hole the swap fills.
+season, not the add's projection by itself. The gate is 2.5 points a game
+over that horizon (what +20 over 8 weeks meant when it was set), or a
+bye-week hole the swap fills.
 
 INVARIANTS
 - Read-only. Never files a claim; `espn-tx claim` is the only write path.
@@ -42,6 +43,15 @@ INVARIANTS
   3 to 4 months out). The rate is built from his 28-point week and cannot see
   the injury. A wire player marked OUT, IR or SUSP is skipped. A one-week OUT
   is lost with them, which costs less than a dead roster spot.
+- **The horizon counts the playoff weeks at their weight (2026-10-14).**
+  `season_sim.py --leverage` measured a week-16 or week-17 point at about 11
+  regular-season points and week 15 at about 2, so the horizon is the
+  regular-season weeks left plus `playoff_units` (24.4 then; read from
+  `.cache/leverage.json` when the Tuesday run wrote it this week). Before,
+  the value stopped at week 14 and the +20 gate needed 20/weeks-left a game,
+  10 a game by week 12, so the scan would have gone silent in exactly the
+  weeks the playoff roster is built. The gate is now per game, so its bar
+  does not move as the season shortens.
 - **A backup QB or TE is priced on the weeks he starts, not the weeks left.**
   Found 2026-10-11: the gate bannered Rodgers for Deshaun Watson at +20.6
   (2.3 a week x 9 weeks), but a bench QB behind a healthy starter only
@@ -71,7 +81,10 @@ from espncli.client import BENCH, IR, Espn, norm  # noqa: E402
 from espncli.value import games_appeared, games_played, ros_rate  # noqa: E402
 
 REG_SEASON_END = 14
-GATE = 20.0
+GATE_PER_GAME = 2.5                   # the rate gap a swap must clear: +20 over the 8 weeks left at week 6
+PLAYOFF_UNITS = 24.4                  # weeks 15-17 in regular-week units (2.0 + 10.7 + 11.7, --leverage 2026-10-14)
+LEVERAGE_CACHE = FANTASY / ".cache" / "leverage.json"
+LEVERAGE_MAX_AGE = 8 * 86400          # older than a Tuesday cycle: fall back to PLAYOFF_UNITS
 ONE_OF = {"QB", "TE"}                 # never a second one on the roster
 FLEX_POS = {"RB", "WR", "TE"}
 STREAM_POS = {"K", "D/ST"}            # weekly streamers: stream-scan prices them, not a season rate
@@ -134,14 +147,16 @@ def allowed(cand: dict, drop: dict, held: dict[str, int], position_max: dict[str
 
 def scan(week: int, roster: list[dict], pool: list[dict], position_max: dict[str, int],
          games: dict[str, int] | None = None, heat: dict[str, int] | None = None,
-         volume: dict[str, dict] | None = None, gate: float = GATE, top: int = 3,
-         committed: set[str] | None = None, backup_weeks: dict[str, int] | None = None) -> dict:
+         volume: dict[str, dict] | None = None, gate_per_game: float = GATE_PER_GAME, top: int = 3,
+         committed: set[str] | None = None, backup_weeks: dict[str, int] | None = None,
+         playoff_units: float = PLAYOFF_UNITS) -> dict:
     """Pure: rows in, ranked swaps out. `games` is pro-team abbrev -> games played;
     `committed` is the normalized names already listed as a DROP in a pending claim;
     `backup_weeks` is position -> weeks a bench QB/TE will start (starter byes + injury)."""
     games, heat, volume = games or {}, heat or {}, volume or {}
     committed = committed or set()
     remaining = max(REG_SEASON_END - week, 0)
+    horizon = round(remaining + playoff_units, 1)
     bench = [p for p in roster if p["slotId"] == BENCH]
     held: dict[str, int] = {}
     for p in roster:
@@ -156,9 +171,9 @@ def scan(week: int, roster: list[dict], pool: list[dict], position_max: dict[str
     backup_weeks = backup_weeks or {}
     results = []
     for drop in bench:
-        weeks = remaining
+        weeks = horizon
         if drop["pos"] in ONE_OF and drop["pos"] in starting:
-            weeks = min(remaining, backup_weeks.get(drop["pos"], BACKUP_INJURY_WEEKS))
+            weeks = min(horizon, backup_weeks.get(drop["pos"], BACKUP_INJURY_WEEKS))
         scored = []
         for c in pool:
             if c.get("status") in UNAVAILABLE or not allowed(c, drop, held, position_max):
@@ -179,7 +194,9 @@ def scan(week: int, roster: list[dict], pool: list[dict], position_max: dict[str
                         "drop_flags": (volume.get(vkey(drop)) or {}).get("flags") or [],
                         "pending_drop": norm(drop["name"]) in committed, "weeks": weeks,
                         "candidates": scored[:top]})
-    return {"week": week, "remaining_weeks": remaining, "gate": gate, "held": held,
+    return {"week": week, "remaining_weeks": remaining, "playoff_units": playoff_units,
+            "horizon": horizon, "gate_per_game": gate_per_game,
+            "gate": round(gate_per_game * horizon, 1), "held": held,
             "position_max": position_max, "swaps": results}
 
 
@@ -237,6 +254,20 @@ def pending_drops(api: Espn) -> set[str]:
         return set()
 
 
+def playoff_units_cached(path: Path = LEVERAGE_CACHE, now: float | None = None) -> float:
+    """Weeks 15-17 in regular-week units from the last `season_sim.py --leverage`
+    run, or PLAYOFF_UNITS when there is none from this Tuesday cycle."""
+    import time  # noqa: PLC0415
+    try:
+        if (now or time.time()) - path.stat().st_mtime > LEVERAGE_MAX_AGE:
+            return PLAYOFF_UNITS
+        weight = json.loads(path.read_text()).get("weight") or {}
+        units = sum(float(v) for k, v in weight.items() if int(k) > REG_SEASON_END and v is not None)
+        return units if units > 0 else PLAYOFF_UNITS
+    except (OSError, ValueError, TypeError):
+        return PLAYOFF_UNITS
+
+
 def api_team_id(api: Espn, r: dict) -> int | None:
     for tid, t in api.pro_teams().items():
         if t["abbrev"] == r["team"]:
@@ -245,9 +276,10 @@ def api_team_id(api: Espn, r: dict) -> int | None:
 
 
 def render(out: dict, holes: list[dict], heat_ok: bool, volume_ok: bool) -> int:
-    week, remaining, gate = out["week"], out["remaining_weeks"], out["gate"]
-    print(f"Swap scan -- week {week}, {remaining} regular-season weeks remain "
-          f"(weeks {week + 1}-{REG_SEASON_END}), gate +{gate:g} pts")
+    week, remaining, gate, horizon = out["week"], out["remaining_weeks"], out["gate"], out["horizon"]
+    print(f"Swap scan -- week {week}, {remaining} regular-season weeks remain (weeks {week + 1}-{REG_SEASON_END}) "
+          f"+ weeks 15-17 at {out['playoff_units']:.1f} regular-week units = horizon {horizon:g}; "
+          f"gate +{gate:g} pts ({out['gate_per_game']:g} a game)")
     print("  rate = ros_rate: half ESPN rest-of-season proj per game left, half live weekly proj (season PPG over games played from week 5)")
     full = [f"{pos} {out['held'].get(pos, 0)}/{cap}" for pos, cap in out["position_max"].items()
             if out["held"].get(pos, 0) >= cap]
@@ -257,7 +289,7 @@ def render(out: dict, holes: list[dict], heat_ok: bool, volume_ok: bool) -> int:
     for r in out["swaps"]:
         dflags = f"  [{' '.join(r['drop_flags'])}]" if r["drop_flags"] else ""
         spent = "  PENDING DROP: already spent in a claim or trade, not a free drop" if r.get("pending_drop") else ""
-        backup = f"  BACKUP: priced on {r['weeks']} start(s), not {remaining}" if r["weeks"] != remaining else ""
+        backup = f"  BACKUP: priced on {r['weeks']} start(s), not {horizon:g}" if r["weeks"] != horizon else ""
         print(f"  DROP {r['drop']:<22} {r['pos']:<4} rate {r['drop_rate']}/wk{dflags}{spent}{backup}")
         for c in r["candidates"]:
             gain = float(c["gain"])
@@ -284,7 +316,10 @@ def render(out: dict, holes: list[dict], heat_ok: bool, volume_ok: bool) -> int:
 
 def main() -> int:
     ap = argparse.ArgumentParser(description=__doc__)
-    ap.add_argument("--gate", type=float, default=GATE)
+    ap.add_argument("--gate-per-game", type=float, default=GATE_PER_GAME,
+                    help="rate gap a swap must clear, points a game (default %(default)s)")
+    ap.add_argument("--playoff-units", type=float, default=None,
+                    help="weeks 15-17 in regular-week units (default: .cache/leverage.json if fresh, else %s)" % PLAYOFF_UNITS)
     ap.add_argument("--top", type=int, default=3, help="candidates shown per bench spot")
     ap.add_argument("--json", action="store_true")
     args = ap.parse_args()
@@ -301,8 +336,10 @@ def main() -> int:
     games = {pt["abbrev"]: games_played(pt["games"], week) for pt in api.pro_teams().values()}
     heat = sleeper_heat(api.season, week)
     volume = load_volume(api.season)
-    out = scan(week, roster, pool, position_max, games, heat, volume, args.gate, args.top,
-               committed=pending_drops(api), backup_weeks=backup_weeks(api, roster, week))
+    units = args.playoff_units if args.playoff_units is not None else playoff_units_cached()
+    out = scan(week, roster, pool, position_max, games, heat, volume, args.gate_per_game, args.top,
+               committed=pending_drops(api), backup_weeks=backup_weeks(api, roster, week),
+               playoff_units=units)
     holes = bye_holes(api, roster, week)
     out["bye_holes"] = holes
     if args.json:

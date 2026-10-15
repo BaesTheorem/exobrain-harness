@@ -512,8 +512,13 @@ def main():
             sys.exit("--live: ESPN has no live projection for every team yet")
         actuals[live[0]] = live[1]
     if args.leverage:
-        print_leverage(leverage(teams, games, reg, actuals, int(Espn().creds.get("team_id", 0)),
-                                args.sims, args.sigma, args.tau, args.seed), args.json)
+        lev = leverage(teams, games, reg, actuals, int(Espn().creds.get("team_id", 0)),
+                       args.sims, args.sigma, args.tau, args.seed)
+        if not (args.live or args.force):   # a scenario is not the outlook; swap-scan reads this file
+            cache = HERE / ".cache" / "leverage.json"
+            cache.parent.mkdir(exist_ok=True)
+            cache.write_text(json.dumps({"weeks_played": max(actuals) if actuals else 0, **lev}, default=float))
+        print_leverage(lev, args.json)
         return
     force = parse_force(args.force, teams, games)
     for (wk, pair), winner in sorted(force.items(), key=lambda kv: kv[0][0]):

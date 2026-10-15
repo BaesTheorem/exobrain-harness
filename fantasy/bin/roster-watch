@@ -6,7 +6,7 @@ injury statuses, our pending claims, pending transactions aimed at the team
 (a trade offer), the players on fantasy/watchlist.json (status, a rostered-percentage
 spike, which fantasy team holds them), and the rosters of watched teams against
 the last run. It also runs fantasy/bin/swap-scan and, when a bench-for-wire
-swap crosses the playbook's 20-point gate for the first time, banners Alex with
+swap crosses the playbook's waiver gate for the first time, banners Alex with
 Do it / Skip buttons (his standing instruction, 2026-09-20: actively monitor
 for these; a drop is his tap, never the watcher's). Anything new is appended to
 fantasy/.cache/incidents.jsonl, announced with a clickable banner, and, when
@@ -260,8 +260,9 @@ def main() -> int:
     st["rosters"] = rosters
     st["roster_names"] = {str(i): names[str(i)] for ids in rosters.values() for i in ids if str(i) in names}
 
-    # 4. The waiver gate: a bench-for-wire swap worth 20+ points over the rest of
-    #    the regular season. Banner only; the drop is Alex's decision.
+    # 4. The waiver gate: a bench-for-wire swap worth 2.5+ points a game over the
+    #    rest of the season, playoff weeks at their weight (swap-scan). Banner
+    #    only; the drop is Alex's decision.
     if not st.get("first_run"):
         sg = swap_gate_event(st)
         if sg:

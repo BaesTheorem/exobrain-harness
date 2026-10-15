@@ -142,8 +142,9 @@ the site by hand.
   probability they buy; apply at +1 point), `opp_problems` and
   `win_if_opp_unfixed` (the opponent's holes, priced). The variance rule is
   a number; the fill for a problem slot is chosen by it
-- `fantasy/bin/swap-scan` — the waiver gate: `(add - drop) x weeks left`
-  against +20, never a second QB/TE, Sleeper 24-hour adds as market heat,
+- `fantasy/bin/swap-scan` — the waiver gate: `(add - drop) x horizon` (weeks
+  left plus weeks 15-17 at their weight) against 2.5 points a game, never a
+  second QB/TE, Sleeper 24-hour adds as market heat,
   volume flags as the role condition, bye holes two weeks out
 - `fantasy/bin/stream-scan` — the D/ST (ours faces >= 24 implied, a free
   agent faces <= 19) and K (a free agent's offense 4+ above ours, fair
