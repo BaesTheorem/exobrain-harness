@@ -636,6 +636,16 @@ before the injury, median ratio 0.66 (0.89 for the 28 who were on IR in week
 10, 0.35 for the 15 who were not). A long-term stash is worth about a third of
 the healthy player in the playoff weeks. Reproduced by MIST, 2026-10-14.
 
+**Real-league base rates, 504 Sleeper leagues (2024-2025), own analysis,
+MEDIUM-HIGH:** pulled from the public Sleeper API by the research agent, re-run
+by MIST on the full crawl, raw files deleted. A team #1 in Points For and 4-1 or
+better after week 5 finished top two 67% (12-team, n = 203) and won 24% (n =
+163 six-team fixed brackets). The better seed won 52.6% of 1,145 playoff games;
+regular-season scoring carried into the playoffs at a slope of 0.70. Later wins
+load 0.30 on early Points For and 0.04 on early record. The points-for tiebreak
+decided the second bye in 35% of 12-team leagues. Full notes: vault
+`Research/Fantasy Football Bye Strategy Evidence 2026-10-14.md`.
+
 **In-season points allowed, Subvertadown (2022, updated 2026), MEDIUM:**
 running averages of fantasy points allowed, 2017-2019, against the next week:
 "For most positions, Points-allowed is a poor measure, with correlation less
