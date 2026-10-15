@@ -193,6 +193,14 @@ def row_moments(r: dict, mults: dict[str, float],
     mean = row_mean(r)
     sd = player_sd(r.get("pos", "?"), mean, mults.get(key, 1.0))
     if r.get("actual") is None:
+        p, f = r.get("p_play"), r.get("fallback_mean")
+        if p is not None and f is not None and p < 1:
+            # Plays with probability p, else the slot gets the fallback the
+            # watcher would swap in when the inactives post: a two-point mixture.
+            m, sf = float(mean or 0.0), player_sd(r.get("pos", "?"), f)
+            e = p * m + (1 - p) * f
+            v = p * (sd * sd + m * m) + (1 - p) * (sf * sf + f * f) - e * e
+            return e, math.sqrt(max(v, 0.0))
         return float(mean or 0.0), sd
     left = (remaining or {}).get(r.get("team") or "", 0.0)
     if left <= 0:
@@ -265,6 +273,27 @@ def lineup_moments(rows: list[dict], mults: dict[str, float],
     return mu, math.sqrt(max(var, 0.0))
 
 
+def with_fallbacks(rows: list[dict]) -> list[dict]:
+    """Copies of `rows` where each unlocked starter with a measured `p_play`
+    below 1 (espncli.cli.attach_injury) carries `fallback_mean`: the best
+    usable, unlocked bench player eligible for his slot whose game starts no
+    earlier than his. That is who `lineup-watch --fix` swaps in when the
+    inactives post 90 minutes before his kickoff; a bench player whose game
+    has already started by then is locked and cannot cover. Rows without
+    `p_play` pass through unchanged (2026-10-15)."""
+    out = [dict(r) for r in rows]
+    bench = [r for r in out if r.get("slotId") == BENCH_SLOT and usable(r) and r.get("actual") is None]
+    for r in out:
+        p = r.get("p_play")
+        if not is_starter(r) or r.get("actual") is not None or p is None or p >= 1:
+            continue
+        k = r.get("kickoff")
+        cands = [b for b in bench if b.get("id") != r.get("id") and r.get("slotId") in (b.get("eligible") or [])
+                 and (k is None or b.get("kickoff") is None or b["kickoff"] >= k)]
+        r["fallback_mean"] = max((float(row_mean(b) or 0.0) for b in cands), default=0.0)
+    return out
+
+
 def win_prob(me: list[dict], opp: list[dict], mults: dict[str, float] | None = None,
              remaining: dict[str, float] | None = None, corr: dict[str, float] | None = None) -> dict:
     """P(our starters outscore theirs), with both sides' means and spreads.
@@ -279,6 +308,10 @@ def win_prob(me: list[dict], opp: list[dict], mults: dict[str, float] | None = N
     what this computed before that date."""
     mults = mults or {}
     corr = corr or {}
+    # Our questionable starters are mixtures with the bench cover the watcher
+    # would use. Theirs are not: whether a rival fixes a hole is the manager's
+    # habit (`opp_problems` prices the definite holes), not a measured rate.
+    me = with_fallbacks(me)
     mu_me, sd_me = lineup_moments(me, mults, remaining, corr)
     mu_opp, sd_opp = lineup_moments(opp, mults, remaining, corr)
     cross = 0.0
@@ -298,19 +331,41 @@ def usable(r: dict) -> bool:
 
 
 # Projected points worth one point of this week's win probability, through
-# the Points For tiebreak. Measured by `season_sim.py --leverage` on
-# 2026-10-14: 4.6 to 5.2 across weeks 6-14 (3 to 8 across the noise
-# settings), because a point of Points For alone is worth about a fifth of a
-# point that also moves the game. Rerun on Tuesdays; move this if it drifts.
+# the Points For tiebreak. `season_sim.py --leverage` measures it per week
+# and the Tuesday routine writes it to .cache/leverage.json; this is the
+# fallback when that file is missing or older than a Tuesday cycle. It read
+# 4.6 to 5.2 on 2026-10-14 and 5.8 to 6.7 after the sigma moved to 29.3.
 POINTS_PER_WIN_PCT = 5.0
+LEVERAGE_FILE = Path(__file__).resolve().parent.parent / ".cache" / "leverage.json"
+LEVERAGE_MAX_AGE = 8 * 86400
+
+
+def load_points_per_win_pct(week: int, path: Path = LEVERAGE_FILE, now: float | None = None) -> float:
+    """The measured exchange rate for `week`, or POINTS_PER_WIN_PCT."""
+    import time  # noqa: PLC0415
+
+    try:
+        if (now or time.time()) - path.stat().st_mtime > LEVERAGE_MAX_AGE:
+            return POINTS_PER_WIN_PCT
+        v = (json.loads(path.read_text()).get("weeks") or {}).get(str(week), {}).get("points_per_win_pct")
+        return float(v) if v and v > 0 else POINTS_PER_WIN_PCT
+    except (OSError, ValueError, TypeError, AttributeError):
+        return POINTS_PER_WIN_PCT
 
 
 def best_swaps(me: list[dict], opp: list[dict], mults: dict[str, float] | None = None,
-               min_gain: float = 0.005, top: int = 5,
+               min_gain: float | None = None, top: int = 5,
                remaining: dict[str, float] | None = None,
                points_per_win_pct: float = POINTS_PER_WIN_PCT,
-               corr: dict[str, float] | None = None) -> list[dict]:
-    """Every single bench-for-starter swap that raises win probability, best first.
+               corr: dict[str, float] | None = None, min_net: float = 0.0) -> list[dict]:
+    """Every single bench-for-starter swap worth making, best first by `d_net`.
+
+    Until 2026-10-15 this kept only swaps that raised win probability by half
+    a point and sorted on that, while the rule applies a swap at d_net >= +1:
+    a favorite's swap that gains projection (Points For) at a small cost in
+    win probability passed the rule and never showed. Now every legal swap
+    with d_net above `min_net` is kept, sorted on d_net; `min_gain`, when
+    given, still filters on the win-probability change alone.
 
     Only unlocked, usable bench players into unlocked starter slots they are
     eligible for. `d_proj` is what the projection-only view would have said,
@@ -319,7 +374,8 @@ def best_swaps(me: list[dict], opp: list[dict], mults: dict[str, float] | None =
     gains priced at `points_per_win_pct` (the Points For tiebreak): the
     variance rule applies a swap at d_net >= +1."""
     mults = mults or {}
-    base = win_prob(me, opp, mults, remaining, corr)["p"]
+    w0 = win_prob(me, opp, mults, remaining, corr)
+    base = w0["p"]
     out = []
     starters = [r for r in me if is_starter(r)]
     bench = [r for r in me if r.get("slotId") == BENCH_SLOT]
@@ -335,15 +391,19 @@ def best_swaps(me: list[dict], opp: list[dict], mults: dict[str, float] | None =
                     r["slotId"] = BENCH_SLOT
                 elif r.get("id") == b.get("id"):
                     r["slotId"] = s["slotId"]
-            p = win_prob(trial, opp, mults, remaining, corr)["p"]
-            if p - base >= min_gain:
-                d_proj = float(row_mean(b) or 0) - float(row_mean(s) or 0)
-                out.append({"bench": b["name"], "bench_pos": b.get("pos"), "starter": s["name"],
-                            "slot": s.get("slot"), "slotId": s.get("slotId"),
-                            "p_before": base, "p_after": round(p, 3), "d_p": round(p - base, 3),
-                            "d_proj": round(d_proj, 1),
-                            "d_net": round(100 * (p - base) + d_proj / points_per_win_pct, 2)})
-    out.sort(key=lambda x: -x["d_p"])
+            w1 = win_prob(trial, opp, mults, remaining, corr)
+            p = w1["p"]
+            # The expected-points change of the whole lineup, so a questionable
+            # player counts at his mixture with the cover, not at his healthy mean.
+            d_proj = w1["mu_me"] - w0["mu_me"]
+            d_net = 100 * (p - base) + d_proj / points_per_win_pct
+            if d_net <= min_net or (min_gain is not None and p - base < min_gain):
+                continue
+            out.append({"bench": b["name"], "bench_pos": b.get("pos"), "starter": s["name"],
+                        "slot": s.get("slot"), "slotId": s.get("slotId"),
+                        "p_before": base, "p_after": round(p, 3), "d_p": round(p - base, 3),
+                        "d_proj": round(d_proj, 1), "d_net": round(d_net, 2)})
+    out.sort(key=lambda x: -x["d_net"])
     return out[:top]
 
 

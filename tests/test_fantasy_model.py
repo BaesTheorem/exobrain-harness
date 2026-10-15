@@ -177,3 +177,18 @@ def test_vs_proj_compares_the_started_lineup_with_the_projected_best():
     ]
     assert ls.best_by(rows, counts, "proj") == 15.0 + 5.0       # what ESPN's projections would have started
     assert ls.best_actual(rows, counts) == 30.0 + 12.0          # hindsight
+
+
+# ---- injury table lookups ----------------------------------------------------------
+
+
+def test_injury_lookup_falls_back_to_pooled_cells():
+    from ffmodel import injury  # noqa: PLC0415
+
+    table = {"cells": {"WR|Q|LP": {"n": 10, "p_play": 0.9}, "ALL|Q|LP": {"n": 2020, "p_play": 0.73, "ratio": 0.93},
+                       "ALL|Q|*": {"n": 3046, "p_play": 0.71}}}
+    c = injury.lookup(table, "WR", "Q", "LP")
+    assert c is not None and c["cell"] == "ALL|Q|LP"        # 10 player-games is too few on its own
+    assert injury.lookup(table, "WR", "", None) is None      # not on the report
+    assert injury.lookup(table, "WR", "QUESTIONABLE", None)["cell"] == "ALL|Q|*"
+    assert injury.wilson(0, 0) == (0.0, 1.0)

@@ -28,7 +28,7 @@ from datetime import datetime
 from typing import Any
 
 from espncli import chat
-from espncli.value import best_fill, best_swaps, clock_remaining, load_corr, win_prob
+from espncli.value import best_fill, best_swaps, clock_remaining, load_corr, load_points_per_win_pct, win_prob
 from espncli.client import (
     BENCH,
     IR,
@@ -325,6 +325,7 @@ def matchup_view(api: Espn, week: int, data: dict, team_id: int) -> dict | None:
         mults: dict[str, float] = {}   # per-player spread multipliers removed 2026-10-15: not a stable trait
         corr = load_corr()
         out["market_rows"] = attach_market(api, week, me["rows"] + opp["rows"])
+        out["injury_rows"] = attach_injury(api, week, me["rows"] + opp["rows"])
         # The gate is a player with points, not a team total: ESPN leaves the
         # team-level actual empty until the week closes.
         scored = any(r.get("actual") is not None for r in me["rows"] + opp["rows"])
@@ -338,7 +339,9 @@ def matchup_view(api: Espn, week: int, data: dict, team_id: int) -> dict | None:
                 if any(pr["player"] == r["name"] for pr in out["opp_problems"]) and r.get("actual") is None:
                     r["proj"] = 0.0
             out["win_if_opp_unfixed"] = win_prob(me["rows"], fixed, mults, rem, corr)["p"]
-        out["swaps"] = best_swaps(me["rows"], opp["rows"], mults, remaining=rem, corr=corr)
+        out["points_per_win_pct"] = load_points_per_win_pct(week)
+        out["swaps"] = best_swaps(me["rows"], opp["rows"], mults, remaining=rem, corr=corr,
+                                  points_per_win_pct=out["points_per_win_pct"])
     return out
 
 
@@ -483,6 +486,7 @@ def cmd_check(api: Espn, args: argparse.Namespace) -> None:
     mults: dict[str, float] = {}   # per-player spread multipliers removed 2026-10-15: not a stable trait
     corr = load_corr()
     attach_market(api, week, rows)
+    attach_injury(api, week, rows)
     rem = (mv or {}).get("in_progress") or {}
 
     def best_bench_for(slot_id: int, exclude: int | None) -> dict | None:
@@ -1075,6 +1079,46 @@ def attach_market(api: Espn, week: int, rows: list[dict]) -> int:
         r["mean"] = round((float(r["proj"]) + m["market"]) / 2, 1) if r.get("proj") is not None else m["market"]
         n += 1
     return n
+
+
+def attach_injury(api: Espn, week: int, rows: list[dict]) -> int:
+    """For every unlocked row on the injury report (ESPN status Q or D, or a
+    practice line in nflverse's in-week report): `practice` (DNP, LP, FP),
+    `p_play` (the measured share of regular contributors with that status
+    and practice who played, 2016-2025) and `injury_ratio` (points over
+    projection when they did play, against players not on the report). The
+    ratio scales ESPN's half of `mean`; the market's half already prices the
+    injury, because the books post the line knowing the report. ESPN_NO_MARKET=1
+    also turns this off (tests). Returns how many rows were annotated."""
+    if os.environ.get("ESPN_NO_MARKET") == "1":
+        return 0
+    try:
+        from ffmodel import injury  # noqa: PLC0415 -- the report pull is slow; only lineup reads need it
+
+        table = injury.load()
+        practice = injury.current_cached(api.season, week)
+    except Exception:  # noqa: BLE001 - a missing table or report leaves the rows as they were
+        return 0
+    n = 0
+    for r in rows:
+        if r.get("actual") is not None or r.get("pos") == "D/ST":
+            continue
+        pr = practice.get(str(r.get("id")))
+        cell = injury.lookup(table, r.get("pos") or "", r.get("status"), pr)
+        if not cell:
+            continue
+        r["practice"] = pr
+        r["p_play"] = cell["p_play"]
+        ratio = cell.get("ratio")
+        if ratio is not None and r.get("proj") is not None and ESPN_STATUS_Q.get(r.get("status") or "") == "Q":
+            r["injury_ratio"] = ratio
+            espn = float(r["proj"]) * ratio
+            r["mean"] = round((espn + r["market"]) / 2, 1) if r.get("market") is not None else round(espn, 1)
+        n += 1
+    return n
+
+
+ESPN_STATUS_Q = {"Q": "Q", "QUESTIONABLE": "Q"}
 
 
 def local_iso(s: str | None) -> datetime | None:

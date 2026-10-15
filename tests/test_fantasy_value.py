@@ -142,3 +142,36 @@ def test_swap_net_prices_the_projection_it_costs():
     assert sw["d_proj"] == -2.0
     assert sw["d_net"] == pytest.approx(100 * sw["d_p"] - 2.0 / value.POINTS_PER_WIN_PCT, abs=0.06)
     assert sw["d_net"] < 100 * sw["d_p"], "a swap that costs projection is worth less than its win probability"
+
+
+def test_swaps_rank_on_d_net_and_keep_a_points_swap_a_favorite_would_skip():
+    """2026-10-15: a heavy favorite's swap that gains projection but almost no
+    win probability passes d_net >= +1 and must show."""
+    mine = [row(1, "QB", "QB", 0, 45.0), row(3, "Starter", "WR", 4, 8.0), row(4, "Bench", "WR", 20, 16.0)]
+    opp = [row(21, "Their QB", "QB", 0, 3.0)]
+    swaps = value.best_swaps(mine, opp)
+    assert swaps and swaps[0]["bench"] == "Bench"
+    assert swaps[0]["d_p"] < 0.005 and swaps[0]["d_net"] >= 1.0
+    assert value.best_swaps(mine, opp, min_gain=0.005) == []        # the old filter hid it
+
+
+def test_questionable_starter_is_a_mixture_with_the_cover_that_kicks_off_later():
+    import datetime as dt
+    sun, thu = dt.datetime(2026, 10, 18, 12), dt.datetime(2026, 10, 15, 19)
+    q = {**row(3, "Q Starter", "WR", 4, 12.0), "p_play": 0.75, "kickoff": sun}
+    late = {**row(4, "Late Cover", "WR", 20, 8.0), "kickoff": sun}
+    early = {**row(5, "Early Cover", "WR", 20, 11.0), "kickoff": thu}       # locked before the inactives post
+    rows = value.with_fallbacks([q, late, early])
+    assert rows[0]["fallback_mean"] == 8.0
+    m, _ = value.row_moments(rows[0], {})
+    assert m == pytest.approx(0.75 * 12.0 + 0.25 * 8.0)
+    # without a p_play the row is unchanged
+    assert value.row_moments(row(6, "Healthy", "WR", 4, 12.0), {})[0] == 12.0
+
+
+def test_points_per_win_pct_reads_the_week_and_falls_back(tmp_path):
+    f = tmp_path / "leverage.json"
+    f.write_text('{"weeks": {"6": {"points_per_win_pct": 6.68}}}')
+    assert value.load_points_per_win_pct(6, f) == pytest.approx(6.68)
+    assert value.load_points_per_win_pct(7, f) == value.POINTS_PER_WIN_PCT
+    assert value.load_points_per_win_pct(6, tmp_path / "missing.json") == value.POINTS_PER_WIN_PCT
