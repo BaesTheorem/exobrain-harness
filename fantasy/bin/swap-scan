@@ -280,7 +280,8 @@ def render(out: dict, holes: list[dict], heat_ok: bool, volume_ok: bool) -> int:
     print(f"Swap scan -- week {week}, {remaining} regular-season weeks remain (weeks {week + 1}-{REG_SEASON_END}) "
           f"+ weeks 15-17 at {out['playoff_units']:.1f} regular-week units = horizon {horizon:g}; "
           f"gate +{gate:g} pts ({out['gate_per_game']:g} a game)")
-    print("  rate = ros_rate: half ESPN rest-of-season proj per game left, half live weekly proj (season PPG over games played from week 5)")
+    print("  rate = ros_rate: before week 5 half ESPN rest-of-season proj per game left, half weekly proj; "
+          "from week 5 0.45 weekly proj + 0.35 that prior + 0.20 PPG over games played")
     full = [f"{pos} {out['held'].get(pos, 0)}/{cap}" for pos, cap in out["position_max"].items()
             if out["held"].get(pos, 0) >= cap]
     print(f"  never a second QB or TE; at position max: {', '.join(full) or 'none'}"
