@@ -26,6 +26,10 @@ the playbook has no rule for the situation, decide from the evidence here,
 then **write the new rule into the playbook** in the section it belongs to,
 so the next call does not have to reason from scratch. When the two disagree,
 the playbook wins; if that is because the playbook is stale, fix the playbook.
+Mark a rule that one situation produced "(one case)": of the rules added
+from 09-13 to 10-14, about half were used again within three weeks (rule
+inventory R146, checked 2026-10-15), so a one-case rule is the first
+candidate for removal at the next inventory.
 
 **When a rule changes, the old one is data, not clutter** (Alex, 2026-09-17:
 "the corrections themselves can serve as useful data for future versions of
@@ -40,16 +44,16 @@ Where each call lives in the playbook:
 
 | Call | Playbook section |
 |---|---|
-| Lineup, start/sit, flex, questionable starters | *The variance rule*; *Season operations* rules 1-3 (never a zero, per-game variance with the Points For caveat, idle week) |
-| Waiver claims and drops | *Waivers: reverse standings, resets weekly*; *Season operations* rules 4-5 (regular-season weighting, front-loaded aggression) |
-| Trades, offers in or out | *Trades*; *Season operations* standing limits (Alex's tap required); *Contested, deliberately unresolved* (stacking) |
-| IR, handcuffs, K and D/ST streaming | *Roster management* |
+| Lineup, start/sit, flex, questionable starters | *The variance rule*; *The strategic thesis* rules 1-3 (never a zero, the `d_net` swap rule, the idle week) |
+| Waiver claims and drops | *Waivers: reverse standings, resets weekly*; *The strategic thesis* rule 4 (the roster is valued for weeks 16-17) |
+| Trades, offers in or out | *Trades* (no new proposals); every trade action is Alex's tap (`fantasy/routines/COMMON.md` rule 3) |
+| IR, handcuffs, K and D/ST streaming | *Roster management*; handcuffs and injured stashes in *The strategic thesis* rule 4 |
 | The season objective and how to weigh a week | *The strategic thesis: play for the bye*; *Set expectations first* |
-| Current roster, pending claims, pending offers | *Season operations*, the roster-state paragraph |
+| Current roster, pending claims, pending offers | Live from `ff roster` and `espn-tx pending` (the playbook keeps no roster-state paragraph since 2026-10-15) |
 | What has already been decided and why | *Season log* (newest first) |
-| What is still unknown | *Open questions* |
+| What is still unknown | The "Test (pending)" line at each untested rule; *Open questions* |
 | League settings when a tool and memory disagree | *League at a glance* (the note wins) |
-| A leaguemate's tendencies, who is engaged, the [leaguemate] rule | *League observations* (current read on top of each thread) |
+| A leaguemate's tendencies, who is engaged | *League observations* (current read on top of each thread; tiers from `league-scan`); the joke-first rule is in `fantasy/routines/chat.md` rule 8 |
 | Whether a rule has already been tried and overturned | *Corrections ledger* (Was / Falsified by / Now / Lesson, newest first) |
 | The week's 50%/90% forecast and the Tuesday review | *Weekly forecast and review*; the *Season log*, where each `### Week N` section opens with the generated Forecast and Review blocks |
 
@@ -137,27 +141,35 @@ the site by hand.
   `volume build --fresh` on Tuesday. (It no longer writes per-player spread
   multipliers: spread is not a stable trait, measured 2026-10-15)
 - `espn check` / `espn matchup` now report `win` (P(win) from each unlocked
-  starter's `mean`, the even blend of ESPN's projection and the betting
-  market's `market` (2026-10-15), with a variance-matched spread by
-  position and tier and same-game correlations; locked players are
-  banked), `swaps`
-  (bench-for-starter swaps ranked by the win probability they buy; apply at
-  `d_net` +1), `opp_problems` and `win_if_opp_unfixed` (the opponent's holes,
-  priced). The variance rule is a number; the fill for a problem slot is
-  chosen by it
+  starter's `mean`, 0.75 of the betting market's `market` and 0.25 of ESPN's
+  projection (2026-10-15), with a variance-matched spread by position and
+  tier and same-game correlations; locked players are banked; a
+  questionable starter is a mixture with his bench cover at the measured
+  `p_play`), `swaps` (every swap with a positive `d_net`, best first; apply
+  at `d_net` +1, at this week's exchange rate from `--leverage`),
+  `opp_problems` and `win_if_opp_unfixed` (the opponent's holes, priced
+  with the manager's measured fix rate from `league-scan`). Checked on
+  49,615 real Sleeper matchups: calibrated to about a point per decile. The
+  variance rule is a number; the fill for a problem slot is chosen by it
 - `fantasy/ffmodel/`: the models under the tools, built from raw data
   (2026-10-15; its README holds every measurement): `nflraw` (league
   scoring on nflverse box scores, equal to ESPN to the decimal), `props`
   (the sportsbook player props ESPN keeps for every game since 2024),
   `market` (points implied by those lines: ties Sleeper, beats ESPN out of
   sample), `corr` (same-game correlations: QB and his WR1 +0.39, a D/ST and
-  the QB it faces -0.48) and `score` (the weighted interval score and the
-  landing slices). Backtests of any rule start from `nflraw`, not a re-scored
-  CSV
-- `fantasy/bin/swap-scan`: the waiver gate, `(add - drop) x horizon` (weeks
-  left plus weeks 15-17 at their weight) against 2.5 points a game, never a
-  second QB/TE, Sleeper 24-hour adds as market heat,
-  volume flags as the role condition, bye holes two weeks out
+  the QB it faces -0.48), `score` (the weighted interval score and the
+  landing slices), `injury` (P(play) and points when playing, by status and
+  practice, 2016-2025), `fpranks` (FantasyPros' accuracy method as an outside
+  judge; Sunday snapshot, Tuesday score) and `role` (a Bayesian opportunity
+  model that added nothing to the blend and stays a research artifact).
+  Backtests of any rule start from `nflraw` (`fantasy/research/` holds them),
+  not a re-scored CSV
+- `fantasy/bin/swap-scan`: the waiver gate, add and drop each priced on
+  their own weeks over the horizon (weeks left plus weeks 15-17 at their
+  weight) against 1.0 point a game (backtested 2026-10-15; it was 2.5), a
+  bench QB/TE on the starter's byes plus the measured 13% injury share,
+  never a second QB/TE, Sleeper 24-hour adds as market heat, volume flags as
+  the role condition, bye holes two weeks out
 - `fantasy/bin/stash-scan`: injured free agents priced as playoff stashes
   (return odds 0.53, return factor 0.89 on IR and 0.66 otherwise, against the
   starter each would replace, over the `--leverage` weights); `--banner`
@@ -166,13 +178,16 @@ the site by hand.
   above a free agent's opponent, ranked by the line) and K (a free agent's
   offense 6+ above ours, fair weather) gaps, both backtested 2026-10-15,
   plus K/D/ST byes ahead
-- `fantasy/bin/league-scan` — per manager: zeros started, bench points left
-  per closed week, adds, trade offers sent/received/accepted/expired. The
-  opponent model and the trade-targeting input
+- `fantasy/bin/league-scan`: per manager, zeros started, bench points left
+  per closed week, VS-PROJ (the lineup against ESPN's projected best), the
+  bye-hole fix rate, an engagement tier, adds, and trade offers answered;
+  plus an integrity block (drop-to-pickup chains, league-manager moves). The
+  opponent model and the collusion check
 - `python3 fantasy/trade_scan.py --json [--min-gain 10]` — every 1-for-1
   and 2-for-1 the other side does not lose on its own screen, priced in
-  title and bye odds; `python3 fantasy/season_sim.py --json` — bye odds on
-  the results so far. Both value rosters on `espncli.value.ros_rate`, the one
+  title and bye odds; `python3 fantasy/season_sim.py --json`: bye odds on
+  the results so far, as a band over tau 4-12, with team strength drifting 4
+  points a week (measured on 673 real Sleeper leagues, 2026-10-15). Both value rosters on `espncli.value.ros_rate`, the one
   in-season currency (before week 5 half prior, half weekly projection; from
   week 5 0.45 weekly projection, 0.35 prior, 0.20 PPG, backtested
   2026-10-15), because ESPN's `season_proj` alone prices August
@@ -292,8 +307,8 @@ against a live clock is how picks get lost.
    picks only; what is already drafted is gone.
 2. **Exactly one connection per team.** If the bot drives, Alex must not open the
    draft room in his own browser, or ESPN bumps one session with "Duplicate
-   Connection" and the bot goes blind against a frozen board. He watches the
-   bot's window instead.
+   Connection" and the bot goes blind against a frozen board. He reads the
+   supervisor's feed and never touches the bot's window (*Live-draft rules*).
 3. **The queue cannot be preloaded.** ESPN silently ignores queue clicks before
    the draft starts — the click lands and nothing happens. The autopilot fills it
    in the first seconds after the clock starts, and only while not on the clock.
@@ -425,8 +440,9 @@ reported intent.
 That note is the operational source of truth for the current season. **Read it at
 the start of any fantasy task and again before every judgment call** (the
 section map is at the top of this skill), because it holds the current state
-(roster, pending moves, league observations, season log) and the decided
-rules that this skill deliberately does not duplicate.
+(league observations, the season log; the roster and pending moves come live
+from `ff roster` and `espn-tx pending`) and the decided rules that this skill
+deliberately does not duplicate.
 
 **Keep it current.** Write back to it whenever something is learned or decided:
 
@@ -476,36 +492,28 @@ so slot cannot be planned for. **90 seconds per pick.**
 
 ### The two settings that matter most
 
-**1. The first-round bye is worth roughly double the championship.** All playoff
-rounds are one week, so a bye removes an entire coin flip. Using the §1 model of a
-53% team: winning three single-week rounds is 0.53³ = **14.9%**. Winning two is
-0.53² = **28.1%**. Seeding top-2 out of 13 is close to a **2x multiplier on title
-odds**, and it is the highest-leverage regular-season goal in this league by a
-wide margin. Note 6 of 13 teams make the playoffs, so merely qualifying is close
-to a coin flip and is not the thing to optimize. **Play for the bye, not the
-berth.** Since the seeding tiebreaker is total points for, raw points matter
-independently of record.
-
-**Measured on the real league (2026-10-14, `season_sim.py --leverage`):** the
-ratio is 1/p, so the stronger the team, the smaller it gets. Chaos Legion
-placed at seed 1 or 2 wins the title about 37% of the time and at seeds 3-6
-about 24%: **the bye is worth about 13 points of title odds**. The ratio is
-less certain: 1.5x in the simulator, nearer 1.8x in 504 real Sleeper leagues,
-where the better seed won only 52.6% of playoff games. Quote the points. Seed
-1 against seed 2 is worth at most about 2 points, so never pay for the 1 seed. Two consequences the
-2x framing hid: a regular-season win moves the title odds about 4 points,
-while a point scored in week 16 or 17 is worth about 11x a point in a
-regular-season week, because those are elimination games. **Play for the bye
-with the lineup; build the roster for weeks 16-17.** The playbook's *The
-strategic thesis* holds the operating rules.
+**1. The first-round bye is worth about 11 points of title odds** (measured on
+the real league, 2026-10-15, `season_sim.py --leverage`; 13 on 10-14 before
+the measured drift). All playoff rounds are one week, so a bye removes one
+elimination game. Chaos Legion placed at seed 1 or 2 wins the title about 31%
+of the time and at seeds 3-6 about 20%.
+Quote the points, never a ratio: the ratio is 1/p, so the stronger the team,
+the smaller it gets (1.5x in the simulator, nearer 1.8x in 504 real Sleeper
+leagues, where the better seed won only 52.6% of playoff games). Seed 1
+against seed 2 is worth at most about 2 points, so never pay for the 1 seed.
+A regular-season win moves the title odds about 3 points, while a point
+scored in week 16 or 17 is worth about 9-10x a point in a regular-season week,
+because those are elimination games. **Play for the bye with the lineup;
+build the roster for weeks 16-17.** Six of 13 teams make the playoffs, so a
+berth is not the thing to optimize, and the seeding tiebreak is total points
+for. The playbook's *The strategic thesis* holds the operating rules.
 
 **2. Waivers are reverse-standings priority, not FAAB, which inverts the FAAB
 bidding advice (`references/evidence.md` F1).** The FAAB dead-zone guidance does not apply here. What applies instead:
 
 - **Priority resets every week based on standings, so hoarding it is worthless.**
-  There is no cost to using your claim. A manager "saving" waiver priority in a
-  resetting-priority league is making a free mistake. Claim every week there is
-  anyone worth claiming.
+  A claim on a full roster still has to clear the playbook's waiver gate
+  (*Waivers*), so a free claim is not by itself a reason to file one.
 - **Winning gives you bad priority.** This is a rich-get-poorer mechanic: the
   better Alex's record, the further back he sits. He cannot count on the wire to
   fix roster holes in the second half of the season.
@@ -549,13 +557,14 @@ bidding advice (`references/evidence.md` F1).** The FAAB dead-zone guidance does
   because locks are individual he can wait on late-window and Monday players to
   make information-rich decisions. This is free edge in a casual league.
 - **The IR slot** stashes an injured high-upside player without spending a bench
-  spot. ESPN typically requires OUT/IR designation, not questionable.
-- **7 bench spots plus no-limit acquisitions** supports constant bottom-of-roster
-  churn over hoarding handcuffs (§4).
-- **5 votes to veto in a 13-team league is a high bar**, so this is a trade-friendly
-  league. Trade deadline is Dec 2, 2026.
-- **No keepers**, so there is zero future value to protect. Rookies and young
-  players are worth only their 2026 production.
+  spot. INJURY_RESERVE qualifies here; OUT alone is untested, so assume it does
+  not (playbook *Roster management*).
+- **7 bench spots plus no-limit acquisitions** support churning the bottom of
+  the roster at the measured gate (1.0 a game over the horizon, playbook
+  *Waivers*) over hoarding handcuffs (§4).
+- **Trades are rare here** (0 of 11 offers accepted by 2026-10-11), so the
+  playbook's *Trades* rule is not to plan on them. Deadline Dec 2, 2026.
+- **No keepers**, so there is no future value to protect: only 2026 production counts.
 - **90 seconds per pick means the board must be built beforehand.** Boris Chen's
   free tier clustering (§5) is the right tool: at 90 seconds Alex needs to read a
   tier, not evaluate a player.
@@ -592,8 +601,6 @@ Corroborating the ceiling:
   3-round bracket it is 14.9% (0.53³).
 - Schedule luck: about **20% of teams finish "lucky," 20% "unlucky."** Applying a
   different random schedule to identical scores swung one team by **4 wins**.
-- Each extra ~1 point per week of scoring edge is worth roughly **+0.7%**
-  championship probability.
 
 **How to use this.** Do not promise Alex a title. Frame the goal as *maximizing
 his edge per decision*, then accept the variance. When he loses on a 150-point
@@ -754,6 +761,11 @@ PPR vs. standard inverts the RB/WR recommendation. Superflex roughly doubles QB
 value by removing the one-QB start constraint. TE premium is smaller than people
 assume (one worked example moved a TE's value **+19.9%**, not ~50%).
 
+**TE: one of the elite few, or wait long.** TE has the steepest raw drop-off
+(TE1-to-TE5 gap 138 points, against 119 for RB and 77 for WR) but the worst
+week-to-week repeatability (66.4% of TEs with a top-12 week repeat it, against
+78.7% for WR), so avoid the middle.
+
 ### The exploitable edge is your leaguemates, not the players
 
 Lee & Liu's strongest finding: drafters "use a more narrow range of strategies
@@ -771,14 +783,15 @@ the first 20 picks. Copying the herd showed no win-rate benefit (Bayes factors
 **Operating rule: never chase a K/DST/QB run.** Let the room reach. Take the skill
 player they skipped.
 
-### K and DST: last two rounds, then stream
+### K and DST: the least predictable positions
 
 Subvertadown's 3-season weekly projection study found K and DST have the lowest
 projection accuracy of any position, "significantly worse" than even WR1. 4for4's
 defense data confirms fantasy points allowed barely repeats year to year. Their
 stated rule, worth quoting to Alex directly: draft a position early only if it is
 scarce, has a high drop-off, is predictable, and does not depend on opponent. K
-and DST fail three of four.
+and DST fail three of four. The draft timing for this league is in §0: the best
+D/ST at round 11, the best K at round 13, then stream.
 
 ### Draft slot
 
@@ -852,8 +865,35 @@ favorite cutting SD from 12 to 6 at a 2-point EV cost raises win probability fro
 
 Always check the projected margin before answering a start/sit question. The same
 two players produce opposite recommendations depending on which side of the
-matchup Alex is on. This is the highest-leverage weekly habit in the whole skill
-and almost nobody in a casual league does it.
+matchup Alex is on. In this system the rule is a number: `espn check` computes
+P(win) for every legal swap and `d_net` decides (playbook *The variance rule*).
+Measured 2026-10-15: that win probability is calibrated on 49,615 real Sleeper
+matchups; a player's own spread is not a stable trait (split-half r 0.03), so
+the spread comes from position and projection tier only; and same-game
+correlations (a QB and his WR1 +0.39) matter for stacked lineups. Over weeks 1-5
+our lineup calls scored +0.0 a week against ESPN's projected best
+(`league-scan` VS-PROJ): the variance rule buys win probability, not points.
+
+### Questionable players: measured, not read from news
+
+Ten seasons of official injury reports joined to snap counts (nflverse
+2016-2025, regular contributors only, `fantasy/ffmodel/injury.py`):
+
+| Report | Played |
+|---|---|
+| Questionable, did not practice | 0.45 |
+| Questionable, limited | 0.73 |
+| Questionable, full | 0.88 |
+| Questionable QB (any practice) | 0.53 |
+| Doubtful | 0.01 |
+| Out | 0.001 |
+
+A questionable player who played scored 0.91 of his projection against
+players not on the report. Two consequences: a questionable starter's real
+expected value depends on who covers him if he sits (the bench player whose
+game starts no earlier, because the inactive list posts 90 minutes before
+kickoff), and the betting line already prices the report while a projection
+site may not. `espn check` does both.
 
 ### Trades
 
@@ -867,9 +907,7 @@ selling players with weak volume and great TD luck.
 absence is the finding. Treat every "trade fairness" score as an unvalidated
 heuristic against that site's own value chart. Reason from volume metrics instead.
 
-No study was found testing whether active traders actually win more. If Alex wants
-to know, pull his league's trade log against final standings via the platform API
-and compute it. That is a better use of an afternoon than reading another take.
+No study was found testing whether active traders actually win more.
 
 ### Handcuffing does not work the way it is sold
 
@@ -966,10 +1004,8 @@ Ranked by how confidently the evidence says to skip it:
   map at the top of this skill, apply its rule, and say which rule you
   applied. If there is no rule, decide from the evidence here and write the
   rule into the playbook before answering.
-- **Name the owner with every team** (Alex, 2026-10-11): each mention of a
-  team to Alex carries the owner's name in parentheses, from the *Team owners*
-  table in the playbook's *League at a glance*. Not in league chat posts, and
-  never in anything committed, since this repo is public.
+- **Team names follow the playbook's owner rule** (*League at a glance*,
+  *Team owners*).
 - **Confirm format first.** Scoring (PPR/half/standard), league size, roster slots,
   superflex, waiver system. Half this document's advice inverts on these.
 - **Lead with opportunity metrics.** Target share, routes, snap share, touch share.
