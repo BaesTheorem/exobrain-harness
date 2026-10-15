@@ -134,14 +134,15 @@ def main():
 
     # Paired simulation: same seed for baseline and every candidate.
     actuals = ss.completed_weeks(2026, games, reg)
-    base = ss.simulate(teams, games, reg, args.sims, 22.0, 8.0, 7, actuals)[-1]   # the probs dict (7-tuple; the old 6-way unpack crashed)
+    sigma = ss.measured_sigma(games, actuals) or ss.SIGMA_PRIOR
+    base = ss.simulate(teams, games, reg, args.sims, sigma, 8.0, 7, actuals)[-1]   # the probs dict (7-tuple; the old 6-way unpack crashed)
     i_me = sorted(teams).index(me)
     rows = []
     for n, c in enumerate(plausible[: args.top], 1):
         mod = copy.deepcopy(teams)
         mod[me]["espn"] = teams[me]["espn"] + (c["d_us"] if args.our_view == "espn" else c.get("d_us_espn", 0.0))
         mod[c["tid"]]["espn"] = teams[c["tid"]]["espn"] + c["d_them"]
-        pr = ss.simulate(mod, games, reg, args.sims, 22.0, 8.0, 7, actuals)[-1]
+        pr = ss.simulate(mod, games, reg, args.sims, sigma, 8.0, 7, actuals)[-1]
         fl = [f"{x['name'].split()[-1]}:{flags.get(norm(x['name']))}" for x in c["a"] + [c["b"]] if flags.get(norm(x["name"]))]
         rows.append({"n": n, "with": c["team"], "give": c["give"], "get": c["get"],
                      "d_us": round(c["d_us"], 1), "d_them": round(c["d_them"], 1), "raw_them": round(-c["raw"], 1),

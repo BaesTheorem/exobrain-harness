@@ -266,9 +266,10 @@ variance rule into a number in `espn check` and `espn matchup`.
 | `league-scan` | every closed week's lineups, every period's transactions | zeros started, bench points left, offers answered, per manager |
 | `trade_scan.py --json` | rosters on `ros_rate`, the season sim | 1-for-1 and 2-for-1 proposals priced in title and bye odds |
 | `season_sim.py --json` | rosters on `ros_rate`, results so far | bye/playoff/title odds for the Tuesday log |
+| `season_sim.py --leverage [--json]` | the same, on common random numbers | what each lever is worth to us: title odds with us placed at each seed, a win in each remaining week (bye and title points), a point of Points For, a point in each week including 15-17, the projected points worth 1% of win probability, and the per-week weights for valuing a player; sigma is measured from the played weeks once there are 4 |
 | `season_sim.py --live --force 6:TEAM` | the same, with the week in progress at ESPN's live projection and chosen games decided | what another team's game is worth to our bye odds: run once per result and take the difference |
 
-Tests: `tests/test_fantasy_value.py` (both sides of the variance rule with
+Tests: `tests/test_fantasy_season_sim.py` (the leverage report is an intervention: a zero bump changes nothing, a forced win never lowers the bye odds), `tests/test_fantasy_value.py` (both sides of the variance rule with
 planted lineups), `tests/test_swap_scan.py` (the gate's positive control and
 the second-TE rule), and the opponent-hole case in `tests/test_espncli.py`.
 

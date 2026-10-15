@@ -223,7 +223,39 @@ def parse_force(specs, teams, games):
     return out
 
 
-def simulate(teams, games, reg, sims, sigma, tau, seed, actuals=None, force=None) -> tuple:
+SIGMA_PRIOR = 22.0    # stated guess, used until enough weeks are played to measure it
+SIGMA_MIN_WEEKS = 4
+
+
+def measured_sigma(games, actuals):
+    """Pooled within-team SD of the real weekly scores, or None before SIGMA_MIN_WEEKS.
+
+    This is the simulator's SIGMA_WEEK read off the league instead of stated.
+    First measurement (2026-10-14, weeks 1-5, 13 teams, 52 df): 29.3 against
+    the 22 the model had assumed, so the prior understated how much a single
+    week decides and overstated every bye number built on it.
+    """
+    if len(actuals) < SIGMA_MIN_WEEKS:
+        return None
+    resid, groups = [], 0
+    for t in {t for _w, h, a in games for t in (h, a)}:
+        xs = [actuals[w][t] for w in sorted(actuals) if any(wk == w and t in (h, a) for wk, h, a in games)]
+        if len(xs) >= 2:
+            resid.extend(np.asarray(xs) - np.mean(xs))
+            groups += 1
+    dof = len(resid) - groups
+    return float(np.sqrt(np.sum(np.square(resid)) / dof)) if dof > 0 else None
+
+
+def _season(teams, games, reg, sims, sigma, tau, seed, actuals=None, force=None, me=None, bump=None):
+    """One batch of simulated seasons, returned raw for simulate() and leverage().
+
+    `bump` shifts team `me` only and never touches the random draws, so two
+    calls with the same seed differ by the intervention alone (common random
+    numbers): {"week": {w: pts}} moves our score in an unplayed week before the
+    game is decided, {"pf": pts} moves Points For without deciding anything,
+    {"playoff": {round: pts}} moves our score in playoff round 0, 1 or 2.
+    """
     ids = sorted(teams)
     idx = {tid: i for i, tid in enumerate(ids)}
     n = len(ids)
@@ -231,6 +263,11 @@ def simulate(teams, games, reg, sims, sigma, tau, seed, actuals=None, force=None
     mu = np.array([teams[t]["espn"] / NFL_WEEKS for t in ids])
     strength = mu[None, :] + rng.normal(0, tau, (sims, n))
     scores = strength[:, None, :] + rng.normal(0, sigma, (sims, reg, n))  # sims x weeks x teams
+    bump = bump or {}
+    if me is not None:
+        for w, d in bump.get("week", {}).items():
+            if 1 <= w <= reg:
+                scores[:, w - 1, idx[me]] += d
     wins = np.zeros((sims, n))
     losses = np.zeros((sims, n))
     pf = np.zeros((sims, n))
@@ -254,6 +291,8 @@ def simulate(teams, games, reg, sims, sigma, tau, seed, actuals=None, force=None
         losses[:, idx[a]] += as_ < hs
         pf[:, idx[h]] += hs
         pf[:, idx[a]] += as_
+    if me is not None and bump.get("pf"):
+        pf[:, idx[me]] += bump["pf"]
     # Seeding: win percentage, then points for (the league's tiebreak), which
     # is ESPN's playoffSeed order. Not raw wins: idle weeks leave teams on
     # unequal games mid-season (a 3-0 idle team sits above a 3-1 team with
@@ -264,23 +303,36 @@ def simulate(teams, games, reg, sims, sigma, tau, seed, actuals=None, force=None
     seed_of = np.empty_like(order)
     rows = np.arange(sims)[:, None]
     seed_of[rows, order] = np.arange(n)[None, :]
+    po = strength[:, None, :] + rng.normal(0, sigma, (sims, 3, n))
+    if me is not None:
+        for r, d in bump.get("playoff", {}).items():
+            po[:, r, idx[me]] += d
+    return {"ids": ids, "idx": idx, "mu": mu, "wins": wins, "losses": losses, "pf": pf,
+            "pct": pct, "order": order, "seed_of": seed_of, "po": po}
+
+
+def _bracket(po, s):
+    """Champion per simulated season. Week 15 = 3v6, 4v5; week 16 = 1 v (4/5), 2 v (3/6); week 17 final."""
+    rows = np.arange(len(s))
+
+    def game(week, x, y):
+        return np.where(po[rows, week, x] >= po[rows, week, y], x, y)
+    w36 = game(0, s[:, 2], s[:, 5])
+    w45 = game(0, s[:, 3], s[:, 4])
+    return game(2, game(1, s[:, 0], w45), game(1, s[:, 1], w36))
+
+
+def simulate(teams, games, reg, sims, sigma, tau, seed, actuals=None, force=None) -> tuple:
+    raw = _season(teams, games, reg, sims, sigma, tau, seed, actuals, force)
+    ids, mu, wins, losses, pf = raw["ids"], raw["mu"], raw["wins"], raw["losses"], raw["pf"]
+    s, n = raw["order"], len(raw["ids"])
     champ = np.zeros(n)
     top2 = np.zeros(n)
     playoffs = np.zeros(n)
     first = np.zeros(n)
     last = np.zeros(n)
     most_pf = np.zeros(n)
-    # Playoffs: week 15 = 3v6, 4v5; week 16 = 1 v (4/5), 2 v (3/6); week 17 final.
-    po = strength[:, None, :] + rng.normal(0, sigma, (sims, 3, n))
-    s = order  # s[:, k] = team index of seed k+1
-    def game(week, x, y):
-        return np.where(po[rows[:, 0], week, x] >= po[rows[:, 0], week, y], x, y)
-    w36 = game(0, s[:, 2], s[:, 5])
-    w45 = game(0, s[:, 3], s[:, 4])
-    f1 = game(1, s[:, 0], w45)
-    f2 = game(1, s[:, 1], w36)
-    winner = game(2, f1, f2)
-    np.add.at(champ, winner, 1)
+    np.add.at(champ, _bracket(raw["po"], s), 1)
     np.add.at(first, s[:, 0], 1)
     np.add.at(last, s[:, -1], 1)
     np.add.at(most_pf, np.argmax(pf, axis=1), 1)
@@ -292,10 +344,78 @@ def simulate(teams, games, reg, sims, sigma, tau, seed, actuals=None, force=None
     # separate from the win count because rank is what the league table shows
     # and what the bye and the playoff cut are actually drawn on: a 7-win
     # season can finish 3rd or 9th depending on everyone else.
-    ranks = seed_of + 1
+    ranks = raw["seed_of"] + 1
     return ids, mu, wins, losses, pf, ranks, {
         "champ": champ / sims, "bye": top2 / sims, "playoffs": playoffs / sims,
         "seed1": first / sims, "last": last / sims, "most_pf": most_pf / sims}
+
+
+def leverage(teams, games, reg, actuals, me, sims, sigma, tau, seed, step=10.0):
+    """What each remaining lever is worth to `me`, in bye and title odds.
+
+    Every number is a difference between two batches on the same random
+    draws, so it is the intervention alone. Built 2026-10-14 when Alex asked
+    what else "play for the bye" implies; the playbook's *The strategic
+    thesis* cites these numbers, so rerun this rather than quoting them.
+
+    - placed[k]: P(title) with us moved to seed k and our strength unchanged.
+      P(title | seed) read off a plain run is confounded (a team that earned
+      the 1 seed is usually a stronger draw), which made the bye look like
+      2.1x when the bracket itself is worth about 1.5x.
+    - weeks[w]: a forced win against a forced loss in our game in week w, in
+      bye and title points; title per point added to our week-w score; and
+      the exchange rate: projected points worth 1 point of win probability.
+    - pf_point: a point of Points For alone (the seeding tiebreak).
+    - playoff_per_point: a point added to our score in week 15, 16, 17.
+    - weight: title per point of each remaining week over the mean
+      regular-season week. This is the per-week weight for valuing a player.
+    """
+    def batch(**kw):
+        raw = _season(teams, games, reg, sims, sigma, tau, seed, actuals, me=me, **kw)
+        return raw, _bracket(raw["po"], raw["order"])
+
+    def odds(raw, champ):
+        i = raw["idx"][me]
+        sd = raw["seed_of"][:, i]
+        return {"bye": float(np.mean(sd < BYES)), "title": float(np.mean(champ == i)),
+                "playoffs": float(np.mean(sd < PLAYOFF_TEAMS)), "seed1": float(np.mean(sd == 0))}
+
+    raw, champ = batch()
+    base = odds(raw, champ)
+    i, s, n = raw["idx"][me], raw["order"], len(raw["ids"])
+    others = s[s != i].reshape(len(s), n - 1)
+    placed = {}
+    for k in range(PLAYOFF_TEAMS):
+        sk = np.concatenate([others[:, :k], np.full((len(s), 1), i), others[:, k:]], axis=1)
+        placed[k + 1] = float(np.mean(_bracket(raw["po"], sk) == i))
+    sd = raw["seed_of"][:, i]
+    pct = raw["pct"]
+    rows = np.arange(len(s))
+    base["tie_at_bye_line"] = float(np.mean((pct[rows, s[:, 1]] == pct[rows, s[:, 2]]) & ((sd == 1) | (sd == 2))))
+    pfr = odds(*batch(bump={"pf": step}))
+    pf_point = {"bye": (pfr["bye"] - base["bye"]) / step, "title": (pfr["title"] - base["title"]) / step}
+    weeks = {}
+    for w in sorted({w for w, h, a in games if me in (h, a) and w not in actuals}):
+        h, a = next((h, a) for wk, h, a in games if wk == w and me in (h, a))
+        opp = a if h == me else h
+        pair = frozenset((h, a))
+        won = odds(*batch(force={(w, pair): me}))
+        lost = odds(*batch(force={(w, pair): opp}))
+        moved = odds(*batch(bump={"week": {w: step}}))
+        win_bye, win_title = won["bye"] - lost["bye"], won["title"] - lost["title"]
+        weeks[w] = {"opp": teams[opp]["name"], "win_bye": win_bye, "win_title": win_title,
+                    "title_per_point": (moved["title"] - base["title"]) / step,
+                    "points_per_win_pct": (0.01 * win_title / pf_point["title"]) if pf_point["title"] > 0 else None}
+    playoff = {}
+    for r in range(3):
+        playoff[reg + 1 + r] = (odds(*batch(bump={"playoff": {r: step}}))["title"] - base["title"]) / step
+    regular = [v["title_per_point"] for v in weeks.values()]
+    unit = float(np.mean(regular)) if regular else None
+    weight = {w: (v["title_per_point"] / unit if unit else None) for w, v in weeks.items()}
+    weight.update({w: (v / unit if unit else None) for w, v in playoff.items()})
+    return {"sigma": sigma, "tau": tau, "sims": sims, "base": base, "placed": placed,
+            "bye_worth_title": float(np.mean([placed[1], placed[2]]) - np.mean([placed[k] for k in range(3, 7)])),
+            "pf_point": pf_point, "weeks": weeks, "playoff_per_point": playoff, "weight": weight}
 
 
 def ci(x, lo, hi):
@@ -328,10 +448,37 @@ def after_week(teams, games, reg, args, actuals, force=None):
         print(f"| {'**' + nm + '**' if m else nm} | {w:.2f} | {f:.0%} | {b:.0%} | {np.median(r):.0f} ({lo:.0f}-{hi:.0f}) |")
 
 
+def print_leverage(lev, as_json):
+    if as_json:
+        print(json.dumps(lev, indent=1, default=float))
+        return
+    b = lev["base"]
+    print(f"## Leverage ({lev['sims']:,} seasons per batch; sigma_week={lev['sigma']}, tau_season={lev['tau']})\n")
+    print(f"Now: bye {b['bye']:.0%}, seed 1 {b['seed1']:.0%}, playoffs {b['playoffs']:.0%}, title {b['title']:.0%}. "
+          f"Our bye is decided on the Points For tiebreak in {b['tie_at_bye_line']:.0%} of seasons.\n")
+    print("Title odds with us placed at each seed (same team, only the bracket changes): "
+          + ", ".join(f"{k}: {v:.1%}" for k, v in lev["placed"].items())
+          + f". The bye is worth {lev['bye_worth_title'] * 100:.1f} points of title odds.\n")
+    print(f"A point of Points For alone: {lev['pf_point']['bye'] * 100:.3f} bye points, "
+          f"{lev['pf_point']['title'] * 100:.4f} title points.\n")
+    print("| Week | Opponent | A win is worth (bye) | (title) | Title per point | Points per 1% win | Weight |")
+    print("|---|---|---|---|---|---|---|")
+    for w, v in lev["weeks"].items():
+        ppw = f"{v['points_per_win_pct']:.1f}" if v["points_per_win_pct"] else "-"
+        print(f"| {w} | {v['opp']} | {v['win_bye'] * 100:.1f} | {v['win_title'] * 100:.1f} | "
+              f"{v['title_per_point'] * 100:.3f}% | {ppw} | {lev['weight'][w]:.1f} |")
+    for w, v in lev["playoff_per_point"].items():
+        print(f"| {w} | playoffs | - | - | {v * 100:.3f}% | - | {lev['weight'][w]:.1f} |")
+    print("\nWeight = title value of a point that week over the mean regular-season week: "
+          "the per-week multiplier for valuing a player's rest of season.")
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--sims", type=int, default=20000)
-    ap.add_argument("--sigma", type=float, default=22.0, help="weekly team-score SD")
+    ap.add_argument("--sigma", type=float, default=None,
+                    help=f"weekly team-score SD (default: measured from the played weeks once there "
+                         f"are {SIGMA_MIN_WEEKS}, else {SIGMA_PRIOR:g})")
     ap.add_argument("--tau", type=float, default=8.0, help="per-week roster-strength SD, drawn per season")
     ap.add_argument("--seed", type=int, default=1)
     ap.add_argument("--season", type=int, default=2026)
@@ -345,16 +492,29 @@ def main():
                     help="treat the week in progress as played, at ESPN's live projected finish")
     ap.add_argument("--force", action="append", metavar="WEEK:TEAM",
                     help="TEAM (id or name fragment) wins its game in WEEK; repeatable")
+    ap.add_argument("--leverage", action="store_true",
+                    help="what each remaining lever is worth to us: seed value, a win per week, "
+                         "a point per week (regular season and playoffs), Points For")
     args = ap.parse_args()
     say = (lambda *a, **k: None) if args.json else print   # --json: the summary is the only stdout
 
     teams, games, reg = load(args.season)
     actuals = completed_weeks(args.season, games, reg, args.through_week)
+    if args.sigma is None:
+        # Measured before --live folds in a projected week: a projection is not a score.
+        measured = measured_sigma(games, actuals)
+        args.sigma = round(measured, 1) if measured else SIGMA_PRIOR
+        print(f"sigma_week {args.sigma} ({'measured on ' + str(len(actuals)) + ' played weeks' if measured else 'prior'})",
+              file=sys.stderr)
     if args.live:
         live = live_week(args.season)
         if live is None:
             sys.exit("--live: ESPN has no live projection for every team yet")
         actuals[live[0]] = live[1]
+    if args.leverage:
+        print_leverage(leverage(teams, games, reg, actuals, int(Espn().creds.get("team_id", 0)),
+                                args.sims, args.sigma, args.tau, args.seed), args.json)
+        return
     force = parse_force(args.force, teams, games)
     for (wk, pair), winner in sorted(force.items(), key=lambda kv: kv[0][0]):
         loser = next(iter(pair - {winner}))

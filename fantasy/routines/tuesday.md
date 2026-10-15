@@ -31,13 +31,18 @@ Follow `fantasy/routines/COMMON.md` first. If today is not Tuesday, stop.
    record, points-for rank,
    waiver priority, and one sentence on what decided it, judged as process.
    Then the bye race, which is the season's actual objective (a top-2 seed
-   skips a single-week round and is worth about 1.9x the title odds of a
-   3-6 seed): `fantasy/bin/ff standings` shows the cutline; log games and
+   skips a single-week round; for us it is worth about 13 points of title
+   odds, about 1.5x a 3-6 seed, measured by `season_sim.py --leverage`): `fantasy/bin/ff standings` shows the cutline; log games and
    points ahead of or behind the #2 seed, and name the teams we are racing.
    **Then the bye odds themselves**: `python3 fantasy/season_sim.py --sims
    20000 --json` folds the results so far into the simulation and prints
    our `bye`, `playoffs`, `champ` and `seed1` probabilities; log them every
    week beside last week's, so the objective has a number and a trend.
+   **Then the levers**: `python3 fantasy/season_sim.py --leverage --sims
+   40000` prints what a win is worth each remaining week, the projected
+   points worth 1% of win probability, and the per-week weights (weeks
+   16-17 against a regular-season week). Log the exchange rate and the
+   week 16/17 weights; *The strategic thesis* rules 2 and 4 read them.
    **Run `fantasy/bin/volume build --fresh` here** (nflverse posts the
    week's stats by Tuesday) so every scan below reads this week's volume.
 2. **Ledger.** `python3 fantasy/ledger.py settle`; note the running score in

@@ -464,6 +464,17 @@ to a coin flip and is not the thing to optimize. **Play for the bye, not the
 berth.** Since the seeding tiebreaker is total points for, raw points matter
 independently of record.
 
+**Measured on the real league (2026-10-14, `season_sim.py --leverage`):** the
+ratio is 1/p, so the stronger the team, the smaller it gets. Chaos Legion
+placed at seed 1 or 2 wins the title about 37% of the time and at seeds 3-6
+about 24%: **1.5x, worth about 13 points of title odds**. Seed 1 against seed
+2 is worth under one point, so never pay for the 1 seed. Two consequences the
+2x framing hid: a regular-season win moves the title odds about 4 points,
+while a point scored in week 16 or 17 is worth about 11x a point in a
+regular-season week, because those are elimination games. **Play for the bye
+with the lineup; build the roster for weeks 16-17.** The playbook's *The
+strategic thesis* holds the operating rules.
+
 **2. Waivers are reverse-standings priority, not FAAB, which inverts the FAAB
 bidding advice (`references/evidence.md` F1).** The FAAB dead-zone guidance does not apply here. What applies instead:
 

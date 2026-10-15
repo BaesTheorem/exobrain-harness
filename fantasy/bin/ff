@@ -116,11 +116,14 @@ def team_name(t):
 
 def cmd_standings(creds, args):
     data = api(creds, views=("mTeam", "mSettings"))
-    teams = sorted(
-        data["teams"],
-        key=lambda t: (-(t["record"]["overall"]["wins"]),
-                       -(t["record"]["overall"]["pointsFor"])),
-    )
+    # Win percentage, then points for: ESPN's seed order, and the order
+    # `espn teams` and season_sim.py use. Raw wins ranked a 4-0 team that had
+    # already sat its idle week below two 4-1 teams (2026-10-14).
+    def pct(t):
+        r = t["record"]["overall"]
+        return (r["wins"] + r.get("ties", 0) / 2) / max(r["wins"] + r["losses"] + r.get("ties", 0), 1)
+
+    teams = sorted(data["teams"], key=lambda t: (-pct(t), -(t["record"]["overall"]["pointsFor"])))
     mine = my_team_id(creds, data)
     print(f"{data['settings']['name']} -- standings\n")
     print(f"{'#':>2}  {'Team':<26} {'W-L':>6} {'PF':>8} {'PA':>8}")
