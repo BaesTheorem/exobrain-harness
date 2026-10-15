@@ -468,8 +468,10 @@ independently of record.
 **Measured on the real league (2026-10-14, `season_sim.py --leverage`):** the
 ratio is 1/p, so the stronger the team, the smaller it gets. Chaos Legion
 placed at seed 1 or 2 wins the title about 37% of the time and at seeds 3-6
-about 24%: **1.5x, worth about 13 points of title odds**. Seed 1 against seed
-2 is worth under one point, so never pay for the 1 seed. Two consequences the
+about 24%: **the bye is worth about 13 points of title odds**. The ratio is
+less certain: 1.5x in the simulator, nearer 1.8x in 504 real Sleeper leagues,
+where the better seed won only 52.6% of playoff games. Quote the points. Seed
+1 against seed 2 is worth at most about 2 points, so never pay for the 1 seed. Two consequences the
 2x framing hid: a regular-season win moves the title odds about 4 points,
 while a point scored in week 16 or 17 is worth about 11x a point in a
 regular-season week, because those are elimination games. **Play for the bye
