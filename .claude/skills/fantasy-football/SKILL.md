@@ -164,10 +164,10 @@ the site by hand.
   model that added nothing to the blend and stays a research artifact).
   Backtests of any rule start from `nflraw` (`fantasy/research/` holds them),
   not a re-scored CSV
-- `fantasy/bin/swap-scan`: the waiver gate, add and drop each priced on
-  their own weeks over the horizon (weeks left plus weeks 15-17 at their
-  weight) against 1.0 point a game (backtested 2026-10-15; it was 2.5), a
-  bench QB/TE on the starter's byes plus the measured 13% injury share,
+- `fantasy/bin/swap-scan`: the waiver gate, `(add - drop) x horizon` (weeks
+  left plus weeks 15-17 at their weight) against 1.0 point a game
+  (backtested 2026-10-15; it was 2.5), a bench QB/TE drop priced on the
+  starter's byes plus the measured 13% injury share,
   never a second QB/TE, Sleeper 24-hour adds as market heat, volume flags as
   the role condition, bye holes two weeks out
 - `fantasy/bin/stash-scan`: injured free agents priced as playoff stashes
