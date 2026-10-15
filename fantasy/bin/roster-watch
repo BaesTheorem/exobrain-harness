@@ -133,6 +133,33 @@ def load(path: pathlib.Path, default):
         return default
 
 
+def trade_outcome(api, tid: str) -> str:
+    """accepted, rejected, expired or unknown for one of our offers, from the
+    transaction log (rule inventory R109 in code, 2026-10-15). A CANCEL row
+    written by ESPN's trade processor is the two-day expiry; one written by a
+    manager, or a TRADE_DECLINE row, is a rejection; an accept or uphold row,
+    or the offer itself EXECUTED, is a trade. The roster diff still confirms
+    an accepted one before anything is moved."""
+    try:
+        cur = api.current_week(api.league("mStatus"))
+        rows = [t for w in range(max(1, cur - 2), cur + 1)
+                for t in api.league("mTransactions2", period=w).get("transactions", [])]
+    except Exception:  # noqa: BLE001 - the routine falls back to reading the log by hand
+        return "unknown"
+    out = "unknown"
+    for t in rows:
+        if t.get("id") != tid and t.get("relatedTransactionId") != tid:
+            continue
+        typ, st, member = t.get("type"), t.get("status"), str(t.get("memberId") or "")
+        if typ in ("TRADE_ACCEPT", "TRADE_UPHOLD") or (t.get("id") == tid and st == "EXECUTED"):
+            return "accepted"
+        if typ == "TRADE_DECLINE":
+            out = "rejected"
+        elif t.get("executionType") == "CANCEL" and out == "unknown":
+            out = "expired" if (not member or "Processor" in member) else "rejected"
+    return out
+
+
 def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--dry-run", action="store_true")
@@ -203,9 +230,10 @@ def main() -> int:
             # CANCELED row with relatedTransactionId at the 2-day mark and the
             # original stays PENDING forever). Hand either to the routine to log.
             trade = "TRADE" in str(seen[tid].get("type", ""))
+            outcome = trade_outcome(api, tid) if trade else None
             events.append({"kind": "trade_resolved" if trade else "waiver_result", "id": tid,
-                           "type": seen[tid].get("type"),
-                           "from": "PENDING", "to": "resolved (see roster)" if trade else "processed (see roster)",
+                           "type": seen[tid].get("type"), "outcome": outcome,
+                           "from": "PENDING", "to": (outcome or "resolved (see roster)") if trade else "processed (see roster)",
                            "judgment": True})
             seen.pop(tid)
 

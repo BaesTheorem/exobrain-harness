@@ -64,13 +64,12 @@ false, oldest first, then rewrite the file with those lines marked
   **The playbook's Season log may carry a named branch for the week** (which
   add closes out a trade negotiation, which reopens it). Apply it if present,
   and mark it resolved there when you do.
-- **trade_resolved** (an offer we sent left the pending list). Read
-  `fantasy/bin/espn raw --views mTransactions2 --json --limit 0`: a row with
-  `memberId` `TradeTaskProcessor`, `executionType` `CANCEL`, and
-  `relatedTransactionId` pointing at ours means it expired unanswered (the
-  original keeps `status: PENDING`); a CANCEL row carrying the other
-  manager's `memberId`, or a `TRADE_DECLINE` row pointing at ours, means
-  rejected; otherwise the roster diff says whether it went through. Log it.
+- **trade_resolved** (an offer we sent left the pending list). The event's
+  `outcome` says which: `accepted`, `rejected` or `expired` (roster-watch
+  reads the transaction log, 2026-10-15). Confirm an `accepted` one on the
+  roster (`fantasy/bin/ff roster`) before moving anyone; on `unknown`, read
+  `fantasy/bin/espn raw --views mTransactions2 --json --limit 0` yourself.
+  Log it.
   **An expiry or a rejection ends the offer** (playbook *Trades*, current
   rule, Alex 2026-10-11: no new outgoing proposals, and a re-send is a new
   proposal). Do not ask Alex about a re-send and do not send one; the only

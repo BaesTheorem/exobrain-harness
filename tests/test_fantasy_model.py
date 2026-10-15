@@ -192,3 +192,40 @@ def test_injury_lookup_falls_back_to_pooled_cells():
     assert injury.lookup(table, "WR", "", None) is None      # not on the report
     assert injury.lookup(table, "WR", "QUESTIONABLE", None)["cell"] == "ALL|Q|*"
     assert injury.wilson(0, 0) == (0.0, 1.0)
+
+
+# ---- roster-watch: what happened to an offer we sent ------------------------------
+
+
+def _load_script(rel: str, name: str):
+    import importlib.machinery  # noqa: PLC0415
+    import importlib.util  # noqa: PLC0415
+
+    path = Path(__file__).resolve().parent.parent / rel
+    loader = importlib.machinery.SourceFileLoader(name, str(path))
+    spec = importlib.util.spec_from_loader(name, loader)
+    assert spec is not None and spec.loader is not None
+    mod = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(mod)
+    return mod
+
+
+class _FakeTx:
+    def __init__(self, rows):
+        self.rows = rows
+
+    def current_week(self, data):
+        return 5
+
+    def league(self, *views, period=None, **kw):
+        return {"transactions": self.rows} if "mTransactions2" in views else {}
+
+
+def test_trade_outcome_reads_who_cancelled():
+    rw = _load_script("fantasy/bin/roster-watch", "roster_watch")
+    proc = {"id": "c", "relatedTransactionId": "T1", "executionType": "CANCEL", "memberId": "TradeTaskProcessor"}
+    mgr = {**proc, "memberId": "{ABC}"}
+    assert rw.trade_outcome(_FakeTx([proc]), "T1") == "expired"
+    assert rw.trade_outcome(_FakeTx([mgr]), "T1") == "rejected"
+    assert rw.trade_outcome(_FakeTx([{"id": "a", "relatedTransactionId": "T1", "type": "TRADE_ACCEPT"}]), "T1") == "accepted"
+    assert rw.trade_outcome(_FakeTx([]), "T1") == "unknown"
