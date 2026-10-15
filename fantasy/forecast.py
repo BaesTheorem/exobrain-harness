@@ -64,6 +64,7 @@ from typing import Any
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
+from ffmodel import score  # noqa: E402
 from espncli.cli import (  # noqa: E402
     matchup_view,
     nfl_events,
@@ -260,6 +261,7 @@ def fftoday_proj(season: int, week: int) -> dict[str, float]:
 
 
 ANCHORS = ("espn", "sleeper", "fantasypros")   # share this league's 4-point passing TD scale
+NO_SCALE = ("market",)                          # built on league scoring from the lines; never rescaled
 
 
 def normalize_units(sources: dict[str, dict[str, float]], espn: dict[str, float]) -> dict[str, dict[str, float]]:
@@ -280,7 +282,7 @@ def normalize_units(sources: dict[str, dict[str, float]], espn: dict[str, float]
             anchor[k] = vals
     factors: dict[str, dict[str, float]] = {}
     for name, table in sources.items():
-        if name in ANCHORS:
+        if name in ANCHORS or name in NO_SCALE:
             continue
         by_pos: dict[str, list[float]] = {}
         for k, v in table.items():
@@ -323,6 +325,25 @@ def pull_sources(season: int, week: int) -> tuple[dict[str, dict[str, float]], l
             print(f"forecast: source {name} failed: {e}", file=sys.stderr)
             failed.append(name)
     return got, failed
+
+
+def market_source(season: int, week: int, sources: dict[str, dict[str, float]], failed: list[str]) -> dict[str, dict]:
+    """The betting market's view (ffmodel.market, 2026-10-15): fantasy points
+    from the current DraftKings player props and the implied team totals, one
+    more vote in the consensus and the yardstick for closing line value.
+    Returns the raw lines by ESPN player id so `record` can file what the
+    market said when MIST forecast, and `settle` can compare it to the close."""
+    try:
+        from ffmodel import market  # noqa: PLC0415 -- the props pull is slow; only the dossier needs it
+
+        now = market.week(season, week)
+    except Exception as e:  # noqa: BLE001 - a dead source must not kill the dossier
+        print(f"forecast: source market failed: {e}", file=sys.stderr)
+        failed.append("market")
+        return {}
+    if now:
+        sources["market"] = {key_for(v["name"], v["pos"]): v["market"] for v in now.values()}
+    return now
 
 
 # ---- residual library -----------------------------------------------------
@@ -596,6 +617,7 @@ def build_dossier(api: Espn, week: int) -> dict:
     if mv is None or not mv.get("opp"):
         raise SystemExit(f"forecast: no matchup for week {week} (idle week?)")
     sources, failed = pull_sources(api.season, week)
+    market_now = market_source(api.season, week, sources, failed)
     league, idle = league_lineups(api, data, week)
     espn_table: dict[str, float] = {}
     for g in league:
@@ -640,6 +662,7 @@ def build_dossier(api: Espn, week: int) -> dict:
                    for g in league],
         "idle": idle,
         "standings": standings,
+        "market_lines": market_now,
         "residual_quantiles": lib_meta.get("quantiles", {}),
         "residual_tier_quantiles": lib_meta.get("tier_quantiles", {}),
         "residual_weeks": lib_meta.get("weeks", []),
@@ -653,7 +676,7 @@ def render_dossier(d: dict) -> None:
     print(f"  sources: {', '.join(d['sources_ok'])}" + (f"   FAILED: {', '.join(d['sources_failed'])}" if d['sources_failed'] else ""))
     for src_name, fs in d.get("unit_factors", {}).items():
         print(f"  unit-normalized {src_name}: " + ", ".join(f"{p} x{f}" for p, f in fs.items()) + "  (scoring-format difference, not opinion)")
-    src = ["espn", "sleeper", "cbs", "fantasypros", "fftoday"]
+    src = ["espn", "sleeper", "cbs", "fantasypros", "fftoday", "market"]
     hdr = f"  {'SLOT':5} {'PLAYER':24} {'POS':4} {'OPP':5} {'ST':3} " + " ".join(f"{s[:6]:>6}" for s in src) + f" {'CONS':>6} {'SPRD':>5}  {'season log (actual/espn)':30} {'implied':>7} {'line':10} {'wx'}"
     print(hdr)
     for section, rows in (("OURS", d["me"]), ("THEIRS (starters)", d["opp"])):
@@ -776,6 +799,9 @@ def record(api: Espn, forecast: dict, dossier: dict) -> Path:
         "forecast": forecast,
         "baseline": dossier["baseline"],
         "sources": {"ok": dossier["sources_ok"], "failed": dossier["sources_failed"]},
+        "market_at_forecast": {str(p["id"]): (dossier.get("market_lines") or {}).get(str(p["id"]))
+                               for p in forecast["players"]
+                               if (dossier.get("market_lines") or {}).get(str(p["id"]))},
         "standings_before": dossier["standings"],
         "settled": None,
     }
@@ -868,8 +894,25 @@ def settle_week(api: Espn, path: Path) -> dict:
     out["source_error"] = source_error(f["players"], actual_by_id)
     out["coverage"] = coverage([{"settled": out}])
     rec["settled"] = out
+    out["market"] = settle_market(rec)
     path.write_text(json.dumps(rec, indent=1))
     return rec
+
+
+def settle_market(rec: dict) -> dict:
+    """Closing line value for the week (2026-10-15): crawl the week's closing
+    prop lines into the cache, then compare what the market said when MIST
+    forecast with what it said at kickoff, beside MIST's median. Empty when
+    the feed or the fitted market model is missing; never fatal to a settle."""
+    try:
+        from ffmodel import market, props  # noqa: PLC0415 -- slow pulls, only settle needs them
+
+        props.crawl(int(rec["season"]), [int(rec["week"])], verbose=False)
+        res = market.clv([rec])
+    except Exception as e:  # noqa: BLE001 - a dead feed must not block the review
+        print(f"forecast: market check skipped: {e}", file=sys.stderr)
+        return {}
+    return {k: v for k, v in res.items() if k != "rows"} | {"rows": res.get("rows", [])}
 
 
 def source_error(players: list[dict], actual_by_id: dict[int, float]) -> dict:
@@ -983,6 +1026,45 @@ def render_history(recs: list[dict]) -> None:
             line = ", ".join(f"{src} {statistics.fmean(xs):.2f} (n={len(xs)})"
                              for src, xs in sorted(pooled.items(), key=lambda kv: statistics.fmean(kv[1])))
             print(f"  source MAE, best first: {line}")
+        render_proper(score.season(settled))
+        render_clv(settled)
+
+
+def render_clv(settled: list[dict]) -> None:
+    """Closing line value over the season: does MIST lean the way the market
+    later moves? Weeks filed before 2026-10-15 use the opening line as the
+    forecast-time market."""
+    try:
+        from ffmodel import market  # noqa: PLC0415
+
+        c = market.clv(settled)
+    except Exception as e:  # noqa: BLE001 - history must render without the props cache
+        print(f"  closing line value: unavailable ({e})")
+        return
+    if not c.get("n") or "mist" not in c:
+        return
+    print(f"  closing line value on {c['n']} lines (corr of lean vs the market's later move; >0 = ahead of the market):")
+    for who in ("mist", "consensus", "espn"):
+        if who in c:
+            x = c[who]
+            print(f"    {who:9} corr {x['corr_lean_vs_move']}, sign agreement {x['sign_agree_on_moves']} on {x['moves']} moves; "
+                  f"MAE {x['mae']} vs market then {x['mae_market_then_same_rows']}, market close {x['mae_market_close_same_rows']}")
+
+
+def render_proper(ps: dict) -> None:
+    """The proper scores (2026-10-15): WIS rewards a band that is both right
+    and narrow, so it cannot be gamed the way coverage can; the PIT row says
+    WHERE outcomes land inside the forecast, which coverage hides."""
+    if not ps.get("n"):
+        return
+    m, b, d = ps["mist"], ps["baseline"], ps["wis_diff"]
+    print(f"  proper scores on the same {ps['n']} lines (lower is better): WIS MIST {m['wis']:.2f}, baseline {b['wis']:.2f} "
+          f"(MIST - baseline {d['mist_minus_baseline']:+.2f}, se {d['se']:.2f}); "
+          f"win log score MIST {m['win_log_score']}, baseline {b['win_log_score']} over {m['weeks']} weeks")
+    print("  where outcomes landed  " + "  ".join(f"{lab:>7}" for lab in ps["pit_labels"]))
+    print("    calibrated           " + "  ".join(f"{x:7.0%}" for x in ps["pit_expected"]))
+    print("    MIST                 " + "  ".join(f"{x:7.0%}" for x in m["pit"]))
+    print("    baseline             " + "  ".join(f"{x:7.0%}" for x in b["pit"]))
 
 
 # ---- playbook: the Season log by week, with the forecast and review on top ---
@@ -1291,7 +1373,9 @@ def main(argv: list[str] | None = None) -> int:
     if args.cmd == "history":
         recs = all_records(api.season)
         if args.json:
-            print(json.dumps([{"week": r["week"], "settled": r.get("settled", {}) and r["settled"].get("coverage")} for r in recs], indent=1))
+            print(json.dumps({"weeks": [{"week": r["week"], "settled": r.get("settled", {}) and r["settled"].get("coverage")}
+                                        for r in recs],
+                              "proper": score.season([r for r in recs if r.get("settled")])}, indent=1))
         else:
             render_history(recs)
         return 0
