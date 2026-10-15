@@ -207,7 +207,15 @@ def find_matchup(data: dict, week: int, team_id: int) -> dict | None:
     return None
 
 
-def variance_line(margin: float) -> str:
+def variance_line(margin: float, p: float | None = None) -> str:
+    """The variance rule in words, read off the win probability when there is
+    one (2026-10-15: the 3-point margin band was the hand version of what
+    `win` and the `d_net` swap list now compute; rule inventory R98)."""
+    if p is not None:
+        side = "favorite" if p >= 0.6 else "underdog" if p <= 0.4 else "close"
+        lean = {"favorite": "floor counts more than ceiling", "underdog": "ceiling counts more than floor",
+                "close": "the mean decides more than the spread"}[side]
+        return f"{side} at {p:.0%}: {lean}; apply a swap from `swaps` at d_net >= +1"
     if margin >= MARGIN_COINFLIP:
         return "favorite: start the floor, not the ceiling"
     if margin <= -MARGIN_COINFLIP:
@@ -331,6 +339,7 @@ def matchup_view(api: Espn, week: int, data: dict, team_id: int) -> dict | None:
         scored = any(r.get("actual") is not None for r in me["rows"] + opp["rows"])
         rem = games_remaining(api, week) if scored else {}
         out["win"] = win_prob(me["rows"], opp["rows"], mults, rem, corr)
+        out["rule"] = variance_line(out["margin"], out["win"]["p"])
         out["in_progress"] = {k: round(v, 3) for k, v in sorted(rem.items())}
         out["opp_problems"] = lineup_problems(opp["rows"])
         if out["opp_problems"]:

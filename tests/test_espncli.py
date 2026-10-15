@@ -218,7 +218,10 @@ def test_matchup_margin_goes_live_once_a_starter_has_banked_points(capsys):
     assert out["pregame_margin"] == pytest.approx(42.0)      # the stale read
     assert out["margin_source"] == "live"
     assert out["live_margin"] == out["margin"] == pytest.approx(-3.4)
-    assert out["rule"].startswith("underdog")
+    # Since 2026-10-15 the rule text reads the side off the win probability,
+    # the same number the swap list is built on, not the margin band.
+    side = "favorite" if out["win"]["p"] >= 0.6 else "underdog" if out["win"]["p"] <= 0.4 else "close"
+    assert out["rule"].startswith(side)
 
 
 def scoreboard_event(home, away, state, period=None, clock=None):
