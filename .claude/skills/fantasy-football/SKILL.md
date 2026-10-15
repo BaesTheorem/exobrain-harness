@@ -162,7 +162,7 @@ the site by hand.
   (return odds 0.53, return factor 0.89 on IR and 0.66 otherwise, against the
   starter each would replace, over the `--leverage` weights); `--banner`
   offers an IR-slot PASS once. The Tuesday routine runs it from week 9
-- `fantasy/bin/stream-scan` — the D/ST (our opponent implied 4+ points
+- `fantasy/bin/stream-scan`: the D/ST (our opponent implied 4+ points
   above a free agent's opponent, ranked by the line) and K (a free agent's
   offense 6+ above ours, fair weather) gaps, both backtested 2026-10-15,
   plus K/D/ST byes ahead
