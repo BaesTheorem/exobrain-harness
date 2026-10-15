@@ -1056,10 +1056,23 @@ def games_remaining(api: Espn, week: int) -> dict[str, float]:
     return out
 
 
+# Weight on the market in a lineup mean (rule inventory R95, 2026-10-15). On
+# 842 rostered player-weeks of 2026 the error fell as the market's weight
+# rose, from 5.885 (ESPN alone) to 5.777 (even) to 5.721 (market alone), and
+# leaving out each week in turn chose 1.0 every time; 1.0 against 0.5 was
+# -0.055 (95% CI -0.106 to -0.005). One season of five weeks, one book: the
+# weight goes halfway from the even blend to that optimum.
+MARKET_WEIGHT = 0.75
+
+
+def blend(espn: float, market: float) -> float:
+    return round(MARKET_WEIGHT * market + (1 - MARKET_WEIGHT) * espn, 1)
+
+
 def attach_market(api: Espn, week: int, rows: list[dict]) -> int:
     """Blend ESPN's projection with the betting market's for every unlocked
     row the books have a line on: `market` is the prop-implied points
-    (ffmodel.market, cached 30 minutes), `mean` the even blend the variance
+    (ffmodel.market, cached 30 minutes), `mean` the MARKET_WEIGHT blend the variance
     rule uses (value.row_mean). Rows without a line keep ESPN's number alone.
     ESPN_NO_MARKET=1 turns it off. Returns how many rows got a market."""
     if os.environ.get("ESPN_NO_MARKET") == "1":
@@ -1076,7 +1089,7 @@ def attach_market(api: Espn, week: int, rows: list[dict]) -> int:
         if not m or r.get("actual") is not None:
             continue
         r["market"] = m["market"]
-        r["mean"] = round((float(r["proj"]) + m["market"]) / 2, 1) if r.get("proj") is not None else m["market"]
+        r["mean"] = blend(float(r["proj"]), m["market"]) if r.get("proj") is not None else m["market"]
         n += 1
     return n
 
@@ -1113,7 +1126,7 @@ def attach_injury(api: Espn, week: int, rows: list[dict]) -> int:
         if ratio is not None and r.get("proj") is not None and ESPN_STATUS_Q.get(r.get("status") or "") == "Q":
             r["injury_ratio"] = ratio
             espn = float(r["proj"]) * ratio
-            r["mean"] = round((espn + r["market"]) / 2, 1) if r.get("market") is not None else round(espn, 1)
+            r["mean"] = blend(espn, r["market"]) if r.get("market") is not None else round(espn, 1)
         n += 1
     return n
 

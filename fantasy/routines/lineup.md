@@ -31,10 +31,10 @@ fifteen minutes before the reports it existed to read.)
    (a ruling, a confirmed role), and quote `p_play` in the log line.
 4. The variance rule, as a number (from 2026-09-20). `fantasy/bin/espn
    check --json` (and `matchup`) reports `win` (P(win) with both sides' means
-   and spreads: every unlocked starter is a normal around `mean`, the even
-   blend of ESPN's projection and the betting market's `market` when the
-   books post a line (ESPN alone otherwise), with a measured, tiered,
-   per-player spread, and starters in the same NFL game correlated as
+   and spreads: every unlocked starter is a normal around `mean`, 0.75 of
+   the betting market's `market` and 0.25 of ESPN's projection when the
+   books post a line (ESPN alone otherwise), with a measured spread by
+   position and tier, and starters in the same NFL game correlated as
    measured; a locked one is his banked actual) and `swaps`, every legal
    bench-for-starter swap with a positive `d_net`, best first, each with
    `d_p` and `d_proj` (the lineup's expected-points change) so you can see

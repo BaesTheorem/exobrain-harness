@@ -213,7 +213,8 @@ def row_mean(r: dict) -> float | None:
     one (ESPN blended with the betting market, espncli.cli.attach_market),
     else ESPN's projection. Measured 2026-10-15 on 833 rostered player-weeks:
     the market alone beat ESPN by 0.162 points of absolute error a player
-    (95% CI 0.065 to 0.261) and the even blend by 0.108 (0.058 to 0.159)."""
+    (95% CI 0.065 to 0.261) and the even blend by 0.108 (0.058 to 0.159); the
+    blend now weights the market 0.75 (espncli.cli.MARKET_WEIGHT)."""
     m = r.get("mean")
     return float(m) if m is not None else (float(r["proj"]) if r.get("proj") is not None else None)
 
