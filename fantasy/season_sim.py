@@ -248,7 +248,8 @@ def measured_sigma(games, actuals):
     return float(np.sqrt(np.sum(np.square(resid)) / dof)) if dof > 0 else None
 
 
-def _season(teams, games, reg, sims, sigma, tau, seed, actuals=None, force=None, me=None, bump=None):
+def _season(teams, games, reg, sims, sigma, tau, seed, actuals=None, force=None, me=None, bump=None,
+            week_moments=None):
     """One batch of simulated seasons, returned raw for simulate() and leverage().
 
     `bump` shifts team `me` only and never touches the random draws, so two
@@ -256,6 +257,9 @@ def _season(teams, games, reg, sims, sigma, tau, seed, actuals=None, force=None,
     numbers): {"week": {w: pts}} moves our score in an unplayed week before the
     game is decided, {"pf": pts} moves Points For without deciding anything,
     {"playoff": {round: pts}} moves our score in playoff round 0, 1 or 2.
+
+    `week_moments` ({week: {team id: (mean, sd)}}, from --this-week) replaces
+    strength plus noise in a week the lineup model has read.
     """
     ids = sorted(teams)
     idx = {tid: i for i, tid in enumerate(ids)}
@@ -276,6 +280,15 @@ def _season(teams, games, reg, sims, sigma, tau, seed, actuals=None, force=None,
     steps[:, :first_open - 1, :] = 0.0
     walk = np.cumsum(steps, axis=1)
     scores = strength[:, None, :] + walk[:, :reg, :] + rng.normal(0, sigma, (sims, reg, n))  # sims x weeks x teams
+    # A week the lineup model has read: each team scores its lineup's mean and
+    # spread, drawn from a separate generator so every other draw stays the
+    # same and batches still differ by the intervention alone.
+    for w, mom in (week_moments or {}).items():
+        if 1 <= w <= reg and w not in (actuals or {}):
+            z = np.random.default_rng(seed + 7919 * w).normal(0, 1, (sims, n))
+            for t, (m, sd) in mom.items():
+                if t in idx:
+                    scores[:, w - 1, idx[t]] = m + sd * z[:, idx[t]]
     bump = bump or {}
     if me is not None:
         for w, d in bump.get("week", {}).items():
@@ -321,7 +334,7 @@ def _season(teams, games, reg, sims, sigma, tau, seed, actuals=None, force=None,
         for r, d in bump.get("playoff", {}).items():
             po[:, r, idx[me]] += d
     return {"ids": ids, "idx": idx, "mu": mu, "wins": wins, "losses": losses, "pf": pf,
-            "pct": pct, "order": order, "seed_of": seed_of, "po": po}
+            "pct": pct, "order": order, "seed_of": seed_of, "po": po, "scores": scores}
 
 
 def _bracket(po, s):
@@ -335,8 +348,8 @@ def _bracket(po, s):
     return game(2, game(1, s[:, 0], w45), game(1, s[:, 1], w36))
 
 
-def simulate(teams, games, reg, sims, sigma, tau, seed, actuals=None, force=None) -> tuple:
-    raw = _season(teams, games, reg, sims, sigma, tau, seed, actuals, force)
+def simulate(teams, games, reg, sims, sigma, tau, seed, actuals=None, force=None, week_moments=None) -> tuple:
+    raw = _season(teams, games, reg, sims, sigma, tau, seed, actuals, force, week_moments=week_moments)
     ids, mu, wins, losses, pf = raw["ids"], raw["mu"], raw["wins"], raw["losses"], raw["pf"]
     s, n = raw["order"], len(raw["ids"])
     champ = np.zeros(n)
@@ -363,7 +376,7 @@ def simulate(teams, games, reg, sims, sigma, tau, seed, actuals=None, force=None
         "seed1": first / sims, "last": last / sims, "most_pf": most_pf / sims}
 
 
-def leverage(teams, games, reg, actuals, me, sims, sigma, tau, seed, step=10.0):
+def leverage(teams, games, reg, actuals, me, sims, sigma, tau, seed, step=10.0, week_moments=None):
     """What each remaining lever is worth to `me`, in bye and title odds.
 
     Every number is a difference between two batches on the same random
@@ -384,7 +397,7 @@ def leverage(teams, games, reg, actuals, me, sims, sigma, tau, seed, step=10.0):
       regular-season week. This is the per-week weight for valuing a player.
     """
     def batch(**kw):
-        raw = _season(teams, games, reg, sims, sigma, tau, seed, actuals, me=me, **kw)
+        raw = _season(teams, games, reg, sims, sigma, tau, seed, actuals, me=me, week_moments=week_moments, **kw)
         return raw, _bracket(raw["po"], raw["order"])
 
     def odds(raw, champ):
@@ -434,7 +447,7 @@ def leverage(teams, games, reg, actuals, me, sims, sigma, tau, seed, step=10.0):
 TAU_SWEEP = (4.0, 8.0, 12.0)   # per-week roster-strength SD; moved our bye odds 9 points on 09-14
 
 
-def tau_band(teams, games, reg, args, actuals, force, me, probs, ids):
+def tau_band(teams, games, reg, args, actuals, force, me, probs, ids, week_moments=None):
     """Our bye, playoff and title odds at each tau in TAU_SWEEP, as [low, high].
     tau cannot be measured from this league (ros_rate is built from the same
     actuals), so the playbook quotes the odds as a band (rule inventory R46,
@@ -446,10 +459,62 @@ def tau_band(teams, games, reg, args, actuals, force, me, probs, ids):
     for tau in TAU_SWEEP:
         if tau == args.tau:
             continue
-        p = simulate(teams, games, reg, max(4000, args.sims // 2), args.sigma, tau, args.seed, actuals, force)[-1]
+        p = simulate(teams, games, reg, max(4000, args.sims // 2), args.sigma, tau, args.seed, actuals, force,
+                     week_moments)[-1]
         for k in seen:
             seen[k].append(float(p[k][i]))
     return {k: [round(min(v), 4), round(max(v), 4)] for k, v in seen.items()}
+
+
+def weekly_odds(teams, games, reg, sims, sigma, tau, seed, actuals, me, week_moments=None):
+    """Our win probability in each unplayed regular-season game, from the same
+    simulated seasons the odds come from (strength drift and tau included).
+    Added 2026-10-15 so the outlook says which weeks are the swing games; the
+    first version drew its own seasons, so its numbers were near the odds'
+    but not from them. `source` says whether a week is team strength or the
+    lineup model (--this-week)."""
+    raw = _season(teams, games, reg, sims, sigma, tau, seed, actuals, week_moments=week_moments)
+    idx, mu, scores = raw["idx"], raw["mu"], raw["scores"]
+    if me not in idx:
+        return []
+    out = []
+    for w, h, a in sorted(games):
+        if w in (actuals or {}) or me not in (h, a):
+            continue
+        opp = a if h == me else h
+        mom = (week_moments or {}).get(w, {})
+        p_win = float(np.mean(scores[:, w - 1, idx[me]] > scores[:, w - 1, idx[opp]]))
+        out.append({"week": w, "opp": teams[opp]["name"], "p_win": round(p_win, 3),
+                    "mu_me": round(float(mom[me][0] if me in mom else mu[idx[me]]), 1),
+                    "mu_opp": round(float(mom[opp][0] if opp in mom else mu[idx[opp]]), 1),
+                    "source": "lineup" if me in mom and opp in mom else "strength"})
+    return out
+
+
+def this_week_moments(games, reg, actuals):
+    """{week: {team id: (mean, sd)}} for the first unplayed week, from the
+    lineup model every `espn check` uses (espncli.cli.game_models: lineups,
+    the betting market, injury pricing, fix rates, correlations). Added
+    2026-10-15: team strength knows nothing about this week's byes, injuries
+    or lines, and the week in hand is where those are worth most."""
+    from espncli import cli  # noqa: PLC0415 -- the market and injury pulls are slow; only --this-week needs them
+
+    w = min([wk for wk in range(1, reg + 1) if wk not in actuals] or [0])
+    if not w:
+        return None
+    api = Espn()
+    data = api.league("mTeam", "mRoster", "mMatchup", "mMatchupScore", "mSettings", period=w)
+    trip = []
+    for m in data.get("schedule", []):
+        if m.get("matchupPeriodId") != w or not (m.get("home") and m.get("away")):
+            continue
+        rows = {k: cli.roster_rows(api, cli.side_entries(api, data, m[k])[0], w) for k in ("home", "away")}
+        trip.append((m["home"]["teamId"], m["away"]["teamId"], rows))
+    out = {}
+    for (h, a, _), md in zip(trip, cli.game_models(api, w, trip, api.my_team_id(data)), strict=True):
+        out[h] = (md["mu_home"], md["sd_home"])
+        out[a] = (md["mu_away"], md["sd_away"])
+    return {w: out} if out else None
 
 
 def ci(x, lo, hi):
@@ -526,6 +591,9 @@ def main():
                     help="treat the week in progress as played, at ESPN's live projected finish")
     ap.add_argument("--force", action="append", metavar="WEEK:TEAM",
                     help="TEAM (id or name fragment) wins its game in WEEK; repeatable")
+    ap.add_argument("--this-week", action="store_true",
+                    help="play the first unplayed week from the lineup model (lineups, betting market, "
+                         "injuries, fix rates; what `espn scoreboard` shows) instead of team strength")
     ap.add_argument("--leverage", action="store_true",
                     help="what each remaining lever is worth to us: seed value, a win per week, "
                          "a point per week (regular season and playoffs), Points For")
@@ -545,10 +613,13 @@ def main():
         if live is None:
             sys.exit("--live: ESPN has no live projection for every team yet")
         actuals[live[0]] = live[1]
+    moments = this_week_moments(games, reg, actuals) if args.this_week else None
+    if moments:
+        print(f"--this-week: week {min(moments)} from the lineup model", file=sys.stderr)
     if args.leverage:
         lev = leverage(teams, games, reg, actuals, int(Espn().creds.get("team_id", 0)),
-                       args.sims, args.sigma, args.tau, args.seed)
-        if not (args.live or args.force):   # a scenario is not the outlook; swap-scan reads this file
+                       args.sims, args.sigma, args.tau, args.seed, week_moments=moments)
+        if not (args.live or args.force or moments):   # a scenario is not the outlook; swap-scan reads this file
             cache = HERE / ".cache" / "leverage.json"
             cache.parent.mkdir(exist_ok=True)
             cache.write_text(json.dumps({"weeks_played": max(actuals) if actuals else 0, **lev}, default=float))
@@ -574,15 +645,17 @@ def main():
     for i, (nm, v) in enumerate(sorted(board.items(), key=lambda kv: -kv[1]["starters"]), 1):
         say(f"| {i} | {nm} | {v['starters']:.0f} | {v['all16']:.0f} |")
 
-    say("\n## Scoreboard 2: ESPN's system (optimal lineup on ESPN 2026 projections, league scoring)\n")
-    say("| # | Team | Proj starters (season) | Per week |")
+    say("\n## Scoreboard 2: rest-of-season strength (each team's best lineup on ros_rate, league scoring)\n")
+    say("| # | Team | Per 17 games | Per week |")
     say("|---|---|---|---|")
     for i, (_tid, t) in enumerate(sorted(teams.items(), key=lambda kv: -kv[1]["espn"]), 1):
         say(f"| {i} | {t['name']} | {t['espn']:.0f} | {t['espn'] / NFL_WEEKS:.1f} |")
 
     ids, mu, wins, losses, pf, ranks, probs = simulate(
-        teams, games, reg, args.sims, args.sigma, args.tau, args.seed, actuals, force)
+        teams, games, reg, args.sims, args.sigma, args.tau, args.seed, actuals, force, moments)
     played = f"weeks 1-{max(actuals)} played" if actuals else "preseason, nothing played"
+    if moments:
+        played += f", week {min(moments)} from the lineup model"
     say(f"\n## Season simulation ({args.sims:,} seasons; {played}; "
           f"sigma_week={args.sigma}, tau_season={args.tau}; "
           f"{reg} weeks, {PLAYOFF_TEAMS} playoff teams, {BYES} byes, no reseeding)\n")
@@ -602,15 +675,23 @@ def main():
     summary = {"names": [teams[t]["name"] for t in ids], "mu": mu.tolist(),
                "weeks_played": max(actuals) if actuals else 0,
                "probs": {k: v.tolist() for k, v in probs.items()}}
-    if not (force or args.live):   # a scenario is not the outlook; keep the file to settled weeks
+    if not (force or args.live or moments):   # a scenario is not the outlook; keep the file to settled weeks
         json.dump(summary, open(HERE / "draftbot" / "season_sim_latest.json", "w"), indent=1)
     me_id = int(Espn().creds.get("team_id", 0))
-    band = tau_band(teams, games, reg, args, actuals, force, me_id, probs, ids)
+    band = tau_band(teams, games, reg, args, actuals, force, me_id, probs, ids, moments)
+    weekly = weekly_odds(teams, games, reg, args.sims, args.sigma, args.tau, args.seed, actuals, me_id, moments)
+    if weekly:
+        say("\n## Our remaining games (expected points per week: ours against theirs)\n")
+        say("| Week | Opponent | Points | Source | Win |")
+        say("|---|---|---|---|---|")
+        for g in weekly:
+            say(f"| {g['week']} | {g['opp']} | {g['mu_me']:.1f} v {g['mu_opp']:.1f} | {g['source']} | {g['p_win']:.0%} |")
+        say(f"\nExpected wins in these {len(weekly)} games: {sum(g['p_win'] for g in weekly):.1f}")
     if band:
         say(f"\nOur odds across tau {TAU_SWEEP[0]:g}-{TAU_SWEEP[-1]:g} (roster-strength noise is not measured, so "
             f"quote the band): bye {band['bye'][0]:.0%}-{band['bye'][1]:.0%}, title {band['champ'][0]:.0%}-"
-            f"{band['champ'][1]:.0%}. The title figure is an upper bound: in 504 real Sleeper leagues a team in "
-            f"our spot won 24-26%.")
+            f"{band['champ'][1]:.0%}. Reference class (504 real Sleeper leagues, 2024-2025): a team first in "
+            f"Points For at 4-1 or 5-0 after week 5 got a bye 67-69% of the time and won 24-26% of titles.")
     if args.json:
         me = me_id
         i = ids.index(me) if me in ids else None
@@ -620,6 +701,7 @@ def main():
             mine["finish_median"] = float(np.median(ranks[:, i]))
             if band:
                 mine["band"] = band
+            mine["weekly"] = weekly
         print(json.dumps({"weeks_played": summary["weeks_played"], "sims": args.sims, "mine": mine,
                           "teams": {teams[t]["name"]: {k: round(float(v[j]), 4) for k, v in probs.items()}
                                     for j, t in enumerate(ids)}}, indent=1))
