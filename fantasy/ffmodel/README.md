@@ -30,19 +30,20 @@ season. The largest correlations are these:
 | Pair | rho |
 |---|---|
 | A D/ST and the quarterback it faces | -0.48 |
-| A quarterback and his own WR1 | +0.38 |
-| A quarterback and his own TE1 | +0.30 |
-| A D/ST and the RB1 it faces | -0.30 |
+| A quarterback and his own WR1 | +0.39 |
+| A quarterback and his own TE1 | +0.31 |
+| A D/ST and the RB1 it faces | -0.29 |
 | A D/ST and the kicker it faces | -0.27 |
 | A quarterback and his own WR2 | +0.26 |
 | A D/ST and its own kicker | +0.22 |
-| The two quarterbacks in one game | +0.16 |
+| The two quarterbacks in one game | +0.17 |
 
 `python3 -m ffmodel.corr validate` estimates on 2022-2024 and scores
-synthetic 2025 matchups. Random lineups: the 90% interval of the margin
-contained 88.4% of results with no correlation and 88.3% with
+synthetic 2025 matchups, with the spread table `espncli/value.py` uses
+(CV_TABLE, variance-matched on 2026-10-15). Random lineups: the 90% interval
+of the margin contained 91.2% of results with no correlation and 91.3% with
 correlations, thus no change. Stacked lineups (QB with his WR1, D/ST against
-the other QB): 83.3% with no correlation and 87.4% with correlations.
+the other QB): 86.6% with no correlation and 90.5% with correlations.
 
 **Market (`market`).** One linear model for each position, on the core
 lines of the position plus the implied team total. Out of sample, the market

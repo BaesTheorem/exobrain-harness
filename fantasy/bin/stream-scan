@@ -1,13 +1,19 @@
 #!/usr/bin/env python3
 """stream-scan: apply the playbook's K and D/ST streaming thresholds, every week.
 
-The playbook (*Roster management*) has held a deterministic D/ST rule since
-2026-09-11 that nothing ran: stream only on a large matchup gap, never on a
-bad result, where the gap is **our D/ST facing an implied total >= 24 while a
-free agent faces <= 19**. This runs it, plus the kicker analogue written
-2026-09-20: **a free-agent kicker whose own offense is implied >= 4 points
-above ours, in a dome or fair weather**, is a stream candidate. Both come
-from `espn stream`, which prices the slate off the spread and total.
+The playbook (*Roster management*) holds a deterministic D/ST rule: stream
+only on a large matchup gap, never on a bad result. **The gap is the line:
+our D/ST's opponent implied 4 or more points above a free agent's
+opponent**, best free agent first by the lowest opponent line. Until
+2026-10-15 it was two levels (ours faces >= 24 while a free agent faces
+<= 19); the backtest on 2016-2025 (fantasy/research/rule_backtests.py dst)
+measured -0.60 D/ST points per point of opponent implied total, with the
+defense's own quality adding nothing once the line is known, and the gap
+rule fires about 9 times a season for +4.1 a move (+37) against 3.8 times
+for +5.2 (+20). The kicker analogue: **a free-agent kicker whose own
+offense is implied >= 6 points above ours, in a dome or fair weather**
+(was 4; swaps at a 4-6 gap were worth +0.08, 95% CI -0.58 to +0.80). Both
+come from `espn stream`, which prices the slate off the spread and total.
 
 A hit is a candidate for the Tuesday routine or a roster-watch banner, never
 a claim: the roster is full, so a stream is a swap and the drop is Alex's
@@ -41,9 +47,8 @@ from pathlib import Path
 HERE = Path(__file__).resolve().parent
 ESPN = HERE / "espn"
 sys.path.insert(0, str(HERE.parent))
-DST_OURS_MIN = 24.0     # our D/ST's opponent implied total at or above this ...
-DST_FA_MAX = 19.0       # ... while a free agent's opponent is at or below this
-K_GAP_MIN = 4.0         # a free-agent kicker's offense implied this many points above ours
+DST_GAP_MIN = 4.0       # our D/ST's opponent implied this many points above a free agent's opponent
+K_GAP_MIN = 6.0         # a free-agent kicker's offense implied this many points above ours
 K_BAD_WEATHER = ("rain", "snow", "storm", "wind")
 LOOKAHEAD = 2
 
@@ -89,7 +94,7 @@ def bench_swap(d: dict, bench: list[dict], slate: list[dict]) -> dict | None:
         _, b_opp, _ = implied_for(b["team"], slate)
         if b_opp is None or b["opp"] == "BYE" or "(locked)" in (b.get("kick") or ""):
             continue
-        if (d["opp"] == "BYE" or b_opp < opp) and (best is None or b_opp < best[1]):
+        if (d["opp"] == "BYE" or (opp is not None and b_opp < opp)) and (best is None or b_opp < best[1]):
             best = (b, b_opp)
     return best and {"name": best[0]["name"], "opp": best[0]["opp"], "opp_implied": best[1],
                      "proj": round(best[0].get("proj") or 0, 1), "pending": bool(best[0].get("pending"))}
@@ -117,17 +122,19 @@ def scan(ours: dict, slate: list[dict], dst_pool: list[dict], k_pool: list[dict]
             d = None
     if d:
         own, opp, weather = implied_for(d["team"], slate)
-        cands = [r for r in dst_pool if r.get("implied_opp") is not None and r["implied_opp"] <= DST_FA_MAX]
-        cands.sort(key=lambda r: -(r.get("proj") or 0))
-        fire = opp is not None and opp >= DST_OURS_MIN and bool(cands)
+        cands = [r for r in dst_pool if r.get("implied_opp") is not None and opp is not None
+                 and opp - r["implied_opp"] >= DST_GAP_MIN]
+        cands.sort(key=lambda r: (r["implied_opp"], -(r.get("proj") or 0)))
+        fire = bool(cands)
         out["dst"] = {"ours": d["name"], "team": d["team"], "opp": d["opp"], "opp_implied": opp,
                       "proj": round(d.get("proj") or 0, 1), "bye": d["opp"] == "BYE",
                       "best_fa": [{"name": r["name"], "opp": r["opp"], "opp_implied": r["implied_opp"],
                                    "proj": round(r.get("proj") or 0, 1), "avail": r["avail"], "weather": r.get("weather")} for r in cands[:3]],
                       "stream": fire or d["opp"] == "BYE",
                       "why": ("bye week: a second D/ST is needed" if d["opp"] == "BYE" else
-                              f"ours faces {opp} implied (>= {DST_OURS_MIN:g}) and a free agent faces <= {DST_FA_MAX:g}" if fire else
-                              f"ours faces {opp} implied; threshold is >= {DST_OURS_MIN:g} with a free agent at <= {DST_FA_MAX:g}")}
+                              f"ours faces {opp} implied and a free agent faces {cands[0]['implied_opp']}, "
+                              f"a gap of {opp - cands[0]['implied_opp']:.1f} (>= {DST_GAP_MIN:g})" if fire else
+                              f"ours faces {opp} implied; no free agent faces a line {DST_GAP_MIN:g} or more points lower")}
     rostered_k = [r for r in [ours.get("K"), *(bench_k or [])] if r and r.get("id") not in drops]
     pending_k = [{**r, "pending": True} for r in k_pool if r.get("id") in adds]
     k_pool = [r for r in k_pool if r.get("id") not in adds]
@@ -242,7 +249,7 @@ def main() -> int:
         for b in out["byes_ahead"]:
             cover = f"  covered by {', '.join(b['covered_by'])}" if b.get("covered_by") else "  NOT covered"
             print(f"    week {b['week']}  {b['slot']:<5} {b['player']}{cover}")
-    print(f"\n  D/ST rule: ours faces >= {DST_OURS_MIN:g} implied while a free agent faces <= {DST_FA_MAX:g}. "
+    print(f"\n  D/ST rule: our opponent implied >= {DST_GAP_MIN:g} points above a free agent's opponent. "
           f"K rule: a free agent's offense >= {K_GAP_MIN:g} above ours, fair weather. Both from the playbook; a STREAM is a candidate, the drop is Alex's.")
     return 0
 

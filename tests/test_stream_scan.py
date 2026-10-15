@@ -95,3 +95,32 @@ def test_pending_dst_suppresses_the_claim_but_is_no_lineup_move():
     pending = {"id": -16, "name": "Jets D/ST", "team": "DAL", "opp": "TB", "implied_opp": 19.5, "proj": 7.5, "avail": "WVR"}
     v = stream_scan.scan({"D/ST": STARTER}, SLATE, [pending], [], adds={-16})["dst"]
     assert v["start_bench"]["pending"] and not v["stream"]
+
+
+# 2026-10-15: the D/ST rule is a gap in the line, not two fixed levels.
+GAP_SLATE = [{"home": {"abbrev": "LAR"}, "away": {"abbrev": "BUF"}, "implied_home": 25.0, "implied_away": 22.0}]
+
+
+def test_dst_gap_fires_below_the_old_24_level():
+    """Ours faces 22: the old rule (>= 24) stayed silent; a 4.5-point gap streams."""
+    pool = [{"name": "Far", "opp": "X", "implied_opp": 20.0, "proj": 9.0, "avail": "FA"},
+            {"name": "Best line", "opp": "Y", "implied_opp": 17.5, "proj": 6.0, "avail": "FA"}]
+    v = stream_scan.scan({"D/ST": STARTER}, GAP_SLATE, pool, [])["dst"]
+    assert v["stream"]
+    assert [c["name"] for c in v["best_fa"]] == ["Best line"]   # ranked by the line, not the projection
+
+
+def test_dst_gap_under_four_holds():
+    pool = [{"name": "Close", "opp": "X", "implied_opp": 18.5, "proj": 9.0, "avail": "FA"}]
+    v = stream_scan.scan({"D/ST": STARTER}, GAP_SLATE, pool, [])["dst"]
+    assert not v["stream"] and v["best_fa"] == []
+
+
+def test_k_gap_is_six():
+    five = {**GRUPE, "implied_own": LITTLE_IMPLIED + 5.0}
+    six = {**GRUPE, "implied_own": LITTLE_IMPLIED + 6.0}
+    assert not stream_scan.scan({"K": LITTLE}, K_SLATE, [], [five])["k"]["stream"]
+    assert stream_scan.scan({"K": LITTLE}, K_SLATE, [], [six])["k"]["stream"]
+
+
+LITTLE_IMPLIED = 22.8   # JAX at home in K_SLATE

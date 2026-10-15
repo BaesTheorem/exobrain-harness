@@ -15,10 +15,11 @@ room makes:
   ROLE-UP   last week's snap share or target share jumped on the weeks before
   ROLE-DOWN the reverse
 
-It also writes `.cache/player-sd.json`: each player's week-to-week scatter
-from his own 2025 and 2026 game logs, as a multiplier on the position's
-spread, shrunk toward 1.0 on few games. `espn check` reads it for the
-variance rule's win probability.
+Until 2026-10-15 it also wrote `.cache/player-sd.json`, a per-player
+multiplier on the position's spread from his own game logs. A player's
+spread around his projection is not a stable trait (split-half r 0.03,
+season to season 0.04, fantasy/research/rule_backtests.py spread), and the
+multiplier made next-season win probabilities worse, so it is gone.
 
     volume build [--fresh]            # pull nflverse, write both caches (12h TTL otherwise)
     volume roster [--team X]          # our roster (or any team's) with volume columns and flags
@@ -54,15 +55,12 @@ from espncli.client import Espn, norm, team_name  # noqa: E402
 
 CACHE = FANTASY / ".cache"
 VOLUME = CACHE / "volume-{season}.json"
-SD_FILE = CACHE / "player-sd.json"
 TTL = 12 * 3600
 TEAM_MAP = {"LA": "LAR", "WAS": "WSH"}
 POS_MAP = {"FB": "RB", "HB": "RB"}
 FANTASY_POS = ("QB", "RB", "WR", "TE")
 TOP_N = {"QB": 14, "RB": 30, "WR": 40, "TE": 14}      # how deep "startable" runs at each position
 RANK_GAP = 8                                          # places between volume rank and points rank
-SD_SHRINK = 6.0                                       # games of prior weight on the player's own CV
-SD_MIN_GAMES, SD_MIN_PPG = 6, 5.0
 
 
 def key(name: str, pos: str) -> str:
@@ -95,20 +93,18 @@ def pull(season: int) -> dict:
     return {"weekly": weekly, "snaps": snaps}
 
 
-def aggregate(season: int, raw: dict) -> tuple[dict[str, dict], dict]:
+def aggregate(season: int, raw: dict) -> dict[str, dict]:
     snap = {}
     for s in raw["snaps"]:
         pos = POS_MAP.get(s["position"], s["position"])
         if pos in FANTASY_POS:
             snap[(key(s["player"], pos), int(s["week"]))] = s["offense_pct"]
     players: dict[str, dict] = {}
-    logs_all: dict[str, list[float]] = {}          # both seasons, for the spread model
     for r in raw["weekly"]:
         pos = POS_MAP.get(r["position"], r["position"])
         if pos not in FANTASY_POS:
             continue
         k = key(r["player_display_name"], pos)
-        logs_all.setdefault(k, []).append(float(r.get("fantasy_points_ppr") or 0.0))
         if int(r["season"]) != season:
             continue
         p = players.setdefault(k, {"name": r["player_display_name"], "pos": pos, "team": None, "weeks": []})
@@ -127,7 +123,7 @@ def aggregate(season: int, raw: dict) -> tuple[dict[str, dict], dict]:
         p["weeks"].sort(key=lambda x: x["week"])
         summarize(p)
     rank_positions(players)
-    return players, sd_model(logs_all, players)
+    return players
 
 
 def mean(xs: list) -> float | None:
@@ -192,37 +188,13 @@ def rank_positions(players: dict[str, dict]) -> None:
                 p["flags"].append("SELL")
 
 
-def sd_model(logs_all: dict[str, list[float]], players: dict[str, dict]) -> dict:
-    """Per-player CV of weekly PPR points, shrunk toward the position average."""
-    pos_of = {k: k.split("|")[-1] for k in logs_all}
-    cvs: dict[str, tuple[float, int]] = {}
-    for k, xs in logs_all.items():
-        if len(xs) >= SD_MIN_GAMES and statistics.fmean(xs) >= SD_MIN_PPG:
-            cvs[k] = (statistics.pstdev(xs) / statistics.fmean(xs), len(xs))
-    pos_cv: dict[str, float] = {}
-    for pos in FANTASY_POS:
-        vals = [cv for k, (cv, _) in cvs.items() if pos_of[k] == pos]
-        if vals:
-            pos_cv[pos] = statistics.fmean(vals)
-    mult = {}
-    for k, (cv, n) in cvs.items():
-        base = pos_cv.get(pos_of[k])
-        if not base:
-            continue
-        shrunk = (n * cv + SD_SHRINK * base) / (n + SD_SHRINK)
-        mult[k] = round(min(1.6, max(0.6, shrunk / base)), 3)
-    return {"built": time.strftime("%Y-%m-%dT%H:%M"), "pos_cv": {k: round(v, 3) for k, v in pos_cv.items()},
-            "n": len(mult), "mult": mult}
-
-
 def build(season: int, fresh: bool) -> dict[str, dict]:
     path = Path(str(VOLUME).format(season=season))
     if not fresh and path.exists() and time.time() - path.stat().st_mtime < TTL:
         return json.loads(path.read_text())["players"]
-    players, sd = aggregate(season, pull(season))
+    players = aggregate(season, pull(season))
     CACHE.mkdir(exist_ok=True)
     path.write_text(json.dumps({"built": time.strftime("%Y-%m-%dT%H:%M"), "season": season, "players": players}))
-    SD_FILE.write_text(json.dumps(sd, indent=0))
     return players
 
 
@@ -301,9 +273,7 @@ def sort_rows(rows: list[dict], how: str) -> list[dict]:
 
 def cmd_build(api: Espn, args: argparse.Namespace) -> None:
     players = build(api.season, True)
-    sd = json.loads(SD_FILE.read_text())
-    print(f"volume: {len(players)} players with a 2026 row; spread multipliers for {sd['n']} "
-          f"(position CV {sd['pos_cv']}); caches in {CACHE}")
+    print(f"volume: {len(players)} players with a {api.season} row; cache in {CACHE}")
 
 
 def cmd_roster(api: Espn, args: argparse.Namespace) -> None:

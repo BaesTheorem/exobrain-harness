@@ -27,7 +27,13 @@ def test_ros_rate_blends_prior_and_weekly_before_week_5_and_ppg_after():
     assert value.ros_rate(2, proj=20.0, season_proj=170.0) == pytest.approx(15.0)
     assert value.ros_rate(2, proj=0.0, season_proj=170.0) == pytest.approx(10.0), "a bye week is the prior, not half"
     # season_proj is rest-of-season: 144 over the 12 games a 5-game team has left is 12 a game.
-    assert value.ros_rate(6, proj=99.0, season_proj=144.0, season_actual=60.0, games=5) == pytest.approx(12.0)
+    assert value.ros_rate(6, proj=12.0, season_proj=144.0, season_actual=60.0, games=5) == pytest.approx(12.0)
+    # From week 5: 0.45 weekly projection + 0.35 prior + 0.20 PPG (backtest, 2026-10-15).
+    assert value.ros_rate(6, proj=20.0, season_proj=144.0, season_actual=60.0, games=5) == pytest.approx(
+        0.45 * 20 + 0.35 * 12 + 0.20 * 12)
+    # A bye or OUT week (no weekly projection) is half prior, half PPG.
+    assert value.ros_rate(6, proj=0.0, season_proj=144.0, season_actual=96.0, games=5) == pytest.approx(
+        0.5 * 12 + 0.5 * 96 / 5)
     assert value.ros_rate(2, proj=7.0, season_proj=None) == 7.0
 
 
@@ -43,11 +49,13 @@ def test_ros_rate_divides_rest_of_season_by_games_left_not_17():
 def test_ros_rate_ppg_skips_weeks_missed_hurt():
     # Jayden Daniels, week 6 2026: 64.66 in 3 games played of 5 team games.
     hurt = value.ros_rate(6, proj=19.9, season_proj=261.3, season_actual=64.66, games=5, played=3)
-    assert hurt == pytest.approx(0.5 * 261.3 / 12 + 0.5 * 64.66 / 3)
+    assert hurt == pytest.approx(0.45 * 19.9 + 0.35 * 261.3 / 12 + 0.20 * 64.66 / 3)
     # Without box scores the team count is the fallback, and it is lower.
     assert value.ros_rate(6, proj=19.9, season_proj=261.3, season_actual=64.66, games=5) < hurt
-    # played=0 (no row with games) falls back too, never a division by zero.
-    assert value.ros_rate(6, proj=19.9, season_proj=120.0, season_actual=0.0, games=5, played=0) == pytest.approx(10.0)
+    # played=0 (no row with games) falls back too, never a division by zero; a
+    # zero PPG is a missing input, so the projection and the prior share its weight.
+    assert value.ros_rate(6, proj=19.9, season_proj=120.0, season_actual=0.0, games=5, played=0) == pytest.approx(
+        (0.45 * 19.9 + 0.35 * 10.0) / 0.80)
 
 
 def test_games_played_counts_weeks_with_a_game():
@@ -72,18 +80,18 @@ def test_load_volume_rows_missing_file_is_empty(tmp_path):
 
 
 def test_player_sd_is_tiered_and_floored():
-    assert value.player_sd("WR", 20.0) == pytest.approx(20.0 * 0.54)
-    assert value.player_sd("WR", 10.0) == pytest.approx(10.0 * 0.64)
+    assert value.player_sd("WR", 20.0) == pytest.approx(20.0 * 0.55)
+    assert value.player_sd("WR", 10.0) == pytest.approx(10.0 * 0.68)
     assert value.player_sd("WR", 1.0) == value.SD_FLOOR
     assert value.player_sd("WR", 0.0) == 0.0
-    assert value.player_sd("RB", 20.0, mult=1.5) == pytest.approx(20.0 * 0.46 * 1.5)
+    assert value.player_sd("RB", 20.0, mult=1.5) == pytest.approx(20.0 * 0.51 * 1.5)
 
 
 def test_win_prob_positive_controls():
     me = [row(1, "A", "RB", 2, 20.0)]
     them = [row(2, "B", "RB", 2, 10.0)]
-    assert value.win_prob(me, them)["p"] > 0.8
-    assert value.win_prob(them, me)["p"] < 0.2
+    assert value.win_prob(me, them)["p"] > 0.75
+    assert value.win_prob(them, me)["p"] < 0.25
     # locked players are banked: no spread, and the actual replaces the projection
     me_locked = [row(1, "A", "RB", 2, 20.0, actual=3.0)]
     w = value.win_prob(me_locked, them)
@@ -134,9 +142,3 @@ def test_swap_net_prices_the_projection_it_costs():
     assert sw["d_proj"] == -2.0
     assert sw["d_net"] == pytest.approx(100 * sw["d_p"] - 2.0 / value.POINTS_PER_WIN_PCT, abs=0.06)
     assert sw["d_net"] < 100 * sw["d_p"], "a swap that costs projection is worth less than its win probability"
-
-
-def test_sd_multipliers_missing_file_is_empty(tmp_path):
-    assert value.load_sd_multipliers(tmp_path / "nope.json") == {}
-    (tmp_path / "sd.json").write_text('{"mult": {"a b|WR": 1.4}}')
-    assert value.load_sd_multipliers(tmp_path / "sd.json") == {"a b|WR": 1.4}

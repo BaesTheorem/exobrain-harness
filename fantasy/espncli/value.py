@@ -13,24 +13,33 @@ differently, now live in one place:
    preseason, which shrank every prior by games-left/17 and, with the PPG
    below, let a scan rate Jayden Daniels under Jared Goff.
    Before week 5 the blend is half that prior and half ESPN's live weekly
-   projection, which tracks role and matchup; from week 5 the in-season half
-   is season points per game, the playbook's Harstad blend (a naive 50/50 of
-   a projection and production beat either alone in 4 of 5 buckets). PPG
-   divides by the games the player appeared in (`games_appeared`, from
-   bin/volume's box scores) when they are known, so a week missed hurt is
-   not a 0-point game; otherwise by his team's games. A weekly projection of
-   zero (bye, OUT) falls back to the prior alone, so a bye week never halves
-   a trade valuation.
+   projection, which tracks role and matchup. From week 5 it is 0.45 weekly
+   projection + 0.35 prior + 0.20 season points per game (ROS_WEIGHTS,
+   2026-10-15). Until then week 5 dropped the weekly projection for PPG (the
+   Harstad 50/50); the backtest on 2022-2025, each season held out, found
+   that dropping the projection was the loss: rest-of-season error 2.49
+   against 2.60 points a game (difference -0.104, 95% CI -0.139 to -0.071),
+   better in all 12 held-out season-weeks. Expected points from play-by-play
+   (nflverse xFP) added nothing once the projection was in. PPG divides by
+   the games the player appeared in (`games_appeared`, from bin/volume's box
+   scores) when they are known, so a week missed hurt is not a 0-point game;
+   otherwise by his team's games. A weekly projection of zero (bye, OUT)
+   falls back to half prior and half PPG, within 0.03 of the best two-input
+   blend, so a bye week never halves a trade valuation. A missing input
+   drops out and the weights of the rest are scaled up.
 
 2. **Per-player weekly spread** (`player_sd`) and the win probability of a
    lineup against an opponent (`win_prob`, `best_swaps`). The playbook's
    variance rule (favorite wants floor, underdog wants ceiling) was applied by
    adjective until 2026-09-20; this turns it into a number. Each unlocked
-   starter is a normal with mean = projection and sd = projection x the
-   position's coefficient of variation x a per-player multiplier learned from
-   his own game logs (`.cache/player-sd.json`, written by `bin/volume`). A
-   locked player is his banked actual with sd 0. The matchup is a normal
-   difference of sums, so P(win) is one erf.
+   starter is a normal with mean = his expected points (row_mean) and sd =
+   that mean x the position-and-tier coefficient of variation (CV_TABLE).
+   A locked player is his banked actual with sd 0. The matchup is a normal
+   difference of sums, so P(win) is one erf. Until 2026-10-15 the sd also
+   carried a per-player multiplier from his own game logs; a player's spread
+   is not a stable trait (split-half r 0.03, season to season 0.04), and the
+   multiplier made next-season forecasts worse, so it is gone. `mults` stays
+   as a parameter for planted tests and any future measured trait.
 
 INVARIANTS
 - Pure functions over dicts; nothing here touches the network or the write
@@ -53,21 +62,24 @@ from espncli.client import norm
 NFL_WEEKS = 17
 BLEND_SWITCH_WEEK = 5     # the playbook's "from week 5 on" for the production half
 PRIOR_CV = {"QB": 0.40, "RB": 0.65, "WR": 0.85, "TE": 0.95, "K": 0.55, "D/ST": 1.0}   # forecast.py fresh-clone gamma prior
-# Measured 2026-09-20 from .cache/residuals.json (Sleeper 2025 weeks 1-18 plus
-# 2026 week 1, 5,565 player-weeks): the spread of actual/projection by position
-# and projection tier, as IQR/1.349 so one 60-yard run does not set the width.
-# A deep-bench player misses by about his whole projection; a starter by half.
+# The spread of actual around projection by position and projection tier,
+# variance-matched on Sleeper 2022-2023 and checked on 2024-2025
+# (fantasy/research/rule_backtests.py spread, 2026-10-15). The table before
+# it was IQR/1.349, which is right for a median band and too narrow for a
+# sum of starters: on 2024-2025 it covered 46% at 50% and 88.5% at 90%
+# (RMS z 1.28). This one covers 50% and 90.5% and improves the held-out log
+# likelihood by 0.040 a player-week (95% CI 0.031 to 0.051).
 TIERS = ((0.0, 7.0), (7.0, 13.0), (13.0, 1e9))
 CV_TABLE = {
-    "QB": (0.41, 0.41, 0.41),
-    "RB": (0.85, 0.61, 0.46),
-    "WR": (1.04, 0.64, 0.54),
-    "TE": (0.91, 0.64, 0.49),
-    "K": (0.62, 0.59, 0.59),
-    "D/ST": (0.92, 0.79, 0.79),
+    "QB": (0.60, 0.60, 0.44),
+    "RB": (1.10, 0.66, 0.51),
+    "WR": (1.17, 0.68, 0.55),
+    "TE": (1.13, 0.69, 0.51),
+    "K": (0.69, 0.58, 0.58),
+    "D/ST": (1.14, 0.71, 0.71),
 }
+ROS_WEIGHTS = (0.45, 0.35, 0.20)   # weekly projection, prior, season PPG, from week 5
 SD_FLOOR = 1.5            # points; even a 2-point projection can miss by more than its CV says
-SD_FILE = Path(__file__).resolve().parent.parent / ".cache" / "player-sd.json"
 VOLUME_FILE = Path(__file__).resolve().parent.parent / ".cache" / "volume-{season}.json"
 UNUSABLE = {"OUT", "IR", "SUSP", "D"}
 BENCH_SLOT, IR_SLOT = 20, 21
@@ -83,15 +95,16 @@ def ros_rate(week: int, proj: float | None, season_proj: float | None,
     `games` is how many games his NFL team played before `week`; `played` is
     how many of those he appeared in, when the box scores say."""
     prior = float(season_proj or 0.0) / max(1, NFL_WEEKS - (games or 0))
+    weekly = float(proj or 0.0)
     if week >= BLEND_SWITCH_WEEK and (played or games):
-        live = float(season_actual or 0.0) / (played or games or 1)
+        ppg = float(season_actual or 0.0) / (played or games or 1)
+        wp, wr, wg = ROS_WEIGHTS
+        parts = [(wp, weekly), (wr, prior), (wg, ppg)] if weekly > 0 else [(0.5, prior), (0.5, ppg)]
     else:
-        live = float(proj or 0.0)
-    if prior <= 0:
-        return live
-    if live <= 0:
-        return prior
-    return 0.5 * prior + 0.5 * live
+        parts = [(0.5, prior), (0.5, weekly)]
+    parts = [(w, v) for w, v in parts if v > 0]
+    total = sum(w for w, _ in parts)
+    return sum(w * v for w, v in parts) / total if total else 0.0
 
 
 def games_played(pro_games: dict, week: int) -> int:
@@ -122,15 +135,6 @@ def load_volume_rows(season: int, path: Path | None = None) -> dict[str, dict]:
 
 
 # ---- variance ---------------------------------------------------------------
-
-def load_sd_multipliers(path: Path = SD_FILE) -> dict[str, float]:
-    """`norm(name)|POS` -> multiplier on the position CV, from bin/volume."""
-    try:
-        d = json.loads(path.read_text())
-        return {k: float(v) for k, v in (d.get("mult") or {}).items()}
-    except (OSError, ValueError):
-        return {}
-
 
 def position_cv(pos: str, proj: float) -> float:
     row = CV_TABLE.get(pos)
@@ -267,7 +271,7 @@ def win_prob(me: list[dict], opp: list[dict], mults: dict[str, float] | None = N
 
     With `corr` (load_corr()), starters in the same NFL game are correlated
     as measured (2026-10-15, ffmodel/corr.py): a quarterback and his own
-    receiver move together (+0.38 for a WR1), so a stack widens our spread;
+    receiver move together (+0.39 for a WR1), so a stack widens our spread;
     a defense and the quarterback it faces move apart (-0.48), so starting a
     D/ST against the opponent's quarterback ties the two totals together and
     widens the margin's spread too. Var(us - them) = Var(us) + Var(them)

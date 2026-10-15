@@ -28,7 +28,7 @@ from datetime import datetime
 from typing import Any
 
 from espncli import chat
-from espncli.value import best_fill, best_swaps, clock_remaining, load_corr, load_sd_multipliers, win_prob
+from espncli.value import best_fill, best_swaps, clock_remaining, load_corr, win_prob
 from espncli.client import (
     BENCH,
     IR,
@@ -322,7 +322,7 @@ def matchup_view(api: Espn, week: int, data: dict, team_id: int) -> dict | None:
         # spread, a locked one is his banked actual, and the matchup is the
         # difference of the two sums. Opponent problems (OUT, bye, empty) are
         # priced as they stand; `opp_problems` says what an unfixed one is worth.
-        mults = load_sd_multipliers()
+        mults: dict[str, float] = {}   # per-player spread multipliers removed 2026-10-15: not a stable trait
         corr = load_corr()
         out["market_rows"] = attach_market(api, week, me["rows"] + opp["rows"])
         # The gate is a player with points, not a team total: ESPN leaves the
@@ -480,7 +480,7 @@ def cmd_check(api: Espn, args: argparse.Namespace) -> None:
 
     mv = matchup_view(api, week, data, t["id"])
     opp_rows = (mv.get("opp") or {}).get("rows") if mv else None
-    mults = load_sd_multipliers()
+    mults: dict[str, float] = {}   # per-player spread multipliers removed 2026-10-15: not a stable trait
     corr = load_corr()
     attach_market(api, week, rows)
     rem = (mv or {}).get("in_progress") or {}

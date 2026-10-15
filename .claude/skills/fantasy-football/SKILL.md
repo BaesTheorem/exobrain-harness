@@ -149,7 +149,7 @@ the site by hand.
   scoring on nflverse box scores, equal to ESPN to the decimal), `props`
   (the sportsbook player props ESPN keeps for every game since 2024),
   `market` (points implied by those lines: ties Sleeper, beats ESPN out of
-  sample), `corr` (same-game correlations: QB and his WR1 +0.38, a D/ST and
+  sample), `corr` (same-game correlations: QB and his WR1 +0.39, a D/ST and
   the QB it faces -0.48) and `score` (the weighted interval score and the
   landing slices). Backtests of any rule start from `nflraw`, not a re-scored
   CSV
