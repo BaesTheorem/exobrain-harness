@@ -136,6 +136,7 @@ Furthermore, never build graphics or any other assets from scratch what you can 
 | [Open Props](https://github.com/argyleink/open-props) | Token scale (spacing, type, easing) for UIs that are deliberately not MD3 | MIT |
 | [Web Awesome](https://github.com/shoelace-style/webawesome) | General web components outside MD3. Free core only | MIT |
 | [Observable Plot](https://github.com/observablehq/plot) / [uPlot](https://github.com/leeoniya/uPlot) | Charts, and fast time series | ISC / MIT |
+| [GSAP](https://github.com/greensock/GSAP) (with ScrollTrigger) / [Lenis](https://github.com/darkroomengineering/lenis) | Scroll-driven motion and smooth scroll, for sites built after an animated reference (added 2026-10-15 for Common Lot) | GSAP no-charge license, commercial use allowed / MIT |
 
 Retired, do not cite in new work: material-web (maintenance mode), Shoelace (sunset, replaced by Web Awesome), Pico CSS (archived). Before you adopt a library that is not on this list, check that its upstream is alive and that people, not a generator, wrote it, then add it here.
 
