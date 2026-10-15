@@ -288,6 +288,22 @@
     "notes": "Single owner of the driver cmd channel while a draft runs: polls the armed autopilot, logs each new pick to supervise.log, and drives a MIST Console progress bar off roster count. Start it right after 'arm.py arm' and read supervise.log instead of polling arm.py, so nothing races on result.json. Exits at 16/16."
   },
   {
+    "name": "fantasy fpranks judge",
+    "command": "cd fantasy && python3 -m ffmodel.fpranks score",
+    "repo_dir": "~/Documents/Exobrain harness/fantasy/ffmodel",
+    "source": "built",
+    "added": "2026-10-15",
+    "notes": "snapshot <week> saves MIST ranks and the live half-PPR consensus (fantasypros.com weekly pages, ecrData) to fantasy/forecasts/fp/; score scores every saved week; week <n> --tsv prints ranks. The slot-value curve is not published by FantasyPros; it is the mean k-th best half-PPR score over full-slate weeks of the three prior seasons."
+  },
+  {
+    "name": "fantasy injury table",
+    "command": "cd fantasy && python3 -m ffmodel.injury",
+    "repo_dir": "~/Documents/Exobrain harness/fantasy/ffmodel",
+    "source": "built",
+    "added": "2026-10-15",
+    "notes": "Writes ffmodel/injury_table.json (tracked). current_cached(season, week) reads this week's practice line from nflverse by ESPN id, cached one hour. espn check attaches p_play, practice and injury_ratio to unlocked rows."
+  },
+  {
     "name": "fantasy market projection",
     "command": "cd fantasy && python3 -m ffmodel.market week 7",
     "repo_dir": "~/Documents/Exobrain harness/fantasy/ffmodel",
@@ -310,6 +326,14 @@
     "source": "built",
     "added": "2026-08-24",
     "notes": "2025 volume metrics (tgt/g, touch/g, target share, wopr, snap pct) + TD-regression flags via nflreadpy: BUY = heavy volume TD-shorted (Lamb 9 tgt/g 3 TD), SELL = TD-inflated on modest volume (Henderson 10 TD 46% snaps). Writes draftbot/opportunity.json; tier_sheet.py renders the flags on draft-sheet.html. Advisory only: a BUY is a thesis candidate for signoff.py keep, the bot never reads it. Rebuild before the draft after any late-preseason data update."
+  },
+  {
+    "name": "fantasy role model",
+    "command": "cd fantasy && python3 -m ffmodel.role 7",
+    "repo_dir": "~/Documents/Exobrain harness/fantasy/ffmodel",
+    "source": "built",
+    "added": "2026-10-15",
+    "notes": "No PyMC: closed-form updates in numpy. live(season, week) works without participation data; the routes variant (2016-2025 participation) adds 0.004 MAE at most. Evidence: fantasy/research/role_eval.py and the vault note Fantasy Football Role Model 2026-10-15."
   },
   {
     "name": "fantasy season_sim",
