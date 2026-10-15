@@ -320,3 +320,6 @@ kc-civic/data/*
 # from retailer JS bundles, downloaded ad PDFs and their OCR). Rebuilt on demand; never commit.
 shopping/.cache/
 mykcmo/watch-state.json
+
+# Claude Code transcript archive + trace table: full session text, private (traces/README.md)
+traces/data/

@@ -1,0 +1,10 @@
+#!/usr/bin/env bash
+# traces: durable archive + DuckDB log table of Claude Code session transcripts.
+#   traces archive [--progress]                  mirror ~/.claude/projects into traces/data/archive (zstd)
+#   traces build [--full] [--progress]           load changed archive files into traces/data/traces.duckdb
+#   traces baseline [--end DATE] [--days N] [--save] [--json]   metrics for one window
+#   traces sql "SELECT ..."                      read-only query
+#   traces nightly                               archive + build, banner + Discord DM on failure (launchd)
+# Logic lives in traces/ (read traces/README.md first). Needs traces/.venv (Python 3.14 + duckdb).
+DIR="$(cd "$(dirname "$0")/.." && pwd)"
+exec "$DIR/traces/.venv/bin/python" "$DIR/traces/traces.py" "$@"

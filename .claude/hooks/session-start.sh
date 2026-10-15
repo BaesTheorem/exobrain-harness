@@ -607,6 +607,31 @@ if [ "$CHECK_CLAUDE_HOME" = 1 ] && [ -f "$ENERGY_LOG" ]; then
   fi
 fi
 
+# Transcript archive (traces/). Claude Code prunes transcripts after
+# cleanupPeriodDays and the backup skips ~/.claude/projects, so past that age
+# the archive holds the only copy of each transcript file. Judge the run log's newest line, not the job's
+# exit status: a stale or failing archive means transcripts age out unsaved.
+TRACE_RUNS="$HARNESS/traces/data/archive-runs.jsonl"
+if [ ! -s "$TRACE_RUNS" ]; then
+  echo "WARN: transcript archive has never run -- see traces/README.md"
+  ISSUES=$((ISSUES + 1))
+else
+  TRACE_LAST=$(tail -1 "$TRACE_RUNS")
+  TRACE_AGE_H=$(( ($(date +%s) - $(stat -f %m "$TRACE_RUNS")) / 3600 ))
+  TRACE_ERRS=$(printf '%s' "$TRACE_LAST" | jq -r '.error_count // 0' 2>/dev/null)
+  TRACE_FILES=$(printf '%s' "$TRACE_LAST" | jq -r '.archive_files // "?"' 2>/dev/null)
+  TRACE_RESCUED=$(printf '%s' "$TRACE_LAST" | jq -r '.rescued // 0' 2>/dev/null)
+  if [ "$TRACE_AGE_H" -gt 36 ]; then
+    echo "WARN: transcript archive stale (last run ${TRACE_AGE_H}h ago) -- check com.exobrain.traces and ~/Library/Logs/exobrain/traces.log"
+    ISSUES=$((ISSUES + 1))
+  elif [ "${TRACE_ERRS:-0}" != "0" ]; then
+    echo "WARN: transcript archive last run had $TRACE_ERRS error(s) -- see ~/Library/Logs/exobrain/traces.log"
+    ISSUES=$((ISSUES + 1))
+  else
+    echo "OK: transcript archive (${TRACE_AGE_H}h ago, $TRACE_FILES files, $TRACE_RESCUED kept after pruning)"
+  fi
+fi
+
 # Summary
 echo ""
 if [ "$ISSUES" -eq 0 ]; then

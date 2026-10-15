@@ -1,0 +1,40 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>Label</key>
+	<string>com.exobrain.traces</string>
+	<!-- Nightly at 01:30, before the 02:00 backup, so the backup carries the
+	     newest archive. Archive first (the only copy once Claude Code prunes a
+	     transcript), then load the changes into traces/data/traces.duckdb. -->
+	<key>ProgramArguments</key>
+	<array>
+		<string>/Users/alexhedtke/.local/bin/mist-launch</string>
+		<string>/Users/alexhedtke/Documents/Exobrain harness/traces/.venv/bin/python</string>
+		<string>/Users/alexhedtke/Documents/Exobrain harness/traces/traces.py</string>
+		<string>nightly</string>
+	</array>
+	<key>EnvironmentVariables</key>
+	<dict>
+		<key>PATH</key>
+		<string>/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin</string>
+	</dict>
+	<key>StartCalendarInterval</key>
+	<dict>
+		<key>Hour</key>
+		<integer>1</integer>
+		<key>Minute</key>
+		<integer>30</integer>
+	</dict>
+	<key>StandardOutPath</key>
+	<string>/Users/alexhedtke/Library/Logs/exobrain/traces.log</string>
+	<key>StandardErrorPath</key>
+	<string>/Users/alexhedtke/Library/Logs/exobrain/traces.log</string>
+	<!-- Login Items shows the job under this app instead of its executable's name;
+	     only honored because mist-launch is signed by the same team. -->
+	<key>AssociatedBundleIdentifiers</key>
+	<array>
+	    <string>com.exobrain.mist-console</string>
+	</array>
+</dict>
+</plist>
