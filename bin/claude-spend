@@ -3,7 +3,10 @@
 
 Scans ~/.claude/projects/**/*.jsonl (Claude Code session transcripts), dedupes
 assistant messages by (message.id, requestId) since one API response is logged
-once per content block, and prices tokens per model per month.
+once per content block, and prices tokens per model per month. Each usage field
+takes its max over the lines of one response: the earlier lines can carry a
+partial count (first-line output tokens were 19.6% low over 30 days, measured
+2026-10-15).
 
 Usage: claude-spend [--json]
 
@@ -16,7 +19,6 @@ import json
 import os
 import sys
 from collections import defaultdict
-from datetime import datetime
 
 RATES = {
     "claude-fable-5-1": (10, 50, 12.5, 20, 0.25),
@@ -38,10 +40,7 @@ def rate_for(model):
 
 
 def main():
-    seen = set()
-    tok = defaultdict(lambda: defaultdict(float))  # (month, model) -> field -> n
-    unknown = defaultdict(int)
-    first = last = None
+    calls = {}  # (message id, request id) -> {"ts", "model", usage field -> max}
     for path in glob.glob(os.path.expanduser("~/.claude/projects/**/*.jsonl"), recursive=True):
         with open(path, errors="replace") as fh:
             for line in fh:
@@ -56,31 +55,32 @@ def main():
                 model = m.get("model", "")
                 if not u or not model or model.startswith("<"):
                     continue
-                key = (m.get("id"), e.get("requestId"))
-                if key in seen:
-                    continue
-                seen.add(key)
                 ts = e.get("timestamp", "")[:10]
                 if not ts:
                     continue
-                first = min(first or ts, ts)
-                last = max(last or ts, ts)
-                month = ts[:7]
                 cc = u.get("cache_creation") or {}
-                d = tok[(month, model)]
-                d["in"] += u.get("input_tokens", 0)
-                d["out"] += u.get("output_tokens", 0)
-                d["cr"] += u.get("cache_read_input_tokens", 0)
                 w5 = cc.get("ephemeral_5m_input_tokens")
                 w1 = cc.get("ephemeral_1h_input_tokens")
                 if w5 is None and w1 is None:
-                    d["w5"] += u.get("cache_creation_input_tokens", 0)
-                else:
-                    d["w5"] += w5 or 0
-                    d["w1"] += w1 or 0
-                d["msgs"] += 1
-                if rate_for(model) is None:
-                    unknown[model] += d["msgs"] and 1
+                    w5, w1 = u.get("cache_creation_input_tokens", 0), 0
+                fields = {"in": u.get("input_tokens", 0), "out": u.get("output_tokens", 0),
+                          "cr": u.get("cache_read_input_tokens", 0), "w5": w5, "w1": w1}
+                c = calls.setdefault((m.get("id"), e.get("requestId")), {"ts": ts, "model": model})
+                for f, v in fields.items():
+                    c[f] = max(c.get(f, 0), v or 0)
+
+    tok = defaultdict(lambda: defaultdict(float))  # (month, model) -> field -> n
+    unknown = defaultdict(int)
+    first = last = None
+    for c in calls.values():
+        first = min(first or c["ts"], c["ts"])
+        last = max(last or c["ts"], c["ts"])
+        d = tok[(c["ts"][:7], c["model"])]
+        for f in ("in", "out", "cr", "w5", "w1"):
+            d[f] += c.get(f, 0)
+        d["msgs"] += 1
+        if rate_for(c["model"]) is None:
+            unknown[c["model"]] += 1
 
     rows = []
     for (month, model), d in sorted(tok.items()):
