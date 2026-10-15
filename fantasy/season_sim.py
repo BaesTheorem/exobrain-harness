@@ -224,6 +224,7 @@ def parse_force(specs, teams, games):
 
 
 SIGMA_PRIOR = 22.0    # stated guess, used until enough weeks are played to measure it
+DRIFT = 4.0           # points a week of random-walk strength drift (measured on real leagues, see _season)
 SIGMA_MIN_WEEKS = 4
 
 
@@ -262,7 +263,17 @@ def _season(teams, games, reg, sims, sigma, tau, seed, actuals=None, force=None,
     rng = np.random.default_rng(seed)
     mu = np.array([teams[t]["espn"] / NFL_WEEKS for t in ids])
     strength = mu[None, :] + rng.normal(0, tau, (sims, n))
-    scores = strength[:, None, :] + rng.normal(0, sigma, (sims, reg, n))  # sims x weeks x teams
+    # Strength wanders week to week (injuries, trades, role changes): a random
+    # walk of DRIFT points a week from the first week not yet played. Measured
+    # 2026-10-15 on 673 real Sleeper leagues (research/sleeper_validation.py
+    # byes): a fixed-strength model put 0.55 on teams that got a bye 0.46 of
+    # the time and 0.65 on teams at 0.57; a 4-point weekly drift brought those
+    # to 0.52 and 0.62. The playoff weeks keep the end-of-season strength.
+    first_open = min([w for w in range(1, reg + 1) if w not in (actuals or {})] or [reg + 1])
+    steps = rng.normal(0, DRIFT, (sims, reg + 3, n))
+    steps[:, :first_open - 1, :] = 0.0
+    walk = np.cumsum(steps, axis=1)
+    scores = strength[:, None, :] + walk[:, :reg, :] + rng.normal(0, sigma, (sims, reg, n))  # sims x weeks x teams
     bump = bump or {}
     if me is not None:
         for w, d in bump.get("week", {}).items():
@@ -303,7 +314,7 @@ def _season(teams, games, reg, sims, sigma, tau, seed, actuals=None, force=None,
     seed_of = np.empty_like(order)
     rows = np.arange(sims)[:, None]
     seed_of[rows, order] = np.arange(n)[None, :]
-    po = strength[:, None, :] + rng.normal(0, sigma, (sims, 3, n))
+    po = strength[:, None, :] + walk[:, reg:, :] + rng.normal(0, sigma, (sims, 3, n))
     if me is not None:
         for r, d in bump.get("playoff", {}).items():
             po[:, r, idx[me]] += d
