@@ -152,3 +152,28 @@ def test_market_rebuilds_a_quarterback_rushing_line_from_the_combined_line():
     x = market.identities({"pos": "QB", "pass_yds": 220.5, "pass_rush_yds": 250.5})
     assert math.isclose(x["rush_yds"], 30.0)
     assert x["implied"] == market.DEFAULT_IMPLIED
+
+
+# ---- league-scan: the lineup a manager started against ESPN's projected best ----
+
+
+def test_vs_proj_compares_the_started_lineup_with_the_projected_best():
+    import importlib.machinery  # noqa: PLC0415
+    import importlib.util  # noqa: PLC0415
+
+    path = Path(__file__).resolve().parent.parent / "fantasy" / "bin" / "league-scan"
+    loader = importlib.machinery.SourceFileLoader("league_scan", str(path))  # no .py suffix
+    spec = importlib.util.spec_from_loader("league_scan", loader)
+    assert spec is not None and spec.loader is not None
+    ls = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(ls)
+    counts = {0: 1, 2: 1}
+    rows = [
+        {"slotId": 0, "pos": "QB", "proj": 20.0, "actual": 15.0},
+        {"slotId": 20, "pos": "QB", "proj": 18.0, "actual": 30.0},     # benched, scored more
+        {"slotId": 2, "pos": "RB", "proj": 8.0, "actual": 12.0},       # started over a higher projection
+        {"slotId": 20, "pos": "RB", "proj": 11.0, "actual": 5.0},
+        {"slotId": 21, "pos": "RB", "proj": 25.0, "actual": 40.0},     # IR never counts
+    ]
+    assert ls.best_by(rows, counts, "proj") == 15.0 + 5.0       # what ESPN's projections would have started
+    assert ls.best_actual(rows, counts) == 30.0 + 12.0          # hindsight
