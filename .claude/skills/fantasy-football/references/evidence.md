@@ -75,11 +75,15 @@ The Fantasy Footballers, "How to Reduce Playoff Randomness."
 https://www.thefantasyfootballers.com/articles/the-fantasy-architect-how-to-reduce-playoff-randomness-in-your-league/
 
 Modeling a "skilled" team as 53% single-matchup win probability:
-- Standard 3-round single elimination: **~28%** championship probability
+- Base case, 12 teams, top 4 make a 2-round bracket: **~28%** championship
+  probability ("53% squared"). Corrected 2026-10-14: this line said
+  "3-round", which is 0.53³ = 14.9%, not 28%
 - Two-week rounds: **29.5%** (only +1.5 despite doubling length)
 - Double elimination: **32.2%**
-- First-round byes: still 28% for that team, but roughly doubles its edge over an
-  average team
+- First-round byes (6-team playoff, top 2 seeds skip round 1): the bye team
+  still wins 28% (two games), while an average non-bye team wins 12.5% (three
+  games at 50%). Verbatim: "Although the level is the same, the _relative_
+  advantage has changed"
 - Each ~1 point/week of scoring edge ≈ **+0.7%** championship probability;
   7 points/week ≈ +5%
 

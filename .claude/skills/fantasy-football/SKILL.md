@@ -553,7 +553,8 @@ competence, then a 13-week head-to-head schedule adds noise on top.
 
 Corroborating the ceiling:
 - A genuinely above-average team (53% single-week win probability) wins a
-  standard 3-round bracket only about **28%** of the time.
+  4-team, 2-round bracket only about **28%** of the time (0.53²). In a
+  3-round bracket it is 14.9% (0.53³).
 - Schedule luck: about **20% of teams finish "lucky," 20% "unlucky."** Applying a
   different random schedule to identical scores swung one team by **4 wins**.
 - Each extra ~1 point per week of scoring edge is worth roughly **+0.7%**
