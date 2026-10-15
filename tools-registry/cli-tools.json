@@ -232,6 +232,14 @@
     "notes": "The self-grading-loop fix: builds draftbot/consensus.json from CBS + FFToday full-PPR season projections (sources the bot never drafts on; FFToday LeagueID=190 = full PPR, verified) and grades the open draft room under both boards. The number to read is the rank gap: ~0 = robust build, large positive = our board flatters us. FIREWALL: vor.py must never read consensus.json."
   },
   {
+    "name": "fantasy correlation table",
+    "command": "cd fantasy && python3 -m ffmodel.corr && python3 -m ffmodel.corr validate",
+    "repo_dir": "~/Documents/Exobrain harness/fantasy/ffmodel",
+    "source": "built",
+    "added": "2026-10-15",
+    "notes": "Writes ffmodel/corr_table.json (tracked); espncli.value.load_corr reads it. validate fits on 2022-2024 and scores synthetic 2025 matchups: 90% coverage on stacked lineups 83.3% independent vs 87.4% correlated."
+  },
+  {
     "name": "fantasy disagreement ledger",
     "command": "python3 fantasy/ledger.py list|add|settle",
     "repo_dir": "fantasy",
@@ -278,6 +286,22 @@
     "source": "built",
     "added": "2026-08-24",
     "notes": "Single owner of the driver cmd channel while a draft runs: polls the armed autopilot, logs each new pick to supervise.log, and drives a MIST Console progress bar off roster count. Start it right after 'arm.py arm' and read supervise.log instead of polling arm.py, so nothing races on result.json. Exits at 16/16."
+  },
+  {
+    "name": "fantasy market projection",
+    "command": "cd fantasy && python3 -m ffmodel.market week 7",
+    "repo_dir": "~/Documents/Exobrain harness/fantasy/ffmodel",
+    "source": "built",
+    "added": "2026-10-15",
+    "notes": "Lines come from ESPN's core API propBets (ESPN BET to 2025 week 13 with prices, DraftKings from 2026 with lines only); python3 -m ffmodel.props <season> --weeks a-b crawls finished games into fantasy/.cache/props/. fit --seasons 2024,2025 writes ffmodel/market_model.json; evaluate scores leave-one-season-out. Projections are conditional on the player playing (props are void otherwise)."
+  },
+  {
+    "name": "fantasy nflraw",
+    "command": "cd fantasy && python3 -m ffmodel.nflraw 2025",
+    "repo_dir": "~/Documents/Exobrain harness/fantasy/ffmodel",
+    "source": "built",
+    "added": "2026-10-15",
+    "notes": "Caches parquet per season in fantasy/.cache/nflraw/ (finished seasons permanent, current season 12h). Matches ESPN on 854/854 offense+K and 66/72 D/ST player-weeks (2026 wk1-5). ESPN yards allowed = opponent net yards; points allowed exclude the opponent's defensive and return TDs."
   },
   {
     "name": "fantasy opportunity overlay",
