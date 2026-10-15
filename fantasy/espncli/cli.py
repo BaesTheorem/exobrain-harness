@@ -27,7 +27,7 @@ from datetime import datetime
 from typing import Any
 
 from espncli import chat
-from espncli.value import best_fill, best_swaps, clock_remaining, load_sd_multipliers, win_prob
+from espncli.value import best_fill, best_swaps, clock_remaining, load_corr, load_sd_multipliers, win_prob
 from espncli.client import (
     BENCH,
     IR,
@@ -321,11 +321,12 @@ def matchup_view(api: Espn, week: int, data: dict, team_id: int) -> dict | None:
         # difference of the two sums. Opponent problems (OUT, bye, empty) are
         # priced as they stand; `opp_problems` says what an unfixed one is worth.
         mults = load_sd_multipliers()
+        corr = load_corr()
         # The gate is a player with points, not a team total: ESPN leaves the
         # team-level actual empty until the week closes.
         scored = any(r.get("actual") is not None for r in me["rows"] + opp["rows"])
         rem = games_remaining(api, week) if scored else {}
-        out["win"] = win_prob(me["rows"], opp["rows"], mults, rem)
+        out["win"] = win_prob(me["rows"], opp["rows"], mults, rem, corr)
         out["in_progress"] = {k: round(v, 3) for k, v in sorted(rem.items())}
         out["opp_problems"] = lineup_problems(opp["rows"])
         if out["opp_problems"]:
@@ -333,8 +334,8 @@ def matchup_view(api: Espn, week: int, data: dict, team_id: int) -> dict | None:
             for r in fixed:
                 if any(pr["player"] == r["name"] for pr in out["opp_problems"]) and r.get("actual") is None:
                     r["proj"] = 0.0
-            out["win_if_opp_unfixed"] = win_prob(me["rows"], fixed, mults, rem)["p"]
-        out["swaps"] = best_swaps(me["rows"], opp["rows"], mults, remaining=rem)
+            out["win_if_opp_unfixed"] = win_prob(me["rows"], fixed, mults, rem, corr)["p"]
+        out["swaps"] = best_swaps(me["rows"], opp["rows"], mults, remaining=rem, corr=corr)
     return out
 
 
@@ -477,12 +478,13 @@ def cmd_check(api: Espn, args: argparse.Namespace) -> None:
     mv = matchup_view(api, week, data, t["id"])
     opp_rows = (mv.get("opp") or {}).get("rows") if mv else None
     mults = load_sd_multipliers()
+    corr = load_corr()
     rem = (mv or {}).get("in_progress") or {}
 
     def best_bench_for(slot_id: int, exclude: int | None) -> dict | None:
         """By win probability against this week's opponent when there is one
         (favorite wants the floor, underdog the ceiling), by projection otherwise."""
-        return best_fill(rows, opp_rows, slot_id, exclude, mults, rem)
+        return best_fill(rows, opp_rows, slot_id, exclude, mults, rem, corr)
 
     def fix_text(b: dict) -> str:
         extra = f", win {b['p_after']:.0%}" if b.get("p_after") is not None else ""

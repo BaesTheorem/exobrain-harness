@@ -1,0 +1,247 @@
+{
+ "core": {
+  "QB": [
+   "pass_yds",
+   "pass_td",
+   "rush_yds"
+  ],
+  "RB": [
+   "rush_yds",
+   "rec_yds",
+   "receptions"
+  ],
+  "WR": [
+   "rec_yds",
+   "receptions"
+  ],
+  "TE": [
+   "rec_yds",
+   "receptions"
+  ],
+  "K": [
+   "kick_pts"
+  ]
+ },
+ "fills": {
+  "QB": [
+   {
+    "target": "rush_yds",
+    "sources": [
+     "carries"
+    ],
+    "coef": [
+     -1.77922,
+     5.16942
+    ],
+    "n": 578
+   },
+   {
+    "target": "rush_yds",
+    "sources": [],
+    "coef": [
+     18.29753
+    ],
+    "n": 810
+   },
+   {
+    "target": "pass_td",
+    "sources": [
+     "pass_yds",
+     "implied"
+    ],
+    "coef": [
+     -0.88534,
+     0.0063,
+     0.03777
+    ],
+    "n": 729
+   }
+  ],
+  "RB": [
+   {
+    "target": "rush_yds",
+    "sources": [
+     "carries"
+    ],
+    "coef": [
+     -4.20001,
+     4.44754
+    ],
+    "n": 1012
+   },
+   {
+    "target": "receptions",
+    "sources": [
+     "rec_yds"
+    ],
+    "coef": [
+     0.53078,
+     0.11058
+    ],
+    "n": 968
+   },
+   {
+    "target": "rec_yds",
+    "sources": [
+     "receptions"
+    ],
+    "coef": [
+     0.15243,
+     7.00656
+    ],
+    "n": 968
+   },
+   {
+    "target": "receptions",
+    "sources": [
+     "rush_yds"
+    ],
+    "coef": [
+     1.77481,
+     0.0121
+    ],
+    "n": 958
+   },
+   {
+    "target": "rec_yds",
+    "sources": [
+     "rush_yds"
+    ],
+    "coef": [
+     10.50669,
+     0.11428
+    ],
+    "n": 1121
+   },
+   {
+    "target": "rush_yds",
+    "sources": [
+     "receptions"
+    ],
+    "coef": [
+     42.80444,
+     4.79946
+    ],
+    "n": 958
+   }
+  ],
+  "WR": [
+   {
+    "target": "receptions",
+    "sources": [
+     "rec_yds"
+    ],
+    "coef": [
+     0.51473,
+     0.07258
+    ],
+    "n": 2121
+   },
+   {
+    "target": "rec_yds",
+    "sources": [
+     "receptions"
+    ],
+    "coef": [
+     -1.56204,
+     12.22561
+    ],
+    "n": 2121
+   }
+  ],
+  "TE": [
+   {
+    "target": "receptions",
+    "sources": [
+     "rec_yds"
+    ],
+    "coef": [
+     0.61595,
+     0.0837
+    ],
+    "n": 817
+   },
+   {
+    "target": "rec_yds",
+    "sources": [
+     "receptions"
+    ],
+    "coef": [
+     -1.27096,
+     10.09173
+    ],
+    "n": 817
+   }
+  ],
+  "K": [
+   {
+    "target": "kick_pts",
+    "sources": [
+     "fg_made",
+     "implied"
+    ],
+    "coef": [
+     -0.59704,
+     2.10676,
+     0.19593
+    ],
+    "n": 541
+   },
+   {
+    "target": "kick_pts",
+    "sources": [
+     "implied"
+    ],
+    "coef": [
+     2.7012,
+     0.18835
+    ],
+    "n": 749
+   }
+  ]
+ },
+ "coef": {
+  "QB": [
+   -3.03518,
+   0.4924,
+   0.01998,
+   0.96138,
+   0.14278
+  ],
+  "RB": [
+   -5.38056,
+   0.20516,
+   0.16077,
+   0.13181,
+   1.09127
+  ],
+  "WR": [
+   -0.07295,
+   0.06136,
+   0.10667,
+   1.25036
+  ],
+  "TE": [
+   -0.00284,
+   0.10013,
+   0.19293,
+   0.09268
+  ],
+  "K": [
+   2.71117,
+   0.15954,
+   0.26365
+  ]
+ },
+ "n": {
+  "QB": 851,
+  "RB": 1454,
+  "WR": 2534,
+  "TE": 1042,
+  "K": 810
+ },
+ "fit_seasons": [
+  2024,
+  2025
+ ]
+}

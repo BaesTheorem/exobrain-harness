@@ -199,28 +199,83 @@ def is_starter(r: dict) -> bool:
     return r.get("slotId") not in (BENCH_SLOT, IR_SLOT)
 
 
+def load_corr() -> dict[str, float]:
+    """The measured teammate and opponent correlations (ffmodel/corr_table.json),
+    or {} (independence) when the table is missing."""
+    from ffmodel.corr import load  # noqa: PLC0415 -- keeps value importable on its own
+
+    return load()
+
+
+def _rho(a: dict, b: dict, corr: dict[str, float]) -> float:
+    if not corr:
+        return 0.0
+    from ffmodel.corr import rho  # noqa: PLC0415
+
+    return rho(a, b, corr)
+
+
+def _cov(rows: list[tuple[dict, float]], other: list[tuple[dict, float]] | None,
+         corr: dict[str, float]) -> float:
+    """Sum of rho x sd x sd over distinct pairs within `rows` (other is None)
+    or across `rows` and `other`."""
+    total = 0.0
+    if other is None:
+        for i in range(len(rows)):
+            for j in range(i + 1, len(rows)):
+                (a, sa), (b, sb) = rows[i], rows[j]
+                if sa and sb:
+                    total += _rho(a, b, corr) * sa * sb
+        return total
+    for a, sa in rows:
+        for b, sb in other:
+            if sa and sb:
+                total += _rho(a, b, corr) * sa * sb
+    return total
+
+
 def lineup_moments(rows: list[dict], mults: dict[str, float],
-                   remaining: dict[str, float] | None = None) -> tuple[float, float]:
+                   remaining: dict[str, float] | None = None,
+                   corr: dict[str, float] | None = None) -> tuple[float, float]:
     mu, var = 0.0, 0.0
+    parts = []
     for r in rows:
         if not is_starter(r):
             continue
         m, s = row_moments(r, mults, remaining)
         mu += m
         var += s * s
-    return mu, math.sqrt(var)
+        parts.append((r, s))
+    var += 2.0 * _cov(parts, None, corr or {})
+    return mu, math.sqrt(max(var, 0.0))
 
 
 def win_prob(me: list[dict], opp: list[dict], mults: dict[str, float] | None = None,
-             remaining: dict[str, float] | None = None) -> dict:
-    """P(our starters outscore theirs), with both sides' means and spreads."""
+             remaining: dict[str, float] | None = None, corr: dict[str, float] | None = None) -> dict:
+    """P(our starters outscore theirs), with both sides' means and spreads.
+
+    With `corr` (load_corr()), starters in the same NFL game are correlated
+    as measured (2026-10-15, ffmodel/corr.py): a quarterback and his own
+    receiver move together (+0.38 for a WR1), so a stack widens our spread;
+    a defense and the quarterback it faces move apart (-0.48), so starting a
+    D/ST against the opponent's quarterback ties the two totals together and
+    widens the margin's spread too. Var(us - them) = Var(us) + Var(them)
+    - 2 Cov(us, them). Without `corr` every starter is independent, which is
+    what this computed before that date."""
     mults = mults or {}
-    mu_me, sd_me = lineup_moments(me, mults, remaining)
-    mu_opp, sd_opp = lineup_moments(opp, mults, remaining)
-    sd = math.sqrt(sd_me * sd_me + sd_opp * sd_opp)
+    corr = corr or {}
+    mu_me, sd_me = lineup_moments(me, mults, remaining, corr)
+    mu_opp, sd_opp = lineup_moments(opp, mults, remaining, corr)
+    cross = 0.0
+    if corr:
+        mine = [(r, row_moments(r, mults, remaining)[1]) for r in me if is_starter(r)]
+        theirs = [(r, row_moments(r, mults, remaining)[1]) for r in opp if is_starter(r)]
+        cross = _cov(mine, theirs, corr)
+    sd = math.sqrt(max(sd_me * sd_me + sd_opp * sd_opp - 2.0 * cross, 0.0))
     p = 0.5 if sd == 0 and mu_me == mu_opp else (1.0 if sd == 0 and mu_me > mu_opp else 0.0 if sd == 0 else phi((mu_me - mu_opp) / sd))
     return {"p": round(p, 3), "mu_me": round(mu_me, 1), "sd_me": round(sd_me, 1),
-            "mu_opp": round(mu_opp, 1), "sd_opp": round(sd_opp, 1), "margin": round(mu_me - mu_opp, 1)}
+            "mu_opp": round(mu_opp, 1), "sd_opp": round(sd_opp, 1), "margin": round(mu_me - mu_opp, 1),
+            "sd_diff": round(sd, 1)}
 
 
 def usable(r: dict) -> bool:
@@ -238,7 +293,8 @@ POINTS_PER_WIN_PCT = 5.0
 def best_swaps(me: list[dict], opp: list[dict], mults: dict[str, float] | None = None,
                min_gain: float = 0.005, top: int = 5,
                remaining: dict[str, float] | None = None,
-               points_per_win_pct: float = POINTS_PER_WIN_PCT) -> list[dict]:
+               points_per_win_pct: float = POINTS_PER_WIN_PCT,
+               corr: dict[str, float] | None = None) -> list[dict]:
     """Every single bench-for-starter swap that raises win probability, best first.
 
     Only unlocked, usable bench players into unlocked starter slots they are
@@ -248,7 +304,7 @@ def best_swaps(me: list[dict], opp: list[dict], mults: dict[str, float] | None =
     gains priced at `points_per_win_pct` (the Points For tiebreak): the
     variance rule applies a swap at d_net >= +1."""
     mults = mults or {}
-    base = win_prob(me, opp, mults, remaining)["p"]
+    base = win_prob(me, opp, mults, remaining, corr)["p"]
     out = []
     starters = [r for r in me if is_starter(r)]
     bench = [r for r in me if r.get("slotId") == BENCH_SLOT]
@@ -264,7 +320,7 @@ def best_swaps(me: list[dict], opp: list[dict], mults: dict[str, float] | None =
                     r["slotId"] = BENCH_SLOT
                 elif r.get("id") == b.get("id"):
                     r["slotId"] = s["slotId"]
-            p = win_prob(trial, opp, mults, remaining)["p"]
+            p = win_prob(trial, opp, mults, remaining, corr)["p"]
             if p - base >= min_gain:
                 d_proj = float(b.get("proj") or 0) - float(s.get("proj") or 0)
                 out.append({"bench": b["name"], "bench_pos": b.get("pos"), "starter": s["name"],
@@ -278,7 +334,8 @@ def best_swaps(me: list[dict], opp: list[dict], mults: dict[str, float] | None =
 
 def best_fill(me: list[dict], opp: list[dict] | None, slot_id: int, exclude: int | None,
               mults: dict[str, float] | None = None,
-              remaining: dict[str, float] | None = None) -> dict | None:
+              remaining: dict[str, float] | None = None,
+              corr: dict[str, float] | None = None) -> dict | None:
     """The bench player to put into `slot_id`: by win probability when there is
     an opponent to beat, by projection otherwise (idle week, or no matchup)."""
     mults = mults or {}
@@ -296,7 +353,7 @@ def best_fill(me: list[dict], opp: list[dict] | None, slot_id: int, exclude: int
                 r["slotId"] = BENCH_SLOT
             elif r.get("id") == b.get("id"):
                 r["slotId"] = slot_id
-        scored.append((win_prob(trial, opp, mults, remaining)["p"], float(b.get("proj") or 0.0), b))
+        scored.append((win_prob(trial, opp, mults, remaining, corr)["p"], float(b.get("proj") or 0.0), b))
     scored.sort(key=lambda t: (-t[0], -t[1]))
     best = dict(scored[0][2])
     best["p_after"] = round(scored[0][0], 3)
