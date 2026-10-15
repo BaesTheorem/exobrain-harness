@@ -48,10 +48,11 @@ fifteen minutes before the reports it existed to read.)
    in the log line and cite `win.p` before and after. `margin_source` still
    says whether the margin is pre-game or live; a banked Thursday score can
    flip the side, as 2026-09-19 showed. Also read `opp_problems` and
-   `win_if_opp_unfixed`: an OUT or bye starter on their side is a hole, and
-   `fantasy/bin/league-scan` says whether that manager historically fixes
-   holes (zeros started, bench points left). Count on the hole only for a
-   manager with a record of leaving them.
+   `win_if_opp_unfixed`: an OUT or bye starter on their side is a hole.
+   Price it with that manager's measured fix rate from `fantasy/bin/league-scan
+   --json` (`bye_fixed` of `bye_holes`, shrunk as (fixed + 1) / (faced + 2);
+   the league rate was 0.5 over weeks 1-5): P(win) = rate x `win.p` +
+   (1 - rate) x `win_if_opp_unfixed`. Quote both numbers in the log line.
    **Idle week (week 8), or any week ESPN shows no opponent:** the week is
    worth nothing (idle-week points do not count toward Points For). Fill the
    nine slots by projection, with no variance adjustment, escalation or ping.

@@ -99,9 +99,11 @@ def scan(api: Espn, weeks: int | None) -> dict:
     teams = {t["id"]: {"team": team_name(t), "owner": initials(members.get((t.get("primaryOwner") or (t.get("owners") or [None])[0]))),
                        "acq": (t.get("transactionCounter") or {}).get("acquisitions", 0),
                        "trades": (t.get("transactionCounter") or {}).get("trades", 0),
-                       "weeks": 0, "zeros": 0, "left": 0.0, "vs_proj": 0.0, "zero_list": []} for t in now["teams"]}
+                       "weeks": 0, "zeros": 0, "left": 0.0, "vs_proj": 0.0, "zero_list": [],
+                       "bye_holes": 0, "bye_fixed": 0} for t in now["teams"]}
     last = current - 1 if weeks is None else min(weeks, current - 1)
     played = []
+    prev_starters: dict[int, set] = {}
     for w in range(1, last + 1):
         _, rows = week_rows(api, w)
         if not rows or any(sum(r["actual"] or 0 for r in rs if r["slotId"] not in (BENCH, IR)) <= 0 for rs in rows.values()):
@@ -120,15 +122,27 @@ def scan(api: Espn, weeks: int | None) -> dict:
             got = sum(r["actual"] or 0 for r in started)
             t["left"] += best_actual(rs, counts) - got
             t["vs_proj"] += got - best_by(rs, counts, "proj")
+            # A bye hole: last week's starter whose team is off this week. It is
+            # known days ahead, so fixing it is the cleanest read of attention
+            # (rule inventory R5: the opponent-hole price needs a fix rate).
+            holes = [r for r in rs if r.get("id") in prev_starters.get(tid, set()) and r["opp"] == "BYE"]
+            t["bye_holes"] += len(holes)
+            t["bye_fixed"] += sum(1 for r in holes if r["slotId"] in (BENCH, IR))
+            prev_starters[tid] = {r.get("id") for r in started}
     # Trade offers, from the transaction log. mTransactions2 is scoped to one
     # scoring period per call and an offer's original row sits in the period
     # it was proposed while the expiry CANCEL row sits in the period it died,
     # so every period is read and rows are deduped by id.
     seen: dict[str, dict] = {}
+    moves: list[dict] = []
     for w in range(1, current + 1):
         for t in api.league("mTransactions2", period=w).get("transactions", []):
             if t.get("type") == "TRADE_PROPOSAL" and t.get("id"):
                 seen[t["id"]] = t
+            elif t.get("status") == "EXECUTED" and t.get("type") in ("FREEAGENT", "WAIVER", "TRADE_ACCEPT", "TRADE_UPHOLD",
+                                                                     "ROSTER", "DRAFT"):
+                moves.append(t)
+    integrity = collusion_check(moves)
     originals = {i: t for i, t in seen.items() if t.get("executionType") != "CANCEL"}
     cancelled = {t.get("relatedTransactionId") for t in seen.values() if t.get("executionType") == "CANCEL"}
     for t in seen.values():     # an expiry whose original fell outside the periods read still counts
@@ -157,8 +171,55 @@ def scan(api: Espn, weeks: int | None) -> dict:
                      "offers_sent": sent.get(tid, 0), "offers_recv": sum(r.values()),
                      "accepted": r.get("accepted", 0), "expired": r.get("expired", 0), "pending": r.get("pending", 0),
                      "mine": tid == api.my_team_id(now)})
+    for r in rows:
+        r["tier"] = tier(r)
     rows.sort(key=lambda r: (-(r["zeros"]), -(r["left_pw"] or 0)))
-    return {"weeks_played": played, "teams": rows}
+    faced = sum(r["bye_holes"] for r in rows)
+    league_fix = (sum(r["bye_fixed"] for r in rows) / faced) if faced else None
+    return {"weeks_played": played, "teams": rows, "integrity": integrity,
+            "bye_fix_rate_league": round(league_fix, 3) if league_fix is not None else None}
+
+
+CHAIN_HOURS = 48
+
+
+def collusion_check(moves: list[dict]) -> dict:
+    """Rule inventory R4 in code (2026-10-15): drop-to-pickup chains (one team
+    drops a player and another adds him within CHAIN_HOURS) counted per pair of
+    teams, and every executed move made by the league manager. A pair with two
+    or more chains, or any manager move on another team's roster, is the signal
+    the collusion check reads; one chain is the waiver wire working."""
+    drops, adds = [], []
+    lm = []
+    for t in moves:
+        ms = int(t.get("processDate") or t.get("proposedDate") or 0)
+        for it in t.get("items") or []:
+            if it.get("type") == "DROP":
+                drops.append((it.get("playerId"), it.get("fromTeamId"), ms))
+            elif it.get("type") == "ADD":
+                adds.append((it.get("playerId"), it.get("toTeamId"), ms))
+        if t.get("isLeagueManager") and not t.get("isActingAsTeamOwner"):
+            lm.append({"type": t.get("type"), "team_id": t.get("teamId"), "ms": ms})
+    pairs: dict[str, int] = collections.Counter()
+    for pid, frm, t0 in drops:
+        for pid2, to, t1 in adds:
+            if pid2 == pid and to != frm and 0 <= t1 - t0 <= CHAIN_HOURS * 3600 * 1000:
+                pairs[f"{frm}->{to}"] += 1
+    return {"chains": dict(pairs), "repeat_pairs": {k: v for k, v in pairs.items() if v >= 2},
+            "manager_moves": lm}
+
+
+def tier(r: dict) -> str:
+    """Engagement tier from the counts (rule inventory R6 in code): absent =
+    a zero started in more than one week in three, or no adds and a zero;
+    attentive = no more than one zero and an add every other week; partial =
+    the rest. The playbook's per-manager prose reads this column."""
+    wk = max(1, r["weeks"])
+    if r["zeros"] / wk > 1 / 3 or (r["acq"] == 0 and r["zeros"] > 0):
+        return "absent"
+    if r["zeros"] <= 1 and r["acq"] >= wk / 2:
+        return "attentive"
+    return "partial"
 
 
 def main() -> int:
@@ -177,11 +238,17 @@ def main() -> int:
         r["mark"] = "<-" if r["mine"] else ""
         r["left_s"] = "-" if r["left_pw"] is None else f"{r['left_pw']:.1f}"
         r["vsp_s"] = "-" if r["vs_proj_pw"] is None else f"{r['vs_proj_pw']:+.1f}"
+        r["byefix_s"] = f"{r['bye_fixed']}/{r['bye_holes']}" if r["bye_holes"] else "-"
         r["offers"] = f"{r['offers_sent']}/{r['offers_recv']}"
         r["answered"] = f"{r['accepted']}a {r['expired']}x {r['pending']}p" if r["offers_recv"] else "-"
     table(out["teams"], [("TEAM", "team", 26, "l"), ("OWN", "owner", 4, "l"), ("ZEROS", "zeros", 5, "r"),
-                         ("LEFT/WK", "left_s", 7, "r"), ("VS-PROJ", "vsp_s", 7, "r"), ("ADDS", "acq", 4, "r"), ("TRD", "trades", 3, "r"),
+                         ("LEFT/WK", "left_s", 7, "r"), ("VS-PROJ", "vsp_s", 7, "r"), ("BYE-FIX", "byefix_s", 7, "r"),
+                         ("TIER", "tier", 9, "l"), ("ADDS", "acq", 4, "r"), ("TRD", "trades", 3, "r"),
                          ("OFFERS s/r", "offers", 10, "l"), ("RECEIVED", "answered", 12, "l"), ("", "mark", 2, "l")])
+    ig = out["integrity"]
+    print(f"\n  integrity: {sum(ig['chains'].values())} drop-to-pickup chains within {CHAIN_HOURS} h, "
+          f"repeat pairs {ig['repeat_pairs'] or 'none'}, league-manager moves {len(ig['manager_moves'])}; "
+          f"league bye-hole fix rate {out['bye_fix_rate_league']}")
     zl = [(r["team"], z) for r in out["teams"] for z in r["zero_list"]]
     if zl:
         print("\n  zeros started:")
