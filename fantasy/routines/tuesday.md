@@ -86,13 +86,13 @@ Follow `fantasy/routines/COMMON.md` first. If today is not Tuesday, stop.
    have touches beat clean handcuffs; touchdowns on thin volume are a sell,
    heavy volume with bad touchdown luck is a buy. No second QB or TE. Drop the
    lowest-value bench player (role first, then season projection) to make
-   room; never drop a starter. From week 5 on, value every player by a 50/50
-   blend of his preseason projection and his season-to-date points per game,
-   weighting each week by its `--leverage` weight: weeks 16 and 17 about 11
-   regular-season weeks each, week 15 about 2 (*The strategic thesis* rule 4,
-   2026-10-14; it was weeks 15-17 at half)
-   (Harstad: that naive blend beat either input alone in 4 of 5 position
-   buckets), not by either one by itself. File up to two claims, best first:
+   room; never drop a starter. From week 5 on, value every player on
+   `ros_rate`: 0.45 weekly projection, 0.35 prior, 0.20 season points per
+   game (backtest, 2026-10-15: better than the old 50/50 of prior and PPG in
+   all 12 held-out season-weeks), weighting each week by its `--leverage`
+   weight: weeks 16 and 17 about 11 regular-season weeks each, week 15 about
+   2 (*The strategic thesis* rule 4, 2026-10-14; it was weeks 15-17 at half),
+   never by one input alone. File up to two claims, best first:
    `fantasy/bin/espn-tx claim "<name>" --drop "<bench player>"` (no `--drop`
    when a slot is open), confirming `"verified": true`. If nothing beats the
    bench, say so and file nothing. Week 7 is Daniels' bye: that week, claim a
