@@ -134,12 +134,13 @@ the site by hand.
   targets, target share, WOPR, carries, weighted opportunities, snap share,
   last week's role move, BUY/SELL (volume rank vs points rank at the
   position) and ROLE-UP/DOWN flags. **"Rank by volume" means this tool.**
-  `volume build --fresh` on Tuesday; it also writes the per-player spread
-  multipliers `espn check` uses
+  `volume build --fresh` on Tuesday. (It no longer writes per-player spread
+  multipliers: spread is not a stable trait, measured 2026-10-15)
 - `espn check` / `espn matchup` now report `win` (P(win) from each unlocked
   starter's `mean`, the even blend of ESPN's projection and the betting
-  market's `market` (2026-10-15), with a measured, tiered, per-player spread
-  and same-game correlations; locked players are banked), `swaps`
+  market's `market` (2026-10-15), with a variance-matched spread by
+  position and tier and same-game correlations; locked players are
+  banked), `swaps`
   (bench-for-starter swaps ranked by the win probability they buy; apply at
   `d_net` +1), `opp_problems` and `win_if_opp_unfixed` (the opponent's holes,
   priced). The variance rule is a number; the fill for a problem slot is
@@ -161,9 +162,10 @@ the site by hand.
   (return odds 0.53, return factor 0.89 on IR and 0.66 otherwise, against the
   starter each would replace, over the `--leverage` weights); `--banner`
   offers an IR-slot PASS once. The Tuesday routine runs it from week 9
-- `fantasy/bin/stream-scan` — the D/ST (ours faces >= 24 implied, a free
-  agent faces <= 19) and K (a free agent's offense 4+ above ours, fair
-  weather) thresholds, plus K/D/ST byes ahead
+- `fantasy/bin/stream-scan` — the D/ST (our opponent implied 4+ points
+  above a free agent's opponent, ranked by the line) and K (a free agent's
+  offense 6+ above ours, fair weather) gaps, both backtested 2026-10-15,
+  plus K/D/ST byes ahead
 - `fantasy/bin/league-scan` — per manager: zeros started, bench points left
   per closed week, adds, trade offers sent/received/accepted/expired. The
   opponent model and the trade-targeting input
@@ -171,8 +173,9 @@ the site by hand.
   and 2-for-1 the other side does not lose on its own screen, priced in
   title and bye odds; `python3 fantasy/season_sim.py --json` — bye odds on
   the results so far. Both value rosters on `espncli.value.ros_rate`, the one
-  in-season currency (half preseason projection, half live), because ESPN's
-  `season_proj` is static and alone prices August
+  in-season currency (before week 5 half prior, half weekly projection; from
+  week 5 0.45 weekly projection, 0.35 prior, 0.20 PPG, backtested
+  2026-10-15), because ESPN's `season_proj` alone prices August
 
 **Writes go through `fantasy/bin/espn-tx` and nothing else** (added
 2026-09-07): `ir`, `move`, `claim`, `pending`, `cancel`. It verifies every
