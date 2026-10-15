@@ -36,6 +36,25 @@ python3 schedule.py pending --date YYYY-MM-DD --provider "[Stylist]"
 python3 schedule.py record  --date YYYY-MM-DD --provider "[Stylist]"
 ```
 
+**Booking ahead.** Ramon fills months out, so `bookAhead` in `config.json`
+(2) keeps that many cuts queued. When the queue is short the job hunts at once,
+aimed 6 weeks past the last queued appointment, not 12 days before a due date.
+A cut booked outside the preferred hours (weekday 10:00-18:00) can carry a
+**swap watch** (`pending --swap-since D --swap-until D`): each day the job
+looks for a preferred opening in that window, and MIST books it, then cancels
+the fallback, then moves the calendar event. Watches close 2 days out, before
+the 50% cancel charge.
+
+The slot search and filtering run in the shell (`schedule.py plan`,
+`candidates`), so MIST starts only when a real candidate exists. A slot MIST
+finds blocked on the calendar goes into `rejected` and does not wake it again.
+
+```
+python3 schedule.py plan                                   # hunt window + swap watches
+python3 schedule.py pending --date D --time HH:MM --id N --swap-since D --swap-until D
+python3 schedule.py swap --old-date D --date D --time HH:MM --id N
+```
+
 Two rules worth keeping straight: the clock runs from the last **completed**
 cut, never the last nudge, and **no booking system can tell you a haircut
 happened**. Booksy filed a sat-through appointment under the same status letter

@@ -37,7 +37,12 @@ Usage:
     python3 schedule.py window                  # the date range to search
     python3 schedule.py reconcile               # close out a lapsed appointment
     python3 schedule.py mark-notified
-    python3 schedule.py pending --date YYYY-MM-DD [--provider "[Stylist]"]  # appends
+    python3 schedule.py pending --date YYYY-MM-DD [--time HH:MM] [--id N] [--swap-since D --swap-until D]
+    python3 schedule.py plan                    # JSON: the hunt window and swap watches
+    python3 schedule.py candidates --kind hunt|swap [--current D] < slots.json
+    python3 schedule.py reject --at "YYYY-MM-DD HH:MM"   # a slot MIST found blocked
+    python3 schedule.py swap --old-date D --date D --time HH:MM --id N
+    python3 schedule.py nudge                   # exit 0 once per cycle when nothing is open
     python3 schedule.py record --date YYYY-MM-DD [--provider "[Stylist]"]
 """
 
@@ -46,7 +51,7 @@ from __future__ import annotations
 import argparse
 import json
 from dataclasses import dataclass
-from datetime import date, timedelta
+from datetime import date, datetime, time, timedelta
 from pathlib import Path
 
 HERE = Path(__file__).resolve().parent
@@ -59,6 +64,12 @@ LEAD_DAYS = 12
 # How wide a net to cast around the due date when ranking slots.
 WINDOW_BEFORE = 5
 WINDOW_AFTER = 9
+# With bookAhead > 1 the hunt runs as soon as the queue is short, limited only
+# by how far out the salon takes bookings (Rosy's scheduleDaysOut).
+HORIZON_DAYS = 180
+# A swap must leave the old appointment cancellable for free: the salon charges
+# 50% inside 1 day, so stop watching 2 days out.
+SWAP_CUTOFF_DAYS = 2
 
 
 @dataclass(frozen=True)
@@ -116,6 +127,23 @@ def interval_weeks() -> int:
     return int(_load(CONFIG_PATH, {}).get("intervalWeeks", 6))
 
 
+def book_ahead() -> int:
+    """How many appointments to keep queued. 1 is the original behaviour."""
+    return max(1, int(_load(CONFIG_PATH, {}).get("bookAhead", 1)))
+
+
+def preferred(start: datetime) -> bool:
+    """Weekday, inside the preferred hours: the bar a swap has to clear."""
+    conf = _load(CONFIG_PATH, {})
+    if conf.get("preferWeekdays", True) and start.weekday() >= 5:
+        return False
+    window = conf.get("preferredWindow")
+    if not window:
+        return True
+    lo, hi = (time.fromisoformat(w) for w in window)
+    return lo <= start.time() < hi
+
+
 def status(today: date | None = None) -> Status:
     today = today or date.today()
     state = load_state()
@@ -125,25 +153,33 @@ def status(today: date | None = None) -> Status:
         date.fromisoformat(state["notified_cycle"]) if state.get("notified_cycle") else None
     )
     pending = next_pending(state, today)
+    queued = [d for d in pending_dates(state) if d >= today]
+    ahead = book_ahead()
 
-    # An appointment already lined up settles the question, whether or not
-    # there is any history. Stay quiet until the day after it happens.
-    if pending is not None:
+    # Enough appointments lined up settles the question, whether or not there
+    # is any history. Stay quiet until the day after the next one happens.
+    if len(queued) >= ahead:
         due = (last + timedelta(weeks=interval_weeks())) if last else None
         days = (due - today).days if due else None
-        return Status(last, due, days, notified, False, f"appointment on {pending}", pending)
+        listed = ", ".join(d.isoformat() for d in queued)
+        word = "appointment" if len(queued) == 1 else "appointments"
+        return Status(last, due, days, notified, False, f"{word} on {listed}", pending)
 
-    if last is None:
+    anchor = max([d for d in (last, queued[-1] if queued else None) if d], default=None)
+    if anchor is None:
         return Status(None, None, None, notified, True, "no haircut on record yet", pending)
 
-    due = last + timedelta(weeks=interval_weeks())
+    due = anchor + timedelta(weeks=interval_weeks())
     days_until = (due - today).days
+    lead = LEAD_DAYS if ahead == 1 else HORIZON_DAYS
 
-    if days_until > LEAD_DAYS:
+    if days_until > lead:
         return Status(
             last, due, days_until, notified, False, f"not due for {days_until} days", pending
         )
-    if notified == due:
+    if ahead == 1 and notified == due:
+        # Booking ahead keeps hunting daily (the precheck keeps that cheap);
+        # the one-shot original stops after its single nudge.
         return Status(
             last, due, days_until, notified, False, "already nudged for this cycle", pending
         )
@@ -278,6 +314,12 @@ def _cmd_pending(args: argparse.Namespace) -> int:
     entry: dict[str, object] = {"date": when.isoformat()}
     if args.provider:
         entry["provider"] = args.provider
+    if args.time:
+        entry["time"] = args.time
+    if args.id:
+        entry["id"] = args.id
+    if args.swap_since and args.swap_until:
+        entry["swap"] = {"since": args.swap_since, "until": args.swap_until}
     queue.append(entry)
     state["pending"] = sorted(queue, key=lambda e: e["date"])
     save_state(state)
@@ -307,6 +349,93 @@ def _cmd_record(args: argparse.Namespace) -> int:
     return 0
 
 
+def plan(today: date | None = None) -> dict:
+    """What the daily run should look at: the hunt window and the swap watches."""
+    today = today or date.today()
+    st = status(today)
+    hunt = None
+    if st.should_act:
+        start, end = search_window(today)
+        hunt = {"since": start.isoformat(), "until": end.isoformat(),
+                "target": st.due.isoformat() if st.due else None}
+    swaps = [
+        {"date": e["date"], "time": e.get("time"), "id": e.get("id"), **e["swap"]}
+        for e in load_state().get("pending") or []
+        if e.get("swap")
+        and (date.fromisoformat(e["date"]) - today).days >= SWAP_CUTOFF_DAYS
+    ]
+    return {"hunt": hunt, "swaps": swaps}
+
+
+def candidates(slots: list[dict], kind: str, current: str | None = None) -> list[dict]:
+    """Drop slots MIST already ruled out; a swap also has to be a preferred time."""
+    rejected = set(load_state().get("rejected") or [])
+    out = []
+    for slot in slots:
+        start = datetime.fromisoformat(slot["start"])
+        key = start.strftime("%Y-%m-%d %H:%M")
+        if key in rejected:
+            continue
+        if kind == "swap" and (not preferred(start) or key == current):
+            continue
+        out.append({**slot, "preferred": preferred(start)})
+    return out
+
+
+def _cmd_plan(_: argparse.Namespace) -> int:
+    print(json.dumps(plan()))
+    return 0
+
+
+def _cmd_candidates(args: argparse.Namespace) -> int:
+    import sys
+
+    print(json.dumps(candidates(json.load(sys.stdin), args.kind, args.current), indent=1))
+    return 0
+
+
+def _cmd_reject(args: argparse.Namespace) -> int:
+    state = load_state()
+    rejected = set(state.get("rejected") or [])
+    rejected.add(args.at)
+    # Past slots can never come back, so the list stays short.
+    cutoff = date.today().isoformat()
+    state["rejected"] = sorted(r for r in rejected if r[:10] >= cutoff)
+    save_state(state)
+    print(f"will not offer {args.at} again")
+    return 0
+
+
+def _cmd_swap(args: argparse.Namespace) -> int:
+    state = load_state()
+    old = next((e for e in state["pending"] if e["date"] == args.old_date), None)
+    if old is None:
+        print(f"no queued appointment on {args.old_date}")
+        return 1
+    new = {k: v for k, v in old.items() if k not in ("swap", "date", "time", "id")}
+    new.update({"date": args.date, "time": args.time, "id": args.id})
+    state["pending"] = sorted(
+        [e for e in state["pending"] if e is not old] + [new], key=lambda e: e["date"]
+    )
+    save_state(state)
+    print(f"swapped {args.old_date} for {args.date} {args.time}; watch closed")
+    return 0
+
+
+def _cmd_nudge(_: argparse.Namespace) -> int:
+    """Exit 0 (and mark it) the first time a cycle runs short of openings near the date."""
+    st = status()
+    if st.due is None or st.days_until_due is None or st.days_until_due > LEAD_DAYS:
+        return 1
+    if st.notified_cycle == st.due:
+        return 1
+    state = load_state()
+    state["notified_cycle"] = st.due.isoformat()
+    save_state(state)
+    print(f"no openings yet for the cut due {st.due}")
+    return 0
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description="Haircut cadence tracker.")
     sub = parser.add_subparsers(dest="cmd", required=True)
@@ -324,7 +453,27 @@ def main(argv: list[str] | None = None) -> int:
     pend = sub.add_parser("pending", help="note an appointment that is lined up")
     pend.add_argument("--date", required=True, help="YYYY-MM-DD")
     pend.add_argument("--provider")
+    pend.add_argument("--time", help="HH:MM")
+    pend.add_argument("--id", type=int, help="the salon's appointment id")
+    pend.add_argument("--swap-since", help="watch for a preferred time from this date")
+    pend.add_argument("--swap-until", help="... to this date")
     pend.set_defaults(func=_cmd_pending)
+
+    sub.add_parser("plan", help="JSON: hunt window and swap watches").set_defaults(func=_cmd_plan)
+    cand = sub.add_parser("candidates", help="filter `ramon slots --json` from stdin")
+    cand.add_argument("--kind", choices=["hunt", "swap"], required=True)
+    cand.add_argument("--current", help='the booked slot, "YYYY-MM-DD HH:MM"')
+    cand.set_defaults(func=_cmd_candidates)
+    rej = sub.add_parser("reject", help="never offer this slot again")
+    rej.add_argument("--at", required=True, help='"YYYY-MM-DD HH:MM"')
+    rej.set_defaults(func=_cmd_reject)
+    sw = sub.add_parser("swap", help="replace a watched appointment with the new booking")
+    sw.add_argument("--old-date", required=True)
+    sw.add_argument("--date", required=True)
+    sw.add_argument("--time", required=True)
+    sw.add_argument("--id", type=int, required=True)
+    sw.set_defaults(func=_cmd_swap)
+    sub.add_parser("nudge", help="once-per-cycle 'nothing open' gate").set_defaults(func=_cmd_nudge)
 
     rec = sub.add_parser("record", help="record a completed haircut")
     rec.add_argument("--date", help="YYYY-MM-DD (default: today)")

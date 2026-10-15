@@ -1,6 +1,6 @@
 {
   "salonId": 41947,
-  "salonName": "Salon Ram\u00f3n",
+  "salonName": "Salon Ramón",
   "defaultService": "Men's Haircut",
   "defaultProvider": "Ramon",
   "preferWeekdays": true,
@@ -13,5 +13,6 @@
   "phone": "(816) 944-6997",
   "website": "https://www.salonramon.com/",
   "haircutRequest": "2 faded to 3 on sides and back, scissors on top",
-  "intervalWeeks": 6
+  "intervalWeeks": 6,
+  "bookAhead": 2
 }

@@ -287,3 +287,74 @@ def test_pending_appends_rather_than_replacing(tmp_path, monkeypatch):
     mod.main(["pending", "--date", "2031-10-14", "--provider", "[Stylist]"])  # idempotent
     state = json.loads((tmp_path / "state.json").read_text())
     assert [e["date"] for e in state["pending"]] == ["2031-10-14", "2031-11-26"]
+
+
+def _ahead(mod, tmp_path, n=2):
+    (tmp_path / "config.json").write_text(json.dumps({
+        "intervalWeeks": 6, "bookAhead": n,
+        "preferWeekdays": True, "preferredWindow": ["10:00", "18:00"],
+    }))
+
+
+def test_book_ahead_quiet_with_two_queued(tmp_path, monkeypatch):
+    mod = load_schedule(tmp_path, monkeypatch, {
+        "last_haircut": "2031-08-16",
+        "pending": [{"date": "2031-09-27"}, {"date": "2031-11-08"}],
+    })
+    _ahead(mod, tmp_path)
+    assert not mod.status(date(2031, 8, 17)).should_act
+
+
+def test_book_ahead_hunts_past_the_last_queued(tmp_path, monkeypatch):
+    # One queued, bookAhead 2: hunt NOW for the cut 6 weeks after the queued one,
+    # not 12 days before a due date anchored on the completed cut.
+    mod = load_schedule(tmp_path, monkeypatch, {
+        "last_haircut": "2031-08-16", "pending": [{"date": "2031-09-27"}],
+    })
+    _ahead(mod, tmp_path)
+    st = mod.status(date(2031, 8, 17))
+    assert st.should_act
+    assert st.due == date(2031, 11, 8)
+    hunt = mod.plan(date(2031, 8, 17))["hunt"]
+    assert hunt["since"] == "2031-11-03" and hunt["until"] == "2031-11-17"
+
+
+def test_book_ahead_one_keeps_the_original_gate(tmp_path, monkeypatch):
+    mod = load_schedule(tmp_path, monkeypatch, {"last_haircut": "2031-08-16"})
+    _ahead(mod, tmp_path, n=1)
+    assert not mod.status(date(2031, 8, 17)).should_act
+
+
+def test_swap_candidates_keep_only_preferred_unrejected(tmp_path, monkeypatch):
+    mod = load_schedule(tmp_path, monkeypatch, {"rejected": ["2032-01-06 14:00"]})
+    _ahead(mod, tmp_path)
+    slots = [{"start": s} for s in (
+        "2032-01-05T08:00:00",  # Monday, too early
+        "2032-01-05T08:15:00",  # the booked one
+        "2032-01-06T14:00:00",  # preferred, but MIST found it blocked
+        "2032-01-07T15:30:00",  # preferred and new: the only keeper
+        "2032-01-10T12:00:00",  # Saturday
+    )]
+    out = mod.candidates(slots, "swap", current="2032-01-05 08:15")
+    assert [s["start"] for s in out] == ["2032-01-07T15:30:00"]
+    hunt = mod.candidates(slots, "hunt")
+    assert len(hunt) == 4 and not hunt[0]["preferred"]
+
+
+def test_swap_watch_closes_inside_cancel_window(tmp_path, monkeypatch):
+    entry = {"date": "2032-01-05", "time": "08:00", "id": 7,
+             "swap": {"since": "2031-12-31", "until": "2032-01-15"}}
+    mod = load_schedule(tmp_path, monkeypatch, {"pending": [entry]})
+    _ahead(mod, tmp_path, n=1)
+    assert mod.plan(date(2032, 1, 2))["swaps"]
+    assert not mod.plan(date(2032, 1, 4))["swaps"]
+
+
+def test_swap_replaces_the_entry_and_drops_the_watch(tmp_path, monkeypatch):
+    entry = {"date": "2032-01-05", "time": "08:00", "id": 7, "provider": "[Stylist]",
+             "swap": {"since": "2031-12-31", "until": "2032-01-15"}}
+    mod = load_schedule(tmp_path, monkeypatch, {"pending": [entry]})
+    mod.main(["swap", "--old-date", "2032-01-05", "--date", "2032-01-07",
+              "--time", "15:30", "--id", "9"])
+    (new,) = mod.load_state()["pending"]
+    assert new == {"date": "2032-01-07", "time": "15:30", "id": 9, "provider": "[Stylist]"}
