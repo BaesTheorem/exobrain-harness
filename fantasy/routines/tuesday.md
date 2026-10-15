@@ -15,7 +15,10 @@ Follow `fantasy/routines/COMMON.md` first. If today is not Tuesday, stop.
    forecast, and the closing line value of MIST's leans off the market;
    quote all three in the review. A landing row with more than 30% in one
    middle slice, or a lean that keeps pointing against the line's later
-   move, is a reasoning signal even when coverage looks right (these alarm
+   move, is a reasoning signal even when coverage looks right. Then
+   `cd fantasy && python3 -m ffmodel.fpranks score`: MIST's ranks against
+   FantasyPros' consensus on FantasyPros' own method, every saved week
+   (lower is better for MIST); quote last week and the running mean (these alarm
    thresholds are being tested for false alarms, rule inventory R88). Then judge each
    miss: was it variance inside a well-shaped band (log it, change nothing)
    or a reasoning error (a role read that was wrong, a source weighted

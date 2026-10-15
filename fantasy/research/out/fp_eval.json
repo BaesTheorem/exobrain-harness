@@ -1,0 +1,3177 @@
+{
+ "run_at": "2026-10-15T11:27",
+ "expect": {
+  "control": "Oracle has the lowest gap and Shuffled the highest, in every variant and set.",
+  "mist_vs_ecr": "MIST and ECR within 0.15 points per pool player-week of each other. As filed, MIST ahead (its sources are read at kickoff, ECR on Friday). With inactives removed, the gap closes and ECR can lead.",
+  "blend": "MIST at or below Sleeper alone and Market alone, by less than 0.15."
+ },
+ "sources": {
+  "method": "https://www.fantasypros.com/about/faq/football-inseason-accuracy-methodology/",
+  "contest": "https://www.fantasypros.com/weekly-rankings-competition",
+  "ecr": {
+   "file": "https://github.com/dynastyprocess/data/raw/master/files/db_fpecr.parquet",
+   "pages": {
+    "QB": "weekly-qb",
+    "RB": "weekly-rb",
+    "WR": "weekly-wr",
+    "TE": "weekly-te"
+   },
+   "scrape_by_week": {
+    "2024-w04": "2024-09-27",
+    "2024-w05": "2024-10-04",
+    "2024-w06": "2024-10-11",
+    "2024-w07": "2024-10-18",
+    "2024-w08": "2024-10-25",
+    "2024-w09": "2024-11-01",
+    "2024-w10": "2024-11-08",
+    "2024-w11": "2024-11-15",
+    "2024-w12": "2024-11-22",
+    "2024-w13": "2024-11-29",
+    "2024-w14": "2024-12-06",
+    "2024-w15": "2024-12-13",
+    "2024-w16": "2024-12-20",
+    "2024-w17": "2024-12-27",
+    "2025-w02": "2025-09-12",
+    "2025-w03": "2025-09-19",
+    "2025-w04": "2025-09-26",
+    "2025-w05": "2025-10-03",
+    "2025-w06": "2025-10-10",
+    "2025-w07": "2025-10-17",
+    "2025-w08": "2025-10-24",
+    "2025-w09": "2025-10-31",
+    "2025-w10": "2025-11-07",
+    "2025-w11": "2025-11-14",
+    "2025-w12": "2025-11-21",
+    "2025-w13": "2025-11-28",
+    "2025-w14": "2025-12-05",
+    "2025-w15": "2025-12-12",
+    "2025-w16": "2025-12-19",
+    "2025-w17": "2025-12-26",
+    "2026-w01": "2026-09-11",
+    "2026-w02": "2026-09-18",
+    "2026-w03": "2026-09-25",
+    "2026-w04": "2026-10-02",
+    "2026-w05": "2026-10-09"
+   },
+   "weeks_before_2024_for_ecrcurve": 49,
+   "matched_by_name": 80,
+   "unmatched_within_depth": [],
+   "ecrcurve_full_slate_weeks": {
+    "2024": 23,
+    "2025": 21,
+    "2026": 21
+   }
+  },
+  "market_fit_seasons": {
+   "2024": [
+    2025
+   ],
+   "2025": [
+    2024
+   ],
+   "2026": [
+    2024,
+    2025
+   ]
+  }
+ },
+ "rules": {
+  "contest_depth": {
+   "QB": 20,
+   "RB": 50,
+   "WR": 60,
+   "TE": 15
+  },
+  "pool_n": {
+   "QB": 20,
+   "RB": 40,
+   "WR": 50,
+   "TE": 15
+  },
+  "field": [
+   "MIST",
+   "ECR",
+   "Sleeper",
+   "Market"
+  ],
+  "curve": "mean k-th best half-PPR score, full-slate weeks of the 3 previous seasons, rank rescaled by 32 / teams playing"
+ },
+ "weeks": {
+  "2024": [
+   4,
+   5,
+   6,
+   7,
+   8,
+   9,
+   10,
+   11,
+   12,
+   13,
+   14,
+   15,
+   16,
+   17
+  ],
+  "2025": [
+   2,
+   3,
+   4,
+   5,
+   6,
+   7,
+   8,
+   9,
+   10,
+   11,
+   12,
+   13
+  ],
+  "2026": [
+   1,
+   2,
+   3,
+   4,
+   5
+  ]
+ },
+ "curve_2026_check": {
+  "order_statistic": {
+   "WR11": 17.669,
+   "WR28": 11.165,
+   "QB1": 33.262,
+   "RB1": 33.146,
+   "TE12": 8.777
+  },
+  "ecr_rank": {
+   "WR11": 12.764,
+   "WR28": 10.38,
+   "QB1": 22.242,
+   "RB1": 19.258,
+   "TE12": 6.735
+  },
+  "note": "FantasyPros' example: WR #28 'e.g. 8.1 pts', a WR #11 finish '14.3 pts'"
+ },
+ "variants": {
+  "as_filed": {
+   "2026": {
+    "n_pool_player_weeks": 843,
+    "n_rows": 935,
+    "weeks": 5,
+    "mean_gap": {
+     "Oracle": 1.87,
+     "MIST": 6.79,
+     "MIST-open": 6.815,
+     "MIST-PPR": 6.798,
+     "ECR": 7.056,
+     "Sleeper": 6.796,
+     "Market": 6.842,
+     "Shuffled": 8.712
+    },
+    "order": [
+     "Oracle",
+     "MIST",
+     "Sleeper",
+     "MIST-PPR",
+     "MIST-open",
+     "Market",
+     "ECR",
+     "Shuffled"
+    ],
+    "by_pos": {
+     "QB": {
+      "Oracle": 2.548,
+      "MIST": 8.336,
+      "MIST-open": 8.32,
+      "MIST-PPR": 8.336,
+      "ECR": 8.622,
+      "Sleeper": 8.375,
+      "Market": 8.545,
+      "Shuffled": 9.327
+     },
+     "RB": {
+      "Oracle": 1.648,
+      "MIST": 5.981,
+      "MIST-open": 5.976,
+      "MIST-PPR": 5.995,
+      "ECR": 6.097,
+      "Sleeper": 5.885,
+      "Market": 6.122,
+      "Shuffled": 9.387
+     },
+     "WR": {
+      "Oracle": 1.496,
+      "MIST": 6.728,
+      "MIST-open": 6.78,
+      "MIST-PPR": 6.732,
+      "ECR": 7.109,
+      "Sleeper": 6.672,
+      "Market": 6.678,
+      "Shuffled": 8.417
+     },
+     "TE": {
+      "Oracle": 2.744,
+      "MIST": 6.968,
+      "MIST-open": 7.018,
+      "MIST-PPR": 6.983,
+      "ECR": 7.17,
+      "Sleeper": 7.347,
+      "Market": 6.967,
+      "Shuffled": 7.491
+     }
+    },
+    "by_season": {
+     "2026": {
+      "Oracle": 1.87,
+      "MIST": 6.79,
+      "MIST-open": 6.815,
+      "MIST-PPR": 6.798,
+      "ECR": 7.056,
+      "Sleeper": 6.796,
+      "Market": 6.842,
+      "Shuffled": 8.712
+     }
+    },
+    "vs_mist": {
+     "Oracle": {
+      "mist_minus": 4.92,
+      "ci_player_weeks": [
+       4.613,
+       5.238
+      ],
+      "ci_weeks": [
+       4.512,
+       5.329
+      ],
+      "position_weeks_mist_better": 0,
+      "position_weeks": 20
+     },
+     "MIST-open": {
+      "mist_minus": -0.025,
+      "ci_player_weeks": [
+       -0.068,
+       0.022
+      ],
+      "ci_weeks": [
+       -0.04,
+       -0.01
+      ],
+      "position_weeks_mist_better": 13,
+      "position_weeks": 20
+     },
+     "MIST-PPR": {
+      "mist_minus": -0.008,
+      "ci_player_weeks": [
+       -0.043,
+       0.027
+      ],
+      "ci_weeks": [
+       -0.02,
+       0.003
+      ],
+      "position_weeks_mist_better": 11,
+      "position_weeks": 20
+     },
+     "ECR": {
+      "mist_minus": -0.266,
+      "ci_player_weeks": [
+       -0.4,
+       -0.138
+      ],
+      "ci_weeks": [
+       -0.408,
+       -0.124
+      ],
+      "position_weeks_mist_better": 18,
+      "position_weeks": 20
+     },
+     "Sleeper": {
+      "mist_minus": -0.006,
+      "ci_player_weeks": [
+       -0.111,
+       0.113
+      ],
+      "ci_weeks": [
+       -0.132,
+       0.126
+      ],
+      "position_weeks_mist_better": 9,
+      "position_weeks": 20
+     },
+     "Market": {
+      "mist_minus": -0.052,
+      "ci_player_weeks": [
+       -0.176,
+       0.067
+      ],
+      "ci_weeks": [
+       -0.133,
+       0.031
+      ],
+      "position_weeks_mist_better": 14,
+      "position_weeks": 20
+     },
+     "Shuffled": {
+      "mist_minus": -1.921,
+      "ci_player_weeks": [
+       -2.387,
+       -1.484
+      ],
+      "ci_weeks": [
+       -2.216,
+       -1.568
+      ],
+      "position_weeks_mist_better": 18,
+      "position_weeks": 20
+     }
+    },
+    "season_z_within_field": {
+     "2026": {
+      "MIST": {
+       "QB": -3.412,
+       "RB": -1.462,
+       "TE": -4.039,
+       "WR": -1.63,
+       "overall": -10.543
+      },
+      "ECR": {
+       "QB": 4.056,
+       "RB": 1.67,
+       "TE": 0.043,
+       "WR": 7.496,
+       "overall": 13.265
+      },
+      "Sleeper": {
+       "QB": -2.043,
+       "RB": -4.051,
+       "TE": 5.125,
+       "WR": -1.969,
+       "overall": -2.938
+      },
+      "Market": {
+       "QB": 1.399,
+       "RB": 3.844,
+       "TE": -1.129,
+       "WR": -3.897,
+       "overall": 0.217
+      }
+     }
+    },
+    "control": {
+     "oracle_first": true,
+     "shuffled_last": true
+    }
+   },
+   "2024-2025": {
+    "n_pool_player_weeks": 4261,
+    "n_rows": 4696,
+    "weeks": 26,
+    "mean_gap": {
+     "Oracle": 1.726,
+     "MIST": 6.646,
+     "MIST-open": 6.706,
+     "MIST-PPR": 6.656,
+     "ECR": 6.912,
+     "Sleeper": 6.698,
+     "Market": 6.708,
+     "Shuffled": 8.205
+    },
+    "order": [
+     "Oracle",
+     "MIST",
+     "MIST-PPR",
+     "Sleeper",
+     "MIST-open",
+     "Market",
+     "ECR",
+     "Shuffled"
+    ],
+    "by_pos": {
+     "QB": {
+      "Oracle": 2.633,
+      "MIST": 7.803,
+      "MIST-open": 7.965,
+      "MIST-PPR": 7.803,
+      "ECR": 8.265,
+      "Sleeper": 7.83,
+      "Market": 7.854,
+      "Shuffled": 8.966
+     },
+     "RB": {
+      "Oracle": 1.385,
+      "MIST": 6.019,
+      "MIST-open": 6.081,
+      "MIST-PPR": 6.067,
+      "ECR": 6.368,
+      "Sleeper": 6.089,
+      "Market": 6.172,
+      "Shuffled": 8.904
+     },
+     "WR": {
+      "Oracle": 1.474,
+      "MIST": 6.734,
+      "MIST-open": 6.793,
+      "MIST-PPR": 6.731,
+      "ECR": 6.908,
+      "Sleeper": 6.779,
+      "Market": 6.723,
+      "Shuffled": 7.862
+     },
+     "TE": {
+      "Oracle": 2.188,
+      "MIST": 6.429,
+      "MIST-open": 6.364,
+      "MIST-PPR": 6.401,
+      "ECR": 6.56,
+      "Sleeper": 6.489,
+      "Market": 6.517,
+      "Shuffled": 6.801
+     }
+    },
+    "by_season": {
+     "2024": {
+      "Oracle": 1.701,
+      "MIST": 6.67,
+      "MIST-open": 6.753,
+      "MIST-PPR": 6.684,
+      "ECR": 6.941,
+      "Sleeper": 6.715,
+      "Market": 6.715,
+      "Shuffled": 8.181
+     },
+     "2025": {
+      "Oracle": 1.755,
+      "MIST": 6.619,
+      "MIST-open": 6.65,
+      "MIST-PPR": 6.623,
+      "ECR": 6.879,
+      "Sleeper": 6.678,
+      "Market": 6.7,
+      "Shuffled": 8.231
+     }
+    },
+    "vs_mist": {
+     "Oracle": {
+      "mist_minus": 4.921,
+      "ci_player_weeks": [
+       4.781,
+       5.068
+      ],
+      "ci_weeks": [
+       4.753,
+       5.074
+      ],
+      "position_weeks_mist_better": 0,
+      "position_weeks": 104
+     },
+     "MIST-open": {
+      "mist_minus": -0.059,
+      "ci_player_weeks": [
+       -0.106,
+       -0.012
+      ],
+      "ci_weeks": [
+       -0.105,
+       -0.018
+      ],
+      "position_weeks_mist_better": 61,
+      "position_weeks": 104
+     },
+     "MIST-PPR": {
+      "mist_minus": -0.01,
+      "ci_player_weeks": [
+       -0.032,
+       0.013
+      ],
+      "ci_weeks": [
+       -0.025,
+       0.005
+      ],
+      "position_weeks_mist_better": 43,
+      "position_weeks": 104
+     },
+     "ECR": {
+      "mist_minus": -0.266,
+      "ci_player_weeks": [
+       -0.339,
+       -0.199
+      ],
+      "ci_weeks": [
+       -0.347,
+       -0.187
+      ],
+      "position_weeks_mist_better": 78,
+      "position_weeks": 104
+     },
+     "Sleeper": {
+      "mist_minus": -0.052,
+      "ci_player_weeks": [
+       -0.096,
+       -0.007
+      ],
+      "ci_weeks": [
+       -0.099,
+       -0.005
+      ],
+      "position_weeks_mist_better": 58,
+      "position_weeks": 104
+     },
+     "Market": {
+      "mist_minus": -0.061,
+      "ci_player_weeks": [
+       -0.118,
+       -0.006
+      ],
+      "ci_weeks": [
+       -0.114,
+       -0.011
+      ],
+      "position_weeks_mist_better": 63,
+      "position_weeks": 104
+     },
+     "Shuffled": {
+      "mist_minus": -1.558,
+      "ci_player_weeks": [
+       -1.759,
+       -1.368
+      ],
+      "ci_weeks": [
+       -1.721,
+       -1.401
+      ],
+      "position_weeks_mist_better": 93,
+      "position_weeks": 104
+     }
+    },
+    "season_z_within_field": {
+     "2024": {
+      "MIST": {
+       "QB": -5.705,
+       "RB": -7.492,
+       "TE": -1.508,
+       "WR": -6.063,
+       "overall": -20.768
+      },
+      "ECR": {
+       "QB": 5.578,
+       "RB": 7.893,
+       "TE": 5.985,
+       "WR": 7.779,
+       "overall": 27.235
+      },
+      "Sleeper": {
+       "QB": -3.552,
+       "RB": -5.99,
+       "TE": -3.515,
+       "WR": -3.699,
+       "overall": -16.756
+      },
+      "Market": {
+       "QB": -1.37,
+       "RB": -0.371,
+       "TE": -7.271,
+       "WR": -2.87,
+       "overall": -11.882
+      }
+     },
+     "2025": {
+      "MIST": {
+       "QB": -3.028,
+       "RB": -9.406,
+       "TE": -3.83,
+       "WR": -3.962,
+       "overall": -20.226
+      },
+      "ECR": {
+       "QB": 4.904,
+       "RB": 6.931,
+       "TE": -4.14,
+       "WR": 7.392,
+       "overall": 15.087
+      },
+      "Sleeper": {
+       "QB": -8.688,
+       "RB": -3.397,
+       "TE": -3.063,
+       "WR": -2.273,
+       "overall": -17.421
+      },
+      "Market": {
+       "QB": 1.931,
+       "RB": 0.836,
+       "TE": 5.561,
+       "WR": -6.926,
+       "overall": 1.402
+      }
+     }
+    },
+    "control": {
+     "oracle_first": true,
+     "shuffled_last": true
+    }
+   },
+   "all": {
+    "n_pool_player_weeks": 5104,
+    "n_rows": 5631,
+    "weeks": 31,
+    "mean_gap": {
+     "Oracle": 1.75,
+     "MIST": 6.67,
+     "MIST-open": 6.724,
+     "MIST-PPR": 6.679,
+     "ECR": 6.936,
+     "Sleeper": 6.714,
+     "Market": 6.73,
+     "Shuffled": 8.288
+    },
+    "order": [
+     "Oracle",
+     "MIST",
+     "MIST-PPR",
+     "Sleeper",
+     "MIST-open",
+     "Market",
+     "ECR",
+     "Shuffled"
+    ],
+    "by_pos": {
+     "QB": {
+      "Oracle": 2.619,
+      "MIST": 7.889,
+      "MIST-open": 8.022,
+      "MIST-PPR": 7.889,
+      "ECR": 8.322,
+      "Sleeper": 7.918,
+      "Market": 7.966,
+      "Shuffled": 9.024
+     },
+     "RB": {
+      "Oracle": 1.427,
+      "MIST": 6.013,
+      "MIST-open": 6.064,
+      "MIST-PPR": 6.056,
+      "ECR": 6.325,
+      "Sleeper": 6.056,
+      "Market": 6.164,
+      "Shuffled": 8.982
+     },
+     "WR": {
+      "Oracle": 1.478,
+      "MIST": 6.733,
+      "MIST-open": 6.791,
+      "MIST-PPR": 6.731,
+      "ECR": 6.942,
+      "Sleeper": 6.761,
+      "Market": 6.715,
+      "Shuffled": 7.956
+     },
+     "TE": {
+      "Oracle": 2.28,
+      "MIST": 6.518,
+      "MIST-open": 6.472,
+      "MIST-PPR": 6.497,
+      "ECR": 6.661,
+      "Sleeper": 6.631,
+      "Market": 6.592,
+      "Shuffled": 6.915
+     }
+    },
+    "by_season": {
+     "2024": {
+      "Oracle": 1.701,
+      "MIST": 6.67,
+      "MIST-open": 6.753,
+      "MIST-PPR": 6.684,
+      "ECR": 6.941,
+      "Sleeper": 6.715,
+      "Market": 6.715,
+      "Shuffled": 8.181
+     },
+     "2025": {
+      "Oracle": 1.755,
+      "MIST": 6.619,
+      "MIST-open": 6.65,
+      "MIST-PPR": 6.623,
+      "ECR": 6.879,
+      "Sleeper": 6.678,
+      "Market": 6.7,
+      "Shuffled": 8.231
+     },
+     "2026": {
+      "Oracle": 1.87,
+      "MIST": 6.79,
+      "MIST-open": 6.815,
+      "MIST-PPR": 6.798,
+      "ECR": 7.056,
+      "Sleeper": 6.796,
+      "Market": 6.842,
+      "Shuffled": 8.712
+     }
+    },
+    "vs_mist": {
+     "Oracle": {
+      "mist_minus": 4.921,
+      "ci_player_weeks": [
+       4.79,
+       5.051
+      ],
+      "ci_weeks": [
+       4.777,
+       5.072
+      ],
+      "position_weeks_mist_better": 0,
+      "position_weeks": 124
+     },
+     "MIST-open": {
+      "mist_minus": -0.054,
+      "ci_player_weeks": [
+       -0.093,
+       -0.014
+      ],
+      "ci_weeks": [
+       -0.093,
+       -0.017
+      ],
+      "position_weeks_mist_better": 74,
+      "position_weeks": 124
+     },
+     "MIST-PPR": {
+      "mist_minus": -0.009,
+      "ci_player_weeks": [
+       -0.029,
+       0.01
+      ],
+      "ci_weeks": [
+       -0.022,
+       0.003
+      ],
+      "position_weeks_mist_better": 54,
+      "position_weeks": 124
+     },
+     "ECR": {
+      "mist_minus": -0.266,
+      "ci_player_weeks": [
+       -0.329,
+       -0.204
+      ],
+      "ci_weeks": [
+       -0.342,
+       -0.194
+      ],
+      "position_weeks_mist_better": 96,
+      "position_weeks": 124
+     },
+     "Sleeper": {
+      "mist_minus": -0.044,
+      "ci_player_weeks": [
+       -0.091,
+       -0.001
+      ],
+      "ci_weeks": [
+       -0.089,
+       0.004
+      ],
+      "position_weeks_mist_better": 67,
+      "position_weeks": 124
+     },
+     "Market": {
+      "mist_minus": -0.06,
+      "ci_player_weeks": [
+       -0.11,
+       -0.012
+      ],
+      "ci_weeks": [
+       -0.105,
+       -0.012
+      ],
+      "position_weeks_mist_better": 77,
+      "position_weeks": 124
+     },
+     "Shuffled": {
+      "mist_minus": -1.618,
+      "ci_player_weeks": [
+       -1.807,
+       -1.439
+      ],
+      "ci_weeks": [
+       -1.78,
+       -1.464
+      ],
+      "position_weeks_mist_better": 111,
+      "position_weeks": 124
+     }
+    },
+    "season_z_within_field": {
+     "2024": {
+      "MIST": {
+       "QB": -5.705,
+       "RB": -7.492,
+       "TE": -1.508,
+       "WR": -6.063,
+       "overall": -20.768
+      },
+      "ECR": {
+       "QB": 5.578,
+       "RB": 7.893,
+       "TE": 5.985,
+       "WR": 7.779,
+       "overall": 27.235
+      },
+      "Sleeper": {
+       "QB": -3.552,
+       "RB": -5.99,
+       "TE": -3.515,
+       "WR": -3.699,
+       "overall": -16.756
+      },
+      "Market": {
+       "QB": -1.37,
+       "RB": -0.371,
+       "TE": -7.271,
+       "WR": -2.87,
+       "overall": -11.882
+      }
+     },
+     "2025": {
+      "MIST": {
+       "QB": -3.028,
+       "RB": -9.406,
+       "TE": -3.83,
+       "WR": -3.962,
+       "overall": -20.226
+      },
+      "ECR": {
+       "QB": 4.904,
+       "RB": 6.931,
+       "TE": -4.14,
+       "WR": 7.392,
+       "overall": 15.087
+      },
+      "Sleeper": {
+       "QB": -8.688,
+       "RB": -3.397,
+       "TE": -3.063,
+       "WR": -2.273,
+       "overall": -17.421
+      },
+      "Market": {
+       "QB": 1.931,
+       "RB": 0.836,
+       "TE": 5.561,
+       "WR": -6.926,
+       "overall": 1.402
+      }
+     },
+     "2026": {
+      "MIST": {
+       "QB": -3.412,
+       "RB": -1.462,
+       "TE": -4.039,
+       "WR": -1.63,
+       "overall": -10.543
+      },
+      "ECR": {
+       "QB": 4.056,
+       "RB": 1.67,
+       "TE": 0.043,
+       "WR": 7.496,
+       "overall": 13.265
+      },
+      "Sleeper": {
+       "QB": -2.043,
+       "RB": -4.051,
+       "TE": 5.125,
+       "WR": -1.969,
+       "overall": -2.938
+      },
+      "Market": {
+       "QB": 1.399,
+       "RB": 3.844,
+       "TE": -1.129,
+       "WR": -3.897,
+       "overall": 0.217
+      }
+     }
+    },
+    "control": {
+     "oracle_first": true,
+     "shuffled_last": true
+    }
+   }
+  },
+  "inactive_removed": {
+   "2026": {
+    "n_pool_player_weeks": 834,
+    "n_rows": 915,
+    "weeks": 5,
+    "mean_gap": {
+     "Oracle": 1.807,
+     "MIST": 6.714,
+     "MIST-open": 6.742,
+     "MIST-PPR": 6.722,
+     "ECR": 6.857,
+     "Sleeper": 6.725,
+     "Market": 6.773,
+     "Shuffled": 8.684
+    },
+    "order": [
+     "Oracle",
+     "MIST",
+     "MIST-PPR",
+     "Sleeper",
+     "MIST-open",
+     "Market",
+     "ECR",
+     "Shuffled"
+    ],
+    "by_pos": {
+     "QB": {
+      "Oracle": 2.548,
+      "MIST": 8.271,
+      "MIST-open": 8.256,
+      "MIST-PPR": 8.271,
+      "ECR": 8.55,
+      "Sleeper": 8.31,
+      "Market": 8.48,
+      "Shuffled": 9.262
+     },
+     "RB": {
+      "Oracle": 1.621,
+      "MIST": 5.984,
+      "MIST-open": 5.978,
+      "MIST-PPR": 5.996,
+      "ECR": 6.009,
+      "Sleeper": 5.887,
+      "Market": 6.123,
+      "Shuffled": 9.429
+     },
+     "WR": {
+      "Oracle": 1.356,
+      "MIST": 6.57,
+      "MIST-open": 6.63,
+      "MIST-PPR": 6.575,
+      "ECR": 6.725,
+      "Sleeper": 6.524,
+      "Market": 6.536,
+      "Shuffled": 8.357
+     },
+     "TE": {
+      "Oracle": 2.744,
+      "MIST": 6.94,
+      "MIST-open": 6.99,
+      "MIST-PPR": 6.954,
+      "ECR": 7.142,
+      "Sleeper": 7.319,
+      "Market": 6.942,
+      "Shuffled": 7.462
+     }
+    },
+    "by_season": {
+     "2026": {
+      "Oracle": 1.807,
+      "MIST": 6.714,
+      "MIST-open": 6.742,
+      "MIST-PPR": 6.722,
+      "ECR": 6.857,
+      "Sleeper": 6.725,
+      "Market": 6.773,
+      "Shuffled": 8.684
+     }
+    },
+    "vs_mist": {
+     "Oracle": {
+      "mist_minus": 4.908,
+      "ci_player_weeks": [
+       4.61,
+       5.234
+      ],
+      "ci_weeks": [
+       4.521,
+       5.275
+      ],
+      "position_weeks_mist_better": 0,
+      "position_weeks": 20
+     },
+     "MIST-open": {
+      "mist_minus": -0.028,
+      "ci_player_weeks": [
+       -0.076,
+       0.018
+      ],
+      "ci_weeks": [
+       -0.047,
+       -0.011
+      ],
+      "position_weeks_mist_better": 13,
+      "position_weeks": 20
+     },
+     "MIST-PPR": {
+      "mist_minus": -0.008,
+      "ci_player_weeks": [
+       -0.04,
+       0.025
+      ],
+      "ci_weeks": [
+       -0.024,
+       0.005
+      ],
+      "position_weeks_mist_better": 11,
+      "position_weeks": 20
+     },
+     "ECR": {
+      "mist_minus": -0.143,
+      "ci_player_weeks": [
+       -0.251,
+       -0.031
+      ],
+      "ci_weeks": [
+       -0.258,
+       -0.023
+      ],
+      "position_weeks_mist_better": 18,
+      "position_weeks": 20
+     },
+     "Sleeper": {
+      "mist_minus": -0.011,
+      "ci_player_weeks": [
+       -0.127,
+       0.109
+      ],
+      "ci_weeks": [
+       -0.14,
+       0.12
+      ],
+      "position_weeks_mist_better": 9,
+      "position_weeks": 20
+     },
+     "Market": {
+      "mist_minus": -0.058,
+      "ci_player_weeks": [
+       -0.17,
+       0.059
+      ],
+      "ci_weeks": [
+       -0.142,
+       0.031
+      ],
+      "position_weeks_mist_better": 15,
+      "position_weeks": 20
+     },
+     "Shuffled": {
+      "mist_minus": -1.97,
+      "ci_player_weeks": [
+       -2.448,
+       -1.545
+      ],
+      "ci_weeks": [
+       -2.23,
+       -1.707
+      ],
+      "position_weeks_mist_better": 18,
+      "position_weeks": 20
+     }
+    },
+    "season_z_within_field": {
+     "2026": {
+      "MIST": {
+       "QB": -3.358,
+       "RB": -1.166,
+       "TE": -4.057,
+       "WR": -0.993,
+       "overall": -9.574
+      },
+      "ECR": {
+       "QB": 3.819,
+       "RB": 0.46,
+       "TE": 0.053,
+       "WR": 5.224,
+       "overall": 9.556
+      },
+      "Sleeper": {
+       "QB": -2.078,
+       "RB": -3.35,
+       "TE": 5.124,
+       "WR": -1.288,
+       "overall": -1.592
+      },
+      "Market": {
+       "QB": 1.616,
+       "RB": 4.055,
+       "TE": -1.119,
+       "WR": -2.943,
+       "overall": 1.609
+      }
+     }
+    },
+    "control": {
+     "oracle_first": true,
+     "shuffled_last": true
+    }
+   },
+   "2024-2025": {
+    "n_pool_player_weeks": 4217,
+    "n_rows": 4606,
+    "weeks": 26,
+    "mean_gap": {
+     "Oracle": 1.645,
+     "MIST": 6.555,
+     "MIST-open": 6.613,
+     "MIST-PPR": 6.563,
+     "ECR": 6.677,
+     "Sleeper": 6.603,
+     "Market": 6.621,
+     "Shuffled": 8.133
+    },
+    "order": [
+     "Oracle",
+     "MIST",
+     "MIST-PPR",
+     "Sleeper",
+     "MIST-open",
+     "Market",
+     "ECR",
+     "Shuffled"
+    ],
+    "by_pos": {
+     "QB": {
+      "Oracle": 2.474,
+      "MIST": 7.584,
+      "MIST-open": 7.749,
+      "MIST-PPR": 7.584,
+      "ECR": 7.866,
+      "Sleeper": 7.618,
+      "Market": 7.637,
+      "Shuffled": 8.76
+     },
+     "RB": {
+      "Oracle": 1.352,
+      "MIST": 6.008,
+      "MIST-open": 6.069,
+      "MIST-PPR": 6.056,
+      "ECR": 6.208,
+      "Sleeper": 6.075,
+      "Market": 6.144,
+      "Shuffled": 8.904
+     },
+     "WR": {
+      "Oracle": 1.386,
+      "MIST": 6.637,
+      "MIST-open": 6.692,
+      "MIST-PPR": 6.63,
+      "ECR": 6.659,
+      "Sleeper": 6.672,
+      "Market": 6.649,
+      "Shuffled": 7.793
+     },
+     "TE": {
+      "Oracle": 2.116,
+      "MIST": 6.334,
+      "MIST-open": 6.268,
+      "MIST-PPR": 6.305,
+      "ECR": 6.399,
+      "Sleeper": 6.394,
+      "Market": 6.421,
+      "Shuffled": 6.711
+     }
+    },
+    "by_season": {
+     "2024": {
+      "Oracle": 1.62,
+      "MIST": 6.594,
+      "MIST-open": 6.673,
+      "MIST-PPR": 6.605,
+      "ECR": 6.709,
+      "Sleeper": 6.632,
+      "Market": 6.635,
+      "Shuffled": 8.104
+     },
+     "2025": {
+      "Oracle": 1.674,
+      "MIST": 6.51,
+      "MIST-open": 6.543,
+      "MIST-PPR": 6.514,
+      "ECR": 6.641,
+      "Sleeper": 6.569,
+      "Market": 6.605,
+      "Shuffled": 8.168
+     }
+    },
+    "vs_mist": {
+     "Oracle": {
+      "mist_minus": 4.91,
+      "ci_player_weeks": [
+       4.764,
+       5.055
+      ],
+      "ci_weeks": [
+       4.744,
+       5.075
+      ],
+      "position_weeks_mist_better": 0,
+      "position_weeks": 104
+     },
+     "MIST-open": {
+      "mist_minus": -0.058,
+      "ci_player_weeks": [
+       -0.105,
+       -0.01
+      ],
+      "ci_weeks": [
+       -0.103,
+       -0.013
+      ],
+      "position_weeks_mist_better": 60,
+      "position_weeks": 104
+     },
+     "MIST-PPR": {
+      "mist_minus": -0.008,
+      "ci_player_weeks": [
+       -0.031,
+       0.014
+      ],
+      "ci_weeks": [
+       -0.023,
+       0.006
+      ],
+      "position_weeks_mist_better": 43,
+      "position_weeks": 104
+     },
+     "ECR": {
+      "mist_minus": -0.122,
+      "ci_player_weeks": [
+       -0.183,
+       -0.061
+      ],
+      "ci_weeks": [
+       -0.185,
+       -0.062
+      ],
+      "position_weeks_mist_better": 65,
+      "position_weeks": 104
+     },
+     "Sleeper": {
+      "mist_minus": -0.048,
+      "ci_player_weeks": [
+       -0.093,
+       -0.001
+      ],
+      "ci_weeks": [
+       -0.096,
+       -0.001
+      ],
+      "position_weeks_mist_better": 59,
+      "position_weeks": 104
+     },
+     "Market": {
+      "mist_minus": -0.066,
+      "ci_player_weeks": [
+       -0.122,
+       -0.015
+      ],
+      "ci_weeks": [
+       -0.118,
+       -0.013
+      ],
+      "position_weeks_mist_better": 60,
+      "position_weeks": 104
+     },
+     "Shuffled": {
+      "mist_minus": -1.578,
+      "ci_player_weeks": [
+       -1.772,
+       -1.38
+      ],
+      "ci_weeks": [
+       -1.737,
+       -1.422
+      ],
+      "position_weeks_mist_better": 92,
+      "position_weeks": 104
+     }
+    },
+    "season_z_within_field": {
+     "2024": {
+      "MIST": {
+       "QB": -5.626,
+       "RB": -7.037,
+       "TE": -0.199,
+       "WR": -3.147,
+       "overall": -16.009
+      },
+      "ECR": {
+       "QB": 3.67,
+       "RB": 4.576,
+       "TE": 1.585,
+       "WR": -1.333,
+       "overall": 8.498
+      },
+      "Sleeper": {
+       "QB": -2.077,
+       "RB": -2.362,
+       "TE": -1.13,
+       "WR": -2.359,
+       "overall": -7.928
+      },
+      "Market": {
+       "QB": -1.016,
+       "RB": -1.199,
+       "TE": -6.888,
+       "WR": 1.479,
+       "overall": -7.624
+      }
+     },
+     "2025": {
+      "MIST": {
+       "QB": -2.205,
+       "RB": -8.883,
+       "TE": -3.339,
+       "WR": -2.959,
+       "overall": -17.386
+      },
+      "ECR": {
+       "QB": 3.069,
+       "RB": 4.124,
+       "TE": -4.938,
+       "WR": 0.689,
+       "overall": 2.944
+      },
+      "Sleeper": {
+       "QB": -7.996,
+       "RB": -3.383,
+       "TE": -2.583,
+       "WR": 1.916,
+       "overall": -12.046
+      },
+      "Market": {
+       "QB": 2.578,
+       "RB": 3.136,
+       "TE": 5.322,
+       "WR": -5.452,
+       "overall": 5.584
+      }
+     }
+    },
+    "control": {
+     "oracle_first": true,
+     "shuffled_last": true
+    }
+   },
+   "all": {
+    "n_pool_player_weeks": 5051,
+    "n_rows": 5521,
+    "weeks": 31,
+    "mean_gap": {
+     "Oracle": 1.672,
+     "MIST": 6.581,
+     "MIST-open": 6.634,
+     "MIST-PPR": 6.589,
+     "ECR": 6.707,
+     "Sleeper": 6.623,
+     "Market": 6.646,
+     "Shuffled": 8.224
+    },
+    "order": [
+     "Oracle",
+     "MIST",
+     "MIST-PPR",
+     "Sleeper",
+     "MIST-open",
+     "Market",
+     "ECR",
+     "Shuffled"
+    ],
+    "by_pos": {
+     "QB": {
+      "Oracle": 2.486,
+      "MIST": 7.696,
+      "MIST-open": 7.832,
+      "MIST-PPR": 7.696,
+      "ECR": 7.978,
+      "Sleeper": 7.731,
+      "Market": 7.774,
+      "Shuffled": 8.842
+     },
+     "RB": {
+      "Oracle": 1.395,
+      "MIST": 6.004,
+      "MIST-open": 6.054,
+      "MIST-PPR": 6.047,
+      "ECR": 6.176,
+      "Sleeper": 6.045,
+      "Market": 6.14,
+      "Shuffled": 8.988
+     },
+     "WR": {
+      "Oracle": 1.381,
+      "MIST": 6.625,
+      "MIST-open": 6.682,
+      "MIST-PPR": 6.62,
+      "ECR": 6.67,
+      "Sleeper": 6.647,
+      "Market": 6.63,
+      "Shuffled": 7.888
+     },
+     "TE": {
+      "Oracle": 2.221,
+      "MIST": 6.435,
+      "MIST-open": 6.388,
+      "MIST-PPR": 6.413,
+      "ECR": 6.523,
+      "Sleeper": 6.548,
+      "Market": 6.508,
+      "Shuffled": 6.836
+     }
+    },
+    "by_season": {
+     "2024": {
+      "Oracle": 1.62,
+      "MIST": 6.594,
+      "MIST-open": 6.673,
+      "MIST-PPR": 6.605,
+      "ECR": 6.709,
+      "Sleeper": 6.632,
+      "Market": 6.635,
+      "Shuffled": 8.104
+     },
+     "2025": {
+      "Oracle": 1.674,
+      "MIST": 6.51,
+      "MIST-open": 6.543,
+      "MIST-PPR": 6.514,
+      "ECR": 6.641,
+      "Sleeper": 6.569,
+      "Market": 6.605,
+      "Shuffled": 8.168
+     },
+     "2026": {
+      "Oracle": 1.807,
+      "MIST": 6.714,
+      "MIST-open": 6.742,
+      "MIST-PPR": 6.722,
+      "ECR": 6.857,
+      "Sleeper": 6.725,
+      "Market": 6.773,
+      "Shuffled": 8.684
+     }
+    },
+    "vs_mist": {
+     "Oracle": {
+      "mist_minus": 4.91,
+      "ci_player_weeks": [
+       4.782,
+       5.035
+      ],
+      "ci_weeks": [
+       4.759,
+       5.053
+      ],
+      "position_weeks_mist_better": 0,
+      "position_weeks": 124
+     },
+     "MIST-open": {
+      "mist_minus": -0.053,
+      "ci_player_weeks": [
+       -0.092,
+       -0.012
+      ],
+      "ci_weeks": [
+       -0.093,
+       -0.016
+      ],
+      "position_weeks_mist_better": 73,
+      "position_weeks": 124
+     },
+     "MIST-PPR": {
+      "mist_minus": -0.008,
+      "ci_player_weeks": [
+       -0.028,
+       0.012
+      ],
+      "ci_weeks": [
+       -0.02,
+       0.005
+      ],
+      "position_weeks_mist_better": 54,
+      "position_weeks": 124
+     },
+     "ECR": {
+      "mist_minus": -0.126,
+      "ci_player_weeks": [
+       -0.182,
+       -0.071
+      ],
+      "ci_weeks": [
+       -0.183,
+       -0.073
+      ],
+      "position_weeks_mist_better": 83,
+      "position_weeks": 124
+     },
+     "Sleeper": {
+      "mist_minus": -0.042,
+      "ci_player_weeks": [
+       -0.086,
+       0.003
+      ],
+      "ci_weeks": [
+       -0.087,
+       0.0
+      ],
+      "position_weeks_mist_better": 68,
+      "position_weeks": 124
+     },
+     "Market": {
+      "mist_minus": -0.065,
+      "ci_player_weeks": [
+       -0.113,
+       -0.017
+      ],
+      "ci_weeks": [
+       -0.111,
+       -0.019
+      ],
+      "position_weeks_mist_better": 75,
+      "position_weeks": 124
+     },
+     "Shuffled": {
+      "mist_minus": -1.643,
+      "ci_player_weeks": [
+       -1.832,
+       -1.454
+      ],
+      "ci_weeks": [
+       -1.797,
+       -1.488
+      ],
+      "position_weeks_mist_better": 110,
+      "position_weeks": 124
+     }
+    },
+    "season_z_within_field": {
+     "2024": {
+      "MIST": {
+       "QB": -5.626,
+       "RB": -7.037,
+       "TE": -0.199,
+       "WR": -3.147,
+       "overall": -16.009
+      },
+      "ECR": {
+       "QB": 3.67,
+       "RB": 4.576,
+       "TE": 1.585,
+       "WR": -1.333,
+       "overall": 8.498
+      },
+      "Sleeper": {
+       "QB": -2.077,
+       "RB": -2.362,
+       "TE": -1.13,
+       "WR": -2.359,
+       "overall": -7.928
+      },
+      "Market": {
+       "QB": -1.016,
+       "RB": -1.199,
+       "TE": -6.888,
+       "WR": 1.479,
+       "overall": -7.624
+      }
+     },
+     "2025": {
+      "MIST": {
+       "QB": -2.205,
+       "RB": -8.883,
+       "TE": -3.339,
+       "WR": -2.959,
+       "overall": -17.386
+      },
+      "ECR": {
+       "QB": 3.069,
+       "RB": 4.124,
+       "TE": -4.938,
+       "WR": 0.689,
+       "overall": 2.944
+      },
+      "Sleeper": {
+       "QB": -7.996,
+       "RB": -3.383,
+       "TE": -2.583,
+       "WR": 1.916,
+       "overall": -12.046
+      },
+      "Market": {
+       "QB": 2.578,
+       "RB": 3.136,
+       "TE": 5.322,
+       "WR": -5.452,
+       "overall": 5.584
+      }
+     },
+     "2026": {
+      "MIST": {
+       "QB": -3.358,
+       "RB": -1.166,
+       "TE": -4.057,
+       "WR": -0.993,
+       "overall": -9.574
+      },
+      "ECR": {
+       "QB": 3.819,
+       "RB": 0.46,
+       "TE": 0.053,
+       "WR": 5.224,
+       "overall": 9.556
+      },
+      "Sleeper": {
+       "QB": -2.078,
+       "RB": -3.35,
+       "TE": 5.124,
+       "WR": -1.288,
+       "overall": -1.592
+      },
+      "Market": {
+       "QB": 1.616,
+       "RB": 4.055,
+       "TE": -1.119,
+       "WR": -2.943,
+       "overall": 1.609
+      }
+     }
+    },
+    "control": {
+     "oracle_first": true,
+     "shuffled_last": true
+    }
+   }
+  },
+  "weekcurve": {
+   "2026": {
+    "n_pool_player_weeks": 834,
+    "n_rows": 915,
+    "weeks": 5,
+    "mean_gap": {
+     "Oracle": 0.6,
+     "MIST": 6.746,
+     "MIST-open": 6.757,
+     "MIST-PPR": 6.749,
+     "ECR": 6.909,
+     "Sleeper": 6.695,
+     "Market": 6.815,
+     "Shuffled": 8.816
+    },
+    "order": [
+     "Oracle",
+     "Sleeper",
+     "MIST",
+     "MIST-PPR",
+     "MIST-open",
+     "Market",
+     "ECR",
+     "Shuffled"
+    ],
+    "by_pos": {
+     "QB": {
+      "Oracle": 1.144,
+      "MIST": 8.148,
+      "MIST-open": 8.121,
+      "MIST-PPR": 8.148,
+      "ECR": 8.417,
+      "Sleeper": 8.075,
+      "Market": 8.304,
+      "Shuffled": 9.146
+     },
+     "RB": {
+      "Oracle": 0.091,
+      "MIST": 6.124,
+      "MIST-open": 6.103,
+      "MIST-PPR": 6.094,
+      "ECR": 6.223,
+      "Sleeper": 5.967,
+      "Market": 6.254,
+      "Shuffled": 9.697
+     },
+     "WR": {
+      "Oracle": 0.447,
+      "MIST": 6.434,
+      "MIST-open": 6.479,
+      "MIST-PPR": 6.459,
+      "ECR": 6.612,
+      "Sleeper": 6.384,
+      "Market": 6.463,
+      "Shuffled": 8.365
+     },
+     "TE": {
+      "Oracle": 1.532,
+      "MIST": 7.435,
+      "MIST-open": 7.451,
+      "MIST-PPR": 7.438,
+      "ECR": 7.564,
+      "Sleeper": 7.627,
+      "Market": 7.399,
+      "Shuffled": 7.966
+     }
+    },
+    "by_season": {
+     "2026": {
+      "Oracle": 0.6,
+      "MIST": 6.746,
+      "MIST-open": 6.757,
+      "MIST-PPR": 6.749,
+      "ECR": 6.909,
+      "Sleeper": 6.695,
+      "Market": 6.815,
+      "Shuffled": 8.816
+     }
+    },
+    "vs_mist": {
+     "Oracle": {
+      "mist_minus": 6.146,
+      "ci_player_weeks": [
+       5.835,
+       6.482
+      ],
+      "ci_weeks": [
+       5.81,
+       6.483
+      ],
+      "position_weeks_mist_better": 0,
+      "position_weeks": 20
+     },
+     "MIST-open": {
+      "mist_minus": -0.011,
+      "ci_player_weeks": [
+       -0.079,
+       0.06
+      ],
+      "ci_weeks": [
+       -0.06,
+       0.047
+      ],
+      "position_weeks_mist_better": 12,
+      "position_weeks": 20
+     },
+     "MIST-PPR": {
+      "mist_minus": -0.002,
+      "ci_player_weeks": [
+       -0.064,
+       0.062
+      ],
+      "ci_weeks": [
+       -0.05,
+       0.056
+      ],
+      "position_weeks_mist_better": 10,
+      "position_weeks": 20
+     },
+     "ECR": {
+      "mist_minus": -0.162,
+      "ci_player_weeks": [
+       -0.291,
+       -0.027
+      ],
+      "ci_weeks": [
+       -0.284,
+       -0.06
+      ],
+      "position_weeks_mist_better": 16,
+      "position_weeks": 20
+     },
+     "Sleeper": {
+      "mist_minus": 0.051,
+      "ci_player_weeks": [
+       -0.103,
+       0.201
+      ],
+      "ci_weeks": [
+       -0.083,
+       0.184
+      ],
+      "position_weeks_mist_better": 9,
+      "position_weeks": 20
+     },
+     "Market": {
+      "mist_minus": -0.069,
+      "ci_player_weeks": [
+       -0.207,
+       0.076
+      ],
+      "ci_weeks": [
+       -0.171,
+       0.032
+      ],
+      "position_weeks_mist_better": 13,
+      "position_weeks": 20
+     },
+     "Shuffled": {
+      "mist_minus": -2.07,
+      "ci_player_weeks": [
+       -2.608,
+       -1.594
+      ],
+      "ci_weeks": [
+       -2.347,
+       -1.791
+      ],
+      "position_weeks_mist_better": 16,
+      "position_weeks": 20
+     }
+    },
+    "season_z_within_field": {
+     "2026": {
+      "MIST": {
+       "QB": -2.478,
+       "RB": -0.893,
+       "TE": -1.534,
+       "WR": -1.314,
+       "overall": -6.219
+      },
+      "ECR": {
+       "QB": 4.891,
+       "RB": 1.083,
+       "TE": 0.363,
+       "WR": 4.087,
+       "overall": 10.424
+      },
+      "Sleeper": {
+       "QB": -3.425,
+       "RB": -3.154,
+       "TE": 2.246,
+       "WR": -0.897,
+       "overall": -5.23
+      },
+      "Market": {
+       "QB": 1.012,
+       "RB": 2.965,
+       "TE": -1.074,
+       "WR": -1.876,
+       "overall": 1.027
+      }
+     }
+    },
+    "control": {
+     "oracle_first": true,
+     "shuffled_last": true
+    }
+   },
+   "2024-2025": {
+    "n_pool_player_weeks": 4217,
+    "n_rows": 4606,
+    "weeks": 26,
+    "mean_gap": {
+     "Oracle": 0.428,
+     "MIST": 6.411,
+     "MIST-open": 6.467,
+     "MIST-PPR": 6.42,
+     "ECR": 6.529,
+     "Sleeper": 6.445,
+     "Market": 6.481,
+     "Shuffled": 8.07
+    },
+    "order": [
+     "Oracle",
+     "MIST",
+     "MIST-PPR",
+     "Sleeper",
+     "MIST-open",
+     "Market",
+     "ECR",
+     "Shuffled"
+    ],
+    "by_pos": {
+     "QB": {
+      "Oracle": 0.755,
+      "MIST": 7.307,
+      "MIST-open": 7.459,
+      "MIST-PPR": 7.307,
+      "ECR": 7.508,
+      "Sleeper": 7.259,
+      "Market": 7.366,
+      "Shuffled": 8.459
+     },
+     "RB": {
+      "Oracle": 0.1,
+      "MIST": 5.934,
+      "MIST-open": 6.007,
+      "MIST-PPR": 5.988,
+      "ECR": 6.17,
+      "Sleeper": 5.996,
+      "Market": 6.068,
+      "Shuffled": 9.034
+     },
+     "WR": {
+      "Oracle": 0.336,
+      "MIST": 6.498,
+      "MIST-open": 6.534,
+      "MIST-PPR": 6.483,
+      "ECR": 6.503,
+      "Sleeper": 6.535,
+      "Market": 6.494,
+      "Shuffled": 7.674
+     },
+     "TE": {
+      "Oracle": 1.057,
+      "MIST": 6.176,
+      "MIST-open": 6.143,
+      "MIST-PPR": 6.165,
+      "ECR": 6.271,
+      "Sleeper": 6.232,
+      "Market": 6.337,
+      "Shuffled": 6.657
+     }
+    },
+    "by_season": {
+     "2024": {
+      "Oracle": 0.428,
+      "MIST": 6.445,
+      "MIST-open": 6.534,
+      "MIST-PPR": 6.465,
+      "ECR": 6.548,
+      "Sleeper": 6.481,
+      "Market": 6.493,
+      "Shuffled": 8.062
+     },
+     "2025": {
+      "Oracle": 0.427,
+      "MIST": 6.372,
+      "MIST-open": 6.39,
+      "MIST-PPR": 6.368,
+      "ECR": 6.507,
+      "Sleeper": 6.404,
+      "Market": 6.467,
+      "Shuffled": 8.079
+     }
+    },
+    "vs_mist": {
+     "Oracle": {
+      "mist_minus": 5.984,
+      "ci_player_weeks": [
+       5.832,
+       6.138
+      ],
+      "ci_weeks": [
+       5.852,
+       6.123
+      ],
+      "position_weeks_mist_better": 0,
+      "position_weeks": 104
+     },
+     "MIST-open": {
+      "mist_minus": -0.056,
+      "ci_player_weeks": [
+       -0.107,
+       -0.005
+      ],
+      "ci_weeks": [
+       -0.107,
+       -0.002
+      ],
+      "position_weeks_mist_better": 56,
+      "position_weeks": 104
+     },
+     "MIST-PPR": {
+      "mist_minus": -0.009,
+      "ci_player_weeks": [
+       -0.037,
+       0.019
+      ],
+      "ci_weeks": [
+       -0.029,
+       0.009
+      ],
+      "position_weeks_mist_better": 43,
+      "position_weeks": 104
+     },
+     "ECR": {
+      "mist_minus": -0.118,
+      "ci_player_weeks": [
+       -0.184,
+       -0.056
+      ],
+      "ci_weeks": [
+       -0.184,
+       -0.06
+      ],
+      "position_weeks_mist_better": 65,
+      "position_weeks": 104
+     },
+     "Sleeper": {
+      "mist_minus": -0.034,
+      "ci_player_weeks": [
+       -0.086,
+       0.021
+      ],
+      "ci_weeks": [
+       -0.086,
+       0.017
+      ],
+      "position_weeks_mist_better": 63,
+      "position_weeks": 104
+     },
+     "Market": {
+      "mist_minus": -0.07,
+      "ci_player_weeks": [
+       -0.13,
+       -0.011
+      ],
+      "ci_weeks": [
+       -0.139,
+       -0.004
+      ],
+      "position_weeks_mist_better": 61,
+      "position_weeks": 104
+     },
+     "Shuffled": {
+      "mist_minus": -1.658,
+      "ci_player_weeks": [
+       -1.862,
+       -1.451
+      ],
+      "ci_weeks": [
+       -1.843,
+       -1.486
+      ],
+      "position_weeks_mist_better": 92,
+      "position_weeks": 104
+     }
+    },
+    "season_z_within_field": {
+     "2024": {
+      "MIST": {
+       "QB": -4.958,
+       "RB": -6.878,
+       "TE": -6.047,
+       "WR": -3.134,
+       "overall": -21.017
+      },
+      "ECR": {
+       "QB": 2.538,
+       "RB": 6.3,
+       "TE": -0.313,
+       "WR": -3.189,
+       "overall": 5.336
+      },
+      "Sleeper": {
+       "QB": -1.751,
+       "RB": -3.1,
+       "TE": 2.676,
+       "WR": 0.676,
+       "overall": -1.499
+      },
+      "Market": {
+       "QB": -0.827,
+       "RB": -2.144,
+       "TE": -3.051,
+       "WR": 0.608,
+       "overall": -5.414
+      }
+     },
+     "2025": {
+      "MIST": {
+       "QB": -2.301,
+       "RB": -6.189,
+       "TE": -4.336,
+       "WR": 0.511,
+       "overall": -12.315
+      },
+      "ECR": {
+       "QB": 1.318,
+       "RB": 4.658,
+       "TE": -3.781,
+       "WR": -1.17,
+       "overall": 1.025
+      },
+      "Sleeper": {
+       "QB": -5.669,
+       "RB": -5.132,
+       "TE": -3.833,
+       "WR": 3.527,
+       "overall": -11.107
+      },
+      "Market": {
+       "QB": 1.845,
+       "RB": 1.19,
+       "TE": 6.164,
+       "WR": -9.163,
+       "overall": 0.036
+      }
+     }
+    },
+    "control": {
+     "oracle_first": true,
+     "shuffled_last": true
+    }
+   },
+   "all": {
+    "n_pool_player_weeks": 5051,
+    "n_rows": 5521,
+    "weeks": 31,
+    "mean_gap": {
+     "Oracle": 0.456,
+     "MIST": 6.467,
+     "MIST-open": 6.515,
+     "MIST-PPR": 6.475,
+     "ECR": 6.592,
+     "Sleeper": 6.487,
+     "Market": 6.536,
+     "Shuffled": 8.193
+    },
+    "order": [
+     "Oracle",
+     "MIST",
+     "MIST-PPR",
+     "Sleeper",
+     "MIST-open",
+     "Market",
+     "ECR",
+     "Shuffled"
+    ],
+    "by_pos": {
+     "QB": {
+      "Oracle": 0.819,
+      "MIST": 7.444,
+      "MIST-open": 7.567,
+      "MIST-PPR": 7.444,
+      "ECR": 7.656,
+      "Sleeper": 7.392,
+      "Market": 7.519,
+      "Shuffled": 8.571
+     },
+     "RB": {
+      "Oracle": 0.098,
+      "MIST": 5.964,
+      "MIST-open": 6.022,
+      "MIST-PPR": 6.005,
+      "ECR": 6.178,
+      "Sleeper": 5.991,
+      "Market": 6.098,
+      "Shuffled": 9.14
+     },
+     "WR": {
+      "Oracle": 0.355,
+      "MIST": 6.487,
+      "MIST-open": 6.524,
+      "MIST-PPR": 6.479,
+      "ECR": 6.522,
+      "Sleeper": 6.51,
+      "Market": 6.489,
+      "Shuffled": 7.791
+     },
+     "TE": {
+      "Oracle": 1.136,
+      "MIST": 6.386,
+      "MIST-open": 6.361,
+      "MIST-PPR": 6.377,
+      "ECR": 6.487,
+      "Sleeper": 6.465,
+      "Market": 6.514,
+      "Shuffled": 6.876
+     }
+    },
+    "by_season": {
+     "2024": {
+      "Oracle": 0.428,
+      "MIST": 6.445,
+      "MIST-open": 6.534,
+      "MIST-PPR": 6.465,
+      "ECR": 6.548,
+      "Sleeper": 6.481,
+      "Market": 6.493,
+      "Shuffled": 8.062
+     },
+     "2025": {
+      "Oracle": 0.427,
+      "MIST": 6.372,
+      "MIST-open": 6.39,
+      "MIST-PPR": 6.368,
+      "ECR": 6.507,
+      "Sleeper": 6.404,
+      "Market": 6.467,
+      "Shuffled": 8.079
+     },
+     "2026": {
+      "Oracle": 0.6,
+      "MIST": 6.746,
+      "MIST-open": 6.757,
+      "MIST-PPR": 6.749,
+      "ECR": 6.909,
+      "Sleeper": 6.695,
+      "Market": 6.815,
+      "Shuffled": 8.816
+     }
+    },
+    "vs_mist": {
+     "Oracle": {
+      "mist_minus": 6.01,
+      "ci_player_weeks": [
+       5.871,
+       6.145
+      ],
+      "ci_weeks": [
+       5.885,
+       6.141
+      ],
+      "position_weeks_mist_better": 0,
+      "position_weeks": 124
+     },
+     "MIST-open": {
+      "mist_minus": -0.049,
+      "ci_player_weeks": [
+       -0.092,
+       -0.004
+      ],
+      "ci_weeks": [
+       -0.097,
+       -0.005
+      ],
+      "position_weeks_mist_better": 68,
+      "position_weeks": 124
+     },
+     "MIST-PPR": {
+      "mist_minus": -0.008,
+      "ci_player_weeks": [
+       -0.033,
+       0.018
+      ],
+      "ci_weeks": [
+       -0.026,
+       0.011
+      ],
+      "position_weeks_mist_better": 53,
+      "position_weeks": 124
+     },
+     "ECR": {
+      "mist_minus": -0.125,
+      "ci_player_weeks": [
+       -0.184,
+       -0.068
+      ],
+      "ci_weeks": [
+       -0.181,
+       -0.073
+      ],
+      "position_weeks_mist_better": 81,
+      "position_weeks": 124
+     },
+     "Sleeper": {
+      "mist_minus": -0.02,
+      "ci_player_weeks": [
+       -0.072,
+       0.032
+      ],
+      "ci_weeks": [
+       -0.071,
+       0.032
+      ],
+      "position_weeks_mist_better": 72,
+      "position_weeks": 124
+     },
+     "Market": {
+      "mist_minus": -0.07,
+      "ci_player_weeks": [
+       -0.124,
+       -0.015
+      ],
+      "ci_weeks": [
+       -0.127,
+       -0.013
+      ],
+      "position_weeks_mist_better": 74,
+      "position_weeks": 124
+     },
+     "Shuffled": {
+      "mist_minus": -1.726,
+      "ci_player_weeks": [
+       -1.922,
+       -1.53
+      ],
+      "ci_weeks": [
+       -1.893,
+       -1.558
+      ],
+      "position_weeks_mist_better": 108,
+      "position_weeks": 124
+     }
+    },
+    "season_z_within_field": {
+     "2024": {
+      "MIST": {
+       "QB": -4.958,
+       "RB": -6.878,
+       "TE": -6.047,
+       "WR": -3.134,
+       "overall": -21.017
+      },
+      "ECR": {
+       "QB": 2.538,
+       "RB": 6.3,
+       "TE": -0.313,
+       "WR": -3.189,
+       "overall": 5.336
+      },
+      "Sleeper": {
+       "QB": -1.751,
+       "RB": -3.1,
+       "TE": 2.676,
+       "WR": 0.676,
+       "overall": -1.499
+      },
+      "Market": {
+       "QB": -0.827,
+       "RB": -2.144,
+       "TE": -3.051,
+       "WR": 0.608,
+       "overall": -5.414
+      }
+     },
+     "2025": {
+      "MIST": {
+       "QB": -2.301,
+       "RB": -6.189,
+       "TE": -4.336,
+       "WR": 0.511,
+       "overall": -12.315
+      },
+      "ECR": {
+       "QB": 1.318,
+       "RB": 4.658,
+       "TE": -3.781,
+       "WR": -1.17,
+       "overall": 1.025
+      },
+      "Sleeper": {
+       "QB": -5.669,
+       "RB": -5.132,
+       "TE": -3.833,
+       "WR": 3.527,
+       "overall": -11.107
+      },
+      "Market": {
+       "QB": 1.845,
+       "RB": 1.19,
+       "TE": 6.164,
+       "WR": -9.163,
+       "overall": 0.036
+      }
+     },
+     "2026": {
+      "MIST": {
+       "QB": -2.478,
+       "RB": -0.893,
+       "TE": -1.534,
+       "WR": -1.314,
+       "overall": -6.219
+      },
+      "ECR": {
+       "QB": 4.891,
+       "RB": 1.083,
+       "TE": 0.363,
+       "WR": 4.087,
+       "overall": 10.424
+      },
+      "Sleeper": {
+       "QB": -3.425,
+       "RB": -3.154,
+       "TE": 2.246,
+       "WR": -0.897,
+       "overall": -5.23
+      },
+      "Market": {
+       "QB": 1.012,
+       "RB": 2.965,
+       "TE": -1.074,
+       "WR": -1.876,
+       "overall": 1.027
+      }
+     }
+    },
+    "control": {
+     "oracle_first": true,
+     "shuffled_last": true
+    }
+   }
+  },
+  "ecrcurve": {
+   "2026": {
+    "n_pool_player_weeks": 834,
+    "n_rows": 915,
+    "weeks": 5,
+    "mean_gap": {
+     "Oracle": 3.299,
+     "MIST": 6.106,
+     "MIST-open": 6.118,
+     "MIST-PPR": 6.103,
+     "ECR": 6.197,
+     "Sleeper": 6.101,
+     "Market": 6.121,
+     "Shuffled": 7.149
+    },
+    "order": [
+     "Oracle",
+     "Sleeper",
+     "MIST-PPR",
+     "MIST",
+     "MIST-open",
+     "Market",
+     "ECR",
+     "Shuffled"
+    ],
+    "by_pos": {
+     "QB": {
+      "Oracle": 4.424,
+      "MIST": 7.228,
+      "MIST-open": 7.22,
+      "MIST-PPR": 7.228,
+      "ECR": 7.369,
+      "Sleeper": 7.168,
+      "Market": 7.205,
+      "Shuffled": 7.538
+     },
+     "RB": {
+      "Oracle": 3.035,
+      "MIST": 5.621,
+      "MIST-open": 5.637,
+      "MIST-PPR": 5.62,
+      "ECR": 5.69,
+      "Sleeper": 5.59,
+      "Market": 5.716,
+      "Shuffled": 7.673
+     },
+     "WR": {
+      "Oracle": 2.634,
+      "MIST": 5.868,
+      "MIST-open": 5.882,
+      "MIST-PPR": 5.87,
+      "ECR": 5.97,
+      "Sleeper": 5.864,
+      "Market": 5.847,
+      "Shuffled": 6.762
+     },
+     "TE": {
+      "Oracle": 4.626,
+      "MIST": 6.592,
+      "MIST-open": 6.613,
+      "MIST-PPR": 6.567,
+      "ECR": 6.644,
+      "Sleeper": 6.7,
+      "Market": 6.591,
+      "Shuffled": 6.795
+     }
+    },
+    "by_season": {
+     "2026": {
+      "Oracle": 3.299,
+      "MIST": 6.106,
+      "MIST-open": 6.118,
+      "MIST-PPR": 6.103,
+      "ECR": 6.197,
+      "Sleeper": 6.101,
+      "Market": 6.121,
+      "Shuffled": 7.149
+     }
+    },
+    "vs_mist": {
+     "Oracle": {
+      "mist_minus": 2.807,
+      "ci_player_weeks": [
+       2.612,
+       3.014
+      ],
+      "ci_weeks": [
+       2.57,
+       2.976
+      ],
+      "position_weeks_mist_better": 0,
+      "position_weeks": 20
+     },
+     "MIST-open": {
+      "mist_minus": -0.012,
+      "ci_player_weeks": [
+       -0.04,
+       0.016
+      ],
+      "ci_weeks": [
+       -0.033,
+       0.007
+      ],
+      "position_weeks_mist_better": 13,
+      "position_weeks": 20
+     },
+     "MIST-PPR": {
+      "mist_minus": 0.003,
+      "ci_player_weeks": [
+       -0.019,
+       0.024
+      ],
+      "ci_weeks": [
+       -0.005,
+       0.014
+      ],
+      "position_weeks_mist_better": 8,
+      "position_weeks": 20
+     },
+     "ECR": {
+      "mist_minus": -0.091,
+      "ci_player_weeks": [
+       -0.161,
+       -0.018
+      ],
+      "ci_weeks": [
+       -0.198,
+       -0.012
+      ],
+      "position_weeks_mist_better": 16,
+      "position_weeks": 20
+     },
+     "Sleeper": {
+      "mist_minus": 0.005,
+      "ci_player_weeks": [
+       -0.062,
+       0.074
+      ],
+      "ci_weeks": [
+       -0.048,
+       0.062
+      ],
+      "position_weeks_mist_better": 14,
+      "position_weeks": 20
+     },
+     "Market": {
+      "mist_minus": -0.015,
+      "ci_player_weeks": [
+       -0.085,
+       0.051
+      ],
+      "ci_weeks": [
+       -0.091,
+       0.056
+      ],
+      "position_weeks_mist_better": 11,
+      "position_weeks": 20
+     },
+     "Shuffled": {
+      "mist_minus": -1.043,
+      "ci_player_weeks": [
+       -1.301,
+       -0.795
+      ],
+      "ci_weeks": [
+       -1.119,
+       -0.968
+      ],
+      "position_weeks_mist_better": 17,
+      "position_weeks": 20
+     }
+    },
+    "season_z_within_field": {
+     "2026": {
+      "MIST": {
+       "QB": -0.964,
+       "RB": -2.28,
+       "TE": -2.568,
+       "WR": -0.414,
+       "overall": -6.226
+      },
+      "ECR": {
+       "QB": 3.554,
+       "RB": 3.922,
+       "TE": -0.038,
+       "WR": 4.983,
+       "overall": 12.421
+      },
+      "Sleeper": {
+       "QB": -0.179,
+       "RB": -2.883,
+       "TE": 3.795,
+       "WR": -0.554,
+       "overall": 0.179
+      },
+      "Market": {
+       "QB": -2.412,
+       "RB": 1.241,
+       "TE": -1.189,
+       "WR": -4.015,
+       "overall": -6.375
+      }
+     }
+    },
+    "control": {
+     "oracle_first": true,
+     "shuffled_last": true
+    }
+   },
+   "2024-2025": {
+    "n_pool_player_weeks": 4217,
+    "n_rows": 4606,
+    "weeks": 26,
+    "mean_gap": {
+     "Oracle": 3.038,
+     "MIST": 5.669,
+     "MIST-open": 5.709,
+     "MIST-PPR": 5.675,
+     "ECR": 5.771,
+     "Sleeper": 5.702,
+     "Market": 5.721,
+     "Shuffled": 6.694
+    },
+    "order": [
+     "Oracle",
+     "MIST",
+     "MIST-PPR",
+     "Sleeper",
+     "MIST-open",
+     "Market",
+     "ECR",
+     "Shuffled"
+    ],
+    "by_pos": {
+     "QB": {
+      "Oracle": 3.583,
+      "MIST": 6.432,
+      "MIST-open": 6.562,
+      "MIST-PPR": 6.432,
+      "ECR": 6.635,
+      "Sleeper": 6.474,
+      "Market": 6.477,
+      "Shuffled": 7.243
+     },
+     "RB": {
+      "Oracle": 3.021,
+      "MIST": 5.521,
+      "MIST-open": 5.527,
+      "MIST-PPR": 5.537,
+      "ECR": 5.66,
+      "Sleeper": 5.538,
+      "Market": 5.604,
+      "Shuffled": 7.275
+     },
+     "WR": {
+      "Oracle": 2.693,
+      "MIST": 5.543,
+      "MIST-open": 5.606,
+      "MIST-PPR": 5.544,
+      "ECR": 5.602,
+      "Sleeper": 5.598,
+      "Market": 5.571,
+      "Shuffled": 6.362
+     },
+     "TE": {
+      "Oracle": 3.484,
+      "MIST": 5.496,
+      "MIST-open": 5.431,
+      "MIST-PPR": 5.497,
+      "ECR": 5.522,
+      "Sleeper": 5.483,
+      "Market": 5.559,
+      "Shuffled": 5.761
+     }
+    },
+    "by_season": {
+     "2024": {
+      "Oracle": 3.089,
+      "MIST": 5.705,
+      "MIST-open": 5.762,
+      "MIST-PPR": 5.712,
+      "ECR": 5.819,
+      "Sleeper": 5.743,
+      "Market": 5.746,
+      "Shuffled": 6.707
+     },
+     "2025": {
+      "Oracle": 2.98,
+      "MIST": 5.629,
+      "MIST-open": 5.646,
+      "MIST-PPR": 5.631,
+      "ECR": 5.714,
+      "Sleeper": 5.654,
+      "Market": 5.693,
+      "Shuffled": 6.679
+     }
+    },
+    "vs_mist": {
+     "Oracle": {
+      "mist_minus": 2.631,
+      "ci_player_weeks": [
+       2.538,
+       2.722
+      ],
+      "ci_weeks": [
+       2.521,
+       2.744
+      ],
+      "position_weeks_mist_better": 0,
+      "position_weeks": 104
+     },
+     "MIST-open": {
+      "mist_minus": -0.039,
+      "ci_player_weeks": [
+       -0.063,
+       -0.013
+      ],
+      "ci_weeks": [
+       -0.066,
+       -0.014
+      ],
+      "position_weeks_mist_better": 61,
+      "position_weeks": 104
+     },
+     "MIST-PPR": {
+      "mist_minus": -0.005,
+      "ci_player_weeks": [
+       -0.017,
+       0.006
+      ],
+      "ci_weeks": [
+       -0.017,
+       0.005
+      ],
+      "position_weeks_mist_better": 41,
+      "position_weeks": 104
+     },
+     "ECR": {
+      "mist_minus": -0.101,
+      "ci_player_weeks": [
+       -0.14,
+       -0.064
+      ],
+      "ci_weeks": [
+       -0.147,
+       -0.057
+      ],
+      "position_weeks_mist_better": 72,
+      "position_weeks": 104
+     },
+     "Sleeper": {
+      "mist_minus": -0.032,
+      "ci_player_weeks": [
+       -0.059,
+       -0.007
+      ],
+      "ci_weeks": [
+       -0.06,
+       -0.005
+      ],
+      "position_weeks_mist_better": 62,
+      "position_weeks": 104
+     },
+     "Market": {
+      "mist_minus": -0.052,
+      "ci_player_weeks": [
+       -0.084,
+       -0.02
+      ],
+      "ci_weeks": [
+       -0.082,
+       -0.02
+      ],
+      "position_weeks_mist_better": 64,
+      "position_weeks": 104
+     },
+     "Shuffled": {
+      "mist_minus": -1.025,
+      "ci_player_weeks": [
+       -1.136,
+       -0.917
+      ],
+      "ci_weeks": [
+       -1.135,
+       -0.917
+      ],
+      "position_weeks_mist_better": 91,
+      "position_weeks": 104
+     }
+    },
+    "season_z_within_field": {
+     "2024": {
+      "MIST": {
+       "QB": -8.411,
+       "RB": -6.137,
+       "TE": -3.45,
+       "WR": -9.279,
+       "overall": -27.277
+      },
+      "ECR": {
+       "QB": 4.576,
+       "RB": 4.288,
+       "TE": 3.759,
+       "WR": 2.944,
+       "overall": 15.567
+      },
+      "Sleeper": {
+       "QB": 1.13,
+       "RB": -3.427,
+       "TE": -1.491,
+       "WR": -1.646,
+       "overall": -5.434
+      },
+      "Market": {
+       "QB": -2.122,
+       "RB": -0.845,
+       "TE": -4.583,
+       "WR": 2.642,
+       "overall": -4.908
+      }
+     },
+     "2025": {
+      "MIST": {
+       "QB": -1.8,
+       "RB": -7.127,
+       "TE": -3.845,
+       "WR": -6.594,
+       "overall": -19.366
+      },
+      "ECR": {
+       "QB": 2.15,
+       "RB": 2.323,
+       "TE": -1.887,
+       "WR": 1.718,
+       "overall": 4.304
+      },
+      "Sleeper": {
+       "QB": -7.388,
+       "RB": -4.656,
+       "TE": -5.957,
+       "WR": 5.408,
+       "overall": -12.593
+      },
+      "Market": {
+       "QB": 1.63,
+       "RB": 3.056,
+       "TE": 6.77,
+       "WR": -5.91,
+       "overall": 5.546
+      }
+     }
+    },
+    "control": {
+     "oracle_first": true,
+     "shuffled_last": true
+    }
+   },
+   "all": {
+    "n_pool_player_weeks": 5051,
+    "n_rows": 5521,
+    "weeks": 31,
+    "mean_gap": {
+     "Oracle": 3.081,
+     "MIST": 5.741,
+     "MIST-open": 5.776,
+     "MIST-PPR": 5.746,
+     "ECR": 5.841,
+     "Sleeper": 5.768,
+     "Market": 5.787,
+     "Shuffled": 6.769
+    },
+    "order": [
+     "Oracle",
+     "MIST",
+     "MIST-PPR",
+     "Sleeper",
+     "MIST-open",
+     "Market",
+     "ECR",
+     "Shuffled"
+    ],
+    "by_pos": {
+     "QB": {
+      "Oracle": 3.72,
+      "MIST": 6.562,
+      "MIST-open": 6.67,
+      "MIST-PPR": 6.562,
+      "ECR": 6.754,
+      "Sleeper": 6.587,
+      "Market": 6.596,
+      "Shuffled": 7.291
+     },
+     "RB": {
+      "Oracle": 3.023,
+      "MIST": 5.537,
+      "MIST-open": 5.544,
+      "MIST-PPR": 5.55,
+      "ECR": 5.665,
+      "Sleeper": 5.546,
+      "Market": 5.622,
+      "Shuffled": 7.339
+     },
+     "WR": {
+      "Oracle": 2.683,
+      "MIST": 5.598,
+      "MIST-open": 5.653,
+      "MIST-PPR": 5.6,
+      "ECR": 5.664,
+      "Sleeper": 5.643,
+      "Market": 5.618,
+      "Shuffled": 6.43
+     },
+     "TE": {
+      "Oracle": 3.675,
+      "MIST": 5.679,
+      "MIST-open": 5.628,
+      "MIST-PPR": 5.676,
+      "ECR": 5.71,
+      "Sleeper": 5.686,
+      "Market": 5.731,
+      "Shuffled": 5.933
+     }
+    },
+    "by_season": {
+     "2024": {
+      "Oracle": 3.089,
+      "MIST": 5.705,
+      "MIST-open": 5.762,
+      "MIST-PPR": 5.712,
+      "ECR": 5.819,
+      "Sleeper": 5.743,
+      "Market": 5.746,
+      "Shuffled": 6.707
+     },
+     "2025": {
+      "Oracle": 2.98,
+      "MIST": 5.629,
+      "MIST-open": 5.646,
+      "MIST-PPR": 5.631,
+      "ECR": 5.714,
+      "Sleeper": 5.654,
+      "Market": 5.693,
+      "Shuffled": 6.679
+     },
+     "2026": {
+      "Oracle": 3.299,
+      "MIST": 6.106,
+      "MIST-open": 6.118,
+      "MIST-PPR": 6.103,
+      "ECR": 6.197,
+      "Sleeper": 6.101,
+      "Market": 6.121,
+      "Shuffled": 7.149
+     }
+    },
+    "vs_mist": {
+     "Oracle": {
+      "mist_minus": 2.66,
+      "ci_player_weeks": [
+       2.578,
+       2.741
+      ],
+      "ci_weeks": [
+       2.561,
+       2.759
+      ],
+      "position_weeks_mist_better": 0,
+      "position_weeks": 124
+     },
+     "MIST-open": {
+      "mist_minus": -0.035,
+      "ci_player_weeks": [
+       -0.054,
+       -0.014
+      ],
+      "ci_weeks": [
+       -0.06,
+       -0.013
+      ],
+      "position_weeks_mist_better": 74,
+      "position_weeks": 124
+     },
+     "MIST-PPR": {
+      "mist_minus": -0.004,
+      "ci_player_weeks": [
+       -0.014,
+       0.006
+      ],
+      "ci_weeks": [
+       -0.014,
+       0.005
+      ],
+      "position_weeks_mist_better": 49,
+      "position_weeks": 124
+     },
+     "ECR": {
+      "mist_minus": -0.1,
+      "ci_player_weeks": [
+       -0.132,
+       -0.068
+      ],
+      "ci_weeks": [
+       -0.14,
+       -0.061
+      ],
+      "position_weeks_mist_better": 88,
+      "position_weeks": 124
+     },
+     "Sleeper": {
+      "mist_minus": -0.026,
+      "ci_player_weeks": [
+       -0.051,
+       -0.001
+      ],
+      "ci_weeks": [
+       -0.051,
+       -0.002
+      ],
+      "position_weeks_mist_better": 76,
+      "position_weeks": 124
+     },
+     "Market": {
+      "mist_minus": -0.046,
+      "ci_player_weeks": [
+       -0.075,
+       -0.017
+      ],
+      "ci_weeks": [
+       -0.076,
+       -0.017
+      ],
+      "position_weeks_mist_better": 75,
+      "position_weeks": 124
+     },
+     "Shuffled": {
+      "mist_minus": -1.028,
+      "ci_player_weeks": [
+       -1.132,
+       -0.924
+      ],
+      "ci_weeks": [
+       -1.124,
+       -0.935
+      ],
+      "position_weeks_mist_better": 108,
+      "position_weeks": 124
+     }
+    },
+    "season_z_within_field": {
+     "2024": {
+      "MIST": {
+       "QB": -8.411,
+       "RB": -6.137,
+       "TE": -3.45,
+       "WR": -9.279,
+       "overall": -27.277
+      },
+      "ECR": {
+       "QB": 4.576,
+       "RB": 4.288,
+       "TE": 3.759,
+       "WR": 2.944,
+       "overall": 15.567
+      },
+      "Sleeper": {
+       "QB": 1.13,
+       "RB": -3.427,
+       "TE": -1.491,
+       "WR": -1.646,
+       "overall": -5.434
+      },
+      "Market": {
+       "QB": -2.122,
+       "RB": -0.845,
+       "TE": -4.583,
+       "WR": 2.642,
+       "overall": -4.908
+      }
+     },
+     "2025": {
+      "MIST": {
+       "QB": -1.8,
+       "RB": -7.127,
+       "TE": -3.845,
+       "WR": -6.594,
+       "overall": -19.366
+      },
+      "ECR": {
+       "QB": 2.15,
+       "RB": 2.323,
+       "TE": -1.887,
+       "WR": 1.718,
+       "overall": 4.304
+      },
+      "Sleeper": {
+       "QB": -7.388,
+       "RB": -4.656,
+       "TE": -5.957,
+       "WR": 5.408,
+       "overall": -12.593
+      },
+      "Market": {
+       "QB": 1.63,
+       "RB": 3.056,
+       "TE": 6.77,
+       "WR": -5.91,
+       "overall": 5.546
+      }
+     },
+     "2026": {
+      "MIST": {
+       "QB": -0.964,
+       "RB": -2.28,
+       "TE": -2.568,
+       "WR": -0.414,
+       "overall": -6.226
+      },
+      "ECR": {
+       "QB": 3.554,
+       "RB": 3.922,
+       "TE": -0.038,
+       "WR": 4.983,
+       "overall": 12.421
+      },
+      "Sleeper": {
+       "QB": -0.179,
+       "RB": -2.883,
+       "TE": 3.795,
+       "WR": -0.554,
+       "overall": 0.179
+      },
+      "Market": {
+       "QB": -2.412,
+       "RB": 1.241,
+       "TE": -1.189,
+       "WR": -4.015,
+       "overall": -6.375
+      }
+     }
+    },
+    "control": {
+     "oracle_first": true,
+     "shuffled_last": true
+    }
+   }
+  }
+ },
+ "coverage": {
+  "2024": {
+   "mist_ranked_player_weeks": 2030,
+   "share_with_espn": 0.0,
+   "share_with_market": 0.947,
+   "sources_per_player": {
+    "1": 109,
+    "2": 1921,
+    "3": 0
+   },
+   "ecr_pool_players_inactive": 56
+  },
+  "2025": {
+   "mist_ranked_player_weeks": 1740,
+   "share_with_espn": 0.0,
+   "share_with_market": 0.946,
+   "sources_per_player": {
+    "1": 95,
+    "2": 1645,
+    "3": 0
+   },
+   "ecr_pool_players_inactive": 42
+  },
+  "2026": {
+   "mist_ranked_player_weeks": 725,
+   "share_with_espn": 0.919,
+   "share_with_market": 0.983,
+   "sources_per_player": {
+    "1": 7,
+    "2": 63,
+    "3": 655
+   },
+   "ecr_pool_players_inactive": 19
+  }
+ },
+ "elapsed_s": 10.5
+}

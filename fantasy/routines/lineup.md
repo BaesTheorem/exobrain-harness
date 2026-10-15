@@ -17,6 +17,9 @@ fifteen minutes before the reports it existed to read.)
    up until a starting slot is empty. If one is in review and the starter it
    sends away locks before the next scheduled run, say so in the log and plan
    the replacement now rather than discovering it later.
+   **Sunday morning run only:** `python3 -m ffmodel.fpranks snapshot <week>`
+   (run from `fantasy/`; it saves MIST's ranks and FantasyPros' consensus
+   side by side before the 1 p.m. ET games for the outside accuracy test).
 2. Definite problems (OUT, IR, bye, suspension, empty slot) are normally fixed
    by the `lineup-watch` job. If any remain, fix them now:
    `fantasy/bin/espn-tx swap "<bench player>" --for "<starter>"` (or

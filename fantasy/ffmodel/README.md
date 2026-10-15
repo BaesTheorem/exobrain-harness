@@ -14,6 +14,8 @@ has been tested on seasons that the fit did not see.
 | `corr.py` | Which starters' weekly surprises move together? | `nflraw.py` residuals against Sleeper's projections | `espncli.value.win_prob`, so `espn check` and `espn matchup` |
 | `score.py` | Is a forecast good, and not only sufficiently wide? | the filed `forecasts/*.json` | `forecast history` |
 | `injury.py` | How often does a player on the injury report play, and how many points does he get? | nflverse injury reports and snap counts, 2016-2025 | `espn check` (`p_play`, `practice`, `injury_ratio`) |
+| `fpranks.py` | Do MIST's weekly ranks beat the FantasyPros consensus on FantasyPros' own method? | the four FantasyPros weekly ranking pages, the projections above, box scores | `fpranks snapshot` (Sunday lineup run), `fpranks score` (Tuesday review) |
+| `role.py` | Can a projection built from opportunity shares alone add to Sleeper and the market? | nflverse box scores, snap counts, participation (routes, 2016-2025) | nothing: it did not earn a vote (research artifact) |
 
 ## What each one measured
 
@@ -87,6 +89,27 @@ had an MAE of 5.54. MIST's MAE was 6.10, the consensus 5.70 and ESPN 5.63.
 From 2026-10-15, `forecast record` keeps the market value at forecast
 time, thus subsequent weeks measure the actual lean.
 
+**FantasyPros method (`fpranks`).** On 31 past weeks (2024-2026) scored by
+FantasyPros' published accuracy method, MIST's ranks (the mean of Sleeper,
+ESPN and the market, on half PPR) had a mean gap of 6.581 points a scored
+player-week against 6.707 for FantasyPros' consensus (difference -0.126,
+95% CI -0.182 to -0.071), 6.623 for Sleeper and 6.646 for the market. The
+archived consensus is a Friday snapshot in PPR order, so part of the lead
+can be timing. From week 6 the Sunday lineup run saves both lists at the
+same moment before the 1 p.m. ET games (`forecasts/fp/`), and the Tuesday
+review scores them.
+
+**Role model (`role`).** Team volume from the spread and the total, player
+shares from a discounted Beta-Binomial filter with partial pooling, and
+points per opportunity shrunk to the position. Walk-forward on 2022-2025
+(16,596 player-games) it is worse than Sleeper alone (MAE 4.51 against
+4.35) and adds nothing to the Sleeper and market blend (+0.002, 95% CI
+-0.009 to +0.014): its errors correlate 0.96 with both. Routes from the
+participation data beat snap share by 0.004, all of it at tight end. A
+planted source with the same error and a small amount of new information
+moves the blend by -0.099, so the test can see a gain. It stays out of the
+lineup and the forecast.
+
 ## Outside checks on actual leagues
 
 `fantasy/research/sleeper_validation.py` tests the models on hundreds of
@@ -113,6 +136,10 @@ python3 -m ffmodel.market week 7          # this week's market projections
 python3 -m ffmodel.corr                   # rebuild corr_table.json
 python3 -m ffmodel.corr validate          # the out-of-sample coverage check
 python3 -m ffmodel.injury                 # rebuild injury_table.json
+python3 -m ffmodel.fpranks week 7         # MIST's half-PPR ranks at contest depth
+python3 -m ffmodel.fpranks snapshot 7     # save MIST and FantasyPros side by side (Sunday)
+python3 -m ffmodel.fpranks score          # score every saved week
+python3 -m ffmodel.role 7                 # the role model's projection (research)
 ```
 
 Start the commands in `fantasy/`. Caches go to `fantasy/.cache/nflraw/` and
