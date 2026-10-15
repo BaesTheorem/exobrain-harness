@@ -1,0 +1,54 @@
+#!/usr/bin/env python3
+"""lineup-precheck: stop a lineup routine before the model starts when no
+starter locks soon (rule inventory R166, 2026-10-15).
+
+The lineup routine's first step was "if no starter locks within 27 hours,
+print it and stop", which spent a full model run to find out. This asks
+`espn check` (without the market and injury pulls) for the starters' kickoffs
+and exits 3 when the next one is more than 27 hours away, so
+`bin/routine-guard` can skip the run. Any failure exits 0: when in doubt,
+run the routine.
+
+    lineup-precheck [--hours 27]      exit 3 = skip, 0 = run
+"""
+
+from __future__ import annotations
+
+import argparse
+import json
+import os
+import subprocess
+import sys
+from datetime import datetime, timedelta
+from pathlib import Path
+
+ESPN = Path(__file__).resolve().parent / "espn"
+
+
+def main() -> int:
+    ap = argparse.ArgumentParser(description=__doc__)
+    ap.add_argument("--hours", type=float, default=27.0)
+    a = ap.parse_args()
+    try:
+        r = subprocess.run([str(ESPN), "check", "--json"], env={**os.environ, "ESPN_NO_MARKET": "1"},
+                           capture_output=True, text=True, timeout=240)
+        d = json.loads(r.stdout) if r.returncode == 0 else {}
+    except Exception as e:  # noqa: BLE001 - fail open: run the routine
+        print(f"lineup-precheck: check failed ({e}); run", file=sys.stderr)
+        return 0
+    times = [datetime.fromisoformat(x["kickoff"]) for x in d.get("lock_order") or [] if x.get("kickoff")]
+    if not times:
+        return 0
+    now = datetime.now(times[0].tzinfo)
+    upcoming = [t for t in times if t > now]
+    if d.get("problems") or not upcoming:
+        return 0
+    nxt = min(upcoming)
+    if nxt - now > timedelta(hours=a.hours):
+        print(f"lineup-precheck: next lock {nxt:%a %-I:%M %p}, more than {a.hours:g} h away; skip")
+        return 3
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())

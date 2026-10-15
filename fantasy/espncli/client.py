@@ -184,9 +184,17 @@ class Espn:
         except urllib.error.HTTPError as e:
             body = e.read()[:300].decode(errors="replace")
             if e.code in (401, 403) and "fantasy.espn.com" in url and "lm-api" in url:
+                # Rule inventory R163 (2026-10-15): the routines' "run ff refresh
+                # once and retry" now happens here, once per process, so a
+                # rotated cookie costs one retry instead of a failed run.
+                if not Espn._refreshed and self._refresh_cookies():
+                    h2 = dict(headers or {})
+                    if "Cookie" in h2:
+                        h2["Cookie"] = self._auth()["Cookie"]
+                    return self._get(url, h2, timeout, retries, net_waits)
                 raise EspnError(
-                    "ESPN rejected the cookies (auth expired). Run `ff refresh` "
-                    "to re-pull them from Chrome while logged into ESPN.") from None
+                    "ESPN rejected the cookies (auth expired), and one `ff refresh` did not fix it. "
+                    "Log into espn.com in Chrome, then run `ff refresh`.") from None
             raise EspnError(f"ESPN HTTP {e.code} for {url.split('?')[0]}: {body}") from None
         except urllib.error.URLError as e:
             # launchd fires a missed interval the instant the Mac wakes, before
@@ -200,6 +208,22 @@ class Espn:
                 time.sleep(2 ** (5 - net_waits))
                 return self._get(url, headers, timeout, retries, net_waits - 1)
             raise EspnError(f"Network error reaching ESPN: {e.reason}") from None
+
+    _refreshed = False
+
+    def _refresh_cookies(self) -> bool:
+        """Run `ff refresh` once (it re-reads the ESPN cookies from Chrome) and
+        reload the credential file. True when the cookies changed."""
+        Espn._refreshed = True
+        before = (self.creds.get("espn_s2"), self.creds.get("SWID"))
+        try:
+            import subprocess  # noqa: PLC0415
+
+            subprocess.run([str(FANTASY_DIR / "bin" / "ff"), "refresh"], capture_output=True, timeout=120, check=False)
+            self.creds = load_creds()
+        except Exception:  # noqa: BLE001 - the caller raises the auth error instead
+            return False
+        return (self.creds.get("espn_s2"), self.creds.get("SWID")) != before
 
     def _auth(self, extra: dict[str, str] | None = None) -> dict[str, str]:
         h = {"Cookie": f"espn_s2={self.creds['espn_s2']}; SWID={self.creds['SWID']}"}

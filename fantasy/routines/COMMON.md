@@ -9,9 +9,12 @@ autonomously; you decide, act, and record. Work from the harness directory
    evidence and the tool reference. Then read the playbook it points to
    (`~/Exobrain/Areas/Adventure & Creativity/Fantasy Football/Fantasy Football
    Playbook.md`): the Season log, the weekly routine, the variance rule, the
-   waiver and trade sections. The playbook is the living document: **every
-   run writes back to it** (a Season log line at minimum, and a corrected rule
-   whenever a rule met reality and lost), and bumps its `updated:` field.
+   waiver and trade sections. The playbook is the living document: **a run
+   that decides something writes it back** (a Season log line, and a
+   corrected rule whenever a rule met reality and lost) and bumps the
+   `updated:` field. **A run that decides nothing writes one line with
+   `fantasy/bin/routine-log <routine> "<text>"` and leaves the playbook
+   alone** (rule inventory R158, 2026-10-15: the Season log is for decisions).
    The Season log is grouped by `### Week N` headers, newest first, with
    each week's generated Forecast and Review blocks at the top of its
    section; write new dated bullets directly under the current week's
@@ -22,7 +25,10 @@ autonomously; you decide, act, and record. Work from the harness directory
    playbook's rule for that kind of call (the skill has a section map) and
    name it in your log line. If the playbook has no rule for the situation,
    decide from the skill's evidence and write the new rule into the playbook
-   in the section it belongs to. **When a rule changes, first read the
+   in the section it belongs to, marked "(one case)" when a single situation
+   produced it. Of the rules added from 09-13 to 10-14, about half were used
+   again within three weeks; a "(one case)" rule is the first candidate for
+   removal at the next rule inventory. **When a rule changes, first read the
    playbook's *Corrections ledger*** (the ground may already be covered);
    then put the current rule on top where it lives, add a ledger entry (Was /
    Falsified by / Now / Lesson, newest first) and a one-line pointer at the
@@ -45,8 +51,13 @@ autonomously; you decide, act, and record. Work from the harness directory
    `python3 fantasy/trade_scan.py --json` (every 1-for-1 and 2-for-1 priced
    in title and bye odds) and `python3 fantasy/season_sim.py --json` (bye
    odds after the results so far). **Rank by volume means `volume`, not a
-   news blurb.** Every value is `espncli.value.ros_rate` (half preseason,
-   half live); ESPN's `season_proj` alone is never a value. **Writes:** `fantasy/bin/espn-tx`
+   news blurb.** Every value is `espncli.value.ros_rate` (before week 5 half
+   ESPN's rest-of-season projection per game left and half the weekly
+   projection; from week 5 0.45 weekly projection, 0.35 that prior, 0.20
+   season PPG); ESPN's `season_proj` alone is never a value. Lineup means are
+   ESPN blended with the betting market, and questionable players are priced
+   from the injury report (`espn check` row fields `market`, `mean`,
+   `p_play`). **Writes:** `fantasy/bin/espn-tx`
    only (`ir`, `move`, `swap`, `claim`, `pending`, `cancel`). It verifies each
    write with a read-back; treat `"verified": false` or a nonzero exit as
    "did not happen" and say so.
@@ -62,12 +73,11 @@ autonomously; you decide, act, and record. Work from the harness directory
    http://127.0.0.1:5014/notify-reply -H 'Content-Type: application/json' -d
    '{"text": "the reply"}'"`, then confirm the buttons survived by reading
    the `actions` list on the last row of
-   `~/Library/Logs/exobrain/notifications-history.jsonl`.
-   **Day guard:** the Tuesday routine runs only on Tuesdays and the Sunday
-   lineup routine only on Sundays; if you are one of those and the day is
-   wrong, print one line and stop.
-4. If an ESPN call returns an auth error (401/403), run `fantasy/bin/ff
-   refresh` once and retry; if it still fails, notify Alex and stop.
+   `~/Library/Logs/exobrain/notifications-history.jsonl`. (The weekday is
+   checked before you start, by `bin/routine-guard`.)
+4. An ESPN auth error (401/403) is refreshed and retried once inside the
+   client (`espncli/client.py`, 2026-10-15). If a tool still reports
+   "rejected the cookies", notify Alex and stop.
 5. Notify Alex only about changes and decisions, with
    `mist-voice/bin/mist-notify "<msg>" "MIST fantasy" default "<link>"`, where
    the link is the roster page
@@ -77,17 +87,17 @@ autonomously; you decide, act, and record. Work from the harness directory
    Silence means nothing changed. No em dashes anywhere.
 6. Judge process, not outcome. A loss to a 150-point week is variance, not a
    reason to change a rule; a rule changes only when its reasoning failed.
-7. Yardsticks from the research (`~/Exobrain/Research/Fantasy Football Winning
-   Strategy.md`, the evidence behind the skill): a home league is ~80% luck,
-   and one extra point per week of lineup edge is worth about +0.7% title
-   odds. So a move that gains under a point a week is not worth churn,
-   friction, or a favor; a move that gains three is worth pursuing hard.
-   Never cite ESPN's trade "fairness" grade or any trade analyzer: none has
-   published calibration. Reason from volume. Ignore strength of schedule
-   (one team in six years repeated as stingiest against a position; playoff
-   weeks 15-17 SOS is unverified and gets no weight); for kickers and
-   defenses use implied totals and weather (`espn stream`), not opponents'
-   reputations.
+7. Yardsticks: a home league is about 80% luck, so judge process. The
+   exchange rates are measured, not quoted: a claim must clear the waiver
+   gate in `swap-scan` (2.5 points a game over the horizon), a lineup swap
+   must reach `d_net` +1 in `espn check`, and a week's weight in title odds
+   comes from `season_sim.py --leverage`. (The research yardstick "+0.7%
+   title odds per point a week" is retired: playbook *Corrections ledger*,
+   2026-10-14 (5).) Never cite ESPN's trade "fairness" grade or any trade
+   analyzer: none has published calibration. Reason from volume. Ignore
+   preseason strength of schedule; playoff-week matchups (weeks 15-17) are a
+   tiebreak only, read from that week's Vegas lines. For kickers and
+   defenses use implied totals and weather (`stream-scan`), not reputations.
 8. Commit with `bin/harness-commit "<message>"`, never with `git commit` or
    `git push`. It stages, audits, commits and pushes in one step. The
    unattended guard blocks a plain `git push` and raises a banner.

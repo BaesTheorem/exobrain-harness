@@ -98,8 +98,10 @@ missing a reply.
    past it. Do not work around it.
 5. **Never draft into a direct-message thread.** See the section above: those
    are escalated to Alex, not answered here.
-6. **Do not start conversations.** Answer what arrived. The one exception is an
-   explicit pending item written in the playbook by Alex or by a previous run.
+6. **Do not start conversations.** Answer what arrived. This binds this chat
+   routine; interactive sessions may open a conversation on Alex's word. The
+   one exception here is an explicit pending item written in the playbook by
+   Alex or by a previous run.
 7. **When a message is ambiguous, hostile, or about anything outside fantasy,
    draft the reply you would give if allowed and say in `--why` that it is
    off-scope.** Since drafts need his tap, the banner is the notification and
@@ -142,8 +144,10 @@ watcher that stays silent all week is working correctly.
 
 ## Every run
 
-- Append one line to the playbook Season log: what arrived, whether you
-  drafted, the draft id and text if you did, and which limit or rule decided it.
+- If you drafted, append one line to the playbook Season log: what arrived,
+  the draft id and text, and which limit or rule decided it. If you decided
+  not to reply, write it with `fantasy/bin/routine-log chat "<text>"` instead
+  and leave the playbook alone (rule inventory R158 and R196).
 - `chat-draft save` already raised the banner for every draft, so do not
   notify again on top of it. A separate `mist-notify` is only for a trade
   offer (limit 1) or a deliberate withholding on limits 2 or 3. Routine

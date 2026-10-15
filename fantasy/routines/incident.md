@@ -23,9 +23,13 @@ Read `fantasy/.cache/incidents.jsonl`. Handle every line whose `"handled"` is
 false, oldest first, then rewrite the file with those lines marked
 `"handled": true` (keep every line; the file is the audit trail).
 
-- **status** (a rostered player's injury status changed). Starter now OUT,
-  DOUBTFUL, or SUSPENSION: swap the best bench option in now
-  (`fantasy/bin/espn-tx swap`), unless his kickoff has passed. Any player now
+- **status** (a rostered player's injury status changed). Starter now OUT or
+  SUSPENSION: swap the best bench option in now (`fantasy/bin/espn-tx swap`),
+  unless his kickoff has passed. A DOUBTFUL starter is `lineup-watch`'s, inside
+  75 minutes of his lock (`FIX_IN_WINDOW`); a doubtful player plays about 1%
+  of the time (`ffmodel/injury_table.json`), so a swap only matters if the
+  watcher cannot run, and one owner with one timing keeps the two from
+  fighting (rule inventory R186, 2026-10-15). Any player now
   INJURY_RESERVE: `fantasy/bin/espn-tx ir "<name>"` if the IR slot is free,
   then, if that opened a roster spot, file a claim under the Tuesday waiver
   rules when someone on the wire is clearly worth it. QUESTIONABLE: no action;
@@ -51,9 +55,11 @@ false, oldest first, then rewrite the file with those lines marked
   gone with `FAILED_PLAYERALREADYDROPPED` on the same processing tick (verified
   2026-09-23, Geno for Noel behind Young for Noel). A claim filed against a
   *different* drop is not conditional on anything, so the count still has to
-  be read off the roster. Two deep at a one-slot position is a dead
-  roster spot on a full roster, so drop the worse one on the playbook's value
-  rule and log both. Never assume the branch resolved the way it was designed
+  be read off the roster. Two deep at a one-slot position is a dead roster
+  spot on a full roster, so drop the worse one on `ros_rate` and log both,
+  except a second QB Alex approved as a bridge (bye cover or an injury
+  fallback): that one stays until the playbook's Season log says the bridge
+  is over. Never assume the branch resolved the way it was designed
   to; read the roster back and count.
   **The playbook's Season log may carry a named branch for the week** (which
   add closes out a trade negotiation, which reopens it). Apply it if present,
@@ -70,11 +76,8 @@ false, oldest first, then rewrite the file with those lines marked
   proposal). Do not ask Alex about a re-send and do not send one; the only
   exception is an entry in the playbook's *Standing offers* list, which the
   Tuesday routine handles. Mention the expiry in the summary banner so Alex
-  can reopen it from the chat if he wants.
-  *Superseded 2026-10-11 (kept as data):* the step used to put the re-send to
-  Alex with buttons (Re-send now / Wait for Tuesday / Drop it). It lost to
-  the Trades rule change and to Alex's 2:30 PM call that same day: if the
-  Jefferson offer fails, next week runs on the roster we hold.
+  can reopen it from the chat if he wants. (The older re-send-with-buttons
+  step is in the playbook's *Corrections ledger*, 2026-10-11.)
   **If it went through, refill the slot it emptied, immediately and without
   asking** (standing authorization, 2026-09-10). An accepted trade that sends
   away a starter leaves a hole that scores zero, and Lineup Protection is OFF.

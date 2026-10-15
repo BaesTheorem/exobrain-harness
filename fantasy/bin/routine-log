@@ -1,0 +1,15 @@
+#!/bin/bash
+# routine-log <routine> <text>: one timestamped line in the fantasy routine log.
+#
+# A routine run that decides nothing writes here instead of the playbook's
+# Season log (rule inventory R158, 2026-10-15): 21 of 222 Season log bullets
+# said only "No changes" or "Nothing locks", and the log had grown to 4,878
+# lines. The Season log is for decisions; this file is for "ran, nothing to do".
+#
+#   fantasy/bin/routine-log lineup "Thu 5:30 PM: no lock within 27 h"
+#   tail ~/Library/Logs/exobrain/fantasy-routines.log
+set -euo pipefail
+LOG="$HOME/Library/Logs/exobrain/fantasy-routines.log"
+[ $# -ge 2 ] || { echo "usage: routine-log <routine> <text>" >&2; exit 2; }
+mkdir -p "$(dirname "$LOG")"
+printf '%s %-9s %s\n' "$(date '+%Y-%m-%d %H:%M')" "$1" "${*:2}" >> "$LOG"

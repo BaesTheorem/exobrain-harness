@@ -12,6 +12,17 @@
 DAYS="$1"; shift
 today="$(date +%w)"
 case ",$DAYS," in
-  *",*,"*|*",$today,"*) exec /bin/bash /Users/alexhedtke/Documents/mist-console/run-routine-ontime.sh "$@" ;;
+  *",*,"*|*",$today,"*) ;;
   *) echo "[$(date '+%Y-%m-%d %H:%M:%S')] SKIP $1. Not a scheduled weekday ($today not in $DAYS)."; exit 0 ;;
 esac
+# A lineup run with nothing locking in the next 27 hours is skipped before the
+# model starts (lineup-precheck exits 3); any other result runs the routine.
+case "$1" in
+  fantasy-lineup*)
+    /usr/bin/env python3 "$(dirname "$0")/lineup-precheck"
+    if [ $? -eq 3 ]; then
+      "$(dirname "$0")/routine-log" lineup "precheck: no starter locks within 27 hours; run skipped"
+      exit 0
+    fi ;;
+esac
+exec /bin/bash /Users/alexhedtke/Documents/mist-console/run-routine-ontime.sh "$@"

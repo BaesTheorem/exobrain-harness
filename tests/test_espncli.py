@@ -329,3 +329,35 @@ def test_check_reports_win_probability_and_the_opponents_holes(capsys):
     # the fill for our OUT RB now carries the win probability it produces
     fix = next(p["fix"] for p in out["problems"] if p["kind"] == "OUT")
     assert "win " in fix and "Bench Lion" in fix
+
+
+def test_a_rejected_cookie_is_refreshed_once_and_retried(monkeypatch):
+    """Rule inventory R163 (2026-10-15): the refresh lives in the client now."""
+    import io
+    import urllib.error
+    import urllib.request
+
+    calls = {"n": 0}
+
+    def fake_urlopen(req, timeout=60):
+        calls["n"] += 1
+        if calls["n"] == 1:
+            raise urllib.error.HTTPError(req.full_url, 401, "no", {}, io.BytesIO(b""))
+        assert "espn_s2=NEW" in req.headers.get("Cookie", "")
+        return io.BytesIO(b'{"ok": true}')
+
+    api = client.Espn.__new__(client.Espn)
+    api.creds = {"espn_s2": "OLD", "SWID": "{S}", "season": 2026, "league_id": 1}
+    client.Espn._refreshed = False
+
+    def fake_refresh(self):
+        client.Espn._refreshed = True
+        self.creds = {**self.creds, "espn_s2": "NEW"}
+        return True
+
+    monkeypatch.setattr(urllib.request, "urlopen", fake_urlopen)
+    monkeypatch.setattr(client.Espn, "_refresh_cookies", fake_refresh)
+    url = "https://lm-api-reads.fantasy.espn.com/apis/v3/games/ffl/seasons/2026"
+    assert api._get(url, api._auth()) == {"ok": True}
+    assert calls["n"] == 2
+    client.Espn._refreshed = False

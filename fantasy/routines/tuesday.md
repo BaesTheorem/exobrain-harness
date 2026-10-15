@@ -8,20 +8,19 @@ Follow `fantasy/routines/COMMON.md` first. If today is not Tuesday, stop.
    90% intervals and the mechanical baseline against the week's actuals;
    `fantasy/bin/forecast history` gives the season coverage and, from week 3,
    the per-source error ranking (which of ESPN, Sleeper, CBS, FantasyPros,
-   FFToday, the market and the consensus ran hot, by MAE); note it, and
-   weight a source down in your own judgment only after three weeks of it
-   losing. It also prints the weighted interval score (MIST against the
+   FFToday, the market and the consensus ran hot, by MAE); note it. Do not
+   reweight sources by hand: the consensus is an equal-weight mean, and hand
+   moves off it are on probation (playbook, 2026-10-15). It also prints the weighted interval score (MIST against the
    baseline on the same lines), where results landed in six slices of each
    forecast, and the closing line value of MIST's leans off the market;
    quote all three in the review. A landing row with more than 30% in one
    middle slice, or a lean that keeps pointing against the line's later
-   move, is a reasoning signal even when coverage looks right. Then judge each
+   move, is a reasoning signal even when coverage looks right (these alarm
+   thresholds are being tested for false alarms, rule inventory R88). Then judge each
    miss: was it variance inside a well-shaped band (log it, change nothing)
    or a reasoning error (a role read that was wrong, a source weighted
    wrongly, a band too narrow for the position)? Write the coverage numbers,
    the reasoning misses, and any rule change as the week's judgment:
-   Then `fantasy/bin/forecast calibrate` (about 15 seconds) so the tier
-   quantiles in the next dossier include the week just played.
    `fantasy/bin/forecast note --week <last week> --review "<text>"` renders
    it into that week's Review block at the top of its Season log section
    (the scorecard table above it is generated; never edit inside the
@@ -56,8 +55,8 @@ Follow `fantasy/routines/COMMON.md` first. If today is not Tuesday, stop.
 2. **Ledger.** `python3 fantasy/ledger.py settle`; note the running score in
    the Season log. Only settled ledger results may change how the board is
    built next year.
-3. **Waivers.** Claiming costs nothing here (priority resets weekly), so claim
-   whenever the wire beats the bench. **Start with `fantasy/bin/swap-scan`**
+3. **Waivers.** Priority resets weekly, so never hoard it; but a claim still
+   has to clear the gate. **Start with `fantasy/bin/swap-scan`**
    (Alex, 2026-09-20: actively monitor for these): it prices every
    bench-for-wire swap as `(add - drop) x horizon` (the regular-season weeks
    left plus weeks 15-17 at their `--leverage` weight, about 24 more) against
@@ -85,8 +84,8 @@ Follow `fantasy/routines/COMMON.md` first. If today is not Tuesday, stop.
    share; `volume player <name>` shows the weekly log), never by last week's points; committee backs who already
    have touches beat clean handcuffs; touchdowns on thin volume are a sell,
    heavy volume with bad touchdown luck is a buy. No second QB or TE. Drop the
-   lowest-value bench player (role first, then season projection) to make
-   room; never drop a starter. From week 5 on, value every player on
+   bench player `swap-scan` names for the swap (the lowest `ros_rate` that
+   fits the position limits); never drop a starter. From week 5 on, value every player on
    `ros_rate`: 0.45 weekly projection, 0.35 prior, 0.20 season points per
    game (backtest, 2026-10-15: better than the old 50/50 of prior and PPG in
    all 12 held-out season-weeks), weighting each week by its `--leverage`
@@ -95,8 +94,7 @@ Follow `fantasy/routines/COMMON.md` first. If today is not Tuesday, stop.
    never by one input alone. File up to two claims, best first:
    `fantasy/bin/espn-tx claim "<name>" --drop "<bench player>"` (no `--drop`
    when a slot is open), confirming `"verified": true`. If nothing beats the
-   bench, say so and file nothing. Week 7 is Daniels' bye: that week, claim a
-   streaming QB instead (the IR slot and a drop make room).
+   bench, say so and file nothing.
 
    **File in value order the first time. There is no undo.** ESPN's API does
    not expose claim order and has no working cancel route, so a mis-ordered
@@ -119,29 +117,10 @@ Follow `fantasy/routines/COMMON.md` first. If today is not Tuesday, stop.
    0 trades and accepted 0 of our 11 offers, so **write no new proposals and
    send no banner for one**. Plan every roster move on the roster we hold.
    An offer still pending stays up; incoming offers are the incident
-   routine's. The buy-low and sell-high reads below still feed the watch list
-   and the waiver and lineup calls. The rest of this step is the superseded
-   version, kept for the record (playbook *Corrections ledger*, 2026-10-11):
-   The edge is a leaguemate's recency and
-   endowment bias, so timing is the input: buy a volume player after a bad
-   week or two, sell a thin-volume touchdown scorer after a big one. Start
-   with `fantasy/bin/volume league --flag BUY` (rival players whose volume
-   rank beats their points rank: the buy-low list) and `--flag SELL` (ours
-   riding touchdowns on thin usage: the sell-high list), then `python3
-   fantasy/trade_scan.py --json --min-gain 10` for every 1-for-1 and 2-for-1
-   the other side does not lose on its own screen, priced in title and bye
-   odds through the season simulation, and `fantasy/bin/league-scan` for
-   who answers offers (a manager whose received offers all expired is not a
-   negotiation, he is a two-day wait). Write up to
-   two concrete proposals to the Season log with the volume evidence, then put
-   them to Alex as a `mist-notify` banner with Send / Skip buttons, built the
-   way COMMON.md rule 3 describes. **Not `mist-ask`**: it needs a Console
-   session the routine runner does not provide, so it exits nonzero here
-   (found 2026-09-16). Never send an offer yourself. Incoming offers are the incident routine's.
-   **Standing offers.** Read them from the playbook's *Trades > Standing
-   offers* list and follow the re-send conditions written there. That list is
-   the only source of offers you may send without asking; if it is empty,
-   send nothing.
+   routine's. The BUY and SELL flags (`fantasy/bin/volume league --flag
+   BUY|SELL`) still feed the watch list and the waiver and lineup calls. (The
+   old proposal procedure and the *Standing offers* list are in the
+   playbook's *Corrections ledger*, 2026-10-11, and its archive.)
    **Watch list.** `fantasy/watchlist.json` is the set of players and teams
    roster-watch tracks between runs, each with a `why` and a `trigger`.
    Review it: act on any trigger that has fired (the incidents file shows
@@ -173,9 +152,7 @@ Follow `fantasy/routines/COMMON.md` first. If today is not Tuesday, stop.
    moved, a role change confirmed by two weeks of volume) and say the reason
    (the playbook's probation rule, 2026-10-15: on weeks 2-5 hand moves lost
    to the consensus and the market). Anchor medians and widths on the tier
-   quantiles in the pack: the starter-tier median is about 0.9x the
-   projection (QB 0.88, RB 0.94, WR 0.92, TE 0.89, pooled 2024-2026) and
-   q25-q75 roughly 0.6x to 1.3x. File it with `fantasy/bin/forecast record /tmp/fc-mist.json
+   quantiles in the pack (`settle` rebuilds them each week). File it with `fantasy/bin/forecast record /tmp/fc-mist.json
    --dossier /tmp/fc-dossier.json`; it refuses a 50 outside its 90, a missing
    player, or a probability of 0 or 1, and it regenerates the playbook's
    Season log so the new week's Forecast table sits at the top of its

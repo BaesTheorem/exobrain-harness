@@ -1352,6 +1352,13 @@ def main(argv: list[str] | None = None) -> int:
             print(json.dumps(rec["settled"], indent=1))
         else:
             render_settled(rec)
+        # The tier quantiles in the next dossier include the week just played
+        # (rule inventory R174, 2026-10-15: it was a second command to remember).
+        try:
+            cur = api.current_week(api.league("mStatus"))
+            calibrate([api.season - 2, api.season - 1, api.season], {api.season: max(0, cur - 1)})
+        except Exception as e:  # noqa: BLE001 - a dead Sleeper feed must not undo a settle
+            print(f"forecast: calibrate after settle failed: {e}", file=sys.stderr)
         if not args.no_playbook:
             write_playbook(api)
             print("playbook updated")
