@@ -149,7 +149,7 @@ the site by hand.
   at `d_net` +1, at this week's exchange rate from `--leverage`),
   `opp_problems` and `win_if_opp_unfixed` (the opponent's holes, priced
   with the manager's measured fix rate from `league-scan`). Checked on
-  49,615 real Sleeper matchups: calibrated to about a point per decile. The
+  58,779 real Sleeper matchups: calibrated to about a point per decile. The
   variance rule is a number; the fill for a problem slot is chosen by it
 - `fantasy/ffmodel/`: the models under the tools, built from raw data
   (2026-10-15; its README holds every measurement): `nflraw` (league
@@ -186,8 +186,8 @@ the site by hand.
 - `python3 fantasy/trade_scan.py --json [--min-gain 10]` — every 1-for-1
   and 2-for-1 the other side does not lose on its own screen, priced in
   title and bye odds; `python3 fantasy/season_sim.py --json`: bye odds on
-  the results so far, as a band over tau 4-12, with team strength drifting 4
-  points a week (measured on 673 real Sleeper leagues, 2026-10-15). Both value rosters on `espncli.value.ros_rate`, the one
+  the results so far, as a band over tau 4-12, with team strength drifting 6
+  points a week (measured on 857 real Sleeper leagues, 2026-10-15). Both value rosters on `espncli.value.ros_rate`, the one
   in-season currency (before week 5 half prior, half weekly projection; from
   week 5 0.45 weekly projection, 0.35 prior, 0.20 PPG, backtested
   2026-10-15), because ESPN's `season_proj` alone prices August
@@ -492,17 +492,17 @@ so slot cannot be planned for. **90 seconds per pick.**
 
 ### The two settings that matter most
 
-**1. The first-round bye is worth about 11 points of title odds** (measured on
+**1. The first-round bye is worth about 8 points of title odds** (measured on
 the real league, 2026-10-15, `season_sim.py --leverage`; 13 on 10-14 before
 the measured drift). All playoff rounds are one week, so a bye removes one
-elimination game. Chaos Legion placed at seed 1 or 2 wins the title about 31%
-of the time and at seeds 3-6 about 20%.
+elimination game. Chaos Legion placed at seed 1 or 2 wins the title about 27%
+of the time and at seeds 3-6 about 18%.
 Quote the points, never a ratio: the ratio is 1/p, so the stronger the team,
 the smaller it gets (1.5x in the simulator, nearer 1.8x in 504 real Sleeper
 leagues, where the better seed won only 52.6% of playoff games). Seed 1
 against seed 2 is worth at most about 2 points, so never pay for the 1 seed.
-A regular-season win moves the title odds about 3 points, while a point
-scored in week 16 or 17 is worth about 9-10x a point in a regular-season week,
+A regular-season win moves the title odds about 2.5 points, while a point
+scored in week 16 or 17 is worth about 10-11x a point in a regular-season week,
 because those are elimination games. **Play for the bye with the lineup;
 build the roster for weeks 16-17.** Six of 13 teams make the playoffs, so a
 berth is not the thing to optimize, and the seeding tiebreak is total points
@@ -867,7 +867,7 @@ Always check the projected margin before answering a start/sit question. The sam
 two players produce opposite recommendations depending on which side of the
 matchup Alex is on. In this system the rule is a number: `espn check` computes
 P(win) for every legal swap and `d_net` decides (playbook *The variance rule*).
-Measured 2026-10-15: that win probability is calibrated on 49,615 real Sleeper
+Measured 2026-10-15: that win probability is calibrated on 58,779 real Sleeper
 matchups; a player's own spread is not a stable trait (split-half r 0.03), so
 the spread comes from position and projection tier only; and same-game
 correlations (a QB and his WR1 +0.39) matter for stacked lineups. Over weeks 1-5

@@ -115,14 +115,15 @@ lineup and the forecast.
 `fantasy/research/sleeper_validation.py` tests the models on hundreds of
 public Sleeper leagues (2024-2025) that played no part in fitting them.
 
-- **Win probability:** on 49,615 regular-season matchups in 637 leagues,
+- **Win probability:** on 58,779 regular-season matchups in 754 leagues,
   the `espn check` model (Sleeper projections scored on each league's own
   rules, the CV_TABLE spreads) is calibrated to about one point in every
   decile (Brier 0.202). Correlations change nothing there, because real
   lineups seldom stack.
-- **Bye odds:** from the week-5 standings of 673 leagues, a fixed-strength
-  season model was overconfident about the leaders (0.55 predicted, 0.46
-  observed). A 4-point weekly drift in team strength fixes most of it, and
+- **Bye odds:** from the week-5 standings of 857 leagues, a fixed-strength
+  season model was overconfident about the leaders (0.55 predicted, 0.47
+  observed; 0.65 against 0.55). A 6-point weekly drift in team strength
+  brings those to 0.54 and 0.64 with the best Brier score, and
   `season_sim.py` now uses it.
 
 ## Commands
