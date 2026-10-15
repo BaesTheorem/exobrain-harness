@@ -13,13 +13,15 @@ Follow `fantasy/routines/COMMON.md` first. If today is not Tuesday, stop.
    moves off it are on probation (playbook, 2026-10-15). It also prints the weighted interval score (MIST against the
    baseline on the same lines), where results landed in six slices of each
    forecast, and the closing line value of MIST's leans off the market;
-   quote all three in the review. A landing row with more than 30% in one
-   middle slice, or a lean that keeps pointing against the line's later
-   move, is a reasoning signal even when coverage looks right. Then
+   quote all three in the review. Two alarms, sized so a calibrated
+   forecaster trips them about 1 season in 20 (backtest R88, 2026-10-15):
+   season-to-date 50% coverage outside 0.50 +/- 1.25 / sqrt(lines), checked
+   from week 3; and from week 6, one middle landing slice at 35% or more.
+   A lean that keeps pointing against the line's later move is a reasoning
+   signal too. Then
    `cd fantasy && python3 -m ffmodel.fpranks score`: MIST's ranks against
    FantasyPros' consensus on FantasyPros' own method, every saved week
-   (lower is better for MIST); quote last week and the running mean (these alarm
-   thresholds are being tested for false alarms, rule inventory R88). Then judge each
+   (lower is better for MIST); quote last week and the running mean. Then judge each
    miss: was it variance inside a well-shaped band (log it, change nothing)
    or a reasoning error (a role read that was wrong, a source weighted
    wrongly, a band too narrow for the position)? Write the coverage numbers,

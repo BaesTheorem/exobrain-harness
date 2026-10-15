@@ -10,6 +10,8 @@ import importlib.util
 import sys
 from pathlib import Path
 
+import pytest
+
 REPO = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(REPO / "fantasy"))
 _loader = importlib.machinery.SourceFileLoader("swap_scan", str(REPO / "fantasy" / "bin" / "swap-scan"))
@@ -115,9 +117,14 @@ def test_a_backup_qb_is_priced_on_the_weeks_he_starts():
     ros = roster() + [r("Bench QB", "QB", 20, 12.0, 200.0)]
     out = swap_scan.scan(5, ros, pool(), position_max={"QB": 4}, backup_weeks={"QB": 2})
     qb = {s["drop"]: s for s in out["swaps"]}["Bench QB"]
-    assert qb["weeks"] == 2 and out["remaining_weeks"] == 9
+    # two starter byes plus the measured 13% injury share (2026-10-15), in horizon units
+    want = round(2 + swap_scan.BACKUP_START_REG * 9 + swap_scan.BACKUP_START_PO * swap_scan.PLAYOFF_UNITS, 1)
+    assert qb["weeks"] == want and out["remaining_weeks"] == 9
     free = next(c for c in qb["candidates"] if c["add"] == "Free QB")
-    assert free["gain"] < out["gate"], "a backup upgrade must not clear the season gate"
+    # priced on the backup's weeks, not the season: a fraction of the full-horizon gap
+    full = (free["add_rate"] - qb["drop_rate"]) * out["horizon"]
+    assert free["gain"] == pytest.approx((free["add_rate"] - qb["drop_rate"]) * want, abs=0.2)
+    assert free["gain"] < full / 3, "a backup upgrade is priced on the weeks he starts"
     assert out["horizon"] == 9 + swap_scan.PLAYOFF_UNITS
     assert {s["drop"]: s for s in out["swaps"]}["Bench WR"]["weeks"] == out["horizon"], "skill drops keep the full horizon"
 
@@ -126,13 +133,14 @@ def test_the_gate_does_not_choke_in_the_last_regular_season_weeks():
     """2026-10-14: the value stopped at week 14, so by week 13 a swap needed +20
     a game to clear +20. The playoff weeks are where the roster's value is, so
     the horizon counts them and the gate is per game: the planted +6 a game
-    still passes in week 13, and a +1 a game swap still does not."""
-    small = r("Small WR", "WR", 20, 7.0, 117.0)   # about +1 a game over the bench WR
+    still passes in week 13, and a swap under the gate (1.0 a game since the
+    2026-10-15 backtest) still does not."""
+    small = r("Small WR", "WR", 20, 6.5, 108.0)   # about +0.5 a game over the bench WR
     out = swap_scan.scan(13, roster(), [*pool(), small], position_max={"WR": 8, "TE": 3, "QB": 4})
     cands = {c["add"]: c for c in {s["drop"]: s for s in out["swaps"]}["Bench WR"]["candidates"]}
     assert out["remaining_weeks"] == 1 and out["horizon"] > 20
     assert cands["Hot WR"]["gain"] >= out["gate"], "a real upgrade in week 13 must still clear"
-    assert cands["Small WR"]["gain"] < out["gate"], "a +1 a game swap is noise at any horizon"
+    assert cands["Small WR"]["gain"] < out["gate"], "a swap under the per-game gate fails at any horizon"
 
 
 def test_playoff_units_come_from_a_fresh_leverage_run(tmp_path):

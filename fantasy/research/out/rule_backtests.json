@@ -4807,5 +4807,4190 @@
    }
   },
   "run_at": "2026-10-15T10:46"
+ },
+ "gate_r74": {
+  "expect": "A ros_rate gap keeps its sign about 60% of the time at 1 point a game and 80% near 3-4 points; realized gaps are about half the predicted ones; at a cost of 0 the best gate is under 1 point, so 2.5 trades gain for certainty.",
+  "rule_in_tool": {
+   "GATE_PER_GAME": 2.5
+  },
+  "bands": {
+   "bench_ranks": {
+    "QB": [
+     14,
+     20
+    ],
+    "RB": [
+     34,
+     55
+    ],
+    "WR": [
+     34,
+     65
+    ],
+    "TE": [
+     14,
+     20
+    ]
+   },
+   "wire_from_rank": {
+    "QB": 21,
+    "RB": 56,
+    "WR": 66,
+    "TE": 21
+   }
+  },
+  "realized": "PPG over games played in weeks w-17 (both players 2+ games); points_per_team_game counts a missed game as 0",
+  "prior_pre": {
+   "player_weeks": 21402,
+   "pairs": 9137,
+   "ppg_per_game_played": {
+    "n_pairs": 9137,
+    "bins": {
+     "0-0.5": {
+      "n": 2430,
+      "mean_pred": 0.24,
+      "sign_rate": 0.571,
+      "sign_ci95": [
+       0.505,
+       0.644
+      ],
+      "mean_realized": 0.89,
+      "mean_ci95": [
+       0.15,
+       1.7
+      ]
+     },
+     "0.5-1": {
+      "n": 1753,
+      "mean_pred": 0.74,
+      "sign_rate": 0.608,
+      "sign_ci95": [
+       0.535,
+       0.69
+      ],
+      "mean_realized": 1.51,
+      "mean_ci95": [
+       0.63,
+       2.62
+      ]
+     },
+     "1-1.5": {
+      "n": 1369,
+      "mean_pred": 1.24,
+      "sign_rate": 0.665,
+      "sign_ci95": [
+       0.589,
+       0.744
+      ],
+      "mean_realized": 2.17,
+      "mean_ci95": [
+       1.27,
+       3.33
+      ]
+     },
+     "1.5-2": {
+      "n": 1070,
+      "mean_pred": 1.74,
+      "sign_rate": 0.72,
+      "sign_ci95": [
+       0.626,
+       0.804
+      ],
+      "mean_realized": 2.9,
+      "mean_ci95": [
+       1.75,
+       4.43
+      ]
+     },
+     "2-2.5": {
+      "n": 760,
+      "mean_pred": 2.23,
+      "sign_rate": 0.755,
+      "sign_ci95": [
+       0.66,
+       0.848
+      ],
+      "mean_realized": 3.48,
+      "mean_ci95": [
+       2.38,
+       4.76
+      ]
+     },
+     "2.5-3": {
+      "n": 496,
+      "mean_pred": 2.74,
+      "sign_rate": 0.817,
+      "sign_ci95": [
+       0.711,
+       0.89
+      ],
+      "mean_realized": 4.05,
+      "mean_ci95": [
+       2.61,
+       5.36
+      ]
+     },
+     "3-3.5": {
+      "n": 392,
+      "mean_pred": 3.23,
+      "sign_rate": 0.788,
+      "sign_ci95": [
+       0.651,
+       0.89
+      ],
+      "mean_realized": 4.43,
+      "mean_ci95": [
+       2.58,
+       6.6
+      ]
+     },
+     "3.5-4": {
+      "n": 255,
+      "mean_pred": 3.74,
+      "sign_rate": 0.831,
+      "sign_ci95": [
+       0.704,
+       0.922
+      ],
+      "mean_realized": 4.89,
+      "mean_ci95": [
+       2.83,
+       7.7
+      ]
+     },
+     "4-5": {
+      "n": 335,
+      "mean_pred": 4.44,
+      "sign_rate": 0.907,
+      "sign_ci95": [
+       0.815,
+       0.976
+      ],
+      "mean_realized": 6.75,
+      "mean_ci95": [
+       4.17,
+       9.73
+      ]
+     },
+     "5-6": {
+      "n": 175,
+      "mean_pred": 5.38,
+      "sign_rate": 0.909,
+      "sign_ci95": [
+       0.757,
+       1.0
+      ],
+      "mean_realized": 6.88,
+      "mean_ci95": [
+       3.02,
+       11.11
+      ]
+     },
+     "6-8": {
+      "n": 93,
+      "mean_pred": 6.69,
+      "sign_rate": 0.935,
+      "sign_ci95": [
+       0.808,
+       1.0
+      ],
+      "mean_realized": 8.88,
+      "mean_ci95": [
+       3.36,
+       14.78
+      ]
+     }
+    },
+    "gate_80_logistic": 2.9,
+    "gate_80_ci95": [
+     2.08,
+     4.02
+    ],
+    "gate_80_first_bin": "2.5-3",
+    "realized_on_predicted": {
+     "intercept": 0.653,
+     "slope": 1.221,
+     "slope_ci95": [
+      0.793,
+      1.758
+     ]
+    },
+    "best_gate_by_cost": {
+     "cost_0": {
+      "best_gate": 0.0,
+      "best_gate_ci95": [
+       0.0,
+       0.25
+      ],
+      "net_gain_per_slate_at_best": 634.89,
+      "net_gain_per_slate_at_2.5": 259.06,
+      "linear_marginal_gate": 0.0
+     },
+     "cost_0.5": {
+      "best_gate": 0.0,
+      "best_gate_ci95": [
+       0.0,
+       0.5
+      ],
+      "net_gain_per_slate_at_best": 507.99,
+      "net_gain_per_slate_at_2.5": 234.69,
+      "linear_marginal_gate": 0.0
+     },
+     "cost_1": {
+      "best_gate": 0.25,
+      "best_gate_ci95": [
+       0.0,
+       1.0
+      ],
+      "net_gain_per_slate_at_best": 391.29,
+      "net_gain_per_slate_at_2.5": 210.31,
+      "linear_marginal_gate": 0.28
+     }
+    },
+    "net_gain_per_slate_at_gate": {
+     "cost_0": {
+      "0": 634.9,
+      "1": 501.2,
+      "1.5": 418.9,
+      "2": 332.5,
+      "2.5": 259.1,
+      "3": 203.3,
+      "4": 120.5,
+      "5": 57.7
+     },
+     "cost_0.5": {
+      "0": 508.0,
+      "1": 432.4,
+      "1.5": 369.1,
+      "2": 297.6,
+      "2.5": 234.7,
+      "3": 185.8,
+      "4": 112.0,
+      "5": 53.8
+     },
+     "cost_1": {
+      "0": 381.1,
+      "1": 363.6,
+      "1.5": 319.3,
+      "2": 262.7,
+      "2.5": 210.3,
+      "3": 168.4,
+      "4": 103.5,
+      "5": 50.0
+     }
+    },
+    "moves_per_slate_at_gate": {
+     "0": 253.8,
+     "1": 137.6,
+     "1.5": 99.6,
+     "2": 69.9,
+     "2.5": 48.8,
+     "3": 35.0,
+     "4": 17.0,
+     "5": 7.7
+    }
+   },
+   "points_per_team_game": {
+    "n_pairs": 9137,
+    "bins": {
+     "0-0.5": {
+      "n": 2430,
+      "mean_pred": 0.24,
+      "sign_rate": 0.57,
+      "sign_ci95": [
+       0.497,
+       0.636
+      ],
+      "mean_realized": 0.85,
+      "mean_ci95": [
+       0.1,
+       1.54
+      ]
+     },
+     "0.5-1": {
+      "n": 1753,
+      "mean_pred": 0.74,
+      "sign_rate": 0.605,
+      "sign_ci95": [
+       0.52,
+       0.683
+      ],
+      "mean_realized": 1.38,
+      "mean_ci95": [
+       0.44,
+       2.28
+      ]
+     },
+     "1-1.5": {
+      "n": 1369,
+      "mean_pred": 1.24,
+      "sign_rate": 0.656,
+      "sign_ci95": [
+       0.566,
+       0.732
+      ],
+      "mean_realized": 1.98,
+      "mean_ci95": [
+       1.0,
+       2.86
+      ]
+     },
+     "1.5-2": {
+      "n": 1070,
+      "mean_pred": 1.74,
+      "sign_rate": 0.693,
+      "sign_ci95": [
+       0.6,
+       0.779
+      ],
+      "mean_realized": 2.37,
+      "mean_ci95": [
+       1.38,
+       3.37
+      ]
+     },
+     "2-2.5": {
+      "n": 760,
+      "mean_pred": 2.23,
+      "sign_rate": 0.737,
+      "sign_ci95": [
+       0.632,
+       0.827
+      ],
+      "mean_realized": 2.98,
+      "mean_ci95": [
+       1.78,
+       4.06
+      ]
+     },
+     "2.5-3": {
+      "n": 496,
+      "mean_pred": 2.74,
+      "sign_rate": 0.798,
+      "sign_ci95": [
+       0.681,
+       0.889
+      ],
+      "mean_realized": 3.72,
+      "mean_ci95": [
+       2.22,
+       5.05
+      ]
+     },
+     "3-3.5": {
+      "n": 392,
+      "mean_pred": 3.23,
+      "sign_rate": 0.763,
+      "sign_ci95": [
+       0.628,
+       0.866
+      ],
+      "mean_realized": 3.87,
+      "mean_ci95": [
+       2.11,
+       5.44
+      ]
+     },
+     "3.5-4": {
+      "n": 255,
+      "mean_pred": 3.74,
+      "sign_rate": 0.831,
+      "sign_ci95": [
+       0.698,
+       0.928
+      ],
+      "mean_realized": 4.6,
+      "mean_ci95": [
+       2.81,
+       6.29
+      ]
+     },
+     "4-5": {
+      "n": 335,
+      "mean_pred": 4.44,
+      "sign_rate": 0.887,
+      "sign_ci95": [
+       0.763,
+       0.964
+      ],
+      "mean_realized": 5.74,
+      "mean_ci95": [
+       3.71,
+       7.81
+      ]
+     },
+     "5-6": {
+      "n": 175,
+      "mean_pred": 5.38,
+      "sign_rate": 0.874,
+      "sign_ci95": [
+       0.686,
+       0.99
+      ],
+      "mean_realized": 6.06,
+      "mean_ci95": [
+       2.52,
+       9.01
+      ]
+     },
+     "6-8": {
+      "n": 93,
+      "mean_pred": 6.69,
+      "sign_rate": 0.903,
+      "sign_ci95": [
+       0.689,
+       1.0
+      ],
+      "mean_realized": 7.28,
+      "mean_ci95": [
+       1.64,
+       11.22
+      ]
+     }
+    },
+    "gate_80_logistic": 3.27,
+    "gate_80_ci95": [
+     2.01,
+     6.1
+    ],
+    "gate_80_first_bin": "3.5-4",
+    "realized_on_predicted": {
+     "intercept": 0.634,
+     "slope": 1.042,
+     "slope_ci95": [
+      0.632,
+      1.503
+     ]
+    },
+    "best_gate_by_cost": {
+     "cost_0": {
+      "best_gate": 0.0,
+      "best_gate_ci95": [
+       0.0,
+       0.25
+      ],
+      "net_gain_per_slate_at_best": 561.58,
+      "net_gain_per_slate_at_2.5": 228.73,
+      "linear_marginal_gate": 0.0
+     },
+     "cost_0.5": {
+      "best_gate": 0.0,
+      "best_gate_ci95": [
+       0.0,
+       0.5125000000000028
+      ],
+      "net_gain_per_slate_at_best": 434.67,
+      "net_gain_per_slate_at_2.5": 204.35,
+      "linear_marginal_gate": 0.0
+     },
+     "cost_1": {
+      "best_gate": 0.5,
+      "best_gate_ci95": [
+       0.0,
+       1.25
+      ],
+      "net_gain_per_slate_at_best": 318.17,
+      "net_gain_per_slate_at_2.5": 179.98,
+      "linear_marginal_gate": 0.35
+     }
+    },
+    "net_gain_per_slate_at_gate": {
+     "cost_0": {
+      "0": 561.6,
+      "1": 437.3,
+      "1.5": 362.1,
+      "2": 291.5,
+      "2.5": 228.7,
+      "3": 177.5,
+      "4": 102.8,
+      "5": 49.3
+     },
+     "cost_0.5": {
+      "0": 434.7,
+      "1": 368.5,
+      "1.5": 312.3,
+      "2": 256.6,
+      "2.5": 204.4,
+      "3": 160.0,
+      "4": 94.3,
+      "5": 45.5
+     },
+     "cost_1": {
+      "0": 307.8,
+      "1": 299.7,
+      "1.5": 262.5,
+      "2": 221.7,
+      "2.5": 180.0,
+      "3": 142.5,
+      "4": 85.8,
+      "5": 41.6
+     }
+    },
+    "moves_per_slate_at_gate": {
+     "0": 253.8,
+     "1": 137.6,
+     "1.5": 99.6,
+     "2": 69.9,
+     "2.5": 48.8,
+     "3": 35.0,
+     "4": 17.0,
+     "5": 7.7
+    }
+   },
+   "calibration_around_zero": {
+    "-2 to -1.5": {
+     "n": 5496,
+     "mean_realized": -1.28,
+     "ci95": [
+      -1.88,
+      -0.76
+     ],
+     "sign_rate": 0.373
+    },
+    "-1.5 to -1": {
+     "n": 4724,
+     "mean_realized": -0.75,
+     "ci95": [
+      -1.42,
+      -0.19
+     ],
+     "sign_rate": 0.43
+    },
+    "-1 to -0.5": {
+     "n": 3685,
+     "mean_realized": -0.32,
+     "ci95": [
+      -0.96,
+      0.28
+     ],
+     "sign_rate": 0.479
+    },
+    "-0.5 to 0": {
+     "n": 3044,
+     "mean_realized": 0.34,
+     "ci95": [
+      -0.39,
+      0.98
+     ],
+     "sign_rate": 0.527
+    },
+    "0 to 0.5": {
+     "n": 2431,
+     "mean_realized": 0.89,
+     "ci95": [
+      0.17,
+      1.57
+     ],
+     "sign_rate": 0.571
+    },
+    "0.5 to 1": {
+     "n": 1753,
+     "mean_realized": 1.51,
+     "ci95": [
+      0.64,
+      2.46
+     ],
+     "sign_rate": 0.608
+    },
+    "1 to 1.5": {
+     "n": 1369,
+     "mean_realized": 2.17,
+     "ci95": [
+      1.03,
+      3.22
+     ],
+     "sign_rate": 0.665
+    },
+    "1.5 to 2": {
+     "n": 1070,
+     "mean_realized": 2.9,
+     "ci95": [
+      1.68,
+      4.35
+     ],
+     "sign_rate": 0.72
+    }
+   },
+   "by_pos": {
+    "QB": {
+     "n_pairs": 428,
+     "gate_80_logistic": 2.49,
+     "gate_80_ci95": [
+      0.92,
+      null
+     ],
+     "realized_on_predicted": {
+      "intercept": -1.361,
+      "slope": 2.421,
+      "slope_ci95": [
+       0.21,
+       3.84
+      ]
+     },
+     "best_gate_cost_0.5": 0.5
+    },
+    "RB": {
+     "n_pairs": 3216,
+     "gate_80_logistic": 2.51,
+     "gate_80_ci95": [
+      1.25,
+      5.84
+     ],
+     "realized_on_predicted": {
+      "intercept": 0.719,
+      "slope": 1.257,
+      "slope_ci95": [
+       0.491,
+       2.101
+      ]
+     },
+     "best_gate_cost_0.5": 0.0
+    },
+    "WR": {
+     "n_pairs": 4879,
+     "gate_80_logistic": 3.07,
+     "gate_80_ci95": [
+      1.7,
+      7.05
+     ],
+     "realized_on_predicted": {
+      "intercept": 0.826,
+      "slope": 1.127,
+      "slope_ci95": [
+       0.499,
+       1.571
+      ]
+     },
+     "best_gate_cost_0.5": 0.0
+    },
+    "TE": {
+     "n_pairs": 614,
+     "gate_80_logistic": 7.63,
+     "gate_80_ci95": [
+      0.79,
+      null
+     ],
+     "realized_on_predicted": {
+      "intercept": 0.737,
+      "slope": 0.617,
+      "slope_ci95": [
+       -2.043,
+       3.237
+      ]
+     },
+     "best_gate_cost_0.5": 0.25
+    }
+   },
+   "realistic_pairs": {
+    "n_pairs": 5936,
+    "bins": {
+     "0-0.5": {
+      "n": 1188,
+      "mean_pred": 0.25,
+      "sign_rate": 0.548,
+      "sign_ci95": [
+       0.457,
+       0.634
+      ],
+      "mean_realized": 0.5,
+      "mean_ci95": [
+       -0.55,
+       1.41
+      ]
+     },
+     "0.5-1": {
+      "n": 1036,
+      "mean_pred": 0.74,
+      "sign_rate": 0.607,
+      "sign_ci95": [
+       0.527,
+       0.695
+      ],
+      "mean_realized": 1.65,
+      "mean_ci95": [
+       0.66,
+       2.78
+      ]
+     },
+     "1-1.5": {
+      "n": 846,
+      "mean_pred": 1.24,
+      "sign_rate": 0.655,
+      "sign_ci95": [
+       0.561,
+       0.737
+      ],
+      "mean_realized": 2.13,
+      "mean_ci95": [
+       1.05,
+       3.21
+      ]
+     },
+     "1.5-2": {
+      "n": 776,
+      "mean_pred": 1.75,
+      "sign_rate": 0.718,
+      "sign_ci95": [
+       0.62,
+       0.805
+      ],
+      "mean_realized": 2.92,
+      "mean_ci95": [
+       1.63,
+       4.36
+      ]
+     },
+     "2-2.5": {
+      "n": 602,
+      "mean_pred": 2.24,
+      "sign_rate": 0.748,
+      "sign_ci95": [
+       0.643,
+       0.835
+      ],
+      "mean_realized": 3.47,
+      "mean_ci95": [
+       2.21,
+       4.9
+      ]
+     },
+     "2.5-3": {
+      "n": 376,
+      "mean_pred": 2.75,
+      "sign_rate": 0.809,
+      "sign_ci95": [
+       0.719,
+       0.889
+      ],
+      "mean_realized": 3.96,
+      "mean_ci95": [
+       2.48,
+       5.2
+      ]
+     },
+     "3-3.5": {
+      "n": 331,
+      "mean_pred": 3.24,
+      "sign_rate": 0.773,
+      "sign_ci95": [
+       0.624,
+       0.871
+      ],
+      "mean_realized": 3.97,
+      "mean_ci95": [
+       2.13,
+       5.44
+      ]
+     },
+     "3.5-4": {
+      "n": 219,
+      "mean_pred": 3.74,
+      "sign_rate": 0.822,
+      "sign_ci95": [
+       0.689,
+       0.929
+      ],
+      "mean_realized": 4.41,
+      "mean_ci95": [
+       2.72,
+       6.15
+      ]
+     },
+     "4-5": {
+      "n": 297,
+      "mean_pred": 4.45,
+      "sign_rate": 0.912,
+      "sign_ci95": [
+       0.835,
+       0.975
+      ],
+      "mean_realized": 6.5,
+      "mean_ci95": [
+       4.5,
+       9.02
+      ]
+     },
+     "5-6": {
+      "n": 163,
+      "mean_pred": 5.39,
+      "sign_rate": 0.902,
+      "sign_ci95": [
+       0.724,
+       1.0
+      ],
+      "mean_realized": 6.8,
+      "mean_ci95": [
+       3.26,
+       10.33
+      ]
+     },
+     "6-8": {
+      "n": 93,
+      "mean_pred": 6.69,
+      "sign_rate": 0.935,
+      "sign_ci95": [
+       0.752,
+       1.0
+      ],
+      "mean_realized": 8.88,
+      "mean_ci95": [
+       3.33,
+       15.56
+      ]
+     }
+    },
+    "gate_80_logistic": 2.99,
+    "gate_80_ci95": [
+     2.08,
+     5.0
+    ],
+    "gate_80_first_bin": "2.5-3",
+    "realized_on_predicted": {
+     "intercept": 0.567,
+     "slope": 1.202,
+     "slope_ci95": [
+      0.651,
+      1.761
+     ]
+    },
+    "best_gate_by_cost": {
+     "cost_0": {
+      "best_gate": 0.0,
+      "best_gate_ci95": [
+       0.0,
+       0.5
+      ],
+      "net_gain_per_slate_at_best": 448.52,
+      "net_gain_per_slate_at_2.5": 213.32,
+      "linear_marginal_gate": 0.0
+     },
+     "cost_0.5": {
+      "best_gate": 0.25,
+      "best_gate_ci95": [
+       0.0,
+       0.75
+      ],
+      "net_gain_per_slate_at_best": 368.96,
+      "net_gain_per_slate_at_2.5": 192.65,
+      "linear_marginal_gate": 0.0
+     },
+     "cost_1": {
+      "best_gate": 0.5,
+      "best_gate_ci95": [
+       0.0,
+       1.25
+      ],
+      "net_gain_per_slate_at_best": 300.2,
+      "net_gain_per_slate_at_2.5": 171.99,
+      "linear_marginal_gate": 0.36
+     }
+    },
+    "net_gain_per_slate_at_gate": {
+     "cost_0": {
+      "0": 448.5,
+      "1": 384.5,
+      "1.5": 334.4,
+      "2": 271.4,
+      "2.5": 213.3,
+      "3": 171.9,
+      "4": 108.6,
+      "5": 55.0
+     },
+     "cost_0.5": {
+      "0": 366.1,
+      "1": 333.0,
+      "1.5": 294.6,
+      "2": 242.4,
+      "2.5": 192.7,
+      "3": 156.5,
+      "4": 100.8,
+      "5": 51.3
+     },
+     "cost_1": {
+      "0": 283.6,
+      "1": 281.4,
+      "1.5": 254.8,
+      "2": 213.4,
+      "2.5": 172.0,
+      "3": 141.0,
+      "4": 93.0,
+      "5": 47.6
+     }
+    },
+    "moves_per_slate_at_gate": {
+     "0": 164.9,
+     "1": 103.1,
+     "1.5": 79.6,
+     "2": 58.1,
+     "2.5": 41.3,
+     "3": 30.9,
+     "4": 15.6,
+     "5": 7.4
+    }
+   },
+   "controls": {
+    "planted_noise_sd": 5.1,
+    "planted_gate80": 4.47,
+    "planted_gate80_theory": 4.3,
+    "shuffled_sign_rate_by_bin": {
+     "0-0.5": 0.492,
+     "0.5-1": 0.485,
+     "1-1.5": 0.487,
+     "1.5-2": 0.517,
+     "2-2.5": 0.486,
+     "2.5-3": 0.511,
+     "3-3.5": 0.545,
+     "3.5-4": 0.487,
+     "4-5": 0.504,
+     "5-6": 0.572,
+     "6-8": 0.544
+    },
+    "shuffled_gate80": 41.11
+   }
+  },
+  "prior_ros": {
+   "player_weeks": 20111,
+   "pairs": 14264,
+   "ppg_per_game_played": {
+    "n_pairs": 14264,
+    "bins": {
+     "0-0.5": {
+      "n": 2628,
+      "mean_pred": 0.24,
+      "sign_rate": 0.482,
+      "sign_ci95": [
+       0.416,
+       0.546
+      ],
+      "mean_realized": -0.25,
+      "mean_ci95": [
+       -0.92,
+       0.46
+      ]
+     },
+     "0.5-1": {
+      "n": 2178,
+      "mean_pred": 0.74,
+      "sign_rate": 0.522,
+      "sign_ci95": [
+       0.455,
+       0.59
+      ],
+      "mean_realized": 0.24,
+      "mean_ci95": [
+       -0.51,
+       0.96
+      ]
+     },
+     "1-1.5": {
+      "n": 1875,
+      "mean_pred": 1.24,
+      "sign_rate": 0.536,
+      "sign_ci95": [
+       0.462,
+       0.611
+      ],
+      "mean_realized": 0.48,
+      "mean_ci95": [
+       -0.32,
+       1.23
+      ]
+     },
+     "1.5-2": {
+      "n": 1512,
+      "mean_pred": 1.74,
+      "sign_rate": 0.571,
+      "sign_ci95": [
+       0.493,
+       0.643
+      ],
+      "mean_realized": 0.79,
+      "mean_ci95": [
+       -0.16,
+       1.71
+      ]
+     },
+     "2-2.5": {
+      "n": 1250,
+      "mean_pred": 2.25,
+      "sign_rate": 0.609,
+      "sign_ci95": [
+       0.526,
+       0.694
+      ],
+      "mean_realized": 1.36,
+      "mean_ci95": [
+       0.37,
+       2.31
+      ]
+     },
+     "2.5-3": {
+      "n": 1031,
+      "mean_pred": 2.74,
+      "sign_rate": 0.664,
+      "sign_ci95": [
+       0.569,
+       0.754
+      ],
+      "mean_realized": 1.93,
+      "mean_ci95": [
+       0.9,
+       3.01
+      ]
+     },
+     "3-3.5": {
+      "n": 805,
+      "mean_pred": 3.25,
+      "sign_rate": 0.697,
+      "sign_ci95": [
+       0.605,
+       0.775
+      ],
+      "mean_realized": 2.64,
+      "mean_ci95": [
+       1.6,
+       3.99
+      ]
+     },
+     "3.5-4": {
+      "n": 651,
+      "mean_pred": 3.74,
+      "sign_rate": 0.725,
+      "sign_ci95": [
+       0.625,
+       0.813
+      ],
+      "mean_realized": 2.95,
+      "mean_ci95": [
+       1.75,
+       4.58
+      ]
+     },
+     "4-5": {
+      "n": 902,
+      "mean_pred": 4.46,
+      "sign_rate": 0.765,
+      "sign_ci95": [
+       0.661,
+       0.86
+      ],
+      "mean_realized": 3.68,
+      "mean_ci95": [
+       2.46,
+       5.17
+      ]
+     },
+     "5-6": {
+      "n": 539,
+      "mean_pred": 5.45,
+      "sign_rate": 0.801,
+      "sign_ci95": [
+       0.7,
+       0.898
+      ],
+      "mean_realized": 4.32,
+      "mean_ci95": [
+       3.03,
+       6.16
+      ]
+     },
+     "6-8": {
+      "n": 522,
+      "mean_pred": 6.88,
+      "sign_rate": 0.877,
+      "sign_ci95": [
+       0.773,
+       0.954
+      ],
+      "mean_realized": 6.01,
+      "mean_ci95": [
+       4.16,
+       8.31
+      ]
+     },
+     "8-99": {
+      "n": 371,
+      "mean_pred": 9.52,
+      "sign_rate": 0.919,
+      "sign_ci95": [
+       0.742,
+       0.996
+      ],
+      "mean_realized": 8.3,
+      "mean_ci95": [
+       3.19,
+       12.05
+      ]
+     }
+    },
+    "gate_80_logistic": 5.28,
+    "gate_80_ci95": [
+     3.79,
+     7.18
+    ],
+    "gate_80_first_bin": "5-6",
+    "realized_on_predicted": {
+     "intercept": -0.579,
+     "slope": 0.933,
+     "slope_ci95": [
+      0.666,
+      1.282
+     ]
+    },
+    "best_gate_by_cost": {
+     "cost_0": {
+      "best_gate": 0.5,
+      "best_gate_ci95": [
+       0.0,
+       2.0
+      ],
+      "net_gain_per_slate_at_best": 617.43,
+      "net_gain_per_slate_at_2.5": 497.42,
+      "linear_marginal_gate": 0.62
+     },
+     "cost_0.5": {
+      "best_gate": 1.5,
+      "best_gate_ci95": [
+       0.25,
+       2.75
+      ],
+      "net_gain_per_slate_at_best": 472.55,
+      "net_gain_per_slate_at_2.5": 430.46,
+      "linear_marginal_gate": 1.16
+     },
+     "cost_1": {
+      "best_gate": 2.0,
+      "best_gate_ci95": [
+       1.0,
+       2.75
+      ],
+      "net_gain_per_slate_at_best": 375.86,
+      "net_gain_per_slate_at_2.5": 363.5,
+      "linear_marginal_gate": 1.69
+     }
+    },
+    "net_gain_per_slate_at_gate": {
+     "cost_0": {
+      "0": 599.2,
+      "1": 602.8,
+      "1.5": 577.9,
+      "2": 544.5,
+      "2.5": 497.4,
+      "3": 442.2,
+      "4": 329.7,
+      "5": 237.4
+     },
+     "cost_0.5": {
+      "0": 401.0,
+      "1": 471.4,
+      "1.5": 472.5,
+      "2": 460.2,
+      "2.5": 430.5,
+      "3": 389.6,
+      "4": 297.3,
+      "5": 217.5
+     },
+     "cost_1": {
+      "0": 202.9,
+      "1": 340.1,
+      "1.5": 367.2,
+      "2": 375.9,
+      "2.5": 363.5,
+      "3": 336.9,
+      "4": 264.9,
+      "5": 197.6
+     }
+    },
+    "moves_per_slate_at_gate": {
+     "0": 396.2,
+     "1": 262.7,
+     "1.5": 210.6,
+     "2": 168.6,
+     "2.5": 133.9,
+     "3": 105.3,
+     "4": 64.8,
+     "5": 39.8
+    }
+   },
+   "points_per_team_game": {
+    "n_pairs": 14264,
+    "bins": {
+     "0-0.5": {
+      "n": 2628,
+      "mean_pred": 0.24,
+      "sign_rate": 0.504,
+      "sign_ci95": [
+       0.437,
+       0.568
+      ],
+      "mean_realized": -0.07,
+      "mean_ci95": [
+       -0.69,
+       0.6
+      ]
+     },
+     "0.5-1": {
+      "n": 2178,
+      "mean_pred": 0.74,
+      "sign_rate": 0.526,
+      "sign_ci95": [
+       0.46,
+       0.595
+      ],
+      "mean_realized": 0.39,
+      "mean_ci95": [
+       -0.31,
+       1.11
+      ]
+     },
+     "1-1.5": {
+      "n": 1875,
+      "mean_pred": 1.24,
+      "sign_rate": 0.558,
+      "sign_ci95": [
+       0.485,
+       0.632
+      ],
+      "mean_realized": 0.66,
+      "mean_ci95": [
+       -0.07,
+       1.41
+      ]
+     },
+     "1.5-2": {
+      "n": 1512,
+      "mean_pred": 1.74,
+      "sign_rate": 0.589,
+      "sign_ci95": [
+       0.52,
+       0.663
+      ],
+      "mean_realized": 0.97,
+      "mean_ci95": [
+       0.24,
+       1.87
+      ]
+     },
+     "2-2.5": {
+      "n": 1250,
+      "mean_pred": 2.25,
+      "sign_rate": 0.609,
+      "sign_ci95": [
+       0.532,
+       0.692
+      ],
+      "mean_realized": 1.44,
+      "mean_ci95": [
+       0.62,
+       2.31
+      ]
+     },
+     "2.5-3": {
+      "n": 1031,
+      "mean_pred": 2.74,
+      "sign_rate": 0.677,
+      "sign_ci95": [
+       0.592,
+       0.757
+      ],
+      "mean_realized": 1.81,
+      "mean_ci95": [
+       0.95,
+       2.73
+      ]
+     },
+     "3-3.5": {
+      "n": 805,
+      "mean_pred": 3.25,
+      "sign_rate": 0.703,
+      "sign_ci95": [
+       0.609,
+       0.786
+      ],
+      "mean_realized": 2.37,
+      "mean_ci95": [
+       1.3,
+       3.37
+      ]
+     },
+     "3.5-4": {
+      "n": 651,
+      "mean_pred": 3.74,
+      "sign_rate": 0.739,
+      "sign_ci95": [
+       0.654,
+       0.809
+      ],
+      "mean_realized": 2.8,
+      "mean_ci95": [
+       1.82,
+       3.84
+      ]
+     },
+     "4-5": {
+      "n": 902,
+      "mean_pred": 4.46,
+      "sign_rate": 0.779,
+      "sign_ci95": [
+       0.71,
+       0.857
+      ],
+      "mean_realized": 3.59,
+      "mean_ci95": [
+       2.67,
+       4.78
+      ]
+     },
+     "5-6": {
+      "n": 539,
+      "mean_pred": 5.45,
+      "sign_rate": 0.822,
+      "sign_ci95": [
+       0.732,
+       0.894
+      ],
+      "mean_realized": 4.29,
+      "mean_ci95": [
+       3.16,
+       5.73
+      ]
+     },
+     "6-8": {
+      "n": 522,
+      "mean_pred": 6.88,
+      "sign_rate": 0.887,
+      "sign_ci95": [
+       0.793,
+       0.951
+      ],
+      "mean_realized": 5.65,
+      "mean_ci95": [
+       3.95,
+       7.17
+      ]
+     },
+     "8-99": {
+      "n": 371,
+      "mean_pred": 9.52,
+      "sign_rate": 0.933,
+      "sign_ci95": [
+       0.774,
+       0.998
+      ],
+      "mean_realized": 7.67,
+      "mean_ci95": [
+       3.73,
+       10.01
+      ]
+     }
+    },
+    "gate_80_logistic": 5.0,
+    "gate_80_ci95": [
+     3.7,
+     6.49
+    ],
+    "gate_80_first_bin": "5-6",
+    "realized_on_predicted": {
+     "intercept": -0.352,
+     "slope": 0.849,
+     "slope_ci95": [
+      0.629,
+      1.043
+     ]
+    },
+    "best_gate_by_cost": {
+     "cost_0": {
+      "best_gate": 0.25,
+      "best_gate_ci95": [
+       0.0,
+       1.2562500000000014
+      ],
+      "net_gain_per_slate_at_best": 625.01,
+      "net_gain_per_slate_at_2.5": 470.36,
+      "linear_marginal_gate": 0.42
+     },
+     "cost_0.5": {
+      "best_gate": 0.75,
+      "best_gate_ci95": [
+       0.25,
+       2.0
+      ],
+      "net_gain_per_slate_at_best": 467.16,
+      "net_gain_per_slate_at_2.5": 403.41,
+      "linear_marginal_gate": 1.0
+     },
+     "cost_1": {
+      "best_gate": 2.0,
+      "best_gate_ci95": [
+       0.75,
+       2.75
+      ],
+      "net_gain_per_slate_at_best": 351.7,
+      "net_gain_per_slate_at_2.5": 336.45,
+      "linear_marginal_gate": 1.59
+     }
+    },
+    "net_gain_per_slate_at_gate": {
+     "cost_0": {
+      "0": 614.1,
+      "1": 595.4,
+      "1.5": 561.3,
+      "2": 520.3,
+      "2.5": 470.4,
+      "3": 418.6,
+      "4": 315.1,
+      "5": 225.2
+     },
+     "cost_0.5": {
+      "0": 416.0,
+      "1": 464.1,
+      "1.5": 455.9,
+      "2": 436.0,
+      "2.5": 403.4,
+      "3": 366.0,
+      "4": 282.7,
+      "5": 205.3
+     },
+     "cost_1": {
+      "0": 217.9,
+      "1": 332.7,
+      "1.5": 350.6,
+      "2": 351.7,
+      "2.5": 336.4,
+      "3": 313.3,
+      "4": 250.3,
+      "5": 185.4
+     }
+    },
+    "moves_per_slate_at_gate": {
+     "0": 396.2,
+     "1": 262.7,
+     "1.5": 210.6,
+     "2": 168.6,
+     "2.5": 133.9,
+     "3": 105.3,
+     "4": 64.8,
+     "5": 39.8
+    }
+   },
+   "calibration_around_zero": {
+    "-2 to -1.5": {
+     "n": 4965,
+     "mean_realized": -2.05,
+     "ci95": [
+      -2.6,
+      -1.57
+     ],
+     "sign_rate": 0.309
+    },
+    "-1.5 to -1": {
+     "n": 4326,
+     "mean_realized": -1.39,
+     "ci95": [
+      -1.95,
+      -0.83
+     ],
+     "sign_rate": 0.367
+    },
+    "-1 to -0.5": {
+     "n": 3795,
+     "mean_realized": -1.2,
+     "ci95": [
+      -1.89,
+      -0.65
+     ],
+     "sign_rate": 0.397
+    },
+    "-0.5 to 0": {
+     "n": 3151,
+     "mean_realized": -0.69,
+     "ci95": [
+      -1.41,
+      -0.11
+     ],
+     "sign_rate": 0.429
+    },
+    "0 to 0.5": {
+     "n": 2629,
+     "mean_realized": -0.25,
+     "ci95": [
+      -0.91,
+      0.39
+     ],
+     "sign_rate": 0.482
+    },
+    "0.5 to 1": {
+     "n": 2178,
+     "mean_realized": 0.24,
+     "ci95": [
+      -0.52,
+      1.0
+     ],
+     "sign_rate": 0.522
+    },
+    "1 to 1.5": {
+     "n": 1875,
+     "mean_realized": 0.48,
+     "ci95": [
+      -0.41,
+      1.18
+     ],
+     "sign_rate": 0.536
+    },
+    "1.5 to 2": {
+     "n": 1512,
+     "mean_realized": 0.79,
+     "ci95": [
+      -0.05,
+      1.6
+     ],
+     "sign_rate": 0.571
+    }
+   },
+   "by_pos": {
+    "QB": {
+     "n_pairs": 709,
+     "gate_80_logistic": 5.85,
+     "gate_80_ci95": [
+      2.68,
+      null
+     ],
+     "realized_on_predicted": {
+      "intercept": -1.339,
+      "slope": 0.91,
+      "slope_ci95": [
+       -0.109,
+       1.933
+      ]
+     },
+     "best_gate_cost_0.5": 2.0
+    },
+    "RB": {
+     "n_pairs": 4502,
+     "gate_80_logistic": 4.58,
+     "gate_80_ci95": [
+      2.94,
+      8.06
+     ],
+     "realized_on_predicted": {
+      "intercept": -0.188,
+      "slope": 0.9,
+      "slope_ci95": [
+       0.433,
+       1.369
+      ]
+     },
+     "best_gate_cost_0.5": 0.5
+    },
+    "WR": {
+     "n_pairs": 8026,
+     "gate_80_logistic": 5.7,
+     "gate_80_ci95": [
+      3.53,
+      10.62
+     ],
+     "realized_on_predicted": {
+      "intercept": -0.724,
+      "slope": 0.938,
+      "slope_ci95": [
+       0.49,
+       1.313
+      ]
+     },
+     "best_gate_cost_0.5": 1.25
+    },
+    "TE": {
+     "n_pairs": 1027,
+     "gate_80_logistic": 5.79,
+     "gate_80_ci95": [
+      1.03,
+      null
+     ],
+     "realized_on_predicted": {
+      "intercept": -0.232,
+      "slope": 0.893,
+      "slope_ci95": [
+       -0.245,
+       1.482
+      ]
+     },
+     "best_gate_cost_0.5": 0.75
+    }
+   },
+   "realistic_pairs": {
+    "n_pairs": 7499,
+    "bins": {
+     "0-0.5": {
+      "n": 703,
+      "mean_pred": 0.25,
+      "sign_rate": 0.482,
+      "sign_ci95": [
+       0.394,
+       0.566
+      ],
+      "mean_realized": -0.06,
+      "mean_ci95": [
+       -1.0,
+       0.84
+      ]
+     },
+     "0.5-1": {
+      "n": 754,
+      "mean_pred": 0.75,
+      "sign_rate": 0.517,
+      "sign_ci95": [
+       0.433,
+       0.599
+      ],
+      "mean_realized": 0.17,
+      "mean_ci95": [
+       -0.78,
+       1.11
+      ]
+     },
+     "1-1.5": {
+      "n": 824,
+      "mean_pred": 1.24,
+      "sign_rate": 0.535,
+      "sign_ci95": [
+       0.441,
+       0.637
+      ],
+      "mean_realized": 0.37,
+      "mean_ci95": [
+       -0.53,
+       1.32
+      ]
+     },
+     "1.5-2": {
+      "n": 766,
+      "mean_pred": 1.75,
+      "sign_rate": 0.57,
+      "sign_ci95": [
+       0.48,
+       0.668
+      ],
+      "mean_realized": 0.8,
+      "mean_ci95": [
+       -0.39,
+       1.97
+      ]
+     },
+     "2-2.5": {
+      "n": 735,
+      "mean_pred": 2.25,
+      "sign_rate": 0.588,
+      "sign_ci95": [
+       0.501,
+       0.697
+      ],
+      "mean_realized": 1.15,
+      "mean_ci95": [
+       0.06,
+       2.36
+      ]
+     },
+     "2.5-3": {
+      "n": 702,
+      "mean_pred": 2.75,
+      "sign_rate": 0.638,
+      "sign_ci95": [
+       0.555,
+       0.738
+      ],
+      "mean_realized": 1.8,
+      "mean_ci95": [
+       0.82,
+       2.98
+      ]
+     },
+     "3-3.5": {
+      "n": 587,
+      "mean_pred": 3.25,
+      "sign_rate": 0.683,
+      "sign_ci95": [
+       0.587,
+       0.766
+      ],
+      "mean_realized": 2.55,
+      "mean_ci95": [
+       1.29,
+       3.66
+      ]
+     },
+     "3.5-4": {
+      "n": 509,
+      "mean_pred": 3.74,
+      "sign_rate": 0.743,
+      "sign_ci95": [
+       0.66,
+       0.833
+      ],
+      "mean_realized": 3.08,
+      "mean_ci95": [
+       1.8,
+       4.6
+      ]
+     },
+     "4-5": {
+      "n": 735,
+      "mean_pred": 4.47,
+      "sign_rate": 0.773,
+      "sign_ci95": [
+       0.673,
+       0.855
+      ],
+      "mean_realized": 3.66,
+      "mean_ci95": [
+       2.31,
+       4.95
+      ]
+     },
+     "5-6": {
+      "n": 439,
+      "mean_pred": 5.46,
+      "sign_rate": 0.815,
+      "sign_ci95": [
+       0.732,
+       0.903
+      ],
+      "mean_realized": 4.46,
+      "mean_ci95": [
+       2.88,
+       6.08
+      ]
+     },
+     "6-8": {
+      "n": 411,
+      "mean_pred": 6.88,
+      "sign_rate": 0.883,
+      "sign_ci95": [
+       0.787,
+       0.955
+      ],
+      "mean_realized": 5.67,
+      "mean_ci95": [
+       4.07,
+       7.22
+      ]
+     },
+     "8-99": {
+      "n": 334,
+      "mean_pred": 9.58,
+      "sign_rate": 0.913,
+      "sign_ci95": [
+       0.763,
+       0.997
+      ],
+      "mean_realized": 8.33,
+      "mean_ci95": [
+       2.88,
+       12.08
+      ]
+     }
+    },
+    "gate_80_logistic": 5.25,
+    "gate_80_ci95": [
+     3.91,
+     7.12
+    ],
+    "gate_80_first_bin": "5-6",
+    "realized_on_predicted": {
+     "intercept": -0.639,
+     "slope": 0.933,
+     "slope_ci95": [
+      0.634,
+      1.203
+     ]
+    },
+    "best_gate_by_cost": {
+     "cost_0": {
+      "best_gate": 0.25,
+      "best_gate_ci95": [
+       0.0,
+       2.0
+      ],
+      "net_gain_per_slate_at_best": 445.96,
+      "net_gain_per_slate_at_2.5": 391.5,
+      "linear_marginal_gate": 0.68
+     },
+     "cost_0.5": {
+      "best_gate": 1.5,
+      "best_gate_ci95": [
+       0.0,
+       2.75
+      ],
+      "net_gain_per_slate_at_best": 359.54,
+      "net_gain_per_slate_at_2.5": 339.87,
+      "linear_marginal_gate": 1.22
+     },
+     "cost_1": {
+      "best_gate": 2.0,
+      "best_gate_ci95": [
+       0.5,
+       3.0
+      ],
+      "net_gain_per_slate_at_best": 291.29,
+      "net_gain_per_slate_at_2.5": 288.25,
+      "linear_marginal_gate": 1.76
+     }
+    },
+    "net_gain_per_slate_at_gate": {
+     "cost_0": {
+      "0": 442.7,
+      "1": 440.4,
+      "1.5": 432.0,
+      "2": 415.0,
+      "2.5": 391.5,
+      "3": 356.4,
+      "4": 271.2,
+      "5": 196.4
+     },
+     "cost_0.5": {
+      "0": 338.5,
+      "1": 356.5,
+      "1.5": 359.5,
+      "2": 353.1,
+      "2.5": 339.9,
+      "3": 314.5,
+      "4": 244.5,
+      "5": 179.9
+     },
+     "cost_1": {
+      "0": 234.4,
+      "1": 272.5,
+      "1.5": 287.1,
+      "2": 291.3,
+      "2.5": 288.2,
+      "3": 272.6,
+      "4": 217.9,
+      "5": 163.5
+     }
+    },
+    "moves_per_slate_at_gate": {
+     "0": 208.3,
+     "1": 167.8,
+     "1.5": 144.9,
+     "2": 123.7,
+     "2.5": 103.2,
+     "3": 83.8,
+     "4": 53.3,
+     "5": 32.9
+    }
+   }
+  },
+  "prior_mix": {
+   "player_weeks": 20111,
+   "pairs": 10481,
+   "ppg_per_game_played": {
+    "n_pairs": 10481,
+    "bins": {
+     "0-0.5": {
+      "n": 2334,
+      "mean_pred": 0.24,
+      "sign_rate": 0.53,
+      "sign_ci95": [
+       0.464,
+       0.594
+      ],
+      "mean_realized": 0.4,
+      "mean_ci95": [
+       -0.31,
+       1.12
+      ]
+     },
+     "0.5-1": {
+      "n": 1844,
+      "mean_pred": 0.75,
+      "sign_rate": 0.575,
+      "sign_ci95": [
+       0.5,
+       0.644
+      ],
+      "mean_realized": 0.87,
+      "mean_ci95": [
+       0.15,
+       1.57
+      ]
+     },
+     "1-1.5": {
+      "n": 1525,
+      "mean_pred": 1.24,
+      "sign_rate": 0.61,
+      "sign_ci95": [
+       0.533,
+       0.676
+      ],
+      "mean_realized": 1.31,
+      "mean_ci95": [
+       0.46,
+       2.16
+      ]
+     },
+     "1.5-2": {
+      "n": 1141,
+      "mean_pred": 1.74,
+      "sign_rate": 0.668,
+      "sign_ci95": [
+       0.581,
+       0.743
+      ],
+      "mean_realized": 2.1,
+      "mean_ci95": [
+       1.07,
+       3.18
+      ]
+     },
+     "2-2.5": {
+      "n": 902,
+      "mean_pred": 2.23,
+      "sign_rate": 0.705,
+      "sign_ci95": [
+       0.623,
+       0.784
+      ],
+      "mean_realized": 2.74,
+      "mean_ci95": [
+       1.61,
+       3.78
+      ]
+     },
+     "2.5-3": {
+      "n": 696,
+      "mean_pred": 2.74,
+      "sign_rate": 0.746,
+      "sign_ci95": [
+       0.642,
+       0.83
+      ],
+      "mean_realized": 3.36,
+      "mean_ci95": [
+       2.02,
+       4.76
+      ]
+     },
+     "3-3.5": {
+      "n": 535,
+      "mean_pred": 3.24,
+      "sign_rate": 0.802,
+      "sign_ci95": [
+       0.7,
+       0.876
+      ],
+      "mean_realized": 3.72,
+      "mean_ci95": [
+       2.4,
+       5.1
+      ]
+     },
+     "3.5-4": {
+      "n": 378,
+      "mean_pred": 3.74,
+      "sign_rate": 0.812,
+      "sign_ci95": [
+       0.699,
+       0.89
+      ],
+      "mean_realized": 4.8,
+      "mean_ci95": [
+       2.97,
+       6.41
+      ]
+     },
+     "4-5": {
+      "n": 484,
+      "mean_pred": 4.43,
+      "sign_rate": 0.849,
+      "sign_ci95": [
+       0.763,
+       0.924
+      ],
+      "mean_realized": 5.24,
+      "mean_ci95": [
+       3.71,
+       6.78
+      ]
+     },
+     "5-6": {
+      "n": 276,
+      "mean_pred": 5.48,
+      "sign_rate": 0.931,
+      "sign_ci95": [
+       0.83,
+       0.989
+      ],
+      "mean_realized": 6.81,
+      "mean_ci95": [
+       4.49,
+       8.76
+      ]
+     },
+     "6-8": {
+      "n": 284,
+      "mean_pred": 6.81,
+      "sign_rate": 0.951,
+      "sign_ci95": [
+       0.829,
+       1.0
+      ],
+      "mean_realized": 8.09,
+      "mean_ci95": [
+       3.83,
+       11.16
+      ]
+     },
+     "8-99": {
+      "n": 82,
+      "mean_pred": 8.76,
+      "sign_rate": 0.963,
+      "sign_ci95": [
+       0.797,
+       1.0
+      ],
+      "mean_realized": 10.37,
+      "mean_ci95": [
+       3.13,
+       16.22
+      ]
+     }
+    },
+    "gate_80_logistic": 3.4,
+    "gate_80_ci95": [
+     2.51,
+     4.79
+    ],
+    "gate_80_first_bin": "3-3.5",
+    "realized_on_predicted": {
+     "intercept": 0.016,
+     "slope": 1.196,
+     "slope_ci95": [
+      0.728,
+      1.567
+     ]
+    },
+    "best_gate_by_cost": {
+     "cost_0": {
+      "best_gate": 0.0,
+      "best_gate_ci95": [
+       0.0,
+       0.5
+      ],
+      "net_gain_per_slate_at_best": 642.43,
+      "net_gain_per_slate_at_2.5": 380.78,
+      "linear_marginal_gate": 0.0
+     },
+     "cost_0.5": {
+      "best_gate": 0.25,
+      "best_gate_ci95": [
+       0.0,
+       1.25
+      ],
+      "net_gain_per_slate_at_best": 506.72,
+      "net_gain_per_slate_at_2.5": 342.79,
+      "linear_marginal_gate": 0.4
+     },
+     "cost_1": {
+      "best_gate": 1.0,
+      "best_gate_ci95": [
+       0.25,
+       1.5062500000000014
+      ],
+      "net_gain_per_slate_at_best": 396.49,
+      "net_gain_per_slate_at_2.5": 304.81,
+      "linear_marginal_gate": 0.82
+     }
+    },
+    "net_gain_per_slate_at_gate": {
+     "cost_0": {
+      "0": 642.4,
+      "1": 571.6,
+      "1.5": 516.0,
+      "2": 449.4,
+      "2.5": 380.8,
+      "3": 315.7,
+      "4": 210.2,
+      "5": 139.7
+     },
+     "cost_0.5": {
+      "0": 496.9,
+      "1": 484.0,
+      "1.5": 449.6,
+      "2": 398.9,
+      "2.5": 342.8,
+      "3": 287.4,
+      "4": 194.5,
+      "5": 130.8
+     },
+     "cost_1": {
+      "0": 351.3,
+      "1": 396.5,
+      "1.5": 383.2,
+      "2": 348.4,
+      "2.5": 304.8,
+      "3": 259.1,
+      "4": 178.9,
+      "5": 121.8
+     }
+    },
+    "moves_per_slate_at_gate": {
+     "0": 291.1,
+     "1": 175.1,
+     "1.5": 132.7,
+     "2": 101.0,
+     "2.5": 76.0,
+     "3": 56.6,
+     "4": 31.3,
+     "5": 17.8
+    }
+   },
+   "points_per_team_game": {
+    "n_pairs": 10481,
+    "bins": {
+     "0-0.5": {
+      "n": 2334,
+      "mean_pred": 0.24,
+      "sign_rate": 0.548,
+      "sign_ci95": [
+       0.475,
+       0.614
+      ],
+      "mean_realized": 0.54,
+      "mean_ci95": [
+       -0.21,
+       1.24
+      ]
+     },
+     "0.5-1": {
+      "n": 1844,
+      "mean_pred": 0.75,
+      "sign_rate": 0.586,
+      "sign_ci95": [
+       0.517,
+       0.656
+      ],
+      "mean_realized": 0.96,
+      "mean_ci95": [
+       0.23,
+       1.69
+      ]
+     },
+     "1-1.5": {
+      "n": 1525,
+      "mean_pred": 1.24,
+      "sign_rate": 0.614,
+      "sign_ci95": [
+       0.542,
+       0.693
+      ],
+      "mean_realized": 1.3,
+      "mean_ci95": [
+       0.53,
+       2.2
+      ]
+     },
+     "1.5-2": {
+      "n": 1141,
+      "mean_pred": 1.74,
+      "sign_rate": 0.663,
+      "sign_ci95": [
+       0.583,
+       0.741
+      ],
+      "mean_realized": 1.85,
+      "mean_ci95": [
+       1.08,
+       2.77
+      ]
+     },
+     "2-2.5": {
+      "n": 902,
+      "mean_pred": 2.23,
+      "sign_rate": 0.693,
+      "sign_ci95": [
+       0.613,
+       0.777
+      ],
+      "mean_realized": 2.31,
+      "mean_ci95": [
+       1.46,
+       3.36
+      ]
+     },
+     "2.5-3": {
+      "n": 696,
+      "mean_pred": 2.74,
+      "sign_rate": 0.747,
+      "sign_ci95": [
+       0.658,
+       0.833
+      ],
+      "mean_realized": 3.04,
+      "mean_ci95": [
+       2.13,
+       4.19
+      ]
+     },
+     "3-3.5": {
+      "n": 535,
+      "mean_pred": 3.24,
+      "sign_rate": 0.761,
+      "sign_ci95": [
+       0.666,
+       0.848
+      ],
+      "mean_realized": 3.42,
+      "mean_ci95": [
+       2.21,
+       4.67
+      ]
+     },
+     "3.5-4": {
+      "n": 378,
+      "mean_pred": 3.74,
+      "sign_rate": 0.817,
+      "sign_ci95": [
+       0.72,
+       0.901
+      ],
+      "mean_realized": 4.35,
+      "mean_ci95": [
+       2.93,
+       5.68
+      ]
+     },
+     "4-5": {
+      "n": 484,
+      "mean_pred": 4.43,
+      "sign_rate": 0.835,
+      "sign_ci95": [
+       0.741,
+       0.908
+      ],
+      "mean_realized": 4.89,
+      "mean_ci95": [
+       3.45,
+       6.38
+      ]
+     },
+     "5-6": {
+      "n": 276,
+      "mean_pred": 5.48,
+      "sign_rate": 0.902,
+      "sign_ci95": [
+       0.782,
+       0.979
+      ],
+      "mean_realized": 5.91,
+      "mean_ci95": [
+       3.95,
+       7.75
+      ]
+     },
+     "6-8": {
+      "n": 284,
+      "mean_pred": 6.81,
+      "sign_rate": 0.93,
+      "sign_ci95": [
+       0.769,
+       1.0
+      ],
+      "mean_realized": 7.09,
+      "mean_ci95": [
+       3.96,
+       9.32
+      ]
+     },
+     "8-99": {
+      "n": 82,
+      "mean_pred": 8.76,
+      "sign_rate": 0.963,
+      "sign_ci95": [
+       0.826,
+       1.0
+      ],
+      "mean_realized": 8.85,
+      "mean_ci95": [
+       2.33,
+       13.02
+      ]
+     }
+    },
+    "gate_80_logistic": 3.68,
+    "gate_80_ci95": [
+     2.66,
+     4.89
+    ],
+    "gate_80_first_bin": "3.5-4",
+    "realized_on_predicted": {
+     "intercept": 0.178,
+     "slope": 1.025,
+     "slope_ci95": [
+      0.702,
+      1.36
+     ]
+    },
+    "best_gate_by_cost": {
+     "cost_0": {
+      "best_gate": 0.0,
+      "best_gate_ci95": [
+       0.0,
+       0.2562500000000014
+      ],
+      "net_gain_per_slate_at_best": 598.16,
+      "net_gain_per_slate_at_2.5": 342.48,
+      "linear_marginal_gate": 0.0
+     },
+     "cost_0.5": {
+      "best_gate": 0.25,
+      "best_gate_ci95": [
+       0.0,
+       1.25
+      ],
+      "net_gain_per_slate_at_best": 459.89,
+      "net_gain_per_slate_at_2.5": 304.49,
+      "linear_marginal_gate": 0.31
+     },
+     "cost_1": {
+      "best_gate": 1.0,
+      "best_gate_ci95": [
+       0.0,
+       1.75
+      ],
+      "net_gain_per_slate_at_best": 338.7,
+      "net_gain_per_slate_at_2.5": 266.51,
+      "linear_marginal_gate": 0.8
+     }
+    },
+    "net_gain_per_slate_at_gate": {
+     "cost_0": {
+      "0": 598.2,
+      "1": 513.8,
+      "1.5": 458.9,
+      "2": 400.3,
+      "2.5": 342.5,
+      "3": 283.8,
+      "4": 187.2,
+      "5": 121.4
+     },
+     "cost_0.5": {
+      "0": 452.6,
+      "1": 426.2,
+      "1.5": 392.5,
+      "2": 349.8,
+      "2.5": 304.5,
+      "3": 255.4,
+      "4": 171.6,
+      "5": 112.5
+     },
+     "cost_1": {
+      "0": 307.0,
+      "1": 338.7,
+      "1.5": 326.1,
+      "2": 299.3,
+      "2.5": 266.5,
+      "3": 227.1,
+      "4": 155.9,
+      "5": 103.6
+     }
+    },
+    "moves_per_slate_at_gate": {
+     "0": 291.1,
+     "1": 175.1,
+     "1.5": 132.7,
+     "2": 101.0,
+     "2.5": 76.0,
+     "3": 56.6,
+     "4": 31.3,
+     "5": 17.8
+    }
+   },
+   "calibration_around_zero": {
+    "-2 to -1.5": {
+     "n": 4813,
+     "mean_realized": -1.54,
+     "ci95": [
+      -2.09,
+      -0.93
+     ],
+     "sign_rate": 0.347
+    },
+    "-1.5 to -1": {
+     "n": 4077,
+     "mean_realized": -1.06,
+     "ci95": [
+      -1.6,
+      -0.51
+     ],
+     "sign_rate": 0.397
+    },
+    "-1 to -0.5": {
+     "n": 3434,
+     "mean_realized": -0.62,
+     "ci95": [
+      -1.22,
+      -0.0
+     ],
+     "sign_rate": 0.448
+    },
+    "-0.5 to 0": {
+     "n": 2804,
+     "mean_realized": 0.08,
+     "ci95": [
+      -0.61,
+      0.75
+     ],
+     "sign_rate": 0.514
+    },
+    "0 to 0.5": {
+     "n": 2334,
+     "mean_realized": 0.4,
+     "ci95": [
+      -0.34,
+      1.19
+     ],
+     "sign_rate": 0.53
+    },
+    "0.5 to 1": {
+     "n": 1844,
+     "mean_realized": 0.87,
+     "ci95": [
+      0.15,
+      1.55
+     ],
+     "sign_rate": 0.575
+    },
+    "1 to 1.5": {
+     "n": 1525,
+     "mean_realized": 1.31,
+     "ci95": [
+      0.33,
+      2.07
+     ],
+     "sign_rate": 0.61
+    },
+    "1.5 to 2": {
+     "n": 1141,
+     "mean_realized": 2.1,
+     "ci95": [
+      1.14,
+      3.14
+     ],
+     "sign_rate": 0.668
+    }
+   },
+   "by_pos": {
+    "QB": {
+     "n_pairs": 534,
+     "gate_80_logistic": 3.53,
+     "gate_80_ci95": [
+      1.65,
+      null
+     ],
+     "realized_on_predicted": {
+      "intercept": -1.084,
+      "slope": 1.529,
+      "slope_ci95": [
+       0.027,
+       2.434
+      ]
+     },
+     "best_gate_cost_0.5": 1.75
+    },
+    "RB": {
+     "n_pairs": 3421,
+     "gate_80_logistic": 3.1,
+     "gate_80_ci95": [
+      1.75,
+      5.79
+     ],
+     "realized_on_predicted": {
+      "intercept": 0.519,
+      "slope": 1.081,
+      "slope_ci95": [
+       0.459,
+       1.684
+      ]
+     },
+     "best_gate_cost_0.5": 0.0
+    },
+    "WR": {
+     "n_pairs": 5773,
+     "gate_80_logistic": 3.36,
+     "gate_80_ci95": [
+      2.29,
+      5.72
+     ],
+     "realized_on_predicted": {
+      "intercept": -0.151,
+      "slope": 1.26,
+      "slope_ci95": [
+       0.758,
+       1.612
+      ]
+     },
+     "best_gate_cost_0.5": 0.5
+    },
+    "TE": {
+     "n_pairs": 753,
+     "gate_80_logistic": 5.16,
+     "gate_80_ci95": [
+      1.57,
+      null
+     ],
+     "realized_on_predicted": {
+      "intercept": 0.135,
+      "slope": 0.972,
+      "slope_ci95": [
+       -0.647,
+       2.232
+      ]
+     },
+     "best_gate_cost_0.5": 0.5
+    }
+   },
+   "realistic_pairs": {
+    "n_pairs": 6564,
+    "bins": {
+     "0-0.5": {
+      "n": 980,
+      "mean_pred": 0.25,
+      "sign_rate": 0.507,
+      "sign_ci95": [
+       0.413,
+       0.587
+      ],
+      "mean_realized": 0.19,
+      "mean_ci95": [
+       -0.85,
+       1.25
+      ]
+     },
+     "0.5-1": {
+      "n": 958,
+      "mean_pred": 0.76,
+      "sign_rate": 0.542,
+      "sign_ci95": [
+       0.463,
+       0.633
+      ],
+      "mean_realized": 0.42,
+      "mean_ci95": [
+       -0.42,
+       1.29
+      ]
+     },
+     "1-1.5": {
+      "n": 867,
+      "mean_pred": 1.25,
+      "sign_rate": 0.584,
+      "sign_ci95": [
+       0.506,
+       0.677
+      ],
+      "mean_realized": 1.08,
+      "mean_ci95": [
+       -0.01,
+       2.2
+      ]
+     },
+     "1.5-2": {
+      "n": 791,
+      "mean_pred": 1.74,
+      "sign_rate": 0.63,
+      "sign_ci95": [
+       0.531,
+       0.722
+      ],
+      "mean_realized": 1.76,
+      "mean_ci95": [
+       0.64,
+       2.77
+      ]
+     },
+     "2-2.5": {
+      "n": 678,
+      "mean_pred": 2.24,
+      "sign_rate": 0.677,
+      "sign_ci95": [
+       0.586,
+       0.777
+      ],
+      "mean_realized": 2.49,
+      "mean_ci95": [
+       1.36,
+       3.76
+      ]
+     },
+     "2.5-3": {
+      "n": 546,
+      "mean_pred": 2.74,
+      "sign_rate": 0.723,
+      "sign_ci95": [
+       0.628,
+       0.817
+      ],
+      "mean_realized": 3.21,
+      "mean_ci95": [
+       1.78,
+       4.59
+      ]
+     },
+     "3-3.5": {
+      "n": 442,
+      "mean_pred": 3.25,
+      "sign_rate": 0.79,
+      "sign_ci95": [
+       0.696,
+       0.878
+      ],
+      "mean_realized": 3.6,
+      "mean_ci95": [
+       2.1,
+       5.25
+      ]
+     },
+     "3.5-4": {
+      "n": 316,
+      "mean_pred": 3.73,
+      "sign_rate": 0.807,
+      "sign_ci95": [
+       0.706,
+       0.9
+      ],
+      "mean_realized": 4.47,
+      "mean_ci95": [
+       2.99,
+       6.12
+      ]
+     },
+     "4-5": {
+      "n": 426,
+      "mean_pred": 4.44,
+      "sign_rate": 0.843,
+      "sign_ci95": [
+       0.733,
+       0.927
+      ],
+      "mean_realized": 5.15,
+      "mean_ci95": [
+       3.65,
+       6.91
+      ]
+     },
+     "5-6": {
+      "n": 229,
+      "mean_pred": 5.48,
+      "sign_rate": 0.926,
+      "sign_ci95": [
+       0.832,
+       0.981
+      ],
+      "mean_realized": 6.24,
+      "mean_ci95": [
+       4.63,
+       8.0
+      ]
+     },
+     "6-8": {
+      "n": 249,
+      "mean_pred": 6.83,
+      "sign_rate": 0.948,
+      "sign_ci95": [
+       0.833,
+       1.0
+      ],
+      "mean_realized": 8.09,
+      "mean_ci95": [
+       4.38,
+       11.68
+      ]
+     },
+     "8-99": {
+      "n": 82,
+      "mean_pred": 8.76,
+      "sign_rate": 0.963,
+      "sign_ci95": [
+       0.811,
+       1.0
+      ],
+      "mean_realized": 10.37,
+      "mean_ci95": [
+       3.47,
+       16.16
+      ]
+     }
+    },
+    "gate_80_logistic": 3.62,
+    "gate_80_ci95": [
+     2.65,
+     4.9
+    ],
+    "gate_80_first_bin": "3.5-4",
+    "realized_on_predicted": {
+     "intercept": -0.32,
+     "slope": 1.227,
+     "slope_ci95": [
+      0.799,
+      1.64
+     ]
+    },
+    "best_gate_by_cost": {
+     "cost_0": {
+      "best_gate": 0.0,
+      "best_gate_ci95": [
+       0.0,
+       1.25
+      ],
+      "net_gain_per_slate_at_best": 439.86,
+      "net_gain_per_slate_at_2.5": 312.23,
+      "linear_marginal_gate": 0.26
+     },
+     "cost_0.5": {
+      "best_gate": 1.0,
+      "best_gate_ci95": [
+       0.0,
+       1.75
+      ],
+      "net_gain_per_slate_at_best": 359.42,
+      "net_gain_per_slate_at_2.5": 280.42,
+      "linear_marginal_gate": 0.67
+     },
+     "cost_1": {
+      "best_gate": 1.25,
+      "best_gate_ci95": [
+       0.25,
+       2.0
+      ],
+      "net_gain_per_slate_at_best": 299.42,
+      "net_gain_per_slate_at_2.5": 248.62,
+      "linear_marginal_gate": 1.08
+     }
+    },
+    "net_gain_per_slate_at_gate": {
+     "cost_0": {
+      "0": 439.9,
+      "1": 423.7,
+      "1.5": 397.7,
+      "2": 359.0,
+      "2.5": 312.2,
+      "3": 263.6,
+      "4": 180.2,
+      "5": 119.2
+     },
+     "cost_0.5": {
+      "0": 348.7,
+      "1": 359.4,
+      "1.5": 345.5,
+      "2": 317.8,
+      "2.5": 280.4,
+      "3": 239.4,
+      "4": 166.5,
+      "5": 111.4
+     },
+     "cost_1": {
+      "0": 257.5,
+      "1": 295.2,
+      "1.5": 293.3,
+      "2": 276.6,
+      "2.5": 248.6,
+      "3": 215.2,
+      "4": 152.8,
+      "5": 103.7
+     }
+    },
+    "moves_per_slate_at_gate": {
+     "0": 182.3,
+     "1": 128.5,
+     "1.5": 104.4,
+     "2": 82.4,
+     "2.5": 63.6,
+     "3": 48.4,
+     "4": 27.4,
+     "5": 15.6
+    }
+   }
+  },
+  "run_at": "2026-10-15T11:35"
+ },
+ "backup_r77": {
+  "expect": "Starting QBs miss about 8% of their remaining games and starting TEs about 10%; from week 6 that is about 0.7-0.9 regular-season games, and with the playoff weights the allowance is about 2-3 units, so 1 is too low.",
+  "rule_in_tool": {
+   "BACKUP_INJURY_WEEKS": 1,
+   "PLAYOFF_UNITS": 24.4
+  },
+  "playoff_week_units": {
+   "15": 2.0,
+   "16": 10.7,
+   "17": 11.7
+  },
+  "results": {
+   "all_starters|QB|W6": {
+    "starters": 310,
+    "games_after_W": 3011,
+    "miss_rate_per_game": 0.223,
+    "ci95": [
+     0.188,
+     0.258
+    ],
+    "miss_rate_regular": 0.201,
+    "miss_rate_playoff_weeks": 0.288,
+    "expected_regular_misses": 1.45,
+    "expected_playoff_misses": 0.72,
+    "miss_rate_by_playoff_week": {
+     "15": 0.268,
+     "16": 0.281,
+     "17": 0.344
+    },
+    "allowance_games": 2.17,
+    "allowance_units": 9.01,
+    "allowance_units_ci95": [
+     7.61,
+     10.54
+    ],
+    "share_missing_0_1_2_3plus": [
+     0.506,
+     0.1,
+     0.077,
+     0.316
+    ]
+   },
+   "all_starters|QB|W8": {
+    "starters": 306,
+    "games_after_W": 2428,
+    "miss_rate_per_game": 0.2,
+    "ci95": [
+     0.167,
+     0.232
+    ],
+    "miss_rate_regular": 0.176,
+    "miss_rate_playoff_weeks": 0.252,
+    "expected_regular_misses": 0.96,
+    "expected_playoff_misses": 0.63,
+    "miss_rate_by_playoff_week": {
+     "15": 0.219,
+     "16": 0.235,
+     "17": 0.353
+    },
+    "allowance_games": 1.59,
+    "allowance_units": 8.05,
+    "allowance_units_ci95": [
+     6.65,
+     9.53
+    ],
+    "share_missing_0_1_2_3plus": [
+     0.565,
+     0.114,
+     0.065,
+     0.255
+    ]
+   },
+   "all_starters|QB|W10": {
+    "starters": 297,
+    "games_after_W": 1842,
+    "miss_rate_per_game": 0.188,
+    "ci95": [
+     0.156,
+     0.221
+    ],
+    "miss_rate_regular": 0.153,
+    "miss_rate_playoff_weeks": 0.241,
+    "expected_regular_misses": 0.57,
+    "expected_playoff_misses": 0.6,
+    "miss_rate_by_playoff_week": {
+     "15": 0.215,
+     "16": 0.212,
+     "17": 0.349
+    },
+    "allowance_games": 1.17,
+    "allowance_units": 7.36,
+    "allowance_units_ci95": [
+     5.98,
+     8.73
+    ],
+    "share_missing_0_1_2_3plus": [
+     0.603,
+     0.121,
+     0.074,
+     0.202
+    ]
+   },
+   "all_starters|QB|W12": {
+    "starters": 300,
+    "games_after_W": 1313,
+    "miss_rate_per_game": 0.181,
+    "ci95": [
+     0.146,
+     0.216
+    ],
+    "miss_rate_regular": 0.136,
+    "miss_rate_playoff_weeks": 0.214,
+    "expected_regular_misses": 0.26,
+    "expected_playoff_misses": 0.53,
+    "miss_rate_by_playoff_week": {
+     "15": 0.177,
+     "16": 0.2,
+     "17": 0.32
+    },
+    "allowance_games": 0.79,
+    "allowance_units": 6.49,
+    "allowance_units_ci95": [
+     5.22,
+     7.75
+    ],
+    "share_missing_0_1_2_3plus": [
+     0.677,
+     0.107,
+     0.077,
+     0.14
+    ]
+   },
+   "all_starters|TE|W6": {
+    "starters": 287,
+    "games_after_W": 2790,
+    "miss_rate_per_game": 0.14,
+    "ci95": [
+     0.114,
+     0.165
+    ],
+    "miss_rate_regular": 0.123,
+    "miss_rate_playoff_weeks": 0.187,
+    "expected_regular_misses": 0.89,
+    "expected_playoff_misses": 0.47,
+    "miss_rate_by_playoff_week": {
+     "15": 0.181,
+     "16": 0.181,
+     "17": 0.211
+    },
+    "allowance_games": 1.36,
+    "allowance_units": 5.66,
+    "allowance_units_ci95": [
+     4.53,
+     6.83
+    ],
+    "share_missing_0_1_2_3plus": [
+     0.564,
+     0.132,
+     0.087,
+     0.216
+    ]
+   },
+   "all_starters|TE|W8": {
+    "starters": 292,
+    "games_after_W": 2320,
+    "miss_rate_per_game": 0.152,
+    "ci95": [
+     0.125,
+     0.183
+    ],
+    "miss_rate_regular": 0.133,
+    "miss_rate_playoff_weeks": 0.193,
+    "expected_regular_misses": 0.73,
+    "expected_playoff_misses": 0.48,
+    "miss_rate_by_playoff_week": {
+     "15": 0.192,
+     "16": 0.195,
+     "17": 0.192
+    },
+    "allowance_games": 1.21,
+    "allowance_units": 5.44,
+    "allowance_units_ci95": [
+     4.3,
+     6.6
+    ],
+    "share_missing_0_1_2_3plus": [
+     0.575,
+     0.164,
+     0.079,
+     0.182
+    ]
+   },
+   "all_starters|TE|W10": {
+    "starters": 284,
+    "games_after_W": 1760,
+    "miss_rate_per_game": 0.136,
+    "ci95": [
+     0.11,
+     0.164
+    ],
+    "miss_rate_regular": 0.114,
+    "miss_rate_playoff_weeks": 0.169,
+    "expected_regular_misses": 0.42,
+    "expected_playoff_misses": 0.42,
+    "miss_rate_by_playoff_week": {
+     "15": 0.162,
+     "16": 0.169,
+     "17": 0.184
+    },
+    "allowance_games": 0.85,
+    "allowance_units": 4.71,
+    "allowance_units_ci95": [
+     3.48,
+     5.91
+    ],
+    "share_missing_0_1_2_3plus": [
+     0.662,
+     0.137,
+     0.067,
+     0.134
+    ]
+   },
+   "all_starters|TE|W12": {
+    "starters": 295,
+    "games_after_W": 1291,
+    "miss_rate_per_game": 0.132,
+    "ci95": [
+     0.103,
+     0.163
+    ],
+    "miss_rate_regular": 0.103,
+    "miss_rate_playoff_weeks": 0.154,
+    "expected_regular_misses": 0.19,
+    "expected_playoff_misses": 0.38,
+    "miss_rate_by_playoff_week": {
+     "15": 0.139,
+     "16": 0.159,
+     "17": 0.171
+    },
+    "allowance_games": 0.58,
+    "allowance_units": 4.18,
+    "allowance_units_ci95": [
+     3.13,
+     5.21
+    ],
+    "share_missing_0_1_2_3plus": [
+     0.725,
+     0.129,
+     0.054,
+     0.092
+    ]
+   },
+   "top13_fantasy|QB|W6": {
+    "starters": 121,
+    "games_after_W": 1172,
+    "miss_rate_per_game": 0.131,
+    "ci95": [
+     0.09,
+     0.173
+    ],
+    "miss_rate_regular": 0.112,
+    "miss_rate_playoff_weeks": 0.183,
+    "expected_regular_misses": 0.81,
+    "expected_playoff_misses": 0.45,
+    "miss_rate_by_playoff_week": {
+     "15": 0.157,
+     "16": 0.157,
+     "17": 0.293
+    },
+    "allowance_games": 1.26,
+    "allowance_units": 6.23,
+    "allowance_units_ci95": [
+     4.39,
+     8.6
+    ],
+    "share_missing_0_1_2_3plus": [
+     0.669,
+     0.083,
+     0.05,
+     0.198
+    ]
+   },
+   "top13_fantasy|QB|W8": {
+    "starters": 116,
+    "games_after_W": 915,
+    "miss_rate_per_game": 0.089,
+    "ci95": [
+     0.053,
+     0.128
+    ],
+    "miss_rate_regular": 0.065,
+    "miss_rate_playoff_weeks": 0.14,
+    "expected_regular_misses": 0.35,
+    "expected_playoff_misses": 0.34,
+    "miss_rate_by_playoff_week": {
+     "15": 0.112,
+     "16": 0.129,
+     "17": 0.222
+    },
+    "allowance_games": 0.7,
+    "allowance_units": 4.56,
+    "allowance_units_ci95": [
+     2.61,
+     6.58
+    ],
+    "share_missing_0_1_2_3plus": [
+     0.767,
+     0.078,
+     0.043,
+     0.112
+    ]
+   },
+   "top13_fantasy|QB|W10": {
+    "starters": 110,
+    "games_after_W": 682,
+    "miss_rate_per_game": 0.091,
+    "ci95": [
+     0.056,
+     0.134
+    ],
+    "miss_rate_regular": 0.061,
+    "miss_rate_playoff_weeks": 0.136,
+    "expected_regular_misses": 0.23,
+    "expected_playoff_misses": 0.34,
+    "miss_rate_by_playoff_week": {
+     "15": 0.1,
+     "16": 0.136,
+     "17": 0.212
+    },
+    "allowance_games": 0.56,
+    "allowance_units": 4.36,
+    "allowance_units_ci95": [
+     2.63,
+     6.07
+    ],
+    "share_missing_0_1_2_3plus": [
+     0.755,
+     0.109,
+     0.055,
+     0.082
+    ]
+   },
+   "top13_fantasy|QB|W12": {
+    "starters": 117,
+    "games_after_W": 511,
+    "miss_rate_per_game": 0.082,
+    "ci95": [
+     0.045,
+     0.125
+    ],
+    "miss_rate_regular": 0.045,
+    "miss_rate_playoff_weeks": 0.11,
+    "expected_regular_misses": 0.09,
+    "expected_playoff_misses": 0.27,
+    "miss_rate_by_playoff_week": {
+     "15": 0.077,
+     "16": 0.103,
+     "17": 0.196
+    },
+    "allowance_games": 0.36,
+    "allowance_units": 3.63,
+    "allowance_units_ci95": [
+     1.82,
+     5.38
+    ],
+    "share_missing_0_1_2_3plus": [
+     0.846,
+     0.06,
+     0.034,
+     0.06
+    ]
+   },
+   "top13_fantasy|TE|W6": {
+    "starters": 98,
+    "games_after_W": 953,
+    "miss_rate_per_game": 0.132,
+    "ci95": [
+     0.091,
+     0.177
+    ],
+    "miss_rate_regular": 0.117,
+    "miss_rate_playoff_weeks": 0.176,
+    "expected_regular_misses": 0.85,
+    "expected_playoff_misses": 0.44,
+    "miss_rate_by_playoff_week": {
+     "15": 0.163,
+     "16": 0.184,
+     "17": 0.184
+    },
+    "allowance_games": 1.29,
+    "allowance_units": 5.29,
+    "allowance_units_ci95": [
+     3.22,
+     7.31
+    ],
+    "share_missing_0_1_2_3plus": [
+     0.612,
+     0.102,
+     0.082,
+     0.204
+    ]
+   },
+   "top13_fantasy|TE|W8": {
+    "starters": 95,
+    "games_after_W": 751,
+    "miss_rate_per_game": 0.133,
+    "ci95": [
+     0.091,
+     0.179
+    ],
+    "miss_rate_regular": 0.131,
+    "miss_rate_playoff_weeks": 0.138,
+    "expected_regular_misses": 0.71,
+    "expected_playoff_misses": 0.35,
+    "miss_rate_by_playoff_week": {
+     "15": 0.147,
+     "16": 0.116,
+     "17": 0.163
+    },
+    "allowance_games": 1.05,
+    "allowance_units": 4.15,
+    "allowance_units_ci95": [
+     2.5,
+     6.09
+    ],
+    "share_missing_0_1_2_3plus": [
+     0.642,
+     0.126,
+     0.074,
+     0.158
+    ]
+   },
+   "top13_fantasy|TE|W10": {
+    "starters": 94,
+    "games_after_W": 586,
+    "miss_rate_per_game": 0.131,
+    "ci95": [
+     0.079,
+     0.187
+    ],
+    "miss_rate_regular": 0.12,
+    "miss_rate_playoff_weeks": 0.149,
+    "expected_regular_misses": 0.45,
+    "expected_playoff_misses": 0.37,
+    "miss_rate_by_playoff_week": {
+     "15": 0.128,
+     "16": 0.149,
+     "17": 0.191
+    },
+    "allowance_games": 0.82,
+    "allowance_units": 4.54,
+    "allowance_units_ci95": [
+     2.73,
+     6.55
+    ],
+    "share_missing_0_1_2_3plus": [
+     0.713,
+     0.106,
+     0.043,
+     0.138
+    ]
+   },
+   "top13_fantasy|TE|W12": {
+    "starters": 93,
+    "games_after_W": 411,
+    "miss_rate_per_game": 0.119,
+    "ci95": [
+     0.072,
+     0.171
+    ],
+    "miss_rate_regular": 0.089,
+    "miss_rate_playoff_weeks": 0.143,
+    "expected_regular_misses": 0.17,
+    "expected_playoff_misses": 0.35,
+    "miss_rate_by_playoff_week": {
+     "15": 0.108,
+     "16": 0.14,
+     "17": 0.222
+    },
+    "allowance_games": 0.53,
+    "allowance_units": 4.48,
+    "allowance_units_ci95": [
+     2.72,
+     6.58
+    ],
+    "share_missing_0_1_2_3plus": [
+     0.753,
+     0.108,
+     0.065,
+     0.075
+    ]
+   }
+  },
+  "run_at": "2026-10-15T11:35"
+ },
+ "role_r75_r90": {
+  "expect": "About half of a one-week snap-share jump persists into the next three games (slope about 0.5) and about two thirds of a two-week one; the one-week flag carries signal, so 'one week is noise' is wrong, but the two-week read is the stronger one.",
+  "thresholds": {
+   "snap": 0.15,
+   "share": 0.08,
+   "opps": 5.0
+  },
+  "reads": 19584,
+  "seasons": [
+   2019,
+   2020,
+   2021,
+   2022,
+   2023,
+   2024,
+   2025
+  ],
+  "outcome": "mean over the next 3 games played",
+  "persistence_slopes": {
+   "snap": {
+    "one_week": {
+     "n": 19577,
+     "slope": 0.496,
+     "ci95": [
+      0.477,
+      0.512
+     ]
+    },
+    "two_week_mean": {
+     "n": 17248,
+     "slope": 0.654,
+     "ci95": [
+      0.631,
+      0.676
+     ]
+    },
+    "one_week_same_rows_vs_older_base": {
+     "n": 17248,
+     "slope": 0.542,
+     "ci95": [
+      0.52,
+      0.563
+     ]
+    },
+    "control_shuffled_read": {
+     "n": 19570,
+     "slope": 0.097,
+     "ci95": [
+      0.088,
+      0.105
+     ]
+    },
+    "control_planted_0.5": {
+     "n": 19577,
+     "slope": 0.502,
+     "ci95": [
+      0.49,
+      0.515
+     ]
+    }
+   },
+   "share": {
+    "one_week": {
+     "n": 13526,
+     "slope": 0.289,
+     "ci95": [
+      0.274,
+      0.304
+     ]
+    },
+    "two_week_mean": {
+     "n": 11912,
+     "slope": 0.458,
+     "ci95": [
+      0.436,
+      0.482
+     ]
+    },
+    "one_week_same_rows_vs_older_base": {
+     "n": 11912,
+     "slope": 0.312,
+     "ci95": [
+      0.292,
+      0.332
+     ]
+    },
+    "control_shuffled_read": {
+     "n": 13526,
+     "slope": 0.09,
+     "ci95": [
+      0.079,
+      0.101
+     ]
+    },
+    "control_planted_0.5": {
+     "n": 13526,
+     "slope": 0.493,
+     "ci95": [
+      0.482,
+      0.503
+     ]
+    }
+   },
+   "opps": {
+    "one_week": {
+     "n": 6058,
+     "slope": 0.368,
+     "ci95": [
+      0.337,
+      0.398
+     ]
+    },
+    "two_week_mean": {
+     "n": 5340,
+     "slope": 0.545,
+     "ci95": [
+      0.509,
+      0.579
+     ]
+    },
+    "one_week_same_rows_vs_older_base": {
+     "n": 5340,
+     "slope": 0.412,
+     "ci95": [
+      0.382,
+      0.442
+     ]
+    },
+    "control_shuffled_read": {
+     "n": 6058,
+     "slope": 0.078,
+     "ci95": [
+      0.066,
+      0.092
+     ]
+    },
+    "control_planted_0.5": {
+     "n": 6058,
+     "slope": 0.517,
+     "ci95": [
+      0.503,
+      0.533
+     ]
+    }
+   }
+  },
+  "flags": {
+   "flag1": {
+    "n_flagged": 5067,
+    "share_of_reads": 0.259,
+    "vs_matched": {
+     "snap": {
+      "n": 5001,
+      "players": 766,
+      "mean_jump": 0.181,
+      "mean_next_minus_baseline": 0.105,
+      "next_vs_matched_unflagged": 0.105,
+      "ci95": [
+       0.099,
+       0.112
+      ],
+      "share_of_jump_kept_vs_matched": 0.583
+     },
+     "share": {
+      "n": 3545,
+      "players": 532,
+      "mean_jump": 0.076,
+      "mean_next_minus_baseline": 0.03,
+      "next_vs_matched_unflagged": 0.028,
+      "ci95": [
+       0.025,
+       0.031
+      ],
+      "share_of_jump_kept_vs_matched": 0.363
+     },
+     "opps": {
+      "n": 1493,
+      "players": 237,
+      "mean_jump": 7.5,
+      "mean_next_minus_baseline": 3.298,
+      "next_vs_matched_unflagged": 3.689,
+      "ci95": [
+       3.318,
+       4.051
+      ],
+      "share_of_jump_kept_vs_matched": 0.492
+     }
+    }
+   },
+   "flag2": {
+    "n_flagged": 1969,
+    "share_of_reads": 0.101,
+    "vs_matched": {
+     "snap": {
+      "n": 1948,
+      "players": 564,
+      "mean_jump": 0.246,
+      "mean_next_minus_baseline": 0.171,
+      "next_vs_matched_unflagged": 0.148,
+      "ci95": [
+       0.137,
+       0.159
+      ],
+      "share_of_jump_kept_vs_matched": 0.601
+     },
+     "share": {
+      "n": 1384,
+      "players": 400,
+      "mean_jump": 0.076,
+      "mean_next_minus_baseline": 0.047,
+      "next_vs_matched_unflagged": 0.036,
+      "ci95": [
+       0.031,
+       0.04
+      ],
+      "share_of_jump_kept_vs_matched": 0.474
+     },
+     "opps": {
+      "n": 583,
+      "players": 169,
+      "mean_jump": 8.863,
+      "mean_next_minus_baseline": 5.343,
+      "next_vs_matched_unflagged": 5.152,
+      "ci95": [
+       4.499,
+       5.729
+      ],
+      "share_of_jump_kept_vs_matched": 0.581
+     }
+    }
+   },
+   "flag1_snap": {
+    "n_flagged": 3195,
+    "share_of_reads": 0.163,
+    "vs_matched": {
+     "snap": {
+      "n": 3156,
+      "players": 709,
+      "mean_jump": 0.271,
+      "mean_next_minus_baseline": 0.156,
+      "next_vs_matched_unflagged": 0.138,
+      "ci95": [
+       0.13,
+       0.147
+      ],
+      "share_of_jump_kept_vs_matched": 0.511
+     },
+     "share": {
+      "n": 2241,
+      "players": 493,
+      "mean_jump": 0.046,
+      "mean_next_minus_baseline": 0.032,
+      "next_vs_matched_unflagged": 0.023,
+      "ci95": [
+       0.019,
+       0.026
+      ],
+      "share_of_jump_kept_vs_matched": 0.498
+     },
+     "opps": {
+      "n": 948,
+      "players": 219,
+      "mean_jump": 7.265,
+      "mean_next_minus_baseline": 3.819,
+      "next_vs_matched_unflagged": 3.65,
+      "ci95": [
+       3.178,
+       4.126
+      ],
+      "share_of_jump_kept_vs_matched": 0.502
+     }
+    }
+   },
+   "flag2_snap": {
+    "n_flagged": 1459,
+    "share_of_reads": 0.074,
+    "vs_matched": {
+     "snap": {
+      "n": 1440,
+      "players": 499,
+      "mean_jump": 0.311,
+      "mean_next_minus_baseline": 0.213,
+      "next_vs_matched_unflagged": 0.174,
+      "ci95": [
+       0.162,
+       0.187
+      ],
+      "share_of_jump_kept_vs_matched": 0.561
+     },
+     "share": {
+      "n": 1072,
+      "players": 359,
+      "mean_jump": 0.057,
+      "mean_next_minus_baseline": 0.043,
+      "next_vs_matched_unflagged": 0.029,
+      "ci95": [
+       0.025,
+       0.034
+      ],
+      "share_of_jump_kept_vs_matched": 0.515
+     },
+     "opps": {
+      "n": 386,
+      "players": 144,
+      "mean_jump": 8.815,
+      "mean_next_minus_baseline": 5.496,
+      "next_vs_matched_unflagged": 4.773,
+      "ci95": [
+       4.001,
+       5.515
+      ],
+      "share_of_jump_kept_vs_matched": 0.541
+     }
+    }
+   }
+  },
+  "one_week_flags_confirmed_next_game": {
+   "snap": {
+    "one_week_reads": 2712,
+    "confirmed_next_game": 0.533
+   },
+   "share": {
+    "one_week_reads": 2186,
+    "confirmed_next_game": 0.267
+   },
+   "opps": {
+    "one_week_reads": 2301,
+    "confirmed_next_game": 0.315
+   }
+  },
+  "run_at": "2026-10-15T11:35"
+ },
+ "ownratio_r89": {
+  "expect": "Blending the 3-week own ratio helps little: for volume-confirmed over-performers the next-week MAE falls by 0.1-0.3 at a weight of 0.25-0.5 and rises at 1.0; for TD-driven streaks it does not help.",
+  "tier_medians_2022_2023": {
+   "QB 0-7": 0.297,
+   "QB 13+": 0.943,
+   "QB 7-13": 0.94,
+   "RB 0-7": 0.758,
+   "RB 13+": 0.919,
+   "RB 7-13": 0.927,
+   "TE 0-7": 1.025,
+   "TE 13+": 0.848,
+   "TE 7-13": 0.9,
+   "WR 0-7": 0.757,
+   "WR 13+": 0.944,
+   "WR 7-13": 0.851
+  },
+  "rows_2024_2025": 6731,
+  "groups": {
+   "over_volume": {
+    "n": 757,
+    "players": 283,
+    "mean_own_ratio": 1.767,
+    "mean_tier_median": 0.885,
+    "next_week_actual_over_proj": 1.071,
+    "by_weight": {
+     "0.0": {
+      "mae": 5.3,
+      "median_ae": 3.77,
+      "mean_error": 1.7,
+      "share_above_median": 0.536,
+      "mae_minus_tier_median": 0.0,
+      "ci95": [
+       0.0,
+       0.0
+      ]
+     },
+     "0.25": {
+      "mae": 5.51,
+      "median_ae": 4.41,
+      "mean_error": -0.1,
+      "share_above_median": 0.421,
+      "mae_minus_tier_median": 0.207,
+      "ci95": [
+       0.062,
+       0.35
+      ]
+     },
+     "0.5": {
+      "mae": 6.14,
+      "median_ae": 5.12,
+      "mean_error": -1.9,
+      "share_above_median": 0.342,
+      "mae_minus_tier_median": 0.836,
+      "ci95": [
+       0.611,
+       1.087
+      ]
+     },
+     "0.75": {
+      "mae": 7.06,
+      "median_ae": 6.13,
+      "mean_error": -3.7,
+      "share_above_median": 0.275,
+      "mae_minus_tier_median": 1.755,
+      "ci95": [
+       1.434,
+       2.1
+      ]
+     },
+     "1.0": {
+      "mae": 8.23,
+      "median_ae": 7.09,
+      "mean_error": -5.5,
+      "share_above_median": 0.231,
+      "mae_minus_tier_median": 2.924,
+      "ci95": [
+       2.507,
+       3.358
+      ]
+     }
+    },
+    "median_lean_needed": 1.053,
+    "median_lean_out_of_season": {
+     "fit 2024 test 2025": {
+      "lean": 1.094,
+      "mae_change": 0.047,
+      "ci95": [
+       -0.054,
+       0.157
+      ]
+     },
+     "fit 2025 test 2024": {
+      "lean": 1.005,
+      "mae_change": -0.008,
+      "ci95": [
+       -0.013,
+       -0.003
+      ]
+     }
+    },
+    "control_shuffled_own_w0.5": {
+     "mae_minus_tier_median": 1.105,
+     "ci95": [
+      0.773,
+      1.443
+     ]
+    }
+   },
+   "under_volume": {
+    "n": 789,
+    "players": 302,
+    "mean_own_ratio": 0.389,
+    "mean_tier_median": 0.841,
+    "next_week_actual_over_proj": 1.01,
+    "by_weight": {
+     "0.0": {
+      "mae": 3.38,
+      "median_ae": 2.16,
+      "mean_error": 0.77,
+      "share_above_median": 0.426,
+      "mae_minus_tier_median": 0.0,
+      "ci95": [
+       0.0,
+       0.0
+      ]
+     },
+     "0.25": {
+      "mae": 3.38,
+      "median_ae": 1.98,
+      "mean_error": 1.35,
+      "share_above_median": 0.475,
+      "mae_minus_tier_median": -0.001,
+      "ci95": [
+       -0.047,
+       0.045
+      ]
+     },
+     "0.5": {
+      "mae": 3.46,
+      "median_ae": 1.82,
+      "mean_error": 1.94,
+      "share_above_median": 0.522,
+      "mae_minus_tier_median": 0.078,
+      "ci95": [
+       -0.005,
+       0.169
+      ]
+     },
+     "0.75": {
+      "mae": 3.61,
+      "median_ae": 1.77,
+      "mean_error": 2.53,
+      "share_above_median": 0.572,
+      "mae_minus_tier_median": 0.229,
+      "ci95": [
+       0.102,
+       0.369
+      ]
+     },
+     "1.0": {
+      "mae": 3.85,
+      "median_ae": 1.8,
+      "mean_error": 3.12,
+      "share_above_median": 0.62,
+      "mae_minus_tier_median": 0.468,
+      "ci95": [
+       0.3,
+       0.651
+      ]
+     }
+    },
+    "median_lean_needed": 0.826,
+    "median_lean_out_of_season": {
+     "fit 2024 test 2025": {
+      "lean": 0.82,
+      "mae_change": 0.065,
+      "ci95": [
+       -0.037,
+       0.166
+      ]
+     },
+     "fit 2025 test 2024": {
+      "lean": 0.831,
+      "mae_change": 0.056,
+      "ci95": [
+       -0.053,
+       0.155
+      ]
+     }
+    },
+    "control_shuffled_own_w0.5": {
+     "mae_minus_tier_median": 0.242,
+     "ci95": [
+      0.117,
+      0.363
+     ]
+    }
+   },
+   "over_no_volume": {
+    "n": 172,
+    "players": 96,
+    "mean_own_ratio": 1.401,
+    "mean_tier_median": 0.903,
+    "next_week_actual_over_proj": 0.973,
+    "by_weight": {
+     "0.0": {
+      "mae": 5.41,
+      "median_ae": 4.44,
+      "mean_error": 0.69,
+      "share_above_median": 0.465,
+      "mae_minus_tier_median": 0.0,
+      "ci95": [
+       0.0,
+       0.0
+      ]
+     },
+     "0.25": {
+      "mae": 5.56,
+      "median_ae": 4.74,
+      "mean_error": -0.77,
+      "share_above_median": 0.384,
+      "mae_minus_tier_median": 0.154,
+      "ci95": [
+       -0.043,
+       0.369
+      ]
+     },
+     "0.5": {
+      "mae": 5.9,
+      "median_ae": 4.97,
+      "mean_error": -2.23,
+      "share_above_median": 0.349,
+      "mae_minus_tier_median": 0.493,
+      "ci95": [
+       0.113,
+       0.868
+      ]
+     },
+     "0.75": {
+      "mae": 6.52,
+      "median_ae": 5.33,
+      "mean_error": -3.68,
+      "share_above_median": 0.273,
+      "mae_minus_tier_median": 1.118,
+      "ci95": [
+       0.585,
+       1.686
+      ]
+     },
+     "1.0": {
+      "mae": 7.3,
+      "median_ae": 5.95,
+      "mean_error": -5.14,
+      "share_above_median": 0.227,
+      "mae_minus_tier_median": 1.893,
+      "ci95": [
+       1.166,
+       2.552
+      ]
+     }
+    },
+    "median_lean_needed": 0.942,
+    "median_lean_out_of_season": {
+     "fit 2024 test 2025": {
+      "lean": 1.024,
+      "mae_change": 0.063,
+      "ci95": [
+       -0.006,
+       0.143
+      ]
+     },
+     "fit 2025 test 2024": {
+      "lean": 0.823,
+      "mae_change": 0.378,
+      "ci95": [
+       0.06,
+       0.68
+      ]
+     }
+    },
+    "control_shuffled_own_w0.5": {
+     "mae_minus_tier_median": 0.789,
+     "ci95": [
+      0.233,
+      1.424
+     ]
+    }
+   },
+   "under_no_volume": {
+    "n": 135,
+    "players": 89,
+    "mean_own_ratio": 0.542,
+    "mean_tier_median": 0.887,
+    "next_week_actual_over_proj": 0.986,
+    "by_weight": {
+     "0.0": {
+      "mae": 4.63,
+      "median_ae": 3.86,
+      "mean_error": 0.7,
+      "share_above_median": 0.489,
+      "mae_minus_tier_median": 0.0,
+      "ci95": [
+       0.0,
+       0.0
+      ]
+     },
+     "0.25": {
+      "mae": 4.65,
+      "median_ae": 3.31,
+      "mean_error": 1.37,
+      "share_above_median": 0.526,
+      "mae_minus_tier_median": 0.025,
+      "ci95": [
+       -0.109,
+       0.163
+      ]
+     },
+     "0.5": {
+      "mae": 4.73,
+      "median_ae": 3.52,
+      "mean_error": 2.04,
+      "share_above_median": 0.548,
+      "mae_minus_tier_median": 0.101,
+      "ci95": [
+       -0.162,
+       0.358
+      ]
+     },
+     "0.75": {
+      "mae": 4.86,
+      "median_ae": 3.43,
+      "mean_error": 2.72,
+      "share_above_median": 0.578,
+      "mae_minus_tier_median": 0.237,
+      "ci95": [
+       -0.124,
+       0.626
+      ]
+     },
+     "1.0": {
+      "mae": 5.06,
+      "median_ae": 3.46,
+      "mean_error": 3.39,
+      "share_above_median": 0.644,
+      "mae_minus_tier_median": 0.438,
+      "ci95": [
+       -0.031,
+       0.898
+      ]
+     }
+    },
+    "median_lean_needed": 0.955,
+    "median_lean_out_of_season": {
+     "fit 2024 test 2025": {
+      "lean": 0.991,
+      "mae_change": 0.008,
+      "ci95": [
+       -0.011,
+       0.031
+      ]
+     },
+     "fit 2025 test 2024": {
+      "lean": 0.951,
+      "mae_change": -0.029,
+      "ci95": [
+       -0.127,
+       0.073
+      ]
+     }
+    },
+    "control_shuffled_own_w0.5": {
+     "mae_minus_tier_median": 0.205,
+     "ci95": [
+      -0.165,
+      0.56
+     ]
+    }
+   },
+   "mixed": {
+    "n": 4878,
+    "players": 496,
+    "mean_own_ratio": 1.124,
+    "mean_tier_median": 0.876,
+    "next_week_actual_over_proj": 1.046,
+    "by_weight": {
+     "0.0": {
+      "mae": 4.66,
+      "median_ae": 3.21,
+      "mean_error": 1.31,
+      "share_above_median": 0.503,
+      "mae_minus_tier_median": 0.0,
+      "ci95": [
+       0.0,
+       0.0
+      ]
+     },
+     "0.25": {
+      "mae": 4.68,
+      "median_ae": 3.3,
+      "mean_error": 0.93,
+      "share_above_median": 0.48,
+      "mae_minus_tier_median": 0.019,
+      "ci95": [
+       -0.006,
+       0.043
+      ]
+     },
+     "0.5": {
+      "mae": 4.79,
+      "median_ae": 3.53,
+      "mean_error": 0.56,
+      "share_above_median": 0.461,
+      "mae_minus_tier_median": 0.131,
+      "ci95": [
+       0.085,
+       0.176
+      ]
+     },
+     "0.75": {
+      "mae": 4.98,
+      "median_ae": 3.72,
+      "mean_error": 0.18,
+      "share_above_median": 0.442,
+      "mae_minus_tier_median": 0.318,
+      "ci95": [
+       0.251,
+       0.382
+      ]
+     },
+     "1.0": {
+      "mae": 5.23,
+      "median_ae": 3.89,
+      "mean_error": -0.19,
+      "share_above_median": 0.429,
+      "mae_minus_tier_median": 0.57,
+      "ci95": [
+       0.488,
+       0.65
+      ]
+     }
+    },
+    "median_lean_needed": 1.005,
+    "median_lean_out_of_season": {
+     "fit 2024 test 2025": {
+      "lean": 1.061,
+      "mae_change": 0.037,
+      "ci95": [
+       0.013,
+       0.062
+      ]
+     },
+     "fit 2025 test 2024": {
+      "lean": 0.954,
+      "mae_change": 0.042,
+      "ci95": [
+       0.021,
+       0.062
+      ]
+     }
+    },
+    "control_shuffled_own_w0.5": {
+     "mae_minus_tier_median": 0.382,
+     "ci95": [
+      0.302,
+      0.455
+     ]
+    }
+   }
+  },
+  "run_at": "2026-10-15T11:35"
+ },
+ "alarms_r88": {
+  "expect": "Per week, 50% coverage on 16 lines falls outside 0.35-0.65 about 21% of the time, so 'three weeks' fires often by chance unless the weeks must be consecutive and in one direction; a middle slice over 30% fires very often early in the season.",
+  "assumption": "calibrated forecaster, independent lines (binomial), 16 settled weeks a season",
+  "coverage": {
+   "12": {
+    "p_week_under_0.35": 0.1938,
+    "p_week_over_0.65": 0.1938,
+    "season_rate": {
+     "3 consecutive weeks, same side": 0.158,
+     "3 consecutive weeks, either side": 0.449,
+     "trailing 3-week pooled coverage outside": 0.502,
+     "any 3 weeks of the season on one side": 0.893
+    }
+   },
+   "14": {
+    "p_week_under_0.35": 0.0898,
+    "p_week_over_0.65": 0.0898,
+    "season_rate": {
+     "3 consecutive weeks, same side": 0.018,
+     "3 consecutive weeks, either side": 0.066,
+     "trailing 3-week pooled coverage outside": 0.371,
+     "any 3 weeks of the season on one side": 0.315
+    }
+   },
+   "16": {
+    "p_week_under_0.35": 0.1051,
+    "p_week_over_0.65": 0.1051,
+    "season_rate": {
+     "3 consecutive weeks, same side": 0.029,
+     "3 consecutive weeks, either side": 0.102,
+     "trailing 3-week pooled coverage outside": 0.274,
+     "any 3 weeks of the season on one side": 0.424
+    }
+   },
+   "18": {
+    "p_week_under_0.35": 0.1189,
+    "p_week_over_0.65": 0.1189,
+    "season_rate": {
+     "3 consecutive weeks, same side": 0.039,
+     "3 consecutive weeks, either side": 0.139,
+     "trailing 3-week pooled coverage outside": 0.197,
+     "any 3 weeks of the season on one side": 0.519
+    }
+   },
+   "20": {
+    "p_week_under_0.35": 0.0577,
+    "p_week_over_0.65": 0.0577,
+    "season_rate": {
+     "3 consecutive weeks, same side": 0.005,
+     "3 consecutive weeks, either side": 0.019,
+     "trailing 3-week pooled coverage outside": 0.142,
+     "any 3 weeks of the season on one side": 0.119
+    }
+   }
+  },
+  "slices": {
+   "16": {
+    "season-to-date, a middle slice over 30%, checked from week 1": 0.814,
+    "season-to-date, a middle slice over 30%, checked from week 3": 0.567,
+    "season-to-date, any slice over 30%, from week 1": 0.954,
+    "one week's 16 lines, a middle slice over 30%, per week": 0.655,
+    "one week's 16 lines, a middle slice over 30%, any week of the season": 1.0,
+    "season-to-date, a middle slice over 30% at week 8": 0.187,
+    "season-to-date, a middle slice over 30% at week 16": 0.077,
+    "chi-square of the six slices, weekly alpha 0.01 (stat > 15.1), from week 4": 0.048,
+    "chi-square of the six slices, weekly alpha 0.005 (stat > 16.7), from week 4": 0.027,
+    "chi-square of the six slices, weekly alpha 0.002 (stat > 18.9), from week 4": 0.013,
+    "season-to-date middle slice over 32%, from week 4": 0.29,
+    "season-to-date middle slice over 32%, from week 6": 0.184,
+    "season-to-date middle slice over 35%, from week 4": 0.087,
+    "season-to-date middle slice over 35%, from week 6": 0.037
+   }
+  },
+  "coverage_replacements_16_lines": {
+   "season-to-date |z| > 2.0": 0.18,
+   "season-to-date |z| > 2.5": 0.05,
+   "season-to-date |z| > 2.8": 0.025,
+   "season-to-date |z| > 3.0": 0.013,
+   "trailing 3-week pooled coverage outside 0.3-0.7": 0.063,
+   "trailing 3-week pooled coverage outside 0.25-0.75": 0.003
+  },
+  "run_at": "2026-10-15T11:35"
  }
 }

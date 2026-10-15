@@ -151,7 +151,10 @@ def summarize(p: dict) -> None:
     p["flags"] = []
     if g >= 2:
         prior = ws[:-1]
-        d_snap = (last["snap"] or 0) - (mean([w["snap"] for w in prior]) or 0) if last["snap"] is not None else 0
+        # No snap data before the last game means no comparison, not a rise from
+        # zero (found by the backtest, 2026-10-15: ROLE-UP fired on one game).
+        prior_snap = mean([w["snap"] for w in prior])
+        d_snap = (last["snap"] - prior_snap) if last["snap"] is not None and prior_snap is not None else 0
         d_share = (last["tgt_share"] or 0) - (mean([w["tgt_share"] for w in prior]) or 0)
         d_opps = p["last"]["opps"] - (sum(w["car"] + 1.5 * w["tgt"] for w in prior) / len(prior))
         up = d_snap >= 0.15 or (p["pos"] in ("WR", "TE") and d_share >= 0.08) or (p["pos"] == "RB" and d_opps >= 5)

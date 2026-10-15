@@ -1,11 +1,11 @@
 #!/usr/bin/env python3
-"""Score every bench-for-wire swap against the playbook's 20-point gate.
+"""Score every bench-for-wire swap against the playbook's waiver gate.
 
-The playbook's *Season operations* rule: at 16 rostered there is no free spot,
+The playbook's *Waivers* gate: at 16 rostered there is no free spot,
 so a claim is a swap and its value is `add - drop` over the rest of the
-season, not the add's projection by itself. The gate is 2.5 points a game
-over that horizon (what +20 over 8 weeks meant when it was set), or a
-bye-week hole the swap fills.
+season, not the add's projection by itself. The gate is 1.0 point a game
+over that horizon (backtested 2026-10-15; it was 2.5, what +20 over 8 weeks
+meant when it was set), or a bye-week hole the swap fills.
 
 INVARIANTS
 - Read-only. Never files a claim; `espn-tx claim` is the only write path.
@@ -58,8 +58,9 @@ INVARIANTS
   scores in the starter's bye weeks plus an allowance for an injury, about
   two weeks here, so the real gain was about +5. When the drop is a bench
   player at a one-of position whose starter is rostered, the multiplier is
-  `backup_weeks[pos]` (the starter's remaining byes plus
-  BACKUP_INJURY_WEEKS), capped at the weeks left.
+  the starter's remaining byes plus his measured chance of missing time
+  (BACKUP_START_REG a regular week, BACKUP_START_PO of the playoff units),
+  capped at the horizon. The add is priced on its own weeks.
 
     swap-scan [--gate 20] [--top 3] [--json]
 """
@@ -81,7 +82,14 @@ from espncli.client import BENCH, IR, Espn, norm  # noqa: E402
 from espncli.value import games_appeared, games_played, ros_rate  # noqa: E402
 
 REG_SEASON_END = 14
-GATE_PER_GAME = 2.5                   # the rate gap a swap must clear: +20 over the 8 weeks left at week 6
+# The rate gap a swap must clear, per game. Backtested 2026-10-15 (research/
+# rule_backtests.py gate, weeks 3-11 of 2022-2025, the new ros_rate blend):
+# the realized gain is positive on average for every predicted gap above 0.5
+# a game, and at a move cost of 1 point a game the best gate is 1.0 (95% CI
+# 0.25 to 1.5), which keeps 85% or more of the best net gain under every prior
+# proxy and cost tested; 2.5 kept 46-97%. A gate of 3.4 would make the
+# predicted sign right 80% of the time; the gate is for points, so it is 1.0.
+GATE_PER_GAME = 1.0
 PLAYOFF_UNITS = 24.4                  # weeks 15-17 in regular-week units (2.0 + 10.7 + 11.7, --leverage 2026-10-14)
 LEVERAGE_CACHE = FANTASY / ".cache" / "leverage.json"
 LEVERAGE_MAX_AGE = 8 * 86400          # older than a Tuesday cycle: fall back to PLAYOFF_UNITS
@@ -89,7 +97,12 @@ ONE_OF = {"QB", "TE"}                 # never a second one on the roster
 FLEX_POS = {"RB", "WR", "TE"}
 STREAM_POS = {"K", "D/ST"}            # weekly streamers: stream-scan prices them, not a season rate
 UNAVAILABLE = {"OUT", "IR", "SUSP"}    # wire injury tags: the rate cannot see the absence
-BACKUP_INJURY_WEEKS = 1               # starts a QB/TE backup gets from the starter missing time
+# A top-13 QB or TE starter misses 13% of his games from week 6 on (2016-2025),
+# and more in the playoff weeks (QB 16%, 16%, 29% in weeks 15-17), so a bench
+# QB/TE gets this share of each regular week and of the playoff units on top of
+# the starter's byes (backtest R77, 2026-10-15; the flat 1 week was right only
+# in plain games at weeks 6-8).
+BACKUP_START_REG, BACKUP_START_PO = 0.10, 0.17
 LOOKAHEAD = 2                         # weeks of bye holes to show
 VOLUME = FANTASY / ".cache" / "volume-{season}.json"
 SLEEPER_TRENDING = "https://api.sleeper.app/v1/players/nfl/trending/add?lookback_hours=24&limit=150"
@@ -152,7 +165,11 @@ def scan(week: int, roster: list[dict], pool: list[dict], position_max: dict[str
          playoff_units: float = PLAYOFF_UNITS) -> dict:
     """Pure: rows in, ranked swaps out. `games` is pro-team abbrev -> games played;
     `committed` is the normalized names already listed as a DROP in a pending claim;
-    `backup_weeks` is position -> weeks a bench QB/TE will start (starter byes + injury)."""
+    `backup_weeks` is position -> the starter's bye weeks left; the injury
+    share (BACKUP_START_REG, BACKUP_START_PO) is added here, in horizon units.
+    The add and the drop are priced on their own weeks: until 2026-10-15 the
+    whole gap was multiplied by a backup's few weeks, which under-priced a
+    flex add who plays every week."""
     games, heat, volume = games or {}, heat or {}, volume or {}
     committed = committed or set()
     remaining = max(REG_SEASON_END - week, 0)
@@ -169,11 +186,16 @@ def scan(week: int, roster: list[dict], pool: list[dict], position_max: dict[str
     bench.sort(key=lambda p: p["rate"])
     starting = {p["pos"] for p in roster if p["slotId"] not in (BENCH, IR)}
     backup_weeks = backup_weeks or {}
+
+    def weeks_for(pos: str) -> float:
+        if pos in ONE_OF and pos in starting:
+            return round(min(horizon, backup_weeks.get(pos, 0) + BACKUP_START_REG * remaining
+                             + BACKUP_START_PO * playoff_units), 1)
+        return horizon
+
     results = []
     for drop in bench:
-        weeks = horizon
-        if drop["pos"] in ONE_OF and drop["pos"] in starting:
-            weeks = min(horizon, backup_weeks.get(drop["pos"], BACKUP_INJURY_WEEKS))
+        weeks = weeks_for(drop["pos"])
         scored = []
         for c in pool:
             if c.get("status") in UNAVAILABLE or not allowed(c, drop, held, position_max):
@@ -183,7 +205,7 @@ def scan(week: int, roster: list[dict], pool: list[dict], position_max: dict[str
             scored.append({
                 "add": c["name"], "pos": c["pos"], "avail": c["avail"], "team": c.get("team"),
                 "owned": round(float(c.get("owned") or 0), 1), "trend": round(float(c.get("trend") or 0), 1),
-                "add_rate": round(c["rate"], 2), "gain": round((c["rate"] - drop["rate"]) * weeks, 1),
+                "add_rate": round(c["rate"], 2), "gain": round(c["rate"] * weeks_for(c["pos"]) - drop["rate"] * weeks, 1),
                 "heat": heat.get(vkey(c), 0), "flags": flags,
                 "role": bool({"BUY", "ROLE-UP"} & set(flags)),
                 "snap": (v.get("last") or {}).get("snap"), "tgt_share": (v.get("last") or {}).get("tgt_share"),
@@ -218,12 +240,12 @@ def bye_holes(api: Espn, roster: list[dict], week: int, weeks: int = LOOKAHEAD) 
 
 
 def backup_weeks(api: Espn, roster: list[dict], week: int) -> dict[str, int]:
-    """Per one-of position: the starter's bye weeks left plus the injury allowance."""
+    """Per one-of position: the starter's bye weeks left (the injury share is added in scan)."""
     out = {}
     for s in roster:
         if s["pos"] in ONE_OF and s["slotId"] not in (BENCH, IR):
             byes = sum(api.opponent(api_team_id(api, s), w) == "BYE" for w in range(week + 1, REG_SEASON_END + 1))
-            out[s["pos"]] = byes + BACKUP_INJURY_WEEKS
+            out[s["pos"]] = byes
     return out
 
 
