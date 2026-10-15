@@ -135,6 +135,8 @@ def fetch_edc(cfg: dict, st: dict, force: bool, pg=None) -> list[Meeting]:
     ms = edc.to_meetings(edc.parse_ics(text), cfg["edc"]["bodies"], cfg["sync_days"])
     st["last_edc"] = datetime.now().timestamp()
     st["edc_cache"] = [_ser(m) for m in ms]
+    from . import commonlot
+    commonlot.push(ms)
     return ms
 
 
