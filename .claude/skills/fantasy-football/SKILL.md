@@ -522,9 +522,12 @@ bidding advice (`references/evidence.md` F1).** The FAAB dead-zone guidance does
   others paid draft capital (§3). That mechanism is throttled here by
   reverse-standings priority *and* by 208 players rostered across 13 teams of 16.
   Combined with the market having already arbitraged the strategy, do not run it.
-- **Early-season claims are the cheap ones.** Priority is most favorable before he
-  climbs the standings, and Week 1-4 breakouts are where the wire actually
-  produces starters.
+- **Early-season claims are the cheap ones, but the wire matters all season.**
+  Priority is most favorable before he climbs the standings. Early adds score
+  the most in total because they have the most weeks left, but per week left
+  late adds score more (non-FAAB Sleeper leagues, 2024-2025: 2.0 a week for
+  adds in weeks 1-4, 4.5 for weeks 10-14), and in reverse-standings leagues
+  64% of adds were free-agent pickups that need no priority.
 
 ### The rest of the format read
 
@@ -1074,9 +1077,13 @@ Standing caveats:
   peer-reviewed literature. No academic study of the winner's curse inside a
   fantasy auction exists either; Massey & Thaler (2013) is about real NFL front
   offices and applies only by analogy.
-- **Nothing found decomposes final standings variance** into draft vs. in-season
-  moves vs. schedule luck with an actual number. That would be the single most
-  useful missing statistic for prioritizing effort.
+- **Final standings, decomposed (measured 2026-10-15 on 998 public Sleeper
+  league-seasons, `fantasy/research/standings_decomp.py`):** Points For splits
+  draft 52%, in-season acquisitions 24%, lineups 24%; wins split Points For
+  59% and schedule luck 32%. Only acquisitions (r 0.27 year over year for the
+  same manager) and dead lineup slots (r 0.44) persist; draft results (0.05),
+  trades (0.05), close start/sit choices (0.14) and schedule luck (0.02) do
+  not. Effort goes to the waiver wire and to never leaving a dead slot.
 - Getty et al. (2018), the most-cited skill-vs-luck paper, **was partially funded
   by FanDuel**, which had a regulatory interest in fantasy being ruled a game of
   skill. The paper states FanDuel exercised no editorial control. Mention the
