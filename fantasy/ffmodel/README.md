@@ -13,6 +13,7 @@ has been tested on seasons that the fit did not see.
 | `market.py` | How many points do those lines give? | `props.py` + `nflraw.py` | `forecast dossier` (the `market` vote), `forecast settle` and `history` (closing line value) |
 | `corr.py` | Which starters' weekly surprises move together? | `nflraw.py` residuals against Sleeper's projections | `espncli.value.win_prob`, so `espn check` and `espn matchup` |
 | `score.py` | Is a forecast good, and not only sufficiently wide? | the filed `forecasts/*.json` | `forecast history` |
+| `injury.py` | How often does a player on the injury report play, and how many points does he get? | nflverse injury reports and snap counts, 2016-2025 | `espn check` (`p_play`, `practice`, `injury_ratio`) |
 
 ## What each one measured
 
@@ -49,13 +50,26 @@ the other QB): 86.6% with no correlation and 90.5% with correlations.
 lines of the position plus the implied team total. Out of sample, the market
 model and Sleeper have the same error on all players with lines (MAE 5.13
 against 5.13 on 2024, 5.09 against 5.06 on 2025, 5.16 against 5.16 on
-2026). The mean of the two is better than each source alone. On players rostered in the league in
+2026). The mean of the two is better than each source alone. In `espn
+check` the lineup mean weights the market 0.75: on 842 rostered 2026
+player-weeks the error fell as the market's weight rose (ESPN alone 5.885,
+even 5.777, market alone 5.721). On players rostered in the league in
 2026, weeks 1-5 (n = 833), the market's MAE is 5.70, Sleeper's is 5.78 and
 ESPN's is 5.86. The market beats ESPN by 0.162 (95% CI 0.065 to 0.261) with
 closing lines and by 0.135 (0.032 to 0.237) with opening lines. The model
 reads only core lines, because books post different menus. A model that
 read "this line is missing" as information gave 2024 quarterbacks an error
 of 8.4, against 6.0 for Sleeper.
+
+**Injury report (`injury`).** Regular contributors (40% or more of the
+snaps in a recent game) listed questionable played 0.71 of the time: 0.45
+after a missed practice, 0.73 after a limited one, 0.88 after a full one,
+and 0.53 for a quarterback. Doubtful played 0.01, out 0.001. When a
+questionable player played, he got 0.91 of his projection against
+players not on the report. `espn check` reads this week's practice line,
+scales ESPN's part of the mean by the ratio (the market already prices the
+report), and treats our own questionable starter as a mixture with the
+bench cover that kicks off no earlier than he does.
 
 **Proper scores (`score`).** The weighted interval score (WIS), and the
 position of each result in the forecast distribution. On the 59 settled player lines of weeks
@@ -73,6 +87,21 @@ had an MAE of 5.54. MIST's MAE was 6.10, the consensus 5.70 and ESPN 5.63.
 From 2026-10-15, `forecast record` keeps the market value at forecast
 time, thus subsequent weeks measure the actual lean.
 
+## Outside checks on actual leagues
+
+`fantasy/research/sleeper_validation.py` tests the models on hundreds of
+public Sleeper leagues (2024-2025) that played no part in fitting them.
+
+- **Win probability:** on 49,615 regular-season matchups in 637 leagues,
+  the `espn check` model (Sleeper projections scored on each league's own
+  rules, the CV_TABLE spreads) is calibrated to about one point in every
+  decile (Brier 0.202). Correlations change nothing there, because real
+  lineups seldom stack.
+- **Bye odds:** from the week-5 standings of 673 leagues, a fixed-strength
+  season model was overconfident about the leaders (0.55 predicted, 0.46
+  observed). A 4-point weekly drift in team strength fixes most of it, and
+  `season_sim.py` now uses it.
+
 ## Commands
 
 ```sh
@@ -83,6 +112,7 @@ python3 -m ffmodel.market evaluate        # leave-one-season-out + 2026 three-wa
 python3 -m ffmodel.market week 7          # this week's market projections
 python3 -m ffmodel.corr                   # rebuild corr_table.json
 python3 -m ffmodel.corr validate          # the out-of-sample coverage check
+python3 -m ffmodel.injury                 # rebuild injury_table.json
 ```
 
 Start the commands in `fantasy/`. Caches go to `fantasy/.cache/nflraw/` and
