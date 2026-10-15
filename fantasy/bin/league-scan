@@ -11,6 +11,10 @@ Tuesday routine updates observations from numbers instead of impressions:
               lineup from the roster that week, minus what was started.
               Small means an attentive manager; large means a set-and-forget
               roster and a lineup that can be beaten by its own bench
+  vs_proj     points per week the lineup started scored over the lineup
+              ESPN's projections at lock would have set (2026-10-15). LEFT
+              is hindsight and grows with bench depth; this is the ex-ante
+              question: did the manager's own calls beat the default?
   moves       adds and trades from ESPN's transaction counter. The trade
               count goes up on ACCEPT, before the 24h review, so a trade
               that is still in review is counted; it read 1 for two teams
@@ -51,10 +55,12 @@ from espncli.client import BENCH, IR, Espn, team_name  # noqa: E402
 SLOT_POS = {0: ("QB",), 2: ("RB",), 4: ("WR",), 6: ("TE",), 16: ("D/ST",), 17: ("K",), 23: ("RB", "WR", "TE")}
 
 
-def best_actual(rows: list[dict], counts: dict[int, int]) -> float:
-    """The most a roster could have scored that week with a legal lineup."""
+def best_by(rows: list[dict], counts: dict[int, int], key: str) -> float:
+    """Actual points of the legal lineup that maximizes `key` ("actual" for the
+    hindsight best, "proj" for the lineup ESPN's own projections at lock
+    would have set)."""
     pool = sorted((r for r in rows if r["slotId"] != IR and r.get("actual") is not None),
-                  key=lambda r: -r["actual"])
+                  key=lambda r: -(r.get(key) or 0.0))
     used: set = set()
     total = 0.0
     for slot_id in (0, 2, 4, 6, 16, 17, 23):       # fixed slots first, flex last
@@ -64,6 +70,11 @@ def best_actual(rows: list[dict], counts: dict[int, int]) -> float:
                 used.add(id(pick))
                 total += pick["actual"]
     return round(total, 1)
+
+
+def best_actual(rows: list[dict], counts: dict[int, int]) -> float:
+    """The most a roster could have scored that week with a legal lineup."""
+    return best_by(rows, counts, "actual")
 
 
 def week_rows(api: Espn, week: int) -> tuple[dict, dict[int, list[dict]]]:
@@ -88,7 +99,7 @@ def scan(api: Espn, weeks: int | None) -> dict:
     teams = {t["id"]: {"team": team_name(t), "owner": initials(members.get((t.get("primaryOwner") or (t.get("owners") or [None])[0]))),
                        "acq": (t.get("transactionCounter") or {}).get("acquisitions", 0),
                        "trades": (t.get("transactionCounter") or {}).get("trades", 0),
-                       "weeks": 0, "zeros": 0, "left": 0.0, "zero_list": []} for t in now["teams"]}
+                       "weeks": 0, "zeros": 0, "left": 0.0, "vs_proj": 0.0, "zero_list": []} for t in now["teams"]}
     last = current - 1 if weeks is None else min(weeks, current - 1)
     played = []
     for w in range(1, last + 1):
@@ -106,7 +117,9 @@ def scan(api: Espn, weeks: int | None) -> dict:
             t["weeks"] += 1
             t["zeros"] += len(zeros)
             t["zero_list"] += [f"w{w} {r['slot']} {r['name']}" + (" (bye)" if r["opp"] == "BYE" else "") for r in zeros]
-            t["left"] += best_actual(rs, counts) - sum(r["actual"] or 0 for r in started)
+            got = sum(r["actual"] or 0 for r in started)
+            t["left"] += best_actual(rs, counts) - got
+            t["vs_proj"] += got - best_by(rs, counts, "proj")
     # Trade offers, from the transaction log. mTransactions2 is scoped to one
     # scoring period per call and an offer's original row sits in the period
     # it was proposed while the expiry CANCEL row sits in the period it died,
@@ -140,6 +153,7 @@ def scan(api: Espn, weeks: int | None) -> dict:
         r = recv.get(tid, collections.Counter())
         rows.append({"team_id": tid, **t, "left": round(t["left"], 1),
                      "left_pw": round(t["left"] / t["weeks"], 1) if t["weeks"] else None,
+                     "vs_proj_pw": round(t["vs_proj"] / t["weeks"], 1) if t["weeks"] else None,
                      "offers_sent": sent.get(tid, 0), "offers_recv": sum(r.values()),
                      "accepted": r.get("accepted", 0), "expired": r.get("expired", 0), "pending": r.get("pending", 0),
                      "mine": tid == api.my_team_id(now)})
@@ -162,10 +176,11 @@ def main() -> int:
     for r in out["teams"]:
         r["mark"] = "<-" if r["mine"] else ""
         r["left_s"] = "-" if r["left_pw"] is None else f"{r['left_pw']:.1f}"
+        r["vsp_s"] = "-" if r["vs_proj_pw"] is None else f"{r['vs_proj_pw']:+.1f}"
         r["offers"] = f"{r['offers_sent']}/{r['offers_recv']}"
         r["answered"] = f"{r['accepted']}a {r['expired']}x {r['pending']}p" if r["offers_recv"] else "-"
     table(out["teams"], [("TEAM", "team", 26, "l"), ("OWN", "owner", 4, "l"), ("ZEROS", "zeros", 5, "r"),
-                         ("LEFT/WK", "left_s", 7, "r"), ("ADDS", "acq", 4, "r"), ("TRD", "trades", 3, "r"),
+                         ("LEFT/WK", "left_s", 7, "r"), ("VS-PROJ", "vsp_s", 7, "r"), ("ADDS", "acq", 4, "r"), ("TRD", "trades", 3, "r"),
                          ("OFFERS s/r", "offers", 10, "l"), ("RECEIVED", "answered", 12, "l"), ("", "mark", 2, "l")])
     zl = [(r["team"], z) for r in out["teams"] for z in r["zero_list"]]
     if zl:
@@ -173,6 +188,8 @@ def main() -> int:
         for team, z in zl:
             print(f"    {team:<26} {z}")
     print("\n  ZEROS = starters who scored 0.0 in a closed week; LEFT/WK = bench points that beat the lineup started;"
+          "\n  VS-PROJ = points a week the lineup started scored over the lineup ESPN's own projections would have set"
+          "\n  (above 0: the manager's calls beat the default; the ex-ante measure LEFT/WK is not);"
           "\n  TRD = trades accepted, including any still in the 24h review (not proof that players moved);"
           "\n  RECEIVED = offers to that manager: a accepted, x expired unanswered, p pending. Owners are initials only.")
     return 0
