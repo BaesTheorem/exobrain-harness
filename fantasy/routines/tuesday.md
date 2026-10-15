@@ -121,11 +121,13 @@ Follow `fantasy/routines/COMMON.md` first. If today is not Tuesday, stop.
    BUY|SELL`) still feed the watch list and the waiver and lineup calls. (The
    old proposal procedure and the *Standing offers* list are in the
    playbook's *Corrections ledger*, 2026-10-11, and its archive.)
-   **Watch list.** `fantasy/watchlist.json` is the set of players and teams
-   roster-watch tracks between runs, each with a `why` and a `trigger`.
-   Review it: act on any trigger that has fired (the incidents file shows
-   watch events), remove entries that no longer matter, add the week's new
-   buy-low and sell-high candidates with their triggers, and bump `updated`.
+   **Watch list.** `fantasy/watchlist.json` is the set of players
+   roster-watch tracks between runs, each with a `why` and a `trigger`. Keep
+   only entries whose trigger can change a decision of ours: our own players'
+   roles and returns, a waiver target's role, a backup whose starter is
+   hurt. Trade targets are retired with the trade lane (rule inventory R141,
+   2026-10-15: none of the 9 watch-list incidents since 09-22 changed a
+   roster decision). Act on fired triggers, prune the rest, bump `updated`.
 5. **Tendencies.** `fantasy/bin/league-scan` (zeros started, bench points
    left per week, adds, offers sent and received and how they ended, per
    manager, from every closed week) and `fantasy/bin/espn activity --json`
