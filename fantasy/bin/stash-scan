@@ -1,0 +1,259 @@
+#!/usr/bin/env python3
+"""stash-scan: injured free agents priced as playoff stashes.
+
+The playbook's *The strategic thesis* rule 4 values the roster for weeks
+16-17 first, and `swap-scan` skips every injured wire player (2026-10-06,
+Thornton). This prices those players on the weeks they can still play, with
+the measured discounts, against the starter each one would replace for us:
+
+    gain = P_BACK x (rate x factor - floor) x units
+
+- rate: `espncli.value.ros_rate`, the one currency. His weekly projection is
+  0 while he is out, so the rate is his prior blended with his PPG.
+- factor: what a returning starter scores against his pre-injury rate, median
+  0.89 for players on IR and 0.66 for all returners (count from nflverse
+  files, 2016-2025, run and checked 2026-10-14).
+- P_BACK: 0.53, the share of top starters out in NFL weeks 10 and 11 who
+  played week 16 (same count, n = 43). Season-ending news makes it 0.
+- floor: our weakest starter, by rate, at a slot he can fill in our best
+  healthy lineup. A stash who would not start for us is worth nothing to us.
+- units: the per-week weights from `season_sim.py --leverage`
+  (`.cache/leverage.json`, weeks 16 and 17 about 11 each), summed from the
+  week his news says he is back, or over weeks 15-17 when it says nothing.
+
+The gate is 20 units of points, what +20 regular-season points meant. A
+PASS goes to the IR slot when the slot is empty and his status is IR;
+otherwise he needs a bench spot until he is back. Only an IR-slot PASS is
+bannered (`--banner`), because the playbook runs this from week 9, when the
+slot opens.
+
+INVARIANTS
+- Read-only. Never files a claim or moves a player: `espn-tx` is the only
+  write path, and the Do it button hands the move to a Console chat.
+- Season-ending news is never a candidate. No K or D/ST.
+- `--banner` sends at most one banner a run and never offers a player twice
+  (`.cache/stash-scan.json`).
+
+    stash-scan [--json] [--banner] [--top 5]
+"""
+
+from __future__ import annotations
+
+import argparse
+import json
+import re
+import subprocess
+import sys
+import time
+from pathlib import Path
+
+HERE = Path(__file__).resolve().parent
+FANTASY = HERE.parent
+sys.path.insert(0, str(FANTASY))
+
+from espncli.cli import player_news, pool_rows, roster_rows  # noqa: E402
+from espncli.client import BENCH, IR, Espn, norm, web_urls  # noqa: E402
+from espncli.value import games_appeared, games_played, load_volume_rows, ros_rate  # noqa: E402
+
+P_BACK = 0.53                      # top starters out in weeks 10-11 who played week 16 (n = 43)
+FACTOR_IR = 0.89                   # median return rate over pre-injury rate, on IR in week 10
+FACTOR_OTHER = 0.66                # median over all returners
+GATE_UNITS = 20.0                  # units of points: +20 regular-season points
+SKILL = ("QB", "RB", "WR", "TE")
+INJURED = {"OUT", "IR"}            # short_status codes
+LAST_WEEK = 17
+REG_SEASON_END = 14
+DEFAULT_WEIGHTS = {**{w: 1.0 for w in range(1, REG_SEASON_END + 1)}, 15: 2.0, 16: 11.0, 17: 12.0}
+LEVERAGE_CACHE = FANTASY / ".cache" / "leverage.json"
+LEVERAGE_MAX_AGE = 8 * 86400
+STATE = FANTASY / ".cache" / "stash-scan.json"
+NOTIFY = FANTASY.parent / "mist-voice" / "bin" / "mist-notify"
+REPLY_URL = "http://127.0.0.1:5014/notify-reply"
+NEWS_PER_PLAYER = 3
+NEWS_LOOKUPS = 10                  # news is fetched for the best candidates only
+
+SEASON_OVER = re.compile(r"season-ending|out for the (?:rest of the )?season|miss the (?:rest|remainder) of the"
+                         r"(?: regular)? season|torn (?:acl|achilles)|ruptured achilles", re.I)
+WEEK_BYE = re.compile(r"week (\d{1,2}) bye", re.I)
+WEEK_N = re.compile(r"\bweek (\d{1,2})\b", re.I)
+WEEKS_SPAN = re.compile(r"\b(\d{1,2})(?:\s*-\s*|\s+to\s+)(\d{1,2})\s+weeks\b", re.I)
+
+
+def weights_cached(path: Path = LEVERAGE_CACHE, now: float | None = None) -> tuple[dict[int, float], str]:
+    """Per-week title weights from this Tuesday's `--leverage` run, or the defaults."""
+    try:
+        if (now or time.time()) - path.stat().st_mtime > LEVERAGE_MAX_AGE:
+            return DEFAULT_WEIGHTS, "default (leverage cache stale)"
+        raw = json.loads(path.read_text()).get("weight") or {}
+        w = {int(k): float(v) for k, v in raw.items() if v is not None}
+        return (w, "season_sim --leverage") if w else (DEFAULT_WEIGHTS, "default (empty cache)")
+    except (OSError, ValueError, TypeError):
+        return DEFAULT_WEIGHTS, "default (no leverage cache)"
+
+
+def return_hint(news: list[dict], week: int) -> tuple[int | None, bool, str]:
+    """(week he is expected back, season over, the sentence that said so) from the
+    newest items first. A hint, never a fact: the routine reads the snippet."""
+    for item in news:
+        text = f"{item.get('headline') or ''}. {item.get('story') or ''}"
+        over = SEASON_OVER.search(text)
+        if over:
+            return None, True, over.group(0)
+        bye = [int(n) + 1 for n in WEEK_BYE.findall(text)]
+        weeks = [int(n) for n in WEEK_N.findall(text)]
+        span = WEEKS_SPAN.search(text)
+        cands = [w for w in bye + weeks if week < w <= LAST_WEEK]
+        if span:
+            cands.append(min(week + int(span.group(2)), LAST_WEEK))
+        if cands:
+            hint = max(cands)
+            m = WEEK_BYE.search(text) or span or WEEK_N.search(text)
+            return hint, False, m.group(0) if m else ""
+    return None, False, ""
+
+
+def lineup_floors(rows: list[dict]) -> dict[str, float]:
+    """Our best healthy lineup by rate; per position, the weakest starter a
+    player of that position could replace (his own slots plus FLEX)."""
+    healthy = [r for r in rows if r.get("slotId") != IR and r.get("status") not in INJURED | {"SUSP"}]
+    by_pos: dict[str, list[float]] = {p: sorted((r["rate"] for r in healthy if r["pos"] == p), reverse=True)
+                                      for p in SKILL}
+    need = {"QB": 1, "RB": 2, "WR": 2, "TE": 1}
+    starters = {p: by_pos[p][:need[p]] for p in SKILL}
+    rest = sorted((x for p in ("RB", "WR", "TE") for x in by_pos[p][need[p]:]), reverse=True)
+    flex = rest[0] if rest else 0.0
+    floors = {"QB": min(starters["QB"], default=0.0)}
+    for p in ("RB", "WR", "TE"):
+        floors[p] = min([*starters[p], flex]) if len(starters[p]) == need[p] else 0.0
+    return floors
+
+
+def scan(week: int, roster: list[dict], pool: list[dict], weights: dict[int, float],
+         news: dict[int, list[dict]] | None = None, games: dict[str, int] | None = None,
+         appeared: dict[str, int] | None = None, gate: float = GATE_UNITS, top: int = 5) -> dict:
+    """Pure: rows in, priced stashes out. `news` is player id -> newest items first."""
+    games, appeared, news = games or {}, appeared or {}, news or {}
+    for p in [*roster, *pool]:
+        p["rate"] = ros_rate(week, p.get("proj"), p.get("season_proj"), p.get("season_actual"),
+                             games.get(p.get("team") or ""), appeared.get(f"{norm(p['name'])}|{p['pos']}"))
+    floors = lineup_floors(roster)
+    ir_holder = next((r["name"] for r in roster if r.get("slotId") == IR), None)
+    bench = sorted((r for r in roster if r.get("slotId") == BENCH and r["pos"] in SKILL), key=lambda r: r["rate"])
+    out, below = [], 0
+    for c in pool:
+        if c["pos"] not in SKILL or c.get("status") not in INJURED:
+            continue
+        factor = FACTOR_IR if c["status"] == "IR" else FACTOR_OTHER
+        back_rate = c["rate"] * factor
+        floor = floors.get(c["pos"], 0.0)
+        if back_rate <= floor:
+            below += 1
+            continue
+        hint, over, said = return_hint(news.get(c["id"], []), week)
+        if over:
+            continue
+        start = hint if hint else 15
+        start = max(start, week + 1)
+        units = sum(v for w, v in weights.items() if start <= w <= LAST_WEEK)
+        gain = P_BACK * (back_rate - floor) * units
+        out.append({"name": c["name"], "id": c["id"], "pos": c["pos"], "team": c.get("team"),
+                    "status": c["status"], "avail": c.get("avail"), "owned": c.get("owned"),
+                    "rate": round(c["rate"], 2), "factor": factor, "back_rate": round(back_rate, 2),
+                    "floor": round(floor, 2), "back_week": hint, "said": said, "from_week": start,
+                    "units": round(units, 1), "gain": round(gain, 1), "passes": gain >= gate,
+                    "route": "IR" if ir_holder is None and c["status"] == "IR" else "bench"})
+    out.sort(key=lambda r: -r["gain"])
+    return {"week": week, "gate": gate, "p_back": P_BACK, "ir_open": ir_holder is None,
+            "ir_holder": ir_holder, "floors": {k: round(v, 2) for k, v in floors.items()},
+            "weakest_bench": bench[0]["name"] if bench else None, "below_floor": below,
+            "candidates": out[:top]}
+
+
+def reply_button(label: str, text: str) -> str:
+    """A mist-notify --action that posts `text` into the Console as Alex's reply (roster-watch's shape)."""
+    payload = json.dumps({"text": text})
+    return (f"{label}=cmd:/usr/bin/curl -sS -X POST {REPLY_URL} "
+            f"-H 'Content-Type: application/json' -d '{payload}'")
+
+
+def banner(out: dict) -> str | None:
+    """One Do it / Skip banner for the best IR-slot PASS not offered before."""
+    best = next((c for c in out["candidates"] if c["passes"] and c["route"] == "IR"), None)
+    if best is None:
+        return None
+    try:
+        state = json.loads(STATE.read_text())
+    except (OSError, ValueError):
+        state = {}
+    offered = state.setdefault("offered", [])
+    if best["name"] in offered:
+        return None
+    how = "--fa " if best["avail"] == "FA" else ""
+    drop = out["weakest_bench"] or "the weakest bench player"
+    msg = (f"Playoff stash: {best['name']} ({best['pos']}, {best['team']}, IR) for the open IR slot, "
+           f"+{best['gain']:.0f} units (back {best['back_rate']:.1f} a game vs our {best['floor']:.1f}).")
+    do = (f"Stash from stash-scan: add {best['name']} and move him to the IR slot "
+          f"(+{best['gain']:.0f} units; P {P_BACK} x ({best['back_rate']} - {best['floor']}) x {best['units']}). "
+          f"He lands on the bench first, so the add needs a drop: espn-tx claim {how}\"{best['name']}\" "
+          f"--drop \"{drop}\", then espn-tx ir \"{best['name']}\", then refill the bench spot.")
+    url = web_urls()["team"]
+    subprocess.run([str(NOTIFY), msg, "MIST stash scan", "default", url, "--group", "stash-scan", "--discord",
+                    "--action", reply_button("Do it", do),
+                    "--action", reply_button("Skip", f"Skip the {best['name']} stash")],
+                   check=False, capture_output=True, timeout=20)
+    offered.append(best["name"])
+    STATE.parent.mkdir(exist_ok=True)
+    STATE.write_text(json.dumps(state, indent=1))
+    return best["name"]
+
+
+def render(out: dict, source: str) -> None:
+    holder = "empty" if out["ir_open"] else f"held by {out['ir_holder']}"
+    print(f"Stash scan -- week {out['week']}, IR slot {holder}; weights from {source}; "
+          f"gain = {out['p_back']} x (rate x factor - our floor) x units, gate +{out['gate']:g}")
+    print("  floors (our weakest starter a stash would replace): "
+          + ", ".join(f"{k} {v}" for k, v in out["floors"].items()))
+    if not out["candidates"]:
+        print(f"\n  no injured free agent would start for us when back ({out['below_floor']} below the floor)")
+        return
+    print()
+    for c in out["candidates"]:
+        mark = "PASS" if c["passes"] else "    "
+        back = f"back wk {c['back_week']}" if c["back_week"] else "no date: weeks 15-17"
+        print(f"  {mark} {c['gain']:>6.1f}  {c['name']:<24} {c['pos']:<3} {c['team'] or '':<4} {c['status']:<3} "
+              f"{c['avail']:<3} rate {c['rate']:>5.2f} x {c['factor']} = {c['back_rate']:>5.2f} vs {c['floor']:>5.2f}  "
+              f"{back}, {c['units']} units  route {c['route']}" + (f'  ("{c["said"]}")' if c["said"] else ""))
+    print(f"\n  {out['below_floor']} more injured free agents would not start for us when back.")
+
+
+def main() -> int:
+    ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
+    ap.add_argument("--json", action="store_true")
+    ap.add_argument("--banner", action="store_true", help="banner Alex once for an IR-slot PASS")
+    ap.add_argument("--top", type=int, default=5)
+    args = ap.parse_args()
+
+    api = Espn()
+    data = api.league("mTeam", "mRoster", "mSettings", "mStatus")
+    week = api.current_week(data)
+    t = api.resolve_team(data, None)
+    roster = roster_rows(api, api.roster_entries(data, t["id"]), week)
+    pool = pool_rows(api, week, "ALL", 300, ["FREEAGENT", "WAIVERS"])
+    games = {pt["abbrev"]: games_played(pt["games"], week) for pt in api.pro_teams().values()}
+    appeared = games_appeared(load_volume_rows(api.season), week)
+    weights, source = weights_cached()
+    first = scan(week, roster, pool, weights, games=games, appeared=appeared, top=NEWS_LOOKUPS)
+    news = {c["id"]: player_news(api, c["id"], NEWS_PER_PLAYER) for c in first["candidates"]}
+    out = scan(week, roster, pool, weights, news=news, games=games, appeared=appeared, top=args.top)
+    out["weights_source"] = source
+    if args.banner:
+        out["bannered"] = banner(out)
+    if args.json:
+        json.dump(out, sys.stdout, indent=2, default=str)
+        return 0
+    render(out, source)
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())

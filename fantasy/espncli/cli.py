@@ -136,6 +136,10 @@ def entry_row(api: Espn, e: dict, week: int) -> dict:
         "proj": week_proj(p, api.season, week),
         "actual": actual,
         "season_proj": season_proj(p, api.season),
+        # The live half of ros_rate. Missing until 2026-10-14, so swap-scan rated
+        # every one of our players on the prior alone while it rated the wire on
+        # the blend: the one-currency rule held for free agents only.
+        "season_actual": season_actual(p, api.season),
         "owned": (p.get("ownership") or {}).get("percentOwned"),
         "eligible": p.get("eligibleSlots") or [],
     }

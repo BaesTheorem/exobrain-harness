@@ -62,7 +62,13 @@ Follow `fantasy/routines/COMMON.md` first. If today is not Tuesday, stop.
    fails the gate on points can still clear it on the role condition (a
    `ROLE` mark: BUY or ROLE-UP from the volume feed). **Then
    `fantasy/bin/stream-scan`**: the D/ST and K thresholds; a STREAM there is
-   a candidate under the same drop rules. Then `fantasy/bin/volume fa --pos
+   a candidate under the same drop rules. **Then, from week 9 or whenever our
+   IR slot is empty, `fantasy/bin/stash-scan --banner`** (Alex, 2026-10-14):
+   injured free agents priced as playoff stashes, `0.53 x (rate x return
+   factor - the starter he would replace) x the --leverage weights from his
+   return week`, gate +20. It banners Alex once for a PASS that fits the open
+   IR slot; a PASS that needs a bench spot is logged for his decision, never
+   filed. Then `fantasy/bin/volume fa --pos
    RB` (the same for WR and TE; `--sort trend` for risers): targets, target
    share, WOPR, snap share, last week's role move, and the BUY/SELL/ROLE-UP
    flags, which is what "rank by opportunity" means from now on; `espn fa
@@ -74,9 +80,9 @@ Follow `fantasy/routines/COMMON.md` first. If today is not Tuesday, stop.
    lowest-value bench player (role first, then season projection) to make
    room; never drop a starter. From week 5 on, value every player by a 50/50
    blend of his preseason projection and his season-to-date points per game,
-   weighting weeks 1-14 fully and weeks 15-17 at half (the bye is earned in
-   the regular season, so a player who only returns for the playoffs is a
-   half-value asset)
+   weighting each week by its `--leverage` weight: weeks 16 and 17 about 11
+   regular-season weeks each, week 15 about 2 (*The strategic thesis* rule 4,
+   2026-10-14; it was weeks 15-17 at half)
    (Harstad: that naive blend beat either input alone in 4 of 5 position
    buckets), not by either one by itself. File up to two claims, best first:
    `fantasy/bin/espn-tx claim "<name>" --drop "<bench player>"` (no `--drop`

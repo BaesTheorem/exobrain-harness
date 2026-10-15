@@ -146,6 +146,10 @@ the site by hand.
   left plus weeks 15-17 at their weight) against 2.5 points a game, never a
   second QB/TE, Sleeper 24-hour adds as market heat,
   volume flags as the role condition, bye holes two weeks out
+- `fantasy/bin/stash-scan`: injured free agents priced as playoff stashes
+  (return odds 0.53, return factor 0.89 on IR and 0.66 otherwise, against the
+  starter each would replace, over the `--leverage` weights); `--banner`
+  offers an IR-slot PASS once. The Tuesday routine runs it from week 9
 - `fantasy/bin/stream-scan` — the D/ST (ours faces >= 24 implied, a free
   agent faces <= 19) and K (a free agent's offense 4+ above ours, fair
   weather) thresholds, plus K/D/ST byes ahead
