@@ -627,6 +627,22 @@ reserve status: 7 (1.9%), 3 (0.9%), 35 (10.6%). Rest is a week 18 event; a
 fantasy final in week 17 needs no discount for it. Reproduced by MIST from the
 research agent's script; "no listing" is a lower bound for rest.
 
+**Injured-star stash base rate, own count from nflverse files, MEDIUM for the
+direction, LOW for exact figures (n = 43):** starters in the top QB 14 / RB 28 /
+WR 36 / TE 14 by PPR points a game through week 8, out with an injury listing
+or on IR in both NFL weeks 10 and 11, 2016-2025. Played week 15: 47%; week 16:
+53%; either: 56%. When active in weeks 15-16: 11.7 PPR a game against 14.9
+before the injury, median ratio 0.66 (0.89 for the 28 who were on IR in week
+10, 0.35 for the 15 who were not). A long-term stash is worth about a third of
+the healthy player in the playoff weeks. Reproduced by MIST, 2026-10-14.
+
+**In-season points allowed, Subvertadown (2022, updated 2026), MEDIUM:**
+running averages of fantasy points allowed, 2017-2019, against the next week:
+"For most positions, Points-allowed is a poor measure, with correlation less
+than 0.10." Vegas lines reach 0.36. For a playoff-week matchup, read the line
+that week; do not plan on a defense-vs-position table weeks ahead.
+https://subvertadown.com/article/-fantasy-points-allowed-too-weak-for-making-lineup-decisions
+
 ---
 
 ## G. Tools, verified 2026-08-16
