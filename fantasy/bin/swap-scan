@@ -60,7 +60,7 @@ INVARIANTS
   player at a one-of position whose starter is rostered, the multiplier is
   the starter's remaining byes plus his measured chance of missing time
   (BACKUP_START_REG a regular week, BACKUP_START_PO of the playoff units),
-  capped at the horizon. The add is priced on its own weeks.
+  capped at the horizon; the whole gap is priced on those weeks.
 
     swap-scan [--gate 20] [--top 3] [--json]
 """
@@ -167,9 +167,10 @@ def scan(week: int, roster: list[dict], pool: list[dict], position_max: dict[str
     `committed` is the normalized names already listed as a DROP in a pending claim;
     `backup_weeks` is position -> the starter's bye weeks left; the injury
     share (BACKUP_START_REG, BACKUP_START_PO) is added here, in horizon units.
-    The add and the drop are priced on their own weeks: until 2026-10-15 the
-    whole gap was multiplied by a backup's few weeks, which under-priced a
-    flex add who plays every week."""
+    The whole gap is priced on the drop's weeks. (2026-10-15: pricing the add
+    on the full horizon against a backup QB's few starts valued dropping the
+    approved QB bridge for a bench WR at +200 the same hour; a bench add does
+    not play every week either, so the symmetric gap stays.)"""
     games, heat, volume = games or {}, heat or {}, volume or {}
     committed = committed or set()
     remaining = max(REG_SEASON_END - week, 0)
@@ -205,7 +206,7 @@ def scan(week: int, roster: list[dict], pool: list[dict], position_max: dict[str
             scored.append({
                 "add": c["name"], "pos": c["pos"], "avail": c["avail"], "team": c.get("team"),
                 "owned": round(float(c.get("owned") or 0), 1), "trend": round(float(c.get("trend") or 0), 1),
-                "add_rate": round(c["rate"], 2), "gain": round(c["rate"] * weeks_for(c["pos"]) - drop["rate"] * weeks, 1),
+                "add_rate": round(c["rate"], 2), "gain": round((c["rate"] - drop["rate"]) * weeks, 1),
                 "heat": heat.get(vkey(c), 0), "flags": flags,
                 "role": bool({"BUY", "ROLE-UP"} & set(flags)),
                 "snap": (v.get("last") or {}).get("snap"), "tgt_share": (v.get("last") or {}).get("tgt_share"),
