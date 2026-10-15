@@ -362,7 +362,8 @@ def print_win(out: dict, indent: str = "") -> None:
     for sw in out.get("swaps") or []:
         why = "variance" if sw["d_proj"] <= 0 else "projection"
         print(f"{indent}  swap {sw['bench']} in for {sw['starter']} at {sw['slot']}: "
-              f"{sw['p_before']:.0%} -> {sw['p_after']:.0%} ({sw['d_p']:+.1%}, proj {sw['d_proj']:+}, {why})")
+              f"{sw['p_before']:.0%} -> {sw['p_after']:.0%} ({sw['d_p']:+.1%}, proj {sw['d_proj']:+}, {why}; "
+              f"net {sw['d_net']:+.1f}{', apply' if sw['d_net'] >= 1 else ''})")
 
 
 def cmd_matchup(api: Espn, args: argparse.Namespace) -> None:

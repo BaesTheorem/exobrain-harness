@@ -34,7 +34,10 @@ fifteen minutes before the reports it existed to read.)
    actual) and `swaps`, every single bench-for-starter swap that raises P(win),
    best first, each with `d_p` and the projection-only `d_proj` so you can
    see whether variance or the mean made the call. **Apply a swap when
-   `d_p` is at least +1 point of win probability**; below that it is churn.
+   `d_net` is at least +1** (from 2026-10-14; was `d_p` >= +1): `d_net` is
+   the win probability gained in points plus `d_proj` over 5, because about
+   5 projected points are worth 1 point of win probability through the
+   Points For tiebreak (`season_sim.py --leverage`). Below +1 it is churn.
    The old reading (favorite by 3 = floor, underdog by 3 = ceiling, within 3
    = projection) is what the number encodes, so state which side we are on
    in the log line and cite `win.p` before and after. `margin_source` still

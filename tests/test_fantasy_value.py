@@ -120,6 +120,22 @@ def test_best_swaps_never_moves_a_locked_or_unusable_player():
     assert swaps[0]["d_proj"] == 6.0 and swaps[0]["p_after"] > swaps[0]["p_before"]
 
 
+def test_swap_net_prices_the_projection_it_costs():
+    """d_net: a variance swap that buys win probability by giving up projection
+    is charged for the Points For it loses, at POINTS_PER_WIN_PCT."""
+    starter = row(3, "Steady Starter", "WR", 4, 12.0)
+    boom = row(10, "Boom Bench", "WR", 20, 10.0)
+    mults = {"steady starter|WR": 0.5, "boom bench|WR": 2.0}
+    mine = [row(1, "QB", "QB", 0, 20.0), starter, boom]
+    underdog_opp = [row(21, "Their QB", "QB", 0, 60.0)]
+    swaps = value.best_swaps(mine, underdog_opp, mults, min_gain=0.0)
+    assert swaps, "an underdog's ceiling swap must register"
+    sw = swaps[0]
+    assert sw["d_proj"] == -2.0
+    assert sw["d_net"] == pytest.approx(100 * sw["d_p"] - 2.0 / value.POINTS_PER_WIN_PCT, abs=0.06)
+    assert sw["d_net"] < 100 * sw["d_p"], "a swap that costs projection is worth less than its win probability"
+
+
 def test_sd_multipliers_missing_file_is_empty(tmp_path):
     assert value.load_sd_multipliers(tmp_path / "nope.json") == {}
     (tmp_path / "sd.json").write_text('{"mult": {"a b|WR": 1.4}}')

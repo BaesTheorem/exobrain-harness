@@ -227,14 +227,26 @@ def usable(r: dict) -> bool:
     return r.get("opp") != "BYE" and (r.get("status") or "") not in UNUSABLE
 
 
+# Projected points worth one point of this week's win probability, through
+# the Points For tiebreak. Measured by `season_sim.py --leverage` on
+# 2026-10-14: 4.6 to 5.2 across weeks 6-14 (3 to 8 across the noise
+# settings), because a point of Points For alone is worth about a fifth of a
+# point that also moves the game. Rerun on Tuesdays; move this if it drifts.
+POINTS_PER_WIN_PCT = 5.0
+
+
 def best_swaps(me: list[dict], opp: list[dict], mults: dict[str, float] | None = None,
                min_gain: float = 0.005, top: int = 5,
-               remaining: dict[str, float] | None = None) -> list[dict]:
+               remaining: dict[str, float] | None = None,
+               points_per_win_pct: float = POINTS_PER_WIN_PCT) -> list[dict]:
     """Every single bench-for-starter swap that raises win probability, best first.
 
     Only unlocked, usable bench players into unlocked starter slots they are
     eligible for. `d_proj` is what the projection-only view would have said,
-    so a reader can see when variance, not the mean, made the call."""
+    so a reader can see when variance, not the mean, made the call. `d_net`
+    is the swap in points of win probability with the projection it costs or
+    gains priced at `points_per_win_pct` (the Points For tiebreak): the
+    variance rule applies a swap at d_net >= +1."""
     mults = mults or {}
     base = win_prob(me, opp, mults, remaining)["p"]
     out = []
@@ -254,10 +266,12 @@ def best_swaps(me: list[dict], opp: list[dict], mults: dict[str, float] | None =
                     r["slotId"] = s["slotId"]
             p = win_prob(trial, opp, mults, remaining)["p"]
             if p - base >= min_gain:
+                d_proj = float(b.get("proj") or 0) - float(s.get("proj") or 0)
                 out.append({"bench": b["name"], "bench_pos": b.get("pos"), "starter": s["name"],
                             "slot": s.get("slot"), "slotId": s.get("slotId"),
                             "p_before": base, "p_after": round(p, 3), "d_p": round(p - base, 3),
-                            "d_proj": round(float(b.get("proj") or 0) - float(s.get("proj") or 0), 1)})
+                            "d_proj": round(d_proj, 1),
+                            "d_net": round(100 * (p - base) + d_proj / points_per_win_pct, 2)})
     out.sort(key=lambda x: -x["d_p"])
     return out[:top]
 
