@@ -289,11 +289,11 @@
   },
   {
     "name": "fantasy season_sim",
-    "command": "python3 fantasy/season_sim.py [--json] [--live] [--force WEEK:TEAM] [--after-week N]",
+    "command": "python3 fantasy/season_sim.py [--json] [--live] [--force WEEK:TEAM] [--after-week N] [--leverage] [--sigma S]",
     "repo_dir": "fantasy",
     "source": "built",
     "added": "2026-09-07",
-    "notes": "Rosters valued on espncli.value.ros_rate. Without --live the week in progress is ignored until ESPN moves to the next scoring period. --force keeps both simulated scores and only picks which side gets the higher one; repeatable. Forced or live runs do not write draftbot/season_sim_latest.json."
+    "notes": "Rosters valued on espncli.value.ros_rate. sigma is measured from the played weeks once there are 4 (29.3 on weeks 1-5 of 2026), else 22; printed on stderr. Without --live the week in progress is ignored until ESPN moves to the next scoring period. --force keeps both simulated scores and only picks which side gets the higher one; repeatable. Forced or live runs do not write draftbot/season_sim_latest.json or .cache/leverage.json. --leverage runs about 30 batches on common random numbers; use --sims 40000 for stable per-week numbers (about 10 s)."
   },
   {
     "name": "fantasy trade_scan",
