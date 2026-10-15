@@ -44,6 +44,8 @@ def main() -> int:
     p = sub.add_parser("chat"); p.add_argument("topic"); p.add_argument("text", nargs="+")
     p.add_argument("--single", action="store_true",
                    help="refuse to send if ESPN's length cap would split the text into several posts")
+    p.add_argument("--over-cap", action="store_true",
+                   help="send past the six-a-day chat cap (only on Alex's explicit word)")
     p = sub.add_parser("chat-open", help="find or start the DM thread with one team")
     p.add_argument("team", nargs="+", help="the other team's name (or part of it)")
     p.add_argument("--force", action="store_true",
@@ -93,7 +95,7 @@ def main() -> int:
             print(f"REFUSED: topic must be a thread id (the [bracketed] id in `espn chat`), "
                   f"not {args.topic!r}", file=sys.stderr)
             return 2
-        res = w.chat_send(args.topic, " ".join(args.text), dry_run=args.dry_run)
+        res = w.chat_send(args.topic, " ".join(args.text), dry_run=args.dry_run, force=args.over_cap)
         print(json.dumps(res, indent=1, default=str))
         if not args.dry_run and not res.get("verified"):
             print("NOT VERIFIED: the thread read-back does not match what was sent.", file=sys.stderr)

@@ -229,3 +229,13 @@ def test_trade_outcome_reads_who_cancelled():
     assert rw.trade_outcome(_FakeTx([mgr]), "T1") == "rejected"
     assert rw.trade_outcome(_FakeTx([{"id": "a", "relatedTransactionId": "T1", "type": "TRADE_ACCEPT"}]), "T1") == "accepted"
     assert rw.trade_outcome(_FakeTx([]), "T1") == "unknown"
+
+
+def test_chat_cap_counts_by_day(tmp_path):
+    from espncli import tx  # noqa: PLC0415
+
+    f = tmp_path / "chat-sent.json"
+    assert tx.sent_today(f) == 0
+    for _ in range(3):
+        tx.count_sent(f)
+    assert tx.sent_today(f) == 3

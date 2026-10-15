@@ -201,7 +201,9 @@ def cmd_send(a: argparse.Namespace) -> int:
             print(f"  {m['at']}  {m['content'][:160]}", file=sys.stderr)
         return 2
 
-    res = EspnWriter(api).chat_send(draft["topic"], text, dry_run=a.dry_run)
+    # A draft goes out only on Alex's Send tap, so his tap is the word that
+    # lets it pass the daily cap; the send still counts toward it.
+    res = EspnWriter(api).chat_send(draft["topic"], text, dry_run=a.dry_run, force=True)
     print(json.dumps(res, indent=1, default=str))
     if a.dry_run:
         return 0

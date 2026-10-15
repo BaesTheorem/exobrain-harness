@@ -58,6 +58,35 @@ def _slot_name(slot: int | None) -> str | int | None:
     return None if slot is None else SLOT.get(slot, slot)
 
 
+CHAT_DAILY_CAP = 6
+CHAT_LOG = Path(__file__).resolve().parent.parent / ".cache" / "chat-sent.json"
+
+
+def _today() -> str:
+    from datetime import datetime  # noqa: PLC0415
+    from zoneinfo import ZoneInfo  # noqa: PLC0415
+
+    return datetime.now(ZoneInfo("America/Chicago")).strftime("%Y-%m-%d")
+
+
+def sent_today(path: Path = CHAT_LOG) -> int:
+    try:
+        return int(json.loads(path.read_text()).get(_today(), 0))
+    except (OSError, ValueError):
+        return 0
+
+
+def count_sent(path: Path = CHAT_LOG) -> None:
+    try:
+        d = json.loads(path.read_text())
+    except (OSError, ValueError):
+        d = {}
+    d = {k: v for k, v in d.items() if k >= _today()[:8]}      # this month only
+    d[_today()] = int(d.get(_today(), 0)) + 1
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(json.dumps(d))
+
+
 class EspnWriter:
     def __init__(self, api: Espn | None = None):
         self.api = api or Espn()
@@ -211,8 +240,13 @@ class EspnWriter:
         """
         return self.api.pending_transactions()
 
-    def chat_send(self, topic_id: str, text: str, dry_run: bool = False) -> dict[str, Any]:
+    def chat_send(self, topic_id: str, text: str, dry_run: bool = False, force: bool = False) -> dict[str, Any]:
         """Post to a Fantasy Chat thread, splitting over ESPN's length cap.
+
+        At most CHAT_DAILY_CAP messages a day leave this account through here,
+        whoever started them (rule inventory R136, 2026-10-15: the playbook said
+        the six-a-day cap "covers outbound too" and nothing counted). `force`
+        is for an interactive session acting on Alex's explicit word.
 
         Verified by reading the thread back and confirming each chunk appears
         exactly once. A 201 per chunk only says the request was accepted; it
@@ -225,6 +259,9 @@ class EspnWriter:
             raise EspnError("nothing to send")
         if dry_run:
             return {"topic": topic_id, "chunks": chunks, "sent": False}
+        if not force and sent_today() >= CHAT_DAILY_CAP:
+            raise EspnError(f"daily chat cap reached ({CHAT_DAILY_CAP} sent today); "
+                            "send it tomorrow, or pass force on Alex's explicit word")
 
         sent, failed = [], []
         for chunk in chunks:
@@ -239,6 +276,8 @@ class EspnWriter:
 
         posted = self._chat_contents(topic_id)
         missing = [c for c in sent if posted.count(c) != 1]
+        if sent:
+            count_sent()
         return {
             "topic": topic_id,
             "chunks": len(chunks),
