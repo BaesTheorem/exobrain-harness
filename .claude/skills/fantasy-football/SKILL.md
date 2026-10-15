@@ -144,7 +144,7 @@ the site by hand.
   `d_net` +1), `opp_problems` and `win_if_opp_unfixed` (the opponent's holes,
   priced). The variance rule is a number; the fill for a problem slot is
   chosen by it
-- `fantasy/ffmodel/` — the models under the tools, built from raw data
+- `fantasy/ffmodel/`: the models under the tools, built from raw data
   (2026-10-15; its README holds every measurement): `nflraw` (league
   scoring on nflverse box scores, equal to ESPN to the decimal), `props`
   (the sportsbook player props ESPN keeps for every game since 2024),
