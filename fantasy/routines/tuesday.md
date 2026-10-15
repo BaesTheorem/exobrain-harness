@@ -32,7 +32,7 @@ Follow `fantasy/routines/COMMON.md` first. If today is not Tuesday, stop.
    waiver priority, and one sentence on what decided it, judged as process.
    Then the bye race, which is the season's actual objective (a top-2 seed
    skips a single-week round; for us it is worth about 13 points of title
-   odds, about 1.5x a 3-6 seed, measured by `season_sim.py --leverage`): `fantasy/bin/ff standings` shows the cutline; log games and
+   odds, measured by `season_sim.py --leverage`; quote it in points): `fantasy/bin/ff standings` shows the cutline; log games and
    points ahead of or behind the #2 seed, and name the teams we are racing.
    **Then the bye odds themselves**: `python3 fantasy/season_sim.py --sims
    20000 --json` folds the results so far into the simulation and prints
