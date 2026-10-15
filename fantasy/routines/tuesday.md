@@ -8,12 +8,20 @@ Follow `fantasy/routines/COMMON.md` first. If today is not Tuesday, stop.
    90% intervals and the mechanical baseline against the week's actuals;
    `fantasy/bin/forecast history` gives the season coverage and, from week 3,
    the per-source error ranking (which of ESPN, Sleeper, CBS, FantasyPros,
-   FFToday and the consensus ran hot, by MAE); note it, and weight a source
-   down in your own judgment only after three weeks of it losing. Then judge each
+   FFToday, the market and the consensus ran hot, by MAE); note it, and
+   weight a source down in your own judgment only after three weeks of it
+   losing. It also prints the weighted interval score (MIST against the
+   baseline on the same lines), where results landed in six slices of each
+   forecast, and the closing line value of MIST's leans off the market;
+   quote all three in the review. A landing row with more than 30% in one
+   middle slice, or a lean that keeps pointing against the line's later
+   move, is a reasoning signal even when coverage looks right. Then judge each
    miss: was it variance inside a well-shaped band (log it, change nothing)
    or a reasoning error (a role read that was wrong, a source weighted
    wrongly, a band too narrow for the position)? Write the coverage numbers,
    the reasoning misses, and any rule change as the week's judgment:
+   Then `fantasy/bin/forecast calibrate` (about 15 seconds) so the tier
+   quantiles in the next dossier include the week just played.
    `fantasy/bin/forecast note --week <last week> --review "<text>"` renders
    it into that week's Review block at the top of its Season log section
    (the scorecard table above it is generated; never edit inside the
@@ -152,7 +160,8 @@ Follow `fantasy/routines/COMMON.md` first. If today is not Tuesday, stop.
 7. **Forecast the new week, last, on the roster as it stands.** This is
    MIST's judgment call, not a script's number: `fantasy/bin/forecast
    dossier --save /tmp/fc-dossier.json` assembles the evidence (five
-   projection sources unit-normalized per position, consensus and spread,
+   projection sources unit-normalized per position plus the betting market's
+   prop-implied points, consensus and spread,
    season logs, injuries, Vegas totals, the historical error distribution by
    position and projection tier, and a mechanical baseline for comparison).
    Read it, then write a JSON forecast with, for every rostered player, a
@@ -160,11 +169,13 @@ Follow `fantasy/routines/COMMON.md` first. If today is not Tuesday, stop.
    `opp_total` with the same shape; `win_prob`; and a `standing` block
    (`median`, `p50`, `p90` on our rank after the week, `p_first`, `p_top2`,
    `why`). ESPN is one vote; move off the consensus whenever you have a
-   reason the sources do not (a role change, weather, a questionable tag,
-   week-1 touchdowns on thin volume) and say the reason. Anchor widths on
-   the tier quantiles in the pack (starter-tier q25-q75 is roughly 0.6x to
-   1.25x the projection) and remember the median actual runs about 0.85x
-   projection. File it with `fantasy/bin/forecast record /tmp/fc-mist.json
+   reason the lines could not price when they were set (news after the line
+   moved, a role change confirmed by two weeks of volume) and say the reason
+   (the playbook's probation rule, 2026-10-15: on weeks 2-5 hand moves lost
+   to the consensus and the market). Anchor medians and widths on the tier
+   quantiles in the pack: the starter-tier median is about 0.9x the
+   projection (QB 0.88, RB 0.94, WR 0.92, TE 0.89, pooled 2024-2026) and
+   q25-q75 roughly 0.6x to 1.3x. File it with `fantasy/bin/forecast record /tmp/fc-mist.json
    --dossier /tmp/fc-dossier.json`; it refuses a 50 outside its 90, a missing
    player, or a probability of 0 or 1, and it regenerates the playbook's
    Season log so the new week's Forecast table sits at the top of its

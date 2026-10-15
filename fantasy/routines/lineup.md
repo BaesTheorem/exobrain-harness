@@ -29,9 +29,12 @@ fifteen minutes before the reports it existed to read.)
    let `lineup-watch` handle a late zeroed projection. One line of reasoning.
 4. The variance rule, as a number (from 2026-09-20). `fantasy/bin/espn
    check --json` (and `matchup`) reports `win` (P(win) with both sides' means
-   and spreads: every unlocked starter is a normal around his projection
-   with a measured, tiered, per-player spread; a locked one is his banked
-   actual) and `swaps`, every single bench-for-starter swap that raises P(win),
+   and spreads: every unlocked starter is a normal around `mean`, the even
+   blend of ESPN's projection and the betting market's `market` when the
+   books post a line (ESPN alone otherwise), with a measured, tiered,
+   per-player spread, and starters in the same NFL game correlated as
+   measured; a locked one is his banked actual) and `swaps`, every single
+   bench-for-starter swap that raises P(win),
    best first, each with `d_p` and the projection-only `d_proj` so you can
    see whether variance or the mean made the call. **Apply a swap when
    `d_net` is at least +1** (from 2026-10-14; was `d_p` >= +1): `d_net` is

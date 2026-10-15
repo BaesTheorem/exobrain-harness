@@ -20,6 +20,11 @@ Draft-morning pipeline, in the order `bin/draft-morning` runs it:
 | `tier_sheet.py` | board, opportunity | `draft-sheet.html` | Printable tiers (exact 1-D k-means on value) with flags |
 | `consensus.py` | CBS + FFToday | `draftbot/consensus.json` | Independent judge for post-draft grading. **Never read by `vor.py`** |
 
+In season, the models under the tools live in `ffmodel/` (league scoring on
+nflverse box scores, the prop-line market projection, the correlation table
+the win probability uses, and the proper scores); its README holds the
+measurements.
+
 Around the draft: `sim.py` (offline 13-seat simulator, mirrors the autopilot's
 scoring), `ledger.py` (board-vs-consensus bets, settled with real season
 points), and `draftbot/` (the autopilot itself, the only thing here that
@@ -165,9 +170,10 @@ MIST's judgment, so this tool never predicts. It:
   `forecasts/<season>-wNN.json`, committed.
 - `forecast settle` scores the finished week for MIST and the baseline;
   `forecast history` is the season coverage table.
-- `forecast calibrate --seasons 2025,2026` rebuilds `.cache/residuals.json`
-  from Sleeper's weekly projections and actuals (gitignored; about 5,500
-  player-weeks).
+- `forecast calibrate` rebuilds `.cache/residuals.json` from Sleeper's weekly
+  projections and actuals over the two seasons before this one and this one
+  (gitignored; about 12,000 player-weeks). The Tuesday routine runs it after
+  `settle`, so the library includes the week just played.
 
 - `forecast playbook` rewrites the playbook's Season log grouped by
   `### Week N` headers (newest first), each week opening with its Forecast

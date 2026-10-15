@@ -1288,7 +1288,8 @@ def main(argv: list[str] | None = None) -> int:
     s.add_argument("--week", type=int, help="default: the latest unsettled forecast")
     s.add_argument("--json", action="store_true")
     c = sub.add_parser("calibrate", help="rebuild the residual library from Sleeper history")
-    c.add_argument("--seasons", default="2025", help="comma list, e.g. 2025,2026")
+    c.add_argument("--seasons", help="comma list (default: the two seasons before this one and this one; "
+                                     "one season of residuals holds that season's luck, 2026-10-15)")
     h = sub.add_parser("history", help="coverage across the season")
     h.add_argument("--json", action="store_true")
     n = sub.add_parser("note", help="attach MIST's commentary to a week (renders into the playbook)")
@@ -1304,7 +1305,8 @@ def main(argv: list[str] | None = None) -> int:
 
     api = Espn(load_creds())
     if args.cmd == "calibrate":
-        seasons = [int(x) for x in args.seasons.split(",")]
+        seasons = ([int(x) for x in args.seasons.split(",")] if args.seasons
+                   else [api.season - 2, api.season - 1, api.season])
         cur = api.current_week(api.league("mStatus"))
         through = {api.season: max(0, cur - 1)}
         out = calibrate(seasons, through)
