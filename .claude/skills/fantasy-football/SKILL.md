@@ -106,7 +106,9 @@ memory or opening the site:
 - `espn draft --picks` — the live pick feed and post-draft recap, `--mine`
 - `espn nfl` — the slate with kickoffs in Central time, lines, implied totals
 - `espn injuries` — the NFL report scoped to the roster by default
-- `espn scoreboard`, `espn schedule`, `espn settings`, `espn raw`
+- `espn scoreboard` (every game of the week with the lineup model's means
+  and win odds, the same model as `espn check`), `espn schedule`,
+  `espn settings`, `espn raw`
 - `espn chat [--unanswered]` reads the league chat and the DMs. The two are
   handled differently, and `bin/chat-watch` sorts them every 10 minutes.
   A **league-wide** message may be answered unattended, as a draft through
@@ -145,10 +147,13 @@ the site by hand.
   projection (2026-10-15), with a variance-matched spread by position and
   tier and same-game correlations; locked players are banked; a
   questionable starter is a mixture with his bench cover at the measured
-  `p_play`), `swaps` (every swap with a positive `d_net`, best first; apply
-  at `d_net` +1, at this week's exchange rate from `--leverage`),
-  `opp_problems` and `win_if_opp_unfixed` (the opponent's holes, priced
-  with the manager's measured fix rate from `league-scan`). Checked on
+  `p_play`, ours covered at rate 1 and a rival's at his manager's measured
+  fix rate, `opp_fix`, which also prices the rival's bye and OUT holes),
+  `swaps` (every swap with a positive `d_net`, best first; apply at `d_net`
+  +1, at this week's exchange rate from `--leverage`), `opp_problems` (the
+  rival's holes by name) and `win_if_opp_fixed` / `win_if_opp_unfixed` (the
+  two ends of the fix rate). Until 2026-10-15 a rival's questionable starter
+  counted as certain to play: the week 6 read moved from 54% to 67%. Checked on
   58,779 real Sleeper matchups: calibrated to about a point per decile. The
   variance rule is a number; the fill for a problem slot is chosen by it
 - `fantasy/ffmodel/`: the models under the tools, built from raw data
@@ -187,7 +192,12 @@ the site by hand.
   and 2-for-1 the other side does not lose on its own screen, priced in
   title and bye odds; `python3 fantasy/season_sim.py --json`: bye odds on
   the results so far, as a band over tau 4-12, with team strength drifting 6
-  points a week (measured on 857 real Sleeper leagues, 2026-10-15). Both value rosters on `espncli.value.ros_rate`, the one
+  points a week (measured on 857 real Sleeper leagues, 2026-10-15), and our
+  win odds in every remaining game (`weekly`). `--this-week` plays the first
+  unplayed week from the lineup model (`espn scoreboard`'s means and
+  spreads) instead of team strength; it does not write the outlook files,
+  and before the Friday report its injury prices read Wednesday's practice
+  line. Both value rosters on `espncli.value.ros_rate`, the one
   in-season currency (before week 5 half prior, half weekly projection; from
   week 5 0.45 weekly projection, 0.35 prior, 0.20 PPG, backtested
   2026-10-15), because ESPN's `season_proj` alone prices August
