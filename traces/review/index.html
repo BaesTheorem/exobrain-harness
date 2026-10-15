@@ -1,0 +1,54 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Trace review</title>
+<link rel="stylesheet" href="/beer/beer.min.css">
+<link rel="stylesheet" href="/app.css">
+<script src="/app.js" defer></script>
+</head>
+<body>
+<div class="panes">
+  <div class="queue">
+    <h6 class="small" id="sample-name">Trace review</h6>
+    <div class="small-text" id="progress-text"></div>
+    <progress id="progress" value="0" max="100"></progress>
+    <div class="row wrap filters">
+      <button class="chip fill" id="f-unlabeled"><i>filter_list</i><span>Unlabeled</span></button>
+      <button class="chip" id="f-all"><span>All</span></button>
+    </div>
+    <ul class="list" id="queue"></ul>
+  </div>
+  <div class="trace" id="trace-pane">
+    <div id="banner" hidden></div>
+    <div id="loading" hidden><progress class="max"></progress><span class="loading-text small-text">Loading the trace</span></div>
+    <div id="trace"></div>
+  </div>
+  <div class="verdict">
+    <h6 class="small">Verdict</h6>
+    <div class="small-text question">Did MIST do what was asked, correctly, without you having to step in?</div>
+    <nav class="group connected verdict-group">
+      <button class="left-round border" data-verdict="pass"><i>check</i><span>Pass</span></button>
+      <button class="no-round border" data-verdict="fail"><i>close</i><span>Fail</span></button>
+      <button class="right-round border" data-verdict="skip"><span>Skip</span></button>
+    </nav>
+    <div class="field label border textarea extra">
+      <textarea id="note" placeholder=" "></textarea>
+      <label>First thing that went wrong</label>
+    </div>
+    <button class="responsive" id="save"><i>arrow_forward</i><span>Save and next</span></button>
+    <div class="small-text saved-state" id="saved-state"></div>
+    <table class="keys small-text">
+      <tr><td><span class="key">P</span> <span class="key">F</span> <span class="key">S</span></td><td>Pass, fail, skip</td></tr>
+      <tr><td><span class="key">N</span></td><td>Write the note</td></tr>
+      <tr><td><span class="key">Enter</span></td><td>Save and next</td></tr>
+      <tr><td><span class="key">J</span> <span class="key">K</span></td><td>Next, previous</td></tr>
+      <tr><td><span class="key">E</span></td><td>Open or close all tool calls</td></tr>
+      <tr><td><span class="key">Esc</span></td><td>Leave the note</td></tr>
+    </table>
+    <div class="small-text tally" id="tally"></div>
+  </div>
+</div>
+</body>
+</html>

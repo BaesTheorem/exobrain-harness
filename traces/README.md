@@ -26,6 +26,8 @@ can measure a change to the harness against the record.
 | `bin/traces baseline --end 2026-10-15 --days 30 [--save] [--json]` | Shows the metrics for one window |
 | `bin/traces sql "SELECT ..."` | Shows the result of a read-only query |
 | `bin/traces nightly` | Does the archive step, then the load step (the launchd agent uses this) |
+| `bin/traces sample --name sample-2 [--end DATE] [--days N]` | Makes a fixed labeling sample (see Labeling) |
+| `bin/traces review [--sample sample-1]` | Starts the labeling page on `http://127.0.0.1:5019` |
 
 Example query, the ten tools with the most errors in the last 7 days:
 
@@ -43,12 +45,17 @@ bin/traces sql "SELECT tool, count(*) n, count(*) FILTER (is_error) errors
 | `trace_parse.py` | One transcript to flat rows (pure, no I/O) | yes |
 | `trace_db.py` | DuckDB schema, incremental load, window metrics | yes |
 | `traces.py` | Command-line interface | yes |
+| `trace_review.py` | Labeling sample, readable trace for one session, label file | yes |
+| `trace_server.py` | Local server for the labeling page | yes |
+| `review/` | The labeling page (Beer CSS, no build step) | yes |
 | `com.exobrain.traces.plist` | launchd agent, each night at 01:30 | yes |
+| `com.exobrain.traces-review.plist` | launchd agent for the labeling page, loaded only while you label | yes |
 | `data/archive/` | `<project>/<session>.jsonl.zst` and the other session files | **no** |
 | `data/archive-runs.jsonl` | One line each time the archive tool operates (counts, errors) | **no** |
 | `data/traces.duckdb` | The trace table, which the load step can make again from the archive | **no** |
 | `data/build-runs.jsonl` | One line for each nightly operation | **no** |
 | `data/baselines/` | Metric snapshots from `--save`, `<end date>-<days>d.json` | **no** |
+| `data/labels/` | Labeling samples, `labels.jsonl`, and the page token (`.review-token`, mode 0600) | **no** |
 
 `data/` is gitignored. It holds the full text of all sessions, which includes
 private data and text from other persons. Do not commit it. Do not put prompt
@@ -133,6 +140,37 @@ If you change a definition, increase `METRICS_VERSION` in `trace_db.py` and
 write a new baseline with `--save`. Compare a window only with a baseline that
 has the same version.
 
+## Labeling
+
+A person reads traces from actual sessions and labels them. That is the first step of error
+analysis: the labels show which failures occur and how frequently.
+
+1. `bin/traces sample --name <name>` makes a sample from the 30 days before the
+   end date: 50 chats (two or more human prompts), 40 tasks (single-turn
+   sessions) and 10 session-memory-writer sessions. The sample uses a fixed seed
+   (the end date). The tool does not change a sample file after it makes it.
+2. Start the launchd agent `com.exobrain.traces-review`, or start
+   `bin/traces review`. The page address is `http://127.0.0.1:5019/#t=` followed
+   by the token in `data/labels/.review-token`. The server also writes the
+   address to `~/Library/Logs/exobrain/traces-review.log` each time it starts.
+3. For each session, select Pass, Fail or Skip, and write the first thing that
+   went wrong. The keys are on the page.
+4. Each save adds one line to `data/labels/labels.jsonl` (time, sample, file,
+   verdict, note). The newest line for a session wins. You can stop and continue
+   when you want.
+5. When you finish labeling, start
+   `launchctl bootout gui/$(id -u)/com.exobrain.traces-review`.
+
+Protection on the page:
+
+- The server accepts connections only from 127.0.0.1. Each data request must
+  have the token and a Host of 127.0.0.1 or localhost. Thus other web pages in
+  the browser cannot read traces or write labels.
+- The server shows only the sessions in the sample, and serves static files
+  only from fixed name lists.
+- The page puts all transcript text into the page as text, not HTML. The CSP
+  allows scripts only from the server, as a second barrier.
+
 ## Health
 
 The session-start hook reads the newest line of `data/archive-runs.jsonl`. It
@@ -144,4 +182,5 @@ a Discord DM through `mist-notify`. The agent writes its output to
 ## Tests
 
 `tests/test_trace_archive.py` (copies the same as the source, a changed source gets a new copy,
-a deleted source keeps its copy) and `tests/test_trace_parse.py`.
+a deleted source keeps its copy), `tests/test_trace_parse.py`, and
+`tests/test_trace_review.py` (trace turns, labels, and the access rules of the server).

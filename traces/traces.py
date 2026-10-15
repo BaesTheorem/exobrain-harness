@@ -7,6 +7,9 @@
                                                 metrics for [END - N days, END), local midnight
     traces sql "SELECT ..."                     read-only query, printed as a table
     traces nightly                              archive + build; banner and Discord DM on failure
+    traces sample --name NAME [--end DATE] [--days N] [--seed S]
+                                                freeze a stratified labeling sample (data/labels/NAME.json)
+    traces review [--sample NAME] [--port N]    serve the labeling page on 127.0.0.1
 
 Read README.md in this directory first. bin/traces runs this with traces/.venv.
 """
@@ -73,6 +76,22 @@ def notify_failure(summary: dict) -> None:
                    capture_output=True, check=False)
 
 
+def cmd_sample(args: argparse.Namespace) -> int:
+    import trace_review
+
+    start, end = trace_db.window(args.end, args.days)
+    doc = trace_review.sample(args.name, start, end, args.seed or end.date().isoformat())
+    print(json.dumps({"name": doc["name"], "population": doc["population"], "items": len(doc["items"])}))
+    return 0
+
+
+def cmd_review(args: argparse.Namespace) -> int:
+    import trace_server
+
+    trace_server.serve(sample=args.sample, port=args.port)
+    return 0
+
+
 def cmd_nightly(_: argparse.Namespace) -> int:
     summary: dict = {"ts": datetime.now(UTC).isoformat(timespec="seconds")}
     code = trace_archive.main([])
@@ -110,6 +129,14 @@ def main(argv: list[str] | None = None) -> int:
     p.add_argument("query")
     p.add_argument("--rows", type=int, default=40)
     sub.add_parser("nightly", help="archive + build, alert on failure")
+    p = sub.add_parser("sample", help="freeze a stratified labeling sample")
+    p.add_argument("--name", required=True)
+    p.add_argument("--end", help="window end date YYYY-MM-DD, exclusive (default: today)")
+    p.add_argument("--days", type=int, default=30)
+    p.add_argument("--seed", help="default: the end date")
+    p = sub.add_parser("review", help="serve the labeling page on 127.0.0.1")
+    p.add_argument("--sample", default="sample-1")
+    p.add_argument("--port", type=int, default=5019)
     args = ap.parse_args(argv)
 
     if args.cmd == "archive":
@@ -121,6 +148,10 @@ def main(argv: list[str] | None = None) -> int:
         return cmd_baseline(args)
     if args.cmd == "sql":
         return cmd_sql(args)
+    if args.cmd == "sample":
+        return cmd_sample(args)
+    if args.cmd == "review":
+        return cmd_review(args)
     return cmd_nightly(args)
 
 
