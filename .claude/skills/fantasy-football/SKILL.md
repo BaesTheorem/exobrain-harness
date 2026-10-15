@@ -137,11 +137,22 @@ the site by hand.
   `volume build --fresh` on Tuesday; it also writes the per-player spread
   multipliers `espn check` uses
 - `espn check` / `espn matchup` now report `win` (P(win) from each unlocked
-  starter's projection and a measured, tiered, per-player spread; locked
-  players are banked), `swaps` (bench-for-starter swaps ranked by the win
-  probability they buy; apply at +1 point), `opp_problems` and
-  `win_if_opp_unfixed` (the opponent's holes, priced). The variance rule is
-  a number; the fill for a problem slot is chosen by it
+  starter's `mean`, the even blend of ESPN's projection and the betting
+  market's `market` (2026-10-15), with a measured, tiered, per-player spread
+  and same-game correlations; locked players are banked), `swaps`
+  (bench-for-starter swaps ranked by the win probability they buy; apply at
+  `d_net` +1), `opp_problems` and `win_if_opp_unfixed` (the opponent's holes,
+  priced). The variance rule is a number; the fill for a problem slot is
+  chosen by it
+- `fantasy/ffmodel/` — the models under the tools, built from raw data
+  (2026-10-15; its README holds every measurement): `nflraw` (league
+  scoring on nflverse box scores, equal to ESPN to the decimal), `props`
+  (the sportsbook player props ESPN keeps for every game since 2024),
+  `market` (points implied by those lines: ties Sleeper, beats ESPN out of
+  sample), `corr` (same-game correlations: QB and his WR1 +0.38, a D/ST and
+  the QB it faces -0.48) and `score` (the weighted interval score and the
+  landing slices). Backtests of any rule start from `nflraw`, not a re-scored
+  CSV
 - `fantasy/bin/swap-scan`: the waiver gate, `(add - drop) x horizon` (weeks
   left plus weeks 15-17 at their weight) against 2.5 points a game, never a
   second QB/TE, Sleeper 24-hour adds as market heat,
@@ -171,13 +182,16 @@ never bolt writing onto `ff` or `espn`.
 
 **Every week is forecast and then reviewed (Alex's instruction, 2026-09-17).**
 `fantasy/bin/forecast dossier` assembles the evidence (five projection
-sources unit-normalized per position, consensus and spread, season logs,
+sources unit-normalized per position plus the market's prop-implied
+points, consensus and spread, season logs,
 injuries, Vegas totals, historical actual/projection quantiles by position
 and tier, and a mechanical baseline); MIST writes the 50% and 90% intervals
 for every rostered player, both totals, the win probability and the standing,
 each with a `why`, and files them with `forecast record`; Tuesday's `forecast
 settle` scores MIST and the baseline against reality and `forecast history`
-keeps the coverage table. Two constraints from Alex: ESPN's number is one
+keeps the coverage table, the weighted interval score, where results landed
+inside each forecast, and the closing line value of MIST's leans off the
+market (a lean that the line does not later follow is a guess). Two constraints from Alex: ESPN's number is one
 vote, never the model, and the intervals are MIST's judgment, never the
 baseline's. The playbook's *Weekly forecast and review* section holds the
 rule; the Season log is grouped by week and each week's section opens
