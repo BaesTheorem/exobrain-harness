@@ -582,6 +582,51 @@ A backup DEF retains **75.2%** of starter value as a first bench option (DEF
 week-to-week SD ~7 points swamps the <2 point/game gap between DEF1 and DEF16). A
 backup K retains only **28.5%** (K SD ~3.25 points).
 
+### F5. The bye and the playoff weeks, measured (HIGH for the arithmetic, MEDIUM for the inputs)
+Added 2026-10-14. Our own measurement plus four outside checks, each opened and
+quoted (not a search summary).
+
+**Own measurement:** `fantasy/season_sim.py --leverage` (40,000 seasons per
+batch, common random numbers, weekly SD measured at 29.3 from weeks 1-5).
+Chaos Legion placed at each seed with its strength fixed wins the title 37.4%
+(seed 1), 37.3% (2), 23.7-25.1% (3-6): the bye is 1.5x and about 13 points.
+Seed 1 = seed 2 with no reseeding. A regular-season win is worth 21-26 bye
+points and about 4 title points. Per point, week 16 and 17 weigh 10.7 and 11.7
+regular-season weeks (12-17 under other noise settings), week 15 about 2. One
+point of win probability is worth about 5 projected points through the Points
+For tiebreak (3 to 8 across settings; the Points For effect is small and noisy).
+The ratio is 1/p in general, so the 1.9x of section A4 belongs to a 53% team.
+Inputs are the model's (ros_rate means, a stated tau), so the absolute title
+number is an upper bound.
+
+**Base rate, Fantasy Genius (2023), MEDIUM-LOW:** "we analyzed over 1,000 league
+outcomes across ESPN & Sleeper." "~28% of the time a league champion is the best
+team from the regular season (based on Power Rankings)." Formats not stated.
+https://fantasygenius.substack.com/p/what-are-my-odds-of-making-the-fantasy
+
+**In-season matchups, Subvertadown (2026 update of an 11-season study), MEDIUM:**
+"Correlations are usually close to 0.20 (TEs lower at near 0.15)." "Accuracy
+doesn't clearly improve over the season." One exception: "it does seem RB's can
+be viewed with an eye on their Playoffs schedules." Proprietary model, so this is
+the best case; a raw points-allowed table does worse. Playoff matchups are a
+tiebreak only.
+https://subvertadown.com/article/how-predictive-is-strength-of-schedule-looking-at-17-week-sos-opponent-difficulty-for-rb-wr-and-te
+
+**Consistency by team strength, Fantasy Footballers (2021), MEDIUM:** nflfastR
+2020, 10,000 simulated lineups. "inconsistency is bad for good teams and good for
+bad teams"; "consistency only starts being good when you are slightly below
+average (47th percentile or worse)." Season-average framing, one season; agrees
+with the favorite-floor side of F2.
+https://www.thefantasyfootballers.com/articles/the-fantasy-football-philosopher-considering-consistency/
+
+**NFL week 17 rest risk, own count from nflverse files, MEDIUM-HIGH for counts:**
+top 13 QB, 26 RB, 26 WR, 13 TE by full-PPR points through week 15, 2021-2025,
+who played the week before. Sat out or under half their usual snaps: week 16
+34 of 361, week 17 35 of 343, week 18 83 of 331. With no injury listing and no
+reserve status: 7 (1.9%), 3 (0.9%), 35 (10.6%). Rest is a week 18 event; a
+fantasy final in week 17 needs no discount for it. Reproduced by MIST from the
+research agent's script; "no listing" is a lower bound for rest.
+
 ---
 
 ## G. Tools, verified 2026-08-16
