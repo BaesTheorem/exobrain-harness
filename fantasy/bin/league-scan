@@ -49,7 +49,7 @@ HERE = Path(__file__).resolve().parent
 FANTASY = HERE.parent
 sys.path.insert(0, str(FANTASY))
 
-from espncli.cli import initials, roster_rows, side_entries, table  # noqa: E402
+from espncli.cli import bye_holes, initials, table, week_closed, week_rows  # noqa: E402
 from espncli.client import BENCH, IR, Espn, team_name  # noqa: E402
 
 SLOT_POS = {0: ("QB",), 2: ("RB",), 4: ("WR",), 6: ("TE",), 16: ("D/ST",), 17: ("K",), 23: ("RB", "WR", "TE")}
@@ -77,20 +77,6 @@ def best_actual(rows: list[dict], counts: dict[int, int]) -> float:
     return best_by(rows, counts, "actual")
 
 
-def week_rows(api: Espn, week: int) -> tuple[dict, dict[int, list[dict]]]:
-    data = api.league("mTeam", "mRoster", "mMatchup", "mMatchupScore", "mSettings", period=week)
-    out: dict[int, list[dict]] = {}
-    for m in data.get("schedule", []):
-        if m.get("matchupPeriodId") != week:
-            continue
-        for key in ("home", "away"):
-            s = m.get(key)
-            if s:
-                entries, _ = side_entries(api, data, s)
-                out[s["teamId"]] = roster_rows(api, entries, week)
-    return data, out
-
-
 def scan(api: Espn, weeks: int | None) -> dict:
     now = api.league("mTeam", "mSettings", "mStatus")
     current = api.current_week(now)
@@ -106,7 +92,7 @@ def scan(api: Espn, weeks: int | None) -> dict:
     prev_starters: dict[int, set] = {}
     for w in range(1, last + 1):
         _, rows = week_rows(api, w)
-        if not rows or any(sum(r["actual"] or 0 for r in rs if r["slotId"] not in (BENCH, IR)) <= 0 for rs in rows.values()):
+        if not week_closed(rows):
             break                       # ESPN has not closed this week for everyone
         played.append(w)
         for tid, rs in rows.items():
@@ -122,12 +108,11 @@ def scan(api: Espn, weeks: int | None) -> dict:
             got = sum(r["actual"] or 0 for r in started)
             t["left"] += best_actual(rs, counts) - got
             t["vs_proj"] += got - best_by(rs, counts, "proj")
-            # A bye hole: last week's starter whose team is off this week. It is
-            # known days ahead, so fixing it is the cleanest read of attention
-            # (rule inventory R5: the opponent-hole price needs a fix rate).
-            holes = [r for r in rs if r.get("id") in prev_starters.get(tid, set()) and r["opp"] == "BYE"]
-            t["bye_holes"] += len(holes)
-            t["bye_fixed"] += sum(1 for r in holes if r["slotId"] in (BENCH, IR))
+            # Bye holes (espncli.cli.bye_holes): the fix rate that prices a
+            # rival's holes and questionable starters in win_prob.
+            faced, fixed = bye_holes(prev_starters.get(tid, set()), rs)
+            t["bye_holes"] += faced
+            t["bye_fixed"] += fixed
             prev_starters[tid] = {r.get("id") for r in started}
     # Trade offers, from the transaction log. mTransactions2 is scoped to one
     # scoring period per call and an offer's original row sits in the period

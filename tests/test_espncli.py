@@ -320,15 +320,18 @@ def test_pending_sees_an_incoming_trade_offer():
 
 def test_check_reports_win_probability_and_the_opponents_holes(capsys):
     """The opponent side of the matchup is modeled too (2026-09-20): an OUT or
-    bye starter on their side is listed with what it is worth, and the win
-    probability is reported both as the lineup stands and if they leave it."""
+    bye starter on their side is listed. Since 2026-10-15 the win probability
+    prices it at their manager's fix rate (one half with no week closed yet),
+    between the two ends it also reports: they fix it, or they leave it."""
     data = league_fixture()
-    data["teams"][1]["roster"]["entries"].append(entry(24, "Their Out WR", 3, 8, 4, 15.0, status="OUT"))
+    data["teams"][1]["roster"]["entries"] += [entry(24, "Their Out WR", 3, 8, 4, 15.0, status="OUT"),
+                                              entry(25, "Their Bench WR", 3, 18, 20, 9.0)]
     run_json(FakeEspn(data), "check")
     out = json.loads(capsys.readouterr().out)
     assert 0 < out["win"]["p"] < 1 and out["win"]["sd_me"] > 0
     assert [(p["kind"], p["player"]) for p in out["opp_problems"]] == [("OUT", "Their Out WR")]
-    assert out["win_if_opp_unfixed"] > out["win"]["p"], "their zero is our gain"
+    assert out["opp_fix"] == {"fixed": 0, "faced": 0, "rate": 0.5}
+    assert out["win_if_opp_fixed"] < out["win"]["p"] < out["win_if_opp_unfixed"], "their zero is our gain"
     # the fill for our OUT RB now carries the win probability it produces
     fix = next(p["fix"] for p in out["problems"] if p["kind"] == "OUT")
     assert "win " in fix and "Bench Lion" in fix
@@ -364,3 +367,14 @@ def test_a_rejected_cookie_is_refreshed_once_and_retried(monkeypatch):
     assert api._get(url, api._auth()) == {"ok": True}
     assert calls["n"] == 2
     client.Espn._refreshed = False
+
+
+def test_bye_holes_are_last_weeks_starters_whose_team_is_off():
+    """The fix rate's raw count (rule inventory R5), shared by league-scan and
+    the win probability since 2026-10-15."""
+    rows = [{"id": 1, "opp": "BYE", "slotId": 4},       # started last week, left in: a hole, not fixed
+            {"id": 2, "opp": "BYE", "slotId": 20},      # started last week, benched: fixed
+            {"id": 3, "opp": "BYE", "slotId": 4},       # did not start last week: not counted
+            {"id": 4, "opp": "KC", "slotId": 4}]
+    assert cli.bye_holes({1, 2, 4}, rows) == (2, 1)
+    assert cli.bye_holes(set(), rows) == (0, 0)

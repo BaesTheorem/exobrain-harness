@@ -25,10 +25,19 @@ import os
 import re
 import sys
 from datetime import datetime
+from pathlib import Path
 from typing import Any
 
 from espncli import chat
-from espncli.value import best_fill, best_swaps, clock_remaining, load_corr, load_points_per_win_pct, win_prob
+from espncli.value import (
+    best_fill,
+    best_swaps,
+    clock_remaining,
+    fix_rate,
+    load_corr,
+    load_points_per_win_pct,
+    win_prob,
+)
 from espncli.client import (
     BENCH,
     IR,
@@ -328,8 +337,10 @@ def matchup_view(api: Espn, week: int, data: dict, team_id: int) -> dict | None:
         # The variance rule as a number (2026-09-20): each unlocked starter is
         # a normal around his projection with a position- and player-specific
         # spread, a locked one is his banked actual, and the matchup is the
-        # difference of the two sums. Opponent problems (OUT, bye, empty) are
-        # priced as they stand; `opp_problems` says what an unfixed one is worth.
+        # difference of the two sums. The rival's holes (bye, OUT) and
+        # questionable starters are covered at that manager's measured fix
+        # rate (2026-10-15); `win_if_opp_fixed` and `win_if_opp_unfixed` are
+        # the two ends, and `opp_problems` names the holes.
         mults: dict[str, float] = {}   # per-player spread multipliers removed 2026-10-15: not a stable trait
         corr = load_corr()
         out["market_rows"] = attach_market(api, week, me["rows"] + opp["rows"])
@@ -338,19 +349,18 @@ def matchup_view(api: Espn, week: int, data: dict, team_id: int) -> dict | None:
         # team-level actual empty until the week closes.
         scored = any(r.get("actual") is not None for r in me["rows"] + opp["rows"])
         rem = games_remaining(api, week) if scored else {}
-        out["win"] = win_prob(me["rows"], opp["rows"], mults, rem, corr)
+        fixed_n, faced_n = bye_hole_counts_cached(api, week).get(opp["team_id"], (0, 0))
+        rate = fix_rate(fixed_n, faced_n)
+        out["opp_fix"] = {"fixed": fixed_n, "faced": faced_n, "rate": round(rate, 3)}
+        out["win"] = win_prob(me["rows"], opp["rows"], mults, rem, corr, rate)
         out["rule"] = variance_line(out["margin"], out["win"]["p"])
         out["in_progress"] = {k: round(v, 3) for k, v in sorted(rem.items())}
         out["opp_problems"] = lineup_problems(opp["rows"])
-        if out["opp_problems"]:
-            fixed = [dict(r) for r in opp["rows"]]
-            for r in fixed:
-                if any(pr["player"] == r["name"] for pr in out["opp_problems"]) and r.get("actual") is None:
-                    r["proj"] = 0.0
-            out["win_if_opp_unfixed"] = win_prob(me["rows"], fixed, mults, rem, corr)["p"]
+        out["win_if_opp_fixed"] = win_prob(me["rows"], opp["rows"], mults, rem, corr, 1.0)["p"]
+        out["win_if_opp_unfixed"] = win_prob(me["rows"], opp["rows"], mults, rem, corr, 0.0)["p"]
         out["points_per_win_pct"] = load_points_per_win_pct(week)
         out["swaps"] = best_swaps(me["rows"], opp["rows"], mults, remaining=rem, corr=corr,
-                                  points_per_win_pct=out["points_per_win_pct"])
+                                  points_per_win_pct=out["points_per_win_pct"], opp_fix_rate=rate)
     return out
 
 
@@ -371,14 +381,87 @@ def lineup_problems(rows: list[dict]) -> list[dict]:
     return out
 
 
+
+CACHE_DIR = Path(__file__).resolve().parent.parent / ".cache"
+
+
+def week_rows(api: Espn, week: int) -> tuple[dict, dict[int, list[dict]]]:
+    """Every team's roster rows for one week, by team id."""
+    data = api.league("mTeam", "mRoster", "mMatchup", "mMatchupScore", "mSettings", period=week)
+    out: dict[int, list[dict]] = {}
+    for m in data.get("schedule", []):
+        if m.get("matchupPeriodId") != week:
+            continue
+        for key in ("home", "away"):
+            s = m.get(key)
+            if s:
+                entries, _ = side_entries(api, data, s)
+                out[s["teamId"]] = roster_rows(api, entries, week)
+    return data, out
+
+
+def week_closed(rows: dict[int, list[dict]]) -> bool:
+    """ESPN has scored this week for every team."""
+    return bool(rows) and all(sum(r["actual"] or 0 for r in rs if r["slotId"] not in (BENCH, IR)) > 0
+                              for rs in rows.values())
+
+
+def bye_holes(prev_starters: set, rows: list[dict]) -> tuple[int, int]:
+    """(faced, fixed) for one team-week. A bye hole is last week's starter
+    whose NFL team is off this week, fixed when he sits on the bench or IR.
+    It is known days ahead, so fixing it is the cleanest read of a manager's
+    attention (rule inventory R5)."""
+    holes = [r for r in rows if r.get("id") in prev_starters and r["opp"] == "BYE"]
+    return len(holes), sum(1 for r in holes if r["slotId"] in (BENCH, IR))
+
+
+def bye_hole_counts(api: Espn, last: int) -> tuple[dict[int, tuple[int, int]], int]:
+    """({team id: (fixed, faced)}, the last week counted) over the closed
+    weeks 1..last. bin/league-scan reports the same counts."""
+    counts: dict[int, tuple[int, int]] = {}
+    prev: dict[int, set] = {}
+    done = 0
+    for w in range(1, last + 1):
+        _, rows = week_rows(api, w)
+        if not week_closed(rows):
+            break
+        done = w
+        for tid, rs in rows.items():
+            faced, fixed = bye_holes(prev.get(tid, set()), rs)
+            f0, n0 = counts.get(tid, (0, 0))
+            counts[tid] = (f0 + fixed, n0 + faced)
+            prev[tid] = {r.get("id") for r in rs if r["slotId"] not in (BENCH, IR)}
+    return counts, done
+
+
+def bye_hole_counts_cached(api: Espn, week: int) -> dict[int, tuple[int, int]]:
+    """bye_hole_counts through the week before `week`, kept in
+    .cache/byeholes-<season>-wNN.json once every one of those weeks has
+    closed (a closed week does not change)."""
+    path = CACHE_DIR / f"byeholes-{api.season}-w{week:02d}.json"
+    try:
+        return {int(k): (v[0], v[1]) for k, v in json.loads(path.read_text()).items()}
+    except (OSError, ValueError):
+        pass
+    counts, done = bye_hole_counts(api, week - 1)
+    if done and done == week - 1:
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(json.dumps({str(k): list(v) for k, v in counts.items()}))
+    return counts
+
 def print_win(out: dict, indent: str = "") -> None:
     w = out.get("win")
     if not w:
         return
     print(f"{indent}Win probability {w['p']:.0%}  (us {w['mu_me']} sd {w['sd_me']}, them {w['mu_opp']} sd {w['sd_opp']})")
+    fx = out.get("opp_fix")
+    hi, lo = out.get("win_if_opp_fixed"), out.get("win_if_opp_unfixed")
+    if fx and hi is not None and lo is not None and hi != lo:
+        print(f"{indent}  their holes and questionable starters at their fix rate {fx['rate']:.2f} "
+              f"({fx['fixed']} of {fx['faced']} bye holes fixed): {hi:.0%} if they fix everything, "
+              f"{lo:.0%} if they fix nothing")
     for pr in out.get("opp_problems") or []:
-        print(f"{indent}  opponent problem: {pr['kind']} {pr['slot']} {pr['player']} "
-              f"(proj {pts(pr['proj'])}); if left unfixed we are {out.get('win_if_opp_unfixed', 0):.0%}")
+        print(f"{indent}  opponent problem: {pr['kind']} {pr['slot']} {pr['player']} (proj {pts(pr['proj'])})")
     for sw in out.get("swaps") or []:
         why = "variance" if sw["d_proj"] <= 0 else "projection"
         print(f"{indent}  swap {sw['bench']} in for {sw['starter']} at {sw['slot']}: "
@@ -439,15 +522,22 @@ def cmd_scoreboard(api: Espn, args: argparse.Namespace) -> None:
             idle.append(names.get(s["teamId"], "?"))
             continue
         g = {"id": m.get("id"), "winner": m.get("winner"), "playoff": m.get("playoffTierType")}
+        side_rows = {}
         for key in ("home", "away"):
             s = m[key]
             entries, _ = side_entries(api, data, s)
             rows = roster_rows(api, entries, week)
+            side_rows[key] = rows
             g[key] = {"team_id": s["teamId"], "team": names.get(s["teamId"], "?"),
                       "projected": starters_proj(rows), "actual": starters_actual(rows),
                       "espn_total": s.get("totalPoints"),
                       "live_proj": s.get("totalProjectedPointsLive"), "mine": s["teamId"] == mine}
+        g["_rows"] = side_rows
         games.append(g)
+    model = game_models(api, week, [(g["home"]["team_id"], g["away"]["team_id"], g.pop("_rows")) for g in games],
+                        mine)
+    for g, md in zip(games, model, strict=True):
+        g["model"] = md
     out = {"week": week, "matchups": games, "idle": idle}
 
     def render(out):
@@ -466,15 +556,43 @@ def cmd_scoreboard(api: Espn, args: argparse.Namespace) -> None:
                 res = "  <- home won"
             elif g["winner"] == "AWAY":
                 res = "  <- away won"
-            print(f"  {side(a)}")
-            print(f"  {side(h)}{res}\n")
+            md = g.get("model") or {}
+            print(f"  {side(a)}  model {md.get('mu_away', 0):6.1f}  win {1 - md.get('p_home', 0.5):4.0%}")
+            print(f"  {side(h)}  model {md.get('mu_home', 0):6.1f}  win {md.get('p_home', 0.5):4.0%}{res}\n")
         if idle:
             print(f"  idle this week: {', '.join(idle)}")
         print("  * = Chaos Legion. proj = sum of starters' ESPN weekly projections; "
               "pts = scored so far (ESPN's own total until the week closes is 0, so this "
-              "sums the starters); live proj = ESPN's projected finish.")
+              "sums the starters); live proj = ESPN's projected finish; model = the lineup "
+              "check's expected points (0.75 market, 0.25 ESPN, injuries priced) and win odds.")
     emit(args, out, render)
 
+
+
+def game_models(api: Espn, week: int, games: list[tuple[int, int, dict]], mine: int | None) -> list[dict]:
+    """The lineup model `espn check` uses, for every game of a week (2026-10-15):
+    market blend, injury pricing with each side's own bench cover, measured
+    spreads and same-game correlations. Every side but ours is a rival,
+    covered at its manager's measured fix rate. `games` is (home id, away id,
+    {"home": rows, "away": rows}); season_sim.py --this-week reads the means
+    and spreads."""
+    corr = load_corr()
+    rem = games_remaining(api, week)
+    holes = bye_hole_counts_cached(api, week)
+    out = []
+    for home, away, rows in games:
+        attach_market(api, week, rows["home"] + rows["away"])
+        attach_injury(api, week, rows["home"] + rows["away"])
+        tid = {"home": home, "away": away}
+        rate = {k: fix_rate(*holes.get(tid[k], (0, 0))) for k in ("home", "away")}
+        a, b = ("away", "home") if away == mine else ("home", "away")
+        w = win_prob(rows[a], rows[b], {}, rem, corr, rate[b], None if tid[a] == mine else rate[a])
+        mu = {a: w["mu_me"], b: w["mu_opp"]}
+        sd = {a: w["sd_me"], b: w["sd_opp"]}
+        out.append({"p_home": round(w["p"] if a == "home" else 1 - w["p"], 3),
+                    "mu_home": mu["home"], "mu_away": mu["away"], "sd_home": sd["home"], "sd_away": sd["away"],
+                    "sd_diff": w["sd_diff"], "fix_rate": {k: round(v, 3) for k, v in rate.items()}})
+    return out
 
 def cmd_check(api: Espn, args: argparse.Namespace) -> None:
     """The pre-kickoff checklist the playbook asks for every week."""
@@ -501,7 +619,8 @@ def cmd_check(api: Espn, args: argparse.Namespace) -> None:
     def best_bench_for(slot_id: int, exclude: int | None) -> dict | None:
         """By win probability against this week's opponent when there is one
         (favorite wants the floor, underdog the ceiling), by projection otherwise."""
-        return best_fill(rows, opp_rows, slot_id, exclude, mults, rem, corr)
+        return best_fill(rows, opp_rows, slot_id, exclude, mults, rem, corr,
+                         ((mv or {}).get("opp_fix") or {}).get("rate", 1.0))
 
     def fix_text(b: dict) -> str:
         extra = f", win {b['p_after']:.0%}" if b.get("p_after") is not None else ""
@@ -558,6 +677,8 @@ def cmd_check(api: Espn, args: argparse.Namespace) -> None:
            "win": mv.get("win") if mv else None, "swaps": mv.get("swaps") if mv else None,
            "opp_problems": mv.get("opp_problems") if mv else None,
            "win_if_opp_unfixed": mv.get("win_if_opp_unfixed") if mv else None,
+           "win_if_opp_fixed": mv.get("win_if_opp_fixed") if mv else None,
+           "opp_fix": mv.get("opp_fix") if mv else None,
            "first_kickoff": {"when": first_game[0], "game": first_game[1]} if first_game else None,
            "lock_order": [{"player": r["name"], "slot": r["slot"], "kickoff": r["kickoff"]} for r in locks],
            "margin": mv.get("margin") if mv else None, "rule": mv.get("rule") if mv else None,

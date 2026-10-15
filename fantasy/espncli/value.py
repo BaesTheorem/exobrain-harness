@@ -195,11 +195,13 @@ def row_moments(r: dict, mults: dict[str, float],
     if r.get("actual") is None:
         p, f = r.get("p_play"), r.get("fallback_mean")
         if p is not None and f is not None and p < 1:
-            # Plays with probability p, else the slot gets the fallback the
-            # watcher would swap in when the inactives post: a two-point mixture.
+            # Plays with probability p. Else the manager swaps in the fallback
+            # when the inactives post (probability `fallback_rate`: 1 for us,
+            # the measured fix rate for a rival) or the slot scores zero.
+            q = float(r.get("fallback_rate", 1.0))
             m, sf = float(mean or 0.0), player_sd(r.get("pos", "?"), f)
-            e = p * m + (1 - p) * f
-            v = p * (sd * sd + m * m) + (1 - p) * (sf * sf + f * f) - e * e
+            e = p * m + (1 - p) * q * f
+            v = p * (sd * sd + m * m) + (1 - p) * q * (sf * sf + f * f) - e * e
             return e, math.sqrt(max(v, 0.0))
         return float(mean or 0.0), sd
     left = (remaining or {}).get(r.get("team") or "", 0.0)
@@ -274,29 +276,51 @@ def lineup_moments(rows: list[dict], mults: dict[str, float],
     return mu, math.sqrt(max(var, 0.0))
 
 
-def with_fallbacks(rows: list[dict]) -> list[dict]:
+def fix_rate(fixed: int, faced: int) -> float:
+    """A manager's chance of fixing a hole before it locks: bye holes fixed
+    over bye holes faced (espncli.cli.bye_hole_counts), shrunk toward one half
+    as (fixed + 1) / (faced + 2). The lineup routine applied it by hand to
+    win probabilities until 2026-10-15 (rule inventory R5)."""
+    return (fixed + 1) / (faced + 2)
+
+
+def with_fallbacks(rows: list[dict], rate: float = 1.0, holes: bool = False) -> list[dict]:
     """Copies of `rows` where each unlocked starter with a measured `p_play`
     below 1 (espncli.cli.attach_injury) carries `fallback_mean`: the best
     usable, unlocked bench player eligible for his slot whose game starts no
     earlier than his. That is who `lineup-watch --fix` swaps in when the
     inactives post 90 minutes before his kickoff; a bench player whose game
     has already started by then is locked and cannot cover. Rows without
-    `p_play` pass through unchanged (2026-10-15)."""
+    `p_play` pass through unchanged (2026-10-15).
+
+    `rate` (`fallback_rate` on the row) is the chance the manager makes that
+    swap: 1 for us, the measured fix_rate() for a rival. With `holes`, a
+    starter who scores zero as things stand (bye, OUT, IR, suspended) is a
+    row that plays with probability 0, covered at the same rate by any
+    unlocked bench player, because that hole is known before any kickoff.
+    Our own holes stay as they stand, so that best_swaps shows the fix."""
     out = [dict(r) for r in rows]
     bench = [r for r in out if r.get("slotId") == BENCH_SLOT and usable(r) and r.get("actual") is None]
     for r in out:
-        p = r.get("p_play")
-        if not is_starter(r) or r.get("actual") is not None or p is None or p >= 1:
+        if not is_starter(r) or r.get("actual") is not None:
             continue
-        k = r.get("kickoff")
+        hole = holes and not usable(r)
+        if hole and r.get("p_play") is None:
+            r["p_play"] = 0.0
+        p = r.get("p_play")
+        if p is None or p >= 1:
+            continue
+        k = None if hole else r.get("kickoff")
         cands = [b for b in bench if b.get("id") != r.get("id") and r.get("slotId") in (b.get("eligible") or [])
                  and (k is None or b.get("kickoff") is None or b["kickoff"] >= k)]
         r["fallback_mean"] = max((float(row_mean(b) or 0.0) for b in cands), default=0.0)
+        r["fallback_rate"] = rate
     return out
 
 
 def win_prob(me: list[dict], opp: list[dict], mults: dict[str, float] | None = None,
-             remaining: dict[str, float] | None = None, corr: dict[str, float] | None = None) -> dict:
+             remaining: dict[str, float] | None = None, corr: dict[str, float] | None = None,
+             opp_fix_rate: float = 1.0, me_fix_rate: float | None = None) -> dict:
     """P(our starters outscore theirs), with both sides' means and spreads.
 
     With `corr` (load_corr()), starters in the same NFL game are correlated
@@ -306,13 +330,21 @@ def win_prob(me: list[dict], opp: list[dict], mults: dict[str, float] | None = N
     D/ST against the opponent's quarterback ties the two totals together and
     widens the margin's spread too. Var(us - them) = Var(us) + Var(them)
     - 2 Cov(us, them). Without `corr` every starter is independent, which is
-    what this computed before that date."""
+    what this computed before that date.
+
+    `opp_fix_rate` is the rival's measured fix_rate(); `me_fix_rate`, when
+    given, prices our side as a rival too (a scoreboard of two other teams)."""
     mults = mults or {}
     corr = corr or {}
-    # Our questionable starters are mixtures with the bench cover the watcher
-    # would use. Theirs are not: whether a rival fixes a hole is the manager's
-    # habit (`opp_problems` prices the definite holes), not a measured rate.
-    me = with_fallbacks(me)
+    # Questionable starters on both sides are mixtures with their bench cover:
+    # ours at rate 1 (lineup-watch --fix swaps at the inactives), a rival's at
+    # his measured fix rate, and his holes (bye, OUT) on the same terms. Until
+    # 2026-10-15 a rival's questionable starter counted as certain to play,
+    # which is above both real outcomes (covered, or a zero): it put the week 6
+    # opponent, three questionable starters and 0 of 4 bye holes fixed, 12.1
+    # points too high (121.6 against 109.5; 54% against 67% to win).
+    me = with_fallbacks(me) if me_fix_rate is None else with_fallbacks(me, me_fix_rate, holes=True)
+    opp = with_fallbacks(opp, opp_fix_rate, holes=True)
     mu_me, sd_me = lineup_moments(me, mults, remaining, corr)
     mu_opp, sd_opp = lineup_moments(opp, mults, remaining, corr)
     cross = 0.0
@@ -358,7 +390,8 @@ def best_swaps(me: list[dict], opp: list[dict], mults: dict[str, float] | None =
                min_gain: float | None = None, top: int = 5,
                remaining: dict[str, float] | None = None,
                points_per_win_pct: float = POINTS_PER_WIN_PCT,
-               corr: dict[str, float] | None = None, min_net: float = 0.0) -> list[dict]:
+               corr: dict[str, float] | None = None, min_net: float = 0.0,
+               opp_fix_rate: float = 1.0) -> list[dict]:
     """Every single bench-for-starter swap worth making, best first by `d_net`.
 
     Until 2026-10-15 this kept only swaps that raised win probability by half
@@ -375,7 +408,7 @@ def best_swaps(me: list[dict], opp: list[dict], mults: dict[str, float] | None =
     gains priced at `points_per_win_pct` (the Points For tiebreak): the
     variance rule applies a swap at d_net >= +1."""
     mults = mults or {}
-    w0 = win_prob(me, opp, mults, remaining, corr)
+    w0 = win_prob(me, opp, mults, remaining, corr, opp_fix_rate)
     base = w0["p"]
     out = []
     starters = [r for r in me if is_starter(r)]
@@ -392,7 +425,7 @@ def best_swaps(me: list[dict], opp: list[dict], mults: dict[str, float] | None =
                     r["slotId"] = BENCH_SLOT
                 elif r.get("id") == b.get("id"):
                     r["slotId"] = s["slotId"]
-            w1 = win_prob(trial, opp, mults, remaining, corr)
+            w1 = win_prob(trial, opp, mults, remaining, corr, opp_fix_rate)
             p = w1["p"]
             # The expected-points change of the whole lineup, so a questionable
             # player counts at his mixture with the cover, not at his healthy mean.
@@ -411,7 +444,7 @@ def best_swaps(me: list[dict], opp: list[dict], mults: dict[str, float] | None =
 def best_fill(me: list[dict], opp: list[dict] | None, slot_id: int, exclude: int | None,
               mults: dict[str, float] | None = None,
               remaining: dict[str, float] | None = None,
-              corr: dict[str, float] | None = None) -> dict | None:
+              corr: dict[str, float] | None = None, opp_fix_rate: float = 1.0) -> dict | None:
     """The bench player to put into `slot_id`: by win probability when there is
     an opponent to beat, by projection otherwise (idle week, or no matchup)."""
     mults = mults or {}
@@ -429,7 +462,7 @@ def best_fill(me: list[dict], opp: list[dict] | None, slot_id: int, exclude: int
                 r["slotId"] = BENCH_SLOT
             elif r.get("id") == b.get("id"):
                 r["slotId"] = slot_id
-        scored.append((win_prob(trial, opp, mults, remaining, corr)["p"], float(row_mean(b) or 0.0), b))
+        scored.append((win_prob(trial, opp, mults, remaining, corr, opp_fix_rate)["p"], float(row_mean(b) or 0.0), b))
     scored.sort(key=lambda t: (-t[0], -t[1]))
     best = dict(scored[0][2])
     best["p_after"] = round(scored[0][0], 3)

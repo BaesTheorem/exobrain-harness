@@ -44,18 +44,18 @@ fifteen minutes before the reports it existed to read.)
    whether variance or the mean made the call. **Apply a swap when `d_net`
    is at least +1**: `d_net` is the win probability gained in points plus
    `d_proj` over `points_per_win_pct`, this week's exchange rate from
-   `season_sim.py --leverage` (about 6 to 7 since sigma moved to 29.3).
+   `season_sim.py --leverage` (3.6 to 4.2 on 2026-10-15, after the drift).
    Below +1 it is churn.
    The old reading (favorite by 3 = floor, underdog by 3 = ceiling, within 3
    = projection) is what the number encodes, so state which side we are on
    in the log line and cite `win.p` before and after. `margin_source` still
    says whether the margin is pre-game or live; a banked Thursday score can
-   flip the side, as 2026-09-19 showed. Also read `opp_problems` and
-   `win_if_opp_unfixed`: an OUT or bye starter on their side is a hole.
-   Price it with that manager's measured fix rate from `fantasy/bin/league-scan
-   --json` (`bye_fixed` of `bye_holes`, shrunk as (fixed + 1) / (faced + 2);
-   the league rate was 0.5 over weeks 1-5): P(win) = rate x `win.p` +
-   (1 - rate) x `win_if_opp_unfixed`. Quote both numbers in the log line.
+   flip the side, as 2026-09-19 showed. `win.p` already prices the
+   opponent's holes (bye, OUT) and questionable starters at that manager's
+   measured fix rate (`opp_fix`: bye holes fixed over faced, shrunk as
+   (fixed + 1) / (faced + 2), in code since 2026-10-15). Do not apply the
+   rate again. Quote `win.p` and its two ends, `win_if_opp_fixed` and
+   `win_if_opp_unfixed`, in the log line; `opp_problems` names the holes.
    **Idle week (week 8), or any week ESPN shows no opponent:** the week is
    worth nothing (idle-week points do not count toward Points For). Fill the
    nine slots by projection, with no variance adjustment, escalation or ping.

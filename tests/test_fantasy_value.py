@@ -169,6 +169,39 @@ def test_questionable_starter_is_a_mixture_with_the_cover_that_kicks_off_later()
     assert value.row_moments(row(6, "Healthy", "WR", 4, 12.0), {})[0] == 12.0
 
 
+
+def test_a_rivals_questionable_starter_is_covered_at_his_fix_rate():
+    """Until 2026-10-15 a rival's questionable starter counted as certain to
+    play, above both real outcomes. His slot is now p x mean + (1 - p) x rate
+    x cover; rate 1 is the mixture our own side has used since that morning."""
+    import datetime as dt
+    sun = dt.datetime(2026, 10, 18, 12)
+    mine = [row(1, "QB", "QB", 0, 20.0)]
+    theirs = [{**row(21, "Their Q", "WR", 4, 12.0), "p_play": 0.5, "kickoff": sun},
+              {**row(22, "Their Cover", "WR", 20, 8.0), "kickoff": sun}]
+    for rate, want in ((1.0, 6.0 + 4.0), (1 / 6, 6.0 + 4.0 / 6), (0.0, 6.0)):
+        assert value.win_prob(mine, theirs, opp_fix_rate=rate)["mu_opp"] == pytest.approx(want, abs=0.05)
+    assert value.win_prob(mine, theirs, opp_fix_rate=0.0)["p"] > value.win_prob(mine, theirs, opp_fix_rate=1.0)["p"]
+    # Positive control: the same row on our side keeps the rate-1 mixture.
+    assert value.win_prob(theirs, mine)["mu_me"] == pytest.approx(10.0, abs=0.05)
+
+
+def test_a_rivals_bye_hole_is_priced_at_his_fix_rate_but_ours_stays_a_hole():
+    mine = [row(1, "QB", "QB", 0, 20.0)]
+    theirs = [row(21, "Their Bye", "WR", 4, 0.0, opp="BYE"), row(22, "Their Cover", "WR", 20, 9.0)]
+    assert value.win_prob(mine, theirs, opp_fix_rate=0.5)["mu_opp"] == pytest.approx(4.5, abs=0.05)
+    # Our own bye starter is not covered inside win_prob, so best_swaps shows the fix.
+    ours = [row(1, "QB", "QB", 0, 20.0), row(3, "Our Bye", "WR", 4, 0.0, opp="BYE"), row(4, "Our Bench", "WR", 20, 9.0)]
+    their_qb = [row(21, "Their QB", "QB", 0, 20.0)]
+    assert value.win_prob(ours, their_qb)["mu_me"] == pytest.approx(20.0, abs=0.05)
+    assert value.best_swaps(ours, their_qb)[0]["bench"] == "Our Bench"
+
+
+def test_fix_rate_shrinks_toward_one_half():
+    assert value.fix_rate(0, 0) == 0.5
+    assert value.fix_rate(0, 4) == pytest.approx(1 / 6)
+    assert value.fix_rate(1, 1) == pytest.approx(2 / 3)
+
 def test_points_per_win_pct_reads_the_week_and_falls_back(tmp_path):
     f = tmp_path / "leverage.json"
     f.write_text('{"weeks": {"6": {"points_per_win_pct": 6.68}}}')

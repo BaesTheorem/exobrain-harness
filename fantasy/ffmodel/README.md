@@ -70,8 +70,13 @@ and 0.53 for a quarterback. Doubtful played 0.01, out 0.001. When a
 questionable player played, he got 0.91 of his projection against
 players not on the report. `espn check` reads this week's practice line,
 scales ESPN's part of the mean by the ratio (the market already prices the
-report), and treats our own questionable starter as a mixture with the
-bench cover that kicks off no earlier than he does.
+report), and treats a questionable starter as a mixture with the bench
+cover that kicks off no earlier than he does. Our side gets the cover at
+rate 1, because `lineup-watch --fix` makes the swap. A rival gets it at his
+manager's measured fix rate (bye holes fixed over faced, shrunk as
+(fixed + 1) / (faced + 2)), and his bye and OUT holes are priced the same
+way. Until 2026-10-15 a rival's questionable starter counted as certain to
+play, which put the week 6 opponent 12.1 points too high.
 
 **Proper scores (`score`).** The weighted interval score (WIS), and the
 position of each result in the forecast distribution. On the 59 settled player lines of weeks
@@ -158,3 +163,9 @@ clone computes the same numbers.
 - A prop is void when the player does not play. Thus a market projection is
   conditional on playing. The injury status gives the risk that the player
   does not play.
+- The injury table is fitted on the final report of each week (Friday for a
+  Sunday game). Before that report, `current()` reads the practice line so
+  far, often Wednesday's. A Wednesday DNP that becomes a Friday LP thus
+  reads as a final DNP (0.45 against 0.73). nflverse's injury file keeps
+  one row per player-week (6,068 of 6,068 in 2025), so this is not
+  measured; read a Thursday price as provisional.
