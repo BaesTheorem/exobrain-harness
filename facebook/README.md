@@ -92,6 +92,31 @@ post's subtree. Dedup is by post id, keeping the max reactions ever seen. If
 extraction misses fields against real data, fix `parse.py` and re-run it on the
 saved raw dumps. No re-crawl needed.
 
+## Downloading a video (gotcha: the ad plays first)
+
+`yt-dlp` on a Facebook group post can download the in-stream ad, not the post's
+video. On a group post it can also fail with "Cannot parse data". Check the
+output before you send it: a 20-second clip with the group name as its title is
+the ad.
+
+The procedure that works:
+
+1. Run `fb refresh-cookies` so that the session is current.
+2. Open the post in a headless `FacebookSession`. A direct permalink to a
+   private group post can render the home feed, so open the post from the
+   activity log (`/<uid>/allactivity?category_key=COMMENTSCLUSTER`, then
+   click "View"). The post opens as a dialog.
+3. Start the `<video>` (muted) and let it play for approximately 60 seconds,
+   so that the ad finishes and the real streams load. Record every `fbcdn`
+   `.mp4` response URL.
+4. Remove the `bytestart` and `byteend` parameters from each URL, then
+   download each one with `curl`. Facebook serves DASH, so video and audio
+   are separate files, with one video file for each resolution.
+5. Find the streams with `ffprobe`. The real video has the long duration. Mux
+   the largest video stream with the audio stream:
+   `ffmpeg -i video.mp4 -i audio.mp4 -c copy -map 0:v -map 1:a out.mp4`.
+6. Extract one frame and look at it before you send the file.
+
 ## Reusing the session elsewhere
 
 ```python
