@@ -9,7 +9,7 @@ Four moments: **save** (before compaction, nightly, or on request), **load** (se
 
 ## Principles
 
-The rules below come from the primary sources on Zettelkasten upkeep and on LLM agent memory. The quotes are in the research file `tmp/zk-research/findings.md` of 2026-10-15 (Luhmann, the Luhmann-Archiv, zettelkasten.de, Matuschak, Ahrens, A-MEM, Mem0, Zep, Generative Agents, Karpathy's LLM Wiki). The code enforces each rule. Where a rule failed a test on this store, the test result is recorded.
+The rules below come from the primary sources on Zettelkasten upkeep and on LLM agent memory. The quotes are in the vault note `recon/2026-10-15-zettelkasten-maintenance-research.md` (Luhmann, the Luhmann-Archiv, zettelkasten.de, Matuschak, Ahrens, A-MEM, Mem0, Zep, Generative Agents, Karpathy's LLM Wiki). The code enforces each rule. Where a rule failed a test on this store, the test result is recorded.
 
 1. **Integrate, do not append.** Each idea from a session gets one decision against its nearest existing notes: update, supersede, create or skip (Mem0, Karpathy). A near-duplicate is a defect. A healthy store updates more frequently than it creates.
 2. **One idea for each zettel.** The title is the claim. If a title needs "and", the zettel is two zettels (Matuschak, Fast).
