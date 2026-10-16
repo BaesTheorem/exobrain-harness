@@ -262,6 +262,7 @@ The same machine also runs launchd jobs owned by sibling repos and gitignored di
 | `com.exobrain.quest-watch` | `running-quest/com.exobrain.quest-watch.plist` | every 30 min; RunAtLoad | `running-quest/quest_watch.py` | The running quest's Mac-side loop: verify, celebrate, nudge. | yes |
 | `com.exobrain.haircut-check` | `salon-ramon/com.exobrain.haircut-check.plist` | Calendar: 10:00 | `salon-ramon/run-haircut-check.sh` | Haircut booking nudge -- Salon Ramón, Brookside, every 6 weeks. | yes |
 | `com.exobrain.session-memory-consolidator` | `scripts/com.exobrain.session-memory-consolidator.plist` | Calendar: 23:00 | `scripts/session_memory.py` | Session memory as a Zettelkasten in the Obsidian vault. | yes |
+| `com.exobrain.zettel-maintain` | `scripts/com.exobrain.zettel-maintain.plist` | Calendar: Mon 03:30 | `scripts/zettel_maintain.py` | Weekly Zettelkasten upkeep: orphans, duplicates, stale threads, tags, structure notes, health. | yes |
 | `com.exobrain.vault-snapshot` | `scripts/com.exobrain.vault-snapshot.plist` | Calendar: 06:00 | `scripts/vault-snapshot.sh` | Build a compact snapshot of the Obsidian vault for session-start injection. | yes |
 | `com.exobrain.substack-sync` | `substack-sync/com.exobrain.substack-sync.plist` | Calendar: 07:23 | `substack-sync/run.sh` | Mirror Substack posts into becomingstronger.github.io/posts.json. | yes |
 | `com.exobrain.things3-sync` | `things3-sync/com.exobrain.things3-sync.plist` | every 15 min; WatchPaths: `~/Library/Group Containers/JLMPQHK86H.com.culturedcode.ThingsMac/ThingsData-VE3Z1/Things Database.thingsdatabase/main.sqlite-wal`; RunAtLoad | `things3-sync/run-things3-sync.sh` | Things 3 ↔ Obsidian sync runner. | yes |
@@ -289,7 +290,7 @@ Defined in `.claude/settings.json`. Every hook command is written as `"$CLAUDE_P
 
 ### Memory System
 
-Two stores. **Session memory** is a Zettelkasten in the vault at `~/Exobrain/Claude/` (`Sessions/` per-session notes, kept as the sources zettels cite, `Zettel/` permanent one-idea notes with timestamp ids and typed links, `Maps/` one generated list per tag, `Index.md` the entry point with the open threads). `scripts/session_memory.py` owns it: the PreCompact hook writes before every compaction, the 23:00 consolidator backstops the day, and the session-start hook loads the last 3 session notes and the Index. See the `/session-memory` skill.
+Two stores. **Session memory** is a Zettelkasten in the vault at `~/Exobrain/Claude/` (`Sessions/` per-session notes, kept as the sources zettels cite, `Zettel/` permanent one-idea notes with timestamp ids and typed links, `Structure/` hub notes for the large topics, `Maps/` one generated list per tag, `Index.md` the entry point with the open threads and a sparse register). `scripts/session_memory.py` owns it: the PreCompact hook writes before every compaction, the 23:00 consolidator backstops the day, `scripts/zettel_maintain.py` does the weekly upkeep, and the session-start hook loads the last 3 session notes and the Index. See the `/session-memory` skill.
 
 **Claude Code auto-memory** is the persistent cross-session memory in `.claude/projects/.../memory/`. ~225 files total, indexed by a one-line-per-memory `MEMORY.md` loaded each session. Other frequently used repos symlink their memory dirs to this store, so there is one memory regardless of project.
 

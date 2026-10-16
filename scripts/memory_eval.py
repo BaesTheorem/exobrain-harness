@@ -101,6 +101,29 @@ def as_of(store: sm.Store, day: str) -> dict[str, str]:
     return docs
 
 
+def features_as_of(store: sm.Store, docs: dict[str, str], day: str) -> dict[str, tuple[int, int, str]]:
+    """Recall features without hindsight: age from the last line dated before `day`,
+    status treated as active (a later resolve would leak). Incoming links use the
+    current graph restricted to notes that existed; a small leak, recorded here."""
+    d0 = dt.date.fromisoformat(day)
+    inc: dict[str, int] = {}
+    for z in docs:
+        for t in set(re.findall(r"\[\[(\d{12}[a-z]?)[ \]|]", store.notes[z]["body"])) - {z}:
+            if t in docs:
+                inc[t] = inc.get(t, 0) + 1
+    out = {}
+    for z in docs:
+        meta = store.notes[z]["meta"]
+        dates = [m.group(1) for m in APPENDED.finditer(store.notes[z]["body"]) if m.group(1) < day]
+        last = max([str(meta.get("created") or day)] + dates)
+        try:
+            age = (d0 - dt.date.fromisoformat(last)).days
+        except ValueError:
+            age = 365
+        out[z] = (age, inc.get(z, 0), "active")
+    return out
+
+
 def keyword(docs: dict[str, str], query: str, k: int) -> list[str]:
     """What a session does with rg: rank by how many distinct query words a note contains."""
     q = set(sm.tokens(query))
@@ -139,7 +162,7 @@ def cmd_run(a) -> int:
         docs = as_of(store, day)
         bm = sm.BM25(docs)
         ids, mat = doc_vecs(docs) if need_emb else ([], None)
-        snap[day] = (docs, bm, ids, mat)
+        snap[day] = (docs, bm, ids, mat, features_as_of(store, docs, day))
 
     qvec: dict[str, np.ndarray] = {}
     if need_emb:
@@ -148,12 +171,16 @@ def cmd_run(a) -> int:
             qvec[it["session_id"]] = v
 
     def rank(method: str, it: dict, qtype: str) -> list[str]:
-        docs, bm, ids, mat = snap[it["date"]]
+        docs, bm, ids, mat, feats = snap[it["date"]]
         query = it["query"] if qtype == "prompt" else transcripts.get(it["session_id"], it["query"])
         if method == "keyword":
             return keyword(docs, query, kmax)
         if method == "bm25":
             return [z for z, _ in bm.search(query, k=kmax)]
+        if method.startswith("recall"):
+            # recall:<w_rec>:<w_imp>, BM25 top 100 reranked
+            _, wr, wi = (method.split(":") + ["0.1", "0.1"])[:3]
+            return sm.rerank(bm.search(query, k=100), feats, float(wr), float(wi))[:kmax]
         if method in ("emb", "rrf"):
             if qtype != "prompt":
                 return []   # a transcript is too long to embed as one query

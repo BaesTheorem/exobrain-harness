@@ -35,6 +35,10 @@ Subcommands (also via ``bin/session-memory``):
         Zettelkasten existed (no ``zettels:`` key in their frontmatter).
     migrate      Move flat legacy files into Sessions/.
     index        Rebuild Maps/*.md and Index.md from zettel frontmatter.
+    recall <question> [-k N] [--deep]
+        The best zettels for a question, with their links: BM25, superseded
+        notes ranked down; --deep fuses in embedding search. Logged to
+        zettel-retrievals.jsonl.
     embed        Refresh the embedding cache and nearest-neighbor lists
                  (``scripts/zettel_embed.py`` under SESSION_MEMORY_EMBED_PYTHON).
     lint         Report broken links, duplicate ids, malformed frontmatter.
@@ -356,10 +360,14 @@ class Store:
         return f"### {self.row(zid)} | updated {n['meta'].get('updated', '')}\n{n['body'].strip()}"
 
     def tag_vocab(self, limit: int = 250) -> str:
+        """Subject tags by count. Bucket tags are left out: listed first by count,
+        they were the ones the writer reused most."""
         counts: dict[str, int] = {}
+        buckets = bucket_tags()
         for n in self.notes.values():
             for t in n["meta"].get("tags") or [] if isinstance(n["meta"].get("tags"), list) else []:
-                counts[t] = counts.get(t, 0) + 1
+                if t not in buckets:
+                    counts[t] = counts.get(t, 0) + 1
         top = sorted(counts.items(), key=lambda kv: -kv[1])[:limit]
         return ", ".join(f"{t} ({c})" for t, c in top)
 
@@ -440,6 +448,18 @@ class Store:
         n["path"].write_text(render_zettel(meta, body, links), encoding="utf-8")
         n["meta"], n["body"] = meta, body
         return n["path"]
+
+
+BUCKETS = ROOT / ".tag-buckets.json"
+
+
+def bucket_tags() -> set[str]:
+    """Tags the maintain pass judged to name a kind of note, not a subject
+    ("follow-up", "gotcha"): the kind field already says that."""
+    try:
+        return set(json.loads(BUCKETS.read_text(encoding="utf-8")))
+    except (OSError, json.JSONDecodeError, TypeError):
+        return set()
 
 
 def norm_tags(v) -> list[str]:
@@ -594,6 +614,48 @@ def load_neighbors() -> dict[str, list[list]]:
 # writer is lexical only; embeddings serve the maintain pass.
 BODY_TIER = 40
 TITLE_TIER = 200
+
+
+# Recall ranking: relevance, with optional lifts for notes touched recently and
+# notes other notes lean on (the Generative Agents recency / importance / relevance
+# split). memory_eval.py on 2026-10-15 moved R@5-R@40 by 1-4 of 180 gold notes for
+# weights 0.05-0.2, and importance lowered it, so both stay 0 until an eval says
+# otherwise. Embeddings did help short queries (RRF R@5 0.289 against 0.256): --deep.
+RECALL_W_RECENCY = 0.0
+RECALL_W_IMPORTANCE = 0.0
+RECALL_HALF_LIFE_DAYS = 60
+STATUS_FACTOR = {"active": 1.0, "resolved": 0.85, "superseded": 0.5}
+
+
+def rerank(hits: list[tuple[str, float]], features: dict[str, tuple[int, int, str]],
+           w_rec: float = RECALL_W_RECENCY, w_imp: float = RECALL_W_IMPORTANCE) -> list[str]:
+    """hits: BM25 (id, score). features: id -> (age in days, incoming links + sources, status)."""
+    if not hits:
+        return []
+    top = hits[0][1] or 1.0
+    scored = []
+    for z, s in hits:
+        age, weight, status = features.get(z, (365, 0, "active"))
+        rec = 0.5 ** (max(age, 0) / RECALL_HALF_LIFE_DAYS)
+        imp = math.log1p(weight) / math.log(30)
+        scored.append(((s / top + w_rec * rec + w_imp * imp) * STATUS_FACTOR.get(status, 1.0), z))
+    return [z for _, z in sorted(scored, reverse=True)]
+
+
+def recall_features(store: "Store") -> dict[str, tuple[int, int, str]]:
+    inc: dict[str, int] = {}
+    for z, n in store.notes.items():
+        for t in set(re.findall(r"\[\[(\d{12}[a-z]?)[ \]|]", n["body"])) - {z}:
+            inc[t] = inc.get(t, 0) + 1
+    today = dt.date.today()
+    out = {}
+    for z, n in store.notes.items():
+        try:
+            age = (today - dt.date.fromisoformat(str(n["meta"].get("updated") or ""))).days
+        except ValueError:
+            age = 365
+        out[z] = (age, inc.get(z, 0) + len(n["meta"].get("sources") or []), str(n["meta"].get("status") or "active"))
+    return out
 
 
 # --------------------------------------------------------------------------
@@ -1113,15 +1175,14 @@ def rebuild_index() -> None:
              f"zettels: {len(store.notes)}", "---", header.rstrip(),
              "# MIST memory",
              "",
-             "Sessions/ are source notes (kept), Zettel/ the permanent ideas, Maps/ one "
-             "list per tag. The writer runs before every "
-             "context compaction and nightly; see the /session-memory skill.",
+             "Sessions/ are source notes (kept), Zettel/ the permanent ideas, Structure/ "
+             "the topic hubs, Maps/ one full list per tag. Search with "
+             "`bin/session-memory recall`; health in [[Health]]. See the /session-memory skill.",
              "",
              "## Open threads",
              *open_thread_rows(open_threads),
              "",
-             "## Maps",
-             *(f"- [[Maps/{t}|{t}]] ({len(r)})" for t, r in sorted(by_tag.items(), key=lambda kv: -len(kv[1]))),
+             *register_rows(by_tag),
              "",
              "## Kinds",
              *(f"- {k}: {v}" for k, v in sorted(by_kind.items())),
@@ -1130,6 +1191,35 @@ def rebuild_index() -> None:
              *(f"- {store.link(z)}" for z in sorted(store.notes, reverse=True)[:25]),
              ""]
     INDEX.write_text("\n".join(lines), encoding="utf-8")
+
+
+STRUCTURE = ROOT / "Structure"
+REGISTER_MAPS = 40
+
+
+def register_rows(by_tag: dict[str, list[str]]) -> list[str]:
+    """The Index's register, sparse the way Luhmann's was (a few pointers per
+    keyword, the links lead on): structure notes with their entry points, then
+    the largest subject maps that have none. Bucket tags are left out."""
+    buckets = bucket_tags()
+    rows, covered = [], set()
+    structs = []
+    for p in sorted(STRUCTURE.glob("*.md")) if STRUCTURE.exists() else []:
+        meta, _ = split_frontmatter(p.read_text(encoding="utf-8"))
+        structs.append((len(by_tag.get(p.stem, [])), p.stem, meta.get("entry") or []))
+    if structs:
+        rows += ["## Register", "Structure notes: an overview and a few entry points per topic."]
+        for count, tag, entry in sorted(structs, reverse=True):
+            covered.add(tag)
+            rows.append(f"- [[Structure/{tag}|{tag}]] ({count})"
+                        + (": " + ", ".join(entry if isinstance(entry, list) else [str(entry)]) if entry else ""))
+        rows.append("")
+    rest = [(t, r) for t, r in sorted(by_tag.items(), key=lambda kv: -len(kv[1]))
+            if t not in covered and t not in buckets]
+    rows += ["## Maps", *(f"- [[Maps/{t}|{t}]] ({len(r)})" for t, r in rest[:REGISTER_MAPS])]
+    if len(rest) > REGISTER_MAPS:
+        rows.append(f"- and {len(rest) - REGISTER_MAPS} smaller maps in Maps/")
+    return rows
 
 
 OPEN_THREAD_DAYS = 14
@@ -1165,6 +1255,46 @@ def cmd_embed(_args) -> int:
     tail = (r.stderr or "").strip().splitlines()
     log(f"embed: exit {r.returncode}: {tail[-1] if tail else ''}")
     return r.returncode
+
+
+def recall(query: str, k: int = 8, deep: bool = False) -> list[str]:
+    store = Store()
+    hits = BM25({z: note_text(n) for z, n in store.notes.items()}).search(query, k=100)
+    ranked = rerank(hits, recall_features(store))
+    if deep and Path(EMBED_PYTHON).exists() and (EMBED_CACHE / "keys.json").exists():
+        r = subprocess.run([EMBED_PYTHON, str(EMBED_SCRIPT), "query", str(EMBED_CACHE), "100", query],
+                           capture_output=True, text=True, timeout=300)
+        try:
+            emb = [z for z in json.loads(r.stdout) if z in store.notes]
+        except json.JSONDecodeError:
+            emb = []
+        fused: dict[str, float] = {}
+        for lst in (ranked, emb):
+            for i, z in enumerate(lst):
+                fused[z] = fused.get(z, 0.0) + 1.0 / (60 + i)
+        ranked = sorted(fused, key=lambda z: -fused[z])
+    return ranked[:k]
+
+
+def cmd_recall(args) -> int:
+    """Print the best zettels for a question, each with its links (one hop on)."""
+    query = " ".join(args.query)
+    ids = recall(query, k=args.k, deep=args.deep)
+    store = Store()
+    log_retrieval("recall", query[:200], ids, [])
+    if not ids:
+        print("no zettel matches; try other words, or rg -il '<term>' the Zettel folder")
+        return 1
+    for z in ids:
+        n = store.notes[z]
+        body, links = split_links(n["body"])
+        print(f"## {store.row(z)} | updated {n['meta'].get('updated', '')}")
+        print(f"   {n['path']}")
+        print(body.strip()[: args.chars])
+        if links:
+            print("   links: " + " | ".join(ln[2:] for ln in links[:6]))
+        print()
+    return 0
 
 
 def cmd_index(_args) -> int:
@@ -1304,6 +1434,8 @@ def cmd_consolidate(args) -> int:
     finally:
         keepawake.terminate()
 
+    # Keep the embedding cache current for recall --deep and the weekly pass.
+    cmd_embed(None)
     notes_today = len([p for p in SESSIONS.glob(f"{today:%Y-%m-%d}_*.md")
                        if not p.name.endswith("_skip.md")])
     if failures:
@@ -1343,6 +1475,12 @@ def main(argv=None) -> int:
     sub.add_parser("migrate").set_defaults(fn=cmd_migrate)
     sub.add_parser("index").set_defaults(fn=cmd_index)
     sub.add_parser("embed").set_defaults(fn=cmd_embed)
+    rc = sub.add_parser("recall", help="best zettels for a question")
+    rc.add_argument("query", nargs="+")
+    rc.add_argument("-k", type=int, default=8)
+    rc.add_argument("--chars", type=int, default=600)
+    rc.add_argument("--deep", action="store_true", help="fuse in embedding search (about 10 s)")
+    rc.set_defaults(fn=cmd_recall)
     sub.add_parser("lint").set_defaults(fn=cmd_lint)
     sub.add_parser("prune").set_defaults(fn=cmd_prune)
     k = sub.add_parser("consolidate")

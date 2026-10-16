@@ -617,6 +617,14 @@
     "notes": "Uses npx @modelcontextprotocol/inspector --cli. OAuth servers do not work (use their own CLI). stdio servers launch through a temp script in $TMPDIR because the Inspector eats dash arguments (npx -y). Output: text content of the tool result, else structuredContent JSON."
   },
   {
+    "name": "memory_eval.py",
+    "command": "python3 scripts/memory_eval.py build; ~/Documents/the-priory/.venv/bin/python scripts/memory_eval.py run --tag NAME",
+    "repo_dir": "/Users/alexhedtke/Documents/Exobrain harness/scripts",
+    "source": "built",
+    "added": "2026-10-15",
+    "notes": "run needs numpy + sentence-transformers (embedder venv). Data in gitignored data/memory-eval/."
+  },
+  {
     "name": "mid2mp3 / mp32mid",
     "command": "mid2mp3 <file.mid> | mp32mid <file.mp3>",
     "repo_dir": "~/.local/bin",
@@ -883,6 +891,14 @@
     "notes": "Fields are negative inside. mesh_from_field(field(j0,j1), xs, ys, zs) meshes in y slabs that share a row, so the result is closed. lattice() puts z = 0 between samples for clean mid-plane cuts. Always finish with ensure_closed after any transform: tidy() welds vertices within 2 um and snaps to a 0.1 um grid so an STL round trip keeps the topology. decimate() needs fast-simplification; local_thickness() costs about 2 s on a 1M-pixel map."
   },
   {
+    "name": "session-memory recall",
+    "command": "bin/session-memory recall \"<question>\" [-k 8] [--deep]",
+    "repo_dir": "/Users/alexhedtke/Documents/Exobrain harness",
+    "source": "built",
+    "added": "2026-10-15",
+    "notes": "--deep loads nomic in The Priory venv (about 10 s). Logs each query to ~/Library/Logs/exobrain/zettel-retrievals.jsonl."
+  },
+  {
     "name": "subtile-ocr",
     "command": "~/.cargo/bin/subtile-ocr -l eng [--dump-raw] -o out.srt in.idx",
     "repo_dir": "~/.cargo/bin",
@@ -969,5 +985,13 @@
     "source": "built",
     "added": "2026-09-06",
     "notes": "YouTube captions as clean text via yt-dlp. Prefers human subtitles, falls back to auto-captions. The cleanup is the point: raw auto-captions carry inline karaoke tags (<00:00:01.500><c>word</c>) and a rolling 2-line window that repeats every line verbatim, so a bare yt-dlp dump is ~2x the tokens and reads like a stutter. Verified 4000 raw VTT lines -> 295 clean. Exit 2 = no captions in that language, 3 = fetch blocked. If YouTube throws a bot check, yt-dlp wants a JS runtime: brew install deno."
+  },
+  {
+    "name": "zettel_maintain.py",
+    "command": "python3 scripts/zettel_maintain.py [--steps embed,orphans,dupes,threads,tags,structure,health] [--limit N] [--dry-run]",
+    "repo_dir": "/Users/alexhedtke/Documents/Exobrain harness/scripts",
+    "source": "built",
+    "added": "2026-10-15",
+    "notes": "Waits for running session writers. --dry-run still calls the model. One _maintain note per run lists all changes."
   }
 ]

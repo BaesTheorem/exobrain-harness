@@ -665,7 +665,7 @@ scan_note() {  # $1 = file. Prints a warning block if the scanner fires.
   fi
 }
 if [ -d "$MEMORY_DIR" ]; then
-  RECENT_SESSIONS=$(ls -t "$SESSION_NOTES_DIR"/*.md 2>/dev/null | grep -v '_skip\.md$' | head -3)
+  RECENT_SESSIONS=$(ls -t "$SESSION_NOTES_DIR"/*.md 2>/dev/null | grep -v -e '_skip\.md$' -e '_maintain\.md$' | head -3)
 
   if [ -n "$RECENT_SESSIONS" ] || [ -f "$MEMORY_DIR/Index.md" ]; then
     echo ""

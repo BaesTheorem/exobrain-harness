@@ -12,6 +12,8 @@ itself stays on the system interpreter and never loads a model.
         row order) and neighbors.json (id -> [[id, cosine], ...], best first).
     zettel_embed.py embed <in.jsonl> <out.npy> [--query]
         one normalized row per {"text": ...} line; --query uses nomic's query prefix.
+    zettel_embed.py query <cache_dir> <k> <text...>
+        print the k cached zettel ids nearest to the query text, as a JSON list.
 
 INVARIANTS
 - Rows are L2-normalized, so a dot product is a cosine.
@@ -87,6 +89,13 @@ def main() -> int:
     if mode == "index":
         k = int(sys.argv[sys.argv.index("--k") + 1]) if "--k" in sys.argv else 10
         return cmd_index(sys.argv[2], Path(sys.argv[3]), k)
+    if mode == "query":
+        keys = json.loads((Path(sys.argv[2]) / "keys.json").read_text())
+        mat = np.load(Path(sys.argv[2]) / "vectors.npy")
+        q = encode([" ".join(sys.argv[4:])], query=True)[0]
+        order = np.argsort(-(mat @ q))[: int(sys.argv[3])]
+        print(json.dumps([keys[i][0] for i in order]))
+        return 0
     if mode == "embed":
         texts = [json.loads(ln)["text"] for ln in open(sys.argv[2], encoding="utf-8") if ln.strip()]
         np.save(sys.argv[3], encode(texts, query="--query" in sys.argv[4:]))
