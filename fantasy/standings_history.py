@@ -79,18 +79,18 @@ HTML = r"""<!doctype html>
 <title>Standings by week</title>
 <style>
 .viz-root{color-scheme:light;--surface-1:#fcfcfb;--text-primary:#0b0b0b;--text-secondary:#52514e;
- --text-muted:#8a8984;--grid:#e6e5e1;--other:#c9c8c2;--s1:#2a78d6;--s2:#eb6834;--s3:#1baf7a;--cut:#52514e}
+ --text-muted:#8a8984;--grid:#e6e5e1;--other:#c9c8c2;--s1:#2a78d6;--s2:#eb6834;--s3:#1baf7a;--s4:#eda100;--s5:#e87ba4;--s6:#008300;--s7:#6250d6;--s8:#e34948;--cut:#52514e}
 @media (prefers-color-scheme:dark){:root:where(:not([data-theme="light"])) .viz-root{color-scheme:dark;
  --surface-1:#1a1a19;--text-primary:#f0efec;--text-secondary:#c3c2b7;--text-muted:#8f8e86;--grid:#2e2e2c;
- --other:#4a4a46;--s1:#3987e5;--s2:#d95926;--s3:#199e70;--cut:#c3c2b7}}
+ --other:#4a4a46;--s1:#3987e5;--s2:#d95926;--s3:#199e70;--s4:#c98500;--s5:#d55181;--s6:#008300;--s7:#9085e9;--s8:#e66767;--cut:#c3c2b7}}
 :root[data-theme="dark"] .viz-root{color-scheme:dark;--surface-1:#1a1a19;--text-primary:#f0efec;
- --text-secondary:#c3c2b7;--text-muted:#8f8e86;--grid:#2e2e2c;--other:#4a4a46;--s1:#3987e5;--s2:#d95926;--s3:#199e70;--cut:#c3c2b7}
+ --text-secondary:#c3c2b7;--text-muted:#8f8e86;--grid:#2e2e2c;--other:#4a4a46;--s1:#3987e5;--s2:#d95926;--s3:#199e70;--s4:#c98500;--s5:#d55181;--s6:#008300;--s7:#9085e9;--s8:#e66767;--cut:#c3c2b7}
 html,body{margin:0;background:var(--surface-1)}
 .viz-root{background:var(--surface-1);color:var(--text-primary);font:14px/1.4 -apple-system,"SF Pro Text",Inter,system-ui,sans-serif;
  padding:28px 32px 24px;width:1040px;box-sizing:border-box}
 h1{font-size:20px;font-weight:600;margin:0 0 4px}
 .sub{color:var(--text-secondary);margin:0 0 18px}
-.legend{display:flex;gap:20px;color:var(--text-secondary);font-size:13px;margin-bottom:6px;flex-wrap:wrap}
+.legend{display:flex;gap:8px 18px;color:var(--text-secondary);font-size:13px;margin-bottom:6px;flex-wrap:wrap}
 .legend span{display:inline-flex;align-items:center;gap:6px}
 .legend i{display:inline-block;width:18px;height:3px;border-radius:2px}
 svg text{font-family:inherit}
@@ -133,19 +133,20 @@ weeks.forEach((w,i)=>{el('line',{x1:x(i),x2:x(i),y1:T-10,y2:H-B+8,stroke:'var(--
 // series
 const teams=D.weeks[0].table.map(r=>r.team);
 const pos={};D.weeks.forEach((w,i)=>w.table.forEach(r=>{(pos[r.team]??=[])[i]=r}));
-const color=t=>HI[t]||'var(--other)';
-const order=[...teams].sort((a,b)=>(HI[a]?1:0)-(HI[b]?1:0)); // highlighted drawn last
+const color=t=>(HI[t]&&HI[t].c)||'var(--other)';
+const me=t=>!!(HI[t]&&HI[t].me);
+const order=[...teams].sort((a,b)=>(me(a)?1:0)-(me(b)?1:0)); // highlighted drawn last
 const groups={};
 order.forEach(t=>{
  const g=el('g',{class:'team','data-team':t}); groups[t]=g;
  const pts=pos[t].map((r,i)=>[x(i),y(r.rank)]);
  let d='M'+pts[0];for(let i=1;i<pts.length;i++){const mx=(pts[i-1][0]+pts[i][0])/2;d+=`C${mx},${pts[i-1][1]} ${mx},${pts[i][1]} ${pts[i][0]},${pts[i][1]}`}
- el('path',{d,class:'line',stroke:color(t),'stroke-width':HI[t]?3:2},g);
- pos[t].forEach((r,i)=>el('circle',{cx:x(i),cy:y(r.rank),r:HI[t]?5.5:4.5,class:'dot',
+ el('path',{d,class:'line',stroke:color(t),'stroke-width':me(t)?3.5:2,'stroke-dasharray':(HI[t]&&HI[t].dash)||'none'},g);
+ pos[t].forEach((r,i)=>el('circle',{cx:x(i),cy:y(r.rank),r:me(t)?6:4.5,class:'dot',
    fill:r.idle?'var(--surface-1)':color(t),stroke:r.idle?color(t):'var(--surface-1)','stroke-width':2},g));
  const f=pos[t][0], z=pos[t][pos[t].length-1];
- el('text',{x:L-14,y:y(f.rank)+4,'text-anchor':'end',class:'lbl'+(HI[t]?' hi':'')},g).textContent=`${f.rank}  ${t}`;
- el('text',{x:x(weeks.length-1)+14,y:y(z.rank)+4,class:'lbl'+(HI[t]?' hi':'')},g).textContent=`${z.rank}  ${t}  ${z.record}`;
+ el('text',{x:L-14,y:y(f.rank)+4,'text-anchor':'end',class:'lbl'+(me(t)?' hi':'')},g).textContent=`${f.rank}  ${t}`;
+ el('text',{x:x(weeks.length-1)+14,y:y(z.rank)+4,class:'lbl'+(me(t)?' hi':'')},g).textContent=`${z.rank}  ${t}  ${z.record}`;
  // fat hit target
  el('path',{d,fill:'none',stroke:'transparent','stroke-width':16,style:'cursor:pointer'},g);
 });
@@ -169,11 +170,26 @@ document.getElementById('tbl').innerHTML=h+'</table>';
 
 
 def write_html(hist: dict, path: Path, highlight: list[str]) -> None:
-    slots = ["var(--s1)", "var(--s2)", "var(--s3)"]
-    hi = {t: slots[i] for i, t in enumerate(highlight[:3])}
-    legend = "".join(f'<span><i style="background:{c}"></i>{t}</span>' for t, c in hi.items())
-    legend += '<span><i style="background:var(--other)"></i>Other teams (hover to trace)</span>'
-    title = f'{hist["league"] or "League"}: standings by week' if hist["league"] else "Standings by week"
+    """Color every team: ours first, eight palette hues solid, then again dashed.
+
+    Hues follow the team (ESPN team id order), never the rank, so a team keeps
+    its color from week to week and chart to chart; ours always gets slot 1. `highlight` empty means all.
+    """
+    teams = sorted({r["id"]: r["team"] for r in hist["weeks"][0]["table"]}.items(),
+                   key=lambda kv: (kv[1] != hist["me"], kv[0]))  # ours takes slot 1, solid
+    styles = [(f"var(--s{k})", "") for k in range(1, 9)] + [(f"var(--s{k})", "7 4") for k in range(1, 9)]
+    hi = {}
+    for (_, name), (c, dash) in zip(teams, styles, strict=False):
+        if highlight and name not in highlight:
+            continue
+        hi[name] = {"c": c, "dash": dash, "me": name == hist["me"]}
+    legend = "".join(
+        f'<span><svg width="22" height="6"><line x1="1" y1="3" x2="21" y2="3" stroke="{v["c"]}" stroke-width="3"'
+        f' stroke-linecap="round" stroke-dasharray="{v["dash"] or "none"}"/></svg>{t}</span>'
+        for t, v in hi.items())
+    if highlight:
+        legend += '<span><i style="background:var(--other)"></i>Other teams (hover to trace)</span>'
+    title = f'{hist["league"]}: standings by week' if hist["league"] else "Standings by week"
     html = (HTML.replace("__DATA__", json.dumps(hist)).replace("__HI__", json.dumps(hi))
             .replace("__LEGEND__", legend).replace("__TITLE__", title))
     path.write_text(html)
@@ -183,7 +199,7 @@ def main() -> int:
     ap = argparse.ArgumentParser(description="Standings after every played week.")
     ap.add_argument("--json", action="store_true", help="print the full history as JSON")
     ap.add_argument("--html", type=Path, help="write an interactive bump chart here")
-    ap.add_argument("--highlight", default="", help="comma-separated teams to color (max 3); default: ours plus the two nearest the top")
+    ap.add_argument("--highlight", default="", help="comma-separated teams to color, the rest gray; default: every team")
     ap.add_argument("--check", action="store_true", help="exit 1 if the last week's order disagrees with ff standings")
     args = ap.parse_args()
 
@@ -199,8 +215,6 @@ def main() -> int:
             print(f'Week {w["week"]}: ' + ", ".join(f'{r["rank"]} {r["team"]} {r["record"]}' for r in w["table"]))
     if args.html:
         hl = [t.strip() for t in args.highlight.split(",") if t.strip()]
-        if not hl:
-            hl = [hist["me"]] + [r["team"] for r in last if r["team"] != hist["me"]][:2]
         write_html(hist, args.html, hl)
         print(f"wrote {args.html}", file=sys.stderr)
     if args.check:
