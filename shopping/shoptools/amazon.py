@@ -154,6 +154,11 @@ def show(asin: str, headed: bool = False, timeout: int = 45, anon: bool = False)
                 cells = row.query_selector_all("th, td")
                 if len(cells) == 2:
                     specs[_text(cells[0])] = _text(cells[1])
+            # Most listings put dimensions in the "Product details" bullets, not the tables.
+            for li in page.query_selector_all("#detailBullets_feature_div li"):
+                key, sep, val = _text(li).partition(":")
+                if sep:
+                    specs.setdefault(re.sub(r"[‎‏\s]+", " ", key).strip(), val.strip(" ‎‏"))
             formatted = _first(page, BUYBOX)
             return {
                 "retailer": "Amazon",
