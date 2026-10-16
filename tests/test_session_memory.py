@@ -291,3 +291,17 @@ def test_retrieval_log_appends_jsonl(sm):
     sm.log_retrieval("writer", "abc", ["1", "2"], ["2"])
     rows = [json.loads(ln) for ln in sm.RETRIEVAL_LOG.read_text().splitlines()]
     assert rows[-1]["by"] == "writer" and rows[-1]["used"] == ["2"]
+
+
+def test_link_only_update_keeps_updated_date(sm):
+    store = sm.Store()
+    a = store.create({"title": "A", "kind": "open-thread", "body": "x"},
+                     sm.parse_iso("2026-09-01T10:00:00-05:00"), "[[s1]]")
+    b = store.create({"title": "B", "kind": "fact", "body": "y"},
+                     sm.parse_iso("2026-09-01T10:01:00-05:00"), "[[s1]]")
+    zid_a, zid_b = a.stem.split(" ")[0], b.stem.split(" ")[0]
+    later = sm.parse_iso("2026-10-15T10:00:00-05:00")
+    store.update({"id": zid_a, "links": [{"id": zid_b, "why": "related"}]}, later, "[[m]]")
+    assert sm.split_frontmatter(a.read_text())[0]["updated"] == "2026-09-01"
+    store.update({"id": zid_a, "append": "Changed."}, later, "[[m]]")
+    assert sm.split_frontmatter(a.read_text())[0]["updated"] == "2026-10-15"

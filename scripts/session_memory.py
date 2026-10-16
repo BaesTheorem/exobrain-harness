@@ -442,8 +442,13 @@ class Store:
         if source not in sources:
             sources.append(source)
         meta["sources"] = sources
-        # never move a zettel backwards in time (a backfilled older note may touch it)
-        meta["updated"] = max(str(meta.get("updated") or ""), f"{local(when):%Y-%m-%d}")
+        # `updated` is the date of the last content change (an appended line or a
+        # status change). A link-only update leaves it alone: the maintain pass adds
+        # links to hundreds of notes, and on 2026-10-15 those bumps made 31 stale open
+        # threads look fresh. Never move a zettel backwards in time either (a
+        # backfilled older note may touch it).
+        if append or op.get("status") in STATUSES:
+            meta["updated"] = max(str(meta.get("updated") or ""), f"{local(when):%Y-%m-%d}")
         links = old_links + [ln for ln in norm_links(op.get("links"), self) if ln not in old_links]
         n["path"].write_text(render_zettel(meta, body, links), encoding="utf-8")
         n["meta"], n["body"] = meta, body
@@ -1208,12 +1213,13 @@ def register_rows(by_tag: dict[str, list[str]]) -> list[str]:
         meta, _ = split_frontmatter(p.read_text(encoding="utf-8"))
         structs.append((len(by_tag.get(p.stem, [])), p.stem, meta.get("entry") or []))
     if structs:
-        rows += ["## Register", "Structure notes: an overview and a few entry points per topic."]
-        for count, tag, entry in sorted(structs, reverse=True):
-            covered.add(tag)
-            rows.append(f"- [[Structure/{tag}|{tag}]] ({count})"
-                        + (": " + ", ".join(entry if isinstance(entry, list) else [str(entry)]) if entry else ""))
-        rows.append("")
+        # One short line per topic: the Index loads into every session, and with four
+        # full-title entry links per row it reached 36 KB for 78 topics. The entry
+        # points live in each structure note.
+        rows += ["## Register", "Structure notes, each an overview with a few entry points: "
+                 + " · ".join(f"[[Structure/{tag}|{tag}]] ({count})"
+                              for count, tag, _ in sorted(structs, reverse=True)), ""]
+        covered.update(tag for _, tag, _ in structs)
     rest = [(t, r) for t, r in sorted(by_tag.items(), key=lambda kv: -len(kv[1]))
             if t not in covered and t not in buckets]
     rows += ["## Maps", *(f"- [[Maps/{t}|{t}]] ({len(r)})" for t, r in rest[:REGISTER_MAPS])]

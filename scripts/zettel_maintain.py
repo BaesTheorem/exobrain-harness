@@ -98,8 +98,10 @@ def card(store: sm.Store, z: str, chars: int = 700) -> str:
 
 
 def ask(rules: str, payload: str, label: str) -> dict | None:
-    """One model call. The payload is MIST's own notes, framed as data."""
-    return sm.run_claude(rules + "\n\n" + sm.frame(payload, "zettels"), label)
+    """One model call, one retry: a reply that does not parse (on 2026-10-15 one
+    held a JavaScript .replace() call inside its JSON) costs a whole batch."""
+    prompt = rules + "\n\n" + sm.frame(payload, "zettels")
+    return sm.run_claude(prompt, label) or sm.run_claude(prompt, label + " retry")
 
 
 class Change:
@@ -656,6 +658,10 @@ def main(argv=None) -> int:
     flagged = sm.scan([note, *sorted(ch.written)])
     sm.log(f"maintain: wrote {note.name}, touched {len(ch.written)} file(s)"
            + (f"; SCANNER FLAGGED {len(flagged)} line(s)" if flagged else ""))
+    if flagged:
+        with (sm.LOG_DIR / "injection-scan.log").open("a", encoding="utf-8") as fh:
+            fh.write(f"[{now():%Y%m%d_%H%M%S}] zettel maintain output flagged:\n"
+                     + "".join(f"  {ln}\n" for ln in flagged))
     if not a.quiet:
         link = "obsidian://open?vault=Exobrain&file=" + str(note.relative_to(sm.VAULT).with_suffix("")).replace(" ", "%20")
         msg = (f"Zettel maintenance: {len(ch.written)} notes touched; health {delta or 'unchanged'}"
