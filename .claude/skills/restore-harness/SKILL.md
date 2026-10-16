@@ -45,7 +45,7 @@ Apple ID · **Google account** · **GitHub** (for `gh auth login`) · **Obsidian
 Work phase by phase. Announce each phase, run its checks, and stop at any chokepoint that fails rather than barreling ahead. Phases 0-1 are mostly manual macOS/GUI steps -- guide Alex through them; you can't script the installer or App Store. From Phase 2 on you drive.
 
 ### Phase 0 -- Reach the tarball  (CHOKEPOINT)
-1. macOS setup; create the user with the **same short username** `alexhedtke` (38 launchd plists hardcode `/Users/alexhedtke/`). If the username differs, note it -- you'll `sed` plist bodies in Phase 8.
+1. macOS setup; create the user with the **same short username** `alexhedtke` (57 tracked launchd plists hardcode `/Users/alexhedtke/`; recount: `git ls-files '*.plist' | xargs grep -l /Users/alexhedtke | wc -l`). If the username differs, note it -- you'll `sed` plist bodies in Phase 8.
 2. Sign into Apple ID.
 3. Install **Google Drive for Desktop**, sign in, set `Exobrain backups/`, `Plaud/`, and `Supernote/Note/` to **Mirror** (not Stream), wait for `Exobrain backups/` to materialize.
 4. Find the newest **`exobrain-collective-*`** archive (NOT a legacy `exobrain-harness-*` one, which lacks the vault + per-repo data):
@@ -67,7 +67,7 @@ Work phase by phase. Announce each phase, run its checks, and stop at any chokep
 brew install python@3.12 node git gh jq git-lfs ffmpeg   # 3.12 REQUIRED for mist-voice
 git lfs install
 npm install -g @anthropic-ai/claude-code defuddle        # set ~/.npmrc prefix=$HOME/.npm-global if needed
-gh auth login                                            # CHOKEPOINT -- every repo is private
+gh auth login                                            # CHOKEPOINT -- the Console and most sibling repos are private
 curl -LsSf https://astral.sh/uv/install.sh | sh          # uv, for things-mcp
 ```
 Install Things 3 (App Store) and Obsidian (obsidian.md, not App Store). Sign into Things Cloud and Obsidian Sync.
@@ -136,9 +136,15 @@ Rebuild venvs **carefully** -- do NOT blanket-rebuild:
 - `mist-voice-data`: `git lfs pull` -- **watch the 1 GB/month LFS quota**; an exhausted quota leaves silent garbage-audio pointer files, not an error.
 - Everything else: per-repo `python3 -m venv .venv && .venv/bin/pip install -r requirements.txt`; `passage` then needs `playwright install chromium`.
 
-### Phase 6 -- TCC / Full Disk Access  (CHOKEPOINT, manual, un-scriptable)
+### Phase 6a -- Signing identity, MIST Console, mist-launch  (CHOKEPOINT)
+Since 2026-10-12 every launchd plist starts with `~/.local/bin/mist-launch`, so a machine without that binary runs **no** job at all. The binary is not in the backup: it is built and signed on the machine. The chain, in order:
+1. **Apple Development signing identity** in the login Keychain. It is not in the tarball. Sign into the Apple ID in Xcode (Settings > Accounts) and let it create a new certificate. A new certificate on the same team keeps the TCC grants and the Login Items grouping. Check: `security find-identity -v -p codesigning`.
+2. **MIST Console.app** in `/Applications`, built from `~/Documents/mist-console` per its README. `install.sh` reads the Team ID from this app.
+3. `bash maintenance/mist-launch/install.sh`, then `install.sh --check`.
+
+### Phase 6b -- TCC / Full Disk Access  (CHOKEPOINT, manual, un-scriptable)
 Walk Alex through System Settings → Privacy & Security:
-- **Full Disk Access**: the `claude` binary; `python3`/script runner that reads `~/Library/Messages/chat.db`; Obsidian.
+- **Full Disk Access**: `~/.local/bin/mist-launch` (every launchd job inherits this grant) and MIST Console; the `claude` binary; Obsidian. `sweep.py` refuses to run until the mist-launch grant is in place.
 - **Accessibility**: cliclick / computer-use bits if used.
 - **Automation**: Things 3, Obsidian.
 This must precede Phase 8 -- otherwise watchers bootstrap "successfully" and silently do nothing.
@@ -162,10 +168,19 @@ mkdir -p ~/.claude/channels/discord ~/.claude/channels/maintenance ~/.claude/cha
 # Copy each source plist as a REAL FILE (never symlink -- TCC blocks symlinked plists at login), then:
 #   cp <repo>/<name>.plist ~/Library/LaunchAgents/
 #   launchctl bootstrap gui/$(id -u) ~/Library/LaunchAgents/<name>.plist
+# Or let sweep.py install and bootstrap a repo's plists in one pass:
+#   python3 maintenance/mist-launch/sweep.py --repo <repo> --apply
 launchctl list | grep -E 'exobrain|mist|nightwatch|passage'   # every job: recent PID, exit 0
 ```
 > [!note] Where the plist bodies live
 > The formerly-orphaned job definitions are now committed (2026-06-21): `mist-console/launchd/` (5× `com.mist.routine.*` + `mist-hotkey-agent`), `night-watch/launchd/` (3× `com.nightwatch.*`), and in the harness at `maintenance/` (`headless-chrome-reaper`) and `tools-registry/`. The copy loop above must source plists from those dirs too. (Restoring a pre-2026-06-21 archive? Those bodies won't be in it -- hand-recreate from the list in the recon note, or pull from a machine that still has them.)
 
+### Phase 9 -- Capacity rules for the new machine
+The harness carries limits written for the 8 GB MacBook Air (MacBookAir10,1). Read the RAM of the restored machine: `sysctl -n hw.memsize`.
+- **If the machine has 16 GB or more, lift the background-agent cap.** The cap in `feedback_8gb_mac_one_heavy_job` (memory) stops applying, and the session's own Workflow size guideline governs fan-out instead. Rewrite that memory file to record the new RAM and the date. Do not delete the old rule; move it to the Corrections ledger per `feedback_corrections_are_data`.
+- Keep one limit until the new machine proves otherwise: do not run two heavy ML jobs (whisper, pyannote, Demucs) at the same time. Test it once with the mem-watchdog log open, then decide.
+- On 8 GB, keep every limit as written.
+- Other 8 GB limits to review on the same pass: `chess` (Stockfish Threads 2, Hash 128), `animate` (`--workers` 2 to 3), `onepace` (single ML job), `game-dev` (Unreal not viable), and the per-file pyright rule in `.claude/hooks/post-edit-check.sh`. Find more with `rg -n '8 ?GB' .claude CLAUDE.md`.
+
 ## On completion
-Report what's live vs. still manual (cloud MCP re-auths, stale-OAuth re-auths for envelope-budget/inbox-by-gmail-clone/nest, any orphaned plists not recreated). Recommend writing a `/session-memory`. Remind Alex the vault was left to Sync unless he opted into `--vault-from-backup`.
+Report what's live vs. still manual (cloud MCP re-auths, stale-OAuth re-auths for envelope-budget/inbox-by-gmail-clone/nest, any orphaned plists not recreated). Report the Phase 9 result: the RAM of the machine and which limits were lifted. Recommend writing a `/session-memory`. Remind Alex the vault was left to Sync unless he opted into `--vault-from-backup`.

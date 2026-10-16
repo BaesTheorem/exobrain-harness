@@ -390,12 +390,18 @@ if [ -d "$HARNESS_DIR/tmp" ]; then
         echo "[$(date)]   - harness tmp/: $(wc -l < "$TMP_SKIP" | tr -d ' ') large files and frames/ dirs SKIPPED (${skip_mb}MB; over ${BACKUP_TMP_MAX_MB:-20}MB, see config.sh BACKUP_TMP_MAX_MB)"
     fi
 fi
+#    Virtualenvs are left out like in the repo sweep (CACHE_RE): they were ~7GB
+#    of the 2026-10-16 archive, and a venv does not work on a new machine anyway
+#    (restore rebuilds each one from its requirements file).
 add_section "harness" \
     -X "$TMP_SKIP" \
     --exclude='__pycache__' \
     --exclude='*.pyc' \
     --exclude='.DS_Store' \
     --exclude='node_modules' \
+    --exclude='.venv' \
+    --exclude='.venv-*' \
+    --exclude='venv' \
     --exclude="$HARNESS_BASENAME/.claude/projects" \
     --exclude="$HARNESS_BASENAME/.claude/channels" \
     --exclude="$HARNESS_BASENAME/.claude/worktrees" \

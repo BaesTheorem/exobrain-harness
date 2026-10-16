@@ -56,6 +56,8 @@ echo "== Out-of-tree credentials (the backup's known blind spots) =="
   || warn "fitbit MCP token missing (depth-3 backup gap) -- health data will not flow until re-auth"
 
 echo "== launchd automation (silent-failure layer) =="
+[ -x "$HOME/.local/bin/mist-launch" ] && pass "mist-launch installed (every plist starts with it)" \
+  || fail "~/.local/bin/mist-launch missing -- no launchd job can start; run maintenance/mist-launch/install.sh"
 if command -v launchctl >/dev/null 2>&1; then
   loaded=$(launchctl list 2>/dev/null | grep -cE 'exobrain|mist|nightwatch|passage')
   [ "$loaded" -gt 0 ] && pass "$loaded exobrain/mist/nightwatch jobs loaded" \

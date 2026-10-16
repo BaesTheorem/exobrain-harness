@@ -14,11 +14,11 @@ Code ← GitHub · Private data/secrets/DBs ← backup tarball · Vault ← Obsi
 
 ## Credentials you must have on hand (none are in any backup)
 
-Apple ID · Google account · GitHub · **Obsidian Sync account** (separate from Apple ID -- easy to forget) · Fitbit & Withings logins.
+Apple ID (also the Apple Developer team that signs MIST Console and `mist-launch`) · Google account · GitHub · **Obsidian Sync account** (separate from Apple ID -- easy to forget) · Fitbit & Withings logins.
 
 ## Phase 0 -- Reach the tarball
 
-1. Run macOS setup. **Use the same short username `alexhedtke`** -- all 45 tracked launchd plists hardcode `/Users/alexhedtke/` (count: `git ls-files '*.plist' | xargs grep -l /Users/alexhedtke | wc -l`).
+1. Run macOS setup. **Use the same short username `alexhedtke`** -- all 57 tracked launchd plists hardcode `/Users/alexhedtke/` (count: `git ls-files '*.plist' | xargs grep -l /Users/alexhedtke | wc -l`).
 2. Sign into Apple ID.
 3. Install **Google Drive for Desktop**, sign in, set `Exobrain backups/`, `Plaud/`, `Supernote/Note/` to **Mirror** (not Stream). Wait for `Exobrain backups/` to appear on disk.
 4. Pick the newest **`exobrain-collective-*.tar.gz`** (not a legacy `exobrain-harness-*`, which lacks the vault + per-repo data) and extract:
