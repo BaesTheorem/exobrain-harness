@@ -323,3 +323,6 @@ mykcmo/watch-state.json
 
 # Claude Code transcript archive + trace table: full session text, private (traces/README.md)
 traces/data/
+
+# session-memory recall eval: built from Alex's prompts (scripts/memory_eval.py build)
+data/memory-eval/

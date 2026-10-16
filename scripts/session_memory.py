@@ -24,7 +24,9 @@ Subcommands (also via ``bin/session-memory``):
 
     write <transcript.jsonl> [--trigger T] [--force] [--dry-run]
         Condense one Claude Code transcript, ask a headless ``claude`` for the
-        session memory plus zettel operations, and apply them. Skips sessions
+        session memory plus zettel operations (create / update / supersede,
+        decided against the BM25 nearest zettels: 40 with full text, 160 more
+        as titles), and apply them. Each run appends to zettel-retrievals.jsonl. Skips sessions
         already covered (frontmatter ``session_id`` + ``covered_through``) and
         writes a ``_delta`` note when only the tail is new. This is what the
         PreCompact hook and the nightly consolidator call.
@@ -33,6 +35,8 @@ Subcommands (also via ``bin/session-memory``):
         Zettelkasten existed (no ``zettels:`` key in their frontmatter).
     migrate      Move flat legacy files into Sessions/.
     index        Rebuild Maps/*.md and Index.md from zettel frontmatter.
+    embed        Refresh the embedding cache and nearest-neighbor lists
+                 (``scripts/zettel_embed.py`` under SESSION_MEMORY_EMBED_PYTHON).
     lint         Report broken links, duplicate ids, malformed frontmatter.
     prune        Delete `_skip` coverage markers older than 30 days. Session
                  notes are kept: every zettel cites the one it came from.
@@ -63,6 +67,7 @@ from __future__ import annotations
 import argparse
 import datetime as dt
 import json
+import math
 import os
 import re
 import subprocess
@@ -335,13 +340,46 @@ class Store:
             self.notes[m.group(1)] = {"path": p, "meta": meta, "body": body,
                                       "title": meta.get("title") or m.group(2)}
 
+    def row(self, zid: str) -> str:
+        n = self.notes[zid]
+        tags = ",".join(n["meta"].get("tags") or []) if isinstance(n["meta"].get("tags"), list) else ""
+        return (f"{zid} | {n['title']} | {n['meta'].get('kind', '')} | "
+                f"{n['meta'].get('status', 'active')} | {tags}")
+
     def catalog(self) -> str:
-        rows = []
-        for zid, n in sorted(self.notes.items(), reverse=True):
-            tags = ",".join(n["meta"].get("tags") or []) if isinstance(n["meta"].get("tags"), list) else ""
-            rows.append(f"{zid} | {n['title']} | {n['meta'].get('kind', '')} | "
-                        f"{n['meta'].get('status', 'active')} | {tags}")
-        return "\n".join(rows) or "(no zettels yet)"
+        """Every zettel as one row. Only backfill still sends this; the writer sends
+        retrieved candidates (see candidates_block)."""
+        return "\n".join(self.row(z) for z in sorted(self.notes, reverse=True)) or "(no zettels yet)"
+
+    def card(self, zid: str) -> str:
+        n = self.notes[zid]
+        return f"### {self.row(zid)} | updated {n['meta'].get('updated', '')}\n{n['body'].strip()}"
+
+    def tag_vocab(self, limit: int = 250) -> str:
+        counts: dict[str, int] = {}
+        for n in self.notes.values():
+            for t in n["meta"].get("tags") or [] if isinstance(n["meta"].get("tags"), list) else []:
+                counts[t] = counts.get(t, 0) + 1
+        top = sorted(counts.items(), key=lambda kv: -kv[1])[:limit]
+        return ", ".join(f"{t} ({c})" for t, c in top)
+
+    def candidates(self, query: str) -> tuple[list[str], list[str]]:
+        """(full-text tier, title tier) of the zettels nearest to `query`."""
+        bm = BM25({z: note_text(n) for z, n in self.notes.items()})
+        ranked = [z for z, _ in bm.search(query, k=TITLE_TIER)]
+        return ranked[:BODY_TIER], ranked[BODY_TIER:]
+
+    def candidates_block(self, query: str) -> tuple[str, list[str]]:
+        body, titles = self.candidates(query)
+        if not body:
+            return "(no zettels yet)", []
+        text = ("Nearest existing zettels, full text (id | title | kind | status | tags):\n\n"
+                + "\n\n".join(self.card(z) for z in body))
+        if titles:
+            text += ("\n\nFurther related zettels, titles only (id | title | kind | status | tags):\n"
+                     + "\n".join(self.row(z) for z in titles))
+        text += "\n\nTags in use, with counts (reuse these; coin a new tag only for a new subject):\n" + self.tag_vocab()
+        return text, body + titles
 
     def new_id(self, when: dt.datetime) -> str:
         base = f"{local(when):%Y%m%d%H%M}"
@@ -460,6 +498,105 @@ def render_zettel(meta: dict, body: str, links: list[str]) -> str:
 
 
 # --------------------------------------------------------------------------
+# retrieval: BM25 over the notes, expanded through embedding neighbors
+# --------------------------------------------------------------------------
+
+STOP = frozenset("""the and for that this with from are was were has have had not but you your
+its into than then them they their there what when which who will would can could should about
+after also any been before being both each just more most only other over same some such very
+via per one two all out use used uses new now did does done get got make made how why where
+alex mist session note notes zettel""".split())
+TOKEN_RE = re.compile(r"[a-z0-9][a-z0-9_.-]*[a-z0-9]|[a-z0-9]")
+
+
+def tokens(text: str) -> list[str]:
+    out = []
+    for t in TOKEN_RE.findall(text.lower()):
+        if len(t) < 3 or t in STOP or t.isdigit():
+            continue
+        if len(t) > 4 and t.endswith("s") and not t.endswith("ss"):
+            t = t[:-1]
+        out.append(t)
+    return out
+
+
+def note_text(n: dict) -> str:
+    """What a zettel is indexed and embedded by: title, tags, body without its Links list."""
+    tags = n["meta"].get("tags") if isinstance(n["meta"].get("tags"), list) else []
+    return f"{n['title']}\n{' '.join(tags or [])}\n{split_links(n['body'])[0]}"
+
+
+class BM25:
+    """Okapi BM25 over id -> text (stdlib only, rebuilt per run: 2,500 notes take
+    well under a second)."""
+
+    def __init__(self, docs: dict[str, str], k1: float = 1.2, b: float = 0.75) -> None:
+        self.k1, self.b = k1, b
+        self.tf: dict[str, dict[str, int]] = {}
+        self.dl: dict[str, int] = {}
+        df: dict[str, int] = {}
+        for zid, text in docs.items():
+            counts: dict[str, int] = {}
+            for t in tokens(text):
+                counts[t] = counts.get(t, 0) + 1
+            self.tf[zid] = counts
+            self.dl[zid] = sum(counts.values())
+            for t in counts:
+                df[t] = df.get(t, 0) + 1
+        n = max(len(docs), 1)
+        self.avgdl = (sum(self.dl.values()) / n) or 1.0
+        self.idf = {t: math.log(1 + (n - d + 0.5) / (d + 0.5)) for t, d in df.items()}
+
+    def search(self, query: str, k: int = 30, max_terms: int = 150) -> list[tuple[str, float]]:
+        q: dict[str, int] = {}
+        for t in tokens(query):
+            if t in self.idf:
+                q[t] = q.get(t, 0) + 1
+        # a long transcript is a bag of terms: keep its most distinctive ones,
+        # weighting each by log query frequency so a repeated word cannot dominate
+        terms = sorted(q, key=lambda t: -self.idf[t] * (1 + math.log(q[t])))[:max_terms]
+        scores: dict[str, float] = {}
+        for zid, counts in self.tf.items():
+            s = 0.0
+            norm = self.k1 * (1 - self.b + self.b * self.dl[zid] / self.avgdl)
+            for t in terms:
+                f = counts.get(t)
+                if f:
+                    s += self.idf[t] * (1 + math.log(q[t])) * f * (self.k1 + 1) / (f + norm)
+            if s:
+                scores[zid] = s
+        return sorted(scores.items(), key=lambda kv: -kv[1])[:k]
+
+
+EMBED_CACHE = Path(os.environ.get("SESSION_MEMORY_EMBED_CACHE")
+                   or Path.home() / "Library/Caches/exobrain/zettel-embed")
+NEIGHBORS = EMBED_CACHE / "neighbors.json"
+# The embedder runs in a venv that has sentence-transformers; the writer itself
+# stays on the system interpreter and never loads a model.
+EMBED_PYTHON = os.environ.get("SESSION_MEMORY_EMBED_PYTHON") or str(
+    Path.home() / "Documents/the-priory/.venv/bin/python")
+EMBED_SCRIPT = HERE / "zettel_embed.py"
+
+
+def load_neighbors() -> dict[str, list[list]]:
+    """id -> [[neighbor id, cosine], ...] from the last ``embed`` run, or {}."""
+    try:
+        return json.loads(NEIGHBORS.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        return {}
+
+
+# Candidate budget, sized on memory_eval.py (2026-10-15, 107 sessions): the notes
+# a later session updated sit in the BM25 top 40 for 79% of cases and in the top
+# 200 for 94%. Full bodies for the first tier, titles for the second, approximately
+# 13k tokens where the whole title catalog cost 84k. Embedding neighbors appended
+# to the top 40 added no needed note (BM25 ranks 41-56 added 5.6 points), so the
+# writer is lexical only; embeddings serve the maintain pass.
+BODY_TIER = 40
+TITLE_TIER = 200
+
+
+# --------------------------------------------------------------------------
 # calling the model
 # --------------------------------------------------------------------------
 
@@ -481,11 +618,24 @@ Respond with ONE JSON object inside a ```json fence and nothing else, shaped:
   },
   "zettels": {
     "create": [ {"title": "one specific claim, 4-12 words", "kind": "decision|fact|pattern|preference|person|open-thread|tool", "tags": ["kebab-case", "2-5 tags, reuse existing ones"], "body": "2-6 sentences stating the one idea so it stands alone without the session", "links": [{"id": "existing zettel id", "why": "3-8 words"}], "status": "active"} ],
-    "update": [ {"id": "existing zettel id", "append": "1-3 sentences of what changed", "status": "active|resolved|superseded", "add_tags": [], "links": []} ]
+    "update": [ {"id": "existing zettel id", "append": "1-3 sentences of what changed", "status": "active|resolved|superseded", "add_tags": [], "links": [{"id": "zettel id", "why": "3-8 words"}]} ],
+    "supersede": [ {"id": "existing zettel id that is now wrong or replaced", "by": "existing id, or the exact title of a zettel in create", "why": "one sentence"} ]
   }
 }
 
-A zettel is a durable, reusable idea: a decision and its reason, a fact about a system or person that will matter again, a preference Alex stated, a pattern you noticed, an open thread someone must pick up, a tool and its gotcha. Not a zettel: what happened at what time (that is the session note), routine data values, anything already in the catalog word for word. Prefer UPDATING an existing zettel over creating a near-duplicate: check the catalog by title and tags first. Resolve an open-thread zettel when the session closed it. 0-8 creates per session is normal; a long build session may earn more. Link every new zettel to at least one existing one when a real relation exists."""
+How to decide, idea by idea (the Zettelkasten method: integrate, do not append):
+1. List the durable ideas in the session. A zettel is a durable, reusable idea: a decision and its reason, a fact about a system or person that will matter again, a preference Alex stated, a pattern you noticed, an open thread someone must pick up, a tool and its gotcha. Not a zettel: what happened at what time (that is the session note), routine data values, a fact any later session can read straight from a file or a tool.
+2. For each idea, read the nearest existing zettels below and make exactly ONE of these choices:
+   - UPDATE when an existing zettel is about the same thing: append what is new, and change its status if the session resolved it. This is the default; a near-duplicate is a defect.
+   - SUPERSEDE when the session shows an existing zettel is now wrong: create the corrected zettel and put the old one in "supersede". Never delete or rewrite history.
+   - CREATE only for an idea no existing zettel covers.
+   - SKIP when the idea is already stated, or is not durable.
+3. One idea per zettel. The title is the claim itself, specific enough that it could only belong to this note. If a title needs "and", it is two zettels.
+4. Write the body so it stands alone for a reader with no memory of this session: name the system, the person, the file, the reason.
+5. Every new zettel links to at least one existing zettel, and every link says why in 3-8 words ("same bug, other host", "the rule this applies", "replaces"). A link without a reason is noise; no "see also". When a new zettel refines, contradicts or depends on an existing one, also add an UPDATE on that existing zettel whose "links" point back at the new one by its exact title (use {"title": "...", "why": "..."}), so the older note leads forward to the newer.
+6. Tags name the subject a zettel is about (the project, the system, the person, the practice), never a broad bucket like "decision" or "harness". Reuse a tag from the list below; coin a new one only for a genuinely new subject.
+7. Resolve an open-thread zettel when the session closed it. Create an open thread only for work someone must pick up, with what is left to do.
+0-8 creates per session is normal; a long build session may earn more. Most sessions should UPDATE more than they CREATE."""
 
 def run_claude(prompt: str, label: str) -> dict | None:
     env = dict(os.environ)
@@ -629,6 +779,87 @@ def release_lock(session_id: str) -> None:
         pass
 
 
+RETRIEVAL_LOG = LOG_DIR / "zettel-retrievals.jsonl"
+
+
+def log_retrieval(by: str, ref: str, shown: list[str], used: list[str]) -> None:
+    """One line per retrieval: who searched, what they were shown, what they used.
+    The maintain pass reads it for the read-within-90-days metric and for the
+    "importance" term of recall ranking."""
+    try:
+        LOG_DIR.mkdir(parents=True, exist_ok=True)
+        with RETRIEVAL_LOG.open("a", encoding="utf-8") as fh:
+            fh.write(json.dumps({"ts": dt.datetime.now(LOCAL_TZ).isoformat(timespec="seconds"),
+                                 "by": by, "ref": ref, "shown": shown[:60], "used": used}) + "\n")
+    except OSError:
+        pass
+
+
+def _resolve_title_links(op: dict, titles: dict[str, str]) -> dict:
+    """Links given as {"title": ...} name a zettel created in the same reply."""
+    links = []
+    for ln in op.get("links") or []:
+        if isinstance(ln, dict) and ln.get("title") and not ln.get("id"):
+            zid = titles.get(safe_title(str(ln["title"])).lower())
+            if zid:
+                links.append({"id": zid, "why": ln.get("why", "")})
+        else:
+            links.append(ln)
+    return dict(op, links=links)
+
+
+def apply_ops(store: Store, ops: dict, when: dt.datetime, source: str) -> tuple[list[Path], list[str], list[str]]:
+    """Apply a reply's create / update / supersede ops. Creates go first so the
+    others can name them by title. Returns (files written, zettel links for the
+    session note, ids of existing zettels the reply used)."""
+    written: list[Path] = []
+    zlinks: list[str] = []
+    used: list[str] = []
+    titles: dict[str, str] = {}
+    orphans = 0
+    for op in ops.get("create") or []:
+        if not isinstance(op, dict):
+            continue
+        op = _resolve_title_links(op, titles)
+        p = store.create(op, when, source)
+        if p:
+            zid = p.stem.split(" ")[0]
+            titles[safe_title(str(op.get("title") or "")).lower()] = zid
+            written.append(p)
+            zlinks.append(f"[[{p.stem}]]")
+            if not norm_links(op.get("links"), store):
+                orphans += 1
+    for op in ops.get("update") or []:
+        if not isinstance(op, dict):
+            continue
+        p = store.update(_resolve_title_links(op, titles), when, source)
+        if p:
+            written.append(p)
+            zlinks.append(store.link(str(op.get("id"))))
+            used.append(str(op.get("id")))
+    for op in ops.get("supersede") or []:
+        if not isinstance(op, dict):
+            continue
+        old = str(op.get("id") or "")
+        by = str(op.get("by") or "")
+        new = by if by in store.notes else titles.get(safe_title(by).lower())
+        if old not in store.notes or not new or new == old:
+            continue
+        why = str(op.get("why") or "").strip()
+        store.update({"id": old, "status": "superseded",
+                      "append": f"Superseded by {store.link(new)}" + (f": {why}" if why else "."),
+                      "links": [{"id": new, "why": "replaced by"}]}, when, source)
+        p = store.update({"id": new, "links": [{"id": old, "why": "replaces"}]}, when, source)
+        if p and p not in written:
+            written.append(p)
+        written.append(store.notes[old]["path"])
+        zlinks.append(store.link(old))
+        used.append(old)
+    if orphans:
+        log(f"apply: {orphans} new zettel(s) without a link; the maintain pass links them")
+    return written, zlinks, used
+
+
 def cmd_write(args) -> int:
     ensure_dirs()
     path = Path(args.transcript).expanduser()
@@ -683,7 +914,8 @@ def _write(path: Path, sid: str, covered, prev, args) -> int:
         prompt += (f"\n\nAn earlier note ({prev.name}) already covers this session through "
                    f"{local(covered):%H:%M}. Summarize ONLY what happened after that; the "
                    f"transcript below starts there.")
-    prompt += "\n\nExisting zettel catalog (id | title | kind | status | tags):\n" + store.catalog()
+    block, shown = store.candidates_block(c["text"])
+    prompt += "\n\n" + block
     prompt += "\n\nThe session:\n\n" + frame(c["text"], f"claude-code-transcript {sid[:8]}")
     if args.dry_run:
         print(prompt)
@@ -702,19 +934,9 @@ def _write(path: Path, sid: str, covered, prev, args) -> int:
         log(f"write {sid[:8]}: reply had no memory body")
         return 1
     source = f"[[{note_path.stem}]]"
-    written: list[Path] = []
-    zlinks: list[str] = []
     ops = data.get("zettels") or {}
-    for op in ops.get("update") or []:
-        p = store.update(op, when, source) if isinstance(op, dict) else None
-        if p:
-            written.append(p)
-            zlinks.append(store.link(str(op.get("id"))))
-    for op in ops.get("create") or []:
-        p = store.create(op, when, source) if isinstance(op, dict) else None
-        if p:
-            written.append(p)
-            zlinks.append(f"[[{p.stem}]]")
+    written, zlinks, used = apply_ops(store, ops, when, source)
+    log_retrieval("writer", sid, shown, used)
     meta = {"date": f"{local(when):%Y-%m-%d}", "time": f"{local(when):%H:%M}",
             "type": str(mem.get("type") or "conversation"), "title": safe_title(mem.get("title") or ""),
             "session_id": sid, "cwd": c["cwd"], "trigger": args.trigger,
@@ -928,6 +1150,23 @@ def open_thread_rows(items: list[tuple[str, str]]) -> list[str]:
         [f"- and {rest} older open thread(s), see the maps"] if rest else [])
 
 
+def cmd_embed(_args) -> int:
+    """Refresh the embedding cache and neighbors.json (only changed notes re-embed)."""
+    store = Store()
+    if not Path(EMBED_PYTHON).exists():
+        log(f"embed: no embedder interpreter at {EMBED_PYTHON}; neighbors stay as they are")
+        return 0
+    EMBED_CACHE.mkdir(parents=True, exist_ok=True)
+    docs = EMBED_CACHE / "docs.jsonl"
+    docs.write_text("".join(json.dumps({"id": z, "text": note_text(n)}) + "\n"
+                            for z, n in sorted(store.notes.items())), encoding="utf-8")
+    r = subprocess.run([EMBED_PYTHON, str(EMBED_SCRIPT), "index", str(docs), str(EMBED_CACHE)],
+                       capture_output=True, text=True, timeout=1800)
+    tail = (r.stderr or "").strip().splitlines()
+    log(f"embed: exit {r.returncode}: {tail[-1] if tail else ''}")
+    return r.returncode
+
+
 def cmd_index(_args) -> int:
     rebuild_index()
     print(str(INDEX))
@@ -1103,6 +1342,7 @@ def main(argv=None) -> int:
     b.set_defaults(fn=cmd_backfill)
     sub.add_parser("migrate").set_defaults(fn=cmd_migrate)
     sub.add_parser("index").set_defaults(fn=cmd_index)
+    sub.add_parser("embed").set_defaults(fn=cmd_embed)
     sub.add_parser("lint").set_defaults(fn=cmd_lint)
     sub.add_parser("prune").set_defaults(fn=cmd_prune)
     k = sub.add_parser("consolidate")

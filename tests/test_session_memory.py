@@ -235,3 +235,59 @@ def test_consolidator_skips_tmp_sandbox_projects(sm, tmp_path, monkeypatch):
         (projects / slug / "s.jsonl").write_text("{}\n")
     found = sm._todays_transcripts(dt.date.today())
     assert [p.parent.name for p in found] == ["-Users-alex-harness"]
+
+
+def test_bm25_ranks_the_matching_note_first(sm):
+    bm = sm.BM25({"a": "Nest thermostat schedule for the upstairs floor",
+                  "b": "Fantasy football waiver order and FAAB budget",
+                  "c": "Thermostat battery died on the downstairs Nest"})
+    hits = [z for z, _ in bm.search("why is the upstairs Nest thermostat schedule wrong", k=3)]
+    assert hits[0] == "a" and "b" not in hits
+    assert bm.search("", k=3) == [] and bm.search("zzzz unknown", k=3) == []
+
+
+def test_candidates_block_sends_bodies_then_titles(sm, monkeypatch):
+    store = sm.Store()
+    when = sm.parse_iso("2026-10-01T10:00:00-05:00")
+    for i in range(5):
+        store.create({"title": f"Thermostat note {i}", "kind": "fact", "tags": ["nest"],
+                      "body": f"Nest thermostat detail number {i}."}, when, "[[s1]]")
+    store.create({"title": "Unrelated waiver note", "kind": "fact", "tags": ["fantasy"],
+                  "body": "FAAB."}, when, "[[s1]]")
+    monkeypatch.setattr(sm, "BODY_TIER", 2)
+    text, shown = store.candidates_block("nest thermostat")
+    assert len(shown) == 5                       # the waiver note shares no term
+    assert text.count("### ") == 2              # BODY_TIER cards, the rest as title rows
+    assert "titles only" in text and "nest (5)" in text
+
+
+def test_apply_ops_title_links_and_supersede(sm):
+    store = sm.Store()
+    when = sm.parse_iso("2026-10-01T10:00:00-05:00")
+    old = store.create({"title": "Writer sends the full catalog", "kind": "decision",
+                        "tags": ["session-memory"], "body": "All titles."}, when, "[[s1]]")
+    assert old is not None
+    old_id = old.stem.split(" ")[0]
+    later = sm.parse_iso("2026-10-15T20:00:00-05:00")
+    ops = {"create": [{"title": "Writer sends BM25 candidates", "kind": "decision",
+                       "tags": ["session-memory"], "body": "Top 40 bodies.",
+                       "links": [{"id": old_id, "why": "replaces the catalog"}]}],
+           "update": [{"id": old_id, "links": [{"title": "Writer sends BM25 candidates",
+                                                "why": "the newer rule"}]}],
+           "supersede": [{"id": old_id, "by": "Writer sends BM25 candidates",
+                          "why": "the catalog cost 84k tokens"}]}
+    written, zlinks, used = sm.apply_ops(store, ops, later, "[[s2]]")
+    new_id = next(z for z in store.notes if z != old_id)
+    meta, body = sm.split_frontmatter(store.notes[old_id]["path"].read_text())
+    assert meta["status"] == "superseded"
+    assert f"Superseded by [[{new_id} Writer sends BM25 candidates]]: the catalog cost 84k tokens" in body
+    assert f"[[{new_id} Writer sends BM25 candidates]] : the newer rule" in body
+    new_text = store.notes[new_id]["path"].read_text()
+    assert f"[[{old_id} Writer sends the full catalog]] : replaces the catalog" in new_text
+    assert used == [old_id, old_id] and len(zlinks) == 3
+
+
+def test_retrieval_log_appends_jsonl(sm):
+    sm.log_retrieval("writer", "abc", ["1", "2"], ["2"])
+    rows = [json.loads(ln) for ln in sm.RETRIEVAL_LOG.read_text().splitlines()]
+    assert rows[-1]["by"] == "writer" and rows[-1]["used"] == ["2"]
