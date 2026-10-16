@@ -10,6 +10,10 @@
 #   4. re-wraps the server in mcp-lazy (idle 0) and refreshes the tool cache
 #   5. re-inserts the MIST update-check block into the reinstalled skill
 #   6. pulls the source clone at ~/Documents/rea, commits and pushes the skill
+# Every run then asks `rea doctor` about the providers MIST uses and prints only
+# real failures. Two drift checks are ours on purpose and are ignored:
+# registration:claude_code (the mcp-lazy wrapper) and skill:identity (the
+# MIST block in the skill).
 # Exit status: 0 current or updated, 1 update failed, 2 npm not reachable (skip).
 #
 # INVARIANTS
@@ -28,6 +32,19 @@ export JAVA_HOME=/opt/homebrew/opt/openjdk@21/libexec/openjdk.jdk/Contents/Home
 export HOPPER_LAUNCHER_PATH="$HOME/Applications/Hopper Disassembler.app/Contents/MacOS/hopper"
 IDA_CONFIG="$HOME/.config/rea/ida-mcp.json"
 [ -f "$IDA_CONFIG" ] && export REA_IDA_MCP_CONFIG="$IDA_CONFIG"
+export REA_JADX_MCP_JAR="$HOME/.local/share/rea/android/jadx-headless-mcp-0.7.1-all.jar"
+PROVIDERS=(ghidra ida jadx)
+
+# Prints one line per failed check; prints nothing when the providers are ready.
+doctor_report() {
+  local args=() p
+  for p in "${PROVIDERS[@]}"; do args+=(--provider "$p"); done
+  (cd /tmp && rea doctor "${args[@]}" --format json 2>/dev/null) | jq -r '
+    [.scope_checks[]?, .checks[]?]
+    | map(select(.ok == false and (.name | IN("registration:claude_code", "skill:identity", "registration:claude_desktop") | not)))
+    | unique_by(.name)[]
+    | "rea-update: doctor: \(.name): \(.remediation // .detail)"'
+}
 
 ensure_skill_block() {
   grep -q '<!-- mist:update-check' "$SKILL" && return 0
@@ -64,6 +81,7 @@ fi
 if [ "$current" = "$latest" ]; then
   echo "rea-update: rea $current is current"
   ensure_skill_block
+  doctor_report
   exit 0
 fi
 
@@ -77,8 +95,8 @@ fi
 
 # Setup writes Cellar paths that break on the next brew patch release; pin the opt paths.
 tmp=$(mktemp)
-jq --arg g "$GHIDRA_INSTALL_DIR" --arg j "$JAVA_HOME" --arg h "$HOPPER_LAUNCHER_PATH" \
-  '.mcpServers.rea.env.GHIDRA_INSTALL_DIR=$g | .mcpServers.rea.env.JAVA_HOME=$j | .mcpServers.rea.env.HOPPER_LAUNCHER_PATH=$h' \
+jq --arg g "$GHIDRA_INSTALL_DIR" --arg j "$JAVA_HOME" --arg h "$HOPPER_LAUNCHER_PATH" --arg x "$REA_JADX_MCP_JAR" \
+  '.mcpServers.rea.env.GHIDRA_INSTALL_DIR=$g | .mcpServers.rea.env.JAVA_HOME=$j | .mcpServers.rea.env.HOPPER_LAUNCHER_PATH=$h | .mcpServers.rea.env.REA_JADX_MCP_JAR=$x' \
   "$CLAUDE_JSON" >"$tmp" && [ -s "$tmp" ] && cat "$tmp" >"$CLAUDE_JSON"
 rm -f "$tmp"
 
@@ -106,3 +124,4 @@ if [ -n "$(git status --porcelain -- "$skill_dir")" ]; then
     git push --quiet 2>/dev/null
 fi
 echo "rea-update: rea $(rea --version) installed. This session's MCP server is still the old version; use the rea CLI or start a new chat."
+doctor_report
