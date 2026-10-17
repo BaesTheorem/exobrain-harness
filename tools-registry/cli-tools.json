@@ -899,6 +899,14 @@
     "notes": "--deep loads nomic in The Priory venv (about 10 s). Logs each query to ~/Library/Logs/exobrain/zettel-retrievals.jsonl."
   },
   {
+    "name": "standings-history",
+    "command": "python3 fantasy/standings_history.py [--json] [--html PATH] [--check]",
+    "repo_dir": "fantasy",
+    "source": "built",
+    "added": "2026-10-16",
+    "notes": "Read-only via ff raw (mMatchup,mTeam,mSettings). --check compares the last week to ff standings. Idle-week score is not counted in PF. Render the HTML with Playwright (JS-driven)."
+  },
+  {
     "name": "subtile-ocr",
     "command": "~/.cargo/bin/subtile-ocr -l eng [--dump-raw] -o out.srt in.idx",
     "repo_dir": "~/.cargo/bin",
