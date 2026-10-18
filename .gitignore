@@ -326,3 +326,7 @@ traces/data/
 
 # session-memory recall eval: built from Alex's prompts (scripts/memory_eval.py build)
 data/memory-eval/
+
+# Rendered trip packets and maps (regenerable binaries, ~8 MB per trip)
+backpacking/trips/*/*.pdf
+backpacking/trips/*/*.png
