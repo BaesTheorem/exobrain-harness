@@ -25,6 +25,7 @@ while (($#)); do
   esac
 done
 [[ -n $SCHEME ]] || { echo "--scheme is required" >&2; exit 2; }
+HERE=$(cd "$(dirname "$0")" && pwd)
 cd "$DIR"
 export DEVELOPER_DIR=${DEVELOPER_DIR:-/Applications/Xcode.app/Contents/Developer}
 PATH="/opt/homebrew/bin:$PATH"
@@ -68,6 +69,14 @@ xcodebuild -exportArchive -archivePath "$ARCHIVE" -exportOptionsPlist "$OUT/Expo
 test "${PIPESTATUS[0]}" -eq 0
 if [[ $DEST == upload ]]; then
   echo "Uploaded $SCHEME. It shows in TestFlight after Apple processes it."
+  # Wait for processing, make sure an internal group with Alex exists, and
+  # notify when the invite still needs his tap (bin/testflight-ready).
+  BUNDLE=$(/usr/libexec/PlistBuddy -c 'Print :ApplicationProperties:CFBundleIdentifier' "$ARCHIVE/Info.plist")
+  BUILT=$(/usr/libexec/PlistBuddy -c 'Print :ApplicationProperties:CFBundleVersion' "$ARCHIVE/Info.plist")
+  LOG="$HOME/Library/Logs/exobrain/testflight-ready.log"
+  mkdir -p "$(dirname "$LOG")"
+  nohup "$HERE/testflight-ready" "$BUNDLE" "$BUILT" >>"$LOG" 2>&1 &
+  echo "Watching processing in the background: $LOG"
 else
   echo "Exported $SCHEME locally; its bundle ids are registered."
 fi

@@ -1,0 +1,131 @@
+#!/usr/bin/env python3
+"""Make a TestFlight upload reach Alex's phone without a manual App Store
+Connect visit.
+
+    testflight-ready BUNDLE_ID BUILD [--timeout MIN]
+
+1. Wait for Apple to finish processing BUILD (buildUploads COMPLETE).
+2. Make sure the app has an internal group with access to every build, so
+   later builds install automatically. A new app gets a group named "Team".
+3. Put the testers of the other apps' internal groups into it (POST
+   /betaTesters; the group relationship endpoint answers 409 for them).
+4. If a tester has not accepted this app's invite yet, notify Alex (banner +
+   Discord DM). Accepting stays a tap: Apple has no API for it, and the Mac
+   TestFlight app ignores an iOS invite link (tested 2026-10-19).
+
+Key: ASC_KEY_ID, ASC_ISSUER_ID, ASC_KEY_PATH in the harness .env, the same as
+bin/testflight-feedback.
+"""
+from __future__ import annotations
+
+import argparse
+import json
+import subprocess
+import sys
+import time
+import urllib.error
+import urllib.request
+from importlib.machinery import SourceFileLoader
+from pathlib import Path
+
+BIN = Path(__file__).resolve().parent
+tf = SourceFileLoader("testflight_feedback", str(BIN / "testflight-feedback")).load_module()
+NOTIFY = BIN.parent / "mist-voice" / "bin" / "mist-notify"
+GMAIL_INVITES = "https://mail.google.com/mail/u/0/#search/from%3Atestflight_no_reply+invited"
+
+
+def call(tok: str, method: str, path: str, body: dict | None = None) -> tuple[int, dict]:
+    req = urllib.request.Request(tf.API + path, method=method,
+                                 data=json.dumps(body).encode() if body else None,
+                                 headers={"Authorization": "Bearer " + tok, "Content-Type": "application/json"})
+    try:
+        with urllib.request.urlopen(req, timeout=60) as r:
+            raw = r.read()
+            return r.status, json.loads(raw) if raw else {}
+    except urllib.error.HTTPError as err:
+        return err.code, {"error": err.read()[:400].decode(errors="replace")}
+
+
+def wait_processed(tok: str, app_id: str, build: str, timeout_min: int) -> str:
+    deadline = time.time() + timeout_min * 60
+    while True:
+        _, d = call(tok, "GET", f"/apps/{app_id}/buildUploads?limit=10")
+        row = next((x for x in d.get("data", []) if x["attributes"].get("cfBundleVersion") == build), None)
+        state = row["attributes"]["state"]["state"] if row else "NOT_FOUND"
+        if state not in ("PROCESSING", "AWAITING_UPLOAD", "NOT_FOUND") or time.time() > deadline:
+            if row and row["attributes"]["state"].get("errors"):
+                print(json.dumps(row["attributes"]["state"]["errors"]), file=sys.stderr)
+            return state
+        time.sleep(60)
+
+
+def main() -> None:
+    ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
+    ap.add_argument("bundle_id")
+    ap.add_argument("build")
+    ap.add_argument("--timeout", type=int, default=45, help="minutes to wait for processing")
+    a = ap.parse_args()
+    tok = tf.token(tf.env())
+
+    apps = tf.paged("/apps?limit=200", tok)
+    app = next((x for x in apps if x["attributes"]["bundleId"] == a.bundle_id), None)
+    if not app:
+        sys.exit(f"no App Store Connect record for {a.bundle_id}: make it on the website first")
+    app_id, name = app["id"], app["attributes"]["name"]
+
+    state = wait_processed(tok, app_id, a.build, a.timeout)
+    print(f"{name} build {a.build}: {state}")
+    if state != "COMPLETE":
+        tok = tf.token(tf.env())
+        subprocess.run([str(NOTIFY), f"{name} build {a.build} did not finish processing: {state}",
+                        "TestFlight", "Basso", "--discord"], check=False)
+        sys.exit(1)
+    tok = tf.token(tf.env())   # the processing wait can outlive the 20-minute token
+
+    groups = tf.paged(f"/apps/{app_id}/betaGroups", tok)
+    group = next((g for g in groups if g["attributes"].get("isInternalGroup")
+                  and g["attributes"].get("hasAccessToAllBuilds")), None)
+    if not group:
+        st, g = call(tok, "POST", "/betaGroups", {"data": {
+            "type": "betaGroups",
+            "attributes": {"name": "Team", "isInternalGroup": True, "hasAccessToAllBuilds": True},
+            "relationships": {"app": {"data": {"type": "apps", "id": app_id}}}}})
+        if st >= 300:
+            sys.exit(f"could not create the internal group: {st} {g}")
+        group = g["data"]
+        print("created internal group Team")
+
+    # Everyone who tests the other apps internally tests this one too.
+    wanted: dict[str, dict] = {}
+    for other in apps:
+        if other["id"] == app_id:
+            continue
+        for g in tf.paged(f"/apps/{other['id']}/betaGroups", tok):
+            if g["attributes"].get("isInternalGroup"):
+                for t in tf.paged(f"/betaGroups/{g['id']}/betaTesters", tok):
+                    wanted[t["attributes"]["email"]] = t["attributes"]
+    have = {t["attributes"]["email"]: t["attributes"] for t in tf.paged(f"/betaGroups/{group['id']}/betaTesters", tok)}
+    for email, t in wanted.items():
+        if email in have:
+            continue
+        st, r = call(tok, "POST", "/betaTesters", {"data": {
+            "type": "betaTesters",
+            "attributes": {"email": email, "firstName": t.get("firstName"), "lastName": t.get("lastName")},
+            "relationships": {"betaGroups": {"data": [{"type": "betaGroups", "id": group["id"]}]}}}})
+        print(f"added {email.split('@')[0]}@…: {st}")
+        if st < 300:
+            have[email] = {"state": "INVITED"}
+
+    pending = [e for e, t in have.items() if t.get("state") == "INVITED"]
+    if pending:
+        subprocess.run([str(NOTIFY),
+                        f"{name} build {a.build} is ready. Accept the TestFlight invite e-mail on the phone once; "
+                        "later builds then install on their own.",
+                        "TestFlight invite", "Glass", GMAIL_INVITES, "--discord"], check=False)
+        print("invite not accepted yet: notified")
+    else:
+        print("every tester has accepted: the build installs through TestFlight")
+
+
+if __name__ == "__main__":
+    main()
