@@ -51,14 +51,14 @@ def call(hub: dict, path: str, body: dict | None = None) -> dict:
         return json.load(r)
 
 
-def merge(entries: list[dict], dry: bool) -> int:
+def merge(entries: list[dict], dry: bool) -> tuple[int, int]:
     """Season log bullets into the playbook, routine-log lines into the log file."""
     bullets = [e["text"].rstrip() for e in entries if e.get("kind") != "routine-log"]
     lines = [e for e in entries if e.get("kind") == "routine-log"]
     if dry:
         for e in entries:
             print(f"DRY-RUN merge {e.get('kind')}: {e['text'][:100]}")
-        return len(entries)
+        return len(entries), 0
     if lines:
         ROUTINE_LOG.parent.mkdir(parents=True, exist_ok=True)
         with ROUTINE_LOG.open("a") as f:
@@ -75,7 +75,7 @@ def merge(entries: list[dict], dry: bool) -> int:
         PLAYBOOK.write_text(text[:m.end()] + block + text[m.end():])
         # Regroup by week and put the forecast blocks back on top.
         subprocess.run([sys.executable, str(HERE / "forecast"), "playbook"], capture_output=True, timeout=300)
-    return len(entries)
+    return len(entries), len(bullets)
 
 
 def sha(path: Path) -> str:
@@ -144,8 +144,8 @@ def main() -> int:
             body[name], st[name] = data, digest
     try:
         drained = call(hub, "/log/drain").get("entries", []) if not dry else []
-        merged = merge(drained, dry)
-        if merged:  # the playbook changed, so the cloud copy is stale
+        merged, bullets = merge(drained, dry)
+        if bullets:  # the playbook changed, so the cloud copy is stale
             body["playbook"] = PLAYBOOK.read_text()
             st["playbook"] = hashlib.sha256(body["playbook"].encode()).hexdigest()
         if dry:

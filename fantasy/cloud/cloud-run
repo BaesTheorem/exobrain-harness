@@ -73,7 +73,8 @@ def hub(path: str, body: dict | None = None, raw: bool = False):
 
 
 def notify(text: str) -> None:
-    hub("/notify", {"text": text})
+    if not hub("/notify", {"text": text}).get("ok"):
+        raise SystemExit("cloud-run: the hub could not send the Discord DM")
 
 
 def in_slot(days: str | None, window: str | None) -> bool:
