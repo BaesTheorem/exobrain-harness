@@ -71,8 +71,9 @@ def main() -> int:
         print(json.dumps(res, indent=1)[:800])
         return 0 if res.get("verified", args.dry_run) else 1
     if args.cmd == "cancel":
-        print(json.dumps(w.cancel(args.id), indent=1)[:800])
-        return 0
+        res = w.cancel(args.id, dry_run=args.dry_run)
+        print(json.dumps(res, indent=1)[:800])
+        return 0 if res.get("verified", args.dry_run) else 1
     if args.cmd == "chat-open":
         data = api.league("mTeam")
         other = api.resolve_team(data, " ".join(args.team))

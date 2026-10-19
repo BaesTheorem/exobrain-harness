@@ -102,10 +102,12 @@ Follow `fantasy/routines/COMMON.md` first. If today is not Tuesday, stop.
    when a slot is open), confirming `"verified": true`. If nothing beats the
    bench, say so and file nothing.
 
-   **File in value order the first time. There is no undo.** ESPN's API does
-   not expose claim order and has no working cancel route, so a mis-ordered
-   list can only be repaired by Alex in the web UI. Two consequences, both
-   learned the hard way on 2026-09-08:
+   **File in value order the first time.** ESPN's API does not expose
+   claim order, and ESPN tries a team's claims in filed order. A claim can
+   be cancelled (`fantasy/bin/espn-tx cancel <id>`, which takes the 8-character
+   prefix from the pending banner and exits nonzero unless the claim left the
+   pending list; working since 2026-10-18). Until then there was no cancel,
+   and the rules below come from 2026-09-08:
    - **Never file a second claim for the same player as a hedge**, and never
      attach a drop to a claim as insurance against your own earlier one. It
      is dominated when the order is right and destructive when it is wrong.
@@ -116,9 +118,9 @@ Follow `fantasy/routines/COMMON.md` first. If today is not Tuesday, stop.
      list has landed. If an earlier claim fills the last spot, the later one
      should have the drop; if it does not, the later claim just fails, which
      is the safe failure.
-   If you find you have already filed in the wrong order, do not file another
-   claim to compensate. Say so in the summary and hand Alex the exact cancel
-   and reorder to make in the web UI.
+   If you find you have filed in the wrong order, cancel the claims and
+   re-file them in value order (traditional waivers rank by team priority,
+   not filing time, so a re-file costs nothing). Say so in the summary.
 4. **Trades: do not plan on them (Alex, 2026-10-11).** The league has made
    0 trades and accepted 0 of our 11 offers, so **write no new proposals and
    send no banner for one**. Plan every roster move on the roster we hold.

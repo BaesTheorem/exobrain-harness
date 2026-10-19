@@ -401,31 +401,41 @@ class EspnWriter:
         still = any(t.get("id") == transaction_id for t in self.pending())
         return {"verified": not still, "id": transaction_id, "response": resp}
 
-    def cancel(self, transaction_id: str) -> dict[str, Any]:
+    def cancel(self, transaction_id: str, dry_run: bool = False) -> dict[str, Any]:
         """Cancel one pending claim, verified by it leaving the pending list.
 
-        WARNING: no known ESPN route actually cancels a pending claim, so this
-        is expected to raise (2026-09-08). Two bugs were found and only the
-        first is fixed here. The body was missing scoringPeriodId, which every
-        other write carries via _base(); without it ESPN answers 409
-        TRAN_INVALID_SCORINGPERIOD_NOT_CURRENT, which reads like a timing
-        problem and is really a missing field. With that fixed ESPN answers 409
-        TRAN_NOT_FOUND "Transaction with ID null", i.e. it never reads the id
-        from the body, and echoing the whole pending object back does not help
-        either. POST/PUT/DELETE to .../transactions/{id} all answer 405.
+        The route is the claim's own type (WAIVER or FREEAGENT) with
+        executionType CANCEL, the claim's id in relatedTransactionId, and the
+        claim's items echoed back. That is the row the web client wrote when
+        Alex cancelled claim ac7b3a94 by hand (CANCEL row bdc3d3e2, 2026-09-20),
+        read from mTransactions2 on 2026-10-18. The 2026-09-08 attempts put the
+        id in "id", which ESPN ignores (409 TRAN_NOT_FOUND "Transaction with ID
+        null"); POST/PUT/DELETE to .../transactions/{id} answer 405.
 
-        Operational consequence, which is the part that matters: a filed claim
-        cannot be cancelled or reordered, so FILE CLAIMS IN VALUE ORDER THE
-        FIRST TIME. To slip a better player ahead of an already-filed claim,
-        file a second claim for him carrying a --drop, so he lands even once
-        the earlier claim has filled the open roster spot.
+        The claim is matched by id prefix against the pending list, so the
+        8-character id that `espn-tx pending` banners print is enough.
         """
-        body = self._base("WAIVER")
+        rows = [t for t in self.pending() if str(t.get("id", "")).startswith(transaction_id)]
+        if len(rows) != 1:
+            raise EspnError(f"{len(rows)} pending rows match {transaction_id!r}; need exactly one")
+        row = rows[0]
+        if row.get("type") not in ("WAIVER", "FREEAGENT"):
+            raise EspnError(f"{row['id']} is a {row.get('type')}; use withdraw for trades")
+        full_id = row["id"]
+        body = self._base(row["type"])
         body["executionType"] = "CANCEL"
-        body["id"] = transaction_id
+        body["relatedTransactionId"] = full_id
+        body["scoringPeriodId"] = row.get("scoringPeriodId", body["scoringPeriodId"])
+        body["items"] = [{k: i[k] for k in ("playerId", "type", "fromTeamId", "toTeamId",
+                                            "fromLineupSlotId", "toLineupSlotId") if k in i}
+                         for i in row.get("items", [])]
+        if dry_run:
+            return {"dry_run": True, "body": body}
         resp = self._post(body)
-        still = any(t.get("id") == transaction_id for t in self.pending())
-        return {"verified": not still, "id": transaction_id, "response": resp}
+        still = any(t.get("id") == full_id for t in self.pending())
+        if not still:
+            record_self_closed(full_id)
+        return {"verified": not still, "id": full_id, "response": resp}
 
 
 __all__ = ["EspnWriter", "BENCH", "IR", "SLOT_BY_NAME"]
