@@ -135,6 +135,30 @@ def _onset_env(y: np.ndarray, sr: int, hop: int):
     return env / (env.max() + 1e-9), rdb
 
 
+def first_t0(ws: list[dict]) -> float | None:
+    """Start of the first word in a row that the aligner could place (numerals and symbols cannot be)."""
+    return next((w["t0"] for w in ws if w["t0"] is not None), None)
+
+
+def _interpolate_untimed(final: list[dict], rows: list[dict]) -> list[str]:
+    """Give words with no alignable letters (t0 None) a span between their timed neighbours.
+
+    Returns the ids of the words it filled, as rNNwM strings (never the text)."""
+    filled = []
+    for ri in sorted({w["row"] for w in final}):
+        ws = [w for w in final if w["row"] == ri]
+        for k, w in enumerate(ws):
+            if w["t0"] is not None:
+                continue
+            prev = next((x["t1"] for x in reversed(ws[:k]) if x["t1"] is not None), rows[ri]["t"])
+            nxt = next((x["t0"] for x in ws[k + 1:] if x["t0"] is not None), prev + 0.3)
+            t0 = round(prev, 3)
+            t1 = round(max(nxt, t0 + 0.08), 3)
+            w.update(t0=t0, t1=t1, chars=[[t0, t1]], parts=[[t0, t1]], interp=True)
+            filled.append(f"r{ri:02d}w{w['w']}")
+    return filled
+
+
 def words(vox: str, rows_path: str = ROWS, out: str = WORDS, overrides: str = "work/timing_overrides.json"):
     """Per-row alignment, onset repair, merge, manual overrides. Writes words + lines JSON."""
     import soundfile as sf
@@ -167,7 +191,9 @@ def words(vox: str, rows_path: str = ROWS, out: str = WORDS, overrides: str = "w
         by.setdefault(w["row"], []).append(w)
     starts = {}
     for ri, ws in by.items():
-        a, lrc = ws[0]["t0"], rows[ri]["t"]
+        a, lrc = first_t0(ws), rows[ri]["t"]
+        if a is None:
+            continue
         k0 = fr(lrc - 0.1)
         to = (k0 + int(np.argmax(env[k0:fr(lrc + 0.5)]))) * hop / sr
         if abs(to - a) >= 0.15 and rise(a) < rise(to) - 3:
@@ -177,13 +203,14 @@ def words(vox: str, rows_path: str = ROWS, out: str = WORDS, overrides: str = "w
     for ri in starts:
         a2 = [w for w in p2 if w["row"] == ri]
         a3 = [w for w in p3 if w["row"] == ri]
-        if not a3 or on(a2[0]["t0"]) >= 0.15 or on(a3[0]["t0"]) <= on(a2[0]["t0"]):
+        s2, s3 = first_t0(a2), first_t0(a3)
+        if s2 is None or s3 is None or on(s2) >= 0.15 or on(s3) <= on(s2):
             continue
         for w in final:
             if w["row"] == ri:
                 src = next(x for x in a3 if x["w"] == w["w"])
                 w.update({k: src[k] for k in ("t0", "t1", "score", "chars", "parts")})
-        print(f"r{ri:02d}: first word moved {a2[0]['t0']:.2f} -> {a3[0]['t0']:.2f} (onset repair)")
+        print(f"r{ri:02d}: first word moved {s2:.2f} -> {s3:.2f} (onset repair)")
     if os.path.exists(overrides):
         for key, t in json.load(open(overrides)).items():      # {"r50w1": 155.77}
             ri, wi = int(key[1:3]), int(key.split("w")[1])
@@ -194,6 +221,9 @@ def words(vox: str, rows_path: str = ROWS, out: str = WORDS, overrides: str = "w
                     w["chars"] = [[a + shift, b + shift] for a, b in w["chars"]] if abs(shift) < 0.4 else [[t, t + 0.12]]
                     w["manual"] = True
             print(f"override {key} -> {t:.2f}")
+    interp = _interpolate_untimed(final, rows)
+    if interp:
+        print(f"{len(interp)} words had no alignable letters; times interpolated: " + " ".join(interp))
     for ri in sorted({w["row"] for w in final}):
         ws = [w for w in final if w["row"] == ri]
         for a_, b_ in zip(ws, ws[1:], strict=False):
