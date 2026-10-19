@@ -915,6 +915,14 @@
     "notes": "--deep loads nomic in The Priory venv (about 10 s). Logs each query to ~/Library/Logs/exobrain/zettel-retrievals.jsonl."
   },
   {
+    "name": "stalled-repos",
+    "command": "stalled-repos/bin/stalled-repos harvest|enrich --shard i --shards 4|rank",
+    "repo_dir": "/Users/alexhedtke/Documents/Exobrain harness/stalled-repos",
+    "source": "built",
+    "added": "2026-10-18",
+    "notes": "Needs gh login. GraphQL secondary rate limit gives 403 waits with 4 shards; retries handle it. Judgment pass uses RUBRIC.md with agents; security repos in the games lane trip the safety classifier, so tell agents to give them a generic skip line. Data in stalled-repos/data (gitignored)."
+  },
+  {
     "name": "standings-history",
     "command": "python3 fantasy/standings_history.py [--json] [--html PATH] [--check]",
     "repo_dir": "fantasy",
