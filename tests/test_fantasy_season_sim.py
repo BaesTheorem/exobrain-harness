@@ -75,3 +75,18 @@ def test_measured_sigma_reads_within_team_scatter():
     actuals = {w: {t: 100.0 + 5 * t + rng.normal(0, 30.0) for t in teams} for w in range(1, REG + 1)}
     assert ss.measured_sigma(games, actuals) == pytest.approx(30.0, rel=0.25)
     assert ss.measured_sigma(games, {w: actuals[w] for w in (1, 2, 3)}) is None, "too few weeks to measure"
+
+
+def test_force_applies_to_a_week_folded_into_actuals():
+    """--live writes the week in progress into `actuals` at ESPN's projection;
+    a --force on that week must still decide the game (it was ignored until
+    2026-10-19), keeping both scores and only swapping who gets the higher."""
+    teams, games = league()
+    w, h, a = games[0]
+    live = {w: {t: 100.0 for t in teams} | {h: 110.0, a: 90.0}}
+    for winner, loser in ((h, a), (a, h)):
+        raw = ss._season(teams, [g for g in games if g[0] == w], w, 500, 25.0, 8.0, 7, actuals=live,
+                         force={(w, frozenset((h, a))): winner})
+        i, j = raw["idx"][winner], raw["idx"][loser]
+        assert (raw["wins"][:, i] == 1).all() and (raw["wins"][:, j] == 0).all()
+        assert (raw["pf"][:, i] == 110.0).all() and (raw["pf"][:, j] == 90.0).all()

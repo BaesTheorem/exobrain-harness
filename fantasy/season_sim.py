@@ -307,10 +307,15 @@ def _season(teams, games, reg, sims, sigma, tau, seed, actuals=None, force=None,
             as_ = np.full(sims, actuals[w][a])
         else:
             hs, as_ = scores[:, w - 1, idx[h]], scores[:, w - 1, idx[a]]
-            winner = (force or {}).get((w, frozenset((h, a))))
-            if winner is not None:
-                hi, lo = np.maximum(hs, as_), np.minimum(hs, as_)
-                hs, as_ = (hi, lo) if winner == h else (lo, hi)
+        # A forced game keeps both scores and only decides who gets the higher
+        # one. That includes a week --live folded into `actuals` at ESPN's
+        # projection: until 2026-10-19 this sat in the else branch, so
+        # `--live --force` printed "forced" and changed nothing. main() refuses
+        # a force on a week that is really played.
+        winner = (force or {}).get((w, frozenset((h, a))))
+        if winner is not None:
+            hi, lo = np.maximum(hs, as_), np.minimum(hs, as_)
+            hs, as_ = (hi, lo) if winner == h else (lo, hi)
         wins[:, idx[h]] += hs > as_
         wins[:, idx[a]] += as_ > hs
         losses[:, idx[h]] += hs < as_
@@ -522,10 +527,10 @@ def ci(x, lo, hi):
     return a, b
 
 
-def after_week(teams, games, reg, args, actuals, force=None):
+def after_week(teams, games, reg, args, actuals, force=None, moments=None):
     """The league table after week `reg`: finish distribution and top-two odds per team."""
     ids, _mu, wins, _losses, _pf, ranks, probs = simulate(
-        teams, games, reg, args.sims, args.sigma, args.tau, args.seed, actuals, force)
+        teams, games, reg, args.sims, args.sigma, args.tau, args.seed, actuals, force, moments)
     played = max(actuals) if actuals else 0
     me = int(Espn().creds.get("team_id", 0))
     rows = sorted(((teams[t]["name"], float(probs["seed1"][i]), float(probs["bye"][i]),
@@ -608,6 +613,7 @@ def main():
         args.sigma = round(measured, 1) if measured else SIGMA_PRIOR
         print(f"sigma_week {args.sigma} ({'measured on ' + str(len(actuals)) + ' played weeks' if measured else 'prior'})",
               file=sys.stderr)
+    played_weeks = set(actuals)   # real scores; a --live week below is a projection
     if args.live:
         live = live_week(args.season)
         if live is None:
@@ -626,6 +632,9 @@ def main():
         print_leverage(lev, args.json)
         return
     force = parse_force(args.force, teams, games)
+    done = sorted({wk for wk, _pair in force if wk in played_weeks})
+    if done:
+        sys.exit(f"--force: week {done[0]} is already played; a forced result there would overwrite a real score")
     for (wk, pair), winner in sorted(force.items(), key=lambda kv: kv[0][0]):
         loser = next(iter(pair - {winner}))
         print(f"forced: week {wk}, {teams[winner]['name']} beat {teams[loser]['name']}", file=sys.stderr)
@@ -635,7 +644,10 @@ def main():
         reg = args.after_week
         games = [g for g in games if g[0] <= reg]
         actuals = {w: v for w, v in actuals.items() if w <= reg}
-        after_week(teams, games, reg, args, actuals, force)
+        # Pass the lineup-model week too: until 2026-10-19 this call dropped it,
+        # so `--this-week --after-week` played the week from team strength and
+        # ignored games already final (Namaslay at 51% with their game won).
+        after_week(teams, games, reg, args, actuals, force, {w: m for w, m in (moments or {}).items() if w <= reg})
         return
     board = board_scores(teams)
 
