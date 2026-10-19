@@ -1,0 +1,165 @@
+#!/usr/bin/env python3
+"""cloud-sync: the Mac's half of the fantasy cloud fallback (fantasy/cloud/README.md).
+
+lineup-watch calls this every 15 minutes. One run:
+
+  1. posts a heartbeat to the fantasy-hub Worker, which keeps the cloud
+     fallback off while the Mac answers;
+  2. uploads the playbook and the fantasy-football skill when either changed
+     since the last upload (the cloud routines read these copies);
+  3. drains the queue of what the cloud wrote while the Mac was away: Season
+     log bullets go into the playbook (then `forecast playbook` regroups them
+     by week) and "ran, nothing to do" lines go into the routine log.
+
+Best effort: a network failure prints one line and exits 0, so it never
+breaks lineup-watch. Hub URL and token come from the gitignored
+fantasy/cloud/hub.json that fantasy/cloud/deploy writes.
+
+    cloud-sync [--dry-run]
+"""
+from __future__ import annotations
+
+import hashlib
+import json
+import re
+import subprocess
+import sys
+import urllib.request
+from datetime import datetime
+from pathlib import Path
+
+HERE = Path(__file__).resolve().parent
+FANTASY = HERE.parent
+HARNESS = FANTASY.parent
+HUB_FILE = FANTASY / "cloud" / "hub.json"
+NOTIFY = HARNESS / "mist-voice" / "bin" / "mist-notify"
+TAKE = ("fantasy/forecasts/", "fantasy/ledger.json", "fantasy/watchlist.json")  # same list as cloud/cloud-run
+STATE = FANTASY / ".cache" / "cloud-sync.json"
+PLAYBOOK = Path.home() / "Exobrain/Areas/Adventure & Creativity/Fantasy Football/Fantasy Football Playbook.md"
+SKILL = Path.home() / ".claude/skills/fantasy-football/SKILL.md"
+ROUTINE_LOG = Path.home() / "Library/Logs/exobrain/fantasy-routines.log"
+UA = "fantasy-cloud-sync/1"  # Cloudflare answers 403 to the default Python-urllib agent
+WEEK_HDR = re.compile(r"^### Week \d+.*$", re.M)
+
+
+def call(hub: dict, path: str, body: dict | None = None) -> dict:
+    req = urllib.request.Request(hub["url"] + path, method="POST",
+                                 data=json.dumps(body or {}).encode(),
+                                 headers={"Authorization": f"Bearer {hub['token']}",
+                                          "Content-Type": "application/json", "User-Agent": UA})
+    with urllib.request.urlopen(req, timeout=30) as r:
+        return json.load(r)
+
+
+def merge(entries: list[dict], dry: bool) -> int:
+    """Season log bullets into the playbook, routine-log lines into the log file."""
+    bullets = [e["text"].rstrip() for e in entries if e.get("kind") != "routine-log"]
+    lines = [e for e in entries if e.get("kind") == "routine-log"]
+    if dry:
+        for e in entries:
+            print(f"DRY-RUN merge {e.get('kind')}: {e['text'][:100]}")
+        return len(entries)
+    if lines:
+        ROUTINE_LOG.parent.mkdir(parents=True, exist_ok=True)
+        with ROUTINE_LOG.open("a") as f:
+            for e in lines:
+                at = datetime.fromisoformat(e["at"].replace("Z", "+00:00")).astimezone()
+                stamp = at.strftime("%Y-%m-%d %H:%M")
+                f.write(f"{stamp} cloud     {e['text']}\n")
+    if bullets:
+        text = PLAYBOOK.read_text()
+        m = WEEK_HDR.search(text, text.find("## Season log"))
+        if not m:
+            raise SystemExit("cloud-sync: no '### Week' header in the Season log")
+        block = "\n\n" + "\n\n".join(bullets) + "\n"
+        PLAYBOOK.write_text(text[:m.end()] + block + text[m.end():])
+        # Regroup by week and put the forecast blocks back on top.
+        subprocess.run([sys.executable, str(HERE / "forecast"), "playbook"], capture_output=True, timeout=300)
+    return len(entries)
+
+
+def sha(path: Path) -> str:
+    return hashlib.sha256(path.read_text().encode()).hexdigest() if path.exists() else ""
+
+
+def apply_bundle(files: dict, dry: bool) -> list[str]:
+    """Take back what a cloud routine changed. An entry is written only when the
+    Mac copy still has the sha the cloud started from (a fast-forward); any
+    other case goes next to the file as <name>.cloud<suffix> and Alex hears
+    about it, so a Mac edit is never overwritten."""
+    applied, kept, repo = [], [], False
+    for key, v in files.items():
+        if key == "playbook":
+            target = PLAYBOOK
+        elif key.startswith("repo:") and key[5:].startswith(TAKE) and ".." not in key:
+            target, repo = HARNESS / key[5:], True
+        else:
+            continue
+        if dry:
+            print(f"DRY-RUN bundle {key}: base match {sha(target) == v['base']}")
+            continue
+        if sha(target) == v["base"]:
+            target.parent.mkdir(parents=True, exist_ok=True)
+            target.write_text(v["text"])
+            applied.append(key)
+        else:
+            side = target.with_name(f"{target.stem}.cloud{target.suffix}")
+            side.write_text(v["text"])
+            kept.append(str(side))
+    if kept:
+        subprocess.run([str(NOTIFY), "A cloud fantasy routine edited a file the Mac also changed. "
+                        f"The cloud copy is next to it: {', '.join(kept)}. Merge by hand.",
+                        "MIST fantasy cloud", "default", "--discord"], capture_output=True, timeout=30)
+    if repo and applied and not dry:
+        subprocess.run([str(HARNESS / "bin" / "harness-commit"), "fantasy: take back the cloud routine's edits"],
+                       cwd=HARNESS, capture_output=True, timeout=300)
+    return applied
+
+
+def main() -> int:
+    dry = "--dry-run" in sys.argv
+    try:
+        hub = json.loads(HUB_FILE.read_text())
+    except (OSError, ValueError):
+        print("cloud-sync: no fantasy/cloud/hub.json (run fantasy/cloud/deploy)")
+        return 0
+    try:
+        st = json.loads(STATE.read_text())
+    except (OSError, ValueError):
+        st = {}
+    try:
+        bundle = call(hub, "/bundle/drain").get("files", {}) if not dry else {}
+        applied = apply_bundle(bundle, dry)
+    except OSError as e:
+        print(f"cloud-sync: hub unreachable ({e})")
+        return 0
+    body: dict = {}
+    for name, path in (("playbook", PLAYBOOK), ("skill", SKILL), ("watchlist", FANTASY / "watchlist.json")):
+        try:
+            data = path.read_text()
+        except OSError:
+            continue
+        digest = hashlib.sha256(data.encode()).hexdigest()
+        if st.get(name) != digest:
+            body[name], st[name] = data, digest
+    try:
+        drained = call(hub, "/log/drain").get("entries", []) if not dry else []
+        merged = merge(drained, dry)
+        if merged:  # the playbook changed, so the cloud copy is stale
+            body["playbook"] = PLAYBOOK.read_text()
+            st["playbook"] = hashlib.sha256(body["playbook"].encode()).hexdigest()
+        if dry:
+            print(f"DRY-RUN heartbeat, uploads: {sorted(body) or 'none'}")
+            return 0
+        call(hub, "/heartbeat", body)
+    except OSError as e:
+        print(f"cloud-sync: hub unreachable ({e})")
+        return 0
+    STATE.parent.mkdir(parents=True, exist_ok=True)
+    STATE.write_text(json.dumps(st))
+    print(f"cloud-sync: heartbeat ok, uploaded {sorted(body) or 'nothing'}, merged {merged}, applied {applied or 'nothing'}")
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

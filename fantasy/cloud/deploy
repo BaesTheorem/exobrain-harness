@@ -1,0 +1,92 @@
+#!/usr/bin/env python3
+"""Deploy fantasy-hub (worker.js) to Cloudflare Workers through the API, no wrangler.
+
+    fantasy/cloud/deploy            # deploy the script, its bindings and the cron trigger
+    fantasy/cloud/deploy --print    # show the hub URL and exit
+
+Reads CF_ACCOUNT_ID and CF_SHARE_API_TOKEN from the harness .env, the ESPN
+cookies from fantasy/espn-credentials.json, the Discord bot token from
+~/.claude/channels/discord/.env, and the GitHub token from `gh auth token`.
+The hub token is made on the first run and kept in the gitignored
+fantasy/cloud/hub.json with the URL, which is where cloud-sync reads them.
+Run it again after an ESPN cookie refresh (`ff refresh`): the cloud copy of
+the cookies is a Worker secret and does not follow the Mac file by itself.
+"""
+from __future__ import annotations
+
+import json
+import secrets
+import subprocess
+import sys
+import urllib.request
+import uuid
+from pathlib import Path
+
+HERE = Path(__file__).resolve().parent
+FANTASY = HERE.parent
+HARNESS = FANTASY.parent
+HUB_FILE = HERE / "hub.json"
+NAME = "fantasy-hub"
+KV_ID = "98510b17893145618c5130b6cd6e6e4b"
+GH_REPO = "BaesTheorem/fantasy-cloud"
+CRON = ["*/15 * * * *"]
+
+
+def env_value(path: Path, key: str) -> str:
+    for line in path.read_text().splitlines():
+        k, _, v = line.strip().partition("=")
+        if k == key:
+            return v.strip().strip('"').strip("'")
+    raise SystemExit(f"deploy: {key} missing from {path}")
+
+
+def api(method: str, url: str, token: str, body: bytes | None = None, ctype: str = "application/json") -> dict:
+    req = urllib.request.Request(url, data=body, method=method,
+                                 headers={"Authorization": f"Bearer {token}", "Content-Type": ctype})
+    with urllib.request.urlopen(req, timeout=60) as r:
+        return json.load(r)
+
+
+def main() -> int:
+    hub = json.loads(HUB_FILE.read_text()) if HUB_FILE.exists() else {}
+    if "--print" in sys.argv:
+        print(hub.get("url", "(not deployed)"))
+        return 0
+    account = env_value(HARNESS / ".env", "CF_ACCOUNT_ID")
+    token = env_value(HARNESS / ".env", "CF_SHARE_API_TOKEN")
+    hub.setdefault("token", secrets.token_urlsafe(32))
+    gh = subprocess.run(["gh", "auth", "token"], capture_output=True, text=True, check=True).stdout.strip()
+    secret = {
+        "HUB_TOKEN": hub["token"],
+        "ESPN_CREDENTIALS": (FANTASY / "espn-credentials.json").read_text(),
+        "DISCORD_BOT_TOKEN": env_value(Path.home() / ".claude/channels/discord/.env", "DISCORD_BOT_TOKEN"),
+        "DISCORD_NOTIFY_CHAT_ID": env_value(HARNESS / ".env", "DISCORD_NOTIFY_CHAT_ID"),
+        "GH_TOKEN": gh,
+    }
+    bindings = [{"type": "kv_namespace", "name": "HUB", "namespace_id": KV_ID},
+                {"type": "plain_text", "name": "GH_REPO", "text": GH_REPO},
+                {"type": "plain_text", "name": "GH_WORKFLOW", "text": "watch.yml"}]
+    bindings += [{"type": "secret_text", "name": k, "text": v} for k, v in secret.items()]
+    meta = {"main_module": "worker.js", "compatibility_date": "2026-09-01", "bindings": bindings}
+    b = uuid.uuid4().hex
+    parts = [
+        (f'--{b}\r\nContent-Disposition: form-data; name="metadata"\r\nContent-Type: application/json\r\n\r\n'
+         + json.dumps(meta) + "\r\n").encode(),
+        (f'--{b}\r\nContent-Disposition: form-data; name="worker.js"; filename="worker.js"\r\n'
+         'Content-Type: application/javascript+module\r\n\r\n').encode() + (HERE / "worker.js").read_bytes() + b"\r\n",
+        f"--{b}--\r\n".encode(),
+    ]
+    base = f"https://api.cloudflare.com/client/v4/accounts/{account}/workers"
+    api("PUT", f"{base}/scripts/{NAME}", token, b"".join(parts), f"multipart/form-data; boundary={b}")
+    api("POST", f"{base}/scripts/{NAME}/subdomain", token, json.dumps({"enabled": True}).encode())
+    api("PUT", f"{base}/scripts/{NAME}/schedules", token, json.dumps([{"cron": c} for c in CRON]).encode())
+    sub = api("GET", f"{base}/subdomain", token)["result"]["subdomain"]
+    hub["url"] = f"https://{NAME}.{sub}.workers.dev"
+    HUB_FILE.write_text(json.dumps(hub, indent=2) + "\n")
+    HUB_FILE.chmod(0o600)
+    print(hub["url"])
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

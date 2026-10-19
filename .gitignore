@@ -330,3 +330,6 @@ data/memory-eval/
 # Rendered trip packets and maps (regenerable binaries, ~8 MB per trip)
 backpacking/trips/*/*.pdf
 backpacking/trips/*/*.png
+
+# fantasy cloud hub URL and bearer token (fantasy/cloud/deploy makes it)
+fantasy/cloud/hub.json

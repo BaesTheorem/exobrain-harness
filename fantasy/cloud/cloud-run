@@ -1,0 +1,162 @@
+#!/usr/bin/env python3
+"""cloud-run: set up and close a fantasy routine inside a cloud Claude session.
+
+The cloud routines (fantasy/routines/CLOUD.md) run on a fresh clone of the
+public harness with no Mac files, so this script supplies them from the
+fantasy-hub Worker and sends the results back:
+
+    python3 fantasy/cloud/cloud-run start <routine> --days 0,2 --window 10:35-11:50 [--force]
+        exit 3 and print MAC_UP when the Mac heartbeat is fresh (the Mac's own
+        routine runs, so this one must not), and SKIP when the America/Chicago
+        weekday or time is outside --days (0=Sunday) and --window or this
+        routine already ran today. The cron fires at both UTC offsets, so the
+        window is what keeps the run at its local time across daylight saving.
+        Otherwise write the ESPN cookies,
+        the playbook and skill at their Mac paths under $HOME, the watchlist,
+        a mist-notify that sends Discord DMs through the hub, and record the
+        sha256 of every file a routine can change.
+    python3 fantasy/cloud/cloud-run finish <routine>
+        send every changed file to the hub with the base it started from (the
+        Mac applies it as a fast-forward, bin/cloud-sync), send the routine-log
+        lines, and delete the cookies.
+    python3 fantasy/cloud/cloud-run notify "<text>"
+        one Discord DM to Alex through the hub.
+
+Needs FANTASY_HUB_TOKEN in the environment (the routine prompt exports it).
+"""
+from __future__ import annotations
+
+import hashlib
+import json
+import os
+import subprocess
+import sys
+import urllib.request
+from datetime import datetime
+from pathlib import Path
+from zoneinfo import ZoneInfo
+
+HERE = Path(__file__).resolve().parent
+FANTASY = HERE.parent
+HARNESS = FANTASY.parent
+HUB = "https://fantasy-hub.alex-hedtke.workers.dev"
+UA = "fantasy-cloud-run/1"  # Cloudflare answers 403 to the default Python-urllib agent
+HOME = Path.home()
+PLAYBOOK = HOME / "Exobrain/Areas/Adventure & Creativity/Fantasy Football/Fantasy Football Playbook.md"
+SKILL = HOME / ".claude/skills/fantasy-football/SKILL.md"
+ROUTINE_LOG = HOME / "Library/Logs/exobrain/fantasy-routines.log"
+BASE = Path("/tmp/fantasy-cloud-base.json")
+CREDS = FANTASY / "espn-credentials.json"
+# Repo files a routine may change and the Mac may take back. Everything else stays in the cloud.
+TAKE = ("fantasy/forecasts/", "fantasy/ledger.json", "fantasy/watchlist.json")
+
+
+def sha(text: str | None) -> str:
+    return "" if text is None else hashlib.sha256(text.encode()).hexdigest()
+
+
+def hub(path: str, body: dict | None = None, raw: bool = False):
+    tok = os.environ.get("FANTASY_HUB_TOKEN", "")
+    req = urllib.request.Request(HUB + path, method="POST" if body is not None else "GET",
+                                 data=json.dumps(body).encode() if body is not None else None,
+                                 headers={"Authorization": f"Bearer {tok}", "Content-Type": "application/json",
+                                          "User-Agent": UA})
+    with urllib.request.urlopen(req, timeout=60) as r:
+        data = r.read().decode()
+    return data if raw else json.loads(data)
+
+
+def notify(text: str) -> None:
+    hub("/notify", {"text": text})
+
+
+def in_slot(days: str | None, window: str | None) -> bool:
+    now = datetime.now(ZoneInfo("America/Chicago"))
+    if days and str((now.weekday() + 1) % 7) not in days.split(","):
+        return False
+    if window:
+        lo, hi = window.split("-")
+        return lo <= now.strftime("%H:%M") <= hi
+    return True
+
+
+def start(routine: str, force: bool, days: str | None, window: str | None) -> int:
+    if not force and not in_slot(days, window):
+        print(f"SKIP: outside {routine}'s local slot (days {days}, window {window}). Stop here.")
+        return 3
+    st = hub("/status")
+    if not st["stale"] and not force:
+        print(f"MAC_UP: the Mac heartbeat is {st['age_s']} s old, so the Mac runs {routine}. Stop here.")
+        return 3
+    today = datetime.now(ZoneInfo("America/Chicago")).date().isoformat()
+    if not force and not hub("/once", {"key": f"{routine}:{today}"})["first"]:
+        print(f"SKIP: {routine} already ran in the cloud today. Stop here.")
+        return 3
+    creds = hub("/creds")
+    CREDS.write_text(json.dumps(creds["espn"]))
+    CREDS.chmod(0o600)
+    base: dict[str, str] = {}
+    for name, path in (("playbook", PLAYBOOK), ("skill", SKILL)):
+        text = hub(f"/blob/{name}", raw=True)
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(text)
+        if name == "playbook":
+            base["playbook"] = sha(text)
+    try:
+        (FANTASY / "watchlist.json").write_text(hub("/blob/watchlist", raw=True))
+    except OSError:
+        (FANTASY / "watchlist.json").write_text("{}")
+    BASE.write_text(json.dumps(base))
+    # mist-notify is the Mac's banner tool; here each call is one Discord DM.
+    shim = HARNESS / "mist-voice" / "bin" / "mist-notify"
+    shim.write_text('#!/bin/bash\nmsg="$1"; title="${2:-MIST fantasy}"; link="${4:-}"\n'
+                    'case "$link" in http*) ;; *) link="";; esac\n'
+                    f'exec python3 "{HERE / "cloud-run"}" notify "(o.o) [cloud] $title: $msg ${{link:+<$link>}}"\n')
+    shim.chmod(0o755)
+    subprocess.run([sys.executable, "-m", "pip", "install", "-q", "nflreadpy"], capture_output=True, timeout=300)
+    print(f"READY: {routine} runs in the cloud (Mac heartbeat {st['age_s']} s old). "
+          f"Playbook at {PLAYBOOK}, skill at {SKILL}.")
+    return 0
+
+
+def finish(routine: str) -> int:
+    base = json.loads(BASE.read_text()) if BASE.exists() else {}
+    files: dict[str, dict] = {}
+    if PLAYBOOK.exists() and sha(PLAYBOOK.read_text()) != base.get("playbook"):
+        files["playbook"] = {"base": base.get("playbook", ""), "text": PLAYBOOK.read_text()}
+    out = subprocess.run(["git", "status", "--porcelain", "--untracked-files=all", "--", "fantasy"],
+                         cwd=HARNESS, capture_output=True, text=True).stdout
+    for line in out.splitlines():
+        rel = line[3:].strip().strip('"')
+        if not rel.startswith(TAKE) or not (HARNESS / rel).is_file():
+            continue
+        head = subprocess.run(["git", "show", f"HEAD:{rel}"], cwd=HARNESS, capture_output=True, text=True)
+        files[f"repo:{rel}"] = {"base": sha(head.stdout) if head.returncode == 0 else "",
+                                "text": (HARNESS / rel).read_text()}
+    if files:
+        hub("/bundle", {"routine": routine, "files": files})
+    lines = ROUTINE_LOG.read_text().splitlines() if ROUTINE_LOG.exists() else []
+    for ln in lines:
+        hub("/log", {"routine": routine, "kind": "routine-log", "text": ln[17:].strip()})  # drop the cloud timestamp; the hub stamps it
+    CREDS.unlink(missing_ok=True)
+    print(f"DONE: sent {sorted(files) or 'no file changes'} and {len(lines)} routine-log line(s).")
+    return 0
+
+
+def main() -> int:
+    if len(sys.argv) < 3 or sys.argv[1] not in {"start", "finish", "notify"}:
+        print(__doc__)
+        return 2
+    cmd, arg = sys.argv[1], sys.argv[2]
+    if cmd == "notify":
+        notify(arg)
+        return 0
+    def opt(name: str) -> str | None:
+        return sys.argv[sys.argv.index(name) + 1] if name in sys.argv[:-1] else None
+    if cmd == "start":
+        return start(arg, "--force" in sys.argv, opt("--days"), opt("--window"))
+    return finish(arg)
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

@@ -29,6 +29,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import pathlib
 import subprocess
 import sys
@@ -229,6 +230,15 @@ def main() -> int:
     ap.add_argument("--force", action="store_true", help="ping every current problem now (test)")
     ap.add_argument("--fix", action="store_true", help="repair definite problems through the write lane")
     args = ap.parse_args()
+
+    # The Mac's heartbeat to the cloud fallback (fantasy/cloud/README.md). The
+    # cloud copy of this script sets FANTASY_CLOUD=1 and must never send one,
+    # or the fallback would read the Mac as up.
+    if not args.dry_run and not os.environ.get("FANTASY_CLOUD"):
+        try:
+            subprocess.run([sys.executable, str(HERE / "cloud-sync")], timeout=120, check=False)
+        except subprocess.SubprocessError as e:
+            print(f"cloud-sync failed: {e}")
 
     d = check()
     now = datetime.now(timezone.utc)
