@@ -28,6 +28,8 @@ ROOT = Path(__file__).resolve().parent.parent
 DATA = ROOT / "data"
 CUTOFF = "2022-11-30"
 CUTOFF_TS = 1669766400
+# Lane "discord" takes any era: stalled means no commit in the 6+ months before this date.
+DISCORD_CUTOFF = "2026-04-01"
 REPO_RE = re.compile(r"github\.com/([A-Za-z0-9_.-]+)/([A-Za-z0-9_.-]+)")
 SKIP_OWNERS = {"features", "about", "orgs", "sponsors", "topics", "collections", "marketplace", "settings", "apps"}
 
@@ -49,6 +51,15 @@ WEIRD_TOPICS = [
 GAME_README = [
     "open source reimplementation", "fan remake", "engine reimplementation", "reverse engineered",
     "abandonware", "open-source remake", "unofficial remake", "recreation of the classic",
+]
+DISCORD_TOPICS = [
+    "discord-bot", "discord", "discord-activity", "discord-game", "discord-games", "discord-rpc",
+    "discord-rich-presence", "discord-client", "discord-js", "discord-py", "discord-api", "discord-music-bot",
+    "discord-ai", "discord-rpg", "discord-voice", "discord-overlay", "discord-plugin", "betterdiscord",
+]
+DISCORD_README = [
+    "discord activity", "embedded app sdk", "discord bot game", "discord rpg", "discord voice",
+    "discord bot experiment", "discord ai", "discord gpt", "discord llm", "weird discord", "discord bot that",
 ]
 GAME_TOPICS = [
     "game-remake", "reimplementation", "remake", "abandonware", "game-engine-recreation", "roguelike",
@@ -90,7 +101,7 @@ def load_jsonl(path):
     return [json.loads(line) for line in path.read_text().splitlines() if line.strip()]
 
 
-def add(cands, owner, repo, source, lane, hn=None):
+def add(cands, owner, repo, source, lane, hn=None, cutoff=CUTOFF):
     repo = re.sub(r"\.git$", "", repo).rstrip(".")
     if owner.lower() in SKIP_OWNERS or not repo:
         return
@@ -102,6 +113,7 @@ def add(cands, owner, repo, source, lane, hn=None):
         c["lanes"].append(lane)
     if hn:
         c["hn"].append(hn)
+    c["cutoff"] = max(c.get("cutoff", CUTOFF), cutoff)
 
 
 def harvest_hn(cands):
@@ -131,6 +143,47 @@ def harvest_hn(cands):
         print(f"hn {tag}: {n} hits", file=sys.stderr)
 
 
+def run_gh_queries(cands, token, queries, cutoff=CUTOFF):
+    for i, (lane, q) in enumerate(queries):
+        n = 0
+        for page in (1, 2, 3):
+            params = {"q": q, "sort": "stars", "order": "desc", "per_page": 100, "page": page}
+            d = http_json("https://api.github.com/search/repositories?" + urllib.parse.urlencode(params), token)
+            items = d.get("items", [])
+            for it in items:
+                o, r = it["full_name"].split("/", 1)
+                add(cands, o, r, f"gh:{q}", lane, cutoff=cutoff)
+                n += 1
+            time.sleep(2.2)  # search API: 30 requests/min
+            if len(items) < 100:
+                break
+        print(f"[{i + 1}/{len(queries)}] {n:4d}  {q}", file=sys.stderr, flush=True)
+
+
+def harvest_discord(cands, token):
+    c = DISCORD_CUTOFF
+    queries = [("discord", f"topic:{t} stars:>=30 pushed:<{c} fork:false") for t in DISCORD_TOPICS]
+    queries += [("discord", f'"{k}" in:readme stars:>=30 pushed:<{c} fork:false') for k in DISCORD_README]
+    queries += [("discord", f"discord in:name,description stars:>=150 pushed:<{c} fork:false")]
+    run_gh_queries(cands, token, queries, c)
+    n = 0
+    for tag in ("show_hn", "story"):
+        for page in range(3):
+            params = {"tags": tag, "query": "discord", "restrictSearchableAttributes": "title",
+                      "numericFilters": "points>=15", "hitsPerPage": 1000, "page": page}
+            d = http_json("https://hn.algolia.com/api/v1/search?" + urllib.parse.urlencode(params))
+            for h in d.get("hits", []):
+                m = REPO_RE.search((h.get("url") or "") + " " + (h.get("story_text") or ""))
+                if m:
+                    add(cands, m.group(1), m.group(2), f"hn:{tag}:discord", "discord", {
+                        "id": h["objectID"], "points": h.get("points"), "comments": h.get("num_comments"),
+                        "title": h.get("title"), "date": (h.get("created_at") or "")[:10]}, cutoff=c)
+                    n += 1
+            if len(d.get("hits", [])) < 1000:
+                break
+    print(f"hn discord: {n} hits", file=sys.stderr)
+
+
 def harvest_gh(cands, token):
     queries = []
     for k in WEIRD_README:
@@ -141,20 +194,7 @@ def harvest_gh(cands, token):
         queries.append(("games", f'"{k}" in:readme stars:>=40 pushed:<{CUTOFF} fork:false'))
     for t in GAME_TOPICS:
         queries.append(("games", f"topic:{t} stars:>=80 pushed:<{CUTOFF} fork:false"))
-    for i, (lane, q) in enumerate(queries):
-        n = 0
-        for page in (1, 2, 3):
-            params = {"q": q, "sort": "stars", "order": "desc", "per_page": 100, "page": page}
-            d = http_json("https://api.github.com/search/repositories?" + urllib.parse.urlencode(params), token)
-            items = d.get("items", [])
-            for it in items:
-                o, r = it["full_name"].split("/", 1)
-                add(cands, o, r, f"gh:{q}", lane)
-                n += 1
-            time.sleep(2.2)  # search API: 30 requests/min
-            if len(items) < 100:
-                break
-        print(f"[{i + 1}/{len(queries)}] {n:4d}  {q}", file=sys.stderr)
+    run_gh_queries(cands, token, queries)
 
 
 GQL_FIELDS = """
@@ -237,15 +277,19 @@ def strip_readme(text, n):
     return text.strip()[:n]
 
 
-def rank(per_lane, odd_extra, batch_size, readme_chars):
+def rank(per_lane, odd_extra, batch_size, readme_chars, only_lane=None):
+    cands = json.loads((DATA / "candidates.json").read_text())
     rows = [r for r in enriched_rows() if not r.get("missing")]
+    for r in rows:  # lanes and cutoff can change after enrich (a later harvest)
+        c = cands.get(r["key"], {})
+        r["lanes"], r["cutoff"] = c.get("lanes", r["lanes"]), c.get("cutoff", CUTOFF)
     keep = []
     drop = {"fork": 0, "recent": 0, "noise": 0, "tiny": 0}
     for r in rows:
         if r["fork"]:
             drop["fork"] += 1; continue
         last = max(r["pushed"], r.get("last_commit") or "")
-        if (r.get("last_commit") or r["pushed"]) >= CUTOFF:
+        if (r.get("last_commit") or r["pushed"]) >= r.get("cutoff", CUTOFF):
             drop["recent"] += 1; continue
         blob = f"{r['name']} {r.get('desc') or ''}"
         if NOISE.search(blob) or r["lang"] in (None, "TeX") and r["kb"] < 2000:
@@ -270,11 +314,14 @@ def rank(per_lane, odd_extra, batch_size, readme_chars):
         keep.append(r)
     print(f"rank: {len(rows)} enriched, kept {len(keep)}, dropped {drop}", file=sys.stderr)
 
-    lanes = {"games": [r for r in keep if "games" in r["lanes"]]}
-    lanes["weird"] = [r for r in keep if "games" not in r["lanes"]]
+    lanes = {"discord": [r for r in keep if "discord" in r["lanes"]]}
+    lanes["games"] = [r for r in keep if "games" in r["lanes"] and "discord" not in r["lanes"]]
+    lanes["weird"] = [r for r in keep if not {"games", "discord"} & set(r["lanes"])]
+    if only_lane:
+        lanes = {only_lane: lanes[only_lane]}
     bdir = DATA / "batches"
     bdir.mkdir(exist_ok=True)
-    for old in bdir.glob("*.md"):
+    for old in bdir.glob(f"{only_lane or ''}*.md"):
         old.unlink()
     summary = {}
     for lane, items in lanes.items():
@@ -296,7 +343,7 @@ def rank(per_lane, odd_extra, batch_size, readme_chars):
                     f"topics: {', '.join(r['topics']) or '-'}\n{('hn: ' + hn) if hn else ''}\n"
                     f"desc: {r.get('desc') or '-'}\n\n{strip_readme(r.get('readme') or '', readme_chars)}\n")
             (bdir / f"{lane}-{b // batch_size + 1:02d}.md").write_text("\n---\n".join(lines))
-    (DATA / "ranked.jsonl").write_text("".join(json.dumps({k: v for k, v in r.items() if k != "readme"}) + "\n"
+    (DATA / (f"ranked-{only_lane}.jsonl" if only_lane else "ranked.jsonl")).write_text("".join(json.dumps({k: v for k, v in r.items() if k != "readme"}) + "\n"
                                                for lane in lanes.values() for r in lane))
     print(f"batches: {summary} -> {bdir}", file=sys.stderr)
 
@@ -305,12 +352,14 @@ def main():
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     sub = ap.add_subparsers(dest="cmd", required=True)
     h = sub.add_parser("harvest"); h.add_argument("--skip-hn", action="store_true"); h.add_argument("--skip-gh", action="store_true")
+    h.add_argument("--lane", choices=["discord"], help="harvest only this extra lane")
     en = sub.add_parser("enrich")
     en.add_argument("--shard", type=int, default=0)
     en.add_argument("--shards", type=int, default=1)
     rk = sub.add_parser("rank")
     rk.add_argument("--per-lane", type=int, default=400)
     rk.add_argument("--odd-extra", type=int, default=300)
+    rk.add_argument("--lane", choices=["discord", "games", "weird"], help="write batches for one lane only")
     rk.add_argument("--batch", type=int, default=50)
     rk.add_argument("--readme-chars", type=int, default=1800)
     a = ap.parse_args()
@@ -319,6 +368,9 @@ def main():
     if a.cmd == "harvest":
         path = DATA / "candidates.json"
         cands = json.loads(path.read_text()) if path.exists() else {}
+        if a.lane == "discord":
+            harvest_discord(cands, token)
+            a.skip_hn = a.skip_gh = True
         if not a.skip_hn:
             harvest_hn(cands)
             path.write_text(json.dumps(cands))
@@ -329,7 +381,7 @@ def main():
     elif a.cmd == "enrich":
         enrich(token, a.shard, a.shards)
     elif a.cmd == "rank":
-        rank(a.per_lane, a.odd_extra, a.batch, a.readme_chars)
+        rank(a.per_lane, a.odd_extra, a.batch, a.readme_chars, a.lane)
 
 
 if __name__ == "__main__":
