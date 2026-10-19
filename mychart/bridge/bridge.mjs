@@ -230,90 +230,6 @@ async function connect(req) {
   return { error: { state: 'no_credentials', message: 'no session, passkey, or password for this account' } };
 }
 
-// ── Billing visits MyChart will not detail ─────────────────────────────────
-//
-// GetVisits pages its charge rows: past the first page each row is a stub
-// whose amounts all read "$0.00", and the engine posts each stub back to
-// GetMoreVisits for its real row. On one real account (2026-10-19) the server
-// answered two of fifteen stubs with Success and an empty list, every time:
-// one at a time, together, and inside the fifteen-row batch that Epic's own
-// "load all" sends (there it returned two blank rows dated 1840-12-31). The
-// engine then throws BillingNotFullyLoadedError and the account has no
-// billing at all.
-//
-// The engine is right to refuse a silent undercount, so this changes only
-// one case: a stub whose own GetMoreVisits request succeeded and came back
-// empty. Those stubs leave the visit list and are named in
-// `unavailableVisits`, with `incomplete: true`. The balance does not depend
-// on them (totalDue comes from the billing summary page). A stub whose
-// request failed, or was never sent, still fails the read.
-
-const EPIC_DAY_ZERO_UNIX_DAYS = 47117;
-
-function epicDayIso(day) {
-  const n = Number(day);
-  if (!Number.isFinite(n) || n <= 0) return null;
-  return new Date((n - EPIC_DAY_ZERO_UNIX_DAYS) * 86400000).toISOString().slice(0, 10);
-}
-
-function postedHandles(requestBody) {
-  const found = [];
-  for (const [field, value] of new URLSearchParams(String(requestBody ?? ''))) {
-    if (/^listOfAccounts\[\d+\]\.EncAccountID$/.test(field)) found.push(value);
-  }
-  return found;
-}
-
-function recoverBilling(processor, envelope, err) {
-  if (err?.name !== 'BillingNotFullyLoadedError' || !Array.isArray(envelope?.requests)) return null;
-  const answeredEmpty = new Set();
-  for (const r of envelope.requests) {
-    if (!String(r.path).startsWith('/Billing/Details/GetMoreVisits')) continue;
-    if (r.status !== 200 || r.failure || r.body?.Success !== true || !r.body?.Data) continue;
-    const posted = postedHandles(r.requestBody);
-    const rows = (r.body.Data.UnifiedVisitList ?? []).filter((row) => row && row.LevelOfDetailLoaded !== 0);
-    // One handle per request is what makes the empty answer attributable.
-    if (posted.length === 1 && rows.length === 0) answeredEmpty.add(posted[0]);
-  }
-  if (answeredEmpty.size === 0) return null;
-  const copy = structuredClone(envelope);
-  const unavailable = new Map();
-  for (const r of copy.requests) {
-    if (!String(r.path).startsWith('/Billing/Details/GetVisits')) continue;
-    const data = r.body?.Data;
-    if (!data) continue;
-    for (const [name, rows] of Object.entries(data)) {
-      if (!Array.isArray(rows) || !name.endsWith('VisitList')) continue;
-      data[name] = rows.filter((row) => {
-        const drop = row?.LevelOfDetailLoaded === 0 && answeredEmpty.has(row.HospitalAccountId);
-        if (drop) unavailable.set(row.HospitalAccountId, { startDate: epicDayIso(row.StartDate), list: name });
-        return !drop;
-      });
-    }
-  }
-  if (unavailable.size === 0) return null;
-  const standard = processor.standard(copy); // still throws if any other stub is left
-  return {
-    ...standard,
-    incomplete: true,
-    unavailableVisits: [...unavailable.values()],
-    unavailableNote:
-      'MyChart returned no details for these visits (the server answered empty, also for the batch request ' +
-      "Epic's own page sends), so their charges are unknown and they are not in the visit list. " +
-      'totalDue and amountDueNumber come from the billing summary page and do not depend on them.',
-  };
-}
-
-function standardOf(cap, envelope) {
-  try {
-    return cap.processor.standard(envelope);
-  } catch (err) {
-    const recovered = cap.id === 'get_billing' ? recoverBilling(cap.processor, envelope, err) : null;
-    if (!recovered) throw err;
-    return recovered;
-  }
-}
-
 // ── Capabilities ───────────────────────────────────────────────────────────
 
 async function runAction(client, action, req) {
@@ -331,14 +247,12 @@ async function runAction(client, action, req) {
     // Envelope path: one fetch gives both what MyChart sent and the standard
     // object. The engine hides run/processor from its types, not at runtime;
     // if a future version hides them for real, fall back to runCapability.
-    // Reads with a processor go through the envelope even when the caller
-    // did not ask for it, so standardOf can recover what the engine refuses.
     // An explicit output mode (raw, concise, ...) is the engine's own path.
     const canEnvelope = cap.kind === 'read' && cap.processor && typeof cap.run === 'function' && !args.mode;
     if (canEnvelope) {
       await client.assertProxyReadContext(args.patient);
       const envelope = await cap.run(client.request, args);
-      const standard = standardOf(cap, envelope);
+      const standard = cap.processor.standard(envelope);
       return action.envelope ? { ...out, ok: true, standard, envelope } : { ...out, ok: true, standard };
     }
     let result = await client.runCapability(cap.id, args);
@@ -414,18 +328,14 @@ function opRender(req) {
   }
   let standard;
   try {
-    standard = standardOf(cap, req.envelope);
+    standard = cap.processor.standard(req.envelope);
   } catch (err) {
     emit({ event: 'render', ok: false, error: errInfo(err) });
     return 1;
   }
   // The engine does not export its markdown renderer, so "concise" is the
   // concise projection as an object. Models read JSON fine.
-  let output = req.mode === 'concise' && standard != null ? cap.processor.concise(standard) : standard;
-  if (output && typeof output === 'object' && standard?.unavailableVisits) {
-    output = { ...output, incomplete: true, unavailableVisits: standard.unavailableVisits,
-               unavailableNote: standard.unavailableNote };
-  }
+  const output = req.mode === 'concise' && standard != null ? cap.processor.concise(standard) : standard;
   emit({ event: 'render', ok: true, output });
   return 0;
 }

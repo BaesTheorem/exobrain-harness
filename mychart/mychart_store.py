@@ -551,15 +551,28 @@ def ex_billing(standard: Any) -> Iterable[Item]:
 
 
 def ex_unavailable_bills(standard: Any) -> Iterable[Item]:
-    """Visits whose charges MyChart would not detail (see the bridge's
-    recoverBilling). Recorded so the gap shows, never notified."""
+    """Visits whose charges MyChart did not load. The engine (from 8b96bb4c,
+    openrecord#559) lists them per account in `unloadedVisits` with a reason:
+    `returned_empty` (MyChart has no details, its own page shows blank rows)
+    or `not_loaded` (the request failed; a later sync can load them).
+    Snapshots from before that commit carry the old bridge's top-level
+    `unavailableVisits`. Recorded so the gap shows, never notified."""
     seen: dict[str, int] = {}
+    rows: list[tuple[str, str, Any]] = []
     for visit in _list(standard, "unavailableVisits"):
-        when = _g(visit, "startDate") or "?"
+        rows.append((_g(visit, "startDate") or "?", "returned_empty", visit))
+    for account in _list(standard, "accounts"):
+        for visit in _list(account, "unloadedVisits"):
+            when = parse_display_time(_g(visit, "StartDateDisplay", default="")) or "?"
+            rows.append((when, _g(visit, "reason", default="not_loaded"), visit))
+    for when, reason, visit in rows:
         seen[when] = seen.get(when, 0) + 1
-        yield Item("bill", f"unavailable|{when}|{seen[when]}",
-                   f"Bill: visit on {when}, charges not available from MyChart", when, _fp(when), visit,
-                   notify=False)
+        why = "charges not available from MyChart" if reason == "returned_empty" else "charges did not load this sync"
+        # returned_empty keeps the fingerprint the old field produced, so the
+        # engine update does not register as a change.
+        fingerprint = _fp(when) if reason == "returned_empty" else _fp(when, reason)
+        yield Item("bill", f"unavailable|{when}|{seen[when]}", f"Bill: visit on {when}, {why}", when,
+                   fingerprint, visit, notify=False)
 
 
 def _visits(standard: Any, kind: str, label: str, notify: bool) -> Iterable[Item]:
