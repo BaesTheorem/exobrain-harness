@@ -1,0 +1,125 @@
+#!/usr/bin/env python3
+"""claude-api-gate: permit the Anthropic API key ONLY when the plan is at its limit.
+
+The Claude plan (OAuth) is the default for every claude session. The API key is a
+fallback, and it is permitted only when the 5-hour window or the weekly window of
+the plan is at 100% utilization. The gate reads that from the account usage
+endpoint (the same read that /usage does; it sends no message and uses no tokens).
+
+Commands:
+  status         Print the two windows and the decision. Exit 0 = open, 1 = closed.
+  exec -- CMD    If the gate is open, run CMD with ANTHROPIC_API_KEY from the
+                 Keychain. If it is closed, do not run CMD and exit 3.
+
+INVARIANTS:
+- Fail closed. Any error (no token, network error, HTTP 429, a changed response
+  shape, a missing key) gives "closed". The API key is never used on doubt.
+- The key comes from the Keychain item "mist-anthropic-fallback" and goes only
+  into the environment of the one child process. It is never printed or logged.
+- The spend cap is the Console organization balance (auto-reload OFF). This
+  tool does not count spend.
+"""
+
+from __future__ import annotations
+
+import datetime as dt
+import json
+import os
+import subprocess
+import sys
+import urllib.error
+import urllib.request
+
+KEY_SERVICE = "mist-anthropic-fallback"
+OAUTH_SERVICE = "Claude Code-credentials"
+USAGE_URL = "https://api.anthropic.com/api/oauth/usage"
+WINDOWS = ("five_hour", "seven_day")
+LOG = os.path.expanduser("~/Library/Logs/exobrain/api-fallback.log")
+NOTIFY = os.path.expanduser("~/Documents/Exobrain harness/mist-voice/bin/mist-notify")
+
+
+def _log(msg: str) -> None:
+    os.makedirs(os.path.dirname(LOG), exist_ok=True)
+    with open(LOG, "a") as f:
+        f.write(f"{dt.datetime.now():%Y-%m-%d %H:%M:%S} {msg}\n")
+
+
+def _keychain(service: str) -> str | None:
+    r = subprocess.run(["security", "find-generic-password", "-s", service, "-w"],
+                       capture_output=True, text=True)
+    return r.stdout.strip() or None if r.returncode == 0 else None
+
+
+def check() -> tuple[bool, str]:
+    """Return (open, reason). Open only when a window is verifiably at 100%."""
+    raw = _keychain(OAUTH_SERVICE)
+    if not raw:
+        return False, "no plan OAuth token in the Keychain"
+    try:
+        token = json.loads(raw)["claudeAiOauth"]["accessToken"]
+    except (ValueError, KeyError, TypeError):
+        return False, "plan OAuth token unreadable"
+    req = urllib.request.Request(USAGE_URL, headers={
+        "Authorization": f"Bearer {token}",
+        "anthropic-beta": "oauth-2025-04-20",
+        "User-Agent": "claude-code/2.1",
+    })
+    try:
+        with urllib.request.urlopen(req, timeout=15) as r:
+            data = json.load(r)
+    except (urllib.error.URLError, TimeoutError, ValueError) as e:
+        return False, f"usage read failed: {e}"
+    parts, full = [], []
+    for w in WINDOWS:
+        u = (data.get(w) or {}).get("utilization")
+        if not isinstance(u, (int, float)):
+            return False, f"usage response has no {w} utilization"
+        parts.append(f"{w}={u:g}%")
+        if u >= 100:
+            full.append(w)
+    summary = " ".join(parts)
+    if full:
+        return True, f"{summary}; at limit: {','.join(full)}"
+    return False, f"{summary}; plan has capacity"
+
+
+def main(argv: list[str]) -> int:
+    if not argv or argv[0] in ("-h", "--help"):
+        print(__doc__)
+        return 0
+    cmd = argv[0]
+    if cmd == "status":
+        ok, why = check()
+        print(f"{'OPEN' if ok else 'CLOSED'}: {why}")
+        return 0 if ok else 1
+    if cmd == "exec":
+        child = argv[1:]
+        if child[:1] == ["--"]:
+            child = child[1:]
+        if not child:
+            print("exec needs a command after --", file=sys.stderr)
+            return 2
+        ok, why = check()
+        if not ok:
+            _log(f"CLOSED, did not run {child[0]}: {why}")
+            print(f"claude-api-gate: CLOSED ({why}); the API key was not used.", file=sys.stderr)
+            return 3
+        key = _keychain(KEY_SERVICE)
+        if not key:
+            _log(f"OPEN but no key in Keychain item {KEY_SERVICE}: {why}")
+            print("claude-api-gate: OPEN, but the fallback key is missing.", file=sys.stderr)
+            return 3
+        caller = os.environ.get("MIST_API_GATE_CALLER", "unknown")
+        _log(f"OPEN, running on the API key for {caller}: {why}")
+        if os.path.exists(NOTIFY):
+            subprocess.run([NOTIFY, f"Plan limit reached ({why}). {caller} is running on the API credits.",
+                            "MIST on API credits", "none", "https://platform.claude.com/settings/billing",
+                            "--discord"], capture_output=True)
+        env = dict(os.environ, ANTHROPIC_API_KEY=key)
+        os.execvpe(child[0], child, env)
+    print(f"unknown command {cmd!r}; use status or exec", file=sys.stderr)
+    return 2
+
+
+if __name__ == "__main__":
+    sys.exit(main(sys.argv[1:]))
