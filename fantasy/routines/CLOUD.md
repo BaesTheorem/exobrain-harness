@@ -46,7 +46,7 @@ Nothing from the Mac is on disk until step 1 puts it there.
   `git push`. The Mac commits what `cloud-run finish` sends back.
 - **ESPN auth**: `ff refresh` cannot run here (it reads Chrome). If a tool
   reports "rejected the cookies", send one DM that says the cloud copy of the
-  ESPN cookies expired and that `fantasy/cloud/deploy` on the Mac fixes it,
+  ESPN cookies expired and that `ff refresh` on the Mac fixes it (cloud-sync then redeploys the hub),
   then run step 4 and stop.
 - **Data a cloud clone lacks**: `fantasy/.cache/` is empty, so the residual
   library, `leverage.json` and the volume file are not there at the start.

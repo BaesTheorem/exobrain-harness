@@ -244,8 +244,8 @@ called by `lineup-watch`). When it is 35 minutes stale, the Worker runs
 in for the Mac routines, following `fantasy/routines/CLOUD.md`. Cloud
 notifications are Discord DMs. Cloud edits to the playbook come back as
 fast-forwards when the Mac wakes; a `.cloud` copy next to the playbook means
-both sides changed it and it needs a merge. After `ff refresh`, run
-`fantasy/cloud/deploy` so the cloud has the new cookies. Design and limits:
+both sides changed it and it needs a merge. When the cookies change on the Mac, `cloud-sync` redeploys the Worker by
+itself. Design and limits:
 `fantasy/cloud/README.md`.
 
 **The lock-window watcher is already running** (`fantasy/bin/lineup-watch`

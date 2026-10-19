@@ -133,6 +133,23 @@ def main() -> int:
     except OSError as e:
         print(f"cloud-sync: hub unreachable ({e})")
         return 0
+    # The cloud copy of the ESPN cookies is a Worker secret, so a change to the
+    # Mac file (`ff refresh`, or the client's own refresh on a 401) redeploys
+    # the Worker. Nobody has to remember to run deploy.
+    creds = FANTASY / "espn-credentials.json"
+    if not dry and creds.exists() and st.get("creds") != sha(creds):
+        r = subprocess.run([sys.executable, str(FANTASY / "cloud" / "deploy")],
+                           capture_output=True, text=True, timeout=180)
+        if r.returncode == 0:
+            st["creds"] = sha(creds)
+            print("cloud-sync: ESPN cookies changed, redeployed the hub")
+        else:
+            print(f"cloud-sync: redeploy failed: {r.stderr.strip()[-300:]}")
+            if st.get("creds_fail") != sha(creds):  # one DM per cookie change, not one per run
+                st["creds_fail"] = sha(creds)
+                subprocess.run([str(NOTIFY), "The ESPN cookies changed, but the fantasy hub redeploy failed, so "
+                                "the cloud fallback has old cookies. Run fantasy/cloud/deploy to see the error.",
+                                "MIST fantasy cloud", "default", "--discord"], capture_output=True, timeout=30)
     body: dict = {}
     for name, path in (("playbook", PLAYBOOK), ("skill", SKILL), ("watchlist", FANTASY / "watchlist.json")):
         try:

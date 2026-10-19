@@ -44,8 +44,9 @@ local slot continue.
 
 ## Limits
 
-- `ff refresh` reads the cookies from Chrome on the Mac. After a refresh, run
-  `fantasy/cloud/deploy` again, because the cloud copy is a Worker secret.
+- `ff refresh` reads the cookies from Chrome on the Mac. The cloud copy is a
+  Worker secret, so `cloud-sync` redeploys the Worker by itself when the Mac
+  file changes, and sends a DM if that redeploy fails.
 - The incident routine and `chat-watch` are not in the cloud. `roster-watch`
   sends the incident as a DM, and the judgment waits for the Mac.
 - A cloud clone has no `fantasy/.cache/`. Tools that read cached models
