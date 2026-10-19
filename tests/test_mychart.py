@@ -269,6 +269,37 @@ const caps = {
     processor: { standard: (env) => ({ n: env.requests.length }), concise: (s) => s },
     run: async () => ({ requests: [{ path: '/a', status: 200, body: {} }] }) },
   send_message: { id: 'send_message', kind: 'write', params: [] },
+  get_billing: { id: 'get_billing', kind: 'read', params: [],
+    // Mimics the engine: a stub with no hydrated answer makes standard() throw.
+    processor: {
+      standard: (env) => {
+        const visits = env.requests.find((r) => r.path.startsWith('/Billing/Details/GetVisits')).body.Data;
+        const hydrated = new Set();
+        for (const r of env.requests.filter((x) => x.path.startsWith('/Billing/Details/GetMoreVisits'))) {
+          const handle = new URLSearchParams(r.requestBody).get('listOfAccounts[0].EncAccountID');
+          if ((r.body?.Data?.UnifiedVisitList ?? []).some((row) => row.LevelOfDetailLoaded !== 0)) hydrated.add(handle);
+        }
+        const stubs = visits.UnifiedVisitList.filter((v) => v.LevelOfDetailLoaded === 0 && !hydrated.has(v.HospitalAccountId));
+        if (stubs.length) { const e = new Error('not loaded'); e.name = 'BillingNotFullyLoadedError'; throw e; }
+        return { totalDue: 10, accounts: [{ visits: visits.UnifiedVisitList.length }] };
+      },
+      concise: (s) => s,
+    },
+    run: async () => {
+      const failed = process.env.STUB_BILLING_MODE === 'failed';
+      return { requests: [
+        { path: '/Billing/Details/GetVisits?id=x', status: 200, body: { Data: { UnifiedVisitList: [
+          { LevelOfDetailLoaded: 2, HospitalAccountId: 'H0', StartDate: 67000 },
+          { LevelOfDetailLoaded: 0, HospitalAccountId: 'A', StartDate: 67472 },
+          { LevelOfDetailLoaded: 0, HospitalAccountId: 'B', StartDate: 67603 } ] } } },
+        { path: '/Billing/Details/GetMoreVisits?noCache=1', method: 'POST', status: 200,
+          requestBody: 'id=x&listOfAccounts%5B0%5D.EncAccountID=A',
+          body: { Success: true, Data: { UnifiedVisitList: [{ LevelOfDetailLoaded: 2, StartDate: 67472 }] } } },
+        { path: '/Billing/Details/GetMoreVisits?noCache=2', method: 'POST', status: failed ? 500 : 200,
+          requestBody: 'id=x&listOfAccounts%5B0%5D.EncAccountID=B', failure: failed ? 'HTTP 500' : undefined,
+          body: failed ? {} : { Success: true, Data: { UnifiedVisitList: [] } } },
+      ] };
+    } },
   get_big: { id: 'get_big', kind: 'read', params: [],
     processor: { standard: (env) => ({ size: env.requests[0].body.length }), concise: (s) => s },
     run: async () => ({ requests: [{ path: '/big', status: 200, body: 'x'.repeat(3000000) }] }) },
@@ -326,6 +357,30 @@ def test_bridge_flushes_every_event_after_a_large_payload(stub_engine, isolated)
     assert [a["id"] for a in result.actions] == ["get_big", "get_allergies"]
     assert result.actions[0]["standard"] == {"size": 3000000}
     assert result.of("done") and result.of("session")
+
+
+def test_billing_names_visits_mychart_answered_empty_and_keeps_the_rest(stub_engine, monkeypatch, isolated):
+    monkeypatch.setenv("STUB_BILLING_MODE", "empty")
+    acct = core.add_account("north", "mychart.example.org")
+    isolated["north:passkey"] = json.dumps({"signCount": 0})
+    action_result = core.run_actions(acct, [{"id": "get_billing", "envelope": True}]).actions[0]
+    assert action_result["ok"] is True
+    std = action_result["standard"]
+    assert std["totalDue"] == 10 and std["incomplete"] is True
+    assert std["unavailableVisits"] == [{"startDate": "2026-02-02", "list": "UnifiedVisitList"}]
+    # The stored envelope is still exactly what MyChart sent.
+    assert len(action_result["envelope"]["requests"]) == 3
+    items = list(st.ex_billing(std))
+    assert [(i.kind, i.notify) for i in items if i.key.startswith("unavailable|")] == [("bill", False)]
+
+
+def test_billing_still_fails_when_a_hydration_request_failed(stub_engine, monkeypatch, isolated):
+    monkeypatch.setenv("STUB_BILLING_MODE", "failed")
+    acct = core.add_account("north", "mychart.example.org")
+    isolated["north:passkey"] = json.dumps({"signCount": 0})
+    action_result = core.run_actions(acct, [{"id": "get_billing", "envelope": True}]).actions[0]
+    assert action_result["ok"] is False
+    assert action_result["error"]["name"] == "BillingNotFullyLoadedError"
 
 
 def test_bridge_refuses_writes_unless_allowed(stub_engine, isolated):

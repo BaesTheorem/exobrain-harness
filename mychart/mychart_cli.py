@@ -558,8 +558,11 @@ def cmd_show(args: argparse.Namespace) -> int:
     shown = 0
     for acct in accounts:
         snap = s.latest(acct.name, capability)
-        stamp = snap["fetched_at"][:16] if snap else "never synced"
-        print(f"== {acct.label or acct.name} (synced {stamp})")
+        if snap:
+            stamp = f"synced {snap['fetched_at'][:16]}"
+        else:
+            stamp = "never synced" if core.auth_for(acct) else f"not signed in yet: mychart login {acct.name}"
+        print(f"== {acct.label or acct.name} ({stamp})")
         for kind in kinds:
             for row in s.items(kind, acct.name, include_gone=args.include_gone, limit=args.limit):
                 when = (row["when_iso"] or "")[:10]

@@ -526,6 +526,7 @@ def ex_messages(standard: Any) -> Iterable[Item]:
 
 
 def ex_billing(standard: Any) -> Iterable[Item]:
+    yield from ex_unavailable_bills(standard)
     total = _g(standard, "totalDue")
     if total is not None:
         yield Item("balance", "total", f"Balance due: ${total}", None, _fp(total), {"totalDue": total},
@@ -542,10 +543,23 @@ def ex_billing(standard: Any) -> Iterable[Item]:
             due = _g(visit, "SelfAmountDue", default="")
             yield Item("bill", key, f"Bill: {_g(visit, 'Description', default='?')} "
                                     f"({_g(visit, 'StartDateDisplay', default='')}), you owe {due}",
-                       None, _fp(due, _g(visit, "ChargeAmount")),
+                       parse_display_time(_g(visit, "StartDateDisplay", default="")) or None,
+                       _fp(due, _g(visit, "ChargeAmount")),
                        {k: _g(visit, k) for k in ("Description", "StartDateDisplay", "ChargeAmount",
                                                    "SelfAmountDue", "InsuranceAmountDue")},
                        notify=True, notify_on_change=True)
+
+
+def ex_unavailable_bills(standard: Any) -> Iterable[Item]:
+    """Visits whose charges MyChart would not detail (see the bridge's
+    recoverBilling). Recorded so the gap shows, never notified."""
+    seen: dict[str, int] = {}
+    for visit in _list(standard, "unavailableVisits"):
+        when = _g(visit, "startDate") or "?"
+        seen[when] = seen.get(when, 0) + 1
+        yield Item("bill", f"unavailable|{when}|{seen[when]}",
+                   f"Bill: visit on {when}, charges not available from MyChart", when, _fp(when), visit,
+                   notify=False)
 
 
 def _visits(standard: Any, kind: str, label: str, notify: bool) -> Iterable[Item]:
