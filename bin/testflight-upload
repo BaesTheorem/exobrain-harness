@@ -64,7 +64,7 @@ cat > "$OUT/ExportOptions.plist" <<PL
 </dict></plist>
 PL
 # Xcode's account session sometimes answers "No Accounts with App Store
-# Connect Access" for a minute (seen 2026-10-19 after a web sign-in), and the
+# Connect Access" or "Failed to Use Accounts" for a minute (seen 2026-10-19 after a web sign-in), and the
 # same export then works: retry that error only.
 for try in 1 2 3; do
   rm -rf "$OUT/export"
@@ -75,7 +75,7 @@ for try in 1 2 3; do
   set -e
   cat "$OUT/export.log"
   ((status == 0)) && break
-  grep -q 'No Accounts with App Store Connect Access' "$OUT/export.log" && ((try < 3)) || exit "$status"
+  grep -qE 'No Accounts with App Store Connect Access|Failed to Use Accounts' "$OUT/export.log" && ((try < 3)) || exit "$status"
   echo "export: Xcode account not ready, retry $try in 30 s" >&2
   sleep 30
 done
