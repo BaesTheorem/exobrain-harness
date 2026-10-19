@@ -15,6 +15,9 @@ INVARIANTS:
   the first snapshot), minus the antiforgery-token page fetches. Tokens
   change on every request, so storing every envelope would grow without
   limit while saying nothing new.
+- "Changed" ignores fields that MyChart re-mints on every read (VOLATILE_KEY:
+  tokens, signed content links, photo blob names, query keys). They differed
+  between two syncs three minutes apart on a real account (2026-10-19).
 - Nothing here talks to the network.
 """
 
@@ -57,7 +60,8 @@ CREATE TABLE IF NOT EXISTS snapshots (
     ok INTEGER NOT NULL,
     error TEXT,
     standard_sha TEXT,
-    envelope_sha TEXT
+    envelope_sha TEXT,
+    stable_sha TEXT
 );
 CREATE INDEX IF NOT EXISTS snapshots_by_cap ON snapshots(account, capability, args, fetched_at);
 CREATE TABLE IF NOT EXISTS items (
@@ -153,6 +157,9 @@ class Store:
         self.db.execute("PRAGMA journal_mode=WAL")
         self.db.execute("PRAGMA foreign_keys=ON")
         self.db.executescript(SCHEMA)
+        columns = {row[1] for row in self.db.execute("PRAGMA table_info(snapshots)")}
+        if "stable_sha" not in columns:
+            self.db.execute("ALTER TABLE snapshots ADD COLUMN stable_sha TEXT")
         path.chmod(0o600)
 
     def close(self) -> None:
@@ -213,14 +220,20 @@ class Store:
 
         previous = self.last_ok_snapshot(account, capability, args)
         standard = action.get("standard")
-        standard_sha = self.put_blob(standard)
+        stable_sha = sha(canonical(stable_view(standard)))
+        previous_stable = None
+        if previous is not None:
+            previous_stable = previous["stable_sha"] or sha(canonical(stable_view(self.get_blob(previous["standard_sha"]))))
+        changed = previous is None or previous_stable != stable_sha
+        # An unchanged read points at the stored copy; only fresh tokens differ.
+        standard_sha = previous["standard_sha"] if previous is not None and not changed else self.put_blob(standard)
         envelope_sha = None
-        if action.get("envelope") is not None and (previous is None or previous["standard_sha"] != standard_sha):
+        if action.get("envelope") is not None and changed:
             envelope_sha = self.put_blob(strip_token_fetches(action["envelope"]))
         self.db.execute(
-            "INSERT INTO snapshots(sync_id, account, capability, args, fetched_at, ok, standard_sha, envelope_sha) "
-            "VALUES (?, ?, ?, ?, ?, 1, ?, ?)",
-            (sync_id, account, capability, args, fetched, standard_sha, envelope_sha),
+            "INSERT INTO snapshots(sync_id, account, capability, args, fetched_at, ok, standard_sha, envelope_sha, "
+            "stable_sha) VALUES (?, ?, ?, ?, ?, 1, ?, ?, ?)",
+            (sync_id, account, capability, args, fetched, standard_sha, envelope_sha, stable_sha),
         )
         baseline = previous is None
         changes: list[dict[str, Any]] = []
@@ -232,7 +245,7 @@ class Store:
         if extractor is not None:
             items = list(extractor(standard))
             changes = self._merge_items(sync_id, account, capability, items, baseline=baseline, at=fetched)
-        elif not baseline and previous is not None and previous["standard_sha"] != standard_sha and args == "{}":
+        elif not baseline and changed and args == "{}":
             changes = [self._change(sync_id, account, capability, "*", "changed", fetched,
                                     f"{TITLES.get(capability, capability)} changed", notify=False)]
         return {"capability": capability, "ok": True, "baseline": baseline, "changes": changes}
@@ -400,6 +413,19 @@ class Store:
         return self.db.execute(
             "SELECT * FROM syncs WHERE account=? AND ok=1 ORDER BY id DESC LIMIT 1", (account,)
         ).fetchone()
+
+
+VOLATILE_KEY = re.compile(r"token|nonce|uniqueid|querykey|photoblobfilename|contentlinkurl|rteupdateinprogress",
+                          re.IGNORECASE)
+
+
+def stable_view(obj: Any) -> Any:
+    """The object minus the fields MyChart re-mints on every read."""
+    if isinstance(obj, dict):
+        return {k: stable_view(v) for k, v in obj.items() if not VOLATILE_KEY.search(k)}
+    if isinstance(obj, list):
+        return [stable_view(v) for v in obj]
+    return obj
 
 
 def strip_token_fetches(envelope: Any) -> Any:

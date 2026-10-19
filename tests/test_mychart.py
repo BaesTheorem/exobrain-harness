@@ -26,6 +26,9 @@ import mychart_ehi as ehi  # noqa: E402
 import mychart_fhir as fhir  # noqa: E402
 import mychart_store as st  # noqa: E402
 
+# The real Keychain functions, kept before the autouse fixture swaps them out.
+REAL_KEYCHAIN_GET, REAL_KEYCHAIN_SET = core.keychain_get, core.keychain_set
+
 
 @pytest.fixture(autouse=True)
 def isolated(tmp_path, monkeypatch):
@@ -96,6 +99,16 @@ def test_unchanged_read_has_no_changes_and_stores_no_new_blob(tmp_path):
     res = s.record_snapshot(2, "north", action("get_lab_results", std, envelope={"requests": [{"body": "new token"}]}))
     assert res["changes"] == []
     assert s.db.execute("SELECT count(*) FROM blobs").fetchone()[0] == blobs
+
+
+def test_fresh_tokens_alone_are_not_a_change(tmp_path):
+    s = st.Store(tmp_path / "s.db")
+    first = {"items": [{"Name": "Flu shot", "ContentLinkURL": "/x?t=aaa"}], "queryKey": "k1"}
+    again = {"items": [{"Name": "Flu shot", "ContentLinkURL": "/x?t=bbb"}], "queryKey": "k2"}
+    s.record_snapshot(1, "north", action("get_preventive_care", first))
+    assert s.record_snapshot(2, "north", action("get_preventive_care", again))["changes"] == []
+    moved = {"items": [{"Name": "Flu shot", "Status": "Due", "ContentLinkURL": "/x?t=ccc"}], "queryKey": "k3"}
+    assert [c["change"] for c in s.record_snapshot(3, "north", action("get_preventive_care", moved))["changes"]] == ["changed"]
 
 
 def test_failed_read_never_marks_items_gone(tmp_path):
@@ -196,6 +209,30 @@ def test_auth_prefers_the_passkey_over_a_session(isolated):
     assert core.auth_for(acct) == {"passkey": "P", "user": "patient", "pass": "pw"}
 
 
+def test_long_keychain_values_are_split_under_the_security_line_limit(monkeypatch):
+    # `security -i` cuts a command line at 4,096 bytes; a real MyChart session
+    # is about 4,000 base64 characters, so long values go in as parts.
+    raw: dict[str, str] = {}
+    monkeypatch.setattr(core, "_raw_get", lambda key: raw.get(key))
+    monkeypatch.setattr(core, "_raw_delete", lambda key: raw.pop(key, None) is not None)
+
+    def raw_set(key, value):
+        assert len(value) < 4000, "a line would pass the security -i limit"
+        raw[key] = value
+        return 0
+
+    monkeypatch.setattr(core, "_raw_set", raw_set)
+    monkeypatch.setattr(core, "keychain_get", REAL_KEYCHAIN_GET)
+    monkeypatch.setattr(core, "keychain_set", REAL_KEYCHAIN_SET)
+    long_value = "x" * 9000
+    core.keychain_set("north:session", long_value)
+    assert raw["north:session"].startswith(core.CHUNK_MARK)
+    assert core.keychain_get("north:session") == long_value
+    core.keychain_set("north:session", "short")
+    assert core.keychain_get("north:session") == "short"
+    assert not [k for k in raw if k.startswith("north:session#")]
+
+
 def test_unattended_forces_read_only_and_no_prompts(monkeypatch, isolated):
     acct = core.add_account("north", "mychart.example.org")
     isolated["north:passkey"] = "P"
@@ -232,6 +269,9 @@ const caps = {
     processor: { standard: (env) => ({ n: env.requests.length }), concise: (s) => s },
     run: async () => ({ requests: [{ path: '/a', status: 200, body: {} }] }) },
   send_message: { id: 'send_message', kind: 'write', params: [] },
+  get_big: { id: 'get_big', kind: 'read', params: [],
+    processor: { standard: (env) => ({ size: env.requests[0].body.length }), concise: (s) => s },
+    run: async () => ({ requests: [{ path: '/big', status: 200, body: 'x'.repeat(3000000) }] }) },
 };
 export const CAPABILITIES = Object.values(caps);
 export function getCapability(id) { return caps[id]; }
@@ -275,6 +315,17 @@ def test_bridge_recovers_counter_drift_and_saves_the_accepted_count(stub_engine,
     act = result.actions[0]
     assert act["ok"] and act["standard"] == {"n": 1} and act["envelope"]["requests"][0]["path"] == "/a"
     assert not result.of("fatal")
+
+
+def test_bridge_flushes_every_event_after_a_large_payload(stub_engine, isolated):
+    # Regression: process.exit() right after a big write dropped the last
+    # events on the first real account (2026-10-19).
+    acct = core.add_account("north", "mychart.example.org")
+    isolated["north:passkey"] = json.dumps({"signCount": 0})
+    result = core.run_actions(acct, [{"id": "get_big", "envelope": True}, {"id": "get_allergies", "envelope": True}])
+    assert [a["id"] for a in result.actions] == ["get_big", "get_allergies"]
+    assert result.actions[0]["standard"] == {"size": 3000000}
+    assert result.of("done") and result.of("session")
 
 
 def test_bridge_refuses_writes_unless_allowed(stub_engine, isolated):

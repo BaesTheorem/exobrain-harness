@@ -232,39 +232,90 @@ def _keychain_service() -> str:
     return os.environ.get("MYCHART_KEYCHAIN_SERVICE", SERVICE)
 
 
-def keychain_get(key: str) -> str | None:
+# `security -i` reads one command per line and cuts a line at 4,096 bytes; the
+# rest of the line then parses as a second, broken command (found 2026-10-19:
+# a real MyChart session is about 4,000 base64 characters). A value longer than
+# CHUNK is kept as numbered parts behind a marker item. "@" and ":" are not in
+# the base64 alphabet, so the marker cannot be mistaken for a value.
+CHUNK = 3000
+CHUNK_MARK = "@chunks:"
+
+
+def _raw_get(key: str) -> str | None:
     proc = subprocess.run(
         ["/usr/bin/security", "find-generic-password", "-s", _keychain_service(), "-a", key, "-w"],
         capture_output=True,
         text=True,
     )
-    if proc.returncode != 0:
-        return None
-    try:
-        return base64.b64decode(proc.stdout.strip()).decode()
-    except ValueError:
-        return None
+    return proc.stdout.strip() if proc.returncode == 0 else None
 
 
-def keychain_set(key: str, value: str) -> None:
-    encoded = base64.b64encode(value.encode()).decode()
+def _raw_set(key: str, raw: str) -> int:
     service = _keychain_service()
     command = (
         f'add-generic-password -U -s {service} -a {key} -l "{service} {key}" '
-        f'-D "MyChart CLI secret" -w {encoded}\n'
+        f'-D "MyChart CLI secret" -w {raw}\n'
     )
-    proc = subprocess.run(["/usr/bin/security", "-i"], input=command, capture_output=True, text=True)
-    if proc.returncode != 0 or keychain_get(key) != value:
-        raise MyChartError(f"could not save {key} to the Keychain (security rc={proc.returncode})")
+    return subprocess.run(["/usr/bin/security", "-i"], input=command, capture_output=True, text=True).returncode
 
 
-def keychain_delete(key: str) -> bool:
+def _raw_delete(key: str) -> bool:
     proc = subprocess.run(
         ["/usr/bin/security", "delete-generic-password", "-s", _keychain_service(), "-a", key],
         capture_output=True,
         text=True,
     )
     return proc.returncode == 0
+
+
+def _delete_parts(key: str, start: int) -> None:
+    index = start
+    while _raw_delete(f"{key}#{index}"):
+        index += 1
+
+
+def keychain_get(key: str) -> str | None:
+    raw = _raw_get(key)
+    if raw is None:
+        return None
+    if raw.startswith(CHUNK_MARK):
+        try:
+            count = int(raw[len(CHUNK_MARK):])
+        except ValueError:
+            return None
+        parts = [_raw_get(f"{key}#{i}") for i in range(count)]
+        if any(part is None for part in parts):
+            return None
+        raw = "".join(part or "" for part in parts)
+    try:
+        return base64.b64decode(raw).decode()
+    except ValueError:
+        return None
+
+
+def keychain_set(key: str, value: str) -> None:
+    encoded = base64.b64encode(value.encode()).decode()
+    if len(encoded) <= CHUNK:
+        rc = _raw_set(key, encoded)
+        _delete_parts(key, 0)
+    else:
+        parts = [encoded[i:i + CHUNK] for i in range(0, len(encoded), CHUNK)]
+        # Parts first, marker last: a reader never finds a marker without parts.
+        rc = max(_raw_set(f"{key}#{i}", part) for i, part in enumerate(parts))
+        rc = max(rc, _raw_set(key, f"{CHUNK_MARK}{len(parts)}"))
+        _delete_parts(key, len(parts))
+    if rc != 0 or keychain_get(key) != value:
+        raise MyChartError(f"could not save {key} to the Keychain (security rc={rc})")
+
+
+def keychain_exists(key: str) -> bool:
+    return _raw_get(key) is not None
+
+
+def keychain_delete(key: str) -> bool:
+    found = _raw_delete(key)
+    _delete_parts(key, 0)
+    return found
 
 
 def secret(account: str, kind: str) -> str | None:
@@ -396,9 +447,22 @@ def make_secret_saver(account: Account) -> Callable[[dict[str, Any]], dict[str, 
     def hook(event: dict[str, Any]) -> dict[str, Any] | None:
         kind = event.get("event")
         if kind in ("passkey", "passkey_created") and event.get("credential"):
-            set_secret(account.name, "passkey", event["credential"])
+            try:
+                set_secret(account.name, "passkey", event["credential"])
+            except MyChartError as exc:
+                # Losing a new passkey orphans it on the MyChart account, so
+                # keep it in a private file rather than drop it.
+                rescue = data_dir() / "passkey-rescue" / f"{account.name}.json"
+                write_json_atomic(rescue, {"credential": event["credential"], "error": str(exc)})
+                print(f"mychart: {exc}. The passkey is in {rescue}; move it with: mychart doctor",
+                      file=sys.stderr)
         elif kind == "session" and event.get("session"):
-            set_secret(account.name, "session", event["session"])
+            # A session only saves a sign-in for the next quarter hour; a
+            # failure here must never end the run.
+            try:
+                set_secret(account.name, "session", event["session"])
+            except MyChartError as exc:
+                print(f"mychart: warning: {exc}", file=sys.stderr)
         return None
 
     return hook

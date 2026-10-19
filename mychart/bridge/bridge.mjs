@@ -34,10 +34,19 @@ console.info = toStderr;
 console.debug = toStderr;
 console.warn = toStderr;
 
+// A write to a pipe is asynchronous in Node, and process.exit() drops whatever
+// is still queued. A sync with large envelopes lost its last events that way
+// (2026-10-19, first real account). So the last line exits from its own write
+// callback, which runs only after every earlier write has flushed.
+function finish(rc) {
+  process.stdout.write(JSON.stringify({ event: 'done', rc }) + '\n', () => process.exit(rc));
+}
+
 const ENGINE = process.env.MYCHART_ENGINE;
 if (!ENGINE) {
   emit({ event: 'fatal', error: 'MYCHART_ENGINE is not set (path to npm-package/dist/index.js)' });
-  process.exit(2);
+  finish(2);
+  await new Promise(() => {});
 }
 const lib = await import(ENGINE);
 const { MyChartClient, getCapability, CAPABILITIES, serializeCredential, deserializeCredential } = lib;
@@ -347,6 +356,5 @@ try {
 } catch (err) {
   emit({ event: 'fatal', error: errInfo(err) });
 }
-emit({ event: 'done', rc });
 rl.close();
-process.exit(rc);
+finish(rc);

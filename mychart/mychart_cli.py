@@ -148,9 +148,15 @@ def cmd_accounts_add(args: argparse.Namespace) -> int:
 
 def cmd_accounts_set(args: argparse.Namespace) -> int:
     enabled = True if args.enable else False if args.disable else None
+    skip = None
+    if args.skip or args.unskip:
+        current = set(core.get_account(args.name).extra.get("skip") or [])
+        current |= {resolve_capability(c) for c in (args.skip or "").split(",") if c}
+        current -= {resolve_capability(c) for c in (args.unskip or "").split(",") if c}
+        skip = sorted(current)
     acct = core.update_account(args.name, host=args.host, label=args.label, username=args.username,
-                               fhir_base=args.fhir_base, enabled=enabled)
-    print(f"Updated {acct.name}.")
+                               fhir_base=args.fhir_base, enabled=enabled, skip=skip)
+    print(f"Updated {acct.name}." + (f" Sync skips: {', '.join(skip) or 'none'}." if skip is not None else ""))
     return 0
 
 
@@ -185,7 +191,8 @@ def code_prompt(event: dict[str, Any]) -> dict[str, Any] | None:
     kind = event.get("event")
     if kind == "need_2fa":
         delivery = event.get("delivery") or {}
-        where = f" ({delivery.get('method')} to {delivery.get('contact')})" if delivery.get("method") else ""
+        method, contact = delivery.get("method"), delivery.get("contact")
+        where = f" ({method} to {contact})" if method and contact else f" ({method})" if method else ""
         attempt = event.get("attempt", 1)
         prefix = "Code rejected. " if attempt > 1 else ""
         return {"code": input(f"{prefix}MyChart sent a code{where}. Code: ").strip()}
@@ -331,6 +338,8 @@ def sync_account(s: st.Store, acct: core.Account, capability_ids: list[str], *, 
         method = login.get("method")
         if not login.get("ok"):
             error = f"sign-in failed: {login.get('message') or login.get('state') or result.fatal or result.rc}"
+        elif not result.of("done"):
+            error = "the engine bridge stopped before it finished (see mychart/data/logs/bridge.log)"
     except core.MyChartError as exc:
         error = str(exc)
     ok = error is None and not summary["failed"]
@@ -364,9 +373,11 @@ def cmd_sync(args: argparse.Namespace) -> int:
     results = []
     with SyncLock():
         for acct in accounts:
+            skip = set(acct.extra.get("skip") or [])
+            ids = [c for c in capability_ids if c not in skip]
             if not args.quiet:
-                print(f"Syncing {acct.name} ({len(capability_ids)} categories)...", file=sys.stderr)
-            results.append(sync_account(s, acct, capability_ids, verbose=args.verbose, quiet=args.quiet))
+                print(f"Syncing {acct.name} ({len(ids)} categories)...", file=sys.stderr)
+            results.append(sync_account(s, acct, ids, verbose=args.verbose, quiet=args.quiet))
     fhir_results = run_fhir_pulls(accounts) if args.fhir else []
     sent = notify_pending(s) if args.notify else None
     failed_login = [r for r in results if r["error"]] + [r for r in fhir_results if r.get("error")]
@@ -695,8 +706,49 @@ def cmd_status(args: argparse.Namespace) -> int:
     print(f"store    {db} ({db.stat().st_size // 1024} KB)" if db.exists() else "store    empty")
     if core.unattended():
         print("mode     unattended: writes and prompts are off")
+    if db.exists():
+        s = store()
+        for name, acct in sorted(core.load_accounts().items()):
+            failing = []
+            skipped = set(acct.extra.get("skip") or [])
+            for (capability,) in s.db.execute("SELECT DISTINCT capability FROM snapshots WHERE account=?", (name,)):
+                if capability in skipped:
+                    continue
+                last = s.db.execute("SELECT ok FROM snapshots WHERE account=? AND capability=? ORDER BY id DESC LIMIT 3",
+                                    (name, capability)).fetchall()
+                if len(last) == 3 and not any(r["ok"] for r in last):
+                    failing.append(capability)
+            if failing:
+                print(f"failing  {name}: {', '.join(sorted(failing))} (last 3 reads failed; "
+                      f"mychart accounts set {name} --skip <id> if the portal has no such page)")
     print()
     return cmd_accounts(args)
+
+
+def cmd_doctor(args: argparse.Namespace) -> int:
+    """Move rescued passkeys into the Keychain and check each saved secret."""
+    rescue_dir = core.data_dir() / "passkey-rescue"
+    for path in sorted(rescue_dir.glob("*.json")) if rescue_dir.exists() else []:
+        name = path.stem
+        credential = json.loads(path.read_text())["credential"]
+        core.set_secret(name, "passkey", credential)
+        path.unlink()
+        print(f"{name}: moved the rescued passkey into the Keychain")
+    problems = 0
+    for name in sorted(core.load_accounts()):
+        for kind in ("passkey", "session", "fhir"):
+            if not core.keychain_exists(f"{name}:{kind}"):
+                continue
+            raw = core.secret(name, kind)
+            try:
+                json.loads(raw or "")
+                state = "ok"
+            except json.JSONDecodeError:
+                state = "CORRUPT (removed; sign in again if it was the passkey)"
+                core.keychain_delete(f"{name}:{kind}")
+                problems += 1
+            print(f"{name}:{kind} {state}")
+    return 1 if problems else 0
 
 
 # ── parser ──────────────────────────────────────────────────────────────────
@@ -726,6 +778,8 @@ def build_parser() -> argparse.ArgumentParser:
     a.add_argument("--fhir-base")
     a.add_argument("--enable", action="store_true")
     a.add_argument("--disable", action="store_true")
+    a.add_argument("--skip", help="comma-separated categories this portal does not serve (left out of sync)")
+    a.add_argument("--unskip", help="comma-separated categories to put back into sync")
     a.set_defaults(func=cmd_accounts_set)
     a = asub.add_parser("remove", help="remove an account and its Keychain secrets")
     a.add_argument("name")
@@ -746,6 +800,9 @@ def build_parser() -> argparse.ArgumentParser:
 
     p = sub.add_parser("status", help="engine, store, and accounts")
     p.set_defaults(func=cmd_status)
+
+    p = sub.add_parser("doctor", help="check saved secrets; move a rescued passkey into the Keychain")
+    p.set_defaults(func=cmd_doctor)
 
     p = sub.add_parser("sync", help="pull every category into the local store")
     p.add_argument("account", nargs="?", default="all")

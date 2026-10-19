@@ -21,7 +21,7 @@ To add an account in the future, use `accounts add` and `login` again. Nothing e
 | Command | What it does |
 | --- | --- |
 | `mychart accounts` | Shows each account, its saved sign-in methods, its FHIR status, and its last sync |
-| `mychart accounts add NAME --host HOST [--label] [--fhir-base]` | Adds an account. `accounts set` changes an account. `accounts remove NAME --yes` removes it |
+| `mychart accounts add NAME --host HOST [--label] [--fhir-base]` | Adds an account. `accounts set` changes an account, and `accounts set NAME --skip referrals` removes a category that the portal does not have from the sync. `accounts remove NAME --yes` removes the account |
 | `mychart accounts find TEXT` | Searches Epic's MyChart directory for a host |
 | `mychart login NAME [--method passkey\|totp\|password]` | Signs in one time. The default adds a passkey, so subsequent syncs do not use a password or a code |
 | `mychart sync [NAME\|all] [--notify]` | Copies approximately 30 categories for each account into the store |
@@ -32,7 +32,8 @@ To add an account in the future, use `accounts add` and `login` again. Nothing e
 | `mychart run CAPABILITY [--account NAME] [--arg k=v]` | Does one engine capability live. A write must have `--yes` |
 | `mychart capabilities [--all]` | Shows all capabilities of the engine |
 | `mychart sql "SELECT ..."` | Does a read-only query on the store |
-| `mychart status` | Shows the engine, the store, and the accounts |
+| `mychart status` | Shows the engine, the store, the accounts, and each category that failed on its last 3 reads |
+| `mychart doctor` | Examines the saved secrets, removes a damaged one, and moves a rescued passkey into the Keychain |
 | `mychart fhir ...` | The FHIR lane (see below) |
 | `mychart ehi ...` | The EHI lane (see below) |
 
@@ -120,7 +121,7 @@ Before `update` moves the pin, it tests the new build against the public fake My
 
 ## Security
 
-- Passwords, passkeys, TOTP seeds, sessions, FHIR tokens, and app secrets are Keychain items of the service `mist-mychart`. They go to the bridge on stdin. They do not go in argv, env, or a file. The CLI writes them through `security -i` on stdin, thus the value does not show in a process list.
+- Passwords, passkeys, TOTP seeds, sessions, FHIR tokens, and app secrets are Keychain items of the service `mist-mychart`. `security -i` cuts a command line at 4,096 bytes, thus the CLI keeps a long value (a session is approximately 4,000 characters) as numbered parts. They go to the bridge on stdin. They do not go in argv, env, or a file. The CLI writes them through `security -i` on stdin, thus the value does not show in a process list.
 - A passkey has a counter that must stay in step with the server. The CLI saves each new counter immediately. If the counter falls behind, the bridge tries again one step at a time, a maximum of 10 times. Do not copy a passkey to a second Mac. Use `mychart login` on that Mac.
 - `mychart login` adds a passkey to the MyChart account. MyChart shows it in its security settings. `--method totp` starts authenticator-app 2FA for the account. This changes how the person signs in on all devices. Use it only if the portal refuses passkeys.
 - When `MIST_UNATTENDED=1`, no write occurs and the CLI shows no prompt.
