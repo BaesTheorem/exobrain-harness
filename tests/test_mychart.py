@@ -322,6 +322,53 @@ def test_login_refuses_a_state_mismatch(monkeypatch):
         fhir.login(acct, {"name": "epic", "client_id": "id"}, follow=True)
 
 
+def test_https_callback_listener_serves_tls_and_reads_the_code(tmp_path):
+    import socket
+    import ssl
+    import time
+    import urllib.request
+    if not (shutil.which("openssl") or Path("/opt/homebrew/bin/openssl").exists()):
+        pytest.skip("openssl is not installed")
+    fhir.cmd_tls(type("A", (), {"force": False})())
+    probe = socket.socket()
+    probe.bind(("127.0.0.1", 0))
+    port = probe.getsockname()[1]
+    probe.close()
+    found = {}
+    worker = threading.Thread(
+        target=lambda: found.update(fhir.wait_for_callback(f"https://localhost:{port}/callback", 10)), daemon=True)
+    worker.start()
+    insecure = ssl.create_default_context()
+    insecure.check_hostname = False
+    insecure.verify_mode = ssl.CERT_NONE
+    for _ in range(50):
+        try:
+            urllib.request.urlopen(f"https://127.0.0.1:{port}/callback?code=abc&state=xyz", context=insecure,
+                                   timeout=5).read()
+            break
+        except OSError:
+            time.sleep(0.1)
+    worker.join(12)
+    assert found == {"code": "abc", "state": "xyz"}
+
+
+def test_an_account_secret_wins_over_the_app_secret(isolated):
+    acct = core.add_account("north", "mychart.example.org")
+    fhir.core.write_json_atomic(fhir.apps_path(), {"epic": {"client_id": "id", "redirect_uri": "x", "scope": "s"}})
+    isolated["app-epic:secret"] = "app-wide"
+    assert fhir.get_app("epic", acct)["secret"] == "app-wide"
+    isolated["north:fhirsecret"] = "per-system"
+    assert fhir.get_app("epic", acct)["secret"] == "per-system"
+
+
+def test_consent_warning_fires_two_weeks_before_the_end():
+    import time
+    assert fhir.consent_warning({"consent_until": None}) is None
+    assert fhir.consent_warning({"consent_until": time.time() + 30 * 86400}) is None
+    assert "ends in" in fhir.consent_warning({"consent_until": time.time() + 5 * 86400})
+    assert "ended" in fhir.consent_warning({"consent_until": time.time() - 1})
+
+
 # ── EHI ─────────────────────────────────────────────────────────────────────
 
 

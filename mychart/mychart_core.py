@@ -37,7 +37,7 @@ SERVICE = "mist-mychart"
 DEFAULT_ENGINE = Path.home() / "Documents/openrecord/npm-package/dist/index.js"
 BRIDGE = HOME / "bridge" / "bridge.mjs"
 NAME_RE = re.compile(r"^[a-z0-9][a-z0-9_-]{0,31}$")
-SECRET_KINDS = ("passkey", "password", "totp", "session", "fhir")
+SECRET_KINDS = ("passkey", "password", "totp", "session", "fhir", "fhirsecret")
 
 
 class MyChartError(Exception):

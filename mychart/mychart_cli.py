@@ -367,8 +367,9 @@ def cmd_sync(args: argparse.Namespace) -> int:
             if not args.quiet:
                 print(f"Syncing {acct.name} ({len(capability_ids)} categories)...", file=sys.stderr)
             results.append(sync_account(s, acct, capability_ids, verbose=args.verbose, quiet=args.quiet))
+    fhir_results = run_fhir_pulls(accounts) if args.fhir else []
     sent = notify_pending(s) if args.notify else None
-    failed_login = [r for r in results if r["error"]]
+    failed_login = [r for r in results if r["error"]] + [r for r in fhir_results if r.get("error")]
     if args.notify and failed_login:
         alert_sync_failure(failed_login)
     if args.json:
@@ -383,9 +384,45 @@ def cmd_sync(args: argparse.Namespace) -> int:
                 print(f"  error: {r['error']}")
             for line in r["failed"][:10]:
                 print(f"  failed: {line}")
+        for r in fhir_results:
+            if r.get("error"):
+                print(f"{r['account']} FHIR: {r['error']}")
+            elif r.get("skipped"):
+                continue
+            else:
+                print(f"{r['account']} FHIR: {r['new']} new resources")
         if sent:
             print(f"Notified: {sent}")
     return 0 if not failed_login else 1
+
+
+def run_fhir_pulls(accounts: list[core.Account], every_days: float = 7) -> list[dict[str, Any]]:
+    """Weekly FHIR pull for accounts with a FHIR sign-in. A broken refresh
+    chain or a consent period near its end comes back as an error, which the
+    caller turns into one alert a day."""
+    import mychart_fhir
+
+    s = store()
+    mychart_fhir.ensure_schema(s)
+    results: list[dict[str, Any]] = []
+    for acct in accounts:
+        raw = core.secret(acct.name, "fhir")
+        if not acct.fhir_base or not raw:
+            continue
+        warning = mychart_fhir.consent_warning(json.loads(raw))
+        last = s.db.execute("SELECT finished_at FROM fhir_pulls WHERE account=? AND ok=1 ORDER BY id DESC LIMIT 1",
+                            (acct.name,)).fetchone()
+        due = last is None or time.time() - time.mktime(time.strptime(last["finished_at"][:19], "%Y-%m-%dT%H:%M:%S")) \
+            > every_days * 86400
+        if not due:
+            results.append({"account": acct.name, "skipped": True, "error": warning})
+            continue
+        try:
+            pulled = mychart_fhir.pull(acct)
+            results.append({"account": acct.name, "new": pulled["new"], "error": warning})
+        except core.MyChartError as exc:
+            results.append({"account": acct.name, "error": f"FHIR: {exc}"})
+    return results
 
 
 # ── notifications ───────────────────────────────────────────────────────────
@@ -451,8 +488,9 @@ def alert_sync_failure(results: list[dict[str, Any]]) -> None:
         return
     names = ", ".join(r["account"] for r in fresh)
     detail = "\n".join(f"{r['account']}: {r['error']}" for r in fresh)
-    if notify(f"MyChart sync could not sign in for {names}. Run: mychart status",
-              context=f"mychart sync failures:\n{detail}\nIf the passkey was removed, run mychart login <account>.",
+    if notify(f"MyChart needs attention for {names}. Run: mychart status",
+              context=f"mychart sync problems:\n{detail}\nA rejected passkey needs mychart login <account>; "
+                      f"an ended FHIR consent needs mychart fhir login <account>.",
               ident="mychart-failure"):
         for r in fresh:
             state[r["account"]] = today
@@ -714,6 +752,7 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--only", help="comma-separated capabilities or aliases")
     p.add_argument("--notify", action="store_true", help="send one digest of new items (banner + Discord)")
     p.add_argument("--quiet", action="store_true")
+    p.add_argument("--fhir", action="store_true", help="also pull FHIR resources (at most weekly per account)")
     p.add_argument("--wait-network", type=float, default=0, metavar="SECONDS",
                    help="wait this long for DNS before skipping a run (for scheduled runs)")
     p.set_defaults(func=cmd_sync)

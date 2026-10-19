@@ -58,7 +58,7 @@ If a sign-in fails, the CLI sends a maximum of one alert for each account on eac
 
 ## Scheduled sync
 
-`com.exobrain.mychart-sync.plist` starts `mychart sync --notify` at 07:30, 13:30, and 19:30 through `mist-launch`. The 07:30 sync occurs before the morning briefing. The task sets `MIST_UNATTENDED=1`, thus it cannot write to a chart or wait for an answer from a person. The sync does not include accounts that have no saved sign-in. The log file is `~/Library/Logs/exobrain/mychart-sync.log`.
+`com.exobrain.mychart-sync.plist` starts `mychart sync --notify --fhir` at 07:30, 13:30, and 19:30 through `mist-launch`. The 07:30 sync occurs before the morning briefing. The task sets `MIST_UNATTENDED=1`, thus it cannot write to a chart or wait for an answer from a person. The sync does not include accounts that have no saved sign-in. The log file is `~/Library/Logs/exobrain/mychart-sync.log`.
 
 To install it or load it again:
 
@@ -82,11 +82,15 @@ mcp-lazy/bin/mcp-lazy wrap mychart
 
 SMART on FHIR is the standard patient API that the 21st Century Cures Act requires. It gives coded data (LOINC, RxNorm, SNOMED) that the portal does not show. It must have a registered app.
 
-1. Make a patient-facing app at https://fhir.epic.com (Build Apps). Select the USCDI R4 read APIs and the redirect URI `http://127.0.0.1:8765/callback`. A refresh token must have a client secret.
-2. Give the client ID to the CLI: `mychart fhir app add epic --client-id <ID> --secret-stdin < secret.txt`
-3. Find the FHIR base URL of each organization with `mychart fhir find "health system name"`. Then use `mychart accounts set NAME --fhir-base <URL>`.
-4. Sign in one time in the browser: `mychart fhir login NAME`
-5. Copy the data: `mychart fhir pull`. Read it: `mychart fhir show NAME Observation --code <LOINC>` or `mychart fhir status`.
+1. Make a patient-facing app at https://fhir.epic.com (Build Apps): audience Patients, auto-download on, the USCDI R4 read and search APIs, R4, SMART v1 scopes, a confidential client, and "Requires Persistent Access". Use the redirect URI `https://localhost:8443/callback`. Epic requires https in production and compares the URI character by character.
+2. Make the certificate for that callback one time: `mychart fhir tls`. The browser warns one time when Epic sends it back to localhost, unless you trust the certificate with the command that `tls` shows.
+3. Give the client IDs to the CLI. Use the non-production ID for the Epic sandbox and the production ID for real accounts: `mychart fhir app add epic --client-id <ID>`.
+4. Epic issues a client secret for each health system ("Review & Manage Downloads", then "Get Secrets"). Give each secret to its account: `mychart fhir secret NAME < secret.txt`.
+5. Find the FHIR base URL of each organization with `mychart fhir find "health system name"`. Then use `mychart accounts set NAME --fhir-base <URL>`.
+6. Sign in one time in the browser: `mychart fhir login NAME --consent-days N`, where N is the access period that you select on the consent screen. `mychart fhir status` warns 14 days before that period ends.
+7. Copy the data: `mychart fhir pull`. Read it: `mychart fhir show NAME Observation --code <LOINC>` or `mychart fhir status`. The scheduled sync also pulls FHIR data, a maximum of one time each week for each account.
+
+To test with the Epic sandbox, add an account with the FHIR base `https://fhir.epic.com/interconnect-fhir-oauth/api/FHIR/R4`. Then sign in as the Epic test patient `fhircamila` (password `epicepic1`).
 
 A test of the FHIR lane against the SMART Health IT sandbox passed from start to end: PKCE sign-in, refresh-token renewal, and a pull of 315 resources. If a sandbox has no login page, `--follow` signs in to it with no browser.
 

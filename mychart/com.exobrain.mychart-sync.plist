@@ -11,6 +11,7 @@
 		<string>/Users/alexhedtke/Documents/Exobrain harness/mychart/mychart_cli.py</string>
 		<string>sync</string>
 		<string>--notify</string>
+		<string>--fhir</string>
 		<string>--quiet</string>
 		<string>--wait-network</string>
 		<string>120</string>
