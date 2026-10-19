@@ -13,6 +13,7 @@ The cutoff is the ChatGPT launch (2022-11-30): a candidate's last push must be
 before it.
 """
 import argparse
+import http.client
 import json
 import math
 import re
@@ -70,7 +71,7 @@ def http_json(url, token=None, body=None):
             with urllib.request.urlopen(req, timeout=60) as r:
                 return json.load(r)
         except urllib.error.HTTPError as e:
-            if e.code in (403, 429, 502, 503):
+            if e.code in (403, 429, 499, 500, 502, 503, 504):
                 wait = 60 if e.code in (403, 429) else 5 * (attempt + 1)
                 print(f"  http {e.code}, waiting {wait}s", file=sys.stderr)
                 time.sleep(wait)
@@ -78,7 +79,7 @@ def http_json(url, token=None, body=None):
             if e.code == 422:
                 return {}
             raise
-        except (urllib.error.URLError, TimeoutError):
+        except (urllib.error.URLError, TimeoutError, http.client.HTTPException, ConnectionError):
             time.sleep(5 * (attempt + 1))
     return {}
 
@@ -172,15 +173,22 @@ GQL_FIELDS = """
 """
 
 
-def enrich(token):
+def enriched_rows():
+    rows = []
+    for f in sorted(DATA.glob("enriched*.jsonl")):
+        rows += load_jsonl(f)
+    return rows
+
+
+def enrich(token, shard, shards):
     cands = json.loads((DATA / "candidates.json").read_text())
-    out_path = DATA / "enriched.jsonl"
-    done = {r["key"] for r in load_jsonl(out_path)}
-    todo = [k for k in cands if k not in done]
+    out_path = DATA / f"enriched-{shard}.jsonl"
+    done = {r["key"] for r in enriched_rows()}
+    todo = [k for i, k in enumerate(cands) if k not in done and i % shards == shard]
     print(f"enrich: {len(todo)} to fetch, {len(done)} done", file=sys.stderr)
     with out_path.open("a") as out:
-        for i in range(0, len(todo), 40):
-            chunk = todo[i:i + 40]
+        for i in range(0, len(todo), 25):
+            chunk = todo[i:i + 25]
             parts = []
             for j, k in enumerate(chunk):
                 o, r = cands[k]["name"].split("/", 1)
@@ -206,7 +214,8 @@ def enrich(token):
                         "readme_len": len(readme), "readme": readme[:12000],
                     })
                 out.write(json.dumps(rec) + "\n")
-            print(f"  {min(i + 40, len(todo))}/{len(todo)}", file=sys.stderr)
+            out.flush()
+            print(f"  [{shard}] {min(i + 25, len(todo))}/{len(todo)}", file=sys.stderr, flush=True)
 
 
 NOISE = re.compile(
@@ -228,8 +237,8 @@ def strip_readme(text, n):
     return text.strip()[:n]
 
 
-def rank(per_lane, batch_size, readme_chars):
-    rows = [r for r in load_jsonl(DATA / "enriched.jsonl") if not r.get("missing")]
+def rank(per_lane, odd_extra, batch_size, readme_chars):
+    rows = [r for r in enriched_rows() if not r.get("missing")]
     keep = []
     drop = {"fork": 0, "recent": 0, "noise": 0, "tiny": 0}
     for r in rows:
@@ -254,6 +263,10 @@ def rank(per_lane, batch_size, readme_chars):
         r["score"] = (math.log10(r["stars"] + 1) + 0.8 * math.log10(hn_pts + 1)
                       + 0.15 * min(r["sig"]["wip_hits"], 6) + 0.2 * min(r["sig"]["weird_hits"], 5)
                       + 0.1 * min(unchecked, 8) + 0.3 * r["archived"])
+        # Popularity alone ranks frameworks over odd ideas; this ranks the odd ones.
+        r["odd"] = (0.5 * math.log10(r["stars"] + 1) + 0.4 * math.log10(hn_pts + 1)
+                    + 0.4 * min(r["sig"]["weird_hits"], 8) + 0.1 * min(r["sig"]["wip_hits"], 6)
+                    + 0.5 * any(w in r["sources"][0] for w in ('"weird"', '"what if"', '"useless"', '"absurd"', "esoteric", "esolang", "art")))
         keep.append(r)
     print(f"rank: {len(rows)} enriched, kept {len(keep)}, dropped {drop}", file=sys.stderr)
 
@@ -267,6 +280,9 @@ def rank(per_lane, batch_size, readme_chars):
     for lane, items in lanes.items():
         items.sort(key=lambda r: -r["score"])
         top = items[:per_lane]
+        if lane == "weird":
+            seen = {r["key"] for r in top}
+            top += [r for r in sorted(items, key=lambda r: -r["odd"]) if r["key"] not in seen][:odd_extra]
         summary[lane] = len(top)
         for b in range(0, len(top), batch_size):
             lines = []
@@ -289,9 +305,12 @@ def main():
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     sub = ap.add_subparsers(dest="cmd", required=True)
     h = sub.add_parser("harvest"); h.add_argument("--skip-hn", action="store_true"); h.add_argument("--skip-gh", action="store_true")
-    sub.add_parser("enrich")
+    en = sub.add_parser("enrich")
+    en.add_argument("--shard", type=int, default=0)
+    en.add_argument("--shards", type=int, default=1)
     rk = sub.add_parser("rank")
-    rk.add_argument("--per-lane", type=int, default=300)
+    rk.add_argument("--per-lane", type=int, default=400)
+    rk.add_argument("--odd-extra", type=int, default=300)
     rk.add_argument("--batch", type=int, default=50)
     rk.add_argument("--readme-chars", type=int, default=1800)
     a = ap.parse_args()
@@ -308,9 +327,9 @@ def main():
         path.write_text(json.dumps(cands))
         print(f"candidates: {len(cands)}", file=sys.stderr)
     elif a.cmd == "enrich":
-        enrich(token)
+        enrich(token, a.shard, a.shards)
     elif a.cmd == "rank":
-        rank(a.per_lane, a.batch, a.readme_chars)
+        rank(a.per_lane, a.odd_extra, a.batch, a.readme_chars)
 
 
 if __name__ == "__main__":
