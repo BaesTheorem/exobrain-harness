@@ -968,11 +968,6 @@ def _write(path: Path, sid: str, covered, prev, args) -> int:
     stamp = f"{local(when):%Y-%m-%d_%H%M}"
     is_delta = prev is not None
     note_name = stamp + ("_delta" if is_delta else "")
-    note_path = SESSIONS / f"{note_name}.md"
-    n = 2
-    while note_path.exists():
-        note_path = SESSIONS / f"{note_name}-{n}.md"
-        n += 1
     prompt = RULES
     prompt += (f"\n\nSession id {sid}, working directory {c['cwd'] or '?'}, "
                f"{local(c['first']):%Y-%m-%d %H:%M} to {local(when):%H:%M}"
@@ -1000,6 +995,10 @@ def _write(path: Path, sid: str, covered, prev, args) -> int:
     if not body:
         log(f"write {sid[:8]}: reply had no memory body")
         return 1
+    # Reserve the name only after the model call, and atomically: two writers
+    # that start in the same minute both saw a free name before the 20-30 s
+    # call, and the later one overwrote the earlier note (2026-10-19 12:23).
+    note_path = _reserve_note(note_name)
     source = f"[[{note_path.stem}]]"
     ops = data.get("zettels") or {}
     written, zlinks, used = apply_ops(store, ops, when, source)
@@ -1027,6 +1026,19 @@ def _write(path: Path, sid: str, covered, prev, args) -> int:
         notify(f"Session memory flagged by injection scan: {title}", link, "Basso")
     print(str(note_path))
     return 0
+
+
+def _reserve_note(note_name: str) -> Path:
+    """Create an empty Sessions note under the first free name, atomically."""
+    SESSIONS.mkdir(parents=True, exist_ok=True)
+    n = 1
+    while True:
+        path = SESSIONS / (f"{note_name}.md" if n == 1 else f"{note_name}-{n}.md")
+        try:
+            os.close(os.open(path, os.O_CREAT | os.O_EXCL | os.O_WRONLY))
+            return path
+        except FileExistsError:
+            n += 1
 
 
 def _write_skip_marker(sid: str, when: dt.datetime, cwd, reason: str) -> None:
