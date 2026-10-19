@@ -360,6 +360,22 @@
     "notes": "Builds draftbot/vor.json: value-over-replacement fantasy board from ESPN 2026 projections (league-scored full PPR) crossed with The Ringer's positional ranks. Replacement = QB13/RB30/WR34/TE14 for the 13-team league. Rebuild the MORNING OF the draft; output is gitignored derived data."
   },
   {
+    "name": "fantasy-cloud-deploy",
+    "command": "fantasy/cloud/deploy",
+    "repo_dir": "fantasy/cloud",
+    "source": "built",
+    "added": "2026-10-18",
+    "notes": "Run again after ff refresh: the cloud copy of the ESPN cookies is a Worker secret. Uses CF_SHARE_API_TOKEN (CF_API_TOKEN lacks KV). Writes gitignored hub.json."
+  },
+  {
+    "name": "fantasy-cloud-run",
+    "command": "python3 fantasy/cloud/cloud-run start|finish|notify",
+    "repo_dir": "fantasy/cloud",
+    "source": "built",
+    "added": "2026-10-18",
+    "notes": "Runs inside a cloud Claude session. start exits 3 on MAC_UP or SKIP. Pass --token: the auto-mode classifier denies a hand-written credential fetch."
+  },
+  {
     "name": "fb",
     "command": "facebook/bin/fb",
     "repo_dir": "facebook",

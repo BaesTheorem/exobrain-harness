@@ -236,6 +236,18 @@ the playbook. In an interactive session, do the same: invoke this skill, read
 the Season log before advising, and record decisions there. Do not build a
 second scheduler; change the prompts or the watchers.
 
+**When the Mac is off, the cloud takes over (since 2026-10-18).** The
+`fantasy-hub` Cloudflare Worker keeps the Mac heartbeat (`bin/cloud-sync`,
+called by `lineup-watch`). When it is 35 minutes stale, the Worker runs
+`lineup-watch --fix` and `roster-watch` on GitHub Actions (private repo
+`BaesTheorem/fantasy-cloud`), and four cloud Claude routines on Fable stand
+in for the Mac routines, following `fantasy/routines/CLOUD.md`. Cloud
+notifications are Discord DMs. Cloud edits to the playbook come back as
+fast-forwards when the Mac wakes; a `.cloud` copy next to the playbook means
+both sides changed it and it needs a merge. After `ff refresh`, run
+`fantasy/cloud/deploy` so the cloud has the new cookies. Design and limits:
+`fantasy/cloud/README.md`.
+
 **The lock-window watcher is already running** (`fantasy/bin/lineup-watch`
 under launchd `com.exobrain.lineup-watch`, every 15 minutes, since
 2026-09-07): it pings Alex only when a starter with a problem is inside 75
