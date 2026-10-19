@@ -31,7 +31,7 @@ export DEVELOPER_DIR=${DEVELOPER_DIR:-/Applications/Xcode.app/Contents/Developer
 PATH="/opt/homebrew/bin:$PATH"
 OUT=build/testflight
 ARCHIVE=$OUT/$SCHEME.xcarchive
-TEAM=$(cat Config/*.xcconfig 2>/dev/null | sed -n 's/^DEVELOPMENT_TEAM *= *//p' | head -1)
+TEAM=$(ls Config/*.xcconfig 2>/dev/null | grep -v "\.example\." | xargs cat 2>/dev/null | sed -n 's/^DEVELOPMENT_TEAM *= *//p' | head -1)
 [[ -n $TEAM ]] || { echo "no DEVELOPMENT_TEAM in $DIR/Config/*.xcconfig" >&2; exit 1; }
 
 if [[ $MODE != upload ]]; then
@@ -63,10 +63,22 @@ cat > "$OUT/ExportOptions.plist" <<PL
   <key>manageAppVersionAndBuildNumber</key><false/>
 </dict></plist>
 PL
-rm -rf "$OUT/export"
-xcodebuild -exportArchive -archivePath "$ARCHIVE" -exportOptionsPlist "$OUT/ExportOptions.plist" \
-  -exportPath "$OUT/export" -allowProvisioningUpdates 2>&1 | grep -vE 'Progress [0-9]+%' | tail -20
-test "${PIPESTATUS[0]}" -eq 0
+# Xcode's account session sometimes answers "No Accounts with App Store
+# Connect Access" for a minute (seen 2026-10-19 after a web sign-in), and the
+# same export then works: retry that error only.
+for try in 1 2 3; do
+  rm -rf "$OUT/export"
+  set +e
+  xcodebuild -exportArchive -archivePath "$ARCHIVE" -exportOptionsPlist "$OUT/ExportOptions.plist" \
+    -exportPath "$OUT/export" -allowProvisioningUpdates 2>&1 | grep -vE 'Progress [0-9]+%' | tail -20 > "$OUT/export.log"
+  status=${PIPESTATUS[0]}
+  set -e
+  cat "$OUT/export.log"
+  ((status == 0)) && break
+  grep -q 'No Accounts with App Store Connect Access' "$OUT/export.log" && ((try < 3)) || exit "$status"
+  echo "export: Xcode account not ready, retry $try in 30 s" >&2
+  sleep 30
+done
 if [[ $DEST == upload ]]; then
   echo "Uploaded $SCHEME. It shows in TestFlight after Apple processes it."
   # Wait for processing, make sure an internal group with Alex exists, and
