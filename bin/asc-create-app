@@ -1,0 +1,94 @@
+#!/usr/bin/env -S uv run --quiet --with patchright python
+"""Create an App Store Connect app record, the step the ASC API key cannot do.
+
+    asc-create-app BUNDLE_ID SKU "Name" ["Fallback name" ...] [--window]
+
+Runs the website's own /iris/v1/apps call inside a saved signed-in Chrome
+profile (~/Library/Application Support/exobrain/asc-profile). Headless first;
+the Apple session lasts minutes to hours. When the session is dead it exits 2:
+run again with --window and sign in (Apple ID + 2FA) in the window it opens.
+Names are tried in order; a taken name moves on to the next one. An existing
+record for the bundle id is reported and left alone. The bundle id must be
+registered first (bin/testflight-upload DIR --scheme X --archive-only).
+"""
+import asyncio
+import json
+import pathlib
+import sys
+
+from patchright.async_api import async_playwright
+
+PROFILE = pathlib.Path.home() / "Library/Application Support/exobrain/asc-profile"
+UA = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/155.0.0.0 Safari/537.36"
+
+# appStoreVersionLocalizations goes inside the included appStoreVersions
+# entry, not on apps (Apple answers 409 otherwise).
+CREATE = """async ([bundle, sku, name]) => {
+  const h = {'content-type': 'application/vnd.api+json', 'accept': 'application/vnd.api+json', 'x-csrf-itc': '[asc-ui]'};
+  const body = {data: {type: 'apps', attributes: {sku, primaryLocale: 'en-US', bundleId: bundle},
+      relationships: {appStoreVersions: {data: [{type: 'appStoreVersions', id: '${v}'}]},
+                      appInfos: {data: [{type: 'appInfos', id: '${i}'}]}}},
+    included: [
+      {type: 'appStoreVersions', id: '${v}', attributes: {platform: 'IOS', versionString: '1.0'},
+       relationships: {appStoreVersionLocalizations: {data: [{type: 'appStoreVersionLocalizations', id: '${vl}'}]}}},
+      {type: 'appStoreVersionLocalizations', id: '${vl}', attributes: {locale: 'en-US'}},
+      {type: 'appInfos', id: '${i}', relationships: {appInfoLocalizations: {data: [{type: 'appInfoLocalizations', id: '${l}'}]}}},
+      {type: 'appInfoLocalizations', id: '${l}', attributes: {locale: 'en-US', name}}]};
+  const r = await fetch('/iris/v1/apps', {method: 'POST', headers: h, credentials: 'include', body: JSON.stringify(body)});
+  return {status: r.status, text: (await r.text()).slice(0, 1500)};
+}"""
+
+FIND = """async (bundle) => {
+  const r = await fetch('/iris/v1/apps?filter[bundleId]=' + bundle, {headers: {'accept': 'application/vnd.api+json'}, credentials: 'include'});
+  return {status: r.status, text: (await r.text()).slice(0, 600)};
+}"""
+
+
+async def main() -> int:
+    args = [a for a in sys.argv[1:] if not a.startswith("--")]
+    window = "--window" in sys.argv
+    if len(args) < 3:
+        sys.exit(__doc__)
+    bundle, sku, names = args[0], args[1], args[2:]
+    async with async_playwright() as p:
+        kw = {} if window else {"args": ["--headless=new"], "user_agent": UA}
+        ctx = await p.chromium.launch_persistent_context(str(PROFILE), channel="chrome", headless=not window,
+                                                         no_viewport=True, **kw)
+        page = ctx.pages[0] if ctx.pages else await ctx.new_page()
+        await page.goto("https://appstoreconnect.apple.com/apps")
+        found = None
+        # Signed in = an iris read answers 200 with JSON (the URL alone lies).
+        for i in range(900 if window else 30):
+            await page.wait_for_timeout(1000)
+            try:
+                f = await page.evaluate(FIND, bundle)
+                if f["status"] == 200 and f["text"].lstrip().startswith("{"):
+                    found = json.loads(f["text"]).get("data", [])
+                    break
+            except Exception:
+                pass
+            if window and i % 30 == 0:
+                print("waiting for sign-in in the window", flush=True)
+        if found is None:
+            print(json.dumps({"ok": False, "error": "not signed in: run again with --window"}))
+            await ctx.close()
+            return 2
+        if found:
+            print(json.dumps({"ok": True, "existing": found[0]["id"], "name": found[0]["attributes"].get("name")}))
+            await ctx.close()
+            return 0
+        for name in names:
+            r = await page.evaluate(CREATE, [bundle, sku, name])
+            if r["status"] in (200, 201):
+                app = json.loads(r["text"])["data"]
+                print(json.dumps({"ok": True, "created": app["id"], "name": name}))
+                await ctx.close()
+                return 0
+            print(json.dumps({"name": name, **r}), flush=True)
+            if not ("name" in r["text"].lower() and ("taken" in r["text"].lower() or "already" in r["text"].lower())):
+                break
+        await ctx.close()
+        return 1
+
+
+sys.exit(asyncio.run(main()))
