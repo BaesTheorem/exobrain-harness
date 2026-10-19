@@ -1,0 +1,80 @@
+#!/usr/bin/env python3
+"""Ship every iOS app in bin/testflight-apps.json to TestFlight.
+
+    testflight-fleet [--check] [--only NAME ...]
+
+An app ships when App Store Connect has a record for its bundle id: the
+script archives and uploads it with bin/testflight-upload (or the app's own
+"script"), one at a time because this Mac has 8 GB, and testflight-upload
+then starts bin/testflight-ready for the tester group and the invite. Apps
+with no record are named at the end: Apple refuses app creation through the
+API, so the record is made on the website. --check only reports.
+"""
+from __future__ import annotations
+
+import argparse
+import json
+import re
+import subprocess
+from importlib.machinery import SourceFileLoader
+from pathlib import Path
+
+BIN = Path(__file__).resolve().parent
+tf = SourceFileLoader("testflight_feedback", str(BIN / "testflight-feedback")).load_module()
+
+
+def bundle_id(d: Path, scheme: str) -> str:
+    """The main target's bundle id, from project.yml (prefix variables resolved from Config/*.xcconfig)."""
+    text = (d / "project.yml").read_text()
+    m = re.search(rf"^  {re.escape(scheme)}:\n(?:    .*\n|\n)*?\s+PRODUCT_BUNDLE_IDENTIFIER: *(\S+)", text, re.M)
+    bid = m.group(1) if m else ""
+    if not bid:   # XcodeGen's default: bundleIdPrefix + target name
+        pfx = re.search(r"^\s+bundleIdPrefix: *(\S+)", text, re.M)
+        bid = f"{pfx.group(1)}.{scheme}" if pfx else ""
+    for conf in sorted((d / "Config").glob("*.xcconfig")):
+        for k, v in re.findall(r"^(\w+) *= *(\S+)", conf.read_text(), re.M):
+            bid = bid.replace(f"$({k})", v)
+    return bid
+
+
+def main() -> None:
+    ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
+    ap.add_argument("--check", action="store_true", help="report only, upload nothing")
+    ap.add_argument("--only", nargs="*", default=[], help="app names from the manifest")
+    a = ap.parse_args()
+    apps = json.loads((BIN / "testflight-apps.json").read_text())
+    if a.only:
+        apps = [x for x in apps if x["name"] in a.only]
+    records = {r["attributes"]["bundleId"] for r in tf.paged("/apps?limit=200", tf.token(tf.env()))}
+
+    missing, shipped, failed = [], [], []
+    for app in apps:
+        d = Path(app["dir"]).expanduser()
+        scheme = app.get("scheme") or ""
+        bid = bundle_id(d, scheme) if scheme else ""
+        if app.get("script"):
+            bid = bid or "(own script)"
+        if scheme and bid not in records:
+            missing.append(f"{app['name']}: {bid}")
+            continue
+        print(f"{app['name']}: record found ({bid})", flush=True)
+        if a.check:
+            continue
+        cmd = ([str(d / app["script"])] if app.get("script")
+               else [str(BIN / "testflight-upload"), str(d), "--scheme", scheme]
+               + (["--prep", app["prep"]] if app.get("prep") else []))
+        ok = subprocess.run(cmd, check=False).returncode == 0
+        (shipped if ok else failed).append(app["name"])
+
+    if shipped:
+        print("uploaded:", ", ".join(shipped))
+    if failed:
+        print("FAILED:", ", ".join(failed))
+    if missing:
+        print("no App Store Connect record (make one at appstoreconnect.apple.com, Apps, +, New App):")
+        for m in missing:
+            print("  " + m)
+
+
+if __name__ == "__main__":
+    main()
