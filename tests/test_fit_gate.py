@@ -137,3 +137,11 @@ def test_gate3_unlisted_comp_needs_a_recorded_inference():
     assert fg.gate3(fm_of(comp_listed="true", comp_max=""))[0] == "NOCOMP"
     assert fg.gate3(fm_of(comp_listed="false", comp_inference='"same-employer band $90-110K"')) is None
     assert fg.gate3(fm_of(comp_listed="true", comp_max="90000")) is None
+
+
+def test_gate0_intermediary_repost_needs_the_original_listing():
+    fm = 'company: "Jobgether (client, unnamed)"\nsource: "lever"\napply_url: "https://jobs.lever.co/jobgether/x"'
+    assert fg.gate0(fm)[0] == "REPOST"
+    assert fg.gate0(fm + '\noriginal_listing: "https://job-boards.greenhouse.io/acme/jobs/1"') is None
+    assert fg.gate0(fm + '\noriginal_unfound: "ATS X-ray on two JD phrases, Remotive, LinkedIn"') is None
+    assert fg.gate0('company: "Acme"\nsource: "greenhouse"\napply_url: "https://job-boards.greenhouse.io/acme/jobs/1"') is None

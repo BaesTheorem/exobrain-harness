@@ -39,6 +39,17 @@ Gate 1 (location) runs first, from the `location_evidence` frontmatter field:
                 remote seat under its home-office city). Resolve it
                 by correcting `location_evidence` and deleting `lane_decline`
 
+Intermediary reposts (Alex, 2026-10-19), checked before every gate:
+    REPOST      the note's company, source, or apply_url names an intermediary
+                that reposts other employers' jobs and applies on their behalf
+                (Jobgether and similar, see INTERMEDIARY), and the note has no
+                `original_listing: "<employer ATS URL>"`. Alex applied through
+                Jobgether to a role whose employer had its own
+                Greenhouse posting and a hiring manager asking for direct
+                contact. Find the original first. If a real search fails, record
+                `original_unfound: "<what was searched>"`. Reported, never
+                enforced: the role can still be a fit
+
 Gate 3 (comp), the unlisted case only (Alex, 2026-10-11): no listed pay is a
 DQ by default.
     NOCOMP      `comp_listed: false` (or no comp_max) and no `comp_inference`.
@@ -107,6 +118,13 @@ KNOCKOUT_KINDS = ("knockout",)
 LEVEL = {"own/build": 5, "own": 5, "build": 5, "administer": 4, "operate": 3,
          "support": 2, "exposure": 1, "none": 0, "n/a": None}
 PROTECTED = {"applied", "interviewing", "offer"}
+# Sites that repost another employer's job and put their own apply flow (often
+# an AI shortlist) in front of it. Matched against company, source, apply_url.
+INTERMEDIARY = re.compile(
+    r"jobgether|talenthop|swooped|theladders|\bladders\b|remotehunter|jobright|lensa|hirify"
+    r"|\(client|unnamed|confidential company",
+    re.I,
+)
 
 
 def frontmatter(txt: str) -> tuple[str, int]:
@@ -191,6 +209,15 @@ def gate1(fm: str) -> tuple[str, list[str]] | None:
     if ev == "relocation":
         return "RELOC", [f"gate 1: on-site or hybrid outside the KC metro ({field(fm, 'location')})"]
     return "NOLOC", [f"gate 1 unverified: location_evidence is {ev or 'missing'}; record what the JD or ATS says"]
+
+
+def gate0(fm: str) -> tuple[str, list[str]] | None:
+    """None unless an intermediary repost has no original listing recorded."""
+    seen = " ".join(field(fm, k) for k in ("company", "source", "apply_url"))
+    m = INTERMEDIARY.search(seen)
+    if not m or field(fm, "original_listing") or field(fm, "original_unfound"):
+        return None
+    return "REPOST", [f"intermediary repost ({m.group(0)}): find the employer's own posting and record original_listing (or original_unfound)"]
 
 
 def gate3(fm: str) -> tuple[str, list[str]] | None:
@@ -294,12 +321,13 @@ def main() -> int:
             # Gate 4 is unscorable without the posting text. A note built from a
             # search-result row (Blue Rose, 2026-09-19) sat as a candidate for three weeks.
             verdict, score, reasons = "NOJD", 0.0, [f"no JD archived on the note (under {MIN_JD_CHARS} characters of posting text); gate 4 cannot be scored"]
-        loc = gate1(frontmatter(txt)[0]) or gate3(frontmatter(txt)[0])
+        fm0 = frontmatter(txt)[0]
+        loc = gate0(fm0) or gate1(fm0) or gate3(fm0)
         if loc and verdict != "INVALID":
             # Gate 1 outranks gate 4: a perfect fit in the wrong city is still a no.
             verdict, reasons = loc[0], loc[1]
         override = field(frontmatter(txt)[0], "fit_override")
-        if override and verdict in ("FAIL", "INVALID", "INCOMPLETE", "UNSCORED", "NOLOC", "RELOC", "CONFLICT", "NOCOMP"):
+        if override and verdict in ("FAIL", "INVALID", "INCOMPLETE", "UNSCORED", "NOLOC", "RELOC", "CONFLICT", "NOCOMP", "REPOST"):
             reasons = [f"overridden ({verdict}): {override}"] + reasons
             verdict = "OVERRIDE"
         tally[verdict] = tally.get(verdict, 0) + 1
@@ -309,7 +337,7 @@ def main() -> int:
             print(f"{'':16}{r[:150]}")
         if not (a.write or a.enforce or a.restore) or verdict == "OVERRIDE":
             continue
-        if score is None and verdict not in ("NOLOC", "RELOC", "CONFLICT", "NOCOMP"):
+        if score is None and verdict not in ("NOLOC", "RELOC", "CONFLICT", "NOCOMP", "REPOST"):
             continue
         fm, end = frontmatter(txt)
         if score is not None:

@@ -271,6 +271,20 @@ A missing field is NOLOC. `--enforce` declines NOLOC and RELOC notes like a gate
 
 **Lane declines go back onto the note.** When `workday.py` declines a req that matches an active candidate note (same board named in the note, and the same title or req id), `job-search/note_link.py` writes `lane_decline` into the frontmatter and adds a dated `## Lane decline` section. `fit-gate.py` then reports CONFLICT. It does not decline the note, because a lane reads coarse location buckets (one employer files a fully remote seat under its home-office city). To resolve a CONFLICT, read the ATS record, set `location_evidence`, and delete `lane_decline`.
 
+## Intermediary Reposts: Find the Original First (mandatory)
+
+Added 2026-10-19 (Alex standing instruction). Alex applied through Jobgether to an IT operations role. Its employer (`<Employer E>`) had its own Greenhouse posting, and its Head of IT had asked on LinkedIn for candidates to reach out. Jobgether puts an AI shortlist in front of the employer, so an application through it can reach the hiring team late or not at all.
+
+**Rule: when a listing comes from an intermediary, find the employer's own posting before you show the role to Alex.** Intermediaries include Jobgether, TalentHop, Swooped, Ladders, RemoteHunter, Jobright, Lensa, Hirify, and any posting that says "on behalf of a partner company" or hides the employer's name. Put the employer's ATS URL in `apply_url`, keep the intermediary URL in the note body, and record `original_listing: "<employer ATS URL>"`. `fit-gate.py` reports REPOST for an intermediary note without that field (the `INTERMEDIARY` pattern in the script is the list). If a real search finds nothing, record `original_unfound: "<what was searched>"` and say so to Alex when you show him the role.
+
+Method, cheapest first:
+1. Copy two or three distinctive JD phrases (tool names in an odd form such as "Iru/Kandji", an unusual duty line) and run them through WebSearch with no domain filter. Then run them again with `allowed_domains` set to the ATS hosts (Greenhouse, Lever, Ashby). Mirrors such as Remotive and BuiltIn often name the employer when the intermediary does not.
+2. Open a mirror that names an employer and take its outbound apply link (`curl` the page, grep `href` for an ATS host). In the 2026-10-19 case, a Remotive mirror named the employer and linked its Greenhouse posting.
+3. Confirm on the ATS API that the body and the pay band match the intermediary copy. Then read the posting's `company_name` and `first_published`.
+4. Run Contact Research against the real employer. Hiring managers often post the role themselves, and that post is the best outreach opening.
+
+Scan scripts and alert emails surface these reposts every day, so this step belongs to the JD read, before a candidate note is written.
+
 ## Gate 4: Fit Scorecard (mandatory, mechanical)
 
 Added 2026-10-09. A sysadmin seat (server builds, AVD deployment, backup and DR) passed gate 4 as "his day job restated" at roughly 50% real overlap. The audit had matched topics, not verbs: "supported users on AVD" was read as "deploys AVD", and "uses Exchange" as "administers retention policy." A fluent "Why this fits" paragraph is not evidence. Gate 4 is now a table plus arithmetic, and a script makes the decision.
@@ -687,6 +701,7 @@ posted: 2026-05-08         # date the listing was first surfaced or research was
 application_date:          # date Alex submitted; null until applied
 rejection_date:            # date a rejection was received; null otherwise
 last_research: 2026-05-08
+original_listing:          # intermediary reposts only: the employer's own ATS URL (see "Intermediary Reposts")
 source: rippling-ats       # short tag: greenhouse, lever, ashby, workday, icims, rippling, linkedin, indeed, etc.
 ---
 ```
