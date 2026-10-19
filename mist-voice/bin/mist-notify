@@ -70,10 +70,10 @@
 # reads it).
 set -euo pipefail
 DIR="$(cd "$(dirname "$0")/.." && pwd)"
-MSG="${1:?usage: mist-notify \"message\" [title] [sound] [link] [--flags]}"
-shift
-
-TITLE="MIST"; SOUND="Purr"; LINK=""
+# Flags can come before or after the positionals. A routine once wrote
+# `mist-notify --discord --context ... "msg"`, and when $1 was always the
+# message the banner read "--discord" and no DM went out.
+MSG=""; TITLE="MIST"; SOUND="Purr"; LINK=""
 SUBTITLE=""; IMAGE=""; GROUP=""; NID=""; URGENCY=""
 REPLY=0; REPLY_SID=""; VOICE=0; DRY=0; DIRECT=0; DISCORD=0
 CONTEXT="${MIST_NOTIFY_CONTEXT:-}"
@@ -101,13 +101,15 @@ while [ $# -gt 0 ]; do
       shift;;
     *)
       case $POSN in
-        0) TITLE="$1";;
-        1) SOUND="$1";;
-        2) LINK="$1";;
+        0) MSG="$1";;
+        1) TITLE="$1";;
+        2) SOUND="$1";;
+        3) LINK="$1";;
       esac
       POSN=$((POSN+1)); shift;;
   esac
 done
+[ -n "$MSG" ] || { echo 'usage: mist-notify "message" [title] [sound] [link] [--flags]' >&2; exit 2; }
 
 # Routing (see the header). Every shell a Console chat spawns carries
 # $MIST_CONSOLE_SESSION, so from inside a chat the click lands there. Headless
