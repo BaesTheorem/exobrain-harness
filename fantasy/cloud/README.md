@@ -34,7 +34,11 @@ public, and the logs show the roster.
 Four routines at claude.ai/code/routines, model Fable, one for each Mac
 routine: `fantasy-lineup` (daily 5:30 PM CT), `fantasy-lineup-sunday`
 (10:40 AM), `fantasy-lineup-sunday-pm` (2:35 PM) and `fantasy-tuesday`
-(6:00 PM). Routine cron is in UTC, so each one fires at both UTC offsets
+(6:00 PM). IDs: `trig_0116kivDyWF7q9rR7A7iF7SG`, `trig_01692PFDwGJRxhd4WxTNtxL1`,
+`trig_01VuUoEqcRYw5HXK1hkyJsP5`, `trig_01T8FydTbPusto8rMZbfR48B`. A routine
+allows `Bash(python3 fantasy/cloud/cloud-run:*)`: without that rule, the cloud
+session's auto-mode classifier refuses the cookie fetch as "Credential
+Exploration" (found in the first test). Routine cron is in UTC, so each one fires at both UTC offsets
 (CDT and CST). `cloud-run start --days --window` lets only the fire inside the
 local slot continue.
 
