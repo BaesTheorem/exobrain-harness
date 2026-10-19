@@ -22,7 +22,8 @@ fantasy-hub Worker and sends the results back:
     python3 fantasy/cloud/cloud-run notify "<text>"
         one Discord DM to Alex through the hub.
 
-Needs FANTASY_HUB_TOKEN in the environment (the routine prompt exports it).
+Needs FANTASY_HUB_TOKEN in the environment for `start` (the routine prompt
+exports it); `start` keeps it in /tmp for the later calls.
 """
 from __future__ import annotations
 
@@ -46,6 +47,9 @@ PLAYBOOK = HOME / "Exobrain/Areas/Adventure & Creativity/Fantasy Football/Fantas
 SKILL = HOME / ".claude/skills/fantasy-football/SKILL.md"
 ROUTINE_LOG = HOME / "Library/Logs/exobrain/fantasy-routines.log"
 BASE = Path("/tmp/fantasy-cloud-base.json")
+# Each Bash call in a Claude session is a fresh shell, so the token the prompt
+# exports once is kept here for the mist-notify shim and for `finish`.
+TOKEN_FILE = Path("/tmp/fantasy-hub-token")
 CREDS = FANTASY / "espn-credentials.json"
 # Repo files a routine may change and the Mac may take back. Everything else stays in the cloud.
 TAKE = ("fantasy/forecasts/", "fantasy/ledger.json", "fantasy/watchlist.json")
@@ -56,7 +60,7 @@ def sha(text: str | None) -> str:
 
 
 def hub(path: str, body: dict | None = None, raw: bool = False):
-    tok = os.environ.get("FANTASY_HUB_TOKEN", "")
+    tok = os.environ.get("FANTASY_HUB_TOKEN") or (TOKEN_FILE.read_text().strip() if TOKEN_FILE.exists() else "")
     req = urllib.request.Request(HUB + path, method="POST" if body is not None else "GET",
                                  data=json.dumps(body).encode() if body is not None else None,
                                  headers={"Authorization": f"Bearer {tok}", "Content-Type": "application/json",
@@ -84,6 +88,9 @@ def start(routine: str, force: bool, days: str | None, window: str | None) -> in
     if not force and not in_slot(days, window):
         print(f"SKIP: outside {routine}'s local slot (days {days}, window {window}). Stop here.")
         return 3
+    if os.environ.get("FANTASY_HUB_TOKEN"):
+        TOKEN_FILE.write_text(os.environ["FANTASY_HUB_TOKEN"])
+        TOKEN_FILE.chmod(0o600)
     st = hub("/status")
     if not st["stale"] and not force:
         print(f"MAC_UP: the Mac heartbeat is {st['age_s']} s old, so the Mac runs {routine}. Stop here.")
@@ -139,6 +146,7 @@ def finish(routine: str) -> int:
     for ln in lines:
         hub("/log", {"routine": routine, "kind": "routine-log", "text": ln[17:].strip()})  # drop the cloud timestamp; the hub stamps it
     CREDS.unlink(missing_ok=True)
+    TOKEN_FILE.unlink(missing_ok=True)
     print(f"DONE: sent {sorted(files) or 'no file changes'} and {len(lines)} routine-log line(s).")
     return 0
 
