@@ -333,3 +333,8 @@ backpacking/trips/*/*.png
 
 # fantasy cloud hub URL and bearer token (fantasy/cloud/deploy makes it)
 fantasy/cloud/hub.json
+
+# mychart: accounts, the chart store, FHIR data, EHI imports, downloads (personal
+# health data). Secrets are in the Keychain, never here. See mychart/data/README.md.
+mychart/data/*
+!mychart/data/README.md

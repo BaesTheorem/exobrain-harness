@@ -116,7 +116,8 @@ done
 (`mist-global.md` restores from the tarball as a symlink; if it's missing: `ln -s "$HOME/Documents/Exobrain harness/CLAUDE.md" ~/.claude/mist-global.md`. It exists because `@import` paths in `~/.claude/CLAUDE.md` break on spaces. As of 2026-07-25 it points at the harness `CLAUDE.md` itself, which is the single canonical instruction file; the old `CLAUDE.global.md` was merged into it.)
 - From `~/restore-staging/repos-gitignored/<repo>/`: phone GCP keys, disposable-email secrets, tv/token.json, etc. -- rsync these in Phase 5 *after* each repo is cloned, not before, or the clone fails on a non-empty dir.
 - **Older archives (pre-2026-06-21)** have no `home-extras/`: re-auth instead -- Plaud via `mcp__plaud__login`, Fitbit via its OAuth flow, and recreate `~/.claude` globals by hand.
-- **Cloud MCPs** (Gmail, Calendar, Drive, MyChart, LinkedIn, Plaud): not restorable from disk -- reconnect each at claude.ai → Integrations.
+- **Cloud MCPs** (Gmail, Calendar, Drive, LinkedIn, Plaud): not restorable from disk -- reconnect each at claude.ai → Integrations.
+- **MyChart** (`mychart/`): `mychart/bin/mychart-engine install` (needs `brew install bun`), recreate `mychart/.venv` (`uv venv --python 3.13 mychart/.venv && uv pip install --python mychart/.venv/bin/python mcp==2.0.0`), restore `mychart/data/` from the tarball, then `mychart login <name>` per account: passkeys live in the Keychain and must never be copied between Macs (their counter has to stay in step with the server). Re-add the MCP server (`claude mcp add-json --scope user mychart ...`, then `mcp-lazy wrap mychart`) and the launchd job (`mychart/com.exobrain.mychart-sync.plist`).
 - **Stale OAuth that rotates regardless of backup:** Withings refresh token, and the Google `token.json` in envelope-budget / inbox-by-gmail-clone / nest -- expect a 401 on first call and re-auth in browser.
 
 ### Phase 5 -- Sibling repos

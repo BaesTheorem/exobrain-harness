@@ -47,7 +47,7 @@ Rule: **exactly one machine owns the automation.** Both machines can read and ed
 | Supernote files   | Google Drive for Desktop  |
 | Repo              | git (push from either)    |
 | Health data       | fetched fresh per call    |
-| MyChart           | session lives in cloud    |
+| MyChart           | `mychart login` per account (Keychain passkeys never copy) |
 
 ## What does NOT sync (manual copy required, one-time)
 
@@ -59,7 +59,8 @@ These are gitignored or local-only -- copy from MacBook to Mini during setup:
 - `~/.config/withings/` (if present beyond `.env`)
 - Discord bot token (lives in `~/.claude/channels/discord/` per the bot script)
 - `~/.claude/` -- global settings, skills, memory directory
-- Any OAuth caches for cloud MCPs (Gmail, Calendar, Drive, MyChart) -- re-authorize from Claude.ai if needed
+- Any OAuth caches for cloud MCPs (Gmail, Calendar, Drive) -- re-authorize from Claude.ai if needed
+- MyChart: `mychart/data/` (copy), then `mychart login <name>` per account on the Mini; never copy the Keychain passkeys
 
 **Token refresh caveat:** Fitbit/Withings/Plaud store refresh tokens locally. After migration, refreshing on the Mini invalidates the MacBook's copies -- that's fine because the MacBook won't be calling those APIs anymore.
 
@@ -104,7 +105,7 @@ All of these currently run on the MacBook. **Move all to Mini, disable all on Ma
 2. `pip install -r requirements.txt` for any Python deps.
 3. Copy the non-synced files listed under "What does NOT sync" above (use AirDrop or scp over Tailscale).
 4. Run a smoke test: invoke Claude Code on the Mini, ask it to read the Dashboard. Verify all MCPs connect (Plaud, Things 3, Fitbit, Withings, Discord, computer-use).
-5. Re-authorize any cloud MCPs that need it (Gmail, Calendar, Drive, MyChart via claude.ai).
+5. Re-authorize any cloud MCPs that need it (Gmail, Calendar, Drive via claude.ai); run `mychart login <name>` for each MyChart account.
 
 ### Phase 3 -- Move the heartbeat (estimate: 30 min)
 

@@ -1,0 +1,6 @@
+#!/bin/sh
+# mychart: one command line for every MyChart account (see mychart/README.md).
+# Resolves its own location through the ~/.local/bin symlink.
+SELF="$(readlink -f "$0" 2>/dev/null || echo "$0")"
+DIR="$(cd "$(dirname "$SELF")/.." && pwd)"
+exec "$DIR/.venv/bin/python" "$DIR/mychart_cli.py" "$@"

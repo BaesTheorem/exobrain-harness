@@ -315,12 +315,12 @@ Two stores. **Session memory** is a Zettelkasten in the vault at `~/Exobrain/Cla
 | **Zulip** | Local, project `.mcp.json` (`zulip/.venv/bin/python -m zulipmcp.mcp`) | Read and post in "The Claudes" Zulip org | `zulip/.zuliprc` (gitignored; setup in `zulip/README.md`) |
 | **myKCMO** | Local, user scope (`mykcmo/bin/mykcmo-mcp`) | Kansas City 311: read requests from the open-data portal, file a new report (captcha + confirm gate) | Optional `MYKCMO_*` keys in `.env` |
 | **Pokemon Go** | Local, project `.mcp.json` (`pokemon-go/bin/pokemon-go-mcp`, a launcher for the fork at `~/Documents/pokemon-go-mcp`) | LeekDuck events, raids, research, eggs, Team GO Rocket lineups, promo codes (43 tools, read-only); `pokemon-go/bin/pogo` is the CLI twin with Pokedex, PvPoke and CP/IV math | None (public community data) |
-| **MyChart** | claude.ai connector (hosted by [OpenRecord](https://github.com/Fan-Pier-Labs/openrecord)) | Full MyChart patient portal: meds, labs, imaging, vitals, messages, billing, insurance, referrals, preventive care, care team, immunizations, visits, documents, emergency contacts, refill requests (35+ tools, read + write) | MyChart credentials + TOTP (session auto-renews) |
+| **MyChart** | Local, user scope (`mychart/bin/mychart-mcp`, behind `mcp-lazy`) | Every MyChart account from one local store: labs with trends across accounts, meds, visits and notes, messages (send after a confirm step), bills, imaging, documents, FHIR resources (13 tools) | Passkey per account in the Keychain (`mychart login <name>`); engine is a local OpenRecord checkout pinned in `mychart/ENGINE_PIN` |
 
 **Fitbit MCP location**: `/Users/alexhedtke/Documents/Exobrain harness/fitbit-mcp/` (patched fork, see `fitbit-mcp/FORK.md`)
 **Fitbit token**: `/Users/alexhedtke/Documents/Exobrain harness/fitbit-mcp/.fitbit-token.json` (auto-refreshed)
 **Withings tokens**: `/Users/alexhedtke/Documents/Exobrain harness/.env` (auto-refreshed)
-**MyChart MCP**: Hosted at `openrecord.fanpierlabs.com` ([source](https://github.com/Fan-Pier-Labs/openrecord)). Currently using hosted version; plan to self-host later (Railway one-click or AWS Fargate). Credentials configured via OpenRecord web UI, MCP URL added as a custom connector in claude.ai. Supports multiple MyChart instances (pass `instance` param to target specific hospitals).
+**MyChart**: `mychart/` (CLI, MCP server, scheduled sync, FHIR and EHI lanes; see `mychart/README.md`). It replaced the hosted OpenRecord connector on 2026-10-19; the engine is OpenRecord's `mychart-cli` library, built from a local checkout because its license forbids redistribution.
 
 ---
 
@@ -334,7 +334,7 @@ Two stores. **Session memory** is a Zettelkasten in the vault at `~/Exobrain/Cla
 | **Gmail** | Email scanning, job alerts, correspondence | MCP server |
 | **Fitbit** | Steps, heart rate, sleep, active zone minutes, calories | MCP server |
 | **Withings** | Weight, body composition (fat %, muscle, bone, hydration, visceral fat), blood pressure | MCP server |
-| **MyChart** | Full patient portal: meds, labs, imaging, vitals, messages, billing, insurance, preventive care, refills | MCP server ([OpenRecord](https://github.com/Fan-Pier-Labs/openrecord), hosted) |
+| **MyChart** | Every MyChart account: labs, meds, visits, notes, messages, billing, imaging, documents; FHIR R4 and EHI export lanes | `mychart` CLI + local MCP server, synced 3x daily ([`mychart/`](mychart/README.md)) |
 | **Plaud Note** | Voice recording to transcript files | Plaud app syncs `.txt` files to Google Drive, then to Obsidian vault; Plaud MCP for direct library access |
 | **Supernote A5X** | Handwritten notes (`.note` format) | Supernote app syncs to Google Drive, then to filesystem |
 | **Discord** | Friend group server | MCP plugin + `discord-digest-fetch.py` for offline message history |

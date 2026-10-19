@@ -1,0 +1,6 @@
+#!/bin/sh
+# MyChart MCP server (stdio), over the same accounts and store as the CLI.
+# Registered with: claude mcp add-json --scope user mychart, then mcp-lazy wrap mychart.
+SELF="$(readlink -f "$0" 2>/dev/null || echo "$0")"
+DIR="$(cd "$(dirname "$SELF")/.." && pwd)"
+exec "$DIR/.venv/bin/python" "$DIR/mychart_server.py"

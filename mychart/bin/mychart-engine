@@ -1,0 +1,105 @@
+#!/bin/bash
+# mychart-engine: install, rebuild, check, or update the OpenRecord engine that
+# mychart drives. The engine is a local checkout of a source-available repo
+# (personal use only, no redistribution), so it is never vendored here; this
+# script pins it to the commit in ../ENGINE_PIN.
+#
+#   mychart-engine status          checkout, pinned commit, build age
+#   mychart-engine install         clone (if missing), check out the pin, build
+#   mychart-engine build           rebuild the current checkout
+#   mychart-engine update [REF]    move to REF (default origin/main), build,
+#                                  smoke-test against the public fake MyChart,
+#                                  and move the pin only if the test passes
+#
+# Env: MYCHART_ENGINE_DIR (default ~/Documents/openrecord).
+set -euo pipefail
+SELF="$(readlink -f "$0" 2>/dev/null || echo "$0")"
+HERE="$(cd "$(dirname "$SELF")/.." && pwd)"
+PIN_FILE="$HERE/ENGINE_PIN"
+REPO_URL="https://github.com/Fan-Pier-Labs/openrecord.git"
+DIR="${MYCHART_ENGINE_DIR:-$HOME/Documents/openrecord}"
+export MYCHART_CLI_TELEMETRY_DISABLED=1
+export PATH="/opt/homebrew/bin:$PATH"
+
+pin() { tr -d '[:space:]' < "$PIN_FILE"; }
+
+build() {
+  command -v bun >/dev/null || { echo "bun is missing: brew install bun" >&2; exit 1; }
+  for sub in . npm-package scrapers shared; do
+    (cd "$DIR/$sub" && bun install --frozen-lockfile >/dev/null)
+  done
+  (cd "$DIR/npm-package" && bun run build >/dev/null)
+  echo "built $(git -C "$DIR" rev-parse --short HEAD) -> $DIR/npm-package/dist"
+}
+
+smoke() {
+  local tmp; tmp="$(mktemp -d)"
+  local rc=0
+  MYCHART_DATA_DIR="$tmp" MYCHART_KEYCHAIN_SERVICE=mist-mychart-smoke MYCHART_NO_NOTIFY=1 \
+    "$HERE/.venv/bin/python" - "$HERE" <<'PY' || rc=$?
+import json, subprocess, sys
+sys.path.insert(0, sys.argv[1])
+import mychart_core as core
+caps = core.capabilities()
+assert len(caps) > 40, f"only {len(caps)} capabilities"
+req = {"op": "session", "account": {"host": "fake-mychart.fanpierlabs.com"},
+       "auth": {"user": "homer", "pass": "donuts123"},
+       "actions": [{"id": i, "envelope": True} for i in ("get_profile", "get_lab_results", "get_messages")]}
+res = core.call_bridge(req)
+assert (res.login or {}).get("ok"), f"login failed: {res.login}"
+bad = [a["id"] for a in res.actions if not a.get("ok") or a.get("envelope") is None]
+assert not bad, f"failed reads: {bad}"
+print(f"smoke ok: {len(caps)} capabilities, {len(res.actions)} reads with envelopes")
+PY
+  rm -rf "$tmp"
+  return $rc
+}
+
+case "${1:-status}" in
+  status)
+    if [ ! -d "$DIR/.git" ]; then echo "engine not installed at $DIR (run: mychart-engine install)"; exit 1; fi
+    head="$(git -C "$DIR" rev-parse HEAD)"
+    echo "checkout $DIR"
+    echo "head     $(git -C "$DIR" log -1 --format='%h %cd %s' --date=short)"
+    echo "pin      $(pin | cut -c1-8) $([ "$head" = "$(pin)" ] && echo '(matches)' || echo '(DIFFERS: run mychart-engine install)')"
+    if [ -f "$DIR/npm-package/dist/index.js" ]; then
+      echo "build    $(date -r "$DIR/npm-package/dist/index.js" '+%Y-%m-%d %H:%M')"
+    else
+      echo "build    MISSING (run: mychart-engine build)"
+    fi
+    ;;
+  install)
+    [ -d "$DIR/.git" ] || git clone --quiet "$REPO_URL" "$DIR"
+    git -C "$DIR" fetch --quiet origin
+    git -C "$DIR" checkout --quiet "$(pin)"
+    build
+    ;;
+  build)
+    build
+    ;;
+  update)
+    ref="${2:-origin/main}"
+    old="$(git -C "$DIR" rev-parse HEAD)"
+    git -C "$DIR" fetch --quiet origin
+    new="$(git -C "$DIR" rev-parse "$ref")"
+    if [ "$old" = "$new" ]; then echo "already at $ref ($(echo "$new" | cut -c1-8))"; exit 0; fi
+    echo "changes $(echo "$old" | cut -c1-8)..$(echo "$new" | cut -c1-8):"
+    git -C "$DIR" log --oneline "$old..$new" | head -40
+    git -C "$DIR" checkout --quiet "$new"
+    build
+    if smoke; then
+      echo "$new" > "$PIN_FILE"
+      echo "pin moved to $(echo "$new" | cut -c1-8). Commit mychart/ENGINE_PIN."
+    else
+      echo "smoke test FAILED; going back to $(echo "$old" | cut -c1-8)" >&2
+      git -C "$DIR" checkout --quiet "$old"
+      build
+      exit 1
+    fi
+    ;;
+  smoke)
+    smoke
+    ;;
+  *)
+    sed -n '2,15p' "$SELF"; exit 2 ;;
+esac

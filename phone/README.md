@@ -18,7 +18,7 @@ Loaded via `setting_sources=["project"]` (your `CLAUDE.md`, `.mcp.json`, skills)
 - **Your Obsidian vault** -- read and write notes (`add_dirs` grants access)
 - **Bash, web search/fetch**, and all harness skills
 
-**Known parity gap:** Gmail, Google Calendar, Drive, MyChart, and LinkedIn are
+**Known parity gap:** Gmail, Google Calendar, Drive, MyChart (local user-scope server), and LinkedIn are
 managed-app MCP servers configured *outside* `.mcp.json`, so they are NOT loaded
 here yet. Closing that gap means wiring those server configs into the Agent SDK
 options explicitly. Until then, phone-Claude can't send email or touch calendar.

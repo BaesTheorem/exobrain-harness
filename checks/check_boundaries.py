@@ -37,6 +37,11 @@ ALLOWED_CROSS: dict[tuple[str, str], str] = {
         "tests/test_mykcmo_updates.py checks the 311 update-request rule it covers; "
         "mykcmo/ is loose modules, not a package, so it lands in the export map by stem."
     ),
+    **{("tests", f"mychart_{name}"): (
+        "tests/test_mychart.py covers the mychart island (store, change detection, write guards, the "
+        "bridge, FHIR, EHI). mychart/ is loose modules with a mychart_ prefix, so each lands in the "
+        "export map by stem."
+    ) for name in ("cli", "core", "ehi", "fhir", "store")},
     ("tests", "geo_solver"): (
         "tests/test_geo_solver.py round-trips the shadow solver against known cities, "
         "which means importing the thing it covers. Rule 2 already exempts tests/ for "

@@ -553,6 +553,7 @@ UNATTENDED_RUNNERS = [
     "expert-panel/panel.py",
     "kc-civic/run-sync.sh",
     "kc-civic/kccivic/prep.py",
+    "mychart/com.exobrain.mychart-sync.plist",
 ]
 
 
