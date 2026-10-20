@@ -338,3 +338,4 @@ fantasy/cloud/hub.json
 # health data). Secrets are in the Keychain, never here. See mychart/data/README.md.
 mychart/data/*
 !mychart/data/README.md
+fantasy/dashboard/log/

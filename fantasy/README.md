@@ -441,3 +441,24 @@ opaque GUIDs in the gitignored file only. What is and is not tracked:
   (players and teams with a `why` and a `trigger`; the Tuesday routine
   rebuilds it). A fresh clone has no watch list until that routine writes one;
   `roster-watch` and `roster-news --watch` treat a missing file as empty.
+
+## Live week dashboard (`bin/ff-dash`)
+
+`fantasy/dashboard/` is the live view of the current week, at
+<http://127.0.0.1:5023>. The launchd job `com.exobrain.ff-dash` keeps it
+running (KeepAlive). Each 60 s while a game is on, and each 10 min otherwise,
+it runs `espn matchup` and `espn scoreboard` and appends P(win) to
+`dashboard/log/<year>-w<week>.jsonl` (gitignored). That log is the only record
+of win probability over time, and the page draws its line from it.
+
+The page writes its headline from the model: who is still to play and how
+many points the gap is. It also shows the effect of a 6-point touchdown on
+each side. All numbers come from `espn`. The page does not calculate odds of
+its own, so it agrees with `espn check`. Design tokens are in
+`dashboard/DESIGN.md`.
+
+Known limit: an in-progress player keeps his projected scoring rate for the
+share of the game that is left (`games_remaining()` in `espncli/cli.py`). A
+quiet first half does not lower his expectation. The fix is a rest-of-game
+model fit on nflverse play-by-play, with a backtest of the live P(win) for
+calibration.

@@ -1,0 +1,9 @@
+#!/usr/bin/env python3
+"""ff-dash: the live week dashboard (fantasy/dashboard/). Serves
+http://127.0.0.1:5023 and logs P(win) each minute while games are on.
+Runs under launchd as com.exobrain.ff-dash; run by hand to debug."""
+
+import runpy
+from pathlib import Path
+
+runpy.run_path(str(Path(__file__).resolve().parent.parent / "dashboard" / "server.py"), run_name="__main__")
