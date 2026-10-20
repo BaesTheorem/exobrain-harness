@@ -140,6 +140,10 @@ def main() -> int:
     if not dry and creds.exists() and st.get("creds") != sha(creds):
         r = subprocess.run([sys.executable, str(FANTASY / "cloud" / "deploy")],
                            capture_output=True, text=True, timeout=180)
+        if r.returncode == 0 and (FANTASY / "scorebug" / "scorebug.json").exists():
+            # The scorebug Worker reads ESPN with its own copy of the cookies.
+            r = subprocess.run([sys.executable, str(FANTASY / "scorebug" / "deploy")],
+                               capture_output=True, text=True, timeout=180)
         if r.returncode == 0:
             st["creds"] = sha(creds)
             print("cloud-sync: ESPN cookies changed, redeployed the hub")

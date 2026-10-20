@@ -1,0 +1,99 @@
+#!/usr/bin/env python3
+"""Deploy the scorebug Worker (worker.js + model.js + the dashboard page) through
+the Cloudflare API, no wrangler.
+
+    fantasy/scorebug/deploy            # upload, bind, schedule; print the app link
+    fantasy/scorebug/deploy --print    # print the app link and exit
+
+Reads CF_ACCOUNT_ID and CF_SHARE_API_TOKEN from the harness .env, the ESPN
+cookies from fantasy/espn-credentials.json and the GitHub token from
+`gh auth token`. Makes the ingest token and the view key on the first run and
+keeps them, with the URL, in the gitignored fantasy/scorebug/scorebug.json.
+Run it again after `ff refresh` (cloud-sync does this by itself) or after an
+edit to the page, the model or the Worker.
+"""
+from __future__ import annotations
+
+import json
+import secrets
+import subprocess
+import sys
+import urllib.request
+import uuid
+from pathlib import Path
+
+HERE = Path(__file__).resolve().parent
+FANTASY = HERE.parent
+HARNESS = FANTASY.parent
+CONF = HERE / "scorebug.json"
+NAME = "scorebug"
+GH_REPO = "BaesTheorem/fantasy-cloud"
+CRON = ["* * * * *"]
+
+
+def env_value(path: Path, key: str) -> str:
+    for line in path.read_text().splitlines():
+        k, _, v = line.strip().partition("=")
+        if k == key:
+            return v.strip().strip('"').strip("'")
+    raise SystemExit(f"deploy: {key} missing from {path}")
+
+
+def api(method: str, url: str, token: str, body: bytes | None = None, ctype: str = "application/json") -> dict:
+    req = urllib.request.Request(url, data=body, method=method,
+                                 headers={"Authorization": f"Bearer {token}", "Content-Type": ctype})
+    with urllib.request.urlopen(req, timeout=60) as r:
+        return json.load(r)
+
+
+def part(b: str, name: str, ctype: str, body: bytes) -> bytes:
+    return (f'--{b}\r\nContent-Disposition: form-data; name="{name}"; filename="{name}"\r\n'
+            f"Content-Type: {ctype}\r\n\r\n").encode() + body + b"\r\n"
+
+
+def main() -> int:
+    conf = json.loads(CONF.read_text()) if CONF.exists() else {}
+    if "--print" in sys.argv:
+        print(f"{conf['url']}/?k={conf['view_key']}" if conf.get("url") else "(not deployed)")
+        return 0
+    account = env_value(HARNESS / ".env", "CF_ACCOUNT_ID")
+    token = env_value(HARNESS / ".env", "CF_SHARE_API_TOKEN")
+    base = f"https://api.cloudflare.com/client/v4/accounts/{account}"
+    if not conf.get("kv"):
+        title = f"{NAME}-state"
+        found = [n["id"] for n in api("GET", f"{base}/storage/kv/namespaces?per_page=100", token)["result"] if n["title"] == title]
+        conf["kv"] = found[0] if found else api("POST", f"{base}/storage/kv/namespaces", token,
+                                                json.dumps({"title": title}).encode())["result"]["id"]
+    conf.setdefault("ingest_token", secrets.token_urlsafe(32))
+    conf.setdefault("view_key", secrets.token_urlsafe(18))
+    gh = subprocess.run(["gh", "auth", "token"], capture_output=True, text=True, check=True).stdout.strip()
+    secret = {"INGEST_TOKEN": conf["ingest_token"], "VIEW_KEY": conf["view_key"],
+              "ESPN_CREDENTIALS": (FANTASY / "espn-credentials.json").read_text(), "GH_TOKEN": gh}
+    bindings = [{"type": "kv_namespace", "name": "SB", "namespace_id": conf["kv"]},
+                {"type": "plain_text", "name": "GH_REPO", "text": GH_REPO},
+                {"type": "plain_text", "name": "GH_WORKFLOW", "text": "scorebug.yml"}]
+    bindings += [{"type": "secret_text", "name": k, "text": v} for k, v in secret.items()]
+    meta = {"main_module": "worker.js", "compatibility_date": "2026-09-01", "bindings": bindings}
+    b = uuid.uuid4().hex
+    body = b"".join([
+        (f'--{b}\r\nContent-Disposition: form-data; name="metadata"\r\nContent-Type: application/json\r\n\r\n'
+         + json.dumps(meta) + "\r\n").encode(),
+        part(b, "worker.js", "application/javascript+module", (HERE / "worker.js").read_bytes()),
+        part(b, "model.js", "application/javascript+module", (HERE / "model.js").read_bytes()),
+        part(b, "page.html", "text/plain", (FANTASY / "dashboard" / "index.html").read_bytes()),
+        f"--{b}--\r\n".encode(),
+    ])
+    w = f"{base}/workers"
+    api("PUT", f"{w}/scripts/{NAME}", token, body, f"multipart/form-data; boundary={b}")
+    api("POST", f"{w}/scripts/{NAME}/subdomain", token, json.dumps({"enabled": True}).encode())
+    api("PUT", f"{w}/scripts/{NAME}/schedules", token, json.dumps([{"cron": c} for c in CRON]).encode())
+    sub = api("GET", f"{w}/subdomain", token)["result"]["subdomain"]
+    conf["url"] = f"https://{NAME}.{sub}.workers.dev"
+    CONF.write_text(json.dumps(conf, indent=2) + "\n")
+    CONF.chmod(0o600)
+    print(f"{conf['url']}/?k={conf['view_key']}")
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

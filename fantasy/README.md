@@ -442,56 +442,9 @@ opaque GUIDs in the gitignored file only. What is and is not tracked:
   rebuilds it). A fresh clone has no watch list until that routine writes one;
   `roster-watch` and `roster-news --watch` treat a missing file as empty.
 
-## Live week dashboard (`bin/ff-dash`)
+## Live week dashboard (Scorebug)
 
-`fantasy/dashboard/` is the live view of the current week, at
-<http://127.0.0.1:5023>. The launchd job `com.exobrain.ff-dash` keeps it
-running (KeepAlive). Each 60 s while a game is on, and each 10 min otherwise,
-it runs `espn matchup` and `espn scoreboard` and appends P(win) to
-`dashboard/log/<year>-w<week>.jsonl` (gitignored). That log is the only record
-of win probability over time, and the page draws its line from it.
-A second loop reads ESPN's live matchup score (`totalPointsLive` and each
-starter's `appliedStatTotal`) every 10 s while a game is on and serves it at
-`/api/live`. The page polls it every 5 s and shows the scores unrounded, as
-ESPN has them. Between model pulls the page moves each side's mean by the
-points scored since the last pull and recomputes P(win) with the same spread.
-
-Each minute the server prices all six games (one `espn matchup --team` per
-game, in parallel) and logs every game's P(win) under `all` in the JSONL, so
-the ticker cells work as tabs. Team pictures come through `/logo/<id>` with
-the league cookies; jersey numbers come from ESPN's public athlete API. Both
-are cached in `dashboard/cache/` (gitignored).
-
-The page writes its headline from the model: who is still to play and how
-many points the gap is. It also shows the effect of a 6-point touchdown on
-each side. All numbers come from `espn`. The page does not calculate odds of
-its own, so it agrees with `espn check`. Design tokens are in
-`dashboard/DESIGN.md`.
-
-Known limit: an in-progress player keeps his projected scoring rate for the
-share of the game that is left (`games_remaining()` in `espncli/cli.py`). A
-quiet first half does not lower his expectation. The fix is a rest-of-game
-model fit on nflverse play-by-play, with a backtest of the live P(win) for
-calibration.
-
-## Weekly standings chart (`bin/standings-post`)
-
-`standings_history.py` replays the league schedule and records the table
-after each decided week. It uses the same order as ESPN: win
-percentage first, then points for. `--html PATH` writes the bump chart, and
-`--check` compares the last week with `ff standings`.
-
-`bin/standings-post` renders that chart to a PNG with headless Playwright. It
-then posts the PNG to the league's Discord channel with a short caption: the
-two bye seats, and the largest climb and drop. The tool uses
-`discord/discord-send.py --attach` for the post. A week is decided when all
-of its games have a winner on ESPN. The launchd job
-`com.exobrain.standings-post` runs on Tuesday at 7 AM, 10 AM, 2 PM and 7 PM,
-and on Wednesday at 10 AM. Each week posts one time only, because the posted
-weeks are kept in `.cache/standings-post/state.json`. If a post fails, a
-banner and a Discord DM tell Alex.
-
-The channel id is in the gitignored `standings-post.json`
-(`{"channel_id": "<id>"}`). If this file is missing, the run stops and sends
-a notification. Use `--dry-run` to render and print the caption without a
-post. Use `--force` to post the newest week again.
+The dashboard runs in the cloud: see `scorebug/README.md`. `bin/ff-dash`
+(launchd `com.exobrain.ff-dash`) is now the Mac's publisher of the model
+snapshot, and <http://127.0.0.1:5023> redirects to the cloud app. Design
+tokens are in `dashboard/DESIGN.md`.

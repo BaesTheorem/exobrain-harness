@@ -138,7 +138,7 @@ function render(S){S=merge(S,L0);
   if(ro.length)bits.push(rm.length?`One by ${esc(last(ro[0].name))} drops it to <b>${pct(dn)}</b>.`:`A touchdown by ${esc(last(ro[0].name))} (6 points) drops ${esc(me.team)} to <b>${pct(dn)}</b>.`);
   $('note').innerHTML=bits.join(' ');$('noteC').hidden=false}else $('noteC').hidden=true;
  const hist=(S.history||[]).map(d=>isMine?d:(d.all&&d.all[SEL]?{t:d.t,...d.all[SEL]}:null)).filter(d=>d&&d.p!=null);hist.push({t:S.scoresAt||S.at,p:w.p,me:me.actual,opp:op.actual});chart(hist,V);
- $('wplg').textContent=hist.length<2?'one reading a minute while games are on; the line starts at the first one':'one reading a minute while games are on; hover for the score';
+ $('wplg').textContent=hist.length<2?'one reading every 2 minutes while games are on; the line starts at the first one':'one reading every 2 minutes while games are on; hover for the score';
  $('ticker').innerHTML=S.games.map(g=>{const pm=g.mine?(g.h===ours?g.p:1-g.p):g.p;
   return `<div class="tk${g.id==SEL?' sel':''}${g.mine?' mine':''}" data-id="${g.id}" role="tab" tabindex="0" aria-selected="${g.id==SEL}" title="${esc(g.h)} ${f1(g.hs)} – ${f1(g.as)} ${esc(g.a)}">${logo(g.hid,'s')}<span>${esc(g.h)}</span> ${f2(g.hs)}–${f2(g.as)} <b>${pct(pm)}</b></div>`}).join('');
  if(S.season){const s=S.season,i=s.names.indexOf(ours),rows=s.names.map((n,j)=>[n,s.probs.bye[j],s.probs.playoffs[j]]).sort((a,b)=>b[1]-a[1]);
@@ -146,8 +146,8 @@ function render(S){S=merge(S,L0);
   const top=rows.slice(0,8);if(!top.some(r=>r[0]===ours))top.push(rows.find(r=>r[0]===ours));
   $('season').innerHTML='<tr><th>TEAM</th><th>BYE</th><th>PLAYOFFS</th></tr>'+top.map(r=>`<tr class="${r[0]===ours?'me':''}"><td>${logo((S.team_ids||{})[r[0]],'xs')}${esc(r[0])}</td><td>${pct(r[1])}</td><td>${pct(r[2])}</td></tr>`).join('');
   $('sfoot').textContent=`season_sim after week ${s.weeks_played} · a first-round bye is worth about 8 points of title odds`;}
- $('foot').textContent=`Scores live from ESPN${S.scoresAt?' as of '+new Date(S.scoresAt).toLocaleTimeString([], {hour:'numeric',minute:'2-digit',second:'2-digit'}):''} (every 10 s while games are on). Model updated ${new Date(S.at).toLocaleTimeString([], {hour:'numeric',minute:'2-digit'})}; between model pulls the win probability shifts by the points scored since. Ticker odds are the home team's, except our game, which shows ours. Source: ESPN league API and the public NFL scoreboard, priced by espn matchup (0.75 market blend, position-tier spreads, same-game correlation; in-progress players keep their projected rate for the share of the game left). Refreshes every 60 s while games are on.`;}
-const BASE=location.protocol==='file:'||location.origin==='null'?'http://127.0.0.1:5023':'';
+ $('foot').textContent=`Scores and game clocks live from ESPN${S.scoresAt?' as of '+new Date(S.scoresAt).toLocaleTimeString([], {hour:'numeric',minute:'2-digit',second:'2-digit'}):''}, every 10 s. Model inputs from the ${S.source==='cloud'?'cloud runner':'Mac'} at ${new Date(S.at).toLocaleTimeString([], {weekday:'short',hour:'numeric',minute:'2-digit'})}${S.lineup_changed&&S.lineup_changed.length?' (a lineup changed since; a new model run is on the way)':''}. Win probability: the lineup model (0.75 market blend, position-tier spreads, same-game correlation, injury mixtures); a player in a live game keeps his projected rate for the share of the game left. Ticker odds are the home team's, except our game.`;}
+const BASE=location.protocol==='file:'||location.origin==='null'?'https://scorebug.alex-hedtke.workers.dev':'';
 let S0=null,L0=null,SEL=+(new URLSearchParams(location.hash.slice(1)).get('m'))||null;
 function pick(id){SEL=+id;history.replaceState(null,'','#m='+id);if(S0)render(S0)}
 document.addEventListener('click',e=>{const t=e.target.closest('.tk');if(t)pick(t.dataset.id)});
@@ -165,7 +165,7 @@ function merge(S,L){if(!S||!S.ok||!L||!L.teams||(L.at&&L.at<S.at))return S;const
   const V=T.views[g.id];if(V)g.p=V.me.team_id===g.hid?V.win.p:1-V.win.p});
  T.scoresAt=L.at;return T}
 const get=async p=>(await fetch(BASE+p,{cache:'no-store'})).json();
-async function tick(){try{S0=await get('/api/state');render(S0)}catch(e){$('err').textContent='Dashboard server not reachable ('+e.message+'). Start it with fantasy/bin/ff-dash.'}}
-async function fast(){try{L0=await get('/api/live');if(S0)render(S0)}catch(e){}}
-tick();fast();setInterval(tick,60e3);setInterval(fast,5e3);
+async function tick(){try{const s=await get('/api/state');if(s.ok===false)throw new Error(s.error);S0=s;render(S0)}catch(e){$('err').textContent='Scorebug not reachable ('+e.message+'). Showing the last good reading.'}}
+tick();setInterval(tick,10e3);
+document.addEventListener('visibilitychange',()=>{if(!document.hidden)tick()});
 </script></body></html>
