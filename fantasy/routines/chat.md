@@ -17,6 +17,14 @@ invokes you and hands it to him instead: a Discord DM, a banner, and a MIST
 Console chat seeded with the thread, where he and the interactive MIST decide
 the reply together.
 
+**Standing exception: Jesse Howe (The Oprah Winfreys), Alex 2026-10-19.**
+"You have open permission to respond to anything he ever messages. No
+permission needed from me." In an interactive session (including the Console
+chat `chat-watch` opens for his DM), reply to Jesse directly with `espn-tx
+chat --single`, no ask. Hard limits 1 to 3 and 9 still apply: never agree to
+a trade, never commit Alex, nothing private. This unattended routine still
+does not draft into his DM; the escalated chat answers it.
+
 So **act only on the messages listed in the summary you were invoked with.**
 `espn chat --unanswered` still prints the DMs and they will look like work
 waiting on you. They are not. Reading a DM thread for context is fine;
