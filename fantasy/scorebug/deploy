@@ -28,6 +28,8 @@ HARNESS = FANTASY.parent
 CONF = HERE / "scorebug.json"
 NAME = "scorebug"
 GH_REPO = "BaesTheorem/fantasy-cloud"
+TEAM_ID = "NHUAUL8ZQ5"
+APNS_TOPIC = "com.alexhedtke.scorebug"
 CRON = ["* * * * *"]
 
 
@@ -69,9 +71,14 @@ def main() -> int:
     gh = subprocess.run(["gh", "auth", "token"], capture_output=True, text=True, check=True).stdout.strip()
     secret = {"INGEST_TOKEN": conf["ingest_token"], "VIEW_KEY": conf["view_key"],
               "ESPN_CREDENTIALS": (FANTASY / "espn-credentials.json").read_text(), "GH_TOKEN": gh}
+    # Live Activity pushes: the team's APNs key (the same key MIST Alarms uses).
+    key_id = env_value(Path.home() / "Documents/mist-alarms/.env", "APNS_KEY_ID")
+    secret.update({"APNS_KEY": (Path.home() / ".appstoreconnect/private_keys" / f"AuthKey_{key_id}.p8").read_text(),
+                   "APNS_KEY_ID": key_id, "APNS_TEAM_ID": TEAM_ID})
     bindings = [{"type": "kv_namespace", "name": "SB", "namespace_id": conf["kv"]},
                 {"type": "plain_text", "name": "GH_REPO", "text": GH_REPO},
-                {"type": "plain_text", "name": "GH_WORKFLOW", "text": "scorebug.yml"}]
+                {"type": "plain_text", "name": "GH_WORKFLOW", "text": "scorebug.yml"},
+                {"type": "plain_text", "name": "APNS_TOPIC", "text": APNS_TOPIC}]
     bindings += [{"type": "secret_text", "name": k, "text": v} for k, v in secret.items()]
     meta = {"main_module": "worker.js", "compatibility_date": "2026-09-01", "bindings": bindings}
     b = uuid.uuid4().hex

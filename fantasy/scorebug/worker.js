@@ -11,7 +11,8 @@
 // key, as ?k= once, then a cookie; or "Authorization: Bearer <VIEW_KEY>").
 // Cron each minute: history every HISTORY_GAP_S while a game is on, and a
 // GitHub dispatch of the snapshot workflow when the snapshot is stale.
-// Bindings: KV SB; secrets INGEST_TOKEN, VIEW_KEY, ESPN_CREDENTIALS, GH_TOKEN;
+// Bindings: KV SB; secrets INGEST_TOKEN, VIEW_KEY, ESPN_CREDENTIALS, GH_TOKEN,
+// APNS_KEY, APNS_KEY_ID, APNS_TEAM_ID; vars APNS_TOPIC (the app bundle id),
 // vars GH_REPO, GH_WORKFLOW. KV writes stay under the free tier's 1000 a day.
 
 import { clockRemaining, winProb } from "./model.js";
@@ -100,6 +101,91 @@ function compute(snap, live) {
            views, games, team_ids, season: snap.season_sim, lineup_changed: stale };
 }
 
+// ---------- the short summary (widget) and the Live Activity ----------
+
+const lastName = n => n.split(" ").slice(-1)[0];
+function names(rows) {
+  const n = rows.map(r => lastName(r.name));
+  return n.length > 2 ? `${n.length} players` : n.join(" and ");
+}
+
+function summary(st) {
+  const v = st.views[st.mine], me = v.me, op = v.opp;
+  const rm = me.rows.filter(r => r.rem > 0), ro = op.rows.filter(r => r.rem > 0);
+  const final = !rm.length && !ro.length;
+  const live = [...me.rows, ...op.rows].some(r => r.state === "live");
+  const gap = Math.round((op.actual - me.actual) * 100) / 100;
+  let line;
+  if (final) line = me.actual >= op.actual ? `Won by ${(-gap).toFixed(2)}` : `Lost by ${gap.toFixed(2)}`;
+  else if (rm.length && ro.length) line = `${names(rm)} vs ${names(ro)}`;
+  else line = `${names(rm.length ? rm : ro)} still to play`;
+  return { week: st.week, meName: me.team, oppName: op.team, meScore: me.actual, oppScore: op.actual,
+           p: Math.round(v.win.p * 1000) / 1000, line, live, final, updated: Math.floor(Date.now() / 1000) };
+}
+
+const enc = new TextEncoder();
+const b64url = buf => btoa(String.fromCharCode(...new Uint8Array(buf))).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
+let apnsJwt = { token: "", iat: 0 };
+
+async function apnsToken(env) {
+  const now = Math.floor(Date.now() / 1000);
+  if (apnsJwt.token && now - apnsJwt.iat < 40 * 60) return apnsJwt.token;   // Apple: refresh every 20-60 min
+  const pem = env.APNS_KEY.replace(/-----[^-]+-----/g, "").replace(/\s+/g, "");
+  const der = Uint8Array.from(atob(pem), c => c.charCodeAt(0));
+  const key = await crypto.subtle.importKey("pkcs8", der, { name: "ECDSA", namedCurve: "P-256" }, false, ["sign"]);
+  const head = b64url(enc.encode(JSON.stringify({ alg: "ES256", kid: env.APNS_KEY_ID })));
+  const body = b64url(enc.encode(JSON.stringify({ iss: env.APNS_TEAM_ID, iat: now })));
+  const sig = await crypto.subtle.sign({ name: "ECDSA", hash: "SHA-256" }, key, enc.encode(`${head}.${body}`));
+  apnsJwt = { token: `${head}.${body}.${b64url(sig)}`, iat: now };
+  return apnsJwt.token;
+}
+
+async function laPush(env, dev, aps, priority) {
+  const host = dev.env === "sandbox" ? "api.sandbox.push.apple.com" : "api.push.apple.com";
+  const r = await fetch(`https://${host}/3/device/${dev.token}`, {
+    method: "POST",
+    headers: { authorization: `bearer ${await apnsToken(env)}`, "apns-topic": `${env.APNS_TOPIC}.push-type.liveactivity`,
+               "apns-push-type": "liveactivity", "apns-priority": String(priority), "content-type": "application/json" },
+    body: JSON.stringify({ aps: { timestamp: Math.floor(Date.now() / 1000), ...aps } }),
+  });
+  return { status: r.status, reason: r.ok ? "" : ((await r.json().catch(() => ({}))).reason || "") };
+}
+
+const LA_MAX_S = 7.5 * 3600;   // iOS ends an activity after 8 hours of updates
+
+// Start the activity by push when one of our starters' games is on, update it
+// on the history cadence, end it when nothing of ours is live or due today.
+async function liveActivity(env, st, snap) {
+  if (!env.APNS_KEY) return null;
+  const la = (await env.SB.get("la", "json")) || {};
+  const now = Math.floor(Date.now() / 1000);
+  const rows = [...st.views[st.mine].me.rows, ...st.views[st.mine].opp.rows];
+  const live = rows.some(r => r.state === "live");
+  const kick = new Map(snap.views.flatMap(v => [...v.me.rows, ...v.opp.rows]).map(r => [r.id, r.kickoff]));
+  const dueSoon = rows.some(r => r.state === "upcoming" && kick.get(r.id) && Date.parse(kick.get(r.id)) - Date.now() < 4 * 3600e3);
+  const s = summary(st), v = st.views[st.mine];
+  const state = { meScore: s.meScore, oppScore: s.oppScore, p: s.p, line: s.line, live: s.live, final: s.final, updated: s.updated };
+  let out = { live, dueSoon }, dirty = false;
+  if (la.update && now - (la.update.at || 0) > LA_MAX_S) { delete la.update; dirty = true; }
+  if (live && !la.update && la.start && (!la.startedAt || now - la.startedAt > LA_MAX_S)) {
+    out.start = await laPush(env, la.start, { event: "start", "content-state": state, "attributes-type": "ScorebugAttributes",
+      attributes: { week: st.week, meName: v.me.team, oppName: v.opp.team },
+      alert: { title: `Week ${st.week} is live`, body: `${Scorebug(s.p)} to win · ${s.line}` } }, 10);
+    la.startedAt = now; dirty = true;
+  } else if (la.update) {
+    if (live || dueSoon) {
+      out.update = await laPush(env, la.update, { event: "update", "content-state": state, "stale-date": now + 600 }, 5);
+    } else {
+      out.end = await laPush(env, la.update, { event: "end", "content-state": state, "dismissal-date": now + 3 * 3600 }, 10);
+      delete la.update; dirty = true;
+    }
+    if ((out.update || {}).status === 410 || (out.update || {}).status === 400) { delete la.update; dirty = true; }
+  }
+  if (dirty) await env.SB.put("la", JSON.stringify(la));
+  return out;
+}
+const Scorebug = p => `${Math.round(p * 100)}%`;
+
 async function getSnap(env) {
   const s = await env.SB.get("snap", "json");
   if (!s) throw new Error("no snapshot yet: run fantasy/scorebug/snapshot.py --post");
@@ -117,9 +203,11 @@ async function record(env) {
   const st = compute(snap, live);
   const now = Math.floor(Date.now() / 1000);
   const out = { live: st.live };
+  const last = Number(await env.SB.get("hist:last")) || 0;
+  const due = now - last >= HISTORY_GAP_S - 5;
+  if (due) out.la = await liveActivity(env, st, snap).catch(e => ({ error: String(e) }));
   if (st.live) {
-    const last = Number(await env.SB.get("hist:last")) || 0;
-    if (now - last >= HISTORY_GAP_S - 5) {
+    if (due) {
       const key = `hist:${snap.season}:${snap.week}`;
       const h = (await env.SB.get(key, "json")) || [];
       h.push({ t: new Date().toISOString(), all: Object.fromEntries(Object.values(st.views).map(v =>
@@ -187,6 +275,20 @@ export default {
     try {
       if (path === "/") return new Response(PAGE, { headers: { "content-type": "text/html; charset=utf-8", "cache-control": "no-store" } });
       if (path === "/api/live") return json({});
+      if (path === "/api/summary") {
+        const snap = await getSnap(env);
+        return json(summary(compute(snap, await espnLive(env, snap))));
+      }
+      if (path === "/la/register" && req.method === "POST") {
+        const b = await req.json();
+        if (!/^[0-9a-f]{32,200}$/.test(b.token || "") || !["start", "update"].includes(b.kind)) return json({ error: "bad token" }, 400);
+        const la = (await env.SB.get("la", "json")) || {};
+        const dev = { token: b.token, env: b.env === "sandbox" ? "sandbox" : "production", at: Math.floor(Date.now() / 1000), activity: b.activity || null };
+        if (JSON.stringify((la[b.kind] || {}).token) === JSON.stringify(dev.token)) return json({ ok: true, stored: false });
+        la[b.kind] = dev;
+        await env.SB.put("la", JSON.stringify(la));
+        return json({ ok: true, stored: true });
+      }
       if (path === "/api/state") {
         const snap = await getSnap(env);
         const st = compute(snap, await espnLive(env, snap));

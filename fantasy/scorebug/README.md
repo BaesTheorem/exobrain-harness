@@ -25,6 +25,10 @@ only before a game locks.
 | `snapshot.py` | Mac (`ff-dash`, launchd `com.exobrain.ff-dash`) or GitHub Actions | Runs the model for all six games and posts it to `/ingest`. The Mac posts every 2 minutes on game days and every 30 minutes on other days. |
 | `worker.js` + `model.js` | Cloudflare Worker `scorebug` | Serves the page, `/api/state` and `/logo/<id>`. A cron each minute saves the history every 2 minutes while a game is on. When the snapshot is old (20 minutes while kickoffs are near, 6 hours otherwise) or a lineup changed, it dispatches `scorebug.yml` in `BaesTheorem/fantasy-cloud`. |
 | `deploy` | Mac | Uploads the Worker, the model and the page, with the KV binding, secrets and cron. `bin/cloud-sync` runs it when the ESPN cookies change. |
+| `/api/summary`, `/la/register` | Worker | The short summary that the iPhone widget reads, and the Live Activity push tokens. On the same 2-minute cadence the cron starts the Live Activity by push when one of our starters' games is on, updates it, and ends it when nothing of ours is live or due within 4 hours. The pushes use the team APNs key (the one MIST Alarms uses). |
+| `icon/make_icon.py` | Mac | The app icon: the Material Symbols "scoreboard" glyph on the score bug red. Writes the iOS PNG and the macOS `.icns`. |
+| `/Applications/Scorebug.app` | Mac | The desktop app: `app-shell/build-app.sh "Scorebug" scorebug "$(fantasy/scorebug/deploy --print)" "" --icon fantasy/scorebug/icon/Scorebug.icns --bundle-id com.exobrain.scorebug`. |
+| iPhone app | private repo `BaesTheorem/scorebug` (`~/Documents/scorebug`) | The page in a native web view, a home and lock screen widget, and the Live Activity. |
 | `test_model.py` | Mac | Compares `model.js` with the Python `win_prob` on random game clocks. It must print PASS after any edit to either side. |
 
 ## Access
