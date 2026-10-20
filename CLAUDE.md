@@ -151,6 +151,7 @@ Furthermore, never build graphics or any other assets from scratch what you can 
 | [Observable Plot](https://github.com/observablehq/plot) / [uPlot](https://github.com/leeoniya/uPlot) | Charts, and fast time series | ISC / MIT |
 | [FullCalendar](https://github.com/fullcalendar/fullcalendar) (standard, not Premium) | Month, week and list calendar views (added 2026-10-15 for Common Lot's meetings page) | MIT |
 | [GSAP](https://github.com/greensock/GSAP) (with ScrollTrigger) / [Lenis](https://github.com/darkroomengineering/lenis) | Scroll-driven motion and smooth scroll, for sites built after an animated reference (added 2026-10-15 for Common Lot) | GSAP no-charge license, commercial use allowed / MIT |
+| [MapLibre GL JS](https://github.com/maplibre/maplibre-gl-js) with [OpenFreeMap](https://github.com/hyperknot/openfreemap) tiles | Web maps (WebGL vector tiles, no API key; styles `positron` and `dark`). Added 2026-10-20 for the KC 311 web app | BSD-3 / tiles free, attribution to OpenMapTiles and OpenStreetMap |
 
 Retired, do not cite in new work: material-web (maintenance mode), Shoelace (sunset, replaced by Web Awesome), Pico CSS (archived). Before you adopt a library that is not on this list, check that its upstream is alive and that people, not a generator, wrote it, then add it here.
 

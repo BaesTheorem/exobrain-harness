@@ -15,6 +15,9 @@ writes the config.
                              rotation (fixed or not), then upload a KC 311
                              TestFlight build so it carries the new key
 
+A refresh that changes the key also redeploys the push Worker and sends the
+key to the KC 311 web server (its URL and owner token are in kc311/web/.env).
+
 INVARIANTS:
 - The config is written only after a signed get_main call succeeds with it.
 - Exit codes: 0 ok, 1 refresh failed, 2 key rejected (--check only).
@@ -29,6 +32,8 @@ import shutil
 import subprocess
 import sys
 import tempfile
+import urllib.error
+import urllib.request
 from datetime import datetime
 from pathlib import Path
 
@@ -131,8 +136,34 @@ def refresh() -> int:
     if changed and PUSH_DEPLOY.exists():
         r = subprocess.run([str(PUSH_DEPLOY)], capture_output=True, text=True, check=False)
         log(f"push worker redeploy: {'ok' if r.returncode == 0 else r.stderr.strip()[-300:]}")
+    if changed:
+        log(f"web server key: {send_web_key(cfg)}")
     print(json.dumps({"ok": True, "changed": changed, "app_version": cfg["app_version"]}))
     return 0
+
+
+WEB_ENV = Path.home() / "Documents" / "kc311" / "web" / ".env"
+
+
+def send_web_key(cfg: dict) -> str:
+    """Give the KC 311 web server the new key through its owner endpoint (it tests the key first)."""
+    if not WEB_ENV.exists():
+        return "skipped (no web/.env)"
+    env = dict(line.split("=", 1) for line in WEB_ENV.read_text().splitlines() if "=" in line and not line.startswith("#"))
+    if not env.get("ADMIN_TOKEN") or not env.get("URL"):
+        return "skipped (ADMIN_TOKEN or URL missing in web/.env)"
+    body = json.dumps({k: cfg[k] for k in ("key", "city_id", "app_version")} | {"source": "mac-key-watch"}).encode()
+    req = urllib.request.Request(f"{env['URL'].rstrip('/')}/api/admin/key", data=body, method="POST",
+                                 headers={"content-type": "application/json", "x-admin-token": env["ADMIN_TOKEN"],
+                                          # Cloudflare refuses Python's default user agent (error 1010).
+                                          "user-agent": "kc311-key-watch/1"})
+    try:
+        with urllib.request.urlopen(req, timeout=60) as r:
+            return f"ok ({r.status})"
+    except urllib.error.HTTPError as exc:
+        return f"refused ({exc.code}: {exc.read()[:200].decode(errors='replace')})"
+    except OSError as exc:
+        return f"failed ({exc})"
 
 
 def check() -> int:
