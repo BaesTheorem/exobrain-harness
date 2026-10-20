@@ -141,8 +141,12 @@ def build() -> dict:
         ids = (g["home"]["teamId"], g["away"]["teamId"])
         return matchup(api, week, data, mine if mine in ids else ids[0], corr, rem)
 
+    # The first game runs alone: it fills espncli's file caches, which the
+    # client writes through one temp name, so a cold cache (a fresh cloud
+    # runner) raced when six threads filled it at once.
+    first = one(games[0]) if games else None
     with ThreadPoolExecutor(max_workers=6) as ex:
-        views = [v for v in ex.map(one, games) if v]
+        views = [v for v in [first, *ex.map(one, games[1:])] if v]
     nums = jerseys([r["id"] for v in views for k in ("me", "opp") for r in v[k]["rows"]])
     for v in views:
         for k in ("me", "opp"):
