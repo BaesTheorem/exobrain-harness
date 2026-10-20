@@ -593,14 +593,6 @@
     "notes": "Needs layers/centerlines.geojson + layers/osm_highways.geojson (fetch_layers.py, fetch_osm_highways.py) and crashes_kcmo.csv. Ramp ids (RP nnnn) cannot be placed. Median error 11 m vs MoDOT coords. Lives in the vault since 2026-10-06."
   },
   {
-    "name": "kc311-web-smoke",
-    "command": "node test/smoke.mjs [base-url]",
-    "repo_dir": "~/Documents/kc311/web",
-    "source": "built",
-    "added": "2026-10-20",
-    "notes": "Needs web/.env with ADMIN_TOKEN and URL. Read-only: it never files a report. Uses the device id from ../ios/Config/civic-config.json when present."
-  },
-  {
     "name": "kcmo-jobs",
     "command": "python3 job-search/kcmo.py [--no-save]",
     "repo_dir": "job-search",
@@ -969,6 +961,14 @@
     "source": "built",
     "added": "2026-08-16",
     "notes": "Extract PNG pages from a Supernote .note file for vision OCR. A firmware signature bump raises UnsupportedFileFormat -- upgrade supernotelib."
+  },
+  {
+    "name": "switchboard-kc-smoke",
+    "command": "node test/smoke.mjs [base-url]",
+    "repo_dir": "~/Documents/switchboard-kc/web",
+    "source": "built",
+    "added": "2026-10-20",
+    "notes": "Needs web/.env with ADMIN_TOKEN and URL. Read-only: it never files a report. Uses the device id from ../ios/Config/civic-config.json when present."
   },
   {
     "name": "talify.py",

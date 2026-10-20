@@ -12,11 +12,11 @@ writes the config.
     refresh_key.py --auto    --check, and refresh only when the key is rejected
     refresh_key.py --auto --notify
                              the weekly launchd form: banner + Discord DM on a
-                             rotation (fixed or not), then upload a KC 311
+                             rotation (fixed or not), then upload a Switchboard KC
                              TestFlight build so it carries the new key
 
 A refresh that changes the key also redeploys the push Worker and sends the
-key to the KC 311 web server (its URL and owner token are in kc311/web/.env).
+key to the Switchboard KC web server (its URL and owner token are in switchboard-kc/web/.env).
 
 INVARIANTS:
 - The config is written only after a signed get_main call succeeds with it.
@@ -39,7 +39,7 @@ from pathlib import Path
 
 import civicapi
 
-PUSH_DEPLOY = Path.home() / "Documents" / "kc311" / "push" / "bin" / "deploy"
+PUSH_DEPLOY = Path.home() / "Documents" / "switchboard-kc" / "push" / "bin" / "deploy"
 PACKAGE = "com.civicapps.kansascitymo"
 CLASSES = {
     "key": ("com.my.city.app.apicontroller.WebServiceController", r'String KEY = "([^"]+)"'),
@@ -132,7 +132,7 @@ def refresh() -> int:
     civicapi.CONFIG_PATH.write_text(json.dumps(cfg, indent=2) + "\n")
     changed = [k for k in CLASSES if old.get(k) != cfg[k]]
     log(f"config written to {civicapi.CONFIG_PATH}; changed: {', '.join(changed) or 'nothing'}")
-    # The KC 311 push Worker holds its own copy of the key; send it the new one.
+    # The Switchboard KC push Worker (kc311-push) holds its own copy of the key; send it the new one.
     if changed and PUSH_DEPLOY.exists():
         r = subprocess.run([str(PUSH_DEPLOY)], capture_output=True, text=True, check=False)
         log(f"push worker redeploy: {'ok' if r.returncode == 0 else r.stderr.strip()[-300:]}")
@@ -142,11 +142,11 @@ def refresh() -> int:
     return 0
 
 
-WEB_ENV = Path.home() / "Documents" / "kc311" / "web" / ".env"
+WEB_ENV = Path.home() / "Documents" / "switchboard-kc" / "web" / ".env"
 
 
 def send_web_key(cfg: dict) -> str:
-    """Give the KC 311 web server the new key through its owner endpoint (it tests the key first)."""
+    """Give the Switchboard KC web server the new key through its owner endpoint (it tests the key first)."""
     if not WEB_ENV.exists():
         return "skipped (no web/.env)"
     env = dict(line.split("=", 1) for line in WEB_ENV.read_text().splitlines() if "=" in line and not line.startswith("#"))
@@ -156,7 +156,7 @@ def send_web_key(cfg: dict) -> str:
     req = urllib.request.Request(f"{env['URL'].rstrip('/')}/api/admin/key", data=body, method="POST",
                                  headers={"content-type": "application/json", "x-admin-token": env["ADMIN_TOKEN"],
                                           # Cloudflare refuses Python's default user agent (error 1010).
-                                          "user-agent": "kc311-key-watch/1"})
+                                          "user-agent": "switchboard-kc-key-watch/1"})
     try:
         with urllib.request.urlopen(req, timeout=60) as r:
             return f"ok ({r.status})"
@@ -181,8 +181,8 @@ def check() -> int:
 
 HARNESS = civicapi.HERE.parent
 NOTIFY = HARNESS / "mist-voice" / "bin" / "mist-notify"
-# KC 311 is on TestFlight, so new builds go there, never straight to a phone.
-APP_UPLOAD = Path.home() / "Documents" / "kc311" / "ios" / "scripts" / "testflight.sh"
+# Switchboard KC is on TestFlight, so new builds go there, never straight to a phone.
+APP_UPLOAD = Path.home() / "Documents" / "switchboard-kc" / "ios" / "scripts" / "testflight.sh"
 
 
 def notify(msg: str, context: str) -> None:
@@ -195,7 +195,7 @@ def notify(msg: str, context: str) -> None:
 
 def rebuild_app() -> str:
     if not APP_UPLOAD.exists():
-        return "no KC 311 app to rebuild"
+        return "no Switchboard KC app to rebuild"
     run = subprocess.run([str(APP_UPLOAD)], capture_output=True, text=True)
     tail = (run.stdout + run.stderr).strip().splitlines()[-2:]
     return ("TestFlight build uploaded" if run.returncode == 0 else "TestFlight upload FAILED") + ": " + " | ".join(tail)
@@ -221,7 +221,7 @@ def main() -> int:
                 notify(f"The city rotated the myKCMO API key. New key pulled from the APK. {rebuild_app()}.",
                        "mykcmo-refresh-key --auto: key rotated, refresh OK")
             else:
-                notify("The myKCMO API key rotated and the auto-refresh FAILED. KC 311 app and MCP filing are down.",
+                notify("The myKCMO API key rotated and the auto-refresh FAILED. Switchboard KC (iPhone and web) and MCP filing are down.",
                        "mykcmo-refresh-key --auto: key rotated, refresh failed; run mykcmo/bin/mykcmo-refresh-key by hand")
         return result
     return refresh()

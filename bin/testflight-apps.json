@@ -5,8 +5,8 @@
   "scheme": "MIST"
  },
  {
-  "name": "KC 311",
-  "dir": "~/Documents/kc311/ios",
+  "name": "Switchboard KC",
+  "dir": "~/Documents/switchboard-kc/ios",
   "script": "scripts/testflight.sh"
  },
  {
