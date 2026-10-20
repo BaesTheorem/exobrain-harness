@@ -339,3 +339,4 @@ fantasy/cloud/hub.json
 mychart/data/*
 !mychart/data/README.md
 fantasy/dashboard/log/
+fantasy/dashboard/cache/

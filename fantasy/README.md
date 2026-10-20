@@ -456,6 +456,12 @@ starter's `appliedStatTotal`) every 10 s while a game is on and serves it at
 ESPN has them. Between model pulls the page moves each side's mean by the
 points scored since the last pull and recomputes P(win) with the same spread.
 
+Each minute the server prices all six games (one `espn matchup --team` per
+game, in parallel) and logs every game's P(win) under `all` in the JSONL, so
+the ticker cells work as tabs. Team pictures come through `/logo/<id>` with
+the league cookies; jersey numbers come from ESPN's public athlete API. Both
+are cached in `dashboard/cache/` (gitignored).
+
 The page writes its headline from the model: who is still to play and how
 many points the gap is. It also shows the effect of a 6-point touchdown on
 each side. All numbers come from `espn`. The page does not calculate odds of

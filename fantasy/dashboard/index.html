@@ -15,6 +15,8 @@ body{background:var(--bg);color:var(--ink);font:14px Inter,sans-serif;padding:24
 .mid{background:var(--red);display:flex;flex-direction:column;align-items:center;justify-content:center;padding:8px}
 .mid .p{font:700 56px 'Barlow Condensed';line-height:1} .mid small{font:600 13px 'Barlow Condensed';letter-spacing:2px}
 .proj{color:var(--mute);font-size:12px}
+.logo{width:64px;height:64px;object-fit:cover;flex:none;background:var(--line)} .logo.s{width:20px;height:20px} .logo.xs{width:18px;height:18px;vertical-align:-4px;margin-right:6px}
+.jn{color:var(--mute);font:600 13px 'Barlow Condensed';margin-left:4px}
 .chyron{display:flex;align-items:stretch;background:#F2F2F0;color:#0E1013;margin-top:2px}
 .chyron .tag{white-space:nowrap;background:var(--red);color:#fff;font:700 15px 'Barlow Condensed';letter-spacing:2px;padding:8px 16px;display:flex;align-items:center}
 .chyron .txt{font:600 20px 'Barlow Condensed';padding:8px 16px;text-transform:uppercase;letter-spacing:.3px}
@@ -22,7 +24,7 @@ body{background:var(--bg);color:var(--ink);font:14px Inter,sans-serif;padding:24
 .err{color:var(--red);font-size:12px;padding:0 2px 8px}
 .ticker{display:flex;gap:2px;margin:0 0 16px;flex-wrap:wrap}
 .tk{flex:1;min-width:190px;background:var(--panel);padding:8px 12px;font:500 15px 'Barlow Condensed';white-space:nowrap;display:flex;gap:6px}
-.tk.me{box-shadow:inset 0 -3px var(--red)} .tk b{margin-left:auto;padding-left:6px} .tk span{color:var(--mute);overflow:hidden;text-overflow:ellipsis;min-width:0}
+.tk{cursor:pointer;border-bottom:3px solid transparent} .tk:hover{background:#1E2228} .tk.sel{border-bottom-color:var(--red);background:#1E2228} .tk.mine span{color:var(--ink);font-weight:600} .tk b{margin-left:auto;padding-left:6px} .tk span{color:var(--mute);overflow:hidden;text-overflow:ellipsis;min-width:0}
 .grid{display:grid;grid-template-columns:1fr 1fr 300px;gap:16px}
 .card{background:var(--panel);padding:16px;min-width:0}
 h3{font:600 15px 'Barlow Condensed';letter-spacing:2px;color:var(--mute);margin-bottom:12px;text-transform:uppercase}
@@ -43,18 +45,18 @@ tr.me td{color:var(--red)}
 .foot{color:var(--mute);font-size:11px;margin-top:16px;line-height:1.5}
 #wp{position:relative} #tip{position:absolute;pointer-events:none;background:var(--bg);border:1px solid var(--line);padding:6px 10px;font:600 14px 'Barlow Condensed';display:none;white-space:nowrap}
 @media (max-width:980px){.grid{grid-template-columns:1fr}.wide{grid-column:auto}}
-@media (max-width:640px){body{padding:8px}.top{grid-template-columns:1fr 1fr}.mid{grid-column:1/3;grid-row:1;flex-direction:row;gap:12px}
- .team{padding:12px}.tn{font-size:18px}.sc{font-size:44px}.team.r{flex-direction:row-reverse}
+@media (max-width:640px){.logo{width:40px;height:40px}body{padding:8px}.top{grid-template-columns:1fr 1fr}.mid{grid-column:1/3;grid-row:1;flex-direction:row;gap:12px}
+ .team{padding:12px;flex-direction:column;align-items:flex-start;gap:6px}.team.r{flex-direction:column-reverse;align-items:flex-end}.team.r>div{margin-left:0!important}.team .sc{margin-left:0!important}.tn{font-size:18px}.sc{font-size:40px}.proj{display:none}
  .prow{grid-template-columns:36px 1fr 80px}.prow .bar{grid-column:2/4;grid-row:2}.chyron .txt{font-size:16px}}
 </style></head><body>
 <div class="top">
- <div class="team"><div><div class="tn" id="meN">–</div><div class="proj" id="meP"></div></div><div class="sc" id="meS" style="margin-left:auto">–</div></div>
+ <div class="team"><img class="logo" id="meL" alt=""><div><div class="tn" id="meN">–</div><div class="proj" id="meP"></div></div><div class="sc" id="meS" style="margin-left:auto">–</div></div>
  <div class="mid"><div class="p" id="p">–</div><small id="pl">WIN PROB</small></div>
- <div class="team r"><div class="sc" id="opS">–</div><div style="margin-left:auto"><div class="tn" id="opN">–</div><div class="proj" id="opP"></div></div></div>
+ <div class="team r"><div class="sc" id="opS">–</div><div style="margin-left:auto"><div class="tn" id="opN">–</div><div class="proj" id="opP"></div></div><img class="logo" id="opL" alt=""></div>
 </div>
 <div class="chyron"><div class="tag" id="kick">WEEK –</div><div class="txt" id="h1">Loading the lineup model…</div></div>
 <div class="dek" id="dek"></div><div class="err" id="err"></div>
-<div class="ticker" id="ticker"></div>
+<div class="ticker" id="ticker" role="tablist" aria-label="Matchups this week"></div>
 <div class="grid">
  <div class="card"><h3 id="meH"></h3><div id="meR"></div></div>
  <div class="card"><h3 id="opH"></h3><div id="opR"></div></div>
@@ -75,7 +77,7 @@ function names(rs){const n=rs.map(r=>last(r.name));if(!n.length)return'';if(n.le
 function bars(rows,col){return rows.map(r=>{const b=Math.max(r.bank,0),wb=b/30*100,wr=r.rem/30*100;
  const tag=r.state==='live'?`<em class="live">${r.team} ${esc(r.opp)} · LIVE · ${Math.round((1-r.left)*100)}% PLAYED</em>`:`<em>${r.team} ${esc(r.opp)} · ${r.state==='upcoming'?esc(r.kick):'FINAL'}</em>`;
  return `<div class="prow" title="${esc(r.name)}: ${f1(r.bank)} banked, ${f1(r.rem)} expected left"><span class="slot">${r.slot}</span>
- <span class="pn">${esc(r.name)}${r.status?' ('+esc(r.status[0])+')':''}${tag}</span>
+ <span class="pn">${esc(r.name)}${r.jersey?`<span class="jn">#${esc(r.jersey)}</span>`:''}${r.status?' ('+esc(r.status[0])+')':''}${tag}</span>
  <span class="bar"><span class="seg" style="width:${wb}%;background:${col}"></span><span class="seg" style="width:${wr}%;background:repeating-linear-gradient(45deg,${col} 0 2px,transparent 2px 6px);outline:1px solid ${col};outline-offset:-1px"></span></span>
  <span class="num">${f2(r.bank)}${r.rem?` <b>+${f1(r.rem)}</b>`:''}</span></div>`}).join('')}
 function chart(h){const W=860,H=200,L=44,R=16,T=10,B=24,s=$('wpsvg');
@@ -102,10 +104,10 @@ function chart(h){const W=860,H=200,L=44,R=16,T=10,B=24,s=$('wpsvg');
 function render(S){S=merge(S,L0);
  if(!S.ok){$('h1').textContent='Waiting for the first pull';$('err').textContent=S.error||'';return}
  $('err').textContent=S.error?('Last pull failed: '+S.error+'. Showing '+S.at+'.'):'';
- const w=S.win,me=S.me,op=S.opp,mar=w.mu_me-w.mu_opp;
+ if(!S.views[SEL])SEL=S.mine;const V=S.views[SEL],w=V.win,me=V.me,op=V.opp,mar=w.mu_me-w.mu_opp,ours=S.views[S.mine].me.team,isMine=SEL==S.mine;
  const rm=me.rows.filter(r=>r.rem>0).sort((a,b)=>b.rem-a.rem),ro=op.rows.filter(r=>r.rem>0).sort((a,b)=>b.rem-a.rem);
  const gap=op.actual-me.actual;
- $('kick').textContent=`WEEK ${S.week} · ${S.live?'LIVE':'BETWEEN GAMES'}`;$('wk').textContent=S.week;
+ $('kick').textContent=`WEEK ${S.week} · ${S.live?'LIVE':'BETWEEN GAMES'}${isMine?'':' · OTHER GAME'}`;$('wk').textContent=S.week;
  $('pl').textContent=S.live?'WIN PROB · LIVE':'WIN PROB';
  let h;
  if(!rm.length&&!ro.length) h=`${me.team} ${me.actual>op.actual?'beat':'lost to'} ${op.team}, ${f2(me.actual)} to ${f2(op.actual)}`;
@@ -119,33 +121,37 @@ function render(S){S=merge(S,L0);
  $('p').textContent=pct(w.p);
  $('meN').textContent=me.team;$('opN').textContent=op.team;$('meS').textContent=f2(me.actual);$('opS').textContent=f2(op.actual);
  $('meP').textContent=`model final ${f1(w.mu_me)} ± ${f1(w.sd_me)}`;$('opP').textContent=`model final ${f1(w.mu_opp)} ± ${f1(w.sd_opp)}`;
- $('meH').textContent=me.team+' starters';$('opH').textContent=op.team;
+ $('meL').src=BASE+'/logo/'+me.team_id;$('opL').src=BASE+'/logo/'+op.team_id;$('meH').textContent=me.team+' starters';$('opH').textContent=op.team;
  $('meR').innerHTML=bars(me.rows,'#E5383B');$('opR').innerHTML=bars(op.rows,'#C9C2B8');
  if(w.sd_diff>0&&left){const up=Phi((mar+6)/w.sd_diff),dn=Phi((mar-6)/w.sd_diff),bits=[];
   if(rm.length)bits.push(`A touchdown by ${esc(last(rm[0].name))} (6 points) moves ${esc(me.team)} to <b>${pct(up)}</b>.`);
-  if(ro.length)bits.push(`One by ${esc(last(ro[0].name))} drops it to <b>${pct(dn)}</b>.`);
+  if(ro.length)bits.push(rm.length?`One by ${esc(last(ro[0].name))} drops it to <b>${pct(dn)}</b>.`:`A touchdown by ${esc(last(ro[0].name))} (6 points) drops ${esc(me.team)} to <b>${pct(dn)}</b>.`);
   $('note').innerHTML=bits.join(' ');$('noteC').hidden=false}else $('noteC').hidden=true;
- const hist=(S.history||[]).filter(d=>d.p!=null);if(hist.length)chart(hist);
+ const hist=(S.history||[]).map(d=>isMine?d:(d.all&&d.all[SEL]?{t:d.t,...d.all[SEL]}:null)).filter(d=>d&&d.p!=null);if(hist.length)chart(hist);
  $('wplg').textContent=hist.length<2?'one reading a minute while games are on; the line starts at the first one':'one reading a minute while games are on; hover for the score';
- $('ticker').innerHTML=S.games.map(g=>{const pm=g.mine?(g.h===me.team?g.p:1-g.p):g.p;
-  return `<div class="tk${g.mine?' me':''}" title="${esc(g.h)} ${f1(g.hs)} – ${f1(g.as)} ${esc(g.a)}"><span>${esc(g.h.slice(0,14))}</span> ${f2(g.hs)}–${f2(g.as)} <b>${pct(pm)}</b></div>`}).join('');
- if(S.season){const s=S.season,i=s.names.indexOf(me.team),rows=s.names.map((n,j)=>[n,s.probs.bye[j],s.probs.playoffs[j]]).sort((a,b)=>b[1]-a[1]);
+ $('ticker').innerHTML=S.games.map(g=>{const pm=g.mine?(g.h===ours?g.p:1-g.p):g.p;
+  return `<div class="tk${g.id==SEL?' sel':''}${g.mine?' mine':''}" data-id="${g.id}" role="tab" tabindex="0" aria-selected="${g.id==SEL}" title="${esc(g.h)} ${f1(g.hs)} – ${f1(g.as)} ${esc(g.a)}">${logo(g.hid,'s')}<span>${esc(g.h)}</span> ${f2(g.hs)}–${f2(g.as)} <b>${pct(pm)}</b></div>`}).join('');
+ if(S.season){const s=S.season,i=s.names.indexOf(ours),rows=s.names.map((n,j)=>[n,s.probs.bye[j],s.probs.playoffs[j]]).sort((a,b)=>b[1]-a[1]);
   if(i>=0)$('kv').innerHTML=[['BYE','bye'],['PLAYOFFS','playoffs'],['TITLE','champ'],['1 SEED','seed1']].map(([l,k])=>`<div><small>${l}</small><span class="big">${pct(s.probs[k][i])}</span></div>`).join('');
-  const top=rows.slice(0,8);if(!top.some(r=>r[0]===me.team))top.push(rows.find(r=>r[0]===me.team));
-  $('season').innerHTML='<tr><th>TEAM</th><th>BYE</th><th>PLAYOFFS</th></tr>'+top.map(r=>`<tr class="${r[0]===me.team?'me':''}"><td>${esc(r[0])}</td><td>${pct(r[1])}</td><td>${pct(r[2])}</td></tr>`).join('');
+  const top=rows.slice(0,8);if(!top.some(r=>r[0]===ours))top.push(rows.find(r=>r[0]===ours));
+  $('season').innerHTML='<tr><th>TEAM</th><th>BYE</th><th>PLAYOFFS</th></tr>'+top.map(r=>`<tr class="${r[0]===ours?'me':''}"><td>${logo((S.team_ids||{})[r[0]],'xs')}${esc(r[0])}</td><td>${pct(r[1])}</td><td>${pct(r[2])}</td></tr>`).join('');
   $('sfoot').textContent=`season_sim after week ${s.weeks_played} · a first-round bye is worth about 8 points of title odds`;}
  $('foot').textContent=`Scores live from ESPN${S.scoresAt?' as of '+new Date(S.scoresAt).toLocaleTimeString([], {hour:'numeric',minute:'2-digit',second:'2-digit'}):''} (every 10 s while games are on). Model updated ${new Date(S.at).toLocaleTimeString([], {hour:'numeric',minute:'2-digit'})}; between model pulls the win probability shifts by the points scored since. Ticker odds are the home team's, except our game, which shows ours. Source: ESPN league API and the public NFL scoreboard, priced by espn matchup (0.75 market blend, position-tier spreads, same-game correlation; in-progress players keep their projected rate for the share of the game left). Refreshes every 60 s while games are on.`;}
 const BASE=location.protocol==='file:'||location.origin==='null'?'http://127.0.0.1:5023':'';
-let S0=null,L0=null;
+let S0=null,L0=null,SEL=+(new URLSearchParams(location.hash.slice(1)).get('m'))||null;
+function pick(id){SEL=+id;history.replaceState(null,'','#m='+id);if(S0)render(S0)}
+document.addEventListener('click',e=>{const t=e.target.closest('.tk');if(t)pick(t.dataset.id)});
+document.addEventListener('keydown',e=>{const t=e.target.closest&&e.target.closest('.tk');if(t&&(e.key==='Enter'||e.key===' ')){e.preventDefault();pick(t.dataset.id)}});
+const logo=(id,c)=>id==null?'':`<img class="logo ${c}" src="${BASE}/logo/${id}" alt="" loading="lazy">`;
 // Overlay ESPN's live scores on the last model pull. The means move by the
 // points scored since that pull; the spread waits for the next pull.
-function merge(S,L){if(!S||!S.ok||!L||!L.teams)return S;const T=JSON.parse(JSON.stringify(S)),w=T.win;
+function merge(S,L){if(!S||!S.ok||!L||!L.teams)return S;const T=JSON.parse(JSON.stringify(S));
  const upd=side=>{const v=L.teams[side.team_id];if(v==null)return 0;const d=v-side.actual;side.actual=v;
   side.rows.forEach(r=>{const p=L.players[r.id];if(p!=null)r.bank=p});return d};
- w.mu_me+=upd(T.me);w.mu_opp+=upd(T.opp);
- w.p=w.sd_diff>0?Phi((w.mu_me-w.mu_opp)/w.sd_diff):(w.mu_me>w.mu_opp?1:0);
+ Object.values(T.views).forEach(V=>{const w=V.win;w.mu_me+=upd(V.me);w.mu_opp+=upd(V.opp);
+  w.p=w.sd_diff>0?Phi((w.mu_me-w.mu_opp)/w.sd_diff):(w.mu_me>w.mu_opp?1:0)});
  T.games.forEach(g=>{if(L.teams[g.hid]!=null)g.hs=L.teams[g.hid];if(L.teams[g.aid]!=null)g.as=L.teams[g.aid];
-  if(g.mine)g.p=(g.hid===T.me.team_id)?w.p:1-w.p});
+  const V=T.views[g.id];if(V)g.p=V.me.team_id===g.hid?V.win.p:1-V.win.p});
  T.scoresAt=L.at;return T}
 const get=async p=>(await fetch(BASE+p,{cache:'no-store'})).json();
 async function tick(){try{S0=await get('/api/state');render(S0)}catch(e){$('err').textContent='Dashboard server not reachable ('+e.message+'). Start it with fantasy/bin/ff-dash.'}}

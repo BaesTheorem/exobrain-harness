@@ -26,7 +26,8 @@ for A's look. B's headline and "what would change this" note stayed.
 
 Support colors, not tokens: hairline `#262A31`, bar track `#22262C`, and the
 rival team's bars in steel `#C9C2B8`, so that the accent marks only our side.
-Banked points are solid and expected remaining points are hatched: the hatch
+In another team's game (the ticker cells are tabs) the accent marks the
+home side, the left half of the score bug. Banked points are solid and expected remaining points are hatched: the hatch
 is the secondary encoding, so the two never depend on color alone.
 
 Dark only. A score bug is a dark-surface form, and there is no light theme.
@@ -39,3 +40,10 @@ Dark only. A score bug is a dark-surface form, and there is no light theme.
   win-probability line and the hatch.
 - Below 980 px the grid is one column; below 640 px the win-probability box
   moves above the two scores.
+
+## Pictures and numbers
+
+- Team pictures: the league's own logos, served through `/logo/<team id>`
+  because custom uploads on ESPN's image host need the league cookies. Square
+  crops: 64 px in the score bug, 20 px in the tabs, 18 px in the season table.
+- Jersey numbers: muted `#NN` after the name, from ESPN's public athlete API.
