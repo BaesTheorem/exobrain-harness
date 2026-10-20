@@ -205,7 +205,11 @@ the site by hand.
 **Writes go through `fantasy/bin/espn-tx` and nothing else** (added
 2026-09-07): `ir`, `move`, `claim`, `pending`, `cancel`. It verifies every
 write with a read-back and exits nonzero when the roster or the pending list
-does not show the change. Use it when Alex asks for a lineup move or a claim;
+does not show the change. The one exception is chat in the Scorebug app
+(`fantasy/scorebug/`): a message Alex types and sends there goes out through
+the Worker, with the same endpoints and the same read-back check. MIST never
+sends through the app; drafts and replies still go through `chat-draft` and
+`espn-tx chat`. Use it when Alex asks for a lineup move or a claim;
 never bolt writing onto `ff` or `espn`.
 
 **Every week is forecast and then reviewed (Alex's instruction, 2026-09-17).**
