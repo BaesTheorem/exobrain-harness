@@ -212,3 +212,23 @@ def test_points_per_win_pct_reads_the_week_and_falls_back(tmp_path):
     assert value.load_points_per_win_pct(6, f) == pytest.approx(6.68)
     assert value.load_points_per_win_pct(7, f) == value.POINTS_PER_WIN_PCT
     assert value.load_points_per_win_pct(6, tmp_path / "missing.json") == value.POINTS_PER_WIN_PCT
+
+
+def test_an_empty_rival_slot_is_a_hole_covered_from_the_wire():
+    """Week 7, 2026-10-20: Njigba Please! left TE empty with only an OUT TE
+    on the bench, and the model saw no hole at all. The phantom row is
+    unusable, and with no bench cover the wire's best free agent fills it at
+    the rival's fix rate."""
+    from espncli import cli
+
+    rows = [row(1, "Starter WR", "WR", 4, 14.0), {**row(2, "Hurt TE", "TE", 20, 10.0), "status": "OUT"}]
+    phantom = cli.empty_slot_rows(rows, {4: 1, 6: 1, 20: 7, 21: 1})
+    assert [(p["slot"], p["status"]) for p in phantom] == [("TE", "EMPTY")]
+    assert [p["kind"] for p in cli.lineup_problems(rows + phantom)] == ["EMPTY"]
+    hole = {**phantom[0], "wire_mean": 8.0}
+    covered = value.with_fallbacks(rows + [hole], rate=0.5, holes=True)[-1]
+    assert covered["fallback_mean"] == 8.0
+    m, _ = value.row_moments(covered, {})
+    assert m == pytest.approx(0.5 * 8.0)
+    # our own side keeps the hole as it stands, so best_swaps shows the fix
+    assert "fallback_mean" not in value.with_fallbacks(rows + [phantom[0]])[-1]

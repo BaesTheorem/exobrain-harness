@@ -349,35 +349,99 @@ def matchup_view(api: Espn, week: int, data: dict, team_id: int) -> dict | None:
         # team-level actual empty until the week closes.
         scored = any(r.get("actual") is not None for r in me["rows"] + opp["rows"])
         rem = games_remaining(api, week) if scored else {}
+        counts = slot_counts(data)
+        me_rows = me["rows"] + empty_slot_rows(me["rows"], counts)
+        opp_rows = opp["rows"] + empty_slot_rows(opp["rows"], counts)
+        attach_wire(api, week, opp_rows)
         fixed_n, faced_n = bye_hole_counts_cached(api, week).get(opp["team_id"], (0, 0))
         rate = fix_rate(fixed_n, faced_n)
         out["opp_fix"] = {"fixed": fixed_n, "faced": faced_n, "rate": round(rate, 3)}
-        out["win"] = win_prob(me["rows"], opp["rows"], mults, rem, corr, rate)
+        out["win"] = win_prob(me_rows, opp_rows, mults, rem, corr, rate)
         out["rule"] = variance_line(out["margin"], out["win"]["p"])
         out["in_progress"] = {k: round(v, 3) for k, v in sorted(rem.items())}
-        out["opp_problems"] = lineup_problems(opp["rows"])
-        out["win_if_opp_fixed"] = win_prob(me["rows"], opp["rows"], mults, rem, corr, 1.0)["p"]
-        out["win_if_opp_unfixed"] = win_prob(me["rows"], opp["rows"], mults, rem, corr, 0.0)["p"]
+        out["opp_problems"] = lineup_problems(opp_rows)
+        out["win_if_opp_fixed"] = win_prob(me_rows, opp_rows, mults, rem, corr, 1.0)["p"]
+        out["win_if_opp_unfixed"] = win_prob(me_rows, opp_rows, mults, rem, corr, 0.0)["p"]
         out["points_per_win_pct"] = load_points_per_win_pct(week)
-        out["swaps"] = best_swaps(me["rows"], opp["rows"], mults, remaining=rem, corr=corr,
+        out["swaps"] = best_swaps(me_rows, opp_rows, mults, remaining=rem, corr=corr,
                                   points_per_win_pct=out["points_per_win_pct"], opp_fix_rate=rate)
     return out
 
 
+SLOT_POS = {0: "QB", 2: "RB", 4: "WR", 6: "TE", 16: "D/ST", 17: "K", 23: "WR"}
+WIRE_LIMIT = 40   # free agents read per position for a hole's cover
+
+
+def slot_counts(data: dict) -> dict[int, int]:
+    return {int(k): v for k, v in data["settings"]["rosterSettings"]["lineupSlotCounts"].items() if v}
+
+
+def empty_slot_rows(rows: list[dict], counts: dict[int, int]) -> list[dict]:
+    """A phantom row, status EMPTY, for each starter slot nobody fills. The
+    model reads only rows that exist, so until 2026-10-20 an empty slot was
+    invisible: Njigba Please! left TE empty in week 7 and `opp_problems` came
+    back clean. The phantoms go to the model only (win_prob, best_swaps,
+    lineup_problems), never into the side's `rows`, which the lineup tables,
+    the forecast and the scorebug read as real players."""
+    out = []
+    for slot_id, n in counts.items():
+        if slot_id in (BENCH, IR):
+            continue
+        have = sum(1 for r in rows if r["slotId"] == slot_id)
+        for _ in range(n - have):
+            out.append({"slot": SLOT.get(slot_id, "?"), "slotId": slot_id, "id": None, "name": "(empty)",
+                        "pos": SLOT_POS.get(slot_id, "?"), "team": "", "bye": 0, "opp": "", "kickoff": None,
+                        "kick": "", "locked": False, "status": "EMPTY", "proj": None, "actual": None,
+                        "season_proj": None, "season_actual": None, "owned": None, "eligible": [slot_id],
+                        "phantom": True})
+    return out
+
+
+def attach_wire(api: Espn, week: int, rows: list[dict]) -> None:
+    """Set `wire_mean` on each open hole among `rows` (an empty, bye, OUT,
+    IR, suspended or doubtful starter whose slot is not locked): the best
+    ESPN projection among free agents and waiver players eligible for the
+    slot whose game has not started. value.with_fallbacks covers a rival's
+    hole with the better of this and his bench, at his fix rate. ESPN's
+    projection, not the market blend: the wire is not in the props table."""
+    holes = [r for r in rows if r["slotId"] not in (BENCH, IR) and r.get("actual") is None
+             and not r.get("locked") and (r["opp"] == "BYE" or r["status"] in ("OUT", "IR", "SUSP", "D", "EMPTY"))]
+    best: dict[int, float] = {}
+    for r in holes:
+        sid = r["slotId"]
+        if sid not in best:
+            name = {16: "DST"}.get(sid, SLOT.get(sid, ""))
+            try:
+                pool = pool_rows(api, week, name, WIRE_LIMIT, ["FREEAGENT", "WAIVERS"])
+            except EspnError:
+                pool = []
+            ok = []
+            for p in pool:
+                k = api.kickoff(p.get("team_id"), week)
+                if p["opp"] != "BYE" and p["status"] not in ("OUT", "IR", "SUSP", "D") and not (k and k <= now()):
+                    ok.append(float(p["proj"] or 0.0))
+            best[sid] = max(ok, default=0.0)
+        r["wire_mean"] = best[sid]
+
+
 def lineup_problems(rows: list[dict]) -> list[dict]:
     """Starters who will score zero unless someone acts: OUT, IR, suspended,
-    doubtful, on bye, or already zeroed. Used for both sides of a matchup."""
+    doubtful, on bye, an empty slot, or already zeroed. Used for both sides
+    of a matchup; pass the side's rows plus empty_slot_rows()."""
     out = []
     for r in rows:
         if r["slotId"] in (BENCH, IR) or r.get("actual") is not None:
             continue
         kind = None
-        if r["opp"] == "BYE":
+        if r["status"] == "EMPTY":
+            kind = "EMPTY"
+        elif r["opp"] == "BYE":
             kind = "BYE"
         elif r["status"] in ("OUT", "IR", "SUSP", "D"):
             kind = {"D": "DOUBTFUL", "SUSP": "SUSPENDED"}.get(r["status"], r["status"])
         if kind:
-            out.append({"kind": kind, "slot": r["slot"], "player": r["name"], "proj": r["proj"]})
+            out.append({"kind": kind, "slot": r["slot"], "player": r["name"], "proj": r["proj"],
+                        "cover": r.get("wire_mean")})
     return out
 
 
@@ -461,7 +525,8 @@ def print_win(out: dict, indent: str = "") -> None:
               f"({fx['fixed']} of {fx['faced']} bye holes fixed): {hi:.0%} if they fix everything, "
               f"{lo:.0%} if they fix nothing")
     for pr in out.get("opp_problems") or []:
-        print(f"{indent}  opponent problem: {pr['kind']} {pr['slot']} {pr['player']} (proj {pts(pr['proj'])})")
+        cover = f", best free agent {pts(pr['cover'])}" if pr.get("cover") else ""
+        print(f"{indent}  opponent problem: {pr['kind']} {pr['slot']} {pr['player']} (proj {pts(pr['proj'])}{cover})")
     for sw in out.get("swaps") or []:
         why = "variance" if sw["d_proj"] <= 0 else "projection"
         print(f"{indent}  swap {sw['bench']} in for {sw['starter']} at {sw['slot']}: "
@@ -579,10 +644,15 @@ def game_models(api: Espn, week: int, games: list[tuple[int, int, dict]], mine: 
     corr = load_corr()
     rem = games_remaining(api, week)
     holes = bye_hole_counts_cached(api, week)
+    counts = slot_counts(api.league("mSettings"))
     out = []
     for home, away, rows in games:
         attach_market(api, week, rows["home"] + rows["away"])
         attach_injury(api, week, rows["home"] + rows["away"])
+        rows = {k: v + empty_slot_rows(v, counts) for k, v in rows.items()}
+        for k, tid_k in (("home", home), ("away", away)):
+            if tid_k != mine:
+                attach_wire(api, week, rows[k])
         tid = {"home": home, "away": away}
         rate = {k: fix_rate(*holes.get(tid[k], (0, 0))) for k in ("home", "away")}
         a, b = ("away", "home") if away == mine else ("home", "away")

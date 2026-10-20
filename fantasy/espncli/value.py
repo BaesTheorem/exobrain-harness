@@ -81,7 +81,7 @@ CV_TABLE = {
 ROS_WEIGHTS = (0.45, 0.35, 0.20)   # weekly projection, prior, season PPG, from week 5
 SD_FLOOR = 1.5            # points; even a 2-point projection can miss by more than its CV says
 VOLUME_FILE = Path(__file__).resolve().parent.parent / ".cache" / "volume-{season}.json"
-UNUSABLE = {"OUT", "IR", "SUSP", "D"}
+UNUSABLE = {"OUT", "IR", "SUSP", "D", "EMPTY"}   # EMPTY: a starter slot nobody fills (espncli.cli.empty_slot_rows)
 BENCH_SLOT, IR_SLOT = 20, 21
 
 
@@ -303,7 +303,12 @@ def with_fallbacks(rows: list[dict], rate: float = 1.0, holes: bool = False) -> 
     starter who scores zero as things stand (bye, OUT, IR, suspended) is a
     row that plays with probability 0, covered at the same rate by any
     unlocked bench player, because that hole is known before any kickoff.
-    Our own holes stay as they stand, so that best_swaps shows the fix."""
+    Our own holes stay as they stand, so that best_swaps shows the fix.
+
+    A hole's cover is the better of the bench and the row's `wire_mean`, the
+    best free agent for the slot (espncli.cli.attach_wire). Until 2026-10-20
+    only the bench counted, so a rival with an empty TE slot and no healthy
+    TE on his bench read as a certain zero whatever his fix rate was."""
     out = [dict(r) for r in rows]
     bench = [r for r in out if r.get("slotId") == BENCH_SLOT and usable(r) and r.get("actual") is None]
     for r in out:
@@ -319,6 +324,8 @@ def with_fallbacks(rows: list[dict], rate: float = 1.0, holes: bool = False) -> 
         cands = [b for b in bench if b.get("id") != r.get("id") and r.get("slotId") in (b.get("eligible") or [])
                  and (k is None or b.get("kickoff") is None or b["kickoff"] >= k)]
         r["fallback_mean"] = max((float(row_mean(b) or 0.0) for b in cands), default=0.0)
+        if hole:
+            r["fallback_mean"] = max(r["fallback_mean"], float(r.get("wire_mean") or 0.0))
         r["fallback_rate"] = rate
     return out
 

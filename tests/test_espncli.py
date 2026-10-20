@@ -329,7 +329,9 @@ def test_check_reports_win_probability_and_the_opponents_holes(capsys):
     run_json(FakeEspn(data), "check")
     out = json.loads(capsys.readouterr().out)
     assert 0 < out["win"]["p"] < 1 and out["win"]["sd_me"] > 0
-    assert [(p["kind"], p["player"]) for p in out["opp_problems"]] == [("OUT", "Their Out WR")]
+    # the fixture's opponent fills only some starter slots; since 2026-10-20 the rest read as EMPTY holes
+    assert [(p["kind"], p["player"]) for p in out["opp_problems"] if p["kind"] != "EMPTY"] == [("OUT", "Their Out WR")]
+    assert all(p["player"] == "(empty)" for p in out["opp_problems"] if p["kind"] == "EMPTY")
     assert out["opp_fix"] == {"fixed": 0, "faced": 0, "rate": 0.5}
     assert out["win_if_opp_fixed"] < out["win"]["p"] < out["win_if_opp_unfixed"], "their zero is our gain"
     # the fill for our OUT RB now carries the win probability it produces
