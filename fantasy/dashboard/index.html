@@ -144,8 +144,9 @@ document.addEventListener('click',e=>{const t=e.target.closest('.tk');if(t)pick(
 document.addEventListener('keydown',e=>{const t=e.target.closest&&e.target.closest('.tk');if(t&&(e.key==='Enter'||e.key===' ')){e.preventDefault();pick(t.dataset.id)}});
 const logo=(id,c)=>id==null?'':`<img class="logo ${c}" src="${BASE}/logo/${id}" alt="" loading="lazy">`;
 // Overlay ESPN's live scores on the last model pull. The means move by the
-// points scored since that pull; the spread waits for the next pull.
-function merge(S,L){if(!S||!S.ok||!L||!L.teams)return S;const T=JSON.parse(JSON.stringify(S));
+// points scored since that pull; the spread waits for the next pull. Live
+// scores older than the model pull are skipped, since the pull carries newer ones.
+function merge(S,L){if(!S||!S.ok||!L||!L.teams||(L.at&&L.at<S.at))return S;const T=JSON.parse(JSON.stringify(S));
  const upd=side=>{const v=L.teams[side.team_id];if(v==null)return 0;const d=v-side.actual;side.actual=v;
   side.rows.forEach(r=>{const p=L.players[r.id];if(p!=null)r.bank=p});return d};
  Object.values(T.views).forEach(V=>{const w=V.win;w.mu_me+=upd(V.me);w.mu_opp+=upd(V.opp);

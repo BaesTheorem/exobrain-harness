@@ -32,7 +32,10 @@ POLL, IDLE = 60, 600
 FAST = 10  # live scores: one light league call, so the score bug matches the ESPN app
 
 sys.path.insert(0, str(FANTASY))
-from espncli.client import Espn  # noqa: E402
+# EspnError subclasses SystemExit, so `except (Exception, EspnError)` misses it: on
+# 2026-10-19 one ESPN timeout killed the 10 s score thread for the rest of the
+# night. Every handler here catches it by name.
+from espncli.client import Espn, EspnError  # noqa: E402
 
 live_scores: dict = {}
 CACHE = HERE / "cache"
@@ -103,7 +106,7 @@ def jerseys(ids: list[int]) -> dict[int, str | None]:
                 req = urllib.request.Request(ATHLETE.format(pid), headers={"User-Agent": "Mozilla/5.0"})
                 with urllib.request.urlopen(req, timeout=20) as r:
                     num = json.load(r).get("athlete", {}).get("jersey")
-            except Exception:  # noqa: BLE001 - a missing number is cosmetic
+            except (Exception, EspnError):  # noqa: BLE001 - a missing number is cosmetic
                 num = None
         cache[str(pid)] = {"n": num, "at": now}
         changed = True
@@ -155,7 +158,7 @@ def pull() -> dict:
     jobs = {g["id"]: (["matchup"] if g["id"] == mine_id else ["matchup", "--team", str(g["home"]["team_id"])])
             for g in sb["matchups"]}
     with ThreadPoolExecutor(max_workers=6) as ex:
-        got = dict(zip(jobs, ex.map(lambda a: espn(*a), jobs.values())))
+        got = dict(zip(jobs, ex.map(lambda a: espn(*a), jobs.values()), strict=True))
     m = got[mine_id]
     frac = m.get("in_progress") or {}
     views = {mid: view(x, frac) for mid, x in got.items()}
@@ -169,7 +172,7 @@ def pull() -> dict:
           "season": season}
     try:
         st["team_ids"] = team_logos()
-    except Exception:  # noqa: BLE001 - pictures are cosmetic
+    except (Exception, EspnError):  # noqa: BLE001 - pictures are cosmetic
         st["team_ids"] = dict(_names)
     try:
         nums = jerseys([r["id"] for v in views.values() for k in ("me", "opp") for r in v[k]["rows"]])
@@ -177,7 +180,7 @@ def pull() -> dict:
             for k in ("me", "opp"):
                 for r in v[k]["rows"]:
                     r["jersey"] = nums.get(r["id"])
-    except Exception:  # noqa: BLE001
+    except (Exception, EspnError):  # noqa: BLE001
         pass
     LOG.mkdir(exist_ok=True)
     path = LOG / f"{datetime.now().year}-w{m['week']:02d}.jsonl"
@@ -199,7 +202,7 @@ def loop() -> None:
             with lock:
                 state = new
             wait = POLL if new["live"] else IDLE
-        except Exception as e:  # noqa: BLE001 - a failed pull keeps the last good state on screen
+        except (Exception, EspnError) as e:  # noqa: BLE001 - a failed pull keeps the last good state on screen
             with lock:
                 state = {**state, "error": f"{datetime.now():%H:%M} {e}"}
             wait = POLL
@@ -233,7 +236,7 @@ def fast_loop() -> None:
                 with lock:
                     live_scores = {"at": datetime.now().astimezone().isoformat(timespec="seconds"),
                                    "teams": teams, "players": players}
-            except Exception as e:  # noqa: BLE001 - the 60 s pull still carries the scores
+            except (Exception, EspnError) as e:  # noqa: BLE001 - the 60 s pull still carries the scores
                 with lock:
                     live_scores = {**live_scores, "error": str(e)[:200]}
         gap = 2 if not week else FAST if state.get("live") else POLL
@@ -251,7 +254,7 @@ class Handler(BaseHTTPRequestHandler):
         elif self.path.startswith("/logo/"):
             try:
                 got = logo_bytes(int(self.path.split("/")[2]))
-            except Exception:  # noqa: BLE001
+            except (Exception, EspnError):  # noqa: BLE001
                 got = None
             if not got:
                 self.send_error(404)
