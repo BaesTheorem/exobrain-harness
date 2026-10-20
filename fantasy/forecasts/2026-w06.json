@@ -708,6 +708,517 @@
    "pf": 540.4
   }
  ],
- "settled": null,
- "forecast_note": "Roster as it stands at 6:20 PM Tuesday. One waiver claim processes Wednesday about 2:00 AM at priority 12 of 13 and is not in these lines: Spencer Shrader (K, IND) for the Cowboys D/ST; a Console chat (s1637) is also deciding tonight whether Blake Grupe (LAR, the Rams' new kicker after Mevis is waived) replaces Cam Little, so the K line may change before Sunday 8:30 AM. No trade is pending and none is planned (Trades, 2026-10-11). Opponent holes priced at 0.4 fixed each: Jordan Addison on bye at WR and Harrison Mevis (K, being waived) at 0.0."
+ "settled": {
+  "settled_at": "2026-10-20T18:00-05:00",
+  "players": [
+   {
+    "name": "Jayden Daniels",
+    "pos": "QB",
+    "slot": "QB",
+    "mist": {
+     "actual": 21.0,
+     "where": "in50",
+     "in50": true,
+     "in90": true,
+     "error": 4.5,
+     "width50": 10.0,
+     "width90": 25
+    },
+    "baseline": {
+     "actual": 21.0,
+     "where": "in90",
+     "in50": false,
+     "in90": true,
+     "error": 5.0,
+     "width50": 10.0,
+     "width90": 25.7
+    }
+   },
+   {
+    "name": "Kenneth Walker III",
+    "pos": "RB",
+    "slot": "RB",
+    "mist": {
+     "actual": 27.9,
+     "where": "in50",
+     "in50": true,
+     "in90": true,
+     "error": 4.9,
+     "width50": 14,
+     "width90": 34
+    },
+    "baseline": {
+     "actual": 27.9,
+     "where": "in90",
+     "in50": false,
+     "in90": true,
+     "error": 8.8,
+     "width50": 13.3,
+     "width90": 37.3
+    }
+   },
+   {
+    "name": "Rhamondre Stevenson",
+    "pos": "RB",
+    "slot": "RB",
+    "mist": {
+     "actual": 3.6,
+     "where": "below",
+     "in50": false,
+     "in90": false,
+     "error": -12.4,
+     "width50": 10,
+     "width90": 26
+    },
+    "baseline": {
+     "actual": 3.6,
+     "where": "below",
+     "in50": false,
+     "in90": false,
+     "error": -11.0,
+     "width50": 10.1,
+     "width90": 28.1
+    }
+   },
+   {
+    "name": "Christian Watson",
+    "pos": "WR",
+    "slot": "WR",
+    "mist": {
+     "actual": 9.4,
+     "where": "in50",
+     "in50": true,
+     "in90": true,
+     "error": -5.1,
+     "width50": 12,
+     "width90": 31
+    },
+    "baseline": {
+     "actual": 9.4,
+     "where": "in90",
+     "in50": false,
+     "in90": true,
+     "error": -6.3,
+     "width50": 13.3,
+     "width90": 31.8
+    }
+   },
+   {
+    "name": "Devaughn Vele",
+    "pos": "WR",
+    "slot": "WR",
+    "mist": {
+     "actual": 7.2,
+     "where": "in50",
+     "in50": true,
+     "in90": true,
+     "error": -1.8,
+     "width50": 8,
+     "width90": 19.5
+    },
+    "baseline": {
+     "actual": 7.2,
+     "where": "in50",
+     "in50": true,
+     "in90": true,
+     "error": -0.6,
+     "width50": 9.2,
+     "width90": 23.2
+    }
+   },
+   {
+    "name": "Trey McBride",
+    "pos": "TE",
+    "slot": "TE",
+    "mist": {
+     "actual": 12.3,
+     "where": "in50",
+     "in50": true,
+     "in90": true,
+     "error": -3.2,
+     "width50": 10.5,
+     "width90": 26
+    },
+    "baseline": {
+     "actual": 12.3,
+     "where": "in50",
+     "in50": true,
+     "in90": true,
+     "error": -1.1,
+     "width50": 10.9,
+     "width90": 29.0
+    }
+   },
+   {
+    "name": "Josh Downs",
+    "pos": "WR",
+    "slot": "FLEX",
+    "mist": {
+     "actual": 8.7,
+     "where": "in50",
+     "in50": true,
+     "in90": true,
+     "error": -0.8,
+     "width50": 8.5,
+     "width90": 21
+    },
+    "baseline": {
+     "actual": 8.7,
+     "where": "in50",
+     "in50": true,
+     "in90": true,
+     "error": 0.3,
+     "width50": 9.5,
+     "width90": 25.3
+    }
+   },
+   {
+    "name": "Rams D/ST",
+    "pos": "D/ST",
+    "slot": "D/ST",
+    "mist": {
+     "actual": 2.0,
+     "where": "in90",
+     "in50": false,
+     "in90": true,
+     "error": -5.0,
+     "width50": 8,
+     "width90": 20
+    },
+    "baseline": {
+     "actual": 2.0,
+     "where": "in90",
+     "in50": false,
+     "in90": true,
+     "error": -5.3,
+     "width50": 8.3,
+     "width90": 17.9
+    }
+   },
+   {
+    "name": "Cam Little",
+    "unsettled": "not on the roster at week end"
+   },
+   {
+    "name": "Ja'Marr Chase",
+    "unsettled": "not on the roster at week end"
+   },
+   {
+    "name": "David Montgomery",
+    "pos": "RB",
+    "slot": "BE",
+    "mist": {
+     "actual": 0.0,
+     "where": "in50",
+     "in50": true,
+     "in90": true,
+     "error": 0.0,
+     "width50": 0,
+     "width90": 4
+    },
+    "baseline": {
+     "actual": 0.0,
+     "where": "in90",
+     "in50": false,
+     "in90": true,
+     "error": -1.1,
+     "width50": 2.1,
+     "width90": 4.8
+    }
+   },
+   {
+    "name": "RJ Harvey",
+    "pos": "RB",
+    "slot": "BE",
+    "mist": {
+     "actual": 14.6,
+     "where": "in90",
+     "in50": false,
+     "in90": true,
+     "error": 8.1,
+     "width50": 7,
+     "width90": 19
+    },
+    "baseline": {
+     "actual": 14.6,
+     "where": "in90",
+     "in50": false,
+     "in90": true,
+     "error": 7.2,
+     "width50": 7.5,
+     "width90": 20.1
+    }
+   },
+   {
+    "name": "Malik Washington",
+    "unsettled": "not on the roster at week end"
+   },
+   {
+    "name": "Ollie Gordon II",
+    "unsettled": "not on the roster at week end"
+   },
+   {
+    "name": "Cowboys D/ST",
+    "unsettled": "not on the roster at week end"
+   },
+   {
+    "name": "Deshaun Watson",
+    "pos": "QB",
+    "slot": "BE",
+    "mist": {
+     "actual": 9.5,
+     "where": "in50",
+     "in50": true,
+     "in90": true,
+     "error": -2.5,
+     "width50": 8,
+     "width90": 19
+    },
+    "baseline": {
+     "actual": 9.5,
+     "where": "in50",
+     "in50": true,
+     "in90": true,
+     "error": -2.6,
+     "width50": 7.7,
+     "width90": 18.6
+    }
+   },
+   {
+    "name": "Jordyn Tyson",
+    "pos": "WR",
+    "slot": "IR",
+    "mist": {
+     "actual": 0.0,
+     "where": "in50",
+     "in50": true,
+     "in90": true,
+     "error": 0.0,
+     "width50": 0,
+     "width90": 1
+    },
+    "baseline": {
+     "actual": 0.0,
+     "where": "in50",
+     "in50": true,
+     "in90": true,
+     "error": 0.0,
+     "width50": 0.0,
+     "width90": 0.0
+    }
+   }
+  ],
+  "team_total": {
+   "mist": {
+    "actual": 96.1,
+    "where": "in90",
+    "in50": false,
+    "in90": true,
+    "error": -22.9,
+    "width50": 29,
+    "width90": 67
+   },
+   "baseline": {
+    "actual": 96.1,
+    "where": "in90",
+    "in50": false,
+    "in90": true,
+    "error": -25.9,
+    "width50": 32.6,
+    "width90": 79.0
+   }
+  },
+  "opp_total": {
+   "mist": {
+    "actual": 89.5,
+    "where": "in50",
+    "in50": true,
+    "in90": true,
+    "error": -4.5,
+    "width50": 28,
+    "width90": 64
+   },
+   "baseline": {
+    "actual": 89.5,
+    "where": "in50",
+    "in50": true,
+    "in90": true,
+    "error": -6.1,
+    "width50": 29.1,
+    "width90": 72.6
+   }
+  },
+  "result": {
+   "won": true,
+   "us": 96.1,
+   "them": 89.46,
+   "mist_win_prob": 0.8,
+   "baseline_win_prob": 0.793,
+   "mist_brier": 0.04,
+   "baseline_brier": 0.0428
+  },
+  "standing": {
+   "rank": 1,
+   "mist": {
+    "actual": 1,
+    "where": "in50",
+    "in50": true,
+    "in90": true,
+    "error": null,
+    "width50": 1,
+    "width90": 3
+   },
+   "baseline": {
+    "actual": 1,
+    "where": "in50",
+    "in50": true,
+    "in90": true,
+    "error": null,
+    "width50": 1,
+    "width90": 2
+   },
+   "mist_p_first": 0.66,
+   "baseline_p_first": 0.744,
+   "mist_p_top2": 0.85,
+   "baseline_p_top2": 0.853,
+   "first_brier_mist": 0.1156,
+   "first_brier_baseline": 0.0655
+  },
+  "standings_after": [
+   {
+    "team_id": 12,
+    "team": "Chaos Legion",
+    "w": 5,
+    "l": 1,
+    "pf": 744.9
+   },
+   {
+    "team_id": 5,
+    "team": "End-Zone Dancers",
+    "w": 5,
+    "l": 1,
+    "pf": 719.5
+   },
+   {
+    "team_id": 1,
+    "team": "The Oprah Winfreys",
+    "w": 4,
+    "l": 1,
+    "pf": 534.0
+   },
+   {
+    "team_id": 9,
+    "team": "Waiting for Gordon",
+    "w": 4,
+    "l": 1,
+    "pf": 524.8
+   },
+   {
+    "team_id": 4,
+    "team": "Njigba Please!",
+    "w": 3,
+    "l": 2,
+    "pf": 665.4
+   },
+   {
+    "team_id": 7,
+    "team": "Namaslay",
+    "w": 3,
+    "l": 2,
+    "pf": 596.8
+   },
+   {
+    "team_id": 11,
+    "team": "The Mighty Marmots",
+    "w": 3,
+    "l": 2,
+    "pf": 558.8
+   },
+   {
+    "team_id": 13,
+    "team": "Goedel, Escher, Butkus",
+    "w": 3,
+    "l": 3,
+    "pf": 727.3
+   },
+   {
+    "team_id": 6,
+    "team": "KC Breathmints",
+    "w": 3,
+    "l": 3,
+    "pf": 672.9
+   },
+   {
+    "team_id": 3,
+    "team": "The Chefs",
+    "w": 1,
+    "l": 4,
+    "pf": 540.2
+   },
+   {
+    "team_id": 2,
+    "team": "The Winners",
+    "w": 1,
+    "l": 5,
+    "pf": 705.0
+   },
+   {
+    "team_id": 10,
+    "team": "Cutie Mark Crusaders",
+    "w": 1,
+    "l": 5,
+    "pf": 642.1
+   },
+   {
+    "team_id": 14,
+    "team": "Ayahuasca Rodgers",
+    "w": 0,
+    "l": 6,
+    "pf": 655.9
+   }
+  ],
+  "source_error": {
+   "espn": {
+    "mae": 4.42,
+    "n": 12
+   },
+   "sleeper": {
+    "mae": 5.99,
+    "n": 10
+   },
+   "cbs": {
+    "mae": 5.24,
+    "n": 11
+   },
+   "fantasypros": {
+    "mae": 6.67,
+    "n": 6
+   },
+   "consensus": {
+    "mae": 4.8,
+    "n": 12
+   },
+   "mist": {
+    "mae": 4.03,
+    "n": 12
+   }
+  },
+  "coverage": {
+   "mist": {
+    "n": 14,
+    "cov50": 0.714,
+    "cov90": 0.929,
+    "mae": 5.41
+   },
+   "baseline": {
+    "n": 14,
+    "cov50": 0.429,
+    "cov90": 0.929,
+    "mae": 5.81
+   }
+  },
+  "market": {}
+ },
+ "forecast_note": "Roster as it stands at 6:20 PM Tuesday. One waiver claim processes Wednesday about 2:00 AM at priority 12 of 13 and is not in these lines: Spencer Shrader (K, IND) for the Cowboys D/ST; a Console chat (s1637) is also deciding tonight whether Blake Grupe (LAR, the Rams' new kicker after Mevis is waived) replaces Cam Little, so the K line may change before Sunday 8:30 AM. No trade is pending and none is planned (Trades, 2026-10-11). Opponent holes priced at 0.4 fixed each: Jordan Addison on bye at WR and Harrison Mevis (K, being waived) at 0.0.",
+ "review_note": "**Coverage.** 10 of 14 lines inside the 50 (0.71) and 13 of 14 inside the 90 (0.93), MAE 5.41; the baseline 0.43, 0.93 and 5.81. Win probability 0.80 for a 96.1 to 89.5 win (Brier 0.04, baseline 0.043). Season to date (81 lines): 50% coverage 0.53, 90% 0.93, MAE 6.89 against the baseline's 0.46, 0.85 and 7.23. Alarm 1 (0.50 +/- 0.14 at 81 lines, so 0.36 to 0.64): not tripped. Alarm 2 (a middle slice at 35% or more, first checked this week): the q75-q95 slice sits at 34%, one point under the line, with 4%, 16%, 24%, 20%, 34%, 3% across the six slices; results land above the median more often than below, so the tier medians (0.82x to 0.94x on the consensus) may be a little low for starters. Watched, not acted on: the alarm did not trip and no reason failed. Weighted interval score on the same 71 lines: MIST 3.01, baseline 3.15 (-0.14, standard error 0.10); win log score MIST 0.572, baseline 0.632 over five weeks. Source MAE, best first: ESPN 5.02 (n 55), MIST 5.03 (n 71), consensus 5.11, Sleeper 6.07, CBS 6.10, FantasyPros 6.55 (n 17). Closing line value on 56 lines: MIST's leans correlate 0.144 with the market's later move but agree in sign on only 12 of 28 moves (0.43), against 0.50 for the consensus and ESPN; MIST's MAE against the market's later number is 5.89, the consensus 5.69, ESPN 5.58, the closing market 5.54. The hand moves still do not pay, so the probation rule stands and the week 7 forecast starts every median at the consensus times the tier median. FantasyPros judge: no week 6 row, because the Mac slept through both Sunday runs and the snapshot was never taken (the 10-18 7:06 PM routine-log line); the running mean stays at the 31-week backtest (+0.126 a scored player-week for MIST) with no live week yet.\n\n**Misses, judged.** (1) Rhamondre Stevenson 3.6 against 11 to 21 (90: 5 to 31), the one line outside the 90, and a reasoning error, not variance: the median was lifted from the tier's 14.5 to 16 on \"Henderson expected to miss multiple weeks\" (Schefter, Monday), and Henderson played (7 carries, 31 yards). Stevenson had the 60% snaps and 14 carries the line assumed but 0 targets and 36 yards; the role did not vacate. The floor of 5 also sat at the tier q05 (0.34x of 16.5), so even the unmoved line had the result in its tail. Lesson, written as a one-case rule under *Weekly forecast and review*: a teammate's reported absence moves a median only when the injury report says OUT, IR or DOUBTFUL; a news line that a player is \"expected to miss\" is priced at the measured questionable rate (0.45 to 0.73), not as a vacated role. (2) RJ Harvey 14.6 against 3 to 10 (in the 90): a touchdown on 6 carries and 4 targets at 40% snaps; the band's shape was right for a receiving back and the top of the 90 (19) held it. Variance, no change. (3) Our total 96.1 against 105 to 134 (in the 90): Stevenson, the Rams D/ST 2.0 on a 7 median against a 19.5 implied opponent, and Christian Watson 9.4 on 8 targets; three low draws in a well-shaped week. No change. The opponent's total (89.5 against 80 to 108) and the standing (#1, inside the 50) landed."
 }
