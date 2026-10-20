@@ -1,15 +1,75 @@
 [
-  {"name": "M.I.S.T.", "dir": "~/Documents/mist-console/ios", "scheme": "MIST"},
-  {"name": "KC 311", "dir": "~/Documents/kc311/ios", "script": "scripts/testflight.sh"},
-  {"name": "Inbox", "dir": "~/Documents/inbox-by-gmail-clone/ios", "scheme": "Inbox", "prep": "./scripts/make-credentials.sh"},
-  {"name": "Gridpoint", "dir": "~/Documents/gridpoint/ios", "scheme": "Gridpoint"},
-  {"name": "Actual Gameplay", "dir": "~/Documents/actual-gameplay", "scheme": "ActualGameplay"},
-  {"name": "Ironman", "dir": "~/Documents/ironman/ios", "scheme": "ExerciseLog"},
-  {"name": "KQi Air", "dir": "~/Documents/niu-kqi/ios", "scheme": "KQiRides", "prep": "cp ../data/fields.json KQiRides/Resources/fields.json && python3 scripts/make-icon-map.py"},
-  {"name": "Clippy Meme", "dir": "~/Documents/paperclip-meme/ios", "scheme": "ClippyMeme", "prep": "cp ../index.html ../clippy.webp web/"},
-  {"name": "Pogo Lens", "dir": "~/Documents/pogo-lens/ios", "scheme": "PogoLens"},
-  {"name": "Penny Lane", "dir": "~/Documents/penny-lane/ios", "scheme": "PennyLane"},
-  {"name": "Coffee", "dir": "~/Documents/order-ahead/ios", "scheme": "OrderAhead"},
-  {"name": "MIST Alarms", "dir": "~/Documents/mist-alarms/ios", "scheme": "MistAlarms"},
-  {"name": "Study Bible", "dir": "~/Documents/bible-study/ios", "scheme": "StudyBible"}
+ {
+  "name": "M.I.S.T.",
+  "dir": "~/Documents/mist-console/ios",
+  "scheme": "MIST"
+ },
+ {
+  "name": "KC 311",
+  "dir": "~/Documents/kc311/ios",
+  "script": "scripts/testflight.sh"
+ },
+ {
+  "name": "Inbox",
+  "dir": "~/Documents/inbox-by-gmail-clone/ios",
+  "scheme": "Inbox",
+  "prep": "./scripts/make-credentials.sh"
+ },
+ {
+  "name": "Gridpoint",
+  "dir": "~/Documents/gridpoint/ios",
+  "scheme": "Gridpoint"
+ },
+ {
+  "name": "Actual Gameplay",
+  "dir": "~/Documents/actual-gameplay",
+  "scheme": "ActualGameplay"
+ },
+ {
+  "name": "Ironman",
+  "dir": "~/Documents/ironman/ios",
+  "scheme": "ExerciseLog"
+ },
+ {
+  "name": "KQi Air",
+  "dir": "~/Documents/niu-kqi/ios",
+  "scheme": "KQiRides",
+  "prep": "cp ../data/fields.json KQiRides/Resources/fields.json && python3 scripts/make-icon-map.py"
+ },
+ {
+  "name": "Clippy Meme",
+  "dir": "~/Documents/paperclip-meme/ios",
+  "scheme": "ClippyMeme",
+  "prep": "cp ../index.html ../clippy.webp web/"
+ },
+ {
+  "name": "Pogo Lens",
+  "dir": "~/Documents/pogo-lens/ios",
+  "scheme": "PogoLens"
+ },
+ {
+  "name": "Penny Lane",
+  "dir": "~/Documents/penny-lane/ios",
+  "scheme": "PennyLane"
+ },
+ {
+  "name": "Coffee",
+  "dir": "~/Documents/order-ahead/ios",
+  "scheme": "OrderAhead"
+ },
+ {
+  "name": "MIST Alarms",
+  "dir": "~/Documents/mist-alarms/ios",
+  "scheme": "MistAlarms"
+ },
+ {
+  "name": "Study Bible",
+  "dir": "~/Documents/bible-study/ios",
+  "scheme": "StudyBible"
+ },
+ {
+  "name": "Scorebug",
+  "dir": "~/Documents/scorebug/ios",
+  "scheme": "Scorebug"
+ }
 ]
