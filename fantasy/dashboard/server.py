@@ -27,6 +27,12 @@ SEASON = FANTASY / "draftbot" / "season_sim_latest.json"
 LOG = HERE / "log"
 PORT = 5023
 POLL, IDLE = 60, 600
+FAST = 10  # live scores: one light league call, so the score bug matches the ESPN app
+
+sys.path.insert(0, str(FANTASY))
+from espncli.client import Espn  # noqa: E402
+
+live_scores: dict = {}
 
 state: dict = {"ok": False, "error": "first pull pending"}
 lock = threading.Lock()
@@ -52,7 +58,7 @@ def starters(side: dict, frac: dict[str, float]) -> list[dict]:
             rem, st = proj, "upcoming"
         else:
             rem, st = 0.0, "final"
-        rows.append({"slot": r["slot"], "name": r["name"], "team": r["team"], "opp": r["opp"],
+        rows.append({"id": r["id"], "slot": r["slot"], "name": r["name"], "team": r["team"], "opp": r["opp"],
                      "kick": r["kick"], "bank": r["actual"] or 0.0, "rem": round(rem, 1), "state": st,
                      "status": r.get("status") or "", "left": frac.get(r["team"])})
     return rows
@@ -67,9 +73,9 @@ def pull() -> dict:
     st = {"ok": True, "at": datetime.now().astimezone().isoformat(timespec="seconds"),
           "week": m["week"], "live": bool(frac), "frac": frac, "win": w, "rule": m.get("rule"),
           "margin_source": m.get("margin_source"),
-          "me": {"team": m["me"]["team"], "actual": m["me"]["actual"], "rows": starters(m["me"], frac)},
-          "opp": {"team": m["opp"]["team"], "actual": m["opp"]["actual"], "rows": starters(m["opp"], frac)},
-          "games": [{"h": g["home"]["team"], "a": g["away"]["team"], "hs": g["home"]["actual"],
+          "me": {"team_id": m["me"]["team_id"], "team": m["me"]["team"], "actual": m["me"]["actual"], "rows": starters(m["me"], frac)},
+          "opp": {"team_id": m["opp"]["team_id"], "team": m["opp"]["team"], "actual": m["opp"]["actual"], "rows": starters(m["opp"], frac)},
+          "games": [{"hid": g["home"]["team_id"], "aid": g["away"]["team_id"], "h": g["home"]["team"], "a": g["away"]["team"], "hs": g["home"]["actual"],
                      "as": g["away"]["actual"], "p": g["model"]["p_home"],
                      "mine": g["home"]["mine"] or g["away"]["mine"]} for g in sb["matchups"]],
           "season": season}
@@ -97,9 +103,46 @@ def loop() -> None:
         time.sleep(wait)
 
 
+def fast_loop() -> None:
+    """Team and starter points straight from ESPN's live matchup score, every
+    FAST seconds while a game is on. The win model stays on the 60 s pull; the
+    page shifts its means by the points scored since that pull."""
+    global live_scores
+    api = Espn()
+    while True:
+        week = state.get("week")
+        t0 = time.monotonic()
+        if week:
+            try:
+                d = api.league("mMatchupScore", "mScoreboard", period=week)
+                teams, players = {}, {}
+                for m in d.get("schedule", []):
+                    if m.get("matchupPeriodId") != week:
+                        continue
+                    for k in ("home", "away"):
+                        side = m.get(k)
+                        if not side:
+                            continue
+                        teams[side["teamId"]] = side.get("totalPointsLive", side.get("totalPoints"))
+                        for e in (side.get("rosterForCurrentScoringPeriod") or {}).get("entries", []):
+                            pe = e["playerPoolEntry"]
+                            players[pe["id"]] = pe.get("appliedStatTotal")
+                with lock:
+                    live_scores = {"at": datetime.now().astimezone().isoformat(timespec="seconds"),
+                                   "teams": teams, "players": players}
+            except Exception as e:  # noqa: BLE001 - the 60 s pull still carries the scores
+                with lock:
+                    live_scores = {**live_scores, "error": str(e)[:200]}
+        gap = 2 if not week else FAST if state.get("live") else POLL
+        time.sleep(max(1.0, gap - (time.monotonic() - t0)))
+
+
 class Handler(BaseHTTPRequestHandler):
     def do_GET(self) -> None:  # noqa: N802 - stdlib name
-        if self.path.startswith("/api/state"):
+        if self.path.startswith("/api/live"):
+            with lock:
+                body, ctype = json.dumps(live_scores).encode(), "application/json"
+        elif self.path.startswith("/api/state"):
             with lock:
                 body, ctype = json.dumps(state).encode(), "application/json"
         elif self.path in ("/", "/index.html"):
@@ -121,4 +164,5 @@ class Handler(BaseHTTPRequestHandler):
 
 if __name__ == "__main__":
     threading.Thread(target=loop, daemon=True).start()
+    threading.Thread(target=fast_loop, daemon=True).start()
     ThreadingHTTPServer(("127.0.0.1", PORT), Handler).serve_forever()

@@ -21,8 +21,8 @@ body{background:var(--bg);color:var(--ink);font:14px Inter,sans-serif;padding:24
 .dek{color:var(--mute);font-size:12px;padding:8px 2px}
 .err{color:var(--red);font-size:12px;padding:0 2px 8px}
 .ticker{display:flex;gap:2px;margin:0 0 16px;flex-wrap:wrap}
-.tk{flex:1;min-width:150px;background:var(--panel);padding:8px 12px;font:500 15px 'Barlow Condensed';white-space:nowrap;overflow:hidden}
-.tk.me{box-shadow:inset 0 -3px var(--red)} .tk b{float:right;margin-left:8px} .tk span{color:var(--mute)}
+.tk{flex:1;min-width:190px;background:var(--panel);padding:8px 12px;font:500 15px 'Barlow Condensed';white-space:nowrap;display:flex;gap:6px}
+.tk.me{box-shadow:inset 0 -3px var(--red)} .tk b{margin-left:auto;padding-left:6px} .tk span{color:var(--mute);overflow:hidden;text-overflow:ellipsis;min-width:0}
 .grid{display:grid;grid-template-columns:1fr 1fr 300px;gap:16px}
 .card{background:var(--panel);padding:16px;min-width:0}
 h3{font:600 15px 'Barlow Condensed';letter-spacing:2px;color:var(--mute);margin-bottom:12px;text-transform:uppercase}
@@ -67,7 +67,7 @@ tr.me td{color:var(--red)}
 </div>
 <div class="foot" id="foot"></div>
 <script>
-const $=id=>document.getElementById(id), f1=x=>(+x).toFixed(1), pct=x=>Math.round(x*100)+'%';
+const $=id=>document.getElementById(id), f1=x=>(+x).toFixed(1), f2=x=>(+x).toFixed(2), pct=x=>Math.round(x*100)+'%';
 const esc=s=>String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
 function Phi(z){const t=1/(1+.2316419*Math.abs(z)),d=.3989423*Math.exp(-z*z/2),p=d*t*(.3193815+t*(-.3565638+t*(1.781478+t*(-1.821256+t*1.330274))));return z>0?1-p:p}
 const last=n=>n.split(' ').slice(-1)[0];
@@ -77,7 +77,7 @@ function bars(rows,col){return rows.map(r=>{const b=Math.max(r.bank,0),wb=b/30*1
  return `<div class="prow" title="${esc(r.name)}: ${f1(r.bank)} banked, ${f1(r.rem)} expected left"><span class="slot">${r.slot}</span>
  <span class="pn">${esc(r.name)}${r.status?' ('+esc(r.status[0])+')':''}${tag}</span>
  <span class="bar"><span class="seg" style="width:${wb}%;background:${col}"></span><span class="seg" style="width:${wr}%;background:repeating-linear-gradient(45deg,${col} 0 2px,transparent 2px 6px);outline:1px solid ${col};outline-offset:-1px"></span></span>
- <span class="num">${f1(r.bank)}${r.rem?` <b>+${f1(r.rem)}</b>`:''}</span></div>`}).join('')}
+ <span class="num">${f2(r.bank)}${r.rem?` <b>+${f1(r.rem)}</b>`:''}</span></div>`}).join('')}
 function chart(h){const W=860,H=200,L=44,R=16,T=10,B=24,s=$('wpsvg');
  const ink='#8B9099',rule='#262A31',red='#E5383B';
  const ts=h.map(d=>Date.parse(d.t)),t0=ts[0],t1=Math.max(ts[ts.length-1],t0+60e3);
@@ -97,9 +97,9 @@ function chart(h){const W=860,H=200,L=44,R=16,T=10,B=24,s=$('wpsvg');
   let i=0,best=1e9;ts.forEach((t,j)=>{const d=Math.abs(x(t)-sx);if(d<best){best=d;i=j}});const d=h[i];
   xh.setAttribute('x1',x(ts[i]));xh.setAttribute('x2',x(ts[i]));xh.setAttribute('visibility','visible');
   tip.style.display='block';tip.style.left=Math.min((x(ts[i])/W)*r.width+12,r.width-170)+'px';tip.style.top='8px';
-  tip.innerHTML=`${fmt(ts[i])}<br>${pct(d.p)} · ${f1(d.me)}–${f1(d.opp)}`};
+  tip.innerHTML=`${fmt(ts[i])}<br>${pct(d.p)} · ${f2(d.me)}–${f2(d.opp)}`};
  hit.onmouseleave=()=>{tip.style.display='none';xh.setAttribute('visibility','hidden')};}
-function render(S){
+function render(S){S=merge(S,L0);
  if(!S.ok){$('h1').textContent='Waiting for the first pull';$('err').textContent=S.error||'';return}
  $('err').textContent=S.error?('Last pull failed: '+S.error+'. Showing '+S.at+'.'):'';
  const w=S.win,me=S.me,op=S.opp,mar=w.mu_me-w.mu_opp;
@@ -108,16 +108,16 @@ function render(S){
  $('kick').textContent=`WEEK ${S.week} · ${S.live?'LIVE':'BETWEEN GAMES'}`;$('wk').textContent=S.week;
  $('pl').textContent=S.live?'WIN PROB · LIVE':'WIN PROB';
  let h;
- if(!rm.length&&!ro.length) h=`${me.team} ${me.actual>op.actual?'beat':'lost to'} ${op.team}, ${f1(me.actual)} to ${f1(op.actual)}`;
- else if(rm.length&&ro.length) h=gap>0?`${me.team} needs ${names(rm)} to outscore ${names(ro)} by ${f1(gap)} from here`
-   :`${me.team} leads by ${f1(-gap)}; ${names(ro)} must outscore ${names(rm)} by that much to flip it`;
- else if(rm.length) h=gap>0?`${me.team} needs ${f1(gap)} more points from ${names(rm)}`:`${me.team} leads by ${f1(-gap)} with ${names(rm)} still to play`;
- else h=gap<0?`${op.team} needs ${f1(-gap)} more points from ${names(ro)}`:`${me.team} trails by ${f1(gap)} and has nobody left to play`;
+ if(!rm.length&&!ro.length) h=`${me.team} ${me.actual>op.actual?'beat':'lost to'} ${op.team}, ${f2(me.actual)} to ${f2(op.actual)}`;
+ else if(rm.length&&ro.length) h=gap>0?`${me.team} needs ${names(rm)} to outscore ${names(ro)} by ${f2(gap)} from here`
+   :`${me.team} leads by ${f2(-gap)}; ${names(ro)} must outscore ${names(rm)} by that much to flip it`;
+ else if(rm.length) h=gap>0?`${me.team} needs ${f2(gap)} more points from ${names(rm)}`:`${me.team} leads by ${f2(-gap)} with ${names(rm)} still to play`;
+ else h=gap<0?`${op.team} needs ${f2(-gap)} more points from ${names(ro)}`:`${me.team} trails by ${f2(gap)} and has nobody left to play`;
  $('h1').textContent=h;
  const left=rm.length+ro.length;
  $('dek').textContent=left?`${left} starter${left>1?'s':''} still to play · model final ${f1(w.mu_me)} to ${f1(w.mu_opp)} · spread of the rest of the week ${f1(w.sd_diff)} points`:'Every starter on both sides is final.';
  $('p').textContent=pct(w.p);
- $('meN').textContent=me.team;$('opN').textContent=op.team;$('meS').textContent=f1(me.actual);$('opS').textContent=f1(op.actual);
+ $('meN').textContent=me.team;$('opN').textContent=op.team;$('meS').textContent=f2(me.actual);$('opS').textContent=f2(op.actual);
  $('meP').textContent=`model final ${f1(w.mu_me)} ± ${f1(w.sd_me)}`;$('opP').textContent=`model final ${f1(w.mu_opp)} ± ${f1(w.sd_opp)}`;
  $('meH').textContent=me.team+' starters';$('opH').textContent=op.team;
  $('meR').innerHTML=bars(me.rows,'#E5383B');$('opR').innerHTML=bars(op.rows,'#C9C2B8');
@@ -128,14 +128,27 @@ function render(S){
  const hist=(S.history||[]).filter(d=>d.p!=null);if(hist.length)chart(hist);
  $('wplg').textContent=hist.length<2?'one reading a minute while games are on; the line starts at the first one':'one reading a minute while games are on; hover for the score';
  $('ticker').innerHTML=S.games.map(g=>{const pm=g.mine?(g.h===me.team?g.p:1-g.p):g.p;
-  return `<div class="tk${g.mine?' me':''}" title="${esc(g.h)} ${f1(g.hs)} – ${f1(g.as)} ${esc(g.a)}"><span>${esc(g.h.slice(0,14))}</span> ${Math.round(g.hs)}–${Math.round(g.as)} <b>${pct(pm)}</b></div>`}).join('');
+  return `<div class="tk${g.mine?' me':''}" title="${esc(g.h)} ${f1(g.hs)} – ${f1(g.as)} ${esc(g.a)}"><span>${esc(g.h.slice(0,14))}</span> ${f2(g.hs)}–${f2(g.as)} <b>${pct(pm)}</b></div>`}).join('');
  if(S.season){const s=S.season,i=s.names.indexOf(me.team),rows=s.names.map((n,j)=>[n,s.probs.bye[j],s.probs.playoffs[j]]).sort((a,b)=>b[1]-a[1]);
   if(i>=0)$('kv').innerHTML=[['BYE','bye'],['PLAYOFFS','playoffs'],['TITLE','champ'],['1 SEED','seed1']].map(([l,k])=>`<div><small>${l}</small><span class="big">${pct(s.probs[k][i])}</span></div>`).join('');
   const top=rows.slice(0,8);if(!top.some(r=>r[0]===me.team))top.push(rows.find(r=>r[0]===me.team));
   $('season').innerHTML='<tr><th>TEAM</th><th>BYE</th><th>PLAYOFFS</th></tr>'+top.map(r=>`<tr class="${r[0]===me.team?'me':''}"><td>${esc(r[0])}</td><td>${pct(r[1])}</td><td>${pct(r[2])}</td></tr>`).join('');
   $('sfoot').textContent=`season_sim after week ${s.weeks_played} · a first-round bye is worth about 8 points of title odds`;}
- $('foot').textContent=`Updated ${new Date(S.at).toLocaleTimeString([], {hour:'numeric',minute:'2-digit'})}. Ticker odds are the home team's, except our game, which shows ours. Source: ESPN league API and the public NFL scoreboard, priced by espn matchup (0.75 market blend, position-tier spreads, same-game correlation; in-progress players keep their projected rate for the share of the game left). Refreshes every 60 s while games are on.`;}
-const API=location.protocol==='file:'||location.origin==='null'?'http://127.0.0.1:5023/api/state':'/api/state';
-async function tick(){try{render(await (await fetch(API,{cache:'no-store'})).json())}catch(e){$('err').textContent='Dashboard server not reachable ('+e.message+'). Start it with fantasy/bin/ff-dash.'}}
-tick();setInterval(tick,60e3);
+ $('foot').textContent=`Scores live from ESPN${S.scoresAt?' as of '+new Date(S.scoresAt).toLocaleTimeString([], {hour:'numeric',minute:'2-digit',second:'2-digit'}):''} (every 10 s while games are on). Model updated ${new Date(S.at).toLocaleTimeString([], {hour:'numeric',minute:'2-digit'})}; between model pulls the win probability shifts by the points scored since. Ticker odds are the home team's, except our game, which shows ours. Source: ESPN league API and the public NFL scoreboard, priced by espn matchup (0.75 market blend, position-tier spreads, same-game correlation; in-progress players keep their projected rate for the share of the game left). Refreshes every 60 s while games are on.`;}
+const BASE=location.protocol==='file:'||location.origin==='null'?'http://127.0.0.1:5023':'';
+let S0=null,L0=null;
+// Overlay ESPN's live scores on the last model pull. The means move by the
+// points scored since that pull; the spread waits for the next pull.
+function merge(S,L){if(!S||!S.ok||!L||!L.teams)return S;const T=JSON.parse(JSON.stringify(S)),w=T.win;
+ const upd=side=>{const v=L.teams[side.team_id];if(v==null)return 0;const d=v-side.actual;side.actual=v;
+  side.rows.forEach(r=>{const p=L.players[r.id];if(p!=null)r.bank=p});return d};
+ w.mu_me+=upd(T.me);w.mu_opp+=upd(T.opp);
+ w.p=w.sd_diff>0?Phi((w.mu_me-w.mu_opp)/w.sd_diff):(w.mu_me>w.mu_opp?1:0);
+ T.games.forEach(g=>{if(L.teams[g.hid]!=null)g.hs=L.teams[g.hid];if(L.teams[g.aid]!=null)g.as=L.teams[g.aid];
+  if(g.mine)g.p=(g.hid===T.me.team_id)?w.p:1-w.p});
+ T.scoresAt=L.at;return T}
+const get=async p=>(await fetch(BASE+p,{cache:'no-store'})).json();
+async function tick(){try{S0=await get('/api/state');render(S0)}catch(e){$('err').textContent='Dashboard server not reachable ('+e.message+'). Start it with fantasy/bin/ff-dash.'}}
+async function fast(){try{L0=await get('/api/live');if(S0)render(S0)}catch(e){}}
+tick();fast();setInterval(tick,60e3);setInterval(fast,5e3);
 </script></body></html>

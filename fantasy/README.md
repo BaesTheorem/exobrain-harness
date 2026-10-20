@@ -450,6 +450,11 @@ running (KeepAlive). Each 60 s while a game is on, and each 10 min otherwise,
 it runs `espn matchup` and `espn scoreboard` and appends P(win) to
 `dashboard/log/<year>-w<week>.jsonl` (gitignored). That log is the only record
 of win probability over time, and the page draws its line from it.
+A second loop reads ESPN's live matchup score (`totalPointsLive` and each
+starter's `appliedStatTotal`) every 10 s while a game is on and serves it at
+`/api/live`. The page polls it every 5 s and shows the scores unrounded, as
+ESPN has them. Between model pulls the page moves each side's mean by the
+points scored since the last pull and recomputes P(win) with the same spread.
 
 The page writes its headline from the model: who is still to play and how
 many points the gap is. It also shows the effect of a 6-point touchdown on
