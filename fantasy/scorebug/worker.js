@@ -17,6 +17,9 @@
 
 import { clockRemaining, winProb } from "./model.js";
 import PAGE from "./page.html";
+import FAVICON from "./favicon-32.png";
+import ICON192 from "./icon-192.png";
+import TOUCH from "./apple-touch-icon.png";
 
 const READS = "https://lm-api-reads.fantasy.espn.com/apis/v3/games/ffl";
 const NFL = "https://site.api.espn.com/apis/site/v2/sports/football/nfl/scoreboard";
@@ -320,6 +323,47 @@ async function chatOpen(env, snap, teamId) {
   }
 }
 
+// ---------- chat alerts ----------
+// Each minute: any chat message from someone else newer than chat:last goes
+// to the phone as one alert (one digest when several arrived together). The
+// first run only sets the mark, so old messages never alert. KV is written
+// only when a message arrived. Tapping the alert opens the thread.
+
+async function alertPush(env, dev, alert, extra) {
+  const host = dev.env === "sandbox" ? "api.sandbox.push.apple.com" : "api.push.apple.com";
+  const r = await fetch(`https://${host}/3/device/${dev.token}`, {
+    method: "POST",
+    headers: { authorization: `bearer ${await apnsToken(env)}`, "apns-topic": env.APNS_TOPIC, "apns-push-type": "alert",
+               "apns-priority": "10", "content-type": "application/json" },
+    body: JSON.stringify({ aps: { alert, sound: "default", "thread-id": extra.topic || "scorebug-chat" }, ...extra }),
+  });
+  return { status: r.status, reason: r.ok ? "" : ((await r.json().catch(() => ({}))).reason || "") };
+}
+
+async function chatNotify(env, snap) {
+  if (!env.APNS_KEY) return null;
+  const la = (await env.SB.get("la", "json")) || {};
+  const d = await chatThreads(env, snap, true);
+  const theirs = d.threads.flatMap(t => t.messages.filter(m => !m.mine).map(m => ({ ...m, topic: t.id, title: t.title, dm: t.dm })))
+    .sort((a, b) => a.date - b.date);
+  const newest = theirs.length ? theirs[theirs.length - 1].date : 0;
+  const last = Number(await env.SB.get("chat:last")) || 0;
+  if (!last) { if (newest) await env.SB.put("chat:last", String(newest)); return { init: newest }; }
+  const fresh = theirs.filter(m => m.date > last);
+  if (!fresh.length) return { fresh: 0 };
+  await env.SB.put("chat:last", String(newest));
+  if (!la.device) return { fresh: fresh.length, pushed: false };
+  const where = m => m.dm ? m.who : `${m.who} in ${m.title}`;
+  const clip = (t, n) => t.length > n ? t.slice(0, n - 1) + "…" : t;
+  const alert = fresh.length === 1
+    ? { title: where(fresh[0]), body: clip(fresh[0].content, 300) }
+    : { title: `${fresh.length} new messages`, body: clip(fresh.slice(-4).map(m => `${where(m)}: ${m.content}`).join("\n"), 300) };
+  const latest = fresh[fresh.length - 1];
+  const out = await alertPush(env, la.device, alert, { topic: latest.topic });
+  if (out.status === 410 || out.reason === "BadDeviceToken") { delete la.device; await env.SB.put("la", JSON.stringify(la)); }
+  return { fresh: fresh.length, push: out };
+}
+
 async function getSnap(env) {
   const s = await env.SB.get("snap", "json");
   if (!s) throw new Error("no snapshot yet: run fantasy/scorebug/snapshot.py --post");
@@ -340,6 +384,7 @@ async function record(env) {
   const last = Number(await env.SB.get("hist:last")) || 0;
   const due = now - last >= HISTORY_GAP_S - 5;
   if (due) out.la = await liveActivity(env, st, snap).catch(e => ({ error: String(e) }));
+  out.chat = await chatNotify(env, snap).catch(e => ({ error: String(e) }));
   if (st.live) {
     if (due) {
       const key = `hist:${snap.season}:${snap.week}`;
@@ -395,6 +440,11 @@ export default {
       await env.SB.put("snap:last", String(now));
       return json({ ok: true, stored: true });
     }
+    const icon = { "/favicon.ico": FAVICON, "/favicon.png": FAVICON, "/icon-192.png": ICON192, "/apple-touch-icon.png": TOUCH }[path];
+    if (icon) return new Response(icon, { headers: { "content-type": "image/png", "cache-control": "public, max-age=604800" } });
+    if (path === "/manifest.webmanifest") return json({ name: "Scorebug", short_name: "Scorebug", start_url: "/", display: "standalone",
+      background_color: "#0E1013", theme_color: "#0E1013", icons: [{ src: "/icon-192.png", sizes: "192x192", type: "image/png" }, { src: "/apple-touch-icon.png", sizes: "180x180", type: "image/png" }] },
+      200, { "cache-control": "public, max-age=86400" });
     if (path === "/status") {
       const s = await env.SB.get("snap", "json");
       return json({ ok: !!s, snapshot_at: s?.at, source: s?.source, week: s?.week });
@@ -425,7 +475,7 @@ export default {
       }
       if (path === "/la/register" && req.method === "POST") {
         const b = await req.json();
-        if (!/^[0-9a-f]{32,200}$/.test(b.token || "") || !["start", "update"].includes(b.kind)) return json({ error: "bad token" }, 400);
+        if (!/^[0-9a-f]{32,200}$/.test(b.token || "") || !["start", "update", "device"].includes(b.kind)) return json({ error: "bad token" }, 400);
         const la = (await env.SB.get("la", "json")) || {};
         const dev = { token: b.token, env: b.env === "sandbox" ? "sandbox" : "production", at: Math.floor(Date.now() / 1000), activity: b.activity || null };
         if (JSON.stringify((la[b.kind] || {}).token) === JSON.stringify(dev.token)) return json({ ok: true, stored: false });

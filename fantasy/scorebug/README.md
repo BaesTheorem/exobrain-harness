@@ -30,6 +30,8 @@ only before a game locks.
 | `/Applications/Scorebug.app` | Mac | The desktop app: `app-shell/build-app.sh "Scorebug" scorebug "$(fantasy/scorebug/deploy --print)" "" --icon fantasy/scorebug/icon/Scorebug.icns --bundle-id com.exobrain.scorebug`. |
 | iPhone app | private repo `BaesTheorem/scorebug` (`~/Documents/scorebug`) | The page in a native web view, a home and lock screen widget, and the Live Activity. |
 | `/api/chat`, `/api/chat/send`, `/api/chat/open` | Worker | ESPN Fantasy Chat in the app: the league threads and the DMs (read every 10 s), a send, and a new DM. A send is always Alex's own tap. It is split at 240 characters and checked by a read-back, as `espn-tx chat` does (`espncli/chat.py`, `espncli/tx.py`). People show by team name, never a real name. App sends do not count toward the Mac's six-a-day cap, because that cap is for messages MIST starts. |
+| Chat alerts | Worker cron | Each minute the cron reads the chat. Any message from someone else newer than the `chat:last` mark goes to the phone as one alert, or one digest when several arrived together. KV is written only when a message arrived. A tap opens the thread (`#v=chat&t=<topic>`). The app registers its device token as kind `device`. |
+| Website icons | Worker | `/favicon.png`, `/apple-touch-icon.png`, `/icon-192.png` and `/manifest.webmanifest`, all from `icon/make_icon.py`, served without the key. |
 | `test_model.py` | Mac | Compares `model.js` with the Python `win_prob` on random game clocks. It must print PASS after any edit to either side. |
 
 ## Access

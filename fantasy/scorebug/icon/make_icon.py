@@ -2,7 +2,7 @@
 pinned in ~/Documents/material-design/material-design-icons/variablefont) in white on the scorebug red,
 with a steel bar along the bottom like the score bug's win split.
 
-    python3 fantasy/scorebug/icon/make_icon.py   # writes icon-1024.png and Scorebug.icns
+    python3 fantasy/scorebug/icon/make_icon.py   # writes icon-1024.png, Scorebug.icns and the website icons
 """
 import subprocess
 import tempfile
@@ -45,6 +45,10 @@ def main() -> None:
             draw(s, True).save(iconset / f"icon_{s}x{s}.png")
             draw(s * 2, True).save(iconset / f"icon_{s}x{s}@2x.png")
         subprocess.run(["iconutil", "-c", "icns", str(iconset), "-o", str(HERE / "Scorebug.icns")], check=True)
+    # Website: a 32 px favicon, a 192 px icon, and the 180 px Apple touch icon.
+    draw(64, True).resize((32, 32), Image.LANCZOS).save(HERE / "favicon-32.png")
+    draw(192, False).convert("RGB").save(HERE / "icon-192.png")
+    draw(180, False).convert("RGB").save(HERE / "apple-touch-icon.png")
 
 
 if __name__ == "__main__":

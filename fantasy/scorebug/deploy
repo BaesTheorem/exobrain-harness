@@ -88,6 +88,8 @@ def main() -> int:
         part(b, "worker.js", "application/javascript+module", (HERE / "worker.js").read_bytes()),
         part(b, "model.js", "application/javascript+module", (HERE / "model.js").read_bytes()),
         part(b, "page.html", "text/plain", (FANTASY / "dashboard" / "index.html").read_bytes()),
+        *[part(b, f, "application/octet-stream", (HERE / "icon" / f).read_bytes())
+          for f in ("favicon-32.png", "icon-192.png", "apple-touch-icon.png")],
         f"--{b}--\r\n".encode(),
     ])
     w = f"{base}/workers"

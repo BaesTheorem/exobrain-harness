@@ -1,6 +1,12 @@
 <!doctype html>
 <html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Week live · Roll for First Down</title>
+<link rel="icon" type="image/png" sizes="32x32" href="/favicon.png">
+<link rel="apple-touch-icon" href="/apple-touch-icon.png">
+<link rel="manifest" href="/manifest.webmanifest">
+<meta name="theme-color" content="#0E1013">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
 <style>
 /* Tokens and rules: DESIGN.md in this folder. */
@@ -228,5 +234,6 @@ $('compose').onsubmit=async e=>{e.preventDefault();const text=$('txt').value.tri
  const r=await post('/api/chat/send',{topic:TSEL,text});b.textContent='SEND';b.disabled=false;
  if(r.verified){$('txt').value='';count();await loadChat(true)}else $('cnt').textContent=r.error?('Not sent: '+r.error):`Sent ${r.sent} of ${r.chunks}; check the thread before you try again (${(r.failed[0]||{}).error||'read-back did not match'})`;}
 setInterval(()=>loadChat(),document.hidden?60e3:10e3);loadChat();
-if(new URLSearchParams(location.hash.slice(1)).get('v')==='chat')setView('chat');
+function fromHash(){const h=new URLSearchParams(location.hash.slice(1));if(h.get('v')==='chat'){setView('chat');const t=h.get('t');if(t){const go=()=>C?openThread(t):setTimeout(go,300);go()}}}
+fromHash();window.addEventListener('hashchange',fromHash);
 </script></body></html>
