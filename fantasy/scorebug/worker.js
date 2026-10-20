@@ -186,6 +186,140 @@ async function liveActivity(env, st, snap) {
 }
 const Scorebug = p => `${Math.round(p * 100)}%`;
 
+// ---------- ESPN Fantasy Chat (league chat and DMs) ----------
+// The same endpoints as espncli/chat.py (read) and espncli/tx.py chat_send /
+// chat_open (write). A send is always Alex's own tap in the app; it is
+// verified like espn-tx: read the thread back, each chunk exactly once.
+// People show as their team name, or initials for a member with no team,
+// never a real name (espncli.client.initials).
+
+const WRITES = "https://lm-api-writes.fantasy.espn.com/apis/v3/games/ffl";
+const CHAT_VIEW = "kona_league_communication";
+const CHAT_TYPES = new Set(["CHAT", "CHAT_DIRECT_MESSAGE", "CHAT_ALL_MEMBERS"]);
+const MAX_CONTENT = 240;
+let chatMemo = { at: 0, val: null }, teamMemo = { at: 0, val: null };
+
+function espnAuth(env) {
+  const c = JSON.parse(env.ESPN_CREDENTIALS);
+  return { c, cookie: `espn_s2=${c.espn_s2}; SWID=${c.SWID || c.swid}` };
+}
+
+function splitMessage(text, limit = MAX_CONTENT) {
+  text = text.trim();
+  const out = [];
+  while (text.length > limit) {
+    const w = text.slice(0, limit);
+    let cut = -1;
+    for (const seam of ["\n\n", ". ", "! ", "? ", "\n", " "]) {
+      const i = w.lastIndexOf(seam);
+      if (i > Math.floor(limit / 3)) { cut = i + (seam === " " ? 1 : seam.length); break; }
+    }
+    if (cut <= 0) cut = limit;
+    out.push(text.slice(0, cut).trim());
+    text = text.slice(cut).trim();
+  }
+  if (text) out.push(text);
+  return out;
+}
+
+async function leagueTeams(env, snap) {
+  if (teamMemo.val && Date.now() - teamMemo.at < 10 * 60e3) return teamMemo.val;
+  const { c, cookie } = espnAuth(env);
+  const r = await fetch(`${READS}/seasons/${snap.season}/segments/0/leagues/${c.league_id}?view=mTeam`, { headers: { cookie, "user-agent": UA } });
+  if (!r.ok) throw new Error(`ESPN teams ${r.status}`);
+  const d = await r.json();
+  const members = Object.fromEntries((d.members || []).map(m => [m.id, m]));
+  const ini = m => { if (!m) return "?"; const s = [m.firstName, m.lastName].filter(Boolean).map(x => x[0].toUpperCase() + ".").join(""); return s || ((m.displayName || "?")[0].toUpperCase() + "."); };
+  const bySwid = {}, teams = [];
+  for (const t of d.teams || []) {
+    const owner = t.primaryOwner || (t.owners || [])[0];
+    const name = (t.name || t.abbrev || "").trim();
+    if (owner) bySwid[owner] = { name, team_id: t.id };
+    teams.push({ id: t.id, name, owner, mine: t.id === Number(c.team_id) });
+  }
+  for (const [id, m] of Object.entries(members)) if (!bySwid[id]) bySwid[id] = { name: ini(m), team_id: null };
+  teamMemo = { at: Date.now(), val: { bySwid, teams, me: String(c.SWID || c.swid) } };
+  return teamMemo.val;
+}
+
+async function rawTopics(env, snap) {
+  const { c, cookie } = espnAuth(env);
+  const r = await fetch(`${READS}/seasons/${snap.season}/segments/0/leagues/${c.league_id}/communication/topics?view=${CHAT_VIEW}`,
+    { headers: { cookie, "user-agent": UA, accept: "application/json" } });
+  if (!r.ok) throw new Error(`ESPN chat ${r.status}`);
+  return r.json();
+}
+
+async function chatThreads(env, snap, fresh = false) {
+  if (!fresh && chatMemo.val && Date.now() - chatMemo.at < LIVE_TTL_MS) return chatMemo.val;
+  const [raw, T] = await Promise.all([rawTopics(env, snap), leagueTeams(env, snap)]);
+  const who = s => T.bySwid[s] || { name: s ? "?" : "ESPN", team_id: null };
+  const threads = [];
+  for (const t of Array.isArray(raw) ? raw : []) {
+    if (!CHAT_TYPES.has(t.type || "")) continue;
+    const messages = (t.messages || []).filter(m => m.content != null).sort((a, b) => (a.date || 0) - (b.date || 0))
+      .map(m => ({ id: m.id, date: m.date, mine: m.author === T.me, who: m.author === T.me ? "You" : who(m.author).name,
+                   team_id: who(m.author).team_id, content: m.content }));
+    const others = (t.viewableBy || []).filter(s => s !== T.me);
+    const dm = t.type === "CHAT_DIRECT_MESSAGE";
+    threads.push({ id: t.id, type: t.type, dm, title: dm ? others.map(s => who(s).name).join(", ") || "Direct message" : t.type === "CHAT_ALL_MEMBERS" ? "All members" : "League chat",
+                   team_id: dm && others.length === 1 ? who(others[0]).team_id : null,
+                   messages: messages.slice(-200), last: messages.length ? messages[messages.length - 1].date : 0 });
+  }
+  threads.sort((a, b) => (b.last || 0) - (a.last || 0));
+  const val = { threads, teams: T.teams.filter(t => !t.mine).map(t => ({ id: t.id, name: t.name })), at: new Date().toISOString() };
+  chatMemo = { at: Date.now(), val };
+  return val;
+}
+
+async function espnPost(env, snap, path, body) {
+  const { c, cookie } = espnAuth(env);
+  const r = await fetch(`${WRITES}/seasons/${snap.season}/segments/0/leagues/${c.league_id}${path}`, {
+    method: "POST", body: JSON.stringify(body),
+    headers: { cookie, "user-agent": UA, accept: "application/json", "content-type": "application/json",
+               origin: "https://fantasy.espn.com", referer: "https://fantasy.espn.com/",
+               "x-fantasy-source": "kona", "x-fantasy-platform": "kona-PROD" } });
+  const text = await r.text();
+  if (!r.ok) throw new Error(`ESPN ${r.status}: ${text.slice(0, 300)}`);
+  return text ? JSON.parse(text) : {};
+}
+
+async function chatSend(env, snap, topic, text) {
+  const chunks = splitMessage(String(text || ""));
+  if (!chunks.length) throw new Error("nothing to send");
+  const { c } = espnAuth(env);
+  const sent = [], failed = [];
+  for (const chunk of chunks) {
+    try { await espnPost(env, snap, `/communication/topics/${topic}/messages`, { author: String(c.SWID || c.swid), content: chunk, topicId: topic, messageTypeId: 0 }); sent.push(chunk); }
+    catch (e) { failed.push({ chunk, error: String(e.message || e) }); break; }   // stop rather than scatter the rest
+  }
+  const back = (await chatThreads(env, snap, true)).threads.find(t => t.id === topic);
+  const posted = back ? back.messages.map(m => m.content) : [];
+  const missing = sent.filter(ch => posted.filter(p => p === ch).length !== 1);
+  return { chunks: chunks.length, sent: sent.length, failed, verified: !failed.length && !missing.length, missing_or_duplicated: missing };
+}
+
+async function chatOpen(env, snap, teamId) {
+  const T = await leagueTeams(env, snap);
+  const target = T.teams.find(t => t.id === Number(teamId));
+  if (!target || !target.owner) throw new Error("no such team");
+  const want = [T.me, target.owner].sort().join("|");
+  const find = async () => (await rawTopics(env, snap)).find(t => t.type === "CHAT_DIRECT_MESSAGE" && [...(t.viewableBy || [])].sort().join("|") === want);
+  const have = await find();
+  if (have) return { topic: have.id, created: false };
+  const mine = T.teams.find(t => t.mine);
+  try {
+    const r = await espnPost(env, snap, "/communication/topics", { type: "CHAT_DIRECT_MESSAGE", viewableBy: [T.me, target.owner], subject: (mine && mine.name) || "Direct message" });
+    chatMemo.at = 0;
+    return { topic: r.id, created: true };
+  } catch (e) {
+    if (!String(e.message).includes("TOPIC_IDENTICAL_MEMBERS")) throw e;   // ESPN dedupes DM threads by membership
+    const again = await find();
+    if (again) return { topic: again.id, created: false };
+    throw e;
+  }
+}
+
 async function getSnap(env) {
   const s = await env.SB.get("snap", "json");
   if (!s) throw new Error("no snapshot yet: run fantasy/scorebug/snapshot.py --post");
@@ -275,6 +409,16 @@ export default {
     try {
       if (path === "/") return new Response(PAGE, { headers: { "content-type": "text/html; charset=utf-8", "cache-control": "no-store" } });
       if (path === "/api/live") return json({});
+      if (path === "/api/chat") return json(await chatThreads(env, await getSnap(env)));
+      if (path === "/api/chat/send" && req.method === "POST") {
+        const b = await req.json();
+        if (!/^[\w-]{6,80}$/.test(b.topic || "")) return json({ error: "bad topic" }, 400);
+        return json(await chatSend(env, await getSnap(env), b.topic, b.text));
+      }
+      if (path === "/api/chat/open" && req.method === "POST") {
+        const b = await req.json();
+        return json(await chatOpen(env, await getSnap(env), b.team_id));
+      }
       if (path === "/api/summary") {
         const snap = await getSnap(env);
         return json(summary(compute(snap, await espnLive(env, snap))));

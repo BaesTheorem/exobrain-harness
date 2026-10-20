@@ -29,6 +29,7 @@ only before a game locks.
 | `icon/make_icon.py` | Mac | The app icon: the Material Symbols "scoreboard" glyph on the score bug red. Writes the iOS PNG and the macOS `.icns`. |
 | `/Applications/Scorebug.app` | Mac | The desktop app: `app-shell/build-app.sh "Scorebug" scorebug "$(fantasy/scorebug/deploy --print)" "" --icon fantasy/scorebug/icon/Scorebug.icns --bundle-id com.exobrain.scorebug`. |
 | iPhone app | private repo `BaesTheorem/scorebug` (`~/Documents/scorebug`) | The page in a native web view, a home and lock screen widget, and the Live Activity. |
+| `/api/chat`, `/api/chat/send`, `/api/chat/open` | Worker | ESPN Fantasy Chat in the app: the league threads and the DMs (read every 10 s), a send, and a new DM. A send is always Alex's own tap. It is split at 240 characters and checked by a read-back, as `espn-tx chat` does (`espncli/chat.py`, `espncli/tx.py`). People show by team name, never a real name. App sends do not count toward the Mac's six-a-day cap, because that cap is for messages MIST starts. |
 | `test_model.py` | Mac | Compares `model.js` with the Python `win_prob` on random game clocks. It must print PASS after any edit to either side. |
 
 ## Access

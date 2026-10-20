@@ -4,6 +4,10 @@ Reading lives here. Sending lives in `tx.EspnWriter.chat_send`, because
 `bin/espn-tx` is the only command in this tree that POSTs and that boundary is
 worth more than the convenience of putting both halves in one file.
 
+The one other sender is the Scorebug app (`fantasy/scorebug/worker.js`,
+`chatSend` and `chatOpen`), and only for a message Alex types and sends
+himself. It uses the same endpoints and the same read-back check.
+
 Endpoints, verified live 2026-09-14:
 
     GET  {READS}/.../communication/topics?view=kona_league_communication
