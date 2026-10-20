@@ -35,6 +35,10 @@ def test_ros_rate_blends_prior_and_weekly_before_week_5_and_ppg_after():
     assert value.ros_rate(6, proj=0.0, season_proj=144.0, season_actual=96.0, games=5) == pytest.approx(
         0.5 * 12 + 0.5 * 96 / 5)
     assert value.ros_rate(2, proj=7.0, season_proj=None) == 7.0
+    # Zero weekly and zero rest-of-season projection is ESPN saying no role, not missing data:
+    # PPG keeps its own weight instead of taking all of it (Jawhar Jordan, 12.0 rate -> 2.4).
+    assert value.ros_rate(7, proj=0.0, season_proj=0.0, season_actual=12.0, games=6, played=1) == pytest.approx(
+        0.20 * 12.0)
 
 
 def test_ros_rate_divides_rest_of_season_by_games_left_not_17():

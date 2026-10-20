@@ -99,6 +99,11 @@ def ros_rate(week: int, proj: float | None, season_proj: float | None,
     if week >= BLEND_SWITCH_WEEK and (played or games):
         ppg = float(season_actual or 0.0) / (played or games or 1)
         wp, wr, wg = ROS_WEIGHTS
+        if season_proj is not None and prior <= 0 and weekly <= 0:
+            # ESPN projects no role at all (Jawhar Jordan, week 7 2026: a 12-point
+            # game, then back to the practice squad). Renormalizing would hand
+            # PPG from a one-game sample the whole weight and bannered a +62.4 swap.
+            return wg * ppg
         parts = [(wp, weekly), (wr, prior), (wg, ppg)] if weekly > 0 else [(0.5, prior), (0.5, ppg)]
     else:
         parts = [(0.5, prior), (0.5, weekly)]
