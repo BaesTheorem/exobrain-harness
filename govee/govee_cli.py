@@ -230,7 +230,8 @@ def cloud_run(args: argparse.Namespace, bulbs: dict[str, dict]) -> None:
                 caps = {c["instance"]: c["state"]["value"] for c in cloud_post("state", dev)["payload"]["capabilities"]}
                 kelvin = caps.get("colorTemperatureK")
                 shade = f"{kelvin}K" if kelvin else f"#{caps.get('colorRgb', 0):06x}"
-                power = "on " if caps.get("powerSwitch") else "off"
+                # an offline bulb's state is the last one the cloud saw, not the live one
+                power = "OFFLINE" if caps.get("online") is False else "on " if caps.get("powerSwitch") else "off"
                 print(f"{name:<12} {'cloud':<15} {power} {caps.get('brightness', 0):>3}%  {shade}")
         except OSError as exc:
             print(f"govee: cloud call for {name} failed: {exc}", file=sys.stderr)
