@@ -169,6 +169,7 @@ fantasy/espn-credentials.json
 fantasy/.cache/
 # Live scouting state (league rosters, trade targets); rebuilt by the weekly routines.
 fantasy/watchlist.json
+fantasy/standings-post.json
 
 # Draft autopilot runtime. profile/ is a logged-in Chrome profile holding live
 # ESPN/Disney session cookies; url.txt and live-draft-url.txt carry Alex's

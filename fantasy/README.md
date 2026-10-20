@@ -473,3 +473,25 @@ share of the game that is left (`games_remaining()` in `espncli/cli.py`). A
 quiet first half does not lower his expectation. The fix is a rest-of-game
 model fit on nflverse play-by-play, with a backtest of the live P(win) for
 calibration.
+
+## Weekly standings chart (`bin/standings-post`)
+
+`standings_history.py` replays the league schedule and records the table
+after each decided week. It uses the same order as ESPN: win
+percentage first, then points for. `--html PATH` writes the bump chart, and
+`--check` compares the last week with `ff standings`.
+
+`bin/standings-post` renders that chart to a PNG with headless Playwright. It
+then posts the PNG to the league's Discord channel with a short caption: the
+two bye seats, and the largest climb and drop. The tool uses
+`discord/discord-send.py --attach` for the post. A week is decided when all
+of its games have a winner on ESPN. The launchd job
+`com.exobrain.standings-post` runs on Tuesday at 7 AM, 10 AM, 2 PM and 7 PM,
+and on Wednesday at 10 AM. Each week posts one time only, because the posted
+weeks are kept in `.cache/standings-post/state.json`. If a post fails, a
+banner and a Discord DM tell Alex.
+
+The channel id is in the gitignored `standings-post.json`
+(`{"channel_id": "<id>"}`). If this file is missing, the run stops and sends
+a notification. Use `--dry-run` to render and print the caption without a
+post. Use `--force` to post the newest week again.

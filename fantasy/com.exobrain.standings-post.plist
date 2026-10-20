@@ -1,0 +1,35 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>Label</key>
+	<string>com.exobrain.standings-post</string>
+	<!-- Posts the standings bump chart to the league's Discord channel once per
+	     decided week. Several Tuesday and Wednesday runs, because ESPN closes a
+	     week some hours after Monday night; a week posts once (state file). -->
+	<key>ProgramArguments</key>
+	<array>
+		<string>/Users/alexhedtke/.local/bin/mist-launch</string>
+		<string>/opt/homebrew/bin/python3</string>
+		<string>/Users/alexhedtke/Documents/Exobrain harness/fantasy/bin/standings-post</string>
+	</array>
+	<key>WorkingDirectory</key>
+	<string>/Users/alexhedtke/Documents/Exobrain harness/fantasy</string>
+	<key>StartCalendarInterval</key>
+	<array>
+		<dict><key>Weekday</key><integer>2</integer><key>Hour</key><integer>7</integer><key>Minute</key><integer>0</integer></dict>
+		<dict><key>Weekday</key><integer>2</integer><key>Hour</key><integer>10</integer><key>Minute</key><integer>0</integer></dict>
+		<dict><key>Weekday</key><integer>2</integer><key>Hour</key><integer>14</integer><key>Minute</key><integer>0</integer></dict>
+		<dict><key>Weekday</key><integer>2</integer><key>Hour</key><integer>19</integer><key>Minute</key><integer>0</integer></dict>
+		<dict><key>Weekday</key><integer>3</integer><key>Hour</key><integer>10</integer><key>Minute</key><integer>0</integer></dict>
+	</array>
+	<key>StandardOutPath</key>
+	<string>/Users/alexhedtke/Library/Logs/exobrain/standings-post.log</string>
+	<key>StandardErrorPath</key>
+	<string>/Users/alexhedtke/Library/Logs/exobrain/standings-post.log</string>
+	<key>AssociatedBundleIdentifiers</key>
+	<array>
+	    <string>com.exobrain.mist-console</string>
+	</array>
+</dict>
+</plist>

@@ -8,12 +8,18 @@ gateway connection the bot holds open.
 Usage:
     discord-send.py <channel_id> "message text"
     discord-send.py <channel_id> --file path/to/message.txt
+    discord-send.py <channel_id> "caption" --attach path/to/image.png
+
+--attach uploads one file with the message (the caption must fit in one
+message, 2000 characters).
 
 Discord caps a message at 2000 characters; longer input is split on blank lines
 and sent as consecutive messages.
 """
 import json
+import mimetypes
 import os
+import uuid
 import sys
 import urllib.error
 import urllib.request
@@ -70,10 +76,49 @@ def send(token, channel_id, content):
         return json.load(resp)
 
 
+def send_file(token, channel_id, content, path):
+    """One message with one attachment, as multipart/form-data."""
+    boundary = uuid.uuid4().hex
+    name = os.path.basename(path)
+    ctype = mimetypes.guess_type(name)[0] or "application/octet-stream"
+    with open(path, "rb") as fh:
+        blob = fh.read()
+    payload = json.dumps({"content": content, "attachments": [{"id": 0, "filename": name}]})
+    body = (
+        f'--{boundary}\r\nContent-Disposition: form-data; name="payload_json"\r\n'
+        f"Content-Type: application/json\r\n\r\n{payload}\r\n"
+        f'--{boundary}\r\nContent-Disposition: form-data; name="files[0]"; filename="{name}"\r\n'
+        f"Content-Type: {ctype}\r\n\r\n"
+    ).encode() + blob + f"\r\n--{boundary}--\r\n".encode()
+    req = urllib.request.Request(
+        f"{API}/channels/{channel_id}/messages",
+        data=body,
+        headers={
+            "Authorization": f"Bot {token}",
+            "Content-Type": f"multipart/form-data; boundary={boundary}",
+            "User-Agent": "MIST (exobrain-harness, 1.0)",
+        },
+        method="POST",
+    )
+    with urllib.request.urlopen(req, timeout=60) as resp:
+        return json.load(resp)
+
+
 def main():
     if len(sys.argv) < 3:
         raise SystemExit(__doc__)
     channel_id = sys.argv[1]
+    if len(sys.argv) == 5 and sys.argv[3] == "--attach":
+        content = sys.argv[2].rstrip()
+        if len(content) > LIMIT:
+            raise SystemExit(f"caption is {len(content)} chars; the limit with --attach is {LIMIT}")
+        try:
+            msg = send_file(load_token(), channel_id, content, sys.argv[4])
+        except urllib.error.HTTPError as exc:
+            body = exc.read().decode(errors="replace")
+            raise SystemExit(f"HTTP {exc.code} from Discord: {body}") from exc
+        print(f"sent {msg['id']} with {len(msg.get('attachments', []))} attachment(s)")
+        return
     if sys.argv[2] == "--file":
         with open(sys.argv[3]) as fh:
             content = fh.read()

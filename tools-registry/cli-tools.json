@@ -931,6 +931,14 @@
     "notes": "Read-only via ff raw (mMatchup,mTeam,mSettings). --check compares the last week to ff standings. Idle-week score is not counted in PF. Render the HTML with Playwright (JS-driven)."
   },
   {
+    "name": "standings_history.py",
+    "command": "python3 standings_history.py [--json] [--html PATH] [--highlight 'Team A,Team B'] [--check]",
+    "repo_dir": "/Users/alexhedtke/Documents/Exobrain harness/fantasy",
+    "source": "built",
+    "added": "2026-10-19",
+    "notes": "Read-only (ff raw). A week counts only when every game has a winner. --check exits 1 if the last week disagrees with ff standings."
+  },
+  {
     "name": "subtile-ocr",
     "command": "~/.cargo/bin/subtile-ocr -l eng [--dump-raw] -o out.srt in.idx",
     "repo_dir": "~/.cargo/bin",
