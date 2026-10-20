@@ -12,8 +12,11 @@ body{background:var(--bg);color:var(--ink);font:14px Inter,sans-serif;padding:24
 .team{padding:16px 24px;display:flex;align-items:center;gap:16px;min-width:0} .team.r{text-align:right}
 .tn{font:600 26px 'Barlow Condensed';text-transform:uppercase;letter-spacing:.5px;line-height:1.1}
 .sc{font:700 64px 'Barlow Condensed';line-height:1}
-.mid{background:var(--red);display:flex;flex-direction:column;align-items:center;justify-content:center;padding:8px}
-.mid .p{font:700 56px 'Barlow Condensed';line-height:1} .mid small{font:600 13px 'Barlow Condensed';letter-spacing:2px}
+.mid{display:grid;grid-template-columns:1fr 1fr;grid-template-rows:1fr auto}
+.mid .half{display:flex;align-items:center;justify-content:center;font:700 48px 'Barlow Condensed';line-height:1;padding:8px 4px}
+.mid .a{background:var(--red);color:#fff} .mid .b{background:var(--steel);color:#0E1013}
+.mid .tug{grid-column:1/3;height:6px;display:flex;background:var(--steel)} .mid .tug span{background:var(--red);display:block;height:100%}
+.mid small{grid-column:1/3;text-align:center;background:#0E1013;color:var(--mute);font:600 12px 'Barlow Condensed';letter-spacing:2px;padding:3px 0}
 .proj{color:var(--mute);font-size:12px}
 .logo{width:64px;height:64px;object-fit:cover;flex:none;background:var(--line)} .logo.s{width:20px;height:20px} .logo.xs{width:18px;height:18px;vertical-align:-4px;margin-right:6px}
 .jn{color:var(--mute);font:600 13px 'Barlow Condensed';margin-left:4px}
@@ -45,13 +48,13 @@ tr.me td{color:var(--red)}
 .foot{color:var(--mute);font-size:11px;margin-top:16px;line-height:1.5}
 #wp{position:relative} #tip{position:absolute;pointer-events:none;background:var(--bg);border:1px solid var(--line);padding:6px 10px;font:600 14px 'Barlow Condensed';display:none;white-space:nowrap}
 @media (max-width:980px){.grid{grid-template-columns:1fr}.wide{grid-column:auto}}
-@media (max-width:640px){.logo{width:40px;height:40px}body{padding:8px}.top{grid-template-columns:1fr 1fr}.mid{grid-column:1/3;grid-row:1;flex-direction:row;gap:12px}
+@media (max-width:640px){.logo{width:40px;height:40px}body{padding:8px}.top{grid-template-columns:1fr 1fr}.mid{grid-column:1/3;grid-row:1}
  .team{padding:12px;flex-direction:column;align-items:flex-start;gap:6px}.team.r{flex-direction:column-reverse;align-items:flex-end}.team.r>div{margin-left:0!important}.team .sc{margin-left:0!important}.tn{font-size:18px}.sc{font-size:40px}.proj{display:none}
  .prow{grid-template-columns:36px 1fr 80px}.prow .bar{grid-column:2/4;grid-row:2}.chyron .txt{font-size:16px}}
 </style></head><body>
 <div class="top">
  <div class="team"><img class="logo" id="meL" alt=""><div><div class="tn" id="meN">–</div><div class="proj" id="meP"></div></div><div class="sc" id="meS" style="margin-left:auto">–</div></div>
- <div class="mid"><div class="p" id="p">–</div><small id="pl">WIN PROB</small></div>
+ <div class="mid"><div class="half a" id="p">–</div><div class="half b" id="pb">–</div><div class="tug"><span id="tug"></span></div><small id="pl">WIN PROB</small></div>
  <div class="team r"><div class="sc" id="opS">–</div><div style="margin-left:auto"><div class="tn" id="opN">–</div><div class="proj" id="opP"></div></div><img class="logo" id="opL" alt=""></div>
 </div>
 <div class="chyron"><div class="tag" id="kick">WEEK –</div><div class="txt" id="h1">Loading the lineup model…</div></div>
@@ -63,7 +66,7 @@ tr.me td{color:var(--red)}
  <div class="card" style="grid-row:span 2"><h3>Season outlook</h3><div class="kv" id="kv"></div><table id="season"></table>
   <div class="foot" id="sfoot"></div></div>
  <div class="card wide"><h3>Win probability, week <span id="wk"></span></h3>
-  <div id="wp"><svg id="wpsvg" viewBox="0 0 860 200" width="100%" role="img" aria-label="Win probability over the week"></svg><div id="tip"></div></div>
+  <div id="wp"><svg id="wpsvg" viewBox="0 0 860 220" width="100%" role="img" aria-label="Win probability over the week"></svg><div id="tip"></div></div>
   <div class="lg"><i style="background:var(--red)"></i>banked <i style="background:repeating-linear-gradient(45deg,var(--red) 0 2px,transparent 2px 6px)"></i>expected remaining · <span id="wplg"></span></div></div>
  <div class="card wide" id="noteC" hidden><h3>What would change this</h3><div class="note" id="note"></div></div>
 </div>
@@ -80,17 +83,24 @@ function bars(rows,col){return rows.map(r=>{const b=Math.max(r.bank,0),wb=b/30*1
  <span class="pn">${esc(r.name)}${r.jersey?`<span class="jn">#${esc(r.jersey)}</span>`:''}${r.status?' ('+esc(r.status[0])+')':''}${tag}</span>
  <span class="bar"><span class="seg" style="width:${wb}%;background:${col}"></span><span class="seg" style="width:${wr}%;background:repeating-linear-gradient(45deg,${col} 0 2px,transparent 2px 6px);outline:1px solid ${col};outline-offset:-1px"></span></span>
  <span class="num">${f2(r.bank)}${r.rem?` <b>+${f1(r.rem)}</b>`:''}</span></div>`}).join('')}
-function chart(h){const W=860,H=200,L=44,R=16,T=10,B=24,s=$('wpsvg');
- const ink='#8B9099',rule='#262A31',red='#E5383B';
+function chart(h,V){const W=860,H=220,L=150,R=16,T=12,B=24,s=$('wpsvg');
+ const ink='#8B9099',rule='#262A31',red='#E5383B',steel='#C9C2B8',txt='#F2F2F0';
  const ts=h.map(d=>Date.parse(d.t)),t0=ts[0],t1=Math.max(ts[ts.length-1],t0+60e3);
- const x=t=>L+(t-t0)/(t1-t0)*(W-L-R),y=p=>T+(1-p)*(H-T-B);
+ const x=t=>L+(t-t0)/(t1-t0)*(W-L-R),y=p=>T+(1-p)*(H-T-B),mid=y(.5);
  const fmt=t=>new Date(t).toLocaleString([], {weekday:'short',hour:'numeric',minute:'2-digit'});
- let g=[0,.5,1].map(v=>`<line x1="${L}" x2="${W-R}" y1="${y(v)}" y2="${y(v)}" stroke="${rule}"/><text x="${L-8}" y="${y(v)+4}" fill="${ink}" font-size="11" font-family="Inter" text-anchor="end">${v*100}%</text>`).join('');
+ // Both sides on one scale: the left team's chance runs up from the 50% line,
+ // the right team's runs down from it, so the line reads as a tug of war.
+ let g=`<defs><clipPath id="cA"><rect x="${L}" y="${T}" width="${W-L-R}" height="${mid-T}"/></clipPath><clipPath id="cB"><rect x="${L}" y="${mid}" width="${W-L-R}" height="${H-B-mid}"/></clipPath></defs>`;
+ g+=[[1,'100%'],[.75,'75%'],[.5,'50%'],[.25,'75%'],[0,'100%']].map(([v,l])=>`<line x1="${L}" x2="${W-R}" y1="${y(v)}" y2="${y(v)}" stroke="${v===.5?'#3A3F47':rule}"/><text x="${L-8}" y="${y(v)+4}" fill="${ink}" font-size="11" font-family="Inter" text-anchor="end">${l}</text>`).join('');
+ const side=(t,yy,col,id)=>`<image href="${BASE}/logo/${t.team_id}" x="4" y="${yy-14}" width="28" height="28" preserveAspectRatio="xMidYMid slice"/><text x="38" y="${yy-2}" fill="${col}" font-size="12" font-weight="600" font-family="Barlow Condensed" letter-spacing=".3">${esc(t.team.toUpperCase().slice(0,20))}</text><text x="38" y="${yy+12}" fill="${ink}" font-size="11" font-family="Inter">${id}</text>`;
+ g+=side(V.me,y(.85),red,'above the line')+side(V.opp,y(.15),steel,'below the line');
  g+=[t0,(t0+t1)/2,t1].map((t,i)=>`<text x="${x(t)}" y="${H-6}" fill="${ink}" font-size="11" font-family="Inter" text-anchor="${['start','middle','end'][i]}">${fmt(t)}</text>`).join('');
- const pts=h.map((d,i)=>`${x(ts[i]).toFixed(1)},${y(d.p).toFixed(1)}`);
- g+=`<polygon points="${x(t0)},${y(0)} ${pts.join(' ')} ${x(ts[ts.length-1])},${y(0)}" fill="rgba(229,56,59,.12)"/>`;
- g+=`<polyline points="${pts.join(' ')}" fill="none" stroke="${red}" stroke-width="2" stroke-linejoin="round"/>`;
- g+=`<circle cx="${x(ts[ts.length-1])}" cy="${y(h[h.length-1].p)}" r="5" fill="${red}" stroke="#171A1F" stroke-width="2"/>`;
+ const pts=h.map((d,i)=>`${x(ts[i]).toFixed(1)},${y(d.p).toFixed(1)}`),x0=x(t0),xn=x(ts[ts.length-1]);
+ const area=`${x0},${mid} ${pts.join(' ')} ${xn},${mid}`;
+ g+=`<polygon points="${area}" fill="rgba(229,56,59,.22)" clip-path="url(#cA)"/><polygon points="${area}" fill="rgba(201,194,184,.18)" clip-path="url(#cB)"/>`;
+ g+=`<polyline points="${pts.join(' ')}" fill="none" stroke="${txt}" stroke-width="2" stroke-linejoin="round"/>`;
+ const lp=h[h.length-1].p;
+ g+=`<circle cx="${xn}" cy="${y(lp)}" r="5" fill="${lp>=.5?red:steel}" stroke="#171A1F" stroke-width="2"/>`;
  g+=`<line id="xh" y1="${T}" y2="${H-B}" stroke="${ink}" stroke-dasharray="2 3" visibility="hidden"/>`;
  g+=`<rect x="${L}" y="${T}" width="${W-L-R}" height="${H-T-B}" fill="transparent" id="hit"/>`;
  s.innerHTML=g;
@@ -98,8 +108,8 @@ function chart(h){const W=860,H=200,L=44,R=16,T=10,B=24,s=$('wpsvg');
  hit.onmousemove=e=>{const r=s.getBoundingClientRect(),sx=(e.clientX-r.left)/r.width*W;
   let i=0,best=1e9;ts.forEach((t,j)=>{const d=Math.abs(x(t)-sx);if(d<best){best=d;i=j}});const d=h[i];
   xh.setAttribute('x1',x(ts[i]));xh.setAttribute('x2',x(ts[i]));xh.setAttribute('visibility','visible');
-  tip.style.display='block';tip.style.left=Math.min((x(ts[i])/W)*r.width+12,r.width-170)+'px';tip.style.top='8px';
-  tip.innerHTML=`${fmt(ts[i])}<br>${pct(d.p)} · ${f2(d.me)}–${f2(d.opp)}`};
+  tip.style.display='block';tip.style.left=Math.min((x(ts[i])/W)*r.width+12,r.width-260)+'px';tip.style.top='8px';
+  tip.innerHTML=`${fmt(ts[i])}<br><span style="color:#E5383B">${esc(V.me.team)} ${pct(d.p)}</span> · ${f2(d.me)}<br><span style="color:#C9C2B8">${esc(V.opp.team)} ${pct(1-d.p)}</span> · ${f2(d.opp)}`};
  hit.onmouseleave=()=>{tip.style.display='none';xh.setAttribute('visibility','hidden')};}
 function render(S){S=merge(S,L0);
  if(!S.ok){$('h1').textContent='Waiting for the first pull';$('err').textContent=S.error||'';return}
@@ -118,7 +128,7 @@ function render(S){S=merge(S,L0);
  $('h1').textContent=h;
  const left=rm.length+ro.length;
  $('dek').textContent=left?`${left} starter${left>1?'s':''} still to play · model final ${f1(w.mu_me)} to ${f1(w.mu_opp)} · spread of the rest of the week ${f1(w.sd_diff)} points`:'Every starter on both sides is final.';
- $('p').textContent=pct(w.p);
+ $('p').textContent=pct(w.p);$('pb').textContent=pct(1-w.p);$('tug').style.width=(w.p*100)+'%';$('p').title=me.team;$('pb').title=op.team;
  $('meN').textContent=me.team;$('opN').textContent=op.team;$('meS').textContent=f2(me.actual);$('opS').textContent=f2(op.actual);
  $('meP').textContent=`model final ${f1(w.mu_me)} ± ${f1(w.sd_me)}`;$('opP').textContent=`model final ${f1(w.mu_opp)} ± ${f1(w.sd_opp)}`;
  $('meL').src=BASE+'/logo/'+me.team_id;$('opL').src=BASE+'/logo/'+op.team_id;$('meH').textContent=me.team+' starters';$('opH').textContent=op.team;
@@ -127,7 +137,7 @@ function render(S){S=merge(S,L0);
   if(rm.length)bits.push(`A touchdown by ${esc(last(rm[0].name))} (6 points) moves ${esc(me.team)} to <b>${pct(up)}</b>.`);
   if(ro.length)bits.push(rm.length?`One by ${esc(last(ro[0].name))} drops it to <b>${pct(dn)}</b>.`:`A touchdown by ${esc(last(ro[0].name))} (6 points) drops ${esc(me.team)} to <b>${pct(dn)}</b>.`);
   $('note').innerHTML=bits.join(' ');$('noteC').hidden=false}else $('noteC').hidden=true;
- const hist=(S.history||[]).map(d=>isMine?d:(d.all&&d.all[SEL]?{t:d.t,...d.all[SEL]}:null)).filter(d=>d&&d.p!=null);if(hist.length)chart(hist);
+ const hist=(S.history||[]).map(d=>isMine?d:(d.all&&d.all[SEL]?{t:d.t,...d.all[SEL]}:null)).filter(d=>d&&d.p!=null);hist.push({t:S.scoresAt||S.at,p:w.p,me:me.actual,opp:op.actual});chart(hist,V);
  $('wplg').textContent=hist.length<2?'one reading a minute while games are on; the line starts at the first one':'one reading a minute while games are on; hover for the score';
  $('ticker').innerHTML=S.games.map(g=>{const pm=g.mine?(g.h===ours?g.p:1-g.p):g.p;
   return `<div class="tk${g.id==SEL?' sel':''}${g.mine?' mine':''}" data-id="${g.id}" role="tab" tabindex="0" aria-selected="${g.id==SEL}" title="${esc(g.h)} ${f1(g.hs)} – ${f1(g.as)} ${esc(g.a)}">${logo(g.hid,'s')}<span>${esc(g.h)}</span> ${f2(g.hs)}–${f2(g.as)} <b>${pct(pm)}</b></div>`}).join('');

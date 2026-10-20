@@ -41,6 +41,16 @@ Dark only. A score bug is a dark-surface form, and there is no light theme.
 - Below 980 px the grid is one column; below 640 px the win-probability box
   moves above the two scores.
 
+## Both sides of the win probability
+
+- Score bug center: two halves, the left team's chance on red and the right
+  team's on steel, over a 6 px bar split at the left team's chance.
+- Chart: one line on a centered scale. The 50% line is the middle; the left
+  team's chance runs up to 100% at the top, the right team's down to 100% at
+  the bottom. The area between the line and 50% fills red above and steel
+  below. Each end of the axis carries that team's picture and name. The last
+  point is the live value, so the chart ends where the score bug reads.
+
 ## Pictures and numbers
 
 - Team pictures: the league's own logos, served through `/logo/<team id>`
