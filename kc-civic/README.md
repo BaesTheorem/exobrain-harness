@@ -35,7 +35,13 @@ bin/kc-civic sync [--dry-run] [--no-prep] [--no-edc] [--force-edc] [--no-holds]
 bin/kc-civic prep KEY [--force]     # one meeting, for example legistar-19540
 bin/kc-civic auth-calendar          # one-time consent; then --code '<redirected URL>'
 bin/kc-civic status
+bin/kc-civic code fetch NODE... [--product zoning]   # city code text from Municode into data/code/
+bin/kc-civic code toc [NODE] [--product zoning]      # node ids, for example ZODECOKAMI_300_SERIESUSRE
+bin/kc-civic code grep REGEX [--product zoning]      # search the cached text
+bin/kc-civic code show "88-130-04" [--product zoning] # print sections by title prefix
 ```
+
+`code` reads Municode through the same headless Chrome lane. Municode keeps the Zoning and Development Code apart from the Code of Ordinances, so use `--product zoning` for it. In the Code of Ordinances, Chapter 88 contains only a hyperlink to the zoning code. Municode limits the request rate. After approximately 600 fast calls, it returned HTTP 429 for more than an hour. Thus the module waits 1.5 seconds between calls and stops at the first 429.
 
 ## How a pass runs
 

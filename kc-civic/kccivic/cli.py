@@ -386,6 +386,25 @@ def cmd_status(cfg: dict, args) -> int:
     return 0
 
 
+def cmd_code(_cfg: dict, args) -> int:
+    from . import municode
+
+    product = args.product or "ordinances"
+    try:
+        if args.action == "fetch":
+            municode.fetch(product, args.terms)
+        elif args.action == "toc":
+            municode.toc(product, args.terms[0] if args.terms else "")
+        elif args.action == "grep":
+            municode.grep(" ".join(args.terms), args.product)
+        else:
+            municode.show(" ".join(args.terms), args.product)
+    except municode.RateLimited as e:
+        print(e)
+        return 2
+    return 0
+
+
 def main() -> int:
     p = argparse.ArgumentParser(prog="kc-civic", description=__doc__,
                                 formatter_class=argparse.RawDescriptionHelpFormatter)
@@ -408,6 +427,11 @@ def main() -> int:
     sp.add_argument("--code")
     sp.set_defaults(fn=cmd_auth)
     sub.add_parser("status").set_defaults(fn=cmd_status)
+    sp = sub.add_parser("code", help="city code text from Municode, cached under data/code/")
+    sp.add_argument("action", choices=["fetch", "toc", "grep", "show"])
+    sp.add_argument("terms", nargs="*", help="fetch: node ids; toc: a node id; grep: a regex; show: a title prefix")
+    sp.add_argument("--product", choices=["ordinances", "zoning"])
+    sp.set_defaults(fn=cmd_code)
     args = p.parse_args()
     return args.fn(load_config(), args)
 
