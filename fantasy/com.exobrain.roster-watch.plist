@@ -2,29 +2,30 @@
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
+	<key>AssociatedBundleIdentifiers</key>
+	<array>
+		<string>com.exobrain.mist-console</string>
+	</array>
 	<key>Label</key>
 	<string>com.exobrain.roster-watch</string>
 	<key>ProgramArguments</key>
 	<array>
 		<string>/Users/alexhedtke/.local/bin/mist-launch</string>
+		<string>/usr/bin/python3</string>
+		<string>/Users/alexhedtke/Documents/Exobrain harness/bin/net-gate</string>
+		<string>--</string>
 		<string>/Users/alexhedtke/.local/share/uv/python/cpython-3.13.5-macos-aarch64-none/bin/python3.13</string>
 		<string>/Users/alexhedtke/Documents/Exobrain harness/fantasy/bin/roster-watch</string>
 	</array>
-	<key>WorkingDirectory</key>
-	<string>/Users/alexhedtke/Documents/Exobrain harness/fantasy</string>
-	<key>StartInterval</key>
-	<integer>1800</integer>
 	<key>RunAtLoad</key>
 	<true/>
-	<key>StandardOutPath</key>
-	<string>/Users/alexhedtke/Library/Logs/exobrain/roster-watch.log</string>
 	<key>StandardErrorPath</key>
 	<string>/Users/alexhedtke/Library/Logs/exobrain/roster-watch-error.log</string>
-	<!-- Login Items shows the job under this app instead of its executable's name;
-	     only honored because mist-launch is signed by the same team. -->
-	<key>AssociatedBundleIdentifiers</key>
-	<array>
-	    <string>com.exobrain.mist-console</string>
-	</array>
+	<key>StandardOutPath</key>
+	<string>/Users/alexhedtke/Library/Logs/exobrain/roster-watch.log</string>
+	<key>StartInterval</key>
+	<integer>1800</integer>
+	<key>WorkingDirectory</key>
+	<string>/Users/alexhedtke/Documents/Exobrain harness/fantasy</string>
 </dict>
 </plist>

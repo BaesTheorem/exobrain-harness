@@ -2,32 +2,33 @@
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
-	<key>Label</key>
-	<string>com.exobrain.mykcmo-watch-updates</string>
-	<key>ProgramArguments</key>
+	<key>AssociatedBundleIdentifiers</key>
 	<array>
-		<string>/Users/alexhedtke/.local/bin/mist-launch</string>
-		<string>/Users/alexhedtke/Documents/Exobrain harness/mykcmo/.venv/bin/python</string>
-		<string>/Users/alexhedtke/Documents/Exobrain harness/mykcmo/watch_updates.py</string>
+		<string>com.exobrain.mist-console</string>
 	</array>
 	<key>EnvironmentVariables</key>
 	<dict>
 		<key>PATH</key>
 		<string>/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin</string>
 	</dict>
-	<key>StartInterval</key>
-	<integer>300</integer>
+	<key>Label</key>
+	<string>com.exobrain.mykcmo-watch-updates</string>
+	<key>ProgramArguments</key>
+	<array>
+		<string>/Users/alexhedtke/.local/bin/mist-launch</string>
+		<string>/usr/bin/python3</string>
+		<string>/Users/alexhedtke/Documents/Exobrain harness/bin/net-gate</string>
+		<string>--</string>
+		<string>/Users/alexhedtke/Documents/Exobrain harness/mykcmo/.venv/bin/python</string>
+		<string>/Users/alexhedtke/Documents/Exobrain harness/mykcmo/watch_updates.py</string>
+	</array>
 	<key>RunAtLoad</key>
 	<true/>
-	<key>StandardOutPath</key>
-	<string>/Users/alexhedtke/Library/Logs/exobrain/mykcmo-watch-updates.log</string>
 	<key>StandardErrorPath</key>
 	<string>/Users/alexhedtke/Library/Logs/exobrain/mykcmo-watch-updates.log</string>
-	<!-- Login Items shows the job under this app instead of its executable's name;
-	     only honored because mist-launch is signed by the same team. -->
-	<key>AssociatedBundleIdentifiers</key>
-	<array>
-	    <string>com.exobrain.mist-console</string>
-	</array>
+	<key>StandardOutPath</key>
+	<string>/Users/alexhedtke/Library/Logs/exobrain/mykcmo-watch-updates.log</string>
+	<key>StartInterval</key>
+	<integer>300</integer>
 </dict>
 </plist>

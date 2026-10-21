@@ -1,0 +1,196 @@
+#!/usr/bin/env python3
+"""Run a launchd watcher only when the network works; one alert per outage.
+
+Usage (in a plist, after mist-launch):
+    net-gate [--host HOST] [--wait SECONDS] -- COMMAND [ARGS...]
+
+Why: on 2026-10-20 DNS stopped answering for about an hour. Seven watchers
+failed on their own, each left a sticky exit 1 for the session-start hook, and
+only wake-watch raised a banner, which looked like a wake-watch bug. A dead
+network is one fact, so it gets one alert.
+
+Behavior:
+- Probe https://HOST (any HTTP answer counts) for up to --wait seconds.
+- Network up: if an outage was open and an alert went out, send ONE recovery
+  digest and kickstart every job that skipped during the outage, then exec
+  COMMAND (so its exit code is the job's exit code).
+- Network down: record this job's label (launchd sets XPC_SERVICE_NAME) in the
+  outage state and exit 0, so the skip does not read as a FAIL. When the outage
+  is older than ALERT_AFTER, send ONE "network down" alert with a resolver
+  check (which nameserver still answers).
+
+INVARIANTS:
+- At most one down alert and one recovery alert per outage (state file + lock).
+- A short blip (healed before ALERT_AFTER) sends nothing.
+- On success the command runs via exec, never as a child.
+"""
+
+from __future__ import annotations
+
+import argparse
+import fcntl
+import json
+import os
+import subprocess
+import sys
+import time
+from contextlib import contextmanager
+from pathlib import Path
+
+LOG_DIR = Path.home() / "Library/Logs/exobrain"
+STATE = LOG_DIR / "net-outage.json"
+LOCK = LOG_DIR / "net-outage.lock"
+NOTIFY = Path.home() / "Documents/Exobrain harness/mist-voice/bin/mist-notify"
+ALERT_AFTER = 10 * 60  # seconds an outage must last before Alex hears about it
+STALE_OUTAGE = 24 * 3600  # an open outage older than this is a leftover, reset it
+
+
+def log(msg: str) -> None:
+    print(f"[{time.strftime('%Y-%m-%dT%H:%M:%S%z')}] net-gate: {msg}", file=sys.stderr)
+
+
+def probe(host: str, wait: int) -> bool:
+    deadline = time.monotonic() + wait
+    delay = 2.0
+    while True:
+        r = subprocess.run(
+            ["/usr/bin/curl", "-s", "--max-time", "8", "-o", "/dev/null", f"https://{host}"],
+            check=False,
+        )
+        if r.returncode == 0:
+            return True
+        left = deadline - time.monotonic()
+        if left <= 0:
+            return False
+        time.sleep(min(delay, left))
+        delay = min(delay * 2, 15)
+
+
+def resolver_check(host: str) -> str:
+    """Ask each configured nameserver directly, to show which one is broken."""
+    try:
+        out = subprocess.run(["/usr/sbin/scutil", "--dns"], capture_output=True, text=True,
+                             timeout=5, check=False).stdout
+    except (OSError, subprocess.SubprocessError):
+        return "scutil --dns failed"
+    servers: list[str] = []
+    for line in out.splitlines():
+        if "nameserver[" in line:
+            ns = line.split(":", 1)[1].strip()
+            if ns not in servers:
+                servers.append(ns)
+    lines = []
+    for ns in servers[:4]:
+        try:
+            r = subprocess.run(["/usr/bin/dig", f"@{ns}", host, "+short", "+time=2", "+tries=1"],
+                               capture_output=True, text=True, timeout=6, check=False)
+            ans = r.stdout.strip().splitlines()
+            ok = r.returncode == 0 and ans and not ans[0].startswith(";;")
+            lines.append(f"{ns}: {'answers' if ok else 'no answer'}")
+        except (OSError, subprocess.SubprocessError):
+            lines.append(f"{ns}: dig failed")
+    return "; ".join(lines) or "no nameservers configured"
+
+
+@contextmanager
+def locked_state():
+    LOG_DIR.mkdir(parents=True, exist_ok=True)
+    with open(LOCK, "w") as lf:
+        fcntl.flock(lf, fcntl.LOCK_EX)
+        try:
+            state = json.loads(STATE.read_text()) if STATE.exists() else {}
+        except (OSError, json.JSONDecodeError):
+            state = {}
+        box = {"state": state}
+        yield box
+        if box["state"]:
+            STATE.write_text(json.dumps(box["state"], indent=1))
+        elif STATE.exists():
+            STATE.unlink()
+
+
+def hhmm(ts: float) -> str:
+    return time.strftime("%H:%M", time.localtime(ts))
+
+
+def notify(msg: str, context: str, ok: bool) -> None:
+    if os.environ.get("NET_GATE_NO_NOTIFY"):
+        log(f"(notify suppressed) {msg}")
+        return
+    subprocess.run(
+        [str(NOTIFY), msg, "MIST network", "none" if ok else "Basso", "console",
+         "--group", "watchers", "--id", "net-outage", "--context", context, "--discord"],
+        check=False, timeout=60,
+    )
+
+
+def on_down(label: str, host: str) -> None:
+    now = time.time()
+    send = None
+    with locked_state() as box:
+        st = box["state"]
+        if not st or now - st.get("since", now) > STALE_OUTAGE:
+            st = {"since": now, "skips": {}, "alerted": False}
+        st["skips"][label] = st["skips"].get(label, 0) + 1
+        st["last_fail"] = now
+        if not st["alerted"] and now - st["since"] >= ALERT_AFTER:
+            st["alerted"] = True
+            send = dict(st)
+        box["state"] = st
+    log(f"{host} unreachable; skipped {label}")
+    if send:
+        jobs = ", ".join(sorted(s.removeprefix("com.exobrain.") for s in send["skips"]))
+        dns = resolver_check(host)
+        mins = int((now - send["since"]) // 60)
+        msg = (f"(>_<) Network down since {hhmm(send['since'])} ({mins} min). "
+               f"Watchers are skipping their runs: {jobs}. Wake alarms on the phone stay set, "
+               f"but no new ones get checked. I rerun the skipped jobs when it comes back.")
+        notify(msg, f"probe host: {host}\nresolvers: {dns}\nstate: {json.dumps(send)}", ok=False)
+
+
+def on_up(label: str) -> None:
+    now = time.time()
+    with locked_state() as box:
+        st = box["state"]
+        box["state"] = {}
+    if not st:
+        return
+    skipped = [s for s in st.get("skips", {}) if s != label and s != "unknown"]
+    if not st.get("alerted"):
+        log(f"blip healed ({int(now - st.get('since', now))}s), no alert")
+    else:
+        mins = int((now - st["since"]) // 60)
+        jobs = ", ".join(sorted(s.removeprefix("com.exobrain.") for s in st["skips"]))
+        notify(f"(◠‿◠) Network back at {hhmm(now)} after approximately {mins} min. "
+               f"Rerunning the skipped watchers: {jobs}.",
+               json.dumps(st), ok=True)
+    uid = os.getuid()
+    for s in skipped:
+        subprocess.run(["/bin/launchctl", "kickstart", f"gui/{uid}/{s}"], check=False)
+        log(f"kickstarted {s}")
+
+
+def main() -> int:
+    ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
+    ap.add_argument("--host", default="cloudflare.com")
+    ap.add_argument("--wait", type=int, default=45)
+    ap.add_argument("cmd", nargs=argparse.REMAINDER)
+    a = ap.parse_args()
+    cmd = a.cmd[1:] if a.cmd[:1] == ["--"] else a.cmd
+    if not cmd:
+        ap.error("no command after --")
+    # NET_GATE_LABEL is for tests: setting XPC_SERVICE_NAME by hand outside
+    # launchd makes libxpc trap the process (exit 133).
+    label = os.environ.get("NET_GATE_LABEL") or os.environ.get("XPC_SERVICE_NAME") or "unknown"
+    if label == "0":  # XPC_SERVICE_NAME is "0" outside launchd
+        label = "unknown"
+    if not probe(a.host, a.wait):
+        on_down(label, a.host)
+        return 0
+    on_up(label)
+    os.execvp(cmd[0], cmd)
+    return 127
+
+
+if __name__ == "__main__":
+    sys.exit(main())
