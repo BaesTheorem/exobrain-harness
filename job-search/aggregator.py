@@ -5,8 +5,12 @@ github.com/Feashliaa/job-board-aggregator (MIT) scrapes every public board it
 knows on seven ATS platforms (Workday, iCIMS, Greenhouse, Paylocity, BambooHR,
 Ashby, Lever) and publishes the result once a day on GitHub Pages:
 
-    https://feashliaa.github.io/job-board-data/data/chunks/jobs_manifest.json
+    https://riley-dorrington.github.io/job-board-data/data/chunks/jobs_manifest.json
     -> {"chunks": [...59 .json.gz...], "totalJobs": ~1.47M, "last_updated": ...}
+
+The data repo moved from Feashliaa to Riley-Dorrington on 2026-10-18 and the
+old Pages URL returns 404. If the manifest 404s again, read the clone URL in
+the aggregator repo's workflow to find the new owner.
 
 Each row: title, company, ats, location (free text), url (the employer's own
 ATS posting), first_seen, skill_level, is_recruiter, salary. This lane reaches
@@ -42,7 +46,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 from comp_floors import comp_floor, onsite_floor  # noqa: E402
 from moreboards import KC_METRO, REMOTE, gate, row  # noqa: E402
 
-BASE = "https://feashliaa.github.io/job-board-data/data/chunks/"
+BASE = "https://riley-dorrington.github.io/job-board-data/data/chunks/"
 STATE = Path(__file__).resolve().parent / "state" / "aggregator-seen.json"
 SEEN_TTL_DAYS = 60
 
@@ -67,10 +71,17 @@ def main() -> None:
 
     floor, onsite = comp_floor(), onsite_floor()
     today = dt.date.today()
-    cutoff = (dt.datetime.now(dt.timezone.utc) - dt.timedelta(days=a.days)).isoformat()
     seen = json.loads(STATE.read_text()) if STATE.exists() else {}
     seen = {u: d for u, d in seen.items()
             if dt.date.fromisoformat(d) >= today - dt.timedelta(days=SEEN_TTL_DAYS)}
+    # A failed run leaves a gap. Widen the window back to the last run that
+    # wrote the seen-file; the seen-file still drops rows shown before.
+    if seen and not a.all:
+        gap = (today - dt.date.fromisoformat(max(seen.values()))).days + 1
+        if gap > a.days:
+            print(f"~ CATCH-UP: last run {max(seen.values())}, window widened {a.days}d -> {gap}d")
+            a.days = gap
+    cutoff = (dt.datetime.now(dt.timezone.utc) - dt.timedelta(days=a.days)).isoformat()
 
     manifest = json.loads(fetch("jobs_manifest.json"))
     chunks = manifest["chunks"]
