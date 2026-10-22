@@ -8,7 +8,13 @@ spike, which fantasy team holds them), and the rosters of watched teams against
 the last run. It also runs fantasy/bin/swap-scan and, when a bench-for-wire
 swap crosses the playbook's waiver gate for the first time, banners Alex with
 Do it / Skip buttons (his standing instruction, 2026-09-20: actively monitor
-for these; a drop is his tap, never the watcher's). Anything new is appended to
+for these; a drop is his tap, never the watcher's). One narrow lane files by
+itself (Alex, 2026-10-22, "Do it" to the narrow version): a free-agent K or
+D/ST that clears the gate or the stream rule, for our bench K or D/ST of the
+same position, when the last rival-scan build shows another team with the
+same need. A free agent goes to whoever files first; a K or D/ST swap is
+near replacement level and reversible (no dropped K or D/ST was claimed off
+waivers here through week 7). Skill players always wait for his tap. Anything new is appended to
 fantasy/.cache/incidents.jsonl, announced with a clickable banner, and, when
 it needs judgment (a starter going out, an IR designation, a trade offer, a
 processed claim), handed to the fantasy-incident routine, which runs headless
@@ -45,6 +51,9 @@ NEEDS_JUDGMENT = {"OUT", "DOUBTFUL", "INJURY_RESERVE", "SUSPENSION"}
 SWAP_SCAN = HERE / "swap-scan"
 REPLY_URL = "http://127.0.0.1:5014/notify-reply"
 RIVALS_MAX_AGE = 6 * 3600
+ESPN_TX = HERE / "espn-tx"
+AUTO_POS = {"K", "D/ST"}             # the only positions roster-watch files by itself
+POS_NAME = {1: "QB", 2: "RB", 3: "WR", 4: "TE", 5: "K", 16: "D/ST"}
 
 
 def rivals_needing(pos: str) -> list[str]:
@@ -76,6 +85,41 @@ def race_note(avail: str, pos: str, rivals: list[str]) -> str:
     if avail == "FA":
         return "; free agent, first come"
     return ""
+
+
+def auto_file(ev: dict, bench: dict[str, str]) -> dict | None:
+    """File the narrow lane's swap, or None when the event is outside it.
+
+    The lane: a free agent at K or D/ST, the drop on our bench at the same
+    position (never a starter, never a skill player), and at least one rival
+    with an uncovered need there. espn-tx exits nonzero unless its read-back
+    shows the change, so `verified` is ESPN's word, not ours."""
+    pos = ev.get("add_pos") or ev.get("slot")
+    drop = ev.get("drop")
+    if ev.get("avail") != "FA" or pos not in AUTO_POS or not drop or bench.get(drop) != pos:
+        return None
+    rivals = ev.get("rivals") or rivals_needing(pos)
+    if not rivals:
+        return None
+    try:
+        r = subprocess.run([sys.executable, str(ESPN_TX), "claim", "--fa", ev["add"], "--drop", drop],
+                           capture_output=True, text=True, timeout=180, check=False)
+        return {"verified": r.returncode == 0, "rivals": rivals, "out": (r.stdout or r.stderr)[-400:]}
+    except (OSError, subprocess.SubprocessError) as exc:
+        return {"verified": False, "rivals": rivals, "out": str(exc)[:400]}
+
+
+def log_race(path: pathlib.Path, ev: dict, stamp: str) -> None:
+    """One row per free-agent banner, filed or not. rival-scan --settle reads
+    these to count how often a rival takes an unfiled free agent first, which
+    decides whether the auto lane widens past K and D/ST (asked 2026-10-22)."""
+    pos = ev.get("add_pos") or ev.get("slot")
+    # A count, not names: the file is tracked in a public repo.
+    row = {"ts": stamp, "kind": ev["kind"], "add": ev["add"], "pos": pos, "drop": ev.get("drop"),
+           "rivals": len(ev.get("rivals") or rivals_needing(pos or "")), "filed": bool((ev.get("filed") or {}).get("verified"))}
+    path.parent.mkdir(parents=True, exist_ok=True)
+    with path.open("a") as fh:
+        fh.write(json.dumps(row) + "\n")
 
 
 def reply_button(label: str, text: str) -> str:
@@ -208,8 +252,13 @@ def main() -> int:
 
     # 1. Injury status per rostered player (starters flagged).
     statuses, starters = {}, set()
+    bench: dict[str, str] = {}           # bench player name -> position, for the auto-file lane
+    bench_ids: dict[str, int] = {}
     for e in api.roster_entries(data, team_id):
         p = e["playerPoolEntry"]["player"]
+        if e.get("lineupSlotId") == 20:
+            bench[p["fullName"]] = POS_NAME.get(p.get("defaultPositionId") or 0, "")
+            bench_ids[p["fullName"]] = p["id"]
         statuses[str(p["id"])] = {"name": p["fullName"], "status": p.get("injuryStatus") or "",
                                   "slot": e.get("lineupSlotId")}
         if e.get("lineupSlotId") not in (20, 21):
@@ -344,6 +393,18 @@ def main() -> int:
         print(f"{stamp} EVENT {json.dumps(ev)[:300]}")
     if args.dry_run:
         return 0
+    races = FANTASY / "forecasts" / f"fa-races-{api.season}.jsonl"
+    # A bench player already named in a pending claim or offer is spent: dropping
+    # him voids that row (2026-10-22: the 49ers are the drop of the Jaguars claim).
+    spent = {i.get("playerId") for t in (data.get("pendingTransactions") or []) for i in (t.get("items") or [])}
+    bench = {n: pos for n, pos in bench.items() if bench_ids.get(n) not in spent}
+    for ev in events:
+        if ev["kind"] in ("swap_gate", "stream_gate") and ev.get("avail") == "FA":
+            filed = auto_file(ev, bench)
+            if filed:
+                ev["filed"] = filed
+                print(f"{stamp} AUTO-FILE {ev['add']} for {ev.get('drop')}: verified={filed['verified']}")
+            log_race(races, ev, stamp)
     with INCIDENTS.open("a") as fh:
         for ev in events:
             fh.write(json.dumps(ev) + "\n")
@@ -371,13 +432,23 @@ def main() -> int:
             if ev["avail"] == "BE":
                 heads.append(f"lineup {ev['slot']}: {ev['why']}")
             else:
-                heads.append(f"stream {ev['slot']}: {ev['add']} ({ev['avail']}) for {ev.get('drop') or ev['ours']}, {ev['why']}"
-                             + race_note(ev["avail"], ev["slot"], rivals_needing(ev["slot"])))
+                if (ev.get("filed") or {}).get("verified"):
+                    heads.append(f"filed: streamed {ev['add']} for {ev['drop']} at {ev['slot']} ({ev['why']}), "
+                                 f"a free-agent race with {', '.join(ev['filed']['rivals'])}; ESPN read-back verified")
+                else:
+                    heads.append(f"stream {ev['slot']}: {ev['add']} ({ev['avail']}) for {ev.get('drop') or ev['ours']}, {ev['why']}"
+                                 + race_note(ev["avail"], ev["slot"], rivals_needing(ev["slot"]))
+                                 + ("; the auto-file did not verify, tap Do it" if ev.get("filed") else ""))
         elif ev["kind"] == "swap_gate":
             fl = f", volume {'/'.join(ev['flags'])}" if ev.get("flags") else ""
-            heads.append(f"wire: add {ev['add']} ({ev['add_pos']}, {ev['avail']}) for "
-                         f"{ev['drop']} clears the gate, +{ev['gain']:.1f} pts rest of season{fl}"
-                         + race_note(ev["avail"], ev["add_pos"], ev.get("rivals") or []))
+            if (ev.get("filed") or {}).get("verified"):
+                heads.append(f"filed: added {ev['add']} for {ev['drop']} (+{ev['gain']:.1f} pts rest of season), "
+                             f"a free-agent race with {', '.join(ev['filed']['rivals'])}; ESPN read-back verified")
+            else:
+                heads.append(f"wire: add {ev['add']} ({ev['add_pos']}, {ev['avail']}) for "
+                             f"{ev['drop']} clears the gate, +{ev['gain']:.1f} pts rest of season{fl}"
+                             + race_note(ev["avail"], ev["add_pos"], ev.get("rivals") or [])
+                             + ("; the auto-file did not verify, tap Do it" if ev.get("filed") else ""))
         else:
             heads.append(ev["kind"].replace("_", " ") + (f": {ev.get('player')}" if ev.get("player") else ""))
     judgment = any(ev.get("judgment") for ev in events)
@@ -402,7 +473,15 @@ def main() -> int:
                          f"({stream['why']}; espn-tx claim {how} \"{stream['add']}\" --drop \"{stream['drop']}\")"),
             "--action", reply_button("Skip", f"Skip the {stream['add']} stream; keep {stream['drop']}"),
         ]
-    if swap:
+    done = next((ev for ev in (swap, stream) if ev and (ev.get("filed") or {}).get("verified")), None)
+    if done:
+        actions = [
+            "--action", reply_button(
+                "Undo", f"Undo the roster-watch auto-swap: claim {done['drop']} back off waivers and drop "
+                        f"{done['add']} (espn-tx claim \"{done['drop']}\" --drop \"{done['add']}\")"),
+            "--action", "Ask MIST=console",
+        ]
+    elif swap:
         how = "--fa" if swap["avail"] == "FA" else ""
         actions = [
             "--action", reply_button(

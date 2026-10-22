@@ -129,6 +129,17 @@ transactions aimed at the team against the last run. New events go to
 `fantasy-incident` routine via the Console's `run-routine.sh`. Install like
 `lineup-watch` with `com.exobrain.roster-watch.plist`.
 
+Swaps that clear the waiver gate or the K and D/ST stream rule are banners
+with Do it / Skip, except one lane that files by itself (Alex, 2026-10-22):
+a free-agent K or D/ST, for our bench K or D/ST of the same position, when
+the last `rival-scan` build shows another team with the same need, and the
+drop is not already in a pending claim or offer. It files through `espn-tx`
+and banners "filed" with an Undo button; an unverified write banners the Do
+it buttons instead. Every free-agent banner, filed or not, is a row in
+`forecasts/fa-races-<season>.jsonl`, and `rival-scan --settle` counts how
+often a rival took an unfiled one first. `tests/test_roster_watch_autofile.py`
+holds the lane to those conditions.
+
 The plist runs the job under an interpreter that holds **Full Disk Access**
 (the uv-managed CPython under `~/.local/share/uv/python/`), not
 `/opt/homebrew/bin/python3`. The routine it starts spawns the Things 3 MCP

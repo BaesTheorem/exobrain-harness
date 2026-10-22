@@ -90,6 +90,11 @@ false, oldest first, then rewrite the file with those lines marked
   he already approved is not a trade decision, it is the empty-slot repair
   `lineup-watch` already does on sight.**
 - **left_roster / joined_roster / other.** Log it.
+- **swap_gate / stream_gate with `filed.verified` true.** roster-watch filed
+  it in its free-agent K and D/ST lane (Alex, 2026-10-22); the move is done.
+  Log it with the rivals it raced, and read the roster back once. Do not file
+  it again. With `filed.verified` false, treat it as a banner Alex has not
+  tapped yet: nothing to file.
 
 Finish with one Season log line per incident and one notification to Alex
 summarizing what you did, linked to the roster page.
