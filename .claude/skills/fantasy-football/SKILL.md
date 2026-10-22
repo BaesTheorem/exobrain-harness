@@ -104,17 +104,26 @@ says (measured 2026-10-22, weeks 1-7):
   cleared our gate on the 10-21 4:04 PM banner and went to a rival with a
   D/ST need at 11:48 AM the next day. A routine files a free-agent PASS in the
   same run, and the roster-watch banner names the rivals with the same need
-  (`rivals_needing`, from the last `rival-scan` build).
+  (`rivals_needing`, from the last `rival-scan` build). roster-watch files
+  one lane by itself (Alex, 2026-10-22): a free-agent K or D/ST for our bench
+  K or D/ST of the same position, when a rival has the same need and the drop
+  is not in a pending row. Skill players always wait for his tap.
+  `rival-scan --settle` counts how often a rival takes an unfiled free agent
+  first, which decides whether the lane widens.
 - **Needs are computed, not guessed.** For each team: the starter holes this
   week and next (bye, OUT, IR, empty) and the bench cover for each. A covered
   hole is a lineup fix, and an uncovered one is a need from the wire. That
   list says who competes for a position.
 - **Behavior is counted.** Adds, K and D/ST streams, claims won and lost,
-  weeks with a lineup move, the weekday and hour band in which a manager
-  acts, and last seen. Only moves made by hand count: a feed row with no
-  client platform (ESPN's Tuesday 2:00 AM lineup rollover for two teams,
-  written under our member id) is `auto`. Engagement tiers and fix rates
-  stay `league-scan`'s.
+  weeks with a lineup move, lineups set in advance, the weekday and hour band
+  in which a manager acts, and last seen. ESPN lets a manager set a lineup
+  for a future week (a `lineup_plan` row; FUTURE_ROSTER in ESPN's terms) and
+  carries it out at that week's Tuesday 2:00 AM rollover. Those feed rows
+  have no client platform, ESPN logs them under our member id, and they are
+  `auto`; the plan counts at the time the manager made it (one manager set
+  weeks 2, 5-12 and 14 on 09-12). A pre-set lineup does not react to
+  injuries unless the manager comes back, and the opponent line says so.
+  Engagement tiers and fix rates stay `league-scan`'s.
 - **The opponent's holes are already priced.** `espn check` covers them at
   the measured fix rate. `rival-scan` adds last seen and, for each open hole,
   the free agent who fills it against the next best (`denial_pts`). A denial

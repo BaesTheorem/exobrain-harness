@@ -68,6 +68,12 @@ export function normalize(raw, teams, me, starts) {
       events.push({ ...base, kind: st === "CANCELED" ? "claim_canceled" : "claim_failed", how: "waiver",
                     player_id: add.playerId ?? null, detail: st !== "CANCELED" ? st.replace("FAILED_", "").toLowerCase() : null,
                     drop_id: drop ? (drop.playerId ?? null) : null });
+    } else if (typ === "FUTURE_ROSTER") {
+      // Dated when the manager made the plan; for_week is the week it sets.
+      const made = x.proposedDate ?? null;
+      events.push({ ...base, kind: "lineup_plan", at: made, week: weekOf(made, starts), player_id: null,
+                    for_week: x.scoringPeriodId ?? null,
+                    items: items.map(i => ({ player_id: i.playerId ?? null, from_slot: i.fromLineupSlotId ?? null, to_slot: i.toLineupSlotId ?? null })) });
     } else if (Object.hasOwn(VOTES, typ)) {
       events.push({ ...base, kind: "vote", player_id: null, detail: VOTES[typ], related: x.relatedTransactionId ?? null });
     } else if (typ === "TRADE_DECLINE") {

@@ -125,11 +125,17 @@ def normalize(raw: dict[str, Any], teams: list[int], me: int, starts: list[int])
     """The raw ESPN rows as one event list (newest first) plus the pending rows.
 
     Event: id, at (epoch ms), week, team_id, kind, how, player_id,
-    other_team_id, detail, src, auto. `auto` marks a row no person made by
-    hand: a feed row whose topic carries no client platform (ESPN's Tuesday
-    2:00 AM lineup rollover for teams 4 and 7, written under another member's
-    id, 2026-10-06 to 10-20), or a transaction written by an ESPN processor. Kinds: add, drop, lineup, trade_accepted,
-    trade, vote, claim_failed, claim_canceled, offer_declined, offer.
+    other_team_id, detail, src, auto. `auto` marks a row that no person made
+    at that moment: a transaction written by an ESPN processor, or a feed row
+    whose topic carries no client platform. Those feed rows are ESPN carrying
+    out a lineup that a manager set in advance (a FUTURE_ROSTER row, here
+    `lineup_plan`) at that week's Tuesday 2:00 AM rollover. Checked
+    2026-10-22: Njigba Please!'s executed moves equal its plans in weeks 4, 6
+    and 7, and Namaslay's agree on every player both name. ESPN logs them
+    under our member id, for a reason it does not document. The plan row
+    holds the time the manager made it. Kinds: add, drop, lineup, trade_accepted,
+    trade, vote, claim_failed, claim_canceled, offer_declined, offer,
+    lineup_plan.
     Pending: id, type, status, team_id, direction (out, in, league),
     process_at, expires_at, proposed_at, order, items."""
     known = set(teams)
@@ -181,6 +187,13 @@ def normalize(raw: dict[str, Any], teams: list[int], me: int, starts: list[int])
                            "how": "waiver", "player_id": add.get("playerId"),
                            "detail": st.replace("FAILED_", "").lower() if st != "CANCELED" else None,
                            "drop_id": drop.get("playerId") if drop else None})
+        elif typ == "FUTURE_ROSTER":
+            # Dated when the manager made the plan; `for_week` is the week it sets.
+            made = x.get("proposedDate")
+            events.append({**base, "kind": "lineup_plan", "at": made, "week": week_of(made, starts),
+                           "player_id": None, "for_week": x.get("scoringPeriodId"),
+                           "items": [{"player_id": i.get("playerId"), "from_slot": i.get("fromLineupSlotId"),
+                                      "to_slot": i.get("toLineupSlotId")} for i in items]})
         elif typ in VOTES:
             events.append({**base, "kind": "vote", "player_id": None, "detail": VOTES[typ],
                            "related": x.get("relatedTransactionId")})

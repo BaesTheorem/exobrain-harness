@@ -47,7 +47,7 @@ RAW = {
         topic(2400, msg("d2", 239, 2400, **{"from": 4, "to": -1, "for": 9}, targetId=111)),
         # A lineup move: team in "for", slots in "from" and "to".
         topic(2300, msg("l1", 188, 2300, **{"from": 20, "to": 23, "for": 1}, targetId=222)),
-        # ESPN's Tuesday rollover: no client platform, so it is not a hand move.
+        # ESPN carrying out a lineup planned in advance: no client platform.
         topic(2200, msg("l2", 188, 2200, **{"from": 4, "to": 20, "for": 7}, targetId=333), info={}),
         # A trade in review (224) and done (244): "from" team gives to "to" team; 245 a forced drop.
         topic(1500, msg("t1", 224, 1500, **{"from": 2, "to": 4}, targetId=444)),
@@ -76,6 +76,10 @@ RAW = {
         # Our own offer's original row stays PENDING after the offer ends.
         {"id": "x8", "type": "TRADE_PROPOSAL", "status": "PENDING", "teamId": 12, "scoringPeriodId": 2,
          "proposedDate": 1950, "memberId": "{ME}", "items": [{"type": "TRADE", "playerId": 4, "fromTeamId": 12, "toTeamId": 2}]},
+        # A lineup set in advance for week 3, made at 1200 (week 1).
+        {"id": "x9", "type": "FUTURE_ROSTER", "status": "EXECUTED", "teamId": 7, "scoringPeriodId": 3,
+         "proposedDate": 1200, "memberId": "{M7}",
+         "items": [{"type": "LINEUP", "playerId": 333, "fromLineupSlotId": 4, "toLineupSlotId": 20}]},
         # Executed adds and lineup rows are the feed's, so they are skipped here.
         {"id": "x6", "type": "WAIVER", "status": "EXECUTED", "teamId": 3, "processDate": 900, "items": []},
         {"id": "x7", "type": "ROSTER", "status": "EXECUTED", "teamId": 1, "items": []},
@@ -135,6 +139,9 @@ def test_claims_votes_offers_and_dedupe(log):
     assert (e["x3"]["kind"], e["x3"]["detail"], e["x3"]["related"]) == ("vote", "uphold", "p1")
     assert (e["x4"]["kind"], e["x4"]["other_team_id"], e["x4"]["detail"]) == ("offer", 6, "canceled")
     assert (e["x8"]["other_team_id"], e["x8"]["detail"]) == (2, "proposed"), "a PENDING original row is not proof the offer is open"
+    assert (e["x9"]["kind"], e["x9"]["team_id"], e["x9"]["at"], e["x9"]["week"], e["x9"]["for_week"], e["x9"]["auto"]) == (
+        "lineup_plan", 7, 1200, 1, 3, False), "a plan is the manager's own move, dated when it was made"
+    assert e["x9"]["items"] == [{"player_id": 333, "from_slot": 4, "to_slot": 20}]
     assert "x5" not in e and "x6" not in e and "x7" not in e
     ats = [x["at"] or 0 for x in log["events"]]
     assert ats == sorted(ats, reverse=True)

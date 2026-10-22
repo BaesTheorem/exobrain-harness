@@ -377,7 +377,7 @@ async function chatNotify(env, snap) {
 const WIRE_TTL_MS = 60e3;
 const WIRE_GAP_S = 15 * 60;
 const POS = { 1: "QB", 2: "RB", 3: "WR", 4: "TE", 5: "K", 16: "D/ST" };
-const HAND = new Set(["lineup", "offer", "vote", "offer_declined"]);
+const HAND = new Set(["lineup", "lineup_plan", "offer", "vote", "offer_declined"]);
 let wireMemo = { at: 0, val: null };
 const cardMemo = {};
 

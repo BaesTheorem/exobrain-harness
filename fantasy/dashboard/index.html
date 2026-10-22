@@ -275,7 +275,7 @@ setInterval(()=>loadChat(),document.hidden?60e3:10e3);loadChat();
 // ---------- wire ----------
 // A first visit counts the last 48 hours, not the season, as new.
 let W=null,WF={kind:'all',team:'',lineups:false,show:60},wseen=+(localStorage.getItem('sb-wire-seen')||(Date.now()-48*36e5));
-const WKINDS={all:null,adds:['add'],drops:['drop'],claims:['claim_failed','claim_canceled','add:waiver'],trades:['trade','trade_accepted','offer','offer_declined','vote'],lineups:['lineup']};
+const WKINDS={all:null,adds:['add'],drops:['drop'],claims:['claim_failed','claim_canceled','add:waiver'],trades:['trade','trade_accepted','offer','offer_declined','vote'],lineups:['lineup','lineup_plan']};
 const FAIL={invalidplayersource:'lost to a higher claim',rosterlimit:'roster was full',playeralreadydropped:'the drop was already gone',invalidrosterlock:'player locked'};
 const at=ms=>{if(!ms)return'-';const d=new Date(ms),old=Date.now()-ms>6*864e5;return d.toLocaleString([], old?{month:'numeric',day:'numeric',hour:'numeric',minute:'2-digit'}:{weekday:'short',hour:'numeric',minute:'2-digit'}).replace(':00','')};
 const since=ms=>{if(!ms)return'-';const h=(Date.now()-ms)/36e5;return h<1?Math.max(1,Math.round(h*60))+'m':h<48?Math.round(h)+'h':Math.round(h/24)+'d'};
@@ -294,9 +294,10 @@ function evLine(e){const me=e.team_id===W.me,t=tm(e.team_id);let bd='',what='',h
  else if(e.kind==='vote'){bd='VOTE';what=`<em>voted to ${esc(e.detail)} a trade</em>`}
  else if(e.kind==='offer'){bd='OFFER';what=`<em>to ${esc(tm(e.other_team_id).name)}, ${esc(e.detail)}</em>`+((e.items||[]).length?': '+e.items.map(i=>`${pn(i.player_id)} <em>${esc(tm(i.from).abbrev)}&gt;${esc(tm(i.to).abbrev)}</em>`).join(', '):'')}
  else if(e.kind==='offer_declined'){bd='DECLINED';what='<em>declined a trade offer</em>'}
- else if(e.kind==='lineup'){bd='LINEUP';what=`${pn(e.player_id)} <em>${esc(e.detail||'')}</em>`}
+ else if(e.kind==='lineup'){bd='LINEUP';what=`${pn(e.player_id)} <em>${esc(e.detail||'')}${e.auto?', carried out by ESPN from a plan':''}</em>`}
+ else if(e.kind==='lineup_plan'){bd='PLAN';what=`<em>set the week ${esc(e.for_week)} lineup in advance (${(e.items||[]).length} move${(e.items||[]).length===1?'':'s'})</em>`}
  return `<div class="wl"><span class="t">${at(e.at)}</span><span class="who${me?' me':''}">${logo(e.team_id,'xs')}${esc(t.abbrev||t.name)}</span><span class="bd${me?' me':hot?' hot':''}">${bd}</span><span class="what">${what}</span></div>`}
-function wantEv(e){const k=WKINDS[WF.kind];if(WF.team&&e.team_id!==+WF.team&&e.other_team_id!==+WF.team)return false;if(!k)return e.kind!=='lineup';return k.includes(e.kind)||k.includes(e.kind+':'+e.how)}
+function wantEv(e){const k=WKINDS[WF.kind];if(WF.team&&e.team_id!==+WF.team&&e.other_team_id!==+WF.team)return false;if(!k)return e.kind!=='lineup'&&e.kind!=='lineup_plan';return k.includes(e.kind)||k.includes(e.kind+':'+e.how)}
 function renderWire(){if(!W)return;const A=W.analysis,mine=tm(W.me),now=Date.now();
  const rival=W.events.filter(e=>e.team_id!==W.me&&e.kind!=='lineup');const fresh=rival.filter(e=>(e.at||0)>wseen).length,dot=$('wdot');dot.classList.toggle('off',!fresh||document.body.classList.contains('wire'));dot.textContent=fresh;
  const last48=rival.filter(e=>now-(e.at||0)<48*36e5),review=W.pending.filter(p=>p.direction==='league');

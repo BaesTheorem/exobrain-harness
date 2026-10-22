@@ -31,7 +31,7 @@ LEAGUE_SCAN = FANTASY / "bin" / "league-scan"
 LOG = FANTASY / "forecasts"
 DAY = 86400_000
 RECYCLED_DAYS = 4          # a drop this recent makes a waiver player "recycled"
-USER_KINDS = {"lineup", "offer", "vote", "offer_declined"}
+USER_KINDS = {"lineup", "lineup_plan", "offer", "vote", "offer_declined"}
 UNFIT = ("OUT", "IR", "SUSP", "D")
 
 
@@ -187,6 +187,12 @@ def build(api: Espn) -> tuple[dict[str, Any], list[dict]]:
                           or e["kind"] in ("claim_failed", "claim_canceled")),
             "kdst_adds": sum(1 for e in adds if names.get(e["player_id"], {}).get("pos") in ("K", "D/ST")),
             "lineup_weeks": len({e["week"] for e in mine if e["kind"] == "lineup" and e["week"] and not e.get("auto")}),
+            # Weeks from now on whose lineup the manager already set (ESPN's
+            # future-week lineups): ESPN plays that lineup unless the manager
+            # comes back, so a starter hurt after the plan stays in.
+            "plans": {str(w): max(e["at"] or 0 for e in mine if e["kind"] == "lineup_plan" and e.get("for_week") == w)
+                      for w in sorted({e.get("for_week") for e in mine if e["kind"] == "lineup_plan"
+                                       and (e.get("for_week") or 0) >= week})},
             "moves_this_week": sum(1 for e in hand if e["kind"] != "lineup" and e["week"] == week)
                                + sum(1 for e in mine if e["kind"] == "add" and e["how"] == "waiver" and e["week"] == week),
             "last_seen": max((e["at"] for e in hand), default=None),
@@ -318,6 +324,8 @@ def say(out: dict, eid: str) -> str:
         return f"{who} offered {short(by.get(e['other_team_id'], {}))} a trade ({e['detail']})"
     if k == "offer_declined":
         return f"{who} declined an offer"
+    if k == "lineup_plan":
+        return f"{who} set the week {e.get('for_week')} lineup in advance"
     return f"{who} {k} {nm}"
 
 
@@ -345,9 +353,15 @@ def brief(out: dict) -> list[str]:
         holes = [f"{h['slot']} {h['kind'].lower()} ({h['player']}{', bench covers' if h['cover'] else ''})"
                  for h in (ob["holes"] if o["week"] == out["week"] else ob["holes_next"])]
         fill = "; ".join(f"best FA {f['best']} {f['best_proj']} (next {f['gap']} lower)" for f in o["fills"])
+        plan = (ob.get("plans") or {}).get(str(o["week"]))
+        planned = ""
+        if plan:
+            planned = f" Their week {o['week']} lineup was set in advance on {at_s(plan)}"
+            planned += (", and they have not been seen since, so a starter hurt since then stays in."
+                        if (ob["last_seen"] or 0) <= plan else ".")
         lines.append(f"Opponent week {o['week']}, {ob['team']} ({ob['record']}, {ob.get('tier') or '?'}, fix rate "
                      f"{o['fix_rate']}, last seen {ago(ob['last_seen'], now_ms)} ago): "
-                     + ("; ".join(holes) if holes else "no holes") + (f". {fill}" if fill else "") + ".")
+                     + ("; ".join(holes) if holes else "no holes") + (f". {fill}" if fill else "") + "." + planned)
     race = [by[t] for t in out["race"]]
     if race:
         def need(b: dict) -> str:
@@ -369,14 +383,17 @@ def render(out: dict) -> None:
     rows = []
     for b in out["board"]:
         rows.append({**b, "fix_s": f"{b['fix'][0]}/{b['fix'][1]}" if b.get("fix") else "-",
+                     "plan_s": len(b.get("plans") or {}) or "-",
                      "need_s": ",".join(b["needs"]) or "-", "next_s": ",".join(b["needs_next"]) or "-",
                      "seen": ago(b["last_seen"], now_ms), "mark": "<- us" if b["mine"] else ""})
     table(rows, [("WVR", "priority", 3, "r"), ("#", "rank", 2, "r"), ("TEAM", "team", 22, "l"), ("W-L", "record", 5, "l"),
                  ("TIER", "tier", 9, "l"), ("FIX", "fix_s", 5, "r"), ("ADD", "adds", 3, "r"), ("K/D", "kdst_adds", 3, "r"),
-                 ("CLM", "claims", 3, "r"), ("LUW", "lineup_weeks", 3, "r"), ("SEEN", "seen", 4, "r"),
+                 ("CLM", "claims", 3, "r"), ("LUW", "lineup_weeks", 3, "r"), ("PLN", "plan_s", 3, "r"),
+                 ("SEEN", "seen", 4, "r"),
                  ("NEEDS", "need_s", 9, "l"), ("NEXT WK", "next_s", 9, "l"), ("ACTS", "acts", 20, "l"), ("", "mark", 5, "l")])
     print("\n  FIX = bye holes fixed of faced. K/D = K and D/ST adds. CLM = waiver claims, won and lost. LUW = weeks "
-          "with a lineup move. NEEDS = an uncovered hole this week; NEXT WK = next week's bye or injury hole.")
+          "with a lineup move. PLN = weeks from now on whose lineup the manager already set. NEEDS = an uncovered "
+          "hole this week; NEXT WK = next week's bye or injury hole.")
     print("\nWire (players on waivers)\n")
     for w in out["wire"]:
         rate = out["base_rates"].get(w["pos"], [0, 0])
@@ -432,22 +449,39 @@ def record(api: Espn, out: dict) -> int:
 
 
 def settle(api: Espn) -> dict:
-    """Score each recorded wire row whose run has passed: was the player
-    claimed by another team, and did our claim land."""
+    """Score each recorded wire row whose run has passed (was the player
+    claimed by another team, did our claim land), and the free-agent races
+    roster-watch logged (fa-races-<season>.jsonl): how often a rival took an
+    unfiled free agent within three days."""
     path = log_path(api.season)
-    if not path.exists():
-        return {"settled": 0, "rows": 0}
-    rows = [json.loads(x) for x in path.read_text().splitlines() if x.strip()]
+    rows = [json.loads(x) for x in path.read_text().splitlines() if x.strip()] if path.exists() else []
+    races_path = LOG / f"fa-races-{api.season}.jsonl"
+    races = [json.loads(x) for x in races_path.read_text().splitlines() if x.strip()] if races_path.exists() else []
     now_ms = int(time.time() * 1000)
     todo = [r for r in rows if r["outcome"] is None and r["clears"] + 6 * 3600_000 < now_ms]
-    if todo:
+    race_ms = lambda r: int(time.mktime(time.strptime(r["ts"], "%Y-%m-%d %H:%M")) * 1000)
+    old_races = [r for r in races if not r["filed"] and race_ms(r) + DAY < now_ms]
+    log: dict | None = None
+    if todo or old_races:
         log = league_log.load(api)
+    if todo and log:
         me = log["me"]
         for r in todo:
             hits = [e for e in log["events"] if e["player_id"] == r["player_id"] and e["kind"] == "add"
                     and e["how"] == "waiver" and abs((e["at"] or 0) - r["clears"]) < 12 * 3600_000]
             r["outcome"] = {"other": any(e["team_id"] != me for e in hits), "ours": any(e["team_id"] == me for e in hits)}
         path.write_text("".join(json.dumps(r) + "\n" for r in rows))
+    taken = 0
+    if old_races and log:
+        ids = league_log.player_ids(log)
+        by_name: dict[str, set[int]] = collections.defaultdict(set)
+        for i, n in league_log.names(api, ids).items():
+            by_name[n["name"]].add(i)
+        for r in old_races:
+            t0 = race_ms(r)
+            if any(e["kind"] == "add" and e["team_id"] != log["me"] and e["player_id"] in by_name.get(r["add"], set())
+                   and t0 <= (e["at"] or 0) < t0 + 3 * DAY for e in log["events"]):
+                taken += 1
     done = [r for r in rows if r["outcome"]]
     rec = [r for r in done if r["class"] == "recycled" and r["p_other"] is not None]
     brier = sum((r["p_other"] - (1.0 if r["outcome"]["other"] else 0.0)) ** 2 for r in rec) / len(rec) if rec else None
@@ -457,7 +491,9 @@ def settle(api: Espn) -> dict:
             "recycled_mean_p": round(sum(r["p_other"] for r in rec) / len(rec), 3) if rec else None,
             "brier": round(brier, 4) if brier is not None else None,
             "fresh": len(fresh), "fresh_claimed": sum(1 for r in fresh if r["outcome"]["other"]),
-            "ours": sum(1 for r in done if r["ours"]), "ours_landed": sum(1 for r in done if r["ours"] and r["outcome"]["ours"])}
+            "ours": sum(1 for r in done if r["ours"]), "ours_landed": sum(1 for r in done if r["ours"] and r["outcome"]["ours"]),
+            "fa_races": len(races), "fa_filed": sum(1 for r in races if r["filed"]),
+            "fa_unfiled_scored": len(old_races), "fa_taken_by_rival": taken}
 
 
 CACHE_TTL = 3600
