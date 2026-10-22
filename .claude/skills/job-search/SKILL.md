@@ -765,8 +765,9 @@ python3 "Exobrain harness/job-search/jd-snapshot.py" --note "<listing note path>
 - A flat note moves into its own folder `Job Listings/<Company> - <Role>/`, and the PNG goes into that folder as an artifact. Wikilinks resolve by basename, so no link breaks.
 - The note gets `jd_snapshot*` frontmatter and a collapsed callout under `## Listing snapshots`. A repost run adds a second dated image and keeps the first.
 - **The comp check is the positive control.** The script looks for `comp_min` or `comp_max` in the page text and prints `seen` with the matching line. `not-found` (exit 1) means the image does not show the band. Find the page that does (the employer ATS, not a mirror) and run again with `--url`. If no page shows it, record that on the note.
-- **Exit 2 with `CLOSED`** means the page says the posting is closed or not found. The note does not move. Treat the role as closed, per the verification rules.
-- Apply URLs that open an application form, not the posting, give a poor image. Put the posting URL in `listing_url`.
+- **Exit 2 with `CLOSED`** means the page says the posting is closed or not found. The note does not move. Treat the role as closed, per the verification rules. Exception: for a role Alex has applied to, a closed page that still shows the band is saved, because it is still the pay record.
+- Apply URLs that open an application form, not the posting, give a poor image. Put the posting URL in `listing_url`. Some employer Greenhouse boards show only the form and keep the JD in the API (measured 2026-10-22). Then use a mirror that shows the band, such as the LinkedIn posting or the intermediary's own posting, with `--url`.
+- When the posting is gone, try the LinkedIn mirror before giving up. LinkedIn keeps closed postings visible with the pay line for some weeks. The Wayback Machine held none of the four dead postings in the 2026-10-22 backfill.
 
 ### Bases file conventions
 

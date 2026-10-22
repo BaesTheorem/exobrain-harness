@@ -35,6 +35,8 @@ Usage:
 Exit: 0 saved and comp seen (or unlisted), 1 saved but comp not found,
 2 nothing saved (load failed, or the page says the posting is closed or gone;
 then the note is not moved and the capture stays in tmp/jd-snapshot).
+Exception: a closed page on an applied note that still shows the band is
+saved as usual (the backfill case: the pay record outlives the posting).
 
 INVARIANTS:
 - Headless only. Never open a visible browser window.
@@ -56,8 +58,10 @@ UA = ("Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 "
 EXPANDERS = re.compile(r"^\s*(show|see|read|view) (more|full|all)( description| details)?\s*$", re.I)
 CLOSED = re.compile(r"no longer (accepting|open|available)|position (has been )?filled"
                     r"|job (is )?(closed|expired)|posting (has )?expired|(job|page) not found"
-                    r"|job you requested was not found", re.I)
+                    r"|job you requested was not found|page you are looking for (does not|doesn.t) exist"
+                    r"|(hiring|position) .{0,40}(put )?on hold", re.I)
 DOLLAR = re.compile(r"\$\s?(\d{1,3}(?:,\d{3})+|\d+(?:\.\d+)?)\s?([kK])?")
+KRANGE = re.compile(r"\$\s?(\d{2,3})\s?(?:-|–|to)\s?\$?\s?(\d{2,3})\s?[kK]")  # "$110-130K"
 
 
 def _ensure_patchright() -> None:
@@ -102,8 +106,10 @@ def comp_check(text: str, fm: str) -> tuple[str, str]:
     targets = [v for v in (amount(field(fm, "comp_min")), amount(field(fm, "comp_max"))) if v]
     if field(fm, "comp_listed").lower() == "false" or not targets:
         return "unlisted", "note has no listed band"
-    for m in DOLLAR.finditer(text):
-        n = float(m.group(1).replace(",", "")) * (1000 if m.group(2) else 1)
+    hits = [(float(m.group(1).replace(",", "")) * (1000 if m.group(2) else 1), m)
+            for m in DOLLAR.finditer(text)]
+    hits += [(float(m.group(i)) * 1000, m) for m in KRANGE.finditer(text) for i in (1, 2)]
+    for n, m in hits:
         for t in targets:
             if abs(n - t) <= 500 or (n < 200 and abs(n * 2080 - t) <= 1500):
                 a, b = max(0, m.start() - 60), min(len(text), m.end() + 60)
@@ -191,9 +197,15 @@ def main() -> int:
     comp, evidence = comp_check(text, fm)
     closed = CLOSED.search(text)
     print(f"comp   {comp}: {evidence}")
-    if closed:
+    applied = field(fm, "applied").lower() == "true" or field(fm, "status") in (
+        "applied", "interviewing", "offer", "rejected")
+    if closed and not (applied and comp == "seen"):
         print(f"CLOSED: page says \"{closed.group(0)}\". Note not moved; capture kept at {shot}")
         return 2
+    if closed:  # applied role, page closed but still shows the band: that is the record
+        print(f"CLOSED: page says \"{closed.group(0)}\"; kept because the role is applied "
+              "and the band is still on the page")
+        evidence = f"posting closed on capture; {evidence}"
     if a.dry_run:
         print(f"saved  {shot}  (dry run, note untouched)")
         return 1 if comp == "not-found" else 0
