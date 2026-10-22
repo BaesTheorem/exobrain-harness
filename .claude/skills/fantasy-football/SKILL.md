@@ -276,8 +276,10 @@ FUTURE_ROSTER, which ESPN carries out at that week's Tuesday rollover (the
 2026-10-04 reading that a later week cannot be written was about ROSTER
 writes only; playbook *Corrections ledger*, 2026-10-22). A plan stores the
 whole lineup: at its rollover it undoes every change made after it, and it
-carries into later weeks until another plan changes them. So plan one week
-ahead only (the Tuesday routine's step 8), never far ahead. It verifies every
+carries into later weeks until another plan changes them. So no routine
+plans our lineup ahead (Alex, 2026-10-22): the watchers fix holes before
+every lock, and a plan would only add those two effects. Use `plan` for a
+one-off Alex asks for. It verifies every
 write with a read-back and exits nonzero when the roster or the pending list
 does not show the change. The one exception is chat in the Scorebug app
 (`fantasy/scorebug/`): a message Alex types and sends there goes out through

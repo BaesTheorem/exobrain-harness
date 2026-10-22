@@ -188,7 +188,8 @@ class EspnWriter:
         the read-back: Namaslay's week 12 and 14 plans read back there.
         ESPN stores the plan as the whole lineup: at the rollover it undoes
         changes made after the plan (Namaslay, 09-23 and 10-06), and later
-        weeks inherit it. Plan one week ahead, as the last move of the week."""
+        weeks inherit it. No routine plans ahead (Alex, 2026-10-22); this is
+        for a one-off Alex asks for."""
         current = self.api.current_week(self.api.league("mStatus"))
         if week <= current:
             raise EspnError(f"week {week} is not a later week (this is week {current}); use swap")
