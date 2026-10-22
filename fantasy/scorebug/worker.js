@@ -7,8 +7,9 @@
 // live part on every request: ESPN's live fantasy points and the NFL game
 // clocks, combined by model.js exactly as espncli.value.win_prob does.
 //
-// Routes: /ingest (POST, INGEST_TOKEN); /, /api/state, /logo/<id> (the view
-// key, as ?k= once, then a cookie; or "Authorization: Bearer <VIEW_KEY>").
+// Routes: /ingest and /ingest/wire (POST, INGEST_TOKEN); /, /api/state,
+// /api/wire, /logo/<id> (the view key, as ?k= once, then a cookie; or
+// "Authorization: Bearer <VIEW_KEY>").
 // Cron each minute: history every HISTORY_GAP_S while a game is on, and a
 // GitHub dispatch of the snapshot workflow when the snapshot is stale.
 // Bindings: KV SB; secrets INGEST_TOKEN, VIEW_KEY, ESPN_CREDENTIALS, GH_TOKEN,
@@ -16,6 +17,7 @@
 // vars GH_REPO, GH_WORKFLOW. KV writes stay under the free tier's 1000 a day.
 
 import { clockRemaining, winProb } from "./model.js";
+import { feedFilter, normalize } from "./wire.js";
 import PAGE from "./page.html";
 import FAVICON from "./favicon-32.png";
 import ICON192 from "./icon-192.png";
@@ -364,6 +366,102 @@ async function chatNotify(env, snap) {
   return { fresh: fresh.length, push: out };
 }
 
+// ---------- the Wire tab: every team's moves, claims and trades ----------
+// The activity feed, the last two weeks of mTransactions2 and the pending rows
+// are read live (60 s memo) and normalized by wire.js, the twin of
+// espncli/league_log.py (test_wire.py holds them equal). Older weeks' claims,
+// votes and offers, the player names and the analysis (needs, the wire's odds,
+// the opponent, the brief) come from the Mac's rival-scan build, posted to
+// /ingest/wire at most every WIRE_GAP_S and only when it changed.
+
+const WIRE_TTL_MS = 60e3;
+const WIRE_GAP_S = 15 * 60;
+const POS = { 1: "QB", 2: "RB", 3: "WR", 4: "TE", 5: "K", 16: "D/ST" };
+const HAND = new Set(["lineup", "offer", "vote", "offer_declined"]);
+let wireMemo = { at: 0, val: null };
+const cardMemo = {};
+
+async function espnGet(env, snap, query, filt) {
+  const { c, cookie } = espnAuth(env);
+  const r = await fetch(`${READS}/seasons/${snap.season}/segments/0/leagues/${c.league_id}${query}`,
+    { headers: { cookie, "user-agent": UA, accept: "application/json", ...(filt ? { "x-fantasy-filter": JSON.stringify(filt) } : {}) } });
+  if (!r.ok) throw new Error(`ESPN ${query.split("?")[0] || "league"} ${r.status}`);
+  return r.json();
+}
+
+// A player the last analysis did not name (a move since the Mac's build).
+async function cardNames(env, snap, ids) {
+  const miss = ids.filter(i => !(i in cardMemo)).slice(0, 100);
+  for (let i = 0; i < miss.length; i += 50) {
+    const d = await espnGet(env, snap, "?view=kona_playercard", { players: { filterIds: { value: miss.slice(i, i + 50) } } }).catch(() => ({}));
+    for (const e of d.players || []) cardMemo[e.id] = { name: (e.player || {}).fullName || `player ${e.id}`, pos: POS[(e.player || {}).defaultPositionId] || "", nfl: "" };
+  }
+  return Object.fromEntries(ids.filter(i => i in cardMemo).map(i => [String(i), cardMemo[i]]));
+}
+
+async function wireData(env, snap, withLineups) {
+  if (!wireMemo.val || Date.now() - wireMemo.at > WIRE_TTL_MS) {
+    const wk = snap.week;
+    const [feed, t1, t0, pend, mt, an] = await Promise.all([
+      espnGet(env, snap, "/communication/?view=kona_league_communication", feedFilter(1000, 0)),
+      espnGet(env, snap, `?view=mTransactions2&scoringPeriodId=${wk}`),
+      wk > 1 ? espnGet(env, snap, `?view=mTransactions2&scoringPeriodId=${wk - 1}`) : Promise.resolve({}),
+      espnGet(env, snap, "?view=mPendingTransactions"),
+      espnGet(env, snap, "?view=mTeam"),
+      env.SB.get("wire", "json"),
+    ]);
+    const me = Number(espnAuth(env).c.team_id), a = an || {};
+    const teams = (mt.teams || []).map(t => {
+      const r = (t.record || {}).overall || {};
+      return { id: t.id, name: (t.name || t.abbrev || "").trim(), abbrev: t.abbrev || "", priority: t.waiverRank ?? null,
+               record: `${r.wins || 0}-${r.losses || 0}${r.ties ? `-${r.ties}` : ""}`, pf: r.pointsFor || 0, mine: t.id === me };
+    });
+    const log = normalize({ topics: feed.topics || [], transactions: [...(t1.transactions || []), ...(t0.transactions || [])],
+                            pending: pend.pendingTransactions || [] }, teams.map(t => t.id), me, a.week_starts || []);
+    const have = new Set(log.events.map(e => e.id));
+    for (const e of a.tx_events || []) if (!have.has(e.id)) log.events.push(e);
+    log.events.sort((x, y) => (y.at || 0) - (x.at || 0) || (x.id < y.id ? -1 : x.id > y.id ? 1 : 0));
+    // Last seen: something done by hand. A processed waiver row carries the run's time.
+    const hand = e => !e.auto && (HAND.has(e.kind) || ((e.kind === "add" || e.kind === "drop") && e.how !== "waiver" && e.how !== "trade"));
+    for (const t of teams) t.last_seen = (log.events.find(e => e.team_id === t.id && hand(e)) || {}).at ?? null;
+    const names = { ...(a.names || {}) };
+    const ids = [...new Set([...log.events.flatMap(e => [e.player_id, e.drop_id, ...(e.items || []).map(i => i.player_id)]),
+                             ...log.pending.flatMap(p => p.items.map(i => i.player_id))])]
+      .filter(i => Number.isInteger(i) && !(String(i) in names));
+    if (ids.length) Object.assign(names, await cardNames(env, snap, ids));
+    const { names: _n, tx_events: _t, events: _e, ...analysis } = a;
+    wireMemo = { at: Date.now(), val: { ok: true, at: new Date().toISOString(), week: wk, me, teams, events: log.events,
+                                        pending: log.pending, names, analysis: an ? analysis : null } };
+  }
+  const v = wireMemo.val;
+  return withLineups ? v : { ...v, events: v.events.filter(e => e.kind !== "lineup") };
+}
+
+// Each 5 minutes: a trade that two other teams accepted is visible while it
+// waits out the league's veto review. A new one goes to the phone once; the tap
+// opens the Wire tab. KV is written only when a new trade appears.
+async function tradeNotify(env, snap) {
+  if (!env.APNS_KEY || new Date().getUTCMinutes() % 5) return null;
+  const d = await wireData(env, snap, false);
+  const review = d.pending.filter(p => p.direction === "league");
+  if (!review.length) return { review: 0 };
+  const seen = (await env.SB.get("wire:alerted", "json")) || [];
+  const fresh = review.filter(p => !seen.includes(p.id));
+  if (!fresh.length) return { review: review.length, fresh: 0 };
+  await env.SB.put("wire:alerted", JSON.stringify([...seen, ...fresh.map(p => p.id)].slice(-50)));
+  const la = (await env.SB.get("la", "json")) || {};
+  if (!la.device) return { fresh: fresh.length, pushed: false };
+  const ab = Object.fromEntries(d.teams.map(t => [t.id, t.abbrev || t.name]));
+  const nm = id => (d.names[String(id)] || {}).name || `player ${id}`;
+  const when = ms => ms ? new Date(ms).toLocaleString("en-US", { timeZone: "America/Chicago", weekday: "short", hour: "numeric", minute: "2-digit" }) : "?";
+  const line = p => p.items.filter(i => i.type === "TRADE").map(i => `${ab[i.from] || "?"} sends ${nm(i.player_id)} to ${ab[i.to] || "?"}`).join("; ");
+  const body = fresh.map(p => `${line(p)}. Veto review ends ${when(p.process_at)}.`).join("\n");
+  const out = await alertPush(env, la.device, { title: fresh.length === 1 ? "Trade in review" : `${fresh.length} trades in review`,
+                                                body: body.length > 300 ? body.slice(0, 299) + "…" : body }, { topic: "wire" });
+  if (out.status === 410 || out.reason === "BadDeviceToken") { delete la.device; await env.SB.put("la", JSON.stringify(la)); }
+  return { fresh: fresh.length, push: out };
+}
+
 async function getSnap(env) {
   const s = await env.SB.get("snap", "json");
   if (!s) throw new Error("no snapshot yet: run fantasy/scorebug/snapshot.py --post");
@@ -385,6 +483,7 @@ async function record(env) {
   const due = now - last >= HISTORY_GAP_S - 5;
   if (due) out.la = await liveActivity(env, st, snap).catch(e => ({ error: String(e) }));
   out.chat = await chatNotify(env, snap).catch(e => ({ error: String(e) }));
+  out.trade = await tradeNotify(env, snap).catch(e => ({ error: String(e) }));
   if (st.live) {
     if (due) {
       const key = `hist:${snap.season}:${snap.week}`;
@@ -440,6 +539,21 @@ export default {
       await env.SB.put("snap:last", String(now));
       return json({ ok: true, stored: true });
     }
+    if (path === "/ingest/wire" && req.method === "POST") {
+      if (req.headers.get("authorization") !== `Bearer ${env.INGEST_TOKEN}`) return json({ error: "unauthorized" }, 401);
+      const body = await req.text();
+      const a = JSON.parse(body);
+      const hash = await crypto.subtle.digest("SHA-256", enc.encode(JSON.stringify({ ...a, at: null })));
+      const sig = [...new Uint8Array(hash)].map(b => b.toString(16).padStart(2, "0")).join("");
+      if ((await env.SB.get("wire:sig")) === sig) return json({ ok: true, stored: false, reason: "unchanged" });
+      const now = Math.floor(Date.now() / 1000);
+      if (now - (Number(await env.SB.get("wire:last")) || 0) < WIRE_GAP_S) return json({ ok: true, stored: false, reason: "too soon" });
+      await env.SB.put("wire", body);
+      await env.SB.put("wire:sig", sig);
+      await env.SB.put("wire:last", String(now));
+      wireMemo.at = 0;
+      return json({ ok: true, stored: true });
+    }
     const icon = { "/favicon.ico": FAVICON, "/favicon.png": FAVICON, "/icon-192.png": ICON192, "/apple-touch-icon.png": TOUCH }[path];
     if (icon) return new Response(icon, { headers: { "content-type": "image/png", "cache-control": "public, max-age=604800" } });
     if (path === "/manifest.webmanifest") return json({ name: "Scorebug", short_name: "Scorebug", start_url: "/", display: "standalone",
@@ -460,6 +574,7 @@ export default {
       if (path === "/") return new Response(PAGE, { headers: { "content-type": "text/html; charset=utf-8", "cache-control": "no-store" } });
       if (path === "/api/live") return json({});
       if (path === "/api/chat") return json(await chatThreads(env, await getSnap(env)));
+      if (path === "/api/wire") return json(await wireData(env, await getSnap(env), url.searchParams.get("lineups") === "1"));
       if (path === "/api/chat/send" && req.method === "POST") {
         const b = await req.json();
         if (!/^[\w-]{6,80}$/.test(b.topic || "")) return json({ error: "bad topic" }, 400);

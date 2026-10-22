@@ -51,6 +51,27 @@ Dark only. A score bug is a dark-surface form, and there is no light theme.
   below. Each end of the axis carries that team's picture and name. The last
   point is the live value, so the chart ends where the score bug reads.
 
+## The Wire (added 2026-10-22)
+
+The third tab, between SCORES and CHAT, for the other twelve teams. Same
+tokens, type and square corners; nothing new in the palette.
+
+- Chyron: the tag reads `WEEK N · PICK P OF 13`; the text is the most urgent
+  line (trades in review first, then the count of rival moves in 48 hours).
+- Cards: IN FLIGHT (our claims with their odds, offers, trades in review),
+  MIST READ (the brief from `rival-scan`, labels in steel), ON WAIVERS (each
+  player with the league's claim rate and the rivals with the same need),
+  WAIVER ORDER AND NEEDS (a table in priority order; tap a row to filter the
+  history), EVERY MOVE (the full history, grouped by week, 60 rows and then
+  SHOW MORE, with filter chips and a team picker).
+- Red stays ours: our team's row, our moves' badges, our claims. Other teams'
+  badges sit on the bar track; a trade in review is the one ink-on-light
+  badge, because it is the one time-limited thing on the tab.
+- The tab's dot counts rival moves since the tab was last open
+  (localStorage `sb-wire-seen`), like the chat's unread dot.
+- Below 980 px the cards stack, and the board drops TIER, ADDS and K/DST.
+  Below 640 px it also drops W-L and SEEN, and each move wraps to two lines.
+
 ## Pictures and numbers
 
 - Team pictures: the league's own logos, served through `/logo/<team id>`

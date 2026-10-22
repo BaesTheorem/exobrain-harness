@@ -80,8 +80,35 @@ body.chat>:not(#vChat):not(.views):not(script){display:none!important} #vChat{di
 #send{background:var(--red);color:#fff;border:0;font:700 15px 'Barlow Condensed';letter-spacing:1.5px;padding:0 18px;height:42px;cursor:pointer} #send:disabled{opacity:.5;cursor:default}
 #cnt{color:var(--mute);font-size:11px;padding:0 12px 8px} #cnt.warn{color:var(--red)}
 @media (max-width:760px){#vChat{grid-template-columns:1fr;height:calc(100vh - 64px);height:calc(100dvh - 64px)} body.chat #vChat #conv{display:none} body.chat.open #vChat #conv{display:flex} body.chat.open #vChat #threads{display:none} #convH button{display:inline} .msg{max-width:88%}}
+
+/* Wire: every team's moves, the waiver order and needs, the analysis (DESIGN.md, "The Wire"). */
+body.wire>:not(#vWire):not(.views):not(script){display:none!important} #vWire{display:none} body.wire #vWire{display:block}
+.wgrid{display:grid;grid-template-columns:1fr 1fr 340px;gap:16px;margin-top:16px} .w2{grid-column:1/3} .w3{grid-column:1/4}
+.wl{display:flex;gap:10px;align-items:baseline;padding:6px 0;border-bottom:1px solid var(--line);font-size:13px;line-height:1.35}
+.wl:last-child{border-bottom:0} .wl .t{flex:none;width:76px;color:var(--mute);font:600 13px 'Barlow Condensed'}
+.wl .who{flex:none;width:52px;font:600 14px 'Barlow Condensed';display:flex;gap:4px;align-items:center} .wl .who.me{color:var(--red)}
+.wl .bd{flex:none;font:600 11px 'Barlow Condensed';letter-spacing:1.2px;padding:1px 6px;background:var(--track);color:var(--ink);min-width:58px;text-align:center}
+.wl .bd.me{background:var(--red);color:#fff} .wl .bd.hot{background:var(--ink);color:var(--bg)}
+.wl .what{flex:1;min-width:0} .wl .what em{font-style:normal;color:var(--mute)}
+.wk{font:600 13px 'Barlow Condensed';letter-spacing:2px;color:var(--mute);padding:14px 0 4px;border-bottom:1px solid var(--line)}
+.chips{display:flex;gap:2px;flex-wrap:wrap;margin-bottom:8px} .chips button,.chips select{background:var(--bg);color:var(--mute);border:1px solid var(--line);font:600 13px 'Barlow Condensed';letter-spacing:1.5px;padding:5px 10px;cursor:pointer}
+.chips button.on{color:var(--ink);border-color:var(--red)} .chips select{letter-spacing:.3px;margin-left:auto}
+#wBoard td,#wBoard th{padding:5px 6px 5px 0;vertical-align:top} #wBoard td:first-child{width:28px} #wBoard tr.pick td{background:#1E2228} #wBoard tbody tr{cursor:pointer}
+#wBoard td.nd{text-align:left;white-space:normal;max-width:none;color:var(--ink)} #wBoard td.nd i{font-style:normal;color:var(--mute)}
+#wBoard td:nth-child(2){max-width:200px}
+.read p{font:500 16px 'Barlow Condensed';letter-spacing:.3px;line-height:1.35;padding:6px 0;border-bottom:1px solid var(--line)} .read p:last-child{border-bottom:0}
+.read p b{color:var(--steel);font-weight:600}
+.pend{padding:8px 0;border-bottom:1px solid var(--line)} .pend:last-child{border-bottom:0} .pend b{font:600 16px 'Barlow Condensed';letter-spacing:.3px}
+.pend small{display:block;color:var(--mute);font-size:12px;margin-top:2px} .pend .bd{font:600 11px 'Barlow Condensed';letter-spacing:1.2px;padding:1px 6px;margin-right:8px;background:var(--red);color:#fff}
+.pend .bd.lg{background:var(--ink);color:var(--bg)}
+.empty{color:var(--mute);font-size:13px;padding:6px 0}
+.views .dot.off{display:none} .pend em{font:400 12px Inter;color:var(--mute)} .wpos{color:var(--mute);font-size:12px}
+#wBoard th:nth-child(2),#wBoard td:nth-child(2){text-align:left}
+.more{background:var(--bg);color:var(--ink);border:1px solid var(--line);font:600 13px 'Barlow Condensed';letter-spacing:1.5px;padding:8px 16px;margin-top:12px;cursor:pointer;width:100%}
+@media (max-width:980px){.wgrid{grid-template-columns:1fr}.w2,.w3{grid-column:auto} #wBoard .x{display:none}}
+@media (max-width:640px){.wl{flex-wrap:wrap;gap:4px 8px}.wl .t{width:auto}.wl .what{flex-basis:100%} #wBoard .xs{display:none}}
 </style></head><body>
-<nav class="views" role="tablist"><button data-v="scores" class="on">SCORES</button><button data-v="chat">CHAT<span class="dot" id="unread" hidden></span></button></nav>
+<nav class="views" role="tablist"><button data-v="scores" class="on">SCORES</button><button data-v="wire">WIRE<span class="dot off" id="wdot"></span></button><button data-v="chat">CHAT<span class="dot off" id="unread"></span></button></nav>
 <div class="top">
  <div class="team"><img class="logo" id="meL" alt=""><div><div class="tn" id="meN">–</div><div class="proj" id="meP"></div></div><div class="sc" id="meS" style="margin-left:auto">–</div></div>
  <div class="mid"><div class="half a" id="p">–</div><div class="half b" id="pb">–</div><div class="tug"><span id="tug"></span></div><small id="pl">WIN PROB</small></div>
@@ -101,6 +128,16 @@ body.chat>:not(#vChat):not(.views):not(script){display:none!important} #vChat{di
  <div class="card wide" id="noteC" hidden><h3>What would change this</h3><div class="note" id="note"></div></div>
 </div>
 <div class="foot" id="foot"></div>
+<div id="vWire">
+<div class="chyron"><div class="tag" id="wTag">THE WIRE</div><div class="txt" id="wHead">Reading the league…</div></div>
+<div class="dek" id="wDek"></div><div class="err" id="wErr"></div>
+<div class="wgrid">
+ <div class="card"><h3>In flight</h3><div id="wPend"></div></div>
+ <div class="card"><h3>MIST read</h3><div class="read" id="wRead"></div></div>
+ <div class="card" style="grid-row:span 2"><h3>On waivers</h3><div id="wWire"></div></div>
+ <div class="card w2"><h3>Waiver order and needs</h3><table id="wBoard"></table><div class="foot" id="wBfoot"></div></div>
+ <div class="card w3"><h3>Every move</h3><div class="chips" id="wChips"></div><div id="wHist"></div></div>
+</div></div>
 <div id="vChat"><div id="threads"></div>
 <div id="conv"><div id="convH"><button id="back">‹ CHATS</button><span id="convT">Pick a conversation</span></div><div id="msgs"></div>
 <div id="cnt"></div><form id="compose"><textarea id="txt" rows="1" placeholder="Message" maxlength="2000"></textarea><button id="send" type="submit" disabled>SEND</button></form></div></div>
@@ -206,11 +243,11 @@ document.addEventListener('visibilitychange',()=>{if(!document.hidden)tick()});
 let C=null,TSEL=null,seen=JSON.parse(localStorage.getItem('sb-seen')||'{}');
 const ago=ms=>{const d=(Date.now()-ms)/1000;return d<60?'now':d<3600?Math.floor(d/60)+'m':d<86400?Math.floor(d/3600)+'h':new Date(ms).toLocaleDateString([], {month:'short',day:'numeric'})};
 const unreadT=t=>t.messages.length&&!t.messages[t.messages.length-1].mine&&t.last>(seen[t.id]||0);
-function setView(v){document.body.classList.toggle('chat',v==='chat');document.querySelectorAll('.views button').forEach(b=>b.classList.toggle('on',b.dataset.v===v));
- if(v==='chat'){loadChat()}const h=new URLSearchParams(location.hash.slice(1));h.set('v',v);history.replaceState(null,'','#'+h)}
+function setView(v){document.body.classList.toggle('chat',v==='chat');document.body.classList.toggle('wire',v==='wire');document.querySelectorAll('.views button').forEach(b=>b.classList.toggle('on',b.dataset.v===v));
+ if(v==='chat'){loadChat()}if(v==='wire'&&typeof loadWire==='function'){loadWire()}const h=new URLSearchParams(location.hash.slice(1));h.set('v',v);history.replaceState(null,'','#'+h)}
 document.querySelector('.views').addEventListener('click',e=>{const b=e.target.closest('button');if(b)setView(b.dataset.v)});
 function chatLogo(id,label){return id!=null?`<img class="logo" style="width:32px;height:32px" src="${BASE}/logo/${id}" alt="">`:`<span class="lg0">${esc((label||'?').slice(0,2).toUpperCase())}</span>`}
-function renderThreads(){if(!C)return;const n=C.threads.filter(unreadT).length,u=$('unread');u.hidden=!n;u.textContent=n;
+function renderThreads(){if(!C)return;const n=C.threads.filter(unreadT).length,u=$('unread');u.classList.toggle('off',!n);u.textContent=n;
  $('threads').innerHTML=`<div class="newdm"><select id="dmPick"><option value="">New direct message…</option>${C.teams.map(t=>`<option value="${t.id}">${esc(t.name)}</option>`).join('')}</select></div>`+
  C.threads.map(t=>{const m=t.messages[t.messages.length-1];return `<div class="th${t.id===TSEL?' sel':''}" data-id="${esc(t.id)}">${t.dm?chatLogo(t.team_id,t.title):'<span class="lg0" style="color:var(--red)">ALL</span>'}
  <span class="tt"><b>${esc(t.title)}</b><small>${m?esc((m.mine?'You: ':'')+m.content):'No messages yet'}</small></span><small>${t.last?ago(t.last):''}</small>${unreadT(t)?'<i class="u"></i>':''}</div>`}).join('');
@@ -234,6 +271,75 @@ $('compose').onsubmit=async e=>{e.preventDefault();const text=$('txt').value.tri
  const r=await post('/api/chat/send',{topic:TSEL,text});b.textContent='SEND';b.disabled=false;
  if(r.verified){$('txt').value='';count();await loadChat(true)}else $('cnt').textContent=r.error?('Not sent: '+r.error):`Sent ${r.sent} of ${r.chunks}; check the thread before you try again (${(r.failed[0]||{}).error||'read-back did not match'})`;}
 setInterval(()=>loadChat(),document.hidden?60e3:10e3);loadChat();
-function fromHash(){const h=new URLSearchParams(location.hash.slice(1));if(h.get('v')==='chat'){setView('chat');const t=h.get('t');if(t){const go=()=>C?openThread(t):setTimeout(go,300);go()}}}
+
+// ---------- wire ----------
+// A first visit counts the last 48 hours, not the season, as new.
+let W=null,WF={kind:'all',team:'',lineups:false,show:60},wseen=+(localStorage.getItem('sb-wire-seen')||(Date.now()-48*36e5));
+const WKINDS={all:null,adds:['add'],drops:['drop'],claims:['claim_failed','claim_canceled','add:waiver'],trades:['trade','trade_accepted','offer','offer_declined','vote'],lineups:['lineup']};
+const FAIL={invalidplayersource:'lost to a higher claim',rosterlimit:'roster was full',playeralreadydropped:'the drop was already gone',invalidrosterlock:'player locked'};
+const at=ms=>{if(!ms)return'-';const d=new Date(ms),old=Date.now()-ms>6*864e5;return d.toLocaleString([], old?{month:'numeric',day:'numeric',hour:'numeric',minute:'2-digit'}:{weekday:'short',hour:'numeric',minute:'2-digit'}).replace(':00','')};
+const since=ms=>{if(!ms)return'-';const h=(Date.now()-ms)/36e5;return h<1?Math.max(1,Math.round(h*60))+'m':h<48?Math.round(h)+'h':Math.round(h/24)+'d'};
+function tm(id){return (W&&W.teams.find(t=>t.id===id))||{abbrev:'?',name:'?'}}
+// A D/ST's name already says the team and the position.
+function pn(id){const p=W&&W.names[String(id)];return p?`${esc(p.name)}${p.pos&&p.pos!=='D/ST'?` <em>${esc(p.pos)}${p.nfl?' · '+esc(p.nfl):''}</em>`:''}`:(id==null?'':'player '+esc(id))}
+// A one- or two-letter abbreviation ("O") reads as a number in prose; use the name there.
+function tn(id){const t=tm(id);return (t.abbrev||'').length>=3?t.abbrev:t.name}
+function evLine(e){const me=e.team_id===W.me,t=tm(e.team_id);let bd='',what='',hot=false;
+ if(e.kind==='add'){bd=e.how==='waiver'?'CLAIM':'ADD';what=pn(e.player_id)+(e.how==='waiver'?' <em>off waivers</em>':' <em>free agent</em>')}
+ else if(e.kind==='drop'){bd='DROP';what=pn(e.player_id)+(e.how==='trade'?' <em>to make room in a trade</em>':'')}
+ else if(e.kind==='claim_failed'){bd='CLAIM LOST';what=pn(e.player_id)+` <em>${esc(FAIL[e.detail]||e.detail||'failed')}</em>`}
+ else if(e.kind==='claim_canceled'){bd='CANCELED';what=pn(e.player_id)+' <em>claim withdrawn</em>'}
+ else if(e.kind==='trade'){bd='TRADE';what=`${pn(e.player_id)} <em>to ${esc(tm(e.other_team_id).name)}</em>`}
+ else if(e.kind==='trade_accepted'){bd='ACCEPTED';hot=true;what=`${pn(e.player_id)} <em>to ${esc(tm(e.other_team_id).name)}, into the veto review</em>`}
+ else if(e.kind==='vote'){bd='VOTE';what=`<em>voted to ${esc(e.detail)} a trade</em>`}
+ else if(e.kind==='offer'){bd='OFFER';what=`<em>to ${esc(tm(e.other_team_id).name)}, ${esc(e.detail)}</em>`+((e.items||[]).length?': '+e.items.map(i=>`${pn(i.player_id)} <em>${esc(tm(i.from).abbrev)}&gt;${esc(tm(i.to).abbrev)}</em>`).join(', '):'')}
+ else if(e.kind==='offer_declined'){bd='DECLINED';what='<em>declined a trade offer</em>'}
+ else if(e.kind==='lineup'){bd='LINEUP';what=`${pn(e.player_id)} <em>${esc(e.detail||'')}</em>`}
+ return `<div class="wl"><span class="t">${at(e.at)}</span><span class="who${me?' me':''}">${logo(e.team_id,'xs')}${esc(t.abbrev||t.name)}</span><span class="bd${me?' me':hot?' hot':''}">${bd}</span><span class="what">${what}</span></div>`}
+function wantEv(e){const k=WKINDS[WF.kind];if(WF.team&&e.team_id!==+WF.team&&e.other_team_id!==+WF.team)return false;if(!k)return e.kind!=='lineup';return k.includes(e.kind)||k.includes(e.kind+':'+e.how)}
+function renderWire(){if(!W)return;const A=W.analysis,mine=tm(W.me),now=Date.now();
+ const rival=W.events.filter(e=>e.team_id!==W.me&&e.kind!=='lineup');const fresh=rival.filter(e=>(e.at||0)>wseen).length,dot=$('wdot');dot.classList.toggle('off',!fresh||document.body.classList.contains('wire'));dot.textContent=fresh;
+ const last48=rival.filter(e=>now-(e.at||0)<48*36e5),review=W.pending.filter(p=>p.direction==='league');
+ $('wTag').textContent=`WEEK ${W.week} · PICK ${mine.priority??'-'} OF ${W.teams.length}`;
+ $('wHead').textContent=review.length?`${review.length} trade${review.length>1?'s':''} in the veto review`:last48.length?`${last48.length} rival move${last48.length>1?'s':''} in the last 48 hours`:'No rival moves in the last 48 hours';
+ $('wDek').textContent=`Every team's adds, drops, claims and trades, live from ESPN as of ${new Date(W.at).toLocaleTimeString([], {hour:'numeric',minute:'2-digit'})}. ${A?`MIST's read from ${at(A.at)} (the Mac rebuilds it hourly).`:'MIST\'s read arrives with the next Mac snapshot.'} Other teams' open claims and offers are private on ESPN; they show here once they end.`;
+ // In flight: ours, then the league's trades in review
+ const wr=A?Object.fromEntries((A.wire||[]).map(w=>[w.player_id,w])):{};
+ $('wPend').innerHTML=W.pending.map(p=>{const tr=p.type.startsWith('TRADE');
+  const items=tr?p.items.filter(i=>i.type==='TRADE').map(i=>`${pn(i.player_id)} <em>${esc(tm(i.from).abbrev)}&gt;${esc(tm(i.to).abbrev)}</em>`).join(', '):p.items.map(i=>`${i.type==='ADD'?'+':'-'}${pn(i.player_id)}`).join(' &nbsp;');
+  const add=p.items.find(i=>i.type==='ADD'),w=add&&wr[add.player_id];
+  const odds=w&&w.lands!=null?` · lands about ${Math.round(w.lands*100)}%`:'';
+  const lab=p.direction==='league'?'IN REVIEW':tr?(p.direction==='out'?'OFFER SENT':'OFFER IN'):'CLAIM'+(p.order!=null?' #'+(p.order+1):'');
+  const when=p.direction==='league'?`veto review ends ${at(p.process_at)}`:tr?`expires ${at(p.expires_at)}`:`processes ${at(p.process_at)}${odds}`;
+  return `<div class="pend"><span class="bd${p.direction==='league'?' lg':''}">${lab}</span><b>${items}</b><small>${when}</small></div>`}).join('')||'<div class="empty">Nothing in flight.</div>';
+ $('wRead').innerHTML=A&&A.brief?A.brief.map(l=>`<p>${esc(l).replace(/^([^:]+:)/,'<b>$1</b>')}</p>`).join(''):'<div class="empty">No analysis yet.</div>';
+ // On waivers
+ $('wWire').innerHTML=A&&(A.wire||[]).length?A.wire.map(w=>{const r=(A.base_rates||{})[w.pos]||[0,0],need=w.need_teams.map(id=>esc(tm(id).name)).join(', ');
+  const odds=w.class==='recycled'?`dropped${w.dropped_by?' by '+esc(tm(w.dropped_by).name):''}; this league claimed ${r[0]} of ${r[1]} dropped ${esc(w.pos)}s off waivers`:'never dropped here: a breakout draws rival claims';
+  return `<div class="pend">${w.ours?'<span class="bd">OUR CLAIM</span>':''}<b>${esc(w.name)}</b> <span class="wpos">${w.pos==='D/ST'?'':esc(w.pos)+' · '+esc(w.nfl)+' · '}${f1(w.rate)} a week</span><small>${odds}. Clears ${at(w.clears)}.${need?' Need at '+esc(w.pos)+': '+need+'.':''}${w.lands!=null?` Lands about ${Math.round(w.lands*100)}%.`:''}</small></div>`}).join(''):'<div class="empty">Nobody on waivers worth a look.</div>';
+ // Board
+ const B=A?Object.fromEntries(A.board.map(b=>[b.team_id,b])):{};
+ const rows=[...W.teams].sort((a,b)=>(a.priority??99)-(b.priority??99));
+ const need=b=>{if(!b)return'<i>-</i>';const n=(b.needs||[]).map(x=>`${esc(x)} now`),x=(b.needs_next||[]).map(x=>`${esc(x)} wk ${W.week+1}`);return [...n,...x].join(', ')||'<i>covered</i>'};
+ $('wBoard').innerHTML='<thead><tr><th>#</th><th>TEAM</th><th class="xs">W-L</th><th style="text-align:left">NEEDS</th><th class="x">TIER</th><th class="x">ADDS</th><th class="x">K/DST</th><th class="xs">SEEN</th></tr></thead><tbody>'+rows.map(t=>{const b=B[t.id];
+  return `<tr data-team="${t.id}" class="${t.mine?'me':''}${String(t.id)===WF.team?' pick':''}"><td>${t.priority??'-'}</td><td>${logo(t.id,'xs')}${esc(t.name)}</td><td class="xs">${esc(t.record)}</td><td class="nd">${need(b)}</td><td class="x">${esc((b&&b.tier)||'-')}</td><td class="x">${b?b.adds:'-'}</td><td class="x">${b?b.kdst_adds:'-'}</td><td class="xs">${since(t.last_seen)}</td></tr>`}).join('')+'</tbody>';
+ $('wBfoot').textContent='# is waiver priority: 1 claims first, and the order resets each week to the reverse of the standings. NEEDS is a starter slot the bench cannot cover, this week or next (a bye, OUT, IR, or empty). TIER and the adds are from the season record. SEEN is the last move made by hand. Tap a team for its moves.';
+ // History
+ $('wChips').innerHTML=Object.keys(WKINDS).map(k=>`<button data-k="${k}" class="${WF.kind===k?'on':''}">${k.toUpperCase()}</button>`).join('')+`<select id="wTeam"><option value="">All teams</option>${rows.map(t=>`<option value="${t.id}"${String(t.id)===WF.team?' selected':''}>${esc(t.name)}</option>`).join('')}</select>`;
+ $('wTeam').onchange=e=>{WF.team=e.target.value;WF.show=60;renderWire()};
+ const all=W.events.filter(wantEv),ev=all.slice(0,WF.show);let wk=null,out='';
+ for(const e of ev){if(e.week!==wk){wk=e.week;out+=`<div class="wk">${wk?'WEEK '+wk:'DRAFT DAY'}</div>`}out+=evLine(e)}
+ if(all.length>ev.length)out+=`<button class="more" id="wMore">SHOW ${Math.min(100,all.length-ev.length)} MORE OF ${all.length-ev.length}</button>`;
+ $('wHist').innerHTML=out||'<div class="empty">No moves match.</div>';
+ if($('wMore'))$('wMore').onclick=()=>{WF.show+=100;renderWire()};
+ if(document.body.classList.contains('wire')){wseen=Math.max(wseen,...rival.map(e=>e.at||0),0);localStorage.setItem('sb-wire-seen',String(wseen))}}
+$('wChips').addEventListener('click',async e=>{const b=e.target.closest('button');if(!b)return;WF.kind=b.dataset.k;WF.show=60;if(WF.kind==='lineups'&&!WF.lineups){WF.lineups=true;await loadWire()}renderWire()});
+$('wBoard').addEventListener('click',e=>{const r=e.target.closest('tr[data-team]');if(!r)return;WF.team=WF.team===r.dataset.team?'':r.dataset.team;WF.show=60;renderWire();$('wHist').scrollIntoView({behavior:'smooth',block:'start'})});
+async function loadWire(){try{const d=await get('/api/wire'+(WF.lineups?'?lineups=1':''));if(d.ok===false)throw new Error(d.error);W=d;$('wErr').textContent='';renderWire()}catch(e){$('wErr').textContent='Wire not reachable ('+e.message+'). Showing the last good reading.'}}
+let wtick=0;setInterval(()=>{if(document.hidden)return;if(document.body.classList.contains('wire')||++wtick%5===0)loadWire()},60e3);loadWire();
+function fromHash(){const h=new URLSearchParams(location.hash.slice(1));
+ // The app opens a tapped push as v=chat&t=<topic>; a trade-in-review push carries the topic "wire".
+ if(h.get('v')==='wire'||(h.get('v')==='chat'&&h.get('t')==='wire')){setView('wire');return}
+ if(h.get('v')==='chat'){setView('chat');const t=h.get('t');if(t){const go=()=>C?openThread(t):setTimeout(go,300);go()}}}
 fromHash();window.addEventListener('hashchange',fromHash);
 </script></body></html>

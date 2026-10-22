@@ -9,7 +9,7 @@ Python, and the scorebug Worker does the live arithmetic in the cloud. That
 is what lets the app run with the Mac off.
 
     python3 fantasy/scorebug/snapshot.py            # print the snapshot JSON
-    python3 fantasy/scorebug/snapshot.py --post     # send it to the Worker
+    python3 fantasy/scorebug/snapshot.py --post     # send it, and the Wire analysis, to the Worker
 
 `--post` reads the Worker URL and ingest token from scorebug.json (written
 by fantasy/scorebug/deploy), or SCOREBUG_URL / SCOREBUG_TOKEN in the
@@ -159,11 +159,24 @@ def build() -> dict:
             "season_sim": json.loads(SEASON.read_text()) if SEASON.exists() else None}
 
 
-def post(snap: dict) -> dict:
+def wire_analysis() -> dict | None:
+    """The rival-scan build for the Wire tab (espncli.rivals, rebuilt at most
+    hourly). The tab still shows every move without it, from the Worker's own
+    reads, so a failure here only drops the analysis."""
+    try:
+        from espncli import rivals  # noqa: PLC0415 - the snapshot must not fail on the analysis
+
+        return rivals.cached(Espn())
+    except Exception as e:  # noqa: BLE001
+        print(f"snapshot: wire analysis skipped ({e})", file=sys.stderr)
+        return None
+
+
+def post(snap: dict, route: str = "/ingest") -> dict:
     conf = json.loads(CONF.read_text()) if CONF.exists() else {}
     url = os.environ.get("SCOREBUG_URL") or conf["url"]
     token = os.environ.get("SCOREBUG_TOKEN") or conf["ingest_token"]
-    req = urllib.request.Request(f"{url}/ingest", data=json.dumps(snap).encode(), method="POST",
+    req = urllib.request.Request(f"{url}{route}", data=json.dumps(snap, default=str).encode(), method="POST",
                                  headers={"Authorization": f"Bearer {token}", "content-type": "application/json",
                                           "User-Agent": "scorebug-snapshot"})
     with urllib.request.urlopen(req, timeout=60) as r:
@@ -174,5 +187,8 @@ if __name__ == "__main__":
     snap = build()
     if "--post" in sys.argv:
         print(json.dumps(post(snap)))
+        wire = wire_analysis()
+        if wire:
+            print(json.dumps(post(wire, "/ingest/wire")))
     else:
         print(json.dumps(snap, indent=1))

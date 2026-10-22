@@ -33,6 +33,10 @@ only before a game locks.
 | Chat alerts | Worker cron | Each minute the cron reads the chat. Any message from someone else newer than the `chat:last` mark goes to the phone as one alert, or one digest when several arrived together. KV is written only when a message arrived. A tap opens the thread (`#v=chat&t=<topic>`). The app registers its device token as kind `device`. |
 | Website icons | Worker | `/favicon.png`, `/apple-touch-icon.png`, `/icon-192.png` and `/manifest.webmanifest`, all from `icon/make_icon.py`, served without the key. |
 | `test_model.py` | Mac | Compares `model.js` with the Python `win_prob` on random game clocks. It must print PASS after any edit to either side. |
+| `/api/wire`, `wire.js` | Worker | The WIRE tab: every team's adds, drops, claims (won, lost, canceled), trades, votes and offers, our pending moves, and other teams' trades in their veto review. The Worker reads the activity feed, the last two weeks of `mTransactions2` and the pending rows itself (60 s memo) and normalizes them with `wire.js`, the twin of `espncli/league_log.py`. Lineup moves come only with `?lineups=1`. |
+| `/ingest/wire` | Mac (`snapshot.py --post`) | The rival analysis from `espncli/rivals.py` (`fantasy/bin/rival-scan`): each team's needs, behavior, the wire's claim odds, the opponent, the brief, the names, and the claims and votes of older weeks. The Mac rebuilds it at most hourly; the Worker stores it only when it changed, at most every 15 minutes. |
+| Trade alerts | Worker cron | Each 5 minutes: a trade that two other teams accepted shows while it waits out the veto review. A new one goes to the phone once (KV `wire:alerted`), and the tap opens the WIRE tab (the app sends `#v=chat&t=wire`, which the page routes). |
+| `test_wire.py` | Mac | Runs `wire.js` and `league_log.normalize` on one live fetch and compares every event and pending row. It must print PASS after any edit to either side. `tests/test_league_log.py` does the same offline on a fixture. |
 
 ## Access
 
@@ -45,7 +49,12 @@ KV namespace id are in the gitignored `scorebug.json`.
 
 - KV on the free plan allows 1000 writes a day. The history writes once each
   2 minutes during games (about 300 on a full Sunday), and the snapshot
-  writes only when it changed, at most once each 3 minutes.
+  writes only when it changed, at most once each 3 minutes. The wire
+  analysis writes three keys at most every 15 minutes, in practice hourly.
+- ESPN shows no client another team's open waiver claim or open trade offer.
+  The WIRE tab shows them once they end (a failed or canceled claim, a
+  canceled copy of an offer). A trade two teams accepted is visible during
+  its veto review.
 - The season odds come from `season_sim` on the Mac. A cloud snapshot keeps
   the last odds that the Mac sent.
 - A player in a live game keeps his projected scoring rate for the share of
