@@ -391,6 +391,70 @@ def tweet_decision(facts: TweetFacts, native: NativeEmbed | None) -> tuple[bool,
     return False, "native embed sufficient"
 
 
+def tweet_wants_card(facts: TweetFacts) -> bool:
+    """A post with no video and at most one photo is reposted as an embed MIST
+    builds from the API text. Reposting the fixupx link instead hands the text
+    back to Discord's unfurler, which cuts a long post the same way it cut the
+    original. Video and photo mosaics still need fxembed's player, so those
+    keep the link."""
+    return facts.found and not facts.videos and facts.photos <= 1
+
+
+# Discord's cap on an embed description.
+EMBED_DESCRIPTION_MAX = 4096
+
+
+def compact_count(n: int | None) -> str:
+    """4359 -> 4.4K, 117151 -> 117.2K, the way X and fxembed print stats."""
+    n = int(n or 0)
+    for div, suffix in ((1_000_000, "M"), (1_000, "K")):
+        if n >= div:
+            return f"{n / div:.1f}".rstrip("0").rstrip(".") + suffix
+    return str(n)
+
+
+@dataclass
+class TweetCard:
+    url: str
+    author: str
+    avatar_url: str | None
+    text: str
+    photo_url: str | None
+    stats: str
+    timestamp: int | None
+
+
+def tweet_card(api_json: dict, facts: TweetFacts) -> TweetCard | None:
+    """Embed fields for a post, from the fxtwitter API answer."""
+    tweet = (api_json or {}).get("tweet") or {}
+    if not tweet:
+        return None
+    author = tweet.get("author") or {}
+    name, handle = author.get("name") or "", author.get("screen_name") or ""
+    text = tweet.get("text") or ""
+    quote = tweet.get("quote") or {}
+    if quote.get("text"):
+        q_author = (quote.get("author") or {}).get("screen_name") or "?"
+        quoted = "\n".join(f"> {line}" for line in quote["text"].splitlines())
+        text = f"{text}\n\n> **@{q_author}**\n{quoted}"
+    if len(text) > EMBED_DESCRIPTION_MAX:
+        text = text[: EMBED_DESCRIPTION_MAX - 1].rstrip() + "…"
+    stats = "   ".join(
+        f"{icon} {compact_count(tweet.get(key))}"
+        for icon, key in (("💬", "replies"), ("🔁", "retweets"), ("❤️", "likes"), ("👁️", "views"))
+        if tweet.get(key) is not None
+    )
+    return TweetCard(
+        url=tweet.get("url") or "",
+        author=f"{name} (@{handle})" if name else f"@{handle}",
+        avatar_url=author.get("avatar_url"),
+        text=text,
+        photo_url=facts.photo_url if facts.photos == 1 else None,
+        stats=stats,
+        timestamp=tweet.get("created_timestamp"),
+    )
+
+
 def tumblr_verdict(native: NativeEmbed | None) -> str:
     """'absent', 'bad' (Tumblr's generic card) or 'good'."""
     if native is None or not native.found:

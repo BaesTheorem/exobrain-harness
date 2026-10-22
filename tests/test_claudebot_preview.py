@@ -133,6 +133,28 @@ def test_tweet_facts_and_decisions():
     assert pl.tweet_decision(pl.tweet_facts({}), None) == (False, "no tweet data")
 
 
+def test_tweet_card_carries_full_text():
+    pl = _pl()
+    long_text = "\n".join(f">line {i}" for i in range(200))  # ~1800 chars, past any unfurl cut
+    api = {"tweet": {
+        "url": "https://x.com/a/status/1", "text": long_text, "likes": 4359, "views": 117151,
+        "author": {"name": "A", "screen_name": "a", "avatar_url": "av"},
+        "created_timestamp": 1792625324,
+        "media": {"photos": [{"url": "p"}]},
+    }}
+    facts = pl.tweet_facts(api)
+    assert pl.tweet_wants_card(facts)
+    card = pl.tweet_card(api, facts)
+    assert card.text == long_text and card.author == "A (@a)" and card.photo_url == "p"
+    assert "4.4K" in card.stats and "117.2K" in card.stats
+    huge = pl.tweet_card({"tweet": {"text": "x" * 5000}}, pl.TweetFacts(found=True))
+    assert len(huge.text) == pl.EMBED_DESCRIPTION_MAX
+    assert not pl.tweet_wants_card(pl.tweet_facts({"tweet": {"text": "v", "media": {"videos": [{}]}}}))
+    assert not pl.tweet_wants_card(pl.tweet_facts(
+        {"tweet": {"text": "p", "media": {"photos": [{"url": "a"}, {"url": "b"}]}}}))
+    assert pl.compact_count(999) == "999" and pl.compact_count(1000) == "1K"
+
+
 def test_tumblr_verdict():
     pl = _pl()
     assert pl.tumblr_verdict(None) == "absent"

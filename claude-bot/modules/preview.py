@@ -45,7 +45,7 @@ import json
 import logging
 import re
 import time
-from datetime import timezone
+from datetime import datetime, timezone
 from typing import Any, cast
 
 import aiohttp
@@ -450,7 +450,23 @@ class Previewer:
         log.debug("fixvx %s: %s", "reposting" if repost else "skipping", reason)
         if not repost:
             return None
-        return pl.repost_line(fixup, message.jump_url, spoilered), [], None, True
+        card = pl.tweet_card(data, facts) if pl.tweet_wants_card(facts) else None
+        if card is None:
+            return pl.repost_line(fixup, message.jump_url, spoilered), [], None, True
+        # The link stays as attribution in <> so Discord does not unfurl it
+        # into a second, cut-off card under this one.
+        embed = discord.Embed(
+            description=(f"||{card.text[:4090]}||" if spoilered else card.text),
+            url=card.url or None,
+            color=0x1D9BF0,
+        )
+        embed.set_author(name=card.author[:256], url=card.url or None, icon_url=card.avatar_url)
+        if card.photo_url and not spoilered:
+            embed.set_image(url=card.photo_url)
+        embed.set_footer(text=f"{card.stats}   ·   X" if card.stats else "X")
+        if card.timestamp:
+            embed.timestamp = datetime.fromtimestamp(card.timestamp, tz=timezone.utc)
+        return pl.repost_line(fixup, message.jump_url, spoilered, unfurl=False), [], embed, True
 
     async def _resolve_tiktok(self, url: str) -> str | None:
         """Expand a TikTok short code by reading its redirect."""
