@@ -11,8 +11,10 @@ network is one fact, so it gets one alert.
 
 Behavior:
 - Probe https://HOST (any HTTP answer counts) for up to --wait seconds.
-- Network up: if an outage was open and an alert went out, send ONE recovery
-  digest and kickstart every job that skipped during the outage, then exec
+- Network up: if an outage was open, the link must hold for STABLE_CHECKS more
+  probes, STABLE_GAP seconds apart, before the outage closes. A link that comes
+  back unstable counts as still down. Then, if an alert went out, send ONE
+  recovery digest; kickstart every job that skipped during the outage, then exec
   COMMAND (so its exit code is the job's exit code).
 - Network down: record this job's label (launchd sets XPC_SERVICE_NAME) in the
   outage state and exit 0, so the skip does not read as a FAIL. When the outage
@@ -23,6 +25,11 @@ INVARIANTS:
 - At most one down alert and one recovery alert per outage (state file + lock).
 - A short blip (healed before ALERT_AFTER) sends nothing.
 - On success the command runs via exec, never as a child.
+- An outage closes only after the stability check passes.
+
+Why the stability check: on 2026-10-21 the hotspot link answered one probe at
+17:46, the outage closed, and the reruns hit SSL EOF errors and a 180 s ESPN
+timeout because the link still dropped connections.
 """
 
 from __future__ import annotations
@@ -43,21 +50,36 @@ LOCK = LOG_DIR / "net-outage.lock"
 NOTIFY = Path.home() / "Documents/Exobrain harness/mist-voice/bin/mist-notify"
 ALERT_AFTER = 10 * 60  # seconds an outage must last before Alex hears about it
 STALE_OUTAGE = 24 * 3600  # an open outage older than this is a leftover, reset it
+STABLE_CHECKS = int(os.environ.get("NET_GATE_STABLE_CHECKS", "2"))  # extra probes after an outage
+STABLE_GAP = float(os.environ.get("NET_GATE_STABLE_GAP", "10"))  # seconds between them
 
 
 def log(msg: str) -> None:
     print(f"[{time.strftime('%Y-%m-%dT%H:%M:%S%z')}] net-gate: {msg}", file=sys.stderr)
 
 
+def once(host: str) -> bool:
+    r = subprocess.run(
+        ["/usr/bin/curl", "-s", "--max-time", "8", "-o", "/dev/null", f"https://{host}"],
+        check=False,
+    )
+    return r.returncode == 0
+
+
+def stable(host: str) -> bool:
+    """After an outage, every one of STABLE_CHECKS spaced probes must pass."""
+    for _ in range(STABLE_CHECKS):
+        time.sleep(STABLE_GAP)
+        if not once(host):
+            return False
+    return True
+
+
 def probe(host: str, wait: int) -> bool:
     deadline = time.monotonic() + wait
     delay = 2.0
     while True:
-        r = subprocess.run(
-            ["/usr/bin/curl", "-s", "--max-time", "8", "-o", "/dev/null", f"https://{host}"],
-            check=False,
-        )
-        if r.returncode == 0:
+        if once(host):
             return True
         left = deadline - time.monotonic()
         if left <= 0:
@@ -184,7 +206,7 @@ def main() -> int:
     label = os.environ.get("NET_GATE_LABEL") or os.environ.get("XPC_SERVICE_NAME") or "unknown"
     if label == "0":  # XPC_SERVICE_NAME is "0" outside launchd
         label = "unknown"
-    if not probe(a.host, a.wait):
+    if not probe(a.host, a.wait) or (STATE.exists() and not stable(a.host)):
         on_down(label, a.host)
         return 0
     on_up(label)
