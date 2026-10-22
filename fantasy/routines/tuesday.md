@@ -196,4 +196,7 @@ Follow `fantasy/routines/COMMON.md` first. If today is not Tuesday, stop.
    zero even if the Mac and the cloud fallback both stop (they share the
    ESPN cookies). The lineup routines still set the real lineup before each
    lock. Questionable starters and `d_net` swaps stay theirs, and our idle
-   week needs no plan.
+   week needs no plan. A plan stores the whole lineup and undoes any change
+   made after it at its rollover (Namaslay's 09-23 QB change, reverted by
+   its own 09-12 plan on 10-06), so run this step last and never plan
+   further than next week.

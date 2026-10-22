@@ -185,7 +185,10 @@ class EspnWriter:
         rollover. Two rivals used it all season (2026-10-22); a plain ROSTER
         write for a later week is refused (see _base). Slots come from that
         week's roster read, which already shows earlier plans, and so does
-        the read-back: Namaslay's week 12 and 14 plans read back there."""
+        the read-back: Namaslay's week 12 and 14 plans read back there.
+        ESPN stores the plan as the whole lineup: at the rollover it undoes
+        changes made after the plan (Namaslay, 09-23 and 10-06), and later
+        weeks inherit it. Plan one week ahead, as the last move of the week."""
         current = self.api.current_week(self.api.league("mStatus"))
         if week <= current:
             raise EspnError(f"week {week} is not a later week (this is week {current}); use swap")
