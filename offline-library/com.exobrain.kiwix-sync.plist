@@ -1,0 +1,51 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>Label</key>
+    <string>com.exobrain.kiwix-sync</string>
+    <key>ProgramArguments</key>
+    <array>
+        <string>/Users/alexhedtke/.local/bin/mist-launch</string>
+        <string>/opt/homebrew/bin/python3</string>
+        <string>/Users/alexhedtke/Documents/Exobrain harness/offline-library/kiwix_sync.py</string>
+    </array>
+    <key>WorkingDirectory</key>
+    <string>/Users/alexhedtke/Documents/Exobrain harness/offline-library</string>
+    <key>EnvironmentVariables</key>
+    <dict>
+        <key>PATH</key>
+        <string>/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin</string>
+    </dict>
+    <!-- Every mount of any volume starts it; the script exits at once unless the
+         SSD is present and check_every_hours has passed or a download is unfinished. -->
+    <key>StartOnMount</key>
+    <true/>
+    <key>RunAtLoad</key>
+    <true/>
+    <!-- Sunday 4:00 AM, in case the SSD stays plugged in for weeks. -->
+    <key>StartCalendarInterval</key>
+    <dict>
+        <key>Weekday</key>
+        <integer>0</integer>
+        <key>Hour</key>
+        <integer>4</integer>
+        <key>Minute</key>
+        <integer>0</integer>
+    </dict>
+    <key>ThrottleInterval</key>
+    <integer>30</integer>
+    <key>ProcessType</key>
+    <string>Background</string>
+    <key>StandardOutPath</key>
+    <string>/Users/alexhedtke/Library/Logs/exobrain/kiwix-sync.log</string>
+    <key>StandardErrorPath</key>
+    <string>/Users/alexhedtke/Library/Logs/exobrain/kiwix-sync.log</string>
+    <!-- Login Items shows the job under this app instead of its executable's name;
+         only honored because mist-launch is signed by the same team. -->
+    <key>AssociatedBundleIdentifiers</key>
+    <array>
+        <string>com.exobrain.mist-console</string>
+    </array>
+</dict>
+</plist>

@@ -1,0 +1,4 @@
+#!/bin/bash
+# Keep the newest Kiwix Wikipedia and WikiMed dumps on the external SSD.
+# kiwix-sync [--dry-run | --force | --status]. See ../README.md.
+exec /opt/homebrew/bin/python3 "$(cd "$(dirname "$0")/.." && pwd)/kiwix_sync.py" "$@"

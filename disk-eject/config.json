@@ -43,6 +43,9 @@
     },
     "mpv": {
       "wait": 8
+    },
+    "aria2c": {
+      "wait": 20
     }
   },
   "_graceful_handlers": "Per-process overrides. 'pre' runs before the quit request (checkpoint/flush), 'wait' is the grace period in seconds. rqbit gets 20s so it can write out its torrent session state. Plex is a launchd job and is booted out; its plist's ExitTimeOut (300s) must exceed 'wait' or launchd kills it first.",
