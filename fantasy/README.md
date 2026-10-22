@@ -90,6 +90,8 @@ pending) and exits nonzero if the read-back disagrees.
 ```
 espn-tx ir "Jordyn Tyson"                 # bench -> IR slot
 espn-tx move "Player" --to BE|IR|FLEX|RB  # any slot move
+espn-tx plan "In" --for "Out" --week N    # a later week's lineup (ESPN's FUTURE_ROSTER), carried out at that
+                                          # week's Tuesday 2:00 AM rollover; verified on the week's roster read
 espn-tx claim "Chris Brooks" [--drop "X"] # waiver claim; --fa for a free-agent add
 espn-tx pending                           # this team's pending claims
 espn-tx cancel <transaction id>

@@ -128,6 +128,10 @@ says (measured 2026-10-22, weeks 1-7):
   the measured fix rate. `rival-scan` adds last seen and, for each open hole,
   the free agent who fills it against the next best (`denial_pts`). A denial
   add is untested: it must clear the waiver gate like any other move.
+- **A rival's lineup for a later week is readable now.** `espn team --team
+  NAME --week N` shows the lineup ESPN will start at that week's rollover,
+  plans included (Namaslay's week 11 lineup, set 09-12, starts an RB on
+  bye). It changes if the manager comes back, so it is a read, not a fact.
 - **The Scorebug app's WIRE tab** shows the same read: every team's history,
   our pending moves with their odds, trades in review (with a push to the
   phone when one appears), the waiver order with needs, and the brief.
@@ -266,7 +270,11 @@ the site by hand.
   2026-10-15), because ESPN's `season_proj` alone prices August
 
 **Writes go through `fantasy/bin/espn-tx` and nothing else** (added
-2026-09-07): `ir`, `move`, `claim`, `pending`, `cancel`. It verifies every
+2026-09-07): `ir`, `move`, `swap`, `plan`, `claim`, `pending`, `cancel`.
+`plan "In" --for "Out" --week N` sets a later week's lineup with ESPN's
+FUTURE_ROSTER, which ESPN carries out at that week's Tuesday rollover (the
+2026-10-04 reading that a later week cannot be written was about ROSTER
+writes only; playbook *Corrections ledger*, 2026-10-22). It verifies every
 write with a read-back and exits nonzero when the roster or the pending list
 does not show the change. The one exception is chat in the Scorebug app
 (`fantasy/scorebug/`): a message Alex types and sends there goes out through

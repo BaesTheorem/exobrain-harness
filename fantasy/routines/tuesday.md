@@ -187,3 +187,13 @@ Follow `fantasy/routines/COMMON.md` first. If today is not Tuesday, stop.
    section. Pending claims are not on the roster yet, so they are not in the
    forecast; say so with `fantasy/bin/forecast note --week <week> --forecast
    "<text>"`, which renders under the table.
+8. **Set next week's backstop lineup** (Alex, 2026-10-22). Run
+   `fantasy/bin/espn check --week <next week> --json`. For each definite
+   problem (BYE, OUT, IR, SUSP) whose `fix` names a bench player, run
+   `fantasy/bin/espn-tx plan "<that player>" --for "<the starter>" --week
+   <next week>` and confirm `"verified": true`. ESPN carries the plan out at
+   next week's Tuesday 2:00 AM rollover, so the week starts with no known
+   zero even if the Mac and the cloud fallback both stop (they share the
+   ESPN cookies). The lineup routines still set the real lineup before each
+   lock. Questionable starters and `d_net` swaps stay theirs, and our idle
+   week needs no plan.

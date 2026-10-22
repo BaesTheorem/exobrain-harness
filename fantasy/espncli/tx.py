@@ -9,7 +9,7 @@ as pending), never the request's status code alone.
 ESPN's transaction endpoint, as the web client uses it (2026-09-07):
 
     POST {WRITES}/seasons/{season}/segments/0/leagues/{league}/transactions/
-    {"isLeagueManager": false, "teamId": T, "type": "ROSTER" | "WAIVER" | "FREEAGENT",
+    {"isLeagueManager": false, "teamId": T, "type": "ROSTER" | "FUTURE_ROSTER" | "WAIVER" | "FREEAGENT",
      "memberId": "{SWID}", "scoringPeriodId": W, "executionType": "EXECUTE",
      "items": [{"playerId": P, "type": "LINEUP", "fromLineupSlotId": a, "toLineupSlotId": b}
                | {"playerId": P, "type": "ADD", "fromTeamId": 0, "toTeamId": T, "toLineupSlotId": 20}
@@ -118,12 +118,11 @@ class EspnWriter:
         raise last or EspnError("no write host answered")
 
     def _base(self, kind: str) -> dict[str, Any]:
-        # scoringPeriodId is always the current week. A later week is refused
-        # by ESPN with 409 TRAN_INVALID_SCORINGPERIOD_NOT_CURRENT ("Transaction
-        # type can only be executed in the current scoring period"), tested
-        # 2026-10-04 with a week 5 D/ST swap during week 4. So a bye fill or
-        # a Thursday streamer for next week waits for Tuesday; do not add a
-        # --week flag here again.
+        # scoringPeriodId is always the current week. A ROSTER write for a later
+        # week is refused with 409 TRAN_INVALID_SCORINGPERIOD_NOT_CURRENT,
+        # tested 2026-10-04 with a week 5 D/ST swap during week 4. A later
+        # week's lineup is a different transaction type, FUTURE_ROSTER: see
+        # plan_swap (2026-10-22, found in two rivals' rows).
         settings = self.api.league("mSettings")
         return {"isLeagueManager": False, "teamId": self.team_id, "type": kind,
                 "memberId": self.api.creds["SWID"],
@@ -177,6 +176,40 @@ class EspnWriter:
         now_in, now_out = self.slot_of(in_id), self.slot_of(out_id)
         return {"slot": _slot_name(out_slot), "verified": now_in == out_slot and now_out == BENCH,
                 "in_now": _slot_name(now_in), "out_now": _slot_name(now_out), "response": resp}
+
+    def plan_swap(self, week: int, in_id: int, out_id: int, dry_run: bool = False) -> dict[str, Any]:
+        """Set a later week's lineup: `in_id` from the bench into `out_id`'s slot.
+
+        ESPN's FUTURE_ROSTER, the transaction its app writes when a manager
+        picks a future week, carried out at that week's Tuesday 2:00 AM
+        rollover. Two rivals used it all season (2026-10-22); a plain ROSTER
+        write for a later week is refused (see _base). Slots come from that
+        week's roster read, which already shows earlier plans, and so does
+        the read-back: Namaslay's week 12 and 14 plans read back there."""
+        current = self.api.current_week(self.api.league("mStatus"))
+        if week <= current:
+            raise EspnError(f"week {week} is not a later week (this is week {current}); use swap")
+        before = {e["playerId"]: e["lineupSlotId"]
+                  for e in self.api.roster_entries(self.api.league("mRoster", period=week), self.team_id)}
+        out_slot, in_slot = before.get(out_id), before.get(in_id)
+        if out_slot is None or in_slot is None:
+            raise EspnError("both players must be on the roster")
+        if in_slot != BENCH or out_slot in (BENCH, IR):
+            raise EspnError(f"week {week}: the incoming player must be on the bench and the other one starting")
+        body = self._base("FUTURE_ROSTER")
+        body["scoringPeriodId"] = week
+        body["items"] = [
+            {"playerId": out_id, "type": "LINEUP", "fromLineupSlotId": out_slot, "toLineupSlotId": BENCH},
+            {"playerId": in_id, "type": "LINEUP", "fromLineupSlotId": BENCH, "toLineupSlotId": out_slot},
+        ]
+        if dry_run:
+            return {"dry_run": body}
+        resp = self._post(body)
+        after = {e["playerId"]: e["lineupSlotId"]
+                 for e in self.api.roster_entries(self.api.league("mRoster", period=week), self.team_id)}
+        return {"week": week, "slot": _slot_name(out_slot),
+                "verified": after.get(in_id) == out_slot and after.get(out_id) == BENCH,
+                "in_now": _slot_name(after.get(in_id)), "out_now": _slot_name(after.get(out_id)), "response": resp}
 
     # ---- adds and claims -------------------------------------------------
 

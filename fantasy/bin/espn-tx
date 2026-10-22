@@ -5,6 +5,7 @@
     espn-tx move "Player" --to BE|IR|FLEX|RB  # any slot move
     espn-tx swap "Chris Godwin" --for "Christian Watson"   # bench player in, starter out, one transaction
     espn-tx claim "Chris Brooks" [--drop "X"] # waiver claim (or free-agent add with --fa)
+    espn-tx plan "In" --for "Out" --week N    # a later week's lineup, carried out at its Tuesday rollover
     espn-tx trade "Watson" "Nailor" --for "George Pickens" --with "Ayahuasca Rodgers"   # send a trade offer
     espn-tx pending                           # claims and trades in flight, sent AND received
     espn-tx cancel <transaction id>
@@ -33,6 +34,9 @@ def main() -> int:
     p = sub.add_parser("ir"); p.add_argument("name", nargs="+")
     p = sub.add_parser("move"); p.add_argument("name", nargs="+"); p.add_argument("--to", required=True)
     p = sub.add_parser("swap"); p.add_argument("name", nargs="+"); p.add_argument("--for", dest="out", nargs="+", required=True)
+    p = sub.add_parser("plan", help="set a later week's lineup (ESPN carries it out at that week's Tuesday rollover)")
+    p.add_argument("name", nargs="+"); p.add_argument("--for", dest="out", nargs="+", required=True)
+    p.add_argument("--week", type=int, required=True)
     p = sub.add_parser("claim"); p.add_argument("name", nargs="+"); p.add_argument("--drop", nargs="*")
     p.add_argument("--fa", action="store_true", help="free-agent add instead of a waiver claim")
     p = sub.add_parser("trade"); p.add_argument("give", nargs="+"); p.add_argument("--for", dest="get", nargs="+", required=True)
@@ -124,6 +128,10 @@ def main() -> int:
         out = api.resolve_one(" ".join(args.out))
         print(f"  for {out['name']} (id {out['id']}, {out.get('pos')})")
         res = w.swap(hit["id"], out["id"], dry_run=args.dry_run)
+    elif args.cmd == "plan":
+        out = api.resolve_one(" ".join(args.out))
+        print(f"  for {out['name']} (id {out['id']}, {out.get('pos')}), week {args.week}")
+        res = w.plan_swap(args.week, hit["id"], out["id"], dry_run=args.dry_run)
     else:
         drop = api.resolve_one(" ".join(args.drop))["id"] if args.drop else None
         res = w.claim(hit["id"], drop, waiver=not args.fa, dry_run=args.dry_run)

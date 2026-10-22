@@ -58,7 +58,8 @@ autonomously; you decide, act, and record. Work from the harness directory
    ESPN blended with the betting market, and questionable players are priced
    from the injury report (`espn check` row fields `market`, `mean`,
    `p_play`). **Writes:** `fantasy/bin/espn-tx`
-   only (`ir`, `move`, `swap`, `claim`, `pending`, `cancel`). It verifies each
+   only (`ir`, `move`, `swap`, `plan`, `claim`, `pending`, `cancel`; `plan`
+   sets a later week's lineup, since 2026-10-22). It verifies each
    write with a read-back; treat `"verified": false` or a nonzero exit as
    "did not happen" and say so.
    **Read the other twelve teams in every run** (Alex, 2026-10-22: "we want
