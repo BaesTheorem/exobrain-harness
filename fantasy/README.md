@@ -271,6 +271,7 @@ variance rule into a number in `espn check` and `espn matchup`.
 | `stash-scan [--banner]` | roster, the injured wire, Rotowire news, `.cache/leverage.json` | injured free agents priced as playoff stashes: 0.53 x (rate x return factor - the starter each would replace) x the per-week weights from his return week, gate +20; `--banner` sends one Do it / Skip banner for a PASS that fits the open IR slot |
 | `stream-scan` | `espn team/nfl/stream` | the K and D/ST thresholds, byes two weeks out |
 | `league-scan` | every closed week's lineups, every period's transactions | zeros started, bench points left, offers answered, per manager |
+| `rival-scan [--brief] [--record] [--settle] [--team NAME]` | the league log (`espncli/league_log.py`: the activity feed, every period's `mTransactions2`, the pending rows), this week's and next week's rosters, the waiver pool, `league-scan` | the other twelve teams (2026-10-22): uncovered needs this week and next, adds, K and D/ST streams, claims won and lost, when each manager acts and was last seen; the wire with this league's own claim rates (2 of 68 drops claimed by another team through week 7); the opponent's holes with the free agent who fills each; the bye race; trades in review, votes, visible proposals. `--brief` is the check-in text, `--record` and `--settle` score the waiver odds in `forecasts/rivals-<season>.jsonl` (team ids only). Every ESPN tool's banner carries its 48-hour digest (`espncli.client.league_lines`), and the Scorebug WIRE tab shows the same |
 | `trade_scan.py --json` | rosters on `ros_rate`, the season sim | 1-for-1 and 2-for-1 proposals priced in title and bye odds |
 | `season_sim.py --json` | rosters on `ros_rate`, results so far | bye/playoff/title odds for the Tuesday log |
 | `season_sim.py --leverage [--json]` | the same, on common random numbers | what each lever is worth to us: title odds with us placed at each seed, a win in each remaining week (bye and title points), a point of Points For, a point in each week including 15-17, the projected points worth 1% of win probability, and the per-week weights for valuing a player; sigma is measured from the played weeks once there are 4 |
@@ -278,7 +279,10 @@ variance rule into a number in `espn check` and `espn matchup`.
 
 Tests: `tests/test_stash_scan.py` (a planted star passes; a player who would not start for us, season-ending news and a held IR slot never do), `tests/test_fantasy_season_sim.py` (the leverage report is an intervention: a zero bump changes nothing, a forced win never lowers the bye odds), `tests/test_fantasy_value.py` (both sides of the variance rule with
 planted lineups), `tests/test_swap_scan.py` (the gate's positive control and
-the second-TE rule), and the opponent-hole case in `tests/test_espncli.py`.
+the second-TE rule), the opponent-hole case in `tests/test_espncli.py`, and
+`tests/test_league_log.py` (each feed message type's team field, including the
+slot-and-team id overlap, the `auto` rollover rows, dedupe, pending order, the
+claim-rate math, and the Worker's `wire.js` on the same fixture).
 
 ## The season on autopilot: `routines/`
 

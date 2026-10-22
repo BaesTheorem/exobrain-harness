@@ -1,0 +1,104 @@
+#!/usr/bin/env python3
+"""rival-scan: the other twelve teams, read from what ESPN records.
+
+league-scan says how engaged each manager has been. This says what each one
+needs now, how each one behaves, and what that means for our next move:
+
+  board     per team: standing, waiver priority, open roster spots, the
+            holes in this week's lineup and next week's (bye, OUT, IR, empty)
+            with whether the bench covers them, the season's adds, K and D/ST
+            streams, claims filed, the weeks with a lineup move, when the
+            manager acts, when the manager was last seen, the last moves,
+            and league-scan's tier and bye-hole fix rate
+  wire      every player on waivers now: who dropped him, when the run
+            decides him, the teams with an uncovered need at his position,
+            and, for a player this league just dropped, the league's own rate
+            of claiming such a player off waivers (our pending claims marked)
+  opponent  this week's rival (next week's in our idle week): holes, fix
+            rate, last seen, and the free agent who would fill each hole
+            against the next best (the denial value)
+  race      the teams within a game of the #2 seed: what they need and did
+  market    trades in review (the veto window), finished trades, votes,
+            proposals between other teams that ESPN has shown, our offers
+  changes   every rival move in the last 48 hours, and the last waiver run
+
+The brief (`--brief`) is six lines or less, for the routines' check-ins and
+for Alex. `--record` saves the wire's predictions and `--settle` scores them
+after the run, so the waiver read is checked against what happened instead of
+trusted (fantasy/forecasts/rivals-<season>.jsonl, team ids only).
+
+What ESPN does not show any client: another team's open waiver claim or open
+trade offer. Those appear only after they end (a failed claim, a canceled
+copy of an offer). A trade that two teams accepted is visible while it waits
+out the veto review. Measured 2026-10-22, weeks 1-7: of 68 players dropped,
+2 were claimed off waivers by another team (both RBs, no D/ST or K); rival
+claims go to players who were never rostered and had a big week (a kicker
+drew 8 claims in one run). So for us, picking 13th, a dropped player is
+nearly always ours if we claim him, and a breakout is nearly never ours.
+
+    rival-scan [--json] [--brief] [--record] [--settle] [--team NAME]
+
+INVARIANTS
+- Read-only against ESPN. It never files, cancels or proposes anything.
+- No owner names: teams by team name, the log file by team id.
+- Every value is espncli.value.ros_rate, the one in-season currency.
+"""
+
+from __future__ import annotations
+
+import argparse
+import json
+import sys
+from pathlib import Path
+
+HERE = Path(__file__).resolve().parent
+FANTASY = HERE.parent
+sys.path.insert(0, str(FANTASY))
+
+from espncli.client import Espn  # noqa: E402
+from espncli.rivals import at_s, build, log_path, record, render, save, say, settle  # noqa: E402
+
+
+def main() -> int:
+    ap = argparse.ArgumentParser(description=(__doc__ or "").split("\n\n")[0])
+    ap.add_argument("--json", action="store_true")
+    ap.add_argument("--brief", action="store_true", help="the check-in lines only")
+    ap.add_argument("--record", action="store_true", help="save the wire predictions for later scoring")
+    ap.add_argument("--settle", action="store_true", help="score the saved predictions whose run has passed")
+    ap.add_argument("--team", help="one team's board row and recent moves")
+    args = ap.parse_args()
+    api = Espn()
+    if args.settle and not (args.json or args.brief or args.record):
+        print(json.dumps(settle(api), indent=2))
+        return 0
+    out, events = build(api)
+    save(api, out)          # the Scorebug Wire tab reads this build on the next snapshot
+    if args.record:
+        out["recorded"] = record(api, out)
+    if args.settle:
+        out["calibration"] = settle(api)
+    if args.team:
+        tid = api.resolve_team(api.league("mTeam"), args.team)["id"]
+        row = next(x for x in out["board"] if x["team_id"] == tid)
+        mine = [e for e in events if e["team_id"] == tid and e["kind"] != "lineup"]
+        out["events"].update({e["id"]: e for e in mine})
+        if args.json:
+            print(json.dumps({"row": row, "moves": mine}, indent=2, default=str))
+        else:
+            print(json.dumps(row, indent=2, default=str))
+            for e in mine[:25]:
+                print(f"  {at_s(e['at']):<11} {say(out, e['id'])}")
+        return 0
+    if args.json:
+        print(json.dumps(out, indent=2, default=str))
+    elif args.brief:
+        print("\n".join(out["brief"]))
+    else:
+        render(out)
+        if args.record:
+            print(f"\nrecorded {out['recorded']} wire predictions in {log_path(api.season).relative_to(FANTASY.parent)}")
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

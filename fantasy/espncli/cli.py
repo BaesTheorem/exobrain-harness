@@ -815,6 +815,8 @@ def pool_rows(api: Espn, week: int, pos: str, limit: int, statuses: list[str]) -
             "id": p.get("id"), "name": p.get("fullName"), "pos": POS.get(p.get("defaultPositionId") or 0, "?"),
             "team": api.pro(tid)["abbrev"], "team_id": tid, "opp": api.opponent(tid, week),
             "avail": "WVR" if e.get("status") == "WAIVERS" else "FA",
+            # When a waiver player's window closes (the run that decides it).
+            "clears": local(e.get("waiverProcessDate")) if e.get("status") == "WAIVERS" else None,
             "status": short_status(p.get("injuryStatus")),
             "proj": week_proj(p, api.season, week), "season_proj": season_proj(p, api.season),
             "season_actual": season_actual(p, api.season),
