@@ -448,6 +448,14 @@
     "notes": "Logs NWS + Open-Meteo forecasts and KMKC obs to SQLite every 30 min (launchd com.exobrain.weather-monitor). score.py = per-source accuracy report."
   },
   {
+    "name": "guard-identity",
+    "command": ".claude/hooks/guard-identity.py (PreToolUse hook)",
+    "repo_dir": "/Users/alexhedtke/Documents/Exobrain harness/.claude/hooks",
+    "source": "built",
+    "added": "2026-10-22",
+    "notes": "Registered in ~/.claude/settings.json (user level, every project). Reads identifiers from the gitignored .env MYKCMO_CONTACT_* and MYKCMO_HOME_ADDRESS. ask when attended, deny when MIST_UNATTENDED=1. MIST_IDENTITY_GUARD=off disables. Positive control: the canary string in the docstring. Log ~/Library/Logs/exobrain/guard-identity.log. Tests tests/test_guard_identity.py."
+  },
+  {
     "name": "Harry Potter and the Sorcerer's Stone",
     "category": "app",
     "command": "",
