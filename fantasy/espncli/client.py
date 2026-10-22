@@ -605,9 +605,9 @@ def pending_banner(api: Espn) -> list[str]:
     try:
         txs = api.pending_transactions()
     except Exception as e:  # noqa: BLE001 - a banner must never break the command
-        return [f"PENDING: unreadable ({e}). Check `espn-tx pending` before acting."]
+        return [f"PENDING: unreadable ({e}). Check `espn-tx pending` before acting."] + league_lines(api)
     if not txs:
-        return []
+        return league_lines(api)
 
     me = int(api.creds["team_id"])
     ids = [i.get("playerId") for t in txs for i in (t.get("items") or [])]
@@ -664,6 +664,58 @@ def pending_banner(api: Espn) -> list[str]:
                      f"   week {t.get('scoringPeriodId')}, processes {at}")
     lines += pending_conflicts(api, txs)
     lines.append("  Season log in the playbook has the reasoning. `espn-tx pending` for the raw rows.")
+    return lines + league_lines(api)
+
+
+LEAGUE_TTL = 600
+
+
+def league_lines(api: Espn) -> list[str]:
+    """The other teams' moves in the last 48 hours and any trade in review,
+    printed under the pending banner by every ESPN command.
+
+    Alex, 2026-10-22: read the other teams every time we touch the fantasy
+    system ("we want to play chess when everyone else is playing checkers").
+    It is in the banner, not only in the skill, for the reason the banner
+    exists: a check that must be remembered is a check that gets skipped.
+    Cached for 10 minutes, so a routine's many commands cost one read. Never
+    raises; `rival-scan` has the full board."""
+    try:
+        return api._cached("league-banner", lambda: _league_lines(api), ttl=LEAGUE_TTL)  # noqa: SLF001 - same module as the cache helper
+    except Exception as e:  # noqa: BLE001 - a banner must never break the command
+        return [f"LEAGUE: unreadable ({e}). `fantasy/bin/rival-scan` reads the other teams."]
+
+
+def _league_lines(api: Espn) -> list[str]:
+    from .league_log import feed_filter, normalize  # noqa: PLC0415 - league_log imports this module
+
+    me = int(api.creds["team_id"])
+    teams = {t["id"]: t.get("abbrev") or team_name(t) for t in api.league("mTeam").get("teams", [])}
+    feed = api.league("kona_league_communication", path="/communication/", filt=feed_filter(80))
+    pend = api.league("mPendingTransactions").get("pendingTransactions") or []
+    log = normalize({"topics": feed.get("topics", []), "transactions": [], "pending": pend}, list(teams), me, [])
+    cut = (time.time() - 48 * 3600) * 1000
+    recent = [e for e in log["events"] if e["team_id"] != me and e["kind"] != "lineup" and (e["at"] or 0) >= cut]
+    names = api.names_for([e["player_id"] for e in recent if e.get("player_id")])
+    by_team: dict[int, list[str]] = {}
+    for e in reversed(recent):
+        nm = names.get(int(e["player_id"]), "?") if e.get("player_id") else "?"
+        sign = {"add": "+", "drop": "-"}.get(e["kind"], "")
+        tail = " (waiver)" if e["kind"] == "add" and e["how"] == "waiver" else ""
+        if e["kind"] in ("trade", "trade_accepted"):
+            sign, tail = "", f" to {teams.get(e['other_team_id'], '?')}" + (" (in review)" if e["kind"] == "trade_accepted" else "")
+        by_team.setdefault(e["team_id"], []).append(f"{sign}{nm}{tail}")
+    lines = [f"LEAGUE, last 48h: {len(recent)} rival move{'s' if len(recent) != 1 else ''}"
+             + (": " + "; ".join(f"{teams.get(t, t)} {' '.join(v)}" for t, v in by_team.items()) if recent else ".")
+             + " `fantasy/bin/rival-scan` has the board, the wire and the opponent."]
+    for p in log["pending"]:
+        if p["direction"] != "league":
+            continue
+        at = local(p.get("process_at"))
+        moved = ", ".join(f"{teams.get(i['from'], '?')}>{teams.get(i['to'], '?')} "
+                          f"{names.get(int(i['player_id']), i['player_id']) if i.get('player_id') else '?'}"
+                          for i in p["items"] if i.get("type") == "TRADE")
+        lines.append(f"  TRADE IN REVIEW (veto window, processes {at.strftime('%a %-I:%M%p') if at else '?'}): {moved}")
     return lines
 
 

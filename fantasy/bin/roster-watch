@@ -44,6 +44,38 @@ LEAGUE_URL = _URLS["league"]
 NEEDS_JUDGMENT = {"OUT", "DOUBTFUL", "INJURY_RESERVE", "SUSPENSION"}
 SWAP_SCAN = HERE / "swap-scan"
 REPLY_URL = "http://127.0.0.1:5014/notify-reply"
+RIVALS_MAX_AGE = 6 * 3600
+
+
+def rivals_needing(pos: str) -> list[str]:
+    """Other teams with an uncovered need at `pos` this week or next, from the
+    last rival-scan build (espncli.rivals, fantasy/.cache/rivals-*.json, at
+    most six hours old; no new ESPN reads). A free agent goes to whoever files
+    first, so a rival with the same need is a race (2026-10-22: the Titans D/ST
+    cleared our gate at 4:04 PM, sat on a banner, and went to a rival at
+    11:48 AM the next day)."""
+    try:
+        f = max((FANTASY / ".cache").glob("rivals-*.json"), key=lambda x: x.stat().st_mtime)
+        if time.time() - f.stat().st_mtime > RIVALS_MAX_AGE:
+            return []
+        board = json.loads(f.read_text()).get("board", [])
+    except (ValueError, OSError):
+        return []
+    out = []
+    for b in board:
+        need = (b.get("needs") or []) + (b.get("needs_next") or [])
+        if not b.get("mine") and (pos in need or (pos in ("RB", "WR", "TE") and "RB/WR/TE" in need)):
+            ab = b.get("abbrev") or ""
+            out.append(ab if len(ab) >= 3 else b.get("team") or ab)
+    return out
+
+
+def race_note(avail: str, pos: str, rivals: list[str]) -> str:
+    if avail == "FA" and rivals:
+        return f"; {', '.join(rivals)} need a {pos} too, and a free agent goes to whoever files first"
+    if avail == "FA":
+        return "; free agent, first come"
+    return ""
 
 
 def reply_button(label: str, text: str) -> str:
@@ -85,7 +117,7 @@ def swap_gate_event(st: dict) -> dict | None:
     if gs.get("offered") == pair:
         return None
     gs["offered"] = pair
-    return {"kind": "swap_gate", "gate": gate, "judgment": False, **best}
+    return {"kind": "swap_gate", "gate": gate, "judgment": False, "rivals": rivals_needing(best["add_pos"]), **best}
 
 
 def stream_gate_event(st: dict) -> dict | None:
@@ -339,15 +371,17 @@ def main() -> int:
             if ev["avail"] == "BE":
                 heads.append(f"lineup {ev['slot']}: {ev['why']}")
             else:
-                heads.append(f"stream {ev['slot']}: {ev['add']} ({ev['avail']}) for {ev.get('drop') or ev['ours']}, {ev['why']}")
+                heads.append(f"stream {ev['slot']}: {ev['add']} ({ev['avail']}) for {ev.get('drop') or ev['ours']}, {ev['why']}"
+                             + race_note(ev["avail"], ev["slot"], rivals_needing(ev["slot"])))
         elif ev["kind"] == "swap_gate":
             fl = f", volume {'/'.join(ev['flags'])}" if ev.get("flags") else ""
             heads.append(f"wire: add {ev['add']} ({ev['add_pos']}, {ev['avail']}) for "
-                         f"{ev['drop']} clears the gate, +{ev['gain']:.1f} pts rest of season{fl}")
+                         f"{ev['drop']} clears the gate, +{ev['gain']:.1f} pts rest of season{fl}"
+                         + race_note(ev["avail"], ev["add_pos"], ev.get("rivals") or []))
         else:
             heads.append(ev["kind"].replace("_", " ") + (f": {ev.get('player')}" if ev.get("player") else ""))
     judgment = any(ev.get("judgment") for ev in events)
-    msg = "; ".join(heads)[:200] + (". MIST is on it." if judgment and not args.no_routine else "")
+    msg = "; ".join(heads)[:260] + (". MIST is on it." if judgment and not args.no_routine else "")
     link = LEAGUE_URL if any(ev["kind"] == "trade_offer" for ev in events) else ROSTER_URL
     actions = ["--action", "Ask MIST=console"]
     swap = next((ev for ev in events if ev["kind"] == "swap_gate"), None)
