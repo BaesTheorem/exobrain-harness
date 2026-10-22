@@ -346,6 +346,8 @@ class TweetFacts:
     videos: int = 0
     photos: int = 0
     photo_url: str | None = None
+    photo_urls: list[str] = field(default_factory=list)
+    video_urls: list[str] = field(default_factory=list)
 
 
 def tweet_facts(api_json: dict) -> TweetFacts:
@@ -355,11 +357,14 @@ def tweet_facts(api_json: dict) -> TweetFacts:
     facts = TweetFacts(found=bool(tweet), text=tweet.get("text") or "")
     for post in (tweet, tweet.get("quote") or {}):
         media = post.get("media") or {}
-        facts.videos += len(media.get("videos") or [])
+        videos = media.get("videos") or []
+        facts.videos += len(videos)
+        facts.video_urls += [v["url"] for v in videos if v.get("url")]
         photos = media.get("photos") or []
         if photos and not facts.photos:
             facts.photos = len(photos)
             facts.photo_url = photos[0].get("url")
+            facts.photo_urls = [p["url"] for p in photos if p.get("url")]
     return facts
 
 
@@ -391,13 +396,23 @@ def tweet_decision(facts: TweetFacts, native: NativeEmbed | None) -> tuple[bool,
     return False, "native embed sufficient"
 
 
+# Text this long risks Discord's unfurl cut (seen at ~760 chars on a fixupx
+# card), so a post with media and more text than this gets our own embed too.
+UNFURL_TEXT_SAFE = 600
+
+
 def tweet_wants_card(facts: TweetFacts) -> bool:
-    """A post with no video and at most one photo is reposted as an embed MIST
-    builds from the API text. Reposting the fixupx link instead hands the text
-    back to Discord's unfurler, which cuts a long post the same way it cut the
-    original. Video and photo mosaics still need fxembed's player, so those
-    keep the link."""
-    return facts.found and not facts.videos and facts.photos <= 1
+    """Repost as an embed MIST builds from the API text, not as a fixupx link.
+    The link hands the text back to Discord's unfurler, which cuts a long post
+    the same way it cut the original. A post with no video and at most one
+    photo always gets the card. A video or photo mosaic keeps the fixupx card
+    (one tidy player) unless its text is long enough to be cut; then the card
+    carries the text and the photos (as a gallery) or the video links."""
+    if not facts.found:
+        return False
+    if not facts.videos and facts.photos <= 1:
+        return True
+    return len(facts.text) > UNFURL_TEXT_SAFE
 
 
 # Discord's cap on an embed description.
@@ -419,7 +434,8 @@ class TweetCard:
     author: str
     avatar_url: str | None
     text: str
-    photo_url: str | None
+    photo_urls: list[str]
+    video_urls: list[str]
     stats: str
     timestamp: int | None
 
@@ -449,7 +465,9 @@ def tweet_card(api_json: dict, facts: TweetFacts) -> TweetCard | None:
         author=f"{name} (@{handle})" if name else f"@{handle}",
         avatar_url=author.get("avatar_url"),
         text=text,
-        photo_url=facts.photo_url if facts.photos == 1 else None,
+        # Discord merges up to four embeds that share a url into one gallery.
+        photo_urls=[] if facts.videos else facts.photo_urls[:4],
+        video_urls=facts.video_urls[:4],
         stats=stats,
         timestamp=tweet.get("created_timestamp"),
     )

@@ -145,13 +145,25 @@ def test_tweet_card_carries_full_text():
     facts = pl.tweet_facts(api)
     assert pl.tweet_wants_card(facts)
     card = pl.tweet_card(api, facts)
-    assert card.text == long_text and card.author == "A (@a)" and card.photo_url == "p"
+    assert card.text == long_text and card.author == "A (@a)" and card.photo_urls == ["p"]
     assert "4.4K" in card.stats and "117.2K" in card.stats
     huge = pl.tweet_card({"tweet": {"text": "x" * 5000}}, pl.TweetFacts(found=True))
     assert len(huge.text) == pl.EMBED_DESCRIPTION_MAX
+    # Short text with a video or a mosaic keeps the fixupx card and its player.
     assert not pl.tweet_wants_card(pl.tweet_facts({"tweet": {"text": "v", "media": {"videos": [{}]}}}))
     assert not pl.tweet_wants_card(pl.tweet_facts(
         {"tweet": {"text": "p", "media": {"photos": [{"url": "a"}, {"url": "b"}]}}}))
+    # Long text with a video: our card for the text, the mp4 link for the player.
+    vid_api = {"tweet": {"text": long_text, "media": {"videos": [{"url": "v.mp4"}], "photos": [{"url": "t"}]}}}
+    vid = pl.tweet_facts(vid_api)
+    assert pl.tweet_wants_card(vid)
+    vcard = pl.tweet_card(vid_api, vid)
+    assert vcard.video_urls == ["v.mp4"] and vcard.photo_urls == []
+    # Long text with five photos: a gallery of the first four.
+    mosaic_api = {"tweet": {"text": long_text, "media": {"photos": [{"url": str(i)} for i in range(5)]}}}
+    mosaic = pl.tweet_facts(mosaic_api)
+    assert pl.tweet_wants_card(mosaic)
+    assert pl.tweet_card(mosaic_api, mosaic).photo_urls == ["0", "1", "2", "3"]
     assert pl.compact_count(999) == "999" and pl.compact_count(1000) == "1K"
 
 

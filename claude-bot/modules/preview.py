@@ -237,7 +237,8 @@ class Previewer:
 
     # --- posting ----------------------------------------------------------------
     async def _post(self, message: discord.Message, url: str, content: str | None,
-                    files: list[discord.File], embed: discord.Embed | None,
+                    files: list[discord.File],
+                    embed: discord.Embed | list[discord.Embed] | None,
                     suppress: bool) -> discord.Message | None:
         content = pl.with_footer(content or "", message.jump_url)
         if len(content) > 2000:
@@ -250,7 +251,9 @@ class Previewer:
         }
         if files:
             kwargs["files"] = files
-        if embed is not None:
+        if isinstance(embed, list):
+            kwargs["embeds"] = embed
+        elif embed is not None:
             kwargs["embed"] = embed
         try:
             out = await message.channel.send(content, **kwargs)
@@ -453,20 +456,31 @@ class Previewer:
         card = pl.tweet_card(data, facts) if pl.tweet_wants_card(facts) else None
         if card is None:
             return pl.repost_line(fixup, message.jump_url, spoilered), [], None, True
-        # The link stays as attribution in <> so Discord does not unfurl it
-        # into a second, cut-off card under this one.
+        # The fixupx link stays as attribution in <> so Discord does not unfurl
+        # it into a second, cut-off card. Video links do unfurl: Discord plays
+        # a bare mp4 inline, under the text card.
+        gallery_url = card.url or fixup
         embed = discord.Embed(
             description=(f"||{card.text[:4090]}||" if spoilered else card.text),
-            url=card.url or None,
+            url=gallery_url,
             color=0x1D9BF0,
         )
         embed.set_author(name=card.author[:256], url=card.url or None, icon_url=card.avatar_url)
-        if card.photo_url and not spoilered:
-            embed.set_image(url=card.photo_url)
         embed.set_footer(text=f"{card.stats}   ·   X" if card.stats else "X")
         if card.timestamp:
             embed.timestamp = datetime.fromtimestamp(card.timestamp, tz=timezone.utc)
-        return pl.repost_line(fixup, message.jump_url, spoilered, unfurl=False), [], embed, True
+        embeds = [embed]
+        if not spoilered:
+            for i, photo in enumerate(card.photo_urls):
+                target = embed if i == 0 else discord.Embed(url=gallery_url)
+                target.set_image(url=photo)
+                if i:
+                    embeds.append(target)
+        content = pl.repost_line(fixup, message.jump_url, spoilered, unfurl=False)
+        for i, video in enumerate(card.video_urls, 1):
+            label = "video" if len(card.video_urls) == 1 else f"video {i}"
+            content += "\n" + (f"|| [{label}]({video}) ||" if spoilered else f"[{label}]({video})")
+        return content, [], embeds, True
 
     async def _resolve_tiktok(self, url: str) -> str | None:
         """Expand a TikTok short code by reading its redirect."""
