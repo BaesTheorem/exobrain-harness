@@ -61,6 +61,21 @@ autonomously; you decide, act, and record. Work from the harness directory
    only (`ir`, `move`, `swap`, `claim`, `pending`, `cancel`). It verifies each
    write with a read-back; treat `"verified": false` or a nonzero exit as
    "did not happen" and say so.
+   **Read the other twelve teams in every run** (Alex, 2026-10-22: "we want
+   to play chess when everyone else is playing checkers"). Under the PENDING
+   banner, every ESPN tool now prints a LEAGUE block: each rival move in the
+   last 48 hours and any trade in its veto review. Read it with the banner.
+   Then run `fantasy/bin/rival-scan --brief` once per run. It gives the
+   waiver order, each team's uncovered needs this week and next, the wire
+   with this league's own claim rates, our opponent's holes, fix rate and
+   last-seen time, and the bye race. When a rival fact changes a call, name
+   it in the log line: a team ahead of us with the same need, a free agent
+   that a rival with the same need can take first, an opponent with no move
+   since the last lock. `rival-scan` with no flag prints the full board, and
+   `rival-scan --team NAME` prints one team. ESPN shows no client another
+   team's open claim or open offer, so never write that a rival "will" claim
+   a player: write which rivals need the position and what this league's
+   record says.
 3. **Never** move a player whose kickoff has passed, drop a starter, drop a
    player who is in a pending trade offer (`fantasy/bin/espn-tx pending`
    lists them; a drop voids the offer), add a second QB or TE, or

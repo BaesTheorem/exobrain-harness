@@ -57,5 +57,9 @@ Nothing from the Mac is on disk until step 1 puts it there.
   run edits the real one (Season log under the current week, `updated:`
   field). Step 4 sends it back.
 - Write log lines with `fantasy/bin/routine-log` as usual. Step 4 sends them.
+- **`rival-scan`**: run `--brief` as COMMON rule 2 says, but leave out
+  `--record` and `--settle`. The prediction log
+  (`fantasy/forecasts/rivals-<season>.jsonl`) is the Mac's, and an append
+  from a clone that it later merges is a conflict for no gain.
 - Start the Season log line of every cloud run with `(cloud)` so Alex can see
   which runs the Mac did not do.

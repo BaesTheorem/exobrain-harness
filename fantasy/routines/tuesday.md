@@ -91,7 +91,14 @@ Follow `fantasy/routines/COMMON.md` first. If today is not Tuesday, stop.
    have touches beat clean handcuffs; touchdowns on thin volume are a sell,
    heavy volume with bad touchdown luck is a buy. No second QB or TE. Drop the
    bench player `swap-scan` names for the swap (the lowest `ros_rate` that
-   fits the position limits); never drop a starter. From week 5 on, value every player on
+   fits the position limits); never drop a starter. **Read `rival-scan`'s wire
+   before you file** (playbook *Waivers*, 2026-10-22): a claim on a player
+   this league just dropped nearly always lands even from 13th (2 of 68
+   drops claimed by another team through week 7), and a claim on a breakout
+   nearly never does, so file it but plan the roster as if it fails. **A free
+   agent that clears the gate is a race:** file it in this run with
+   `espn-tx claim --fa`, before the next manager with the same need (the
+   Titans D/ST, 10-21 to 10-22). From week 5 on, value every player on
    `ros_rate`: 0.45 weekly projection, 0.35 prior, 0.20 season points per
    game (backtest, 2026-10-15: better than the old 50/50 of prior and PPG in
    all 12 held-out season-weeks), weighting each week by its `--leverage`
@@ -136,16 +143,27 @@ Follow `fantasy/routines/COMMON.md` first. If today is not Tuesday, stop.
    hurt. Trade targets are retired with the trade lane (rule inventory R141,
    2026-10-15: none of the 9 watch-list incidents since 09-22 changed a
    roster decision). Act on fired triggers, prune the rest, bump `updated`.
-5. **Tendencies.** `fantasy/bin/league-scan` (zeros started, bench points
-   left per week, adds, offers sent and received and how they ended, per
-   manager, from every closed week) and `fantasy/bin/espn activity --json`
-   since last Tuesday: who is active, who leaves holes (the opponent model
-   in the lineup routine counts on a hole only for a manager with a record
-   of them), who answers offers. Update the playbook's league observations
-   from the numbers, not just the log.
+5. **Tendencies.** Start with `fantasy/bin/rival-scan --settle`: it scores
+   the wire's recorded claim odds against what each run did. Quote the
+   recycled rows (the mean predicted rate against the observed rate, and the
+   Brier score) and the fresh rows (how many were claimed). When the
+   observed rate sits outside what the recorded odds allowed for three weeks
+   running, the base rate is wrong: say so in the review and fix
+   `espncli/rivals.py`, not the odds by hand. Then `fantasy/bin/rival-scan`
+   (the full board: each team's needs, adds, K and D/ST streams, claims won
+   and lost, weeks with a lineup move, when the manager acts, last seen),
+   `fantasy/bin/league-scan` (zeros started, bench points left per week,
+   adds, offers sent and received and how they ended, per manager, from
+   every closed week) and `fantasy/bin/espn activity --json` since last
+   Tuesday: who is active, who leaves holes (the opponent model in the
+   lineup routine counts on a hole only for a manager with a record of
+   them), who answers offers, who streams which position, and any vote or
+   proposal between other teams that ESPN has shown. Update the playbook's
+   league observations from the numbers, not just the log.
 6. Notify Alex with a compact summary (result, record, claims filed, priority,
-   last week's coverage, this week's win probability), linked to the league
-   page.
+   last week's coverage, this week's win probability, and the league read:
+   the rival-moves, opponent and bye-race lines of `rival-scan --brief`),
+   linked to the league page.
 7. **Forecast the new week, last, on the roster as it stands.** This is
    MIST's judgment call, not a script's number: `fantasy/bin/forecast
    dossier --save /tmp/fc-dossier.json` assembles the evidence (five

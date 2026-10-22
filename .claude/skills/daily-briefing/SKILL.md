@@ -89,6 +89,12 @@ is nothing. Add one line of your own only when something needs a decision today 
 next few hours); the lineup routines act on it, so the briefing only has to make Alex aware. Alex asked for this on
 2026-09-07: he wants to know who these people are and what is happening to them.
 
+Then run `python3 "/Users/alexhedtke/Documents/Exobrain harness/fantasy/bin/rival-scan" --brief` (about 10 seconds) and
+paste its lines under a `**League**` line in the same section: rival moves in the last 48 hours, our pending claim's
+odds, the opponent's holes, and the bye race. Alex asked for this on 2026-10-22: the other teams' behavior belongs in
+every check-in ("we want to play chess when everyone else is playing checkers"). Paste it as printed. It is a
+deterministic read of ESPN's record, and the routines act on it.
+
 ### 11c. Discord (read-only)
 Do NOT run a live Discord scan here. Read the digest that `discord-digest-fetch.py` refreshes every 4 h under launchd: `discord/discord-digest.json` in the harness (gitignored). Interpret it per the `/discord-digest` skill (including its username mapping); never paste real names into anything tracked. Include a short `#### Discord` section (3 lines max: upcoming plans with dates, anything that needs Alex's reply) **only when the digest has entries newer than the last briefing**; omit the section otherwise. Route any plan with a date to the calendar per `/calendar` and any ask to Things per `/things3`, the same as the digest skill's own routing rules. If the file is missing or older than 24 h, skip the section and add one line to `#### Flags` naming the stale digest.
 
@@ -151,6 +157,8 @@ Weather goes FIRST (outside the briefing heading), then content under `### Morni
 
 #### Fantasy
 [roster-news output: one bullet per player with news, or the italic no-news line]
+**League**
+[rival-scan --brief output: one bullet per line]
 
 #### Discord
 - [upcoming plan or ask from the digest -- 1 line each, max 3. Omit the section when there is nothing new.]

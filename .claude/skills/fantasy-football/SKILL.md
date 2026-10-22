@@ -53,7 +53,8 @@ Where each call lives in the playbook:
 | What has already been decided and why | *Season log* (newest first) |
 | What is still unknown | The "Test (pending)" line at each untested rule; *Open questions* |
 | League settings when a tool and memory disagree | *League at a glance* (the note wins) |
-| A leaguemate's tendencies, who is engaged | *League observations* (current read on top of each thread; tiers from `league-scan`); the joke-first rule is in `fantasy/routines/chat.md` rule 8 |
+| A leaguemate's tendencies, who is engaged | *League observations* (current read on top of each thread; tiers from `league-scan`, needs and behavior live from `rival-scan`); the joke-first rule is in `fantasy/routines/chat.md` rule 8 |
+| Who else wants a player, whether a claim lands | *Waivers* (contested for breakouts, nearly never for drops; a free agent is a race); the odds per player from `rival-scan` |
 | Whether a rule has already been tried and overturned | *Corrections ledger* (Was / Falsified by / Now / Lesson, newest first) |
 | The week's 50%/90% forecast and the Tuesday review | *Weekly forecast and review*; the *Season log*, where each `### Week N` section opens with the generated Forecast and Review blocks |
 
@@ -74,6 +75,53 @@ the skill and got skipped three times in one evening, twice by re-deriving a
 Bryce Young claim that was sitting in the queue. Treat a precondition that
 depends on remembering as a precondition that will be missed, and move it
 into the tool.
+
+**Read the other twelve teams every time, too** (Alex, 2026-10-22: "We want
+to play chess when everyone else is playing checkers"). The same banner now
+carries a LEAGUE block: each rival move in the last 48 hours and any trade in
+its veto review (`espncli.client.league_lines`, cached 10 minutes). It is in
+the banner for the reason the pending block is. Before any judgment call,
+also run `fantasy/bin/rival-scan --brief`. For a waiver, trade or opponent
+question, run the full `rival-scan`. What it gives, and what the 2026 record
+says (measured 2026-10-22, weeks 1-7):
+
+- **What ESPN shows and hides.** Shown: every team's executed adds, drops,
+  trades and lineup moves (the activity feed); every processed claim, failed
+  ones included, so after each run we see who else claimed whom; trade votes
+  with the voter; a trade that two teams accepted, during its 24-hour veto
+  review. Never shown to any client: another team's open claim or open
+  offer. So never say a rival "will" claim a player. Say which rivals need
+  the position and what the record says.
+- **The wire is contested for breakouts only.** 2 of 68 dropped players were
+  claimed off waivers by another team, and 3 of the 26 players claimed drew
+  more than one claim (Spencer Shrader drew 8). We pick 13th while we lead, so a
+  recycled drop is nearly always ours and a breakout nearly never is. The
+  odds for each player on waivers are in `rival-scan`'s wire. The lineup
+  routine records them before each run (`--record`) and the Tuesday routine
+  scores them (`--settle`). The base rate adds one claim and one non-claim,
+  so 0 of 11 reads as 1 in 13, never as 0.
+- **A free agent is a race.** It goes to whoever files first. The Titans D/ST
+  cleared our gate on the 10-21 4:04 PM banner and went to a rival with a
+  D/ST need at 11:48 AM the next day. A routine files a free-agent PASS in the
+  same run, and the roster-watch banner names the rivals with the same need
+  (`rivals_needing`, from the last `rival-scan` build).
+- **Needs are computed, not guessed.** For each team: the starter holes this
+  week and next (bye, OUT, IR, empty) and the bench cover for each. A covered
+  hole is a lineup fix, and an uncovered one is a need from the wire. That
+  list says who competes for a position.
+- **Behavior is counted.** Adds, K and D/ST streams, claims won and lost,
+  weeks with a lineup move, the weekday and hour band in which a manager
+  acts, and last seen. Only moves made by hand count: a feed row with no
+  client platform (ESPN's Tuesday 2:00 AM lineup rollover for two teams,
+  written under our member id) is `auto`. Engagement tiers and fix rates
+  stay `league-scan`'s.
+- **The opponent's holes are already priced.** `espn check` covers them at
+  the measured fix rate. `rival-scan` adds last seen and, for each open hole,
+  the free agent who fills it against the next best (`denial_pts`). A denial
+  add is untested: it must clear the waiver gate like any other move.
+- **The Scorebug app's WIRE tab** shows the same read: every team's history,
+  our pending moves with their odds, trades in review (with a push to the
+  phone when one appears), the waiver order with needs, and the brief.
 
 `fantasy/bin/ff` in the harness reads the real league over the ESPN API
 (read-only). Use it before answering anything that depends on current state:
@@ -188,6 +236,12 @@ the site by hand.
   bye-hole fix rate, an engagement tier, adds, and trade offers answered;
   plus an integrity block (drop-to-pickup chains, league-manager moves). The
   opponent model and the collusion check
+- `fantasy/bin/rival-scan [--brief] [--record] [--settle] [--team NAME]`:
+  the other twelve teams now (above, under *Read the other twelve teams*):
+  needs, behavior, the wire's claim odds, the opponent, the bye race, the
+  trade market. The logic is `espncli/rivals.py`; the normalized league log
+  is `espncli/league_log.py`, and its JavaScript twin in the Scorebug Worker
+  is `fantasy/scorebug/wire.js` (`test_wire.py` holds the two equal)
 - `python3 fantasy/trade_scan.py --json [--min-gain 10]` — every 1-for-1
   and 2-for-1 the other side does not lose on its own screen, priced in
   title and bye odds; `python3 fantasy/season_sim.py --json`: bye odds on

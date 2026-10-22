@@ -17,6 +17,12 @@ fifteen minutes before the reports it existed to read.)
    up until a starting slot is empty. If one is in review and the starter it
    sends away locks before the next scheduled run, say so in the log and plan
    the replacement now rather than discovering it later.
+   **Every run, also `fantasy/bin/rival-scan --brief --record`** (COMMON
+   rule 2). `--record` saves the wire's claim odds before the overnight
+   waiver run, and the Tuesday routine scores them. Its opponent line is the
+   read on the rival's holes: `win.p` already prices them at the measured
+   fix rate (`opp_fix`), so quote the last-seen time as context and do not
+   apply it again.
    **Sunday morning run only:** `python3 -m ffmodel.fpranks snapshot <week>`
    (run from `fantasy/`; it saves MIST's ranks and FantasyPros' consensus
    side by side before the 1 p.m. ET games for the outside accuracy test).
