@@ -577,6 +577,14 @@
     "notes": "Rebuilds and wirelessly reinstalls iOS sideloads before their provisioning profiles expire. --status/--discover/--force/--quiet. Manual only: the twice-daily launchd agent was retired 2026-09-15 when the paid developer plan moved profiles from 7 days to a year."
   },
   {
+    "name": "jd-snapshot.py",
+    "command": "python3 job-search/jd-snapshot.py --note \"<listing note>\" [--url URL] [--dry-run]",
+    "repo_dir": "/Users/alexhedtke/Documents/Exobrain harness/job-search",
+    "source": "built",
+    "added": "2026-10-22",
+    "notes": "Re-execs under uv with patchright. Exit 0 = saved + comp seen/unlisted, 1 = saved but band not on page, 2 = nothing saved (load failed or page closed/not found; note not moved). Prefers original_listing, then listing_url, then apply_url."
+  },
+  {
     "name": "jobspy_lane.py (job-search Glassdoor/ZipRecruiter lane)",
     "command": "python3 job-search/jobspy_lane.py \"<angle>\" ... --days 3",
     "repo_dir": "/Users/alexhedtke/Documents/Exobrain harness/job-search",

@@ -20,6 +20,14 @@ Daily unattended discovery scan for the `/job-search` skill.
   on failure (added 2026-08-10: half the 7/21-8/10 runs died on "Connection closed
   mid-response" with no retry and no visible trace), and a clickable `mist-notify` failure
   banner pointing at the failed attempt's log.
+- **`jd-snapshot.py`** (added 2026-10-22) -- the last step for every qualifying listing.
+  Loads the posting in headless Chrome (patchright under uv, normal UA, no window), opens
+  "show more" expanders, and saves a full-page PNG as an artifact in the listing's own folder,
+  moving a flat note into `Job Listings/<Company> - <Role>/` first. It records the pay range as
+  the employer showed it, for salary talks after the posting changes or goes. The positive
+  control is a comp check: the page text must show the note's `comp_min` or `comp_max` (exit 1
+  if not). A closed or not-found page exits 2 and leaves the note where it is. `--dry-run`
+  saves to `tmp/jd-snapshot/` only.
 - **`fit-gate.py`** (added 2026-10-09) -- gate 4 (strong fit) as arithmetic. Each listing
   note carries a `## Fit scorecard` table: one row per JD line, with the level the JD verb
   asks for, Alex's real level from the Capability Boundaries table in the gitignored

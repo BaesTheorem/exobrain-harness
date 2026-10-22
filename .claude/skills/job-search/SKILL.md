@@ -668,7 +668,8 @@ Every researched, audited, or scanned job listing **MUST get a dedicated note** 
 ### Note location and naming
 
 - Base folder: `Projects/Get new job/Job Listings/`
-- **Plain listing (scanned/candidate, no artifacts, not applied)**: a flat note `Job Listings/<Company> - <Role>.md` (e.g., `Acme - Support Engineer.md`). If a company has multiple roles, list them as separate files. Strip illegal filename characters.
+- **Qualifying listing (passed all four gates)**: its own folder `Job Listings/<Company> - <Role>/` from the start, because the posting snapshot (see "Listing snapshot" below) is its first artifact (Alex 2026-10-22). `jd-snapshot.py` makes the folder and moves the note into it.
+- **Near-miss or unverified listing (no snapshot)**: a flat note `Job Listings/<Company> - <Role>.md` (e.g., `Acme - Support Engineer.md`). If a company has multiple roles, list them as separate files. Strip illegal filename characters.
 - **Active listing (we built ANY artifact for it, or applied)** -- folder convention (Alex 2026-06-24, broadened 2026-07-15): the moment we create *any* artifact for a listing -- tailored resume, cover letter, **interview prep doc**, company/interviewer **research**, notes, anything -- promote it to its own dedicated folder `Job Listings/<Company> - <Role>/` and put **everything** for that role inside: the note `<Company> - <Role>.md` PLUS every artifact (resume + cover letter PDFs, interview prep `.md`s, research `.md`s). Do NOT scatter interview prep or research loose in `Projects/Get new job/` or the Job Listings root. When promoting an existing flat note, move the `.md` into the new same-named folder. This keeps everything for one application in one place. (One folder per role; a separate declined/inactive role at the same company keeps its own flat note or folder.)
 - The Bases tracker is unaffected by the flat-vs-folder split: its filter `file.inFolder("Projects/Get new job/Job Listings")` is **recursive** (matches subfolders), and the `file.ext == "md"` + `type == "job-listing"` clauses exclude the PDFs, so artifacts never pollute the table and foldered notes still aggregate. Wikilinks resolve by basename, so `[[<Company> - <Role>]]` keeps working after a note moves into its folder.
 
@@ -701,6 +702,9 @@ posted: 2026-05-08         # date the listing was first surfaced or research was
 application_date:          # date Alex submitted; null until applied
 rejection_date:            # date a rejection was received; null otherwise
 last_research: 2026-05-08
+jd_snapshot: "<Company> - <Role> - posting 2026-05-08.png"  # written by jd-snapshot.py
+jd_snapshot_date: "2026-05-08"
+jd_snapshot_comp: "seen"  # seen | not-found | unlisted
 original_listing:          # intermediary reposts only: the employer's own ATS URL (see "Intermediary Reposts")
 source: rippling-ats       # short tag: greenhouse, lever, ashby, workday, icims, rippling, linkedin, indeed, etc.
 ---
@@ -746,6 +750,23 @@ Truthful nulls: omit `comp_min` / `comp_max` if unlisted (set `comp_listed: fals
 ```
 
 **Always archive the full raw JD inline.** Postings get pulled, ATS pages 404, and recruiter screens happen weeks after the listing disappears (`<Employer D>`, 2026-06-02: original Rippling page was down by interview day; had to recover the JD from a Built In mirror). At create/audit time, copy the complete posting text verbatim into a **collapsible callout** (`> [!info]- Raw JD (archived verbatim)`) at the bottom of the listing note -- intro/about, all responsibilities, required + preferred qualifications, comp, benefits. The `-` after the callout type makes it collapsed by default so it doesn't clutter the note. Do not summarize or trim; the "Why this fits" / "Gaps" bullets are the summary, this callout is the source of truth. Lead the callout with the source URL and archive date. Keep it **inline in the listing note** -- do not split it into a sibling file.
+
+### Listing snapshot (last step for every qualifying JD)
+
+Added 2026-10-22 (Alex standing instruction). The raw JD callout is text only. A full-page image of the posting is the record of the pay range as the employer showed it, which matters weeks later in a salary conversation, after the posting has changed or gone. Some ATS pages also print the band outside the JD body, where the text copy misses it.
+
+**The last step after a note passes all four gates** (fit-gate PASS or OVERRIDE, contacts recorded) is:
+
+```bash
+python3 "Exobrain harness/job-search/jd-snapshot.py" --note "<listing note path>"
+```
+
+- The script loads the posting (`original_listing`, else `listing_url`, else `apply_url`, or `--url`) in headless Chrome, opens "show more" expanders, and saves one full-page PNG.
+- A flat note moves into its own folder `Job Listings/<Company> - <Role>/`, and the PNG goes into that folder as an artifact. Wikilinks resolve by basename, so no link breaks.
+- The note gets `jd_snapshot*` frontmatter and a collapsed callout under `## Listing snapshots`. A repost run adds a second dated image and keeps the first.
+- **The comp check is the positive control.** The script looks for `comp_min` or `comp_max` in the page text and prints `seen` with the matching line. `not-found` (exit 1) means the image does not show the band. Find the page that does (the employer ATS, not a mirror) and run again with `--url`. If no page shows it, record that on the note.
+- **Exit 2 with `CLOSED`** means the page says the posting is closed or not found. The note does not move. Treat the role as closed, per the verification rules.
+- Apply URLs that open an application form, not the posting, give a poor image. Put the posting URL in `listing_url`.
 
 ### Bases file conventions
 
@@ -831,7 +852,7 @@ When called as part of the daily briefing (every day, weekends included):
    - **Cloudflare-protected aggregators**: RemoteRocketship and a few others 1010-block curl with a Cloudflare challenge. Those are not blockers for Alex (he can open them in a browser), so still surface the URL -- just note "verification incomplete, Alex must spot-check JD" in the listing note.
    - Apply the 4-gate hard requirements (remote / FT permanent / comp band reaching the floor per the band rule (value lives in the gitignored Claude Reference.md) or strong inference / gate-4 fit scorecard). **Exception**: if the hit is a paid AI safety fellowship, switch to the fellowship gate variant instead of DQ'ing it -- see "AI Safety Fellowship Lane".
    - Dedupe against `Projects/Get new job/Job Listings/` folder.
-   - Create per-listing notes for survivors with `source: greenhouse` / `source: lever` / `source: company-portal` / etc. as appropriate.
+   - Create per-listing notes for survivors with `source: greenhouse` / `source: lever` / `source: company-portal` / etc. as appropriate. Every survivor that passes the gates ends with `jd-snapshot.py` (see "Listing snapshot"); this applies to every lane.
 
 2b. **Dice / Indeed / Hiring.cafe scan** (ADDED 2026-07-22 -- see Source #8 above for URLs, query syntax, and per-board gotchas):
    - Hit all three each pass. Rotate the keyword angle day-to-day like the other lanes (title + responsibility phrases).
@@ -883,7 +904,7 @@ When called as part of the daily briefing (every day, weekends included):
         - Full-time permanent (not contract, contract-to-hire, 1099, temp)
         - **Comp band reaches the floor** (band rule, Alex 2026-08-10: a listed range passes if the floor falls anywhere within it -- DQ only when the band's top is below the floor; a bottom under the floor is a pass-with-flag. The floor's value lives in the gitignored Claude Reference.md), OR brief market-data check (Glassdoor/Salary.com/ZipRecruiter median for that title) shows strong evidence the role's band reaches the floor -- *if unlisted and you can't reach high confidence in <2 min of research, DQ*
         - Strong fit: write the `## Fit scorecard` table and let `fit-gate.py --enforce` decide (see "Gate 4: Fit Scorecard"). No unmet knockout, and a score of at least 0.65 at the verb level the JD asks for.
-     c. Create a per-listing note **only** if all 4 gates pass, with the scorecard in it. A role that fails only gate 4 becomes a near-miss note (the script declines it). Use the schema in "Per-Listing Notes & Bases Tracker" above. Set `verified: true` and record the comp-evidence inference (if applicable) in `verification_signals`.
+     c. Create a per-listing note **only** if all 4 gates pass, with the scorecard in it. A role that fails only gate 4 becomes a near-miss note (the script declines it). Use the schema in "Per-Listing Notes & Bases Tracker" above. Set `verified: true` and record the comp-evidence inference (if applicable) in `verification_signals`. Then, as the last step, run `jd-snapshot.py` on it (see "Listing snapshot").
    - Pacing: no numerical cap, but follow `/linkedin` qualitative rules -- batch JD reads in small groups (2-4 per turn) with reasoning between, vary keyword angles day-to-day, no tight loops. The natural ceiling is "I've exhausted reasonable search angles," not an arbitrary count.
    - Target volume: 2-5 new verified candidates per day → hits the 10-20 weekly app goal.
 
