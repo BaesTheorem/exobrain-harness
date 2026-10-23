@@ -342,3 +342,6 @@ mychart/data/*
 fantasy/dashboard/log/
 fantasy/dashboard/cache/
 fantasy/scorebug/scorebug.json
+
+# flag.txt canary beacon config (token, flag)
+security/canary/canary.json
