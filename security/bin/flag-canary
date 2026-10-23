@@ -48,6 +48,8 @@ TARGETS: dict[str, Path] = {
     "icloud": HOME / "Library/Mobile Documents/com~apple~CloudDocs",
     "5etools-http": HOME / "My Drive/5etools",
     "pennylane-tunnel": HOME / "Documents/penny-lane/web/static",
+    # Served at /flag.txt behind the Console's remote login; local callers pass.
+    "mist-console": HOME / "Documents/mist-console/static",
 }
 
 TEMPLATE = """\
