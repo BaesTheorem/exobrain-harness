@@ -657,6 +657,14 @@
     "notes": "run needs numpy + sentence-transformers (embedder venv). Data in gitignored data/memory-eval/."
   },
   {
+    "name": "mesh-map",
+    "command": "uv run mesh/build_map.py [sites.json] [--no-png]",
+    "repo_dir": "mesh",
+    "source": "built",
+    "added": "2026-10-23",
+    "notes": "Site list is gitignored mesh/sites.json; outputs go to its out_dir (never the repo). Reads the GeoTIFF tiepoint because the USGS ImageServer grows the requested bbox to keep pixels square. PNG render uses the installed Playwright headless shell with swiftshader."
+  },
+  {
     "name": "mid2mp3 / mp32mid",
     "command": "mid2mp3 <file.mid> | mp32mid <file.mp3>",
     "repo_dir": "~/.local/bin",
