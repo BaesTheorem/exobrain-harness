@@ -345,3 +345,6 @@ fantasy/scorebug/scorebug.json
 
 # flag.txt canary beacon config (token, flag)
 security/canary/canary.json
+
+# job-pipeline profile (personal search values) read by job-search/jobprofile.py
+/profile.yaml

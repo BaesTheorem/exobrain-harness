@@ -4,3 +4,10 @@
 {"at": 1792695650631, "week": 7, "player_id": 4570037, "pos": "TE", "class": "recycled", "p_other": 0.25, "ours": false, "need_teams": [11], "trend": -0.06, "rate": 0.64, "clears": 1792825200000, "outcome": null}
 {"at": 1792708322825, "week": 7, "player_id": 3917232, "pos": "K", "class": "recycled", "p_other": 0.083, "ours": false, "need_teams": [14, 13, 1], "trend": -1.94, "rate": 10.66, "clears": 1792825200000, "outcome": null}
 {"at": 1792708322825, "week": 7, "player_id": 2969939, "pos": "QB", "class": "recycled", "p_other": 0.083, "ours": false, "need_teams": [], "trend": -4.25, "rate": 1.96, "clears": 1792825200000, "outcome": null}
+{"at": 1792794660401, "week": 7, "player_id": 4569923, "pos": "K", "class": "fresh", "p_other": null, "ours": false, "need_teams": [14, 13, 1], "trend": 0.02, "rate": 7.75, "clears": 1793170800000, "outcome": null}
+{"at": 1792794660401, "week": 7, "player_id": 4695193, "pos": "WR", "class": "fresh", "p_other": null, "ours": false, "need_teams": [14], "trend": 0.13, "rate": 7.55, "clears": 1793170800000, "outcome": null}
+{"at": 1792794660401, "week": 7, "player_id": 2973405, "pos": "WR", "class": "recycled", "p_other": 0.048, "ours": false, "need_teams": [14], "trend": -0.38, "rate": 6.13, "clears": 1793170800000, "outcome": null}
+{"at": 1792794660401, "week": 7, "player_id": -16003, "pos": "D/ST", "class": "fresh", "p_other": null, "ours": false, "need_teams": [1], "trend": 0.34, "rate": 5.5, "clears": 1793170800000, "outcome": null}
+{"at": 1792794660401, "week": 7, "player_id": 4831959, "pos": "TE", "class": "fresh", "p_other": null, "ours": false, "need_teams": [11], "trend": 0.0, "rate": 5.36, "clears": 1793170800000, "outcome": null}
+{"at": 1792794660401, "week": 7, "player_id": 4426386, "pos": "RB", "class": "fresh", "p_other": null, "ours": false, "need_teams": [11], "trend": 2.95, "rate": 5.32, "clears": 1793170800000, "outcome": null}
+{"at": 1792794660401, "week": 7, "player_id": 4613202, "pos": "WR", "class": "fresh", "p_other": null, "ours": false, "need_teams": [14], "trend": 0.0, "rate": 4.34, "clears": 1793170800000, "outcome": null}
