@@ -1,0 +1,214 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Mesh terrain map</title>
+<link rel="stylesheet" href="https://unpkg.com/maplibre-gl@5/dist/maplibre-gl.css">
+<script src="https://unpkg.com/maplibre-gl@5/dist/maplibre-gl.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/d3@7"></script>
+<script src="https://cdn.jsdelivr.net/npm/@observablehq/plot@0.6"></script>
+<style>
+  :root { --ink:#0b0b0b; --ink2:#52514d; --muted:#898781; --grid:#e1e0d9; --line:#c3c2b7; --bg:#ffffff; }
+  * { box-sizing: border-box; }
+  html, body { margin:0; height:100%; font: 14px/1.4 -apple-system, "Helvetica Neue", Helvetica, Arial, sans-serif; color:var(--ink); background:var(--bg); }
+  #wrap { display:flex; height:100%; }
+  #map { flex:1; min-width:0; }
+  #panel { width:420px; overflow-y:auto; padding:16px 16px 24px; border-left:1px solid var(--grid); }
+  h1 { font-size:18px; margin:0 0 4px; }
+  h2 { font-size:13px; margin:20px 0 8px; text-transform:uppercase; letter-spacing:.04em; color:var(--ink2); }
+  .sub { color:var(--muted); font-size:12px; }
+  .ramp { height:12px; border-radius:4px; margin:6px 0 2px; }
+  .ticks { display:flex; justify-content:space-between; font-size:12px; color:var(--ink2); }
+  .status { display:flex; align-items:center; gap:8px; margin:4px 0; font-size:13px; }
+  .status svg { flex:none; }
+  table { border-collapse:collapse; width:100%; font-size:13px; }
+  td, th { padding:4px 4px; text-align:left; border-bottom:1px solid var(--grid); vertical-align:middle; }
+  th { font-weight:600; color:var(--ink2); font-size:12px; }
+  td.num, th.num { text-align:right; font-variant-numeric:tabular-nums; }
+  .bar { height:8px; background:#2a78d6; border-radius:0 4px 4px 0; }
+  .bar.agl { background:#86b6ef; border-radius:0; }
+  .bars { display:flex; width:110px; }
+  tr.link { cursor:pointer; }
+  tr.link:hover, tr.link.sel { background:#f2f1ec; }
+  .pill { font-size:12px; font-weight:600; }
+  button { font:inherit; padding:6px 12px; border:1px solid var(--line); background:#fff; border-radius:8px; cursor:pointer; }
+  button.on { background:#0b0b0b; color:#fff; border-color:#0b0b0b; }
+  .marker { background:#fff; border:2px solid #0b0b0b; border-radius:8px; padding:3px 7px; font-size:12px; line-height:1.25; white-space:nowrap; box-shadow:0 0 0 2px rgba(255,255,255,.8); }
+  .marker b { font-size:13px; }
+  .marker .e { color:var(--ink2); font-variant-numeric:tabular-nums; }
+  .marker.root { background:#0b0b0b; color:#fff; }
+  .marker.root .e { color:#cde2fb; }
+  #profile figure { margin:0; }
+  #ptitle { font-weight:600; margin:0 0 2px; }
+  .note { font-size:12px; color:var(--ink2); margin-top:8px; }
+  body.print #toggle3d, body.print .noprint { display:none; }
+</style>
+</head>
+<body>
+<div id="wrap">
+  <div id="map"></div>
+  <div id="panel">
+    <h1 id="title"></h1>
+    <div class="sub">USGS 3DEP bare-earth elevation. LoRa 915 MHz, 4/3 earth radius. Trees and buildings are not in the model.</div>
+    <h2>Ground elevation</h2>
+    <div class="ramp" id="ramp"></div>
+    <div class="ticks" id="ticks"></div>
+    <div class="sub">Contour lines every 10 ft, labeled every 50 ft.</div>
+    <h2>Link (terrain only)</h2>
+    <div id="legend"></div>
+    <h2>Antenna height above sea level</h2>
+    <table id="sites"></table>
+    <h2 class="noprint">Elevation profile</h2>
+    <div id="profile" class="noprint"><div id="ptitle"></div><div class="sub" id="psub"></div><div id="pchart"></div></div>
+    <h2 class="noprint">All links</h2>
+    <div class="sub noprint">Click a row or a line on the map to see its profile.</div>
+    <table id="links" class="noprint"></table>
+    <div style="margin-top:16px"><button id="toggle3d">3D terrain (5x height)</button></div>
+  </div>
+</div>
+<script>
+const D = __DATA__;
+const OVERLAY = "data:image/png;base64,__OVERLAY__";
+const PRINT = location.hash === "#print";
+if (PRINT) document.body.classList.add("print");
+const byId = Object.fromEntries(D.sites.map(s => [s.id, s]));
+const LABEL = { clear: "Clear", marginal: "Fresnel zone blocked", blocked: "Terrain blocks the line" };
+const ICON = { clear: "✓", marginal: "!", blocked: "✕" };
+const DASH = { clear: null, marginal: [3, 2], blocked: [1, 1.6] };
+const fmt = v => (v > 0 ? "+" : "") + Math.round(v);
+
+document.getElementById("title").textContent = D.title + ": terrain and links";
+document.getElementById("ramp").style.background = `linear-gradient(90deg, ${D.ramp.join(",")})`;
+const [lo, hi] = D.elev;
+document.getElementById("ticks").innerHTML = [0, .25, .5, .75, 1].map(f => `<span>${Math.round(lo + f * (hi - lo))} ft</span>`).join("");
+
+function swatch(st) {
+  const d = DASH[st] ? `stroke-dasharray="${DASH[st].map(x => x * 4).join(" ")}"` : "";
+  return `<svg width="34" height="10"><line x1="1" y1="5" x2="33" y2="5" stroke="${D.status[st]}" stroke-width="4" ${d}/></svg>`;
+}
+document.getElementById("legend").innerHTML = ["clear", "marginal", "blocked"].map(st =>
+  `<div class="status">${swatch(st)}<span class="pill">${ICON[st]} ${LABEL[st]}</span></div>`).join("") +
+  `<div class="note">Clear = the ground is below the radio path and below 60% of the first Fresnel zone. Fresnel zone blocked = the line clears, but the signal loses some strength. Terrain blocks the line = the ground is above the path. A LoRa link can still work a few feet into a block, so the field test decides.</div>`;
+
+// Sites table: bars show ground (dark) + antenna height (light), from a common floor.
+const sorted = [...D.sites].sort((a, b) => b.top_ft - a.top_ft);
+const base = Math.floor((Math.min(...D.sites.map(s => s.ground_ft)) - 20) / 10) * 10;
+const span = Math.max(...D.sites.map(s => s.top_ft)) - base;
+document.getElementById("sites").innerHTML =
+  `<tr><th>Site</th><th class="num">Ground</th><th class="num">Antenna</th><th>Relative</th></tr>` +
+  sorted.map(s => `<tr><td>${s.name}${s.people && s.people !== s.name ? `<div class="sub">${s.people}</div>` : ""}</td>
+    <td class="num">${Math.round(s.ground_ft)} ft</td>
+    <td class="num">${Math.round(s.top_ft)} ft<div class="sub">+${Math.round(s.agl_ft)}${s.floor_guess ? "?" : ""}</div></td>
+    <td><div class="bars"><div class="bar" style="width:${(s.ground_ft - base) / span * 110}px"></div><div class="bar agl" style="width:${s.agl_ft / span * 110}px"></div></div></td></tr>`).join("") +
+  `<tr><td colspan="4" class="sub">Dark bar = ground above ${base} ft. Light bar = window height (10 ft per floor). "?" = floor not confirmed.</td></tr>`;
+
+const linksSorted = [...D.links].sort((a, b) => (a.a === D.root || a.b === D.root ? 0 : 1) - (b.a === D.root || b.b === D.root ? 0 : 1) || a.dist_mi - b.dist_mi);
+document.getElementById("links").innerHTML =
+  `<tr><th>Link</th><th class="num">mi</th><th class="num">Terrain</th><th>Result</th></tr>` +
+  linksSorted.map((l, i) => `<tr class="link" data-i="${D.links.indexOf(l)}"><td>${byId[l.a].name} ↔ ${byId[l.b].name}</td>
+    <td class="num">${l.dist_mi.toFixed(2)}</td><td class="num">${fmt(l.min_clear_ft)} ft</td>
+    <td><span class="pill" style="color:${l.status === "marginal" ? "#8a5a00" : D.status[l.status]}">${ICON[l.status]}</span> ${l.status}</td></tr>`).join("");
+document.querySelectorAll("tr.link").forEach(tr => tr.onclick = () => showProfile(+tr.dataset.i));
+
+function windowText(w) { return w === "through building" ? "through the building" : w === "unknown" ? "window direction unknown" : "through a window"; }
+function showProfile(i) {
+  const l = D.links[i];
+  document.querySelectorAll("tr.link").forEach(tr => tr.classList.toggle("sel", +tr.dataset.i === i));
+  const A = byId[l.a], B = byId[l.b];
+  document.getElementById("ptitle").textContent = `${A.name} → ${B.name}, ${l.dist_mi} mi, bearing ${l.bearing_ab}°`;
+  document.getElementById("psub").innerHTML = `${ICON[l.status]} ${LABEL[l.status]}: closest ground ${fmt(l.min_clear_ft)} ft at ${l.min_clear_at_mi} mi, 60% Fresnel ${fmt(l.fresnel60_margin_ft)} ft.<br>${A.name}: ${windowText(l.window_a)}. ${B.name}: ${windowText(l.window_b)}.`;
+  const p = l.profile;
+  const rows = p.mi.map((m, k) => ({ mi: m, ground: p.ground[k], obstacle: p.obstacle[k], ray: p.ray[k], fres60: p.fres60[k] }));
+  const yLo = Math.min(...p.ground) - 10, yHi = Math.max(...p.ray, ...p.obstacle) + 10;
+  const chart = Plot.plot({
+    width: 388, height: 210, marginLeft: 44, marginBottom: 32,
+    style: { fontSize: "11px", color: "#52514d" },
+    x: { label: "miles", domain: [0, l.dist_mi] },
+    y: { label: "ft", domain: [yLo, yHi], grid: true },
+    marks: [
+      Plot.areaY(rows, { x: "mi", y1: yLo, y2: "obstacle", fill: "#86b6ef" }),
+      Plot.line(rows, { x: "mi", y: "obstacle", stroke: "#184f95", strokeWidth: 1.5 }),
+      Plot.line(rows, { x: "mi", y: "fres60", stroke: "#898781", strokeDasharray: "4,3", strokeWidth: 1 }),
+      Plot.line(rows, { x: "mi", y: "ray", stroke: "#0b0b0b", strokeWidth: 2 }),
+      Plot.dot([{ mi: l.min_clear_at_mi, y: rows.reduce((m, r) => Math.abs(r.mi - l.min_clear_at_mi) < Math.abs(m.mi - l.min_clear_at_mi) ? r : m).obstacle }],
+        { x: "mi", y: "y", r: 5, fill: D.status[l.status], stroke: "#fff", strokeWidth: 2 }),
+      Plot.ruleX(rows, Plot.pointerX({ x: "mi", stroke: "#c3c2b7" })),
+      Plot.tip(rows, Plot.pointerX({ x: "mi", y: "obstacle", title: r => `${r.mi.toFixed(2)} mi\nground ${Math.round(r.ground)} ft\nradio path ${Math.round(r.ray)} ft\nclearance ${fmt(r.ray - r.obstacle)} ft` })),
+    ],
+  });
+  const el = document.getElementById("pchart"); el.innerHTML = ""; el.append(chart);
+  if (map.getSource("sel")) map.getSource("sel").setData(lineFeature(l));
+}
+function lineFeature(l) {
+  const A = byId[l.a], B = byId[l.b];
+  return { type: "Feature", properties: { status: l.status, i: D.links.indexOf(l) }, geometry: { type: "LineString", coordinates: [[A.lon, A.lat], [B.lon, B.lat]] } };
+}
+
+const [w, s, e, n] = D.bbox;
+const map = new maplibregl.Map({
+  container: "map", style: "https://tiles.openfreemap.org/styles/positron",
+  bounds: [[w, s], [e, n]], fitBoundsOptions: { padding: 10 }, attributionControl: { compact: false },
+  preserveDrawingBuffer: true, maxPitch: 75,
+});
+map.addControl(new maplibregl.NavigationControl({ visualizePitch: true }), "top-left");
+map.addControl(new maplibregl.ScaleControl({ unit: "imperial" }), "bottom-left");
+
+map.on("load", () => {
+  const firstSymbol = map.getStyle().layers.find(l => l.type === "symbol")?.id;
+  map.addSource("elev", { type: "image", url: OVERLAY, coordinates: [[w, n], [e, n], [e, s], [w, s]] });
+  map.addLayer({ id: "elev", type: "raster", source: "elev", paint: { "raster-opacity": 0.9, "raster-resampling": "linear" } }, firstSymbol);
+  map.addSource("contours", { type: "geojson", data: D.contours });
+  map.addLayer({ id: "contours", type: "line", source: "contours", paint: {
+    "line-color": "#104281", "line-opacity": ["case", ["get", "index"], 0.55, 0.22],
+    "line-width": ["case", ["get", "index"], 1.2, 0.5] } }, firstSymbol);
+  map.addLayer({ id: "contour-labels", type: "symbol", source: "contours", filter: ["get", "index"], layout: {
+    "symbol-placement": "line", "text-field": ["concat", ["to-string", ["get", "ft"]], " ft"],
+    "text-font": ["Noto Sans Regular"], "text-size": 11, "symbol-spacing": 320 },
+    paint: { "text-color": "#104281", "text-halo-color": "rgba(255,255,255,.85)", "text-halo-width": 1.5 } });
+
+  map.addSource("links", { type: "geojson", data: { type: "FeatureCollection", features: D.links.map(lineFeature) } });
+  for (const st of ["blocked", "marginal", "clear"]) {
+    const paint = { "line-color": D.status[st], "line-width": 4, "line-opacity": 0.9 };
+    if (DASH[st]) paint["line-dasharray"] = DASH[st];
+    map.addLayer({ id: "links-" + st, type: "line", source: "links", filter: ["==", ["get", "status"], st], layout: { "line-cap": "round" }, paint });
+    map.on("click", "links-" + st, ev => showProfile(ev.features[0].properties.i));
+    map.on("mouseenter", "links-" + st, () => map.getCanvas().style.cursor = "pointer");
+    map.on("mouseleave", "links-" + st, () => map.getCanvas().style.cursor = "");
+  }
+  map.addSource("sel", { type: "geojson", data: { type: "FeatureCollection", features: [] } });
+  map.addLayer({ id: "sel-halo", type: "line", source: "sel", paint: { "line-color": "#0b0b0b", "line-width": 9, "line-opacity": 0.35 } }, "links-blocked");
+
+  // One marker per location; nodes in the same building share one label.
+  const groups = {};
+  for (const s0 of D.sites) (groups[s0.lat + "," + s0.lon] ||= []).push(s0);
+  for (const g of Object.values(groups)) {
+    const el = document.createElement("div");
+    el.className = "marker" + (g.some(x => x.id === D.root) ? " root" : "");
+    el.innerHTML = g.map(x => `<b>${x.name}</b> <span class="e">${Math.round(x.ground_ft)} + ${Math.round(x.agl_ft)}${x.floor_guess ? "?" : ""} = ${Math.round(x.top_ft)} ft</span>`).join("<br>");
+    new maplibregl.Marker({ element: el, anchor: "bottom", offset: [0, -6] }).setLngLat([g[0].lon, g[0].lat]).addTo(map);
+    const dot = document.createElement("div");
+    dot.style.cssText = "width:12px;height:12px;border-radius:50%;background:#0b0b0b;border:2px solid #fff";
+    new maplibregl.Marker({ element: dot }).setLngLat([g[0].lon, g[0].lat]).addTo(map);
+  }
+  const pts = D.sites.map(x => [x.lon, x.lat]);
+  const lons = pts.map(p => p[0]), lats = pts.map(p => p[1]);
+  map.fitBounds([[Math.min(...lons), Math.min(...lats)], [Math.max(...lons), Math.max(...lats)]], { padding: { top: 90, bottom: 50, left: 70, right: 70 }, duration: 0 });
+
+  map.addSource("dem", { type: "raster-dem", tiles: ["https://s3.amazonaws.com/elevation-tiles-prod/terrarium/{z}/{x}/{y}.png"], encoding: "terrarium", tileSize: 256, maxzoom: 15 });
+  const pick = D.default_profile || [];
+  const first = D.links.findIndex(l => pick.includes(l.a) && pick.includes(l.b));
+  showProfile(first >= 0 ? first : 0);
+  map.once("idle", () => { window.__ready = true; });
+});
+
+let threeD = false;
+document.getElementById("toggle3d").onclick = ev => {
+  threeD = !threeD;
+  ev.target.classList.toggle("on", threeD);
+  map.setTerrain(threeD ? { source: "dem", exaggeration: 5 } : null);
+  map.easeTo({ pitch: threeD ? 60 : 0, bearing: threeD ? -20 : 0, duration: 800 });
+};
+</script>
+</body>
+</html>
