@@ -115,12 +115,16 @@ def text_of(path: Path) -> str:
 
 
 def banned_phrases() -> list[str]:
-    try:
-        sys.path.insert(0, str(HERE.parent / "job-search"))
-        import jobprofile
-        return list(jobprofile.get("writing.banned", []))
-    except Exception:  # noqa: BLE001  no profile: style checks fall back to em dashes only
+    """`writing.banned` from profile.yaml at the repo root, read as a file."""
+    path = HERE.parent / "profile.yaml"
+    if not path.exists():
         return []
+    try:
+        import yaml
+        data = yaml.safe_load(path.read_text(encoding="utf-8")) or {}
+    except Exception:  # noqa: BLE001  no PyYAML or a bad file: style checks fall back to em dashes only
+        return []
+    return list(((data.get("writing") or {}).get("banned")) or [])
 
 
 def check(text: str, sources: str, jd: str, extra_ok: set[str]) -> list[tuple[str, str]]:

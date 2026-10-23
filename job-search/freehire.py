@@ -106,8 +106,8 @@ def gate(j: dict, floor: int, onsite: int) -> tuple[str, str]:
         return "drop", "title pre-filter"
     if j.get("closed_at"):
         return "drop", "closed"
-    if BAD_TYPE.search(title):
-        return "decline", "gate2 title says %r" % BAD_TYPE.search(title).group(0)
+    if bad := BAD_TYPE.search(title):
+        return "decline", "gate2 title says %r" % bad.group(0)
     e = j.get("enrichment") or {}
     loc = j.get("location") or ""
     mode = j.get("work_mode")

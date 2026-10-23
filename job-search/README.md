@@ -28,6 +28,15 @@ Daily unattended discovery scan for the `/job-search` skill.
   control is a comp check: the page text must show the note's `comp_min` or `comp_max` (exit 1
   if not). A closed or not-found page exits 2 and leaves the note where it is. `--dry-run`
   saves to `tmp/jd-snapshot/` only.
+- **`freehire.py`, `liveness.py`, `runlog.py`, `jobprofile.py`** (added 2026-10-23, shared with the
+  public [job-pipeline](https://github.com/BaesTheorem/job-pipeline) package, where they are tested).
+  `freehire.py` is a lane over the freehire.me API (iCIMS, UKG, ADP, Paycom and others, with parsed
+  required JD lines and ghost-posting flags). `liveness.py` checks that a posting is open through the ATS
+  API first (Greenhouse/Lever 404, Ashby board membership, Workday `canApply` or `403 S22`), and
+  `--sweep --write` closes dead candidate notes; the first sweep (2026-10-23) closed 45. `runlog.py wrap
+  <lane> -- <cmd>` records each lane run in `state/runs.jsonl`; `runlog.py yield` reports yield per lane.
+  `jobprofile.py` reads the gitignored `profile.yaml` at the harness root (metro, titles, paths); the
+  floors still come from `.env`. Keep these four files the same as the package copies.
 - **`fit-gate.py`** (added 2026-10-09) -- gate 4 (strong fit) as arithmetic. Each listing
   note carries a `## Fit scorecard` table: one row per JD line, with the level the JD verb
   asks for, Alex's real level from the Capability Boundaries table in the gitignored

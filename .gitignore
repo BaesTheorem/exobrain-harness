@@ -348,3 +348,4 @@ security/canary/canary.json
 
 # job-pipeline profile (personal search values) read by job-search/jobprofile.py
 /profile.yaml
+resume-builder/data/facts.md

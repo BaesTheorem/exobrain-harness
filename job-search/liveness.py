@@ -53,6 +53,7 @@ CLOSED_TEXT = re.compile(
     r"this (job|role|position|posting) (is|has) (closed|expired)|"
     r"(job|posting) (has )?expired|job (posting )?not found|"
     r"the job you are looking for (is no longer|does not exist)", re.I)
+SCRIPT = re.compile(r"<(script|style|noscript)\b.*?</\1\s*>", re.I | re.S)
 URL_KEYS = ("original_listing", "listing_url", "apply_url", "url")
 PROTECTED = {"applied", "interviewing", "offer"}
 
@@ -124,9 +125,13 @@ def check(url: str) -> tuple[str, str]:
             return "closed", f"page: HTTP {code}"
         if code != 200:
             return "unknown", f"page: HTTP {code} (try jd-snapshot.py)"
-        if hit := CLOSED_TEXT.search(re.sub(r"<[^>]+>", " ", body)):
+        # Visible text only. SPA ATSes (Rippling, Phenom) ship their UI strings,
+        # "This job post is no longer available" among them, inside <script> on
+        # every page, open or closed (two false closures on 2026-10-23).
+        visible = re.sub(r"<[^>]+>", " ", SCRIPT.sub(" ", body))
+        if hit := CLOSED_TEXT.search(visible):
             return "closed", f'page text: "{hit.group(0)}"'
-        if len(re.sub(r"<[^>]+>|\s+", "", body)) < 2000:
+        if len(re.sub(r"\s+", "", visible)) < 2000:
             return "unknown", "page: little server-rendered text (JS app, try jd-snapshot.py)"
         return "open", "page: 200, no closed banner"
     except (urllib.error.URLError, TimeoutError, ValueError, json.JSONDecodeError) as e:

@@ -251,6 +251,13 @@ Do NOT hand-build resume/cover-letter HTML per JD anymore. Use the reusable buil
 - Canonical resume content lives in `resume-builder/data/resume_data.json` (source of truth). Tailoring rules are still surgical-only per [[Claude Reference]]; the builder does not relax them.
 - The builder bakes in the document-side ATS / AI-screening defenses (clean metadata, selectable single-column text, human filename, no Skia/Chrome fingerprint). The **prose** defense is still yours: run `/de-ai` on every tailored summary/bullet and cover letter. Full rationale: [[ATS & AI-Screening Playbook]] (`Projects/Get new job/`). Read it before tailoring.
 
+## Liveness, freehire, run record, fact check (added 2026-10-23)
+
+- **Is it open?** `python3 job-search/liveness.py --note "<path>"` before any artifact work. It asks the ATS API first and says `closed` only on a definite signal (404/410, Ashby id absent, Workday `canApply: false` or `403 S22`, a visible closed banner). `unknown` means load the apply form. `--sweep --write` closes dead candidate notes and never changes applied notes.
+- **freehire lane**: `python3 job-search/freehire.py "<a1>" "<a2>" --days 3 --json tmp/freehire-today.json`. The JSON holds each row's required JD lines, a first draft for the Fit scorecard.
+- **Run record**: wrap scripted lanes as `python3 job-search/runlog.py wrap <lane> -- <command>`; `runlog.py yield` shows rows, survivors and leads per lane and the tracker funnel by `source`.
+- **Fact check**: `resume-builder/build.py` now runs `factcheck.py` first. Pass `--jd <jd.txt> --role "<title>"`. A figure in neither `resume_data.json`, `data/facts.md` nor the JD stops the build; the CLAIMED list is JD acronyms the data never mentions, for review.
+
 ## Gate 1: Location Evidence (mandatory, mechanical)
 
 Added 2026-10-11. RGA's Enterprise Access Management Analyst entered the tracker on 2026-09-24 because LinkedIn labeled it "Remote". The JD said nothing about location, and RGA's Workday site was down, so nothing confirmed the label. The note recorded the risk and stayed a candidate for 17 days. The Workday record says Hybrid in Creve Coeur, MO, which is relocation.

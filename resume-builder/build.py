@@ -277,6 +277,21 @@ def _verify(path):
     return {k: m.get(k) for k in ("/Title", "/Author", "/Creator", "/Producer")}
 
 
+def _factcheck(args, path, company):
+    """Run factcheck.py; a figure in neither the data nor the JD stops the build."""
+    if args.no_factcheck:
+        return
+    cmd = [sys.executable, str(HERE / "factcheck.py"), str(path), "--company", company or "",
+           "--title", args.role, "--data", str(DATA)]
+    if args.jd:
+        cmd += ["--jd", args.jd]
+    r = subprocess.run(cmd, capture_output=True, text=True)
+    print(r.stdout.rstrip())
+    if r.returncode != 0:
+        sys.exit("FAIL: factcheck found a figure the resume data does not support. Fix the text, add the "
+                 "fact to data/facts.md (gitignored), or pass --no-factcheck.")
+
+
 def main():
     ap = argparse.ArgumentParser(description="Build Alex's resume / cover-letter PDFs with clean metadata.")
     sub = ap.add_subparsers(dest="cmd", required=True)
@@ -290,6 +305,10 @@ def main():
     pc.add_argument("--company", required=True, help="Company name (for the PDF title).")
     pc.add_argument("--tag", required=True, help="Short company tag for the filename.")
     pc.add_argument("--out", help="Output PDF path (default ~/Downloads/Alex_Hedtke_Cover_Letter_Tag.pdf).")
+    for p in (pr, pc):
+        p.add_argument("--jd", help="JD text file; enables the fact check against it")
+        p.add_argument("--role", default="", help="role title, allowed in the fact check")
+        p.add_argument("--no-factcheck", action="store_true", help="skip factcheck.py")
 
     args = ap.parse_args()
     data = json.loads(DATA.read_text(encoding="utf-8"))
@@ -299,6 +318,8 @@ def main():
         if args.tailor:
             tailor = json.loads(Path(args.tailor).read_text(encoding="utf-8"))
         tag = tailor.get("tag")
+        if args.tailor:
+            _factcheck(args, args.tailor, tag or "")
         out = args.out or str(DOWNLOADS / (f"Alex_Hedtke_Resume_{tag}.pdf" if tag else "Alex_Hedtke_Resume.pdf"))
         title = f"Resume - {data['name']}"
         render_pdf(build_resume_html(data, tailor), out, title)
@@ -307,6 +328,7 @@ def main():
 
     elif args.cmd == "cover":
         body = Path(args.md).read_text(encoding="utf-8")
+        _factcheck(args, args.md, args.company)
         out = args.out or str(DOWNLOADS / f"Alex_Hedtke_Cover_Letter_{args.tag}.pdf")
         title = f"Cover Letter - {data['name']}"
         render_pdf(build_cover_html(data, body, args.company), out, title)
