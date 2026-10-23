@@ -129,7 +129,8 @@ the folder is denied. Before 2026-10-23 these turns had no tools at all.
 code blocks the owner's email, street address, phone number and last name
 (from the harness `.env`). Then a separate, fully sandboxed judge call on the
 guest model reads only the draft and answers ALLOW or BLOCK on "does this
-directly reveal personal information about the owner". A blocked draft gets
+directly reveal personal information about the owner". What leaguemates said in
+the ESPN chat, DMs included, is shareable (owner's call, 2026-10-23). A blocked draft gets
 one rewrite, judged again, and then the bot posts a fixed deflection. The gate
 fails closed. Verdicts are logged to
 `~/Library/Logs/exobrain/discord-disclosure-gate.log`.
