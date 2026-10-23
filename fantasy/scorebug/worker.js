@@ -18,6 +18,7 @@
 
 import { clockRemaining, winProb } from "./model.js";
 import { feedFilter, normalize } from "./wire.js";
+import { seasonOdds } from "./season.js";
 import PAGE from "./page.html";
 import FAVICON from "./favicon-32.png";
 import ICON192 from "./icon-192.png";
@@ -462,6 +463,52 @@ async function tradeNotify(env, snap) {
   return { fresh: fresh.length, push: out };
 }
 
+// ---------- the standings: ESPN's records and the live season odds ----------
+
+let recMemo = { at: 0, key: "", val: null };
+async function records(env, snap) {
+  const key = `${snap.season}:${snap.week}`;
+  if (recMemo.key === key && Date.now() - recMemo.at < 5 * 60e3) return recMemo.val;
+  const d = await espnGet(env, snap, "?view=mTeam");
+  const val = (d.teams || []).map(t => {
+    const r = (t.record || {}).overall || {};
+    return { id: t.id, name: (t.name || t.abbrev || "").trim(), w: r.wins || 0, l: r.losses || 0, t: r.ties || 0,
+             pf: Math.round((r.pointsFor || 0) * 100) / 100, pa: Math.round((r.pointsAgainst || 0) * 100) / 100, seed: t.playoffSeed || null };
+  });
+  recMemo = { at: Date.now(), key, val };
+  return val;
+}
+
+// One row per team: ESPN's W-L, PF and seed, this week's live win chance, and
+// the season odds mixed from the Mac's outcome table at the live chances
+// (season.js). A table from another week falls back to its own pregame run.
+function standings(st, snap, recs) {
+  const table = snap.season_table;
+  const live = {};
+  for (const g of st.games) { live[g.hid] = g.p; live[g.aid] = 1 - g.p; }
+  let odds = null, current = false;
+  if (table) {
+    current = table.week === st.week;
+    const pHome = table.games.map(([h, a]) => {
+      if (!current) return null;
+      const g = st.games.find(x => (x.hid === h && x.aid === a) || (x.hid === a && x.aid === h));
+      return g ? (g.hid === h ? g.p : 1 - g.p) : null;
+    });
+    odds = seasonOdds(table, pHome);
+  }
+  const byId = Object.fromEntries((odds?.teams || []).map(t => [t.id, t]));
+  const rows = recs.map(r => {
+    const o = byId[r.id];
+    return { ...r, mine: r.id === st.views[st.mine].me.team_id, week_p: live[r.id] ?? null,
+             ...(o ? { bye: o.bye, playoffs: o.playoffs, title: o.title, seed1: o.seed1, base: o.base, clinch: o.clinch, out: o.out } : {}) };
+  });
+  const pct = r => (r.w + r.t / 2) / Math.max(r.w + r.l + r.t, 1);
+  rows.sort((a, b) => (a.seed && b.seed) ? a.seed - b.seed : pct(b) - pct(a) || b.pf - a.pf);
+  return { week: st.week, table_week: table?.week ?? null, current, built: table?.at ?? null,
+           weeks_played: table?.weeks_played ?? null,
+           seasons: table ? table.sims * table.cells.length : null, pre_at: table?.pre_at ?? null, rows };
+}
+
 async function getSnap(env) {
   const s = await env.SB.get("snap", "json");
   if (!s) throw new Error("no snapshot yet: run fantasy/scorebug/snapshot.py --post");
@@ -529,6 +576,7 @@ export default {
       const prev = await env.SB.get("snap", "json");
       // The season odds are a Mac file; a cloud snapshot keeps the last ones.
       if (!snap.season_sim && prev?.season_sim) snap.season_sim = prev.season_sim;
+      if (!snap.season_table && prev?.season_table) snap.season_table = prev.season_table;
       const lineupMoved = !prev || JSON.stringify(prev.views.map(v => [v.me.rows.map(r => r.id), v.opp.rows.map(r => r.id)])) !==
                           JSON.stringify(snap.views.map(v => [v.me.rows.map(r => r.id), v.opp.rows.map(r => r.id)]));
       const body = JSON.stringify(snap), sig = JSON.stringify({ ...snap, at: null, source: null });
@@ -602,6 +650,7 @@ export default {
         const snap = await getSnap(env);
         const st = compute(snap, await espnLive(env, snap));
         st.history = await history(env, snap);
+        try { st.standings = standings(st, snap, await records(env, snap)); } catch (e) { st.standings = { error: String(e.message || e) }; }
         return json(st);
       }
       if (path === "/api/record" && req.method === "POST") return json(await record(env));

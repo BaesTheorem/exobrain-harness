@@ -34,6 +34,7 @@ for stays on the same distribution.
 import argparse
 import collections
 import json
+import math
 import pathlib
 import re
 import sys
@@ -381,6 +382,92 @@ def simulate(teams, games, reg, sims, sigma, tau, seed, actuals=None, force=None
         "seed1": first / sims, "last": last / sims, "most_pf": most_pf / sims}
 
 
+TABLE_METRICS = {"bye": "bye", "playoffs": "playoffs", "title": "champ", "seed1": "seed1"}
+
+
+def _locks(lo, hi, k):
+    """Bitmasks (bit i = team i) of the teams sure to finish top k, and of the
+    teams that cannot, from wins alone. `lo` is each team's wins so far (its
+    floor), `hi` that plus every game it has left (its ceiling). A tie on wins
+    goes to Points For, which is unknown, so a tie counts against the claim:
+    every other team that can reach our floor is a threat to a clinch, and a
+    team is out only when k others already have more wins than its ceiling.
+    Every rival is also allowed to win all its games, including the ones they
+    play each other, so the test can miss a clinch but never invent one."""
+    n = len(lo)
+    clinched = out = 0
+    for i in range(n):
+        if sum(1 for u in range(n) if u != i and hi[u] >= lo[i]) < k:
+            clinched |= 1 << i
+        if sum(1 for u in range(n) if u != i and lo[u] > hi[i]) >= k:
+            out |= 1 << i
+    return clinched, out
+
+
+def outcome_table(teams, games, reg, sims, sigma, tau, seed, actuals, week_moments=None, base_sims=20000):
+    """Every team's season odds under each result of the week in hand: the
+    table behind the Scorebug standings (fantasy/scorebug/season.js).
+
+    The week is the first regular-season week not yet played. For each of the
+    2^G win/loss results of its G games there is one batch with every game
+    forced (the --force rule: both scores drawn, the winner takes the higher
+    one), all on the same seed, so two cells differ by the results alone. The
+    Worker weights the cells by each game's live win probability and so has
+    live odds with the Mac asleep. That product is exact here, because no two
+    games of a week share a team and every draw is per team.
+
+    Odds are in basis points. `clinch` and `out` per cell are the _locks
+    masks for the bye (top 2) and the playoffs (top 6) after that result.
+    `base` is the plain run before the week, the reference for the arrows.
+    Built 2026-10-23 for the standings tab."""
+    open_weeks = sorted({w for w, _h, _a in games if w <= reg and w not in actuals})
+    if not open_weeks:
+        return None
+    w0 = open_weeks[0]
+    week_games = [(h, a) for w, h, a in games if w == w0]
+    ids = sorted(teams)
+    idx = {t: i for i, t in enumerate(ids)}
+    n = len(ids)
+    won = np.zeros(n, dtype=int)
+    left = np.zeros(n, dtype=int)
+    for w, h, a in games:
+        if w > reg:
+            continue
+        if w in actuals:
+            hs, as_ = actuals[w][h], actuals[w][a]
+            won[idx[h]] += hs > as_
+            won[idx[a]] += as_ > hs
+        elif w != w0:
+            left[idx[h]] += 1
+            left[idx[a]] += 1
+
+    def bp(p):
+        return {m: [round(float(x) * 10000) for x in p[k]] for m, k in TABLE_METRICS.items()}
+
+    base = simulate(teams, games, reg, base_sims, sigma, tau, seed, actuals, None, week_moments)[-1]
+    cells = []
+    for key in range(2 ** len(week_games)):
+        force, lo = {}, won.copy()
+        for j, (h, a) in enumerate(week_games):
+            winner = h if key >> j & 1 else a
+            force[(w0, frozenset((h, a)))] = winner
+            lo[idx[winner]] += 1
+        p = simulate(teams, games, reg, sims, sigma, tau, seed, actuals, force, week_moments)[-1]
+        hi = lo + left
+        cb, ob = _locks(lo, hi, BYES)
+        cp, op = _locks(lo, hi, PLAYOFF_TEAMS)
+        cells.append({**bp(p), "clinch": {"bye": cb, "playoffs": cp}, "out": {"bye": ob, "playoffs": op}})
+    # The home side's pregame chance in this model, when the lineup model set
+    # the week (two independent normals); test_season.py mixes the cells at it
+    # and must get `base` back.
+    mom = (week_moments or {}).get(w0) or {}
+    pre = [float(0.5 * (1 + math.erf((mom[h][0] - mom[a][0]) / math.sqrt(2 * (mom[h][1] ** 2 + mom[a][1] ** 2)))))
+           if h in mom and a in mom else None for h, a in week_games]
+    return {"week": w0, "weeks_played": max(actuals) if actuals else 0, "ids": ids,
+            "names": [teams[t]["name"] for t in ids], "games": [list(g) for g in week_games], "pre": pre,
+            "sims": sims, "sigma": sigma, "tau": tau, "base": bp(base), "cells": cells}
+
+
 def leverage(teams, games, reg, actuals, me, sims, sigma, tau, seed, step=10.0, week_moments=None):
     """What each remaining lever is worth to `me`, in bye and title odds.
 
@@ -602,8 +689,12 @@ def main():
     ap.add_argument("--leverage", action="store_true",
                     help="what each remaining lever is worth to us: seed value, a win per week, "
                          "a point per week (regular season and playoffs), Points For")
+    ap.add_argument("--table", action="store_true",
+                    help="print the Scorebug outcome table as JSON: every team's odds under each result "
+                         "of the first unplayed week (use with --this-week)")
+    ap.add_argument("--table-sims", type=int, default=4000, help="seasons per --table cell")
     args = ap.parse_args()
-    say = (lambda *a, **k: None) if args.json else print   # --json: the summary is the only stdout
+    say =(lambda *a, **k: None) if args.json else print   # --json: the summary is the only stdout
 
     teams, games, reg = load(args.season)
     actuals = completed_weeks(args.season, games, reg, args.through_week)
@@ -622,6 +713,12 @@ def main():
     moments = this_week_moments(games, reg, actuals) if args.this_week else None
     if moments:
         print(f"--this-week: week {min(moments)} from the lineup model", file=sys.stderr)
+    if args.table:
+        if args.live or args.force:
+            sys.exit("--table: the table is the week's outcomes; --live and --force would decide them")
+        print(json.dumps(outcome_table(teams, games, reg, args.table_sims, args.sigma, args.tau, args.seed,
+                                       actuals, moments, base_sims=args.sims)))
+        return
     if args.leverage:
         lev = leverage(teams, games, reg, actuals, int(Espn().creds.get("team_id", 0)),
                        args.sims, args.sigma, args.tau, args.seed, week_moments=moments)

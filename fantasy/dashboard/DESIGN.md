@@ -72,6 +72,24 @@ tokens, type and square corners; nothing new in the palette.
 - Below 980 px the cards stack, and the board drops TIER, ADDS and K/DST.
   Below 640 px it also drops W-L and SEEN, and each move wraps to two lines.
 
+## Standings (added 2026-10-23)
+
+The second tab, between SCORES and WIRE: the whole league in one table.
+Same tokens, type and square corners; nothing new in the palette.
+
+- Chyron: the tag reads `WEEK N · LIVE ODDS` (or `ODDS` between games); the
+  text is the week's biggest mover in playoff odds, or the 1 seed when
+  nothing has moved a point.
+- Columns: #, TEAM, W-L, PF, WK N (the live chance in this week's game, in
+  mute), BYE, PLAYOFFS, TITLE. Rows in ESPN's seed order. A mute rule under
+  the 2nd row (the byes) and the 6th (the playoff cut).
+- Each odd carries the change since the week's first table in small mute
+  Inter (`+4`, `−2`); nothing under one point. A clinch is the ink-on-light
+  `IN` badge, an elimination the track-colored `OUT` badge.
+- Red stays ours: our row only.
+- Below 640 px the table drops WK N and the change numbers, and team names
+  wrap to two lines; every other cell stays on one line.
+
 ## Pictures and numbers
 
 - Team pictures: the league's own logos, served through `/logo/<team id>`

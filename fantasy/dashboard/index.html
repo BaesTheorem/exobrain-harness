@@ -107,8 +107,18 @@ body.wire>:not(#vWire):not(.views):not(script){display:none!important} #vWire{di
 .more{background:var(--bg);color:var(--ink);border:1px solid var(--line);font:600 13px 'Barlow Condensed';letter-spacing:1.5px;padding:8px 16px;margin-top:12px;cursor:pointer;width:100%}
 @media (max-width:980px){.wgrid{grid-template-columns:1fr}.w2,.w3{grid-column:auto} #wBoard .x{display:none}}
 @media (max-width:640px){.wl{flex-wrap:wrap;gap:4px 8px}.wl .t{width:auto}.wl .what{flex-basis:100%} #wBoard .xs{display:none}}
+
+/* Standings: the whole league, ESPN's record and the live season odds (DESIGN.md, "Standings"). */
+body.stand>:not(#vStand):not(.views):not(script){display:none!important} #vStand{display:none} body.stand #vStand{display:block}
+#sTab{margin-top:16px} #sTab th,#sTab td{padding:7px 8px} #sTab th:nth-child(2),#sTab td:nth-child(2){text-align:left}
+#sTab td:first-child{color:var(--mute);width:28px} #sTab td:nth-child(2){max-width:240px;font-weight:600;font-size:16px}
+#sTab td{font-size:16px} #sTab td.o{width:96px} #sTab td.o i{font:500 12px Inter;font-style:normal;color:var(--mute);margin-left:6px;display:inline-block;min-width:24px;text-align:left}
+#sTab tr.cut td{border-bottom:1px solid var(--mute)} #sTab tr.me td{color:var(--red)} #sTab tr.me td:first-child{color:var(--red)}
+#sTab .bd{font:600 11px 'Barlow Condensed';letter-spacing:1.2px;padding:1px 6px;background:var(--ink);color:var(--bg)} #sTab .bd.x{background:var(--track);color:var(--mute)}
+#sTab td.wkp{color:var(--mute)} #sTab td,#sTab th{white-space:nowrap} #sTab td:nth-child(2){white-space:normal}
+@media (max-width:640px){#sTab .xs{display:none} #sTab th,#sTab td{padding:6px 4px} #sTab td.o{width:auto} #sTab td.o i{display:none} #sTab td:nth-child(2){max-width:120px}}
 </style></head><body>
-<nav class="views" role="tablist"><button data-v="scores" class="on">SCORES</button><button data-v="wire">WIRE<span class="dot off" id="wdot"></span></button><button data-v="chat">CHAT<span class="dot off" id="unread"></span></button></nav>
+<nav class="views" role="tablist"><button data-v="scores" class="on">SCORES</button><button data-v="stand">STANDINGS</button><button data-v="wire">WIRE<span class="dot off" id="wdot"></span></button><button data-v="chat">CHAT<span class="dot off" id="unread"></span></button></nav>
 <div class="top">
  <div class="team"><img class="logo" id="meL" alt=""><div><div class="tn" id="meN">–</div><div class="proj" id="meP"></div></div><div class="sc" id="meS" style="margin-left:auto">–</div></div>
  <div class="mid"><div class="half a" id="p">–</div><div class="half b" id="pb">–</div><div class="tug"><span id="tug"></span></div><small id="pl">WIN PROB</small></div>
@@ -128,6 +138,11 @@ body.wire>:not(#vWire):not(.views):not(script){display:none!important} #vWire{di
  <div class="card wide" id="noteC" hidden><h3>What would change this</h3><div class="note" id="note"></div></div>
 </div>
 <div class="foot" id="foot"></div>
+<div id="vStand">
+<div class="chyron"><div class="tag" id="sTag">STANDINGS</div><div class="txt" id="sHead">Reading the league…</div></div>
+<div class="dek" id="sDek"></div><div class="err" id="sErr"></div>
+<div class="card"><table id="sTab"></table><div class="foot" id="sFoot"></div></div>
+</div>
 <div id="vWire">
 <div class="chyron"><div class="tag" id="wTag">THE WIRE</div><div class="txt" id="wHead">Reading the league…</div></div>
 <div class="dek" id="wDek"></div><div class="err" id="wErr"></div>
@@ -211,11 +226,18 @@ function render(S){S=merge(S,L0);
  $('wplg').textContent=hist.length<2?'one reading every 2 minutes while games are on; the line starts at the first one':'one reading every 2 minutes while games are on; hover for the score';
  $('ticker').innerHTML=S.games.map(g=>{const pm=g.mine?(g.h===ours?g.p:1-g.p):g.p;
   return `<div class="tk${g.id==SEL?' sel':''}${g.mine?' mine':''}" data-id="${g.id}" role="tab" tabindex="0" aria-selected="${g.id==SEL}" title="${esc(g.h)} ${f1(g.hs)} – ${f1(g.as)} ${esc(g.a)}">${logo(g.hid,'s')}<span>${esc(g.h)}</span> ${f2(g.hs)}–${f2(g.as)} <b>${pct(pm)}</b></div>`}).join('');
- if(S.season){const s=S.season,i=s.names.indexOf(ours),rows=s.names.map((n,j)=>[n,s.probs.bye[j],s.probs.playoffs[j]]).sort((a,b)=>b[1]-a[1]);
+ const ST=S.standings&&S.standings.rows&&S.standings.rows.some(r=>r.bye!=null)?S.standings:null;
+ if(ST){const me=ST.rows.find(r=>r.mine),rows=[...ST.rows].sort((a,b)=>b.bye-a.bye);
+  if(me)$('kv').innerHTML=[['BYE','bye'],['PLAYOFFS','playoffs'],['TITLE','title'],['1 SEED','seed1']].map(([l,k])=>`<div><small>${l}</small><span class="big">${pct(me[k])}</span></div>`).join('');
+  const top=rows.slice(0,8);if(me&&!top.includes(me))top.push(me);
+  $('season').innerHTML='<tr><th>TEAM</th><th>BYE</th><th>PLAYOFFS</th></tr>'+top.map(r=>`<tr class="${r.mine?'me':''}"><td>${logo(r.id,'xs')}${esc(r.name)}</td><td>${pct(r.bye)}</td><td>${pct(r.playoffs)}</td></tr>`).join('');
+  $('sfoot').textContent=`${S.live?'live, ':''}mixed at this week's win chances · the whole league is on the STANDINGS tab`;}
+ else if(S.season){const s=S.season,i=s.names.indexOf(ours),rows=s.names.map((n,j)=>[n,s.probs.bye[j],s.probs.playoffs[j]]).sort((a,b)=>b[1]-a[1]);
   if(i>=0)$('kv').innerHTML=[['BYE','bye'],['PLAYOFFS','playoffs'],['TITLE','champ'],['1 SEED','seed1']].map(([l,k])=>`<div><small>${l}</small><span class="big">${pct(s.probs[k][i])}</span></div>`).join('');
   const top=rows.slice(0,8);if(!top.some(r=>r[0]===ours))top.push(rows.find(r=>r[0]===ours));
   $('season').innerHTML='<tr><th>TEAM</th><th>BYE</th><th>PLAYOFFS</th></tr>'+top.map(r=>`<tr class="${r[0]===ours?'me':''}"><td>${logo((S.team_ids||{})[r[0]],'xs')}${esc(r[0])}</td><td>${pct(r[1])}</td><td>${pct(r[2])}</td></tr>`).join('');
   $('sfoot').textContent=`season_sim after week ${s.weeks_played} · a first-round bye is worth about 8 points of title odds`;}
+ renderStand(S);
  $('foot').textContent=`Scores and game clocks live from ESPN${S.scoresAt?' as of '+new Date(S.scoresAt).toLocaleTimeString([], {hour:'numeric',minute:'2-digit',second:'2-digit'}):''}, every 10 s. Model inputs from the ${S.source==='cloud'?'cloud runner':'Mac'} at ${new Date(S.at).toLocaleTimeString([], {weekday:'short',hour:'numeric',minute:'2-digit'})}${S.lineup_changed&&S.lineup_changed.length?' (a lineup changed since; a new model run is on the way)':''}. Win probability: the lineup model (0.75 market blend, position-tier spreads, same-game correlation, injury mixtures); a player in a live game keeps his projected rate for the share of the game left. Ticker odds are the home team's, except our game.`;}
 const BASE=location.protocol==='file:'||location.origin==='null'?'https://scorebug.alex-hedtke.workers.dev':'';
 let S0=null,L0=null,SEL=+(new URLSearchParams(location.hash.slice(1)).get('m'))||null;
@@ -234,6 +256,26 @@ function merge(S,L){if(!S||!S.ok||!L||!L.teams||(L.at&&L.at<S.at))return S;const
  T.games.forEach(g=>{if(L.teams[g.hid]!=null)g.hs=L.teams[g.hid];if(L.teams[g.aid]!=null)g.as=L.teams[g.aid];
   const V=T.views[g.id];if(V)g.p=V.me.team_id===g.hid?V.win.p:1-V.win.p});
  T.scoresAt=L.at;return T}
+// ---------- standings ----------
+const opct=x=>x==null?'–':x>0&&x<.005?'<1%':x<1&&x>.995?'>99%':pct(x);
+function odd(r,k){if(r[k]==null)return '<td class="o">–</td>';
+ if(r.clinch&&r.clinch[k])return '<td class="o"><span class="bd">IN</span></td>';
+ if(r.out&&r.out[k])return '<td class="o"><span class="bd x">OUT</span></td>';
+ const d=r.base?Math.round((r[k]-r.base[k])*100):0;
+ return `<td class="o">${opct(r[k])}<i>${d?(d>0?'+':'−')+Math.abs(d):''}</i></td>`}
+function renderStand(S){const T=S.standings;if(!T)return;
+ if(T.error){$('sErr').textContent='Standings not reachable ('+T.error+').';return}$('sErr').textContent='';
+ const R=T.rows,has=R.some(r=>r.bye!=null),wk=T.week;
+ $('sTag').textContent=`WEEK ${wk} · ${!has?'RECORDS':S.live?'LIVE ODDS':'ODDS'}`;
+ let head='The table, by seed';
+ if(has){const mv=R.map(r=>({r,d:r.playoffs-r.base.playoffs})).sort((a,b)=>Math.abs(b.d)-Math.abs(a.d))[0];
+  head=mv&&Math.abs(mv.d)>=.01?`${mv.r.name}: playoff odds ${pct(mv.r.base.playoffs)} to ${pct(mv.r.playoffs)} on this week's games`
+   :`${R[0].name} holds the 1 seed at ${R[0].w}-${R[0].l}; no team's playoff odds have moved a point this week`}
+ $('sHead').textContent=head;
+ $('sDek').textContent=has?`Odds from ${T.seasons?T.seasons.toLocaleString():'the'} simulated seasons, mixed at each game's live win chance every 10 s${T.current?'':` (table from week ${T.table_week}: odds before its games)`}. Built ${T.built?new Date(T.built).toLocaleString([], {weekday:'short',hour:'numeric',minute:'2-digit'}):'by the Mac'}. W-L and PF from ESPN.`:'W-L and PF from ESPN. The odds wait for the Mac\'s first outcome table.';
+ $('sTab').innerHTML=`<tr><th>#</th><th>TEAM</th><th>W-L</th><th>PF</th><th class="xs">WK ${wk}</th><th>BYE</th><th>PLAYOFFS</th><th>TITLE</th></tr>`+
+  R.map((r,i)=>`<tr class="${r.mine?'me':''}${i===1||i===5?' cut':''}"><td>${r.seed||i+1}</td><td>${logo(r.id,'xs')}${esc(r.name)}</td><td>${r.w}-${r.l}${r.t?'-'+r.t:''}</td><td>${f2(r.pf)}</td><td class="wkp xs">${r.week_p==null?'idle':pct(r.week_p)}</td>${odd(r,'bye')}${odd(r,'playoffs')}${odd(r,'title')}</tr>`).join('');
+ $('sFoot').innerHTML=`Seeds by win share, then Points For (the league's tiebreak); a rule under 2nd marks the byes and under 6th the playoff cut. WK ${wk} is each team's live chance in this week's game. The small number is the change in points since ${T.pre_at?new Date(T.pre_at).toLocaleString([], {weekday:'short',hour:'numeric',minute:'2-digit'}):'the week\'s first table'}, the week's first table. IN and OUT come from wins alone, with every rival allowed to win out and a tie on wins counted against the claim, so they never mark a team too early. Checked on 857 real leagues from their week-5 standings: the bye odds scored Brier 0.114 against 0.182 for "the current top two", but above 80% they ran high (84% predicted, 65% happened).`}
 const get=async p=>(await fetch(BASE+p,{cache:'no-store'})).json();
 async function tick(){try{const s=await get('/api/state');if(s.ok===false)throw new Error(s.error);S0=s;render(S0)}catch(e){$('err').textContent='Scorebug not reachable ('+e.message+'). Showing the last good reading.'}}
 tick();setInterval(tick,10e3);
@@ -243,7 +285,7 @@ document.addEventListener('visibilitychange',()=>{if(!document.hidden)tick()});
 let C=null,TSEL=null,seen=JSON.parse(localStorage.getItem('sb-seen')||'{}');
 const ago=ms=>{const d=(Date.now()-ms)/1000;return d<60?'now':d<3600?Math.floor(d/60)+'m':d<86400?Math.floor(d/3600)+'h':new Date(ms).toLocaleDateString([], {month:'short',day:'numeric'})};
 const unreadT=t=>t.messages.length&&!t.messages[t.messages.length-1].mine&&t.last>(seen[t.id]||0);
-function setView(v){document.body.classList.toggle('chat',v==='chat');document.body.classList.toggle('wire',v==='wire');document.querySelectorAll('.views button').forEach(b=>b.classList.toggle('on',b.dataset.v===v));
+function setView(v){document.body.classList.toggle('chat',v==='chat');document.body.classList.toggle('wire',v==='wire');document.body.classList.toggle('stand',v==='stand');document.querySelectorAll('.views button').forEach(b=>b.classList.toggle('on',b.dataset.v===v));
  if(v==='chat'){loadChat()}if(v==='wire'&&typeof loadWire==='function'){loadWire()}const h=new URLSearchParams(location.hash.slice(1));h.set('v',v);history.replaceState(null,'','#'+h)}
 document.querySelector('.views').addEventListener('click',e=>{const b=e.target.closest('button');if(b)setView(b.dataset.v)});
 function chatLogo(id,label){return id!=null?`<img class="logo" style="width:32px;height:32px" src="${BASE}/logo/${id}" alt="">`:`<span class="lg0">${esc((label||'?').slice(0,2).toUpperCase())}</span>`}
@@ -340,6 +382,7 @@ async function loadWire(){try{const d=await get('/api/wire'+(WF.lineups?'?lineup
 let wtick=0;setInterval(()=>{if(document.hidden)return;if(document.body.classList.contains('wire')||++wtick%5===0)loadWire()},60e3);loadWire();
 function fromHash(){const h=new URLSearchParams(location.hash.slice(1));
  // The app opens a tapped push as v=chat&t=<topic>; a trade-in-review push carries the topic "wire".
+ if(h.get('v')==='stand'){setView('stand');return}
  if(h.get('v')==='wire'||(h.get('v')==='chat'&&h.get('t')==='wire')){setView('wire');return}
  if(h.get('v')==='chat'){setView('chat');const t=h.get('t');if(t){const go=()=>C?openThread(t):setTimeout(go,300);go()}}}
 fromHash();window.addEventListener('hashchange',fromHash);

@@ -51,6 +51,8 @@ from ffmodel.corr import rho  # noqa: E402
 
 SEASON = FANTASY / "draftbot" / "season_sim_latest.json"
 CACHE = FANTASY / "dashboard" / "cache"
+TABLE = CACHE / "season_table.json"
+TABLE_MAX_AGE_S = 30 * 60
 CONF = HERE / "scorebug.json"
 ATHLETE = "https://site.web.api.espn.com/apis/common/v3/sports/football/nfl/athletes/{}"
 UA = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.0 Safari/605.1.15"
@@ -156,7 +158,37 @@ def build() -> dict:
     return {"at": datetime.now().astimezone().isoformat(timespec="seconds"), "source": os.environ.get("SCOREBUG_SOURCE", "mac"),
             "season": api.season, "week": week, "mine": next(v["id"] for v in views if mine in (v["me"]["team_id"], v["opp"]["team_id"])),
             "views": views, "teams": teams,
-            "season_sim": json.loads(SEASON.read_text()) if SEASON.exists() else None}
+            "season_sim": json.loads(SEASON.read_text()) if SEASON.exists() else None,
+            "season_table": season_table(week)}
+
+
+def season_table(week: int) -> dict | None:
+    """The outcome table for the standings tab (season_sim.outcome_table, about
+    15 s), rebuilt when it is older than TABLE_MAX_AGE_S or from an earlier
+    week. The cloud runner skips it: it has no cache to keep, and the Worker
+    keeps the last table that the Mac sent."""
+    old = json.loads(TABLE.read_text()) if TABLE.exists() else None
+    if os.environ.get("SCOREBUG_SOURCE") == "cloud":
+        return None
+    if old and old.get("week", 0) >= week and time.time() - TABLE.stat().st_mtime < TABLE_MAX_AGE_S:
+        return old
+    import subprocess  # noqa: PLC0415 - only the rebuild needs it
+
+    r = subprocess.run([sys.executable, str(FANTASY / "season_sim.py"), "--table", "--this-week"],
+                       capture_output=True, text=True, timeout=300, cwd=FANTASY)
+    if r.returncode or not r.stdout.strip().startswith("{"):
+        print(f"snapshot: season table skipped ({r.stderr.strip()[-200:]})", file=sys.stderr)
+        return old
+    table = {**json.loads(r.stdout), "at": datetime.now().astimezone().isoformat(timespec="seconds")}
+    # The lineup model folds in games already played, so a rebuild's `pre` is
+    # not pregame. Keep the week's first chances: the arrows measure from them.
+    if old and old.get("week") == table["week"] and old.get("games") == table["games"] and old.get("pre"):
+        table["pre"], table["pre_at"] = old["pre"], old.get("pre_at", old.get("at"))
+    else:
+        table["pre_at"] = table["at"]
+    CACHE.mkdir(parents=True, exist_ok=True)
+    TABLE.write_text(json.dumps(table))
+    return table
 
 
 def wire_analysis() -> dict | None:

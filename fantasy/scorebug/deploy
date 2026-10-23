@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Deploy the scorebug Worker (worker.js + model.js + wire.js + the dashboard page) through
+"""Deploy the scorebug Worker (worker.js + model.js + wire.js + season.js + the dashboard page) through
 the Cloudflare API, no wrangler.
 
     fantasy/scorebug/deploy            # upload, bind, schedule; print the app link
@@ -88,6 +88,7 @@ def main() -> int:
         part(b, "worker.js", "application/javascript+module", (HERE / "worker.js").read_bytes()),
         part(b, "model.js", "application/javascript+module", (HERE / "model.js").read_bytes()),
         part(b, "wire.js", "application/javascript+module", (HERE / "wire.js").read_bytes()),
+        part(b, "season.js", "application/javascript+module", (HERE / "season.js").read_bytes()),
         part(b, "page.html", "text/plain", (FANTASY / "dashboard" / "index.html").read_bytes()),
         *[part(b, f, "application/octet-stream", (HERE / "icon" / f).read_bytes())
           for f in ("favicon-32.png", "icon-192.png", "apple-touch-icon.png")],

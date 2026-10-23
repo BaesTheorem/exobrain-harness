@@ -90,3 +90,38 @@ def test_force_applies_to_a_week_folded_into_actuals():
         i, j = raw["idx"][winner], raw["idx"][loser]
         assert (raw["wins"][:, i] == 1).all() and (raw["wins"][:, j] == 0).all()
         assert (raw["pf"][:, i] == 110.0).all() and (raw["pf"][:, j] == 90.0).all()
+
+
+def test_locks_never_claim_a_tie():
+    """Two clinch the top 2 outright; a three-way tie on wins clinches and eliminates nobody."""
+    c, o = ss._locks([10, 9, 5, 4], [11, 9, 7, 4], 2)
+    assert (c, o) == (0b0011, 0b1100)
+    assert ss._locks([9, 9, 9], [9, 9, 9], 2) == (0, 0)
+
+
+def test_outcome_table_cells_agree_with_their_locks():
+    """Late in the season (weeks 1-5 played, the better team always won): every
+    clinch in the table is a sure thing in the simulation and every out is a
+    zero, a cell where we win our game is never worse for our bye than the
+    same cell with a loss, and there is one cell per result of the week."""
+    teams, games = league()
+    actuals = {w: {t: 200.0 - 10 * t for t in teams} for w in range(1, 6)}
+    tab = ss.outcome_table(teams, games, REG, 2000, 22.0, 8.0, 1, actuals, base_sims=2000)
+    assert tab["week"] == 6 and len(tab["cells"]) == 2 ** len(tab["games"])
+    locks = 0
+    for cell in tab["cells"]:
+        for metric in ("bye", "playoffs"):
+            for i in range(N_TEAMS):
+                if cell["clinch"][metric] >> i & 1:
+                    assert cell[metric][i] == 10000
+                    locks += 1
+                if cell["out"][metric] >> i & 1:
+                    assert cell[metric][i] == 0
+                    locks += 1
+    assert locks, "five played weeks of a fixed order must lock someone"
+    me = tab["ids"].index(ME)
+    j = next(j for j, g in enumerate(tab["games"]) if ME in g)
+    home = tab["games"][j][0] == ME
+    for k, cell in enumerate(tab["cells"]):
+        if bool(k >> j & 1) == home:   # we win in cell k; flip our game for the loss
+            assert cell["bye"][me] >= tab["cells"][k ^ (1 << j)]["bye"][me]

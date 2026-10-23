@@ -37,6 +37,9 @@ only before a game locks.
 | `/ingest/wire` | Mac (`snapshot.py --post`) | The rival analysis from `espncli/rivals.py` (`fantasy/bin/rival-scan`): each team's needs, behavior, the wire's claim odds, the opponent, the brief, the names, and the claims and votes of older weeks. The Mac rebuilds it at most hourly; the Worker stores it only when it changed, at most every 15 minutes. |
 | Trade alerts | Worker cron | Each 5 minutes: a trade that two other teams accepted shows while it waits out the veto review. A new one goes to the phone once (KV `wire:alerted`), and the tap opens the WIRE tab (the app sends `#v=chat&t=wire`, which the page routes). |
 | `test_wire.py` | Mac | Runs `wire.js` and `league_log.normalize` on one live fetch and compares every event and pending row. It must print PASS after any edit to either side. `tests/test_league_log.py` does the same offline on a fixture. |
+| `/api/state` `standings`, `season.js` | Worker | The STANDINGS tab: every team's W-L, PF and seed from ESPN `mTeam` (5-minute memo), this week's live win chance, and the bye, playoff and title odds. `season.js` mixes the outcome table at the live win chances of this week's games on every request, so the odds move with the scores with the Mac asleep. The small number beside each odd is the change since the week's first table. IN and OUT are clinches and eliminations from wins alone (`season_sim._locks`): they can be late but never early. |
+| `season_sim.py --table` | Mac (`snapshot.py`, at most every 30 minutes, about 15 s) | The outcome table: for each of the 2^G results of this week's G games, every team's odds from 4,000 seasons with those games forced, all on one seed. It rides in the snapshot as `season_table`; a cloud snapshot keeps the last one. The cache is `dashboard/cache/season_table.json`, and it keeps the week's first pregame chances (`pre`) as the reference for the change. |
+| `test_season.py` | Mac | Builds a table and checks `season.js` against a Python mix (1e-9), the mix at the pregame chances against the plain run (1.5 points, the positive control), and a decided week against the plain run (it must move, the negative control). It must print PASS after any edit to `season.js` or `outcome_table`. |
 
 ## Access
 
@@ -57,5 +60,12 @@ KV namespace id are in the gitignored `scorebug.json`.
   its veto review.
 - The season odds come from `season_sim` on the Mac. A cloud snapshot keeps
   the last odds that the Mac sent.
+- The live season odds treat this week's games as independent. That is
+  exact in the simulator (no two games share a team), but real games share
+  NFL players, so a big NFL game moves two fantasy games together.
+- The table covers the regular season. In the playoff weeks the tab shows
+  ESPN's records and the last regular-season odds.
+- The bye odds are overconfident at the top end: in the 857-league check a
+  predicted 84% happened 65% of the time. The tab says so in its footnote.
 - A player in a live game keeps his projected scoring rate for the share of
   the game that is left (the same limit as `espn check`).
