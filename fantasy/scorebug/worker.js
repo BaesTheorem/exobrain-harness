@@ -470,9 +470,13 @@ async function records(env, snap) {
   const key = `${snap.season}:${snap.week}`;
   if (recMemo.key === key && Date.now() - recMemo.at < 5 * 60e3) return recMemo.val;
   const d = await espnGet(env, snap, "?view=mTeam");
+  // Owner names come from ESPN's member records at request time; the repo
+  // holds none (it is public).
+  const members = Object.fromEntries((d.members || []).map(m => [m.id, [m.firstName, m.lastName].filter(Boolean).join(" ").trim()
+    .replace(/\b[a-z]/g, c => c.toUpperCase())]));   // a member typed in lowercase
   const val = (d.teams || []).map(t => {
     const r = (t.record || {}).overall || {};
-    return { id: t.id, name: (t.name || t.abbrev || "").trim(), w: r.wins || 0, l: r.losses || 0, t: r.ties || 0,
+    return { id: t.id, name: (t.name || t.abbrev || "").trim(), owner: members[t.primaryOwner || (t.owners || [])[0]] || null, w: r.wins || 0, l: r.losses || 0, t: r.ties || 0,
              pf: Math.round((r.pointsFor || 0) * 100) / 100, pa: Math.round((r.pointsAgainst || 0) * 100) / 100, seed: t.playoffSeed || null };
   });
   recMemo = { at: Date.now(), key, val };

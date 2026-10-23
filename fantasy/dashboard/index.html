@@ -115,8 +115,8 @@ body.stand>:not(#vStand):not(.views):not(script){display:none!important} #vStand
 #sTab td{font-size:16px} #sTab td.o{width:96px} #sTab td.o i{font:500 12px Inter;font-style:normal;color:var(--mute);margin-left:6px;display:inline-block;min-width:24px;text-align:left}
 #sTab tr.cut td{border-bottom:1px solid var(--mute)} #sTab tr.me td{color:var(--red)} #sTab tr.me td:first-child{color:var(--red)}
 #sTab .bd{font:600 11px 'Barlow Condensed';letter-spacing:1.2px;padding:1px 6px;background:var(--ink);color:var(--bg)} #sTab .bd.x{background:var(--track);color:var(--mute)}
-#sTab td.wkp{color:var(--mute)} #sTab td,#sTab th{white-space:nowrap} #sTab td:nth-child(2){white-space:normal}
-@media (max-width:640px){#sTab .xs{display:none} #sTab th,#sTab td{padding:6px 4px} #sTab td.o{width:auto} #sTab td.o i{display:none} #sTab td:nth-child(2){max-width:120px}}
+.own{color:var(--mute);font-weight:500} tr.me .own{color:inherit} #sTab td.wkp{color:var(--mute)} #sTab td,#sTab th{white-space:nowrap} #sTab td:nth-child(2){white-space:normal}
+@media (max-width:640px){#sTab .own{display:block;font-size:13px} #sTab .xs{display:none} #sTab th,#sTab td{padding:6px 4px} #sTab td.o{width:auto} #sTab td.o i{display:none} #sTab td:nth-child(2){max-width:120px}}
 </style></head><body>
 <nav class="views" role="tablist"><button data-v="scores" class="on">SCORES</button><button data-v="stand">STANDINGS</button><button data-v="wire">WIRE<span class="dot off" id="wdot"></span></button><button data-v="chat">CHAT<span class="dot off" id="unread"></span></button></nav>
 <div class="top">
@@ -230,7 +230,7 @@ function render(S){S=merge(S,L0);
  if(ST){const me=ST.rows.find(r=>r.mine),rows=[...ST.rows].sort((a,b)=>b.bye-a.bye);
   if(me)$('kv').innerHTML=[['BYE','bye'],['PLAYOFFS','playoffs'],['TITLE','title'],['1 SEED','seed1']].map(([l,k])=>`<div><small>${l}</small><span class="big">${pct(me[k])}</span></div>`).join('');
   const top=rows.slice(0,8);if(me&&!top.includes(me))top.push(me);
-  $('season').innerHTML='<tr><th>TEAM</th><th>BYE</th><th>PLAYOFFS</th></tr>'+top.map(r=>`<tr class="${r.mine?'me':''}"><td>${logo(r.id,'xs')}${esc(r.name)}</td><td>${pct(r.bye)}</td><td>${pct(r.playoffs)}</td></tr>`).join('');
+  $('season').innerHTML='<tr><th>TEAM</th><th>BYE</th><th>PLAYOFFS</th></tr>'+top.map(r=>`<tr class="${r.mine?'me':''}"><td title="${esc(r.name)}${r.owner?' ('+esc(r.owner)+')':''}">${logo(r.id,'xs')}${esc(r.name)}${own(r)}</td><td>${pct(r.bye)}</td><td>${pct(r.playoffs)}</td></tr>`).join('');
   $('sfoot').textContent=`${S.live?'live, ':''}mixed at this week's win chances · the whole league is on the STANDINGS tab`;}
  else if(S.season){const s=S.season,i=s.names.indexOf(ours),rows=s.names.map((n,j)=>[n,s.probs.bye[j],s.probs.playoffs[j]]).sort((a,b)=>b[1]-a[1]);
   if(i>=0)$('kv').innerHTML=[['BYE','bye'],['PLAYOFFS','playoffs'],['TITLE','champ'],['1 SEED','seed1']].map(([l,k])=>`<div><small>${l}</small><span class="big">${pct(s.probs[k][i])}</span></div>`).join('');
@@ -257,6 +257,7 @@ function merge(S,L){if(!S||!S.ok||!L||!L.teams||(L.at&&L.at<S.at))return S;const
   const V=T.views[g.id];if(V)g.p=V.me.team_id===g.hid?V.win.p:1-V.win.p});
  T.scoresAt=L.at;return T}
 // ---------- standings ----------
+const own=r=>r.owner?` <span class="own">(${esc(r.owner)})</span>`:'';
 const opct=x=>x==null?'–':x>0&&x<.005?'<1%':x<1&&x>.995?'>99%':pct(x);
 function odd(r,k){if(r[k]==null)return '<td class="o">–</td>';
  if(r.clinch&&r.clinch[k])return '<td class="o"><span class="bd">IN</span></td>';
@@ -274,7 +275,7 @@ function renderStand(S){const T=S.standings;if(!T)return;
  $('sHead').textContent=head;
  $('sDek').textContent=has?`Odds from ${T.seasons?T.seasons.toLocaleString():'the'} simulated seasons, mixed at each game's live win chance every 10 s${T.current?'':` (table from week ${T.table_week}: odds before its games)`}. Built ${T.built?new Date(T.built).toLocaleString([], {weekday:'short',hour:'numeric',minute:'2-digit'}):'by the Mac'}. W-L and PF from ESPN.`:'W-L and PF from ESPN. The odds wait for the Mac\'s first outcome table.';
  $('sTab').innerHTML=`<tr><th>#</th><th>TEAM</th><th>W-L</th><th>PF</th><th class="xs">WK ${wk}</th><th>BYE</th><th>PLAYOFFS</th><th>TITLE</th></tr>`+
-  R.map((r,i)=>`<tr class="${r.mine?'me':''}${i===1||i===5?' cut':''}"><td>${r.seed||i+1}</td><td>${logo(r.id,'xs')}${esc(r.name)}</td><td>${r.w}-${r.l}${r.t?'-'+r.t:''}</td><td>${f2(r.pf)}</td><td class="wkp xs">${r.week_p==null?'idle':pct(r.week_p)}</td>${odd(r,'bye')}${odd(r,'playoffs')}${odd(r,'title')}</tr>`).join('');
+  R.map((r,i)=>`<tr class="${r.mine?'me':''}${i===1||i===5?' cut':''}"><td>${r.seed||i+1}</td><td>${logo(r.id,'xs')}${esc(r.name)}${own(r)}</td><td>${r.w}-${r.l}${r.t?'-'+r.t:''}</td><td>${f2(r.pf)}</td><td class="wkp xs">${r.week_p==null?'idle':pct(r.week_p)}</td>${odd(r,'bye')}${odd(r,'playoffs')}${odd(r,'title')}</tr>`).join('');
  $('sFoot').innerHTML=`Seeds by win share, then Points For (the league's tiebreak); a rule under 2nd marks the byes and under 6th the playoff cut. WK ${wk} is each team's live chance in this week's game. The small number is the change in points since ${T.pre_at?new Date(T.pre_at).toLocaleString([], {weekday:'short',hour:'numeric',minute:'2-digit'}):'the week\'s first table'}, the week's first table. IN and OUT come from wins alone, with every rival allowed to win out and a tie on wins counted against the claim, so they never mark a team too early. Checked on 857 real leagues from their week-5 standings: the bye odds scored Brier 0.114 against 0.182 for "the current top two", but above 80% they ran high (84% predicted, 65% happened).`}
 const get=async p=>(await fetch(BASE+p,{cache:'no-store'})).json();
 async function tick(){try{const s=await get('/api/state');if(s.ok===false)throw new Error(s.error);S0=s;render(S0)}catch(e){$('err').textContent='Scorebug not reachable ('+e.message+'). Showing the last good reading.'}}
