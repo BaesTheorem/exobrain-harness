@@ -72,6 +72,14 @@
     "notes": "Build: swift build -c release. Raw PCM to stdout, JSON logs to stderr. Any explicit --sample-rate converts to 16-bit signed int (mono by default); no rate keeps the device rate as 32-bit float. --mute silences the tapped process at the speakers. Needs System Audio Recording permission for the RESPONSIBLE app (the Console when MIST runs it from a chat, Terminal when Alex runs it); without it the tap runs and records silence, no error. PID translate fails inside the Claude Code sandbox: run with the sandbox off. The harness govee-music daemon wraps it."
   },
   {
+    "name": "auto-update.sh",
+    "command": "bash maintenance/auto-update.sh [--force]",
+    "repo_dir": "maintenance",
+    "source": "built",
+    "added": "2026-10-23",
+    "notes": "Gated: once per 20h, AC power, 1-6 AM or 20 min idle; --force skips. brew pin <name> holds a formula. Notifies (banner + Discord) only on a failed step or a major-version bump. Log: ~/Library/Logs/exobrain/auto-update.log."
+  },
+  {
     "name": "bg3save",
     "command": "~/Documents/bg3-tools/bin/bg3save {find --latest|inspect|party|quests|missed-content|flags} [save.lsv] --json",
     "repo_dir": "~/Documents/bg3-tools",

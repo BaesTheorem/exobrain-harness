@@ -92,6 +92,13 @@ $HOME/Documents/petkit-loki/.venv/bin/python
 VENVS
 
 # -- 4. headline interpreters + playwright browser cache -------------------
+# A new default python formula takes over the unversioned python3 link (3.15 via
+# yt-dlp, 2026-10-23); put it back on the Python the harness packages live in.
+if out=$("$HARNESS/maintenance/bin/pin-python3-default" 2>&1); then
+  [ -n "$out" ] && echo "$out" && healed+=("$out")
+else
+  echo "$out"; broken+=("python3 default: $out")
+fi
 /opt/homebrew/bin/python3 -c 'import sys' 2>/dev/null || broken+=("brew python3 broken")
 /opt/homebrew/bin/node -e 1 2>/dev/null || broken+=("brew node broken")
 if /opt/homebrew/bin/python3 - <<'PY' 2>/dev/null | grep -q MISSING

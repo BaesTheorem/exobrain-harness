@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+  <key>Label</key><string>com.exobrain.auto-update</string>
+  <key>ProgramArguments</key>
+  <array>
+    <string>/Users/alexhedtke/.local/bin/mist-launch</string>
+    <string>/bin/bash</string>
+    <string>/Users/alexhedtke/Documents/Exobrain harness/maintenance/auto-update.sh</string>
+  </array>
+  <!-- Hourly tick. The script itself decides whether to work: once a day, on AC
+       power, in the 1-6 AM window or after 20 min of idle. An hourly check means
+       a night spent asleep or on battery catches up at the next good moment. -->
+  <key>StartInterval</key><integer>3600</integer>
+  <key>StandardOutPath</key><string>/Users/alexhedtke/Library/Logs/exobrain/auto-update.log</string>
+  <key>StandardErrorPath</key><string>/Users/alexhedtke/Library/Logs/exobrain/auto-update.log</string>
+  <!-- Login Items shows the job under this app instead of its executable's name;
+       only honored because mist-launch is signed by the same team. -->
+  <key>AssociatedBundleIdentifiers</key>
+  <array>
+      <string>com.exobrain.mist-console</string>
+  </array>
+</dict>
+</plist>

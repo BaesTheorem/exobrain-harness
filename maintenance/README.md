@@ -190,6 +190,37 @@ re-added by hand (toggling is not enough). The heal notification says so.
 This is one-time per python minor series now that stubs link via the
 stable opt path.
 
+## Automatic software updates (`auto-update.sh`)
+
+This script keeps installed tools current: Homebrew formulae and casks, global
+npm packages, uv tools, and cargo binaries. The Claude CLI has its own job
+(`claude-cli-autoupdate.sh`). Mac App Store apps and macOS use the automatic
+updates in System Settings, because `mas upgrade` and `softwareupdate` need
+sudo. Project venvs are not upgraded, because their versions are pinned on
+purpose.
+
+After the upgrades, `bin/pin-python3-default` puts `/opt/homebrew/bin/python3`
+back on Python 3.14, where the harness packages are. Homebrew gives the
+unversioned name to its default python formula, and on 2026-10-23 a yt-dlp
+dependency made that 3.15. `post-brew-heal.sh` runs the same check after any
+Homebrew change. The script also records a formula that installed but did not
+link. The usual cause is an older pip copy in Homebrew's site-packages: remove
+it with `pip uninstall`, then run `brew link --overwrite`.
+
+`com.exobrain.auto-update` starts the script every hour. The script does work
+at most once in 20 hours, only on AC power, and only from 1 AM to 6 AM or after
+20 minutes of idle time. A cask upgrade can quit a running app, thus the idle
+gate. `auto-update.sh --force` skips the gates.
+
+A Homebrew change starts `post-brew-heal.sh` through its WatchPaths, so the
+known breakage classes above get repaired after each run. To hold a formula at
+its current version, use `brew pin <name>`.
+
+The log is `~/Library/Logs/exobrain/auto-update.log`. A banner and a Discord DM
+go out only when a step fails or a package changes its major version. A major
+bump is the usual cause of a broken dependent, for example ffmpeg 8 to 9 and
+torchcodec in 2026.
+
 ## claude-stable-path.sh
 
 Pins the Claude Code CLI to one path that never changes, so its TCC grants stop

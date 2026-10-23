@@ -1,0 +1,30 @@
+#!/bin/bash
+# Keep /opt/homebrew/bin/python3 (and pip3, python3-config) on the harness
+# Python, whatever Homebrew's default python formula is.
+#
+# Why (2026-10-23): yt-dlp pulled in python@3.15 as a new dependency, and the
+# default python formula owns the unversioned python3 link. python3 moved to a
+# bare 3.15 with 16 packages while the 169 the harness imports stayed in 3.14,
+# so every `python3 script.py` that imports yaml or requests broke. Relinking
+# python@3.14 does not help: a versioned formula never links the unversioned
+# names, so they have to be set by hand.
+#
+# Move the harness to a new Python by changing WANT after its packages are
+# installed there. Prints "repointed" when it changed anything. Idempotent.
+set -euo pipefail
+WANT="${PYTHON_DEFAULT:-3.14}"
+BIN=/opt/homebrew/bin
+SRC="../opt/python@$WANT/libexec/bin"
+
+[ -x "$BIN/$SRC/python3" ] || { echo "python@$WANT is not installed" >&2; exit 1; }
+
+changed=0
+for n in python3 pip3 python3-config; do
+  [ -e "$BIN/$SRC/$n" ] || continue
+  if [ "$(readlink "$BIN/$n" 2>/dev/null)" != "$SRC/$n" ]; then
+    ln -sfn "$SRC/$n" "$BIN/$n"
+    changed=1
+  fi
+done
+[ "$changed" -eq 1 ] && echo "repointed python3 to $WANT"
+exit 0
