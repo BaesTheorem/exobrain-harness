@@ -112,7 +112,7 @@ body.wire>:not(#vWire):not(.views):not(script){display:none!important} #vWire{di
 body.stand>:not(#vStand):not(.views):not(script){display:none!important} #vStand{display:none} body.stand #vStand{display:block}
 #sTab{margin-top:16px} #sTab th,#sTab td{padding:7px 8px} #sTab th:nth-child(2),#sTab td:nth-child(2){text-align:left}
 #sTab td:first-child{color:var(--mute);width:28px} #sTab td:nth-child(2){max-width:240px;font-weight:600;font-size:16px}
-#sTab td{font-size:16px} #sTab td.o{width:96px} #sTab td.o i{font:500 12px Inter;font-style:normal;color:var(--mute);margin-left:6px;display:inline-block;min-width:24px;text-align:left}
+#sTab td{font-size:16px} #sTab td.o{width:96px} #sTab td.o i{font:500 12px Inter;font-style:normal;color:var(--mute);margin-right:6px}
 #sTab tr.cut td{border-bottom:1px solid var(--mute)} #sTab tr.me td{color:var(--red)} #sTab tr.me td:first-child{color:var(--red)}
 #sTab .bd{font:600 11px 'Barlow Condensed';letter-spacing:1.2px;padding:1px 6px;background:var(--ink);color:var(--bg)} #sTab .bd.x{background:var(--track);color:var(--mute)}
 .own{color:var(--mute);font-weight:500} tr.me .own{color:inherit} #sTab td.wkp{color:var(--mute)} #sTab td,#sTab th{white-space:nowrap} #sTab td:nth-child(2){white-space:normal}
@@ -263,7 +263,7 @@ function odd(r,k){if(r[k]==null)return '<td class="o">–</td>';
  if(r.clinch&&r.clinch[k])return '<td class="o"><span class="bd">IN</span></td>';
  if(r.out&&r.out[k])return '<td class="o"><span class="bd x">OUT</span></td>';
  const d=r.base?Math.round((r[k]-r.base[k])*100):0;
- return `<td class="o">${opct(r[k])}<i>${d?(d>0?'+':'−')+Math.abs(d):''}</i></td>`}
+ return `<td class="o">${d?`<i>${(d>0?'+':'−')+Math.abs(d)}</i>`:''}${opct(r[k])}</td>`}
 function renderStand(S){const T=S.standings;if(!T)return;
  if(T.error){$('sErr').textContent='Standings not reachable ('+T.error+').';return}$('sErr').textContent='';
  const R=T.rows,has=R.some(r=>r.bye!=null),wk=T.week;

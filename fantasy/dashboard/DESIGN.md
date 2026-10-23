@@ -84,7 +84,8 @@ Same tokens, type and square corners; nothing new in the palette.
   mute), BYE, PLAYOFFS, TITLE. Rows in ESPN's seed order. A mute rule under
   the 2nd row (the byes) and the 6th (the playoff cut).
 - Each odd carries the change since the week's first table in small mute
-  Inter (`+4`, `−2`); nothing under one point. A clinch is the ink-on-light
+  Inter, left of the odd (`+4 60%`), so every column stays flush right;
+  nothing under one point. A clinch is the ink-on-light
   `IN` badge, an elimination the track-colored `OUT` badge.
 - Red stays ours: our row only.
 - Below 640 px the table drops WK N and the change numbers, and team names
