@@ -408,6 +408,14 @@
     "notes": "Reads the '## Fit scorecard' table on job listing notes. Threshold 0.80 and MIN_ROWS 5 are constants in the file. --enforce never touches applied/interviewing/offer notes and never declines an unscored note."
   },
   {
+    "name": "freehire-lane",
+    "command": "python3 job-search/freehire.py \"security analyst\" --days 3 --json tmp/freehire-today.json",
+    "repo_dir": "~/Documents/Exobrain harness/job-search",
+    "source": "built",
+    "added": "2026-10-23",
+    "notes": "q orders but does not narrow; cities facet does not filter; Python default UA gets 403. Seen-file in state/."
+  },
+  {
     "name": "geo",
     "command": "geoguessr/bin/geo",
     "repo_dir": "/Users/alexhedtke/Documents/Exobrain harness/geoguessr",
@@ -601,6 +609,14 @@
     "notes": "Re-execs under uv with patchright. Exit 0 = saved + comp seen/unlisted, 1 = saved but band not on page, 2 = nothing saved (load failed or page closed/not found; note not moved). Prefers original_listing, then listing_url, then apply_url."
   },
   {
+    "name": "job-pipeline",
+    "command": "python3 pipeline/doctor.py --live",
+    "repo_dir": "~/Documents/job-pipeline",
+    "source": "built",
+    "added": "2026-10-23",
+    "notes": "Public repo BaesTheorem/job-pipeline. Personal values in gitignored profile.yaml; JOB_PIPELINE_PROFILE overrides the path. Harness job-search/ keeps copies of jobprofile.py, freehire.py, liveness.py, runlog.py; keep them the same."
+  },
+  {
     "name": "jobspy_lane.py (job-search Glassdoor/ZipRecruiter lane)",
     "command": "python3 job-search/jobspy_lane.py \"<angle>\" ... --days 3",
     "repo_dir": "/Users/alexhedtke/Documents/Exobrain harness/job-search",
@@ -631,6 +647,14 @@
     "source": "built",
     "added": "2026-09-13",
     "notes": "KC Urbex forum: index site reports to Obsidian (Areas/Adventure & Creativity/Urbex), sync board meetups to Google Calendar. Account is Tier 1, so only f=30 and f=109 are visible; the archive is gated and Tier 2 is granted socially at meetups. Watcher: com.exobrain.kcurbex-watch, every 12h."
+  },
+  {
+    "name": "lane-runlog",
+    "command": "python3 job-search/runlog.py wrap dice -- python3 job-search/dice.py \"IT analyst\" --days 3",
+    "repo_dir": "~/Documents/Exobrain harness/job-search",
+    "source": "built",
+    "added": "2026-10-23",
+    "notes": "Appends to state/runs.jsonl; lanes that count themselves hand counts to the wrapper (RUNLOG-COUNTS line). yield --days N for the report."
   },
   {
     "name": "loopkit",
@@ -818,6 +842,14 @@
     "notes": "Spawns node on the local @plaud-ai/mcp dist/index.js (PLAUD_MCP_JS overrides) and calls list_files + get_transcript over stdio JSON-RPC, so it shares the MCP's login; if 'Not authenticated', run the MCP login tool first (callback listener on :8199 lives only 2 min). API returns 429 after ~100 transcripts: 1.5 s delay + backoff built in. ~8 recordings have no cloud transcript (no JSON reply). Output data/plaud/<file_id>.json, gitignored."
   },
   {
+    "name": "posting-liveness",
+    "command": "python3 job-search/liveness.py --sweep --write",
+    "repo_dir": "~/Documents/Exobrain harness/job-search",
+    "source": "built",
+    "added": "2026-10-23",
+    "notes": "Closed only on 404/410, Ashby id absent, Workday canApply false or 403 S22, or a visible banner (scripts stripped). Never changes applied notes."
+  },
+  {
     "name": "priory",
     "command": "~/Documents/the-priory/bin/priory <status|ingest|feeds-load|serve|embed-warmup>",
     "repo_dir": "/Users/alexhedtke/Documents/the-priory",
@@ -905,6 +937,14 @@
     "source": "built",
     "added": "2026-10-08",
     "notes": "Refuses a repo with unpushed commits or a dirty worktree. Local-only branches and stashes go to ~/Documents/repo-bundles/<name>.bundle (BUNDLE_DIR). Ledger at ~/Exobrain/Projects/Offloaded repos.md (LEDGER). Restore: gh repo clone, then git fetch <bundle> 'refs/*:refs/*'."
+  },
+  {
+    "name": "resume-factcheck",
+    "command": "python3 resume-builder/factcheck.py tailoring/acme_cover.md --jd jd.txt --company \"Acme\" --title \"GRC Analyst\"",
+    "repo_dir": "~/Documents/Exobrain harness/resume-builder",
+    "source": "built",
+    "added": "2026-10-23",
+    "notes": "build.py runs it first (--jd, --role, --no-factcheck). True facts not on every resume go in gitignored data/facts.md."
   },
   {
     "name": "ringer_board",
