@@ -15,6 +15,14 @@ brackets> are skipped, because that's how someone says "don't embed this".
 The handler never consumes the message (always returns False), so a message
 that also @mentions MIST still reaches chatter. The probe and reply run in a
 background task so they don't delay anything else.
+
+Discord crawls a link once, immediately after the post, and keeps a failed
+result for that URL. On a cold video (Google's transcode not warm, the worker's
+cache empty) a long clip loads too slowly for that one crawl, and the reply
+shows no embed at all (a 40 MB pitch video on 2026-10-23). So after the reply,
+the module checks for a video embed. If there is none, it downloads the video
+through the worker to warm it, then edits the reply with a new query string so
+Discord crawls it again.
 """
 
 from __future__ import annotations
@@ -38,6 +46,10 @@ _MAX_LINKS = 3
 # Strong refs to in-flight tasks; asyncio only keeps weak ones.
 _tasks: set[asyncio.Task] = set()
 _BOT_UA = "Mozilla/5.0 (compatible; Discordbot/2.0; +https://discordapp.com)"
+_OG_VIDEO_RE = re.compile(r'<meta property="og:video" content="([^"]+)"')
+# Seconds to wait for Discord's unfurl before each check, and the retries after it.
+_EMBED_WAIT = 12
+_RETRIES = 2
 
 
 def find_links(text: str) -> list[tuple[str, str]]:
@@ -59,16 +71,40 @@ def to_embed_url(path: str, host: str) -> str:
     return f"https://{host}{path}"
 
 
-async def is_video(url: str, session: aiohttp.ClientSession) -> bool:
-    """Ask the worker as Discord's crawler would; it only emits og:video for videos."""
+def with_retry_param(url: str, n: int) -> str:
+    """A different URL for the same video, so Discord ignores its cached failure.
+    The worker drops the query on short links and Google ignores extra params."""
+    return f"{url}{'&' if '?' in url else '?'}r={n}"
+
+
+async def video_url(url: str, session: aiohttp.ClientSession) -> str | None:
+    """Ask the worker as Discord's crawler would; it only emits og:video for videos.
+    Returns the og:video mp4 URL, or None for a photo, an album or a failure."""
     try:
         async with session.get(url, headers={"User-Agent": _BOT_UA}, allow_redirects=False) as resp:
             if resp.status != 200:
-                return False
-            return 'property="og:video"' in await resp.text()
+                return None
+            m = _OG_VIDEO_RE.search(await resp.text())
+            return m.group(1).replace("&amp;", "&") if m else None
     except (aiohttp.ClientError, asyncio.TimeoutError) as e:
         log.debug("gphotos probe failed for %s: %s", url, e)
-        return False
+        return None
+
+
+async def warm(mp4: str, session: aiohttp.ClientSession) -> None:
+    """Download the video through the worker and discard it, so Google's
+    transcode and Cloudflare's cache are warm when Discord crawls again."""
+    try:
+        async with session.get(mp4, headers={"User-Agent": _BOT_UA},
+                               timeout=aiohttp.ClientTimeout(total=120)) as resp:
+            async for _ in resp.content.iter_chunked(1 << 20):
+                pass
+    except (aiohttp.ClientError, asyncio.TimeoutError) as e:
+        log.debug("gphotos warm failed for %s: %s", mp4, e)
+
+
+def video_embed_count(msg: discord.Message) -> int:
+    return sum(1 for e in msg.embeds if e.type == "video" or e.video)
 
 
 def setup(ctx: Context) -> None:
@@ -83,19 +119,39 @@ def setup(ctx: Context) -> None:
     async def reply_with_embeds(message: discord.Message, links: list[tuple[str, str]]) -> None:
         async with aiohttp.ClientSession(timeout=timeout) as session:
             urls = [to_embed_url(path, host) for _, path in links]
-            checks = await asyncio.gather(*(is_video(u, session) for u in urls))
-        videos = [u for u, ok in zip(urls, checks, strict=True) if ok]
-        if not videos:
-            return
-        log.info("gphotos: embedding %d video(s) for %s", len(videos), message.author)
-        await message.reply("\n".join(videos), mention_author=False)
-        # Hide the original's static thumbnail so the video isn't doubled up.
-        # Needs Manage Messages; without it the original preview just stays.
-        if suppress_original and message.guild is not None:
+            mp4s = await asyncio.gather(*(video_url(u, session) for u in urls))
+            videos = [(u, v) for u, v in zip(urls, mp4s, strict=True) if v]
+            if not videos:
+                return
+            log.info("gphotos: embedding %d video(s) for %s", len(videos), message.author)
+            reply = await message.reply("\n".join(u for u, _ in videos), mention_author=False)
+            # Hide the original's static thumbnail so the video isn't doubled up.
+            # Needs Manage Messages; without it the original preview just stays.
+            if suppress_original and message.guild is not None:
+                try:
+                    await message.edit(suppress=True)
+                except discord.HTTPException:
+                    pass
+            await ensure_embedded(reply, videos, session)
+
+    async def ensure_embedded(reply: discord.Message, videos: list[tuple[str, str]],
+                              session: aiohttp.ClientSession) -> None:
+        for attempt in range(1, _RETRIES + 1):
+            await asyncio.sleep(_EMBED_WAIT)
             try:
-                await message.edit(suppress=True)
+                reply = await reply.channel.fetch_message(reply.id)
             except discord.HTTPException:
-                pass
+                return
+            if video_embed_count(reply) >= len(videos):
+                return
+            log.info("gphotos: no video embed on %s, warming and retry %d", reply.id, attempt)
+            await asyncio.gather(*(warm(v, session) for _, v in videos))
+            content = "\n".join(with_retry_param(u, attempt) for u, _ in videos)
+            try:
+                reply = await reply.edit(content=content)
+            except discord.HTTPException:
+                return
+        log.warning("gphotos: video embed still missing on %s after %d retries", reply.id, _RETRIES)
 
     async def embed_gphotos(message: discord.Message, ctx: Context) -> bool:
         if message.guild is not None and message.guild.id not in ctx.config.guild_ids:
