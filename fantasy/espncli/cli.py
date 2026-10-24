@@ -774,9 +774,20 @@ def cmd_check(api: Espn, args: argparse.Namespace) -> None:
                 print(f"     {n['bench']} ({pts(n['bench_proj'])}) over {n['starter']} at {n['slot']} "
                       f"({pts(n['starter_proj'])}), +{n['gain']}")
         if mv and mv.get("opp"):
-            src = "live" if mv.get("margin_source") == "live" else "projected"
-            print(f"\n  matchup vs {mv['opp']['team']}: projected {pts(mv['me']['projected'])} to "
-                  f"{pts(mv['opp']['projected'])}, {src} margin {mv['margin']:+.1f} -> {mv['rule']}")
+            # Once a player locks, the pregame sums are stale (they ignore
+            # banked points), so the headline shows ESPN's live projection
+            # and the pregame pair only as a labeled aside. 2026-10-24: a
+            # routine reported "124.6 to 123.3" as the matchup when the live
+            # read was +12.2.
+            if mv.get("margin_source") == "live":
+                print(f"\n  matchup vs {mv['opp']['team']}: live projection "
+                      f"{pts(mv['me']['espn_live_proj'])} to {pts(mv['opp']['espn_live_proj'])}, "
+                      f"live margin {mv['margin']:+.1f} -> {mv['rule']}"
+                      f"\n    (pregame projection {pts(mv['me']['projected'])} to "
+                      f"{pts(mv['opp']['projected'])}: stale, ignores banked points)")
+            else:
+                print(f"\n  matchup vs {mv['opp']['team']}: projected {pts(mv['me']['projected'])} to "
+                      f"{pts(mv['opp']['projected'])}, pregame margin {mv['margin']:+.1f} -> {mv['rule']}")
             print_win(mv, indent="  ")
         elif mv:
             print("\n  idle week: no opponent, nothing to set")
