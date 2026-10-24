@@ -1360,6 +1360,9 @@ def cmd_prune(_args) -> int:
     return 0
 
 
+NETWORK_ERROR_MARKERS = ("ENOTFOUND", "ECONNREFUSED", "ETIMEDOUT", "Can't reach the API server")
+
+
 def wait_for_network(host: str = "api.anthropic.com", max_wait: int = 300) -> bool:
     """Block until an HTTPS round trip to host succeeds, or give up after max_wait seconds.
 
@@ -1441,6 +1444,11 @@ def cmd_consolidate(args) -> int:
             tail = (r.stderr or r.stdout).strip().splitlines()
             if r.returncode != 1 or attempt == 2:
                 return t, r.returncode, tail[-1] if tail else ""
+            # The 23:00 preflight does not cover a drop mid-run: on 2026-10-23 DNS
+            # failed at about 23:09 and six writers spent both attempts inside the
+            # outage. Wait for the network before the retry.
+            if any(m in (r.stderr or "") + (r.stdout or "") for m in NETWORK_ERROR_MARKERS):
+                wait_for_network(max_wait=600)
         return t, 1, ""
 
     failures: list[str] = []
