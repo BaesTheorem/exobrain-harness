@@ -1,6 +1,6 @@
 # Curbside design
 
-Direction: a photo grid with a map drawer. The reference is [are.na](https://www.are.na): quiet chrome, so the photos carry the page.
+Direction: a photo grid with a map drawer. The layout reference is [are.na](https://www.are.na): quiet chrome, so the photos carry the page. The colors are Facebook's.
 
 ## Type
 
@@ -9,15 +9,17 @@ Direction: a photo grid with a map drawer. The reference is [are.na](https://www
 
 ## Palette
 
-The MD3 roles in `static/theme.css` come from the seed below through material-color-utilities (`SchemeTonalSpot`), light and dark. Five named tokens:
+Facebook's own palette, at Alex's request (2026-10-24). `static/theme.css` copies the values from the CSS variables that facebook.com serves in `.__fb-light-mode` and `.__fb-dark-mode`, and maps the MD3 roles onto them. Five named tokens:
 
-| Token | Role | Light |
-| --- | --- | --- |
-| Seed teal | `--primary` source, distance chip, clusters | `#00897B` (renders as `#006b5f`) |
-| Ink | `--on-surface`, prices and titles | from the scheme |
-| Paper | `--surface`, page background | from the scheme |
-| Muted | `--on-surface-variant`, meta lines | from the scheme |
-| Chip | `--secondary-container`, active filters | from the scheme |
+| Token | Facebook variable | Light | Dark |
+| --- | --- | --- | --- |
+| Blue | `primary-button-background` | `#1B74E4` | `#2374E1` |
+| Text | `primary-text` | `#050505` | `#E4E6EB` |
+| Wash | `web-wash` (page) | `#F0F2F5` | `#18191A` |
+| Card | `card-background` (header, sheets) | `#FFFFFF` | `#242526` |
+| Muted | `secondary-text` | `#65676B` | `#B0B3B8` |
+
+Tags use Facebook's `positive` green for price drops, `negative` for a shared photo, and `warning` for pending.
 
 ## Rules
 

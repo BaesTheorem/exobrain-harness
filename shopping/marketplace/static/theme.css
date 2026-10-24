@@ -1,77 +1,82 @@
-/* MD3 roles generated from seed #00897B with material-color-utilities (SchemeTonalSpot). */
-body.light{
-  --primary:#006b5f;
-  --on-primary:#ffffff;
-  --primary-container:#9ef2e3;
-  --on-primary-container:#005048;
-  --secondary:#4a635e;
-  --on-secondary:#ffffff;
-  --secondary-container:#cce8e2;
-  --on-secondary-container:#334b47;
-  --tertiary:#456179;
-  --on-tertiary:#ffffff;
-  --tertiary-container:#cbe6ff;
-  --on-tertiary-container:#2d4a60;
-  --error:#ba1a1a;
-  --on-error:#ffffff;
-  --error-container:#ffdad6;
-  --on-error-container:#93000a;
-  --background:#f4fbf8;
-  --on-background:#161d1b;
-  --surface:#f4fbf8;
-  --on-surface:#161d1b;
-  --surface-variant:#dae5e1;
-  --on-surface-variant:#3f4946;
-  --outline:#6f7976;
-  --outline-variant:#bec9c5;
-  --shadow:#000000;
-  --scrim:#000000;
-  --inverse-surface:#2b3230;
-  --inverse-on-surface:#ecf2ef;
-  --inverse-primary:#82d5c7;
-  --surface-dim:#d5dbd9;
-  --surface-bright:#f4fbf8;
-  --surface-container-lowest:#ffffff;
-  --surface-container-low:#eff5f2;
-  --surface-container:#e9efec;
-  --surface-container-high:#e3eae7;
-  --surface-container-highest:#dde4e1
+/* Facebook's own palette. Every --fb-* value is copied from the CSS variables that
+   facebook.com serves in .__fb-light-mode and .__fb-dark-mode (read 2026-10-24 from the
+   Marketplace page). The MD3 roles below, which Beer CSS and app.css use, map onto them. */
+
+body.light {
+  --fb-blue: #1B74E4;               /* primary-button-background */
+  --fb-blue-text: #1877F2;          /* primary-deemphasized-button-text, base-blue */
+  --fb-blue-wash: #E7F3FF;          /* primary-deemphasized-button-background */
+  --fb-text: #050505;               /* primary-text */
+  --fb-text-2: #65676B;             /* secondary-text */
+  --fb-web-wash: #F0F2F5;           /* web-wash: page background */
+  --fb-card: #FFFFFF;               /* card-background, nav-bar-background */
+  --fb-input: #F0F2F5;              /* comment-background: search field */
+  --fb-button-2: #E4E6EB;           /* secondary-button-background */
+  --fb-divider: #CED0D4;            /* divider */
+  --fb-popover: #FFFFFF;            /* popover-background */
+  --fb-positive: #31A24C;           /* positive */
+  --fb-positive-wash: #DEEFE1;      /* positive-background */
+  --fb-negative: hsl(350, 87%, 55%);
+  --fb-negative-wash: hsl(350, 87%, 55%, 20%);
+  --fb-warning: hsl(40, 89%, 52%);
+  --fb-overlay: rgba(0, 0, 0, .6);
 }
-body.dark{
-  --primary:#82d5c7;
-  --on-primary:#003731;
-  --primary-container:#005048;
-  --on-primary-container:#9ef2e3;
-  --secondary:#b1ccc6;
-  --on-secondary:#1c3531;
-  --secondary-container:#334b47;
-  --on-secondary-container:#cce8e2;
-  --tertiary:#adcae5;
-  --on-tertiary:#143349;
-  --tertiary-container:#2d4a60;
-  --on-tertiary-container:#cbe6ff;
-  --error:#ffb4ab;
-  --on-error:#690005;
-  --error-container:#93000a;
-  --on-error-container:#ffdad6;
-  --background:#0e1513;
-  --on-background:#dde4e1;
-  --surface:#0e1513;
-  --on-surface:#dde4e1;
-  --surface-variant:#3f4946;
-  --on-surface-variant:#bec9c5;
-  --outline:#899390;
-  --outline-variant:#3f4946;
-  --shadow:#000000;
-  --scrim:#000000;
-  --inverse-surface:#dde4e1;
-  --inverse-on-surface:#2b3230;
-  --inverse-primary:#006b5f;
-  --surface-dim:#0e1513;
-  --surface-bright:#343b39;
-  --surface-container-lowest:#090f0e;
-  --surface-container-low:#161d1b;
-  --surface-container:#1a211f;
-  --surface-container-high:#252b2a;
-  --surface-container-highest:#303634
+
+body.dark {
+  --fb-blue: #2374E1;
+  --fb-blue-text: #2D88FF;
+  --fb-blue-wash: rgba(45, 136, 255, .2);
+  --fb-text: #E4E6EB;
+  --fb-text-2: #B0B3B8;
+  --fb-web-wash: #18191A;
+  --fb-card: #242526;
+  --fb-input: #3A3B3C;
+  --fb-button-2: rgba(255, 255, 255, .1);
+  --fb-divider: #3E4042;
+  --fb-popover: #3E4042;
+  --fb-positive: #31A24C;
+  --fb-positive-wash: #1F3520;
+  --fb-negative: hsl(350, 87%, 55%);
+  --fb-negative-wash: hsl(350, 87%, 55%, 20%);
+  --fb-warning: hsl(40, 89%, 52%);
+  --fb-overlay: rgba(0, 0, 0, .6);
+}
+
+body.light, body.dark {
+  --primary: var(--fb-blue);
+  --on-primary: #FFFFFF;
+  --primary-container: var(--fb-blue-wash);
+  --on-primary-container: var(--fb-blue-text);
+  --secondary: var(--fb-text-2);
+  --on-secondary: #FFFFFF;
+  --secondary-container: var(--fb-button-2);
+  --on-secondary-container: var(--fb-text);
+  --tertiary: var(--fb-warning);
+  --on-tertiary: #050505;
+  --tertiary-container: var(--fb-warning);
+  --on-tertiary-container: #050505;
+  --error: var(--fb-negative);
+  --on-error: #FFFFFF;
+  --error-container: var(--fb-negative-wash);
+  --on-error-container: var(--fb-negative);
+  --background: var(--fb-web-wash);
+  --on-background: var(--fb-text);
+  --surface: var(--fb-web-wash);
+  --on-surface: var(--fb-text);
+  --surface-variant: var(--fb-input);
+  --on-surface-variant: var(--fb-text-2);
+  --outline: var(--fb-text-2);
+  --outline-variant: var(--fb-divider);
+  --inverse-surface: var(--fb-overlay);
+  --inverse-on-surface: #FFFFFF;
+  --inverse-primary: var(--fb-blue-text);
+  --surface-dim: var(--fb-web-wash);
+  --surface-bright: var(--fb-card);
+  --surface-container-lowest: var(--fb-card);
+  --surface-container-low: var(--fb-card);
+  --surface-container: var(--fb-popover);
+  --surface-container-high: var(--fb-input);
+  --surface-container-highest: var(--fb-button-2);
+  --shadow: #000000;
+  --scrim: #000000;
 }

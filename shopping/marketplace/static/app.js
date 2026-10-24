@@ -462,6 +462,7 @@ async function loadSaved() {
   }));
 }
 $("#savedPop").addEventListener("toggle", (e) => { if (e.newState === "open") loadSaved(); });
+$("#hiddenBtn2").addEventListener("click", () => { $("#savedPop").hidePopover(); $("#hiddenBtn").click(); });
 $("#saveBtn").addEventListener("click", async () => {
   const bits = [state.q || "Everything", `${state.max_mi} mi`];
   if (state.max) bits.push(`≤ ${money(+state.max)}`);

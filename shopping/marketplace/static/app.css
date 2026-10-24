@@ -15,7 +15,7 @@ body { font-family: var(--font); background: var(--surface); color: var(--on-sur
 .mono { font-family: var(--mono); }
 
 /* ---------------------------------------------------------------- top bar */
-#top { position: sticky; top: 0; z-index: 20; background: var(--surface); padding: var(--s2) var(--s3) var(--s1);
+#top { position: sticky; top: 0; z-index: 20; background: var(--fb-card, var(--surface)); padding: var(--s2) var(--s3) var(--s1);
        border-bottom: 1px solid var(--outline-variant); }
 #top .row1 { display: flex; gap: var(--s2); align-items: center; }
 #brand { font-weight: 700; font-size: 1.25rem; letter-spacing: -0.02em; color: var(--primary); white-space: nowrap; }
@@ -69,7 +69,7 @@ article.card { background: transparent; padding: 0; margin: 0; }
 .card .dist.approx { background: var(--surface-container-highest); color: var(--on-surface-variant); }
 .card .tags { position: absolute; right: var(--s1); top: var(--s1); display: flex; gap: 4px; }
 .tag { padding: 2px 8px; border-radius: 8px; font-size: .75rem; font-weight: 600; background: var(--surface-container-highest); color: var(--on-surface-variant); }
-.tag.drop { background: var(--primary); color: var(--on-primary); }
+.tag.drop { background: var(--fb-positive-wash, var(--primary)); color: var(--fb-positive, var(--on-primary)); }
 .tag.pend { background: var(--tertiary-container); color: var(--on-tertiary-container); }
 .card .price { margin-top: var(--s1); font-family: var(--mono); font-weight: 600; font-size: 1.05rem; display: flex; gap: var(--s1); align-items: baseline; }
 .card .was { font-weight: 400; font-size: .8rem; color: var(--on-surface-variant); text-decoration: line-through; }
@@ -127,6 +127,7 @@ dialog#hiddenDlg { inline-size: min(480px, 100vw); border-radius: var(--radius);
 @media (max-width: 900px) {
   dialog#detail { inline-size: 100vw; inset: auto 0 0 0; transform: none; max-block-size: 92%; border-radius: var(--radius) var(--radius) 0 0; }
   #top .row1 { gap: 4px; }
+  #hiddenBtn { display: none; }   /* in the bookmark menu on phones */
   #searchForm { height: 44px; padding: 0 12px; min-width: 0; }
   #filters { flex-wrap: nowrap; overflow-x: auto; margin: var(--s1) calc(-1 * var(--s2)) 0; padding: 0 var(--s2) 4px; scrollbar-width: none; }
   #filters > * { flex: 0 0 auto; }
@@ -148,3 +149,10 @@ dialog#hiddenDlg { inline-size: min(480px, 100vw); border-radius: var(--radius);
 #more { padding: var(--s3) 0; text-align: center; color: var(--on-surface-variant); font-size: .875rem; }
 .note { margin-top: var(--s1); padding: var(--s1) var(--s2); border-radius: var(--radius); font-size: .85rem; background: var(--surface-container-high); }
 .note.warn { background: var(--error-container); color: var(--on-error-container); }
+/* Tags that sit on a photo need a solid fill: Facebook's dark secondary fill is 10% white. */
+.card .tags .tag:not(.drop):not(.warn):not(.pend):not(.relist) { background: var(--fb-card); color: var(--fb-text); }
+.card .tags .tag.relist { background: var(--fb-card); color: var(--fb-blue-text); }
+.card .tags .tag.warn { background: var(--fb-negative); color: #FFFFFF; }
+.card .tags .tag.drop { background: var(--fb-positive); color: #FFFFFF; }
+#detail .count { background: var(--inverse-surface); color: var(--inverse-on-surface); }
+.card .dist.approx { background: var(--fb-card); color: var(--fb-text-2); }
