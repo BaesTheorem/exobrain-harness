@@ -1,0 +1,166 @@
+#!/usr/bin/env python3
+"""Get through a Wi-Fi captive portal whose button does not work in the
+system's mini browser. Runs fully offline: no Claude, no internet needed.
+
+It opens the portal in headless Chromium, ticks every checkbox, fills any
+--field values, clicks the button that looks like accept/connect, and repeats
+until Apple's probe page answers "Success". Every page goes to a log dir
+(screenshot + HTML) so a later session can read what the portal did.
+
+Usage:
+  bin/portal-accept                       # try it
+  bin/portal-accept --field email=x@y.z   # portal wants a value
+  bin/portal-accept --show                # visible browser, click by hand
+"""
+import argparse
+import re
+import sys
+import time
+import urllib.request
+from datetime import datetime
+from pathlib import Path
+
+from playwright.sync_api import sync_playwright
+
+PROBE = "http://captive.apple.com/hotspot-detect.html"
+START = "http://neverssl.com/"
+UA = ("Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 "
+      "(KHTML, like Gecko) Chrome/130.0.0.0 Safari/537.36")
+BUTTON_WORDS = re.compile(
+    r"accept|agree|connect|continue|get online|start|join|submit|log ?in|"
+    r"sign ?in|go online|proceed|i understand|ok\b|free wi-?fi|access",
+    re.I)
+LOG_ROOT = Path(__file__).resolve().parent.parent / "tmp" / "portal"
+
+
+def online() -> bool:
+    try:
+        req = urllib.request.Request(PROBE, headers={"User-Agent": UA})
+        with urllib.request.urlopen(req, timeout=6) as r:
+            return b"Success" in r.read(4096)
+    except Exception:
+        return False
+
+
+def snap(page, logdir: Path, tag: str) -> None:
+    try:
+        page.screenshot(path=str(logdir / f"{tag}.png"), full_page=True)
+        (logdir / f"{tag}.html").write_text(page.content())
+        with open(logdir / "log.txt", "a") as f:
+            f.write(f"{tag}: {page.url}\n")
+    except Exception as e:
+        print(f"  (snapshot failed: {e})")
+
+
+def fill_and_click(page, fields: dict[str, str]) -> bool:
+    for frame in page.frames:
+        for name, value in fields.items():
+            for sel in (f"[name='{name}']", f"#{name}", f"[type='{name}']"):
+                loc = frame.locator(sel)
+                if loc.count():
+                    try:
+                        loc.first.fill(value, timeout=2000)
+                        print(f"  filled {name}")
+                        break
+                    except Exception:
+                        pass
+        boxes = frame.locator("input[type=checkbox]")
+        for i in range(boxes.count()):
+            try:
+                boxes.nth(i).check(timeout=2000, force=True)
+                print("  ticked a checkbox")
+            except Exception:
+                pass
+    for frame in page.frames:
+        cands = frame.locator(
+            "button, input[type=submit], input[type=button], input[type=image], "
+            "a, [role=button]")
+        for i in range(cands.count()):
+            el = cands.nth(i)
+            try:
+                if not el.is_visible():
+                    continue
+                label = " ".join(filter(None, [
+                    el.inner_text(timeout=500) if el.evaluate(
+                        "e => e.tagName") not in ("INPUT",) else "",
+                    el.get_attribute("value") or "",
+                    el.get_attribute("aria-label") or "",
+                    el.get_attribute("id") or ""])).strip()
+            except Exception:
+                continue
+            if BUTTON_WORDS.search(label):
+                print(f"  clicking: {label[:60]!r}")
+                try:
+                    el.click(timeout=4000, force=True)
+                except Exception as e:
+                    print(f"  click failed ({e}); trying JS click")
+                    el.evaluate("e => e.click()")
+                return True
+    # Last resort: submit the first form directly.
+    for frame in page.frames:
+        if frame.locator("form").count():
+            print("  no button matched; submitting the first form")
+            frame.locator("form").first.evaluate(
+                "f => f.requestSubmit ? f.requestSubmit() : f.submit()")
+            return True
+    return False
+
+
+def main() -> int:
+    ap = argparse.ArgumentParser()
+    ap.add_argument("--field", action="append", default=[],
+                    help="name=value for a portal input (repeatable)")
+    ap.add_argument("--rounds", type=int, default=5)
+    ap.add_argument("--show", action="store_true", help="visible browser")
+    a = ap.parse_args()
+    fields = dict(f.split("=", 1) for f in a.field)
+
+    if online():
+        print("Already online. Nothing to do.")
+        return 0
+    logdir = LOG_ROOT / datetime.now().strftime("%Y%m%d-%H%M%S")
+    logdir.mkdir(parents=True, exist_ok=True)
+    print(f"Logs: {logdir}")
+
+    with sync_playwright() as p:
+        browser = p.chromium.launch(headless=not a.show)
+        ctx = browser.new_context(user_agent=UA, ignore_https_errors=True)
+        page = ctx.new_page()
+        page.on("popup", lambda pop: print(f"  popup opened: {pop.url}"))
+        try:
+            page.goto(START, timeout=20000, wait_until="networkidle")
+        except Exception as e:
+            print(f"  load: {e}")
+        if a.show:
+            print("Browser is open. Click through by hand; I watch the probe.")
+            for _ in range(120):
+                time.sleep(2)
+                if online():
+                    print("ONLINE.")
+                    return 0
+            return 1
+        for n in range(1, a.rounds + 1):
+            print(f"Round {n}: {page.url}")
+            snap(page, logdir, f"{n:02d}-before")
+            if not fill_and_click(page, fields):
+                print("  nothing to click on this page")
+            try:
+                page.wait_for_load_state("networkidle", timeout=15000)
+            except Exception:
+                pass
+            time.sleep(3)
+            for pg in ctx.pages:
+                if pg is not page:
+                    page = pg  # follow a popup if the portal opened one
+            snap(page, logdir, f"{n:02d}-after")
+            if online():
+                print("ONLINE. Portal accepted.")
+                return 0
+        browser.close()
+    print(f"Still not online. Look at the screenshots in {logdir}, then try "
+          "--field name=value or --show.")
+    return 1
+
+
+if __name__ == "__main__":
+    sys.exit(main())
