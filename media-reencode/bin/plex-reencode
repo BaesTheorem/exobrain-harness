@@ -1,0 +1,275 @@
+#!/usr/bin/env python3
+"""Re-encode oversized Plex videos to HEVC, one file at a time, behind a VMAF gate.
+
+Usage:
+    plex-reencode plan            # print the queue, largest estimated savings first
+    plex-reencode run [--limit N] # work the queue; safe to stop and start again
+    plex-reencode readme          # regenerate the log table in the drive README
+
+Per file: ab-av1 searches for the lowest quality setting that keeps the sampled VMAF at
+MIN_VMAF, encodes the whole file to a temp path on the same drive, then a full-length VMAF
+pass (every SUBSAMPLE-th frame) and stream/duration checks decide. A pass replaces the
+original in one rename; a fail deletes the new file and keeps the original. Results go to
+STATE (resume) and LOG (the record the README table is built from).
+
+INVARIANTS
+- The original is never deleted before its replacement passed every check.
+- Nothing under OnePace/ is ever queued (its pipeline depends on the exact files).
+- HDR, Dolby Vision and AV1 sources are never queued.
+"""
+
+import argparse
+import datetime as dt
+import json
+import os
+import shutil
+import subprocess
+import sys
+import tempfile
+import time
+from pathlib import Path
+
+DRIVE = Path("/Volumes/Extreme SSD")
+ROOTS = [DRIVE / "Plex Media" / d for d in ("TV Shows", "Anime", "Movies")]
+WORK = DRIVE / ".reencode"
+STATE = WORK / "state.json"
+LOG = WORK / "log.jsonl"
+README = DRIVE / "README.md"
+SAMPLES = Path(tempfile.gettempdir()) / "plex-reencode-samples"
+
+ENCODER = os.environ.get("REENCODE_ENCODER", "hevc_videotoolbox")
+MIN_VMAF = 95.0  # ab-av1 sample target
+GATE_MEAN = 94.0  # full-file pooled mean the result must reach
+GATE_P1 = 80.0  # 1st-percentile frame score (catches a few badly broken scenes)
+MAX_PCT = 80  # new file must be at most this percent of the original video stream
+SUBSAMPLE = 5
+EXTS = {".mkv", ".mp4", ".m4v"}
+# Bitrate a modern-codec file must exceed (2x this) before it is worth a second generation.
+TARGETS = [(2000, 12e6), (1000, 4e6), (700, 2.2e6), (0, 1.2e6)]
+MIN_EST_SAVING = 0.15
+HDR_TRANSFERS = {"smpte2084", "arib-std-b67"}
+README_START = "<!-- reencode-log:start -->"
+README_END = "<!-- reencode-log:end -->"
+
+
+def probe(path: Path) -> dict:
+    out = subprocess.run(
+        ["ffprobe", "-v", "error", "-print_format", "json", "-show_format", "-show_streams", str(path)],
+        capture_output=True, text=True, check=True,
+    )
+    return json.loads(out.stdout)
+
+
+def main_video(info: dict) -> dict:
+    return next(s for s in info["streams"]
+                if s["codec_type"] == "video" and not s.get("disposition", {}).get("attached_pic"))
+
+
+def stream_counts(info: dict) -> dict[str, int]:
+    counts: dict[str, int] = {}
+    for s in info["streams"]:
+        if s["codec_type"] == "data":
+            continue  # the MP4 muxer writes its own chapter-text track; chapters are not content
+        counts[s["codec_type"]] = counts.get(s["codec_type"], 0) + 1
+    return counts
+
+
+def estimate(path: Path) -> dict | None:
+    """Return a queue entry with an estimated saving, or None when the file is not a target."""
+    info = probe(path)
+    v = main_video(info)
+    dur = float(info["format"]["duration"])
+    size = path.stat().st_size
+    side = json.dumps(v.get("side_data_list", []))
+    if v["codec_name"] == "av1" or v.get("color_transfer") in HDR_TRANSFERS or "DOVI" in side:
+        return None
+    audio = sum(float(s.get("bit_rate") or s.get("tags", {}).get("BPS") or 0)
+                for s in info["streams"] if s["codec_type"] == "audio")
+    vbps = max(size * 8 / dur - audio, 0)
+    height = int(v.get("height") or 0)
+    tgt = next(t for h, t in TARGETS if height >= h)
+    if v["codec_name"] in ("hevc", "vp9"):
+        new_vbps = tgt if vbps > 2 * tgt else vbps
+    else:
+        new_vbps = vbps * 0.55
+    saving = (vbps - new_vbps) * dur / 8
+    if saving < MIN_EST_SAVING * size:
+        return None
+    return {"path": str(path), "codec": v["codec_name"], "height": height, "size": size,
+            "est_saving": saving, "ten_bit": "10" in (v.get("pix_fmt") or "")}
+
+
+def title_of(path: Path) -> str:
+    rel = path.relative_to(DRIVE / "Plex Media")
+    return "/".join(rel.parts[:2])
+
+
+def build_queue() -> list[dict]:
+    files = sorted(p for r in ROOTS for p in r.rglob("*")
+                   if p.suffix.lower() in EXTS and not p.name.startswith("._"))
+    entries = [e for p in files if "OnePace" not in p.parts and (e := estimate(p))]
+    totals: dict[str, float] = {}
+    for e in entries:
+        totals[title_of(Path(e["path"]))] = totals.get(title_of(Path(e["path"])), 0) + e["est_saving"]
+    entries.sort(key=lambda e: (-totals[title_of(Path(e["path"]))], e["path"]))
+    return entries
+
+
+def load_state() -> dict:
+    return json.loads(STATE.read_text()) if STATE.exists() else {}
+
+
+def save_state(state: dict) -> None:
+    tmp = STATE.with_suffix(".tmp")
+    tmp.write_text(json.dumps(state, indent=1))
+    tmp.replace(STATE)
+
+
+def vmaf(ref: Path, new: Path) -> tuple[float, float]:
+    """Full-length VMAF, every SUBSAMPLE-th frame; returns (mean, 1st-percentile)."""
+    log = WORK / "vmaf.json"
+    lavfi = (f"[0:v]setpts=PTS-STARTPTS[d];[1:v]setpts=PTS-STARTPTS[r];"
+             f"[d][r]libvmaf=n_subsample={SUBSAMPLE}:n_threads=6:log_fmt=json:log_path='{log}'")
+    subprocess.run(["ffmpeg", "-v", "error", "-nostdin", "-i", str(new), "-i", str(ref),
+                    "-lavfi", lavfi, "-f", "null", "-"], check=True)
+    frames = sorted(f["metrics"]["vmaf"] for f in json.loads(log.read_text())["frames"])
+    log.unlink()
+    return sum(frames) / len(frames), frames[max(0, len(frames) // 100 - 1)]
+
+
+def encode(src: Path, out: Path, ten_bit: bool) -> None:
+    pix = "p010le" if ten_bit and ENCODER == "hevc_videotoolbox" else ("yuv420p10le" if ten_bit else "yuv420p")
+    cmd = ["ab-av1", "auto-encode", "-e", ENCODER, "--min-vmaf", str(MIN_VMAF),
+           "--max-encoded-percent", str(MAX_PCT), "--pix-format", pix,
+           "--temp-dir", str(SAMPLES), "-i", str(src), "-o", str(out)]
+    if src.suffix.lower() in (".mp4", ".m4v"):
+        cmd += ["--enc", "tag:v=hvc1"]  # Apple players and Plex direct play need hvc1 in MP4
+    subprocess.run(cmd, check=True)
+
+
+def record(entry: dict) -> None:
+    with LOG.open("a") as f:
+        f.write(json.dumps(entry) + "\n")
+
+
+def process(e: dict, state: dict) -> None:
+    src = Path(e["path"])
+    out = WORK / f"current{src.suffix}"
+    out.unlink(missing_ok=True)
+    before = probe(src)
+    t0 = time.time()
+    rel = str(src.relative_to(DRIVE))
+    base = {"file": rel, "date": dt.date.today().isoformat(), "encoder": ENCODER,
+            "src_codec": e["codec"], "old_bytes": src.stat().st_size}
+    try:
+        encode(src, out, e["ten_bit"])
+    except subprocess.CalledProcessError as err:
+        # ab-av1 exits non-zero when no setting reaches MIN_VMAF within MAX_PCT.
+        out.unlink(missing_ok=True)
+        state[e["path"]] = "kept: no setting met the VMAF and size targets"
+        record({**base, "result": "kept", "reason": f"ab-av1 exit {err.returncode}"})
+        return
+    after = probe(out)
+    reason = ""
+    if abs(float(after["format"]["duration"]) - float(before["format"]["duration"])) > 1.0:
+        reason = "duration changed"
+    elif stream_counts(after) != stream_counts(before):
+        reason = f"streams changed {stream_counts(before)} -> {stream_counts(after)}"
+    elif out.stat().st_size > src.stat().st_size * 0.9:
+        reason = "saved less than 10%"
+    mean = p1 = 0.0
+    if not reason:
+        mean, p1 = vmaf(src, out)
+        if mean < GATE_MEAN or p1 < GATE_P1:
+            reason = f"VMAF mean {mean:.2f} / 1% low {p1:.2f} under the gate"
+    entry = {**base, "new_bytes": out.stat().st_size, "vmaf_mean": round(mean, 2),
+             "vmaf_p1": round(p1, 2), "minutes": round((time.time() - t0) / 60, 1)}
+    if reason:
+        out.unlink()
+        state[e["path"]] = f"kept: {reason}"
+        record({**entry, "result": "kept", "reason": reason})
+        return
+    os.replace(out, src)  # same filesystem: one atomic rename, the original is gone only now
+    state[e["path"]] = "replaced"
+    record({**entry, "result": "replaced"})
+
+
+def write_readme() -> None:
+    rows = [json.loads(line) for line in LOG.read_text().splitlines()] if LOG.exists() else []
+    done = [r for r in rows if r["result"] == "replaced"]
+    saved = sum(r["old_bytes"] - r["new_bytes"] for r in done)
+    lines = [README_START, "",
+             f"{len(done)} files replaced, {saved / 1e9:.1f} GB recovered, "
+             f"{len(rows) - len(done)} kept as they were. Generated by `plex-reencode readme`.", "",
+             "| Date | File | Was | Now | VMAF mean / 1% low | Result |", "|---|---|---|---|---|---|"]
+    for r in rows:
+        now = f"{r['new_bytes'] / 1e9:.2f} GB" if r.get("new_bytes") else "-"
+        score = f"{r['vmaf_mean']} / {r['vmaf_p1']}" if r.get("vmaf_mean") else "-"
+        result = "replaced" if r["result"] == "replaced" else f"kept ({r.get('reason', '')})"
+        lines.append(f"| {r['date']} | {r['file']} | {r['src_codec']} {r['old_bytes'] / 1e9:.2f} GB "
+                     f"| {now} | {score} | {result} |")
+    lines += ["", README_END]
+    text = README.read_text()
+    if README_START in text:
+        head, rest = text.split(README_START, 1)
+        text = head + "\n".join(lines) + rest.split(README_END, 1)[1]
+    else:
+        text = text.rstrip() + "\n\n" + "\n".join(lines) + "\n"
+    README.write_text(text)
+
+
+def notify(msg: str) -> None:
+    tool = Path.home() / "Documents/Exobrain harness/mist-voice/bin/mist-notify"
+    if tool.exists():
+        subprocess.run([str(tool), msg, "Plex re-encode", "none", str(README), "--discord",
+                        "--group", "plex-reencode", "--context-file", str(LOG)], check=False)
+
+
+def run(limit: int | None) -> None:
+    WORK.mkdir(exist_ok=True)
+    SAMPLES.mkdir(exist_ok=True)
+    state = load_state()
+    queue = [e for e in build_queue() if e["path"] not in state]
+    done = 0
+    for e in queue:
+        if limit is not None and done >= limit:
+            break
+        if not DRIVE.exists():
+            sys.exit("drive not mounted")
+        if shutil.disk_usage(DRIVE).free < e["size"] + 5e9:
+            notify(f"Stopped: not enough free space on the SSD for {Path(e['path']).name}.")
+            sys.exit("not enough free space")
+        print(f"[{dt.datetime.now():%H:%M}] {e['path']}", flush=True)
+        process(e, state)
+        save_state(state)
+        write_readme()
+        done += 1
+    write_readme()
+    rows = [json.loads(line) for line in LOG.read_text().splitlines()] if LOG.exists() else []
+    saved = sum(r["old_bytes"] - r["new_bytes"] for r in rows if r["result"] == "replaced")
+    if done:
+        notify(f"Re-encode run finished: {done} files this run, {saved / 1e9:.1f} GB recovered in total.")
+
+
+def main() -> None:
+    ap = argparse.ArgumentParser()
+    sub = ap.add_subparsers(dest="cmd", required=True)
+    sub.add_parser("plan")
+    r = sub.add_parser("run")
+    r.add_argument("--limit", type=int)
+    sub.add_parser("readme")
+    a = ap.parse_args()
+    if a.cmd == "plan":
+        q = build_queue()
+        state = load_state()
+        for e in q:
+            print(f"{e['est_saving'] / 1e9:5.2f} GB  {e['codec']:5} {state.get(e['path'], 'todo'):9.9}  {e['path']}")
+        print(f"{len(q)} files, est. {sum(e['est_saving'] for e in q) / 1e9:.0f} GB")
+    elif a.cmd == "run":
+        run(a.limit)
+    else:
+        write_readme()
+
+
+if __name__ == "__main__":
+    main()
