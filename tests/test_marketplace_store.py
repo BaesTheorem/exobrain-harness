@@ -159,3 +159,17 @@ def test_watcher_seeds_then_alerts_new_drops_and_cheaper_relists(tmp_path, monke
     out = watch.search_alerts(st, _FakeCrawler(), saved, rows())
     assert [(k, r["id"]) for k, r, _ in out] == [("relisted lower", "4")]
     assert watch.digest({"desks": out})[1].endswith("https://www.facebook.com/marketplace/item/4/")
+
+
+def test_category_comes_from_the_listing_not_the_page(tmp_path):
+    st = Store(tmp_path / "m.db")
+    leaf = "1569171756675761"
+    for i in range(4):                                   # sweeps saw this leaf on the Home page
+        st.upsert_card({**_row(f"h{i}", 10), "category_id": leaf}, None, browse_cat="home")
+    st.upsert_card({**_row("d", 0), "category_id": "1583634935226685"}, None, browse_cat="free")
+    st.upsert_card({**_row("s", 25), "category_id": "1583634935226685"}, None)            # text search
+    st.upsert_card({**_row("x", 5), "category_id": leaf}, None)
+    st.upsert_card({**_row("u", 5), "category_id": "999"}, None)
+    cats = {r["id"]: r["cat"] for r in st.rows(["d", "s", "x", "u"])}
+    assert cats == {"d": "furniture", "s": "furniture", "x": "home", "u": "other"}
+    assert not filters.match({"band_lo": 0, "band_hi": 3, "cat": "furniture"}, {"max_mi": 10, "categories": ["home"]})

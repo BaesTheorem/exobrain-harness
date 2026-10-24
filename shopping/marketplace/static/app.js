@@ -109,7 +109,9 @@ function visible() {
     if (state.days && r.created && now - r.created > state.days * 86400) continue;
     const cond = CONDITION[r.condition];
     if (state.condition.length && cond && !state.condition.includes(cond)) continue;
-    if (state.categories.length && r.browse_cat && !state.categories.includes(r.browse_cat)) continue;
+    // r.cat is the listing's own category (Facebook's leaf, mapped by the server), not the
+    // page that found it: a desk from "Free stuff" or a text search is still Furniture.
+    if (state.categories.length && !state.categories.includes(r.cat || "other")) continue;
     out.push(r);
   }
   const order = q ? new Map([...jobIds].map((id, i) => [id, i])) : new Map();
@@ -317,7 +319,7 @@ function syncControls() {
   $("#distRange").value = state.max_mi;
   $("#distHint").textContent = cfg ? `The index covers ${cfg.index_mi} mi from home. Past that, only search terms find listings.` : "";
   $("#pmin").value = state.min; $("#pmax").value = state.max;
-  $("#priceLabel").textContent = state.min || state.max
+  $("#priceLabel").textContent = state.max === "0" && !state.min ? "Free" : state.min || state.max
     ? `${state.min ? money(+state.min) : "$0"}–${state.max ? money(+state.max) : "any"}` : "Any price";
   $("#priceChip").classList.toggle("on", !!(state.min || state.max));
   $("#daysLabel").textContent = { "": "Any time", 1: "24 hours", 7: "7 days", 30: "30 days" }[state.days] ?? `${state.days} days`;

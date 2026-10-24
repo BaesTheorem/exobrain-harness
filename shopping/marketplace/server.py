@@ -89,7 +89,8 @@ def make_handler(store: Store, crawler: Crawler) -> type[BaseHTTPRequestHandler]
             path, qs = url.path, parse_qs(url.query)
             if path == "/api/config":
                 return self._json({"home": crawler.home, "index_mi": INDEX_MI,
-                                   "categories": [[c, CATEGORY_LABELS.get(c, c)] for c in SWEEP_CATEGORIES],
+                                   "categories": [[c, CATEGORY_LABELS.get(c, c)] for c in SWEEP_CATEGORIES
+                                                  if c != "free"] + [["other", "Other"]],
                                    "sweep": crawler.sweep_status(), "sweep_due": crawler.sweep_due(),
                                    "pending": crawler.pending(), "locator_error": crawler.locator_error})
             if path == "/api/index":

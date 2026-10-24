@@ -65,6 +65,16 @@ MIGRATIONS = (
 # Fields the grid needs. The rest (description, photo list, attributes) loads with the detail view.
 HEAVY = ("description", "photos", "attributes", "enrich_error", "phash")
 ITEM_URL = "https://www.facebook.com/marketplace/item/{}/"
+# Category page slug -> id (fbm.CATEGORIES), repeated here so the store does not import the lane.
+# "free" is a price, not a category, so it never names a listing's category.
+TOP_CATEGORY_IDS = {
+    "677457442746983": "apparel", "759201041254543": "classifieds", "479353692612078": "electronics",
+    "529595287638583": "entertainment", "891748581240437": "family", "1583634935226685": "furniture",
+    "1109541402725436": "garden", "459026188375950": "hobbies", "753380185098614": "home",
+    "476291743038859": "home-improvements", "1078592699170502": "instruments", "586894672179024": "office-supplies",
+    "197143151659643": "pets", "391335928190702": "sports", "199404184572737": "toys", "546583916084032": "vehicles",
+}
+CATEGORY_MAP_TTL = 600
 PHASH_MAX = 5          # Hamming distance (of 64 bits) for "same photo"
 TITLE_MIN = 12         # normalized title length below which a title match means nothing ("shelf")
 
@@ -115,6 +125,7 @@ class Store:
         self.db.commit()
         self.lock = threading.Lock()
         self._hashes: dict[str, int] | None = None   # id -> phash, loaded on first use
+        self._cat_map: tuple[float, dict[str, str]] = (0.0, {})
 
     # ------------------------------------------------------------ writes
 
@@ -357,6 +368,7 @@ class Store:
                 AND rowid=(SELECT MIN(rowid) FROM price_history q WHERE q.id=p.id)""", ids)}
         hidden = {(r["kind"], r["key"]) for r in self.db.execute("SELECT kind, key FROM hidden")}
         relist = self._relists(sellers)
+        cat_map = self._category_map()
         pgroups = {r["photo_group"] for r in found.values() if r["photo_group"]}
         photo_sellers: dict[str, int] = {}
         if pgroups:
@@ -375,10 +387,36 @@ class Store:
             r["drop"] = round(start - r["price"], 2) if start and r["price"] is not None and start > r["price"] else 0
             r["seller_volume"] = volume.get(r["seller_id"], 1)
             r["url"] = ITEM_URL.format(i)
+            browse = r["browse_cat"] if r["browse_cat"] != "free" else None
+            r["cat"] = cat_map.get(r["category_id"] or "") or browse or "other"
             key, count, earliest = relist.get(i, (i, 1, r["created"]))
             r["relist_key"], r["relist_count"], r["relist_first"] = key, count, earliest
             r["photo_sellers"] = photo_sellers.get(r["photo_group"], 1) if r["photo_group"] else 1
             out.append(r)
+        return out
+
+    def _category_map(self) -> dict[str, str]:
+        """Facebook leaf category id -> top-level category, learned from the sweeps.
+
+        A category page also returns listings from other categories, so one sighting proves
+        little. A leaf maps to the category page that returned it most often (at least 3 times
+        and a majority), never to "free". A leaf that is itself a top-level id maps to that.
+        """
+        at, cached = self._cat_map
+        if time.time() - at < CATEGORY_MAP_TTL:
+            return cached
+        counts: dict[str, dict[str, int]] = {}
+        for leaf, cat, n in self.db.execute(
+                "SELECT category_id, browse_cat, COUNT(*) FROM listings WHERE browse_cat IS NOT NULL "
+                "AND browse_cat != 'free' AND category_id IS NOT NULL GROUP BY category_id, browse_cat"):
+            counts.setdefault(leaf, {})[cat] = n
+        out = {}
+        for leaf, by in counts.items():
+            cat, n = max(by.items(), key=lambda kv: kv[1])
+            if n >= 3 and n * 2 > sum(by.values()):
+                out[leaf] = cat
+        out.update(TOP_CATEGORY_IDS)
+        self._cat_map = (time.time(), out)
         return out
 
     def _relists(self, sellers: set[str]) -> dict[str, tuple[str, int, int | None]]:

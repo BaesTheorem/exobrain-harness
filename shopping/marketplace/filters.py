@@ -85,6 +85,6 @@ def match(r: dict, p: dict, now: float | None = None) -> bool:
     if p.get("condition") and cond and cond not in p["condition"]:
         return False
     cats = p.get("categories") or []
-    if cats and r.get("browse_cat") and r["browse_cat"] not in cats:
+    if cats and (r.get("cat") or "other") not in cats:
         return False
     return not (p.get("exact") and p.get("q") and not text_match(r.get("title"), p["q"]))
