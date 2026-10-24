@@ -173,3 +173,20 @@ def test_category_comes_from_the_listing_not_the_page(tmp_path):
     cats = {r["id"]: r["cat"] for r in st.rows(["d", "s", "x", "u"])}
     assert cats == {"d": "furniture", "s": "furniture", "x": "home", "u": "other"}
     assert not filters.match({"band_lo": 0, "band_hi": 3, "cat": "furniture"}, {"max_mi": 10, "categories": ["home"]})
+
+
+def test_furniture_title_beats_a_misfiled_category(tmp_path):
+    from marketplace.store import furniture_title
+    assert furniture_title("Glass desk") and furniture_title("SKILCRAFT corner sit-to-stand desk converter")
+    assert furniture_title("Vintage American Seating Crusader School Desk") and furniture_title("Small Bookshelf")
+    assert not furniture_title("LED desk lamp") and not furniture_title("DeWalt table saw")
+    assert not furniture_title("Minerals book")
+    for t in ("Leak 130 with 4 Edifier bookshelf speakers", "Large Vintage Framed Library / Bookshelf Print",
+              "Black Spandex Chair Covers", "Brand New Light Beige Sofa Cover", "Self-inflatable queen size air mattress",
+              "Black Computer Desk Monitor Riser Storage Stand", "Removable Bench Seat Console"):
+        assert not furniture_title(t), t
+    for t in ("Solid wood desk", "Storage ottoman", "Mattress queen", "Wooden desk with hutch", "IKEA Futon"):
+        assert furniture_title(t), t
+    st = Store(tmp_path / "m.db")
+    st.upsert_card({**_row("g", 20), "title": "Glass desk", "category_id": "800089866739547"}, None)
+    assert st.rows(["g"])[0]["cat"] == "furniture"

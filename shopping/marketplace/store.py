@@ -75,6 +75,26 @@ TOP_CATEGORY_IDS = {
     "197143151659643": "pets", "391335928190702": "sports", "199404184572737": "toys", "546583916084032": "vehicles",
 }
 CATEGORY_MAP_TTL = 600
+# Sellers misfile furniture: on 2026-10-24 desks sat in Garden (a plants category), Hobbies
+# (antiques) and Electronics. A title that names a piece of furniture wins over the category.
+FURNITURE_TITLE = re.compile(
+    r"\b(desks?|tables?|chairs?|sofas?|couch(es)?|sectionals?|loveseats?|recliners?|dressers?|nightstands?|"
+    r"bookshel(f|ves)|bookcases?|shel(f|ves)|shelving|cabinets?|armoires?|wardrobes?|bed ?frames?|headboards?|"
+    r"futons?|ottomans?|benches|bench|stools?|credenzas?|hutch(es)?|sideboards?|vanity|vanities|"
+    r"tv stands?|entertainment (center|unit)s?|filing cabinets?|chest of drawers|mattress(es)?)\b", re.I)
+# The furniture word only describes the item when another noun follows it ("bookshelf
+# speakers", "desk lamp", "sofa cover"), so those, and air mattresses, are excluded.
+NOT_FURNITURE = re.compile(
+    r"\b(desks?|tables?|chairs?|sofas?|couch|loveseats?|recliners?|bookshel(f|ves)|shel(f|ves)|bench|"
+    r"cabinets?|nightstands?|mattress|stools?)\b[\s-]+(\w+[\s-]+)?(lamps?|fans?|saws?|clocks?|organizers?|mats?|"
+    r"runners?|cloths?|speakers?|prints?|posters?|covers?|slipcovers?|clips?|mounts?|arms?|risers?|consoles?|"
+    r"decals?|stickers?|knobs?|pulls?|hinges?|vaults?|safes?|toppers?|pads?|protectors?|kits?|parts?|legs?)\b"
+    r"|\bair mattress|\bcar seats?\b|\btable ?saw\b|\btablecloth|\bchair covers?\b|\bslipcovers?\b", re.I)
+
+
+def furniture_title(title: str | None) -> bool:
+    t = title or ""
+    return bool(FURNITURE_TITLE.search(t)) and not NOT_FURNITURE.search(t)
 PHASH_MAX = 5          # Hamming distance (of 64 bits) for "same photo"
 TITLE_MIN = 12         # normalized title length below which a title match means nothing ("shelf")
 
@@ -388,7 +408,8 @@ class Store:
             r["seller_volume"] = volume.get(r["seller_id"], 1)
             r["url"] = ITEM_URL.format(i)
             browse = r["browse_cat"] if r["browse_cat"] != "free" else None
-            r["cat"] = cat_map.get(r["category_id"] or "") or browse or "other"
+            r["cat"] = ("furniture" if furniture_title(r["title"])
+                        else cat_map.get(r["category_id"] or "") or browse or "other")
             key, count, earliest = relist.get(i, (i, 1, r["created"]))
             r["relist_key"], r["relist_count"], r["relist_first"] = key, count, earliest
             r["photo_sellers"] = photo_sellers.get(r["photo_group"], 1) if r["photo_group"] else 1
@@ -400,7 +421,7 @@ class Store:
 
         A category page also returns listings from other categories, so one sighting proves
         little. A leaf maps to the category page that returned it most often (at least 3 times
-        and a majority), never to "free". A leaf that is itself a top-level id maps to that.
+        and 40% of its sightings), never to "free". A leaf that is itself a top-level id maps to that.
         """
         at, cached = self._cat_map
         if time.time() - at < CATEGORY_MAP_TTL:
@@ -413,7 +434,7 @@ class Store:
         out = {}
         for leaf, by in counts.items():
             cat, n = max(by.items(), key=lambda kv: kv[1])
-            if n >= 3 and n * 2 > sum(by.values()):
+            if n >= 3 and n * 5 >= sum(by.values()) * 2:
                 out[leaf] = cat
         out.update(TOP_CATEGORY_IDS)
         self._cat_map = (time.time(), out)
