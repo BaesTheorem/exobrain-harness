@@ -870,9 +870,19 @@ def build_parser() -> argparse.ArgumentParser:
     return parser
 
 
+def hoist_global_flags(argv: list[str]) -> list[str]:
+    """Move --json to the front, so `mychart new --json` works the same as
+    `mychart --json new`. Tokens after a bare `--` stay where they are."""
+    end = argv.index("--") if "--" in argv else len(argv)
+    head = [a for a in argv[:end] if a != "--json"]
+    if len(head) == end:
+        return argv
+    return ["--json", *head, *argv[end:]]
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = build_parser()
-    args = parser.parse_args(argv)
+    args = parser.parse_args(hoist_global_flags(sys.argv[1:] if argv is None else argv))
     if args.command == "accounts" and getattr(args, "accounts_command", None) is None:
         args.func = cmd_accounts
     try:

@@ -484,3 +484,11 @@ def test_ehi_import_loads_tsv_tables_and_verify_compares(tmp_path):
     assert checks["portal lab values present in the export (random 25)"] == {
         "check": "portal lab values present in the export (random 25)", "matched": 1, "sampled": 1}
     assert checks["encounters"]["ehi"] == 3
+
+
+def test_json_flag_works_before_or_after_the_subcommand():
+    assert cli.hoist_global_flags(["new", "--days", "1", "--json"]) == ["--json", "new", "--days", "1"]
+    assert cli.hoist_global_flags(["--json", "show", "labs"]) == ["--json", "show", "labs"]
+    assert cli.hoist_global_flags(["search", "x"]) == ["search", "x"]
+    assert cli.hoist_global_flags(["search", "--", "--json"]) == ["search", "--", "--json"]
+    assert cli.build_parser().parse_args(cli.hoist_global_flags(["show", "labs", "--json"])).json
