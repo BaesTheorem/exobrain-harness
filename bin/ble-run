@@ -1,0 +1,76 @@
+#!/bin/sh
+# ble-run: run a Bluetooth LE Python script inside the "BLE Run" app bundle.
+#
+# CoreBluetooth is gated by TCC on the *responsible* app. The MIST Console and
+# most terminals lack NSBluetoothAlwaysUsageDescription, so bare python that
+# touches bleak is SIGABRT'd (exit 134, no stderr). Launching through a bundle
+# that carries the key makes the bundle responsible: the first run prompts once
+# for Bluetooth, later runs just work. Same pattern as flipper/bin/flipper-ble
+# and the NIU KQi app, but for any script.
+#
+#   ble-run scan [seconds] [name-filter]   # list nearby BLE advertisers
+#   ble-run path/to/script.py [args...]    # run your own bleak script
+#   ble-run --rebuild scan                 # rebuild the bundle first
+#
+# Interpreter: flipper/.venv (uv CPython + bleak, a path brew never moves).
+set -e
+DIR=$(cd "$(dirname "$0")/.." && pwd)
+APP="/Applications/BLE Run.app"
+PY="$DIR/flipper/.venv/bin/python"
+
+build_app() {
+  rm -rf "$APP"
+  mkdir -p "$APP/Contents/MacOS"
+  cat > "$APP/Contents/MacOS/launch" <<LAUNCH
+#!/bin/zsh
+# BLE Run.app: runs a bleak script so TCC attributes Bluetooth to this bundle.
+LOG="\$1"; WD="\$2"; shift 2
+cd "\$WD" || exit 1
+"$PY" -I "\$@" >"\$LOG.out" 2>"\$LOG.err"
+echo \$? >"\$LOG.rc"
+LAUNCH
+  chmod +x "$APP/Contents/MacOS/launch"
+  cat > "$APP/Contents/Info.plist" <<PLIST
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+  <key>CFBundleName</key><string>BLE Run</string>
+  <key>CFBundleDisplayName</key><string>BLE Run</string>
+  <key>CFBundleExecutable</key><string>launch</string>
+  <key>CFBundleIdentifier</key><string>com.exobrain.ble-run</string>
+  <key>CFBundlePackageType</key><string>APPL</string>
+  <key>CFBundleVersion</key><string>1.0</string>
+  <key>CFBundleShortVersionString</key><string>1.0</string>
+  <key>LSUIElement</key><true/>
+  <key>NSBluetoothAlwaysUsageDescription</key>
+  <string>BLE Run lets MIST scan for and talk to your Bluetooth LE devices.</string>
+</dict>
+</plist>
+PLIST
+  codesign -s - --force --deep "$APP" 2>/dev/null || true
+}
+
+if [ "$1" = "--rebuild" ]; then shift; build_app; fi
+[ -d "$APP" ] || build_app
+[ -x "$PY" ] || { echo "ble-run: $PY missing; run: uv venv --python 3.13.5 '$DIR/flipper/.venv' && uv pip install --python '$PY' bleak" >&2; exit 1; }
+[ $# -ge 1 ] || { sed -n '2,14p' "$0" >&2; exit 2; }
+
+if [ "$1" = "scan" ]; then
+  shift
+  set -- "$DIR/bin/ble_scan.py" "$@"
+else
+  # The bundle runs with its own cwd, so hand it an absolute script path.
+  SCRIPT=$1; shift
+  case "$SCRIPT" in /*) ;; *) SCRIPT="$PWD/$SCRIPT" ;; esac
+  set -- "$SCRIPT" "$@"
+fi
+
+LOG=$(mktemp -t ble-run)
+open -n -W -a "$APP" --args "$LOG" "$PWD" "$@"
+cat "$LOG.out" 2>/dev/null
+cat "$LOG.err" >&2 2>/dev/null
+RC=$(cat "$LOG.rc" 2>/dev/null || echo 134)
+rm -f "$LOG" "$LOG.out" "$LOG.err" "$LOG.rc"
+[ "$RC" = 134 ] && echo "ble-run: exit 134 = Bluetooth denied. Allow 'BLE Run' in System Settings > Privacy & Security > Bluetooth, or run with --rebuild." >&2
+exit "$RC"
