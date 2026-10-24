@@ -186,6 +186,9 @@ def listing_row(listing: dict) -> dict:
         "state": geo.get("state"),
         "listed": _date(listing.get("creation_time")),
         "seller": seller.get("name"),
+        "seller_id": seller.get("id"),
+        "category_id": listing.get("marketplace_listing_category_id"),
+        "created": listing.get("creation_time"),
         # IN_PERSON and/or SHIPPING. A shipped listing is not local pickup.
         "delivery": listing.get("delivery_types") or [],
         "sold": bool(listing.get("is_sold")),
@@ -272,12 +275,14 @@ def refresh_doc_id(headless: bool = True) -> str:
 
 
 def _params(query: str, lat: float, lon: float, radius_km: int, min_price: float | None,
-            max_price: float | None, days: int | None, condition: list[str] | None) -> dict:
+            max_price: float | None, days: int | None, condition: list[str] | None,
+            shipping: bool = True) -> dict:
     return {
         "bqf": {"callsite": "COMMERCE_MKTPLACE_WWW", "query": query},
         "browse_request_params": {
             "commerce_enable_local_pickup": True,
-            "commerce_enable_shipping": True,
+            # False drops ship-only listings at the source, so they do not use result slots.
+            "commerce_enable_shipping": shipping,
             "commerce_search_and_rp_available": True,
             "commerce_search_and_rp_category_id": [],
             "commerce_search_and_rp_condition": condition or None,
@@ -317,6 +322,26 @@ def _graphql_page(s, tok: dict[str, str], uid: str, params: dict, cursor: str | 
         msg = (first.get("errors") or [{}])[0].get("message", "no marketplace_search in reply")
         raise LaneError(f"fbm: graphql doc_id {doc_id()} rejected ({msg}); run `shop fbm --refresh-docid`")
     return first["data"]["marketplace_search"]["feed_units"]
+
+
+def open_search_session(city: str = "kansascity") -> tuple[Any, dict[str, str], str]:
+    """(session, request tokens, user id) for callers that page the search query themselves."""
+    s = _session()
+    tok = tokens(_get(s, SEARCH_URL.format(city=city), query="chair"))
+    return s, tok, s.cookies.get("c_user", domain=".facebook.com") or ""
+
+
+def search_params(query: str, lat: float, lon: float, radius_km: int, min_price: float | None = None,
+                  max_price: float | None = None, days: int | None = None, condition: list[str] | None = None,
+                  shipping: bool = True) -> dict:
+    return _params(query, lat, lon, radius_km, min_price, max_price, days, condition, shipping)
+
+
+def search_page(s, tok: dict[str, str], uid: str, params: dict, cursor: str | None,
+                referer: str) -> tuple[list[dict], dict]:
+    """One page of search results: (rows, page_info). Ads are already dropped."""
+    fu = _graphql_page(s, tok, uid, params, cursor, referer)
+    return _edges_rows(fu), fu.get("page_info") or {}
 
 
 def search(query: str, n: int = 24, radius_km: int = 40, min_price: float | None = None,

@@ -1,0 +1,95 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<!-- Facebook's photo CDN serves signed URLs; no referrer keeps it from tying the request to this page. -->
+<meta name="referrer" content="no-referrer">
+<title>Curbside</title>
+<link rel="stylesheet" href="vendor/beercss/beer.min.css">
+<link rel="stylesheet" href="vendor/maplibre/maplibre-gl.css">
+<link rel="stylesheet" href="theme.css">
+<link rel="stylesheet" href="app.css">
+</head>
+<body class="light">
+<header id="top">
+  <div class="row1">
+    <div id="brand">Curbside</div>
+    <form id="searchForm" autocomplete="off">
+      <i>search</i>
+      <input id="q" type="search" placeholder="Search Marketplace near home" enterkeyhint="search">
+    </form>
+    <button class="iconbtn" id="savedBtn" title="Saved searches" popovertarget="savedPop"><i>bookmark</i></button>
+    <button class="iconbtn" id="hiddenBtn" title="Hidden listings and sellers"><i>visibility_off</i></button>
+    <button class="iconbtn" id="mapBtn" title="Map"><i>map</i></button>
+  </div>
+  <div id="filters">
+    <button class="fchip primary" id="distChip" popovertarget="distPop"><i>near_me</i><span id="distLabel">10 mi</span></button>
+    <button class="fchip" id="priceChip" popovertarget="pricePop"><i>sell</i><span id="priceLabel">Any price</span></button>
+    <button class="fchip" id="daysChip" popovertarget="daysPop"><i>schedule</i><span id="daysLabel">Any time</span></button>
+    <button class="fchip" id="condChip" popovertarget="condPop"><i>verified</i><span id="condLabel">Any condition</span></button>
+    <button class="fchip on" id="localChip" title="Leave out listings that only ship"><i>storefront</i>Pickup only</button>
+    <button class="fchip" id="dealerChip" title="Leave out sellers with 4 or more listings in the last 30 days"><i>store</i>Hide dealers</button>
+    <button class="fchip" id="pendingChip" title="Leave out pending listings"><i>hourglass_empty</i>Hide pending</button>
+    <button class="fchip" id="exactChip" title="Only listings whose title has every search word"><i>match_case</i>In title</button>
+    <button class="fchip" id="dropChip" title="Only listings whose price went down"><i>trending_down</i>Price drops</button>
+    <label id="sortWrap">Sort
+      <select id="sort">
+        <option value="near">Nearest</option>
+        <option value="new">Newest</option>
+        <option value="low">Price: low to high</option>
+        <option value="high">Price: high to low</option>
+        <option value="drop">Biggest price drop</option>
+        <option value="fb">Facebook order</option>
+      </select>
+    </label>
+  </div>
+</header>
+
+<div id="distPop" class="pop" popover>
+  <h6>Maximum distance from home</h6>
+  <div class="big"><span id="distVal">10</span> mi</div>
+  <input type="range" id="distRange" min="1" max="50" step="1" value="10">
+  <div class="presets">
+    <button class="fchip" data-mi="1">1</button><button class="fchip" data-mi="3">3</button><button class="fchip" data-mi="5">5</button>
+    <button class="fchip" data-mi="10">10</button><button class="fchip" data-mi="20">20</button><button class="fchip" data-mi="40">40</button>
+  </div>
+</div>
+<div id="pricePop" class="pop" popover>
+  <h6>Price</h6>
+  <div class="two"><input type="number" id="pmin" placeholder="Min $" min="0"><input type="number" id="pmax" placeholder="Max $" min="0"></div>
+  <div class="presets"><button class="fchip" data-max="25">Under $25</button><button class="fchip" data-max="100">Under $100</button><button class="fchip" data-max="">Any</button></div>
+</div>
+<div id="daysPop" class="pop" popover>
+  <h6>Listed</h6>
+  <div class="presets">
+    <button class="fchip" data-days="">Any time</button><button class="fchip" data-days="1">24 hours</button>
+    <button class="fchip" data-days="7">7 days</button><button class="fchip" data-days="30">30 days</button>
+  </div>
+</div>
+<div id="condPop" class="pop" popover>
+  <h6>Condition</h6>
+  <label class="check"><input type="checkbox" value="new"> New</label>
+  <label class="check"><input type="checkbox" value="used_like_new"> Used, like new</label>
+  <label class="check"><input type="checkbox" value="used_good"> Used, good</label>
+  <label class="check"><input type="checkbox" value="used_fair"> Used, fair</label>
+</div>
+<div id="savedPop" class="pop" popover>
+  <h6>Saved searches</h6>
+  <ul id="savedList" style="list-style:none;padding:0;margin:0 0 8px"></ul>
+  <button class="btn" id="saveBtn"><i>bookmark_add</i>Save this search</button>
+</div>
+
+<div id="status"><span id="statusText">Search for something to start.</span><div class="bar" id="bar" hidden><div></div></div><span class="spacer"></span><span id="statusWarn" class="warn"></span></div>
+
+<div id="layout">
+  <main id="gridWrap"><div id="grid"></div><div id="empty" hidden></div></main>
+  <aside id="mapPane"><button class="iconbtn" id="mapClose" title="Close map"><i>close</i></button><div id="map"></div></aside>
+</div>
+
+<dialog id="detail"></dialog>
+<dialog id="hiddenDlg"></dialog>
+
+<script type="module" src="app.js"></script>
+</body>
+</html>

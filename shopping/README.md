@@ -112,6 +112,8 @@ an Associates account with qualifying sales, so it is walled for personal use.
 
 ### Facebook Marketplace (`shoptools/fbm.py`, session cookies + GraphQL)
 
+For browsing, `bin/marketplace` serves Curbside, a local web front end on this lane with distance filters, a map drawer and a listing index. See `marketplace/README.md`.
+
 The used market around home. It is **not in the default `find` table**: used listings are a
 different market from new retail, so they join only with `--at fbm`, or through `shop fbm`
 with its own filters. `shop price fbm:<id>` (or a `marketplace/item/<id>` URL) returns the
