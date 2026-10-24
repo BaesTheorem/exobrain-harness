@@ -2,39 +2,39 @@
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
-	<key>Label</key>
-	<string>com.exobrain.plex-reencode</string>
 	<key>AssociatedBundleIdentifiers</key>
 	<array>
 		<string>com.exobrain.mist-console</string>
-	</array>
-	<key>ProgramArguments</key>
-	<array>
-		<string>/Users/alexhedtke/.local/bin/mist-launch</string>
-		<string>/usr/bin/caffeinate</string>
-		<string>-i</string>
-		<string>/opt/homebrew/bin/python3</string>
-		<string>/Users/alexhedtke/Documents/Exobrain harness/media-reencode/bin/plex-reencode</string>
-		<string>run</string>
 	</array>
 	<key>EnvironmentVariables</key>
 	<dict>
 		<key>PATH</key>
 		<string>/opt/homebrew/bin:/usr/bin:/bin:/usr/sbin:/sbin</string>
 	</dict>
-	<key>RunAtLoad</key>
-	<true/>
-	<key>StartOnMount</key>
-	<true/>
-	<key>ProcessType</key>
-	<string>Standard</string>
-	<key>Nice</key>
-	<integer>10</integer>
+	<key>ExitTimeOut</key>
+	<integer>30</integer>
+	<key>Label</key>
+	<string>com.exobrain.plex-reencode</string>
 	<key>LowPriorityIO</key>
 	<true/>
-	<key>StandardOutPath</key>
-	<string>/Users/alexhedtke/Library/Logs/exobrain/plex-reencode.log</string>
+	<key>Nice</key>
+	<integer>10</integer>
+	<key>ProcessType</key>
+	<string>Standard</string>
+	<key>ProgramArguments</key>
+	<array>
+		<string>/Users/alexhedtke/.local/bin/mist-launch</string>
+		<string>/opt/homebrew/bin/python3</string>
+		<string>/Users/alexhedtke/Documents/Exobrain harness/media-reencode/bin/plex-reencode</string>
+		<string>run</string>
+	</array>
+	<key>RunAtLoad</key>
+	<true/>
 	<key>StandardErrorPath</key>
 	<string>/Users/alexhedtke/Library/Logs/exobrain/plex-reencode.log</string>
+	<key>StandardOutPath</key>
+	<string>/Users/alexhedtke/Library/Logs/exobrain/plex-reencode.log</string>
+	<key>StartOnMount</key>
+	<true/>
 </dict>
 </plist>

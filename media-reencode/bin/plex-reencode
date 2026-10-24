@@ -16,6 +16,8 @@ INVARIANTS
 - The original is never deleted before its replacement passed every check.
 - Nothing under OnePace/ is ever queued (its pipeline depends on the exact files).
 - HDR, Dolby Vision and AV1 sources are never queued.
+- An interruption (eject, SIGTERM, drive gone) never records a result: the file stays
+  queued, the temp file is removed, and the process exits so the drive can unmount.
 """
 
 import argparse
@@ -23,6 +25,7 @@ import datetime as dt
 import json
 import os
 import shutil
+import signal
 import subprocess
 import sys
 import tempfile
@@ -50,6 +53,42 @@ MIN_EST_SAVING = 0.15
 HDR_TRANSFERS = {"smpte2084", "arib-std-b67"}
 README_START = "<!-- reencode-log:start -->"
 README_END = "<!-- reencode-log:end -->"
+NO_CRF = "Failed to find a suitable crf"  # ab-av1's message when the targets cannot be met
+MAX_ATTEMPTS = 3  # interruptions of one file before it is recorded as an error
+
+
+class Interrupted(Exception):
+    """The run must stop now without a verdict on the current file."""
+
+
+def on_sigterm(_sig: int, _frame: object) -> None:
+    raise Interrupted("SIGTERM")
+
+
+def mounted() -> bool:
+    return os.path.ismount(DRIVE)
+
+
+def run_cmd(cmd: list[str]) -> str:
+    """Run a step, pass its output through, return the tail. A failure is an interruption
+    unless the caller decides otherwise from the tail."""
+    proc = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
+    tail = b""
+    try:
+        assert proc.stdout
+        for chunk in iter(lambda: proc.stdout.read1(4096), b""):  # type: ignore[union-attr]
+            sys.stdout.buffer.write(chunk)
+            sys.stdout.flush()
+            tail = (tail + chunk)[-4096:]
+        rc = proc.wait()
+    except BaseException:
+        proc.terminate()
+        proc.wait()
+        raise
+    text = tail.decode(errors="replace")
+    if rc != 0:
+        raise subprocess.CalledProcessError(rc, cmd, output=text)
+    return text
 
 
 def probe(path: Path) -> dict:
@@ -130,8 +169,8 @@ def vmaf(ref: Path, new: Path) -> tuple[float, float]:
     log = WORK / "vmaf.json"
     lavfi = (f"[0:v]setpts=PTS-STARTPTS[d];[1:v]setpts=PTS-STARTPTS[r];"
              f"[d][r]libvmaf=n_subsample={SUBSAMPLE}:n_threads=6:log_fmt=json:log_path='{log}'")
-    subprocess.run(["ffmpeg", "-v", "error", "-nostdin", "-i", str(new), "-i", str(ref),
-                    "-lavfi", lavfi, "-f", "null", "-"], check=True)
+    run_cmd(["ffmpeg", "-v", "error", "-nostdin", "-i", str(new), "-i", str(ref),
+             "-lavfi", lavfi, "-f", "null", "-"])
     frames = sorted(f["metrics"]["vmaf"] for f in json.loads(log.read_text())["frames"])
     log.unlink()
     return sum(frames) / len(frames), frames[max(0, len(frames) // 100 - 1)]
@@ -144,7 +183,7 @@ def encode(src: Path, out: Path, ten_bit: bool) -> None:
            "--temp-dir", str(SAMPLES), "-i", str(src), "-o", str(out)]
     if src.suffix.lower() in (".mp4", ".m4v"):
         cmd += ["--enc", "tag:v=hvc1"]  # Apple players and Plex direct play need hvc1 in MP4
-    subprocess.run(cmd, check=True)
+    run_cmd(cmd)
 
 
 def record(entry: dict) -> None:
@@ -164,10 +203,11 @@ def process(e: dict, state: dict) -> None:
     try:
         encode(src, out, e["ten_bit"])
     except subprocess.CalledProcessError as err:
-        # ab-av1 exits non-zero when no setting reaches MIN_VMAF within MAX_PCT.
         out.unlink(missing_ok=True)
+        if NO_CRF not in (err.output or ""):
+            raise Interrupted(f"encoder stopped (exit {err.returncode})") from err
         state[e["path"]] = "kept: no setting met the VMAF and size targets"
-        record({**base, "result": "kept", "reason": f"ab-av1 exit {err.returncode}"})
+        record({**base, "result": "kept", "reason": "no setting met the VMAF and size targets"})
         return
     after = probe(out)
     reason = ""
@@ -179,7 +219,10 @@ def process(e: dict, state: dict) -> None:
         reason = "saved less than 10%"
     mean = p1 = 0.0
     if not reason:
-        mean, p1 = vmaf(src, out)
+        try:
+            mean, p1 = vmaf(src, out)
+        except subprocess.CalledProcessError as err:
+            raise Interrupted(f"VMAF pass stopped (exit {err.returncode})") from err
         if mean < GATE_MEAN or p1 < GATE_P1:
             reason = f"VMAF mean {mean:.2f} / 1% low {p1:.2f} under the gate"
     entry = {**base, "new_bytes": out.stat().st_size, "vmaf_mean": round(mean, 2),
@@ -226,16 +269,48 @@ def notify(msg: str) -> None:
 
 
 def run(limit: int | None) -> None:
+    if not mounted():
+        print("drive not mounted; the job starts again when it mounts", flush=True)
+        return
+    signal.signal(signal.SIGTERM, on_sigterm)
+    # Keep the Mac awake for exactly as long as this process lives.
+    subprocess.Popen(["caffeinate", "-i", "-w", str(os.getpid())])
     WORK.mkdir(exist_ok=True)
     SAMPLES.mkdir(exist_ok=True)
     state = load_state()
+    try:
+        work_queue(state, limit)
+    except Interrupted as why:
+        print(f"[{dt.datetime.now():%H:%M}] stopped: {why}. The file stays queued.", flush=True)
+        if not str(why).startswith("SIGTERM"):
+            # An eject kills ffmpeg first, then unmounts. Wait with no file open on the drive,
+            # so a later unmount shows this was an eject and not a fault of the file.
+            time.sleep(45)
+        if mounted():
+            for f in WORK.glob("current.*"):
+                f.unlink(missing_ok=True)
+            # A file that keeps failing for a reason other than an eject must not loop forever.
+            attempts = state.setdefault("_attempts", {})
+            if CURRENT and not str(why).startswith("SIGTERM"):
+                attempts[CURRENT] = attempts.get(CURRENT, 0) + 1
+                if attempts[CURRENT] >= MAX_ATTEMPTS:
+                    state[CURRENT] = f"kept: failed {MAX_ATTEMPTS} times ({why})"
+            save_state(state)
+
+
+CURRENT = ""
+
+
+def work_queue(state: dict, limit: int | None) -> None:
+    global CURRENT
     queue = [e for e in build_queue() if e["path"] not in state]
     done = 0
     for e in queue:
         if limit is not None and done >= limit:
             break
-        if not DRIVE.exists():
-            sys.exit("drive not mounted")
+        if not mounted():
+            raise Interrupted("drive not mounted")
+        CURRENT = e["path"]
         if shutil.disk_usage(DRIVE).free < e["size"] + 5e9:
             notify(f"Stopped: not enough free space on the SSD for {Path(e['path']).name}.")
             sys.exit("not enough free space")

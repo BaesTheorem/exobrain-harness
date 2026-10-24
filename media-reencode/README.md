@@ -18,3 +18,9 @@ Rules the script enforces:
 - An original is deleted only by the rename that puts a checked replacement in its place.
 - The script does not queue paths in `OnePace/`.
 - The script does not queue AV1, HDR or Dolby Vision sources.
+
+## Eject and resume
+
+You can eject the drive while the job runs. `disk-eject` sends SIGTERM to the `ffmpeg` that holds the drive. The script then sees that the encode stopped for a reason other than "Failed to find a suitable crf". It records no result, deletes the temp file, waits 45 s with no file open, and exits. The drive then unmounts. The interrupted file stays first in the queue.
+
+The plist has `StartOnMount`, so the job starts again at the next mount of any volume. If the drive is not mounted, the job exits at once. A file that stops 3 times while the drive stays mounted is recorded as kept, so a damaged file cannot stop the queue.
