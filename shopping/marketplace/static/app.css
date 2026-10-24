@@ -135,3 +135,16 @@ dialog#hiddenDlg { inline-size: min(480px, 100vw); border-radius: var(--radius);
   #status .bar { flex-basis: 64px; }
   #status .spacer { display: none; }
 }
+
+/* v2: categories, hints, small buttons, theme */
+.catlist { display: grid; grid-template-columns: 1fr 1fr; gap: 0 var(--s2); max-height: 50vh; overflow: auto; }
+.hint { font-size: .78rem; color: var(--on-surface-variant); margin: var(--s1) 0 0; max-width: 300px; }
+.btn.small { height: 32px; padding: 0 12px; font-size: .8rem; }
+.btn.small i { font-size: 18px; }
+.tag.relist { background: var(--secondary-container); color: var(--on-secondary-container); }
+.tag.warn { background: var(--error-container); color: var(--on-error-container); }
+.bell { color: var(--on-surface-variant); }
+.bell.on { color: var(--primary); }
+#more { padding: var(--s3) 0; text-align: center; color: var(--on-surface-variant); font-size: .875rem; }
+.note { margin-top: var(--s1); padding: var(--s1) var(--s2); border-radius: var(--radius); font-size: .85rem; background: var(--surface-container-high); }
+.note.warn { background: var(--error-container); color: var(--on-error-container); }

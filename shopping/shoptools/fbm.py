@@ -189,7 +189,7 @@ def listing_row(listing: dict) -> dict:
         "seller_id": seller.get("id"),
         "category_id": listing.get("marketplace_listing_category_id"),
         "created": listing.get("creation_time"),
-        # IN_PERSON and/or SHIPPING. A shipped listing is not local pickup.
+        # IN_PERSON, DOOR_PICKUP, PUBLIC_MEETUP, SHIPPING_ONSITE, SHIPPING_OFFSITE (seen 2026-10-24).
         "delivery": listing.get("delivery_types") or [],
         "sold": bool(listing.get("is_sold")),
         "pending": bool(listing.get("is_pending")),
@@ -331,10 +331,43 @@ def open_search_session(city: str = "kansascity") -> tuple[Any, dict[str, str], 
     return s, tok, s.cookies.get("c_user", domain=".facebook.com") or ""
 
 
+# Server-side sort for the GraphQL search (`commerce_search_sort_by`, captured 2026-10-24 from a
+# category page opened with ?sortBy=creation_time_descend). Newest-first is strictly ordered
+# (0 inversions in 80 rows). DISTANCE_ASCEND returns rows; its order is not measured.
+GRAPHQL_SORTS = {"date": "CREATION_TIME_DESCEND", "distance": "DISTANCE_ASCEND"}
+
+# Top-level categories from the Marketplace home page (seo slug -> id), read 2026-10-24.
+# Furniture is not in that list but has its own topic page. An empty query returns nothing
+# without a category, so browsing "everything" means walking these.
+CATEGORIES = {
+    "apparel": "677457442746983", "classifieds": "759201041254543", "electronics": "479353692612078",
+    "entertainment": "529595287638583", "family": "891748581240437", "free": "2796952007029050",
+    "furniture": "1583634935226685", "garden": "1109541402725436", "hobbies": "459026188375950",
+    "home": "753380185098614", "home-improvements": "476291743038859", "instruments": "1078592699170502",
+    "office-supplies": "586894672179024", "pets": "197143151659643", "propertyforsale": "1270772586445798",
+    "propertyrentals": "460427381212751", "sports": "391335928190702", "toys": "199404184572737",
+    "vehicles": "546583916084032",
+}
+
+
 def search_params(query: str, lat: float, lon: float, radius_km: int, min_price: float | None = None,
                   max_price: float | None = None, days: int | None = None, condition: list[str] | None = None,
-                  shipping: bool = True) -> dict:
-    return _params(query, lat, lon, radius_km, min_price, max_price, days, condition, shipping)
+                  shipping: bool = True, sort: str | None = None) -> dict:
+    p = _params(query, lat, lon, radius_km, min_price, max_price, days, condition, shipping)
+    if sort:
+        p["browse_request_params"]["commerce_search_sort_by"] = GRAPHQL_SORTS[sort]
+    return p
+
+
+def browse_params(category: str, lat: float, lon: float, radius_km: int, shipping: bool = False,
+                  sort: str | None = "date") -> dict:
+    """A category topic page with no query: the only way to list everything near a point."""
+    p = search_params("", lat, lon, radius_km, shipping=shipping, sort=sort)
+    p["bqf"]["callsite"] = "COMMERCE_MKTPLACE_SEO"
+    p["browse_request_params"]["commerce_search_and_rp_category_id"] = [int(CATEGORIES[category])]
+    p["custom_request_params"].update({"surface": "TOPIC_PAGE", "search_vertical": None, "seo_url": category,
+                                       "serp_landing_settings": {"virtual_category_id": category}})
+    return p
 
 
 def search_page(s, tok: dict[str, str], uid: str, params: dict, cursor: str | None,
@@ -468,7 +501,7 @@ def print_row(r: dict, full: bool = False) -> None:
         flags.append("SOLD")
     if r.get("pending"):
         flags.append("pending")
-    if "SHIPPING" in (r.get("delivery") or []):
+    if any(d.startswith("SHIPPING") for d in r.get("delivery") or []):
         flags.append("ships")
     where = ", ".join(x for x in (r.get("city"), r.get("state")) if x)
     print(f"{RETAILER:<14} {price:>9}  {r.get('id', ''):<17} {r.get('title', '')[:60]}  "

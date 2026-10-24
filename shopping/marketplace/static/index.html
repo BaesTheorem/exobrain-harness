@@ -17,20 +17,23 @@
     <div id="brand">Curbside</div>
     <form id="searchForm" autocomplete="off">
       <i>search</i>
-      <input id="q" type="search" placeholder="Search Marketplace near home" enterkeyhint="search">
+      <input id="q" type="search" placeholder="Filter listings near home" enterkeyhint="search">
     </form>
     <button class="iconbtn" id="savedBtn" title="Saved searches" popovertarget="savedPop"><i>bookmark</i></button>
     <button class="iconbtn" id="hiddenBtn" title="Hidden listings and sellers"><i>visibility_off</i></button>
+    <button class="iconbtn" id="themeBtn" title="Theme: automatic"><i>contrast</i></button>
     <button class="iconbtn" id="mapBtn" title="Map"><i>map</i></button>
   </div>
   <div id="filters">
     <button class="fchip primary" id="distChip" popovertarget="distPop"><i>near_me</i><span id="distLabel">10 mi</span></button>
+    <button class="fchip" id="catChip" popovertarget="catPop"><i>category</i><span id="catLabel">All categories</span></button>
     <button class="fchip" id="priceChip" popovertarget="pricePop"><i>sell</i><span id="priceLabel">Any price</span></button>
     <button class="fchip" id="daysChip" popovertarget="daysPop"><i>schedule</i><span id="daysLabel">Any time</span></button>
     <button class="fchip" id="condChip" popovertarget="condPop"><i>verified</i><span id="condLabel">Any condition</span></button>
     <button class="fchip on" id="localChip" title="Leave out listings that only ship"><i>storefront</i>Pickup only</button>
     <button class="fchip" id="dealerChip" title="Leave out sellers with 4 or more listings in the last 30 days"><i>store</i>Hide dealers</button>
     <button class="fchip" id="pendingChip" title="Leave out pending listings"><i>hourglass_empty</i>Hide pending</button>
+    <button class="fchip" id="relistChip" title="Leave out items the seller has listed more than once"><i>repeat</i>Hide relisted</button>
     <button class="fchip" id="exactChip" title="Only listings whose title has every search word"><i>match_case</i>In title</button>
     <button class="fchip" id="dropChip" title="Only listings whose price went down"><i>trending_down</i>Price drops</button>
     <label id="sortWrap">Sort
@@ -40,7 +43,7 @@
         <option value="low">Price: low to high</option>
         <option value="high">Price: high to low</option>
         <option value="drop">Biggest price drop</option>
-        <option value="fb">Facebook order</option>
+        <option value="fb">Search relevance</option>
       </select>
     </label>
   </div>
@@ -49,11 +52,12 @@
 <div id="distPop" class="pop" popover>
   <h6>Maximum distance from home</h6>
   <div class="big"><span id="distVal">10</span> mi</div>
-  <input type="range" id="distRange" min="1" max="50" step="1" value="10">
+  <input type="range" id="distRange" min="1" max="40" step="1" value="10">
   <div class="presets">
     <button class="fchip" data-mi="1">1</button><button class="fchip" data-mi="3">3</button><button class="fchip" data-mi="5">5</button>
-    <button class="fchip" data-mi="10">10</button><button class="fchip" data-mi="20">20</button><button class="fchip" data-mi="40">40</button>
+    <button class="fchip" data-mi="10">10</button><button class="fchip" data-mi="25">25</button><button class="fchip" data-mi="40">40</button>
   </div>
+  <p class="hint" id="distHint"></p>
 </div>
 <div id="pricePop" class="pop" popover>
   <h6>Price</h6>
@@ -74,16 +78,22 @@
   <label class="check"><input type="checkbox" value="used_good"> Used, good</label>
   <label class="check"><input type="checkbox" value="used_fair"> Used, fair</label>
 </div>
+<div id="catPop" class="pop" popover>
+  <h6>Categories</h6>
+  <div id="catList" class="catlist"></div>
+  <div class="presets"><button class="fchip" id="catAll">All</button><button class="fchip" id="catNone">None</button></div>
+</div>
 <div id="savedPop" class="pop" popover>
   <h6>Saved searches</h6>
   <ul id="savedList" style="list-style:none;padding:0;margin:0 0 8px"></ul>
   <button class="btn" id="saveBtn"><i>bookmark_add</i>Save this search</button>
+  <p class="hint">A bell sends new matches and price drops to Discord, checked every 30 minutes.</p>
 </div>
 
-<div id="status"><span id="statusText">Search for something to start.</span><div class="bar" id="bar" hidden><div></div></div><span class="spacer"></span><span id="statusWarn" class="warn"></span></div>
+<div id="status"><span id="statusText">Loading the index…</span><div class="bar" id="bar" hidden><div></div></div><span class="spacer"></span><span id="statusWarn" class="warn"></span><button class="btn small" id="refreshBtn" title="Check Facebook for new listings now"><i>refresh</i>Refresh</button></div>
 
 <div id="layout">
-  <main id="gridWrap"><div id="grid"></div><div id="empty" hidden></div></main>
+  <main id="gridWrap"><div id="grid"></div><div id="empty" hidden></div><div id="more" hidden></div></main>
   <aside id="mapPane"><button class="iconbtn" id="mapClose" title="Close map"><i>close</i></button><div id="map"></div></aside>
 </div>
 

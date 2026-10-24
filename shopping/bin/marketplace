@@ -5,6 +5,11 @@
       Serve the UI at http://127.0.0.1:5041/. Search runs through the `shop fbm` lane with
       the facebook/ toolkit's session cookies, read-only. Pass a Tailscale address as --host
       to open it on the phone. See shopping/marketplace/README.md.
+
+  marketplace watch [--now] [--sweep]
+      One watcher run (launchd runs it every 30 minutes): sweep the index when due, then
+      send saved-search alerts as one digest (banner + Discord). --now ignores quiet hours,
+      --sweep forces a sweep.
 """
 
 from __future__ import annotations
@@ -15,10 +20,14 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
-from marketplace.server import serve  # noqa: E402
-
 
 def main() -> None:
+    if sys.argv[1:2] == ["watch"]:
+        from marketplace.watch import main as watch
+
+        sys.exit(watch())
+    from marketplace.server import serve
+
     ap = argparse.ArgumentParser(description="Facebook Marketplace front end")
     ap.add_argument("--host", default="127.0.0.1")
     ap.add_argument("--port", type=int, default=5041)

@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>Label</key>
+	<string>com.exobrain.marketplace-watch</string>
+	<key>ProgramArguments</key>
+	<array>
+		<string>/Users/alexhedtke/.local/bin/mist-launch</string>
+		<string>/opt/homebrew/bin/python3</string>
+		<string>/Users/alexhedtke/Documents/Exobrain harness/shopping/bin/marketplace</string>
+		<string>watch</string>
+	</array>
+	<key>StartInterval</key>
+	<integer>1800</integer>
+	<key>EnvironmentVariables</key>
+	<dict>
+		<key>PATH</key>
+		<string>/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin</string>
+	</dict>
+	<key>StandardOutPath</key>
+	<string>/Users/alexhedtke/Documents/Exobrain harness/shopping/marketplace/data/launchd.out.log</string>
+	<key>StandardErrorPath</key>
+	<string>/Users/alexhedtke/Documents/Exobrain harness/shopping/marketplace/data/launchd.err.log</string>
+	<!-- Login Items shows the job under this app instead of its executable's name;
+	     only honored because mist-launch is signed by the same team. -->
+	<key>AssociatedBundleIdentifiers</key>
+	<array>
+	    <string>com.exobrain.mist-console</string>
+	</array>
+</dict>
+</plist>

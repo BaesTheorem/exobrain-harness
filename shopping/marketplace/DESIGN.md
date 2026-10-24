@@ -26,3 +26,5 @@ The MD3 roles in `static/theme.css` come from the seed below through material-co
 - No gradients and no shadows. `app.css` removes every Beer CSS shadow.
 - Distance on a card is solid when it comes from a pin and muted when it is a ring band.
 - On phones the filters are one row that scrolls, the map is a bottom sheet, and Map is a floating button.
+- Theme: automatic (follows the system), light, or dark, from the half-circle button. The choice stays in localStorage. The map changes to the OpenFreeMap `dark` style with the page.
+- Tags on a card: price drop (primary), Relisted (secondary container), Shared photo (error container), Pending (tertiary container), Dealer (neutral).
