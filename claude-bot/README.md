@@ -100,12 +100,15 @@ work in a DM too. The selectable model list is discovered from the installed
 `claude` binary (`models.py`), so a CLI update is all a new model needs. The
 default model is `claude-opus-5-5[1m]` (`DEFAULT_MODEL` in `modules/chatter.py`; override with `[chatter].model` in `config.toml`). Non-owner replies use `guest_model`, default `claude-fable-5-1`.
 
-Where the CLI runs depends on who is talking and who can read the channel.
-When the **owner** writes in a **private** context (a DM, or a guild listed in
-`private_guilds`) it runs from the harness root with the configured
-`permission_mode` (bypass by default), so the harness CLAUDE.md, memory,
-skills, MCP servers and tools are all live and she is the full MIST. In any
-**shared** guild it runs read-only (see below).
+What the CLI can do depends on who is talking. What she can say depends on
+who can read the channel. When the **owner** writes, anywhere, it runs from the
+harness root with the configured `permission_mode` (bypass by default), so the
+harness CLAUDE.md, memory, skills, MCP servers and tools are all live and she
+is the full MIST. In a **shared** guild (since 2026-10-24) she still has those
+tools, but the persona gets a privacy note, every line that is not the owner's
+arrives framed as UNTRUSTED data (`security/bin/mist-frame`), and the draft
+goes through the disclosure gate before it posts. Guests always run read-only
+(see below).
 
 **Guests.** With `[chatter].reply_to_others = true`, anyone else can talk to
 her by @mentioning her, replying to one of her messages, or DMing her
@@ -118,14 +121,14 @@ reaction), and guest replies run one at a time so a busy channel can't fan out
 CLI processes on the host.
 
 **Read-only context and the disclosure gate** (since 2026-10-23). Every
-shared-context turn (a guest anywhere, the owner in a shared guild) can read
+guest turn can read
 MIST's memory and the ESPN league chat, DMs included. `guestctx.py` copies
 them into `~/.claude/channels/discord/guest-context/` (memory every 5 min,
 ESPN every 10 min) and the CLI runs there with only `Read`, `Grep` and `Glob`
 in `dontAsk` mode, no MCP and no settings sources. In that mode a read outside
 the folder is denied. Before 2026-10-23 these turns had no tools at all.
 
-`disclosure.py` checks every shared-context draft before it posts. First,
+`disclosure.py` checks every shared-context draft (the owner's included) before it posts. First,
 code blocks the owner's email, street address, phone number and last name
 (from the harness `.env`). Then a separate, fully sandboxed judge call on the
 guest model reads only the draft and answers ALLOW or BLOCK on "does this
