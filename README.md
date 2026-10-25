@@ -169,7 +169,6 @@ Skills are invoked with `/skill-name` in Claude Code. Each is defined in `.claud
 | `/game-dev` | Game design and development partner; auto-starts the Godot and Blender MCP hosts, then helps with mechanics, levels, balance, playtesting, assets | godot-ai, blender-mcp |
 | `/geoguesser` | Geolocate a photo or play GeoGuessr from bollards, road lines, camera generation, script, vegetation, and sun angle, backed by real tools | Shadow-to-latitude solver, Overpass |
 | `/group-scheduler` | Friend-group event scheduler: reasons over everyone's known constraints and proposes concrete times instead of running a poll | `scheduler/`, People notes, Discord |
-| `/ios-app` | Build, sign, install, and debug iOS (and companion macOS) apps from the command line: XcodeGen, signing, devicectl, build-log forensics | Xcode, devicectl |
 | `/ironman` | Read the Ironman iPhone app (an OSRS-style skills panel for real life): exercise log, running quest, sleep, meals, levels and XP | ironman repo |
 | `/missing-person` | Assist a public missing-person search with the `mp` CLI: case status across NCIC and NamUs, candidate ranking, news sweeps, terrain maps | missing-person repo |
 | `/mist-voice` | MIST's offline cloned voice: speak a reply as an audio track, narrate a note to MP3, one-off TTS, transcription | `mist-voice/` |
