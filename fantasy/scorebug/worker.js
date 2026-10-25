@@ -28,7 +28,7 @@ const READS = "https://lm-api-reads.fantasy.espn.com/apis/v3/games/ffl";
 const NFL = "https://site.api.espn.com/apis/site/v2/sports/football/nfl/scoreboard";
 const UA = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.0 Safari/605.1.15";
 const LIVE_TTL_MS = 8000;           // ESPN reads shared by every request in an isolate
-const HISTORY_GAP_S = 120;          // about 300 KV writes on a full Sunday
+const HISTORY_GAP_S = 120;          // about 330 KV writes on a full Sunday (free plan: 1000 writes a day per account)
 const INGEST_GAP_S = 180;           // a changed snapshot is written at most this often
 const STALE_PREGAME_S = 20 * 60;    // refresh the snapshot this often while kickoffs are near
 const STALE_IDLE_S = 6 * 3600;
@@ -130,6 +130,7 @@ function summary(st) {
 }
 
 const enc = new TextEncoder();
+const sha256 = async (text) => [...new Uint8Array(await crypto.subtle.digest("SHA-256", enc.encode(text)))].map(b => b.toString(16).padStart(2, "0")).join("");
 const b64url = buf => btoa(String.fromCharCode(...new Uint8Array(buf))).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
 let apnsJwt = { token: "", iat: 0 };
 
@@ -530,19 +531,18 @@ async function record(env) {
   const st = compute(snap, live);
   const now = Math.floor(Date.now() / 1000);
   const out = { live: st.live };
-  const last = Number(await env.SB.get("hist:last")) || 0;
-  const due = now - last >= HISTORY_GAP_S - 5;
+  const key = `hist:${snap.season}:${snap.week}`;
+  const { value: hv, metadata: hm } = await env.SB.getWithMetadata(key, "json");
+  const due = now - (hm?.last || 0) >= HISTORY_GAP_S - 5;
   if (due) out.la = await liveActivity(env, st, snap).catch(e => ({ error: String(e) }));
   out.chat = await chatNotify(env, snap).catch(e => ({ error: String(e) }));
   out.trade = await tradeNotify(env, snap).catch(e => ({ error: String(e) }));
   if (st.live) {
     if (due) {
-      const key = `hist:${snap.season}:${snap.week}`;
-      const h = (await env.SB.get(key, "json")) || [];
+      const h = hv || [];
       h.push({ t: new Date().toISOString(), all: Object.fromEntries(Object.values(st.views).map(v =>
         [v.id, { p: Math.round(v.win.p * 1000) / 1000, me: v.me.actual, opp: v.opp.actual }])) });
-      await env.SB.put(key, JSON.stringify(h));
-      await env.SB.put("hist:last", String(now));
+      await env.SB.put(key, JSON.stringify(h), { metadata: { last: now } });
       out.history = h.length;
     }
   }
@@ -575,34 +575,30 @@ export default {
     if (path === "/ingest" && req.method === "POST") {
       if (req.headers.get("authorization") !== `Bearer ${env.INGEST_TOKEN}`) return json({ error: "unauthorized" }, 401);
       const snap = await req.json();
-      const prevSig = await env.SB.get("snap:sig");
-      const now = Math.floor(Date.now() / 1000), last = Number(await env.SB.get("snap:last")) || 0;
-      const prev = await env.SB.get("snap", "json");
+      // The signature and write time ride on the value as KV metadata: one write per snapshot, not three.
+      const { value: prev, metadata: meta } = await env.SB.getWithMetadata("snap", "json");
+      const prevSig = meta?.sig, now = Math.floor(Date.now() / 1000), last = meta?.last || 0;
       // The season odds are a Mac file; a cloud snapshot keeps the last ones.
       if (!snap.season_sim && prev?.season_sim) snap.season_sim = prev.season_sim;
       if (!snap.season_table && prev?.season_table) snap.season_table = prev.season_table;
       const lineupMoved = !prev || JSON.stringify(prev.views.map(v => [v.me.rows.map(r => r.id), v.opp.rows.map(r => r.id)])) !==
                           JSON.stringify(snap.views.map(v => [v.me.rows.map(r => r.id), v.opp.rows.map(r => r.id)]));
-      const body = JSON.stringify(snap), sig = JSON.stringify({ ...snap, at: null, source: null });
+      const body = JSON.stringify(snap), sig = await sha256(JSON.stringify({ ...snap, at: null, source: null }));
       if (prevSig === sig) return json({ ok: true, stored: false, reason: "unchanged" });
       if (!lineupMoved && prev && prev.week === snap.week && now - last < INGEST_GAP_S) return json({ ok: true, stored: false, reason: "too soon" });
-      await env.SB.put("snap", body);
-      await env.SB.put("snap:sig", sig);
-      await env.SB.put("snap:last", String(now));
+      await env.SB.put("snap", body, { metadata: { sig, last: now } });
       return json({ ok: true, stored: true });
     }
     if (path === "/ingest/wire" && req.method === "POST") {
       if (req.headers.get("authorization") !== `Bearer ${env.INGEST_TOKEN}`) return json({ error: "unauthorized" }, 401);
       const body = await req.text();
       const a = JSON.parse(body);
-      const hash = await crypto.subtle.digest("SHA-256", enc.encode(JSON.stringify({ ...a, at: null })));
-      const sig = [...new Uint8Array(hash)].map(b => b.toString(16).padStart(2, "0")).join("");
-      if ((await env.SB.get("wire:sig")) === sig) return json({ ok: true, stored: false, reason: "unchanged" });
+      const sig = await sha256(JSON.stringify({ ...a, at: null }));
+      const { metadata: meta } = await env.SB.getWithMetadata("wire");
+      if (meta?.sig === sig) return json({ ok: true, stored: false, reason: "unchanged" });
       const now = Math.floor(Date.now() / 1000);
-      if (now - (Number(await env.SB.get("wire:last")) || 0) < WIRE_GAP_S) return json({ ok: true, stored: false, reason: "too soon" });
-      await env.SB.put("wire", body);
-      await env.SB.put("wire:sig", sig);
-      await env.SB.put("wire:last", String(now));
+      if (now - (meta?.last || 0) < WIRE_GAP_S) return json({ ok: true, stored: false, reason: "too soon" });
+      await env.SB.put("wire", body, { metadata: { sig, last: now } });
       wireMemo.at = 0;
       return json({ ok: true, stored: true });
     }
