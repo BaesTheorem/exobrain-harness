@@ -1268,8 +1268,15 @@ def cmd_embed(_args) -> int:
     docs = EMBED_CACHE / "docs.jsonl"
     docs.write_text("".join(json.dumps({"id": z, "text": note_text(n)}) + "\n"
                             for z, n in sorted(store.notes.items())), encoding="utf-8")
-    r = subprocess.run([EMBED_PYTHON, str(EMBED_SCRIPT), "index", str(docs), str(EMBED_CACHE)],
-                       capture_output=True, text=True, timeout=1800)
+    try:
+        r = subprocess.run([EMBED_PYTHON, str(EMBED_SCRIPT), "index", str(docs), str(EMBED_CACHE)],
+                           capture_output=True, text=True, timeout=1800)
+    except subprocess.TimeoutExpired:
+        # The notes are written before this step; a slow embed (a busy Mac on
+        # 2026-10-25) must not fail the whole run. zettel_embed.py keeps a
+        # checkpoint, so the next run continues where this one stopped.
+        log("embed: timed out after 1800 s; the checkpoint keeps the vectors made so far")
+        return 124
     tail = (r.stderr or "").strip().splitlines()
     log(f"embed: exit {r.returncode}: {tail[-1] if tail else ''}")
     return r.returncode

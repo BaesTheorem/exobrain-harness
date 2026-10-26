@@ -10,6 +10,10 @@ itself stays on the system interpreter and never loads a model.
         docs lines are {"id": ..., "text": ...}. Re-embeds only texts whose hash
         changed, then writes <cache_dir>/vectors.npy, keys.json (id + text hash,
         row order) and neighbors.json (id -> [[id, cosine], ...], best first).
+        New texts are embedded in chunks of CHUNK; after each chunk the vectors
+        so far go to <cache_dir>/checkpoint.npz, so a run that is stopped (the
+        consolidator's 30-minute timeout, 2026-10-25) keeps its work and the
+        next run continues from there.
     zettel_embed.py embed <in.jsonl> <out.npy> [--query]
         one normalized row per {"text": ...} line; --query uses nomic's query prefix.
     zettel_embed.py query <cache_dir> <k> <text...>
@@ -19,6 +23,8 @@ INVARIANTS
 - Rows are L2-normalized, so a dot product is a cosine.
 - Changing MODEL is a full re-embed: vectors from two models are not comparable,
   so the model name is part of every cache key.
+- checkpoint.npz holds keys and vectors in one file written by rename, so a
+  stop can never leave keys and vectors out of step.
 """
 import hashlib
 import json
@@ -28,6 +34,7 @@ from pathlib import Path
 import numpy as np
 
 MODEL = "nomic-ai/nomic-embed-text-v1.5"
+CHUNK = 64
 _model = None
 
 
@@ -55,17 +62,26 @@ def cmd_index(docs_path: str, cache: Path, k: int) -> int:
     try:
         keys = json.loads((cache / "keys.json").read_text())
         mat = np.load(cache / "vectors.npy")
-        old = {kk: mat[i] for i, kk in enumerate(k_ for _, k_ in keys)}
+        if len(keys) == len(mat):
+            old = {kk: mat[i] for i, kk in enumerate(k_ for _, k_ in keys)}
     except (OSError, ValueError, json.JSONDecodeError):
         pass
+    ckpt = cache / "checkpoint.npz"
+    try:
+        with np.load(ckpt) as z:
+            old.update(dict(zip(z["keys"].tolist(), z["vectors"], strict=True)))
+    except (OSError, ValueError, KeyError):
+        pass
     want = [(d["id"], key(d["text"]), d["text"]) for d in docs]
-    todo = [(i, t) for i, (_, kk, t) in enumerate(want) if kk not in old]
-    fresh = encode([t for _, t in todo])
-    rows = []
-    fi = iter(fresh)
-    todo_set = {i for i, _ in todo}
-    for i, (_, kk, _) in enumerate(want):
-        rows.append(next(fi) if i in todo_set else old[kk])
+    todo = [(kk, t) for _, kk, t in want if kk not in old]
+    done: dict[str, np.ndarray] = {}
+    for start in range(0, len(todo), CHUNK):
+        chunk = todo[start:start + CHUNK]
+        done.update(zip([kk for kk, _ in chunk], encode([t for _, t in chunk]), strict=True))
+        tmp = cache / "checkpoint.tmp.npz"
+        np.savez(tmp, keys=np.array(list(done)), vectors=np.vstack(list(done.values())))
+        tmp.replace(ckpt)
+    rows = [done[kk] if kk in done else old[kk] for _, kk, _ in want]
     mat = np.vstack(rows) if rows else np.zeros((0, 768), dtype=np.float32)
     ids = [zid for zid, _, _ in want]
     np.save(cache / "vectors.npy", mat)
@@ -77,6 +93,7 @@ def cmd_index(docs_path: str, cache: Path, k: int) -> int:
         top = np.argsort(-sims[i])[:k]
         nb[zid] = [[ids[j], round(float(sims[i, j]), 4)] for j in top]
     (cache / "neighbors.json").write_text(json.dumps(nb))
+    ckpt.unlink(missing_ok=True)   # everything is in vectors.npy now
     print(f"embedded {len(todo)} new or changed of {len(ids)}", file=sys.stderr)
     return 0
 
