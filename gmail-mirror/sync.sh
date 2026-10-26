@@ -17,7 +17,7 @@ alarm() {
     local last="$STATE/last-alarm"
     if [ ! -f "$last" ] || [ -n "$(find "$last" -mmin +1440)" ]; then
         touch "$last"
-        "$HERE/../mist-voice/bin/mist-notify" "$1" "Gmail mirror" Basso "$MAILDIR" \
+        "$HERE/../mist-voice/bin/mist-notify" "$1" "Gmail mirror" Basso "$MAILDIR" --discord \
             --context "$(tail -20 "$HOME/Library/Logs/exobrain/gmail-mirror.log" 2>/dev/null)" 2>/dev/null || true
     fi
 }
@@ -37,7 +37,16 @@ if mbsync -c "$CONF" -q gmail-all; then
     rm -f "$STATE/last-alarm"
     echo "[$(date)] mbsync ok ($(du -sh "$MAILDIR" | cut -f1))"
 else
-    alarm "mbsync failed (exit $?); the local mirror is stale"
+    rc=$?
+    # Most failures are one-run network blips (DNS, IMAP timeout, TLS eof) that
+    # the next run clears. Alarm only when the last good sync is 3+ hours old.
+    last_ok="$(cat "$STATE/last-ok" 2>/dev/null || echo 0)"
+    age=$(( $(date +%s) - last_ok ))
+    if [ "$age" -ge 10800 ]; then
+        alarm "mbsync failed (exit $rc); last good sync $((age / 3600))h ago, the local mirror is stale"
+    else
+        echo "[$(date)] mbsync failed (exit $rc); last good sync $((age / 60))m ago, no alarm yet"
+    fi
 fi
 
 # A real mount has a different device id than /Volumes itself. A leftover
