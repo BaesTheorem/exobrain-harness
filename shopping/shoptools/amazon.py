@@ -133,6 +133,10 @@ def _variants(html: str) -> dict[str, str]:
     return {a: " / ".join(v) for a, v in raw.items()}
 
 
+# "About this item": #feature-bullets on older layouts, the product-facts expander since late 2026.
+BULLETS = "#feature-bullets li, #productFactsDesktopExpander li"
+
+
 def show(asin: str, headed: bool = False, timeout: int = 45, anon: bool = False) -> dict:
     from playwright.sync_api import sync_playwright
 
@@ -150,7 +154,8 @@ def show(asin: str, headed: bool = False, timeout: int = 45, anon: bool = False)
             _guard(page)
             stars = page.query_selector("#acrPopover")
             specs = {}
-            for row in page.query_selector_all("#productDetails_techSpec_section_1 tr, #productOverview_feature_div tr"):
+            for row in page.query_selector_all("#productDetails_techSpec_section_1 tr, #productOverview_feature_div tr,"
+                                               " #productFactsDesktopExpander tr"):
                 cells = row.query_selector_all("th, td")
                 if len(cells) == 2:
                     specs[_text(cells[0])] = _text(cells[1])
@@ -174,7 +179,7 @@ def show(asin: str, headed: bool = False, timeout: int = 45, anon: bool = False)
                 "availability": _text(page.query_selector("#availability")),
                 "delivery": _first(page, DELIVERY),
                 "signed_in": bool(jar) and not page.query_selector("#ap_email"),
-                "bullets": [t for li in page.query_selector_all("#feature-bullets li") if (t := _text(li))],
+                "bullets": [t for li in page.query_selector_all(BULLETS) if (t := _text(li))],
                 "specs": specs,
             }
         finally:
