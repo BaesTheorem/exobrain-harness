@@ -1,0 +1,497 @@
+#!/usr/bin/env -S uv run --quiet --script
+# /// script
+# requires-python = ">=3.12,<3.13"
+# dependencies = [
+#     "audio-separator[cpu]==0.47.1",
+#     "audioread",
+#     "soundfile",
+#     "matplotlib",
+# ]
+# ///
+"""Remove the vocals from a real song: fetch it, separate it, check it, export it.
+
+    unmix fetch "https://music.youtube.com/watch?v=0bcIjILqORM"
+    unmix fetch "led zeppelin whole lotta love"     # first YouTube Music song hit
+    unmix split   WORK --preset instrumental_clean  # or --models A.ckpt B.ckpt --ensemble avg_fft
+    unmix check   WORK                              # Whisper lyric recall + Demucs second opinion
+    unmix spectro WORK --at 95 --len 20             # mix / instrumental / vocals spectrogram PNG
+    unmix select  WORK TAG                          # which candidate export uses
+    unmix export  WORK [--dir OUT]                  # 24-bit FLAC + 320k MP3, tags, cover art
+    unmix all "<url or search words>"               # fetch, split, check, export
+
+WORK defaults to tmp/unmix/<artist>-<title>/ in the harness; export writes to
+mist-music/out/unmix/, which the Console serves, so the printed embed lines play
+inline.
+
+The source comes from Alex's YouTube Music account through Chrome's cookies (the
+grant yt-dlp already uses on this Mac). Premium serves itag 141, AAC-LC 256 kbps
+at 44.1 kHz with content to 22 kHz. The Opus stream at the same bitrate (774) is
+48 kHz and low-passed at 20 kHz, so 141 comes first (measured 2026-10-25).
+
+Separation is python-audio-separator with RoFormer models from the UVR
+community. --preset reads audio-separator's own ensemble_presets.json (the
+deton24 guide's two-model ensembles). Each model runs once per song and its
+stems are cached in WORK/models/, so another ensemble of the same models costs
+seconds. Every split is a candidate in WORK/mixes/<tag>/; check compares them
+and select picks the one export uses.
+
+The checks are instruments that are neither MIST nor Alex:
+    - Whisper transcribes the instrumental. The lyric words it recovers are
+      counted against its own transcript of the vocal stem, and the original
+      mix is the positive control.
+    - Demucs (htdemucs, a different architecture and training set) estimates
+      the vocals left in each instrumental, relative to the vocals it finds in
+      the mix (bleed), and how much each vocal stem holds in passages where
+      Demucs hears no voice in the mix (instrument loss).
+    - An AudioSet tagger (AST) was tried on 2026-10-25 and failed its positive
+      control: on Whole Lotta Love it scored singing at 0.13-0.26 in sung
+      windows and the theremin at 0.02 or less in the original mix. It is not
+      used here (it does work on an isolated difference of two stems).
+
+INVARIANTS
+    - Unity gain end to end: separation runs with normalization 1.0, which
+      only scales a source that peaks above full scale, and vocals = mix -
+      instrumental, so the stems sum back to the source. export lowers the
+      gain only when the instrumental would clip and records the gain.
+    - Downloads stay in WORK/src/ and nothing is executed from there.
+    - fp16 autocast is the default. On a 30 s test it differed from fp32 by
+      -70 dB relative to the instrumental, against a separation error near
+      -17 dB (SDR). --fp32 turns it off.
+    - One model at a time: this is an 8 GB Mac, and a second heavy process
+      doubled the per-chunk time.
+"""
+
+from __future__ import annotations
+
+import argparse
+import json
+import re
+import shutil
+import subprocess
+import sys
+import urllib.parse
+from collections import Counter
+from pathlib import Path
+from typing import Any
+
+HARNESS = Path(__file__).resolve().parents[2]
+WORK_ROOT = HARNESS / "tmp" / "unmix"
+OUT_ROOT = HARNESS / "mist-music" / "out" / "unmix"
+MODEL_DIR = Path.home() / ".cache" / "audio-separator" / "models"
+COOKIES = ["--cookies-from-browser", "chrome"]
+FORMATS = "141/774/251/140/bestaudio"
+SR = 44100
+DEMUCS = shutil.which("demucs") or str(Path.home() / ".local" / "bin" / "demucs")
+WHISPER = shutil.which("whisper-cli") or "/opt/homebrew/bin/whisper-cli"
+WHISPER_MODELS = [
+    Path.home() / "Documents" / "mist-console" / "models" / "ggml-large-v3-turbo.bin",
+    Path.home() / "Documents" / "one-pace" / "whisper-models" / "ggml-large-v3.bin",
+]
+STOP = set(
+    "the and you your yours i'm i've it's that this with for are was were but not "
+    "all can just get got have has had what when where who how out now then they "
+    "them she her his him our its from into been will would there here yeah ooh "
+    "ahh aah hey woah whoa".split()
+)
+WINDOW = 2.0  # seconds, for the Demucs window statistics
+VOICED_DB = -25.0  # Demucs mix vocals within 25 dB of the mix: a sung window
+UNVOICED_DB = -45.0  # Demucs mix vocals 45 dB under the mix: no voice
+
+
+def run(cmd: list[str], **kw: Any) -> subprocess.CompletedProcess[str]:
+    return subprocess.run(cmd, check=True, text=True, **kw)
+
+
+def slug(text: str) -> str:
+    return re.sub(r"[^a-z0-9]+", "-", text.lower()).strip("-")[:60] or "track"
+
+
+def clean_title(title: str) -> str:
+    """'Whole Lotta Love (Remaster)' -> 'Whole Lotta Love'."""
+    return re.sub(r"\s*[\(\[][^)\]]*(remaster|version|mono|stereo)[^)\]]*[\)\]]", "", title, flags=re.I).strip()
+
+
+def read_audio(path: Path):
+    import soundfile as sf
+
+    data, sr = sf.read(str(path), dtype="float32", always_2d=True)
+    return data.T, sr  # (channels, samples)
+
+
+def write_audio(path: Path, data, sr: int = SR) -> None:
+    import soundfile as sf
+
+    sf.write(str(path), data.T, sr, subtype="FLOAT")
+
+
+# --------------------------------------------------------------------- fetch
+def resolve(target: str) -> str:
+    if re.match(r"https?://", target):
+        return target
+    url = "https://music.youtube.com/search?q=" + urllib.parse.quote_plus(target) + "#songs"
+    out = run(
+        ["yt-dlp", *COOKIES, "--flat-playlist", "--playlist-end", "5", "--print", "%(id)s\t%(title)s", url],
+        capture_output=True,
+    ).stdout
+    hits = [line.split("\t", 1) for line in out.splitlines() if "\t" in line]
+    if not hits:
+        raise SystemExit(f"No YouTube Music song matches {target!r}.")
+    for vid, title in hits:
+        print(f"  {vid}  {title}", file=sys.stderr)
+    print("Using the first hit. Pass a URL to pick another.", file=sys.stderr)
+    return f"https://music.youtube.com/watch?v={hits[0][0]}"
+
+
+def fetch(target: str, work: Path | None) -> Path:
+    url = resolve(target)
+    meta_line = run(
+        ["yt-dlp", *COOKIES, "--skip-download", "--no-playlist", "--print", "%(artist)s\t%(title)s", url],
+        capture_output=True,
+    ).stdout.strip().splitlines()[-1]
+    artist, title = (meta_line.split("\t") + [""])[:2]
+    work = work or WORK_ROOT / slug(f"{artist}-{clean_title(title)}")
+    src = work / "src"
+    src.mkdir(parents=True, exist_ok=True)
+    run(
+        ["yt-dlp", *COOKIES, "-f", FORMATS, "--no-playlist", "--write-info-json", "--write-thumbnail",
+         "-o", str(src / "source.%(ext)s"), url]
+    )
+    info = json.loads((src / "source.info.json").read_text())
+    audio = src / f"source.{info['ext']}"
+    # The Homebrew ffmpeg has no soxr, so a 48 kHz source gets swresample with a long
+    # Kaiser filter. itag 141 is already 44.1 kHz and is not resampled at all.
+    rs = [] if info.get("asr") == SR else [
+        "-af", f"aresample={SR}:filter_size=128:cutoff=0.985:filter_type=kaiser:kaiser_beta=12"]
+    run(["ffmpeg", "-v", "error", "-y", "-i", str(audio), "-vn", *rs, "-c:a", "pcm_f32le", str(work / "mix.wav")])
+    meta = {k: info.get(k) for k in ("id", "webpage_url", "title", "artist", "album", "release_year",
+                                      "duration", "format_id", "acodec", "abr", "asr")}
+    meta["source_url"] = url
+    (work / "meta.json").write_text(json.dumps(meta, indent=1))
+    print(f"{artist} - {title}: itag {meta['format_id']} {meta['acodec']} {meta['abr']}k {meta['asr']} Hz -> {work}")
+    return work
+
+
+# --------------------------------------------------------------------- split
+def presets() -> dict[str, Any]:
+    from importlib.resources import files
+
+    return json.loads((files("audio_separator") / "ensemble_presets.json").read_text())["presets"]
+
+
+def model_stems(work: Path, model: str, fp32: bool) -> Path:
+    """Run one model on WORK/mix.wav once; return its folder with inst.wav + vocals.wav."""
+    d = work / "models" / Path(model).stem
+    if not (d / "inst.wav").exists():
+        wavs = [p for p in d.glob("*.wav")] if d.exists() else []
+        if len(wavs) != 2:
+            import logging
+
+            from audio_separator.separator import Separator
+
+            d.mkdir(parents=True, exist_ok=True)
+            sep = Separator(log_level=logging.WARNING, model_file_dir=str(MODEL_DIR), output_dir=str(d),
+                            output_format="WAV", use_soundfile=True, normalization_threshold=1.0,
+                            use_autocast=not fp32)
+            sep.load_model(model_filename=model)
+            print(f"separating with {model}", file=sys.stderr)
+            sep.separate(str(work / "mix.wav"))
+            del sep
+            wavs = list(d.glob("*.wav"))
+        vocal = [p for p in wavs if "(vocals)" in p.name.lower()]
+        if len(vocal) != 1 or len(wavs) != 2:
+            raise SystemExit(f"{d}: expected one vocal and one instrumental stem, found {[p.name for p in wavs]}")
+        other = next(p for p in wavs if p != vocal[0])
+        vocal[0].rename(d / "vocals.wav")
+        other.rename(d / "inst.wav")
+    if not (d / "gains.json").exists():
+        unity_gain(work / "mix.wav", d)
+    return d
+
+
+def unity_gain(mix_path: Path, d: Path) -> None:
+    """Undo audio-separator's peak normalization of each stem.
+
+    It scales any stem that peaks above full scale down to 1.0, and on Whole
+    Lotta Love it moved the instrumental by -0.31 dB and the vocals by -0.16 dB.
+    The two stems are a scaled split of the mix, so a least-squares fit of
+    mix = a*inst + b*vocals recovers both gains (residual -165 dBFS there).
+    The fit runs in chunks with float64 sums to stay small on 8 GB.
+    """
+    import numpy as np
+
+    mix, sr = read_audio(mix_path)
+    inst, _ = read_audio(d / "inst.wav")
+    voc, _ = read_audio(d / "vocals.wav")
+    n = min(mix.shape[1], inst.shape[1], voc.shape[1])
+    gram, rhs, step = np.zeros((2, 2)), np.zeros(2), 1 << 20
+    for s in range(0, n, step):
+        i, v, m = (x[:, s : min(n, s + step)].astype("float64").ravel() for x in (inst, voc, mix))
+        gram += [[i @ i, i @ v], [i @ v, v @ v]]
+        rhs += [i @ m, v @ m]
+    a, b = np.linalg.solve(gram, rhs)
+    err = sum(float(((mix[:, s : s + step] - a * inst[:, s : s + step] - b * voc[:, s : s + step]) ** 2).sum())
+              for s in range(0, n, step))
+    resid_db = 10 * np.log10(err / float((mix.astype("float64") ** 2).sum()) + 1e-30)
+    if resid_db > -60:
+        print(f"warning: {d.name} stems are not an exact split of the mix ({resid_db:.0f} dB)", file=sys.stderr)
+    write_audio(d / "inst.wav", (a * inst).astype("float32"), sr)
+    write_audio(d / "vocals.wav", (b * voc).astype("float32"), sr)
+    (d / "gains.json").write_text(json.dumps({"inst": a, "vocals": b, "residual_db": round(float(resid_db), 1)}))
+    print(f"{d.name}: gains inst {20 * np.log10(a):+.3f} dB, vocals {20 * np.log10(b):+.3f} dB restored", file=sys.stderr)
+
+
+def split(work: Path, models: list[str], algorithm: str, tag: str | None, fp32: bool) -> str:
+    import logging
+
+    import numpy as np
+    from audio_separator.separator.ensembler import Ensembler
+
+    dirs = [model_stems(work, m, fp32) for m in models]
+    mix, sr = read_audio(work / "mix.wav")
+    insts = [read_audio(d / "inst.wav")[0] for d in dirs]
+    inst = insts[0] if len(insts) == 1 else Ensembler(logging.getLogger("unmix"), algorithm).ensemble(insts)
+    n = mix.shape[1]
+    inst = np.pad(inst, ((0, 0), (0, max(0, n - inst.shape[1]))))[:, :n].astype("float32")
+    tag = tag or "+".join(Path(m).stem for m in models) + (f"@{algorithm}" if len(models) > 1 else "")
+    out = work / "mixes" / tag
+    out.mkdir(parents=True, exist_ok=True)
+    write_audio(out / "inst.wav", inst, sr)
+    write_audio(out / "vocals.wav", mix - inst, sr)
+    (out / "split.json").write_text(json.dumps({"models": models, "algorithm": algorithm, "autocast": not fp32}))
+    if not (work / "selected").exists():
+        (work / "selected").write_text(tag)
+    print(f"candidate {tag}: peak {np.abs(inst).max():.3f}")
+    return tag
+
+
+# --------------------------------------------------------------------- check
+def demucs_two_stem(path: Path, outdir: Path) -> Path:
+    """htdemucs vocals / no_vocals for one file, cached. Returns the stem folder."""
+    stem_dir = outdir / "htdemucs" / path.stem
+    if not (stem_dir / "vocals.wav").exists():
+        # --shifts 0: the default random time shift moved the vocal estimate by -16 dB
+        # (relative) between runs, which is noise in a comparison of candidates. With it
+        # off, two runs are identical and MPS matches CPU to -152 dBFS at half the time.
+        run([DEMUCS, "-n", "htdemucs", "-d", "mps", "--shifts", "0", "--segment", "7",
+             "--two-stems", "vocals", "--float32", "--clip-mode", "none", "-o", str(outdir), str(path)],
+            stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+    return stem_dir
+
+
+def window_db(x, sr: int):
+    import numpy as np
+
+    n = int(sr * WINDOW)
+    k = x.shape[1] // n
+    seg = x[:, : k * n].reshape(x.shape[0], k, n)
+    return 10 * np.log10((seg.astype("float64") ** 2).mean(axis=(0, 2)) + 1e-14)
+
+
+def whisper_words(path: Path, cache: Path) -> Counter[str]:
+    cache.parent.mkdir(parents=True, exist_ok=True)
+    if not cache.exists():
+        model = next((m for m in WHISPER_MODELS if m.exists()), None)
+        if model is None:
+            raise SystemExit("No Whisper model found; see WHISPER_MODELS.")
+        wav16 = cache.with_suffix(".16k.wav")
+        run(["ffmpeg", "-v", "error", "-y", "-i", str(path), "-ac", "1", "-ar", "16000", "-c:a", "pcm_s16le", str(wav16)])
+        run([WHISPER, "-m", str(model), "-f", str(wav16), "-l", "en", "-np", "-oj", "-of", str(cache.with_suffix(""))],
+            stdout=subprocess.DEVNULL)
+        wav16.unlink()
+    segs = json.loads(cache.read_text(errors="replace")).get("transcription", [])
+    words = re.findall(r"[a-z']+", " ".join(s.get("text", "") for s in segs).lower())
+    return Counter(w for w in words if len(w) >= 3 and w not in STOP)
+
+
+def recall(ref: Counter[str], got: Counter[str]) -> float:
+    total = sum(ref.values())
+    return sum(min(c, got[w]) for w, c in ref.items()) / total if total else 0.0
+
+
+def check(work: Path, tags: list[str] | None, no_whisper: bool) -> dict[str, Any]:
+    import numpy as np
+
+    tags = tags or sorted(p.name for p in (work / "mixes").iterdir() if (p / "inst.wav").exists())
+    selected = (work / "selected").read_text().strip() if (work / "selected").exists() else tags[0]
+    chk = work / "check"
+    mix, sr = read_audio(work / "mix.wav")
+    mix_db = window_db(mix, sr)
+    print("demucs on the mix (second-opinion vocal detector)", file=sys.stderr)
+    dm = demucs_two_stem(work / "mix.wav", chk / "demucs" / "mix")
+    mix_voc_db = window_db(read_audio(dm / "vocals.wav")[0], sr)
+    loud = mix_db > -60.0  # skip the silence at the ends, where the ratios mean nothing
+    voiced = loud & ((mix_voc_db - mix_db) > VOICED_DB)
+    unvoiced = loud & ((mix_voc_db - mix_db) < UNVOICED_DB)
+    report: dict[str, Any] = {"windows_s": WINDOW, "voiced_windows": int(voiced.sum()),
+                              "unvoiced_windows": int(unvoiced.sum()), "candidates": {}}
+    ref = Counter()
+    if not no_whisper:
+        ref = whisper_words(work / "mixes" / selected / "vocals.wav", chk / "whisper" / f"vocals-{selected}.json")
+        report["whisper_ref_words"] = sum(ref.values())
+        report["whisper_mix_recall"] = round(recall(ref, whisper_words(work / "mix.wav", chk / "whisper" / "mix.json")), 3)
+    for tag in tags:
+        cdir = work / "mixes" / tag
+        print(f"checking {tag}", file=sys.stderr)
+        di = demucs_two_stem(cdir / "inst.wav", chk / "demucs" / tag)
+        left_db = window_db(read_audio(di / "vocals.wav")[0], sr)
+        n = min(len(left_db), len(mix_voc_db))
+        suppression = (mix_voc_db[:n] - left_db[:n])[voiced[:n]]
+        removed_db = window_db(read_audio(cdir / "vocals.wav")[0], sr)
+        loss = (removed_db[:n] - mix_db[:n])[unvoiced[:n]]
+        worst = np.argsort(mix_voc_db[:n] - left_db[:n] + np.where(voiced[:n], 0, 1e9))[:3]
+        row = {
+            "bleed_suppression_db_median": round(float(np.median(suppression)), 1) if suppression.size else None,
+            "bleed_suppression_db_p10": round(float(np.percentile(suppression, 10)), 1) if suppression.size else None,
+            "worst_bleed_at_s": [round(float(i * WINDOW), 1) for i in worst],
+            "loss_db_median_unvoiced": round(float(np.median(loss)), 1) if loss.size else None,
+            "loss_db_p90_unvoiced": round(float(np.percentile(loss, 90)), 1) if loss.size else None,
+        }
+        if not no_whisper:
+            got = whisper_words(cdir / "inst.wav", chk / "whisper" / f"inst-{tag}.json")
+            row["whisper_lyric_recall"] = round(recall(ref, got), 3)
+            row["whisper_words"] = sum(got.values())
+        report["candidates"][tag] = row
+    (chk / "report.json").write_text(json.dumps(report, indent=1))
+    print(json.dumps(report, indent=1))
+    return report
+
+
+# ------------------------------------------------------------------- spectro
+def spectro(work: Path, at: float, length: float, tag: str | None) -> Path:
+    import matplotlib
+
+    matplotlib.use("Agg")
+    import matplotlib.pyplot as plt
+    import numpy as np
+    from scipy.signal import stft
+
+    tag = tag or (work / "selected").read_text().strip()
+    panels = [("mix", work / "mix.wav"), ("instrumental", work / "mixes" / tag / "inst.wav"),
+              ("vocals (removed)", work / "mixes" / tag / "vocals.wav")]
+    fig, axes = plt.subplots(len(panels), 1, figsize=(12, 9), sharex=True, constrained_layout=True)
+    for ax, (label, path) in zip(axes, panels, strict=True):
+        x, sr = read_audio(path)
+        seg = x[:, int(at * sr): int((at + length) * sr)].mean(axis=0)
+        f, t, z = stft(seg, fs=sr, nperseg=4096, noverlap=3072)
+        mag = 20 * np.log10(np.abs(z) + 1e-9)
+        ax.pcolormesh(t + at, f, mag, shading="auto", vmin=-110, vmax=-20, cmap="magma")
+        ax.set_yscale("symlog", linthresh=200)
+        ax.set_ylim(60, 16000)
+        ax.set_ylabel("Hz")
+        ax.set_title(label, loc="left", fontsize=10)
+    axes[-1].set_xlabel("seconds")
+    out = work / f"spectro-{tag}-{int(at)}s.png"
+    fig.savefig(out, dpi=90)
+    print(out)
+    return out
+
+
+# -------------------------------------------------------------------- export
+def export(work: Path, outdir: Path | None, tag: str | None, vocals: bool) -> list[Path]:
+    import numpy as np
+
+    tag = tag or (work / "selected").read_text().strip()
+    meta = json.loads((work / "meta.json").read_text())
+    info = json.loads((work / "mixes" / tag / "split.json").read_text())
+    outdir = outdir or OUT_ROOT
+    outdir.mkdir(parents=True, exist_ok=True)
+    artist, title = meta.get("artist") or "Unknown", clean_title(meta.get("title") or "Track")
+    thumbs = [p for p in sorted((work / "src").iterdir()) if p.suffix.lower() in (".jpg", ".jpeg", ".png", ".webp")]
+    cover = work / "cover.jpg"
+    if thumbs and not cover.exists():
+        # YouTube art-track thumbnails are 16:9 with the square sleeve in the middle.
+        run(["ffmpeg", "-v", "error", "-y", "-i", str(thumbs[0]), "-vf", "crop='min(iw,ih)':'min(iw,ih)'",
+             "-q:v", "2", str(cover)])
+    made = []
+    stems = [("Instrumental", "inst.wav")] + ([("Vocals", "vocals.wav")] if vocals else [])
+    for label, name in stems:
+        x, sr = read_audio(work / "mixes" / tag / name)
+        peak = float(np.abs(x).max())
+        gain_db = min(0.0, -0.1 - 20 * np.log10(peak)) if peak > 0.988 else 0.0
+        how = ", ".join(info["models"]) + (f" ({info['algorithm']})" if len(info["models"]) > 1 else "")
+        note = (f"{'Vocals removed' if label == 'Instrumental' else 'Vocals isolated'} with audio-separator"
+                f" 0.47.1: {how}. Source: YouTube Music {meta.get('id')} itag {meta.get('format_id')}"
+                f" {meta.get('acodec')} {meta.get('abr'):.0f}k. Gain {gain_db:+.2f} dB.")
+        base = outdir / f"{artist} - {title} ({label})"
+        tags = ["-metadata", f"title={title} ({label})", "-metadata", f"artist={artist}",
+                "-metadata", f"album={meta.get('album') or ''}", "-metadata", f"comment={note}"]
+        art = ["-i", str(cover), "-map", "0:a", "-map", "1:v", "-c:v", "copy", "-disposition:v", "attached_pic",
+               "-metadata:s:v", "comment=Cover (front)"] if cover.exists() else ["-map", "0:a"]
+        vol = ["-af", f"volume={gain_db}dB"] if gain_db else []
+        src = ["-v", "error", "-y", "-i", str(work / "mixes" / tag / name)]
+        run(["ffmpeg", *src, *art, *vol, "-c:a", "flac", "-sample_fmt", "s32", "-bits_per_raw_sample", "24",
+             "-compression_level", "8", *tags, f"{base}.flac"])
+        made.append(Path(f"{base}.flac"))
+        if label == "Instrumental":
+            run(["ffmpeg", *src, *art, *vol, "-c:a", "libmp3lame", "-b:a", "320k", "-id3v2_version", "3",
+                 *tags, f"{base}.mp3"])
+            made.append(Path(f"{base}.mp3"))
+    for p in made:
+        print(f"![{p.stem}]({p})")
+    return made
+
+
+# ---------------------------------------------------------------------- main
+def main() -> None:
+    ap = argparse.ArgumentParser(description=(__doc__ or "").split("\n\n")[0])
+    sub = ap.add_subparsers(dest="cmd", required=True)
+    f = sub.add_parser("fetch")
+    f.add_argument("target")
+    f.add_argument("--work", type=Path)
+    for name in ("split", "check", "spectro", "select", "export"):
+        p = sub.add_parser(name)
+        p.add_argument("work", type=Path)
+        if name == "split":
+            p.add_argument("--preset", default="instrumental_clean")
+            p.add_argument("--models", nargs="+")
+            p.add_argument("--ensemble", default="uvr_max_spec")
+            p.add_argument("--tag")
+            p.add_argument("--fp32", action="store_true")
+        if name == "check":
+            p.add_argument("--tags", nargs="+")
+            p.add_argument("--no-whisper", action="store_true")
+        if name == "spectro":
+            p.add_argument("--at", type=float, required=True)
+            p.add_argument("--len", type=float, default=20)
+            p.add_argument("--tag")
+        if name == "select":
+            p.add_argument("tag")
+        if name == "export":
+            p.add_argument("--dir", type=Path)
+            p.add_argument("--tag")
+            p.add_argument("--no-vocals", action="store_true")
+    a = sub.add_parser("all")
+    a.add_argument("target")
+    a.add_argument("--preset", default="instrumental_clean")
+    a.add_argument("--dir", type=Path)
+    args = ap.parse_args()
+
+    if args.cmd == "fetch":
+        fetch(args.target, args.work)
+    elif args.cmd == "split":
+        if args.models:
+            models, algo, tag = args.models, args.ensemble, args.tag
+        else:
+            pre = presets()[args.preset]
+            models, algo, tag = pre["models"], pre["algorithm"], args.tag or args.preset
+        split(args.work, models, algo, tag, args.fp32)
+    elif args.cmd == "check":
+        check(args.work, args.tags, args.no_whisper)
+    elif args.cmd == "spectro":
+        spectro(args.work, args.at, args.len, args.tag)
+    elif args.cmd == "select":
+        if not (args.work / "mixes" / args.tag / "inst.wav").exists():
+            raise SystemExit(f"No candidate {args.tag} in {args.work / 'mixes'}.")
+        (args.work / "selected").write_text(args.tag)
+    elif args.cmd == "export":
+        export(args.work, args.dir, args.tag, not args.no_vocals)
+    elif args.cmd == "all":
+        work = fetch(args.target, None)
+        pre = presets()[args.preset]
+        split(work, pre["models"], pre["algorithm"], args.preset, False)
+        check(work, None, False)
+        export(work, args.dir, None, True)
+
+
+if __name__ == "__main__":
+    main()

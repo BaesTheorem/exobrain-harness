@@ -1,6 +1,6 @@
 ---
 name: music
-description: "Alex's music toolset -- generate full songs from a text prompt, compose solo piano pieces in Python (pianokit: written score -> performed MIDI -> sampled grand MP3), compose pieces that loop with no seam in Python (loopkit: Shepard tones, just intonation, one circular period, gapless Console loop player), render sheet music (MIDI/MusicXML/photo/PDF) to audio, transcribe audio to notation, and build captioned lyric videos from a track + a still image + lyrics. Use when Alex says 'make a song', 'generate music', 'compose a piano piece', 'write a piano song in Python', 'make a loop', 'a piece that loops forever', 'Shepard tone', 'endlessly rising', 'strange loop', 'mathematically beautiful music', 'just intonation piece', 'lyric video', 'captioned lyrics video', 'karaoke video', 'transcribe this audio', 'read this sheet music', 'turn this MIDI into audio', 'set these lyrics to the track', or otherwise wants to create, convert, or caption music."
+description: "Alex's music toolset -- generate full songs from a text prompt, compose solo piano pieces in Python (pianokit: written score -> performed MIDI -> sampled grand MP3), compose pieces that loop with no seam in Python (loopkit: Shepard tones, just intonation, one circular period, gapless Console loop player), render sheet music (MIDI/MusicXML/photo/PDF) to audio, transcribe audio to notation, and build captioned lyric videos from a track + a still image + lyrics, and remove the vocals from a real song (fetched from Alex's YouTube Music) with RoFormer separation models. Use when Alex says 'make a song', 'generate music', 'compose a piano piece', 'write a piano song in Python', 'make a loop', 'a piece that loops forever', 'Shepard tone', 'endlessly rising', 'strange loop', 'mathematically beautiful music', 'just intonation piece', 'lyric video', 'captioned lyrics video', 'karaoke video', 'transcribe this audio', 'read this sheet music', 'turn this MIDI into audio', 'set these lyrics to the track', 'remove the vocals', 'make an instrumental of', 'karaoke version of', 'a cappella of', 'isolate the vocals', 'download a song from YouTube Music', or otherwise wants to create, convert, or caption music."
 metadata:
   tools_dir: "/Users/alexhedtke/Documents/Exobrain harness"
   mist_music: "mist-music/bin/mist-music (gen / render / transcribe / play); venv mist-music/.venv"
@@ -24,6 +24,7 @@ we never re-tread ground.
 | **Compose a solo piano piece in code** (Python score, performed and rendered on a sampled grand) | `mist-music/piano/` (pianokit) | §1b |
 | **Compose a piece that loops with no seam** (Shepard tones, pure tuning, math structures; plays as a gapless loop in the Console) | `mist-music/loops/` (loopkit) | §1c |
 | **Captioned lyric video** from a track + a still + lyrics | `lyrics-video/` pipeline | §2 |
+| **Remove the vocals from a real song** (instrumental, karaoke, a cappella), source from Alex's YouTube Music Premium | `mist-music/bin/unmix` | §3 |
 
 Both keep user media (audio, images, rendered output) gitignored; the scripts
 themselves are generic and committed. Public-repo privacy still applies.
@@ -301,14 +302,56 @@ Output the MP4 next to the source (e.g. `~/Downloads/<Song> - Lyric Video.mp4`).
   anchor at the prior line's start + that verse's own line-cadence.
 - **Timing won't be beat-perfect on dense mixes.** First pass is whisper-accurate.
   If a line drifts, ask Alex which line and nudge it. Only reach for vocal
-  separation (demucs -- not installed) if a mix is so dense the timing is rough; it
-  isolates vocals for a big accuracy boost but costs compute + a dep.
+  separation (`unmix`, §3) if a mix is so dense the timing is rough; it isolates
+  vocals for a big accuracy boost but costs approximately 20 minutes per model.
 
 ### Verify before handing over
 
 Grab frames from the **encoded mp4** (not just the sprites) and Read them:
 `ffmpeg -y -ss <t> -i OUT.mp4 -frames:v 1 work/chk.png`. Check a normal verse
 line, a chorus, and the finale. Confirm `ffprobe` duration matches the audio.
+
+---
+
+## §3 · unmix (remove the vocals from a real song)
+
+`mist-music/bin/unmix` is a uv script, with its dependencies pinned in the
+header. Read its docstring before you change it.
+
+```bash
+mist-music/bin/unmix all "led zeppelin whole lotta love"           # fetch, split, check, export
+mist-music/bin/unmix fetch "https://music.youtube.com/watch?v=..."   # then the steps one by one
+mist-music/bin/unmix split WORK --models A.ckpt B.ckpt --ensemble uvr_min_spec --tag NAME
+mist-music/bin/unmix spectro WORK --at 140 --len 30 --tag NAME       # then Read the PNG
+mist-music/bin/unmix select WORK NAME && mist-music/bin/unmix export WORK
+```
+
+- **Source.** Alex's account has Premium. Itag 141 (AAC 256k, 44.1 kHz, content
+  to 22 kHz) is better than 774 (Opus 256k, low-passed at 20 kHz). The Chrome
+  cookies decrypt with no Keychain dialog.
+- **Time on this M1 Air (8 GB).** One RoFormer model needs approximately 20
+  minutes for a 5.5-minute song in fp16. Operate only one model at a time. Demucs on MPS
+  needs approximately 1 minute.
+- **Keep the turn open during a long task.** On 2026-10-25 a background
+  separation task stopped with the chat's process, 15 minutes after the turn
+  ended (the Console idle reaper interval). The task was at 100% and had not
+  saved its stems.
+- **audio-separator scales each stem that peaks above full scale**, and AAC
+  decodes of loud masters do. `unity_gain()` fits the gains back from the mix.
+  Do not use its stems without that step.
+- **Result on Whole Lotta Love (one song, one data point).** BS-RoFormer
+  Resurrection (unwa) was better than Mel-RoFormer becruily inst. becruily kept
+  Plant's panting and the echo repeats of his moans in the freak-out.
+  Resurrection removed them and kept the gliding tones (probably the theremin).
+- **The judges.** Demucs misses effected vocals (panting, echoed moans) and
+  calls the gliding tones (probably the theremin) "vocals", so its scores mislead in psychedelic passages. The
+  AudioSet tagger fails on a dense mix but works on an isolated difference
+  signal (instrumental A minus instrumental B). That test gave the decision
+  above. Whisper lyric recall is a coarse check: it writes "We'll be right
+  back" on music with no voice. The source mix is its positive control.
+- **Files.** Output goes to `mist-music/out/unmix/` (gitignored, served by the
+  Console). The work folder `tmp/unmix/<slug>/` holds approximately 3 GB with
+  all candidates. Remove it after the export.
 
 ---
 
