@@ -7,7 +7,7 @@
 	<key>ProgramArguments</key>
 	<array>
 		<string>/Users/alexhedtke/.local/bin/mist-launch</string>
-		<string>/opt/homebrew/bin/python3</string>
+		<string>/Users/alexhedtke/.local/libexec/procname/ff-dash</string>
 		<string>/Users/alexhedtke/Documents/Exobrain harness/fantasy/bin/ff-dash</string>
 	</array>
 	<key>WorkingDirectory</key>

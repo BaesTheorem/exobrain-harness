@@ -17,7 +17,7 @@
     <key>ProgramArguments</key>
     <array>
         <string>/Users/alexhedtke/.local/bin/mist-launch</string>
-        <string>/Users/alexhedtke/Documents/Exobrain harness/zulip/.venv/bin/python</string>
+        <string>/Users/alexhedtke/.local/libexec/procname/zulip-listener</string>
         <string>-m</string>
         <string>claude_zulip.listener</string>
         <string>--zuliprc</string>

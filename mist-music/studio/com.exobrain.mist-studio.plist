@@ -8,7 +8,7 @@
   <key>ProgramArguments</key>
   <array>
     <string>/Users/alexhedtke/.local/bin/mist-launch</string>
-    <string>/Users/alexhedtke/Documents/Exobrain harness/mist-music/.venv/bin/python</string>
+    <string>/Users/alexhedtke/.local/libexec/procname/mist-studio</string>
     <string>-m</string>
     <string>studio.server</string>
   </array>

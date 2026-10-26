@@ -9,7 +9,7 @@
 	<key>ProgramArguments</key>
 	<array>
 		<string>/Users/alexhedtke/.local/bin/mist-launch</string>
-		<string>/Users/alexhedtke/Documents/Exobrain harness/traces/.venv/bin/python</string>
+		<string>/Users/alexhedtke/.local/libexec/procname/traces-review</string>
 		<string>/Users/alexhedtke/Documents/Exobrain harness/traces/traces.py</string>
 		<string>review</string>
 		<string>--sample</string>

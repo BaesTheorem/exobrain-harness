@@ -14,6 +14,7 @@ server again; the next call starts it again.
   mcp-lazy unwrap <name>.. put the original entries back into the Claude config
   mcp-lazy status          record each server: wrapped or not, cache age, tool count
   mcp-lazy refresh [name]  start each wrapped server once and rewrite its cache
+  mcp-lazy rename          run each wrapped stub as mcp-<name> (bin/procname shim)
 
 INVARIANTS
 - A cache miss is never an error: with no cache, the shim starts the server at once and
@@ -39,6 +40,7 @@ CLAUDE_JSON = Path.home() / ".claude.json"
 PROJECT_JSON = HERE.parent / ".mcp.json"
 SELF = str(Path(__file__).resolve())
 PY = "/opt/homebrew/bin/python3"
+PROCNAME = HERE.parent / "bin" / "procname"
 CACHED = ("tools/list", "prompts/list", "resources/list", "resources/templates/list")
 IDLE = float(os.environ.get("MCP_LAZY_IDLE", "1200"))
 
@@ -302,8 +304,18 @@ def set_entry(path: Path, name: str, entry: dict) -> None:
     write_json(path, cfg)
 
 
+def named_python(name: str) -> str:
+    """A procname shim so the stub shows as mcp-<name> in Activity Monitor and
+    Stats, not as one of many "Python" rows. Falls back to plain PY."""
+    r = subprocess.run([str(PROCNAME), "make", f"mcp-{name}"[:15], PY], capture_output=True, text=True)
+    if r.returncode:
+        log(f"procname shim for {name} failed, using {PY}: {r.stderr.strip()[-200:]}")
+        return PY
+    return r.stdout.strip()
+
+
 def shim_entry(name: str) -> dict:
-    return {"type": "stdio", "command": PY, "args": ["-I", "-S", SELF, name], "env": {}}
+    return {"type": "stdio", "command": named_python(name), "args": ["-I", "-S", SELF, name], "env": {}}
 
 
 def is_shim(entry: dict) -> bool:
@@ -326,6 +338,15 @@ def wrap(names: list[str]) -> None:
             write_json(SERVERS, servers)  # before the config changes, so no entry is ever lost
             set_entry(path, n, shim_entry(n))
             print(f"wrapped {n} in {path}")
+
+
+def rename() -> None:
+    """Rewrite each wrapped entry so its stub runs under a procname shim."""
+    for path, keys in config_files():
+        for n, e in table(json.loads(path.read_text()), keys).items():
+            if is_shim(e) and e.get("command") != (want := shim_entry(n))["command"]:
+                set_entry(path, n, want)
+                print(f"renamed {n} in {path} -> {want['command']}")
 
 
 def unwrap(names: list[str]) -> None:
@@ -375,6 +396,8 @@ def main() -> None:
         wrap(rest)
     elif cmd == "unwrap":
         unwrap(rest)
+    elif cmd == "rename":
+        rename()
     elif cmd == "status":
         status()
     elif cmd == "refresh":

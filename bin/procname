@@ -1,0 +1,152 @@
+#!/usr/bin/env python3
+"""Give a Python daemon its own name in Activity Monitor and Stats.
+
+Builds maintenance/procname/procname.c against the interpreter a daemon uses
+and writes the binary to ~/.local/libexec/procname/<name>. Put that path where
+the plist or MCP config had the interpreter. The shim behaves as the
+interpreter (same sys.executable, sys.prefix, sys.path) under the new name.
+
+    procname make <name> <interpreter>   build or rebuild one shim, print its path
+    procname list                        shims and their targets
+    procname verify                      check each shim against its target
+    procname rebuild                     rebuild every shim (after a Python upgrade)
+    procname remove <name>
+
+INVARIANTS:
+- A shim reports the same sys.version, sys.prefix and sys.path as its target.
+  `verify` checks this, and exits 1 on any drift.
+- Names stay at 15 characters or less (MAXCOMLEN), so no tool cuts them short.
+"""
+
+from __future__ import annotations
+
+import argparse
+import json
+import os
+import subprocess
+import sys
+from pathlib import Path
+
+HERE = Path(__file__).resolve().parent
+SOURCE = HERE.parent / "maintenance" / "procname" / "procname.c"
+OUT = Path.home() / ".local" / "libexec" / "procname"
+MANIFEST = OUT / "manifest.json"
+MAX_NAME = 15
+
+PROBE = r"""
+import json, os, sys, sysconfig as s
+v = s.get_config_var
+if v("PYTHONFRAMEWORK"):
+    lib = os.path.join(v("PYTHONFRAMEWORKPREFIX"), v("LDLIBRARY"))
+else:
+    lib = os.path.join(v("LIBDIR"), v("LDLIBRARY"))
+print(json.dumps({"lib": lib, "include": v("INCLUDEPY"), "executable": sys.executable}))
+"""
+
+STATE = "import json, sys; print(json.dumps([sys.version, sys.prefix, sys.executable, sys.path]))"
+
+
+def load() -> dict[str, dict[str, str]]:
+    if MANIFEST.exists():
+        return json.loads(MANIFEST.read_text())
+    return {}
+
+
+def save(m: dict[str, dict[str, str]]) -> None:
+    OUT.mkdir(parents=True, exist_ok=True)
+    MANIFEST.write_text(json.dumps(m, indent=2, sort_keys=True) + "\n")
+
+
+def build(name: str, target: str) -> Path:
+    if len(name) > MAX_NAME or "/" in name:
+        sys.exit(f"procname: name must be at most {MAX_NAME} characters with no slash: {name}")
+    # Keep the path as given: a venv's bin/python symlink is what makes it a venv.
+    target = os.path.abspath(os.path.expanduser(target))
+    if not os.access(target, os.X_OK):
+        sys.exit(f"procname: not executable: {target}")
+    info = json.loads(subprocess.run([target, "-I", "-c", PROBE], check=True, capture_output=True, text=True).stdout)
+    if not os.path.exists(info["lib"]):
+        sys.exit(f"procname: libpython not found for {target}: {info['lib']}")
+    # A stub such as /usr/bin/python3 (xcrun) execs the real interpreter; aim at that one.
+    target = info["executable"]
+    OUT.mkdir(parents=True, exist_ok=True)
+    dest = OUT / name
+    tmp = OUT / f".{name}.tmp"
+    subprocess.run(
+        [
+            "clang", "-O2", "-Wall",
+            f"-I{info['include']}",
+            f"-DLIBPYTHON={json.dumps(info['lib'])}",
+            f"-DTARGET={json.dumps(target)}",
+            str(SOURCE), "-o", str(tmp),
+        ],
+        check=True,
+    )
+    tmp.replace(dest)  # atomic, so a running daemon's binary is never half written
+    m = load()
+    m[name] = {"target": target}
+    save(m)
+    return dest
+
+
+def state(exe: str) -> list[object]:
+    r = subprocess.run([exe, "-c", STATE], capture_output=True, text=True, timeout=60)
+    if r.returncode:
+        return ["error", r.stderr.strip()[-300:]]
+    return json.loads(r.stdout)
+
+
+def verify() -> int:
+    bad = 0
+    for name, ent in sorted(load().items()):
+        shim, target = str(OUT / name), ent["target"]
+        if not os.path.exists(target):
+            print(f"FAIL {name}: target is gone: {target}")
+            bad += 1
+            continue
+        got, want = state(shim), state(target)
+        if got == want:
+            print(f"OK   {name}")
+        else:
+            bad += 1
+            print(f"FAIL {name}: shim and target differ (run: procname rebuild)")
+            for label, a, b in zip(("version", "prefix", "executable", "path"), got, want, strict=False):  # an error result is shorter
+                if a != b:
+                    print(f"     {label}: shim={a!r}\n     {' ' * len(label)}  target={b!r}")
+    return 1 if bad else 0
+
+
+def main() -> int:
+    ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
+    sub = ap.add_subparsers(dest="cmd", required=True)
+    mk = sub.add_parser("make")
+    mk.add_argument("name")
+    mk.add_argument("interpreter")
+    sub.add_parser("list")
+    sub.add_parser("verify")
+    sub.add_parser("rebuild")
+    rm = sub.add_parser("remove")
+    rm.add_argument("name")
+    a = ap.parse_args()
+
+    if a.cmd == "make":
+        print(build(a.name, a.interpreter))
+    elif a.cmd == "list":
+        for name, ent in sorted(load().items()):
+            print(f"{name:<16} {ent['target']}")
+    elif a.cmd == "verify":
+        return verify()
+    elif a.cmd == "rebuild":
+        for name, ent in sorted(load().items()):
+            print(build(name, ent["target"]))
+        return verify()
+    elif a.cmd == "remove":
+        m = load()
+        m.pop(a.name, None)
+        save(m)
+        (OUT / a.name).unlink(missing_ok=True)
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())

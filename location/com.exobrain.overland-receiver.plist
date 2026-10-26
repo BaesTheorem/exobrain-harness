@@ -7,7 +7,7 @@
 	<key>ProgramArguments</key>
 	<array>
 		<string>/Users/alexhedtke/.local/bin/mist-launch</string>
-		<string>/opt/homebrew/bin/python3</string>
+		<string>/Users/alexhedtke/.local/libexec/procname/overland-recv</string>
 		<string>/Users/alexhedtke/Documents/Exobrain harness/location/receiver.py</string>
 	</array>
 	<key>RunAtLoad</key>

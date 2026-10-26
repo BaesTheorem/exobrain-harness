@@ -124,6 +124,17 @@ then
   fi
 fi
 
+# -- 4b. procname shims (daemon names in Activity Monitor) ----------------
+# A shim loads its interpreter's libpython; after a minor Python bump it falls
+# back to the plain interpreter (old "Python" name) or drifts from its target.
+if ! "$HARNESS/bin/procname" verify >/dev/null 2>&1; then
+  if out=$("$HARNESS/bin/procname" rebuild 2>&1); then
+    healed+=("procname shims rebuilt")
+  else
+    echo "$out"; broken+=("procname shims: run bin/procname verify")
+  fi
+fi
+
 # -- 5. summary ------------------------------------------------------------
 echo "healed: ${healed[*]:-none} | broken: ${broken[*]:-none}"
 # The banner click must land somewhere that explains itself. "console" only
