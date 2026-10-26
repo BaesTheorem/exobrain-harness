@@ -2,7 +2,8 @@
 # build-app.sh -- build a native .app wrapper around a local web app.
 #
 #   ./build-app.sh "The Priory" priory http://127.0.0.1:5025/ com.exobrain.priory-web \
-#       [--plist PATH] [--log PATH] [--icon PATH.icns] [--bundle-id ID] [--health URL]
+#       [--plist PATH] [--log PATH] [--icon PATH.icns] [--bundle-id ID] [--health URL] \
+#       [--size WxH]
 #
 # Creates /Applications/<Name>.app whose executable is a copy of the brew
 # python interpreter (own TCC identity + correct menu-bar name), running the
@@ -11,7 +12,7 @@
 set -euo pipefail
 
 NAME="$1"; SLUG="$2"; URL="$3"; LABEL="${4:-}"; shift 4 || true
-PLIST="" LOG="" ICON="" BUNDLE_ID="" HEALTH=""
+PLIST="" LOG="" ICON="" BUNDLE_ID="" HEALTH="" SIZE=""
 while [ $# -gt 0 ]; do
   case "$1" in
     --plist) PLIST="$2"; shift 2;;
@@ -19,6 +20,7 @@ while [ $# -gt 0 ]; do
     --icon) ICON="$2"; shift 2;;
     --bundle-id) BUNDLE_ID="$2"; shift 2;;
     --health) HEALTH="$2"; shift 2;;
+    --size) SIZE="$2"; shift 2;;
     *) echo "unknown arg $1" >&2; exit 2;;
   esac
 done
@@ -53,6 +55,7 @@ ${HEALTH:+export APPSHELL_HEALTH="$HEALTH"}
 ${LABEL:+export APPSHELL_LABEL="$LABEL"}
 ${PLIST:+export APPSHELL_PLIST="$PLIST"}
 ${LOG:+export APPSHELL_LOG="$LOG"}
+${SIZE:+export APPSHELL_W="${SIZE%x*}" APPSHELL_H="${SIZE#*x}"}
 export APPSHELL_ICON="\$HERE/../Resources/AppIcon.icns"
 export PYTHONPATH="$SITE"
 export PYTHONNOUSERSITE=1

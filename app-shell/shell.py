@@ -11,7 +11,8 @@ bundle's launch script:
   APPSHELL_LABEL   launchd label to bootstrap/kickstart when down (optional)
   APPSHELL_PLIST   plist path for bootstrap          (optional)
   APPSHELL_LOG     server log to open on failure     (optional)
-  APPSHELL_W/H     window size                       (default 1280x860)
+  APPSHELL_W/H     window size                       (default 1280x860; the
+                   minimum size is 900x640, or the window size if smaller)
 
 The server is NOT run in-process: these servers already live under launchd
 (pipelines, VPN gates, KeepAlive). The shell only pokes launchd over its
@@ -160,7 +161,7 @@ def main():
     # with this, pywebview routes it through WKDownload to a save panel.
     webview.settings["ALLOW_DOWNLOADS"] = True
     window = webview.create_window(TITLE, URL, width=WIN_W, height=WIN_H,
-                                   min_size=(900, 640), js_api=Api())
+                                   min_size=(min(900, WIN_W), min(640, WIN_H)), js_api=Api())
     window.events.shown += _icon_after_launch
     # pywebview defaults to private mode, which wipes WKWebView's localStorage on every
     # launch; apps that keep saves or settings in the browser need it off.
