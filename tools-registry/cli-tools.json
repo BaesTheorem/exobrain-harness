@@ -601,6 +601,14 @@
     "notes": "Rebuilds and wirelessly reinstalls iOS sideloads before their provisioning profiles expire. --status/--discover/--force/--quiet. Manual only: the twice-daily launchd agent was retired 2026-09-15 when the paid developer plan moved profiles from 7 days to a year."
   },
   {
+    "name": "itch-free-download",
+    "command": "python3 -I scripts/itch_free_download.py PAGE_URL OUT_DIR",
+    "repo_dir": "~/Documents/table-conductor",
+    "source": "built",
+    "added": "2026-10-25",
+    "notes": "Needs patchright (system python3). Works for free and name-your-own-price pages hosted on itch.io; an external-link upload (an author's mailing-list page) is not downloadable this way."
+  },
+  {
     "name": "jd-snapshot.py",
     "command": "python3 job-search/jd-snapshot.py --note \"<listing note>\" [--url URL] [--dry-run]",
     "repo_dir": "/Users/alexhedtke/Documents/Exobrain harness/job-search",
