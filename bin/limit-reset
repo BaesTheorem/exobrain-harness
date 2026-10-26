@@ -28,6 +28,9 @@ Policy (watch and claim --auto):
   2. Not at a limit: use an "anytime" grant (use_requires_limit false) when it
      expires within --expiring-hours (default 6). A grant that needs a limit
      cannot be used early; the watch warns Alex 24 h before it expires.
+     A use-by DATE with no time (Alex, 2026-10-26) counts as the start of that
+     day, local time, and the grant is used on the day before: the window for
+     such a grant is the whole previous day, whatever --expiring-hours says.
   3. The weekly session-reset allowance (one per week, no grant id) is used at
      the 5-hour wall when the server offers it.
 
@@ -162,13 +165,25 @@ def _org_uuid() -> str | None:
 
 # --- parsing -----------------------------------------------------------------
 
+def _date_only(s: object) -> bool:
+    """True for a use-by value with no time of day ("2026-10-31")."""
+    return isinstance(s, str) and len(s.strip()) == 10 and "T" not in s and " " not in s
+
+
 def _ts(s: object) -> float | None:
+    """Epoch seconds for an ISO value. A date with no time is the START of that
+    day in local time, so "use by 2026-10-31" is gone once Oct 31 begins."""
     if not isinstance(s, str) or not s:
         return None
     try:
+        if _date_only(s):
+            return dt.datetime.combine(dt.date.fromisoformat(s.strip()), dt.time.min).timestamp()
         return dt.datetime.fromisoformat(s.replace("Z", "+00:00")).timestamp()
     except ValueError:
         return None
+
+
+DATE_ONLY_WINDOW_H = 24.0   # an anytime grant with a date-only use-by is used the day before
 
 
 def _windows(v: object) -> list[str]:
@@ -219,6 +234,7 @@ def parse_grant(raw: object) -> dict | None:
     }
     g["kind"] = grant_kind(g)
     g["ends_ts"] = _ts(g["ends_at"])
+    g["ends_date_only"] = _date_only(g["ends_at"])
     return g
 
 
@@ -281,10 +297,15 @@ def pick_at_limit(status: dict, now: float) -> dict | None:
     return min(cands, key=_rank) if cands else None
 
 
+def _window_h(g: dict, hours: float) -> float:
+    return max(hours, DATE_ONLY_WINDOW_H) if g.get("ends_date_only") else hours
+
+
 def pick_expiring(status: dict, now: float, hours: float) -> dict | None:
-    """An anytime grant that expires within `hours`; soonest first."""
+    """An anytime grant that expires within `hours` (the whole previous day for
+    a date-only use-by); soonest first."""
     cands = [g for g in status["grants"] if usable(g, now) and not g["use_requires_limit"]
-             and g["ends_ts"] is not None and g["ends_ts"] - now <= hours * 3600]
+             and g["ends_ts"] is not None and g["ends_ts"] - now <= _window_h(g, hours) * 3600]
     return min(cands, key=lambda g: g["ends_ts"]) if cands else None
 
 
@@ -366,6 +387,8 @@ def _fmt_when(iso: str | None) -> str:
     t = _ts(iso)
     if t is None:
         return "no date"
+    if _date_only(iso):
+        return dt.datetime.fromtimestamp(t).strftime("%a %b %-d") + " (no time given: gone at the start of that day)"
     return dt.datetime.fromtimestamp(t).strftime("%a %b %-d %-I:%M %p")
 
 

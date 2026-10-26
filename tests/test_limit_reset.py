@@ -179,3 +179,34 @@ def test_auth_error_exits_2_without_a_claim(monkeypatch, tmp_path):
     monkeypatch.setattr(lr, "read_status", boom)
     monkeypatch.setattr(lr, "claim_grant", lambda gid: pytest.fail("claimed on a 401"))
     assert lr.main(["claim", "--auto", "--quiet"]) == 2
+
+
+def _local_midnight(days_ahead):
+    import datetime as dt
+    d = dt.datetime.fromtimestamp(NOW).date() + dt.timedelta(days=days_ahead)
+    return d.isoformat(), dt.datetime.combine(d, dt.time.min).timestamp()
+
+
+def test_date_only_expiry_is_the_start_of_that_day():
+    iso, midnight = _local_midnight(3)
+    g = lr.parse_grant({"id": "d", "resets_left": 1, "ends_at": iso, "clears": ["five_hour"],
+                        "usable_now": True, "use_requires_limit": False})
+    assert g["ends_date_only"] is True and g["ends_ts"] == midnight
+    assert "no time given" in lr.describe_grant(g)
+
+
+def test_date_only_anytime_grant_is_used_the_day_before():
+    """Alex, 2026-10-26: no expiry time given means redeem the day before."""
+    iso, midnight = _local_midnight(3)
+    s = lr.parse_status({"five_hour": {}, "seven_day": {}, "cedar_ember": {"eligible": True, "grants": [
+        {"id": "d", "resets_left": 1, "ends_at": iso, "clears": ["five_hour"], "usable_now": True,
+         "use_requires_limit": False, "type": "session"}]}})
+    day_before_morning = midnight - 20 * 3600
+    two_days_before = midnight - 40 * 3600
+    assert lr.decide(s, two_days_before, 6.0) == ("none", None)
+    assert lr.decide(s, day_before_morning, 6.0)[0] == "expiring"
+
+
+def test_timed_expiry_keeps_the_short_window():
+    s = _status(grants=[_grant("t", requires_limit=False, ends=NOW + 20 * 3600)])
+    assert lr.decide(s, NOW, 6.0) == ("none", None)
