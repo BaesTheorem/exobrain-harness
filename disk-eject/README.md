@@ -35,6 +35,16 @@ any other status is a different failure and is ignored. Finder fires several
 solicitations per click, so repeats within `debounce_seconds` are dropped, and
 the debounce restarts when a run ends (our own failed eject logs the same line).
 
+The busy volume is vetted from a snapshot, not a live `diskutil info`. While
+Finder's "Force Eject?" dialog is open, `UnmountAssistantAgent` retries the
+unmount every ~2 s, and each retry sends ~25 approval callbacks. During that
+time `diskutil` waits 30 to 60 s for a diskarbitrationd session. The watcher
+thus records `diskutil info` for all mounted `/Volumes` volumes at start and
+at intervals of `snapshot_seconds` (default 30). A volume
+that mounted after the last snapshot falls back to a live lookup. When Finder's
+retry unmounts the volume first after the holders stop, the watcher reports
+the eject as done and does not use `diskutil eject`.
+
 Each holder is asked to quit the way it expects to be quit:
 
 1. **Per-app pre-stop hook** first, so an app can checkpoint. rqbit gets every

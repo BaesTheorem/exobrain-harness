@@ -46,6 +46,7 @@ import re
 import signal
 import subprocess
 import sys
+import threading
 import time
 
 HERE = os.path.dirname(os.path.abspath(__file__))
@@ -83,7 +84,7 @@ def notify(msg, title="MIST", sound="Purr", link="console"):
         return
     try:
         subprocess.run([NOTIFY, msg, title, sound, link, "--discord"],
-                       timeout=15, check=False)
+                       timeout=45, check=False)  # --discord can take >15 s
     except Exception as exc:  # notification failure must never abort an eject
         say(f"notify failed: {exc}")
 
@@ -105,9 +106,9 @@ def run(cmd, timeout=30, merge=False):
 # Volume identification and safety gate
 # --------------------------------------------------------------------------
 
-def disk_info(dev):
+def disk_info(dev, timeout=30):
     """diskutil info for a device or mount point, as a dict (empty on failure)."""
-    rc, out = run([DISKUTIL, "info", "-plist", dev])
+    rc, out = run([DISKUTIL, "info", "-plist", dev], timeout=timeout)
     if rc != 0 or not out:
         return {}
     try:
@@ -128,19 +129,76 @@ def parent_disk(dev):
     return base
 
 
+_BOOT_DISK = ""
+
+
 def boot_whole_disk():
-    """Whole device backing /. Nothing on it may ever be touched."""
-    info = disk_info("/")
-    return parent_disk(info.get("DeviceIdentifier", "")) if info else ""
+    """Whole device backing /. Nothing on it may ever be touched.
+
+    Cached once known: the boot disk does not change while we run, and the
+    lookup goes through diskarbitrationd, which is jammed during a Finder eject.
+    """
+    global _BOOT_DISK
+    if not _BOOT_DISK:
+        info = disk_info("/")
+        _BOOT_DISK = parent_disk(info.get("DeviceIdentifier", "")) if info else ""
+    return _BOOT_DISK
 
 
-def resolve_volume(target):
+# While Finder's "Force Eject?" dialog is up, UnmountAssistantAgent retries the
+# unmount every ~2 s and each retry fans out ~25 approval callbacks. That keeps
+# diskarbitrationd so busy that `diskutil info` waits 30-60 s for a session,
+# exactly when the watcher needs it. So the watcher snapshots every mounted
+# volume while diskarbitrationd is idle and vets a busy device from the snapshot.
+_VOL_CACHE = {}
+_VOL_CACHE_LOCK = threading.Lock()
+
+
+def mounted_volumes():
+    """{"/dev/diskNsM": mount point} for /Volumes mounts, from the kernel's
+    mount table (no diskarbitrationd round trip)."""
+    rc, out = run(["/sbin/mount"], timeout=10)
+    vols = {}
+    for line in out.splitlines():
+        m = re.match(r"^(/dev/disk\S+) on (/Volumes/.+?) \(", line)
+        if m:
+            vols[m.group(1)] = m.group(2)
+    return vols
+
+
+def refresh_volume_cache():
+    """Re-read diskutil info for every mounted /Volumes volume."""
+    boot_whole_disk()
+    fresh = {}
+    for dev, mount in mounted_volumes().items():
+        with _VOL_CACHE_LOCK:
+            known = _VOL_CACHE.get(dev)
+        if known and known.get("MountPoint") == mount:
+            fresh[dev] = known
+            continue
+        info = disk_info(dev, timeout=10)
+        if info:
+            fresh[dev] = info
+    with _VOL_CACHE_LOCK:
+        _VOL_CACHE.clear()
+        _VOL_CACHE.update(fresh)
+
+
+def cached_info(dev):
+    with _VOL_CACHE_LOCK:
+        return _VOL_CACHE.get(dev)
+
+
+def resolve_volume(target, info=None):
     """Map a device node, mount point, or volume name to a vetted volume.
 
     Returns (mount_point, whole_disk, reason_refused). Refuses anything that is
-    not an external, ejectable volume under /Volumes.
+    not an external, ejectable volume under /Volumes. `info` is a diskutil
+    info dict already in hand (the watcher's snapshot); without it, diskutil
+    is asked live.
     """
-    info = disk_info(target)
+    if not info:
+        info = disk_info(target)
     if not info:
         return None, None, f"diskutil does not recognize {target!r}"
 
@@ -349,10 +407,10 @@ def restore_jobs(jobs, patience=90):
 # Free, then eject
 # --------------------------------------------------------------------------
 
-def free_and_eject(target, dry_run=False, do_eject=True):
+def free_and_eject(target, dry_run=False, do_eject=True, info=None):
     """Free `target` and eject it. Returns (ok, summary)."""
     cfg = load_config()
-    mount, whole, refusal = resolve_volume(target)
+    mount, whole, refusal = resolve_volume(target, info)
     if refusal:
         say(f"REFUSED: {refusal}")
         return False, refusal
@@ -415,14 +473,21 @@ def free_and_eject(target, dry_run=False, do_eject=True):
                 say(f"  reload with: launchctl bootstrap gui/{UID} {plist}")
         return True, "holders released (eject skipped)"
 
+    stopped_note = f" Stopped {stopped}." if stopped else ""
+    if not os.path.ismount(mount):
+        # Finder's own retry loop got there first once the holders let go.
+        say(f"{mount} already unmounted by Finder")
+        restore_jobs(restore)
+        notify(f"{name} ejected, safe to unplug.{stopped_note}", "MIST", "Purr", "console")
+        return True, f"ejected {name}"
+
     rc, out = run([DISKUTIL, "eject", whole], timeout=90)
     ok = rc == 0
     say(out.strip() or ("ejected" if ok else "eject failed"))
     restore_jobs(restore)
 
     if ok:
-        detail = f" Stopped {stopped}." if stopped else ""
-        notify(f"{name} ejected, safe to unplug.{detail}", "MIST", "Purr", "console")
+        notify(f"{name} ejected, safe to unplug.{stopped_note}", "MIST", "Purr", "console")
         return True, f"ejected {name}"
     notify(f"{name} still won't eject: {out.strip()[:120]}", "MIST", "Basso", "console")
     return False, out.strip()
@@ -443,6 +508,19 @@ def watch():
         'process == "diskarbitrationd" AND eventMessage CONTAINS "unable to unmount"',
     ]
     say("watching diskarbitrationd for failed ejects")
+    refresh_volume_cache()
+    say(f"volume snapshot: {', '.join(sorted(_VOL_CACHE)) or 'none'}")
+
+    def keep_fresh():
+        while True:
+            time.sleep(cfg.get("snapshot_seconds", 30))
+            try:
+                refresh_volume_cache()
+            except Exception as exc:
+                say(f"snapshot refresh failed: {exc}")
+
+    threading.Thread(target=keep_fresh, daemon=True).start()
+
     proc = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
                             text=True, bufsize=1)
     assert proc.stdout is not None
@@ -462,11 +540,14 @@ def watch():
             last[dev] = now
 
             say(f"{dev} is busy; releasing")
-            mount, whole, refusal = resolve_volume(dev)
+            info = cached_info(dev)
+            if not info:
+                say(f"{dev} not in the volume snapshot; asking diskutil live")
+            mount, whole, refusal = resolve_volume(dev, info)
             if refusal:
                 say(f"skip: {refusal}")
                 continue
-            ok, summary = free_and_eject(dev)
+            ok, summary = free_and_eject(dev, info=info)
             say(f"result: {summary}")
             # Our own eject attempt can fail EBUSY too and log the same line;
             # count the debounce from the end of the run, not its start.
