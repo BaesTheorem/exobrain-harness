@@ -47,7 +47,7 @@ All channels are set to `requireMention: true` with empty `allowFrom` -- the bot
 - If an open scheduler proposal exists (`scheduler/events/*.json` with `status: proposed`), treat replies newer than its `posted_at` as RSVPs and hand them to `/group-scheduler` mode 3 (track)
 
 ### Questions & Mentions
-- Direct @mentions of Alex (username from `DISCORD_ALEX_USERNAME` in `.env`, or his Discord user ID)
+- Direct @mentions of Alex: messages with `mentions_alex: true`. The fetcher already writes each `<@id>` in `content` as `@name` and records the tagged names in `mentions`, so do not look up an ID, and do not read `.env` (the unattended guard blocks it)
 - Questions asked to the group that Alex hasn't answered
 - Plans that need an RSVP from Alex
 
