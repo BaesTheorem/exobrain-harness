@@ -32,6 +32,7 @@ class _Resp:
 def _setup(monkeypatch, body, token=True):
     creds = json.dumps({"claudeAiOauth": {"accessToken": "t"}}) if token else None
     monkeypatch.setattr(gate, "_keychain", lambda s: creds if s == gate.OAUTH_SERVICE else "sk-test")
+    monkeypatch.setattr(gate, "_try_limit_reset", lambda: False)
     if isinstance(body, Exception):
         def boom(*a, **k):
             raise body
@@ -83,3 +84,40 @@ def test_exec_open_injects_key_only_in_child(monkeypatch, tmp_path):
     assert ran[0]["ANTHROPIC_API_KEY"] == "sk-test"
     assert "ANTHROPIC_API_KEY" not in gate.os.environ
     assert "sk-test" not in (tmp_path / "log").read_text()
+
+
+def _full():
+    return {"five_hour": {"utilization": 100}, "seven_day": {"utilization": 40}}
+
+
+def test_limit_reset_refills_plan_keeps_gate_closed(monkeypatch, tmp_path):
+    """At 100% the gate spends a held reset first; a refilled plan means closed."""
+    monkeypatch.setattr(gate, "LOG", str(tmp_path / "log"))
+    _setup(monkeypatch, _full())
+    reads = iter([_full(), {"five_hour": {"utilization": 0}, "seven_day": {"utilization": 40}}])
+    monkeypatch.setattr(gate.urllib.request, "urlopen", lambda *a, **k: _Resp(next(reads)))
+    claimed = []
+    monkeypatch.setattr(gate, "_try_limit_reset", lambda: claimed.append(1) or True)
+    is_open, why = gate.check()
+    assert is_open is False and "limit reset applied" in why and claimed == [1]
+
+
+def test_limit_reset_that_does_not_refill_opens_gate(monkeypatch, tmp_path):
+    monkeypatch.setattr(gate, "LOG", str(tmp_path / "log"))
+    _setup(monkeypatch, _full())
+    monkeypatch.setattr(gate, "_try_limit_reset", lambda: True)
+    assert gate.check()[0] is True
+
+
+def test_no_reset_held_opens_gate_once(monkeypatch, tmp_path):
+    monkeypatch.setattr(gate, "LOG", str(tmp_path / "log"))
+    _setup(monkeypatch, _full())
+    calls = []
+    monkeypatch.setattr(gate, "_try_limit_reset", lambda: calls.append(1) or False)
+    assert gate.check()[0] is True and calls == [1]
+
+
+def test_try_limit_reset_never_raises(monkeypatch, tmp_path):
+    monkeypatch.setattr(gate, "LOG", str(tmp_path / "log"))
+    monkeypatch.setattr(gate, "LIMIT_RESET", str(tmp_path / "missing"))
+    assert gate._try_limit_reset() is False  # noqa: SLF001  (the module under test)

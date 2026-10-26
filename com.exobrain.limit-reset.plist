@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>Label</key>
+    <string>com.exobrain.limit-reset</string>
+    <!-- Hourly: read the plan's limit resets, use one at the wall or before it
+         expires, and tell Alex about new, used and expiring grants. -->
+    <key>ProgramArguments</key>
+    <array>
+        <string>/Users/alexhedtke/.local/bin/mist-launch</string>
+        <string>/opt/homebrew/bin/python3</string>
+        <string>/Users/alexhedtke/Documents/Exobrain harness/bin/limit-reset</string>
+        <string>watch</string>
+        <string>--quiet</string>
+    </array>
+    <key>WorkingDirectory</key>
+    <string>/Users/alexhedtke/Documents/Exobrain harness</string>
+    <key>StartInterval</key>
+    <integer>3600</integer>
+    <key>RunAtLoad</key>
+    <true/>
+    <key>StandardOutPath</key>
+    <string>/Users/alexhedtke/.claude/channels/limit-reset/watch.stdout.log</string>
+    <key>StandardErrorPath</key>
+    <string>/Users/alexhedtke/.claude/channels/limit-reset/watch.stderr.log</string>
+    <key>AssociatedBundleIdentifiers</key>
+    <array>
+        <string>com.exobrain.mist-console</string>
+    </array>
+</dict>
+</plist>

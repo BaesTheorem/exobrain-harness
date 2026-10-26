@@ -136,6 +136,35 @@ else
   ISSUES=$((ISSUES + 1))
 fi
 
+# Plan limit resets -- what the hourly limit-reset watcher last saw (no network
+# here; a stale state file means the watcher itself is not running).
+LR_STATE="$HOME/.claude/channels/limit-reset/state.json"
+if [ -f "$LR_STATE" ]; then
+  LR_STATUS=$(python3 -c "
+import json
+from datetime import datetime
+try:
+    d = json.load(open('$LR_STATE'))
+    age_h = (datetime.now() - datetime.fromisoformat(d['last_read'])).total_seconds() / 3600
+    held = d.get('held') or []
+    if age_h > 3:
+        print(f'WARN: limit resets -- watcher last read {age_h:.0f}h ago (launchctl kickstart gui/\$UID/com.exobrain.limit-reset)')
+    elif held:
+        print(f'OK: limit resets ({len(held)} held: ' + '; '.join(h.split(' [')[0] for h in held) + ')')
+    else:
+        print(f'OK: limit resets (none held; checked {age_h * 60:.0f}m ago)')
+except Exception as e:
+    print(f'WARN: limit resets state unreadable -- {e}')
+" 2>/dev/null)
+  echo "$LR_STATUS"
+  if echo "$LR_STATUS" | grep -q "WARN"; then
+    ISSUES=$((ISSUES + 1))
+  fi
+else
+  echo "WARN: limit resets -- no watcher state yet (bin/limit-reset watch)"
+  ISSUES=$((ISSUES + 1))
+fi
+
 # Withings credentials -- verifies refresh token is present in .mcp.json (preferred)
 # or .env. Withings uses a long-lived refresh token; access tokens are minted on
 # demand by the MCP server, so there's no on-disk expiry to inspect here.

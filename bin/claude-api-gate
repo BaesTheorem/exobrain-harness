@@ -14,6 +14,9 @@ Commands:
 INVARIANTS:
 - Fail closed. Any error (no token, network error, HTTP 429, a changed response
   shape, a missing key) gives "closed". The API key is never used on doubt.
+- A held limit reset comes before the key. At 100% the gate runs
+  `limit-reset claim --auto` once; when that refills the plan, the gate stays
+  closed and the caller retries on the plan.
 - The key comes from the Keychain item "mist-anthropic-fallback" and goes only
   into the environment of the one child process. It is never printed or logged.
 - The spend cap is the Console organization balance (auto-reload OFF). This
@@ -36,6 +39,7 @@ USAGE_URL = "https://api.anthropic.com/api/oauth/usage"
 WINDOWS = ("five_hour", "seven_day")
 LOG = os.path.expanduser("~/Library/Logs/exobrain/api-fallback.log")
 NOTIFY = os.path.expanduser("~/Documents/Exobrain harness/mist-voice/bin/mist-notify")
+LIMIT_RESET = os.path.join(os.path.dirname(os.path.abspath(__file__)), "limit-reset")
 
 
 def _log(msg: str) -> None:
@@ -50,15 +54,15 @@ def _keychain(service: str) -> str | None:
     return r.stdout.strip() or None if r.returncode == 0 else None
 
 
-def check() -> tuple[bool, str]:
-    """Return (open, reason). Open only when a window is verifiably at 100%."""
+def _read_usage() -> tuple[dict | None, str]:
+    """One read of the account usage endpoint. (data, "") or (None, reason)."""
     raw = _keychain(OAUTH_SERVICE)
     if not raw:
-        return False, "no plan OAuth token in the Keychain"
+        return None, "no plan OAuth token in the Keychain"
     try:
         token = json.loads(raw)["claudeAiOauth"]["accessToken"]
     except (ValueError, KeyError, TypeError):
-        return False, "plan OAuth token unreadable"
+        return None, "plan OAuth token unreadable"
     req = urllib.request.Request(USAGE_URL, headers={
         "Authorization": f"Bearer {token}",
         "anthropic-beta": "oauth-2025-04-20",
@@ -66,18 +70,59 @@ def check() -> tuple[bool, str]:
     })
     try:
         with urllib.request.urlopen(req, timeout=15) as r:
-            data = json.load(r)
+            return json.load(r), ""
     except (urllib.error.URLError, TimeoutError, ValueError) as e:
-        return False, f"usage read failed: {e}"
+        return None, f"usage read failed: {e}"
+
+
+def _windows(data: dict) -> tuple[str, list[str], str]:
+    """(summary, windows at 100%, "") or ("", [], reason) on a shape change."""
     parts, full = [], []
     for w in WINDOWS:
         u = (data.get(w) or {}).get("utilization")
         if not isinstance(u, (int, float)):
-            return False, f"usage response has no {w} utilization"
+            return "", [], f"usage response has no {w} utilization"
         parts.append(f"{w}={u:g}%")
         if u >= 100:
             full.append(w)
-    summary = " ".join(parts)
+    return " ".join(parts), full, ""
+
+
+def _try_limit_reset() -> bool:
+    """Spend a held limit reset (bin/limit-reset, the CLI's /limit-reset) before
+    the key. True when a reset was applied. Any failure means False."""
+    if not os.path.exists(LIMIT_RESET):
+        return False
+    try:
+        r = subprocess.run([LIMIT_RESET, "claim", "--auto", "--quiet"],
+                           capture_output=True, text=True, timeout=90)
+    except (OSError, subprocess.SubprocessError) as e:
+        _log(f"limit-reset claim failed to run: {e}")
+        return False
+    if r.returncode == 0:
+        _log("a limit reset was used instead of the API key")
+        return True
+    return False
+
+
+def check() -> tuple[bool, str]:
+    """Return (open, reason). Open only when a window is verifiably at 100% and
+    no held limit reset could refill it."""
+    data, err = _read_usage()
+    if data is None:
+        return False, err
+    summary, full, err = _windows(data)
+    if err:
+        return False, err
+    if full and _try_limit_reset():
+        data, err = _read_usage()
+        if data is None:
+            return False, f"limit reset applied; {err}"
+        summary, full, err = _windows(data)
+        if err:
+            return False, f"limit reset applied; {err}"
+        if not full:
+            return False, f"{summary}; limit reset applied, plan has capacity"
     if full:
         return True, f"{summary}; at limit: {','.join(full)}"
     return False, f"{summary}; plan has capacity"

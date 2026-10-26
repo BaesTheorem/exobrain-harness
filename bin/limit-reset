@@ -1,0 +1,570 @@
+#!/usr/bin/env python3
+"""limit-reset: see and redeem the Claude plan's limit resets from a shell.
+
+Anthropic grants a plan account "limit resets": a 5-hour reset, a weekly reset,
+a full reset or a Fable reset, each with a count and a use-by date. Claude Code
+shows them only inside an interactive session (the /limit-reset command and a
+dialog at the wall). An unattended MIST session therefore hits the wall with an
+unused reset in hand, and a held reset can expire unused. This tool reads the
+account usage endpoint the CLI reads (with the CLI's own surface headers, or the
+server answers "ineligible: surface") and claims through the endpoint the CLI
+claims through. It never touches the API key.
+
+Commands:
+  status [--json] [--brief]   grants held, the at-limit state, and the weekly
+                              session-reset allowance
+  claim [GRANT_ID] [--force]  redeem one grant now. Without an id: the best
+                              grant the policy allows (see watch). --force
+                              claims the first usable grant even with capacity
+                              left ("early use", the CLI asks the same).
+  claim --auto                the policy decision only, for scripts: exit 0 = a
+                              reset was applied, 1 = nothing to use, 2 = error
+  watch [--expiring-hours H]  the launchd run: one status read, at most one
+                              claim, one banner (new, used, expiring grants)
+
+Policy (watch and claim --auto):
+  1. At a limit: use the narrowest usable grant that clears the exhausted
+     window (session before weekly before full).
+  2. Not at a limit: use an "anytime" grant (use_requires_limit false) when it
+     expires within --expiring-hours (default 6). A grant that needs a limit
+     cannot be used early; the watch warns Alex 24 h before it expires.
+  3. The weekly session-reset allowance (one per week, no grant id) is used at
+     the 5-hour wall when the server offers it.
+
+INVARIANTS:
+- Read first, then claim only a grant id the server offered in that read.
+- One claim per run. A failed claim is not retried in the same run.
+- No token refresh. The CLI owns the OAuth token; a 401 ends the run with
+  exit 2 and a log line, and the next run reads the refreshed token.
+- The API key is never read, set or sent. This is the plan's own allowance.
+"""
+
+from __future__ import annotations
+
+import argparse
+import datetime as dt
+import json
+import os
+import subprocess
+import sys
+import urllib.error
+import urllib.request
+import uuid
+
+OAUTH_SERVICE = "Claude Code-credentials"
+BASE = "https://api.anthropic.com"
+USAGE_PATH = "/api/oauth/usage?cedar_ember=1&at_wall=1&skip_spend=1"
+PROGRAM_GRANTS = "cedar_ember"
+PROGRAM_WEEKLY_SESSION = "juniper_tide"
+WINDOWS = ("five_hour", "seven_day", "seven_day_overage_included", "seven_day_opus",
+           "seven_day_sonnet", "seven_day_cowork", "seven_day_omelette", "seven_day_oauth_apps")
+KIND_ORDER = {"session": 0, "fable": 1, "weekly": 2, "full": 3}
+KIND_NAMES = {"session": "5-hour reset", "fable": "Fable reset", "weekly": "weekly reset", "full": "full reset"}
+CLAIM_RESULTS = ("reset", "already_used", "not_limited", "cooldown", "ineligible", "unavailable")
+FALLBACK_CLI_VERSION = "2.1.310"
+LOG = os.path.expanduser("~/Library/Logs/exobrain/limit-reset.log")
+STATE = os.path.expanduser("~/.claude/channels/limit-reset/state.json")
+CLAUDE_JSON = os.path.expanduser("~/.claude.json")
+NOTIFY = os.path.expanduser("~/Documents/Exobrain harness/mist-voice/bin/mist-notify")
+USAGE_PAGE = "https://claude.ai/settings/usage"
+WARN_BEFORE_EXPIRY_H = 24.0
+
+
+class AuthError(Exception):
+    """The plan token is missing, unreadable or rejected."""
+
+
+def _log(msg: str) -> None:
+    os.makedirs(os.path.dirname(LOG), exist_ok=True)
+    with open(LOG, "a") as f:
+        f.write(f"{dt.datetime.now():%Y-%m-%d %H:%M:%S} {msg}\n")
+
+
+def _keychain(service: str) -> str | None:
+    r = subprocess.run(["security", "find-generic-password", "-s", service, "-w"],
+                       capture_output=True, text=True)
+    return r.stdout.strip() or None if r.returncode == 0 else None
+
+
+def _token() -> str:
+    raw = _keychain(OAUTH_SERVICE)
+    if not raw:
+        raise AuthError("no plan OAuth token in the Keychain")
+    try:
+        return json.loads(raw)["claudeAiOauth"]["accessToken"]
+    except (ValueError, KeyError, TypeError):
+        raise AuthError("plan OAuth token unreadable") from None
+
+
+_cli_version_cache: str | None = None
+
+
+def _cli_version() -> str:
+    """The installed CLI's version, so the surface headers match a real client."""
+    global _cli_version_cache
+    if _cli_version_cache:
+        return _cli_version_cache
+    v = FALLBACK_CLI_VERSION
+    try:
+        r = subprocess.run([os.path.expanduser("~/.local/bin/claude"), "--version"],
+                           capture_output=True, text=True, timeout=10)
+        first = (r.stdout.split() or [""])[0]
+        if first and first[0].isdigit():
+            v = first
+    except (OSError, subprocess.SubprocessError):
+        pass
+    _cli_version_cache = v
+    return v
+
+
+def _headers(token: str) -> dict[str, str]:
+    return {
+        "Authorization": f"Bearer {token}",
+        "anthropic-beta": "oauth-2025-04-20",
+        "User-Agent": f"claude-cli/{_cli_version()} (external, cli)",
+        "x-app": "cli",
+        "Accept": "application/json",
+    }
+
+
+def _request(path: str, body: dict | None = None, timeout: int = 25) -> dict:
+    """GET or POST against the account API with the plan token. Raises
+    AuthError on 401/403 and urllib.error.HTTPError on other HTTP failures."""
+    data = json.dumps(body).encode() if body is not None else None
+    headers = _headers(_token())
+    if data is not None:
+        headers["Content-Type"] = "application/json"
+    req = urllib.request.Request(BASE + path, data=data, headers=headers,
+                                 method="POST" if data is not None else "GET")
+    try:
+        with urllib.request.urlopen(req, timeout=timeout) as r:
+            return json.load(r)
+    except urllib.error.HTTPError as e:
+        if e.code in (401, 403):
+            raise AuthError(f"HTTP {e.code} from {path}") from None
+        raise
+
+
+def _org_uuid() -> str | None:
+    try:
+        with open(CLAUDE_JSON) as f:
+            org = json.load(f).get("oauthAccount", {}).get("organizationUuid")
+        if org:
+            return str(org)
+    except (OSError, ValueError, AttributeError):
+        pass
+    try:
+        prof = _request("/api/oauth/profile")
+        return (prof.get("organization") or {}).get("uuid")
+    except (AuthError, urllib.error.URLError, TimeoutError, ValueError):
+        return None
+
+
+# --- parsing -----------------------------------------------------------------
+
+def _ts(s: object) -> float | None:
+    if not isinstance(s, str) or not s:
+        return None
+    try:
+        return dt.datetime.fromisoformat(s.replace("Z", "+00:00")).timestamp()
+    except ValueError:
+        return None
+
+
+def _windows(v: object) -> list[str]:
+    return [w for w in (v if isinstance(v, list) else []) if w in WINDOWS]
+
+
+def grant_kind(g: dict) -> str:
+    """session / weekly / full / fable, from the grant's type, else its clears."""
+    t = g.get("type")
+    if t in KIND_ORDER:
+        return str(t)
+    clears = set(g.get("clears") or [])
+    label = str(g.get("label") or "").lower()
+    if "fable" in label:
+        return "fable"
+    weekly = any(w.startswith("seven_day") for w in clears)
+    if "five_hour" in clears and weekly:
+        return "full"
+    if weekly:
+        return "weekly"
+    if "five_hour" in clears:
+        return "session"
+    return label or "reset"
+
+
+def parse_grant(raw: object) -> dict | None:
+    if not isinstance(raw, dict) or not isinstance(raw.get("id"), str):
+        return None
+    left = raw.get("resets_left")
+    if not isinstance(left, int) or left < 0:
+        return None
+    g = {
+        "id": raw["id"],
+        "label": str(raw.get("label") or ""),
+        "resets_total": raw.get("resets_total") if isinstance(raw.get("resets_total"), int) else 0,
+        "resets_left": left,
+        "starts_at": raw.get("starts_at") if isinstance(raw.get("starts_at"), str) else None,
+        "ends_at": raw.get("ends_at") if isinstance(raw.get("ends_at"), str) else None,
+        "clears": _windows(raw.get("clears")),
+        "paused": bool(raw.get("paused", False)),
+        "usable_now": bool(raw.get("usable_now", False)),
+        "use_requires_limit": bool(raw.get("use_requires_limit", True)),
+        "percent_used": raw.get("percent_used") if isinstance(raw.get("percent_used"), dict) else {},
+        "blocking": _windows(raw.get("blocking")),
+        "type": raw.get("type") if raw.get("type") in ("session", "weekly", "full") else None,
+        "gives_back_weekly": bool(raw.get("gives_back_weekly", False)),
+        "unavailable_reason": raw.get("unavailable_reason") if isinstance(raw.get("unavailable_reason"), str) else None,
+    }
+    g["kind"] = grant_kind(g)
+    g["ends_ts"] = _ts(g["ends_at"])
+    return g
+
+
+def _block(data: dict, key: str) -> dict:
+    v = data.get(key)
+    return v if isinstance(v, dict) else {}
+
+
+def parse_status(data: dict) -> dict:
+    """The parts of a usage read this tool acts on. Missing blocks parse to
+    'no grants' rather than an error, so a response-shape change fails safe."""
+    ce = _block(data, PROGRAM_GRANTS)
+    jt = _block(data, PROGRAM_WEEKLY_SESSION)
+    grants = [g for g in (parse_grant(x) for x in (ce.get("grants") or [])) if g]
+    util = {}
+    for w in ("five_hour", "seven_day"):
+        u = (data.get(w) or {}).get("utilization")
+        util[w] = {"utilization": u if isinstance(u, (int, float)) else None,
+                   "resets_at": (data.get(w) or {}).get("resets_at")}
+    return {
+        "eligible": bool(ce.get("eligible", False)),
+        "ineligible_reason": ce.get("ineligible_reason"),
+        "at_limit": bool(ce.get("at_limit", False)),
+        "exhausted": _windows(ce.get("exhausted")),
+        "grants": grants,
+        "next_grant_id": ce.get("next_grant_id"),
+        "weekly_resets_at": ce.get("weekly_resets_at"),
+        "cooldown_until": ce.get("cooldown_until"),
+        "weekly_session_reset": {
+            "available": bool(jt.get("available", False)),
+            "eligible": bool(jt.get("eligible", False)),
+            "ineligible_reason": jt.get("ineligible_reason"),
+            "next_available_at": jt.get("next_available_at"),
+            "resets_per_week": jt.get("resets_per_week"),
+        },
+        "windows": util,
+    }
+
+
+def read_status() -> dict:
+    return parse_status(_request(USAGE_PATH))
+
+
+# --- policy ------------------------------------------------------------------
+
+def usable(g: dict, now: float) -> bool:
+    return (g["resets_left"] > 0 and not g["paused"] and g["usable_now"]
+            and g["unavailable_reason"] is None
+            and (g["ends_ts"] is None or g["ends_ts"] > now))
+
+
+def _rank(g: dict) -> tuple:
+    return (KIND_ORDER.get(g["kind"], 9), g["ends_ts"] if g["ends_ts"] is not None else float("inf"))
+
+
+def pick_at_limit(status: dict, now: float) -> dict | None:
+    """The narrowest usable grant that clears every exhausted window."""
+    need = set(status["exhausted"])
+    cands = [g for g in status["grants"] if usable(g, now) and need <= set(g["clears"])]
+    return min(cands, key=_rank) if cands else None
+
+
+def pick_expiring(status: dict, now: float, hours: float) -> dict | None:
+    """An anytime grant that expires within `hours`; soonest first."""
+    cands = [g for g in status["grants"] if usable(g, now) and not g["use_requires_limit"]
+             and g["ends_ts"] is not None and g["ends_ts"] - now <= hours * 3600]
+    return min(cands, key=lambda g: g["ends_ts"]) if cands else None
+
+
+def decide(status: dict, now: float, expiring_hours: float) -> tuple[str, dict | None]:
+    """('at_limit' | 'expiring' | 'weekly_session' | 'none', grant)."""
+    if status["at_limit"] or status["exhausted"]:
+        g = pick_at_limit(status, now)
+        if g:
+            return "at_limit", g
+        if "five_hour" in status["exhausted"] and status["weekly_session_reset"]["available"]:
+            return "weekly_session", None
+    g = pick_expiring(status, now, expiring_hours)
+    if g:
+        return "expiring", g
+    return "none", None
+
+
+# --- claiming ----------------------------------------------------------------
+
+def claim_grant(grant_id: str) -> dict:
+    """POST the claim. Returns {result, reason, resets_left, cleared, ...}; result
+    is one of CLAIM_RESULTS or rate_limited / auth_error / error."""
+    org = _org_uuid()
+    if not org:
+        return {"result": "auth_error", "reason": "no organization uuid"}
+    body = {"program": PROGRAM_GRANTS, "grant_id": grant_id, "request_id": str(uuid.uuid4())}
+    return _post_claim(org, body)
+
+
+def claim_weekly_session() -> dict:
+    org = _org_uuid()
+    if not org:
+        return {"result": "auth_error", "reason": "no organization uuid"}
+    return _post_claim(org, {"program": PROGRAM_WEEKLY_SESSION})
+
+
+def _post_claim(org: str, body: dict) -> dict:
+    try:
+        data = _request(f"/api/organizations/{org}/reset_rate_limits", body)
+    except AuthError as e:
+        return {"result": "auth_error", "reason": str(e)}
+    except urllib.error.HTTPError as e:
+        return {"result": "rate_limited" if e.code == 429 else "error", "reason": f"HTTP {e.code}"}
+    except (urllib.error.URLError, TimeoutError, ValueError) as e:
+        return {"result": "error", "reason": str(e)}
+    if not isinstance(data, dict):
+        return {"result": "error", "reason": "unreadable claim response"}
+    res = data.get("result")
+    return {
+        "result": res if res in CLAIM_RESULTS else "unavailable",
+        "reason": data.get("reason"),
+        "resets_left": data.get("resets_left"),
+        "cleared": _windows(data.get("cleared")),
+        "weekly_resets_at": data.get("weekly_resets_at"),
+        "next_available_at": data.get("next_available_at"),
+    }
+
+
+# --- state + output ----------------------------------------------------------
+
+def _load_state() -> dict:
+    try:
+        with open(STATE) as f:
+            s = json.load(f)
+        return s if isinstance(s, dict) else {}
+    except (OSError, ValueError):
+        return {}
+
+
+def _save_state(s: dict) -> None:
+    os.makedirs(os.path.dirname(STATE), exist_ok=True)
+    tmp = STATE + ".tmp"
+    with open(tmp, "w") as f:
+        json.dump(s, f, indent=1)
+    os.replace(tmp, STATE)
+
+
+def _fmt_when(iso: str | None) -> str:
+    t = _ts(iso)
+    if t is None:
+        return "no date"
+    return dt.datetime.fromtimestamp(t).strftime("%a %b %-d %-I:%M %p")
+
+
+def kind_name(kind: str, n: int = 1) -> str:
+    base = KIND_NAMES.get(kind, f"{kind} reset")
+    return base if n == 1 else base + "s"
+
+
+def describe_grant(g: dict) -> str:
+    bits = [f"{g['resets_left']} {kind_name(g['kind'], g['resets_left'])}", f"use by {_fmt_when(g['ends_at'])}"]
+    if g["paused"]:
+        bits.append("paused")
+    elif g["unavailable_reason"]:
+        bits.append(f"not usable: {g['unavailable_reason']}")
+    elif not g["usable_now"]:
+        bits.append("not usable now")
+    elif g["use_requires_limit"]:
+        bits.append("usable at a limit")
+    else:
+        bits.append("usable any time")
+    if g["clears"]:
+        bits.append("clears " + ",".join(g["clears"]))
+    return " · ".join(bits) + f" [{g['id']}]"
+
+
+def _held(status: dict) -> list[dict]:
+    return [g for g in status["grants"] if g["resets_left"] > 0]
+
+
+def print_status(status: dict, brief: bool = False) -> None:
+    held = _held(status)
+    w = status["windows"]
+    fh, sd = w["five_hour"]["utilization"], w["seven_day"]["utilization"]
+    if brief:
+        if held:
+            first = min(held, key=lambda g: g["ends_ts"] or float("inf"))
+            print(f"{sum(g['resets_left'] for g in held)} held; first expires {_fmt_when(first['ends_at'])}")
+        else:
+            print(f"none held ({status['ineligible_reason'] or 'eligible'})")
+        return
+    print(f"Plan: 5-hour {fh:g}% (resets {_fmt_when(w['five_hour']['resets_at'])}), "
+          f"weekly {sd:g}% (resets {_fmt_when(w['seven_day']['resets_at'])})"
+          if fh is not None and sd is not None else "Plan: utilization unavailable")
+    print(f"At limit: {'yes, ' + ','.join(status['exhausted']) if status['at_limit'] or status['exhausted'] else 'no'}")
+    if held:
+        print(f"Limit resets held: {sum(g['resets_left'] for g in held)}")
+        for g in sorted(held, key=_rank):
+            print("  " + describe_grant(g))
+    else:
+        print(f"Limit resets held: none ({status['ineligible_reason'] or 'eligible, no grant'})")
+    ws = status["weekly_session_reset"]
+    if ws["available"]:
+        print("Weekly session reset: available now")
+    elif ws["next_available_at"]:
+        print(f"Weekly session reset: next {_fmt_when(ws['next_available_at'])}")
+    else:
+        print(f"Weekly session reset: {ws['ineligible_reason'] or 'not offered'}")
+
+
+def _notify(lines: list[str], context: str) -> None:
+    if not lines or not os.path.exists(NOTIFY):
+        return
+    subprocess.run([NOTIFY, "\n".join(lines), "MIST limit resets", "none", USAGE_PAGE,
+                    "--discord", "--group", "limit-reset", "--context", context],
+                   capture_output=True, timeout=60)
+
+
+# --- commands ----------------------------------------------------------------
+
+def run_claim(status: dict, why: str, g: dict | None) -> dict:
+    """One claim, logged. why = at_limit | expiring | weekly_session | forced | manual."""
+    if why == "weekly_session":
+        res = claim_weekly_session()
+        what = "weekly session reset"
+    else:
+        assert g is not None
+        res = claim_grant(g["id"])
+        what = f"{kind_name(g['kind'])} {g['id']}"
+    _log(f"claim ({why}) {what}: {res.get('result')} {res.get('reason') or ''} "
+         f"cleared={','.join(res.get('cleared') or [])} left={res.get('resets_left')}")
+    return res
+
+
+def cmd_status(args: argparse.Namespace) -> int:
+    status = read_status()
+    if args.json:
+        print(json.dumps(status, indent=1))
+    else:
+        print_status(status, brief=args.brief)
+    _save_state({**_load_state(), "last_read": dt.datetime.now().isoformat(timespec="seconds"),
+                 "held": [describe_grant(g) for g in _held(status)],
+                 "at_limit": status["at_limit"] or bool(status["exhausted"])})
+    return 0
+
+
+def cmd_claim(args: argparse.Namespace) -> int:
+    status = read_status()
+    now = dt.datetime.now().timestamp()
+    if args.grant_id:
+        g = next((x for x in status["grants"] if x["id"] == args.grant_id), None)
+        if g is None:
+            print(f"no grant {args.grant_id} on the account", file=sys.stderr)
+            return 1
+        why = "manual"
+    elif args.force:
+        cands = sorted((x for x in status["grants"] if usable(x, now)), key=_rank)
+        g = cands[0] if cands else None
+        why = "forced"
+        if g is None:
+            print("no usable grant to force", file=sys.stderr)
+            return 1
+    else:
+        why, g = decide(status, now, args.expiring_hours)
+        if why == "none":
+            if not args.quiet:
+                print("nothing to use: " + ("no grants held" if not _held(status) else
+                      "not at a limit and no anytime grant expires soon"))
+            return 1
+    res = run_claim(status, why, g)
+    if not args.quiet:
+        print(f"{res['result']}" + (f" ({res['reason']})" if res.get("reason") else "")
+              + (f"; cleared {','.join(res['cleared'])}" if res.get("cleared") else ""))
+    if res["result"] == "reset":
+        return 0
+    return 2 if res["result"] in ("auth_error", "error", "rate_limited") else 1
+
+
+def cmd_watch(args: argparse.Namespace) -> int:
+    state = _load_state()
+    seen: dict = state.get("seen", {})
+    warned: list = state.get("warned", [])
+    status = read_status()
+    now = dt.datetime.now().timestamp()
+    lines: list[str] = []
+    for g in _held(status):
+        if g["id"] not in seen:
+            seen[g["id"]] = {"first_seen": dt.datetime.now().isoformat(timespec="seconds"), "kind": g["kind"]}
+            lines.append(f"New limit reset on the plan: {describe_grant(g)}")
+            _log(f"new grant {g['id']} {g['kind']} x{g['resets_left']} ends {g['ends_at']}")
+    why, g = decide(status, now, args.expiring_hours)
+    if why != "none":
+        res = run_claim(status, why, g)
+        what = "weekly session reset" if why == "weekly_session" else kind_name(g["kind"]) if g else "reset"
+        if res["result"] == "reset":
+            lines.append(f"Used a {what} ({'at the limit' if why != 'expiring' else 'it was about to expire'})"
+                         + (f": cleared {','.join(res['cleared'])}" if res.get("cleared") else "")
+                         + (f" · {res['resets_left']} left" if isinstance(res.get("resets_left"), int) else ""))
+        elif res["result"] not in ("not_limited", "already_used"):
+            lines.append(f"Could not use the {what}: {res['result']} {res.get('reason') or ''}".rstrip())
+    for g in _held(status):
+        if (g["use_requires_limit"] and g["ends_ts"] is not None and g["id"] not in warned
+                and 0 < g["ends_ts"] - now <= WARN_BEFORE_EXPIRY_H * 3600):
+            warned.append(g["id"])
+            lines.append(f"A {kind_name(g['kind'])} expires {_fmt_when(g['ends_at'])} and only works at a limit: "
+                         "it goes unused unless the plan hits one first.")
+    _save_state({**state, "seen": seen, "warned": warned[-50:],
+                 "last_read": dt.datetime.now().isoformat(timespec="seconds"),
+                 "held": [describe_grant(x) for x in _held(status)],
+                 "at_limit": status["at_limit"] or bool(status["exhausted"])})
+    if lines:
+        _notify(lines, f"limit-reset watch at {dt.datetime.now():%Y-%m-%d %H:%M}; log {LOG}")
+    if not args.quiet:
+        print_status(status)
+        for ln in lines:
+            print("-> " + ln)
+    return 0
+
+
+def main(argv: list[str]) -> int:
+    p = argparse.ArgumentParser(prog="limit-reset", description=(__doc__ or "").split("\n\n")[0],
+                                formatter_class=argparse.RawDescriptionHelpFormatter)
+    sub = p.add_subparsers(dest="cmd", required=True)
+    s = sub.add_parser("status", help="grants held and the at-limit state")
+    s.add_argument("--json", action="store_true")
+    s.add_argument("--brief", action="store_true", help="one line for the session-start hook")
+    s.set_defaults(fn=cmd_status)
+    c = sub.add_parser("claim", help="redeem one grant")
+    c.add_argument("grant_id", nargs="?")
+    c.add_argument("--force", action="store_true", help="use the first usable grant even with capacity left")
+    c.add_argument("--auto", action="store_true", help="policy decision only (the default without an id)")
+    c.add_argument("--expiring-hours", type=float, default=6.0)
+    c.add_argument("--quiet", action="store_true")
+    c.set_defaults(fn=cmd_claim)
+    w = sub.add_parser("watch", help="the launchd policy run")
+    w.add_argument("--expiring-hours", type=float, default=6.0)
+    w.add_argument("--quiet", action="store_true")
+    w.set_defaults(fn=cmd_watch)
+    args = p.parse_args(argv)
+    try:
+        return args.fn(args)
+    except AuthError as e:
+        _log(f"auth: {e}")
+        print(f"limit-reset: {e} (the CLI refreshes the token on its next turn)", file=sys.stderr)
+        return 2
+    except (urllib.error.URLError, TimeoutError, ValueError) as e:
+        _log(f"read failed: {e}")
+        print(f"limit-reset: usage read failed: {e}", file=sys.stderr)
+        return 2
+
+
+if __name__ == "__main__":
+    sys.exit(main(sys.argv[1:]))
