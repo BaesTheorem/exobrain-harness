@@ -1,0 +1,252 @@
+#!/usr/bin/env python3
+"""Rank public Bugcrowd bug bounty programs by vendor speed, then feasibility.
+
+Reads only public, logged-out endpoints:
+  /engagements-us?category=bug_bounty...      program list (24 per page)
+  /engagements/<code>                         brief HTML (gives the changelog id)
+  /engagements/<code>/changelog/<id>.json     scope: targets, categories, P1-P5 reward ranges
+  /engagements/<code>/statistics              rewarded count, average payout, "validation within"
+  /engagements/<code>/crowdstream.json?page=N accepted submissions, last 6 months
+
+Speed is MEASURED: median days from created_at to accepted_at over the program's
+accepted submissions in the crowdstream. The published "validation within" label
+is the fallback when a program has fewer than MIN_SAMPLES accepted items.
+
+Every response is cached under <out>/raw/<code>/, so a re-run only fetches what
+is missing (--refresh refetches). Output: <out>/ranked-<date>.csv and .md.
+
+Usage: bc-rank [--out DIR] [--refresh] [--delay SECONDS] [--limit N]
+"""
+import argparse
+import csv
+import html
+import json
+import os
+import re
+import statistics
+import sys
+import time
+import urllib.error
+import urllib.request
+from datetime import date, datetime
+
+BASE = "https://bugcrowd.com"
+UA = ("Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 "
+      "(KHTML, like Gecko) Chrome/130 Safari/537.36")
+LIST_Q = ("category=bug_bounty&rewards_amount=1&rewards_operator=gte"
+          "&rewards_priority=all&sort_by=rewards&sort_direction=asc")
+MIN_SAMPLES = 3
+HARD_CATEGORIES = {"hardware", "iot", "blockchain", "smart_contract", "network"}
+EASY_CATEGORIES = {"website", "api", "other"}
+TIERS = [(3, "1: <=3 days"), (7, "2: <=1 week"), (14, "3: <=2 weeks"),
+         (30, "4: <=1 month"), (10**6, "5: >1 month")]
+
+
+def fetch(url, cache, refresh, delay, accept="application/json"):
+    if cache and os.path.exists(cache) and not refresh:
+        with open(cache) as f:
+            return f.read()
+    req = urllib.request.Request(url, headers={"User-Agent": UA, "Accept": accept})
+    body = ""
+    for attempt in range(3):
+        try:
+            with urllib.request.urlopen(req, timeout=30) as r:
+                body = r.read().decode("utf-8", "replace")
+            break
+        except urllib.error.HTTPError as e:
+            if e.code == 404:
+                body = ""
+                break
+            time.sleep(5 * (attempt + 1))
+        except (urllib.error.URLError, TimeoutError):
+            time.sleep(5 * (attempt + 1))
+    time.sleep(delay)
+    if cache:
+        os.makedirs(os.path.dirname(cache), exist_ok=True)
+        with open(cache, "w") as f:
+            f.write(body)
+    return body
+
+
+def as_json(text):
+    try:
+        return json.loads(text) if text else None
+    except json.JSONDecodeError:
+        return None
+
+
+def parse_within(label):
+    """'about 1 month' / '2 days' / 'about 3 hours' -> days (float) or None."""
+    if not label:
+        return None
+    m = re.search(r"(\d+|an?|one)\s+(minute|hour|day|week|month|year)", label)
+    if not m:
+        return None
+    n = 1 if m.group(1) in ("a", "an", "one") else int(m.group(1))
+    per = {"minute": 1 / 1440, "hour": 1 / 24, "day": 1, "week": 7,
+           "month": 30, "year": 365}[m.group(2)]
+    return n * per
+
+
+def tier(days):
+    for limit, name in TIERS:
+        if days is not None and days <= limit:
+            return name
+    return "6: unknown"
+
+
+def program(code, out, refresh, delay):
+    raw = os.path.join(out, "raw", code)
+    brief = fetch(f"{BASE}/engagements/{code}", os.path.join(raw, "brief.html"),
+                  refresh, delay, accept="text/html")
+    m = re.search(rf"/engagements/{re.escape(code)}/changelog/([0-9a-f-]{{36}})", brief)
+    doc = None
+    if m:
+        doc = as_json(fetch(f"{BASE}/engagements/{code}/changelog/{m.group(1)}.json",
+                            os.path.join(raw, "changelog.json"), refresh, delay))
+    stats = as_json(fetch(f"{BASE}/engagements/{code}/statistics",
+                          os.path.join(raw, "statistics.json"), refresh, delay)) or {}
+    items, page = [], 1
+    while page <= 10:
+        cs = as_json(fetch(f"{BASE}/engagements/{code}/crowdstream.json?page={page}",
+                           os.path.join(raw, f"crowdstream-{page}.json"), refresh, delay))
+        if not cs or not cs.get("results"):
+            break
+        items += cs["results"]
+        if page >= (cs.get("pagination_meta") or {}).get("total_pages", 1):
+            break
+        page += 1
+    return doc, stats, items
+
+
+def score(eng, doc, stats, items):
+    code = eng["briefUrl"].rsplit("/", 1)[-1]
+    lags, prios, accepts = [], [], []
+    for it in items:
+        prios.append(it.get("priority"))
+        try:
+            c = datetime.fromisoformat(it["created_at"].replace("Z", "+00:00")).date()
+            a = datetime.strptime(it["accepted_at"], "%d %b %Y").date()
+        except (KeyError, TypeError, ValueError):
+            continue
+        accepts.append(a)
+        lags.append((a - c).days)
+    within = parse_within(stats.get("validationWithin"))
+    measured = statistics.median(lags) if len(lags) >= MIN_SAMPLES else None
+    speed = measured if measured is not None else within
+
+    targets, cats, wild, p4_cash = [], set(), 0, False
+    for grp in ((doc or {}).get("data") or {}).get("scope") or []:
+        if not grp.get("inScope", True):
+            continue
+        rr = grp.get("rewardRange") or {}
+        if (rr.get("p4MaxCents") or 0) > 0:
+            p4_cash = True
+        for t in grp.get("targets") or []:
+            targets.append(t)
+            cat = (t.get("category") or "other").lower()
+            cats.add(cat)
+            if "*" in (t.get("name") or "") + (t.get("uri") or ""):
+                wild += 1
+    low = sum(1 for p in prios if p in (4, 5))
+    low_share = low / len(prios) if prios else 0.0
+    last = max(accepts) if accepts else None
+    days_since = (date.today() - last).days if last else None
+    web = cats & EASY_CATEGORIES
+    hard_only = bool(cats) and not web and bool(cats & HARD_CATEGORIES)
+
+    # Feasibility, 0-100: what makes a first valid finding likely for a new
+    # researcher. Weights are judgment, recorded in the .md so they can be argued.
+    f = 0.0
+    f += 30 * low_share                              # P4/P5 get accepted here
+    f += 15 if p4_cash else 0                        # and P4 still pays cash
+    f += min(wild, 5) * 3                            # wildcard = more surface
+    f += 10 if web else 0                            # web/API, no device needed
+    f += min(len(items), 20) * 0.75                  # accepts often (max 15)
+    f += 10 if days_since is not None and days_since <= 30 else 0
+    f -= 25 if hard_only else 0
+    reward = eng.get("rewardSummary") or {}
+    return {
+        "name": eng["name"], "code": code, "url": BASE + eng["briefUrl"],
+        "tier": tier(speed), "speed_days": None if speed is None else round(speed, 1),
+        "speed_source": ("measured" if measured is not None
+                         else "label" if within is not None else "none"),
+        "samples": len(lags), "validation_label": stats.get("validationWithin") or "",
+        "feasibility": round(f, 1), "accepted_6mo": len(items),
+        "p4p5_share": round(low_share, 2), "p4_cash": p4_cash, "wildcards": wild,
+        "categories": ",".join(sorted(cats)), "last_accept_days": days_since,
+        "rewarded_total": stats.get("rewardedVulnerabilities"),
+        "avg_payout": stats.get("averagePayout") or "",
+        "reward": reward.get("summary") or "",
+        "safe_harbor": (((doc or {}).get("data") or {}).get("brief") or {})
+        .get("safeHarborStatus", {}).get("label", ""),
+    }
+
+
+def main():
+    ap = argparse.ArgumentParser(description=__doc__.split("\n")[0])
+    ap.add_argument("--out", default=os.path.expanduser("~/Documents/bounty-work/bugcrowd"))
+    ap.add_argument("--refresh", action="store_true")
+    ap.add_argument("--delay", type=float, default=0.7)
+    ap.add_argument("--limit", type=int, default=0)
+    a = ap.parse_args()
+    os.makedirs(a.out, exist_ok=True)
+
+    engs, page = [], 1
+    while True:
+        d = as_json(fetch(f"{BASE}/engagements-us?{LIST_Q}&page={page}", None,
+                          True, a.delay)) or {}
+        batch = d.get("engagements") or []
+        engs += batch
+        total = (d.get("paginationMeta") or {}).get("totalCount", 0)
+        if not batch or len(engs) >= total:
+            break
+        page += 1
+    seen, uniq = set(), []
+    for e in engs:
+        if e["briefUrl"] not in seen:
+            seen.add(e["briefUrl"])
+            uniq.append(e)
+    if a.limit:
+        uniq = uniq[:a.limit]
+    print(f"{len(uniq)} programs", file=sys.stderr)
+
+    rows = []
+    for i, e in enumerate(uniq, 1):
+        code = e["briefUrl"].rsplit("/", 1)[-1]
+        doc, stats, items = program(code, a.out, a.refresh, a.delay)
+        rows.append(score(e, doc, stats, items))
+        print(f"PROGRESS {i}/{len(uniq)} {code}", file=sys.stderr, flush=True)
+
+    rows.sort(key=lambda r: (r["tier"], -r["feasibility"],
+                             r["speed_days"] if r["speed_days"] is not None else 1e9))
+    stamp = date.today().isoformat()
+    path = os.path.join(a.out, f"ranked-{stamp}.csv")
+    with open(path, "w", newline="") as f:
+        w = csv.DictWriter(f, fieldnames=list(rows[0].keys()))
+        w.writeheader()
+        w.writerows(rows)
+    md = os.path.join(a.out, f"ranked-{stamp}.md")
+    with open(md, "w") as f:
+        f.write(f"# Bugcrowd programs by speed, then feasibility ({stamp})\n\n"
+                "Speed = median days from submit to accept over the program's "
+                f"accepted submissions in the last 6 months (needs {MIN_SAMPLES}+), "
+                "else the published 'validation within' label.\n\n"
+                "Feasibility (0-100) = 30 x P4/P5 share of accepts + 15 if P4 pays "
+                "cash + 3 per wildcard target (max 5) + 10 if web/API in scope + "
+                "0.75 per accept in 6 months (max 20) + 10 if an accept in the last "
+                "30 days - 25 if hardware/IoT/chain only.\n\n"
+                "| Tier | Program | Speed (d) | Src | Feas. | Accepts 6mo | P4/P5 | "
+                "P4 cash | Wild | Reward |\n|---|---|---|---|---|---|---|---|---|---|\n")
+        for r in rows:
+            f.write(f"| {r['tier']} | [{html.escape(r['name'])}]({r['url']}) | "
+                    f"{r['speed_days']} | {r['speed_source']} | {r['feasibility']} | "
+                    f"{r['accepted_6mo']} | {r['p4p5_share']} | "
+                    f"{'yes' if r['p4_cash'] else 'no'} | {r['wildcards']} | "
+                    f"{r['reward']} |\n")
+    print(path)
+    print(md)
+
+
+if __name__ == "__main__":
+    main()
