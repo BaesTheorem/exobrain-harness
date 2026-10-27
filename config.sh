@@ -145,10 +145,10 @@ EXTRA_INCLUDES=(
 # next finds the disk (it also fires on every mount).
 LOCAL_BACKUP_DIR="/Volumes/Extreme SSD/Exobrain backups"
 # How many archives to keep at LOCAL_BACKUP_DIR (newest first). Keep-newest-N,
-# not the cloud's GFS: the full GFS set is ~13 archives at ~9GB each, which
+# not the cloud's GFS: the full GFS set is ~13 archives at ~19GB each, which
 # would fill a shared external disk and take the rest of its contents with it.
 # Drive holds the deep history; this target exists to survive a Google lockout.
-LOCAL_BACKUP_KEEP=3
+LOCAL_BACKUP_KEEP=2
 
 # External dependencies (outside the harness)
 FITBIT_TOKEN="$HARNESS_DIR/fitbit-mcp/.fitbit-token.json"

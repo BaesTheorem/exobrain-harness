@@ -1,6 +1,6 @@
 # offline-library
 
-`kiwix-sync` keeps the newest Kiwix ZIM dumps on an external disk, for use when the internet is not available. The default books are the full English Wikipedia with images (`wikipedia_en_all_maxi`, approximately 127 GB) and WikiProjectMed's medical wiki (`mdwiki_en_all_maxi`, approximately 2 GB, the content of the WikiMed app).
+`kiwix-sync` keeps the newest Kiwix ZIM dumps on an external disk, for use when the internet is not available. The default books are the English Wikipedia as text only (`wikipedia_en_all_nopic`, approximately 49 GiB, in place of the 119 GiB `wikipedia_en_all_maxi` with images) and WikiProjectMed's medical wiki (`mdwiki_en_all_maxi`, approximately 2 GB, the content of the WikiMed app).
 
 ## How it works
 

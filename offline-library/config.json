@@ -4,10 +4,10 @@
   "dest_dir": "Kiwix",
   "mirror": "https://download.kiwix.org/zim",
   "books": [
-    {"name": "wikipedia_en_all_maxi", "dir": "wikipedia"},
+    {"name": "wikipedia_en_all_nopic", "dir": "wikipedia"},
     {"name": "mdwiki_en_all_maxi", "dir": "other"}
   ],
-  "_books": "name = ZIM file prefix before _YYYY-MM.zim; dir = folder under the mirror. Browse https://download.kiwix.org/zim/ for others. mdwiki_en_all_maxi is WikiProjectMed's medical wiki (the content of the WikiMed app). wikipedia_en_all_nopic (approx. 49 GB) is the text-only alternative to the maxi dump (approx. 127 GB).",
+  "_books": "name = ZIM file prefix before _YYYY-MM.zim; dir = folder under the mirror. Browse https://download.kiwix.org/zim/ for others. mdwiki_en_all_maxi is WikiProjectMed's medical wiki (the content of the WikiMed app). wikipedia_en_all_nopic (approx. 49 GiB, text only) replaced wikipedia_en_all_maxi (approx. 119 GiB, with images) on 2026-10-27 to save space on the shared SSD.",
   "min_free_margin_gb": 5,
   "check_every_hours": 20,
   "_check_every_hours": "StartOnMount fires on every mount of any volume, so the mirror is checked at most this often. An unfinished download ignores the limit and resumes at once."
