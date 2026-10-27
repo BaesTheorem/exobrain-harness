@@ -86,13 +86,28 @@ def answer_for(posts: list[Post], qid: int) -> Post | None:
     return next((p for p in posts if p["kind"] == "answer" and p.get("reply_to") == qid), None)
 
 
+def latest(posts: list[Post], kind: str) -> Post | None:
+    return next((p for p in reversed(posts) if p["kind"] == kind), None)
+
+
+def latest_verdict(posts: list[Post], round_id: str, author: str) -> Post | None:
+    """An author's last vote in one round. A later vote replaces an earlier one."""
+    return next((p for p in reversed(posts) if p["kind"] == "verdict"
+                 and p.get("round") == round_id and p["author"] == author), None)
+
+
 def unanswered(posts: list[Post]) -> list[Post]:
     answered = {p.get("reply_to") for p in posts if p["kind"] == "answer"}
     return [p for p in posts if p["kind"] == "question" and p["id"] not in answered]
 
 
-def visible(posts: list[Post], viewer: str, gated: bool) -> list[Post]:
-    """In a gated round a panelist sees the Q&A, the liaison, the moderator and its own posts."""
+def visible(posts: list[Post], viewer: str, gated: bool, kinds: list[str] | None = None) -> list[Post]:
+    """In a gated round a panelist sees the Q&A, the liaison, the moderator and its own posts.
+
+    A round with `kinds` is narrower still: the viewer sees its own posts and posts of those kinds.
+    """
+    if kinds:
+        return [p for p in posts if p["author"] == viewer or p["kind"] in kinds]
     if not gated:
         return posts
     return [p for p in posts

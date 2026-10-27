@@ -6,12 +6,18 @@ panelist's handle come from the environment (PANEL_RUN, PANEL_AGENT), so a
 panelist cannot post under another name. No dependencies: JSON-RPC 2.0, one
 message per line, as the MCP stdio transport specifies. Tool calls run on
 threads, so a blocking ask_client never stalls a read.
+
+panel.py also sets, per panelist: PANEL_TOOLS (the board tools it gets),
+PANEL_KINDS (the post kinds it may use), PANEL_DRAFT_KIND, and
+PANEL_DRAFT_HOOK (a checker command: it reads a text on stdin and prints a
+report, which the moderator posts after every draft and scan_text returns).
 """
 
 from __future__ import annotations
 
 import json
 import os
+import subprocess
 import sys
 import threading
 import time
@@ -31,7 +37,11 @@ NAMES.setdefault(board.MODERATOR, "Moderator")
 
 PANEL_KINDS = ["candidate", "critique", "evidence", "deep-dive", "position", "note"]
 CHAIR_KINDS = ["synthesis", "report"]
-KINDS = PANEL_KINDS + (CHAIR_KINDS if ME == CHAIR else [])
+KINDS: list[str] = (json.loads(os.environ["PANEL_KINDS"]) if os.environ.get("PANEL_KINDS")
+                    else PANEL_KINDS + (CHAIR_KINDS if ME == CHAIR else []))
+DRAFT_KIND = os.environ.get("PANEL_DRAFT_KIND", "draft")
+HOOK: list[str] = json.loads(os.environ.get("PANEL_DRAFT_HOOK") or "[]")
+HOOK_LABEL = os.environ.get("PANEL_HOOK_LABEL", "Checker report")
 Args = dict[str, Any]
 _out = threading.Lock()
 
@@ -43,12 +53,20 @@ def _state() -> dict[str, Any]:
 def read_board(args: Args) -> str:
     since = int(args.get("since") or 0)
     author = str(args.get("author") or "").strip()
+    kinds = {k.strip() for k in str(args.get("kind") or "").split(",") if k.strip()}
+    last = int(args.get("last") or 0)
     state = _state()
     gated = bool(state.get("gated"))
-    posts = [p for p in board.visible(board.read_posts(RUN), ME, gated)
-             if p["id"] > since and (not author or p["author"] == author)]
+    only: list[str] | None = state.get("visible_kinds")
+    posts = [p for p in board.visible(board.read_posts(RUN), ME, gated, only)
+             if p["id"] > since and (not author or p["author"] == author)
+             and (not kinds or p["kind"] in kinds)]
+    if last > 0:
+        posts = posts[-last:]
     head = f"Board as seen by {ME}. Current round: {state.get('round', '?')} ({state.get('label', '')})."
-    if gated:
+    if only:
+        head += f" This round shows you your own posts and posts of kind {', '.join(only)} only."
+    elif gated:
         head += " This round is gated: you see the liaison Q&A and your own posts only."
     if not posts:
         return head + "\n\nNo posts match."
@@ -56,17 +74,62 @@ def read_board(args: Args) -> str:
         board.format_post(p, NAMES) for p in posts)
 
 
+def _run_hook(text: str) -> str:
+    try:
+        proc = subprocess.run(HOOK, input=text, capture_output=True, text=True, timeout=90, check=False)
+    except (OSError, subprocess.TimeoutExpired) as e:
+        return f"(the checker failed: {e})"
+    return proc.stdout.strip() or proc.stderr.strip() or "(the checker returned nothing)"
+
+
 def post(args: Args) -> str:
     kind = str(args.get("kind") or "note")
     if kind not in KINDS:
         raise ValueError(f"kind must be one of {KINDS}")
+    if kind == DRAFT_KIND and _state().get("no_drafts"):
+        raise ValueError("this round does not accept drafts: post your critique and vote with submit_verdict")
     body = str(args.get("body") or "").strip()
     if not body:
         raise ValueError("body is empty")
     reply_to = args.get("reply_to")
     p = board.append_post(RUN, ME, kind, body, str(args.get("title") or ""),
                           int(reply_to) if reply_to else None)
-    return f"Posted as #{p['id']}."
+    out = f"Posted as #{p['id']}."
+    if kind == DRAFT_KIND and HOOK:
+        report = _run_hook(body)
+        r = board.append_post(RUN, board.MODERATOR, "scan", report, f"{HOOK_LABEL} for draft #{p['id']}", p["id"])
+        out += f"\n\n{HOOK_LABEL} (posted as #{r['id']}):\n{report}"
+    return out
+
+
+def scan_text(args: Args) -> str:
+    text = str(args.get("text") or "").strip()
+    if not text:
+        raise ValueError("text is empty")
+    return _run_hook(text)
+
+
+def submit_verdict(args: Args) -> str:
+    satisfied = args.get("satisfied")
+    if isinstance(satisfied, str) and satisfied.strip().lower() in ("true", "false"):
+        satisfied = satisfied.strip().lower() == "true"
+    if not isinstance(satisfied, bool):
+        raise ValueError("satisfied must be true or false")
+    must = str(args.get("must_change") or "").strip()
+    if not satisfied and not must:
+        raise ValueError("must_change is required when you are not satisfied: list the specific changes you need")
+    draft = board.latest(board.read_posts(RUN), DRAFT_KIND)
+    if draft is None:
+        raise ValueError("there is no draft to vote on yet")
+    if satisfied:
+        body = f"SATISFIED with draft #{draft['id']}: I would sign it as finished work." + (
+            f"\n\nNotes, not conditions: {must}" if must else "")
+    else:
+        body = f"NOT SATISFIED with draft #{draft['id']}. Before I sign, these must change:\n\n{must}"
+    p = board.append_post(RUN, ME, "verdict", body, "Verdict", draft["id"],
+                          data={"draft": draft["id"], "satisfied": satisfied, "must_change": must})
+    return (f"Recorded as #{p['id']}: {'satisfied' if satisfied else 'not satisfied'} with draft "
+            f"#{draft['id']}. A later vote in this round replaces it.")
 
 
 def ask_client(args: Args) -> str:
@@ -146,16 +209,33 @@ SCORE_ROW = _obj({"item": {"type": "string", "description": "Longlist id, for ex
 
 TOOLS: list[dict[str, Any]] = [
     {"name": "read_board",
-     "description": "Read the shared message board, oldest post first. Pass `since` to get only "
-                    "posts numbered above it, or `author` to get one panelist's posts.",
-     "inputSchema": _obj({"since": {"type": "integer"}, "author": {"type": "string"}})},
+     "description": "Read the shared message board, oldest post first. Filters: `since` (only posts "
+                    "numbered above it), `author` (one member's posts), `kind` (one kind, or several "
+                    "separated by commas), `last` (only the last N posts that match).",
+     "inputSchema": _obj({"since": {"type": "integer"}, "author": {"type": "string"},
+                          "kind": {"type": "string"}, "last": {"type": "integer"}})},
     {"name": "post",
      "description": "Publish a post to the board. The whole panel and the client read it. "
-                    "Use reply_to to answer or critique a specific post.",
+                    "Use reply_to to answer or critique a specific post."
+                    + (f" After a post of kind {DRAFT_KIND}, the moderator posts the "
+                       f"{HOOK_LABEL.lower()} for it, and you get the report back." if HOOK else ""),
      "inputSchema": _obj({"kind": {"type": "string", "enum": KINDS},
                           "title": {"type": "string"},
                           "body": {"type": "string", "description": "Markdown."},
                           "reply_to": {"type": "integer"}}, ["kind", "title", "body"])},
+    {"name": "submit_verdict",
+     "description": f"Vote on the latest {DRAFT_KIND}. satisfied=true means you would sign it as "
+                    "finished work as it stands. When false, must_change lists the specific changes "
+                    "you need before you would sign, each one possible in one revision pass. Your "
+                    "latest vote in a round replaces an earlier one.",
+     "inputSchema": _obj({"satisfied": {"type": "boolean"},
+                          "must_change": {"type": "string",
+                                          "description": "Required when satisfied is false."}},
+                         ["satisfied"])},
+    {"name": "scan_text",
+     "description": f"Run the room's checker ({HOOK_LABEL.lower()}) on any text you give it, a stanza "
+                    "or a whole draft, and return the report. Nothing is posted.",
+     "inputSchema": _obj({"text": {"type": "string"}}, ["text"])},
     {"name": "ask_client",
      "description": "Ask the client liaison one question about the client: skills, time, money, "
                     "location, constraints, preferences. The whole panel sees the question and the "
@@ -185,11 +265,18 @@ TOOLS: list[dict[str, Any]] = [
                           "mode": {"type": "string", "enum": ["append", "replace"]}}, ["text"])},
 ]
 
+_ENABLED: list[str] | None = json.loads(os.environ["PANEL_TOOLS"]) if os.environ.get("PANEL_TOOLS") else None
+TOOLS = [t for t in TOOLS if (_ENABLED is None or t["name"] in _ENABLED)
+         and (HOOK or t["name"] != "scan_text")
+         and (_ENABLED is not None or t["name"] not in ("submit_verdict", "scan_text"))]
+
 DISPATCH: dict[str, Callable[[Args], str]] = {
-    "read_board": read_board, "post": post, "ask_client": ask_client,
-    "submit_scores": submit_scores, "score_table": score_table,
-    "notebook_read": notebook_read, "notebook_write": notebook_write,
-}
+    name: fn for name, fn in {
+        "read_board": read_board, "post": post, "ask_client": ask_client,
+        "submit_scores": submit_scores, "score_table": score_table,
+        "notebook_read": notebook_read, "notebook_write": notebook_write,
+        "submit_verdict": submit_verdict, "scan_text": scan_text,
+    }.items() if name in {t["name"] for t in TOOLS}}
 
 
 def _send(msg: dict[str, Any]) -> None:
