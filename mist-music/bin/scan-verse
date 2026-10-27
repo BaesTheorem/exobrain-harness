@@ -218,6 +218,8 @@ def is_header(s: str) -> str | None:
         return m.group(2).strip()
     if re.fullmatch(r"[A-ZÀ-Ý][A-ZÀ-Ý0-9 &'’\-]{1,40}(\s*\([^)]*\))?:?", t):
         return t.rstrip(":")
+    if re.fullmatch(r"[A-ZÀ-Ý][\w'’\-]*( [A-ZÀ-Ý][\w'’\-]*){0,2}:", t):  # a label line: "Sauron:"
+        return t.rstrip(":")
     return None
 
 
