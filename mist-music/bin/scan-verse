@@ -1,0 +1,430 @@
+#!/usr/bin/env -S uv run --quiet --script
+# /// script
+# requires-python = ">=3.11"
+# dependencies = ["pronouncing==0.2.0", "setuptools<81"]  # pronouncing imports pkg_resources
+# ///
+"""Scan a lyric for the people who write and sing it: syllables, stress and rhyme.
+
+    scan-verse FILE            # a lyric in markdown; "-" reads stdin
+    scan-verse --self-test     # the positive and negative controls
+
+Reads a lyric in markdown. Headings, singer labels (SAURON: or **Sauron**),
+stage directions (whole lines in italics, brackets or parentheses) and rules
+are not sung, so they are dropped. For each stanza it reports the syllable
+count of every line, the rhyme scheme and the likely meter, then flags lines
+whose count is far from the stanza's pattern and lines in a rhymed stanza that
+rhyme with nothing near them. Counts and stresses come from the CMU
+Pronouncing Dictionary through the pronouncing library. A word with variant
+pronunciations (our, power, Indian) may take any of them, as a singer may
+elide. Words the dictionary does not know (invented names) are guessed and
+marked with "?". The report is advice: a line can break the pattern on purpose.
+"""
+from __future__ import annotations
+
+import re
+import sys
+import warnings
+from collections import Counter
+from dataclasses import dataclass, field
+from itertools import islice, product
+
+warnings.filterwarnings("ignore", category=UserWarning)  # pkg_resources deprecation notice
+import pronouncing  # noqa: E402
+
+VOWELS = "aeiouyàáâãåæèéêìíîòóôõøùúûýÿ"
+DIAERESIS = "äëïöü"
+ACCENTS = DIAERESIS + "áéíóúâêîôû"
+NAME_DIPHTHONGS = ("ai", "au", "ei", "iu", "oi", "ui", "ae", "oe")
+FUNCTION_WORDS = set("""a an the and or but nor of to in on at by for with from as into onto upon than
+that this these those is am are was were be been do does did has have had i me my mine we us our you
+your he him his she her it its they them their who whom whose which what when where while if so not no
+yet thou thee thy thine ye o oh shall will can may must would should could""".split())
+SECONDS_PER_LINE = 5
+SHOWN = str.maketrans("120", "//x")
+FIXED = str.maketrans("120", "/.x")
+MAX_COMBOS = 64
+SLANT_REACH = 2  # a slant rhyme counts only between lines this close
+
+
+@dataclass
+class Word:
+    text: str
+    variants: list[str]  # stress digits per distinct pronunciation: 1 primary, 2 secondary, 0 none, ? guessed
+    phones: list[str]    # every dictionary pronunciation; empty when the word is guessed
+
+    @property
+    def known(self) -> bool:
+        return bool(self.phones)
+
+    @property
+    def syllables(self) -> int:
+        return len(self.variants[0])
+
+
+@dataclass
+class Line:
+    number: int
+    text: str
+    words: list[Word]
+    options: list[tuple[str, str]] = field(default_factory=list)  # (stress, fixed stress) per reading
+
+    def __post_init__(self) -> None:
+        self.options = []
+        for combo in islice(product(*(w.variants for w in self.words)), MAX_COMBOS):
+            # Only a word of two or more syllables fixes its stress; secondary stress can go either way.
+            fixed = "".join(v.translate(FIXED) if w.known and len(v) > 1 else "." * len(v)
+                            for w, v in zip(self.words, combo, strict=True))
+            self.options.append(("".join(combo).translate(SHOWN), fixed))
+
+    @property
+    def counts(self) -> list[int]:
+        return sorted({len(s) for s, _ in self.options})
+
+    def nearest(self, target: int) -> int:
+        return min(self.counts, key=lambda c: (abs(c - target), c))
+
+    def stress_for(self, count: int) -> str:
+        return next(s for s, _ in self.options if len(s) == count)
+
+
+@dataclass
+class Stanza:
+    section: str
+    lines: list[Line] = field(default_factory=list)
+
+
+# ---- words ------------------------------------------------------------------
+
+def guess_syllables(word: str, line_start: bool = False) -> int:
+    """Vowel groups. A capitalized unknown word is most likely an invented name, where vowels sound apart.
+
+    At the start of a line a capital proves nothing, so there only an accent marks a name.
+    """
+    w = word.lower().replace("qu", "qw")
+    if word[:1].isupper() and (any(ch in w for ch in ACCENTS) or not line_start):
+        n, i = 0, 0
+        while i < len(w):
+            if w[i] in DIAERESIS:
+                n, i = n + 1, i + 1
+            elif w[i] in VOWELS:
+                n, i = n + 1, i + (2 if w[i:i + 2] in NAME_DIPHTHONGS else 1)
+            else:
+                i += 1
+        if w.endswith("e") and n > 1 and len(w) > 3 and w[-2] not in VOWELS:
+            n -= 1
+        return max(1, n)
+    n = len(re.findall(rf"[{VOWELS}]+|[{DIAERESIS}]", w))
+    if w.endswith("e") and not w.endswith(("le", "ee", "ye")) and n > 1:
+        n -= 1
+    return max(1, n)
+
+
+def _marks(phones: str, word: str) -> str:
+    digits = pronouncing.stresses(phones)
+    if len(digits) == 1:
+        return "0" if word in FUNCTION_WORDS else "1"
+    return digits
+
+
+def _lookup(word: str) -> list[str]:
+    for form in (word, word[:-2] if word.endswith("'s") else "", word.replace("'", "") if "'" in word else ""):
+        if form and (found := pronouncing.phones_for_word(form)):
+            return list(found)
+    for i in range(len(word) - 3, 2, -1):  # a compound of two known words: lamplit, foamriders, elvenland
+        a, b = pronouncing.phones_for_word(word[:i]), pronouncing.phones_for_word(word[i:])
+        if a and b:  # the first part carries the stress, as in English compounds
+            return [f"{a[0]} {b[0].replace('1', '2')}"]
+    return []
+
+
+def analyse_word(raw: str, line_start: bool = False) -> Word:
+    word = raw.lower().replace("’", "'").strip("'")
+    phones = _lookup(word)
+    if phones:
+        variants = list(dict.fromkeys(_marks(p, word) for p in phones))
+        return Word(raw, variants, phones)
+    n = guess_syllables(raw.replace("'", "").replace("’", ""), line_start)
+    return Word(raw, ["?" * n], [])
+
+
+def tokens(text: str) -> list[str]:
+    letters = f"A-Za-z{VOWELS}{DIAERESIS}{VOWELS.upper()}{DIAERESIS.upper()}"
+    out: list[str] = []
+    for tok in re.findall(rf"[{letters}'’\-]+", text):
+        out += [t for t in re.split(r"-+", tok) if t.strip("'’")]
+    return out
+
+
+# ---- rhyme ------------------------------------------------------------------
+
+def _strip(ph: list[str]) -> str:
+    return " ".join(re.sub(r"\d", "", p) for p in ph)
+
+
+def _keys(phones: str) -> dict[str, str]:
+    ph = phones.split()
+    vowels = [i for i, p in enumerate(ph) if p[-1].isdigit()]
+    stressed = [i for i in vowels if ph[i][-1] in "12"]
+    start = stressed[-1] if stressed else vowels[-1]
+    return {"perfect": _strip(ph[start:]), "final": _strip(ph[vowels[-1]:]),
+            "vowel": re.sub(r"\d", "", ph[start]), "coda": _strip(ph[vowels[-1] + 1:])}
+
+
+def spelled_key(text: str) -> str:
+    """The last vowel letter and what follows it: -ond in both beyond and Nargothrond."""
+    m = re.search(rf"[{VOWELS}{DIAERESIS}][^{VOWELS}{DIAERESIS}]*$", text.lower())
+    return m.group(0) if m else text.lower()
+
+
+RANK = {"identical": 0, "rhyme": 1, "weak": 2, "guessed": 3, "slant": 4}
+
+
+def relation(a: Word, b: Word) -> str | None:
+    """How two end words rhyme: identical, rhyme, weak (on an unstressed last syllable), guessed, slant, or None."""
+    if a.text.lower() == b.text.lower():
+        return "identical"
+    if not (a.known and b.known):
+        return "guessed" if spelled_key(a.text) == spelled_key(b.text) else None
+    best: str | None = None
+    for pa in a.phones:
+        for pb in b.phones:
+            ka, kb = _keys(pa), _keys(pb)
+            rel = ("rhyme" if ka["perfect"] == kb["perfect"] else
+                   "weak" if ka["final"] == kb["final"] else
+                   "slant" if ka["vowel"] == kb["vowel"] or (ka["coda"] and ka["coda"][-2:] == kb["coda"][-2:])
+                   else None)
+            if rel and (best is None or RANK[rel] < RANK[best]):
+                best = rel
+    return best
+
+
+# ---- parsing ----------------------------------------------------------------
+
+LABEL = re.compile(r"^\s*(\*\*|__)?([A-ZÀ-Ý][A-ZÀ-Ý0-9 &'’\-]{1,40}?)(\s*\([^)]*\))?(\*\*|__)?\s*:\s*(\*\*|__)?\s*")
+BOLD_LABEL = re.compile(r"^\s*(\*\*|__)([^*_]{1,40}?)(\*\*|__)\s*:?\s*")
+
+
+def is_direction(s: str) -> bool:
+    return bool(re.fullmatch(r"(\*[^*].*\*|_[^_].*_|\[.*\]|\(.*\))[.!]?", s.strip()))
+
+
+def is_header(s: str) -> str | None:
+    t = s.strip()
+    if m := re.match(r"^#{1,6}\s*(.*)$", t):
+        return m.group(1).strip()
+    if t.startswith("§"):
+        return t
+    if m := re.fullmatch(r"(\*\*|__)([^*_]+)(\*\*|__):?", t):
+        return m.group(2).strip()
+    if re.fullmatch(r"[A-ZÀ-Ý][A-ZÀ-Ý0-9 &'’\-]{1,40}(\s*\([^)]*\))?:?", t):
+        return t.rstrip(":")
+    return None
+
+
+def parse(text: str) -> list[Stanza]:
+    stanzas: list[Stanza] = []
+    section, current, number = "", None, 0
+    for raw in text.splitlines():
+        s = raw.rstrip()
+        if not s.strip() or re.fullmatch(r"\s*([-*_]\s*){3,}", s):
+            current = None
+            continue
+        if (head := is_header(s)) is not None:
+            section, current = head, None
+            continue
+        if is_direction(s):
+            continue
+        s = re.sub(r"\*\([^)]*\)\*|\[[^\]]*\]", " ", s)  # directions inside a sung line
+        if m := LABEL.match(s) or BOLD_LABEL.match(s):
+            s = s[m.end():]
+        s = re.sub(r"[*_`>]", "", s).strip()
+        words = [analyse_word(t, line_start=(i == 0)) for i, t in enumerate(tokens(s))]
+        if not words:
+            continue
+        if current is None:
+            current = Stanza(section)
+            stanzas.append(current)
+        number += 1
+        current.lines.append(Line(number, s, words))
+    return stanzas
+
+
+# ---- analysis ---------------------------------------------------------------
+
+def scheme(stanza: Stanza) -> tuple[str, dict[int, tuple[int, str]]]:
+    """Rhyme letters for a stanza, and for each line the line it rhymes with and how.
+
+    True rhymes (identical, rhyme, weak, guessed) group first, in either direction. Only a line
+    that rhymes truly with no line in the stanza then joins a slant partner.
+    """
+    n = len(stanza.lines)
+    ends = [ln.words[-1] for ln in stanza.lines]
+    group = list(range(n))
+
+    def root(i: int) -> int:
+        while group[i] != i:
+            i = group[i]
+        return i
+
+    partner: dict[int, tuple[int, str]] = {}
+    for i in range(n):
+        for j in range(n):
+            rel = relation(ends[i], ends[j]) if i != j else None
+            if rel and rel != "slant":
+                group[root(i)] = root(j)
+                partner.setdefault(i, (j, rel))
+    for i in range(n):
+        if i in partner:
+            continue
+        for j in range(max(0, i - SLANT_REACH), min(n, i + SLANT_REACH + 1)):
+            if i != j and relation(ends[i], ends[j]) == "slant":
+                group[root(i)] = root(j)
+                partner[i] = (j, "slant")
+                break
+    letters: list[str] = []
+    seen: dict[int, str] = {}
+    for i in range(n):
+        r = root(i)
+        if r not in seen:
+            seen[r] = chr(ord("a") + len(seen) % 26)
+        letters.append(seen[r])
+    return "".join(letters), partner
+
+
+def expected_counts(counts: list[int]) -> list[int]:
+    """The stanza's pattern: one usual length, or two that alternate (8 6 8 6), whichever fits more lines."""
+    single = Counter(counts).most_common(1)[0][0]
+    odd = [c for i, c in enumerate(counts) if i % 2 == 0]
+    even = [c for i, c in enumerate(counts) if i % 2 == 1] or odd
+    alt = (Counter(odd).most_common(1)[0][0], Counter(even).most_common(1)[0][0])
+    a = [single] * len(counts)
+    b = [alt[i % 2] for i in range(len(counts))]
+
+    def misses(exp: list[int]) -> int:
+        return sum(abs(c - e) >= 2 for c, e in zip(counts, exp, strict=True))
+
+    return b if misses(b) < misses(a) else a
+
+
+def _fits(fixed: str, first: str) -> bool:
+    other = "/" if first == "x" else "x"
+    return all(p == "." or p == (first if k % 2 == 0 else other) for k, p in enumerate(fixed))
+
+
+def meter(stanza: Stanza) -> str:
+    """Duple meter from the stresses the dictionary is sure of (words of two or more syllables).
+
+    A line fits when any of its readings fits. A line with no such word tells nothing and is left out.
+    """
+    fits = {"iambic": 0, "trochaic": 0}
+    informative = 0
+    for line in stanza.lines:
+        if not any(f.strip(".") for _, f in line.options):
+            continue
+        informative += 1
+        for name, first in (("iambic", "x"), ("trochaic", "/")):
+            if any(_fits(f, first) for _, f in line.options):
+                fits[name] += 1
+    if not informative:
+        return "unknown (no word of two or more syllables)"
+    best = max(fits, key=lambda k: fits[k])
+    if fits[best] * 3 >= informative * 2:
+        return f"{best} ({fits[best]} of {informative} lines that show it)"
+    return f"mixed or accentual (iambic {fits['iambic']}, trochaic {fits['trochaic']} of {informative})"
+
+
+def report(text: str) -> str:
+    stanzas = parse(text)
+    if not stanzas:
+        return "Scansion report: no sung lines found."
+    total = sum(len(s.lines) for s in stanzas)
+    out: list[str] = []
+    flags: list[str] = []
+    unknown: dict[str, int] = {}
+    last_section = None
+    for k, st in enumerate(stanzas):
+        exp = expected_counts([ln.counts[0] if len(ln.counts) == 1 else ln.nearest(8) for ln in st.lines])
+        counts = [ln.nearest(e) for ln, e in zip(st.lines, exp, strict=True)]
+        exp = expected_counts(counts)
+        letters, partner = scheme(st)
+        rhymed = sum(1 for i in range(len(st.lines)) if letters.count(letters[i]) > 1) * 2 >= len(st.lines)
+        if st.section != last_section:
+            out.append(st.section or "(no heading)")
+            last_section = st.section
+        out.append(f"  lines {st.lines[0].number}-{st.lines[-1].number}: syllables {' '.join(map(str, counts))}"
+                   f" | rhyme {letters if rhymed else 'unrhymed'} | meter {meter(st)}")
+        for i, ln in enumerate(st.lines):
+            unknown.update({w.text: w.syllables for w in ln.words if not w.known})
+            if abs(ln.nearest(exp[i]) - exp[i]) >= 2:
+                c = ln.nearest(exp[i])
+                flags.append(f'line {ln.number}: {c} syllables where the stanza runs {exp[i]} '
+                             f'(stress {ln.stress_for(c)}): "{ln.text}"')
+            if i in partner and partner[i][1] in ("slant", "identical"):
+                j = partner[i][0]
+                flags.append(f'line {ln.number}: {partner[i][1]} rhyme "{ln.words[-1].text}" / '
+                             f'"{st.lines[j].words[-1].text}" (line {st.lines[j].number})')
+            if rhymed and letters.count(letters[i]) == 1:
+                around = (stanzas[k - 1].lines[-2:] if k else []) + (stanzas[k + 1].lines[:2] if k + 1 < len(stanzas) else [])
+                if not any(relation(ln.words[-1], x.words[-1]) not in (None, "slant") for x in around):
+                    flags.append(f'line {ln.number}: "{ln.words[-1].text}" rhymes with no line near it: "{ln.text}"')
+    head = [f"Scansion report: {total} sung lines in {len(stanzas)} stanzas, about "
+            f"{total * SECONDS_PER_LINE / 60:.1f} minutes at {SECONDS_PER_LINE} seconds a line.",
+            "Counts and stresses come from the CMU Pronouncing Dictionary; a word with variant pronunciations "
+            "takes the one that fits. This is advice: a line can break the pattern on purpose. "
+            "Stress marks: / stressed, x unstressed, ? guessed."]
+    if unknown:
+        head.append("Words not in the dictionary, syllables guessed: "
+                    + ", ".join(f"{w} ({n}?)" for w, n in sorted(unknown.items())))
+    flag_lines = [f"Flags ({len(flags)}):"] + [f"  {f}" for f in flags] if flags else ["Flags: none."]
+    return "\n".join(head + [""] + out + [""] + flag_lines)
+
+
+# ---- controls ---------------------------------------------------------------
+
+POSITIVE = """Had we but world enough and time,
+This coyness, lady, were no crime.
+We would sit down, and think which way
+To walk, and pass our long love's day.
+Thou by the Indian Ganges' side
+Shouldst rubies find; I by the tide"""
+
+NEGATIVE = """Had we but world enough and time,
+This coyness, lady, were no sin.
+We would sit down together, and then think which way
+To walk, and pass our long love's day.
+Thou by the Indian Ganges' side
+Shouldst rubies find; I by the tide"""
+
+
+def self_test() -> int:
+    good, bad = report(POSITIVE), report(NEGATIVE)
+    checks = [
+        ("positive: couplets found", "rhyme aabbcc" in good),
+        ("positive: iambic", "meter iambic" in good),
+        ("positive: no flags", "Flags: none." in good),
+        ("negative: the broken rhyme is flagged", '"sin" rhymes with no line near it' in bad),
+        ("negative: the long line is flagged",
+         re.search(r"line 3: 1\d syllables where the stanza runs [89]", bad) is not None),
+    ]
+    for name, ok in checks:
+        print(f"{'PASS' if ok else 'FAIL'} {name}")
+    if not all(ok for _, ok in checks):
+        print("\n--- positive report ---\n" + good + "\n\n--- negative report ---\n" + bad)
+        return 1
+    return 0
+
+
+def main() -> int:
+    args = sys.argv[1:]
+    if args == ["--self-test"]:
+        return self_test()
+    if len(args) != 1 or args[0] in ("-h", "--help"):
+        print(__doc__)
+        return 2
+    text = sys.stdin.read() if args[0] == "-" else open(args[0], encoding="utf-8").read()
+    print(report(text))
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())
