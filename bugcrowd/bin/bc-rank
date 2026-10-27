@@ -178,8 +178,8 @@ def score(eng, doc, stats, items):
         "rewarded_total": stats.get("rewardedVulnerabilities"),
         "avg_payout": stats.get("averagePayout") or "",
         "reward": reward.get("summary") or "",
-        "safe_harbor": (((doc or {}).get("data") or {}).get("brief") or {})
-        .get("safeHarborStatus", {}).get("label", ""),
+        "safe_harbor": ((((doc or {}).get("data") or {}).get("brief") or {})
+                        .get("safeHarborStatus") or {}).get("label", ""),
     }
 
 
