@@ -137,9 +137,20 @@ def _lookup(word: str) -> list[str]:
     return []
 
 
+def _readings(word: str, phones: list[str]) -> list[str]:
+    """The pronunciations a singer can use.
+
+    A short word drops readings with a stress on every vowel: those are spelled-out abbreviations
+    ("am" as a.m.). A vowel before ER (fire, desire, hour, tower) can also be one syllable.
+    """
+    keep = [p for p in phones if not (len(word) <= 3 and sum(ph[-1] in "12" for ph in p.split()) > 1)] or phones
+    merged = [re.sub(r"\b(AY|AW)(\d) ER\d", r"\1\2 R", p) for p in keep]
+    return list(dict.fromkeys(keep + merged))
+
+
 def analyse_word(raw: str, line_start: bool = False) -> Word:
     word = raw.lower().replace("’", "'").strip("'")
-    phones = _lookup(word)
+    phones = _readings(word, _lookup(word))
     if phones:
         variants = list(dict.fromkeys(_marks(p, word) for p in phones))
         return Word(raw, variants, phones)
@@ -158,7 +169,8 @@ def tokens(text: str) -> list[str]:
 # ---- rhyme ------------------------------------------------------------------
 
 def _strip(ph: list[str]) -> str:
-    return " ".join(re.sub(r"\d", "", p) for p in ph)
+    # The dictionary spells "fire" as AY R in one entry and AY ER in another (desire, hour, tower): one sound.
+    return re.sub(r"\b(AY|AW) ER\b", r"\1 R", " ".join(re.sub(r"\d", "", p) for p in ph))
 
 
 def _keys(phones: str) -> dict[str, str]:
@@ -342,6 +354,8 @@ def report(text: str) -> str:
     total = sum(len(s.lines) for s in stanzas)
     out: list[str] = []
     flags: list[str] = []
+    near: list[str] = []
+    variable: list[str] = []
     unknown: dict[str, int] = {}
     last_section = None
     for k, st in enumerate(stanzas):
@@ -357,10 +371,17 @@ def report(text: str) -> str:
                    f" | rhyme {letters if rhymed else 'unrhymed'} | meter {meter(st)}")
         for i, ln in enumerate(st.lines):
             unknown.update({w.text: w.syllables for w in ln.words if not w.known})
-            if abs(ln.nearest(exp[i]) - exp[i]) >= 2:
-                c = ln.nearest(exp[i])
+            c = ln.nearest(exp[i])
+            if abs(c - exp[i]) >= 2:
                 flags.append(f'line {ln.number}: {c} syllables where the stanza runs {exp[i]} '
                              f'(stress {ln.stress_for(c)}): "{ln.text}"')
+            elif c != exp[i]:
+                near.append(f'line {ln.number}: {c} where the stanza runs {exp[i]} (stress {ln.stress_for(c)}): "{ln.text}"')
+            if len(ln.counts) > 1:
+                by = [f"{w.text} {' or '.join(str(len(v)) for v in w.variants)}" for w in ln.words
+                      if len({len(v) for v in w.variants}) > 1]
+                variable.append(f"line {ln.number}: {' or '.join(map(str, ln.counts))} syllables, by the reading of "
+                                f"{', '.join(by)}")
             if i in partner and partner[i][1] in ("slant", "identical"):
                 j = partner[i][0]
                 flags.append(f'line {ln.number}: {partner[i][1]} rhyme "{ln.words[-1].text}" / '
@@ -378,6 +399,12 @@ def report(text: str) -> str:
         head.append("Words not in the dictionary, syllables guessed: "
                     + ", ".join(f"{w} ({n}?)" for w, n in sorted(unknown.items())))
     flag_lines = [f"Flags ({len(flags)}):"] + [f"  {f}" for f in flags] if flags else ["Flags: none."]
+    if near:
+        flag_lines += ["", "One syllable off the stanza's usual count (listed, not flagged; a strict meter can "
+                       "still forbid these):"] + [f"  {n}" for n in near]
+    if variable:
+        flag_lines += ["", "Counts that depend on a pronunciation (the counts above take the reading nearest the "
+                       "stanza's pattern):"] + [f"  {v}" for v in variable]
     return "\n".join(head + [""] + out + [""] + flag_lines)
 
 
@@ -405,6 +432,10 @@ def self_test() -> int:
         ("positive: iambic", "meter iambic" in good),
         ("positive: no flags", "Flags: none." in good),
         ("negative: the broken rhyme is flagged", '"sin" rhymes with no line near it' in bad),
+        ("positive: the nine-syllable line is listed", "line 5: 9 where the stanza runs 8" in good),
+        ("afire and desire rhyme fully", relation(analyse_word("afire"), analyse_word("desire")) == "rhyme"),
+        ("desire can be two syllables", 2 in {len(v) for v in analyse_word("desire").variants}),
+        ("am is one syllable", {len(v) for v in analyse_word("am").variants} == {1}),
         ("negative: the long line is flagged",
          re.search(r"line 3: 1\d syllables where the stanza runs [89]", bad) is not None),
     ]
