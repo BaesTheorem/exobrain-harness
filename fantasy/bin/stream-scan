@@ -219,6 +219,13 @@ def main() -> int:
     adds, drops, pending_err = pending_ids()
     out = scan(ours, slate, dst_pool, k_pool, bench_dst, bench_k, adds, drops)
     out["week"] = week
+    # A 13-team league leaves one team idle each week, and an idle team's lineup
+    # scores nothing. On 2026-10-27 (week 8, Chaos Legion idle) this sent a D/ST
+    # bench swap and a K stream for a week we did not play. Byes ahead still count.
+    matchup = espn("matchup")
+    out["idle"] = isinstance(matchup, dict) and matchup.get("opp") is None
+    if out["idle"]:
+        out["dst"] = out["k"] = None
     pending_names: dict[str, list[str]] = {}
     for pos, pool in (("D/ST", dst_pool), ("K", k_pool)):
         pending_names[pos] = [r["name"] for r in pool if r.get("id") in adds]
@@ -230,8 +237,12 @@ def main() -> int:
     print(f"Stream scan -- week {week}\n")
     if pending_err:
         print(f"  WARNING: {pending_err}\n")
+    if out["idle"]:
+        print(f"  IDLE: no opponent in week {week}, so this week's lineup scores nothing. No stream, no swap.")
     for label in ("dst", "k"):
         v = out.get(label)
+        if out["idle"]:
+            continue
         if not v:
             print(f"  {label.upper()}: no starter in the slot")
             continue
