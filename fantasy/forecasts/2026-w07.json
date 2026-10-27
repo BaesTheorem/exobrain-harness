@@ -792,6 +792,703 @@
    "pf": 655.9
   }
  ],
- "settled": null,
- "forecast_note": "Roster as it stands at 6:15 PM Tuesday. Two waiver claims process Wednesday about 2:00 AM at priority 13 of 13 and are not in these lines: Wil Lutz (K, DEN) for Blake Grupe (IR), and the Browns D/ST for the 49ers D/ST on the stream rule (the Raiders are implied 22.0 against the Rams, the Titans 18.0 against the Browns, a gap of 4.0). If the Browns land, Wednesday's lineup run starts them over the Rams. The team total assumes a kicker in the K slot by Sunday (Lutz, or lineup-watch's free-agent fill). David Montgomery (questionable, groin) is at RB on p_play 0.70 and the Thursday 5:30 PM run re-reads him against Stevenson before the Thursday 7:15 PM lock. No trade is pending and none is planned (Trades, 2026-10-11). Njigba Please! have an empty TE slot tonight, priced at a 0.5 fix rate."
+ "settled": {
+  "settled_at": "2026-10-27T18:00-05:00",
+  "players": [
+   {
+    "name": "Deshaun Watson",
+    "pos": "QB",
+    "slot": "QB",
+    "mist": {
+     "actual": 18.2,
+     "where": "in90",
+     "in50": false,
+     "in90": true,
+     "error": 5.7,
+     "width50": 7.5,
+     "width90": 19
+    },
+    "baseline": {
+     "actual": 18.2,
+     "where": "in90",
+     "in50": false,
+     "in90": true,
+     "error": 5.6,
+     "width50": 8.0,
+     "width90": 19.5
+    }
+   },
+   {
+    "name": "Kenneth Walker III",
+    "pos": "RB",
+    "slot": "RB",
+    "mist": {
+     "actual": 9.7,
+     "where": "in90",
+     "in50": false,
+     "in90": true,
+     "error": -8.3,
+     "width50": 11.5,
+     "width90": 29.5
+    },
+    "baseline": {
+     "actual": 9.7,
+     "where": "in90",
+     "in50": false,
+     "in90": true,
+     "error": -7.7,
+     "width50": 12.2,
+     "width90": 30.5
+    }
+   },
+   {
+    "name": "David Montgomery",
+    "pos": "RB",
+    "slot": "RB",
+    "mist": {
+     "actual": 0.0,
+     "where": "in90",
+     "in50": false,
+     "in90": true,
+     "error": -7.0,
+     "width50": 10.5,
+     "width90": 20
+    },
+    "baseline": {
+     "actual": 0.0,
+     "where": "below",
+     "in50": false,
+     "in90": false,
+     "error": -7.5,
+     "width50": 8.2,
+     "width90": 19.1
+    }
+   },
+   {
+    "name": "Christian Watson",
+    "pos": "WR",
+    "slot": "WR",
+    "mist": {
+     "actual": 10.7,
+     "where": "in50",
+     "in50": true,
+     "in90": true,
+     "error": -4.3,
+     "width50": 13.0,
+     "width90": 31
+    },
+    "baseline": {
+     "actual": 10.7,
+     "where": "in50",
+     "in50": true,
+     "in90": true,
+     "error": -4.5,
+     "width50": 12.0,
+     "width90": 31.8
+    }
+   },
+   {
+    "name": "Devaughn Vele",
+    "pos": "WR",
+    "slot": "WR",
+    "mist": {
+     "actual": 16.4,
+     "where": "in90",
+     "in50": false,
+     "in90": true,
+     "error": 7.9,
+     "width50": 8,
+     "width90": 19.5
+    },
+    "baseline": {
+     "actual": 16.4,
+     "where": "in90",
+     "in50": false,
+     "in90": true,
+     "error": 8.1,
+     "width50": 9.8,
+     "width90": 23.4
+    }
+   },
+   {
+    "name": "Trey McBride",
+    "pos": "TE",
+    "slot": "TE",
+    "mist": {
+     "actual": 27.1,
+     "where": "in90",
+     "in50": false,
+     "in90": true,
+     "error": 13.1,
+     "width50": 10.0,
+     "width90": 24
+    },
+    "baseline": {
+     "actual": 27.1,
+     "where": "in90",
+     "in50": false,
+     "in90": true,
+     "error": 13.5,
+     "width50": 11.0,
+     "width90": 24.4
+    }
+   },
+   {
+    "name": "Ja'Marr Chase",
+    "pos": "WR",
+    "slot": "FLEX",
+    "mist": {
+     "actual": 17.2,
+     "where": "in50",
+     "in50": true,
+     "in90": true,
+     "error": -0.8,
+     "width50": 14,
+     "width90": 34
+    },
+    "baseline": {
+     "actual": 17.2,
+     "where": "in50",
+     "in50": true,
+     "in90": true,
+     "error": -0.6,
+     "width50": 14.2,
+     "width90": 35.6
+    }
+   },
+   {
+    "name": "Rams D/ST",
+    "unsettled": "not on the roster at week end"
+   },
+   {
+    "name": "Blake Grupe",
+    "unsettled": "not on the roster at week end"
+   },
+   {
+    "name": "Jayden Daniels",
+    "unsettled": "not on the roster at week end"
+   },
+   {
+    "name": "Rhamondre Stevenson",
+    "pos": "RB",
+    "slot": "BE",
+    "mist": {
+     "actual": 22.5,
+     "where": "in90",
+     "in50": false,
+     "in90": true,
+     "error": 11.5,
+     "width50": 10,
+     "width90": 24
+    },
+    "baseline": {
+     "actual": 22.5,
+     "where": "in90",
+     "in50": false,
+     "in90": true,
+     "error": 12.7,
+     "width50": 10.6,
+     "width90": 25.3
+    }
+   },
+   {
+    "name": "RJ Harvey",
+    "pos": "RB",
+    "slot": "BE",
+    "mist": {
+     "actual": 14.0,
+     "where": "in50",
+     "in50": true,
+     "in90": true,
+     "error": 5.0,
+     "width50": 9.5,
+     "width90": 23.5
+    },
+    "baseline": {
+     "actual": 14.0,
+     "where": "in50",
+     "in50": true,
+     "in90": true,
+     "error": 4.8,
+     "width50": 9.9,
+     "width90": 25.0
+    }
+   },
+   {
+    "name": "Josh Downs",
+    "pos": "WR",
+    "slot": "BE",
+    "mist": {
+     "actual": 3.8,
+     "where": "in50",
+     "in50": true,
+     "in90": true,
+     "error": -3.7,
+     "width50": 8.5,
+     "width90": 19.0
+    },
+    "baseline": {
+     "actual": 3.8,
+     "where": "in90",
+     "in50": false,
+     "in90": true,
+     "error": -3.5,
+     "width50": 8.4,
+     "width90": 19.4
+    }
+   },
+   {
+    "name": "Malik Washington",
+    "pos": "WR",
+    "slot": "BE",
+    "mist": {
+     "actual": 6.5,
+     "where": "in50",
+     "in50": true,
+     "in90": true,
+     "error": -2.5,
+     "width50": 9.0,
+     "width90": 21
+    },
+    "baseline": {
+     "actual": 6.5,
+     "where": "in50",
+     "in50": true,
+     "in90": true,
+     "error": -1.8,
+     "width50": 9.6,
+     "width90": 23.8
+    }
+   },
+   {
+    "name": "Ollie Gordon II",
+    "pos": "RB",
+    "slot": "BE",
+    "mist": {
+     "actual": 17.3,
+     "where": "in90",
+     "in50": false,
+     "in90": true,
+     "error": 6.8,
+     "width50": 10.5,
+     "width90": 24.5
+    },
+    "baseline": {
+     "actual": 17.3,
+     "where": "in90",
+     "in50": false,
+     "in90": true,
+     "error": 7.3,
+     "width50": 10.6,
+     "width90": 25.7
+    }
+   },
+   {
+    "name": "49ers D/ST",
+    "unsettled": "not on the roster at week end"
+   },
+   {
+    "name": "Jordyn Tyson",
+    "pos": "WR",
+    "slot": "IR",
+    "mist": {
+     "actual": 0.0,
+     "where": "in50",
+     "in50": true,
+     "in90": true,
+     "error": 0.0,
+     "width50": 0,
+     "width90": 1
+    },
+    "baseline": {
+     "actual": 0.0,
+     "where": "in90",
+     "in50": false,
+     "in90": true,
+     "error": -1.6,
+     "width50": 3.1,
+     "width90": 8.4
+    }
+   }
+  ],
+  "team_total": {
+   "mist": {
+    "actual": 128.2,
+    "where": "in90",
+    "in50": false,
+    "in90": true,
+    "error": 18.2,
+    "width50": 27,
+    "width90": 65
+   },
+   "baseline": {
+    "actual": 128.2,
+    "where": "in90",
+    "in50": false,
+    "in90": true,
+    "error": 22.5,
+    "width50": 29.9,
+    "width90": 74.1
+   }
+  },
+  "opp_total": {
+   "mist": {
+    "actual": 120.7,
+    "where": "in90",
+    "in50": false,
+    "in90": true,
+    "error": 16.7,
+    "width50": 27,
+    "width90": 65
+   },
+   "baseline": {
+    "actual": 120.7,
+    "where": "in90",
+    "in50": false,
+    "in90": true,
+    "error": 17.7,
+    "width50": 29.6,
+    "width90": 73.1
+   }
+  },
+  "result": {
+   "won": true,
+   "us": 128.22,
+   "them": 120.68,
+   "mist_win_prob": 0.57,
+   "baseline_win_prob": 0.531,
+   "mist_brier": 0.1849,
+   "baseline_brier": 0.22
+  },
+  "standing": {
+   "rank": 1,
+   "mist": {
+    "actual": 1,
+    "where": "in50",
+    "in50": true,
+    "in90": true,
+    "error": null,
+    "width50": 1,
+    "width90": 2
+   },
+   "baseline": {
+    "actual": 1,
+    "where": "in50",
+    "in50": true,
+    "in90": true,
+    "error": null,
+    "width50": 1,
+    "width90": 2
+   },
+   "mist_p_first": 0.41,
+   "baseline_p_first": 0.377,
+   "mist_p_top2": 0.84,
+   "baseline_p_top2": 0.861,
+   "first_brier_mist": 0.3481,
+   "first_brier_baseline": 0.3881
+  },
+  "standings_after": [
+   {
+    "team_id": 12,
+    "team": "Chaos Legion",
+    "w": 6,
+    "l": 1,
+    "pf": 873.1
+   },
+   {
+    "team_id": 5,
+    "team": "End-Zone Dancers",
+    "w": 6,
+    "l": 1,
+    "pf": 836.4
+   },
+   {
+    "team_id": 9,
+    "team": "Waiting for Gordon",
+    "w": 5,
+    "l": 1,
+    "pf": 636.5
+   },
+   {
+    "team_id": 7,
+    "team": "Namaslay",
+    "w": 4,
+    "l": 2,
+    "pf": 737.7
+   },
+   {
+    "team_id": 1,
+    "team": "The Oprah Winfreys",
+    "w": 4,
+    "l": 2,
+    "pf": 635.7
+   },
+   {
+    "team_id": 4,
+    "team": "Njigba Please!",
+    "w": 3,
+    "l": 3,
+    "pf": 786.1
+   },
+   {
+    "team_id": 11,
+    "team": "The Mighty Marmots",
+    "w": 3,
+    "l": 3,
+    "pf": 646.5
+   },
+   {
+    "team_id": 13,
+    "team": "Goedel, Escher, Butkus",
+    "w": 3,
+    "l": 4,
+    "pf": 816.4
+   },
+   {
+    "team_id": 6,
+    "team": "KC Breathmints",
+    "w": 3,
+    "l": 4,
+    "pf": 762.2
+   },
+   {
+    "team_id": 3,
+    "team": "The Chefs",
+    "w": 2,
+    "l": 4,
+    "pf": 644.3
+   },
+   {
+    "team_id": 10,
+    "team": "Cutie Mark Crusaders",
+    "w": 2,
+    "l": 5,
+    "pf": 801.1
+   },
+   {
+    "team_id": 2,
+    "team": "The Winners",
+    "w": 1,
+    "l": 6,
+    "pf": 785.0
+   },
+   {
+    "team_id": 14,
+    "team": "Ayahuasca Rodgers",
+    "w": 0,
+    "l": 6,
+    "pf": 655.9
+   }
+  ],
+  "source_error": {
+   "espn": {
+    "mae": 6.32,
+    "n": 13
+   },
+   "sleeper": {
+    "mae": 6.23,
+    "n": 12
+   },
+   "cbs": {
+    "mae": 5.97,
+    "n": 13
+   },
+   "market": {
+    "mae": 5.92,
+    "n": 6
+   },
+   "consensus": {
+    "mae": 6.01,
+    "n": 13
+   },
+   "mist": {
+    "mae": 5.89,
+    "n": 13
+   },
+   "fantasypros": {
+    "mae": 6.98,
+    "n": 4
+   }
+  },
+  "coverage": {
+   "mist": {
+    "n": 15,
+    "cov50": 0.4,
+    "cov90": 1.0,
+    "mae": 7.43
+   },
+   "baseline": {
+    "n": 15,
+    "cov50": 0.267,
+    "cov90": 0.933,
+    "mae": 7.96
+   }
+  },
+  "market": {
+   "n": 11,
+   "mist": {
+    "n": 11,
+    "corr_lean_vs_move": 0.167,
+    "sign_agree_on_moves": 0.667,
+    "moves": 6,
+    "mae": 6.327,
+    "mae_market_close_same_rows": 6.47,
+    "mae_market_then_same_rows": 6.431
+   },
+   "consensus": {
+    "n": 11,
+    "corr_lean_vs_move": 0.269,
+    "sign_agree_on_moves": 0.667,
+    "moves": 6,
+    "mae": 6.027,
+    "mae_market_close_same_rows": 6.47,
+    "mae_market_then_same_rows": 6.431
+   },
+   "espn": {
+    "n": 11,
+    "corr_lean_vs_move": 0.232,
+    "sign_agree_on_moves": 0.5,
+    "moves": 6,
+    "mae": 6.264,
+    "mae_market_close_same_rows": 6.47,
+    "mae_market_then_same_rows": 6.431
+   },
+   "rows": [
+    {
+     "week": 7,
+     "name": "Deshaun Watson",
+     "pos": "QB",
+     "then_src": "forecast-time",
+     "market_then": 14.63,
+     "market_close": 16.12,
+     "mist": 12.5,
+     "consensus": 14.4,
+     "espn": 14.2,
+     "actual": 18.2
+    },
+    {
+     "week": 7,
+     "name": "Kenneth Walker III",
+     "pos": "RB",
+     "then_src": "forecast-time",
+     "market_then": 19.11,
+     "market_close": 18.6,
+     "mist": 18,
+     "consensus": 18.5,
+     "espn": 19.0,
+     "actual": 9.7
+    },
+    {
+     "week": 7,
+     "name": "Christian Watson",
+     "pos": "WR",
+     "then_src": "forecast-time",
+     "market_then": 15.15,
+     "market_close": 15.42,
+     "mist": 15,
+     "consensus": 16.5,
+     "espn": 16.7,
+     "actual": 10.7
+    },
+    {
+     "week": 7,
+     "name": "Devaughn Vele",
+     "pos": "WR",
+     "then_src": "forecast-time",
+     "market_then": 9.77,
+     "market_close": 10.08,
+     "mist": 8.5,
+     "consensus": 9.9,
+     "espn": 10.3,
+     "actual": 16.4
+    },
+    {
+     "week": 7,
+     "name": "Trey McBride",
+     "pos": "TE",
+     "then_src": "open",
+     "market_then": 15.33,
+     "market_close": 14.75,
+     "mist": 14,
+     "consensus": 15.3,
+     "espn": 15.9,
+     "actual": 27.1
+    },
+    {
+     "week": 7,
+     "name": "Ja'Marr Chase",
+     "pos": "WR",
+     "then_src": "forecast-time",
+     "market_then": 17.81,
+     "market_close": 19.62,
+     "mist": 18,
+     "consensus": 19.3,
+     "espn": 22.1,
+     "actual": 17.2
+    },
+    {
+     "week": 7,
+     "name": "Rhamondre Stevenson",
+     "pos": "RB",
+     "then_src": "forecast-time",
+     "market_then": 11.66,
+     "market_close": 12.0,
+     "mist": 11,
+     "consensus": 12.1,
+     "espn": 11.5,
+     "actual": 22.5
+    },
+    {
+     "week": 7,
+     "name": "RJ Harvey",
+     "pos": "RB",
+     "then_src": "open",
+     "market_then": 9.67,
+     "market_close": 9.71,
+     "mist": 9,
+     "consensus": 10.8,
+     "espn": 11.4,
+     "actual": 14.0
+    },
+    {
+     "week": 7,
+     "name": "Josh Downs",
+     "pos": "WR",
+     "then_src": "open",
+     "market_then": 9.91,
+     "market_close": 12.01,
+     "mist": 7.5,
+     "consensus": 8.8,
+     "espn": 8.4,
+     "actual": 3.8
+    },
+    {
+     "week": 7,
+     "name": "Malik Washington",
+     "pos": "WR",
+     "then_src": "open",
+     "market_then": 10.98,
+     "market_close": 11.08,
+     "mist": 9,
+     "consensus": 10.0,
+     "espn": 10.2,
+     "actual": 6.5
+    },
+    {
+     "week": 7,
+     "name": "Ollie Gordon II",
+     "pos": "RB",
+     "then_src": "open",
+     "market_then": 8.76,
+     "market_close": 10.5,
+     "mist": 10.5,
+     "consensus": 11.9,
+     "espn": 11.8,
+     "actual": 17.3
+    }
+   ]
+  }
+ },
+ "forecast_note": "Roster as it stands at 6:15 PM Tuesday. Two waiver claims process Wednesday about 2:00 AM at priority 13 of 13 and are not in these lines: Wil Lutz (K, DEN) for Blake Grupe (IR), and the Browns D/ST for the 49ers D/ST on the stream rule (the Raiders are implied 22.0 against the Rams, the Titans 18.0 against the Browns, a gap of 4.0). If the Browns land, Wednesday's lineup run starts them over the Rams. The team total assumes a kicker in the K slot by Sunday (Lutz, or lineup-watch's free-agent fill). David Montgomery (questionable, groin) is at RB on p_play 0.70 and the Thursday 5:30 PM run re-reads him against Stevenson before the Thursday 7:15 PM lock. No trade is pending and none is planned (Trades, 2026-10-11). Njigba Please! have an empty TE slot tonight, priced at a 0.5 fix rate.",
+ "review_note": "**Coverage.** 6 of 15 lines inside the 50 (0.40) and 15 of 15 inside the 90 (1.00), MAE 7.43; the baseline 0.27, 0.93 and 7.96. Win probability 0.57 for a 128.2 to 120.7 win (Brier 0.185, baseline 0.22); P(first) 0.41 for a #1 finish (Brier 0.348, baseline 0.388). Season to date (96 lines): 50% coverage 0.51, 90% 0.94, MAE 6.97 against the baseline's 0.43, 0.86 and 7.34. Alarm 1 (0.50 +/- 0.13 at 96 lines, so 0.37 to 0.63): not tripped. **Alarm 2 tripped, for the first time:** the q75-q95 landing slice is at 37% (31 of 84 lines) against 20% for a calibrated forecaster, up from 34% last week; the six slices read 4%, 16%, 25%, 17%, 37%, 2%. Weighted interval score on the same 84 lines: MIST 3.06, baseline 3.20 (-0.14, standard error 0.09); win log score MIST 0.571, baseline 0.632 over six weeks. Source MAE, best first: MIST 5.17 (n 84), consensus 5.25, ESPN 5.27, market 5.92 (n 6), CBS 6.07, Sleeper 6.10, FantasyPros 6.63 (n 21). Closing line value on 67 lines: MIST's leans correlate 0.168 with the market's later move and agree in sign on 16 of 34 moves (0.47), against 0.53 for the consensus and 0.50 for ESPN; MIST's MAE against the market's later number is 5.96, the consensus 5.75, ESPN 5.69, the closing market 5.69. The hand moves still do not pay, so the probation rule stands. FantasyPros judge (`fpranks score`, the first live week): MIST 1050.2 against the consensus 1031.3 on their method, +18.9 (QB +4.0, RB -0.6, WR +9.1, TE +6.5), so the consensus ranked week 7 better than MIST did; running mean +18.9 over one week.\n\n**Misses, judged.** (1) The alarm. Every line that left the 50 left it upward: Watson 18.2, Vele 16.4, McBride 27.1, Stevenson 22.5 and Gordon 17.3 landed between the top of the 50 and the top of the 90 (1.5x to 2.1x their medians), and Harvey 14.0 sat on the 50's top line. Nothing landed under the 50. Over weeks 2-7 the shape is the same: 56% of results above the median, 37% in the q75-q95 slice, 17% in q50-q75. The medians are not the problem (MIST has the lowest MAE of any source, and the median is the number that MAE rewards), so the reading is that the top of the 50% band sits too close to the median: the tier q75 ratio from the residual library is too small for the players we roster, while the q95 is about right (2% above it, 5% expected). No band changes by hand (a hand widening is a hand move, and those are on probation). Test (pending, before the week 9 forecast on 11-03, from an interactive session because the unattended guard blocks code tonight): rebuild the q75 and q95 from the library's ratio to the consensus center instead of the tier-median-scaled center, replay weeks 2-7, and keep the version whose q75-q95 slice lands nearer 20% without a worse interval score. Prediction: the replayed slice falls to 25% or under; if it does not, the library's upper quantiles need 2026-only weights. (2) David Montgomery 0 against 1.5 to 12 (inside the 90, at its floor): priced on Tuesday at the generic questionable rate 0.70 with no practice line; he did not practice all week and was ruled out Friday. The measured DNP rate is 0.45, so 0.70 was the right number for Tuesday's information and the mixture's floor held him. Variance inside a designed mixture, no change. (3) Kenneth Walker III 9.7 against 12.5 to 24 (inside the 90): an underdog script at Seattle; the elite-tier floor (0.34x) held. Variance, no change. (4) The lineup calls, judged as process: the Wednesday swap (Stevenson for Gordon, `d_net` +2.72) paid 22.5 against 17.3, and the Saturday swap (Downs for Vele, +1.12) cost 3.8 against 16.4; both were applied at the rule and the net is noise. Over seven closed weeks our lineups score 1.9 a week under ESPN's projected best (`league-scan` VS-PROJ; +0.0 through week 5), in line with the thesis that close start/sit calls barely persist. The opponent's total (120.7 against 91 to 118, inside the 90) and the standing (#1, inside the 50) landed."
 }

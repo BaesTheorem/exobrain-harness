@@ -9,7 +9,7 @@
    "basis": "ESPN+Sleeper projection vs ECR + CBS/FFT",
    "status": "settling",
    "a_pts": 0.0,
-   "b_pts": 46.4
+   "b_pts": 53.1
   },
   {
    "id": 2,
@@ -19,8 +19,8 @@
    "claim": "board took Barkley at pk10 over Lamb; consensus has Barkley RB9 (259.5) vs our RB4 (294.4)",
    "basis": "the Barkley-at-the-wheel bet",
    "status": "settling",
-   "a_pts": 23.0,
-   "b_pts": 131.1
+   "a_pts": 38.1,
+   "b_pts": 155.5
   },
   {
    "id": 3,
@@ -30,7 +30,7 @@
    "claim": "board took Kyren at pk36 over Smith (ECR gap 20)",
    "basis": "Ringer #33 vs consensus 42",
    "status": "settling",
-   "a_pts": 119.0,
+   "a_pts": 137.1,
    "b_pts": 69.0
   },
   {
@@ -41,8 +41,8 @@
    "claim": "board took Downs at pk114 over Godwin (ECR gap 15)",
    "basis": "same WR-tail optimism cluster",
    "status": "settling",
-   "a_pts": 53.6,
-   "b_pts": 46.4
+   "a_pts": 57.4,
+   "b_pts": 53.1
   },
   {
    "id": 5,
@@ -53,7 +53,7 @@
    "basis": "RB depth vs consensus WR",
    "status": "settling",
    "a_pts": 9.3,
-   "b_pts": 118.8
+   "b_pts": 129.5
   },
   {
    "id": 6,
@@ -64,7 +64,7 @@
    "basis": "board tail vs consensus tail (intra-board sanity pair)",
    "status": "settling",
    "a_pts": 0.0,
-   "b_pts": 30.9
+   "b_pts": 34.4
   },
   {
    "id": 7,
@@ -75,7 +75,7 @@
    "basis": "pre-draft sign-off",
    "status": "settling",
    "a_pts": 38.0,
-   "b_pts": 73.5
+   "b_pts": 76.1
   },
   {
    "id": 8,
@@ -85,8 +85,8 @@
    "claim": "signed divergence: 11 TDs on 5.5 targets per game is the textbook regression profile (TD-to-next-TD R2 = 0.079). Our fade agrees with our own SELL flag; consensus TE12 is buying last season touchdowns.",
    "basis": "pre-draft sign-off",
    "status": "settling",
-   "a_pts": 47.0,
-   "b_pts": 65.8
+   "a_pts": 56.8,
+   "b_pts": 67.5
   },
   {
    "id": 9,
