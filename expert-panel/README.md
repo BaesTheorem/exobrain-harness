@@ -13,6 +13,7 @@ Each panelist is a different headless `claude -p` process. A panelist loads none
 | `board.py` | Board storage: an append-only JSONL file with a lock. |
 | `system-prompt.md` | The system prompt template for all panelists. |
 | `example/` | Six panelists (four analysts, two advisors), a chair, eight rounds, and a brief template. |
+| `example-writers-room/` | A writers' room template: two writers, an expert chair, an independent reader, and a revision loop. |
 | `bin/expert-panel` | Wrapper for `panel.py`. |
 | `runs/` | One directory for each run. Gitignored, because a run contains the answers of the liaison about a person. |
 
@@ -40,6 +41,34 @@ A round can be gated. In a gated round, a panelist sees only the liaison Q&A and
 - `--tools "WebSearch,WebFetch"` with `--permission-mode dontAsk` and `--permission-prompts none`. A panelist has no shell and no file tools.
 - The environment of a panelist has no `CLAUDE*` or `MIST_*` variables, other than `MIST_UNATTENDED=1`.
 - `check` tests the sandbox with one model call. It records the tool list and the MCP servers, and it asks the session if its context mentions this machine.
+
+## Writers' room: a loop until all voters sign
+
+A round in `panel.json` can be a loop. A loop repeats its steps in cycles. One step has `"verdict": true`. In that step, each member posts a critique and votes with `submit_verdict`. The loop stops when the latest vote of each voter in that step is "satisfied" and names the latest draft, at cycle `min` or after it. It also stops after the vote of cycle `max`. The tally comes from the verdict posts on the board, thus a resumed run calculates it again and continues.
+
+```json
+{"id": "C", "loop": {"min": 2, "max": 8}, "publish_kind": "final",
+ "steps": [{"id": "review", "who": ["expert", "pen-a", "pen-b"], "verdict": true,
+            "prompt": "Cycle $cycle of at most $max. ..."},
+           {"id": "revise-a", "who": ["pen-a"], "prompt": "..."}]}
+```
+
+The step ids become round ids such as `C3-review`. A step prompt can use `$cycle`, `$min` and `$max`. When the loop stops, the moderator posts the chosen draft word for word, as a post of kind `publish_kind`. The rounds after the loop read that post.
+
+More keys for a room:
+
+| Key | Where | Purpose |
+|---|---|---|
+| `system_prompt_file` | run | A different system prompt template. `example-writers-room/system-prompt.md` is a template for craft work. |
+| `sources_file` | run | Source texts, added at the end of each system prompt. `render` does not copy them. |
+| `tools` | panelist | The built-in tools. The default is WebSearch and WebFetch. `[]` gives no built-in tool. |
+| `board_tools` | panelist or run | The board tools, for example `submit_verdict` and `scan_text`. |
+| `post_kinds` | panelist or run | The post kinds that the panelist can use. |
+| `draft_hook` | run | A checker command. It reads a text on stdin and writes a report. The moderator posts the report after each draft, and `scan_text` runs the checker on a text that the panelist supplies. |
+| `visible_kinds` | round | The panelist sees only its own posts and posts of these kinds. |
+| `final_file`, `render_kinds` | run | `render` writes the chosen draft, and the last post of each kind, to these files. |
+
+A review step does not accept drafts. When the session of a voter ends without a vote, the voter gets one more session. `summary` writes the outcome in one line, for a notification. `check --agent HANDLE` examines one panelist: do the check for each panelist.
 
 ## Resume and failure
 

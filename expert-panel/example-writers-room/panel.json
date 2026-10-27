@@ -1,0 +1,227 @@
+{
+  "title": "Writers' room: [the work]",
+  "model": "claude-opus-5-5[1m]",
+  "effort": "high",
+  "check_model": "claude-haiku-5-5",
+  "brief_file": "brief.md",
+  "system_prompt_file": "system-prompt.md",
+  "sources_file": "sources.md",
+  "draft_kind": "draft",
+  "draft_hook": [
+    "/absolute/path/to/a/checker",
+    "-"
+  ],
+  "draft_hook_label": "Checker report",
+  "final_file": "Final Text.md",
+  "render_kinds": {
+    "Plan.md": "plan",
+    "Program Note.md": "program-note",
+    "Independent Review.md": "report"
+  },
+  "panelists": [
+    {
+      "handle": "pen-a",
+      "name": "Writer for [Character A]",
+      "group": "pen",
+      "summary": "Writes the voice of [Character A]. Full vote on the whole text.",
+      "tools": [],
+      "board_tools": [
+        "read_board",
+        "post",
+        "submit_verdict",
+        "scan_text",
+        "notebook_read",
+        "notebook_write"
+      ],
+      "post_kinds": [
+        "proposal",
+        "draft",
+        "critique",
+        "note"
+      ],
+      "persona": "[The writer's discipline, the craft habits that define a master of it, and the character this writer voices. Tell the writer to win every exchange the character can win inside the sources.]"
+    },
+    {
+      "handle": "pen-b",
+      "name": "Writer for [Character B]",
+      "group": "pen",
+      "summary": "Writes the voice of [Character B]. Full vote on the whole text.",
+      "tools": [],
+      "board_tools": [
+        "read_board",
+        "post",
+        "submit_verdict",
+        "scan_text",
+        "notebook_read",
+        "notebook_write"
+      ],
+      "post_kinds": [
+        "proposal",
+        "draft",
+        "critique",
+        "note"
+      ],
+      "persona": "[The second writer: a different discipline from the first, so the two voices differ in craft as well as in character.]"
+    },
+    {
+      "handle": "reader",
+      "name": "Independent Reader",
+      "group": "reader",
+      "summary": "Reviews the finished text against the sources for the commissioner. Takes no part in the room.",
+      "tools": [
+        "WebSearch",
+        "WebFetch"
+      ],
+      "board_tools": [
+        "read_board",
+        "post",
+        "notebook_read",
+        "notebook_write"
+      ],
+      "post_kinds": [
+        "report",
+        "note"
+      ],
+      "persona": "[An expert in the field who did not take part, who sees only the finished text and the sources, and who keeps errors apart from opinions.]"
+    }
+  ],
+  "chair": {
+    "handle": "expert",
+    "name": "Domain Expert and Dramaturg",
+    "group": "chair",
+    "summary": "Keeps the work true to the sources. Writes the dossier, the plan and the program note, and chairs the room. Full vote.",
+    "tools": [
+      "WebSearch",
+      "WebFetch"
+    ],
+    "board_tools": [
+      "read_board",
+      "post",
+      "submit_verdict",
+      "scan_text",
+      "notebook_read",
+      "notebook_write"
+    ],
+    "post_kinds": [
+      "dossier",
+      "plan",
+      "critique",
+      "note",
+      "program-note"
+    ],
+    "persona": "[The expert's knowledge of the sources and the form, and the chair's duty: keep disputes short, decide structure with a one-sentence reason.]"
+  },
+  "rounds": [
+    {
+      "id": "R0",
+      "label": "Dossier",
+      "who": [
+        "expert"
+      ],
+      "timeout_min": 50,
+      "prompt": "1. Call read_board and notebook_read. The board is empty: this is the first round.\n2. Read the source texts in your instructions closely. Check any fact you are not sure of with WebSearch and WebFetch, and prefer primary texts.\n3. Post a dossier for the room, kind \"dossier\", under 1,800 words, with these sections:\n   - The beats of the contest in order: each move in the source account (both versions in the sources), with the line or lines quoted and what the move does.\n   - The two singers at this moment: what each is, wants, knows, suspects and fears; what each knows of the other; what is at stake.\n   - Songs of power in this world: what such a song is and can do, and its limits, from the sources.\n   - Canon limits: what the work must not contradict or invent.\n   - The source tradition's own practice that matters here, with short quoted examples.\n   - The usual failures of pastiche of this tradition, and how this work avoids each one.\n   - Open questions the room must decide.\n4. Write your sources, doubts and leads to your notebook."
+    },
+    {
+      "id": "R1",
+      "label": "Form proposals",
+      "who": [
+        "pen-a",
+        "pen-b"
+      ],
+      "timeout_min": 50,
+      "visible_kinds": [
+        "dossier"
+      ],
+      "prompt": "This round is gated: you see the dossier and your own posts only, so the two proposals are independent.\n\n1. Read the dossier (read_board) and your notebook.\n2. Post one proposal for the whole work, kind \"proposal\", under 900 words:\n   - Structure: the sections in the order sung, who sings each, and the approximate length of each in lines.\n   - Form: meter, line length and rhyme for each voice, and why.\n   - The exchange: how the voices alternate, where they overlap, and how each answer takes up the attack it answers.\n   - Motifs: what returns, and how it turns.\n   - The arc: how the contest swings, how long [Character B] holds, how [Character A] wins, and the last lines.\n   - Voices: the voice type, register and musical character of each singer.\n   - One sample stanza in your own singer's voice, finished to the standard you would sign. Check it with scan_text.\n3. Write your reasoning and your rejected ideas to your notebook."
+    },
+    {
+      "id": "R1C",
+      "label": "The plan",
+      "who": [
+        "expert"
+      ],
+      "timeout_min": 40,
+      "prompt": "1. Read the whole board and your notebook.\n2. Post the plan, kind \"plan\", under 1,500 words. It is the room's contract for the first draft:\n   - The title (provisional), the approximate length, and the form rules for each voice.\n   - A numbered list of sections in the order sung (§1, §2 and so on). For each: the singer; the owner, that is, the pen who writes it (pen-a or pen-b; in a section where both sing, each pen writes its own singer's lines); its beat, the move it makes and what it wants; its form (meter, rhyme, length); and its motifs.\n   - Where the two proposals conflict, decide, and give the reason in one sentence.\n   - Stage directions: short, in italics, only where the staging matters. Say whether there is any narrator or chorus. If there is, name the pen who owns those lines.\n   - Draft format: the title as a level-1 heading; each section as a level-2 heading with its number and singer, for example \"## §3 [CHARACTER B]\"; stage directions as whole lines in italics; sung lines as plain lines, one verse line per line, with a blank line between stanzas. In a section where both sing at once, start each line with [CHARACTER A]: or [CHARACTER B]:. No line numbers and no commentary inside the draft.\n3. Write your reasoning to your notebook."
+    },
+    {
+      "id": "R2A",
+      "label": "[Character A]'s first draft",
+      "who": [
+        "pen-a"
+      ],
+      "timeout_min": 60,
+      "prompt": "1. Read the dossier and the plan (read_board kind=\"dossier,plan\"), the two proposals, and your notebook.\n2. Write every [Character A] section of the plan in full. For each [Character B] section, put in one placeholder line with its number and beat only, for example: [§3 [CHARACTER B]: placeholder, the counter-attack].\n3. Check your stanzas with scan_text, and fix what you did not intend.\n4. Post the complete text, kind \"draft\", title \"Draft 0: [Character A]'s sections\". Draft format: the title as a level-1 heading; each section as a level-2 heading with its number and singer, for example \"## §3 [CHARACTER B]\"; stage directions as whole lines in italics; sung lines as plain lines, one verse line per line, with a blank line between stanzas. In a section where both sing at once, start each line with [CHARACTER A]: or [CHARACTER B]:. No line numbers and no commentary inside the draft.\n5. Post a short note to pen-b, kind \"note\", reply_to your draft: what each of your sections does, and what you leave open for [Character B] to answer.\n6. Write your notes to your notebook."
+    },
+    {
+      "id": "R2B",
+      "label": "[Character B]'s first draft",
+      "who": [
+        "pen-b"
+      ],
+      "timeout_min": 60,
+      "prompt": "1. Read the dossier and the plan (read_board kind=\"dossier,plan\"), the latest draft (read_board kind=\"draft\" last=1), pen-a's note, and your notebook.\n2. Write every [Character B] section in full, in place of the placeholders. Answer [Character A]'s actual words.\n3. Copy [Character A]'s lines exactly. If a [Character A] line must change for your answer to work, ask for the change in your note; do not make it yourself.\n4. Check your stanzas with scan_text, and fix what you did not intend.\n5. Post the complete text, kind \"draft\", title \"Draft 1\". Draft format: the title as a level-1 heading; each section as a level-2 heading with its number and singer, for example \"## §3 [CHARACTER B]\"; stage directions as whole lines in italics; sung lines as plain lines, one verse line per line, with a blank line between stanzas. In a section where both sing at once, start each line with [CHARACTER A]: or [CHARACTER B]:. No line numbers and no commentary inside the draft.\n6. Post a short note, kind \"note\", reply_to your draft: what each [Character B] section does, and any change you ask of [Character A]'s lines.\n7. Write your notes to your notebook."
+    },
+    {
+      "id": "C",
+      "label": "Cycle",
+      "loop": {
+        "min": 2,
+        "max": 8
+      },
+      "publish_kind": "final",
+      "steps": [
+        {
+          "id": "review",
+          "label": "critique and vote",
+          "who": [
+            "expert",
+            "pen-a",
+            "pen-b"
+          ],
+          "verdict": true,
+          "timeout_min": 40,
+          "prompt": "Cycle $cycle of at most $max.\n\n1. Read the plan (read_board kind=\"plan\"), the latest draft and its scansion report (read_board kind=\"draft,scan\" last=2), the critiques, notes and verdicts of the previous cycle (read_board kind=\"critique,note,verdict\" last=12), and your notebook. Read older posts when you need the history of a decision.\n2. Read the whole draft through at the pace of singing, from the first line to the last.\n3. Post one critique of the latest draft, kind \"critique\", reply_to the draft, under 700 words:\n   - The three weakest moments in the whole work, each with its section, a quote, the problem and a fix. Name them even if you are satisfied.\n   - Then anything else your own discipline sees, in either voice.\n4. Vote with submit_verdict. Satisfied means you would sign this text as finished work as it stands. If you are not satisfied, must_change lists the changes you need, each one possible in one revision pass.\n5. Write to your notebook what you asked for and what remains open.\n\nDo not post a draft in this round."
+        },
+        {
+          "id": "revise-a",
+          "label": "[Character A]'s revision",
+          "who": [
+            "pen-a"
+          ],
+          "timeout_min": 60,
+          "prompt": "Cycle $cycle.\n\n1. Read the plan, the latest draft and its scansion report (read_board kind=\"draft,scan\" last=2), this cycle's critiques and verdicts (read_board kind=\"critique,verdict\" last=6), and your notebook.\n2. Revise [Character A]'s lines, and the stage directions in [Character A]'s sections, to meet every must_change that touches them and every weak moment you agree with. You may refuse a requested change: give your reason in your note.\n3. Do not change [Character B]'s lines. If a change to them would help [Character A]'s attack, ask for it in your note.\n4. Check what you changed with scan_text.\n5. If you changed anything, post the complete revised text, kind \"draft\", title \"Draft: cycle $cycle, [Character A]'s revision\". Draft format: the title as a level-1 heading; each section as a level-2 heading with its number and singer, for example \"## §3 [CHARACTER B]\"; stage directions as whole lines in italics; sung lines as plain lines, one verse line per line, with a blank line between stanzas. In a section where both sing at once, start each line with [CHARACTER A]: or [CHARACTER B]:. No line numbers and no commentary inside the draft.\n6. Post a note, kind \"note\": what you changed, what you refused and why, and what you ask of pen-b.\n7. Write your notes to your notebook."
+        },
+        {
+          "id": "revise-b",
+          "label": "[Character B]'s revision",
+          "who": [
+            "pen-b"
+          ],
+          "timeout_min": 60,
+          "prompt": "Cycle $cycle.\n\n1. Read the plan, the latest draft and its scansion report (read_board kind=\"draft,scan\" last=2; the draft includes pen-a's revision from this cycle, if there is one), this cycle's critiques, verdicts and notes (read_board kind=\"critique,verdict,note\" last=8), and your notebook.\n2. Revise [Character B]'s lines, and the stage directions in [Character B]'s sections, to meet every must_change that touches them and every weak moment you agree with. Answer [Character A]'s lines as they now stand. You may refuse a requested change: give your reason in your note.\n3. Copy [Character A]'s lines exactly. If a change to them would help, ask for it in your note.\n4. Check what you changed with scan_text.\n5. If you changed anything, post the complete revised text, kind \"draft\", title \"Draft: cycle $cycle\". Draft format: the title as a level-1 heading; each section as a level-2 heading with its number and singer, for example \"## §3 [CHARACTER B]\"; stage directions as whole lines in italics; sung lines as plain lines, one verse line per line, with a blank line between stanzas. In a section where both sing at once, start each line with [CHARACTER A]: or [CHARACTER B]:. No line numbers and no commentary inside the draft.\n6. Post a note, kind \"note\": what you changed, what you refused and why, and what you ask of pen-a.\n7. Write your notes to your notebook."
+        }
+      ]
+    },
+    {
+      "id": "F",
+      "label": "Program note",
+      "who": [
+        "expert"
+      ],
+      "timeout_min": 30,
+      "prompt": "The cycles are over. The moderator has posted the text, kind \"final\"; its title says whether all three of you signed it.\n\n1. Read the final text (read_board kind=\"final\"), the plan, and your notebook.\n2. Post a program note, kind \"program-note\", under 600 words, for a reader or an audience: the title; the two voices (voice type and character); the shape of the contest, section by section, with the lines of the source account that each section enacts; and what a performer must know. Do not change the text."
+    },
+    {
+      "id": "J",
+      "label": "Independent review",
+      "who": [
+        "reader"
+      ],
+      "timeout_min": 45,
+      "visible_kinds": [
+        "final"
+      ],
+      "prompt": "You took no part in the room. You see only the finished text (kind \"final\") and your own posts.\n\n1. Read the final text (read_board) and the source texts in your instructions.\n2. Post your review, kind \"report\", under 1,200 words:\n   1. Fidelity: the beats of the source account in order, and for each, whether and where the work enacts it (cite the section).\n   2. Canon errors: statements in the text that contradict the sources, each with the line from the work and the source line it contradicts. Only errors you can show.\n   3. The voices: is [Character A] in character, is [Character B] in character, and is each voice distinct?\n   4. The contest: does [Character B]'s resistance read as as strong as the sources say it was, and does [Character A]'s victory read as earned? Where does the struggle sag?\n   5. Singability: lines a singer would stumble on, and why.\n   6. Verdict, in one paragraph: would you publish this beside the source account?\n   Label each point as an error (shown from the sources) or an opinion (a matter of taste).\n3. Write your notes to your notebook."
+    }
+  ]
+}
