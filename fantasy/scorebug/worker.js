@@ -104,6 +104,7 @@ function compute(snap, live) {
     hs: live.teams[v.me.team_id] ?? 0, as: live.teams[v.opp.team_id] ?? 0, p: views[v.id].win.p, mine: v.id === snap.mine }));
   const team_ids = Object.fromEntries(Object.entries(snap.teams).map(([id, t]) => [t.name, Number(id)]));
   return { ok: true, at: snap.at, source: snap.source, scoresAt: live.at, week: snap.week, live: isLive, frac, mine: snap.mine,
+           team_id: snap.team_id ?? null, team: snap.teams[snap.team_id]?.name ?? null,
            views, games, team_ids, season: snap.season_sim, lineup_changed: stale };
 }
 
@@ -116,7 +117,10 @@ function names(rows) {
 }
 
 function summary(st) {
-  const v = st.views[st.mine], me = v.me, op = v.opp;
+  const v = st.views[st.mine];
+  if (!v) return { week: st.week, meName: st.team || "", oppName: "Bye", meScore: 0, oppScore: 0, p: 0,
+                   line: "Bye week", live: false, final: true, updated: Math.floor(Date.now() / 1000) };
+  const me = v.me, op = v.opp;
   const rm = me.rows.filter(r => r.rem > 0), ro = op.rows.filter(r => r.rem > 0);
   const final = !rm.length && !ro.length;
   const live = [...me.rows, ...op.rows].some(r => r.state === "live");
@@ -164,6 +168,7 @@ const LA_MAX_S = 7.5 * 3600;   // iOS ends an activity after 8 hours of updates
 // on the history cadence, end it when nothing of ours is live or due today.
 async function liveActivity(env, st, snap) {
   if (!env.APNS_KEY) return null;
+  if (!st.views[st.mine]) return { bye: true };
   const la = (await env.SB.get("la", "json")) || {};
   const now = Math.floor(Date.now() / 1000);
   const rows = [...st.views[st.mine].me.rows, ...st.views[st.mine].opp.rows];
@@ -504,7 +509,7 @@ function standings(st, snap, recs) {
   const byId = Object.fromEntries((odds?.teams || []).map(t => [t.id, t]));
   const rows = recs.map(r => {
     const o = byId[r.id];
-    return { ...r, mine: r.id === st.views[st.mine].me.team_id, week_p: live[r.id] ?? null,
+    return { ...r, mine: r.id === (st.team_id ?? st.views[st.mine]?.me.team_id), week_p: live[r.id] ?? null,
              ...(o ? { bye: o.bye, playoffs: o.playoffs, title: o.title, seed1: o.seed1, base: o.base, clinch: o.clinch, out: o.out } : {}) };
   });
   const pct = r => (r.w + r.t / 2) / Math.max(r.w + r.l + r.t, 1);

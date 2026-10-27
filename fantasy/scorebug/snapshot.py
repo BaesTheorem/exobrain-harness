@@ -156,7 +156,9 @@ def build() -> dict:
                 r["jersey"] = nums.get(r["id"])
     teams = {t["id"]: {"name": (t.get("name") or "").strip(), "logo": t.get("logo") or ""} for t in data.get("teams", [])}
     return {"at": datetime.now().astimezone().isoformat(timespec="seconds"), "source": os.environ.get("SCOREBUG_SOURCE", "mac"),
-            "season": api.season, "week": week, "mine": next(v["id"] for v in views if mine in (v["me"]["team_id"], v["opp"]["team_id"])),
+            "season": api.season, "week": week, "team_id": mine,
+            # None on a bye week: a 13-team league leaves one team without a game.
+            "mine": next((v["id"] for v in views if mine in (v["me"]["team_id"], v["opp"]["team_id"])), None),
             "views": views, "teams": teams,
             "season_sim": json.loads(SEASON.read_text()) if SEASON.exists() else None,
             "season_table": season_table(week)}

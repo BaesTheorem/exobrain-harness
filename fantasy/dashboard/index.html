@@ -199,10 +199,10 @@ function chart(h,V){const W=860,H=220,L=150,R=16,T=12,B=24,s=$('wpsvg');
 function render(S){S=merge(S,L0);
  if(!S.ok){$('h1').textContent='Waiting for the first pull';$('err').textContent=S.error||'';return}
  $('err').textContent=S.error?('Last pull failed: '+S.error+'. Showing '+S.at+'.'):'';
- if(!S.views[SEL])SEL=S.mine;const V=S.views[SEL],w=V.win,me=V.me,op=V.opp,mar=w.mu_me-w.mu_opp,ours=S.views[S.mine].me.team,isMine=SEL==S.mine;
+ const bye=!S.views[S.mine];if(!S.views[SEL])SEL=bye?+Object.keys(S.views)[0]:S.mine;const V=S.views[SEL],w=V.win,me=V.me,op=V.opp,mar=w.mu_me-w.mu_opp,ours=bye?null:S.views[S.mine].me.team,isMine=!bye&&SEL==S.mine;
  const rm=me.rows.filter(r=>r.rem>0).sort((a,b)=>b.rem-a.rem),ro=op.rows.filter(r=>r.rem>0).sort((a,b)=>b.rem-a.rem);
  const gap=op.actual-me.actual;
- $('kick').textContent=`WEEK ${S.week} · ${S.live?'LIVE':'BETWEEN GAMES'}${isMine?'':' · OTHER GAME'}`;$('wk').textContent=S.week;
+ $('kick').textContent=`WEEK ${S.week} · ${S.live?'LIVE':'BETWEEN GAMES'}${bye?' · '+esc(S.team||'YOU').toUpperCase()+' ON BYE':isMine?'':' · OTHER GAME'}`;$('wk').textContent=S.week;
  $('pl').textContent=S.live?'WIN PROB · LIVE':'WIN PROB';
  let h;
  if(!rm.length&&!ro.length) h=`${me.team} ${me.actual>op.actual?'beat':'lost to'} ${op.team}, ${f2(me.actual)} to ${f2(op.actual)}`;
