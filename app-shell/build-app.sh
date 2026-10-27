@@ -42,6 +42,11 @@ mkdir -p "$MACOS" "$RES"
 
 # Interpreter copy: resolves symlinks so framework links stay absolute.
 cp -L "$PYBASE" "$MACOS/$SLUG-python"
+# Brew links the binary to a versioned Cellar path that a patch upgrade
+# deletes. Point it at the opt symlink, which survives upgrades.
+PYFW="/opt/homebrew/opt/python@3.12/Frameworks/Python.framework/Versions/3.12/Python"
+OLDFW=$(otool -L "$MACOS/$SLUG-python" | awk '/Python.framework/{print $1; exit}')
+[ -n "$OLDFW" ] && install_name_tool -change "$OLDFW" "$PYFW" "$MACOS/$SLUG-python" 2>/dev/null
 HERE="$(cd "$(dirname "$0")" && pwd)"
 cp "$HERE/shell.py" "$RES/shell.py"
 [ -n "$ICON" ] && cp "$ICON" "$RES/AppIcon.icns"
