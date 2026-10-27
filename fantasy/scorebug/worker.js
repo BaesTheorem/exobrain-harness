@@ -265,7 +265,9 @@ async function rawTopics(env, snap) {
 async function chatThreads(env, snap, fresh = false) {
   if (!fresh && chatMemo.val && Date.now() - chatMemo.at < LIVE_TTL_MS) return chatMemo.val;
   const [raw, T] = await Promise.all([rawTopics(env, snap), leagueTeams(env, snap)]);
-  const who = s => T.bySwid[s] || { name: s ? "?" : "ESPN", team_id: null };
+  // A member is a SWID in braces. ESPN's own posts (the weekly recap) carry
+  // the author "LM" or none, so they show as ESPN.
+  const who = s => T.bySwid[s] || { name: s && s.startsWith("{") ? "?" : "ESPN", team_id: null };
   const threads = [];
   for (const t of Array.isArray(raw) ? raw : []) {
     if (!CHAT_TYPES.has(t.type || "")) continue;

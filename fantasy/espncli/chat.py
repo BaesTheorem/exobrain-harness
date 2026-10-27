@@ -125,7 +125,7 @@ def fetch(api: Espn, include_activity: bool = False) -> list[dict[str, Any]]:
                 "date": m.get("date"),
                 "at": _stamp(m.get("date")),
                 "author": author,
-                "who": "you" if author == me else names.get(author, author or "ESPN"),
+                "who": "you" if author == me else names.get(author, author if author.startswith("{") else "ESPN"),
                 "mine": author == me,
                 "content": content,
             })
