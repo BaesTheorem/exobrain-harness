@@ -79,11 +79,12 @@ def say(msg):
     print(f"[{time.strftime('%H:%M:%S')}] {msg}", flush=True)
 
 
-def notify(msg, title="MIST", sound="Purr", link="console"):
+def notify(msg, title="MIST", sound="Purr", link="console", discord=True):
+    """Banner, plus a Discord DM unless discord=False (a clean eject needs no DM)."""
     if not os.path.exists(NOTIFY) or os.environ.get("MIST_EJECT_NO_NOTIFY"):
         return
     try:
-        subprocess.run([NOTIFY, msg, title, sound, link, "--discord"],
+        subprocess.run([NOTIFY, msg, title, sound, link] + (["--discord"] if discord else []),
                        timeout=45, check=False)  # --discord can take >15 s
     except Exception as exc:  # notification failure must never abort an eject
         say(f"notify failed: {exc}")
@@ -478,7 +479,8 @@ def free_and_eject(target, dry_run=False, do_eject=True, info=None):
         # Finder's own retry loop got there first once the holders let go.
         say(f"{mount} already unmounted by Finder")
         restore_jobs(restore)
-        notify(f"{name} ejected, safe to unplug.{stopped_note}", "MIST", "Purr", "console")
+        notify(f"{name} ejected, safe to unplug.{stopped_note}", "MIST", "Purr", "console",
+               discord=False)
         return True, f"ejected {name}"
 
     rc, out = run([DISKUTIL, "eject", whole], timeout=90)
@@ -487,7 +489,8 @@ def free_and_eject(target, dry_run=False, do_eject=True, info=None):
     restore_jobs(restore)
 
     if ok:
-        notify(f"{name} ejected, safe to unplug.{stopped_note}", "MIST", "Purr", "console")
+        notify(f"{name} ejected, safe to unplug.{stopped_note}", "MIST", "Purr", "console",
+               discord=False)
         return True, f"ejected {name}"
     notify(f"{name} still won't eject: {out.strip()[:120]}", "MIST", "Basso", "console")
     return False, out.strip()
