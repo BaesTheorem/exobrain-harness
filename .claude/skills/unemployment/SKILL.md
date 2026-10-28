@@ -50,9 +50,10 @@ thirty seconds of his time and it keeps the attestation his.
 | Rule | Detail |
 |---|---|
 | Weekly request | Filing the claim is **not** getting paid. A request must be filed **every week** or that week is forfeited, no rollover. |
-| 14-day window | The window closes 14 days after the Saturday the week ends. Miss it and the money is gone. |
+| 14-day window | The window closes 14 days after the Saturday the week ends. Good cause can extend it to 28 days (RSMo 288.040.1(5)), but 8 CSR 10-3.010(12) limits good cause to "circumstances which are beyond the reasonable control of the claimant", and only if the claimant "acts as soon as practical". A late week gets a deputy's denial, and the recourse is an appeal within 30 days. Forgetting is not good cause. |
+| Denied week | A denied week does not reduce the maximum benefit amount. That cap is a dollar total: 20 times the weekly amount under the 2011 text of RSMo 288.060. (The 13-week sliding scale on the default revisor.mo.gov page was voided in Pestka v. State, 2016. Read the Revisor's Note.) The denied money is lost only if the claim stops before the balance runs out. |
 | 3 work searches | At least **3 activities per week**, logged in UInteract *before* the request. Fewer = denial for that week. |
-| Waiting week | The first eligible week is unpaid, but the request **still must be filed** to bank the credit. |
+| Waiting week | The first eligible week is unpaid, but the request **still must be filed** to bank the credit. It is paid at the end, when the balance falls to one week's benefit (RSMo 288.040.1(4)). |
 | MoJobs | jobs.mo.gov registration is automatic on filing; visit at least monthly (the visit itself counts as an activity). |
 | Waiver | Enrolling in WIOA-approved training can **waive** the 3/week work-search requirement. Ties to the FEC-KC dislocated-worker intake. Worth chasing -- it kills the weekly chore and funds a cert. |
 
