@@ -84,6 +84,9 @@ def norm_num(s: str) -> str:
 
 def numbers(text: str) -> set[str]:
     out = set()
+    # a cover letter's date line ("October 28, 2026") is not a claim
+    text = re.sub(r"\b(?:jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)[a-z]*\.?\s+\d{1,2}(?:st|nd|rd|th)?\b",
+                  " ", text, flags=re.I)
     for m in NUM.finditer(text):
         n = norm_num(m.group(0))
         if n and not re.fullmatch(r"(19|20)\d\d", n):  # years are dates, not claims
