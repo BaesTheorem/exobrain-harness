@@ -255,7 +255,8 @@ Do NOT hand-build resume/cover-letter HTML per JD anymore. Use the reusable buil
 
 - **Is it open?** `python3 job-search/liveness.py --note "<path>"` before any artifact work. It asks the ATS API first and says `closed` only on a definite signal (404/410, Ashby id absent, Workday `canApply: false` or `403 S22`, a visible closed banner). `unknown` means load the apply form. `--sweep --write` closes dead candidate notes and never changes applied notes.
 - **freehire lane**: `python3 job-search/freehire.py "<a1>" "<a2>" --days 3 --json tmp/freehire-today.json`. The JSON holds each row's required JD lines, a first draft for the Fit scorecard.
-- **Run record**: wrap scripted lanes as `python3 job-search/runlog.py wrap <lane> -- <command>`; `runlog.py yield` shows rows, survivors and leads per lane and the tracker funnel by `source`.
+- **Run record**: wrap scripted lanes as `python3 job-search/runlog.py wrap <lane> -- <command>`; `runlog.py yield` shows rows, survivors and leads per lane and the tracker funnel by `source`. Write the full `python3 job-search/runlog.py wrap` on every line. Do not put it in a variable such as `W="python3 job-search/runlog.py wrap"` and call `$W lane -- ...`: the Bash tool runs zsh, zsh does not split `$W` into words, and every lane then fails with "command not found" (four scans in a row to 2026-10-28).
+- **Scratch scripts in an unattended scan** go in `/tmp/<dir>/`, never the harness `tmp/`. The guard hook blocks any `.py` or `.sh` write inside the harness repo, `tmp/` included.
 - **Fact check**: `resume-builder/build.py` now runs `factcheck.py` first. Pass `--jd <jd.txt> --role "<title>"`. A figure in neither `resume_data.json`, `data/facts.md` nor the JD stops the build; the CLAIMED list is JD acronyms the data never mentions, for review.
 
 ## Gate 1: Location Evidence (mandatory, mechanical)
