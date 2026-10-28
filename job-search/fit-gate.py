@@ -239,11 +239,12 @@ def judge(rows: list[dict] | None) -> tuple[str, float | None, list[str]]:
     errors = [r["error"] for r in rows if "error" in r]
     good = [r for r in rows if "line" in r]
     scored = [r for r in good if r["kind"] in SCORED]
-    score = sum(WEIGHT[r["verdict"]] for r in scored) / len(scored) if scored else None
     if errors:
-        return "INVALID", score, errors
+        partial = sum(WEIGHT[r["verdict"]] for r in scored) / len(scored) if scored else None
+        return "INVALID", partial, errors
     if len(scored) < MIN_ROWS:
         return "INCOMPLETE", None, [f"only {len(scored)} scored rows (minimum {MIN_ROWS})"]
+    score = sum(WEIGHT[r["verdict"]] for r in scored) / len(scored)
     reasons = [f"knockout: {r['line']}" for r in scored
                if r["kind"] in KNOCKOUT_KINDS and r["verdict"] == "unmet"]
     if score < THRESHOLD:
