@@ -39,6 +39,7 @@ import time
 from pathlib import Path
 
 import jobprofile as P
+import listings
 
 COUNT_RE = re.compile(r"(\d+)\s+(?:new\s+)?(?:verified\s+)?(survivors?|leads?|declined|title-dropped|unique|rows)\b", re.I)
 
@@ -132,6 +133,10 @@ def tracker_funnel() -> dict[str, collections.Counter]:
             if source.startswith("http"):
                 source = "url"
             funnel[source][st.group(1).lower() if st else "unknown"] += 1
+    # retired near-miss notes still count in the funnel
+    for r in listings.load_ledger():
+        source = (r["source"] or "unknown").lower()
+        funnel["url" if source.startswith("http") else source]["skipped"] += 1
     return funnel
 
 

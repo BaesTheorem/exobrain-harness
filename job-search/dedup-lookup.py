@@ -16,6 +16,8 @@ already noted, one of which had cost a duplicate JD read that day.
 """
 import os, re, sys
 
+import listings
+
 ROOTS = ["/Users/alexhedtke/Exobrain/Projects/Get new job/Job Listings",
          "/Users/alexhedtke/Exobrain/Archive"]
 
@@ -47,6 +49,12 @@ def load():
                             # schema field is apply_url; an earlier "url" lookup silently
                             # matched nothing because no note has a bare url: key
                             "url": field(txt, "apply_url")})
+    # Near-miss notes are retired into a ledger (listings.py, Alex 2026-10-28);
+    # their dedup still has to fire, so the ledger rows load as notes.
+    for r in listings.load_ledger():
+        out.append({"name": r["name"], "path": "ledger", "status": f"{r['status'] or 'skipped'} (retired)",
+                    "reapply": "", "company": r["company"], "role": r["role"],
+                    "date_added": r["date_added"], "job_id": r["job_id"], "url": r["apply_url"]})
     return out
 
 

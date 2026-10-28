@@ -78,7 +78,9 @@ Usage:
     fit-gate.py --write             stamp fit_score + fit_gate into frontmatter
     fit-gate.py --enforce           --write, and decline FAIL notes: status skipped,
                                     declined true, and a `## Why skipped` section
-                                    that quotes the failing rows
+                                    that quotes the failing rows; the note is then
+                                    retired to the near-miss ledger (listings.py)
+                                    unless its folder holds an artifact
     fit-gate.py --restore           --write, and undo this script's own decline on
                                     notes that now PASS (after a rule or threshold
                                     change). A decline it did not write is left alone.
@@ -99,6 +101,9 @@ import argparse
 import os
 import re
 import sys
+from pathlib import Path
+
+import listings
 
 ROOT = "/Users/alexhedtke/Exobrain/Projects/Get new job/Job Listings"
 # Calibrated 2026-10-09 against 30 past applications scored blind (vault note
@@ -313,6 +318,7 @@ def main() -> int:
     a = ap.parse_args()
 
     tally: dict[str, int] = {}
+    retired: list[str] = []
     for p in notes(a.note, a.all):
         txt = open(p, encoding="utf-8").read()
         rows = scorecard_rows(txt)
@@ -346,7 +352,7 @@ def main() -> int:
         txt = f"---\n{fm}\n---\n" + txt[end:]
         if a.enforce and verdict in ("FAIL", "NOJD", "NOLOC", "RELOC", "NOCOMP") and field(fm, "status") not in PROTECTED:
             txt = enforce(p, txt, score, reasons, rows or [])
-            print(f"{'':16}-> declined (status skipped)")
+            retired.append(p)
         if a.restore and verdict == "PASS":
             back = restore(txt)
             if back is not None:
@@ -354,6 +360,15 @@ def main() -> int:
                 print(f"{'':16}-> restored (status candidate)")
         with open(p, "w", encoding="utf-8") as f:
             f.write(txt)
+        if retired and retired[-1] == p:
+            # Alex 2026-10-28: near-misses keep no note. The ledger holds the full
+            # text for dedup; `listings.py restore "<name>"` brings it back.
+            root = listings.P.listings_dir()
+            if listings.has_artifacts(Path(p), root):
+                print(f"{'':16}-> declined (status skipped); kept, its folder holds artifacts")
+            else:
+                listings.retire(Path(p), root)
+                print(f"{'':16}-> declined, note retired to the near-miss ledger")
     print("\n" + "  ".join(f"{k} {v}" for k, v in sorted(tally.items())))
     return 0
 

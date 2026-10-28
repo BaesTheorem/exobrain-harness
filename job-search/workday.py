@@ -51,6 +51,7 @@ import time
 import urllib.parse
 import urllib.request
 
+import listings
 from comp_floors import comp_floor, onsite_floor
 from note_link import active_notes
 from note_link import match as note_match
@@ -443,6 +444,16 @@ def discover_vault() -> dict:
                 b["facets"], b["search"] = {}, ""
                 b["why"] = "auto: %s" % name[:-3]
                 found.setdefault("%s/%s" % (b["tenant"], b["site"]), b)
+    # retired near-miss notes keep their tenants polled
+    for r in listings.load_ledger():
+        for m in WORKDAY_HOST.finditer(r["text"]):
+            try:
+                b = parse_board_url(m.group(0))
+            except ValueError:
+                continue
+            b["facets"], b["search"] = {}, ""
+            b["why"] = "auto: %s" % r["name"]
+            found.setdefault("%s/%s" % (b["tenant"], b["site"]), b)
     return found
 
 

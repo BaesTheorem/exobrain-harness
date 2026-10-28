@@ -13,13 +13,20 @@ Daily unattended discovery scan for the `/job-search` skill.
   hard gates (comp gate = band rule: a listed range passes if the floor falls inside it),
   verifies postings open, dedups STATUS-AWARE against
   `~/Exobrain/Projects/Get new job/Job Listings/` and `Archive/`, writes per-listing notes
-  for survivors AND near-misses (`status: skipped`, so tomorrow doesn't re-read the same
-  JD), appends a hub-note log entry, and fires a `mist-notify` ONLY when new verified
+  for survivors, records near-misses in the near-miss ledger (so tomorrow does not re-read
+  the same JD), appends a hub-note log entry, and fires a `mist-notify` ONLY when new verified
   candidates are added (silent on zero-survivor days). Inline scan (no parallel subagents)
   to keep daily token cost low. 50-min timeout guard per attempt (40 until 2026-10-13), **one automatic retry**
   on failure (added 2026-08-10: half the 7/21-8/10 runs died on "Connection closed
   mid-response" with no retry and no visible trace), and a clickable `mist-notify` failure
   banner pointing at the failed attempt's log.
+- **`listings.py`** (added 2026-10-28) -- keeps one folder for each listing and no near-miss
+  notes. `tidy` moves each near-miss, skipped or unverified note into
+  `state/near-miss-ledger.jsonl` (full note text, gitignored), deletes the note, and folds
+  all other loose notes into `Job Listings/<Company> - <Role>/`. A near-miss folder that
+  holds an artifact stays. `restore "<name>"` rebuilds a retired note. `dedup-lookup.py`,
+  `ats-watchlist.py`, `workday.py` and `runlog.py` read the ledger, and `fit-gate.py --enforce`
+  retires the notes it declines. The scan wrapper runs `tidy --min-age 30` after each scan.
 - **`jd-snapshot.py`** (added 2026-10-22) -- the last step for every qualifying listing.
   Loads the posting in headless Chrome (patchright under uv, normal UA, no window), opens
   "show more" expanders, and saves a full-page PNG as an artifact in the listing's own folder,

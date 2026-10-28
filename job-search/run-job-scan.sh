@@ -93,7 +93,8 @@ Steps:
 4b. LIVENESS: for each survivor, python3 job-search/liveness.py --note "<path>" (ATS API first: Greenhouse/Lever 404, Ashby board membership, Workday canApply or 403 S22 = closed). CLOSED = not a survivor. UNKNOWN = load the apply form or mark verification incomplete. Once per run, python3 job-search/liveness.py --sweep --write closes dead candidate notes (applied notes are reported, never changed); put its CLOSED count in the hub log.
 5. Create listing notes in Projects/Get new job/Job Listings/ per the skill schema (full frontmatter + raw JD archived verbatim in the collapsible callout):
    - Every survivor: status candidate.
-   - Every role that CONSUMED A FULL JD READ but died on ANY gate: status skipped, declined: true, plus a "## Why skipped" section quoting the exact failed bar. This is what stops tomorrow from re-reading the same JD. Roles killed by the title pre-filter or before a JD read get no note.
+   - Write every note inside its own folder: Job Listings/<Company> - <Role>/<Company> - <Role>.md. No note goes loose in the Job Listings root (Alex 2026-10-28).
+   - Every role that CONSUMED A FULL JD READ but died on ANY gate: status skipped, declined: true, plus a "## Why skipped" section quoting the exact failed bar. fit-gate.py --enforce then retires the note to job-search/state/near-miss-ledger.jsonl (Alex keeps no near-miss notes); dedup-lookup.py reads the ledger, which is what stops tomorrow from re-reading the same JD. Roles killed by the title pre-filter or before a JD read get no record.
    - CONTRADICTORY REQUIREMENTS (poster-side screening filters contradict the bar stated in the JD body, e.g. an application form screening for a degree the JD body lists as optional): status candidate with the contradiction spelled out under ## Gaps, flagged for Alex to decide -- never a silent DQ.
 6. Append a dated "Pipeline" entry to the hub note (Projects/Get new job/Get new job.md) under ## Job Search Log: complete lane-coverage table (ran / skipped-with-reason per lane), scan tally (searches / JD-reads / passed / near-missed), each survivor with apply URL, near-misses with one-line reasons. Do not pad counts.
 7. NOTIFY ONLY IF new verified candidates were added: run  mist-voice/bin/mist-notify "Job scan: N new verified candidate(s) in the tracker" "MIST" Purr console  -- use a Basso sound and an URGENT title only for a stand-out high-comp remote strong fit. If zero survivors, no notification; the hub-note entry is enough.
@@ -150,6 +151,11 @@ for ATTEMPT in $(seq 1 $MAX_ATTEMPTS); do
     echo "  detail: $ERROR_MSG" >> "$LOG_DIR/job-scan-failures.log"
     [ $ATTEMPT -lt $MAX_ATTEMPTS ] && sleep 30
 done
+
+# Backstop for the folder rule (Alex 2026-10-28): retire near-miss notes to the
+# ledger and fold loose notes into folders. Notes touched in the last 30 minutes
+# are left alone in case a session is still writing them.
+python3 "$HARNESS_DIR/job-search/listings.py" tidy --min-age 30 >> "$LOG_DIR/job-scan-tidy.log" 2>&1
 
 if [ $EXIT_CODE -ne 0 ]; then
     # Clickable failure notification (opens the failed attempt's log). The old

@@ -35,6 +35,8 @@ import os
 import re
 import urllib.request
 
+import listings
+
 UA = ("Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 "
       "(KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36")
 
@@ -118,6 +120,14 @@ def scan_vault():
                     key = "%s:%s" % (ats, tok)
                     if key not in BLOCKLIST:
                         boards.setdefault(key, set()).add(name[:-3])
+    # retired near-miss notes keep their employers on the watchlist
+    for r in listings.load_ledger():
+        for ats, pat in TOKEN_PATTERNS:
+            for tok in pat.findall(r["text"]):
+                tok = tok.lower().rstrip("/.")
+                key = "%s:%s" % (ats, tok)
+                if tok not in ("jobs", "v1", "embed") and key not in BLOCKLIST:
+                    boards.setdefault(key, set()).add(r["name"])
     return {k: sorted(v) for k, v in sorted(boards.items())}
 
 

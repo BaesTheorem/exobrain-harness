@@ -665,6 +665,14 @@
     "notes": "Appends to state/runs.jsonl; lanes that count themselves hand counts to the wrapper (RUNLOG-COUNTS line). yield --days N for the report."
   },
   {
+    "name": "listings.py",
+    "command": "python3 job-search/listings.py tidy|restore \"<name>\"|stats",
+    "repo_dir": "job-search",
+    "source": "built",
+    "added": "2026-10-28",
+    "notes": "tidy --dry-run first; --min-age N skips notes touched in the last N minutes. Ledger at job-search/state/near-miss-ledger.jsonl is JSONL with raw U+2028 inside strings, so read it with split('\\n'), never splitlines(). A near-miss folder holding any artifact other than posting PNGs is kept."
+  },
+  {
     "name": "loopkit",
     "command": "uv run --with matplotlib mist-music/loops/descendendo_ascendit.py --check",
     "repo_dir": "~/Documents/Exobrain harness/mist-music/loops",
