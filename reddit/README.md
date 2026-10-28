@@ -26,6 +26,28 @@ python3 reddit-anecdote-fetch.py --sub <subreddit> --also-all --pages 6
 Key flags: `--sub`, `--sort {top,hot,new,controversial}`, `--time {week,month,year,all}`,
 `--pages`, `--comments N`, `--pause SECONDS` (rate limit, default 1.2s).
 
+## Keyword search: `bin/reddit-search`
+
+Reddit's `.json` endpoints are gone (403 since 2026-05), so the anecdote fetcher
+above no longer runs. The archive lane that still works is the Arctic Shift API
+(see `arctic-shift-scan.py` and `~/Exobrain/recon/2026-08-23-reddit-access-paths.md`).
+`bin/reddit-search` is the ad-hoc question tool on that lane:
+
+```bash
+reddit/bin/reddit-search kansascity chai --since 2023-01-01   # posts + comment trees
+reddit/bin/reddit-search kansascity "chai latte" --no-trees   # titles only
+```
+
+It searches post titles and bodies one time window at a time, pulls the full
+comment tree of every hit, and writes `data/search-<sub>-<query>.json` plus a
+summary ranked by comment score. Comment keyword search (`body=`) is refused
+with 422 on active subreddits, so comments only come through the trees.
+
+The archive is one volunteer's server. A burst of keyword searches makes it
+answer every request with `422 "Timeout. Maybe slow down a bit"` for several
+minutes, so the tool paces at 4 s, backs off 30 s doubling on that reply or on
+a 429, and must never run in parallel with itself. No author field is written.
+
 ## Privacy
 
 - **Usernames are hashed at ingest** (`anon_<hash>`); the raw handle is never written.

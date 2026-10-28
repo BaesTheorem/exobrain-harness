@@ -1,0 +1,270 @@
+#!/usr/bin/env python3
+"""Search a subreddit's archive for a keyword and pull each hit's comment tree.
+
+Reads the Arctic Shift archive API, the same source as arctic-shift-scan.py,
+so no Reddit credentials are involved. Built for the ad-hoc question "what does
+r/<sub> say about X" (use case (c) in the 2026-08-23 Reddit access recon):
+a keyword search over post titles and bodies, then the full comment tree of
+each hit, flattened into one JSON file that a model pass can read.
+
+INVARIANTS (do not break when editing):
+- No Reddit credentials touch this script, ever.
+- PACING: >=1.1 s between requests. Arctic Shift is one volunteer's server.
+- Comment keyword search (`body=`) returns 422 on active subreddits, so the
+  search is posts-only; comments come from /api/comments/tree per post.
+- A failed request records an error on that post and the run continues. The
+  script exits 0 with what it got, and status "partial" marks an incomplete run.
+
+Usage:
+  reddit-search kansascity chai --since 2023-01-01
+  reddit-search kansascity "chai latte" --no-trees        # titles only
+  reddit-search kansascity chai --out /tmp/chai.json --quiet
+"""
+
+from __future__ import annotations
+
+import argparse
+import json
+import re
+import sys
+import time
+import urllib.error
+import urllib.parse
+import urllib.request
+from datetime import datetime, timezone
+from pathlib import Path
+from typing import Any
+
+API = "https://arctic-shift.photon-reddit.com/api"
+UA = "exobrain-harness/1.0 (+https://github.com/BaesTheorem/exobrain-harness)"
+PACE_SECONDS = 4.0
+BACKOFF_SECONDS = 30
+MAX_RETRIES = 4
+WINDOW_DAYS = 365
+MIN_WINDOW_DAYS = 30
+POST_FIELDS = "id,title,selftext,author,created_utc,num_comments,score,link_flair_text"
+DATA_DIR = Path(__file__).resolve().parent.parent / "data"
+
+_last_request_at = 0.0
+
+
+def _get(path: str, **params: Any) -> Any:
+    """Paced GET returning parsed JSON. Raises on HTTP or network failure.
+
+    A 429 is the server asking for room: back off BACKOFF_SECONDS, doubling,
+    and retry the same request up to MAX_RETRIES times before giving up.
+    """
+    global _last_request_at
+    url = f"{API}{path}?" + urllib.parse.urlencode(params)
+    req = urllib.request.Request(url, headers={"User-Agent": UA})
+    backoff = BACKOFF_SECONDS
+    for attempt in range(MAX_RETRIES + 1):
+        wait = PACE_SECONDS - (time.monotonic() - _last_request_at)
+        if wait > 0:
+            time.sleep(wait)
+        try:
+            with urllib.request.urlopen(req, timeout=60) as resp:
+                body = resp.read()
+        except urllib.error.HTTPError as exc:
+            _last_request_at = time.monotonic()
+            # 429, and a 422 whose body says "Timeout. Maybe slow down a bit",
+            # both mean the server wants room. The 422 form is what a burst
+            # of keyword searches gets, and it then persists for minutes.
+            overloaded = exc.code == 429 or (
+                exc.code == 422 and b"Timeout" in exc.read()
+            )
+            if overloaded and attempt < MAX_RETRIES:
+                time.sleep(backoff)
+                backoff *= 2
+                continue
+            raise
+        _last_request_at = time.monotonic()
+        data = json.loads(body)
+        if isinstance(data, dict) and data.get("error"):
+            raise RuntimeError(data["error"])
+        return data
+    raise RuntimeError("unreachable")
+
+
+def _iso(epoch: float | int | None) -> str:
+    if not epoch:
+        return ""
+    return datetime.fromtimestamp(int(epoch), tz=timezone.utc).strftime("%Y-%m-%d")
+
+
+def _search_window(subreddit: str, query: str, after: int, before: int) -> list[dict[str, Any]]:
+    """Every post matching `query` in [after, before), newest first, paged by created_utc."""
+    posts: list[dict[str, Any]] = []
+    cursor = before
+    while True:
+        page = _get(
+            "/posts/search",
+            subreddit=subreddit,
+            query=query,
+            after=after,
+            before=cursor,
+            limit=100,
+            sort="desc",
+            fields=POST_FIELDS,
+        ).get("data") or []
+        posts.extend(page)
+        if len(page) < 100:
+            return posts
+        cursor = int(page[-1]["created_utc"])
+
+
+def search_posts(subreddit: str, query: str, since: str, errors: list[str]) -> list[dict[str, Any]]:
+    """Keyword search over [since, now], one time window at a time.
+
+    The archive answers a keyword search with 422 when the window holds too
+    many documents for an active subreddit (r/kansascity: 2023-now passed,
+    2020-now failed). So the range is cut into windows of WINDOW_DAYS, and a
+    window that still 422s is halved down to MIN_WINDOW_DAYS before it is
+    recorded as an error.
+    """
+    start = int(datetime.strptime(since, "%Y-%m-%d").replace(tzinfo=timezone.utc).timestamp())
+    end = int(time.time()) + 86400
+    stack = []
+    cursor = start
+    while cursor < end:
+        stack.append((cursor, min(cursor + WINDOW_DAYS * 86400, end)))
+        cursor += WINDOW_DAYS * 86400
+    posts: list[dict[str, Any]] = []
+    while stack:
+        after, before = stack.pop()
+        try:
+            posts.extend(_search_window(subreddit, query, after, before))
+        except urllib.error.HTTPError as exc:
+            if exc.code == 422 and before - after > MIN_WINDOW_DAYS * 86400:
+                mid = (after + before) // 2
+                stack.extend([(after, mid), (mid, before)])
+            else:
+                errors.append(f"search {_iso(after)}..{_iso(before)}: HTTP {exc.code}")
+    seen: set[str] = set()
+    unique = [p for p in posts if not (p["id"] in seen or seen.add(p["id"]))]
+    unique.sort(key=lambda p: -int(p["created_utc"]))
+    return unique
+
+
+def flatten_tree(node: Any, depth: int = 0, out: list[dict[str, Any]] | None = None) -> list[dict[str, Any]]:
+    """Flatten whatever tree shape the API returns into (depth, body) rows.
+
+    Any dict carrying a `body` is a comment; whatever nests under it is one
+    level deeper. Other containers are walked at the same depth.
+    """
+    if out is None:
+        out = []
+    if isinstance(node, list):
+        for child in node:
+            flatten_tree(child, depth, out)
+    elif isinstance(node, dict):
+        if "body" in node and isinstance(node.get("body"), str):
+            # No author field: the module convention (see README) is that no
+            # Reddit handle is written to disk.
+            out.append(
+                {
+                    "id": node.get("id"),
+                    "score": node.get("score"),
+                    "created": _iso(node.get("created_utc")),
+                    "depth": depth,
+                    "body": node["body"],
+                }
+            )
+            for key, value in node.items():
+                if key != "body" and isinstance(value, (list, dict)):
+                    flatten_tree(value, depth + 1, out)
+        else:
+            for value in node.values():
+                if isinstance(value, (list, dict)):
+                    flatten_tree(value, depth, out)
+    return out
+
+
+def fetch_tree(post_id: str) -> list[dict[str, Any]]:
+    tree = _get("/comments/tree", link_id=f"t3_{post_id}", limit=9999)
+    return flatten_tree(tree.get("data", tree))
+
+
+def run(subreddit: str, query: str, since: str, trees: bool) -> dict[str, Any]:
+    result: dict[str, Any] = {
+        "subreddit": subreddit,
+        "query": query,
+        "since": since,
+        "generated_at": datetime.now().astimezone().isoformat(timespec="seconds"),
+        "status": "ok",
+        "errors": [],
+        "posts": [],
+    }
+    try:
+        posts = search_posts(subreddit, query, since, result["errors"])
+    except Exception as exc:  # network or API failure: report, do not crash
+        result["status"] = "blocked"
+        result["errors"].append(f"search: {exc}")
+        return result
+    if result["errors"]:
+        result["status"] = "partial"
+    for post in posts:
+        row = {
+            "id": post["id"],
+            "title": post.get("title", ""),
+            "permalink": f"https://www.reddit.com/r/{subreddit}/comments/{post['id']}/",
+            "created": _iso(post.get("created_utc")),
+            "score": post.get("score"),
+            "num_comments": post.get("num_comments"),
+            "flair": post.get("link_flair_text"),
+            "selftext": post.get("selftext") or "",
+            "comments": [],
+        }
+        if trees and (post.get("num_comments") or 0) > 0:
+            try:
+                row["comments"] = fetch_tree(post["id"])
+            except Exception as exc:
+                result["status"] = "partial"
+                result["errors"].append(f"tree {post['id']}: {exc}")
+        result["posts"].append(row)
+    return result
+
+
+def print_summary(result: dict[str, Any], max_comments: int) -> None:
+    print(f"r/{result['subreddit']} \"{result['query']}\" since {result['since']}: "
+          f"{len(result['posts'])} posts, status {result['status']}")
+    for post in result["posts"]:
+        print(f"\n## {post['created']}  {post['title']}  ({post['num_comments']} comments, score {post['score']})")
+        print(f"   {post['permalink']}")
+        body = re.sub(r"\s+", " ", post["selftext"]).strip()
+        if body:
+            print(f"   > {body[:300]}")
+        ranked = sorted(post["comments"], key=lambda c: -(c.get("score") or 0))
+        for comment in ranked[:max_comments]:
+            text = re.sub(r"\s+", " ", comment["body"]).strip()
+            print(f"   [{comment['score']}] {text[:400]}")
+    for err in result["errors"]:
+        print(f"ERR {err}", file=sys.stderr)
+
+
+def main() -> int:
+    ap = argparse.ArgumentParser(description=__doc__.split("\n\n")[0])
+    ap.add_argument("subreddit")
+    ap.add_argument("query", help="keyword search over title and selftext")
+    ap.add_argument("--since", default="2020-01-01", help="YYYY-MM-DD (default 2020-01-01)")
+    ap.add_argument("--no-trees", action="store_true", help="posts only, skip comment trees")
+    ap.add_argument("--out", type=Path, help="JSON path (default reddit/data/search-<sub>-<query>.json)")
+    ap.add_argument("--max-comments", type=int, default=8, help="comments per post in the summary")
+    ap.add_argument("--quiet", action="store_true", help="write the JSON, print only the path")
+    args = ap.parse_args()
+
+    result = run(args.subreddit, args.query, args.since, trees=not args.no_trees)
+    slug = re.sub(r"[^a-z0-9]+", "-", args.query.lower()).strip("-")
+    out = args.out or DATA_DIR / f"search-{args.subreddit.lower()}-{slug}.json"
+    out.parent.mkdir(parents=True, exist_ok=True)
+    out.write_text(json.dumps(result, indent=1, ensure_ascii=False))
+    if args.quiet:
+        print(out)
+    else:
+        print_summary(result, args.max_comments)
+        print(f"\nJSON: {out}")
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())

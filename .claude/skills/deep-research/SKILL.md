@@ -82,6 +82,13 @@ DO NOT fabricate sources or citations. If you can't find something, say so.
 - Each subagent should make 5-15 tool calls depending on complexity
 - **Defuddle all web pages.** Subagents must use `defuddle parse "[URL]" --md` (the `defuddle` CLI from `npm install -g defuddle`; there is no `@anthropic/defuddle` package) (via Bash) instead of raw WebFetch when reading page content. This strips navigation, ads, and boilerplate, often cutting tokens by 60-80%. Only fall back to WebFetch if defuddle fails.
 
+**Walled sources have harness tools. Name them in the brief**, or the subagent reports "could not read Reddit" and stops. Search the registry (`python3 tools-registry/log-tool.py search <source>`) for any other source that walls a plain fetch (Yelp, Facebook, LinkedIn, Indeed...) before you brief.
+
+| Source | Why a plain fetch fails | Tool (run from the harness root) |
+| --- | --- | --- |
+| Reddit | `.json`, old.reddit and RSS are all blocked or login-walled | `reddit/bin/reddit-search <subreddit> "<keyword>" --since YYYY-MM-DD` searches the Arctic Shift archive and pulls every hit's comment tree to `reddit/data/`. Paced, backs off on the archive's "Timeout" reply. One query at a time, never in parallel across agents. `reddit/arctic-shift-scan.py` dumps a subreddit's recent posts without a keyword. |
+| Instagram | Anonymous pages render an empty shell | `instagram/bin/ig posts <handle> --days N --json` reads one account's grid through the logged-in Chrome session, headless. No keyword search: get the handle from the venue's own website footer first. 8-15 s between accounts, one browser at a time, so give this lane to ONE agent or run it yourself. |
+
 ## Step 3: Evaluate Coverage
 
 After subagents return, assess:
