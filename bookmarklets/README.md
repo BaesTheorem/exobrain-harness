@@ -35,9 +35,10 @@ can also remove the full name for an icon-only button. The manifest finds each
 bookmarklet by part of its code, so a rename does not change which icon it gets.
 
 Chrome finds the icon by the URL text, character for character. Two copies of
-one bookmarklet can hold the same code with different percent-encoding, for
-example one dragged from a page that encodes its links and one made again later.
-Then only the copy whose URL text was applied has the icon. If an icon goes
+one bookmarklet can hold the same code with different percent-encoding. This
+occurs when the copies are made in different ways, for example by a drag from a
+page that encodes its links. Then only the copy with the applied URL text has
+the icon. If an icon goes
 after you change a bookmark, use `apply --quit` again. If all icons are
 correct, `apply --quit` does not stop Chrome.
 
