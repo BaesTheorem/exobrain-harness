@@ -64,6 +64,33 @@ and render it through the same `render.mjs`: `node render.mjs --page=<page>.html
   turn spins the camera through the transition. Carry one heading across the whole film.
 - **Speed:** about 32 ms per 1080p frame with bloom on 2 workers, so a 4:19 video at 60 fps renders in about 9 minutes.
 
+## Kinetic typography (the lyrics are the picture)
+
+For a lyric video where the type is the whole image, start from branch `video/spark`
+(`spark.html`, `src/spark/`, `DESIGN.md`): a Canvas2D page through `render.mjs --page`, with
+stacked rows fitted to the width, type that changes color over each shape it crosses, and
+weight that follows the vocal stem.
+
+- **Lyrics of a song we do not own never enter the chat or git.** They live in the
+  gitignored `private/<slug>/` folder. `bin/lyrics-fetch` (LRCLIB), `bin/audio-features`,
+  `bin/lyrics-align` (mist-vid's MMS_FA forced aligner plus `bin/lyrics-repair.py`) print
+  numbers only. Wrap every command in `bin/lyricguard -- ...`. `private/README.md` lists the
+  rebuild steps.
+- **Review layout on the masked timeline,** where each word is a placeholder of the same
+  length. The page loads it unless `--query=real=1` is passed. Never Read a frame rendered
+  with the real words. Check the real layout with numbers instead:
+  `node bin/page-eval.mjs --page=spark.html --query=real=1 "window.audit()"` (safe area,
+  screen time per word, contrast).
+- **Forced alignment beats Whisper for word starts.** On Spark, MMS_FA starts sat on the
+  vocal onsets (onset profile peak at 0 ms, 2.3x the random-time control). Whisper word
+  times peaked 50 ms late, and the LRC line times led the voice by 0.3 s. Where lines run
+  together, the aligner can give a line's first word to the previous line's tail;
+  `lyrics-repair.py` fixes the side that the LRC time says is wrong.
+- **Prove sync from the encoded file:** `bin/av-sync-check out/x.mp4 private/<slug>/mix.wav
+  private/<slug>/cuts.json` (audio lag in samples, cut frames against intended times).
+- `bin/song-sync --lyrics` writes lyric text to `src/lyrics.js`, which is gitignored. Use
+  `git add -f` only for public domain lyrics or lyrics we wrote.
+
 ## Gotchas
 
 - `npm install` once per fresh clone. If it's missing, render.mjs dies with `ERR_MODULE_NOT_FOUND: puppeteer-core`.

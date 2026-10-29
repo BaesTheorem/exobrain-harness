@@ -360,6 +360,10 @@ mist-music/bin/unmix select WORK NAME && mist-music/bin/unmix export WORK
 - `whisper-cli` (`/opt/homebrew/bin`) + `ggml-large-v3.bin` under
   `one-pace/whisper-models/` -- shared with the onepace subtitle pipeline; don't
   duplicate the model (3 GB).
+- **`-dtw` needs `-nfa` in this build.** Flash attention is on by default, and with
+  it on whisper-cli writes `t_dtw: -1` for every token (0 of 518 tokens timed on
+  2026-10-29; 350 of 393 with `-nfa`). `build_ass.py` does not read `t_dtw`, so §2
+  is unaffected. Anything that wants DTW token times must pass `-nfa`.
 - `ffmpeg` 8.x at `/opt/homebrew/bin` -- encodes fine but is a **minimal build**
   (no libass/drawtext/freetype). Pillow + numpy do the text compositing.
 - mist-music reuses **midi-tools** (`~/.local/bin/mid2mp3`, `mp32mid`); see the
