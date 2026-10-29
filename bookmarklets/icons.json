@@ -1,0 +1,12 @@
+{
+  "_about": "Icon manifest for bin/bookmarklet-favicon. Keys are bookmark names; emoji and symbols in a name are ignored when matching, so 'Wayback' also matches '🕰️ Wayback'. Values are specs: emoji:X, symbol:material_name, text:AB, file:/path.svg, like:https://site/, url:https://site/. Options after a comma: bg=#hex, fg=#hex, fill=0|1, wght=100..700.",
+  "defaults": {"bg": "#4c662b", "fg": "#ffffff"},
+  "icons": {
+    "Wayback": "emoji:🕰️",
+    "Archive This": "emoji:💾",
+    "Passage": "emoji:🔓",
+    "Page → MP3": "emoji:⬇️",
+    "Unlock [Select/Copy/Paste]": "emoji:📋",
+    "Allow Text Selection": "symbol:text_select_start"
+  }
+}

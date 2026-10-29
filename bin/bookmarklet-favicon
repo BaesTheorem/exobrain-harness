@@ -1,0 +1,1066 @@
+#!/usr/bin/env python3
+"""Give javascript: bookmarklets a favicon in Chrome and other Chromium browsers.
+
+Chrome picks a bookmark's icon by looking the bookmark's URL up in the profile's
+Favicons database: icon_mapping.page_url, then favicons.id, then favicon_bitmaps.
+A javascript: URL is never navigated to, so no page ever supplies an icon and the
+bookmarks bar shows the default globe. This tool writes those rows itself, keyed
+by the exact URL string the Bookmarks file holds. That string is the GURL spec
+Chrome looks up (components/favicon/core/favicon_database.cc,
+GetIconMappingsForPageURL does WHERE icon_mapping.page_url=? with no scheme
+filter; components/bookmarks/browser/bookmark_model.cc LoadFavicon asks for
+node->url()).
+
+Usage:
+  bookmarklet-favicon list    [--browser chrome] [--profile NAME]
+  bookmarklet-favicon preview [--browser chrome] [--profile NAME] [-o sheet.png]
+  bookmarklet-favicon apply   [--browser chrome] [--profile NAME] [--manifest FILE]
+                              [--quit] [--dry-run]
+  bookmarklet-favicon check   [--browser chrome] [--profile NAME]
+  bookmarklet-favicon render  SPEC -o out.png [--size 128]
+  bookmarklet-favicon export-html [--browser chrome] [--profile NAME] [-o FILE]
+
+Where a bookmarklet's icon comes from, first match wins:
+  1. the manifest (bookmarklets/icons.json): bookmark name to spec. Names match
+     after emoji and symbols are stripped, so "🕰️ Wayback" and "Wayback" are
+     one key, and renaming a bookmark to drop its emoji keeps the icon.
+  2. the emoji the bookmark name starts with
+  3. a one-letter badge made from the name
+
+Icon specs:
+  emoji:🕰️                       an Apple Color Emoji glyph
+  symbol:history                  a Material Symbols Outlined glyph on a rounded square
+  symbol:history,bg=#4c662b,fg=#fff,fill=1,wght=500
+  text:W,bg=#4c662b,fg=#fff       one or two letters on a rounded square
+  file:/path/icon.svg             an image file (svg, png, ico, jpg, webp)
+  like:https://web.archive.org/   the icon the profile already holds for that page
+  url:https://example.com/        that site's favicon, from Google's favicon service
+
+The browser must be closed while `apply` writes: Chrome opens the database with an
+exclusive lock. `--quit` quits it over AppleScript, applies, and relaunches it with
+--restore-last-session so the open tabs come back. `--dry-run` works on a copy
+and never needs the browser closed.
+
+`check` copies the profile's Bookmarks and Favicons into a throwaway user data
+dir, starts the same browser binary headless there, and asks Chrome's own favicon
+service (chrome://favicon2) for each bookmarklet. That is the lookup the bookmarks
+bar performs, so a match there is Chrome's verdict, not this script's. It runs a
+negative control (an unmapped URL must come back empty) and a positive control (a
+mapped https page must come back with its stored bitmap) first.
+
+INVARIANTS:
+  - Never write a Favicons database another process holds open: BEGIN IMMEDIATE
+    must succeed within a short timeout, else abort with no change.
+  - page_url is the bookmark's URL exactly as the Bookmarks file stores it.
+  - The database is backed up outside the profile before any write.
+  - Re-running is idempotent: one mapping per bookmarklet, icons deduplicated by
+    content, orphaned icons this tool made are removed.
+  - Only this tool's own favicons rows (url starting with "bookmarklet-favicon:")
+    are ever deleted.
+"""
+
+from __future__ import annotations
+
+import argparse
+import base64
+import contextlib
+import hashlib
+import html
+import io
+import json
+import os
+import re
+import shutil
+import sqlite3
+import subprocess
+import sys
+import tempfile
+import time
+import unicodedata
+import urllib.request
+from collections.abc import Iterator
+from dataclasses import dataclass, field
+from datetime import datetime
+from pathlib import Path
+from typing import TYPE_CHECKING
+from urllib.parse import quote, urlsplit
+
+if TYPE_CHECKING:
+    from PIL import Image, ImageDraw, ImageFont
+
+    PIL_ERROR: str | None = None
+else:
+    try:
+        from PIL import Image, ImageDraw, ImageFont
+
+        PIL_ERROR = None
+    except ImportError as _pil_exc:  # the database side works without Pillow; drawing needs it
+        Image = ImageDraw = ImageFont = None
+        PIL_ERROR = str(_pil_exc)
+
+CHROME_EPOCH_OFFSET = 11644473600  # seconds from 1601-01-01 to 1970-01-01
+RENDER = 128  # icons are drawn at this size, then scaled to SIZES
+SIZES = (16, 32)  # 16 DIP at 1x and 2x, what the bookmarks bar asks for
+ICON_URL_PREFIX = "bookmarklet-favicon:"
+KINDS = ("emoji", "symbol", "text", "file", "like", "url")
+USER_AGENT = "exobrain-harness/1.0 (+https://github.com/BaesTheorem/exobrain-harness)"
+
+HOME = Path.home()
+HERE = Path(__file__).resolve().parent
+DEFAULT_MANIFEST = HERE.parent / "bookmarklets" / "icons.json"
+BACKUP_DIR = HOME / "Library" / "Application Support" / "bookmarklet-favicon" / "backups"
+BACKUPS_KEPT = 5
+
+MATERIAL = HOME / "Documents" / "material-design"
+SYMBOL_FONTS = [
+    os.environ.get("BOOKMARKLET_FAVICON_SYMBOL_FONT", ""),
+    str(MATERIAL / "fonts" / "MaterialSymbolsOutlined.ttf"),
+    str(MATERIAL / "material-design-icons" / "variablefont"
+        / "MaterialSymbolsOutlined[FILL,GRAD,opsz,wght].ttf"),
+]
+SYMBOL_CODEPOINTS = [
+    os.environ.get("BOOKMARKLET_FAVICON_SYMBOL_CODEPOINTS", ""),
+    str(MATERIAL / "material-design-icons" / "variablefont"
+        / "MaterialSymbolsOutlined[FILL,GRAD,opsz,wght].codepoints"),
+]
+TEXT_FONTS = [str(MATERIAL / "fonts" / "Roboto.ttf"), "/System/Library/Fonts/Helvetica.ttc"]
+EMOJI_FONT = "/System/Library/Fonts/Apple Color Emoji.ttc"
+EMOJI_STRIKE = 160  # Apple Color Emoji ships fixed bitmap strikes: 20 32 40 48 64 96 160
+
+DEFAULT_OPTIONS = {"bg": "#4c662b", "fg": "#ffffff", "fill": "1", "wght": "500"}
+
+_AS = HOME / "Library" / "Application Support"
+
+
+# ----------------------------------------------------------------------------
+# Browsers, profiles, bookmarklets
+# ----------------------------------------------------------------------------
+
+
+@dataclass(frozen=True)
+class Browser:
+    key: str
+    app: str  # application name, also the process name pgrep sees
+    user_data: Path
+    app_path: Path
+
+    @property
+    def executable(self) -> Path:
+        return self.app_path / "Contents" / "MacOS" / self.app
+
+
+BROWSERS: dict[str, Browser] = {
+    "chrome": Browser("chrome", "Google Chrome", _AS / "Google" / "Chrome",
+                      Path("/Applications/Google Chrome.app")),
+    "chrome-beta": Browser("chrome-beta", "Google Chrome Beta", _AS / "Google" / "Chrome Beta",
+                           Path("/Applications/Google Chrome Beta.app")),
+    "chrome-canary": Browser("chrome-canary", "Google Chrome Canary",
+                             _AS / "Google" / "Chrome Canary",
+                             Path("/Applications/Google Chrome Canary.app")),
+    "chromium": Browser("chromium", "Chromium", _AS / "Chromium", Path("/Applications/Chromium.app")),
+    "brave": Browser("brave", "Brave Browser", _AS / "BraveSoftware" / "Brave-Browser",
+                     Path("/Applications/Brave Browser.app")),
+    "edge": Browser("edge", "Microsoft Edge", _AS / "Microsoft Edge",
+                    Path("/Applications/Microsoft Edge.app")),
+    "vivaldi": Browser("vivaldi", "Vivaldi", _AS / "Vivaldi", Path("/Applications/Vivaldi.app")),
+    "arc": Browser("arc", "Arc", _AS / "Arc" / "User Data", Path("/Applications/Arc.app")),
+}
+
+
+@dataclass(frozen=True)
+class Profile:
+    browser: Browser
+    root: Path  # the user data dir that holds this profile
+    directory: str  # "Default", "Profile 1"
+    name: str  # the display name from Local State, else the directory
+
+    @property
+    def path(self) -> Path:
+        return self.root / self.directory
+
+    @property
+    def bookmarks_file(self) -> Path:
+        return self.path / "Bookmarks"
+
+    @property
+    def favicons_db(self) -> Path:
+        return self.path / "Favicons"
+
+    @property
+    def label(self) -> str:
+        if self.name == self.directory:
+            return f"{self.browser.app} / {self.directory}"
+        return f"{self.browser.app} / {self.name} ({self.directory})"
+
+
+@dataclass(frozen=True)
+class Bookmarklet:
+    name: str
+    url: str
+    folder: str
+
+
+def profiles(browser: Browser, want: str | None = None, root: Path | None = None) -> list[Profile]:
+    """Every profile under the browser's user data dir that has a Bookmarks file."""
+    root = root or browser.user_data
+    names: dict[str, str] = {}
+    local_state = root / "Local State"
+    if local_state.exists():
+        try:
+            info = json.loads(local_state.read_text())["profile"]["info_cache"]
+            names = {d: str(v.get("name") or d) for d, v in info.items()}
+        except (KeyError, TypeError, ValueError, OSError):
+            names = {}
+    found = [Profile(browser, root, bm.parent.name, names.get(bm.parent.name, bm.parent.name))
+             for bm in sorted(root.glob("*/Bookmarks"))]
+    if want:
+        found = [p for p in found if want in (p.directory, p.name)]
+        if not found:
+            raise SystemExit(f"no profile {want!r} under {root}")
+    return found
+
+
+def bookmarklets(profile: Profile) -> list[Bookmarklet]:
+    """javascript: bookmarks, with the URL string exactly as Chrome stores it."""
+    data = json.loads(profile.bookmarks_file.read_text())
+    out: list[Bookmarklet] = []
+
+    def walk(node: dict, folder: str) -> None:
+        if node.get("type") == "url":
+            url = str(node.get("url", ""))
+            if url[:11].lower() == "javascript:":
+                out.append(Bookmarklet(str(node.get("name", "")), url, folder))
+            return
+        here = f"{folder}/{node.get('name', '')}".strip("/")
+        for child in node.get("children", []):
+            walk(child, here)
+
+    for root in data.get("roots", {}).values():
+        if isinstance(root, dict):
+            walk(root, "")
+    return out
+
+
+# ----------------------------------------------------------------------------
+# Names and specs
+# ----------------------------------------------------------------------------
+
+_STRIP_CATEGORIES = {"So", "Sk", "Cf", "Mn", "Me", "Cs", "Co", "Cn"}
+
+
+def normalize_name(name: str) -> str:
+    """A bookmark name without emoji, symbols or marks, lowercased: the manifest key."""
+    kept = "".join(c for c in name if unicodedata.category(c) not in _STRIP_CATEGORIES)
+    return re.sub(r"\s+", " ", kept).strip().casefold()
+
+
+def leading_emoji(name: str) -> str | None:
+    """The emoji sequence a name starts with, joiners and selectors included, or None."""
+    out: list[str] = []
+    for c in name.lstrip():
+        cat = unicodedata.category(c)
+        is_tone = cat == "Sk" and 0x1F3FB <= ord(c) <= 0x1F3FF
+        is_joiner = c in ("‍", "️", "︎", "⃣")
+        if cat == "So" or is_tone or (out and (is_joiner or cat in ("Mn", "Me"))):
+            out.append(c)
+        else:
+            break
+    return "".join(out) or None
+
+
+@dataclass
+class Spec:
+    kind: str
+    value: str
+    options: dict[str, str] = field(default_factory=dict)
+
+    def __str__(self) -> str:
+        shown = {k: v for k, v in self.options.items() if DEFAULT_OPTIONS.get(k) != v}
+        opts = "".join(f",{k}={v}" for k, v in shown.items())
+        return f"{self.kind}:{self.value}{opts}"
+
+
+def parse_spec(raw: str | dict, defaults: dict[str, str] | None = None) -> Spec:
+    options = dict(DEFAULT_OPTIONS)
+    options.update(defaults or {})
+    if isinstance(raw, dict):
+        kinds = [k for k in KINDS if k in raw]
+        if len(kinds) != 1:
+            raise ValueError(f"an icon spec needs exactly one of {KINDS}: {raw!r}")
+        kind = kinds[0]
+        options.update({k: str(v) for k, v in raw.items() if k != kind})
+        return Spec(kind, str(raw[kind]), options)
+    kind, sep, rest = str(raw).partition(":")
+    if not sep or kind not in KINDS:
+        raise ValueError(f"unknown icon spec {raw!r}; kinds are {', '.join(KINDS)}")
+    if kind in ("file", "like", "url"):
+        return Spec(kind, rest.strip(), options)
+    value, *opts = rest.split(",")
+    for opt in opts:
+        k, eq, v = opt.partition("=")
+        if not eq:
+            raise ValueError(f"bad option {opt!r} in {raw!r}; options look like bg=#4c662b")
+        options[k.strip()] = v.strip()
+    return Spec(kind, value.strip(), options)
+
+
+@dataclass
+class Manifest:
+    defaults: dict[str, str]
+    icons: dict[str, Spec]  # normalized bookmark name to spec
+    path: Path | None
+
+
+def load_manifest(path: Path | None) -> Manifest:
+    if path is None or not path.exists():
+        return Manifest({}, {}, path)
+    data = json.loads(path.read_text())
+    defaults = {k: str(v) for k, v in data.get("defaults", {}).items()}
+    icons = {normalize_name(name): parse_spec(raw, defaults)
+             for name, raw in data.get("icons", {}).items()}
+    return Manifest(defaults, icons, path)
+
+
+def choose_spec(bm: Bookmarklet, manifest: Manifest) -> tuple[str, Spec]:
+    key = normalize_name(bm.name)
+    if key in manifest.icons:
+        return "manifest", manifest.icons[key]
+    emoji = leading_emoji(bm.name)
+    if emoji:
+        return "emoji in name", parse_spec({"emoji": emoji}, manifest.defaults)
+    letter = (key[:1] or "?").upper()
+    return "first letter", parse_spec({"text": letter}, manifest.defaults)
+
+
+# ----------------------------------------------------------------------------
+# Rendering
+# ----------------------------------------------------------------------------
+
+
+@dataclass
+class Icon:
+    bitmaps: dict[int, bytes]  # pixel size to PNG bytes
+    icon_url: str | None = None  # content address for icons this tool made
+    icon_id: int | None = None  # a favicons.id reused from the profile (like:)
+
+    def best_png(self) -> bytes:
+        return self.bitmaps.get(32) or self.bitmaps[max(self.bitmaps)]
+
+
+def _need_pil() -> None:
+    if PIL_ERROR:
+        raise RuntimeError(f"Pillow is needed to draw or compare icons ({PIL_ERROR}); pip install pillow")
+
+
+def _png(img: Image.Image) -> bytes:
+    buf = io.BytesIO()
+    img.save(buf, "PNG", optimize=True)
+    return buf.getvalue()
+
+
+def _fit(img: Image.Image, size: int = RENDER, margin: int = 0) -> Image.Image:
+    """Crop to content, scale to fit, center on a transparent square."""
+    img = img.convert("RGBA")
+    box = img.getbbox()
+    if box:
+        img = img.crop(box)
+    inner = size - 2 * margin
+    scale = min(inner / img.width, inner / img.height)
+    img = img.resize((max(1, round(img.width * scale)), max(1, round(img.height * scale))),
+                     Image.Resampling.LANCZOS)
+    canvas = Image.new("RGBA", (size, size), (0, 0, 0, 0))
+    canvas.paste(img, ((size - img.width) // 2, (size - img.height) // 2), img)
+    return canvas
+
+
+def _badge(bg: str) -> Image.Image:
+    canvas = Image.new("RGBA", (RENDER, RENDER), (0, 0, 0, 0))
+    ImageDraw.Draw(canvas).rounded_rectangle((0, 0, RENDER - 1, RENDER - 1),
+                                             radius=round(RENDER * 0.22), fill=bg)
+    return canvas
+
+
+def _first_existing(paths: list[str], what: str, hint: str) -> Path:
+    for p in paths:
+        if p and Path(p).exists():
+            return Path(p)
+    raise FileNotFoundError(f"no {what} found; {hint}")
+
+
+def _set_axes(font: ImageFont.FreeTypeFont, values: list[float]) -> None:
+    with contextlib.suppress(OSError, AttributeError):
+        font.set_variation_by_axes(values)
+
+
+def render_emoji(sequence: str) -> Image.Image:
+    if not Path(EMOJI_FONT).exists():
+        raise FileNotFoundError(f"{EMOJI_FONT} is missing")
+    font = ImageFont.truetype(EMOJI_FONT, EMOJI_STRIKE)
+    scratch = Image.new("RGBA", (RENDER * 2, RENDER * 2), (0, 0, 0, 0))
+    ImageDraw.Draw(scratch).text((RENDER, RENDER), sequence, font=font,
+                                 embedded_color=True, anchor="mm")
+    if not scratch.getbbox():
+        raise ValueError(f"{sequence!r} did not render as an emoji")
+    return _fit(scratch, margin=4)
+
+
+def _symbol_codepoints(path: Path) -> dict[str, str]:
+    table: dict[str, str] = {}
+    for line in path.read_text().splitlines():
+        parts = line.split()
+        if len(parts) == 2:
+            table[parts[0]] = chr(int(parts[1], 16))
+    return table
+
+
+def render_symbol(name: str, options: dict[str, str]) -> Image.Image:
+    hint = ("get MaterialSymbolsOutlined[FILL,GRAD,opsz,wght].ttf and .codepoints from "
+            "github.com/google/material-design-icons, or set BOOKMARKLET_FAVICON_SYMBOL_FONT "
+            "and BOOKMARKLET_FAVICON_SYMBOL_CODEPOINTS")
+    font_path = _first_existing(SYMBOL_FONTS, "Material Symbols font", hint)
+    table = _symbol_codepoints(_first_existing(SYMBOL_CODEPOINTS, "Material Symbols codepoints", hint))
+    if name not in table:
+        raise ValueError(f"no Material Symbol named {name!r}")
+    font = ImageFont.truetype(str(font_path), round(RENDER * 0.78))
+    # Axis order in the variable font: Fill, Grade, Optical Size, Weight.
+    _set_axes(font, [float(options.get("fill", "1")), 0, 48, float(options.get("wght", "500"))])
+    badge = _badge(options.get("bg", DEFAULT_OPTIONS["bg"]))
+    ImageDraw.Draw(badge).text((RENDER / 2, RENDER / 2), table[name], font=font,
+                               fill=options.get("fg", DEFAULT_OPTIONS["fg"]), anchor="mm")
+    return badge
+
+
+def render_text(text: str, options: dict[str, str]) -> Image.Image:
+    text = text.strip()[:2] or "?"
+    font_path = _first_existing(TEXT_FONTS, "text font", "set TEXT_FONTS")
+    font = ImageFont.truetype(str(font_path), round(RENDER * (0.72 if len(text) == 1 else 0.56)))
+    _set_axes(font, [600, 100])  # Roboto variable: Weight, Width
+    scratch = Image.new("RGBA", (RENDER * 2, RENDER * 2), (0, 0, 0, 0))
+    ImageDraw.Draw(scratch).text((RENDER, RENDER), text, font=font,
+                                 fill=options.get("fg", DEFAULT_OPTIONS["fg"]), anchor="mm")
+    glyphs = _fit(scratch, margin=round(RENDER * 0.2))
+    badge = _badge(options.get("bg", DEFAULT_OPTIONS["bg"]))
+    badge.alpha_composite(glyphs)
+    return badge
+
+
+def load_image(path: Path) -> Image.Image:
+    if not path.exists():
+        raise FileNotFoundError(path)
+    if path.suffix.lower() == ".svg":
+        rsvg = shutil.which("rsvg-convert")
+        if not rsvg:
+            raise FileNotFoundError("rsvg-convert is needed for svg icons (brew install librsvg)")
+        out = subprocess.run([rsvg, "-w", str(RENDER), "-h", str(RENDER), "--keep-aspect-ratio",
+                              str(path)], check=True, capture_output=True).stdout
+        return _fit(Image.open(io.BytesIO(out)))
+    img = Image.open(path)
+    img.load()
+    return _fit(img)
+
+
+def fetch_site_favicon(site: str) -> Image.Image:
+    host = urlsplit(site if "://" in site else f"https://{site}").hostname
+    if not host:
+        raise ValueError(f"no host in {site!r}")
+    req = urllib.request.Request(f"https://www.google.com/s2/favicons?domain={quote(host)}&sz=64",
+                                 headers={"User-Agent": USER_AGENT})
+    with urllib.request.urlopen(req, timeout=20) as resp:
+        data = resp.read()
+    return _fit(Image.open(io.BytesIO(data)))
+
+
+def make_icon(img: Image.Image) -> Icon:
+    img = img.convert("RGBA")
+    if img.size != (RENDER, RENDER):
+        img = _fit(img)
+    bitmaps = {s: _png(img.resize((s, s), Image.Resampling.LANCZOS)) for s in SIZES}
+    return Icon(bitmaps, ICON_URL_PREFIX + hashlib.sha256(bitmaps[32]).hexdigest())
+
+
+def icon_like(favicons_db: Path, page: str) -> Icon:
+    """Reuse the icon the profile already holds for a page (or any page on its host)."""
+    with snapshot_connection(favicons_db) as con:
+        row = con.execute(
+            "SELECT m.icon_id FROM icon_mapping m JOIN favicon_bitmaps b ON b.icon_id = m.icon_id "
+            "WHERE m.page_url = ? ORDER BY b.width DESC LIMIT 1", (page,)).fetchone()
+        if row is None:
+            host = urlsplit(page if "://" in page else f"https://{page}").hostname or page
+            # Same trick as Chrome's FindBestPageURLForHost: '/' + 1 == '0' bounds the prefix.
+            row = con.execute(
+                "SELECT m.icon_id FROM icon_mapping m JOIN favicon_bitmaps b ON b.icon_id = m.icon_id "
+                "WHERE (m.page_url >= ? AND m.page_url < ?) OR (m.page_url >= ? AND m.page_url < ?) "
+                "ORDER BY b.width DESC LIMIT 1",
+                (f"https://{host}/", f"https://{host}0", f"http://{host}/", f"http://{host}0"),
+            ).fetchone()
+        if row is None:
+            raise ValueError(f"the profile holds no favicon for {page}; visit it once, or use url:{page}")
+        icon_id = int(row[0])
+        bitmaps = {int(w): bytes(d) for w, h, d in con.execute(
+            "SELECT width, height, image_data FROM favicon_bitmaps WHERE icon_id = ? AND width = height",
+            (icon_id,))}
+    if not bitmaps:
+        raise ValueError(f"favicon {icon_id} for {page} has no square bitmap")
+    return Icon(bitmaps, None, icon_id)
+
+
+def render(spec: Spec, favicons_db: Path | None = None) -> Icon:
+    if spec.kind != "like":
+        _need_pil()
+    if spec.kind == "emoji":
+        return make_icon(render_emoji(spec.value))
+    if spec.kind == "symbol":
+        return make_icon(render_symbol(spec.value, spec.options))
+    if spec.kind == "text":
+        return make_icon(render_text(spec.value, spec.options))
+    if spec.kind == "file":
+        return make_icon(load_image(Path(spec.value).expanduser()))
+    if spec.kind == "url":
+        return make_icon(fetch_site_favicon(spec.value))
+    if spec.kind == "like":
+        if favicons_db is None:
+            raise ValueError("like: needs a profile to read from")
+        return icon_like(favicons_db, spec.value)
+    raise ValueError(spec.kind)
+
+
+# ----------------------------------------------------------------------------
+# The Favicons database
+# ----------------------------------------------------------------------------
+
+
+def chrome_now() -> int:
+    """Microseconds since 1601-01-01 UTC, the clock Chrome stamps favicon_bitmaps with."""
+    return int((time.time() + CHROME_EPOCH_OFFSET) * 1_000_000)
+
+
+@contextlib.contextmanager
+def snapshot_connection(db: Path) -> Iterator[sqlite3.Connection]:
+    """Open a private copy of the database. Works while the browser holds the real one."""
+    if not db.exists():
+        raise SystemExit(f"{db} does not exist")
+    tmp = Path(tempfile.mkdtemp(prefix="bookmarklet-favicon-"))
+    try:
+        for suffix in ("", "-journal", "-wal"):
+            src = Path(str(db) + suffix)
+            if src.exists():
+                shutil.copy2(src, tmp / src.name)
+        con = sqlite3.connect(tmp / db.name, isolation_level=None)
+        try:
+            yield con
+        finally:
+            con.close()
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+
+
+@contextlib.contextmanager
+def exclusive_connection(db: Path) -> Iterator[sqlite3.Connection]:
+    """Open the real database for writing, or stop if another process holds it."""
+    if not db.exists():
+        raise SystemExit(f"{db} does not exist")
+    con = sqlite3.connect(f"file:{db}?mode=rw", uri=True, timeout=0.5, isolation_level=None)
+    try:
+        try:
+            con.execute("BEGIN IMMEDIATE")
+        except sqlite3.OperationalError as e:
+            raise SystemExit(f"{db} is locked ({e}). Quit the browser first, or pass --quit.") from e
+        yield con
+    finally:
+        con.close()
+
+
+def schema_version(con: sqlite3.Connection) -> int:
+    row = con.execute("SELECT value FROM meta WHERE key = 'version'").fetchone()
+    return int(row[0]) if row else 0
+
+
+def has_column(con: sqlite3.Connection, table: str, column: str) -> bool:
+    return any(r[1] == column for r in con.execute(f"PRAGMA table_info({table})"))
+
+
+def current_icon(con: sqlite3.Connection, page_url: str) -> tuple[int, str] | None:
+    row = con.execute(
+        "SELECT f.id, f.url FROM icon_mapping m JOIN favicons f ON f.id = m.icon_id "
+        "WHERE m.page_url = ? LIMIT 1", (page_url,)).fetchone()
+    return (int(row[0]), str(row[1])) if row else None
+
+
+def stored_bitmap(con: sqlite3.Connection, page_url: str, size: int) -> bytes | None:
+    row = con.execute(
+        "SELECT b.image_data FROM icon_mapping m JOIN favicon_bitmaps b ON b.icon_id = m.icon_id "
+        "WHERE m.page_url = ? AND b.width = ? AND b.height = ? LIMIT 1",
+        (page_url, size, size)).fetchone()
+    return bytes(row[0]) if row else None
+
+
+def ensure_icon(con: sqlite3.Connection, icon: Icon, now: int) -> int:
+    if icon.icon_id is not None:
+        return icon.icon_id
+    row = con.execute("SELECT id FROM favicons WHERE url = ? AND icon_type = 1",
+                      (icon.icon_url,)).fetchone()
+    if row:
+        icon_id = int(row[0])
+    else:
+        cur = con.execute("INSERT INTO favicons (url, icon_type) VALUES (?, 1)", (icon.icon_url,))
+        icon_id = int(cur.lastrowid or 0)
+    for size, png in sorted(icon.bitmaps.items()):
+        have = con.execute(
+            "SELECT 1 FROM favicon_bitmaps WHERE icon_id = ? AND width = ? AND height = ?",
+            (icon_id, size, size)).fetchone()
+        if not have:
+            con.execute(
+                "INSERT INTO favicon_bitmaps (icon_id, last_updated, image_data, width, height, "
+                "last_requested) VALUES (?, ?, ?, ?, ?, 0)", (icon_id, now, png, size, size))
+    return icon_id
+
+
+@dataclass
+class Plan:
+    profile: Profile
+    bookmarklet: Bookmarklet
+    source: str
+    spec: Spec
+    icon: Icon | None = None
+    error: str | None = None
+
+
+def build_plans(profile: Profile, manifest: Manifest) -> list[Plan]:
+    plans: list[Plan] = []
+    for bm in bookmarklets(profile):
+        source, spec = choose_spec(bm, manifest)
+        plan = Plan(profile, bm, source, spec)
+        try:
+            plan.icon = render(spec, profile.favicons_db)
+        except (OSError, ValueError, RuntimeError, subprocess.CalledProcessError) as e:
+            plan.error = str(e)
+        plans.append(plan)
+    return plans
+
+
+def apply_plans(con: sqlite3.Connection, plans: list[Plan], commit: bool) -> list[tuple[Plan, str]]:
+    """Write the mappings inside the open transaction. Returns (plan, outcome) pairs."""
+    version = schema_version(con)
+    if version not in (8, 9):
+        raise SystemExit(f"Favicons schema version {version} is not one this tool knows (8, 9); "
+                         "update the tool before writing")
+    with_type = has_column(con, "icon_mapping", "page_url_type")
+    now = chrome_now()
+    results: list[tuple[Plan, str]] = []
+    for plan in plans:
+        if plan.icon is None:
+            results.append((plan, "skipped"))
+            continue
+        icon_id = ensure_icon(con, plan.icon, now)
+        url = plan.bookmarklet.url
+        existing = [int(r[0]) for r in con.execute(
+            "SELECT icon_id FROM icon_mapping WHERE page_url = ?", (url,))]
+        if existing == [icon_id]:
+            results.append((plan, "unchanged"))
+            continue
+        con.execute("DELETE FROM icon_mapping WHERE page_url = ?", (url,))
+        if with_type:
+            con.execute("INSERT INTO icon_mapping (page_url, icon_id, page_url_type) VALUES (?, ?, 0)",
+                        (url, icon_id))
+        else:
+            con.execute("INSERT INTO icon_mapping (page_url, icon_id) VALUES (?, ?)", (url, icon_id))
+        results.append((plan, "replaced" if existing else "set"))
+    # Icons this tool made that nothing maps to any more.
+    con.execute(
+        "DELETE FROM favicon_bitmaps WHERE icon_id IN (SELECT id FROM favicons WHERE url LIKE ? "
+        "AND id NOT IN (SELECT icon_id FROM icon_mapping WHERE icon_id IS NOT NULL))",
+        (ICON_URL_PREFIX + "%",))
+    con.execute(
+        "DELETE FROM favicons WHERE url LIKE ? "
+        "AND id NOT IN (SELECT icon_id FROM icon_mapping WHERE icon_id IS NOT NULL)",
+        (ICON_URL_PREFIX + "%",))
+    if commit:
+        try:
+            con.execute("COMMIT")
+        except sqlite3.OperationalError as e:
+            con.execute("ROLLBACK")
+            raise SystemExit(f"commit failed ({e}); nothing was changed") from e
+    else:
+        con.execute("ROLLBACK")
+    return results
+
+
+def backup(profile: Profile) -> Path:
+    BACKUP_DIR.mkdir(parents=True, exist_ok=True)
+    stem = f"{profile.browser.key}-{profile.directory.replace(' ', '_')}-Favicons"
+    dest = BACKUP_DIR / f"{stem}-{datetime.now().strftime('%Y%m%d-%H%M%S')}.sqlite"
+    shutil.copy2(profile.favicons_db, dest)
+    for old in sorted(BACKUP_DIR.glob(f"{stem}-*.sqlite"))[:-BACKUPS_KEPT]:
+        old.unlink()
+    return dest
+
+
+# ----------------------------------------------------------------------------
+# Browser control
+# ----------------------------------------------------------------------------
+
+
+def running(browser: Browser) -> bool:
+    return subprocess.run(["pgrep", "-x", browser.app], capture_output=True, check=False).returncode == 0
+
+
+def quit_browser(browser: Browser, timeout: float = 60) -> bool:
+    subprocess.run(["osascript", "-e", f'tell application "{browser.app}" to quit'],
+                   capture_output=True, check=False)
+    deadline = time.time() + timeout
+    while time.time() < deadline:
+        if not running(browser):
+            time.sleep(1)  # let it finish flushing its databases
+            return True
+        time.sleep(0.5)
+    return False
+
+
+def relaunch(browser: Browser) -> None:
+    subprocess.run(["open", "-a", browser.app, "--args", "--restore-last-session"], check=False)
+
+
+# ----------------------------------------------------------------------------
+# Verification with the browser's own favicon service
+# ----------------------------------------------------------------------------
+
+
+def same_image(a: bytes, b: bytes) -> bool:
+    if a == b or PIL_ERROR:
+        return a == b
+    try:
+        ia = Image.open(io.BytesIO(a)).convert("RGBA")
+        ib = Image.open(io.BytesIO(b)).convert("RGBA")
+    except (OSError, ValueError):
+        return False
+    return ia.size == ib.size and ia.tobytes() == ib.tobytes()
+
+
+def check_profile(profile: Profile, plans: list[Plan]) -> int:
+    """Ask a headless copy of the browser for each bookmarklet's favicon. Returns failures."""
+    from playwright.sync_api import sync_playwright
+
+    if not profile.browser.executable.exists():
+        raise SystemExit(f"{profile.browser.executable} is missing")
+    tmp = Path(tempfile.mkdtemp(prefix="bookmarklet-favicon-check-"))
+    clone = tmp / "Default"
+    clone.mkdir()
+    for name in ("Bookmarks", "Favicons", "Favicons-journal"):
+        src = profile.path / name
+        if src.exists():
+            shutil.copy2(src, clone / name)
+    expected: dict[str, bytes | None] = {}
+    con = sqlite3.connect(clone / "Favicons")
+    try:
+        for plan in plans:
+            expected[plan.bookmarklet.url] = stored_bitmap(con, plan.bookmarklet.url, 32)
+        # A regular https page with one icon and a 32 px bitmap: what a working lookup returns.
+        control = con.execute(
+            "SELECT m.page_url, b.image_data FROM icon_mapping m "
+            "JOIN favicon_bitmaps b ON b.icon_id = m.icon_id "
+            "WHERE m.page_url LIKE 'https://%' AND b.width = 32 AND b.height = 32 "
+            "AND (SELECT COUNT(*) FROM icon_mapping m2 WHERE m2.page_url = m.page_url) = 1 "
+            "ORDER BY m.id LIMIT 1").fetchone()
+    finally:
+        con.close()
+
+    def favicon_bytes(page, page_url: str, retries: int = 0) -> bytes:
+        """Chrome's answer for a page URL. An empty answer right after startup can mean the
+        history backend is still opening, so a caller that expects bytes may retry."""
+        target = ("chrome://favicon2/?size=16&scaleFactor=2x&forceEmptyDefaultFavicon=1&pageUrl="
+                  + quote(page_url, safe=""))
+        for attempt in range(retries + 1):
+            try:
+                resp = page.goto(target, wait_until="load", timeout=20000)
+                body = resp.body() if resp is not None else b""
+            except Exception:  # noqa: BLE001  any failure to serve means "no icon"
+                body = b""
+            if body or attempt == retries:
+                return body
+            time.sleep(2)
+        return b""
+
+    failures = 0
+    try:
+        with sync_playwright() as pw:
+            ctx = pw.chromium.launch_persistent_context(
+                str(tmp), executable_path=str(profile.browser.executable), headless=True,
+                args=["--disable-sync", "--disable-background-networking",
+                      "--no-default-browser-check", "--mute-audio"])
+            try:
+                page = ctx.new_page()
+                neg = favicon_bytes(page, "javascript:void('bookmarklet-favicon negative control')")
+                print(f"  negative control (unmapped url): {'empty, as expected' if not neg else 'FAILED, got bytes'}")
+                failures += bool(neg)
+                if control:
+                    pos = favicon_bytes(page, str(control[0]), retries=3)
+                    ok = same_image(pos, bytes(control[1]))
+                    print(f"  positive control ({urlsplit(str(control[0])).hostname}): "
+                          f"{'stored bitmap returned' if ok else 'FAILED'}")
+                    failures += not ok
+                for plan in plans:
+                    want = expected[plan.bookmarklet.url]
+                    got = favicon_bytes(page, plan.bookmarklet.url, retries=2 if want else 0)
+                    if want is None:
+                        verdict = "no mapping in the database" if not got else "UNEXPECTED icon"
+                        failures += bool(got)
+                    elif same_image(got, want):
+                        verdict = "Chrome serves the icon"
+                    else:
+                        verdict = "FAILED: " + ("nothing served" if not got else "a different image came back")
+                        failures += 1
+                    print(f"  {plan.bookmarklet.name}: {verdict}")
+            finally:
+                ctx.close()
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+    return failures
+
+
+# ----------------------------------------------------------------------------
+# Export for Chrome's bookmark importer
+# ----------------------------------------------------------------------------
+
+
+def export_html(plans: list[Plan]) -> str:
+    lines = [
+        "<!DOCTYPE NETSCAPE-Bookmark-file-1>",
+        "<!-- Written by bookmarklet-favicon. Import it with chrome://settings/importData, "
+        "source 'Bookmarks HTML file', then delete the Imported folder it creates. -->",
+        '<META HTTP-EQUIV="Content-Type" CONTENT="text/html; charset=UTF-8">',
+        "<TITLE>Bookmarks</TITLE>",
+        "<H1>Bookmarks</H1>",
+        "<DL><p>",
+    ]
+    for plan in plans:
+        if plan.icon is None:
+            continue
+        data = base64.b64encode(plan.icon.best_png()).decode("ascii")
+        lines.append(f'    <DT><A HREF="{html.escape(plan.bookmarklet.url, quote=True)}" '
+                     f'ICON="data:image/png;base64,{data}">{html.escape(plan.bookmarklet.name)}</A>')
+    lines.append("</DL><p>")
+    return "\n".join(lines) + "\n"
+
+
+# ----------------------------------------------------------------------------
+# CLI
+# ----------------------------------------------------------------------------
+
+
+def _browsers(args: argparse.Namespace) -> list[Browser]:
+    keys = args.browser or ["chrome"]
+    return [BROWSERS[k] for k in keys]
+
+
+def _root(args: argparse.Namespace) -> Path | None:
+    return Path(args.user_data_dir).expanduser() if args.user_data_dir else None
+
+
+def _plans(args: argparse.Namespace, manifest: Manifest) -> dict[Profile, list[Plan]]:
+    out: dict[Profile, list[Plan]] = {}
+    for browser in _browsers(args):
+        root = _root(args) or browser.user_data
+        if not root.exists():
+            print(f"{browser.app}: no user data at {root}")
+            continue
+        for profile in profiles(browser, args.profile, root):
+            plans = build_plans(profile, manifest)
+            if plans:
+                out[profile] = plans
+    return out
+
+
+def _manifest(args: argparse.Namespace) -> Manifest:
+    return load_manifest(Path(args.manifest).expanduser() if args.manifest else DEFAULT_MANIFEST)
+
+
+def cmd_list(args: argparse.Namespace) -> int:
+    manifest = _manifest(args)
+    plans = _plans(args, manifest)
+    if not plans:
+        print("no javascript: bookmarks found")
+        return 0
+    for profile, items in plans.items():
+        print(profile.label)
+        with snapshot_connection(profile.favicons_db) as con:
+            for plan in items:
+                have = current_icon(con, plan.bookmarklet.url)
+                if have is None:
+                    state = "no icon"
+                elif have[1].startswith(ICON_URL_PREFIX):
+                    state = "icon set by this tool"
+                else:
+                    state = f"icon from {have[1][:50]}"
+                problem = f"  [{plan.error}]" if plan.error else ""
+                print(f"  {plan.bookmarklet.name!r:42} {str(plan.spec):28} ({plan.source}); {state}{problem}")
+    return 0
+
+
+def cmd_preview(args: argparse.Namespace) -> int:
+    _need_pil()
+    plans = [p for items in _plans(args, _manifest(args)).values() for p in items]
+    if not plans:
+        print("no javascript: bookmarks found")
+        return 1
+    font = ImageFont.truetype(str(_first_existing(TEXT_FONTS, "text font", "")), 15)
+    row_h, pad = 56, 12
+    width = 640
+    sheet = Image.new("RGBA", (width, pad + row_h * len(plans) + pad), "#ffffff")
+    draw = ImageDraw.Draw(sheet)
+    for i, plan in enumerate(plans):
+        y = pad + i * row_h
+        shown = "".join(c for c in plan.bookmarklet.name
+                        if unicodedata.category(c) not in _STRIP_CATEGORIES).strip()
+        label = f"{shown}   {plan.spec}  ({plan.source})"
+        if plan.icon is None:
+            draw.text((pad, y + 18), f"{label}: {plan.error}", font=font, fill="#b3261e")
+            continue
+        big = Image.open(io.BytesIO(plan.icon.best_png())).convert("RGBA").resize((48, 48), Image.Resampling.NEAREST)
+        small = Image.open(io.BytesIO(plan.icon.bitmaps.get(16) or plan.icon.best_png())).convert("RGBA")
+        sheet.alpha_composite(big, (pad, y + 4))
+        sheet.alpha_composite(small.resize((16, 16), Image.Resampling.LANCZOS), (pad + 64, y + 20))
+        sheet.alpha_composite(small.resize((32, 32), Image.Resampling.LANCZOS), (pad + 92, y + 12))
+        draw.text((pad + 140, y + 18), label, font=font, fill="#1b1b17")
+    out = Path(args.output).expanduser() if args.output else HERE.parent / "tmp" / "bookmarklet-favicons-preview.png"
+    out.parent.mkdir(parents=True, exist_ok=True)
+    sheet.save(out)
+    print(out)
+    return 0
+
+
+def cmd_render(args: argparse.Namespace) -> int:
+    _need_pil()
+    spec = parse_spec(args.spec)
+    icon = render(spec, Path(args.favicons_db).expanduser() if args.favicons_db else None)
+    img = Image.open(io.BytesIO(icon.best_png())).convert("RGBA")
+    if args.size != img.width:
+        if spec.kind in ("emoji", "symbol", "text", "file"):
+            full = {"emoji": lambda: render_emoji(spec.value),
+                    "symbol": lambda: render_symbol(spec.value, spec.options),
+                    "text": lambda: render_text(spec.value, spec.options),
+                    "file": lambda: load_image(Path(spec.value).expanduser())}[spec.kind]()
+            img = full.convert("RGBA")
+        img = img.resize((args.size, args.size), Image.Resampling.LANCZOS)
+    out = Path(args.output).expanduser()
+    out.parent.mkdir(parents=True, exist_ok=True)
+    img.save(out)
+    print(out)
+    return 0
+
+
+def cmd_apply(args: argparse.Namespace) -> int:
+    manifest = _manifest(args)
+    plans = _plans(args, manifest)
+    if not plans:
+        print("no javascript: bookmarks found")
+        return 0
+    status = 0
+    for browser in _browsers(args):
+        mine = {p: items for p, items in plans.items() if p.browser == browser}
+        if not mine:
+            continue
+        was_running = running(browser) and _root(args) is None
+        if was_running and not args.dry_run:
+            if not args.quit:
+                raise SystemExit(f"{browser.app} is running and holds its Favicons database. "
+                                 f"Quit it, or pass --quit to quit it, apply, and relaunch it with its tabs.")
+            print(f"quitting {browser.app} ...")
+            if not quit_browser(browser):
+                raise SystemExit(f"{browser.app} did not quit; nothing was changed")
+        try:
+            for profile, items in mine.items():
+                print(f"{profile.label}{'  (dry run on a copy)' if args.dry_run else ''}")
+                if args.dry_run:
+                    with snapshot_connection(profile.favicons_db) as con:
+                        con.execute("BEGIN IMMEDIATE")
+                        results = apply_plans(con, items, commit=False)
+                else:
+                    with exclusive_connection(profile.favicons_db) as con:
+                        saved = backup(profile)
+                        print(f"  backup: {saved}")
+                        results = apply_plans(con, items, commit=True)
+                for plan, outcome in results:
+                    detail = f"[{plan.error}]" if plan.error else f"{plan.spec} ({plan.source})"
+                    print(f"  {outcome:9} {plan.bookmarklet.name!r:42} {detail}")
+                    status |= 1 if plan.error else 0
+        finally:
+            if was_running and not args.dry_run:
+                relaunch(browser)
+                print(f"relaunched {browser.app} with --restore-last-session; if a window is missing, "
+                      "History > Reopen Closed Window restores it")
+    return status
+
+
+def cmd_check(args: argparse.Namespace) -> int:
+    plans = _plans(args, _manifest(args))
+    if not plans:
+        print("no javascript: bookmarks found")
+        return 0
+    failures = 0
+    for profile, items in plans.items():
+        print(f"{profile.label}: asking a headless {profile.browser.app} for each bookmarklet's icon")
+        failures += check_profile(profile, items)
+    print("all checks passed" if not failures else f"{failures} check(s) failed")
+    return 2 if failures else 0
+
+
+def cmd_export_html(args: argparse.Namespace) -> int:
+    plans = [p for items in _plans(args, _manifest(args)).values() for p in items]
+    if not plans:
+        print("no javascript: bookmarks found")
+        return 1
+    out = Path(args.output).expanduser() if args.output else HOME / "Downloads" / "bookmarklets-with-icons.html"
+    out.write_text(export_html(plans))
+    print(out)
+    print("Import it: chrome://settings/importData, source 'Bookmarks HTML file'. Chrome keys icons by "
+          "URL, so the existing bookmarklets pick them up; then delete the 'Imported' folder. Chrome "
+          "re-encodes imported icons at 16 px and will not replace an icon a bookmarklet already has, "
+          "so `apply` is the better path when you can close the browser.")
+    return 0
+
+
+def main(argv: list[str] | None = None) -> int:
+    doc = __doc__ or ""
+    ap = argparse.ArgumentParser(prog="bookmarklet-favicon",
+                                 description=doc.split("\n\n")[0],
+                                 formatter_class=argparse.RawDescriptionHelpFormatter,
+                                 epilog=doc.split("Usage:", 1)[1].split("INVARIANTS:")[0])
+    sub = ap.add_subparsers(dest="cmd", required=True)
+
+    def common(p: argparse.ArgumentParser) -> None:
+        p.add_argument("--browser", action="append", choices=sorted(BROWSERS),
+                       help="which browser (repeatable); default chrome")
+        p.add_argument("--profile", help="profile display name or directory; default all with bookmarklets")
+        p.add_argument("--manifest", help=f"icon manifest; default {DEFAULT_MANIFEST}")
+        p.add_argument("--user-data-dir", help="read this user data dir instead of the browser's own")
+
+    common(sub.add_parser("list", help="show every bookmarklet, its planned icon and the current state"))
+    p = sub.add_parser("preview", help="draw a sheet of the planned icons at bar size")
+    common(p)
+    p.add_argument("-o", "--output")
+    p = sub.add_parser("apply", help="write the icons into the profile's Favicons database")
+    common(p)
+    p.add_argument("--quit", action="store_true", help="quit the browser, apply, relaunch it with its tabs")
+    p.add_argument("--dry-run", action="store_true", help="apply to a copy and report; changes nothing")
+    common(sub.add_parser("check", help="ask a headless copy of the browser for each icon"))
+    p = sub.add_parser("render", help="render one icon spec to a PNG")
+    p.add_argument("spec")
+    p.add_argument("-o", "--output", required=True)
+    p.add_argument("--size", type=int, default=RENDER)
+    p.add_argument("--favicons-db", help="profile Favicons database, needed for like: specs")
+    p = sub.add_parser("export-html", help="write a bookmarks HTML file with icons for Chrome's importer")
+    common(p)
+    p.add_argument("-o", "--output")
+
+    args = ap.parse_args(argv)
+    handlers = {"list": cmd_list, "preview": cmd_preview, "apply": cmd_apply, "check": cmd_check,
+                "render": cmd_render, "export-html": cmd_export_html}
+    try:
+        return handlers[args.cmd](args)
+    except (ValueError, FileNotFoundError, RuntimeError) as e:
+        print(f"error: {e}", file=sys.stderr)
+        return 1
+
+
+if __name__ == "__main__":
+    sys.exit(main())
