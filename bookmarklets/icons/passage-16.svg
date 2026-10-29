@@ -1,0 +1,18 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 16 16">
+  <!-- The 16 px cut of passage-32.svg, for screens at 1x: whole-pixel doorway edges, one
+       chevron drawn pixel by pixel, no brick texture (it is noise at this size). -->
+  <defs>
+    <linearGradient id="green" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#C6FFD8"/><stop offset="0.45" stop-color="#7CFC9A"/><stop offset="1" stop-color="#2BBF63"/>
+    </linearGradient>
+    <filter id="soft" x="-50%" y="-50%" width="200%" height="200%"><feGaussianBlur stdDeviation="0.8"/></filter>
+    <path id="portal" d="M8 1 L12 5 L12 15 L4 15 L4 5 Z"/>
+  </defs>
+  <rect width="16" height="16" fill="#0a0a0c"/>
+  <use href="#portal" fill="#7CFC9A" opacity="0.5" filter="url(#soft)" transform="translate(8 8) scale(1.12) translate(-8 -8)"/>
+  <use href="#portal" fill="url(#green)"/>
+  <g fill="#06270F" shape-rendering="crispEdges">
+    <rect x="7" y="8" width="2" height="1"/><rect x="6" y="9" width="1" height="1"/><rect x="9" y="9" width="1" height="1"/>
+    <rect x="5" y="10" width="1" height="1"/><rect x="10" y="10" width="1" height="1"/>
+  </g>
+</svg>

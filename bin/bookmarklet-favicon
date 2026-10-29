@@ -33,8 +33,14 @@ Icon specs:
   symbol:history,bg=#4c662b,fg=#fff,fill=1,wght=500
   text:W,bg=#4c662b,fg=#fff       one or two letters on a rounded square
   file:/path/icon.svg             an image file (svg, png, ico, jpg, webp)
+  file:icons/app-{size}.svg       art drawn for each bar size: {size} becomes 16 and 32,
+                                  and each file is used as drawn, without cropping
   like:https://web.archive.org/   the icon the profile already holds for that page
   url:https://example.com/        that site's favicon, from Google's favicon service
+
+A relative file: path in the manifest resolves against the manifest's folder. Symbols
+are drawn once for each output size, with the font's optical size set to the glyph's
+real pixel size (opsz= overrides it), so a 16 px icon gets the heavier small-size cut.
 
 The browser must be closed while `apply` writes: Chrome opens the database with an
 exclusive lock. `--quit` quits it over AppleScript, applies, and relaunches it with
@@ -316,8 +322,12 @@ def load_manifest(path: Path | None) -> Manifest:
         return Manifest({}, {}, path)
     data = json.loads(path.read_text())
     defaults = {k: str(v) for k, v in data.get("defaults", {}).items()}
-    icons = {normalize_name(name): parse_spec(raw, defaults)
-             for name, raw in data.get("icons", {}).items()}
+    icons: dict[str, Spec] = {}
+    for name, raw in data.get("icons", {}).items():
+        spec = parse_spec(raw, defaults)
+        if spec.kind == "file" and not spec.value.startswith(("/", "~")):
+            spec.value = str(path.parent / spec.value)
+        icons[normalize_name(name)] = spec
     return Manifest(defaults, icons, path)
 
 
@@ -373,10 +383,9 @@ def _fit(img: Image.Image, size: int = RENDER, margin: int = 0) -> Image.Image:
     return canvas
 
 
-def _badge(bg: str) -> Image.Image:
-    canvas = Image.new("RGBA", (RENDER, RENDER), (0, 0, 0, 0))
-    ImageDraw.Draw(canvas).rounded_rectangle((0, 0, RENDER - 1, RENDER - 1),
-                                             radius=round(RENDER * 0.22), fill=bg)
+def _badge(bg: str, px: int = RENDER) -> Image.Image:
+    canvas = Image.new("RGBA", (px, px), (0, 0, 0, 0))
+    ImageDraw.Draw(canvas).rounded_rectangle((0, 0, px - 1, px - 1), radius=round(px * 0.22), fill=bg)
     return canvas
 
 
@@ -413,7 +422,11 @@ def _symbol_codepoints(path: Path) -> dict[str, str]:
     return table
 
 
-def render_symbol(name: str, options: dict[str, str]) -> Image.Image:
+def render_symbol(name: str, options: dict[str, str], px: int = RENDER) -> Image.Image:
+    """A Material Symbol on a rounded square, for an output px pixels wide.
+
+    The optical-size axis follows the glyph's pixel size unless the spec sets opsz=.
+    At opsz 48 the strokes of a 12 px glyph are too thin to read on the bookmarks bar."""
     hint = ("get MaterialSymbolsOutlined[FILL,GRAD,opsz,wght].ttf and .codepoints from "
             "github.com/google/material-design-icons, or set BOOKMARKLET_FAVICON_SYMBOL_FONT "
             "and BOOKMARKLET_FAVICON_SYMBOL_CODEPOINTS")
@@ -421,13 +434,16 @@ def render_symbol(name: str, options: dict[str, str]) -> Image.Image:
     table = _symbol_codepoints(_first_existing(SYMBOL_CODEPOINTS, "Material Symbols codepoints", hint))
     if name not in table:
         raise ValueError(f"no Material Symbol named {name!r}")
-    font = ImageFont.truetype(str(font_path), round(RENDER * 0.78))
+    scale = 0.78
+    canvas = px * -(-RENDER // px)  # draw at RENDER px or more, then reduce
+    font = ImageFont.truetype(str(font_path), round(canvas * scale))
+    opsz = float(options.get("opsz") or min(48.0, max(20.0, px * scale)))
     # Axis order in the variable font: Fill, Grade, Optical Size, Weight.
-    _set_axes(font, [float(options.get("fill", "1")), 0, 48, float(options.get("wght", "500"))])
-    badge = _badge(options.get("bg", DEFAULT_OPTIONS["bg"]))
-    ImageDraw.Draw(badge).text((RENDER / 2, RENDER / 2), table[name], font=font,
+    _set_axes(font, [float(options.get("fill", "1")), 0, opsz, float(options.get("wght", "500"))])
+    badge = _badge(options.get("bg", DEFAULT_OPTIONS["bg"]), canvas)
+    ImageDraw.Draw(badge).text((canvas / 2, canvas / 2), table[name], font=font,
                                fill=options.get("fg", DEFAULT_OPTIONS["fg"]), anchor="mm")
-    return badge
+    return badge if canvas == px else badge.resize((px, px), Image.Resampling.LANCZOS)
 
 
 def render_text(text: str, options: dict[str, str]) -> Image.Image:
@@ -444,19 +460,33 @@ def render_text(text: str, options: dict[str, str]) -> Image.Image:
     return badge
 
 
-def load_image(path: Path) -> Image.Image:
+def load_image(path: Path, px: int | None = None) -> Image.Image:
+    """An image file as icon art. With px the file is art for that size: drawn at exactly
+    px pixels and not cropped. Without it the content is cropped to its bounds and fitted."""
     if not path.exists():
         raise FileNotFoundError(path)
+    size = px or RENDER
     if path.suffix.lower() == ".svg":
         rsvg = shutil.which("rsvg-convert")
         if not rsvg:
             raise FileNotFoundError("rsvg-convert is needed for svg icons (brew install librsvg)")
-        out = subprocess.run([rsvg, "-w", str(RENDER), "-h", str(RENDER), "--keep-aspect-ratio",
+        out = subprocess.run([rsvg, "-w", str(size), "-h", str(size), "--keep-aspect-ratio",
                               str(path)], check=True, capture_output=True).stdout
-        return _fit(Image.open(io.BytesIO(out)))
-    img = Image.open(path)
-    img.load()
-    return _fit(img)
+        img = Image.open(io.BytesIO(out))
+    else:
+        img = Image.open(path)
+        img.load()
+    if px is None:
+        return _fit(img)
+    img = img.convert("RGBA")
+    return img if img.size == (px, px) else img.resize((px, px), Image.Resampling.LANCZOS)
+
+
+def sized_paths(value: str) -> dict[int, Path] | None:
+    """The per-size files a file: spec names with {size}, or None for a single file."""
+    if "{size}" not in value:
+        return None
+    return {s: Path(value.replace("{size}", str(s))).expanduser() for s in SIZES}
 
 
 def fetch_site_favicon(site: str) -> Image.Image:
@@ -470,12 +500,23 @@ def fetch_site_favicon(site: str) -> Image.Image:
     return _fit(Image.open(io.BytesIO(data)))
 
 
-def make_icon(img: Image.Image) -> Icon:
-    img = img.convert("RGBA")
-    if img.size != (RENDER, RENDER):
-        img = _fit(img)
-    bitmaps = {s: _png(img.resize((s, s), Image.Resampling.LANCZOS)) for s in SIZES}
-    return Icon(bitmaps, ICON_URL_PREFIX + hashlib.sha256(bitmaps[32]).hexdigest())
+def make_icon(img: Image.Image | dict[int, Image.Image]) -> Icon:
+    """PNG bitmaps for each bar size, from one master image or from art for each size.
+
+    The content address covers every size: an edit to the 16 px art alone must give a
+    new favicons row, because ensure_icon never rewrites the bitmaps of an existing row."""
+    if isinstance(img, dict):
+        per = {s: img[s].convert("RGBA") for s in SIZES}
+        per = {s: im if im.size == (s, s) else im.resize((s, s), Image.Resampling.LANCZOS)
+               for s, im in per.items()}
+    else:
+        master = img.convert("RGBA")
+        if master.size != (RENDER, RENDER):
+            master = _fit(master)
+        per = {s: master.resize((s, s), Image.Resampling.LANCZOS) for s in SIZES}
+    bitmaps = {s: _png(im) for s, im in per.items()}
+    digest = hashlib.sha256(b"".join(bitmaps[s] for s in sorted(bitmaps))).hexdigest()
+    return Icon(bitmaps, ICON_URL_PREFIX + digest)
 
 
 def icon_like(favicons_db: Path, page: str) -> Icon:
@@ -510,10 +551,13 @@ def render(spec: Spec, favicons_db: Path | None = None) -> Icon:
     if spec.kind == "emoji":
         return make_icon(render_emoji(spec.value))
     if spec.kind == "symbol":
-        return make_icon(render_symbol(spec.value, spec.options))
+        return make_icon({s: render_symbol(spec.value, spec.options, s) for s in SIZES})
     if spec.kind == "text":
         return make_icon(render_text(spec.value, spec.options))
     if spec.kind == "file":
+        sized = sized_paths(spec.value)
+        if sized:
+            return make_icon({s: load_image(path, s) for s, path in sized.items()})
         return make_icon(load_image(Path(spec.value).expanduser()))
     if spec.kind == "url":
         return make_icon(fetch_site_favicon(spec.value))
@@ -687,7 +731,10 @@ def apply_plans(con: sqlite3.Connection, plans: list[Plan], commit: bool) -> lis
 
 def backup(profile: Profile) -> Path:
     BACKUP_DIR.mkdir(parents=True, exist_ok=True)
-    stem = f"{profile.browser.key}-{profile.directory.replace(' ', '_')}-Favicons"
+    # A copy of a profile (--user-data-dir) gets its own name, so its backups never
+    # rotate a real profile's backups out of the BACKUPS_KEPT window.
+    where = "" if profile.root == profile.browser.user_data else "copy-"
+    stem = f"{where}{profile.browser.key}-{profile.directory.replace(' ', '_')}-Favicons"
     dest = BACKUP_DIR / f"{stem}-{datetime.now().strftime('%Y%m%d-%H%M%S')}.sqlite"
     shutil.copy2(profile.favicons_db, dest)
     for old in sorted(BACKUP_DIR.glob(f"{stem}-*.sqlite"))[:-BACKUPS_KEPT]:
@@ -749,11 +796,11 @@ def check_profile(profile: Profile, plans: list[Plan]) -> int:
         src = profile.path / name
         if src.exists():
             shutil.copy2(src, clone / name)
-    expected: dict[str, bytes | None] = {}
+    expected: dict[str, dict[int, bytes | None]] = {}
     con = sqlite3.connect(clone / "Favicons")
     try:
         for plan in plans:
-            expected[plan.bookmarklet.url] = stored_bitmap(con, plan.bookmarklet.url, 32)
+            expected[plan.bookmarklet.url] = {px: stored_bitmap(con, plan.bookmarklet.url, px) for px in SIZES}
         # A regular https page with one icon and a 32 px bitmap: what a working lookup returns.
         control = con.execute(
             "SELECT m.page_url, b.image_data FROM icon_mapping m "
@@ -764,10 +811,11 @@ def check_profile(profile: Profile, plans: list[Plan]) -> int:
     finally:
         con.close()
 
-    def favicon_bytes(page, page_url: str, retries: int = 0) -> bytes:
-        """Chrome's answer for a page URL. An empty answer right after startup can mean the
-        history backend is still opening, so a caller that expects bytes may retry."""
-        target = ("chrome://favicon2/?size=16&scaleFactor=2x&forceEmptyDefaultFavicon=1&pageUrl="
+    def favicon_bytes(page, page_url: str, retries: int = 0, scale: int = 2) -> bytes:
+        """Chrome's answer for a page URL at a 16 DIP size and a 1x or 2x scale. An empty
+        answer right after startup can mean the history backend is still opening, so a
+        caller that expects bytes may retry."""
+        target = (f"chrome://favicon2/?size=16&scaleFactor={scale}x&forceEmptyDefaultFavicon=1&pageUrl="
                   + quote(page_url, safe=""))
         for attempt in range(retries + 1):
             try:
@@ -800,15 +848,20 @@ def check_profile(profile: Profile, plans: list[Plan]) -> int:
                     failures += not ok
                 for plan in plans:
                     want = expected[plan.bookmarklet.url]
-                    got = favicon_bytes(page, plan.bookmarklet.url, retries=2 if want else 0)
-                    if want is None:
+                    if not any(want.values()):
+                        got = favicon_bytes(page, plan.bookmarklet.url)
                         verdict = "no mapping in the database" if not got else "UNEXPECTED icon"
                         failures += bool(got)
-                    elif same_image(got, want):
-                        verdict = "Chrome serves the icon"
-                    else:
-                        verdict = "FAILED: " + ("nothing served" if not got else "a different image came back")
-                        failures += 1
+                        print(f"  {plan.bookmarklet.name}: {verdict}")
+                        continue
+                    bad = []
+                    for px in SIZES:  # the 1x screen gets the 16 px bitmap, Retina the 32 px one
+                        stored = want[px]
+                        got = favicon_bytes(page, plan.bookmarklet.url, retries=2, scale=px // 16)
+                        if stored is None or not same_image(got, stored):
+                            bad.append(f"{px} px " + ("not served" if not got else "differs from the stored bitmap"))
+                    failures += bool(bad)
+                    verdict = "Chrome serves the icon at 16 and 32 px" if not bad else "FAILED: " + "; ".join(bad)
                     print(f"  {plan.bookmarklet.name}: {verdict}")
             finally:
                 ctx.close()
@@ -896,31 +949,115 @@ def cmd_list(args: argparse.Namespace) -> int:
     return 0
 
 
+# Chrome 156's --color-bookmark-bar-background and --color-bookmark-bar-foreground, read
+# from chrome://theme/colors.css with the profile's theme preference set to dark, then light.
+BAR_THEMES = (("dark theme", "#3c3c3c", "#c7c7c7"), ("light theme", "#ffffff", "#474747"))
+UI_FONTS = ["/System/Library/Fonts/SFNS.ttf", *TEXT_FONTS]
+
+
+def _ui_font(px: int) -> ImageFont.FreeTypeFont:
+    return ImageFont.truetype(str(_first_existing(UI_FONTS, "UI font", "set UI_FONTS")), px)
+
+
+def _label_runs(text: str) -> list[tuple[str, bool]]:
+    """A bookmark name split into text and emoji runs. Pillow has no font fallback."""
+    runs: list[tuple[str, bool]] = []
+    for c in text:
+        cat = unicodedata.category(c)
+        in_emoji = bool(runs) and runs[-1][1]
+        emoji = (cat == "So" or (cat == "Sk" and 0x1F3FB <= ord(c) <= 0x1F3FF)
+                 or (in_emoji and (c in ("\u200d", "\ufe0f", "\ufe0e", "\u20e3") or cat in ("Mn", "Me"))))
+        if runs and runs[-1][1] == emoji:
+            runs[-1] = (runs[-1][0] + c, emoji)
+        else:
+            runs.append((c, emoji))
+    return runs
+
+
+def _draw_label(canvas: Image.Image, x: float, cy: float, text: str, px: int, fill: str) -> float:
+    """Draw a bookmark name with its emoji in color; returns the x after it."""
+    font = _ui_font(px)
+    draw = ImageDraw.Draw(canvas)
+    emoji_font = ImageFont.truetype(EMOJI_FONT, 64) if Path(EMOJI_FONT).exists() else None
+    for run, emoji in _label_runs(text):
+        if emoji and emoji_font:
+            scratch = Image.new("RGBA", (96 * len(run), 96), (0, 0, 0, 0))
+            ImageDraw.Draw(scratch).text((8, 48), run, font=emoji_font, embedded_color=True, anchor="lm")
+            box = scratch.getbbox()
+            if box:
+                glyphs = scratch.crop(box)
+                h = round(px * 1.1)
+                glyphs = glyphs.resize((max(1, round(glyphs.width * h / glyphs.height)), h),
+                                       Image.Resampling.LANCZOS)
+                canvas.alpha_composite(glyphs, (round(x), round(cy - h / 2)))
+                x += glyphs.width + px * 0.2
+        else:
+            draw.text((x, cy), run, font=font, fill=fill, anchor="lm")
+            x += draw.textlength(run, font=font)
+    return x
+
+
+def _bar(plans: list[Plan], bg: str, fg: str, scale: int) -> Image.Image:
+    """A strip of bookmark buttons: a 16 DIP icon, 6 DIP padding, a 12 DIP label."""
+    height, pad, icon, text_px = 32 * scale, 6 * scale, 16 * scale, 12 * scale
+    strip = Image.new("RGBA", (4000 * scale, height), bg)
+    x = 4.0 * scale
+    for plan in plans:
+        x += pad
+        bitmap = plan.icon.bitmaps.get(icon) if plan.icon else None
+        if bitmap:
+            strip.alpha_composite(Image.open(io.BytesIO(bitmap)).convert("RGBA"),
+                                  (round(x), (height - icon) // 2))
+        x = _draw_label(strip, x + icon + pad, height / 2, plan.bookmarklet.name, text_px, fg) + pad + 2 * scale
+    return strip.crop((0, 0, round(x) + 4 * scale, height))
+
+
+def _magnified(png: bytes, factor: int, bg: str) -> Image.Image:
+    img = Image.open(io.BytesIO(png)).convert("RGBA")
+    tile = Image.new("RGBA", img.size, bg)
+    tile.alpha_composite(img)
+    return tile.resize((img.width * factor, img.height * factor), Image.Resampling.NEAREST)
+
+
 def cmd_preview(args: argparse.Namespace) -> int:
+    """A sheet of the planned icons on a mock bookmarks bar, then each icon's bitmaps magnified."""
     _need_pil()
-    plans = [p for items in _plans(args, _manifest(args)).values() for p in items]
+    by_profile = _plans(args, _manifest(args))
+    plans = [p for items in by_profile.values() for p in items]
     if not plans:
         print("no javascript: bookmarks found")
         return 1
-    font = ImageFont.truetype(str(_first_existing(TEXT_FONTS, "text font", "")), 15)
-    row_h, pad = 56, 12
-    width = 640
-    sheet = Image.new("RGBA", (width, pad + row_h * len(plans) + pad), "#ffffff")
+    note, label = _ui_font(20), "#47483f"
+    blocks: list[tuple[str, Image.Image]] = []
+    for profile, items in by_profile.items():
+        for name, bg, fg in BAR_THEMES:
+            blocks.append((f"{profile.label}, {name}, Retina (the 32 px bitmaps)", _bar(items, bg, fg, 2)))
+        blocks.append((f"{profile.label}, {BAR_THEMES[0][0]}, 1x screen (the 16 px bitmaps, actual size)",
+                       _bar(items, BAR_THEMES[0][1], BAR_THEMES[0][2], 1)))
+    row_h, gap = 136, 18
+    width = max(1100, *(img.width + 40 for _, img in blocks))
+    height = 20 + sum(34 + img.height + gap for _, img in blocks) + 40 + row_h * len(plans)
+    sheet = Image.new("RGBA", (width, height), "#ffffff")
     draw = ImageDraw.Draw(sheet)
-    for i, plan in enumerate(plans):
-        y = pad + i * row_h
-        shown = "".join(c for c in plan.bookmarklet.name
-                        if unicodedata.category(c) not in _STRIP_CATEGORIES).strip()
-        label = f"{shown}   {plan.spec}  ({plan.source})"
+    y = 20
+    for caption, img in blocks:
+        draw.text((20, y), caption, font=note, fill=label)
+        sheet.alpha_composite(img, (20, y + 30))
+        y += 34 + img.height + gap
+    draw.text((20, y + 6), "Each icon: the 32 px bitmap at 4x, the 16 px bitmap at 8x, on the dark bar color",
+              font=note, fill=label)
+    y += 40
+    dark = BAR_THEMES[0][1]
+    for plan in plans:
         if plan.icon is None:
-            draw.text((pad, y + 18), f"{label}: {plan.error}", font=font, fill="#b3261e")
-            continue
-        big = Image.open(io.BytesIO(plan.icon.best_png())).convert("RGBA").resize((48, 48), Image.Resampling.NEAREST)
-        small = Image.open(io.BytesIO(plan.icon.bitmaps.get(16) or plan.icon.best_png())).convert("RGBA")
-        sheet.alpha_composite(big, (pad, y + 4))
-        sheet.alpha_composite(small.resize((16, 16), Image.Resampling.LANCZOS), (pad + 64, y + 20))
-        sheet.alpha_composite(small.resize((32, 32), Image.Resampling.LANCZOS), (pad + 92, y + 12))
-        draw.text((pad + 140, y + 18), label, font=font, fill="#1b1b17")
+            _draw_label(sheet, 20, y + 40, plan.bookmarklet.name, 22, "#1b1b17")
+            draw.text((20, y + 76), f"{plan.spec}: {plan.error}", font=note, fill="#b3261e")
+        else:
+            sheet.alpha_composite(_magnified(plan.icon.bitmaps[32], 4, dark), (20, y))
+            sheet.alpha_composite(_magnified(plan.icon.bitmaps[16], 8, dark), (164, y))
+            _draw_label(sheet, 312, y + 44, plan.bookmarklet.name, 22, "#1b1b17")
+            draw.text((312, y + 80), f"{plan.spec}  ({plan.source})", font=note, fill=label)
+        y += row_h
     out = Path(args.output).expanduser() if args.output else HERE.parent / "tmp" / "bookmarklet-favicons-preview.png"
     out.parent.mkdir(parents=True, exist_ok=True)
     sheet.save(out)
@@ -932,15 +1069,18 @@ def cmd_render(args: argparse.Namespace) -> int:
     _need_pil()
     spec = parse_spec(args.spec)
     icon = render(spec, Path(args.favicons_db).expanduser() if args.favicons_db else None)
-    img = Image.open(io.BytesIO(icon.best_png())).convert("RGBA")
-    if args.size != img.width:
-        if spec.kind in ("emoji", "symbol", "text", "file"):
-            full = {"emoji": lambda: render_emoji(spec.value),
-                    "symbol": lambda: render_symbol(spec.value, spec.options),
-                    "text": lambda: render_text(spec.value, spec.options),
-                    "file": lambda: load_image(Path(spec.value).expanduser())}[spec.kind]()
-            img = full.convert("RGBA")
-        img = img.resize((args.size, args.size), Image.Resampling.LANCZOS)
+    px = args.size
+    if px in icon.bitmaps:  # 16 or 32: exactly the bitmap Chrome gets
+        img = Image.open(io.BytesIO(icon.bitmaps[px])).convert("RGBA")
+    elif spec.kind == "symbol":
+        img = render_symbol(spec.value, spec.options, px)
+    elif spec.kind in ("emoji", "text") or (spec.kind == "file" and not sized_paths(spec.value)):
+        master = {"emoji": lambda: render_emoji(spec.value),
+                  "text": lambda: render_text(spec.value, spec.options),
+                  "file": lambda: load_image(Path(spec.value).expanduser())}[spec.kind]()
+        img = master.convert("RGBA").resize((px, px), Image.Resampling.LANCZOS)
+    else:
+        img = Image.open(io.BytesIO(icon.best_png())).convert("RGBA").resize((px, px), Image.Resampling.LANCZOS)
     out = Path(args.output).expanduser()
     out.parent.mkdir(parents=True, exist_ok=True)
     img.save(out)

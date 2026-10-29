@@ -1,0 +1,35 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 32 32">
+  <!-- Passage's breach (passage/static/icon.svg) redrawn on a 32 px grid for the
+       bookmarks bar: the doorway is larger, the wall keeps one-pixel mortar, and the
+       fractures and loose bricks, which are less than a pixel here, are gone. -->
+  <defs>
+    <linearGradient id="green" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#C6FFD8"/>
+      <stop offset="0.45" stop-color="#7CFC9A"/>
+      <stop offset="1" stop-color="#2BBF63"/>
+    </linearGradient>
+    <filter id="soft" x="-50%" y="-50%" width="200%" height="200%">
+      <feGaussianBlur stdDeviation="1.6"/>
+    </filter>
+    <path id="portal" d="M16 2 L23 10 L23 29 L9 29 L9 10 Z"/>
+    <clipPath id="clip"><use href="#portal"/></clipPath>
+  </defs>
+  <rect width="32" height="32" fill="#0a0a0c"/>
+  <g fill="#191b22">
+    <rect x="1" y="1" width="7" height="3"/><rect x="9" y="1" width="7" height="3"/><rect x="17" y="1" width="7" height="3"/><rect x="25" y="1" width="7" height="3"/>
+    <rect x="-3" y="5" width="7" height="3"/><rect x="5" y="5" width="7" height="3"/><rect x="13" y="5" width="7" height="3"/><rect x="21" y="5" width="7" height="3"/><rect x="29" y="5" width="7" height="3"/>
+    <rect x="1" y="9" width="7" height="3"/><rect x="9" y="9" width="7" height="3"/><rect x="17" y="9" width="7" height="3"/><rect x="25" y="9" width="7" height="3"/>
+    <rect x="-3" y="13" width="7" height="3"/><rect x="5" y="13" width="7" height="3"/><rect x="13" y="13" width="7" height="3"/><rect x="21" y="13" width="7" height="3"/><rect x="29" y="13" width="7" height="3"/>
+    <rect x="1" y="17" width="7" height="3"/><rect x="9" y="17" width="7" height="3"/><rect x="17" y="17" width="7" height="3"/><rect x="25" y="17" width="7" height="3"/>
+    <rect x="-3" y="21" width="7" height="3"/><rect x="5" y="21" width="7" height="3"/><rect x="13" y="21" width="7" height="3"/><rect x="21" y="21" width="7" height="3"/><rect x="29" y="21" width="7" height="3"/>
+    <rect x="1" y="25" width="7" height="3"/><rect x="9" y="25" width="7" height="3"/><rect x="17" y="25" width="7" height="3"/><rect x="25" y="25" width="7" height="3"/>
+    <rect x="-3" y="29" width="7" height="3"/><rect x="5" y="29" width="7" height="3"/><rect x="13" y="29" width="7" height="3"/><rect x="21" y="29" width="7" height="3"/><rect x="29" y="29" width="7" height="3"/>
+  </g>
+  <use href="#portal" fill="#7CFC9A" opacity="0.55" filter="url(#soft)" transform="translate(16 16) scale(1.12) translate(-16 -16)"/>
+  <use href="#portal" fill="url(#green)"/>
+  <rect x="15" y="2" width="2" height="27" fill="#FFFFFF" opacity="0.2" clip-path="url(#clip)"/>
+  <g fill="none" stroke="#06270F" stroke-width="2" stroke-linecap="square" stroke-linejoin="miter">
+    <polyline points="12,17.5 16,13.5 20,17.5"/>
+    <polyline points="12,23.5 16,19.5 20,23.5"/>
+  </g>
+</svg>

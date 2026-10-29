@@ -27,10 +27,11 @@ Append a `<section>` and one entry in the `BM` object at the bottom of
 attribute so quoting and escaping survive editing; the page assigns it to the
 link and prints it in the collapsed Source block.
 
-Lead every label with an emoji. Bookmarklets have no host, so browsers never
-fetch a favicon for them. The emoji in the name identifies them on the bar until
-you give them a real icon with the tool below, which uses that emoji as the icon
-by default.
+Bookmarklets have no host, so browsers do not fetch a favicon for them. Until
+the tool below writes an icon, the emoji at the start of a name is the only
+identifier on the bar. The tool also uses that emoji as the default icon. After
+`apply`, the emoji in a name only repeats the icon, so you can remove it. The
+manifest matches names with the emoji removed.
 
 ## Favicons for bookmarklets
 
@@ -45,10 +46,10 @@ this rewrite the bookmark to a `data:` URL and navigate away and back).
 
 ```
 bin/bookmarklet-favicon list                 # every bookmarklet, its planned icon, the current state
-bin/bookmarklet-favicon preview              # a PNG sheet of the planned icons at bar size
+bin/bookmarklet-favicon preview              # the planned icons on a mock bookmarks bar, plus each bitmap magnified
 bin/bookmarklet-favicon apply --dry-run      # the plan, applied to a copy; Chrome can stay open
 bin/bookmarklet-favicon apply --quit         # quit Chrome, write the icons, relaunch with the tabs
-bin/bookmarklet-favicon check                # Chrome's own favicon service confirms each icon
+bin/bookmarklet-favicon check                # Chrome's own favicon service confirms each icon at 16 and 32 px
 bin/bookmarklet-favicon apply --browser brave --quit
 ```
 
@@ -56,15 +57,36 @@ Where an icon comes from, first match wins: an entry in `icons.json` (keys are
 bookmark names, matched with emoji and symbols stripped, so a bookmark renamed
 from `🕰️ Wayback` to `Wayback` keeps its icon), then the emoji the name starts
 with, then a one-letter badge. Specs: `emoji:🕰️`, `symbol:history` (Material
-Symbols Outlined on a rounded square, `bg=`/`fg=`/`fill=`/`wght=` options),
-`text:W`, `file:/path.svg`, `like:https://web.archive.org/` (the icon the
-profile already holds for that site), `url:https://site/` (fetched from
-Google's favicon service).
+Symbols Outlined on a rounded square, `bg=`/`fg=`/`fill=`/`wght=`/`opsz=`
+options), `text:W`, `file:/path.svg`, `like:https://web.archive.org/` (the icon
+the profile already holds for that site), `url:https://site/` (fetched from
+Google's favicon service). A relative `file:` path starts in this folder. A
+`{size}` in a `file:` path names one file for each icon dimension:
+`passage-{size}.svg` reads `passage-16.svg` and `passage-32.svg`, and the tool
+uses each file as it is drawn. Symbols use the optical size that matches the
+glyph size in pixels (20 at 16 px, not 48). Thus the strokes have a
+sufficient thickness to read on the bar.
+
+### The icons
+
+Each icon comes from the app that the bookmarklet belongs to. If the app has
+art for small sizes, use that art. If the app's master icon does not read at 16
+and 32 px, redraw it in `icons/` with the app's colors and shapes. A bookmarklet
+with no app gets a Material Symbol for what it does.
+
+| Bookmarklet | Icon | Source |
+| --- | --- | --- |
+| Wayback | The Internet Archive's own favicon | `like:https://web.archive.org/` |
+| Passage | Passage's green breach in a brick wall, redrawn for the bar: a larger doorway, two chevrons at 32 px, one at 16 px | `icons/passage-{size}.svg`, from `passage/static/icon.svg` |
+| Page → MP3 | Video Downloader's green bookmark-bar tile, made green so that it is not read as YouTube's red button | the app's `favicon.svg` |
+| Unlock [Select/Copy/Paste] | A clipboard with text (`assignment`) | Material Symbols, on `#3297fd`, the color the bookmarklet paints selections in |
+| Allow Text Selection | A text cursor (`highlight_text_cursor`) | Material Symbols, on the same blue |
 
 Chrome holds the database with an exclusive lock while it runs, so `apply`
 needs it closed. `--quit` quits it over AppleScript, writes, and relaunches it
 with `--restore-last-session`. A copy of the database goes to
-`~/Library/Application Support/bookmarklet-favicon/backups/` first. `check`
+`~/Library/Application Support/bookmarklet-favicon/backups/` first (with a
+`copy-` prefix when `--user-data-dir` points at a copy of a profile). `check`
 copies the profile into a throwaway user data dir, runs the same Chrome binary
 headless there, and asks `chrome://favicon2` for each bookmarklet: that is the
 lookup the bookmarks bar makes, with a negative and a positive control first.

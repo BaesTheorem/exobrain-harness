@@ -231,3 +231,62 @@ def test_render_cli_writes_png(tmp_path):
     png = out.read_bytes()
     assert png.startswith(b"\x89PNG")
     assert b"IHDR" in png and png[16:24] == (32).to_bytes(4, "big") * 2
+
+
+def test_label_runs_split_emoji_from_text():
+    assert bf._label_runs("🕰️ Wayback") == [("🕰️", True), (" Wayback", False)]
+    assert bf._label_runs("📋Unlock") == [("📋", True), ("Unlock", False)]
+    assert bf._label_runs("⬇️ Page → MP3") == [("⬇️", True), (" Page → MP3", False)]
+
+
+def test_relative_file_paths_resolve_against_the_manifest(tmp_path):
+    manifest = tmp_path / "icons.json"
+    manifest.write_text(json.dumps({"icons": {
+        "Passage": "file:icons/passage-{size}.svg",
+        "Abs": "file:/opt/x.svg",
+        "Home": "file:~/x.svg",
+    }}))
+    icons = bf.load_manifest(manifest).icons
+    assert icons["passage"].value == str(tmp_path / "icons" / "passage-{size}.svg")
+    assert icons["abs"].value == "/opt/x.svg"
+    assert icons["home"].value == "~/x.svg"
+    assert bf.sized_paths(icons["passage"].value) == {
+        16: tmp_path / "icons" / "passage-16.svg", 32: tmp_path / "icons" / "passage-32.svg"}
+    assert bf.sized_paths("/opt/x.svg") is None
+
+
+@pytest.mark.skipif(not HAVE_PIL, reason="needs Pillow")
+def test_per_size_art_is_used_as_drawn(tmp_path):
+    Image = bf.Image
+    for size, color in ((16, (200, 10, 10, 255)), (32, (10, 200, 10, 255))):
+        art = Image.new("RGBA", (size, size), (0, 0, 0, 0))
+        art.putpixel((1, 1), color)  # a lone pixel at the edge: a crop or resample would move or blur it
+        art.save(tmp_path / f"a-{size}.png")
+    icon = bf.render(bf.parse_spec(f"file:{tmp_path}/a-{{size}}.png"))
+    import io
+    for size, color in ((16, (200, 10, 10, 255)), (32, (10, 200, 10, 255))):
+        got = Image.open(io.BytesIO(icon.bitmaps[size])).convert("RGBA")
+        assert got.size == (size, size)
+        assert got.getpixel((1, 1)) == color and got.getpixel((2, 2)) == (0, 0, 0, 0)
+
+
+@pytest.mark.skipif(not HAVE_PIL, reason="needs Pillow")
+def test_content_address_covers_every_size():
+    Image = bf.Image
+    big = Image.new("RGBA", (32, 32), "#00ff00")
+    one = bf.make_icon({16: Image.new("RGBA", (16, 16), "#ff0000"), 32: big})
+    two = bf.make_icon({16: Image.new("RGBA", (16, 16), "#0000ff"), 32: big})
+    assert one.bitmaps[32] == two.bitmaps[32]
+    assert one.icon_url != two.icon_url
+
+
+@pytest.mark.skipif(not (HAVE_PIL and any(p and Path(p).exists() for p in bf.SYMBOL_FONTS)),
+                    reason="needs Pillow and the Material Symbols font")
+def test_symbols_draw_once_per_size_with_matched_optical_size():
+    options = dict(bf.DEFAULT_OPTIONS)
+    small = bf.render_symbol("content_paste", options, 16)
+    assert small.size == (16, 16)
+    thin = bf.render_symbol("content_paste", {**options, "opsz": "48"}, 16)
+    assert small.tobytes() != thin.tobytes()  # the opsz axis is wired: 20 at 16 px, not 48
+    icon = bf.render(bf.parse_spec("symbol:content_paste"))
+    assert set(icon.bitmaps) == {16, 32}
