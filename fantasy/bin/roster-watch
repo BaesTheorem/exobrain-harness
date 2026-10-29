@@ -202,6 +202,36 @@ def stream_gate_event(st: dict) -> dict | None:
     return None
 
 
+def idle_next(api, data: dict, team_id: int) -> dict | None:
+    """In our idle week, the week that counts next and each player's slot and
+    kickoff in it; None in a normal week. An idle week's slots score nothing,
+    so a status change there is week N+1 prep, and the banner says which slot
+    it touches (Alex, 2026-10-29: keep the alerts, aim them at week 9)."""
+    week = api.current_week(data)
+    games = [m for m in data.get("schedule", []) if m.get("matchupPeriodId") == week]
+    if not games or any(team_id in ((m.get("home") or {}).get("teamId"), (m.get("away") or {}).get("teamId"))
+                        for m in games if m.get("home") and m.get("away")):
+        return None
+    from espncli.cli import when  # noqa: PLC0415
+    from espncli.client import SLOT  # noqa: PLC0415
+    nxt = week + 1
+    slots = {}
+    for e in api.roster_entries(api.league("mRoster", period=nxt), team_id):
+        p = e["playerPoolEntry"]["player"]
+        slots[str(p["id"])] = {"slot": SLOT.get(e.get("lineupSlotId"), "?"),
+                               "kickoff": when(api.kickoff(p.get("proTeamId"), nxt))}
+    return {"week": week, "next": nxt, "slots": slots}
+
+
+def status_head(ev: dict) -> str:
+    head = f"{ev['player']}: {ev['from']} -> {ev['to']}"
+    if ev.get("idle_week"):
+        slot = ev.get("next_slot") or "?"
+        lock = f", locks {ev['next_kickoff']}" if slot not in ("BE", "IR", "?") and ev.get("next_kickoff") else ""
+        return head + f" (idle week {ev['idle_week']}; week {ev['next_week']} {slot}{lock})"
+    return head + (" (starter)" if ev.get("starter") else "")
+
+
 def load(path: pathlib.Path, default):
     try:
         return json.loads(path.read_text())
@@ -245,7 +275,7 @@ def main() -> int:
     from espncli.client import Espn  # noqa: PLC0415
     api = Espn()
     team_id = int(api.creds["team_id"])
-    data = api.league("mTeam", "mRoster", "mPendingTransactions")
+    data = api.league("mTeam", "mRoster", "mPendingTransactions", "mMatchup")
     stamp = time.strftime("%Y-%m-%d %H:%M")
     st = load(STATE, {"status": {}, "pending": {}, "first_run": True})
     events: list[dict] = []
@@ -263,15 +293,27 @@ def main() -> int:
                                   "slot": e.get("lineupSlotId")}
         if e.get("lineupSlotId") not in (20, 21):
             starters.add(str(p["id"]))
+    idle = None
     for pid, cur in statuses.items():
         prev = st["status"].get(pid)
         if prev is None:
             continue  # new to the roster; the claim result covers it
         if prev.get("status") != cur["status"]:
-            events.append({"kind": "status", "player": cur["name"], "from": prev.get("status") or "healthy",
-                           "to": cur["status"] or "healthy", "starter": pid in starters,
-                           "judgment": cur["status"] in NEEDS_JUDGMENT and pid in starters
-                                       or cur["status"] == "INJURY_RESERVE"})
+            if idle is None:
+                try:
+                    idle = idle_next(api, data, team_id) or {}
+                except Exception:  # noqa: BLE001 - fall back to this week's wording
+                    idle = {}
+            ev = {"kind": "status", "player": cur["name"], "from": prev.get("status") or "healthy",
+                  "to": cur["status"] or "healthy", "starter": pid in starters}
+            if idle:
+                nxt = idle["slots"].get(pid, {})
+                ev["starter"] = nxt.get("slot") not in (None, "BE", "IR", "?")
+                ev.update({"idle_week": idle["week"], "next_week": idle["next"],
+                           "next_slot": nxt.get("slot"), "next_kickoff": nxt.get("kickoff")})
+            ev["judgment"] = (cur["status"] in NEEDS_JUDGMENT and ev["starter"]
+                              or cur["status"] == "INJURY_RESERVE")
+            events.append(ev)
     for pid in list(st["status"]):
         if pid not in statuses:
             events.append({"kind": "left_roster", "player": st["status"][pid]["name"], "judgment": False})
@@ -413,7 +455,7 @@ def main() -> int:
     heads = []
     for ev in events:
         if ev["kind"] == "status":
-            heads.append(f"{ev['player']}: {ev['from']} -> {ev['to']}" + (" (starter)" if ev.get("starter") else ""))
+            heads.append(status_head(ev))
         elif ev["kind"] == "trade_offer":
             heads.append("trade offer received")
         elif ev["kind"] == "waiver_result":
