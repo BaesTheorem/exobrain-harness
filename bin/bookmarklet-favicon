@@ -768,6 +768,16 @@ def apply_plans(con: sqlite3.Connection, plans: list[Plan], commit: bool) -> lis
     return results
 
 
+def pending_writes(plans: dict[Profile, list[Plan]]) -> int:
+    """How many mappings an apply would write, from a dry run on a copy of each profile."""
+    count = 0
+    for profile, items in plans.items():
+        with snapshot_connection(profile.favicons_db) as con:
+            con.execute("BEGIN IMMEDIATE")
+            count += sum(outcome in ("set", "replaced") for _, outcome in apply_plans(con, items, commit=False))
+    return count
+
+
 def backup(profile: Profile) -> Path:
     BACKUP_DIR.mkdir(parents=True, exist_ok=True)
     # A copy of a profile (--user-data-dir) gets its own name, so its backups never
@@ -1148,6 +1158,9 @@ def cmd_apply(args: argparse.Namespace) -> int:
             if not args.quit:
                 raise SystemExit(f"{browser.app} is running and holds its Favicons database. "
                                  f"Quit it, or pass --quit to quit it, apply, and relaunch it with its tabs.")
+            if not pending_writes(mine):
+                print(f"{browser.app}: every icon is already in place, so it keeps running")
+                continue
             print(f"quitting {browser.app} ...")
             if not quit_browser(browser):
                 raise SystemExit(f"{browser.app} did not quit; nothing was changed")

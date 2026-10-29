@@ -339,3 +339,27 @@ def test_plan_label_names_an_icon_only_bookmark():
     assert unknown.label.startswith("[no name: (function(){window.open(")
     named = bf.Plan(None, bf.Bookmarklet("🕰️ Wayback", WAYBACK, ""), "manifest", bf.Spec("text", "W"))
     assert named.label == "🕰️ Wayback"
+
+
+def test_apply_quit_leaves_the_browser_running_when_nothing_changes(tmp_path, monkeypatch, capsys):
+    profile = _profile(tmp_path, [("", WAYBACK)])
+    con = sqlite3.connect(profile.favicons_db)
+    con.execute("INSERT INTO favicons (url, icon_type) VALUES ('https://web.archive.org/favicon.ico', 1)")
+    con.execute("INSERT INTO favicon_bitmaps (icon_id, image_data, width, height) VALUES (1, X'AA', 16, 16)")
+    con.execute("INSERT INTO favicon_bitmaps (icon_id, image_data, width, height) VALUES (1, X'BB', 32, 32)")
+    con.execute("INSERT INTO icon_mapping (page_url, icon_id) VALUES ('https://web.archive.org/web/', 1)")
+    con.commit()
+    con.close()
+    manifest = tmp_path / "icons.json"
+    manifest.write_text(json.dumps({"icons": {"Wayback": {"icon": "like:https://web.archive.org/",
+                                                          "match": "web.archive.org/web/"}}}))
+    monkeypatch.setitem(bf.BROWSERS, "chrome", bf.Browser("chrome", "Google Chrome", profile.root, tmp_path / "none.app"))
+    monkeypatch.setattr(bf, "BACKUP_DIR", tmp_path / "backups")
+    monkeypatch.setattr(bf, "relaunch", lambda browser: pytest.fail("relaunched"))
+    monkeypatch.setattr(bf, "quit_browser", lambda browser, timeout=60: pytest.fail("quit"))
+    monkeypatch.setattr(bf, "running", lambda browser: False)
+    assert bf.main(["apply", "--manifest", str(manifest)]) == 0  # browser closed: the icon gets written
+    assert "set" in capsys.readouterr().out
+    monkeypatch.setattr(bf, "running", lambda browser: True)
+    assert bf.main(["apply", "--quit", "--manifest", str(manifest)]) == 0  # nothing new: no quit, no relaunch
+    assert "already in place" in capsys.readouterr().out
