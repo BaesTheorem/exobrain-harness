@@ -77,6 +77,7 @@ REPO_SCAN_ROOT="$HOME/Documents"
 # regenerable assets, VM images). Skips are logged loudly in the backup log.
 BACKUP_EXCLUDE_REPOS=(
     "Cannonballs-Resurrection"   # 14GB of game/VM assets; tripled the archive and ENOSPC'd the run (2026-07)
+    "table-conductor"            # GitHub is its backup: data/ and library JSON pushed nightly by its bin/data-commit; audio is re-downloadable (2026-10-28)
 )
 # Per-repo cap on gitignored-data size (MB). Repos over the cap are skipped with
 # a loud log line instead of silently sinking the backup (disk, Drive quota).
@@ -95,8 +96,6 @@ BACKUP_EXCLUDE_PATHS=(
     "turn-to:^books/[^/]+/candidates/"          # source PDFs, fetched again with aa-get (3.8GB); OCR, notes and book.json stay
     "turn-to:^books/[^/]+/app/pages/"           # page images, rendered again from the scans (3GB)
     "claude-animation:^out/"                    # rendered frames and videos, made again from the scene code (3.6GB)
-    "table-conductor:^(library|probe)/.*\\.(mp3|ogg|wav|m4a|flac|opus)$"  # downloaded packs (bin/tta-sync, freesound-pull, itch script) and Demucs stems (8.7GB); levels/gains/credits JSON stay
-    "table-conductor:^library/moodist-src/"     # upstream git clone (232MB)
 )
 # Files in the harness tmp/ over this size (MB), and every frames/ dir in it, are
 # left out of the backup: render output and downloaded media, made again on demand.
