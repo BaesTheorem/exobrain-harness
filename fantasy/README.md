@@ -300,7 +300,7 @@ claim-rate math, and the Worker's `wire.js` on the same fixture).
 ## The season on autopilot: `routines/`
 
 `routines/COMMON.md` plus `lineup.md`, `tuesday.md`, and `incident.md` are
-the prompts for the headless Claude runs (Fable, via the MIST Console's
+the prompts for the headless Claude runs (Opus 5.5, via the MIST Console's
 routine runner; the scheduled `~/.claude/scheduled-tasks/fantasy-*` notes
 only point at these files, so the prompts are versioned here). `lineup-watch
 --fix` and `roster-watch` are the deterministic layer underneath. The whole

@@ -308,7 +308,7 @@ playbook` regenerates them; commentary goes in via `forecast note`).
 
 **The season runs on autopilot (since 2026-09-07).** Two launchd watchers
 (`lineup-watch --fix`, `roster-watch`, the latter also bannering the waiver
-and streaming gates) and the Fable routines (`fantasy-lineup` daily, Sunday
+and streaming gates) and the Opus 5.5 routines (`fantasy-lineup` daily, Sunday
 10:40 AM and 2:35 PM after the inactives post, `fantasy-tuesday`,
 `fantasy-incident` on demand) run the playbook's in-season protocol; the prompts are in
 `fantasy/routines/` and each run invokes this skill first and writes back to
@@ -320,7 +320,7 @@ second scheduler; change the prompts or the watchers.
 `fantasy-hub` Cloudflare Worker keeps the Mac heartbeat (`bin/cloud-sync`,
 called by `lineup-watch`). When it is 35 minutes stale, the Worker runs
 `lineup-watch --fix` and `roster-watch` on GitHub Actions (private repo
-`BaesTheorem/fantasy-cloud`), and four cloud Claude routines on Fable stand
+`BaesTheorem/fantasy-cloud`), and four cloud Claude routines on Opus 5.5 stand
 in for the Mac routines, following `fantasy/routines/CLOUD.md`. Cloud
 notifications are Discord DMs. Cloud edits to the playbook come back as
 fast-forwards when the Mac wakes; a `.cloud` copy next to the playbook means

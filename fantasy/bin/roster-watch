@@ -18,7 +18,7 @@ waivers here through week 7). Skill players always wait for his tap. Anything ne
 fantasy/.cache/incidents.jsonl, announced with a clickable banner, and, when
 it needs judgment (a starter going out, an IR designation, a trade offer, a
 processed claim), handed to the fantasy-incident routine, which runs headless
-Claude on Fable through the Console's routine runner. Silence means nothing
+Claude on Opus 5.5 through the Console's routine runner. Silence means nothing
 changed.
 
     roster-watch [--dry-run] [--no-routine]

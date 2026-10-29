@@ -31,7 +31,7 @@ public, and the logs show the roster.
 
 ## Cloud routines
 
-Four routines at claude.ai/code/routines, model Fable, one for each Mac
+Four routines at claude.ai/code/routines, model Opus 5.5, one for each Mac
 routine: `fantasy-lineup` (daily 5:30 PM CT), `fantasy-lineup-sunday`
 (10:40 AM), `fantasy-lineup-sunday-pm` (2:35 PM) and `fantasy-tuesday`
 (6:00 PM). IDs: `trig_0116kivDyWF7q9rR7A7iF7SG`, `trig_01692PFDwGJRxhd4WxTNtxL1`,
