@@ -290,3 +290,52 @@ def test_symbols_draw_once_per_size_with_matched_optical_size():
     assert small.tobytes() != thin.tobytes()  # the opsz axis is wired: 20 at 16 px, not 48
     icon = bf.render(bf.parse_spec("symbol:content_paste"))
     assert set(icon.bitmaps) == {16, 32}
+
+
+def test_code_match_wins_and_survives_a_removed_name(tmp_path):
+    manifest_file = tmp_path / "icons.json"
+    manifest_file.write_text(json.dumps({"icons": {
+        "Wayback": {"icon": "text:W", "match": "web.archive.org/web/"},
+        "Save": {"icon": "text:S", "match": ["web.archive.org/save/", "never-present"]},
+        "Archive This": "text:A",
+        "Plain": {"emoji": "💾"},
+    }}))
+    manifest = bf.load_manifest(manifest_file)
+    source, spec = bf.choose_spec(bf.Bookmarklet("", WAYBACK, ""), manifest)
+    assert (source, spec.value) == ("manifest, code match", "W")
+    # the code match beats the name match
+    assert bf.choose_spec(bf.Bookmarklet("💾 Archive This", SAVE, ""), manifest)[1].value == "S"
+    # matching reads the code after percent-decoding, as the bookmark stores it encoded
+    encoded = "javascript:void(window.open('https://web.archive.org%2Fweb%2F2%2F'%2Blocation.href))"
+    assert bf.choose_spec(bf.Bookmarklet("x", encoded, ""), manifest)[1].value == "W"
+    assert manifest.icons["plain"].kind == "emoji"  # a plain dict spec still parses
+
+
+def test_fallback_never_replaces_an_existing_icon(tmp_path):
+    profile = _profile(tmp_path, [("", WAYBACK)])
+    bm = bf.bookmarklets(profile)[0]
+    with bf.exclusive_connection(profile.favicons_db) as c:
+        bf.apply_plans(c, [bf.Plan(profile, bm, "manifest", bf.Spec("text", "W"), _icon(b"designed"))], commit=True)
+    with bf.exclusive_connection(profile.favicons_db) as c:
+        out = bf.apply_plans(c, [bf.Plan(profile, bm, "first letter", bf.Spec("text", "?"), _icon(b"fallback"))],
+                             commit=True)
+    assert out[0][1] == "kept"
+    con = sqlite3.connect(profile.favicons_db)
+    assert [r[0] for r in con.execute("SELECT url FROM favicons")] == [bf.ICON_URL_PREFIX + b"designed".hex()]
+    con.close()
+    other = _profile(tmp_path / "other", [("", WAYBACK)])
+    bm2 = bf.bookmarklets(other)[0]
+    with bf.exclusive_connection(other.favicons_db) as c:  # with no icon yet, the fallback fills the gap
+        out = bf.apply_plans(c, [bf.Plan(other, bm2, "first letter", bf.Spec("text", "?"), _icon(b"fallback"))],
+                             commit=True)
+    assert out[0][1] == "set"
+
+
+def test_plan_label_names_an_icon_only_bookmark():
+    nameless = bf.Plan(None, bf.Bookmarklet("", WAYBACK, ""), "manifest, code match", bf.Spec("text", "W"),
+                       entry="Wayback")
+    assert nameless.label == "[no name: Wayback]"
+    unknown = bf.Plan(None, bf.Bookmarklet("", WAYBACK, ""), "first letter", bf.Spec("text", "?"))
+    assert unknown.label.startswith("[no name: (function(){window.open(")
+    named = bf.Plan(None, bf.Bookmarklet("🕰️ Wayback", WAYBACK, ""), "manifest", bf.Spec("text", "W"))
+    assert named.label == "🕰️ Wayback"

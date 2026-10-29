@@ -30,8 +30,9 @@ link and prints it in the collapsed Source block.
 Bookmarklets have no host, so browsers do not fetch a favicon for them. Until
 the tool below writes an icon, the emoji at the start of a name is the only
 identifier on the bar. The tool also uses that emoji as the default icon. After
-`apply`, the emoji in a name only repeats the icon, so you can remove it. The
-manifest matches names with the emoji removed.
+`apply`, the emoji in a name only repeats the icon, so you can remove it. You
+can also remove the full name for an icon-only button. The manifest finds each
+bookmarklet by part of its code, so the icon stays.
 
 ## Favicons for bookmarklets
 
@@ -53,10 +54,19 @@ bin/bookmarklet-favicon check                # Chrome's own favicon service conf
 bin/bookmarklet-favicon apply --browser brave --quit
 ```
 
-Where an icon comes from, first match wins: an entry in `icons.json` (keys are
-bookmark names, matched with emoji and symbols stripped, so a bookmark renamed
-from `🕰️ Wayback` to `Wayback` keeps its icon), then the emoji the name starts
-with, then a one-letter badge. Specs: `emoji:🕰️`, `symbol:history` (Material
+The tool uses the first source in this sequence that gives an icon:
+
+1. An entry in `icons.json` with `match` text that is part of the bookmarklet's
+   code, for example the address of the app that it calls. This entry stays
+   correct after a rename, after you remove the name, and after a new version of
+   the code.
+2. An entry by bookmark name, compared with emoji and symbols removed.
+3. The emoji that the name starts with.
+4. A one-letter badge.
+
+Steps 3 and 4 only fill in a missing icon. They do not replace an icon that is
+there, so a bookmarklet without a manifest entry keeps its icon after a rename.
+An entry is a spec, or `{"icon": spec, "match": text}`. Specs: `emoji:🕰️`, `symbol:history` (Material
 Symbols Outlined on a rounded square, `bg=`/`fg=`/`fill=`/`wght=`/`opsz=`
 options), `text:W`, `file:/path.svg`, `like:https://web.archive.org/` (the icon
 the profile already holds for that site), `url:https://site/` (fetched from

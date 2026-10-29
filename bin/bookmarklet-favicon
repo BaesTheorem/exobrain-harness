@@ -21,11 +21,14 @@ Usage:
   bookmarklet-favicon export-html [--browser chrome] [--profile NAME] [-o FILE]
 
 Where a bookmarklet's icon comes from, first match wins:
-  1. the manifest (bookmarklets/icons.json): bookmark name to spec. Names match
-     after emoji and symbols are stripped, so "🕰️ Wayback" and "Wayback" are
-     one key, and renaming a bookmark to drop its emoji keeps the icon.
-  2. the emoji the bookmark name starts with
-  3. a one-letter badge made from the name
+  1. a manifest entry (bookmarklets/icons.json) whose "match" text occurs in the
+     bookmarklet's code, such as the address of the app it calls. This survives a
+     rename, a name removed for an icon-only button, and a new version of the code.
+  2. a manifest entry by bookmark name. Names match after emoji and symbols are
+     stripped, so "🕰️ Wayback" and "Wayback" are one key.
+  3. the emoji the bookmark name starts with
+  4. a one-letter badge made from the name
+Steps 3 and 4 only fill in a missing icon. They never replace an icon that is there.
 
 Icon specs:
   emoji:🕰️                       an Apple Color Emoji glyph
@@ -89,7 +92,7 @@ from dataclasses import dataclass, field
 from datetime import datetime
 from pathlib import Path
 from typing import TYPE_CHECKING
-from urllib.parse import quote, urlsplit
+from urllib.parse import quote, unquote, urlsplit
 
 if TYPE_CHECKING:
     from PIL import Image, ImageDraw, ImageFont
@@ -315,6 +318,7 @@ class Manifest:
     defaults: dict[str, str]
     icons: dict[str, Spec]  # normalized bookmark name to spec
     path: Path | None
+    matches: list[tuple[str, str, Spec]] = field(default_factory=list)  # code substring, entry, spec
 
 
 def load_manifest(path: Path | None) -> Manifest:
@@ -323,15 +327,37 @@ def load_manifest(path: Path | None) -> Manifest:
     data = json.loads(path.read_text())
     defaults = {k: str(v) for k, v in data.get("defaults", {}).items()}
     icons: dict[str, Spec] = {}
+    matches: list[tuple[str, str, Spec]] = []
     for name, raw in data.get("icons", {}).items():
+        needles: list[str] = []
+        if isinstance(raw, dict) and "icon" in raw:  # {"icon": spec, "match": text or [texts]}
+            found = raw.get("match") or []
+            needles = [found] if isinstance(found, str) else [str(n) for n in found]
+            raw = raw["icon"]
         spec = parse_spec(raw, defaults)
         if spec.kind == "file" and not spec.value.startswith(("/", "~")):
             spec.value = str(path.parent / spec.value)
         icons[normalize_name(name)] = spec
-    return Manifest(defaults, icons, path)
+        matches.extend((needle, name, spec) for needle in needles if needle)
+    return Manifest(defaults, icons, path, matches)
+
+
+FALLBACK_SOURCES = ("emoji in name", "first letter")
+
+
+def code_match(bm: Bookmarklet, manifest: Manifest) -> tuple[str, Spec] | None:
+    """The manifest entry (name, spec) whose match text occurs in the bookmarklet's code."""
+    code = unquote(bm.url)
+    for needle, entry, spec in manifest.matches:
+        if needle in code:
+            return entry, spec
+    return None
 
 
 def choose_spec(bm: Bookmarklet, manifest: Manifest) -> tuple[str, Spec]:
+    matched = code_match(bm, manifest)
+    if matched:
+        return "manifest, code match", matched[1]
     key = normalize_name(bm.name)
     if key in manifest.icons:
         return "manifest", manifest.icons[key]
@@ -667,13 +693,22 @@ class Plan:
     spec: Spec
     icon: Icon | None = None
     error: str | None = None
+    entry: str | None = None  # the manifest entry a code match found
+
+    @property
+    def label(self) -> str:
+        """The bookmark name, or for an icon-only bookmark, what it is."""
+        if self.bookmarklet.name.strip():
+            return self.bookmarklet.name
+        return f"[no name: {self.entry or unquote(self.bookmarklet.url)[11:41] + '...'}]"
 
 
 def build_plans(profile: Profile, manifest: Manifest) -> list[Plan]:
     plans: list[Plan] = []
     for bm in bookmarklets(profile):
         source, spec = choose_spec(bm, manifest)
-        plan = Plan(profile, bm, source, spec)
+        matched = code_match(bm, manifest)
+        plan = Plan(profile, bm, source, spec, entry=matched[0] if matched else None)
         try:
             plan.icon = render(spec, profile.favicons_db)
         except (OSError, ValueError, RuntimeError, subprocess.CalledProcessError) as e:
@@ -695,10 +730,14 @@ def apply_plans(con: sqlite3.Connection, plans: list[Plan], commit: bool) -> lis
         if plan.icon is None:
             results.append((plan, "skipped"))
             continue
-        icon_id = ensure_icon(con, plan.icon, now)
         url = plan.bookmarklet.url
         existing = [int(r[0]) for r in con.execute(
             "SELECT icon_id FROM icon_mapping WHERE page_url = ?", (url,))]
+        if existing and plan.source in FALLBACK_SOURCES:
+            # No manifest entry: a renamed or nameless bookmarklet keeps the icon it has.
+            results.append((plan, "kept"))
+            continue
+        icon_id = ensure_icon(con, plan.icon, now)
         if existing == [icon_id]:
             results.append((plan, "unchanged"))
             continue
@@ -852,7 +891,7 @@ def check_profile(profile: Profile, plans: list[Plan]) -> int:
                         got = favicon_bytes(page, plan.bookmarklet.url)
                         verdict = "no mapping in the database" if not got else "UNEXPECTED icon"
                         failures += bool(got)
-                        print(f"  {plan.bookmarklet.name}: {verdict}")
+                        print(f"  {plan.label}: {verdict}")
                         continue
                     bad = []
                     for px in SIZES:  # the 1x screen gets the 16 px bitmap, Retina the 32 px one
@@ -862,7 +901,7 @@ def check_profile(profile: Profile, plans: list[Plan]) -> int:
                             bad.append(f"{px} px " + ("not served" if not got else "differs from the stored bitmap"))
                     failures += bool(bad)
                     verdict = "Chrome serves the icon at 16 and 32 px" if not bad else "FAILED: " + "; ".join(bad)
-                    print(f"  {plan.bookmarklet.name}: {verdict}")
+                    print(f"  {plan.label}: {verdict}")
             finally:
                 ctx.close()
     finally:
@@ -944,8 +983,10 @@ def cmd_list(args: argparse.Namespace) -> int:
                     state = "icon set by this tool"
                 else:
                     state = f"icon from {have[1][:50]}"
+                if have is not None and plan.source in FALLBACK_SOURCES:
+                    state += "; no manifest entry, so apply keeps it"
                 problem = f"  [{plan.error}]" if plan.error else ""
-                print(f"  {plan.bookmarklet.name!r:42} {str(plan.spec):28} ({plan.source}); {state}{problem}")
+                print(f"  {plan.label:42} {str(plan.spec):28} ({plan.source}); {state}{problem}")
     return 0
 
 
@@ -1008,7 +1049,10 @@ def _bar(plans: list[Plan], bg: str, fg: str, scale: int) -> Image.Image:
         if bitmap:
             strip.alpha_composite(Image.open(io.BytesIO(bitmap)).convert("RGBA"),
                                   (round(x), (height - icon) // 2))
-        x = _draw_label(strip, x + icon + pad, height / 2, plan.bookmarklet.name, text_px, fg) + pad + 2 * scale
+        x += icon
+        if plan.bookmarklet.name.strip():  # a bookmark with no name is an icon-only button
+            x = _draw_label(strip, x + pad, height / 2, plan.bookmarklet.name, text_px, fg)
+        x += pad + 2 * scale
     return strip.crop((0, 0, round(x) + 4 * scale, height))
 
 
@@ -1050,12 +1094,12 @@ def cmd_preview(args: argparse.Namespace) -> int:
     dark = BAR_THEMES[0][1]
     for plan in plans:
         if plan.icon is None:
-            _draw_label(sheet, 20, y + 40, plan.bookmarklet.name, 22, "#1b1b17")
+            _draw_label(sheet, 20, y + 40, plan.label, 22, "#1b1b17")
             draw.text((20, y + 76), f"{plan.spec}: {plan.error}", font=note, fill="#b3261e")
         else:
             sheet.alpha_composite(_magnified(plan.icon.bitmaps[32], 4, dark), (20, y))
             sheet.alpha_composite(_magnified(plan.icon.bitmaps[16], 8, dark), (164, y))
-            _draw_label(sheet, 312, y + 44, plan.bookmarklet.name, 22, "#1b1b17")
+            _draw_label(sheet, 312, y + 44, plan.label, 22, "#1b1b17")
             draw.text((312, y + 80), f"{plan.spec}  ({plan.source})", font=note, fill=label)
         y += row_h
     out = Path(args.output).expanduser() if args.output else HERE.parent / "tmp" / "bookmarklet-favicons-preview.png"
@@ -1121,7 +1165,7 @@ def cmd_apply(args: argparse.Namespace) -> int:
                         results = apply_plans(con, items, commit=True)
                 for plan, outcome in results:
                     detail = f"[{plan.error}]" if plan.error else f"{plan.spec} ({plan.source})"
-                    print(f"  {outcome:9} {plan.bookmarklet.name!r:42} {detail}")
+                    print(f"  {outcome:9} {plan.label:42} {detail}")
                     status |= 1 if plan.error else 0
         finally:
             if was_running and not args.dry_run:
