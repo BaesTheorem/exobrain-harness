@@ -70,10 +70,10 @@ module.exports.onStart = function () {
   function writeTb(c) { fs.writeFileSync(TB_CONFIG, JSON.stringify(c, null, 4)); }
 
   // Minimal WebSocket client (Node 4 has none): handshake, one masked text frame, close.
-  function wsSend(port, text, cb) {
+  function wsSend(port, text, cb, host) {
     var net = require('net'), crypto = require('crypto'), done = false, sock;
     function fin(err) { if (done) return; done = true; try { sock.destroy(); } catch (e) {} cb(err); }
-    sock = net.connect(port, '127.0.0.1');
+    sock = net.connect(port, host || '127.0.0.1');
     var t = setTimeout(function () { fin('ws timeout'); }, 4000);
     sock.on('error', function (e) { clearTimeout(t); fin('ws error: ' + e.message); });
     sock.on('connect', function () {
@@ -105,11 +105,15 @@ module.exports.onStart = function () {
     var c = readTb();
     if (c.modules.indexOf(fullName) < 0) return cb('module not registered in TizenBrew: ' + fullName);
     c.autoLaunchModule = fullName; writeTb(c);
-    setTimeout(function () { var c2 = readTb(); if (c2.autoLaunchModule === fullName) { c2.autoLaunchModule = ''; writeTb(c2); } }, 25000);
+    setTimeout(function () { var c2 = readTb(); if (c2.autoLaunchModule === fullName) { c2.autoLaunchModule = ''; writeTb(c2); } }, 60000);
     // TizenBrew service up: ask it to restart TizenBrew under its debugger (the auto-launch path).
-    wsSend(TB_WS_PORT, JSON.stringify({ type: RELAUNCH, payload: { tvIP: '127.0.0.1' } }), function (err) {
+    var msg = JSON.stringify({ type: RELAUNCH, payload: { tvIP: '127.0.0.1' } });
+    wsSend(TB_WS_PORT, msg, function (err) {
       if (!err) return cb(null, 'relaunch requested through TizenBrew service');
-      launchApp(TB_APP, function (err2) { cb(err2, err2 ? '' : 'TizenBrew launched (service was down: ' + err + ')'); });
+      wsSend(TB_WS_PORT, msg, function (err2) {
+        if (!err2) return cb(null, 'relaunch requested through TizenBrew service (localhost)');
+        launchApp(TB_APP, function (err3) { cb(err3, err3 ? '' : 'TizenBrew launched (service was down: ' + err + ')'); });
+      }, 'localhost');
     });
   }
 
