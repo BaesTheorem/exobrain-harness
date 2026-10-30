@@ -1,0 +1,43 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>MIST TV Agent</title>
+<style>html,body{margin:0;height:100%;background:#0b0b0b;color:#eee;font:26px/1.5 Helvetica,Arial,sans-serif}
+.c{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;flex-direction:column}
+.n{letter-spacing:.3em;font-size:40px}.s{opacity:.7;font-size:22px;margin-top:14px}.ok{color:#7ad37a}</style>
+</head>
+<body>
+<div class="c"><div class="n">MIST TV AGENT</div><div class="s" id="s">Checking service…</div><div class="s">Return exits this screen. The service keeps running.</div></div>
+<script>
+// Starts the background service if it is not answering, then shows its state.
+(function () {
+  var el = document.getElementById('s'), tries = 0;
+  function show(msg, ok) { el.textContent = msg; el.className = 's' + (ok ? ' ok' : ''); }
+  function ping(cb) {
+    var x = new XMLHttpRequest(); x.open('GET', 'http://127.0.0.1:8099/ping', true); x.timeout = 1500;
+    x.onload = function () { cb(x.status === 200, x.responseText); };
+    x.onerror = x.ontimeout = function () { cb(false, ''); };
+    x.send();
+  }
+  function start() {
+    var pkgId = tizen.application.getCurrentApplication().appInfo.packageId;
+    tizen.application.launchAppControl(
+      new tizen.ApplicationControl('http://tizen.org/appcontrol/operation/service'), pkgId + '.MistAgentService',
+      function () { show('Service started, waiting for it to answer…'); },
+      function (e) { show('Service launch failed: ' + e.message); });
+  }
+  function loop() {
+    ping(function (ok, body) {
+      if (ok) { show('Service running: ' + body, true); return; }
+      if (tries === 0) start();
+      tries++;
+      if (tries < 30) setTimeout(loop, 1000); else show('Service did not answer in 30 s');
+    });
+  }
+  document.addEventListener('keydown', function (e) { if (e.keyCode === 10009) tizen.application.getCurrentApplication().exit(); });
+  loop();
+})();
+</script>
+</body>
+</html>

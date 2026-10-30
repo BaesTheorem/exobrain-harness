@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<widget xmlns:tizen="http://tizen.org/ns/widgets" xmlns="http://www.w3.org/ns/widgets" id="https://github.com/BaesTheorem/exobrain-harness/tv/agent" version="1.0.0" viewmodes="maximized">
+    <tizen:application id="MistAgnt01.MistAgent" package="MistAgnt01" required_version="3.0"/>
+    <access origin="*" subdomains="true"/>
+    <content src="index.html"/>
+    <feature name="http://tizen.org/feature/screen.size.all"/>
+    <feature name="http://tizen.org/feature/web.service"/>
+    <icon src="icon.png"/>
+    <name>MIST TV Agent</name>
+    <tizen:privilege name="http://tizen.org/privilege/internet"/>
+    <tizen:privilege name="http://developer.samsung.com/privilege/network.public"/>
+    <tizen:privilege name="http://tizen.org/privilege/application.launch"/>
+    <tizen:privilege name="http://tizen.org/privilege/filesystem.read"/>
+    <tizen:privilege name="http://tizen.org/privilege/filesystem.write"/>
+    <tizen:privilege name="http://tizen.org/privilege/unlimitedstorage"/>
+    <tizen:profile name="tv-samsung"/>
+    <tizen:service id="MistAgnt01.MistAgentService">
+        <tizen:content src="service/index.js"/>
+        <tizen:name>MistAgentService</tizen:name>
+        <tizen:description>Installs, removes and launches apps through the TV's developer bridge</tizen:description>
+    </tizen:service>
+    <tizen:setting screen-orientation="landscape" context-menu="disable" background-support="enable" encryption="disable" install-location="auto" hwkey-event="enable"/>
+</widget>

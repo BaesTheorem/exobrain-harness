@@ -1,0 +1,154 @@
+#!/usr/bin/env python3
+"""
+Talk to the MIST TV agent, a sideloaded service on the Samsung TV that
+installs, removes and launches apps through the TV's own developer bridge,
+so the Mac never has to be the TV's trusted Host PC again.
+
+Made for the TV Debloat & Privacy project after every app update needed the
+TV's Host PC IP switched between the Mac and the TV's loopback (TizenBrew
+needs the loopback), each switch costing a store-API window and a restart.
+Use it to push a rebuilt tile or module, read the app list, launch an app,
+rewrite TizenBrew's module list, or run any restricted bridge command.
+
+Reads TV_HOST and MIST_TV_AGENT_TOKEN from the harness .env. The agent
+listens on the TV's LAN address, port 8099, and answers only with the token.
+
+Usage:
+  tv/agent wake                      launch the agent app on the TV (REST, no token)
+  tv/agent ping
+  tv/agent apps                      Smart Hub app list (vd_applist)
+  tv/agent install FILE.wgt          package id is read from the wgt
+  tv/agent uninstall PKGID
+  tv/agent launch APPID
+  tv/agent sdb "vd_applist"          any restricted bridge command (shell 0 ...)
+  tv/agent config [get|set FILE]     TizenBrew's module config
+  tv/agent module [get|set NAME TYPE]  the module the Criterion tile launches
+"""
+
+from __future__ import annotations
+
+import json
+import re
+import sys
+import urllib.error
+import urllib.parse
+import urllib.request
+import zipfile
+from pathlib import Path
+
+HERE = Path(__file__).resolve().parent
+ENV = HERE.parent / ".env"
+PORT = 8099
+
+
+def env() -> dict[str, str]:
+    out: dict[str, str] = {}
+    for line in ENV.read_text().splitlines():
+        if "=" in line and not line.startswith("#"):
+            k, _, v = line.partition("=")
+            out[k.strip()] = v.strip()
+    return out
+
+
+def call(
+    method: str,
+    path: str,
+    body: bytes | None = None,
+    params: dict[str, str] | None = None,
+    ctype: str = "application/octet-stream",
+) -> str:
+    e = env()
+    q = dict(params or {})
+    q["token"] = e["MIST_TV_AGENT_TOKEN"]
+    url = f"http://{e['TV_HOST']}:{PORT}{path}?{urllib.parse.urlencode(q)}"
+    req = urllib.request.Request(
+        url, data=body, method=method, headers={"Content-Type": ctype}
+    )
+    try:
+        with urllib.request.urlopen(req, timeout=120) as r:
+            return r.read().decode(errors="replace")
+    except urllib.error.HTTPError as ex:
+        return f"HTTP {ex.code}: {ex.read().decode(errors='replace')}"
+
+
+def pkg_of(wgt: Path) -> str:
+    with zipfile.ZipFile(wgt) as z:
+        cfg = z.read("config.xml").decode()
+    m = re.search(r'<tizen:application[^>]*package="([^"]+)"', cfg)
+    if not m:
+        sys.exit("no package id in config.xml")
+    return m.group(1)
+
+
+def main(argv: list[str]) -> int:
+    if not argv:
+        print(__doc__)
+        return 2
+    cmd, args = argv[0], argv[1:]
+    if cmd == "wake":
+        e = env()
+        req = urllib.request.Request(
+            f"http://{e['TV_HOST']}:8001/api/v2/applications/MistAgnt01.MistAgent",
+            method="POST",
+        )
+        with urllib.request.urlopen(req, timeout=10) as r:
+            print("wake:", r.read().decode())
+        return 0
+    if cmd == "ping":
+        print(call("GET", "/ping"))
+        return 0
+    if cmd == "apps":
+        print(call("GET", "/apps"))
+        return 0
+    if cmd == "install":
+        wgt = Path(args[0])
+        pkg = pkg_of(wgt)
+        print(
+            call(
+                "POST",
+                "/install",
+                wgt.read_bytes(),
+                {"pkg": pkg, "name": wgt.name.replace(" ", "")},
+            )
+        )
+        return 0
+    if cmd == "uninstall":
+        print(call("POST", "/uninstall", None, {"pkg": args[0]}))
+        return 0
+    if cmd == "launch":
+        print(call("POST", "/launch", None, {"app": args[0]}))
+        return 0
+    if cmd == "sdb":
+        print(call("POST", "/sdb", None, {"cmd": args[0]}))
+        return 0
+    if cmd == "config":
+        if args and args[0] == "set":
+            print(
+                call(
+                    "PUT",
+                    "/tizenbrew-config",
+                    Path(args[1]).read_bytes(),
+                    ctype="application/json",
+                )
+            )
+            return 0
+        print(call("GET", "/tizenbrew-config"))
+        return 0
+    if cmd == "module":
+        if args and args[0] == "set":
+            body = json.dumps(
+                {
+                    "moduleName": args[1],
+                    "moduleType": args[2] if len(args) > 2 else "gh",
+                }
+            ).encode()
+            print(call("PUT", "/module", body, ctype="application/json"))
+            return 0
+        print(call("GET", "/module"))
+        return 0
+    print(__doc__)
+    return 2
+
+
+if __name__ == "__main__":
+    sys.exit(main(sys.argv[1:]))
