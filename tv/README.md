@@ -110,3 +110,9 @@ remote to wake the TV again.
 - **TV must be on to pair.** Pairing exchange happens over the live WS.
 - **Pause/play are no-ops** when no media is playing -- sending KEY_PAUSE on
   the home screen does nothing visible.
+
+## Privacy audit tools (TV Debloat & Privacy project)
+
+- `tv/probe.py`: read-only snapshot of the TV (device info, open ports, UPnP, apps) to `~/Documents/tv-analysis/probes/`.
+- `tv/lan-capture`: `sudo tv/lan-capture record --minutes 180` records every broadcast and multicast frame the TV sends (ARP, SSDP, mDNS, DHCP) to `~/Documents/tv-analysis/captures/`; `tv/lan-capture summary FILE.pcap` reports per-hour counts, ARP targets and any ARP sweep of the LAN.
+- `bin/nextdns`: the TV resolves through a log-only NextDNS profile (`NEXTDNS_PROFILE` in `.env`); `bin/nextdns domains --from -1d` is the tally of what it phoned home to, `bin/nextdns status` checks the linked IP.

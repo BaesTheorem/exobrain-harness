@@ -1,0 +1,213 @@
+#!/usr/bin/env python3
+"""
+Record and summarize what the Samsung TV broadcasts on the LAN.
+
+`record` runs tcpdump on the Wi-Fi interface with a filter for the frames the
+TV sends to everyone: broadcast and multicast (ARP, SSDP, mDNS, DHCP). A
+switched Wi-Fi LAN never shows one client's unicast traffic to another, so
+this is all the Mac can see without becoming the TV's gateway. BPF needs root
+on macOS, thus `record` runs under sudo; `summary` reads the pcap without it.
+
+Made for the TV Debloat & Privacy project to test the claim that Samsung TVs
+sweep the LAN with ARP about once an hour (a "wifi-presence" service), and to
+record what the TV announces about itself. Any device works: pass --mac.
+
+INVARIANTS
+- Passive only: no frame is sent to the TV or to anyone else.
+- The pcap holds only frames from --mac, so nothing else on the LAN is kept.
+
+Usage:
+  sudo tv/lan-capture record [--minutes 180] [--mac 70:b1:3d:bb:ab:d0] [--iface en0]
+  tv/lan-capture summary CAPTURE.pcap
+
+A sweep is reported when one 60 s window holds ARP requests for 20 or more
+distinct addresses.
+"""
+
+from __future__ import annotations
+
+import argparse
+import os
+import re
+import signal
+import subprocess
+import sys
+import time
+from collections import Counter, defaultdict
+from datetime import datetime
+from pathlib import Path
+
+OUT_DIR = Path.home() / "Documents" / "tv-analysis" / "captures"
+DEFAULT_MAC = "70:b1:3d:bb:ab:d0"
+SWEEP_TARGETS = 20
+SWEEP_WINDOW = 60.0
+
+LINE = re.compile(
+    r"^(\d{4}-\d\d-\d\d \d\d:\d\d:\d\d)\.(\d+) (\S+) > (\S+), ethertype (\w+)"
+)
+ARP_REQ = re.compile(r"Request who-has (\S+) tell (\S+)")
+
+
+def record(args: argparse.Namespace) -> int:
+    if os.geteuid() != 0:
+        print("record needs root for BPF: run it with sudo", file=sys.stderr)
+        return 2
+    OUT_DIR.mkdir(parents=True, exist_ok=True)
+    stamp = datetime.now().strftime("%Y%m%d-%H%M")
+    out = OUT_DIR / f"lan-{args.mac.replace(':', '')[-6:]}-{stamp}.pcap"
+    flt = f"ether src {args.mac} and (broadcast or multicast)"
+    cmd = [
+        "caffeinate",
+        "-i",
+        "tcpdump",
+        "-i",
+        args.iface,
+        "-n",
+        "-e",
+        "-w",
+        str(out),
+        flt,
+    ]
+    print(f"recording {args.minutes} min on {args.iface} -> {out}")
+    proc = subprocess.Popen(cmd)
+    try:
+        deadline = time.time() + args.minutes * 60
+        while time.time() < deadline:
+            if proc.poll() is not None:
+                print(f"tcpdump exited early with {proc.returncode}", file=sys.stderr)
+                return 1
+            time.sleep(5)
+    except KeyboardInterrupt:
+        print("stopped early")
+    proc.send_signal(signal.SIGINT)
+    proc.wait(timeout=30)
+    uid, gid = (
+        int(os.environ.get("SUDO_UID", "0")),
+        int(os.environ.get("SUDO_GID", "0")),
+    )
+    if uid:
+        os.chown(out, uid, gid)
+        os.chown(OUT_DIR, uid, gid)
+    print(f"wrote {out} ({out.stat().st_size} bytes)")
+    return 0
+
+
+def classify(line: str) -> str:
+    if "ethertype ARP" in line:
+        return "arp-request" if "Request who-has" in line else "arp-other"
+    if ".1900:" in line:
+        return "ssdp"
+    if ".5353:" in line or "mdns" in line.lower():
+        return "mdns"
+    if "BOOTP" in line or ".67:" in line:
+        return "dhcp"
+    if "ethertype IPv6" in line:
+        return "ipv6-multicast"
+    return "other"
+
+
+def summarize_lines(lines: list[str]) -> dict[str, object]:
+    per_hour: dict[str, Counter[str]] = defaultdict(Counter)
+    arp_targets: Counter[str] = Counter()
+    arp_times: list[tuple[float, str]] = []
+    first = last = None
+    total = 0
+    for line in lines:
+        m = LINE.match(line)
+        if not m:
+            continue
+        total += 1
+        ts = datetime.strptime(m.group(1), "%Y-%m-%d %H:%M:%S")
+        first = first or ts
+        last = ts
+        kind = classify(line)
+        per_hour[ts.strftime("%Y-%m-%d %H:00")][kind] += 1
+        if kind == "arp-request":
+            a = ARP_REQ.search(line)
+            if a:
+                arp_targets[a.group(1)] += 1
+                arp_times.append((ts.timestamp(), a.group(1)))
+    sweeps: list[tuple[str, int]] = []
+    arp_times.sort()
+    i = 0
+    while i < len(arp_times):
+        t0 = arp_times[i][0]
+        window = {ip for t, ip in arp_times[i:] if t - t0 <= SWEEP_WINDOW}
+        if len(window) >= SWEEP_TARGETS:
+            sweeps.append(
+                (datetime.fromtimestamp(t0).strftime("%Y-%m-%d %H:%M:%S"), len(window))
+            )
+            while i < len(arp_times) and arp_times[i][0] - t0 <= SWEEP_WINDOW:
+                i += 1
+        else:
+            i += 1
+    return {
+        "frames": total,
+        "first": first.isoformat(sep=" ") if first else None,
+        "last": last.isoformat(sep=" ") if last else None,
+        "per_hour": {h: dict(c) for h, c in sorted(per_hour.items())},
+        "arp_distinct_targets": len(arp_targets),
+        "arp_top": arp_targets.most_common(15),
+        "sweeps": sweeps,
+    }
+
+
+def summary(args: argparse.Namespace) -> int:
+    pcap = Path(args.pcap)
+    if not pcap.exists():
+        print(f"{pcap} not found", file=sys.stderr)
+        return 2
+    dump = subprocess.run(
+        ["tcpdump", "-r", str(pcap), "-n", "-e", "-tttt"],
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    res = summarize_lines(dump.stdout.splitlines())
+    ssdp = subprocess.run(
+        ["tcpdump", "-r", str(pcap), "-n", "-A", "udp port 1900"],
+        capture_output=True,
+        text=True,
+        check=False,
+    ).stdout
+    print(f"{res['frames']} frames from {res['first']} to {res['last']}")
+    print("\nper hour:")
+    for hour, counts in res["per_hour"].items():  # type: ignore[union-attr]
+        print(f"  {hour}  " + "  ".join(f"{k}={v}" for k, v in sorted(counts.items())))
+    print(
+        f"\nARP requests went to {res['arp_distinct_targets']} distinct addresses; top targets:"
+    )
+    for ip, n in res["arp_top"]:  # type: ignore[union-attr]
+        print(f"  {n:>5}  {ip}")
+    sweeps = res["sweeps"]
+    if sweeps:
+        print(f"\nARP SWEEPS ({SWEEP_TARGETS}+ targets in {SWEEP_WINDOW:.0f} s):")
+        for at, n in sweeps:  # type: ignore[union-attr]
+            print(f"  {at}  {n} addresses")
+    else:
+        print(f"\nno ARP sweep ({SWEEP_TARGETS}+ targets within {SWEEP_WINDOW:.0f} s)")
+    print(
+        f"\nSSDP: {ssdp.count('M-SEARCH')} M-SEARCH (looking for devices), {ssdp.count('NOTIFY')} NOTIFY (announcing itself)"
+    )
+    return 0
+
+
+def main(argv: list[str]) -> int:
+    p = argparse.ArgumentParser(
+        prog="lan-capture",
+        description=__doc__,
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+    )
+    sub = p.add_subparsers(dest="cmd", required=True)
+    r = sub.add_parser("record")
+    r.add_argument("--minutes", type=int, default=180)
+    r.add_argument("--mac", default=DEFAULT_MAC)
+    r.add_argument("--iface", default="en0")
+    s = sub.add_parser("summary")
+    s.add_argument("pcap")
+    args = p.parse_args(argv)
+    return record(args) if args.cmd == "record" else summary(args)
+
+
+if __name__ == "__main__":
+    sys.exit(main(sys.argv[1:]))
