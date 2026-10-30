@@ -36,17 +36,25 @@ above no longer runs. The archive lane that still works is the Arctic Shift API
 ```bash
 reddit/bin/reddit-search kansascity chai --since 2023-01-01   # posts + comment trees
 reddit/bin/reddit-search kansascity "chai latte" --no-trees   # titles only
+reddit/bin/reddit-search HPfanfiction "diary riddle" --title --top 10   # big sub
 ```
 
-It searches post titles and bodies one time window at a time, pulls the full
-comment tree of every hit, and writes `data/search-<sub>-<query>.json` plus a
+It searches post titles and bodies one time window at a time, pulls the
+comment tree of the `--top` hits with the most comments (default 15), and writes `data/search-<sub>-<query>.json` plus a
 summary ranked by comment score. Comment keyword search (`body=`) is refused
 with 422 on active subreddits, so comments only come through the trees.
 
 The archive is one volunteer's server. A burst of keyword searches makes it
 answer every request with `422 "Timeout. Maybe slow down a bit"` for several
-minutes, so the tool paces at 4 s, backs off 30 s doubling on that reply or on
-a 429, and must never run in parallel with itself. No author field is written.
+minutes, so the tool paces at 4 s (30 s before a search request), backs off
+30 s doubling on that reply or on a 429, prints each backoff to stderr, and
+must never run in parallel with itself.
+
+On a large subreddit (r/HPfanfiction), a full-text search times out in all
+windows. Use `--title` there: it searches titles in one window from the start
+date to now. A run then takes 2 to 10 minutes, because the pages after the
+first frequently need some backoff retries. Before `--top`, a search with
+hundreds of hits fetched all trees and ran for more than 30 minutes. No author field is written.
 
 ## Privacy
 

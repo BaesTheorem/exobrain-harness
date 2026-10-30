@@ -1,0 +1,150 @@
+#!/usr/bin/env python3
+"""Popularity stats for fanfic URLs (AO3, FanFiction.net) without hitting either site.
+
+AO3 and FFN both refuse scripted requests: AO3 answers 418 during an outage
+(down since 2026-10-29 after a security incident) and FFN sits behind a
+Cloudflare challenge. This reads two third-party copies instead:
+
+- FicHub (fichub.net/api/v0/epub) has cached metadata for both sites: title,
+  author, words, status, summary, and for FFN the favs/follows/reviews.
+- The Wayback Machine has AO3 work pages with kudos/hits/bookmarks. The newest
+  200 snapshot over 20 KB is used (smaller ones are adult-content gates), and
+  the bytes are gunzipped when the archive returns them compressed.
+
+INVARIANTS (do not break when editing):
+- Generic User-Agent only; no identity in any request.
+- Every number names the copy it came from. A Wayback kudos count can be a
+  year old, so it prints "@YYYY-MM-DD". FicHub does not expose its cache date,
+  so FFN counts print "(FicHub cache)".
+- One failed source records an error on that row; the run continues.
+
+Usage:
+  fic-stats https://archiveofourown.org/works/25440826 https://www.fanfiction.net/s/6035532/1/
+  fic-stats --json URL ...
+"""
+
+from __future__ import annotations
+
+import argparse
+import gzip
+import html
+import json
+import re
+import sys
+import time
+import urllib.parse
+import urllib.request
+from typing import Any
+
+UA = "exobrain-harness/1.0 (+https://github.com/BaesTheorem/exobrain-harness)"
+PACE_SECONDS = 2.0
+MIN_AO3_PAGE_BYTES = 20_000
+
+
+def _fetch(url: str, timeout: int = 90) -> bytes:
+    req = urllib.request.Request(url, headers={"User-Agent": UA})
+    with urllib.request.urlopen(req, timeout=timeout) as resp:
+        body = resp.read()
+    return gzip.decompress(body) if body[:2] == b"\x1f\x8b" else body
+
+
+def _text(fragment: str) -> str:
+    return re.sub(r"\s+", " ", html.unescape(re.sub(r"<[^>]+>", " ", fragment))).strip()
+
+
+def fichub(url: str) -> dict[str, Any]:
+    data = json.loads(_fetch("https://fichub.net/api/v0/epub?q=" + urllib.parse.quote(url, safe="")))
+    meta = data.get("meta") or {}
+    if not meta:
+        return {"error": "; ".join(data.get("fixits") or []) or f"err {data.get('err')}"}
+    raw = meta.get("rawExtendedMeta") or {}
+    out = {
+        "title": meta.get("title"),
+        "author": meta.get("author"),
+        "words": meta.get("words"),
+        "status": meta.get("status"),
+        "updated": (meta.get("updated") or "")[:10],
+        "summary": _text(meta.get("description") or "")[:400],
+    }
+    for key in ("favorites", "follows", "reviews"):
+        if raw.get(key):
+            out[key] = int(str(raw[key]).replace(",", ""))
+    return out
+
+
+def wayback_ao3(work_id: str) -> dict[str, Any]:
+    cdx = _fetch(
+        "https://web.archive.org/cdx/search/cdx?"
+        + urllib.parse.urlencode({
+            "url": f"archiveofourown.org/works/{work_id}*",
+            "filter": "statuscode:200",
+            "limit": "-80",
+        })
+    ).decode("utf-8", "ignore")
+    rows = [r.split() for r in cdx.splitlines() if r.strip()]
+    rows = [r for r in rows if len(r) >= 7 and r[6].isdigit() and int(r[6]) > MIN_AO3_PAGE_BYTES]
+    if not rows:
+        return {"error": "no full AO3 snapshot on the Wayback Machine"}
+    timestamp, original = rows[-1][1], rows[-1][2]
+    page = _fetch(f"https://web.archive.org/web/{timestamp}id_/{original}").decode("utf-8", "ignore")
+    out: dict[str, Any] = {"as_of": f"{timestamp[:4]}-{timestamp[4:6]}-{timestamp[6:8]}"}
+    for key in ("kudos", "hits", "bookmarks"):
+        m = re.search(r'<dd class="' + key + r'">(?:<a[^>]*>)?([\d,]+)', page)
+        if m:
+            out[key] = int(m.group(1).replace(",", ""))
+    tags = re.search(r'<dd class="freeform tags">(.*?)</dd>', page, re.S)
+    if tags:
+        out["tags"] = [_text(t) for t in re.findall(r'class="tag"[^>]*>(.*?)</a>', tags.group(1))]
+    if "kudos" not in out:
+        out["error"] = f"snapshot {out['as_of']} has no stats block"
+    return out
+
+
+def stats(url: str) -> dict[str, Any]:
+    row: dict[str, Any] = {"url": url}
+    try:
+        row.update(fichub(url))
+    except Exception as exc:  # one source down must not stop the run
+        row["fichub_error"] = str(exc)
+    m = re.search(r"archiveofourown\.org/works/(\d+)", url)
+    if m:
+        time.sleep(PACE_SECONDS)
+        try:
+            ao3 = wayback_ao3(m.group(1))
+            if "error" in ao3:
+                row["wayback_error"] = ao3.pop("error")
+            row.update(ao3)
+        except Exception as exc:
+            row["wayback_error"] = str(exc)
+    return row
+
+
+def main() -> int:
+    ap = argparse.ArgumentParser(description=(__doc__ or "").split("\n\n")[0])
+    ap.add_argument("urls", nargs="+")
+    ap.add_argument("--json", action="store_true", help="print one JSON array")
+    args = ap.parse_args()
+    rows = []
+    for i, url in enumerate(args.urls):
+        if i:
+            time.sleep(PACE_SECONDS)
+        rows.append(stats(url))
+    if args.json:
+        print(json.dumps(rows, indent=1, ensure_ascii=False))
+        return 0
+    for r in rows:
+        nums = [f"{k} {r[k]:,}" for k in ("kudos", "favorites", "bookmarks", "hits", "follows") if k in r]
+        when = f" @{r['as_of']}" if "as_of" in r else (" (FicHub cache)" if nums else "")
+        print(f"{r.get('title') or '?'} by {r.get('author') or '?'} | {r.get('words') or '?'} words, "
+              f"{r.get('status') or '?'} | {', '.join(nums) or 'no counts'}{when}")
+        print(f"   {r['url']}")
+        if r.get("summary"):
+            print(f"   > {r['summary'][:280]}")
+        for k in ("fichub_error", "wayback_error"):
+            if r.get(k):
+                print(f"   {k}: {r[k]}")
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())
