@@ -2,3 +2,5 @@ service/config.js
 dist/
 *.wgt
 .manifest.tmp
+author-signature.xml
+signature1.xml
