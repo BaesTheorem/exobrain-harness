@@ -127,6 +127,22 @@ module.exports.onStart = function () {
     }
     if (q.token !== cfg.token) return send(res, 403, 'forbidden');
 
+    if (p === '/sysinfo') {
+      var out = { node: process.version };
+      try { out.totalMemory = tizen.systeminfo.getTotalMemory(); out.availableMemory = tizen.systeminfo.getAvailableMemory(); } catch (e) { out.memoryError = e.message; }
+      var pending = 2;
+      function done() { if (--pending === 0) json(res, 200, out); }
+      try {
+        tizen.systeminfo.getPropertyValue('STORAGE', function (st) {
+          out.storage = (st.units || []).map(function (u) { return { type: u.type, capacity: u.capacity, available: u.availableCapacity, removable: u.isRemovable }; }); done();
+        }, function (e) { out.storageError = e.message; done(); });
+      } catch (e) { out.storageError = e.message; done(); }
+      try {
+        tizen.systeminfo.getPropertyValue('BUILD', function (b) { out.build = { model: b.model, manufacturer: b.manufacturer, buildVersion: b.buildVersion }; done(); },
+          function (e) { out.buildError = e.message; done(); });
+      } catch (e) { out.buildError = e.message; done(); }
+      return;
+    }
     if (p === '/apps') return sdb('vd_applist', function (err, out) { send(res, err ? 500 : 200, err ? err : out); });
     if (p === '/sdb' && req.method === 'POST') {
       if (!SAFE_CMD.test(q.cmd || '')) return send(res, 400, 'command not allowed');

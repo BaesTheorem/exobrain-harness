@@ -17,6 +17,7 @@ Usage:
   tv/agent wake                      launch the agent app on the TV (REST, no token)
   tv/agent ping
   tv/agent apps                      Smart Hub app list (vd_applist)
+  tv/agent sysinfo                   storage units, RAM, build (tizen.systeminfo)
   tv/agent install FILE.wgt          package id is read from the wgt
   tv/agent uninstall PKGID
   tv/agent launch APPID
@@ -98,6 +99,8 @@ def main(argv: list[str]) -> int:
     if cmd == "ping":
         print(call("GET", "/ping"))
         return 0
+    if cmd == "sysinfo":
+        print(call("GET", "/sysinfo")); return 0
     if cmd == "apps":
         print(call("GET", "/apps"))
         return 0
