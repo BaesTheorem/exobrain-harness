@@ -64,6 +64,7 @@ def record(args: argparse.Namespace) -> int:
         args.iface,
         "-n",
         "-e",
+        "-U",
         "-w",
         str(out),
         flt,
@@ -101,6 +102,8 @@ def classify(line: str) -> str:
         return "mdns"
     if "BOOTP" in line or ".67:" in line:
         return "dhcp"
+    if ".15600:" in line:
+        return "beacon-15600"
     if "ethertype IPv6" in line:
         return "ipv6-multicast"
     return "other"
