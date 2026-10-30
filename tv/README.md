@@ -116,3 +116,4 @@ remote to wake the TV again.
 - `tv/probe.py`: read-only snapshot of the TV (device info, open ports, UPnP, apps) to `~/Documents/tv-analysis/probes/`.
 - `tv/lan-capture`: `sudo tv/lan-capture record --minutes 180` records every broadcast and multicast frame the TV sends (ARP, SSDP, mDNS, DHCP) to `~/Documents/tv-analysis/captures/`; `tv/lan-capture summary FILE.pcap` reports per-hour counts, ARP targets and any ARP sweep of the LAN.
 - `bin/nextdns`: the TV resolves through a log-only NextDNS profile (`NEXTDNS_PROFILE` in `.env`); `bin/nextdns domains --from -1d` is the tally of what it phoned home to, `bin/nextdns status` checks the linked IP.
+- `tv/com.exobrain.nextdns-link.plist`: launchd job, every 30 min on the home network only, relinks the home public IP to the TV profile (`bin/nextdns link --require-gateway-mac <home router MAC>`). Log: `~/Library/Logs/exobrain/nextdns-link.log`.

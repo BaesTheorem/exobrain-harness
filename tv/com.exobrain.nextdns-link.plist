@@ -1,0 +1,38 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>Label</key>
+    <string>com.exobrain.nextdns-link</string>
+    <!-- Every 30 min, on the home network only: relink the home public IP to
+         the NextDNS TV profile, so the TV's plain-DNS queries keep landing in
+         its log when the ISP moves the address. Off the home network it is a
+         no-op (gateway MAC guard). -->
+    <key>ProgramArguments</key>
+    <array>
+        <string>/Users/alexhedtke/.local/bin/mist-launch</string>
+        <string>/opt/homebrew/bin/python3</string>
+        <string>/Users/alexhedtke/Documents/Exobrain harness/bin/net-gate</string>
+        <string>--</string>
+        <string>/opt/homebrew/bin/python3</string>
+        <string>/Users/alexhedtke/Documents/Exobrain harness/bin/nextdns</string>
+        <string>link</string>
+        <string>--require-gateway-mac</string>
+        <string>68:7f:f0:0f:44:24</string>
+    </array>
+    <key>WorkingDirectory</key>
+    <string>/Users/alexhedtke/Documents/Exobrain harness</string>
+    <key>StartInterval</key>
+    <integer>1800</integer>
+    <key>RunAtLoad</key>
+    <true/>
+    <key>StandardOutPath</key>
+    <string>/Users/alexhedtke/Library/Logs/exobrain/nextdns-link.log</string>
+    <key>StandardErrorPath</key>
+    <string>/Users/alexhedtke/Library/Logs/exobrain/nextdns-link.log</string>
+    <key>AssociatedBundleIdentifiers</key>
+    <array>
+        <string>com.exobrain.mist-console</string>
+    </array>
+</dict>
+</plist>
