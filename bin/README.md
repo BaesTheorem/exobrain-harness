@@ -15,6 +15,7 @@ Loose command-line tools that belong to no single module. Each line below comes 
 | `linkedin-mcp` | Launches `mcp-server-linkedin` in real headless mode instead of macOS hidden-target mode, which breaks every navigation. Registered as the `linkedin` MCP server. |
 | `luma` | Luma event management CLI (cookie-auth write lane, works on the free plan), using `LUMA_AUTH_SESSION_KEY` from the harness `.env`. Used by the `/luma` skill. |
 | `luma-to-meetup` | Mirrors the Kansas City EA Luma calendar onto the Meetup group, creating each missing future event with a link back to Luma. |
+| `nextdns` | NextDNS profile CLI: relink the home IP, read the query log and domain tallies, edit deny and allow lists, natives and blocklists. Built for the Samsung TV's log-only telemetry baseline. |
 | `pe-triage` | Static triage of a Windows PE file (headers, sections, imports, resources, packer tells, hashes); never executes it. |
 | `spotify-dl` | Downloads a Spotify track by URL or id, taking metadata from the embed page instead of the rate-limited Spotify Web API. Needs Premium. |
 | `yt-transcript` | Pulls a YouTube video's captions as clean, readable text (wraps `yt-dlp`, then strips the auto-caption duplication). |

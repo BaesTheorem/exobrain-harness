@@ -1,0 +1,531 @@
+#!/usr/bin/env python3
+"""
+NextDNS profile CLI: linked IP, query log, domain tallies, deny and allow
+lists, native tracking protection, blocklists and raw config patches, all
+through the NextDNS API (api.nextdns.io).
+
+Made for the TV Debloat & Privacy project. The 2nd-floor Samsung TV resolves
+through a NextDNS "TV" profile that NextDNS identifies by the home's linked
+public IP. The harness has to relink that IP when the ISP changes it, read
+the query log to see what the TV phones home to, and push the Samsung
+telemetry domains into the denylist once a log-only baseline exists. Nothing
+here is TV-specific: any profile on the account works, so the whole-Mac
+traffic audit can use the same tool.
+
+Credentials: NEXTDNS_API_KEY in the harness .env (my.nextdns.io/account).
+Default profile: NEXTDNS_PROFILE in .env, overridden by -p/--profile.
+The key is never printed.
+
+Usage:
+  nextdns profiles
+  nextdns show [-p ID]                      full profile JSON
+  nextdns status [-p ID] [--json]           linked IP vs this network's public
+                                            IP, logs, lists, newest query
+  nextdns link [-p ID] [--require-gateway-mac MAC]
+                                            relink this network's public IP;
+                                            with the MAC guard it is a no-op on
+                                            any other network (launchd use)
+  nextdns logs [-p ID] [--from -1d] [--limit 100] [--search TEXT]
+               [--status blocked|allowed|default] [--json]
+  nextdns domains [-p ID] [--from -1d] [--limit 50] [--blocked] [--json]
+  nextdns deny ls | add DOMAIN... [--inactive] | rm DOMAIN... |
+               import FILE [--inactive]      hosts or plain list, # comments
+  nextdns allow ls | add DOMAIN... | rm DOMAIN... | import FILE
+  nextdns natives [set ID[,ID...]]          e.g. set samsung,roku; set "" clears
+  nextdns blocklists [set ID[,ID...]]
+  nextdns config '<json>'                   raw PATCH on the profile
+
+Exit codes: 0 ok, 1 API error or linked-IP mismatch, 2 usage or missing key.
+"""
+
+from __future__ import annotations
+
+import argparse
+import json
+import random
+import re
+import string
+import subprocess
+import sys
+import urllib.error
+import urllib.parse
+import urllib.request
+from pathlib import Path
+from typing import Any
+
+HARNESS_DIR = Path(__file__).resolve().parent.parent
+API = "https://api.nextdns.io"
+LINK_URL = "https://link-ip.nextdns.io"
+UA = "exobrain-harness/1.0 (+https://github.com/BaesTheorem/exobrain-harness)"
+LISTS = {"deny": "denylist", "allow": "allowlist"}
+
+
+class ApiError(Exception):
+    def __init__(self, code: int, payload: Any) -> None:
+        super().__init__(f"HTTP {code}: {json.dumps(payload)}")
+        self.code = code
+        self.payload = payload
+
+
+def load_env_file(path: Path) -> dict[str, str]:
+    env: dict[str, str] = {}
+    if not path.exists():
+        return env
+    for raw in path.read_text().splitlines():
+        line = raw.strip()
+        if not line or line.startswith("#") or "=" not in line:
+            continue
+        key, _, value = line.partition("=")
+        env[key.strip()] = value.strip().strip('"').strip("'")
+    return env
+
+
+class Api:
+    def __init__(self, key: str) -> None:
+        self._key = key
+
+    def call(
+        self,
+        method: str,
+        path: str,
+        body: Any = None,
+        params: dict[str, Any] | None = None,
+    ) -> Any:
+        url = API + path
+        if params:
+            clean = {k: v for k, v in params.items() if v is not None}
+            if clean:
+                url += "?" + urllib.parse.urlencode(clean)
+        headers = {
+            "X-Api-Key": self._key,
+            "User-Agent": UA,
+            "Accept": "application/json",
+        }
+        data = None
+        if body is not None:
+            data = json.dumps(body).encode()
+            headers["Content-Type"] = "application/json"
+        req = urllib.request.Request(url, data=data, method=method, headers=headers)
+        try:
+            with urllib.request.urlopen(req, timeout=30) as resp:
+                raw = resp.read()
+        except urllib.error.HTTPError as e:
+            raw = e.read()
+            try:
+                payload = json.loads(raw or b"{}")
+            except ValueError:
+                payload = {"raw": raw.decode(errors="replace")}
+            raise ApiError(e.code, payload) from None
+        if not raw:
+            return None
+        return json.loads(raw)
+
+    def profile(self, pid: str) -> dict[str, Any]:
+        return self.call("GET", f"/profiles/{pid}")["data"]
+
+    def paged(
+        self, path: str, params: dict[str, Any], want: int
+    ) -> list[dict[str, Any]]:
+        rows: list[dict[str, Any]] = []
+        cursor: str | None = None
+        while True:
+            page = self.call("GET", path, params={**params, "cursor": cursor})
+            rows.extend(page.get("data", []))
+            cursor = (page.get("meta") or {}).get("pagination", {}).get("cursor")
+            if not cursor or len(rows) >= want:
+                break
+        return rows[:want]
+
+
+# --- helpers ------------------------------------------------------------------
+
+
+def fetch_text(url: str) -> str:
+    req = urllib.request.Request(url, headers={"User-Agent": UA})
+    with urllib.request.urlopen(req, timeout=30) as resp:
+        return resp.read().decode(errors="replace").strip()
+
+
+def public_ip() -> str | None:
+    """This network's public IPv4, as NextDNS sees it (test.nextdns.io srcIP).
+
+    A bare GET of test.nextdns.io returns an HTML shim; the JSON lives on a
+    random subdomain (that is how the page busts resolver caches).
+    """
+    label = "".join(random.choices(string.ascii_lowercase + string.digits, k=20))
+    try:
+        info = json.loads(fetch_text(f"https://{label}.test.nextdns.io/"))
+    except Exception:  # noqa: BLE001 - offline or captive portal: report unknown
+        return None
+    ip = info.get("srcIP")
+    return ip if isinstance(ip, str) else None
+
+
+def norm_mac(mac: str) -> str:
+    return ":".join(part.zfill(2) for part in mac.lower().split(":"))
+
+
+def gateway_mac() -> str | None:
+    try:
+        route = subprocess.run(
+            ["route", "-n", "get", "default"],
+            capture_output=True,
+            text=True,
+            timeout=10,
+        ).stdout
+        m = re.search(r"gateway:\s*(\S+)", route)
+        if not m:
+            return None
+        arp = subprocess.run(
+            ["arp", "-n", m.group(1)], capture_output=True, text=True, timeout=10
+        ).stdout
+        m2 = re.search(r"at ([0-9a-f:]+)", arp)
+        return norm_mac(m2.group(1)) if m2 else None
+    except (OSError, subprocess.SubprocessError):
+        return None
+
+
+def parse_domain_file(path: Path) -> list[str]:
+    """Domains from a hosts file or a plain list. Comments (#) are skipped."""
+    out: list[str] = []
+    seen: set[str] = set()
+    for raw in path.read_text(errors="replace").splitlines():
+        line = raw.split("#", 1)[0].strip()
+        if not line:
+            continue
+        parts = line.split()
+        domain = parts[-1].lower().strip(".")
+        if parts[0] in ("0.0.0.0", "127.0.0.1", "::1", "::") and len(parts) == 1:
+            continue
+        if domain in ("localhost", "localhost.localdomain", "broadcasthost", "local"):
+            continue
+        if "." not in domain or domain in seen:
+            continue
+        seen.add(domain)
+        out.append(domain)
+    return out
+
+
+def table(rows: list[list[Any]], header: list[str]) -> None:
+    widths = [len(h) for h in header]
+    text = [[("" if c is None else str(c)) for c in r] for r in rows]
+    for r in text:
+        for i, c in enumerate(r):
+            widths[i] = max(widths[i], len(c))
+    fmt = "  ".join(f"{{:<{w}}}" for w in widths)
+    print(fmt.format(*header))
+    for r in text:
+        print(fmt.format(*r))
+
+
+def client_of(row: dict[str, Any]) -> str:
+    dev = row.get("device") or {}
+    if isinstance(dev, dict) and dev.get("name"):
+        return str(dev["name"])
+    return str(row.get("clientIp") or "")
+
+
+# --- commands -----------------------------------------------------------------
+
+
+def cmd_profiles(api: Api, _: argparse.Namespace, __: str) -> int:
+    rows = [
+        [p["id"], p.get("name", ""), p.get("role", "")]
+        for p in api.call("GET", "/profiles")["data"]
+    ]
+    table(rows, ["id", "name", "role"])
+    return 0
+
+
+def cmd_show(api: Api, _: argparse.Namespace, pid: str) -> int:
+    print(json.dumps(api.profile(pid), indent=2))
+    return 0
+
+
+def cmd_status(api: Api, args: argparse.Namespace, pid: str) -> int:
+    prof = api.profile(pid)
+    linked = prof["setup"]["linkedIp"]
+    pub = public_ip()
+    newest = api.call("GET", f"/profiles/{pid}/logs", params={"limit": 10}).get(
+        "data", []
+    )
+    first = newest[0] if newest else None
+    info = {
+        "id": pid,
+        "name": prof.get("name"),
+        "linked_ip": linked.get("ip"),
+        "public_ip_here": pub,
+        "linked_matches_here": bool(pub) and pub == linked.get("ip"),
+        "plain_dns_servers": linked.get("servers"),
+        "logs_enabled": prof["settings"]["logs"]["enabled"],
+        "log_retention_days": prof["settings"]["logs"]["retention"] // 86400,
+        "blocklists": [b["id"] for b in prof["privacy"]["blocklists"]],
+        "natives": [n["id"] for n in prof["privacy"]["natives"]],
+        "security_on": [k for k, v in prof["security"].items() if v is True],
+        "denylist": len(prof.get("denylist", [])),
+        "allowlist": len(prof.get("allowlist", [])),
+        "newest_query": (
+            {
+                "at": first.get("timestamp"),
+                "domain": first.get("domain"),
+                "status": first.get("status"),
+            }
+            if first
+            else None
+        ),
+    }
+    if args.json:
+        print(json.dumps(info, indent=2))
+    else:
+        for k, v in info.items():
+            print(f"{k:<22} {json.dumps(v) if not isinstance(v, str) else v}")
+    return 0 if info["linked_matches_here"] or pub is None else 1
+
+
+def cmd_link(api: Api, args: argparse.Namespace, pid: str) -> int:
+    if args.require_gateway_mac:
+        here = gateway_mac()
+        if here != norm_mac(args.require_gateway_mac):
+            print(
+                f"gateway {here or 'unknown'} is not the required network; link skipped"
+            )
+            return 0
+    token = api.profile(pid)["setup"]["linkedIp"]["updateToken"]
+    linked_to = fetch_text(f"{LINK_URL}/{pid}/{token}")
+    after = api.profile(pid)["setup"]["linkedIp"].get("ip")
+    print(f"link-ip answered {linked_to}; profile {pid} linked ip is now {after}")
+    return 0 if after and after == linked_to else 1
+
+
+def cmd_logs(api: Api, args: argparse.Namespace, pid: str) -> int:
+    params = {
+        "from": args.from_,
+        "limit": max(10, min(args.limit, 1000)),
+        "search": args.search,
+        "status": args.status,
+    }
+    rows = api.paged(f"/profiles/{pid}/logs", params, args.limit)
+    if args.json:
+        print(json.dumps(rows, indent=2))
+        return 0
+    table(
+        [
+            [
+                r.get("timestamp"),
+                r.get("domain"),
+                r.get("status"),
+                r.get("protocol"),
+                client_of(r),
+            ]
+            for r in rows
+        ],
+        ["timestamp", "domain", "status", "protocol", "client"],
+    )
+    print(f"{len(rows)} rows")
+    return 0
+
+
+def cmd_domains(api: Api, args: argparse.Namespace, pid: str) -> int:
+    params: dict[str, Any] = {
+        "from": args.from_,
+        "limit": max(10, min(args.limit, 1000)),
+    }
+    if args.blocked:
+        params["status"] = "blocked"
+    rows = api.paged(f"/profiles/{pid}/analytics/domains", params, args.limit)
+    if args.json:
+        print(json.dumps(rows, indent=2))
+        return 0
+    table(
+        [
+            [r.get("queries"), r.get("domain"), r.get("root"), r.get("tracker") or ""]
+            for r in rows
+        ],
+        ["queries", "domain", "root", "tracker"],
+    )
+    return 0
+
+
+def list_items(api: Api, pid: str, name: str) -> list[dict[str, Any]]:
+    return (api.call("GET", f"/profiles/{pid}/{name}") or {}).get("data", [])
+
+
+def list_write(api: Api, pid: str, name: str, items: list[dict[str, Any]]) -> None:
+    """Replace the whole list. PUT on the list endpoint, else PATCH on the profile."""
+    try:
+        api.call("PUT", f"/profiles/{pid}/{name}", items)
+    except ApiError as e:
+        if e.code not in (404, 405):
+            raise
+        api.call("PATCH", f"/profiles/{pid}", {name: items})
+
+
+def cmd_list(api: Api, args: argparse.Namespace, pid: str) -> int:
+    name = LISTS[args.cmd]
+    current = list_items(api, pid, name)
+    if args.action == "ls":
+        table([[d["id"], d.get("active", True)] for d in current], ["domain", "active"])
+        print(f"{len(current)} entries")
+        return 0
+    if args.action == "import":
+        domains = parse_domain_file(Path(args.items[0]))
+    else:
+        domains = [d.lower().strip().strip(".") for d in args.items]
+    have = {d["id"] for d in current}
+    if args.action in ("add", "import"):
+        active = not getattr(args, "inactive", False)
+        new = [d for d in domains if d not in have]
+        failed = 0
+        for d in new:
+            try:
+                api.call("POST", f"/profiles/{pid}/{name}", {"id": d, "active": active})
+            except ApiError as e:
+                if e.code in (404, 405):
+                    list_write(
+                        api,
+                        pid,
+                        name,
+                        current + [{"id": x, "active": active} for x in new],
+                    )
+                    failed = 0
+                    break
+                failed += 1
+                print(f"{d}: {e}", file=sys.stderr)
+        now = len(list_items(api, pid, name))
+        print(
+            f"{name}: {len(new)} added, {len(domains) - len(new)} already present, {failed} failed; {now} entries now"
+        )
+        return 1 if failed else 0
+    if args.action == "rm":
+        gone = [d for d in domains if d in have]
+        for d in gone:
+            try:
+                api.call("DELETE", f"/profiles/{pid}/{name}/{urllib.parse.quote(d)}")
+            except ApiError as e:
+                if e.code not in (404, 405):
+                    raise
+                list_write(
+                    api, pid, name, [x for x in current if x["id"] not in set(gone)]
+                )
+                break
+        now = len(list_items(api, pid, name))
+        print(
+            f"{name}: {len(gone)} removed, {len(domains) - len(gone)} were not present; {now} entries now"
+        )
+        return 0
+    return 2
+
+
+def cmd_idlist(api: Api, args: argparse.Namespace, pid: str) -> int:
+    name = args.cmd  # natives | blocklists
+    if args.set is not None:
+        ids = [x.strip() for x in args.set.split(",") if x.strip()]
+        api.call(
+            "PATCH", f"/profiles/{pid}", {"privacy": {name: [{"id": i} for i in ids]}}
+        )
+    items = api.profile(pid)["privacy"][name]
+    for it in items:
+        extra = f"  {it.get('entries')} entries" if it.get("entries") else ""
+        print(f"{it['id']}{extra}")
+    print(f"{len(items)} {name}")
+    return 0
+
+
+def cmd_config(api: Api, args: argparse.Namespace, pid: str) -> int:
+    api.call("PATCH", f"/profiles/{pid}", json.loads(args.patch))
+    print("patched")
+    return 0
+
+
+# --- main ---------------------------------------------------------------------
+
+
+def build_parser() -> argparse.ArgumentParser:
+    p = argparse.ArgumentParser(
+        prog="nextdns",
+        description=__doc__,
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+    )
+    p.add_argument(
+        "-p", "--profile", help="profile id (default: NEXTDNS_PROFILE in .env)"
+    )
+    sub = p.add_subparsers(dest="cmd", required=True)
+    sub.add_parser("profiles")
+    sub.add_parser("show")
+    s = sub.add_parser("status")
+    s.add_argument("--json", action="store_true")
+    s = sub.add_parser("link")
+    s.add_argument(
+        "--require-gateway-mac",
+        metavar="MAC",
+        help="only link when the default gateway has this MAC",
+    )
+    s = sub.add_parser("logs")
+    s.add_argument("--from", dest="from_", default="-1d")
+    s.add_argument("--limit", type=int, default=100)
+    s.add_argument("--search")
+    s.add_argument("--status", choices=["blocked", "allowed", "default"])
+    s.add_argument("--json", action="store_true")
+    s = sub.add_parser("domains")
+    s.add_argument("--from", dest="from_", default="-1d")
+    s.add_argument("--limit", type=int, default=50)
+    s.add_argument("--blocked", action="store_true")
+    s.add_argument("--json", action="store_true")
+    for lst in LISTS:
+        s = sub.add_parser(lst)
+        s.add_argument("action", choices=["ls", "add", "rm", "import"])
+        s.add_argument("items", nargs="*", help="domains, or one file for import")
+        s.add_argument(
+            "--inactive",
+            action="store_true",
+            help="add entries switched off (log-only)",
+        )
+    for idl in ("natives", "blocklists"):
+        s = sub.add_parser(idl)
+        s.add_argument("set", nargs="?", help='comma-separated ids; "" clears')
+    s = sub.add_parser("config")
+    s.add_argument("patch", help="JSON object to PATCH onto the profile")
+    return p
+
+
+COMMANDS = {
+    "profiles": cmd_profiles,
+    "show": cmd_show,
+    "status": cmd_status,
+    "link": cmd_link,
+    "logs": cmd_logs,
+    "domains": cmd_domains,
+    "deny": cmd_list,
+    "allow": cmd_list,
+    "natives": cmd_idlist,
+    "blocklists": cmd_idlist,
+    "config": cmd_config,
+}
+
+
+def main(argv: list[str]) -> int:
+    args = build_parser().parse_args(argv)
+    env = load_env_file(HARNESS_DIR / ".env")
+    key = env.get("NEXTDNS_API_KEY", "")
+    if not key:
+        print("NEXTDNS_API_KEY missing from the harness .env", file=sys.stderr)
+        return 2
+    pid = args.profile or env.get("NEXTDNS_PROFILE", "")
+    if args.cmd != "profiles" and not pid:
+        print("no profile: pass -p ID or set NEXTDNS_PROFILE in .env", file=sys.stderr)
+        return 2
+    if args.cmd in LISTS and args.action != "ls" and not args.items:
+        print(f"{args.cmd} {args.action} needs domains or a file", file=sys.stderr)
+        return 2
+    try:
+        return COMMANDS[args.cmd](Api(key), args, pid)
+    except ApiError as e:
+        print(f"NextDNS API error: {e}", file=sys.stderr)
+        return 1
+    except urllib.error.URLError as e:
+        print(f"network error: {e}", file=sys.stderr)
+        return 1
+
+
+if __name__ == "__main__":
+    sys.exit(main(sys.argv[1:]))
