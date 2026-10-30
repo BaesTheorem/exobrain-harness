@@ -18,6 +18,7 @@ Usage:
   tv/agent ping
   tv/agent apps                      Smart Hub app list (vd_applist)
   tv/agent sysinfo                   storage units, RAM, build (tizen.systeminfo)
+  tv/agent meminfo                   /proc/meminfo + per-process RSS (top 40)
   tv/agent install FILE.wgt          package id is read from the wgt
   tv/agent uninstall PKGID
   tv/agent launch APPID
@@ -101,6 +102,8 @@ def main(argv: list[str]) -> int:
         return 0
     if cmd == "sysinfo":
         print(call("GET", "/sysinfo")); return 0
+    if cmd == "meminfo":
+        print(call("GET", "/meminfo")); return 0
     if cmd == "apps":
         print(call("GET", "/apps"))
         return 0

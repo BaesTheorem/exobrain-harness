@@ -143,6 +143,30 @@ module.exports.onStart = function () {
       } catch (e) { out.buildError = e.message; done(); }
       return;
     }
+    if (p === '/meminfo') {
+      var mi = {};
+      try {
+        fs.readFileSync('/proc/meminfo', 'utf8').split('\n').forEach(function (line) {
+          var m = line.match(/^(\w+):\s+(\d+)\s*kB/);
+          if (m) mi[m[1]] = parseInt(m[2], 10) * 1024;
+        });
+      } catch (e) { mi.error = e.message; }
+      var procs = [], readable = 0, total = 0;
+      try {
+        fs.readdirSync('/proc').forEach(function (d) {
+          if (!/^\d+$/.test(d)) return;
+          total++;
+          try {
+            var st = fs.readFileSync('/proc/' + d + '/status', 'utf8');
+            var nm = (st.match(/^Name:\s*(.+)$/m) || [])[1];
+            var rss = (st.match(/^VmRSS:\s*(\d+)/m) || [])[1];
+            if (nm && rss) { procs.push({ pid: +d, name: nm, rssBytes: parseInt(rss, 10) * 1024 }); readable++; }
+          } catch (e) { /* sandbox hides other users' processes */ }
+        });
+      } catch (e) { mi.procError = e.message; }
+      procs.sort(function (a, b) { return b.rssBytes - a.rssBytes; });
+      return json(res, 200, { meminfo: mi, processes_total: total, processes_readable: readable, top: procs.slice(0, 40) });
+    }
     if (p === '/apps') return sdb('vd_applist', function (err, out) { send(res, err ? 500 : 200, err ? err : out); });
     if (p === '/sdb' && req.method === 'POST') {
       if (!SAFE_CMD.test(q.cmd || '')) return send(res, 400, 'command not allowed');
