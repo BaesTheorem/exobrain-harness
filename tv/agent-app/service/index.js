@@ -60,10 +60,67 @@ module.exports.onStart = function () {
     req.on('end', function () { cb(Buffer.concat(chunks)); });
   }
 
+
+  // ---- TizenBrew module launch ----------------------------------------
+  // TizenBrew launches a module cleanly on one path only: its auto-launch
+  // entry, read when its debugger attaches. So: write the entry, make
+  // TizenBrew (re)start, clear the entry a little later.
+  var TB_APP = 'xvvl3S1bvH.TizenBrewStandalone', TB_WS_PORT = 8081, RELAUNCH = 3;  // Events.ReLaunchInDebug
+  function readTb() { try { return JSON.parse(fs.readFileSync(TB_CONFIG, 'utf8')); } catch (e) { return { modules: [], autoLaunchServiceList: [], autoLaunchModule: '' }; } }
+  function writeTb(c) { fs.writeFileSync(TB_CONFIG, JSON.stringify(c, null, 4)); }
+
+  // Minimal WebSocket client (Node 4 has none): handshake, one masked text frame, close.
+  function wsSend(port, text, cb) {
+    var net = require('net'), crypto = require('crypto'), done = false, sock;
+    function fin(err) { if (done) return; done = true; try { sock.destroy(); } catch (e) {} cb(err); }
+    sock = net.connect(port, '127.0.0.1');
+    var t = setTimeout(function () { fin('ws timeout'); }, 4000);
+    sock.on('error', function (e) { clearTimeout(t); fin('ws error: ' + e.message); });
+    sock.on('connect', function () {
+      var key = crypto.randomBytes(16).toString('base64');
+      sock.write('GET / HTTP/1.1\r\nHost: 127.0.0.1:' + port + '\r\nUpgrade: websocket\r\nConnection: Upgrade\r\nSec-WebSocket-Key: ' + key + '\r\nSec-WebSocket-Version: 13\r\n\r\n');
+    });
+    var buf = '';
+    sock.on('data', function (d) {
+      buf += d.toString('binary');
+      if (buf.indexOf('\r\n\r\n') < 0) return;
+      if (buf.indexOf(' 101 ') < 0) { clearTimeout(t); return fin('ws handshake refused'); }
+      var payload = new Buffer(text, 'utf8'), mask = crypto.randomBytes(4), head;
+      if (payload.length < 126) { head = new Buffer(2); head[1] = 0x80 | payload.length; }
+      else { head = new Buffer(4); head[1] = 0x80 | 126; head.writeUInt16BE(payload.length, 2); }
+      head[0] = 0x81;
+      var masked = new Buffer(payload.length);
+      for (var i = 0; i < payload.length; i++) masked[i] = payload[i] ^ mask[i % 4];
+      sock.write(Buffer.concat([head, mask, masked]));
+      setTimeout(function () { clearTimeout(t); fin(null); }, 300);
+    });
+  }
+
+  function launchApp(appId, cb) {
+    try { tizen.application.launch(appId, function () { cb(null); }, function (e) { cb('launch failed: ' + e.message); }); }
+    catch (e) { cb('launch failed: ' + e.message); }
+  }
+
+  function launchModule(fullName, cb) {
+    var c = readTb();
+    if (c.modules.indexOf(fullName) < 0) return cb('module not registered in TizenBrew: ' + fullName);
+    c.autoLaunchModule = fullName; writeTb(c);
+    setTimeout(function () { var c2 = readTb(); if (c2.autoLaunchModule === fullName) { c2.autoLaunchModule = ''; writeTb(c2); } }, 25000);
+    // TizenBrew service up: ask it to restart TizenBrew under its debugger (the auto-launch path).
+    wsSend(TB_WS_PORT, JSON.stringify({ type: RELAUNCH, payload: { tvIP: '127.0.0.1' } }), function (err) {
+      if (!err) return cb(null, 'relaunch requested through TizenBrew service');
+      launchApp(TB_APP, function (err2) { cb(err2, err2 ? '' : 'TizenBrew launched (service was down: ' + err + ')'); });
+    });
+  }
+
   var server = http.createServer(function (req, res) {
     var u = url.parse(req.url, true), q = u.query || {}, p = u.pathname;
     if (p === '/ping') return json(res, 200, { ok: true, agent: 'mist-tv-agent', node: process.version, time: new Date().toISOString() });
     if (p === '/module' && req.method === 'GET' && isLoopback(req)) { var st = readState(); return json(res, 200, { moduleName: st.moduleName || '', moduleType: st.moduleType || 'gh' }); }
+    if (p === '/launch-module' && req.method === 'POST' && (isLoopback(req) || q.token === cfg.token)) {
+      var st2 = readState(), full = q.name || ((st2.moduleType || 'gh') + '/' + (st2.moduleName || ''));
+      return launchModule(full, function (err, msg) { send(res, err ? 500 : 200, err ? err : msg); });
+    }
     if (q.token !== cfg.token) return send(res, 403, 'forbidden');
 
     if (p === '/apps') return sdb('vd_applist', function (err, out) { send(res, err ? 500 : 200, err ? err : out); });
@@ -88,10 +145,7 @@ module.exports.onStart = function () {
     }
     if (p === '/launch' && req.method === 'POST') {
       if (!SAFE_APP.test(q.app || '')) return send(res, 400, 'bad app id');
-      try {
-        tizen.application.launch(q.app, function () { send(res, 200, 'launched ' + q.app); }, function (e) { send(res, 500, 'launch failed: ' + e.message); });
-      } catch (e) { send(res, 500, 'launch failed: ' + e.message); }
-      return;
+      return launchApp(q.app, function (err) { send(res, err ? 500 : 200, err ? err : 'launched ' + q.app); });
     }
     if (p === '/tizenbrew-config') {
       if (req.method === 'GET') { try { return send(res, 200, fs.readFileSync(TB_CONFIG, 'utf8'), 'application/json'); } catch (e) { return send(res, 404, 'no config: ' + e.message); } }

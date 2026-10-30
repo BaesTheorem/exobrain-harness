@@ -20,6 +20,7 @@ Usage:
   tv/agent install FILE.wgt          package id is read from the wgt
   tv/agent uninstall PKGID
   tv/agent launch APPID
+  tv/agent launch-module [FULLNAME]  open a TizenBrew module (default: the stored one)
   tv/agent sdb "vd_applist"          any restricted bridge command (shell 0 ...)
   tv/agent config [get|set FILE]     TizenBrew's module config
   tv/agent module [get|set NAME TYPE]  the module the Criterion tile launches
@@ -118,6 +119,8 @@ def main(argv: list[str]) -> int:
     if cmd == "launch":
         print(call("POST", "/launch", None, {"app": args[0]}))
         return 0
+    if cmd == "launch-module":
+        print(call("POST", "/launch-module", None, {"name": args[0]} if args else None)); return 0
     if cmd == "sdb":
         print(call("POST", "/sdb", None, {"cmd": args[0]}))
         return 0
