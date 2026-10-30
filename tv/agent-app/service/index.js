@@ -15,21 +15,31 @@ module.exports.onStart = function () {
   var SAFE_NAME = /^[A-Za-z0-9._-]+$/, SAFE_PKG = /^[A-Za-z0-9]{10}$/, SAFE_APP = /^[A-Za-z0-9._-]+$/;
   var SAFE_CMD = /^(applist|capability|vd_[a-z]+)( [A-Za-z0-9._\/:-]+)*$/;
 
+  // The bridge never closes a `shell 0` stream on its own, so the call ends
+  // when the output has been quiet for a moment (longer while an install
+  // is still printing progress), and the connection is dropped at once:
+  // TizenBrew needs the same bridge to relaunch itself.
   function sdb(cmd, cb) {
-    var chunks = [], done = false, client;
+    var chunks = [], done = false, client, quiet = null, hard;
     function finish(err) {
       if (done) return;
-      done = true; clearTimeout(timer);
-      try { client._stream.end(); } catch (e) {}
+      done = true; clearTimeout(hard); clearTimeout(quiet);
+      try { client._stream.destroy(); } catch (e) {}
       cb(err, Buffer.concat(chunks).toString());
     }
-    var timer = setTimeout(function () { finish('timeout after 180 s'); }, 180000);
+    function armQuiet(ms) { clearTimeout(quiet); quiet = setTimeout(function () { finish(null); }, ms); }
+    hard = setTimeout(function () { finish(chunks.length ? null : 'no answer from the bridge in 180 s'); }, 180000);
     try { client = adbhost.createConnection({ host: '127.0.0.1', port: 26101 }); }
     catch (e) { return finish('bridge connect failed: ' + e.message); }
     client._stream.on('error', function (e) { finish('bridge error: ' + e.message); });
-    client._stream.on('close', function () { setTimeout(function () { finish(null); }, 200); });
+    client._stream.on('close', function () { finish(null); });
+    armQuiet(15000);  // nothing at all for 15 s: give up with what we have
     var s = client.createStream('shell:0 ' + cmd);
-    s.on('data', function (d) { chunks.push(d); });
+    s.on('data', function (d) {
+      chunks.push(d);
+      var text = d.toString();
+      armQuiet(/installing\[|install start|package_path/.test(text) ? 20000 : 1500);
+    });
     s.on('end', function () { finish(null); });
     s.on('error', function (e) { finish('stream error: ' + e.message); });
   }
