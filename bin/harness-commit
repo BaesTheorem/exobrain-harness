@@ -24,6 +24,8 @@
 #             4 scanner failed to run (fail closed: nothing committed)
 #             5 commit or push failed
 # On exit 3 and 4 the changes are left staged for a human to read.
+# The commit body records the staged files, because `git add -A` also takes
+# watcher data that the message does not describe.
 # Every run is logged to ~/Library/Logs/exobrain/harness-commit.log.
 set -uo pipefail
 
@@ -182,7 +184,12 @@ if [ "$DRY" -eq 1 ]; then
 fi
 
 # --- 3. Commit and push ---------------------------------------------------
-if ! git commit -q -m "$MSG"; then
+# `git add -A` takes every dirty file, so the commit can hold watcher data
+# that the message does not describe. The body records the staged files, so
+# a reader sees what the commit contains.
+FILES="$(git diff --cached --name-status | sed 's/^/  /')"
+if ! git commit -q -m "$MSG" -m "Staged files:
+$FILES"; then
 	log "git commit failed"
 	banner "harness-commit: git commit failed" "MIST URGENT" "$LOG"
 	exit 5
