@@ -1,0 +1,450 @@
+#!/usr/bin/env python3
+"""
+Capture and read ALL of the Samsung TV's traffic by making the Mac its gateway.
+
+A switched Wi-Fi LAN hides one device's unicast traffic from every other, so
+`tv/lan-capture` sees only the TV's broadcast frames. This tool closes that
+gap: with macOS Internet Sharing routing the TV through the Mac, every packet
+the TV sends crosses the Mac's bridge, and `record` captures it. `summary`
+then reports, per destination IP: bytes out and in, the TLS server name (SNI)
+from the ClientHello, the DNS name it resolved from, and -- the point of the
+whole exercise -- whether the TV reached that IP with NO preceding DNS lookup.
+A connection to a hard-coded IP is how telemetry slips past a DNS blocklist
+like our NextDNS profile, so those rows are flagged.
+
+Made for the TV Debloat & Privacy project, to weigh what the TV uploads to the
+ACR and Security Care hosts (a DNS log shows the name and time, never the
+volume or a hard-coded-IP channel). Pure stdlib: no tshark, scapy or dpkt.
+
+SETUP (one time, needs a USB Ethernet adapter and the Mac's own sudo/GUI):
+  1. System Settings > General > Sharing > Internet Sharing:
+     share from Wi-Fi, to the USB Ethernet adapter. Turn it on.
+  2. Cable the adapter to the TV's LAN port. The TV leaves the home Wi-Fi and
+     gets a lease from the Mac (192.168.2.x). `tv status` finds it by MAC.
+  Note: the Mac stays on Wi-Fi for its own uplink; only the TV moves.
+
+Usage:
+  tv/gateway-capture record [--minutes 60] [--iface bridge100] [--tv-mac ..] [--snaplen 600]
+  tv/gateway-capture summary CAPTURE.pcap [--enrich]   # --enrich adds reverse-DNS on no-DNS IPs
+
+INVARIANTS:
+- record needs root (BPF); it captures only to/from the TV's address.
+- Byte volumes use each frame's on-wire length, so a small snaplen still
+  counts bytes correctly while keeping the file small.
+"""
+
+from __future__ import annotations
+
+import argparse
+import os
+import re
+import signal
+import socket
+import struct
+import subprocess
+import sys
+import time
+from collections import defaultdict
+from datetime import datetime
+from pathlib import Path
+
+OUT_DIR = Path.home() / "Documents" / "tv-analysis" / "captures"
+DEFAULT_MAC = "70:b1:3d:bb:ab:d0"
+
+
+# --- record -------------------------------------------------------------------
+
+
+def find_bridge_iface() -> str | None:
+    out = subprocess.run(["ifconfig"], capture_output=True, text=True).stdout
+    for name in re.findall(r"^(bridge\d+):", out, re.M):
+        # the Internet Sharing bridge carries a 192.168.2.x address
+        blk = out.split(name + ":", 1)[1].split("\nbridge", 1)[0]
+        if "inet 192.168.2." in blk:
+            return name
+    return None
+
+
+def tv_ip_on(iface: str, mac: str) -> str | None:
+    subprocess.run(["arp", "-a", "-i", iface], capture_output=True, text=True)
+    out = subprocess.run(["arp", "-an"], capture_output=True, text=True).stdout
+    want = ":".join(p.zfill(2) for p in mac.lower().split(":"))
+    for line in out.splitlines():
+        if iface in line and want in line.lower():
+            m = re.search(r"\((\d+\.\d+\.\d+\.\d+)\)", line)
+            if m:
+                return m.group(1)
+    return None
+
+
+def record(args: argparse.Namespace) -> int:
+    if os.geteuid() != 0:
+        print("record needs root for BPF: run it with sudo", file=sys.stderr)
+        return 2
+    iface = args.iface or find_bridge_iface()
+    if not iface:
+        print(
+            "no Internet Sharing bridge found. Turn on Sharing > Internet Sharing "
+            "(Wi-Fi -> USB Ethernet), cable the TV, then pass --iface if needed.",
+            file=sys.stderr,
+        )
+        return 2
+    tvip = tv_ip_on(iface, args.tv_mac)
+    if not tvip:
+        print(
+            f"TV ({args.tv_mac}) not seen on {iface} yet. Is it cabled to the adapter "
+            f"and powered on? Try `ping` from the TV or wait for its DHCP lease.",
+            file=sys.stderr,
+        )
+        return 2
+    OUT_DIR.mkdir(parents=True, exist_ok=True)
+    stamp = datetime.now().strftime("%Y%m%d-%H%M")
+    out = OUT_DIR / f"gw-{tvip.replace('.', '_')}-{stamp}.pcap"
+    flt = f"host {tvip}"
+    cmd = [
+        "caffeinate",
+        "-i",
+        "tcpdump",
+        "-i",
+        iface,
+        "-n",
+        "-U",
+        "-s",
+        str(args.snaplen),
+        "-w",
+        str(out),
+        flt,
+    ]
+    print(f"TV at {tvip} on {iface}; recording {args.minutes} min -> {out}")
+    proc = subprocess.Popen(cmd)
+    try:
+        deadline = time.time() + args.minutes * 60
+        while time.time() < deadline:
+            if proc.poll() is not None:
+                print(f"tcpdump exited early with {proc.returncode}", file=sys.stderr)
+                return 1
+            time.sleep(5)
+    except KeyboardInterrupt:
+        print("stopped early")
+    proc.send_signal(signal.SIGINT)
+    proc.wait(timeout=30)
+    uid = int(os.environ.get("SUDO_UID", "0"))
+    if uid:
+        os.chown(out, uid, int(os.environ.get("SUDO_GID", "0")))
+    print(
+        f"wrote {out} ({out.stat().st_size} bytes). Summarize: tv/gateway-capture summary {out}"
+    )
+    return 0
+
+
+# --- pcap parsing (stdlib) ----------------------------------------------------
+
+
+class Pcap:
+    """Minimal pcap reader: Ethernet link layer, IPv4/IPv6, TCP/UDP."""
+
+    def __init__(self, path: Path) -> None:
+        self.f = open(path, "rb")
+        hdr = self.f.read(24)
+        if len(hdr) < 24:
+            raise ValueError("not a pcap file")
+        magic = hdr[:4]
+        if magic in (b"\xa1\xb2\xc3\xd4", b"\xa1\xb2\x3c\x4d"):
+            self.end = ">"
+        elif magic in (b"\xd4\xc3\xb2\xa1", b"\x4d\x3c\xb2\xa1"):
+            self.end = "<"
+        else:
+            raise ValueError(f"unknown pcap magic {magic!r}")
+        self.nano = magic in (b"\xa1\xb2\x3c\x4d", b"\x4d\x3c\xb2\xa1")
+        self.linktype = struct.unpack(self.end + "I", hdr[20:24])[0]
+
+    def __iter__(self):
+        while True:
+            rec = self.f.read(16)
+            if len(rec) < 16:
+                return
+            ts_s, ts_f, incl, orig = struct.unpack(self.end + "IIII", rec)
+            data = self.f.read(incl)
+            if len(data) < incl:
+                return
+            ts = ts_s + ts_f / (1e9 if self.nano else 1e6)
+            yield ts, orig, data
+
+    def close(self) -> None:
+        self.f.close()
+
+
+def parse_l3(linktype: int, frame: bytes):
+    """Return (proto, src_ip, dst_ip, l4payload_offset, l4bytes) or None."""
+    if linktype == 1:  # Ethernet
+        if len(frame) < 14:
+            return None
+        etype = struct.unpack(">H", frame[12:14])[0]
+        off = 14
+        while etype == 0x8100 and len(frame) >= off + 4:  # VLAN
+            etype = struct.unpack(">H", frame[off + 2 : off + 4])[0]
+            off += 4
+    elif linktype == 12:  # raw IP
+        etype, off = (0x0800 if frame and frame[0] >> 4 == 4 else 0x86DD), 0
+    else:
+        return None
+    ip = frame[off:]
+    if etype == 0x0800 and len(ip) >= 20:  # IPv4
+        ihl = (ip[0] & 0x0F) * 4
+        proto = ip[9]
+        src = socket.inet_ntoa(ip[12:16])
+        dst = socket.inet_ntoa(ip[16:20])
+        return proto, src, dst, off + ihl, ip[ihl:]
+    if etype == 0x86DD and len(ip) >= 40:  # IPv6 (no ext-header walking; good enough)
+        proto = ip[6]
+        src = socket.inet_ntop(socket.AF_INET6, ip[8:24])
+        dst = socket.inet_ntop(socket.AF_INET6, ip[24:40])
+        return proto, src, dst, off + 40, ip[40:]
+    return None
+
+
+def l4_payload(proto: int, seg: bytes):
+    """Return (src_port, dst_port, payload) for TCP/UDP, else None."""
+    if proto == 6 and len(seg) >= 20:  # TCP
+        sp, dp = struct.unpack(">HH", seg[:4])
+        doff = (seg[12] >> 4) * 4
+        return sp, dp, seg[doff:]
+    if proto == 17 and len(seg) >= 8:  # UDP
+        sp, dp = struct.unpack(">HH", seg[:4])
+        return sp, dp, seg[8:]
+    return None
+
+
+def dns_names(payload: bytes):
+    """Yield (qname, [answer_ips]) from a DNS message. Tolerant; best effort."""
+    try:
+        if len(payload) < 12:
+            return
+        qd, an = struct.unpack(">HH", payload[4:8])
+        off = 12
+
+        def read_name(o):
+            labels = []
+            jumped = False
+            start = o
+            while True:
+                if o >= len(payload):
+                    break
+                ln = payload[o]
+                if ln & 0xC0 == 0xC0:  # pointer
+                    ptr = struct.unpack(">H", payload[o : o + 2])[0] & 0x3FFF
+                    if not jumped:
+                        start = o + 2
+                    o = ptr
+                    jumped = True
+                    continue
+                if ln == 0:
+                    o += 1
+                    break
+                labels.append(payload[o + 1 : o + 1 + ln].decode("latin1"))
+                o += 1 + ln
+            return ".".join(labels), (start if jumped else o)
+
+        qname = ""
+        for _ in range(qd):
+            qname, off = read_name(off)
+            off += 4  # qtype + qclass
+        ips = []
+        for _ in range(an):
+            _, off = read_name(off)
+            if off + 10 > len(payload):
+                break
+            rtype, _, _, rdlen = struct.unpack(">HHIH", payload[off : off + 10])
+            off += 10
+            rdata = payload[off : off + rdlen]
+            off += rdlen
+            if rtype == 1 and rdlen == 4:
+                ips.append(socket.inet_ntoa(rdata))
+            elif rtype == 28 and rdlen == 16:
+                ips.append(socket.inet_ntop(socket.AF_INET6, rdata))
+        if qname:
+            yield qname, ips
+    except Exception:  # noqa: BLE001 - malformed DNS is data, not a crash
+        return
+
+
+def tls_sni(payload: bytes):
+    """Extract the server_name from a TLS ClientHello, or None."""
+    try:
+        if len(payload) < 43 or payload[0] != 0x16 or payload[5] != 0x01:
+            return None  # not a handshake / not ClientHello
+        # record(5) + handshake header(4) + version(2) + random(32) = 43
+        o = 43
+        sid_len = payload[o]
+        o += 1 + sid_len
+        cs_len = struct.unpack(">H", payload[o : o + 2])[0]
+        o += 2 + cs_len
+        comp_len = payload[o]
+        o += 1 + comp_len
+        if o + 2 > len(payload):
+            return None
+        ext_total = struct.unpack(">H", payload[o : o + 2])[0]
+        o += 2
+        end = min(o + ext_total, len(payload))
+        while o + 4 <= end:
+            etype, elen = struct.unpack(">HH", payload[o : o + 4])
+            o += 4
+            if etype == 0x0000:  # server_name
+                # server_name_list(2) + type(1) + name_len(2) + name
+                nlen = struct.unpack(">H", payload[o + 3 : o + 5])[0]
+                return payload[o + 5 : o + 5 + nlen].decode("latin1")
+            o += elen
+    except Exception:  # noqa: BLE001 - truncated ClientHello: no SNI, not a crash
+        return None
+    return None
+
+
+# --- summary ------------------------------------------------------------------
+
+
+def is_private(ip: str) -> bool:
+    return (
+        ip.startswith(("10.", "192.168.", "169.254.", "127."))
+        or re.match(r"172\.(1[6-9]|2\d|3[01])\.", ip) is not None
+        or ip.startswith(("fe80", "::1", "fd"))
+    )
+
+
+def summarize(path: Path, enrich: bool) -> int:
+    pc = Pcap(path)
+    # tally endpoints common to every packet -> the TV
+    appear: dict[str, int] = defaultdict(int)
+    flows = []  # (ts, src, dst, sport, dport, orig, payload_head)
+    resolved: dict[str, list[str]] = defaultdict(list)  # ip -> names from DNS answers
+    dns_qtime: list[tuple[float, str]] = []
+    sni: dict[str, set[str]] = defaultdict(set)  # ip -> SNI names
+    hardcoded_resolvers: set[str] = set()
+    first = last = None
+    for ts, orig, frame in pc:
+        l3 = parse_l3(pc.linktype, frame)
+        if not l3:
+            continue
+        proto, src, dst, _, seg = l3
+        first = first or ts
+        last = ts
+        appear[src] += 1
+        appear[dst] += 1
+        l4 = l4_payload(proto, seg)
+        if not l4:
+            continue
+        sp, dp, pl = l4
+        flows.append((ts, src, dst, sp, dp, orig))
+        if dp == 53 or sp == 53:
+            for name, ips in dns_names(pl):
+                if sp == 53:  # a response
+                    for ip in ips:
+                        resolved[ip].append(name)
+                else:
+                    dns_qtime.append((ts, name))
+            # a DNS query to a non-private address = the TV ignoring our resolver
+            if dp == 53 and not is_private(dst):
+                hardcoded_resolvers.add(dst)
+        elif pl and (dp == 443 or dp == 8443):
+            s = tls_sni(pl)
+            if s:
+                sni[dst].add(s)
+    pc.close()
+
+    tv = max(appear, key=lambda k: appear[k]) if appear else None
+    if not tv:
+        print("no IP traffic in the capture")
+        return 1
+    # aggregate per remote peer
+    agg: dict[str, dict] = defaultdict(
+        lambda: {"out": 0, "in": 0, "first": None, "last": None, "dports": set()}
+    )
+    for ts, src, dst, _sp, dp, orig in flows:
+        remote = dst if src == tv else src if dst == tv else None
+        if not remote:
+            continue
+        a = agg[remote]
+        if src == tv:
+            a["out"] += orig
+            a["dports"].add(dp)
+        else:
+            a["in"] += orig
+        a["first"] = ts if a["first"] is None else min(a["first"], ts)
+        a["last"] = max(a["last"] or ts, ts)
+
+    def fmt_bytes(n: int) -> str:
+        v = float(n)
+        for unit in ("B", "K", "M", "G"):
+            if v < 1024 or unit == "G":
+                return f"{v:.0f}{unit}" if unit == "B" else f"{v:.1f}{unit}"
+            v /= 1024
+        return str(n)
+
+    assert first is not None and last is not None
+    span = last - first
+    print(
+        f"TV {tv} | {len(flows)} segments | {span / 60:.0f} min "
+        f"({datetime.fromtimestamp(first):%H:%M} to {datetime.fromtimestamp(last):%H:%M})"
+    )
+    if hardcoded_resolvers:
+        print(
+            f"\n!! TV queried DNS at a NON-LOCAL resolver (ignores our DNS): {sorted(hardcoded_resolvers)}"
+        )
+
+    rows = sorted(agg.items(), key=lambda kv: -(kv[1]["out"] + kv[1]["in"]))
+    print(f"\n{'out':>8} {'in':>8}  {'dst IP':<16} {'name (DNS or SNI)':<44} flag")
+    flagged = []
+    for ip, a in rows:
+        names = sni.get(ip, set()) | set(resolved.get(ip, []))
+        name = sorted(names)[0] if names else ""
+        no_dns = ip not in resolved and not is_private(ip)
+        flag = ""
+        if no_dns:
+            flag = "NO-DNS (hard-coded IP)" if a["out"] > 0 else "no-dns inbound"
+            if a["out"] > 0:
+                flagged.append((ip, a, sorted(names)))
+        print(
+            f"{fmt_bytes(a['out']):>8} {fmt_bytes(a['in']):>8}  {ip:<16} {name[:44]:<44} {flag}"
+        )
+
+    if enrich and flagged:
+        print("\nreverse-DNS on the hard-coded destinations:")
+        for ip, a, names in flagged:
+            try:
+                host = socket.gethostbyaddr(ip)[0]
+            except Exception:  # noqa: BLE001 - no PTR is a fine answer
+                host = "(no PTR record)"
+            print(f"  {ip:<16} {fmt_bytes(a['out'])} out  PTR={host}  SNI/DNS={names}")
+
+    print(
+        "\nReading it: a flat NO-DNS row with real outbound bytes is a channel that "
+        "bypasses the DNS blocklist. Small out + periodic = heartbeat; large out = upload."
+    )
+    return 0
+
+
+# --- main ---------------------------------------------------------------------
+
+
+def main(argv: list[str]) -> int:
+    p = argparse.ArgumentParser(
+        prog="gateway-capture",
+        description=__doc__,
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+    )
+    sub = p.add_subparsers(dest="cmd", required=True)
+    r = sub.add_parser("record")
+    r.add_argument("--minutes", type=int, default=60)
+    r.add_argument("--iface")
+    r.add_argument("--tv-mac", default=DEFAULT_MAC)
+    r.add_argument("--snaplen", type=int, default=600)
+    s = sub.add_parser("summary")
+    s.add_argument("pcap")
+    s.add_argument("--enrich", action="store_true")
+    args = p.parse_args(argv)
+    if args.cmd == "record":
+        return record(args)
+    return summarize(Path(args.pcap), args.enrich)
+
+
+if __name__ == "__main__":
+    sys.exit(main(sys.argv[1:]))

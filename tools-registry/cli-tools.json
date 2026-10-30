@@ -1099,6 +1099,14 @@
     "notes": "Needs TV_HOST and MIST_TV_AGENT_TOKEN in .env. The agent service on the TV must be running: tv/agent wake launches its app over REST, which starts the service. Port 8099 on the TV's LAN address. Install the agent itself once over the developer bridge with tv/agent-app/build.sh output."
   },
   {
+    "name": "tv-gateway-capture",
+    "command": "sudo tv/gateway-capture record --minutes N; tv/gateway-capture summary FILE.pcap --enrich",
+    "repo_dir": "/Users/alexhedtke/Documents/Exobrain harness/tv",
+    "source": "built",
+    "added": "2026-10-30",
+    "notes": "Needs macOS Internet Sharing on (Wi-Fi -> USB Ethernet) with the TV cabled to the adapter, and sudo for record. Pure-stdlib pcap parser (no tshark/scapy). Byte volume from on-wire length, so snaplen 600 still counts bytes right while keeping SNI."
+  },
+  {
     "name": "vendor-sync.sh",
     "command": "~/Documents/material-design/bin/vendor-sync.sh",
     "repo_dir": "~/Documents/material-design",
