@@ -408,6 +408,14 @@
     "notes": "Reads the '## Fit scorecard' table on job listing notes. Threshold 0.80 and MIN_ROWS 5 are constants in the file. --enforce never touches applied/interviewing/offer notes and never declines an unscored note."
   },
   {
+    "name": "fitbit-sleep-phase",
+    "command": "python3 -I scripts/fitbit-sleep-phase.py <fitbit sleep JSON dumps...>",
+    "repo_dir": "scripts",
+    "source": "built",
+    "added": "2026-11-01",
+    "notes": "Input = raw JSON from mcp__fitbit__get_sleep_by_date_range (100-day windows; the MCP saves big results to tool-results/*.txt). Main sleeps >=3 h only. DLMO estimate = median onset - 2 h, CBTmin = DLMO + 7 h: rough, +/-1 h; a salivary DLMO kit is the real measure. Fri/Sat nights count as free nights."
+  },
+  {
     "name": "freehire-lane",
     "command": "python3 job-search/freehire.py \"security analyst\" --days 3 --json tmp/freehire-today.json",
     "repo_dir": "~/Documents/Exobrain harness/job-search",
