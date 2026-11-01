@@ -29,6 +29,7 @@ Usage:
 """
 
 import argparse
+import datetime as dt
 import concurrent.futures
 import json
 import os
@@ -96,6 +97,12 @@ def _get_json(url, timeout=15):
         return json.loads(r.read().decode("utf-8", "replace"))
 
 
+# Boards of employers with a `reapply: true` note: {key: {notes, eligible}}.
+# Filled by scan_vault(). Alex got furthest with these employers, so their new
+# postings print first, with any re-interview cooldown date, title filter or not.
+REAPPLY: dict = {}
+
+
 def scan_vault():
     """Board tokens from every job-listing note, tracker and Archive alike."""
     boards = {}
@@ -112,6 +119,9 @@ def scan_vault():
                 continue
             if not re.search(r"^type:\s*['\"]?job-listing\b", text[:600], re.M):
                 continue
+            reapply = re.search(r"^reapply:\s*true\b", text[:4000], re.M)
+            eligible = re.search(r"^reinterview_eligible:\s*['\"]?(\d{4}-\d{2}-\d{2})",
+                                 text[:4000], re.M)
             for ats, pat in TOKEN_PATTERNS:
                 for tok in pat.findall(text):
                     tok = tok.lower().rstrip("/.")
@@ -120,6 +130,12 @@ def scan_vault():
                     key = "%s:%s" % (ats, tok)
                     if key not in BLOCKLIST:
                         boards.setdefault(key, set()).add(name[:-3])
+                        if reapply:
+                            r = REAPPLY.setdefault(key, {"notes": [], "eligible": ""})
+                            if name[:-3] not in r["notes"]:
+                                r["notes"].append(name[:-3])
+                            if eligible and eligible.group(1) > r["eligible"]:
+                                r["eligible"] = eligible.group(1)
     # retired near-miss notes keep their employers on the watchlist
     for r in listings.load_ledger():
         for ats, pat in TOKEN_PATTERNS:
@@ -217,6 +233,21 @@ def main():
     for key, err in failures:
         print("   ! %-40s %s" % (key, err))
 
+    today = dt.date.today().isoformat()
+    if REAPPLY:
+        print("\nRE-APPLY EMPLOYERS (%d boards; reapply: true notes)" % len(REAPPLY))
+        for key, r in sorted(REAPPLY.items()):
+            if key in snap:
+                fresh = [j for k, j, _f in new_rows if k == key]
+                state = "%d live, %d new" % (len(snap[key]), len(fresh))
+            else:
+                state = "POLL FAILED"
+            wait = (" | cooldown: do NOT apply before %s" % r["eligible"]
+                    if r["eligible"] > today else "")
+            print("  %-34s %s%s  <- %s" % (key, state, wait, "; ".join(r["notes"][:2])))
+            for _k, j, flag in (row for row in new_rows if row[0] == key):
+                print("     ** NEW ** %s%s | %s | %s" % (j["title"], flag, j["loc"], j["url"]))
+
     if new_rows:
         print("\nNEW POSTINGS since last snapshot (%d) -- verify + gate before noting:"
               % len(new_rows))
@@ -236,6 +267,11 @@ def main():
                     print("  [%s] %s | %s | %s"
                           % (key, j["title"], j["loc"], j["url"]))
 
+    # A board that failed this run keeps its old entry. Dropping it made the
+    # next good poll a baseline, which hid every posting from the gap day.
+    for key, _err in failures:
+        if key in prev:
+            snap[key] = prev[key]
     with open(SNAPSHOT, "w", encoding="utf-8") as f:
         json.dump(snap, f)
     print("\nsnapshot written: %s" % SNAPSHOT)
