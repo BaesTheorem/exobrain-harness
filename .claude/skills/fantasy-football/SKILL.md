@@ -105,9 +105,12 @@ says (measured 2026-10-22, weeks 1-7):
   D/ST need at 11:48 AM the next day. A routine files a free-agent PASS in the
   same run, and the roster-watch banner names the rivals with the same need
   (`rivals_needing`, from the last `rival-scan` build). roster-watch files
-  one lane by itself (Alex, 2026-10-22): a free-agent K or D/ST for our bench
-  K or D/ST of the same position, when a rival has the same need and the drop
-  is not in a pending row. Skill players always wait for his tap.
+  every gated swap itself (Alex, 2026-11-01, after a rival took Ryan Flournoy
+  while two banners waited): free agent or waiver claim, any position, drop on
+  our bench or IR and not in a pending row, QB/TE/K/D/ST like for like. Each
+  one first goes to a headless Opus 5.5 run of this skill (`opus_review`),
+  and only a FILE verdict files. A HOLD becomes a Do it / Skip banner with the
+  reason. A filed swap's banner carries Undo.
   `rival-scan --settle` counts how often a rival takes an unfiled free agent
   first, which decides whether the lane widens.
 - **Needs are computed, not guessed.** For each team: the starter holes this
