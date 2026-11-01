@@ -41,17 +41,21 @@ def _setup(monkeypatch, body, token=True):
         monkeypatch.setattr(gate.urllib.request, "urlopen", lambda *a, **k: _Resp(body))
 
 
-@pytest.mark.parametrize("five,seven,expect", [
-    (12, 54, False), (99.9, 99.9, False), (100, 10, True), (10, 100, True),
-])
-def test_threshold(monkeypatch, five, seven, expect):
-    _setup(monkeypatch, {"five_hour": {"utilization": five}, "seven_day": {"utilization": seven}})
+@pytest.mark.parametrize("seven,expect", [(54, False), (99.9, False), (100, True)])
+def test_threshold(monkeypatch, seven, expect):
+    _setup(monkeypatch, {"seven_day": {"utilization": seven}})
     assert gate.check()[0] is expect
+
+
+def test_five_hour_window_is_ignored(monkeypatch):
+    """The 5-hour window is gone (2026-11-01); a stray one cannot open the gate."""
+    _setup(monkeypatch, {"five_hour": {"utilization": 100}, "seven_day": {"utilization": 10}})
+    assert gate.check()[0] is False
 
 
 @pytest.mark.parametrize("body", [
     gate.urllib.error.URLError("429"), {}, {"five_hour": {"utilization": 100}},
-    {"five_hour": {"utilization": None}, "seven_day": {"utilization": 100}},
+    {"seven_day": {"utilization": None}},
 ])
 def test_fails_closed(monkeypatch, body):
     _setup(monkeypatch, body)
@@ -59,7 +63,7 @@ def test_fails_closed(monkeypatch, body):
 
 
 def test_no_token_closed(monkeypatch):
-    _setup(monkeypatch, {"five_hour": {"utilization": 100}, "seven_day": {"utilization": 100}}, token=False)
+    _setup(monkeypatch, {"seven_day": {"utilization": 100}}, token=False)
     assert gate.check()[0] is False
 
 
@@ -87,14 +91,14 @@ def test_exec_open_injects_key_only_in_child(monkeypatch, tmp_path):
 
 
 def _full():
-    return {"five_hour": {"utilization": 100}, "seven_day": {"utilization": 40}}
+    return {"seven_day": {"utilization": 100}}
 
 
 def test_limit_reset_refills_plan_keeps_gate_closed(monkeypatch, tmp_path):
     """At 100% the gate spends a held reset first; a refilled plan means closed."""
     monkeypatch.setattr(gate, "LOG", str(tmp_path / "log"))
     _setup(monkeypatch, _full())
-    reads = iter([_full(), {"five_hour": {"utilization": 0}, "seven_day": {"utilization": 40}}])
+    reads = iter([_full(), {"seven_day": {"utilization": 0}}])
     monkeypatch.setattr(gate.urllib.request, "urlopen", lambda *a, **k: _Resp(next(reads)))
     claimed = []
     monkeypatch.setattr(gate, "_try_limit_reset", lambda: claimed.append(1) or True)

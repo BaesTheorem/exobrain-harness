@@ -22,22 +22,20 @@ def _iso(ts):
     return dt.datetime.fromtimestamp(ts, dt.timezone.utc).isoformat()
 
 
-def _grant(id="g1", kind="session", left=1, ends=NOW + 3 * 86400, clears=("five_hour",),
+def _grant(id="g1", kind="weekly", left=1, ends=NOW + 3 * 86400, clears=("seven_day",),
            usable=True, requires_limit=True, **extra):
     g = {"id": id, "label": f"{kind} reset", "resets_total": 2, "resets_left": left,
          "ends_at": _iso(ends), "clears": list(clears), "usable_now": usable,
-         "use_requires_limit": requires_limit, "type": kind if kind in ("session", "weekly", "full") else None}
+         "use_requires_limit": requires_limit, "type": kind if kind in ("weekly", "full") else None}
     g.update(extra)
     return g
 
 
-def _status(grants=(), at_limit=False, exhausted=(), weekly_session=False):
+def _status(grants=(), at_limit=False, exhausted=()):
     return lr.parse_status({
-        "five_hour": {"utilization": 100 if "five_hour" in exhausted else 3, "resets_at": _iso(NOW + 3600)},
-        "seven_day": {"utilization": 37, "resets_at": _iso(NOW + 86400)},
+        "seven_day": {"utilization": 100 if "seven_day" in exhausted else 37, "resets_at": _iso(NOW + 86400)},
         "cedar_ember": {"eligible": bool(grants), "ineligible_reason": None if grants else "no_grant",
                         "at_limit": at_limit, "exhausted": list(exhausted), "grants": list(grants)},
-        "juniper_tide": {"eligible": weekly_session, "available": weekly_session, "resets_per_week": 1},
     })
 
 
@@ -49,44 +47,45 @@ def test_live_shape_with_no_grant_parses_to_nothing():
 
 
 def test_missing_blocks_fail_safe():
-    s = lr.parse_status({"five_hour": {}, "seven_day": {}})
+    s = lr.parse_status({"seven_day": {}})
     assert s["grants"] == [] and s["at_limit"] is False
     assert lr.decide(s, NOW, 6.0) == ("none", None)
 
 
 def test_kind_from_clears_when_type_missing():
-    assert lr.grant_kind({"clears": ["five_hour"], "label": ""}) == "session"
     assert lr.grant_kind({"clears": ["seven_day"], "label": ""}) == "weekly"
-    assert lr.grant_kind({"clears": ["five_hour", "seven_day"], "label": ""}) == "full"
+    assert lr.grant_kind({"clears": [], "label": "", "type": "full"}) == "full"
     assert lr.grant_kind({"clears": ["seven_day"], "label": "Fable reset"}) == "fable"
 
 
 def test_at_limit_picks_narrowest_grant_that_clears_the_window():
-    s = _status(grants=[_grant("full", "full", clears=("five_hour", "seven_day")),
-                        _grant("sess", "session")], at_limit=True, exhausted=["five_hour"])
+    s = _status(grants=[_grant("full", "full", clears=("seven_day", "seven_day_opus")),
+                        _grant("wk")], at_limit=True, exhausted=["seven_day"])
     why, g = lr.decide(s, NOW, 6.0)
-    assert (why, g["id"]) == ("at_limit", "sess")
+    assert (why, g["id"]) == ("at_limit", "wk")
 
 
 def test_at_limit_skips_grant_that_does_not_clear_the_window():
-    s = _status(grants=[_grant("sess", "session")], at_limit=True, exhausted=["seven_day"])
+    s = _status(grants=[_grant("wk")], at_limit=True, exhausted=["seven_day_opus"])
     assert lr.decide(s, NOW, 6.0) == ("none", None)
 
 
-def test_at_limit_falls_back_to_weekly_session_allowance():
-    s = _status(at_limit=True, exhausted=["five_hour"], weekly_session=True)
-    assert lr.decide(s, NOW, 6.0) == ("weekly_session", None)
+def test_five_hour_is_not_a_known_window():
+    """The 5-hour window is gone (2026-11-01): a stray five_hour entry is dropped."""
+    g = lr.parse_grant({"id": "x", "resets_left": 1, "clears": ["five_hour"], "type": "session"})
+    assert g is not None and g["clears"] == [] and g["type"] is None
+    assert "five_hour" not in lr.WINDOWS
 
 
 @pytest.mark.parametrize("field,value", [("usable_now", False), ("paused", True),
                                          ("resets_left", 0), ("unavailable_reason", "cooldown")])
 def test_unusable_grants_are_never_picked(field, value):
-    s = _status(grants=[_grant(**{field: value})], at_limit=True, exhausted=["five_hour"])
+    s = _status(grants=[_grant(**{field: value})], at_limit=True, exhausted=["seven_day"])
     assert lr.decide(s, NOW, 6.0) == ("none", None)
 
 
 def test_expired_grant_is_never_picked():
-    s = _status(grants=[_grant(ends=NOW - 60, requires_limit=False)], at_limit=True, exhausted=["five_hour"])
+    s = _status(grants=[_grant(ends=NOW - 60, requires_limit=False)], at_limit=True, exhausted=["seven_day"])
     assert lr.decide(s, NOW, 6.0) == ("none", None)
 
 
@@ -107,14 +106,14 @@ def test_claim_posts_the_offered_grant_id_with_a_request_id(monkeypatch):
 
     def fake_request(path, body=None, timeout=25):
         sent["path"], sent["body"] = path, body
-        return {"result": "reset", "cleared": ["five_hour"], "resets_left": 1}
+        return {"result": "reset", "cleared": ["seven_day"], "resets_left": 1}
     monkeypatch.setattr(lr, "_request", fake_request)
     monkeypatch.setattr(lr, "_org_uuid", lambda: "org-1")
     res = lr.claim_grant("g1")
     assert sent["path"] == "/api/organizations/org-1/reset_rate_limits"
     assert sent["body"]["program"] == "cedar_ember" and sent["body"]["grant_id"] == "g1"
     assert len(sent["body"]["request_id"]) >= 32
-    assert res["result"] == "reset" and res["cleared"] == ["five_hour"]
+    assert res["result"] == "reset" and res["cleared"] == ["seven_day"]
 
 
 def test_claim_without_org_never_posts(monkeypatch):
@@ -133,22 +132,22 @@ def test_watch_claims_once_and_notifies_once(monkeypatch, tmp_path):
     monkeypatch.setattr(lr, "STATE", str(tmp_path / "state.json"))
     monkeypatch.setattr(lr, "LOG", str(tmp_path / "log"))
     monkeypatch.setattr(lr, "read_status", lambda: _status(
-        grants=[_grant("sess"), _grant("wk", "weekly", clears=("seven_day",))],
-        at_limit=True, exhausted=["five_hour"]))
+        grants=[_grant("wk"), _grant("full", "full", clears=("seven_day", "seven_day_opus"))],
+        at_limit=True, exhausted=["seven_day"]))
     claims, banners = [], []
-    monkeypatch.setattr(lr, "claim_grant", lambda gid: claims.append(gid) or {"result": "reset", "cleared": ["five_hour"], "resets_left": 0})
+    monkeypatch.setattr(lr, "claim_grant", lambda gid: claims.append(gid) or {"result": "reset", "cleared": ["seven_day"], "resets_left": 0})
     monkeypatch.setattr(lr, "_notify", lambda lines, ctx: banners.append(lines))
     import argparse
     assert lr.cmd_watch(argparse.Namespace(expiring_hours=6.0, quiet=True)) == 0
-    assert claims == ["sess"]
-    assert len(banners) == 1 and any("Used a 5-hour reset" in ln for ln in banners[0])
+    assert claims == ["wk"]
+    assert len(banners) == 1 and any("Used a weekly reset" in ln for ln in banners[0])
     assert sum("New limit reset" in ln for ln in banners[0]) == 2
     state = json.load(open(tmp_path / "state.json"))
-    assert set(state["seen"]) == {"sess", "wk"}
+    assert set(state["seen"]) == {"wk", "full"}
     # A second run: nothing new, nothing claimed again when the server says not at limit.
-    monkeypatch.setattr(lr, "read_status", lambda: _status(grants=[_grant("wk", "weekly", clears=("seven_day",))]))
+    monkeypatch.setattr(lr, "read_status", lambda: _status(grants=[_grant("full", "full", clears=("seven_day", "seven_day_opus"))]))
     assert lr.cmd_watch(argparse.Namespace(expiring_hours=6.0, quiet=True)) == 0
-    assert claims == ["sess"] and len(banners) == 1
+    assert claims == ["wk"] and len(banners) == 1
 
 
 def test_watch_warns_once_about_a_limit_only_grant_that_expires_soon(monkeypatch, tmp_path):
@@ -189,7 +188,7 @@ def _local_midnight(days_ahead):
 
 def test_date_only_expiry_is_the_start_of_that_day():
     iso, midnight = _local_midnight(3)
-    g = lr.parse_grant({"id": "d", "resets_left": 1, "ends_at": iso, "clears": ["five_hour"],
+    g = lr.parse_grant({"id": "d", "resets_left": 1, "ends_at": iso, "clears": ["seven_day"],
                         "usable_now": True, "use_requires_limit": False})
     assert g["ends_date_only"] is True and g["ends_ts"] == midnight
     assert "no time given" in lr.describe_grant(g)
@@ -198,9 +197,9 @@ def test_date_only_expiry_is_the_start_of_that_day():
 def test_date_only_anytime_grant_is_used_the_day_before():
     """Alex, 2026-10-26: no expiry time given means redeem the day before."""
     iso, midnight = _local_midnight(3)
-    s = lr.parse_status({"five_hour": {}, "seven_day": {}, "cedar_ember": {"eligible": True, "grants": [
-        {"id": "d", "resets_left": 1, "ends_at": iso, "clears": ["five_hour"], "usable_now": True,
-         "use_requires_limit": False, "type": "session"}]}})
+    s = lr.parse_status({"seven_day": {}, "cedar_ember": {"eligible": True, "grants": [
+        {"id": "d", "resets_left": 1, "ends_at": iso, "clears": ["seven_day"], "usable_now": True,
+         "use_requires_limit": False, "type": "weekly"}]}})
     day_before_morning = midnight - 20 * 3600
     two_days_before = midnight - 40 * 3600
     assert lr.decide(s, two_days_before, 6.0) == ("none", None)

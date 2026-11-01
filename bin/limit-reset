@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 """limit-reset: see and redeem the Claude plan's limit resets from a shell.
 
-Anthropic grants a plan account "limit resets": a 5-hour reset, a weekly reset,
-a full reset or a Fable reset, each with a count and a use-by date. Claude Code
+Anthropic grants a plan account "limit resets": a weekly reset, a full reset or a
+Fable reset, each with a count and a use-by date. Claude Code
 shows them only inside an interactive session (the /limit-reset command and a
 dialog at the wall). An unattended MIST session therefore hits the wall with an
 unused reset in hand, and a held reset can expire unused. This tool reads the
@@ -11,8 +11,7 @@ server answers "ineligible: surface") and claims through the endpoint the CLI
 claims through. It never touches the API key.
 
 Commands:
-  status [--json] [--brief]   grants held, the at-limit state, and the weekly
-                              session-reset allowance
+  status [--json] [--brief]   grants held and the at-limit state
   claim [GRANT_ID] [--force]  redeem one grant now. Without an id: the best
                               grant the policy allows (see watch). --force
                               claims the first usable grant even with capacity
@@ -24,15 +23,17 @@ Commands:
 
 Policy (watch and claim --auto):
   1. At a limit: use the narrowest usable grant that clears the exhausted
-     window (session before weekly before full).
+     window (Fable before weekly before full).
   2. Not at a limit: use an "anytime" grant (use_requires_limit false) when it
      expires within --expiring-hours (default 6). A grant that needs a limit
      cannot be used early; the watch warns Alex 24 h before it expires.
      A use-by DATE with no time (Alex, 2026-10-26) counts as the start of that
      day, local time, and the grant is used on the day before: the window for
      such a grant is the whole previous day, whatever --expiring-hours says.
-  3. The weekly session-reset allowance (one per week, no grant id) is used at
-     the 5-hour wall when the server offers it.
+
+Anthropic removed the 5-hour window on 2026-11-01, so this tool no longer
+knows 5-hour (session) resets or the weekly session-reset allowance
+(juniper_tide) that was claimed at the 5-hour wall.
 
 INVARIANTS:
 - Read first, then claim only a grant id the server offered in that read.
@@ -58,11 +59,10 @@ OAUTH_SERVICE = "Claude Code-credentials"
 BASE = "https://api.anthropic.com"
 USAGE_PATH = "/api/oauth/usage?cedar_ember=1&at_wall=1&skip_spend=1"
 PROGRAM_GRANTS = "cedar_ember"
-PROGRAM_WEEKLY_SESSION = "juniper_tide"
-WINDOWS = ("five_hour", "seven_day", "seven_day_overage_included", "seven_day_opus",
+WINDOWS = ("seven_day", "seven_day_overage_included", "seven_day_opus",
            "seven_day_sonnet", "seven_day_cowork", "seven_day_omelette", "seven_day_oauth_apps")
-KIND_ORDER = {"session": 0, "fable": 1, "weekly": 2, "full": 3}
-KIND_NAMES = {"session": "5-hour reset", "fable": "Fable reset", "weekly": "weekly reset", "full": "full reset"}
+KIND_ORDER = {"fable": 0, "weekly": 1, "full": 2}
+KIND_NAMES = {"fable": "Fable reset", "weekly": "weekly reset", "full": "full reset"}
 CLAIM_RESULTS = ("reset", "already_used", "not_limited", "cooldown", "ineligible", "unavailable")
 FALLBACK_CLI_VERSION = "2.1.310"
 LOG = os.path.expanduser("~/Library/Logs/exobrain/limit-reset.log")
@@ -191,7 +191,7 @@ def _windows(v: object) -> list[str]:
 
 
 def grant_kind(g: dict) -> str:
-    """session / weekly / full / fable, from the grant's type, else its clears."""
+    """weekly / full / fable, from the grant's type, else its clears."""
     t = g.get("type")
     if t in KIND_ORDER:
         return str(t)
@@ -199,13 +199,8 @@ def grant_kind(g: dict) -> str:
     label = str(g.get("label") or "").lower()
     if "fable" in label:
         return "fable"
-    weekly = any(w.startswith("seven_day") for w in clears)
-    if "five_hour" in clears and weekly:
-        return "full"
-    if weekly:
+    if any(w.startswith("seven_day") for w in clears):
         return "weekly"
-    if "five_hour" in clears:
-        return "session"
     return label or "reset"
 
 
@@ -228,7 +223,7 @@ def parse_grant(raw: object) -> dict | None:
         "use_requires_limit": bool(raw.get("use_requires_limit", True)),
         "percent_used": raw.get("percent_used") if isinstance(raw.get("percent_used"), dict) else {},
         "blocking": _windows(raw.get("blocking")),
-        "type": raw.get("type") if raw.get("type") in ("session", "weekly", "full") else None,
+        "type": raw.get("type") if raw.get("type") in ("weekly", "full") else None,
         "gives_back_weekly": bool(raw.get("gives_back_weekly", False)),
         "unavailable_reason": raw.get("unavailable_reason") if isinstance(raw.get("unavailable_reason"), str) else None,
     }
@@ -247,10 +242,9 @@ def parse_status(data: dict) -> dict:
     """The parts of a usage read this tool acts on. Missing blocks parse to
     'no grants' rather than an error, so a response-shape change fails safe."""
     ce = _block(data, PROGRAM_GRANTS)
-    jt = _block(data, PROGRAM_WEEKLY_SESSION)
     grants = [g for g in (parse_grant(x) for x in (ce.get("grants") or [])) if g]
     util = {}
-    for w in ("five_hour", "seven_day"):
+    for w in ("seven_day",):
         u = (data.get(w) or {}).get("utilization")
         util[w] = {"utilization": u if isinstance(u, (int, float)) else None,
                    "resets_at": (data.get(w) or {}).get("resets_at")}
@@ -263,13 +257,6 @@ def parse_status(data: dict) -> dict:
         "next_grant_id": ce.get("next_grant_id"),
         "weekly_resets_at": ce.get("weekly_resets_at"),
         "cooldown_until": ce.get("cooldown_until"),
-        "weekly_session_reset": {
-            "available": bool(jt.get("available", False)),
-            "eligible": bool(jt.get("eligible", False)),
-            "ineligible_reason": jt.get("ineligible_reason"),
-            "next_available_at": jt.get("next_available_at"),
-            "resets_per_week": jt.get("resets_per_week"),
-        },
         "windows": util,
     }
 
@@ -310,13 +297,11 @@ def pick_expiring(status: dict, now: float, hours: float) -> dict | None:
 
 
 def decide(status: dict, now: float, expiring_hours: float) -> tuple[str, dict | None]:
-    """('at_limit' | 'expiring' | 'weekly_session' | 'none', grant)."""
+    """('at_limit' | 'expiring' | 'none', grant)."""
     if status["at_limit"] or status["exhausted"]:
         g = pick_at_limit(status, now)
         if g:
             return "at_limit", g
-        if "five_hour" in status["exhausted"] and status["weekly_session_reset"]["available"]:
-            return "weekly_session", None
     g = pick_expiring(status, now, expiring_hours)
     if g:
         return "expiring", g
@@ -333,13 +318,6 @@ def claim_grant(grant_id: str) -> dict:
         return {"result": "auth_error", "reason": "no organization uuid"}
     body = {"program": PROGRAM_GRANTS, "grant_id": grant_id, "request_id": str(uuid.uuid4())}
     return _post_claim(org, body)
-
-
-def claim_weekly_session() -> dict:
-    org = _org_uuid()
-    if not org:
-        return {"result": "auth_error", "reason": "no organization uuid"}
-    return _post_claim(org, {"program": PROGRAM_WEEKLY_SESSION})
 
 
 def _post_claim(org: str, body: dict) -> dict:
@@ -421,7 +399,7 @@ def _held(status: dict) -> list[dict]:
 def print_status(status: dict, brief: bool = False) -> None:
     held = _held(status)
     w = status["windows"]
-    fh, sd = w["five_hour"]["utilization"], w["seven_day"]["utilization"]
+    sd = w["seven_day"]["utilization"]
     if brief:
         if held:
             first = min(held, key=lambda g: g["ends_ts"] or float("inf"))
@@ -429,9 +407,8 @@ def print_status(status: dict, brief: bool = False) -> None:
         else:
             print(f"none held ({status['ineligible_reason'] or 'eligible'})")
         return
-    print(f"Plan: 5-hour {fh:g}% (resets {_fmt_when(w['five_hour']['resets_at'])}), "
-          f"weekly {sd:g}% (resets {_fmt_when(w['seven_day']['resets_at'])})"
-          if fh is not None and sd is not None else "Plan: utilization unavailable")
+    print(f"Plan: weekly {sd:g}% (resets {_fmt_when(w['seven_day']['resets_at'])})"
+          if sd is not None else "Plan: utilization unavailable")
     print(f"At limit: {'yes, ' + ','.join(status['exhausted']) if status['at_limit'] or status['exhausted'] else 'no'}")
     if held:
         print(f"Limit resets held: {sum(g['resets_left'] for g in held)}")
@@ -439,13 +416,6 @@ def print_status(status: dict, brief: bool = False) -> None:
             print("  " + describe_grant(g))
     else:
         print(f"Limit resets held: none ({status['ineligible_reason'] or 'eligible, no grant'})")
-    ws = status["weekly_session_reset"]
-    if ws["available"]:
-        print("Weekly session reset: available now")
-    elif ws["next_available_at"]:
-        print(f"Weekly session reset: next {_fmt_when(ws['next_available_at'])}")
-    else:
-        print(f"Weekly session reset: {ws['ineligible_reason'] or 'not offered'}")
 
 
 def _notify(lines: list[str], context: str) -> None:
@@ -459,14 +429,10 @@ def _notify(lines: list[str], context: str) -> None:
 # --- commands ----------------------------------------------------------------
 
 def run_claim(status: dict, why: str, g: dict | None) -> dict:
-    """One claim, logged. why = at_limit | expiring | weekly_session | forced | manual."""
-    if why == "weekly_session":
-        res = claim_weekly_session()
-        what = "weekly session reset"
-    else:
-        assert g is not None
-        res = claim_grant(g["id"])
-        what = f"{kind_name(g['kind'])} {g['id']}"
+    """One claim, logged. why = at_limit | expiring | forced | manual."""
+    assert g is not None
+    res = claim_grant(g["id"])
+    what = f"{kind_name(g['kind'])} {g['id']}"
     _log(f"claim ({why}) {what}: {res.get('result')} {res.get('reason') or ''} "
          f"cleared={','.join(res.get('cleared') or [])} left={res.get('resets_left')}")
     return res
@@ -531,7 +497,7 @@ def cmd_watch(args: argparse.Namespace) -> int:
     why, g = decide(status, now, args.expiring_hours)
     if why != "none":
         res = run_claim(status, why, g)
-        what = "weekly session reset" if why == "weekly_session" else kind_name(g["kind"]) if g else "reset"
+        what = kind_name(g["kind"]) if g else "reset"
         if res["result"] == "reset":
             lines.append(f"Used a {what} ({'at the limit' if why != 'expiring' else 'it was about to expire'})"
                          + (f": cleared {','.join(res['cleared'])}" if res.get("cleared") else "")
