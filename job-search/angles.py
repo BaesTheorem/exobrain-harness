@@ -73,7 +73,7 @@ def cmd_next() -> None:
     print("Run each lane with exactly these arguments, and record the angles in the hub-log entry.\n")
     print(f"hiringcafe   python3 job-search/hiringcafe.py {q(t[0], ph[0], ph[1])} --days 3")
     print(f"dice         python3 job-search/dice.py {q(t[1], ph[0], t[2])} --days 3")
-    print(f"nicheboards  python3 job-search/nicheboards.py {q(t[0], t[1])} --days 2")
+    print(f"nicheboards  python3 job-search/nicheboards.py {q(t[0], t[1])} --days 3")
     print(f"indeed       python3 job-search/indeed.py {q(*t)} --days 3")
     print(f"moreboards   python3 job-search/moreboards.py {q(*t)} --days 3")
     print(f"jobspy       python3 job-search/jobspy_lane.py {q(t[0], t[1])} --days 3")

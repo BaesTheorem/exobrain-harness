@@ -593,6 +593,7 @@ def main() -> None:
 
     cutoff = (dt.date.today() - dt.timedelta(days=args.days)) if args.days else None
     survivors, leads, declines = [], [], []
+    detail_failed: list[tuple[str, str]] = []
     with concurrent.futures.ThreadPoolExecutor(max_workers=args.workers) as ex:
         futs = {ex.submit(detail, boards[k], j["path"]): (k, jid, j)
                 for k, jid, j in targets}
@@ -601,8 +602,9 @@ def main() -> None:
             try:
                 d = fut.result()
             except Exception as e:  # noqa: BLE001 -- a dead detail page is not fatal
-                declines.append((key, jid, j, "detail fetch failed: %s"
+                declines.append((key, jid, j, "detail fetch failed: %s (retried next run)"
                                  % type(e).__name__, None))
+                detail_failed.append((key, jid))
                 continue
             row = (key, jid, j, d)
             if cutoff and d["start"]:
@@ -678,6 +680,11 @@ def main() -> None:
         for key, title in warm_offlane:
             print("  [%s] %s" % (key, title))
 
+    # A req whose detail page failed stays out of the snapshot, so the next run
+    # gates it as new. Before this, a network outage marked 11 reqs as seen
+    # without a read, and the lane never showed them again (2026-10-31).
+    for key, jid in detail_failed:
+        snap.get(key, {}).pop(jid, None)
     save(SNAPSHOT, merge_snapshot(prev, snap))
     print("\nsnapshot written: %s" % SNAPSHOT)
 

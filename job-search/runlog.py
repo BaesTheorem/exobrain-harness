@@ -41,7 +41,9 @@ from pathlib import Path
 import jobprofile as P
 import listings
 
-COUNT_RE = re.compile(r"(\d+)\s+(?:new\s+)?(?:verified\s+)?(survivors?|leads?|declined|title-dropped|unique|rows)\b", re.I)
+# At most 7 digits, not after a digit or "/": a job id in a URL followed by
+# the word "lead" once recorded 1,010,310,792,825 leads for jobspy.
+COUNT_RE = re.compile(r"(?<![\d/])(\d{1,7})\s+(?:new\s+)?(?:verified\s+)?(survivors?|leads?|declined|title-dropped|unique|rows)\b", re.I)
 
 
 def runs_file() -> Path:
@@ -80,6 +82,11 @@ def parse_counts(text: str) -> dict[str, int]:
     """Survivor / lead counts from a lane's summary line. The lanes print
     "N survivors | N leads | ..." in slightly different words."""
     out: dict[str, int] = {}
+    # The summary line is the last line with two or more counts on it. Taking
+    # the max over the whole output let a JD line ("571 leads ...") win.
+    summary = [ln for ln in text.splitlines() if len(COUNT_RE.findall(ln)) >= 2]
+    if summary:
+        text = summary[-1]
     for n, word in COUNT_RE.findall(text):
         key = word.lower().rstrip("s")
         key = "rows" if key == "row" else key
@@ -156,7 +163,8 @@ def report(days: int) -> None:
         c["failed"] += r.get("exit", 0) != 0
         c["secs"] += int(r.get("secs", 0))
         for k in ("rows", "survivor", "lead"):
-            c[k] += r.get("counts", {}).get(k, 0)
+            n = r.get("counts", {}).get(k, 0)
+            c[k] += n if n < 10**7 else 0  # old records hold misparsed job ids
 
     print(f"LANE RUNS, last {days} days ({f})")
     print(f"  {'lane':18}{'runs':>6}{'failed':>8}{'rows':>8}{'surv':>7}{'leads':>7}{'min':>6}")

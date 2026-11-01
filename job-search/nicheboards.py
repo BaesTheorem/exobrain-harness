@@ -6,10 +6,12 @@ as dry because the index lags and site: filters silently return other domains
 (the 2026-08-13/14 failure mode). Every source here is the board's own data
 path, verified live 2026-08-14:
 
-  - Himalayas  https://himalayas.app/jobs/api?offset=&limit=   documented public
-    JSON API, ~99k jobs, newest-first, full structured fields (salary, type,
-    locationRestrictions, pubDate, expiryDate). The `search` param is IGNORED,
-    so filtering happens client-side here.
+  - Himalayas  https://himalayas.app/jobs/api/search?q=&country=US&sort=recent&page=
+    documented public search API, 20 a page, full structured fields (salary,
+    type, locationRestrictions, pubDate). One search per query angle. The old
+    browse feed (/jobs/api?offset=) is a firehose: on 2026-11-01 its newest
+    10,000 rows covered only about 6 hours, so a 10,000-row cap read a small
+    part of a 2-day window and printed TRUNCATED on most days.
   - Remotive   https://remotive.com/api/remote-jobs?search=    documented API,
     working search param. Salary is a freeform string; parsed best-effort.
   - WeWorkRemotely  plain RSS per category. No salary in the feed, so its hits
@@ -29,13 +31,13 @@ Usage:
 """
 
 import argparse
-import concurrent.futures
 import datetime as dt
 import html
 import http.client
 import io
 import json
 import re
+import signal
 import sys
 import time
 import urllib.error
@@ -70,21 +72,14 @@ WWR_CATEGORIES = [
     "all-other-remote-jobs",  # NOT remote-all-other-remote-jobs; that slug 301s
 ]
 
-HIMALAYAS_ROW_CAP = 10000  # hard cap per run; truncation is logged, never silent.
-# A normal 3-day window was ~3,900 rows on 2026-09-07. By 2026-09-28 one Monday
-# window alone held 2,998 rows and the 2-day daily scan hit the old 6,000 cap.
-# 10,000 is 500 pages, still paced by HIMALAYAS_WAVE / HIMALAYAS_PAUSE below.
-
-# Himalayas sits behind Cloudflare rate limiting (measured 2026-09-07): ~100
-# requests inside a 10s window returns 429 with `Cf-Mitigated: challenge`, no
-# Retry-After, and the block clears after ~25s. Ten concurrent pages at ~25
-# req/s tripped it around page 160 every run, which surfaced first as a read
-# timeout and then, once retries existed, as a 10-page coverage gap. Pace under
-# the threshold and, if a 429 still lands, wait out the measured recovery
-# instead of retrying into it. Do not raise the wave size.
-HIMALAYAS_WAVE = 5      # concurrent pages per wave (100 rows)
-HIMALAYAS_PAUSE = 1.0   # seconds between waves  -> ~5 req/s
-RATE_LIMIT_WAIT = 30    # seconds to wait on a 429 without Retry-After
+HIMALAYAS_MAX_PAGES = 25  # per query: 500 rows; a cap hit prints TRUNCATED.
+HIMALAYAS_PAUSE = 0.5     # seconds between search pages, far under the
+# measured Cloudflare limit (~100 requests in 10s returns 429, 2026-09-07).
+RATE_LIMIT_WAIT = 30      # seconds to wait on a 429 without Retry-After
+REQUEST_DEADLINE = 45     # wall-clock limit for one request, DNS included.
+# urllib's `timeout` covers each socket read only. A slow DNS lookup or a
+# server that sends a byte every few seconds never trips it, and on
+# 2026-11-01 the lane hung for minutes until the scan stopped it by PID.
 
 
 # Errors a single fetch can raise that mean "try again", not "the lane is dead":
@@ -106,8 +101,12 @@ def _get(url, timeout=30, attempts=3):
     for i in range(attempts):
         try:
             req = urllib.request.Request(url, headers={"User-Agent": UA})
-            with urllib.request.urlopen(req, timeout=timeout) as r:
-                return r.read().decode("utf-8", "replace")
+            signal.setitimer(signal.ITIMER_REAL, REQUEST_DEADLINE)
+            try:
+                with urllib.request.urlopen(req, timeout=timeout) as r:
+                    return r.read().decode("utf-8", "replace")
+            finally:
+                signal.setitimer(signal.ITIMER_REAL, 0)
         except urllib.error.HTTPError as e:  # before FETCH_ERRORS: it is an OSError too
             last = e
             if i < attempts - 1:
@@ -168,50 +167,35 @@ def parse_money(text):
 
 # ---------------------------------------------------------------- Himalayas
 
-def himalayas(cutoff):
-    # The API silently caps limit at 20 regardless of what is requested, so a
-    # day of the firehose is ~200 pages (verified 2026-08-14). Pages are
-    # offset-addressable, so fetch them in concurrent waves and stop after the
-    # first wave that crosses the cutoff -- sequential fetching took minutes.
-    #
-    # Returns (rows, truncated, gaps). A page that fails all retries becomes a
-    # gap (offset, reason) instead of an exception: it is a hole in coverage
-    # the caller prints, not a reason to lose the other 199 pages.
-    page = 20
-    wave = HIMALAYAS_WAVE
+def _deadline(_sig, _frame):
+    raise TimeoutError("request exceeded %ds wall clock" % REQUEST_DEADLINE)
 
-    def fetch(offset) -> tuple[int, list | None, str | None]:
-        """(offset, jobs, error): jobs is None when the page failed all retries."""
+
+def himalayas(query, cutoff):
+    """Search results for one query, newest first, back to the cutoff.
+
+    Returns (rows, truncated, gaps). A page that fails all retries becomes a
+    gap (page, reason) and ends this query: later pages are older, and a
+    hole is printed, not hidden.
+    """
+    rows, gaps = [], []
+    for page in range(1, HIMALAYAS_MAX_PAGES + 1):
+        url = ("https://himalayas.app/jobs/api/search?q=%s&country=US&sort=recent&page=%d"
+               % (urllib.parse.quote(query), page))
         try:
-            d = json.loads(_get(
-                "https://himalayas.app/jobs/api?offset=%d&limit=%d" % (offset, page)))
+            jobs = json.loads(_get(url)).get("jobs", [])
         except (*FETCH_ERRORS, ValueError) as e:
-            return offset, None, "%s: %s" % (type(e).__name__, str(e)[:60])
-        return offset, d.get("jobs", []), None
-
-    rows, offset, gaps = [], 0, []
-    with concurrent.futures.ThreadPoolExecutor(max_workers=wave) as ex:
-        while offset < HIMALAYAS_ROW_CAP:
-            pages = list(ex.map(fetch, range(offset, offset + page * wave, page)))
-            done = False
-            for off, jobs, err in pages:
-                if jobs is None:
-                    gaps.append((off, err or "unknown error"))
-                    continue
-                if not jobs:
-                    return rows, False, gaps
-                for j in jobs:
-                    pub = j.get("pubDate")
-                    when = (dt.datetime.fromtimestamp(pub, dt.timezone.utc)
-                            if pub else None)
-                    if when and when < cutoff:
-                        done = True  # newest-first; everything after is older
-                        break
-                    rows.append(j)
-                if done:
-                    return rows, False, gaps
-            offset += page * wave
-            time.sleep(HIMALAYAS_PAUSE)
+            gaps.append((page, "%s: %s" % (type(e).__name__, str(e)[:60])))
+            return rows, False, gaps
+        if not jobs:
+            return rows, False, gaps
+        for j in jobs:
+            pub = j.get("pubDate")
+            when = dt.datetime.fromtimestamp(pub, dt.timezone.utc) if pub else None
+            if when and when < cutoff:
+                return rows, False, gaps
+            rows.append(j)
+        time.sleep(HIMALAYAS_PAUSE)
     return rows, True, gaps
 
 
@@ -346,16 +330,21 @@ def main():
         row = (source, label, url, note)
         {"pass": survivors, "lead": leads, "fail": declines}[verdict].append(row)
 
-    # Himalayas: one firehose pull, client-side filter (search param is ignored)
-    try:
-        rows, truncated, gaps = himalayas(cutoff)
-        print("== himalayas       %d rows in window%s%s"
-              % (len(rows), " (TRUNCATED at %d -- shrink --days)" % HIMALAYAS_ROW_CAP
-                 if truncated else "",
-                 " -- %d page(s) FAILED after retries: COVERAGE GAP" % len(gaps)
+    # Himalayas: one search per query angle, US only, newest first
+    signal.signal(signal.SIGALRM, _deadline)
+    for q in args.queries:
+        try:
+            rows, truncated, gaps = himalayas(q, cutoff)
+        except FETCH_ERRORS as e:
+            print("== himalayas %-25s LANE DID NOT RUN: %s" % ('"%s"' % q, e))
+            continue
+        print("== himalayas %-25s %d rows in window%s%s"
+              % ('"%s"' % q, len(rows),
+                 " (TRUNCATED at %d pages)" % HIMALAYAS_MAX_PAGES if truncated else "",
+                 " -- page %d FAILED after retries: COVERAGE GAP" % gaps[0][0]
                  if gaps else ""))
-        for off, why in gaps:
-            print("   ! page at offset %d not read: %s" % (off, why))
+        for pg, why in gaps:
+            print("   ! page %d not read: %s" % (pg, why))
         for j in rows:
             if not title_ok(j.get("title", "")):
                 continue
@@ -371,8 +360,6 @@ def main():
                    if j.get("maxSalary") else "unlisted")
             sort_hit("himalayas", "%s | %s" % (label, sal),
                      j.get("applicationLink"), verdict, note)
-    except FETCH_ERRORS as e:
-        print("== himalayas       LANE DID NOT RUN: %s" % e)
 
     # Remotive: search param works, one call per query
     for q in args.queries:

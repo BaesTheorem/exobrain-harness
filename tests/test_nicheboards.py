@@ -101,21 +101,44 @@ def test_himalayas_page_failure_is_a_gap_not_a_lane_death(monkeypatch):
     now = dt.datetime.now(dt.timezone.utc)
 
     def get(url, timeout=30, attempts=3):
-        m = re.search(r"offset=(\d+)", url)
-        assert m is not None
-        off = int(m.group(1))
-        if off == 20:
+        m = re.search(r"page=(\d+)", url)
+        assert m is not None and "q=IT%20analyst" in url and "country=US" in url
+        if int(m.group(1)) == 2:
             raise TimeoutError("stalled")
-        if off >= 40:
-            return json.dumps({"jobs": []})
         return json.dumps({"jobs": [
             {"title": "IT Analyst %d" % i, "pubDate": int(now.timestamp())}
             for i in range(20)]})
 
     monkeypatch.setattr(nb, "_get", get)
-    rows, truncated, gaps = nb.himalayas(now - dt.timedelta(days=3))
+    monkeypatch.setattr(nb.time, "sleep", lambda s: None)
+    rows, truncated, gaps = nb.himalayas("IT analyst", now - dt.timedelta(days=3))
     assert len(rows) == 20 and not truncated
-    assert gaps == [(20, "TimeoutError: stalled")]
+    assert gaps == [(2, "TimeoutError: stalled")]
+
+
+def test_himalayas_cap_prints_truncated(monkeypatch):
+    now = dt.datetime.now(dt.timezone.utc)
+    monkeypatch.setattr(nb, "_get", lambda url, timeout=30, attempts=3: json.dumps(
+        {"jobs": [{"title": "x", "pubDate": int(now.timestamp())}] * 20}))
+    monkeypatch.setattr(nb.time, "sleep", lambda s: None)
+    rows, truncated, _ = nb.himalayas("x", now - dt.timedelta(days=3))
+    assert truncated and len(rows) == 20 * nb.HIMALAYAS_MAX_PAGES
+
+
+def test_get_has_a_wall_clock_deadline(monkeypatch):
+    nb.signal.signal(nb.signal.SIGALRM, nb._deadline)
+    monkeypatch.setattr(nb, "REQUEST_DEADLINE", 0.2)
+    monkeypatch.setattr(nb.time, "sleep", lambda s: None)
+
+    def urlopen(req, timeout=30):
+        import time as t
+        end = t.monotonic() + 5
+        while t.monotonic() < end:  # a stall that never trips the socket timeout
+            pass
+
+    monkeypatch.setattr(nb.urllib.request, "urlopen", urlopen)
+    with pytest.raises(TimeoutError):
+        nb._get("https://example.test/x", attempts=1)
 
 
 def test_himalayas_stops_at_the_cutoff(monkeypatch):
@@ -127,5 +150,6 @@ def test_himalayas_stops_at_the_cutoff(monkeypatch):
                            + [{"title": "y", "pubDate": old}] * 15})
 
     monkeypatch.setattr(nb, "_get", get)
-    rows, truncated, gaps = nb.himalayas(now - dt.timedelta(days=3))
+    monkeypatch.setattr(nb.time, "sleep", lambda s: None)
+    rows, truncated, gaps = nb.himalayas("x", now - dt.timedelta(days=3))
     assert len(rows) == 5 and not truncated and gaps == []
