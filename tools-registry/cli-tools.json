@@ -64,6 +64,14 @@
     "notes": "Full-subreddit post scan via Arctic Shift archive API (no Reddit creds). Writes reddit/data/kc-events-scan.json: all posts + megathread comment trees. Feeds /local-events. Staleness asserted on newest-post age, never HTTP 200. Recon: vault recon/2026-08-23-reddit-access-paths.md"
   },
   {
+    "name": "ask-after-turn",
+    "command": "python3 mist-voice/scripts/ask_after_turn.py --detach LOG -- CMD...",
+    "repo_dir": "mist-voice/scripts",
+    "source": "built",
+    "added": "2026-11-02",
+    "notes": "Used by mist-voice/bin/mist-ask. Reads the chat's stream log (mist-console/data/<sid>.jsonl) for a top-level result row; caps the wait at 30 minutes. --detach runs it in its own session so the calling shell's cleanup cannot stop it."
+  },
+  {
     "name": "audiotee",
     "command": "~/.local/src/audiotee/.build/release/audiotee --include-processes PID --sample-rate 16000 --chunk-duration 0.05",
     "repo_dir": "~/.local/src/audiotee",
@@ -126,6 +134,14 @@
     "source": "built",
     "added": "2026-08-16",
     "notes": "Module-boundary checker for the harness (top-level dirs are islands). Runs automatically in the post-edit quality-gate hook."
+  },
+  {
+    "name": "chu-bench",
+    "command": "python3 recipes/bench/chu_bench.py prepare -n 12; python3 recipes/bench/chu_bench.py score",
+    "repo_dir": "recipes/bench",
+    "source": "built",
+    "added": "2026-11-02",
+    "notes": "Fetches cookingforengineers.com pages into the gitignored recipes/bench/.cache (1 s between requests). A converter (an agent given only .cache/inputs and the SKILL.md rules) writes .cache/pred/<id>.json; never let it read .cache/gold. Pages whose table does not read back as one tree are skipped."
   },
   {
     "name": "Claude Animation (song-sync)",

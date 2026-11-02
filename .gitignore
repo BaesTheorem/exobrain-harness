@@ -352,3 +352,6 @@ resume-builder/data/facts.md
 
 # shopping/marketplace: local index of Marketplace listings (other people's names and listings). See shopping/marketplace/README.md.
 shopping/marketplace/data/
+
+# recipe benchmark: fetched cookingforengineers.com pages and derived data (Chu's copyrighted work)
+recipes/bench/.cache/

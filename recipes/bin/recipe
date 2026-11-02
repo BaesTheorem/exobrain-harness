@@ -1,0 +1,490 @@
+#!/usr/bin/env -S uv run --quiet --script
+# /// script
+# requires-python = ">=3.11"
+# dependencies = ["recipe_grid==2.1.1", "ingredient-parser-nlp==2.9.1", "recipe-scrapers>=15", "pyyaml>=6"]
+# ///
+"""recipe -- the recipe manager behind Recipes.base and the /recipes skill.
+
+Each recipe is one note in <vault>/Recipes/ (VAULT_DIR or RECIPES_DIR to move
+it). The JSON data block at the bottom of a note is the source; the
+Ingredients, Method and Cooking for Engineers sections are built from it.
+
+  recipe new --file R.json [--title T] [--set key=value ...]   create a note from a recipe object
+  recipe import URL [--set key=value ...]                      create a note from a recipe page
+  recipe show NAME [--json]                                    the recipe object (card shape + meta)
+  recipe put NAME --file R.json [--force]                      replace ingredients/steps/cfe/nutrition, then render
+  recipe adopt NAME                                            take hand edits in Ingredients/Method into the data
+  recipe render (NAME | --all) [--force]                       rebuild the generated sections
+  recipe check (NAME | --all) [--json]                         tree errors, vegan flags, hand edits, stale nutrition
+  recipe card NAME [--scale X]                                 the Console ```recipe fence (paste it in a reply)
+  recipe cooked NAME [--rating N] [--note TEXT] [--date D]     cook log line + last_cooked/times_cooked
+  recipe nutrition NAME [--dry-run]                            kcal + protein per serving from USDA FDC
+  recipe fdc-update                                            (re)build the local USDA FoodData Central index
+  recipe find [--max-min N] [--course C] [--has WORD] [--status S] [--sort KEY] [--json]
+  recipe table --file R.json                                   the table HTML for a recipe object
+  recipe layout --file R.json                                  recipe_grid's cells as JSON (Console oracle)
+
+R.json is a recipe object: title, serves, time, ingredients, steps, notes, cfe
+(see recipekit/model.py), plus an optional "meta" object of frontmatter fields
+and an optional "description". "-" reads stdin.
+"""
+from __future__ import annotations
+
+import argparse
+import datetime as dt
+import json
+import sys
+from pathlib import Path
+from typing import Any
+
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+
+from recipekit import card, grid, model, note, nutrition, vegan  # noqa: E402
+
+DATA_KEYS = ("ingredients", "steps", "cfe", "nutrition")
+
+
+def _load(path: str) -> dict[str, Any]:
+    text = sys.stdin.read() if path == "-" else Path(path).read_text(encoding="utf-8")
+    obj = json.loads(text)
+    if not isinstance(obj, dict):
+        raise SystemExit("recipe: the file must hold one JSON object")
+    return obj
+
+
+def _sets(pairs: list[str]) -> dict[str, Any]:
+    out: dict[str, Any] = {}
+    for p in pairs or []:
+        key, _, raw = p.partition("=")
+        try:
+            out[key.strip()] = json.loads(raw)
+        except ValueError:
+            out[key.strip()] = raw
+    return out
+
+
+def _minutes(text: Any) -> int | None:
+    if text is None:
+        return None
+    if isinstance(text, (int, float)):
+        return int(text)
+    import re
+
+    s = str(text).lower()
+    h = re.search(r"(\d+(?:\.\d+)?)\s*(?:h|hr|hrs|hours?)\b", s)
+    m = re.search(r"(\d+)\s*(?:m|min|mins|minutes?)\b", s)
+    total = (float(h.group(1)) * 60 if h else 0) + (int(m.group(1)) if m else 0)
+    if not h and not m and s.strip().isdigit():
+        total = int(s.strip())
+    return int(total) or None
+
+
+def _meta_from(obj: dict[str, Any]) -> dict[str, Any]:
+    meta = dict(obj.get("meta") or {})
+    t = obj.get("time") or {}
+    for k in ("prep", "cook", "total"):
+        if f"{k}_min" not in meta and _minutes(t.get(k)):
+            meta[f"{k}_min"] = _minutes(t.get(k))
+    serves = str(obj.get("serves") or "")
+    if serves and "servings" not in meta:
+        import re
+
+        m = re.match(r"\s*(\d+)", serves)
+        if m:
+            meta["servings"] = int(m.group(1))
+        if not m or serves.strip() != m.group(1):
+            meta.setdefault("yield", serves)
+    return meta
+
+
+def _vegan(data: dict[str, Any]) -> bool:
+    return not vegan.scan(model.flatten(data.get("ingredients")))
+
+
+def _write(n: note.Note) -> None:
+    note.atomic_write(n.path, note.serialize(n))
+
+
+def _render(n: note.Note, force: bool = False) -> None:
+    note.render(n, lambda r: grid.table_html(r, id_prefix=f"cfe-{abs(hash(n.title)) % 10**6}-"), force=force)
+
+
+def _report(n: note.Note) -> tuple[model.Report, list[str]]:
+    rep = model.validate(note.recipe_of(n))
+    info: list[str] = []
+    flat = model.flatten(n.data.get("ingredients"))
+    for i, line, word, why in vegan.scan(flat):
+        info.append(f"vegan: ingredient {i} ({line}) has '{word}' ({why})")
+    for h in note.hand_edits(n):
+        info.append(f"hand edit in '{h}': run `recipe adopt` (Ingredients/Method) or fix the data, then render")
+    nut = (n.data.get("_render") or {}).get("nutrition_of")
+    if nut and nut != note.digest(json.dumps([flat, n.frontmatter.get("servings")])):
+        info.append("nutrition is older than the ingredients: run `recipe nutrition`")
+    return rep, info
+
+
+def cmd_new(a: argparse.Namespace) -> int:
+    obj = _load(a.file)
+    title = note.safe_title(a.title or str(obj.get("title") or "Untitled recipe"))
+    path = note.RECIPES / f"{title}.md"
+    if path.exists() and not a.force:
+        print(f"recipe: {path} exists (use put to change it)", file=sys.stderr)
+        return 1
+    data = {k: obj[k] for k in DATA_KEYS if obj.get(k)}
+    rep = model.validate({**data, "title": title})
+    if not rep.ok:
+        print("\n".join("error: " + e for e in rep.errors), file=sys.stderr)
+        return 1
+    fm: dict[str, Any] = {"type": "recipe", "status": "to-try", "vegan": _vegan(data), "added": dt.date.today(),
+                          "times_cooked": 0, "tags": ["recipe"]}
+    fm.update(_meta_from(obj))
+    fm.update(_sets(a.set))
+    fm.pop("title", None)
+    n = note.new_note(path, fm, data, description=str(obj.get("description") or ""), notes=str(obj.get("notes") or ""))
+    _render(n, force=True)
+    _write(n)
+    print(f"created {path}")
+    for w in rep.warnings:
+        print("warning: " + w)
+    return 0
+
+
+def cmd_import(a: argparse.Namespace) -> int:
+    from recipekit import importer
+
+    page = importer.fetch(a.url)
+    fm, data, description, report = importer.from_page(page, a.url)
+    fm.update(_sets(a.set))
+    title = note.safe_title(str(fm.pop("title", "Imported recipe")))
+    path = note.RECIPES / f"{title}.md"
+    if path.exists() and not a.force:
+        print(f"recipe: {path} exists", file=sys.stderr)
+        return 1
+    fm.update({"vegan": _vegan(data), "added": dt.date.today(), "times_cooked": 0})
+    n = note.new_note(path, fm, data, description=description)
+    _render(n, force=True)
+    _write(n)
+    print(f"created {path}")
+    print(f"ingredients: {report['ingredients']} (page JSON-LD: {report['json_ld_ingredients']}), steps: {report['steps']}")
+    if not report["match"]:
+        print("warning: the ingredient count differs from the page's JSON-LD; compare the note with the page")
+    for i, line, word, why in vegan.scan(model.flatten(data["ingredients"])):
+        print(f"vegan: ingredient {i} ({line}) has '{word}' ({why})")
+    return 0
+
+
+def cmd_show(a: argparse.Namespace) -> int:
+    n = note.read(note.resolve(a.name))
+    obj = note.recipe_of(n)
+    obj["meta"] = {k: (v.isoformat() if isinstance(v, (dt.date, dt.datetime)) else v) for k, v in n.frontmatter.items()}
+    obj["path"] = str(n.path)
+    if n.data.get("nutrition"):
+        obj["nutrition"] = n.data["nutrition"]
+    if a.json:
+        print(json.dumps(obj, ensure_ascii=False, indent=2))
+        return 0
+    print(f"# {obj['title']}  ({n.path})")
+    for i, line in enumerate(model.flatten(obj["ingredients"])):
+        print(f"  [{i}] {line}")
+    for k, st in enumerate(obj["steps"], 1):
+        print(f"  {k}. {st.get('text') if isinstance(st, dict) else st}")
+    for k, op in enumerate((obj.get("cfe") or {}).get("ops") or []):
+        print(f"  op {k}: {op.get('op')}  <- {op.get('in')}" + (f"  [{op['name']}]" if op.get("name") else ""))
+    return 0
+
+
+def cmd_put(a: argparse.Namespace) -> int:
+    path = note.resolve(a.name)
+    n = note.read(path)
+    obj = _load(a.file)
+    for k in DATA_KEYS:
+        if k in obj:
+            n.data[k] = obj[k]
+    rep = model.validate(note.recipe_of(n))
+    if not rep.ok and not a.force:
+        print("\n".join("error: " + e for e in rep.errors), file=sys.stderr)
+        return 1
+    if obj.get("meta"):
+        n.frontmatter.update(obj["meta"])
+        n.fm_changed = True
+    if "ingredients" in obj:
+        n.frontmatter["vegan"] = _vegan(n.data)
+        n.fm_changed = True
+    try:
+        _render(n, force=a.force)
+    except note.HandEdit as e:
+        print(f"recipe: {e}. Run `recipe adopt` first, or pass --force to overwrite.", file=sys.stderr)
+        return 1
+    _write(n)
+    print(f"updated {path}")
+    for w in rep.warnings:
+        print("warning: " + w)
+    return 0
+
+
+def _parse_ingredients(text: str) -> list[Any]:
+    out: list[Any] = []
+    group: dict[str, Any] | None = None
+    for raw in text.splitlines():
+        line = raw.strip()
+        if not line:
+            continue
+        if line == note.LIST_BREAK:
+            group = None
+            continue
+        if line.startswith("**") and line.endswith("**") and len(line) > 4:
+            group = {"group": line.strip("*").strip(), "items": []}
+            out.append(group)
+        elif line[:2] in ("- ", "* ", "+ "):
+            item = line[2:].strip()
+            (group["items"] if group is not None else out).append(item)
+        else:
+            raise ValueError(f"Ingredients: cannot read the line {raw!r} (use '- item' or '**Group**')")
+    return out
+
+
+def _parse_method(text: str, old: list[Any]) -> list[Any]:
+    import re
+
+    steps: list[str] = []
+    for raw in text.splitlines():
+        if not raw.strip():
+            continue
+        m = re.match(r"^\s*\d+[.)]\s+(.*)$", raw)
+        if m:
+            steps.append(m.group(1).strip())
+        elif steps and raw.startswith((" ", "\t")):
+            steps[-1] += " " + raw.strip()
+        else:
+            raise ValueError(f"Method: cannot read the line {raw!r} (use '1. step')")
+    out: list[Any] = []
+    for i, s in enumerate(steps):
+        prev = old[i] if i < len(old) else None
+        if isinstance(prev, dict) and prev.get("timer") and prev.get("text") == s:
+            out.append({"text": s, "timer": prev["timer"]})
+        else:
+            out.append(s)
+    return out
+
+
+def cmd_adopt(a: argparse.Namespace) -> int:
+    path = note.resolve(a.name)
+    n = note.read(path)
+    before = len(model.flatten(n.data.get("ingredients")))
+    try:
+        if (s := n.section("Ingredients")) is not None:
+            n.data["ingredients"] = _parse_ingredients(s.content)
+        if (s := n.section("Method")) is not None:
+            n.data["steps"] = _parse_method(s.content, n.data.get("steps") or [])
+    except ValueError as e:
+        print(f"recipe: {e}", file=sys.stderr)
+        return 1
+    after = len(model.flatten(n.data.get("ingredients")))
+    n.frontmatter["vegan"] = _vegan(n.data)
+    n.fm_changed = True
+    _render(n, force=True)
+    _write(n)
+    print(f"adopted the hand edits in {path}")
+    rep = model.validate(note.recipe_of(n))
+    if after != before:
+        print(f"warning: the ingredient count went from {before} to {after}; update the cfe tree (`recipe put`)")
+    for e in rep.errors:
+        print("error: " + e)
+    return 0 if rep.ok else 1
+
+
+def _targets(a: argparse.Namespace) -> list[Path]:
+    if getattr(a, "all", False):
+        return note.all_notes()
+    if not a.name:
+        raise SystemExit("recipe: give a NAME or --all")
+    return [note.resolve(a.name)]
+
+
+def cmd_render(a: argparse.Namespace) -> int:
+    rc = 0
+    for path in _targets(a):
+        n = note.read(path)
+        if not n.data:
+            print(f"skip {path.name}: no data block")
+            continue
+        try:
+            _render(n, force=a.force)
+        except note.HandEdit as e:
+            print(f"stop {path.name}: {e}")
+            rc = 1
+            continue
+        _write(n)
+        print(f"rendered {path.name}")
+    return rc
+
+
+def cmd_check(a: argparse.Namespace) -> int:
+    results = []
+    rc = 0
+    for path in _targets(a):
+        n = note.read(path)
+        rep, info = _report(n)
+        results.append({"note": path.stem, "errors": rep.errors, "warnings": rep.warnings, "info": info})
+        rc = rc or (0 if rep.ok else 1)
+    if a.json:
+        print(json.dumps(results, ensure_ascii=False, indent=2))
+        return rc
+    for r in results:
+        status = "ok" if not r["errors"] else f"{len(r['errors'])} error(s)"
+        print(f"{r['note']}: {status}")
+        for kind in ("errors", "warnings", "info"):
+            for line in r[kind]:
+                print(f"  {kind[:-1] if kind != 'info' else 'info'}: {line}")
+    return rc
+
+
+def cmd_card(a: argparse.Namespace) -> int:
+    n = note.read(note.resolve(a.name))
+    print(card.fence(note.recipe_of(n), a.scale))
+    return 0
+
+
+def cmd_cooked(a: argparse.Namespace) -> int:
+    path = note.resolve(a.name)
+    n = note.read(path)
+    when = dt.date.fromisoformat(a.date) if a.date else dt.date.today()
+    if a.rating is not None and not 1 <= a.rating <= 5:
+        raise SystemExit("recipe: --rating is 1 to 5")
+    line = note.log_cook(n, when, a.rating, a.note or "")
+    _write(n)
+    print(f"{path.stem}: {line[2:]}")
+    return 0
+
+
+def cmd_fdc_update(a: argparse.Namespace) -> int:
+    from recipekit import fdcdata
+
+    print(f"index: {fdcdata.build()}")
+    return 0
+
+
+def cmd_nutrition(a: argparse.Namespace) -> int:
+    from recipekit import fdcdata
+
+    if not fdcdata.INDEX.exists():
+        print("building the local USDA index once (about 22 MB of downloads)")
+        fdcdata.build()
+    path = note.resolve(a.name)
+    n = note.read(path)
+    flat = model.flatten(n.data.get("ingredients"))
+    servings = float(n.frontmatter.get("servings") or 1)
+    try:
+        result = nutrition.compute(flat, n.data.get("nutrition"), servings)
+    except nutrition.FdcUnavailable as e:
+        print(f"recipe: {e}", file=sys.stderr)
+        return 1
+    md = nutrition.markdown(result)
+    if a.dry_run:
+        print(md)
+        return 0
+    try:
+        note.set_section(n, "Nutrition", md)
+    except note.HandEdit as e:
+        print(f"recipe: {e}. Move your text to Notes, then run again.", file=sys.stderr)
+        return 1
+    n.data.setdefault("_render", {})["nutrition_of"] = note.digest(json.dumps([flat, n.frontmatter.get("servings")]))
+    ps = result["per_serving"]
+    n.frontmatter["kcal_serving"] = int(round(ps["kcal"]))
+    n.frontmatter["protein_serving"] = round(ps["protein"], 1)
+    n.fm_changed = True
+    _write(n)
+    print(md.split("\n", 1)[0])
+    return 0
+
+
+def cmd_find(a: argparse.Namespace) -> int:
+    rows = []
+    for path in note.all_notes():
+        n = note.read(path)
+        fm = n.frontmatter
+        if fm.get("type") not in (None, "recipe"):
+            continue
+        if a.course and str(fm.get("course") or "").lower() != a.course.lower():
+            continue
+        if a.status and str(fm.get("status") or "") != a.status:
+            continue
+        if a.max_min and not (fm.get("total_min") and int(fm["total_min"]) <= a.max_min):
+            continue
+        if a.has:
+            text = " ".join(model.flatten(n.data.get("ingredients"))).lower()
+            if not all(w.lower() in text for w in a.has):
+                continue
+        kcal, prot = fm.get("kcal_serving"), fm.get("protein_serving")
+        density = round(prot / kcal * 100, 1) if kcal and prot else None
+        rows.append({"title": path.stem, "course": fm.get("course"), "status": fm.get("status"),
+                     "rating": fm.get("rating"), "total_min": fm.get("total_min"), "kcal": kcal, "protein": prot,
+                     "protein_per_100kcal": density,
+                     "last_cooked": str(fm.get("last_cooked") or "") or None})
+    keys = {"protein": lambda r: -(r["protein_per_100kcal"] or 0), "time": lambda r: r["total_min"] or 10**6,
+            "rating": lambda r: -(r["rating"] or 0), "cooked": lambda r: r["last_cooked"] or "", "title": lambda r: r["title"]}
+    rows.sort(key=keys.get(a.sort, keys["title"]))
+    if a.json:
+        print(json.dumps(rows, ensure_ascii=False, indent=2))
+        return 0
+    for r in rows:
+        bits = [r["course"] or "", r["status"] or "", f"{r['total_min']} min" if r["total_min"] else "",
+                f"{r['rating']}/5" if r["rating"] else "", f"{r['protein_per_100kcal']} g/100 kcal" if r["protein_per_100kcal"] else ""]
+        print(f"{r['title']}: " + " · ".join(b for b in bits if b))
+    if not rows:
+        print("no recipe matches")
+    return 0
+
+
+def cmd_table(a: argparse.Namespace) -> int:
+    print(grid.table_html(_load(a.file)))
+    return 0
+
+
+def cmd_layout(a: argparse.Namespace) -> int:
+    print(json.dumps(grid.layout(_load(a.file)), ensure_ascii=False))
+    return 0
+
+
+def main(argv: list[str]) -> int:
+    p = argparse.ArgumentParser(prog="recipe", description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
+    sub = p.add_subparsers(dest="cmd", required=True)
+    s = sub.add_parser("new"); s.add_argument("--file", required=True); s.add_argument("--title")
+    s.add_argument("--set", action="append", default=[]); s.add_argument("--force", action="store_true")
+    s.set_defaults(fn=cmd_new)
+    s = sub.add_parser("import"); s.add_argument("url"); s.add_argument("--set", action="append", default=[])
+    s.add_argument("--force", action="store_true"); s.set_defaults(fn=cmd_import)
+    s = sub.add_parser("show"); s.add_argument("name"); s.add_argument("--json", action="store_true")
+    s.set_defaults(fn=cmd_show)
+    s = sub.add_parser("put"); s.add_argument("name"); s.add_argument("--file", required=True)
+    s.add_argument("--force", action="store_true"); s.set_defaults(fn=cmd_put)
+    s = sub.add_parser("adopt"); s.add_argument("name"); s.set_defaults(fn=cmd_adopt)
+    for name, fn in (("render", cmd_render), ("check", cmd_check)):
+        s = sub.add_parser(name); s.add_argument("name", nargs="?"); s.add_argument("--all", action="store_true")
+        if name == "render":
+            s.add_argument("--force", action="store_true")
+        else:
+            s.add_argument("--json", action="store_true")
+        s.set_defaults(fn=fn)
+    s = sub.add_parser("card"); s.add_argument("name"); s.add_argument("--scale", type=float, default=1.0)
+    s.set_defaults(fn=cmd_card)
+    s = sub.add_parser("cooked"); s.add_argument("name"); s.add_argument("--rating", type=int)
+    s.add_argument("--note"); s.add_argument("--date"); s.set_defaults(fn=cmd_cooked)
+    s = sub.add_parser("nutrition"); s.add_argument("name"); s.add_argument("--dry-run", action="store_true")
+    s.set_defaults(fn=cmd_nutrition)
+    s = sub.add_parser("fdc-update"); s.set_defaults(fn=cmd_fdc_update)
+    s = sub.add_parser("find"); s.add_argument("--max-min", type=int); s.add_argument("--course")
+    s.add_argument("--has", action="append"); s.add_argument("--status"); s.add_argument("--sort", default="title")
+    s.add_argument("--json", action="store_true"); s.set_defaults(fn=cmd_find)
+    for name, fn in (("table", cmd_table), ("layout", cmd_layout)):
+        s = sub.add_parser(name); s.add_argument("--file", required=True); s.set_defaults(fn=fn)
+    a = p.parse_args(argv)
+    try:
+        return a.fn(a)
+    except FileNotFoundError as e:
+        print(f"recipe: {e}", file=sys.stderr)
+        return 1
+
+
+if __name__ == "__main__":
+    sys.exit(main(sys.argv[1:]))
