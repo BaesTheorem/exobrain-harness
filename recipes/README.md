@@ -98,3 +98,17 @@ with the ingredient list in alphabetical order) and, separately, the tree read
 back from Chu's own table. A converter that sees only the inputs writes its
 trees, and `chu_bench.py score` compares the ingredient groupings. The fetched
 pages stay in the gitignored `bench/.cache/`.
+
+Result on 2026-11-02, with an Opus 5.5 agent as the converter (it saw only the
+inputs and the rules in the skill): mean F1 0.93 over 12 recipes (precision
+0.95, recall 0.94), Chu's exact grouping in 8 of 12, and 12 of 12 valid trees.
+The misses are places where the prose and Chu's table disagree:
+
+- The banana bread prose mashes the bananas, butter and vanilla before the
+  eggs join. The converter kept that step, and Chu's table merges the two.
+- In the Rice Krispies treats, the converter added the chocolate chips at the
+  stir, because the author says that is when he adds extras.
+- For the prime rib, the converter reports that the prose describes the
+  Yorkshire pudding in one sentence only, so it guessed that branch.
+
+No rule changed after the run, because each miss follows the prose.
