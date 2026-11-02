@@ -8,3 +8,5 @@ build
 coverage
 *.tgz
 .fitbit-check-state.json
+.google-health-token.json
+.google-health-token.json.tmp

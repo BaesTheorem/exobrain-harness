@@ -113,17 +113,17 @@ try:
     exp = datetime.fromisoformat(d['expires_at'].replace('Z', '+00:00'))
     now = datetime.now(timezone.utc)
     hours_left = (exp - now).total_seconds() / 3600
-    # Fitbit access tokens live 8h and the MCP server refreshes them on first use.
-    # An expired access token is therefore the normal steady state, not a fault, so
-    # long as a refresh token is on disk. Only the absence of a refresh token means
-    # a human has to go re-consent in a browser. The real health signal for the
-    # refresh chain is the launchd fitbit-token job's exit code, checked further down.
+    # Fitbit data comes from the Google Health API v4 since 2026-10-30. Google access
+    # tokens live 1h and the MCP server refreshes them on first use, so an expired
+    # access token is the normal steady state. Only a missing refresh token needs
+    # Alex. The real signal for the refresh chain is the launchd fitbit-token job's
+    # exit code, checked further down.
     if not d.get('refresh_token'):
-        print('WARN: Fitbit refresh token missing -- needs browser re-auth: fitbit-mcp/bin/fitbit-reauth')
+        print('WARN: Google Health refresh token missing -- needs consent: fitbit-mcp/bin/fitbit-reauth')
     elif hours_left < 0:
-        print(f'OK: Fitbit token (access token aged out {-hours_left:.0f}h ago; refreshes on first use)')
+        print(f'OK: Google Health token (access token aged out {-hours_left:.0f}h ago; refreshes on first use)')
     else:
-        print(f'OK: Fitbit token (valid for {hours_left:.0f}h)')
+        print(f'OK: Google Health token (valid for {hours_left:.0f}h)')
 except Exception as e:
     print(f'WARN: Fitbit token unreadable -- {e}')
 " 2>/dev/null)
@@ -132,7 +132,7 @@ except Exception as e:
     ISSUES=$((ISSUES + 1))
   fi
 else
-  echo "WARN: Fitbit token missing -- may need re-auth"
+  echo "WARN: Google Health token missing (Fitbit data source) -- run fitbit-mcp/bin/fitbit-reauth"
   ISSUES=$((ISSUES + 1))
 fi
 
@@ -281,7 +281,7 @@ if [ -z "$FITBIT_JOB_EXIT" ]; then
   echo "WARN: launchd fitbit-token not loaded -- nothing is watching the Fitbit refresh chain"
   ISSUES=$((ISSUES + 1))
 elif [ "$FITBIT_JOB_EXIT" = "1" ]; then
-  echo "FAIL: Fitbit refresh chain is broken -- re-authorize with: fitbit-mcp/bin/fitbit-reauth"
+  echo "FAIL: Google Health token needs consent (Fitbit data is dark) -- run: fitbit-mcp/bin/fitbit-reauth"
   ISSUES=$((ISSUES + 1))
 else
   echo "OK: launchd fitbit-token"

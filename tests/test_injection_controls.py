@@ -215,7 +215,7 @@ def test_guard_denies_instruction_file_writes_and_allows_routine_writes():
 def test_guard_denies_secret_reads_but_allows_templates():
     assert _run_guard("Read", {"file_path": f"{HARNESS}/.env"}) == "deny"
     assert _run_guard("Read", {"file_path": f"{HARNESS}/zulip/.zuliprc"}) == "deny"
-    assert _run_guard("Read", {"file_path": f"{HARNESS}/fitbit-mcp/.fitbit-token.json"}) == "deny"
+    assert _run_guard("Read", {"file_path": f"{HARNESS}/fitbit-mcp/.google-health-token.json"}) == "deny"
     assert _run_guard("Read", {"file_path": f"{HOME}/.claude.json"}) == "deny"
     assert _run_guard("Read", {"file_path": f"{HARNESS}/.env.example"}) is None
     assert _run_guard("Read", {"file_path": f"{HARNESS}/CLAUDE.md"}) is None
@@ -278,7 +278,7 @@ def test_guard_denies_persistence_and_exfiltration_shells():
         f"cp /tmp/x {HARNESS.replace(' ', chr(92) + ' ')}/weather/get-weather.py",
         "tee ';' .env <<< x",
         # Metadata reads of a secret are allowed; these read the contents.
-        "ls fitbit-mcp/.fitbit-token.json | xargs cat",
+        "ls fitbit-mcp/.google-health-token.json | xargs cat",
         "stat $(cat .env)",
         "test -f .env && cat .env",
     ]
@@ -336,7 +336,7 @@ def test_guard_denies_persistence_and_exfiltration_shells():
         "cd /tmp/js; python3 full.py https://x.example/a > preveil.txt; python3 full.py https://x.example/b > cs.txt; wc -c preveil.txt",
         f"rm -f /tmp/js/full.py /tmp/js/ld.py; cd '{HARNESS}'; mist-voice/bin/mist-notify 'x' 'MIST' Purr console",
         f"cd '{HOME}/Exobrain'; sed -i '' 's/a/b/' \"Daily notes/Thursday, September 24th, 2026.md\"; cd '{HARNESS}'; python3 mood-tracker/render-mood-journal.py >/dev/null 2>&1",
-        f"cd '{HARNESS}'; stat -f '%Sm' fitbit-mcp/.fitbit-token.json; ls \"{HOME}/Exobrain/Areas\" | tail -2",
+        f"cd '{HARNESS}'; stat -f '%Sm' fitbit-mcp/.google-health-token.json; ls \"{HOME}/Exobrain/Areas\" | tail -2",
         f"cd '{HARNESS}' && python3 - <<'EOF'\nimport json, pathlib\nwl_path = pathlib.Path('fantasy/watchlist.json')\nwl = json.loads(wl_path.read_text())\nwl['note'] = 'per fantasy/bin/espn team, see weather/get-weather.py'\nwl_path.write_text(json.dumps(wl))\nEOF",
     ]
     for cmd in allowed:

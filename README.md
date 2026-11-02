@@ -317,8 +317,8 @@ Two stores. **Session memory** is a Zettelkasten in the vault at `~/Exobrain/Cla
 | **Pokemon Go** | Local, project `.mcp.json` (`pokemon-go/bin/pokemon-go-mcp`, a launcher for the fork at `~/Documents/pokemon-go-mcp`) | LeekDuck events, raids, research, eggs, Team GO Rocket lineups, promo codes (43 tools, read-only); `pokemon-go/bin/pogo` is the CLI twin with Pokedex, PvPoke and CP/IV math | None (public community data) |
 | **MyChart** | Local, user scope (`mychart/bin/mychart-mcp`, behind `mcp-lazy`) | Every MyChart account from one local store: labs with trends across accounts, meds, visits and notes, messages (send after a confirm step), bills, imaging, documents, FHIR resources (13 tools) | Passkey per account in the Keychain (`mychart login <name>`); engine is a local OpenRecord checkout pinned in `mychart/ENGINE_PIN` |
 
-**Fitbit MCP location**: `/Users/alexhedtke/Documents/Exobrain harness/fitbit-mcp/` (patched fork, see `fitbit-mcp/FORK.md`)
-**Fitbit token**: `/Users/alexhedtke/Documents/Exobrain harness/fitbit-mcp/.fitbit-token.json` (auto-refreshed)
+**Fitbit MCP location**: `/Users/alexhedtke/Documents/Exobrain harness/fitbit-mcp/` (reads the Google Health API v4 since the Fitbit Web API shut down on 2026-10-30; see `fitbit-mcp/FORK.md`)
+**Google Health token**: `/Users/alexhedtke/Documents/Exobrain harness/fitbit-mcp/.google-health-token.json` (auto-refreshed)
 **Withings tokens**: `/Users/alexhedtke/Documents/Exobrain harness/.env` (auto-refreshed)
 **MyChart**: `mychart/` (CLI, MCP server, scheduled sync, FHIR and EHI lanes; see `mychart/README.md`). It replaced the hosted OpenRecord connector on 2026-10-19; the engine is OpenRecord's `mychart-cli` library, built from a local checkout because its license forbids redistribution.
 
@@ -849,8 +849,8 @@ Memory files are in the project-scoped memory directory. Claude manages these au
 ### Processing Log
 `processing-log.json` grows over time. It's safe to archive old entries periodically, but keep recent ones (30 days) for duplicate detection.
 
-### Fitbit Token Refresh
-The Fitbit MCP handles token refresh automatically via `.fitbit-token.json`. If auth breaks, delete the token file and re-authenticate.
+### Fitbit (Google Health) Token Refresh
+The `fitbit` MCP server refreshes its Google Health token automatically from `.google-health-token.json`. If the refresh token is revoked, run `fitbit-mcp/bin/fitbit-reauth` and approve the consent page. The `com.exobrain.fitbit-token` launchd job checks the token every 6 hours and raises a banner when consent is needed.
 
 ### Withings Token Refresh
 The Withings MCP handles token refresh automatically via `.env`. If auth breaks, re-run the OAuth flow.

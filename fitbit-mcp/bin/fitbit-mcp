@@ -2,9 +2,9 @@
 # Launch the Fitbit MCP server (stdio). Registered with:
 #   claude mcp add --scope user fitbit -- "<this file>"
 # Secrets come from the gitignored harness .env, sourced below:
-#   FITBIT_CLIENT_ID, FITBIT_CLIENT_SECRET
-# The OAuth token lives in ../.fitbit-token.json (gitignored, written by the
-# server itself). See ../FORK.md for what diverges from upstream.
+#   GOOGLE_OAUTH_CLIENT_ID, GOOGLE_OAUTH_CLIENT_SECRET (Google Health API v4)
+# The OAuth token lives in ../.google-health-token.json (gitignored, written by
+# bin/fitbit-reauth). See ../FORK.md for why this is no longer the upstream fork.
 DIR="$(cd "$(dirname "$0")/.." && pwd)"
 HARNESS="$(cd "$DIR/.." && pwd)"
 if [ -f "$HARNESS/.env" ]; then

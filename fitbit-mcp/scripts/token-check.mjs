@@ -1,32 +1,19 @@
 #!/usr/bin/env node
-// Keep the Fitbit OAuth token renewed, and escalate only when a human is needed.
+// Keep the Google Health OAuth token exercised, and escalate only when a human is needed.
 //
-// Renewal is already automatic inside the MCP server: it refreshes on a 5-minute
-// skew before expiry and re-reads the token file rather than racing sibling
-// instances for the single-use refresh token. What it cannot do is renew a token
-// nothing ever asks for, or clear a genuinely broken refresh chain.
+// Since 2026-10-30 the `fitbit` MCP server reads the Google Health API v4 (the
+// legacy Fitbit Web API answers HTTP 410). Google refresh tokens are reusable and,
+// because the OAuth project is published "In production", do not expire after 7
+// days. A refresh can still fail for good: consent revoked, password changed,
+// or six months unused. This job finds that before the morning briefing does.
 //
-// This does NOT refresh out of band. It calls the very same getAccessToken() the
-// server calls, in a process that reads the same token file, so the race-safe
-// path (adopt a sibling's fresher token; never spend one that is already gone)
-// applies unchanged. See ../FORK.md. Two things fall out of one cheap call:
-//
-//   * the token gets exercised on a schedule, so it is never cold when the
-//     morning briefing asks for it, and
-//   * a broken refresh chain surfaces as a notification instead of as a health
-//     pipeline that is quietly dark all morning.
-//
-// Only Fitbit's browser consent screen needs Alex, and that is what the
-// notification button runs (bin/fitbit-reauth).
+// It calls the same getAccessToken() the server calls (build/google-auth.js), then
+// GET users/me/identity, so a pass proves token + API + account link together.
 //
 // launchd must invoke this as `/opt/homebrew/bin/node <this file>` DIRECTLY, with
-// no shell wrapper. A bash wrapper that execs a Homebrew interpreter is denied by
-// TCC's ~/Documents gate: node dies with EPERM opening build/index.js before it
-// runs a line. Verified here 2026-09-10, and the same shape as the venv-python
-// case in the harness notes. The wait-for-network gate therefore lives in this
-// file rather than in a shell script.
+// no shell wrapper (TCC's ~/Documents gate; see the harness launchd notes).
 //
-// Exit codes: 0 healthy, 1 re-auth needed, 2 inconclusive (transient/unknown).
+// Exit codes: 0 healthy, 1 re-consent needed, 2 inconclusive (transient/unknown).
 
 import { spawn } from 'child_process';
 import { readFileSync, writeFileSync } from 'fs';
@@ -56,9 +43,8 @@ const RE_ESCALATE_AFTER_MS = 24 * 60 * 60 * 1000;
 // module load, so this has to happen before that import.
 dotenv.config({ path: path.join(HARNESS, '.env') });
 
-const { initializeAuth, getAccessToken, lastRefreshFailedTransiently } = await import('../build/auth.js');
-
-const PROFILE_URL = 'https://api.fitbit.com/1/user/-/profile.json';
+const { getAccessToken, lastAuthFailure } = await import('../build/google-auth.js');
+const { identity, HealthApiError } = await import('../build/google-health.js');
 const OK = 'OK';
 const NEEDS_REAUTH = 'NEEDS_REAUTH';
 const INCONCLUSIVE = 'INCONCLUSIVE';
@@ -73,7 +59,7 @@ async function waitForNetwork(maxWaitMs = 300_000) {
   let delay = 2_000;
   for (;;) {
     try {
-      await fetch('https://api.fitbit.com/', {
+      await fetch('https://health.googleapis.com/', {
         method: 'HEAD',
         signal: AbortSignal.timeout(8_000),
       });
@@ -91,39 +77,29 @@ async function check() {
     return [INCONCLUSIVE, 'no network; skipping rather than guessing at the token'];
   }
 
-  await initializeAuth();
-
-  // The refresh, if one is due, happens in here, on the shared race-safe path.
   const token = await getAccessToken();
   if (!token) {
-    if (lastRefreshFailedTransiently()) {
-      return [INCONCLUSIVE, 'Fitbit token endpoint failed server-side; the refresh token is unspent'];
-    }
-    return [NEEDS_REAUTH, 'no usable token: the refresh chain is broken'];
+    const why = lastAuthFailure();
+    if (why === 'transient') return [INCONCLUSIVE, 'Google token endpoint failed (network or 5xx); the refresh token is unspent'];
+    if (why === 'missing') return [NEEDS_REAUTH, 'no Google Health token on disk yet'];
+    return [NEEDS_REAUTH, 'Google rejected the refresh token (invalid_grant): consent was revoked or expired'];
   }
 
-  let res;
   try {
-    res = await fetch(PROFILE_URL, {
-      headers: { Authorization: `Bearer ${token}`, Accept: 'application/json' },
-      signal: AbortSignal.timeout(30_000),
-    });
+    const id = await identity();
+    if (!id || typeof id !== 'object') return [INCONCLUSIVE, 'identity response was empty'];
   } catch (err) {
-    return [INCONCLUSIVE, `profile request failed: ${err.message}`];
+    if (err instanceof HealthApiError) {
+      if (err.status === 401) return [NEEDS_REAUTH, 'Google Health rejected a fresh access token (401)'];
+      if (err.status === 400 && JSON.stringify(err.body).includes('ACCOUNT_NOT_LINKED')) {
+        return [NEEDS_REAUTH, 'Google account is not linked to Google Health (ACCOUNT_NOT_LINKED): sign in to the Google Health app'];
+      }
+      if (err.status === 403) return [NEEDS_REAUTH, `Google Health refused access (403): ${err.message.slice(0, 160)}`];
+      return [INCONCLUSIVE, `Google Health returned HTTP ${err.status}`];
+    }
+    return [INCONCLUSIVE, `identity request failed: ${err.message}`];
   }
-
-  if (res.status === 401) {
-    return [NEEDS_REAUTH, 'Fitbit rejected the token (401) even after a refresh'];
-  }
-  if (!res.ok) {
-    return [INCONCLUSIVE, `Fitbit returned HTTP ${res.status}`];
-  }
-
-  const body = await res.json().catch(() => null);
-  if (!body?.user) {
-    return [INCONCLUSIVE, 'profile response had no user object'];
-  }
-  return [OK, 'profile fetched; token is live and was refreshed if it was due'];
+  return [OK, 'identity fetched; token is live and was refreshed if it was due'];
 }
 
 function readState() {
@@ -164,6 +140,8 @@ function notify(message, subtitle, actions) {
         // Stable id, so a repeat replaces the banner instead of stacking.
         '--id', 'fitbit-token-reauth',
         '--urgency', 'timeSensitive',
+        '--discord',
+        '--context', `Fitbit data comes from the Google Health API v4. Re-consent: run '${REAUTH} url', have Alex approve, then '${REAUTH} code "<redirected google.com URL>"'. Log: ${LOG_FILE}`,
       ],
       { stdio: 'ignore', detached: true }
     ).unref();
@@ -192,9 +170,9 @@ if (status === OK) {
 if (status === NEEDS_REAUTH) {
   // A definite answer, so the run-counting heuristic is not involved at all.
   notify(
-    'Fitbit needs re-authorization. Health data is dark until you approve it.',
+    'Fitbit data (Google Health) needs your consent again. Tap to fix it in a chat.',
     detail,
-    [`Re-authorize=cmd:'${REAUTH}'`]
+    []
   );
   writeState({
     ...state,
@@ -221,9 +199,8 @@ if (streak >= STALE_RUNS_BEFORE_ESCALATING && escalatedAgo >= RE_ESCALATE_AFTER_
   notify(
     `Fitbit has not checked out for ~${stuckFor}h (${streak} runs). Health data may be stale.`,
     `${since}. Latest: ${detail}`,
-    // Re-auth is NOT the first move here: inconclusive means unknown, not broken.
-    // The log says which it is, so open that; re-auth stays as the escape hatch.
-    [`Open log=${LOG_FILE}`, `Re-authorize=cmd:'${REAUTH}'`]
+    // Inconclusive means unknown, not broken, so the log is the first move.
+    [`Open log=${LOG_FILE}`]
   );
   lastEscalatedAt = now;
   console.log(`[${now}] escalated: ${streak} consecutive inconclusive runs`);

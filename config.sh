@@ -152,7 +152,7 @@ LOCAL_BACKUP_DIR="/Volumes/Extreme SSD/Exobrain backups"
 LOCAL_BACKUP_KEEP=2
 
 # External dependencies (outside the harness)
-FITBIT_TOKEN="$HARNESS_DIR/fitbit-mcp/.fitbit-token.json"
+FITBIT_TOKEN="$HARNESS_DIR/fitbit-mcp/.google-health-token.json"  # Google Health API v4 since 2026-10-30
 
 # Optional session-start checks for things that live outside this repo. Each
 # defaults on only when its target exists on this machine, so a fresh clone does

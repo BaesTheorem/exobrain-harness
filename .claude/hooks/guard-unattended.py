@@ -232,7 +232,7 @@ HARNESS_COMMIT = HARNESS / "bin" / "harness-commit"
 OPERATOR = re.compile(r"[;&|<>()]+")
 REDIRECTS = {">", ">>", ">|", "&>", "&>>", ">&"}
 # Segments that read a file's metadata, never its contents, may name a secret:
-# `stat -f %Sm fitbit-mcp/.fitbit-token.json` is how the health routine checks
+# `stat -f %Sm fitbit-mcp/.google-health-token.json` is how the health routine checks
 # token freshness. Not when piped on (`ls x | xargs cat`), redirected, or
 # carrying a substitution.
 METADATA_SEGMENT = re.compile(r"(?:^|(?<=[;&\n]))[ \t]*(?:stat|ls|test|\[\[?)[ \t][^;&|\n<>`$]*(?=[;&\n]|$)")

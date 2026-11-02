@@ -98,7 +98,7 @@ As of the **2026-06-21 backup fixes**, the items that used to be missing are now
 #   credentials.json; home-assistant config.
 # The Fitbit MCP is no longer here: it lives in the harness tree at
 # "Exobrain harness/fitbit-mcp", so the harness tarball restores it (including
-# .fitbit-token.json and build/). Only node_modules is excluded.
+# .google-health-token.json and build/). Only node_modules is excluded.
 rsync -a ~/restore-staging/home-extras/ "$HOME/"
 # Fitbit MCP needs its deps reinstalled (node_modules is excluded to stay lean):
 ( cd "$HOME/Documents/Exobrain harness/fitbit-mcp" && npm ci )   # build/index.js is already restored

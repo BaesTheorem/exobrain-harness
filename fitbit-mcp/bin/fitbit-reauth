@@ -1,21 +1,18 @@
 #!/bin/sh
-# Re-run Fitbit's browser consent flow and write a fresh token.
+# Google Health consent for the `fitbit` MCP server (the Fitbit Web API shut down 2026-10-30).
 #
-# Use when the refresh chain is broken (bin/fitbit-token-check says NEEDS_REAUTH).
-# Routine expiry does NOT need this: the server refreshes itself on next use.
-# Secrets come from the gitignored harness .env, same as bin/fitbit-mcp.
+#   fitbit-reauth            open the consent page, then paste the redirected URL
+#   fitbit-reauth url        print the consent URL only
+#   fitbit-reauth code URL   exchange a redirected https://www.google.com/?code=... URL
+#
+# Uses GOOGLE_OAUTH_CLIENT_ID / GOOGLE_OAUTH_CLIENT_SECRET from the harness .env.
+# Writes ../.google-health-token.json (gitignored, mode 600).
 DIR="$(cd "$(dirname "$0")/.." && pwd)"
-HARNESS="$(cd "$DIR/.." && pwd)"
-if [ -f "$HARNESS/.env" ]; then
-    set -a
-    . "$HARNESS/.env"
-    set +a
-fi
-if [ ! -f "$DIR/build/auth.js" ]; then
+if [ ! -f "$DIR/build/google-auth.js" ]; then
     echo "fitbit-reauth: build/ is missing. Run: cd '$DIR' && npm ci && npm run build" >&2
     exit 1
 fi
 NODE="$(command -v node || true)"
 [ -x "$NODE" ] || NODE=/opt/homebrew/bin/node
 [ -x "$NODE" ] || { echo "fitbit-reauth: no node on PATH and /opt/homebrew/bin/node is missing" >&2; exit 1; }
-exec "$NODE" "$DIR/scripts/reauth.mjs"
+exec "$NODE" "$DIR/scripts/google-auth.mjs" "$@"
