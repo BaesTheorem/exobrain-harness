@@ -384,14 +384,16 @@ def restore_jobs(jobs, patience=90):
 
     bootstrap answers EIO while launchd is still tearing down the previous
     instance (a slow quitter can take a while), so retry until the job loads
-    or patience runs out. On the abort path the old process may still be alive
-    for the whole of its ExitTimeOut; the reload command is printed then.
+    or patience runs out. On the abort path the old process can stay alive
+    for the whole of its ExitTimeOut, so patience is at least that plus a
+    margin. A fixed 90 s gave up on Plex (ExitTimeOut 300) on 2026-10-27 and
+    left the server unloaded for six days.
     """
     for label, plist in jobs:
         if not plist:
             say(f"  {label}: plist path unknown, not reloaded")
             continue
-        end = time.time() + patience
+        end = time.time() + max(patience, launchd_exit_timeout(plist) + 30)
         while True:
             rc, out = run([LAUNCHCTL, "bootstrap", f"gui/{UID}", plist], merge=True)
             if rc == 0:
@@ -460,9 +462,10 @@ def free_and_eject(target, dry_run=False, do_eject=True, info=None):
     if remaining:
         who = describe(remaining)
         say(f"ABORT: still held by {who}. Leaving the volume mounted.")
-        restore_jobs(restore)
+        # Notify first: the reload below can wait for the job's whole ExitTimeOut.
         notify(f"{name} is still held by {who}. Quit it, then eject again.",
                "MIST", "Basso", "console")
+        restore_jobs(restore)
         return False, f"still held by {who}"
 
     stopped = ", ".join(f"{c}[{p}]" for p, c in targets)
