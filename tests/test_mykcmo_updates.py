@@ -28,9 +28,18 @@ def test_city_type_for_update_request_is_recognized():
 
 
 def test_recent_ask_blocks_a_second_one():
-    mine = [report("1", T0), ask("2", T0 + 8 * DAY, "1")]
+    answered = ask("2", T0 + 8 * DAY, "1") | {"status": "resolved"}
+    mine = [report("1", T0), answered]
     assert civicapi.due_for_update(mine, now=T0 + 9 * DAY) == []
     assert [r["id"] for r in civicapi.due_for_update(mine, now=T0 + 16 * DAY)] == ["1"]
+
+
+def test_open_ask_blocks_a_second_one_at_any_age():
+    # The city cancels a second ask while the first is open ("DUPLICATE ADMIN").
+    mine = [report("1", T0), ask("2", T0 + 8 * DAY, "1")]
+    assert civicapi.due_for_update(mine, now=T0 + 60 * DAY) == []
+    mine.append(ask("3", T0 + 16 * DAY, "1") | {"status": "canceled"})
+    assert civicapi.due_for_update(mine, now=T0 + 60 * DAY) == []
 
 
 def test_update_requests_for_finds_only_asks_naming_the_report():

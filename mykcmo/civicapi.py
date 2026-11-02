@@ -497,13 +497,22 @@ def last_asked(record: dict, mine: list[dict]) -> float:
 
 
 def due_for_update(mine: list[dict], now: float | None = None, days: int = STALE_DAYS) -> list[dict]:
-    """Open reports with no movement and no update request for `days` days."""
+    """Open reports with no movement and no update request for `days` days.
+
+    A report with an update request the city has not closed yet is never due:
+    the city cancels a second ask as a duplicate (3491235, 2026-11-02).
+    """
     import time
+
+    def is_closed(rec: dict) -> bool:
+        return any(c in str(rec.get("status", "")).lower() for c in _CLOSED)
 
     now = now or time.time()
     out = []
     for r in mine:
-        if is_update_request(r) or any(c in str(r.get("status", "")).lower() for c in _CLOSED):
+        if is_update_request(r) or is_closed(r):
+            continue
+        if any(not is_closed(a) for a in update_requests_for(r, mine)):
             continue
         if now - max(_ts(r), last_asked(r, mine)) >= days * 86400:
             out.append(r)
