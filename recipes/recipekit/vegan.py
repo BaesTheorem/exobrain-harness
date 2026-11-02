@@ -32,7 +32,7 @@ FLAGS: dict[str, str] = {
 
 PLANT = re.compile(
     r"\b(?:vegan|plant[- ]based|plant|non-?dairy|dairy-free|egg-free|vegetarian|"
-    r"soy|oat|almond|cashew|coconut|rice|hemp|pea|peanut|nut|seed|sunflower|apple|pumpkin|cocoa|shea|"
+    r"soya?|oat|almond|cashew|coconut|rice|hemp|pea|peanut|nut|seed|sunflower|apple|pumpkin|cocoa|shea|"
     r"flax|chia|aquafaba|just|dandelion|bee-free|mushroom)\s+(?:\w+\s+)?"
     r"(?:milk|butter|cream|cheese|yogh?urt|egg|eggs|mayo|mayonnaise|honey|fish sauce|sauce|worcestershire|"
     r"bacon|sausages?|chicken|beef|broth|stock)\b"

@@ -171,8 +171,12 @@ def item_grams(food: dict[str, Any], line: str) -> tuple[float, bool] | None:
             return hit[1], True
     named = [c for c in counts if c[2] and c[2] != "default"]
     if named:
-        mid = next((c for c in named if "medium" in c[2]), named[0])
-        return mid[1], not size
+        # "1/2 lemon" means half the fruit, not half of a "1 slice or wedge" portion
+        whole = [c for c in named if re.search(r"\b(?:medium|fruit|whole|each)\b", c[2])]
+        parts = re.compile(r"\b(?:slices?|wedges?|pieces?|leaf|leaves|sprigs?|stalks?|strips?|cubes?|chopped|diced|sliced)\b")
+        plain = [c for c in named if not parts.search(c[2])]
+        pick = (sorted(whole, key=lambda c: "medium" not in c[2]) or plain or named)[0]
+        return pick[1], bool(whole) and not size
     return counts[0][1], False
 
 

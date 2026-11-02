@@ -110,7 +110,7 @@ def test_split_quantity():
     ("6 tbsp butter", True), ("2 tbsp peanut butter", False), ("1 tbsp oyster sauce", False),
     ("2 eggs", True), ("1 eggplant", False), ("1 tsp cream of tartar", False), ("1 tbsp honey", True),
     ("1/4 cup dandelion honey", False), ("1 tsp anchovy paste", True), ("1 can coconut milk", False),
-    ("1 cup soy milk", False), ("12 mussels", False), ("1 lb shrimp", True), ("2 cups vegetable broth", False),
+    ("1 cup soy milk", False), ("150-200 ml soya milk", False), ("12 mussels", False), ("1 lb shrimp", True), ("2 cups vegetable broth", False),
     ("1 cup chicken broth", True), ("1/3 cup half and half", True), ("1/2 cup vegan butter", False), ("1 tbsp worcestershire sauce", True),
 ])
 def test_vegan_screen(line, flagged):
@@ -265,6 +265,15 @@ def test_nutrition_compute_paths():
     assert res["open"] == 1
     md = nutrition.markdown(res)
     assert md.startswith("Per serving (2 servings): **") and "| 0 | 2 bananas |" in md
+
+
+def test_item_grams_prefers_the_whole_fruit():
+    lemon = {"foodPortions": [{"modifier": "62000", "portionDescription": "1 slice or wedge", "gramWeight": 8},
+                              {"modifier": "90000", "portionDescription": "Quantity not specified", "gramWeight": 15},
+                              {"modifier": "10205", "portionDescription": "1 cup", "gramWeight": 200},
+                              {"modifier": "60813", "portionDescription": "1 fruit", "gramWeight": 65}]}
+    assert nutrition.item_grams(lemon, "1/2 lemon") == (65, True)
+    assert nutrition.density(lemon) == pytest.approx(200 / 236.588)
 
 
 def test_suspicious_match():
