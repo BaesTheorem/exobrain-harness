@@ -56,6 +56,12 @@ VENUES = {
     "Pawn and Pint": "25910726",               # 613 Walnut St, not the old Southwest Blvd record
 }
 
+# Luma event slugs that stay off Meetup by Alex's decision (for example, an event at a private
+# address). The run skips these silently instead of stopping on their venue.
+NOT_MIRRORED = {
+    "uejdd9np",  # 'The Altruists' movie night, 2026-11-20
+}
+
 # Meetup rejects a longer title with "title: The Meetup title is too long". Probed against the
 # live API: 80 characters is accepted, 81 is not.
 MEETUP_TITLE_MAX = 80
@@ -186,6 +192,8 @@ def main() -> int:
 
     pending = []
     for ev in upstream:
+        if ev["slug"] in NOT_MIRRORED:
+            continue
         if cutoff and ev["start"].date() > cutoff.date():
             continue
         if key_of(ev["title"], ev["start"].strftime("%Y-%m-%dT%H:%M")) in have:
