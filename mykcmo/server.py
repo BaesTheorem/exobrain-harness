@@ -817,6 +817,28 @@ def get_311_report_status(issue_id: str) -> dict:
 
 
 @mcp.tool()
+def add_311_note(issue_id: str, notes: str, confirm: bool = False) -> dict:
+    """Add a note to one of Alex's own 311 reports (it appears in the staff
+    timeline as "Notes Added By Citizen"). WRITES a real note the city reads.
+    Without confirm=True it returns a preview only. Confirm with Alex first.
+    """
+    if not notes.strip():
+        return {"ok": False, "error": "empty note"}
+    if not confirm:
+        return {"ok": False, "preview": {"issue_id": issue_id, "notes": notes},
+                "action_needed": "Confirm with Alex, then call again with confirm=True."}
+    try:
+        issue = civicapi.add_note(issue_id, notes)
+    except civicapi.KeyRejected as exc:
+        return _key_error(exc)
+    except civicapi.CivicError as exc:
+        return {"ok": False, "error": str(exc)}
+    return {"ok": True, "status": issue.get("status"),
+            "citizen_notes": [{k: h.get(k) for k in ("dateofupdate", "details")}
+                              for h in issue.get("history_object") or [] if "Citizen" in str(h.get("title"))]}
+
+
+@mcp.tool()
 def live_311_map(latitude: float | None = None, longitude: float | None = None, status: str = "open",
                  report_types: list[str] | None = None, limit: int = 50) -> list[dict]:
     """Public 311 reports near a point, live from the app backend (no 2-7 day

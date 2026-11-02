@@ -152,6 +152,27 @@ def check(cfg: dict | None = None) -> bool:
 # Report endpoints. Field shapes come from the decompiled app; see README.md.
 # ---------------------------------------------------------------------------
 
+def add_note(issue_id: str, notes: str, cfg: dict | None = None) -> dict:
+    """Add a citizen note to one of this device's reports (add_comments_citizen).
+
+    WRITES. Sends the flat parts the app sends; the city ties the note to the
+    signed device id, so it refuses reports this device did not file. Returns
+    the updated report with the reporter contact fields removed.
+    """
+    import time
+
+    cfg = cfg or load_config()
+    base = cfg.get("base_url") or DEFAULT_BASE
+    fields = {"issue_id": str(issue_id), "notes": notes, "city_id": cfg["city_id"], "notify": "",
+              "api_version": API_VERSION, "notifyids": "", "offline_timestamp": str(int(time.time() * 1000))}
+    data = _post(base + "add_comments_citizen", cfg, fields)
+    if "success" not in str(data.get("response_message", "")).lower():
+        raise CivicError(str(data.get("response_message") or "the city did not take the note"))
+    rows = data.get("response_data")
+    issue = rows[0] if isinstance(rows, list) and rows else {}
+    return {k: v for k, v in issue.items() if k not in REPORTER_FIELDS}
+
+
 MENU_REPORT = "10871"  # the "Make a Report" menu
 REPORTER_FIELDS = ("reporter_firstname", "reporter_lastname", "reporter_email", "reporter_phone")
 _CATALOG: dict | None = None
