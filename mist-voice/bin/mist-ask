@@ -9,6 +9,12 @@
 # present in every shell a Console chat spawns). Trailing args after the pairs
 # pass through to mist-notify (e.g. --group, --no-voice).
 #
+# The banner is held until this chat's turn ends (scripts/ask_after_turn.py
+# reads the chat's stream log for the turn's result row), so it never arrives
+# before the final message. Call mist-ask, then write the final message, and end
+# that message with the question. MIST_ASK_NOW=1 sends at once (no Console log,
+# or a test).
+#
 # After firing this, stop and wait: the tapped button is the next user message.
 # Limitation: a single quote in the reply text breaks the embedded cmd; keep
 # replies to plain words.
@@ -34,4 +40,10 @@ while [ $# -gt 0 ] && [[ "$1" == *=* && "$1" != --* ]]; do
   shift
 done
 if [ "${MIST_ASK_DRYRUN:-0}" = "1" ]; then printf '%s\n' "${ARGS[@]}" "$@"; exit 0; fi
+LOG="${MIST_CONSOLE_DATA:-$HOME/Documents/mist-console/data}/$MIST_CONSOLE_SESSION.jsonl"
+if [ "${MIST_ASK_NOW:-0}" != "1" ] && [ -f "$LOG" ]; then
+  python3 "$DIR/../scripts/ask_after_turn.py" --detach "$LOG" -- "$DIR/mist-notify" "${ARGS[@]}" "$@"
+  echo "mist-ask: banner queued; it fires when this turn ends"
+  exit 0
+fi
 exec "$DIR/mist-notify" "${ARGS[@]}" "$@"
