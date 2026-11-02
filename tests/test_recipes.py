@@ -292,6 +292,16 @@ def test_iter_foods_streams_across_chunk_edges_and_skips_nothing():
     assert got.count(None) == 1
 
 
+def test_regroup_repairs_a_bad_fuzzy_match():
+    flat = ["1/2 cup almond butter", "1 tsp lime zest", "1/2 cup cashews (soaked)", "1/3 cup coconut cream", "1 tbsp coconut oil"]
+    bad = [("For the Base", flat[:2]), ("Topping", ["1/2 cup cashews (soaked)", "1/2 cup cashews (soaked)", "1 tbsp coconut oil"])]
+    assert importer.regroup(bad, flat) == [{"group": "For the Base", "items": flat[:2]}, {"group": "Topping", "items": flat[2:]}]
+    good = [("Base", flat[:2]), ("Topping", flat[2:])]
+    assert importer.regroup(good, flat)[1] == {"group": "Topping", "items": flat[2:]}
+    assert importer.regroup([("Base", flat[:2])], flat) == flat                   # one group: flat
+    assert importer.regroup([("A", flat[:1]), ("B", flat[1:2])], flat) == flat     # sizes do not add up
+
+
 def test_ld_ingredient_count_reads_graph():
     page = ('<script type="application/ld+json">{"@context":"https://schema.org","@graph":[{"@type":"WebPage"},'
             '{"@type":["Recipe"],"name":"X","recipeIngredient":["a","b","c"]}]}</script>')

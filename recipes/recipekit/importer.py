@@ -165,6 +165,42 @@ class WprmPage:
         return self._first("wprm-recipe-summary")
 
 
+def _norm(text: str) -> str:
+    return re.sub(r"[^a-z0-9/]+", " ", htmllib.unescape(str(text)).lower()).strip()
+
+
+def regroup(groups: list[tuple[str | None, list[str]]], flat: list[str]) -> list[Any]:
+    """The ingredient list with its groups, where the items are exactly `flat`.
+
+    `flat` is the publisher's own list (JSON-LD). recipe-scrapers builds groups by
+    matching each HTML group line to an ingredient by similarity, and a long note
+    can pull the wrong line: a key lime pie page got its cashews twice and lost
+    the coconut cream. So a group's items are trusted only when they equal the
+    flat list. Otherwise only the group sizes are used, to cut the flat list,
+    and with no usable sizes the list stays flat.
+    """
+    named = [name for name, _ in groups if name]
+    if len(groups) < 2 or not named:
+        return list(flat)
+    items = [x for _, g in groups for x in g]
+    if sorted(map(_norm, items)) == sorted(map(_norm, flat)):
+        cut = [g for _, g in groups]
+    elif len(items) == len(flat):
+        cut, k = [], 0
+        for _, g in groups:
+            cut.append(flat[k : k + len(g)])
+            k += len(g)
+    else:
+        return list(flat)
+    out: list[Any] = []
+    for (name, _), part in zip(groups, cut, strict=True):
+        if name:
+            out.append({"group": name, "items": list(part)})
+        else:
+            out.extend(part)
+    return out
+
+
 def from_page(page: str, url: str) -> tuple[dict[str, Any], dict[str, Any], str, dict[str, Any]]:
     """(frontmatter, data, description, report) for one recipe page."""
     from recipe_scrapers import scrape_html  # lazy: a CLI dependency
@@ -176,18 +212,13 @@ def from_page(page: str, url: str) -> tuple[dict[str, Any], dict[str, Any], str,
             raise
         s = WprmPage(page, url)
     title = _try(s.title, "Imported recipe")
-    groups = _try(s.ingredient_groups, []) or []
-    named = [g for g in groups if getattr(g, "purpose", None)]
-    if len(groups) > 1 and named:
-        ingredients: list[Any] = [
-            {"group": g.purpose, "items": list(g.ingredients)} if g.purpose else list(g.ingredients) for g in groups
-        ]
-        flat_groups: list[Any] = []
-        for g in ingredients:
-            flat_groups.extend(g if isinstance(g, list) else [g])
-        ingredients = flat_groups
-    else:
-        ingredients = list(_try(s.ingredients, []) or [])
+    ld = ld_recipes(page)
+    ld_lines = ld[0].get("recipeIngredient") if ld else None
+    flat = ([_text(str(x)) for x in ld_lines] if isinstance(ld_lines, list) and ld_lines
+            else [str(x) for x in _try(s.ingredients, []) or []])
+    groups = [(getattr(g, "purpose", None), list(getattr(g, "ingredients", []) or []))
+              for g in _try(s.ingredient_groups, []) or []]
+    ingredients = regroup(groups, flat)
     steps = [str(x).strip() for x in _try(s.instructions_list, []) or [] if str(x).strip()]
     yields = str(_try(s.yields, "") or "")
     m = re.match(r"\s*(\d+)", yields)
@@ -212,6 +243,8 @@ def from_page(page: str, url: str) -> tuple[dict[str, Any], dict[str, Any], str,
     from .model import flatten
 
     expected = ld_ingredient_count(page)
-    report = {"ingredients": len(flatten(ingredients)), "json_ld_ingredients": expected,
-              "steps": len(steps), "match": expected is None or expected == len(flatten(ingredients))}
+    got = flatten(ingredients)
+    same = ld_lines is None or [_norm(x) for x in got] == [_norm(x) for x in ld_lines]
+    report = {"ingredients": len(got), "json_ld_ingredients": expected,
+              "steps": len(steps), "match": (expected is None or expected == len(got)) and same}
     return {k: v for k, v in fm.items() if v is not None}, data, str(_try(s.description, "") or ""), report
