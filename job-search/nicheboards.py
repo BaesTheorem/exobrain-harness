@@ -45,6 +45,7 @@ import urllib.parse
 import urllib.request
 
 from comp_floors import comp_floor
+from lawfirm import LAW_TITLES  # noqa: E402
 
 UA = ("Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 "
       "(KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36")
@@ -65,6 +66,8 @@ KEEP = re.compile(
     r"\b(analyst|it support|it operations|it specialist|helpdesk|help desk|"
     r"service desk|resident consultant|associate consultant|security|identity|iam|grc|compliance|administrator|"
     r"m365|microsoft 365|intune|endpoint|desktop support|technical support)\b", re.I)
+# Law-firm IT titles ("Litigation Support", "Technology Trainer"): see lawfirm.py.
+KEEP = re.compile(KEEP.pattern + "|" + LAW_TITLES, re.I)
 
 WWR_CATEGORIES = [
     "remote-devops-sysadmin-jobs",

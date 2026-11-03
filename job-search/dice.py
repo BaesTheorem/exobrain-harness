@@ -29,6 +29,7 @@ from pathlib import Path
 
 
 from comp_floors import comp_floor, onsite_floor
+from lawfirm import LAW_TITLES  # noqa: E402
 
 COMP_FLOOR = comp_floor()  # standard-lane floor, from the harness .env
 ONSITE_FLOOR = onsite_floor()  # any office requirement inside the KC metro; same source
@@ -52,6 +53,8 @@ KEEP = re.compile(
     r"service desk|resident consultant|associate consultant|security|identity|"
     r"iam|grc|compliance|administrator|m365|microsoft 365|intune|endpoint|"
     r"desktop support|technical support)\b", re.I)
+# Law-firm IT titles ("Litigation Support", "Technology Trainer"): see lawfirm.py.
+KEEP = re.compile(KEEP.pattern + "|" + LAW_TITLES, re.I)
 BODY_SHOP = re.compile(r"contract|third party|c2c|corp[- ]to[- ]corp|1099|temp", re.I)
 
 

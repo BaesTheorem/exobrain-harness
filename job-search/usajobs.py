@@ -43,6 +43,7 @@ import urllib.parse
 import urllib.request
 
 from comp_floors import comp_floor, onsite_floor
+from lawfirm import LAW_TITLES  # noqa: E402
 
 COMP_FLOOR = comp_floor()      # standard remote floor, from the harness .env
 ONSITE_FLOOR = onsite_floor()  # any office requirement at all triggers this, binary
@@ -61,6 +62,8 @@ KEEP = re.compile(
     r"service desk|security|identity|iam|grc|compliance|administrator|"
     r"information technology|m365|intune|endpoint|desktop support|"
     r"technical support)\b", re.I)
+# Law-firm IT titles ("Litigation Support", "Technology Trainer"): see lawfirm.py.
+KEEP = re.compile(KEEP.pattern + "|" + LAW_TITLES, re.I)
 
 
 def env_creds():

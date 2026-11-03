@@ -59,6 +59,7 @@ def _ensure_patchright() -> None:
 
 
 from comp_floors import comp_floor, onsite_floor  # noqa: E402  (sys.path set above)
+from lawfirm import LAW_TITLES  # noqa: E402
 
 UA = ("Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 "
       "(KHTML, like Gecko) Chrome/141.0.0.0 Safari/537.36")
@@ -81,6 +82,8 @@ KEEP = re.compile(
     r"\b(analyst|it support|it operations|it specialist|helpdesk|help desk|"
     r"service desk|security|identity|iam|grc|compliance|administrator|m365|"
     r"microsoft 365|intune|endpoint|desktop support|technical support)\b", re.I)
+# Law-firm IT titles ("Litigation Support", "Technology Trainer"): see lawfirm.py.
+KEEP = re.compile(KEEP.pattern + "|" + LAW_TITLES, re.I)
 OFF_LANE = re.compile(r"\b(behavior analyst|bcba|financial analyst|data analyst|"
                       r"business analyst|credit analyst|research analyst)\b", re.I)
 BODY_SHOP = re.compile(r"contract|temporary|temp|internship|per diem|seasonal", re.I)

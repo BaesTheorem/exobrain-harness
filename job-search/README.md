@@ -6,7 +6,7 @@ Daily unattended discovery scan for the `/job-search` skill.
   discovery prompt across every lane that works unattended: Gmail job alerts (if the
   claude.ai connector is reachable), `hiringcafe.py` + `indeed.py` + `nicheboards.py` +
   `ats-watchlist.py` + `workday.py` + `usajobs.py` + `talify.py` + `kcmo.py` + `moreboards.py` +
-  `aggregator.py` + `jobspy_lane.py` scripted lanes,
+  `aggregator.py` + `jobspy_lane.py` + `lawfirms.py` scripted lanes,
   Greenhouse/Lever X-ray (Ashby/Workable dropped 2026-08-10 -- chronic wrong-domain false
   negatives, and hiring.cafe covers those ATS inventories), 80,000 Hours Algolia, LinkedIn
   (if the MCP is reachable), and the warm-connection + re-apply watchlists. Applies the 4
@@ -151,6 +151,13 @@ Daily unattended discovery scan for the `/job-search` skill.
   (github.com/Feashliaa/job-board-aggregator, about 1.4M postings from seven ATS platforms,
   rebuilt daily). Streams one gzip chunk at a time and keeps remote-US and KC-metro titles
   first seen in the window. Its salary field is an estimate, so every row is a lead.
+- **`lawfirms.py`** (added 2026-11-02) -- law-firm careers boards polled directly. Most law
+  firms post staff roles on viRecruit (the law-firm ATS), UltiPro or iCIMS, which no other
+  lane reads. viRecruit pages are server-rendered with the full JD inline, one page per
+  `FilterREID`; `--discover <tenant>` finds a firm's REIDs. The board list is the gitignored
+  `state/lawfirm-boards.json` (schema: `lawfirm-boards.example.json`). `lawfirm.py` holds the
+  shared law-firm title pattern that every lane adds to its KEEP filter, and the employer-name
+  match behind the `[LAW FIRM]` tag and the employer-type funnel in `runlog.py yield`.
 - **`jobspy_lane.py`** (added 2026-10-13) -- Glassdoor and ZipRecruiter through the JobSpy
   library, run under `uv` so nothing is installed. Remote and KC passes. ZipRecruiter
   returned 0 rows on the first run (blocked), and the script says so.

@@ -1,0 +1,26 @@
+{
+ "_comment": "Copy to state/lawfirm-boards.json. kind: virecruit | ultipro | icims | manual. Find viRecruit REIDs with lawfirms.py --discover <tenant>.",
+ "boards": [
+  {
+   "firm": "Spencer Fane",
+   "kind": "virecruit",
+   "url": "https://spencerfanecareers.viglobalcloud.com/viRecruitSelfApply/RecDefault.aspx?FilterREID=4"
+  },
+  {
+   "firm": "Husch Blackwell",
+   "kind": "ultipro",
+   "url": "https://recruiting2.ultipro.com/HUS1001HUSCH/JobBoard/b6637591-8c8d-49b8-b093-5524b203b157"
+  },
+  {
+   "firm": "Lewis Brisbois",
+   "kind": "icims",
+   "url": "https://careers-lewisbrisbois.icims.com"
+  },
+  {
+   "firm": "Example Firm LLP",
+   "kind": "manual",
+   "url": "https://example.com/careers",
+   "why": "no data path yet"
+  }
+ ]
+}

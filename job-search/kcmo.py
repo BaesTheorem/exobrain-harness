@@ -70,6 +70,7 @@ def _ensure_patchright() -> None:
 
 
 from comp_floors import onsite_floor  # noqa: E402  (sys.path set above)
+from lawfirm import LAW_TITLES  # noqa: E402
 
 PS = ("https://psweb.kcmo.org/psc/ps/MOBILE/MOBL/c/HRS_HRAM_FL.HRS_CG_SEARCH_FL.GBL"
       "?Action=U&FOCUS=Applicant&SiteId=1")
@@ -96,6 +97,8 @@ KEEP = re.compile(
     r"service desk|desktop|technical support|systems? admin\w*|"
     r"server admin\w*|network admin\w*|identity|iam|endpoint|m365|"
     r"information services|computer)\b", re.I)
+# Law-firm IT titles ("Litigation Support", "Technology Trainer"): see lawfirm.py.
+KEEP = re.compile(KEEP.pattern + "|" + LAW_TITLES, re.I)
 # "Airport Security Officer" and similar are physical-security seats, not IT.
 # WATCH is checked first, so "Chief Information Security Officer" is not caught here.
 PHYSICAL = re.compile(r"\b(airport|aviation) security\b|\bsecurity (officer|guard)\b", re.I)

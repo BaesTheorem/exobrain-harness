@@ -53,6 +53,7 @@ import urllib.request
 
 import listings
 from comp_floors import comp_floor, onsite_floor
+from lawfirm import LAW_TITLES  # noqa: E402
 from note_link import active_notes
 from note_link import match as note_match
 from note_link import record as note_record
@@ -111,6 +112,8 @@ KEEP = re.compile(
     r"\b(analyst|it support|it operations|it specialist|helpdesk|help desk|"
     r"service desk|resident consultant|associate consultant|security|identity|iam|grc|compliance|administrator|"
     r"m365|microsoft 365|intune|endpoint|desktop support|technical support)\b", re.I)
+# Law-firm IT titles ("Litigation Support", "Technology Trainer"): see lawfirm.py.
+KEEP = re.compile(KEEP.pattern + "|" + LAW_TITLES, re.I)
 
 # Workday tenants spell "remote" many ways in the location field, and gating on
 # the literal word alone is a false negative that kills a whole employer's

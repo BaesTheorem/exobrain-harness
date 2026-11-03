@@ -40,6 +40,7 @@ from pathlib import Path
 
 import jobprofile as P
 import listings
+from lawfirm import is_law_firm
 
 # At most 7 digits, not after a digit or "/": a job id in a URL followed by
 # the word "lead" once recorded 1,010,310,792,825 leads for jobspy.
@@ -147,6 +148,46 @@ def tracker_funnel() -> dict[str, collections.Counter]:
     return funnel
 
 
+SCREEN_KEY = re.compile(r"^(?:phone_screen_\w+|interview\w*|reinterview_\w+):\s*\S", re.M)
+
+
+def employer_funnel() -> dict[str, collections.Counter]:
+    """{"law firm"|"other": Counter} over every job-listing note.
+
+    Law firm = `law_firm: true` in the frontmatter, else lawfirm.is_law_firm()
+    on `company`. `screened` counts a note that is interviewing or has an
+    offer now, OR carries `interviewed: true` or a phone-screen/interview
+    field, so a screen that later ended in a rejection still counts.
+    """
+    out: dict[str, collections.Counter] = collections.defaultdict(collections.Counter)
+    for root, dirs, files in P.walk_roots():
+        dirs[:] = [d for d in dirs if not d.startswith(".")]
+        for name in files:
+            if not name.endswith(".md"):
+                continue
+            try:
+                head = (Path(root) / name).read_text(encoding="utf-8", errors="replace")[:5000]
+            except OSError:
+                continue
+            fm = head.split("\n---", 1)[0]
+            if not re.search(r"^type:\s*['\"]?job-listing\b", fm, re.M):
+                continue
+            flag = re.search(r"^law_firm:\s*(true|false)\b", fm, re.M | re.I)
+            co = re.search(r"^company:\s*['\"]?([^'\"\n]+)", fm, re.M)
+            law = (flag.group(1).lower() == "true") if flag else is_law_firm(co.group(1) if co else "")
+            st = re.search(r"^status:\s*['\"]?([\w-]+)", fm, re.M)
+            status = st.group(1).lower() if st else "unknown"
+            c = out["law firm" if law else "other"]
+            c["notes"] += 1
+            if status in ("applied", "interviewing", "offer", "rejected", "withdrawn", "closed"):
+                c["applied+"] += 1
+                if (status in ("interviewing", "offer")
+                        or re.search(r"^interviewed:\s*true\b", fm, re.M | re.I)
+                        or SCREEN_KEY.search(fm)):
+                    c["screened"] += 1
+    return out
+
+
 def report(days: int) -> None:
     since = (dt.datetime.now() - dt.timedelta(days=days)).isoformat()
     lanes: dict[str, collections.Counter] = collections.defaultdict(collections.Counter)
@@ -180,6 +221,13 @@ def report(days: int) -> None:
     for src, c in sorted(tracker_funnel().items(), key=lambda kv: -sum(kv[1].values())):
         print(f"  {src[:21]:22}{sum(c.values()):>7}{c['skipped']:>9}{sum(c[s] for s in later):>10}"
               f"{c['interviewing'] + c['offer']:>11}{c['offer']:>7}")
+
+    # Is law-firm IT really Alex's strongest lane? The screen rate answers it.
+    print("\nTRACKER FUNNEL by employer type (law_firm field, else name match)")
+    print(f"  {'employer':22}{'notes':>7}{'applied+':>10}{'screened':>10}{'rate':>7}")
+    for kind, c in sorted(employer_funnel().items()):
+        rate = f"{c['screened'] / c['applied+']:.0%}" if c["applied+"] else "-"
+        print(f"  {kind:22}{c['notes']:>7}{c['applied+']:>10}{c['screened']:>10}{rate:>7}")
 
 
 def main() -> int:

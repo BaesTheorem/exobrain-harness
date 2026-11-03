@@ -689,6 +689,14 @@
     "notes": "Appends to state/runs.jsonl; lanes that count themselves hand counts to the wrapper (RUNLOG-COUNTS line). yield --days N for the report."
   },
   {
+    "name": "lawfirms.py",
+    "command": "python3 job-search/lawfirms.py [--all] [--discover TENANT --firm NAME]",
+    "repo_dir": "job-search",
+    "source": "built",
+    "added": "2026-11-02",
+    "notes": "Board list in gitignored job-search/state/lawfirm-boards.json (schema: lawfirm-boards.example.json). viRecruit staff boards sit on non-contiguous FilterREIDs; an unknown REID answers HTTP 500. UltiPro has two hosts (recruiting / recruiting2); the wrong one 404s. Seen-file state/lawfirms-seen.json; --all re-shows."
+  },
+  {
     "name": "listings.py",
     "command": "python3 job-search/listings.py tidy|restore \"<name>\"|stats",
     "repo_dir": "job-search",

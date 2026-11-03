@@ -205,6 +205,16 @@ Use multiple sources and triangulate -- no single source is authoritative for "o
 
 18. **Glassdoor and ZipRecruiter via JobSpy** (ADDED 2026-10-13) -- run `python3 "Exobrain harness/job-search/jobspy_lane.py" "<angle1>" "<angle2>" --days 3`. Both sites put Cloudflare in front of curl; the open-source JobSpy library (run under uv, nothing installed) reads their backends and returns posted date, remote flag, pay with interval, and the apply URL. REMOTE and KC passes. On the first run Glassdoor returned rows and **ZipRecruiter returned 0** (a `0 rows: likely blocked` line): report that as skipped, not dry. JobSpy's Google Jobs scraper returned no data and is not used.
 
+19. **Law-firm careers boards** (ADDED 2026-11-02, Alex: law-firm IT is where his resume is strongest) -- run `python3 "Exobrain harness/job-search/lawfirms.py"` every discovery pass. Before this lane, nothing in the pipeline looked for law firms: no angle was legal, the title filters dropped "Litigation Support" and "Technology Operations Specialist", and no lane polled a law firm's own board. Most law firms post staff roles on ATSes the other lanes never read:
+   - **viRecruit** (viGlobal, the law-firm ATS): Spencer Fane, Kutak Rock, Armstrong Teasdale, BCLP, Jones Day, Steptoe, Jenner, and others. `RecDefault.aspx?FilterREID=<n>` is server-rendered with the full JD of every posting inline. Attorney and staff postings sit on different REIDs that are not contiguous (BCLP staff: 51, 56), and an unknown REID answers HTTP 500. `--discover <tenant> --firm "<Firm>"` probes 1-70 and prints the entries to pin.
+   - **UltiPro**: Polsinelli, Husch Blackwell, Stinson, Fox Rothschild. `POST <board>/JobBoardView/LoadSearchResults` returns JSON; the detail page embeds the JD and pay fields. Husch files remote seats under "Virtual Office". Two hosts exist (`recruiting.ultipro.com`, `recruiting2.ultipro.com`); the wrong one 404s.
+   - **iCIMS**: Lewis Brisbois (server-rendered cards).
+   - `manual` entries (Shook Hardy on ADP, Lathrop GPM, Lewis Rice on Paycor, and others) print as `NOT POLLED` every run, so the gap stays visible.
+   - Law firms on Greenhouse, Ashby and Workday are pinned in those lanes instead (`state/watchlist-extra.json`, `workday.py --add`). iCIMS and Paylocity law firms in the aggregator dataset (Ropes & Gray, Squire, Foley, Constangy) come through `aggregator.py`, which sorts law-firm rows first with a `[LAW FIRM]` tag.
+   - The board list is the gitignored `state/lawfirm-boards.json`. The lane prints only postings not shown before, plus a **LAW-FIRM IT WATCH** list: IT titles a gate removed (seniority, location). Put those in the hub log by name; at a law firm Alex may want a seat the gates reject.
+   - `job-search/lawfirm.py` holds the law-firm title pattern that every lane appends to its KEEP filter, and the employer-name match behind the tag. The name match is a hint ("LLP" also covers accountancies), so the note field `law_firm: true` is the record.
+   - First run (2026-11-02): 21 boards, 548 postings, 0 failures, 12 seconds.
+
 **Dead ends tested 2026-10-13 (do not re-try without a new data path):** Reddit and Bluesky APIs (auth now required), Climatebase, CareerBuilder, Monster, ZipRecruiter and Glassdoor direct (Cloudflare 403), ISACA (robot check), Remote.co and careers.isc2.org (timeout), YC Work at a Startup (406), Levels.fyi (encrypted payload), Wellfound (ignores filters), Arbeitnow (no US rows), Jobspresso (stale), CyberSecJobs (cleared only), NEOGOV agency RSS (empty), Common Crawl index (504). Adzuna and Jooble keys were created 2026-10-13 (see the bullets above).
 
 ### Specific employer boards to watch (warm-connection lane)
@@ -224,6 +234,7 @@ Don't limit search keywords to titles like "IT Analyst" / "Security Analyst" / "
 - **Endpoint & Device**: "Microsoft Intune", "endpoint security", "lost/stolen device triage", "device wipe", "device lifecycle"
 - **Cloud & Virtual Desktop**: "Azure Virtual Desktop support", "AVD support", "Citrix Virtual Desktop support", "M365 administration", "Microsoft 365 admin"
 - **Cross-timezone IT**: "global IT support", "cross-timezone IT", "SLA-driven IT support", "follow-the-sun support"
+- **Law firms are Alex's strongest lane** (Alex 2026-11-02): the rotation in `angles.json` carries the legal angles below, and Source #19 polls law-firm boards directly. Whether the claim holds is measured, not assumed: `python3 job-search/runlog.py yield` ends with a law firm vs other screen-rate table.
 - **Legal-tech (law firm angle)**: "iManage", "Elite 3E", "Intapp", "law firm IT"
 - **Frameworks (GRC angle)**: "NIST CSF", "NIST AI RMF", "SOC 2 evidence", "vendor risk assessment", "phishing simulation"
 - **Resume title fair game**: "IT Analyst" -- a title on his resume, common at law firms and mid-market enterprises
@@ -456,6 +467,7 @@ A scan is **not** a full scan until every lane below has either run or been expl
 | 17 | More boards via `moreboards.py` | | Thirteen boards (SimplyHired, SmartRecruiters, Workable, ClearanceJobs, Working Nomads, Jobicy, RemoteOK, Garmin, H&R Block, BJC, Oracle Health, HigherEdJobs, HN). One status line per board; carry NOT RUN / PARTIAL lines. |
 | 18 | ATS aggregator via `aggregator.py` | | About 1.4M postings across seven ATSes. Every row is a LEAD (salary field is an estimate). |
 | 19 | Glassdoor / ZipRecruiter via `jobspy_lane.py` | | A 0-row site is blocked, not dry. |
+| 20 | Law-firm boards via `lawfirms.py` | | viRecruit / UltiPro / iCIMS boards of law firms. Report NOT POLLED and FAILED lines, and LAW-FIRM IT WATCH rows by name. |
 
 **Report the tally honestly**, including the skipped lanes. A scan that ran 4 of the lanes below is a partial scan; say so in the hub-note log and to Alex rather than labeling it full. Under-running is recoverable; a false "I checked everything" is not, because it silently retires leads.
 
@@ -714,6 +726,8 @@ last_research: 2026-05-08
 jd_snapshot: "<Company> - <Role> - posting 2026-05-08.png"  # written by jd-snapshot.py
 jd_snapshot_date: "2026-05-08"
 jd_snapshot_comp: "seen"  # seen | not-found | unlisted
+law_firm: false            # true when the employer is a law firm, from ANY lane; feeds the employer-type funnel in `runlog.py yield`
+interviewed: false         # set true once any screen or interview happens, and keep it after a rejection; the screen-rate comparison reads it
 original_listing:          # intermediary reposts only: the employer's own ATS URL (see "Intermediary Reposts")
 source: rippling-ats       # short tag: greenhouse, lever, ashby, workday, icims, rippling, linkedin, indeed, etc.
 ---
@@ -879,6 +893,7 @@ When called as part of the daily briefing (every day, weekends included):
    - `python3 "Exobrain harness/job-search/kcmo.py"` (see Source #15) -- City of Kansas City, MO board. Survivors/leads get the JD read + note pipeline with `source: kcmo`; report any WATCH row in the hub log by name.
    - `python3 "Exobrain harness/job-search/moreboards.py" "<angle1>" "<angle2>" "<angle3>" --days 3` (see Source #16) -- thirteen JSON/RSS boards in one run; only postings not shown before.
    - `python3 "Exobrain harness/job-search/aggregator.py" --days 3` (see Source #17) -- ATS-wide dataset; every row is a lead, the posting decides comp.
+   - `python3 "Exobrain harness/job-search/lawfirms.py"` (see Source #19) -- law-firm boards. Treat its survivors and leads first, because law-firm IT is Alex's strongest lane. Notes use `source: lawfirm` (or the ATS tag) and `law_firm: true`.
    - `python3 "Exobrain harness/job-search/jobspy_lane.py" "<angle1>" "<angle2>" --days 3` (see Source #18) -- Glassdoor and ZipRecruiter.
    - `python3 "Exobrain harness/job-search/workday.py"` (see Source #13) -- new postings across every pinned + auto-discovered Workday tenant. Survivors come pre-gated on all four gates with `canApply` verified and the JD already fetched, so they go straight to status-aware dedup and a note; LEADS have no comp in the JD and need the usual judgment call. Report polled/failed/baselined counts honestly. To pin a new board Alex hands over, `--add "<board URL with its filters>"` and read back the resolved facet labels before trusting it.
 

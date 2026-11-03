@@ -59,6 +59,8 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from comp_floors import comp_floor, onsite_floor  # noqa: E402
+from lawfirm import LAW_TITLES  # noqa: E402
+from lawfirm import tag as law_tag  # noqa: E402
 
 STATE = Path(__file__).resolve().parent / "state" / "moreboards-seen.json"
 SEEN_TTL_DAYS = 60
@@ -73,6 +75,8 @@ KEEP = re.compile(
     r"service desk|security|identity|iam|grc|compliance|administrator|m365|"
     r"microsoft 365|intune|endpoint|desktop support|technical support|"
     r"systems? admin)\b", re.I)
+# Law-firm IT titles ("Litigation Support", "Technology Trainer"): see lawfirm.py.
+KEEP = re.compile(KEEP.pattern + "|" + LAW_TITLES, re.I)
 # Off-lane analyst families (measured on the first run, 2026-10-13: Jobicy and
 # SimplyHired return every kind of analyst for "analyst" queries).
 OFF_LANE = re.compile(
@@ -636,7 +640,8 @@ def main() -> None:
             comp = (f"${int(j['lo'] or 0):,}-${int(j['hi'] or 0):,}"
                     if j["lo"] or j["hi"] else "unlisted")
             extra = f" | {j['extra']}" if j["extra"] else ""
-            print(f"  [{j['src']}] {j['title']} @ {j['company']} | {j['where']} | {comp} | "
+            print(f"  [{j['src']}] {j['title']} @ {j['company']}{law_tag(j['company'])} | "
+                  f"{j['where']} | {comp} | "
                   f"{j['posted'] or '?'}{extra}  {why}")
             print(f"    {j['url']}")
         print()

@@ -36,3 +36,8 @@ shapes. Copy one without the `.example` infix to start a real list.
 
 `kcmo.py` keeps `kcmo-snapshot.json` here (City of KCMO posting ids with first and last
 seen dates). It rebuilds itself; the run after a fresh clone is a baseline.
+
+`lawfirm-boards.json` (hand-maintained) is the board list for `lawfirms.py`; schema in
+`../lawfirm-boards.example.json`. Rebuild viRecruit entries with
+`python3 lawfirms.py --discover <tenant> --firm "<Firm>"`. `lawfirms-seen.json` is its
+seen-file and rebuilds itself (the first run shows everything).

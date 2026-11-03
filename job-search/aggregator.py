@@ -44,6 +44,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from comp_floors import comp_floor, onsite_floor  # noqa: E402
+from lawfirm import is_law_firm, tag  # noqa: E402
 from moreboards import KC_METRO, REMOTE, gate, row  # noqa: E402
 
 BASE = "https://riley-dorrington.github.io/job-board-data/data/chunks/"
@@ -131,9 +132,11 @@ def main() -> None:
     for f in failed:
         print(f"~ COVERAGE GAP: {f}")
     print("\nLEADS -- the posting decides comp (aggregator salary is an estimate)")
-    for r, why in sorted(buckets["lead"], key=lambda x: (x[0]["where"], x[0]["company"])):
-        print(f"  {r['title']} @ {r['company']} | {r['where']} | first seen {r['posted']} | "
-              f"{r['extra']}  {why}")
+    # Law-firm rows first: Alex's experience is law-firm IT (see lawfirm.py).
+    for r, why in sorted(buckets["lead"], key=lambda x: (not is_law_firm(x[0]["company"]),
+                                                          x[0]["where"], x[0]["company"])):
+        print(f"  {r['title']} @ {r['company']}{tag(r['company'])} | {r['where']} | "
+              f"first seen {r['posted']} | {r['extra']}  {why}")
         print(f"    {r['url']}")
 
     if not a.no_save:
