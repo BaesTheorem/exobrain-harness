@@ -251,7 +251,11 @@ MSG_QUERY_COLS = """
     m.is_from_me,
     m.service,
     h.id as sender_id,
-    COALESCE(c.display_name, c.chat_identifier) as chat_name
+    c.ROWID as chat_rowid,
+    -- 1:1 chats store display_name as '' (not NULL), so COALESCE alone
+    -- returns '' and every 1:1 thread collapsed into one "Unknown" block.
+    COALESCE(NULLIF(c.display_name, ''), c.chat_identifier) as chat_name,
+    NULLIF(c.display_name, '') IS NOT NULL as chat_named
 """
 
 MSG_JOINS = """
@@ -260,6 +264,24 @@ MSG_JOINS = """
     LEFT JOIN chat_message_join cmj ON m.ROWID = cmj.message_id
     LEFT JOIN chat c ON cmj.chat_id = c.ROWID
 """
+
+
+def chat_label(row):
+    """Human name for a message row's chat.
+
+    A named group chat keeps its display name. Any other chat (1:1 threads,
+    unnamed groups) resolves its identifier, phone or e-mail, through
+    Contacts. A message with no chat row (chat.db sometimes drops the
+    chat_message_join entry) falls back to its sender's handle, then to
+    "Unknown".
+    """
+    raw = row["chat_name"]
+    if not raw:
+        sender = row["sender_id"]
+        return f"{resolve_sender(sender)} (no chat row)" if sender else "Unknown"
+    if row["chat_named"]:
+        return raw
+    return resolve_sender(raw)
 
 
 def _row_text(row):
@@ -390,7 +412,8 @@ def get_unread():
     query = f"""
         SELECT
             c.ROWID as chat_rowid,
-            COALESCE(c.display_name, c.chat_identifier) as chat_name,
+            COALESCE(NULLIF(c.display_name, ''), c.chat_identifier) as chat_name,
+            NULLIF(c.display_name, '') IS NOT NULL as chat_named,
             m.date as msg_date,
             m.text,
             m.attributedBody,
@@ -408,7 +431,7 @@ def get_unread():
     for row in rows:
         cid = row["chat_rowid"]
         if cid not in chats:
-            chats[cid] = {"name": row["chat_name"], "messages": []}
+            chats[cid] = {"name": chat_label(row), "messages": []}
         chats[cid]["messages"].append(row)
 
     unanswered = []
@@ -470,8 +493,7 @@ def dump_messages(hours=24):
     total = 0
     for row in rows:
         dt = apple_ts_to_datetime(row["msg_date"])
-        raw_chat = row["chat_name"] or "Unknown"
-        chat_name = resolve_sender(raw_chat) if raw_chat.startswith("+") else raw_chat
+        chat_name = chat_label(row)
 
         if chat_name not in chats:
             chats[chat_name] = {
@@ -508,15 +530,16 @@ def dump_messages(hours=24):
 
 
 def _print_messages(rows):
-    current_chat = None
+    # Start a new block on a change of chat ROWID, not of the printed name:
+    # two different chats must never share a header, even if both names
+    # resolve to the same string.
+    current_chat = object()
     for row in rows:
-        raw_chat = row["chat_name"] or "Unknown"
-        chat = resolve_sender(raw_chat) if raw_chat.startswith("+") else raw_chat
-        if chat != current_chat:
+        if row["chat_rowid"] != current_chat:
             print(f"\n{'=' * 60}")
-            print(f"  {chat}")
+            print(f"  {chat_label(row)}")
             print(f"{'=' * 60}")
-            current_chat = chat
+            current_chat = row["chat_rowid"]
 
         dt = apple_ts_to_datetime(row["msg_date"])
         time_str = dt.strftime("%Y-%m-%d %H:%M") if dt else "?"

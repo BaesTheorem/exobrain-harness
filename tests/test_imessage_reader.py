@@ -93,3 +93,38 @@ class TestTimestamps:
     def test_zero_and_none(self):
         assert reader.apple_ts_to_datetime(None) is None
         assert reader.apple_ts_to_datetime(0) is None
+
+
+class TestChatGrouping:
+    """1:1 chats store display_name as '' in chat.db. The reader once let ''
+    through COALESCE, labelled every 1:1 thread "Unknown", and printed
+    adjacent threads under one header, so a text to one person read as a
+    text to the next person in the block."""
+
+    def _rows(self):
+        def row(rowid, ident, sender, me, text, ts):
+            return {"chat_rowid": rowid, "chat_name": ident, "chat_named": 0,
+                    "sender_id": sender, "is_from_me": me, "text": text,
+                    "attributedBody": None, "msg_date": ts}
+        return [
+            row(31, "+18165550001", "+18165550001", 1, "bring kernels", 1),
+            row(194, "+18165550002", "+18165550002", 0, "how are you", 2),
+        ]
+
+    def test_each_chat_gets_its_own_header(self, monkeypatch, capsys):
+        monkeypatch.setattr(reader, "get_contacts", lambda: {
+            "+18165550001": "Friend A", "+18165550002": "Friend B"})
+        reader._print_messages(self._rows())
+        out = capsys.readouterr().out
+        assert "Unknown" not in out
+        assert out.index("Friend A") < out.index("bring kernels") < out.index("Friend B")
+
+    def test_same_name_different_chat_still_splits(self, monkeypatch, capsys):
+        monkeypatch.setattr(reader, "get_contacts", lambda: {})
+        rows = self._rows()
+        rows[1]["chat_name"] = rows[0]["chat_name"]
+        reader._print_messages(rows)
+        assert capsys.readouterr().out.count("=" * 60) == 4
+
+    def test_query_treats_empty_display_name_as_missing(self):
+        assert "NULLIF(c.display_name, '')" in reader.MSG_QUERY_COLS
