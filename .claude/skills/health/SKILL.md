@@ -37,7 +37,7 @@ Path: `/Users/alexhedtke/Exobrain/Areas/Health & Fitness/Health Log/YYYY-MM-DD.m
 ---
 date: YYYY-MM-DD
 steps: 0
-step_goal: 0  # his configured step goal (Fitbit get_activity_goals)
+step_goal: 0  # carry from the newest prior note; the Google Health API has no goals endpoint
 resting_hr: 0
 sleep_hours: 0.0
 sleep_score: 0
@@ -104,6 +104,25 @@ Called by the daily briefing. Pulls **yesterday's** data and writes/updates the 
 - `get_sleep_by_date_range` (last night) → sleep score, duration. Use today's date for the query -- Fitbit records sleep under the wake-up date.
 - `get_activity_timeseries` (past 7 days) → step trend for comparison
 
+**Since 2026-10-30 the `fitbit` tools read the Google Health API v4** (the Fitbit Web API answers 410). Tool names are unchanged; responses are Google's raw JSON. Field paths for the Health Log:
+
+| Health Log field | Tool → path |
+| --- | --- |
+| `steps` | `get_daily_activity_summary` → `steps[0].steps.countSum` |
+| `calories_burned` | `get_daily_activity_summary` → `totalCalories[0].totalCalories.kcalSum` (round) |
+| `azm` | `get_daily_activity_summary` → sum of `activeZoneMinutes[0].activeZoneMinutes.sumIn{FatBurn,Cardio,Peak}HeartZone` as they are (this plain sum matched every Fitbit-era value) |
+| `resting_hr` | `get_heart_rate` → `restingHeartRate.dataPoints[].dailyRestingHeartRate.beatsPerMinute` |
+| `sleep_hours` | `get_sleep_by_date_range` (wake-up date) → the point with `sleep.metadata.mainSleep: true`, `sleep.summary.minutesAsleep / 60` |
+| `sleep_score` | not in the API. Omit the field |
+| skin temp (canary) | `get_temp_skin_by_date_range` → `nightlyTemperatureCelsius - baselineTemperatureCelsius` takes the place of Fitbit's `nightlyRelative` |
+| `step_goal` | no goals endpoint (`get_activity_goals` returns an error). Carry the value from the newest prior note |
+
+String numbers (`"3922"`) are strings in the JSON: convert them. Missing data is an empty `dataPoints` list or an absent roll-up key, not a zero.
+
+**Offsets against Fitbit-era notes** (measured 2026-11-02 on 15 worn days in September 2026): Google's resting HR is **+1 bpm** on every overlapping day, and its main-sleep `minutesAsleep` is **9 to 34 min longer** per night. Steps, calories and AZM match. So never mix eras inside one baseline: the canary's 14-night RHR and skin-temp baselines must come from a fresh API pull (they already do), never from notes written before 2026-10-30.
+
+**Device state:** `get_profile` → `pairedDevices` gives each tracker's `lastSyncTime` and `batteryStatus`. Check it before calling a gap "non-wear": a tracker with an empty battery, or a phone that stopped syncing, looks identical in the daily data.
+
 **Withings** — always call `withings_get_measurements`, never `withings_get_weight` alone:
 - `withings_get_measurements` with yesterday's date as both startDate and endDate → check which measurement types were actually recorded
 - **Do not gate this call on "did a weigh-in happen."** Alex owns a BPM Connect as well as the scale, and blood-pressure readings arrive independently of weigh-ins. Querying weight only will silently miss them. Once he took a BP baseline his prescriber had asked for; because the routine only checked weight, a week of logs kept reporting it as overdue, escalating to "N days overdue," while the reading sat in the account.
@@ -132,7 +151,7 @@ Called by the daily briefing. Pulls **yesterday's** data and writes/updates the 
 
 ### Step goal tracking
 
-Alex's goal: his configured step goal (read it from Fitbit `get_activity_goals`, not from memory). Compare yesterday to 7-day average. If below goal, identify a free block in today's calendar and suggest a specific walk time. One recommendation per briefing -- don't nag.
+Alex's goal: his configured step goal (carry `step_goal` from the newest prior Health Log note; the Google Health API has no goals endpoint). Compare yesterday to 7-day average. If below goal, identify a free block in today's calendar and suggest a specific walk time. One recommendation per briefing -- don't nag.
 
 ### RHR Illness Canary
 

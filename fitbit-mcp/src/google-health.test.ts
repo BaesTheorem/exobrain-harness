@@ -77,6 +77,16 @@ describe('token handling', () => {
     expect(saved.access_token).toBe('new-access');
   });
 
+  it('asks for the Health scopes only on refresh (the API refuses a token with other scopes)', async () => {
+    writeToken(-60_000);
+    const fetchMock = vi.fn().mockResolvedValue(json(200, { access_token: 'narrow', expires_in: 3599 }));
+    vi.stubGlobal('fetch', fetchMock);
+    await auth.getAccessToken();
+    const body = new URLSearchParams(String((fetchMock.mock.calls[0] as [string, RequestInit])[1].body));
+    expect(body.get('scope')?.split(' ').sort()).toEqual([...auth.SCOPES].sort());
+    expect(auth.consentUrl()).not.toContain('include_granted_scopes');
+  });
+
   it('reports invalid_grant as revoked and a 503 as transient, leaving the file alone', async () => {
     writeToken(-60_000);
     const before = readFileSync(TOKEN, 'utf8');

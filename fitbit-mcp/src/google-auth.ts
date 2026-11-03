@@ -12,6 +12,8 @@
  *   other's token. Each instance still re-reads the file before a refresh, so
  *   a re-consent written by `bin/fitbit-reauth` is adopted without a restart.
  * - A refresh response usually omits refresh_token. Keep the stored one.
+ * - Every refresh asks for SCOPES only, because the Health API refuses a token
+ *   that carries any other scope.
  * - invalid_grant is the only answer that means "re-consent". Network errors
  *   and 5xx leave the token file alone and report a transient failure.
  */
@@ -132,7 +134,10 @@ export async function getAccessToken(): Promise<string | null> {
 
   let result;
   try {
-    result = await postToken({ grant_type: 'refresh_token', refresh_token: onDisk.refresh_token });
+    // Ask for the Health scopes only. The Health API rejects a token that also
+    // carries other scopes (DISALLOWED_OAUTH_SCOPES), and a grant made with
+    // include_granted_scopes holds every scope this client ever got.
+    result = await postToken({ grant_type: 'refresh_token', refresh_token: onDisk.refresh_token, scope: SCOPES.join(' ') });
   } catch (err) {
     console.error(`Google token refresh failed (network): ${(err as Error).message}`);
     lastFailure = 'transient';
@@ -160,7 +165,6 @@ export function consentUrl(): string {
     scope: SCOPES.join(' '),
     access_type: 'offline',
     prompt: 'consent',
-    include_granted_scopes: 'true',
   })}`;
 }
 
@@ -182,9 +186,11 @@ export async function exchangeCode(pasted: string): Promise<GoogleToken> {
   if (status !== 200 || !body.access_token || !body.refresh_token) {
     throw new Error(`code exchange failed: HTTP ${status} ${body.error ?? ''} ${body.error_description ?? ''}`);
   }
-  const tok = toToken(body);
+  // Store the refresh token with an expired access token, so the first use goes
+  // through the scope-narrowing refresh above.
+  const tok = { ...toToken(body), expires_at: new Date(0).toISOString() };
   await writeTokenFile(tok);
-  cached = tok;
+  cached = null;
   return tok;
 }
 
