@@ -65,6 +65,10 @@ Decision (gate 4):
                 score < THRESHOLD (0.65), where score = (Met + 0.5 * Partial) / scored rows
     INCOMPLETE  fewer than MIN_ROWS scored rows (the scorer skimmed)
     UNSCORED    no scorecard section
+    BADYAML     the frontmatter is not valid YAML (usually a quoted value that
+                holds more double quotes). Obsidian then shows the note with NO
+                properties, so it drops out of every Bases view. Reported first,
+                never enforced; fix the line it names.
     NOJD        no archived JD on the note (under MIN_JD_CHARS of posting text). Treated as a FAIL: --enforce declines it,
                 and --restore brings it back once a JD and a passing table exist
     OVERRIDE    the frontmatter has `fit_override: "<reason>"`. Alex's deliberate
@@ -130,6 +134,24 @@ INTERMEDIARY = re.compile(
     r"|\(client|unnamed|confidential company",
     re.I,
 )
+
+
+def yaml_error(fm: str) -> str:
+    """'' when the frontmatter parses as YAML, else the parser's short message.
+
+    Matrix Medical (2026-10-29) had verification_signals: "JD: "Location: ..."";
+    Obsidian read no properties, so the note vanished from the Active view."""
+    try:
+        import yaml
+    except ImportError:
+        return ""
+    try:
+        yaml.safe_load(fm)
+    except yaml.YAMLError as e:
+        mark = getattr(e, "problem_mark", None)
+        line = fm.split("\n")[mark.line] if mark is not None and mark.line < len(fm.split("\n")) else ""
+        return f"frontmatter is not valid YAML at line {mark.line + 1 if mark else '?'}: {line[:90]}"
+    return ""
 
 
 def frontmatter(txt: str) -> tuple[str, int]:
@@ -333,6 +355,9 @@ def main() -> int:
         if loc and verdict != "INVALID":
             # Gate 1 outranks gate 4: a perfect fit in the wrong city is still a no.
             verdict, reasons = loc[0], loc[1]
+        bad = yaml_error(fm0)
+        if bad:
+            verdict, reasons = "BADYAML", [bad] + reasons
         override = field(frontmatter(txt)[0], "fit_override")
         if override and verdict in ("FAIL", "INVALID", "INCOMPLETE", "UNSCORED", "NOLOC", "RELOC", "CONFLICT", "NOCOMP", "REPOST"):
             reasons = [f"overridden ({verdict}): {override}"] + reasons
@@ -342,7 +367,7 @@ def main() -> int:
         print(f"{verdict:<10} {shown}  {os.path.basename(p)[:-3]}")
         for r in reasons:
             print(f"{'':16}{r[:150]}")
-        if not (a.write or a.enforce or a.restore) or verdict == "OVERRIDE":
+        if not (a.write or a.enforce or a.restore) or verdict in ("OVERRIDE", "BADYAML"):
             continue
         if score is None and verdict not in ("NOLOC", "RELOC", "CONFLICT", "NOCOMP", "REPOST"):
             continue
