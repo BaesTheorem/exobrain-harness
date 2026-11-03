@@ -1,5 +1,5 @@
 {
- "_comment": "Copy to state/lawfirm-boards.json. kind: virecruit | ultipro | icims | manual. Find viRecruit REIDs with lawfirms.py --discover <tenant>.",
+ "_comment": "Copy to state/lawfirm-boards.json. kind: virecruit | ultipro | icims | adp | paycor | ukgready | rmk | paylocity | page | manual. Find viRecruit REIDs with lawfirms.py --discover <tenant or host>.",
  "boards": [
   {
    "firm": "Spencer Fane",

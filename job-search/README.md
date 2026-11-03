@@ -152,8 +152,8 @@ Daily unattended discovery scan for the `/job-search` skill.
   rebuilt daily). Streams one gzip chunk at a time and keeps remote-US and KC-metro titles
   first seen in the window. Its salary field is an estimate, so every row is a lead.
 - **`lawfirms.py`** (added 2026-11-02) -- law-firm careers boards polled directly. Most law
-  firms post staff roles on viRecruit (the law-firm ATS), UltiPro or iCIMS, which no other
-  lane reads. viRecruit pages are server-rendered with the full JD inline, one page per
+  firms post staff roles on viRecruit (the law-firm ATS), UltiPro, iCIMS, ADP, Paycor, UKG
+  Ready, SuccessFactors or Paylocity, which no other lane reads for these firms. viRecruit pages are server-rendered with the full JD inline, one page per
   `FilterREID`; `--discover <tenant>` finds a firm's REIDs. The board list is the gitignored
   `state/lawfirm-boards.json` (schema: `lawfirm-boards.example.json`). `lawfirm.py` holds the
   shared law-firm title pattern that every lane adds to its KEEP filter, and the employer-name
