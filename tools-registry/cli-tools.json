@@ -1171,6 +1171,14 @@
     "notes": "Gate any launchd job that hits the network. Jobs that fire on wake before DNS is up fail with ENOTFOUND without it."
   },
   {
+    "name": "work-orders",
+    "command": "open https://becomingstronger.github.io/work-orders/ ; worker/bin/deploy ; worker/bin/drive-auth url|code ; python3 worker/tests/smoke.py",
+    "repo_dir": "~/Documents/work-orders",
+    "source": "built",
+    "added": "2026-11-03",
+    "notes": "Editor needs the access key (WORK_ORDERS_SECRET in ~/Documents/work-orders/.env). Worker https://work-orders.alex-hedtke.workers.dev; /health shows drive/signing/gmail/discord/pdf. Client portal at /p/<token> (token from the Counter DO, not KV). Numbers and invoice numbers from the Counter DO; PUT /counters/<key>?set=N corrects them. Drive + Gmail via one OAuth token (drive.file + gmail.send; redirect https://www.google.com, copy-paste flow). Signing via SignWell free API (25 docs/mo). PDFs via Browser Run binding (free 10 min/day). smoke.py hits the live services and DMs Alex once; do not run it under mist-progress."
+  },
+  {
     "name": "workday.py",
     "command": "python3 job-search/workday.py",
     "repo_dir": "job-search",
