@@ -9,7 +9,7 @@ Commands:
     govee temp KELVIN [TARGET]      2700-6500 on the H6008 (it clamps values outside)
     govee name DEVICE ALIAS         give a bulb a short name
     govee sync-names                copy the Govee app names into the aliases (cloud API)
-    govee google-script [TARGET]    print a Google Home script: warm white by day, red at night
+    govee google-script [--wake HH:MM] [TARGET]   print a Google Home script: 6500K by day, red at night
 
 TARGET is "all" (default), an alias, an alias group, an IP, or the tail of the
 device id. An alias group is the alias without its "-N" suffix ("vanity"
@@ -337,7 +337,7 @@ def entry_matches(entry: dict, target: str) -> bool:
     )
 
 
-def google_script(room: str | None, target: str = "all") -> int:
+def google_script(room: str | None, target: str = "all", wake: str | None = None) -> int:
     """Print a Google Home script editor script: one automation per bulb and period, plus sync.
 
     A script action cannot target "the device that started it", so each bulb gets its own
@@ -345,7 +345,11 @@ def google_script(room: str | None, target: str = "all") -> int:
     turns on or off, the actions apply to the whole group. Google names a device
     "<name> - <room>"; the room is a placeholder unless --room or a "room" field in the
     cache gives it. A bulb with a "color" field (hex RGB, for example "FFBF00") has one fixed
-    color at any time of day: it gets no period rules and is not part of the 7:30 AM wake.
+    color at any time of day: it gets no period rules and is not part of the wake.
+
+    The wake (every timed bulb on at the day color, even if it is off) is added only when
+    `wake` gives a time. Alex asked to remove the 7:30 AM wake on 2026-11-03: it lit the bedroom
+    two hours before the sleep-shift alarm, and sleep-shift's dawn ramp now wakes the room.
     """
     cache = load_cache()
     bulbs = sorted((e for e in cache.values() if e.get("name") and entry_matches(e, target)), key=lambda e: e["name"])
@@ -356,10 +360,14 @@ def google_script(room: str | None, target: str = "all") -> int:
             print(f"govee: skipped {', '.join(skipped)} (no room; set one with --room)", file=sys.stderr)
     if not bulbs:
         raise SystemExit(f"govee: no named bulb matches {target!r}; run `govee sync-names` or check the target")
+    turn_on = ""
+    if wake:
+        hour, minute = (int(x) for x in wake.split(":"))
+        turn_on = f"Turn the bulbs on at {(hour - 1) % 12 + 1}:{minute:02d} {'AM' if hour < 12 else 'PM'}. "
     out = [
         "metadata:",
         "  name: Govee power-on color",
-        "  description: Turn the bulbs on at 7:30 AM. When a Govee bulb turns on, and when a period starts while it is on, set 6500K from 7:30 AM, 2700K in the 2 hours before sunset, dim red at night. Bulbs with a fixed color (floor 2 amber) get it at any time. Bulbs in one group turn on and off together.",
+        f"  description: {turn_on}When a Govee bulb turns on, and when a period starts while it is on, set 6500K from 7:30 AM, 2700K in the 2 hours before sunset, dim red at night. Bulbs with a fixed color (floor 2 amber) get it at any time. Bulbs in one group turn on and off together.",
         "automations:",
     ]
     groups: dict[str, list[str]] = {}
@@ -421,13 +429,14 @@ def google_script(room: str | None, target: str = "all") -> int:
             out += ["    actions:"]
             out += ["      - type: device.command.ColorAbsolute", "        devices:", *group, "        color:", f"          {color}"]
             out += ["      - type: device.command.BrightnessAbsolute", "        devices:", *group, f"        brightness: {brightness}"]
-    # Wake: at the start of the day period, turn every bulb on, even if it is off.
-    after, _before, color, brightness, _label = PERIODS[0]
-    devices = [f"        - {e['name']} - {e.get('room') or room}" for e in timed]
-    out += ["  - starters:", "      - type: time.schedule", f"        at: {after}", "    actions:"]
-    out += ["      - type: device.command.OnOff", "        devices:", *devices, "        on: true"]
-    out += ["      - type: device.command.ColorAbsolute", "        devices:", *devices, "        color:", f"          {color}"]
-    out += ["      - type: device.command.BrightnessAbsolute", "        devices:", *devices, f"        brightness: {brightness}"]
+    # Wake (opt-in): at `wake`, turn every timed bulb on at the day color, even if it is off.
+    if wake:
+        _after, _before, color, brightness, _label = PERIODS[0]
+        devices = [f"        - {e['name']} - {e.get('room') or room}" for e in timed]
+        out += ["  - starters:", "      - type: time.schedule", f"        at: {wake}", "    actions:"]
+        out += ["      - type: device.command.OnOff", "        devices:", *devices, "        on: true"]
+        out += ["      - type: device.command.ColorAbsolute", "        devices:", *devices, "        color:", f"          {color}"]
+        out += ["      - type: device.command.BrightnessAbsolute", "        devices:", *devices, f"        brightness: {brightness}"]
     print("\n".join(out))
     return 0
 
@@ -436,7 +445,9 @@ async def run(args: argparse.Namespace) -> int:
     if args.cmd == "sync-names":
         return sync_names()
     if args.cmd == "google-script":
-        return google_script(args.room, args.target)
+        if args.wake and not re.fullmatch(r"([01]\d|2[0-3]):[0-5]\d", args.wake):
+            raise SystemExit(f"govee: --wake takes HH:MM (24-hour), not {args.wake!r}")
+        return google_script(args.room, args.target, args.wake)
     cache = load_cache()
     controller = await discover(cache, full=args.cmd == "scan")
     try:
@@ -512,6 +523,7 @@ def main() -> int:
     sub.add_parser("sync-names", help="copy the Govee app names into the aliases")
     g = sub.add_parser("google-script", help="print a Google Home script for the power-on color rule")
     g.add_argument("--room", help="Google Home room for bulbs with no room in the cache (default: skip them)")
+    g.add_argument("--wake", metavar="HH:MM", help="also turn every timed bulb on at this time, even if it is off (default: no wake)")
     g.add_argument("target", nargs="?", default="all", help="only these bulbs: alias, group, or floor (default: all)")
     return asyncio.run(run(p.parse_args()))
 

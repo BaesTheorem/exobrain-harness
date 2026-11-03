@@ -456,6 +456,14 @@
     "notes": "Standalone zip in ~/tools (cask needs sudo, blocked in non-interactive shells; the release zip does not). analyzeHeadless for batch/scripted runs, ghidraRun for the GUI. Set JAVA_HOME to the openjdk@21 path or it errors 'Unable to locate a Java Runtime'. Downloaded from github.com/NationalSecurityAgency/ghidra releases 2026-09-20."
   },
   {
+    "name": "govee-ble",
+    "command": "bin/ble-run govee/govee_ble.py NAME[,NAME] status|mac|on|off|brightness PCT|color RRGGBB|temp K",
+    "repo_dir": "govee",
+    "source": "built",
+    "added": "2026-11-03",
+    "notes": "Runs only inside bin/ble-run (BLE Run.app holds the Bluetooth grant; bare python is killed with exit 134). Interpreter flipper/.venv needs bleak + cryptography. NAME = advertised GVH6008xxxx; the 4 hex digits are NOT reliably the Wi-Fi MAC tail, so map a name to a bulb with the 'mac' command. A bulb takes ONE link and stops advertising while a phone or other controller holds it; after a link closes it can stay silent up to ~1 min. Exit 3 = not advertising. A brightness frame turns an off H6008 on, so brightness/color/temp are skipped for a bulb that reads off. Codec tests: uv run --no-project --with pytest --with bleak --with cryptography pytest tests/test_govee_ble.py."
+  },
+  {
     "name": "great-wheel-charting",
     "command": "tools/columns.py BOOK.pdf OUT.txt; tools/chart_check.py CHART.json; tools/chart_merge.py CHART.json",
     "repo_dir": "~/Documents/the-great-wheel",

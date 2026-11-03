@@ -41,7 +41,7 @@ govee color COLOR [TARGET]      red, #ff8800, 255,136,0, or warm/cool/daylight
 govee temp KELVIN [TARGET]
 govee name DEVICE ALIAS
 govee sync-names                copy the Govee app names into the aliases (needs GOVEE_API_KEY in the harness .env)
-govee google-script [--room R] [TARGET]   print a Google Home script for the power-on rule (skips bulbs with no room)
+govee google-script [--room R] [--wake HH:MM] [TARGET]   print a Google Home script for the power-on rule (skips bulbs with no room; no wake unless --wake)
 govee --check <command>         read the status back after a set command
 ```
 
@@ -87,15 +87,15 @@ The H6008 takes 20 commands each second on the LAN (tested), and the bulb fades 
 
 Bulbs in one group stay in the same state. A bulb's group is the `group` field in `data/devices.json`, or else its alias without the `-N` suffix. A group name is also a TARGET. When one bulb of a group turns on, the automation turns on the full group and sets its color. When one bulb turns off, the full group turns off.
 
-A bulb with a `color` field in `data/devices.json` (hex RGB, for example `FFBF00` for the floor 2 amber) has that color at any time of day, at 100%. It has no period rules and the 7:30 AM wake does not include it.
+A bulb with a `color` field in `data/devices.json` (hex RGB, for example `FFBF00` for the floor 2 amber) has that color at any time of day, at 100%. It has no period rules and the wake does not include it.
 
 A bulb that is already on when a period starts also changes. At 2 hours before sunset and at sunset, one automation for each group sets the new color and brightness if any bulb of the group is on.
 
-At 7:30 AM, one more automation turns every bulb on at 6500 K and 100%, even if it is off. A bulb that is off at the wall switch has no power, so it cannot turn on.
+The script has no wake by default. `--wake HH:MM` adds one more automation that turns every bulb on at that time at 6500 K and 100%, even if it is off. A bulb that is off at the wall switch has no power, so it cannot turn on. The 7:30 AM wake was removed from the default script on 2026-11-03, because it lit the bedroom two hours before the sleep-shift alarm. The sleep-shift dawn ramp (`~/Documents/mist-alarms/bin/sleep-shift`) now wakes the room.
 
 6500 K is the coolest white the H6008 makes and gives the most alertness. 2700 K is its warmest white (the API advertises 2000 K, but the bulb clamps a lower value to 2700 K). Red light has almost no effect on melatonin. The rule runs in the Google cloud, so it does not need this computer.
 
-Give a TARGET to limit the script to some bulbs: `govee google-script bedroom` writes the rules for the bedroom group only. The 7:30 AM wake then turns on only those bulbs.
+Give a TARGET to limit the script to some bulbs: `govee google-script bedroom` writes the rules for the bedroom group only. A `--wake` then turns on only those bulbs.
 
 Google names a device "<name> - <room>". Give the room with `--room`, or add a `room` field to a bulb in `data/devices.json`.
 
