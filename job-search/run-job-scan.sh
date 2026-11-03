@@ -19,6 +19,11 @@
 # beside this script; the live copy is a REAL FILE in ~/Library/LaunchAgents/
 # (never a symlink -- see feedback_launchd_symlinks).
 
+# The body is one brace group, so bash parses the whole file before it runs a line.
+# Bash reads a script from disk as it executes, and the scan prompt below gets
+# edited while a scan runs: on 2026-11-03 an edit at 09:06 made the 09:00 run
+# resume mid-line when claude returned (syntax error, exit 2, tail steps skipped).
+{
 SCRIPT_DIR="$(cd "$(dirname "$0")/.." && pwd)"
 source "$SCRIPT_DIR/config.sh"
 
@@ -192,3 +197,4 @@ for f in "$LOG_DIR"/job-scan-$TIMESTAMP-a*.out "$LOG_DIR"/job-scan-$TIMESTAMP-a*
 done
 
 exit 0
+}
