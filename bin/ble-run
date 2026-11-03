@@ -53,7 +53,7 @@ PLIST
 
 if [ "$1" = "--rebuild" ]; then shift; build_app; fi
 [ -d "$APP" ] || build_app
-[ -x "$PY" ] || { echo "ble-run: $PY missing; run: uv venv --python 3.13.5 '$DIR/flipper/.venv' && uv pip install --python '$PY' bleak" >&2; exit 1; }
+[ -x "$PY" ] || { echo "ble-run: $PY missing; run: uv venv --python 3.13.5 '$DIR/flipper/.venv' && uv pip install --python '$PY' bleak cryptography" >&2; exit 1; }
 [ $# -ge 1 ] || { sed -n '2,14p' "$0" >&2; exit 2; }
 
 if [ "$1" = "scan" ]; then

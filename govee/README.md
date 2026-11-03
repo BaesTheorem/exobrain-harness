@@ -8,7 +8,22 @@ A CLI that controls Govee lights on the local network through the Govee LAN API 
 2. Run `bin/govee scan`. The first run makes `.venv` and installs `requirements.txt`.
 3. Give each bulb a name: `bin/govee name 3F:F4 desk`.
 
-A bulb with LAN Control off (for example, the bulb that relays an H5125 remote, which needs LAN Control off) gives no LAN reply. Run `bin/govee sync-names` once so the cache has it. Then each command and status for that bulb goes through the Govee cloud API, with `GOVEE_API_KEY` from the harness `.env`.
+A bulb with LAN Control off (for example, the bulb that relays an H5125 remote, which needs LAN Control off) gives no LAN reply. Run `bin/govee sync-names` once so the cache has it. Then each command and status for that bulb goes over Bluetooth if its cache entry has a `ble` field, and through the Govee cloud API (`GOVEE_API_KEY` from the harness `.env`) if it does not have one, or if Bluetooth fails.
+
+## Bluetooth
+
+`govee_ble.py` controls an H6008 over Bluetooth LE. `bin/govee` uses it for a bulb that gives no LAN reply and has a `ble` field in `data/devices.json`. The field is the name that the bulb advertises: `GVH6008` and the last two bytes of its Wi-Fi MAC, with 1 added to the last byte (Wi-Fi MAC `..:A1:B1` gives `GVH6008A1B2`). This rule held on `bedroom-3` and on the two units that govee-toolkit measured, but nothing confirms it for all units. To find the names, run `bin/ble-run scan 20 gvh` from the harness root.
+
+The script runs in the harness `bin/ble-run` app bundle, because macOS stops bare Python that uses Bluetooth. Its interpreter (`flipper/.venv`) needs `bleak` and `cryptography`.
+
+The protocol, the codec, and the frame layouts come from [govee-toolkit](https://github.com/damient/govee-toolkit) (MIT): `docs/protocol/ble.md` and `packages/rust/src/ble/encode.rs`. These bulbs set an encoding flag (bit 0x40 of the flags byte in their advertisement data), and then they ignore plaintext command and read frames. The name does not decide the flag, and a firmware update can set it. Each connection starts with a handshake under a fixed base seed. Then the bulb gives a session seed, and all frames after that are encoded under it. `tests/test_govee_ble.py` checks the port against wire captures from a physical H6008. Run it with `uv run --no-project --with pytest --with bleak --with cryptography pytest tests/test_govee_ble.py`, because the default test environment does not have those packages.
+
+Limits:
+
+- A bulb accepts one Bluetooth link. While a phone or a different controller holds that link, the bulb does not advertise, and `govee_ble.py` cannot find it. The Govee app on a phone is one such controller.
+- After a link closes, the bulb is silent for some seconds, sometimes for a minute or more, before it advertises again.
+- A write gets no GATT acknowledgement. The bulb sends a status frame, but that status says only that the firmware accepted the frame, not that it applied it. The script holds the link open for 0.3 s after the last write, then reads the values back from the bulb.
+- The cloud API answers success for a command that does not get to the bulb, and the values it reports can be out of date. Do not use a cloud answer as proof.
 
 ## Commands
 

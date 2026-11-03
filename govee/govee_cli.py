@@ -25,9 +25,14 @@ INVARIANTS:
 - The LAN API never acknowledges a command. A set command is fire-and-forget,
   so the CLI confirms only when --check reads status back.
 - A bulb with "LAN Control" off in the Govee app does not reply to a scan. A
-  command or status for a cached bulb that gives no LAN reply goes through the
-  cloud API instead (GOVEE_API_KEY). The bulb that relays the H5125 remote must
-  keep LAN Control off, so it is always a cloud bulb.
+  command or status for a cached bulb that gives no LAN reply goes over
+  Bluetooth if its cache entry has a "ble" field (its advertised name, for
+  example GVH6008A1B2), through govee_ble.py and the harness bin/ble-run.
+  Otherwise, or when Bluetooth fails, it goes through the cloud API
+  (GOVEE_API_KEY). The bulb that relays the H5125 remote must keep LAN Control
+  off, so it is a Bluetooth bulb.
+- The cloud answers success for a command that never reaches the bulb, and its
+  state can be stale (bedroom-2, 2026-11-02). Never treat a cloud reply as proof.
 """
 
 from __future__ import annotations
@@ -37,6 +42,7 @@ import asyncio
 import json
 import os
 import re
+import subprocess
 import sys
 import urllib.request
 from pathlib import Path
@@ -46,6 +52,8 @@ from govee_local_api import GoveeController, GoveeDevice  # pyright: ignore[repo
 HERE = Path(__file__).resolve().parent
 DATA = HERE / "data" / "devices.json"
 ENV = HERE.parent / ".env"
+BLE_RUN = HERE.parent / "bin" / "ble-run"
+BLE_SCRIPT = HERE / "govee_ble.py"
 CLOUD = "https://openapi.api.govee.com/router/api/v1"
 DISCOVERY_WAIT = 2.5
 STATUS_WAIT = 1.5
@@ -237,6 +245,55 @@ def cloud_run(args: argparse.Namespace, bulbs: dict[str, dict]) -> None:
             print(f"govee: cloud call for {name} failed: {exc}", file=sys.stderr)
 
 
+def ble_args(args: argparse.Namespace) -> list[str]:
+    """The govee_ble.py command and value for a CLI command."""
+    if args.cmd in {"scan", "status"}:
+        return ["status"]
+    if args.cmd in {"on", "off"}:
+        return [args.cmd]
+    if args.cmd == "brightness":
+        return ["brightness", str(max(1, min(100, args.pct)))]
+    if args.cmd == "temp":
+        return ["temp", str(args.kelvin)]
+    temp = NAMED_TEMPS.get(args.color.lower())
+    if temp:
+        return ["temp", str(temp)]
+    r, g, b = parse_color(args.color)
+    return ["color", f"{r:02x}{g:02x}{b:02x}"]
+
+
+def ble_run(args: argparse.Namespace, bulbs: dict[str, dict]) -> dict[str, dict]:
+    """Send the command over Bluetooth to the bulbs that have a "ble" name.
+
+    Answer the bulbs Bluetooth did not reach, so the caller can try the cloud.
+    """
+    named = {e["ble"]: (fp, e) for fp, e in bulbs.items() if e.get("ble")}
+    if not named:
+        return bulbs
+    cmd = [str(BLE_RUN), str(BLE_SCRIPT), ",".join(sorted(named)), *ble_args(args)]
+    try:
+        r = subprocess.run(cmd, capture_output=True, text=True, timeout=60 * len(named), check=False)
+        out, err = r.stdout, r.stderr
+    except subprocess.TimeoutExpired:
+        out, err = "", "govee_ble: timed out\n"
+    reached = set()
+    for line in out.splitlines():
+        name, _, rest = line.partition(" ")
+        if name in named:
+            reached.add(name)
+            fp, e = named[name]
+            if args.cmd in {"scan", "status"} or args.check:
+                print(f"{e.get('alias') or fp[-5:]:<12} {rest.strip()}")
+    for line in err.splitlines():
+        if line.startswith("govee_ble:"):
+            print(line, file=sys.stderr)
+    missed = {fp: e for fp, e in bulbs.items() if e.get("ble") not in reached}
+    if missed and any(e.get("ble") for e in missed.values()):
+        names = ", ".join(sorted(e.get("alias") or fp[-5:] for fp, e in missed.items() if e.get("ble")))
+        print(f"govee: Bluetooth did not reach {names}; trying the cloud, which can be stale", file=sys.stderr)
+    return missed
+
+
 def sync_names() -> int:
     req = urllib.request.Request(f"{CLOUD}/user/devices", headers={"Govee-API-Key": api_key()})
     with urllib.request.urlopen(req, timeout=15) as resp:
@@ -395,16 +452,18 @@ async def run(args: argparse.Namespace) -> int:
         target = getattr(args, "target", "all")
         lan = {d.fingerprint for d in devices}
         # A bulb with LAN Control off (for example the one that relays the H5125 remote) or
-        # off at the wall gets no LAN reply. The cloud reaches the first kind.
+        # off at the wall gets no LAN reply. Bluetooth reaches the first kind when the cache
+        # has its "ble" name; the cloud is the fallback.
         offline = {fp: e for fp, e in cache.items() if fp not in lan and ":" in fp and entry_matches(e, target)}
         if offline:
             names = ", ".join(sorted(e.get("alias") or fp[-5:] for fp, e in offline.items()))
-            print(f"govee: no LAN reply from {names}; using the cloud for them", file=sys.stderr)
+            via = "Bluetooth or the cloud" if any(e.get("ble") for e in offline.values()) else "the cloud"
+            print(f"govee: no LAN reply from {names}; using {via} for them", file=sys.stderr)
         targets = select(cache, devices, target, strict=not offline)
         if args.cmd in {"scan", "status"}:
             await read_status(controller, targets)
             print_status(cache, targets)
-            cloud_run(args, offline)
+            cloud_run(args, ble_run(args, offline))
             return 0
 
         for d in targets:
@@ -424,7 +483,7 @@ async def run(args: argparse.Namespace) -> int:
         if args.check:
             await read_status(controller, targets)
             print_status(cache, targets)
-        cloud_run(args, offline)
+        cloud_run(args, ble_run(args, offline))
         return 0
     finally:
         await controller.cleanup().wait()
