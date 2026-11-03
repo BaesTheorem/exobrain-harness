@@ -68,7 +68,7 @@ SEEN = HERE / "state" / "lawfirms-seen.json"
 SEEN_TTL_DAYS = 90
 
 IT_BROAD = re.compile(
-    r"\b(it|information technology|information services|technology|security|cyber|"
+    r"\b(it|information technology|information services|technology|security|cyber\w*|"
     r"systems?|network|help ?desk|service desk|desktop|deskside|support analyst|"
     r"application|infrastructure|identity|e-?discovery|litigation support|"
     r"practice support|trainer|soc|cloud|m365|microsoft)\b", re.I)
