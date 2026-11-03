@@ -12,7 +12,11 @@ A bulb with LAN Control off (for example, the bulb that relays an H5125 remote, 
 
 ## Bluetooth
 
-`govee_ble.py` controls an H6008 over Bluetooth LE. `bin/govee` uses it for a bulb that gives no LAN reply and has a `ble` field in `data/devices.json`. The field is the name that the bulb advertises: `GVH6008` and the last two bytes of its Wi-Fi MAC, with 1 added to the last byte (Wi-Fi MAC `..:A1:B1` gives `GVH6008A1B2`). This rule held on `bedroom-3` and on the two units that govee-toolkit measured, but nothing confirms it for all units. To find the names, run `bin/ble-run scan 20 gvh` from the harness root.
+`govee_ble.py` controls an H6008 over Bluetooth LE. `bin/govee` uses it for a bulb that gives no LAN reply and has a `ble` field in `data/devices.json`. The field is the name that the bulb advertises: `GVH6008` and 4 hex digits. On `bedroom-3` and on the two units that govee-toolkit measured, the digits are the last two bytes of the Wi-Fi MAC with 1 added to the last byte. On `bedroom-2` they have no relation to the MAC. Thus, identify each bulb by the Wi-Fi MAC that it gives over Bluetooth:
+
+1. Run `bin/ble-run scan 20 gvh` from the harness root, to get the names that are near.
+2. For each name, run `bin/ble-run govee/govee_ble.py NAME mac`.
+3. Find the MAC in the device ID of a `data/devices.json` entry (the last 6 bytes), then write the name in that entry's `ble` field.
 
 The script runs in the harness `bin/ble-run` app bundle, because macOS stops bare Python that uses Bluetooth. Its interpreter (`flipper/.venv`) needs `bleak` and `cryptography`.
 
@@ -20,7 +24,8 @@ The protocol, the codec, and the frame layouts come from [govee-toolkit](https:/
 
 Limits:
 
-- A bulb accepts one Bluetooth link. While a phone or a different controller holds that link, the bulb does not advertise, and `govee_ble.py` cannot find it. The Govee app on a phone is one such controller.
+- A bulb accepts one Bluetooth link. While a phone or a different controller holds that link, the bulb does not advertise, and `govee_ble.py` cannot find it. The Govee app on a phone is one such controller. On 2026-11-03, five scans from 00:05 to 00:15 did not find `bedroom-2`. Then it advertised for short periods (00:38 and 00:41). The script looks for 30 s and tries again if the link is taken before it connects.
+- A brightness frame turned an off H6008 on (`bedroom-2`, 2026-11-03 00:43). Thus `govee_ble.py` does not send brightness, color, or temp to a bulb that reads off. Only `on` turns a bulb on.
 - After a link closes, the bulb is silent for some seconds, sometimes for a minute or more, before it advertises again.
 - A write gets no GATT acknowledgement. The bulb sends a status frame, but that status says only that the firmware accepted the frame, not that it applied it. The script holds the link open for 0.3 s after the last write, then reads the values back from the bulb.
 - The cloud API answers success for a command that does not get to the bulb, and the values it reports can be out of date. Do not use a cloud answer as proof.

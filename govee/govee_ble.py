@@ -5,8 +5,13 @@ touches Bluetooth). `bin/govee` calls it for a bulb that gives no LAN reply and
 has a `ble` field in data/devices.json, so you rarely run it by hand:
 
     bin/ble-run govee/govee_ble.py GVH6008A1B2 status
+    bin/ble-run govee/govee_ble.py GVH6008A1B2 mac     # the Wi-Fi MAC: which bulb is it?
     bin/ble-run govee/govee_ble.py GVH6008A1B2,GVH6008C3D4 brightness 25
     bin/ble-run govee/govee_ble.py GVH6008A1B2 color ff0000 | temp 2700 | on | off
+
+The 4 hex digits in the name do not always come from the Wi-Fi MAC. On bedroom-3
+they are the last two MAC bytes with 1 added to the last byte, but bedroom-2
+advertises digits that have no relation to its MAC. So identify a bulb with `mac`.
 
 These H6008 bulbs advertise as GV<SKU><4 hex> and set bit 0x40 in the flags
 byte of their advertisement data (the bulbs seen here read 0x43). The name does
@@ -29,6 +34,8 @@ INVARIANTS:
 - The XOR checksum is calculated on the plaintext, before the encoding.
 - Nothing here fades: each command is one instant set (Alex's no-fade rule).
   The firmware itself fades between colours, and no known frame stops that.
+- Only `on` turns a bulb on. A brightness frame turned an off H6008 on (one test,
+  2026-11-03), so brightness, color and temp are not sent to a bulb that reads off.
 """
 
 from __future__ import annotations
@@ -49,7 +56,7 @@ NOTIFY = "00010203-0405-0607-0809-0a0b0c0d2b10"
 FRAME = 20
 DRAIN = 0.3  # seconds the link stays up after a write. A margin: govee-toolkit measured 25 ms, on the A5 colour channel only
 REPLY = 2.0  # seconds to wait for each reply
-SCAN = 20.0  # seconds to look for the advertisement
+SCAN = 30.0  # seconds to look for the advertisement. bedroom-2 advertises only between other links
 
 # The base seed every device of this generation takes for the handshake.
 # From govee-toolkit encode.rs, kept in the same encoded form.
@@ -188,15 +195,43 @@ class Link:
 
 
 async def run_one(name: str, cmd: str, args: list[str]) -> int:
-    dev = await BleakScanner.find_device_by_name(name, timeout=SCAN)
-    if dev is None:
-        print(f"govee_ble: {name} is not advertising. Another controller (a phone, the remote) holds its"
-              " one BLE link, or it has no power.", file=sys.stderr)
-        return 3
-    async with BleakClient(dev, timeout=20, services=[SERVICE]) as client:
+    """Find the bulb, then run the command. A different controller can take the link
+    between the scan and the connect, so try again until the scan time is used up."""
+    loop = asyncio.get_running_loop()
+    end = loop.time() + SCAN
+    while True:
+        dev = await BleakScanner.find_device_by_name(name, timeout=max(1.0, end - loop.time()))
+        if dev is None:
+            print(f"govee_ble: {name} is not advertising. A different controller (a phone, the remote)"
+                  " holds its one BLE link, or it has no power.", file=sys.stderr)
+            return 3
+        try:
+            return await run_link(name, dev, cmd, args)
+        except (TimeoutError, OSError) as exc:
+            if loop.time() >= end:
+                raise
+            print(f"govee_ble: {name}: {type(exc).__name__}: {exc}; trying again", file=sys.stderr)
+        except Exception as exc:
+            if loop.time() >= end or "connect" not in str(exc).lower():
+                raise
+            print(f"govee_ble: {name}: {type(exc).__name__}: {exc}; trying again", file=sys.stderr)
+
+
+async def run_link(name: str, dev, cmd: str, args: list[str]) -> int:  # noqa: ANN001 - a BLEDevice from the scan
+    async with BleakClient(dev, timeout=15, services=[SERVICE]) as client:
         link = Link(client)
         await link.open()
         ack = b""
+        if cmd == "mac":
+            mac = (await link.send(0xAA, 0x14))[2:8]
+            print(f"{name:<12} {'ble':<15} wifi-mac {':'.join(f'{b:02x}' for b in mac)}")
+            await asyncio.sleep(DRAIN)
+            return 0
+        if cmd in {"brightness", "color", "temp"} and not (await link.send(0xAA, 0x01))[2]:
+            # A brightness frame turns an off H6008 on (bedroom-2, 2026-11-03 00:43). Only
+            # `on` may light a bulb, so the evening dim of sleep-shift cannot wake anyone.
+            print(f"govee_ble: {name} is off, so {cmd} was not sent (it would turn the bulb on)", file=sys.stderr)
+            cmd = "status"
         if cmd in {"on", "off"}:
             ack = await link.send(0x33, 0x01, int(cmd == "on"))
         elif cmd == "brightness":
@@ -222,7 +257,7 @@ async def run_one(name: str, cmd: str, args: list[str]) -> int:
 async def main() -> int:
     ap = argparse.ArgumentParser(description="Bluetooth LE control for Govee H6008 bulbs (encoded link).")
     ap.add_argument("names", help="advertised names, comma-separated (GVH6008A1B2)")
-    ap.add_argument("cmd", choices=["status", "on", "off", "brightness", "color", "temp"])
+    ap.add_argument("cmd", choices=["status", "mac", "on", "off", "brightness", "color", "temp"])
     ap.add_argument("args", nargs="*")
     a = ap.parse_args()
     if a.cmd in {"brightness", "color", "temp"} and not a.args:

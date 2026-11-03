@@ -11,6 +11,8 @@ there. Run it with:
     uv run --no-project --with pytest --with bleak --with cryptography pytest tests/test_govee_ble.py
 """
 
+from typing import Any
+
 import pytest
 from conftest import load_script
 
@@ -65,3 +67,81 @@ def test_kelvin_rgb_is_warm_at_2700_and_white_at_6500():
     r, g, b = ble.kelvin_rgb(2700)
     assert r == 255 and g < 200 and b < g
     assert ble.kelvin_rgb(6500) == (255, 254, 250) or min(ble.kelvin_rgb(6500)) > 240
+
+
+class FakeBulb:
+    """A simulated H6008 that speaks the encoded link, as a BleakClient stand-in.
+
+    Like the real bulb (bedroom-2, 2026-11-03), a brightness frame turns it on.
+    """
+
+    def __init__(self, on: bool):
+        self.on, self.brightness = on, 30
+        self.seed = bytes(range(16))
+        self.base: Any = ble.Codec(ble.BASE_SEED)
+        self.session: Any = None
+        self.cb: Any = None
+        self.sent: list[bytes] = []
+
+    async def __aenter__(self):
+        return self
+
+    async def __aexit__(self, *exc):
+        return False
+
+    async def start_notify(self, _uuid, cb):
+        self.cb = cb
+
+    async def write_gatt_char(self, _uuid, data, response=False):
+        assert not response
+        plain = (self.session or self.base).decode(bytes(data))
+        self.sent.append(plain)
+        head = plain[:2]
+        if head == b"\xe7\x01":
+            return self.cb(None, self.base.encode(ble.frame(0xE7, 0x01, *self.seed)))
+        if head == b"\xe7\x02":
+            self.cb(None, self.base.encode(plain))
+            self.session = ble.Codec(self.seed)
+            return None
+        if head == b"\xaa\x01":
+            reply = ble.frame(0xAA, 0x01, int(self.on))
+        elif head == b"\xaa\x04":
+            reply = ble.frame(0xAA, 0x04, self.brightness)
+        elif head == b"\xaa\x05":
+            reply = ble.frame(0xAA, 0x05, 0x0D, 0xFF, 0, 0)
+        else:
+            if head == b"\x33\x01":
+                self.on = bool(plain[2])
+            elif head == b"\x33\x04":
+                self.brightness, self.on = plain[2], True
+            reply = ble.frame(0x33, plain[1], 0)
+        return self.cb(None, self.session.encode(reply))
+
+
+def run_on(bulb, cmd, *args, monkeypatch):
+    import asyncio
+
+    monkeypatch.setattr(ble, "BleakClient", lambda *_a, **_k: bulb)
+    monkeypatch.setattr(ble, "DRAIN", 0)
+    return asyncio.run(ble.run_link("GVH6008TEST", object(), cmd, list(args)))
+
+
+def test_brightness_is_not_sent_to_an_off_bulb(monkeypatch, capsys):
+    bulb = FakeBulb(on=False)
+    assert run_on(bulb, "brightness", "25", monkeypatch=monkeypatch) == 0
+    assert bulb.on is False
+    assert not any(f[:2] == b"\x33\x04" for f in bulb.sent)
+    assert "is off" in capsys.readouterr().err
+
+
+def test_brightness_reaches_an_on_bulb(monkeypatch, capsys):
+    bulb = FakeBulb(on=True)
+    assert run_on(bulb, "brightness", "25", monkeypatch=monkeypatch) == 0
+    assert bulb.brightness == 25
+    assert "on   25%" in capsys.readouterr().out
+
+
+def test_off_reaches_an_on_bulb(monkeypatch):
+    bulb = FakeBulb(on=True)
+    run_on(bulb, "off", monkeypatch=monkeypatch)
+    assert bulb.on is False
