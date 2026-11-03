@@ -77,6 +77,24 @@ com.exobrain.niu-kqi` and let it prompt again.
 - Long scans or monitors from the Console go through `mist-progress run`.
 - Commits to the repo read as Alex's work: run `/de-ai` on messages, no attribution.
 
+## iPhone app (KQi Rides) and tap-to-unlock
+
+`~/Documents/niu-kqi/ios` is a SwiftUI app (`KQiRides`, bundle `com.alexhedtke.KQiRides`)
+that does the same BLE reads/settings/commands as the CLI, plus ride charts. Build with
+`ios/scripts/build.sh` (compile check) or `--device` to sign (fill `Config/Signing.xcconfig`).
+A connected, paired iPhone installs via `xcrun devicectl device install app`.
+
+**NFC unlock is a phone-side pipeline, not the scooter's NFC.** The base KQi Air has no NFC
+reader (that is a KQi Air X / moped feature), and iOS does not let an app emulate an NFC
+card, so "phone as the card the scooter reads" is impossible. Instead: a passive NTAG
+sticker the phone reads fires a BLE unlock through KQiRides. The app answers URL scheme
+`kqirides://unlock|lock|on|off` and App Intents "Unlock/Lock KQi Air" (Siri, Action button,
+Shortcuts), both routed through `AppState.performExternal` with a fixed allowlist (never
+factory-reset). Setup: any blank NTAG21x + a Shortcuts NFC automation running the intent,
+"Ask Before Running" off. README has the step list. Proximity auto-unlock (NIU Link /
+`ecu_bt_status` bit 32768) already exists but flaps at the range edge; the tap is
+deterministic.
+
 ## Where things live
 
 - Repo: `~/Documents/niu-kqi` (`kqi_ble.py` CLI + bleak session, `niu_proto.py` frames and
