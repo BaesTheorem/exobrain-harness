@@ -103,6 +103,27 @@ def test_our_side_of_a_pending_trade_is_committed():
     assert sorted(swap_scan.committed_ids(txs, me)) == [1, 4]
 
 
+def test_a_player_we_already_claim_is_marked():
+    """2026-11-03: roster-watch offered Adonai Mitchell for Treylon Burks while
+    Mitchell sat in a pending claim for Josh Downs. Only our pending ADDs count:
+    our trade receipt, our DROP and another team's ADD do not."""
+    me = 12
+    txs = [
+        {"type": "WAIVER", "items": [
+            {"type": "ADD", "fromTeamId": 0, "toTeamId": me, "playerId": 3},
+            {"type": "DROP", "fromTeamId": me, "toTeamId": 0, "playerId": 4}]},
+        {"type": "FREEAGENT", "items": [{"type": "ADD", "fromTeamId": 0, "toTeamId": me, "playerId": 7}]},
+        {"type": "WAIVER", "items": [{"type": "ADD", "fromTeamId": 0, "toTeamId": 5, "playerId": 6}]},
+        {"type": "TRADE_PROPOSAL", "items": [{"type": "TRADE", "fromTeamId": 2, "toTeamId": me, "playerId": 2}]},
+    ]
+    assert sorted(swap_scan.claimed_ids(txs, me)) == [3, 7]
+    out = swap_scan.scan(2, roster(), pool(), {})
+    add = out["swaps"][0]["candidates"][0]["add"]
+    marked = swap_scan.scan(2, roster(), pool(), {}, claimed={swap_scan.norm(add)})
+    assert all(c["pending_add"] is False for r in out["swaps"] for c in r["candidates"]), "positive control"
+    assert any(c["pending_add"] for r in marked["swaps"] for c in r["candidates"] if c["add"] == add)
+
+
 def test_an_injured_add_is_not_a_candidate():
     hurt = r("Hurt WR", "WR", 20, 12.0, 200.0, avail="WVR")
     hurt["status"] = "OUT"

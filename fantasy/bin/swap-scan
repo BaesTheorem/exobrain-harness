@@ -161,10 +161,12 @@ def allowed(cand: dict, drop: dict, held: dict[str, int], position_max: dict[str
 def scan(week: int, roster: list[dict], pool: list[dict], position_max: dict[str, int],
          games: dict[str, int] | None = None, heat: dict[str, int] | None = None,
          volume: dict[str, dict] | None = None, gate_per_game: float = GATE_PER_GAME, top: int = 3,
-         committed: set[str] | None = None, backup_weeks: dict[str, int] | None = None,
+         committed: set[str] | None = None, claimed: set[str] | None = None,
+         backup_weeks: dict[str, int] | None = None,
          playoff_units: float = PLAYOFF_UNITS) -> dict:
     """Pure: rows in, ranked swaps out. `games` is pro-team abbrev -> games played;
     `committed` is the normalized names already listed as a DROP in a pending claim;
+    `claimed` is the normalized names already listed as an ADD in a pending claim;
     `backup_weeks` is position -> the starter's bye weeks left; the injury
     share (BACKUP_START_REG, BACKUP_START_PO) is added here, in horizon units.
     The whole gap is priced on the drop's weeks. (2026-10-15: pricing the add
@@ -173,6 +175,7 @@ def scan(week: int, roster: list[dict], pool: list[dict], position_max: dict[str
     not play every week either, so the symmetric gap stays.)"""
     games, heat, volume = games or {}, heat or {}, volume or {}
     committed = committed or set()
+    claimed = claimed or set()
     remaining = max(REG_SEASON_END - week, 0)
     horizon = round(remaining + playoff_units, 1)
     bench = [p for p in roster if p["slotId"] == BENCH]
@@ -211,6 +214,7 @@ def scan(week: int, roster: list[dict], pool: list[dict], position_max: dict[str
                 "role": bool({"BUY", "ROLE-UP"} & set(flags)),
                 "snap": (v.get("last") or {}).get("snap"), "tgt_share": (v.get("last") or {}).get("tgt_share"),
                 "opps": (v.get("last") or {}).get("opps"),
+                "pending_add": norm(c["name"]) in claimed,
             })
         scored.sort(key=lambda r: -r["gain"])
         results.append({"drop": drop["name"], "pos": drop["pos"], "drop_rate": round(drop["rate"], 2),
@@ -261,20 +265,33 @@ def committed_ids(txs: list[dict], me: int) -> list[int]:
             and ((t.get("type") == "WAIVER" and i.get("type") == "DROP") or i.get("type") == "TRADE")]
 
 
-def pending_drops(api: Espn) -> set[str]:
-    """Normalized names of our players already listed as a DROP in a pending claim,
-    or on our side of a pending trade (a drop voids the trade).
+def claimed_ids(txs: list[dict], me: int) -> list[int]:
+    """Player ids we already claim: an ADD to us in a pending waiver or free-agent claim.
+
+    A second claim on the same player gains nothing and can only cost the
+    other drop (2026-11-03: Adonai Mitchell pending for Josh Downs, then
+    offered again for Treylon Burks).
+    """
+    return [i["playerId"] for t in txs if t.get("type") in ("WAIVER", "FREEAGENT")
+            for i in (t.get("items") or [])
+            if i.get("playerId") and i.get("type") == "ADD" and i.get("toTeamId") == me]
+
+
+def pending_names(api: Espn) -> tuple[set[str], set[str]]:
+    """(committed drops, claimed adds) as normalized names, from one pending read.
 
     Never raises: an unreadable pending list must not stop the scan, but it
     must not read as "nothing committed" either, so the miss is printed.
     """
     try:
-        ids = committed_ids(api.pending_transactions(), int(api.creds["team_id"]))
-        names = api.names_for([i for i in ids if i])
-        return {norm(n) for n in names.values()}
+        txs, me = api.pending_transactions(), int(api.creds["team_id"])
+        drops, adds = committed_ids(txs, me), claimed_ids(txs, me)
+        names = api.names_for([i for i in [*drops, *adds] if i])
+        return ({norm(names[i]) for i in drops if i in names},
+                {norm(names[i]) for i in adds if i in names})
     except Exception as exc:  # noqa: BLE001 - the scan runs without it, loudly
-        print(f"pending list unreadable ({exc}); pending_drop is unmarked this run", file=sys.stderr)
-        return set()
+        print(f"pending list unreadable ({exc}); pending_drop/pending_add unmarked this run", file=sys.stderr)
+        return set(), set()
 
 
 def playoff_units_cached(path: Path = LEVERAGE_CACHE, now: float | None = None) -> float:
@@ -319,6 +336,8 @@ def render(out: dict, holes: list[dict], heat_ok: bool, volume_ok: bool) -> int:
             gain = float(c["gain"])
             best = gain if best is None else max(best, gain)
             flag = "PASS" if gain >= gate else ("ROLE" if c["role"] else "    ")
+            if c.get("pending_add"):
+                flag = "CLMD"   # already in a pending claim of ours
             role = f"  snap {100 * c['snap']:.0f}% tgt {100 * c['tgt_share']:.0f}%" if c.get("snap") is not None and c.get("tgt_share") is not None else ""
             print(f"    {flag} +{gain:>6.1f}  {c['add']:<24} {c['pos']:<4} {c['avail']:<3} rate {c['add_rate']:<6} "
                   f"own {c['owned']}% ({c['trend']:+})  heat {c['heat']:>6}{role}  {' '.join(c['flags'])}")
@@ -361,8 +380,9 @@ def main() -> int:
     heat = sleeper_heat(api.season, week)
     volume = load_volume(api.season)
     units = args.playoff_units if args.playoff_units is not None else playoff_units_cached()
+    committed, claimed = pending_names(api)
     out = scan(week, roster, pool, position_max, games, heat, volume, args.gate_per_game, args.top,
-               committed=pending_drops(api), backup_weeks=backup_weeks(api, roster, week),
+               committed=committed, claimed=claimed, backup_weeks=backup_weeks(api, roster, week),
                playoff_units=units)
     holes = bye_holes(api, roster, week)
     out["bye_holes"] = holes

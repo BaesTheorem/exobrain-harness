@@ -232,6 +232,8 @@ def swap_gate_event(st: dict) -> dict | None:
         if row.get("pending_drop"):
             continue   # that drop is already spent arming a pending claim (2026-09-20, Noel)
         for c in row.get("candidates", []):
+            if c.get("pending_add"):
+                continue   # already claimed with another drop (2026-11-03, Mitchell for Downs, then Burks)
             if best is None or float(c["gain"]) > float(best["gain"]):
                 best = {"drop": row["drop"], "drop_pos": row["pos"], "add": c["add"],
                         "add_pos": c["pos"], "avail": c["avail"], "gain": float(c["gain"]),
