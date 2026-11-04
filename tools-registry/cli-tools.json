@@ -1147,6 +1147,14 @@
     "notes": "Needs macOS Internet Sharing on (Wi-Fi -> USB Ethernet) with the TV cabled to the adapter, and sudo for record. Pure-stdlib pcap parser (no tshark/scapy). Byte volume from on-wire length, so snaplen 600 still counts bytes right while keeping SNI."
   },
   {
+    "name": "usps-loopscan",
+    "command": "usps/bin/loopscan.py <history.txt|history.tsv|->",
+    "repo_dir": "/Users/alexhedtke/Documents/Exobrain harness/usps/bin",
+    "source": "built",
+    "added": "2026-11-04",
+    "notes": "Companion scripts: harvest_reddit.py (Arctic Shift, paced, 422 backoff) and ocr_histories.py (sips upscale + tesseract --psm 4, one image at a time). Strips the 'Latest Update' banner; an 'In Transit' line with no place does not end a plant visit. Never calls USPS: USPS API terms forbid third-party databases. Data in gitignored usps/data/."
+  },
+  {
     "name": "vendor-sync.sh",
     "command": "~/Documents/material-design/bin/vendor-sync.sh",
     "repo_dir": "~/Documents/material-design",

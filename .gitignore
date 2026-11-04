@@ -355,3 +355,7 @@ shopping/marketplace/data/
 
 # recipe benchmark: fetched cookingforengineers.com pages and derived data (Chu's copyrighted work)
 recipes/bench/.cache/
+
+# usps/: harvested third-party Reddit text, screenshots, OCR output and probe tracking data stay local
+usps/data/
+usps/private/
