@@ -337,6 +337,16 @@ under launchd `com.exobrain.lineup-watch`, every 15 minutes, since
 minutes of locking, plus a final call at 20. Do not build a second one; if the
 rules need changing, change that script.
 
+## Matchup promo video
+
+A 59-second broadcast-style promo for the week's matchup (first one: week 9, 2026-11-04). The animation kit (`~/Documents/claude-animation`) renders it.
+
+1. `python3 fantasy/promo_data.py --out ~/Documents/claude-animation/src/promo/data/matchup.json --assets ~/Documents/claude-animation/assets/promo/logos`
+2. Pick the clips in `src/promo/data/clips.json` (GIPHY ids). Look at each candidate on a contact sheet before you use it. A title such as "National Football League GIF by NFL" does not tell who is in the clip, and the GIFs of a traded player show the jersey of the previous team (use the ESPN headshot then).
+3. Start `bin/promo-fetch`, then `node render.mjs --page=promo.html --fps=30 --frames --workers=2 --framesdir=out/frames_promo`, then mix the sound with `bin/sfx-mix src/promo/promo.sfx.json`.
+
+The storylines in `src/promo/shots.js` (S8 to S11) name this week's players. Write new ones for a new week. The data and the output name leaguemates' teams, so they stay in gitignored folders.
+
 ## Draft mode: the autopilot
 
 `fantasy/draftbot/` drafts a full roster in the ESPN draft room against a ranked
