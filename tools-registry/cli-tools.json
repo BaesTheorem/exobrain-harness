@@ -730,11 +730,11 @@
   },
   {
     "name": "matchup promo (promo.html)",
-    "command": "node render.mjs --page=promo.html --fps=30 --frames --workers=2 --framesdir=out/frames_promo; bin/sfx-mix src/promo/promo.sfx.json --video=...",
+    "command": "bin/promo-fetch; node render.mjs --page=promo.html --fps=30 --frames --workers=2 --framesdir=out/frames_promo; bin/sfx-mix src/promo/promo.sfx.json --wav=out/check/mix.wav",
     "repo_dir": "/Users/alexhedtke/Documents/claude-animation",
     "source": "built",
     "added": "2026-11-04",
-    "notes": "three.js page with the render.mjs contract; shots in src/promo/shots.js are cut to the downbeats of the music track (D array). Storylines S8-S11 are week-specific. Film grain makes CRF encodes huge: encode a bitrate-capped master and a 720p two-pass copy for chat apps. 8 GB Mac: two render workers at most."
+    "notes": "Cut points come from src/promo/music.json (24 downbeats; D[12] drop, D[23] end card); music and CC0 sound sources from src/promo/sounds.json. The soundtrack is one edit of Scott Buckley's Juggernaut (CC BY 4.0) with recorded Freesound hits; this kit's sfx-mix does music segments, ducking and a LUFS master (the scp-mariah copy has measured-space reverb instead; they have diverged). Storylines S8-S11 are week-specific. Film grain makes CRF encodes huge: cap the master bitrate and make a 720p two-pass copy. 8 GB Mac: two render workers at most."
   },
   {
     "name": "mcp-call",
