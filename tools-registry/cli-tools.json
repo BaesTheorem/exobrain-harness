@@ -729,6 +729,14 @@
     "notes": "Recent All the Places runs often have near-zero lowes_us features (Lowe's blocks the scraper); pick a run whose stats/_results.json shows 1,000+ features. 2026-07-11-13-32-25 had 1,763. Refuses to write under 1,000 stores."
   },
   {
+    "name": "matchup promo (promo.html)",
+    "command": "node render.mjs --page=promo.html --fps=30 --frames --workers=2 --framesdir=out/frames_promo; bin/sfx-mix src/promo/promo.sfx.json --video=...",
+    "repo_dir": "/Users/alexhedtke/Documents/claude-animation",
+    "source": "built",
+    "added": "2026-11-04",
+    "notes": "three.js page with the render.mjs contract; shots in src/promo/shots.js are cut to the downbeats of the music track (D array). Storylines S8-S11 are week-specific. Film grain makes CRF encodes huge: encode a bitrate-capped master and a 720p two-pass copy for chat apps. 8 GB Mac: two render workers at most."
+  },
+  {
     "name": "mcp-call",
     "command": "bin/mcp-call <server> [tool k=v ...]",
     "repo_dir": "/Users/alexhedtke/Documents/Exobrain harness",
@@ -912,6 +920,14 @@
     "source": "built",
     "added": "2026-08-27",
     "notes": "The Priory news aggregator CLI (deterministic Ground News + Base Rate Times clone). Web UI on 127.0.0.1:5025. Postgres 17 db 'priory'. See FORK.md for divergence from upstream MuckScraper."
+  },
+  {
+    "name": "promo_data.py",
+    "command": "python3 fantasy/promo_data.py --out DIR/matchup.json --assets DIR/logos",
+    "repo_dir": "/Users/alexhedtke/Documents/Exobrain harness/fantasy",
+    "source": "built",
+    "added": "2026-11-04",
+    "notes": "Calls espn matchup --json, ff raw --limit 0 and season_sim.py --this-week --table; bye odds are season_sim cells weighted by the other games' pregame odds. Output names leaguemates' teams: write it only into a gitignored folder (the kit uses src/promo/data/)."
   },
   {
     "name": "ps5-autopilot",
