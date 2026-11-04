@@ -103,6 +103,15 @@ def side(rows: list[dict], fallback_rows: list[dict]) -> list[dict]:
     return out
 
 
+def bench(rows: list[dict]) -> list[dict]:
+    """The bench and IR, for show only: they are not in the win probability.
+    `mean` gives the expected points still to come while a game is not over."""
+    return [{"id": r["id"], "slot": r["slot"], "name": r["name"], "pos": r["pos"], "team": r["team"],
+             "opp": r["opp"], "kick": r["kick"], "status": r.get("status") or "", "proj": r.get("proj"),
+             "mean": round(float(row_mean(r) or 0.0), 3)}
+            for r in rows if not is_starter(r) and r.get("id") is not None]
+
+
 def pack(me_rows: list[dict], opp_rows: list[dict], rate: float, corr: dict) -> dict:
     """Both sides' starters plus the nonzero correlations, as index pairs
     into me + opp. `rate` is the rival's fix rate (espncli.value.fix_rate)."""
@@ -125,8 +134,8 @@ def matchup(api: Espn, week: int, data: dict, team_id: int, corr: dict, rem: dic
     rate = (m.get("opp_fix") or {}).get("rate", 1.0)
     p = pack(m["me"]["rows"], m["opp"]["rows"], rate, corr)
     return {"id": m["matchup_id"],
-            "me": {"team_id": m["me"]["team_id"], "team": m["me"]["team"], "rows": p["me"]},
-            "opp": {"team_id": m["opp"]["team_id"], "team": m["opp"]["team"], "rows": p["opp"]},
+            "me": {"team_id": m["me"]["team_id"], "team": m["me"]["team"], "rows": p["me"], "bench": bench(m["me"]["rows"])},
+            "opp": {"team_id": m["opp"]["team_id"], "team": m["opp"]["team"], "rows": p["opp"], "bench": bench(m["opp"]["rows"])},
             "pairs": p["pairs"], "check": {"frac": rem, "win": m.get("win")}}
 
 
@@ -149,10 +158,10 @@ def build() -> dict:
     first = one(games[0]) if games else None
     with ThreadPoolExecutor(max_workers=6) as ex:
         views = [v for v in [first, *ex.map(one, games[1:])] if v]
-    nums = jerseys([r["id"] for v in views for k in ("me", "opp") for r in v[k]["rows"]])
+    nums = jerseys([r["id"] for v in views for k in ("me", "opp") for r in v[k]["rows"] + v[k]["bench"]])
     for v in views:
         for k in ("me", "opp"):
-            for r in v[k]["rows"]:
+            for r in v[k]["rows"] + v[k]["bench"]:
                 r["jersey"] = nums.get(r["id"])
     teams = {t["id"]: {"name": (t.get("name") or "").strip(), "logo": t.get("logo") or ""} for t in data.get("teams", [])}
     return {"at": datetime.now().astimezone().isoformat(timespec="seconds"), "source": os.environ.get("SCOREBUG_SOURCE", "mac"),

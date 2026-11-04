@@ -67,5 +67,9 @@ KV namespace id are in the gitignored `scorebug.json`.
   ESPN's records and the last regular-season odds.
 - The bye odds are overconfident at the top end: in the 857-league check a
   predicted 84% happened 65% of the time. The tab says so in its footnote.
+- The bench (BE and IR) shows under our starters, with live points and the
+  expected points still to come. It is for show: it is not in the score or
+  the win probability. The bench list comes from the snapshot, so a waiver
+  add shows after the next snapshot (6 hours at most on a quiet day).
 - A player in a live game keeps his projected scoring rate for the share of
   the game that is left (the same limit as `espn check`).

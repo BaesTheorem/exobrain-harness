@@ -43,7 +43,7 @@ h3{font:600 15px 'Barlow Condensed';letter-spacing:2px;color:var(--mute);margin-
 .pn em.live{color:var(--red);font-weight:600}
 .bar{height:10px;display:flex;background:var(--track)} .seg{display:block;height:100%}
 .num{text-align:right;font:600 16px 'Barlow Condensed'} .num b{color:var(--red)}
-.wide{grid-column:1/3}
+.wide{grid-column:1/3} h3.bh{margin:16px 0 4px} .bench .num b{color:var(--mute)}
 .lg{color:var(--mute);font-size:12px;margin-top:8px} .lg i{display:inline-block;width:12px;height:8px;margin:0 4px 0 12px;vertical-align:middle}
 .note{font:500 17px 'Barlow Condensed';letter-spacing:.3px;line-height:1.35} .note b{color:var(--red)}
 table{width:100%;border-collapse:collapse;font:500 15px 'Barlow Condensed'}
@@ -220,7 +220,7 @@ function render(S){S=merge(S,L0);
  $('meN').textContent=me.team;$('opN').textContent=op.team;$('meS').textContent=f2(me.actual);$('opS').textContent=f2(op.actual);
  $('meP').textContent=`model final ${f1(w.mu_me)} ± ${f1(w.sd_me)}`;$('opP').textContent=`model final ${f1(w.mu_opp)} ± ${f1(w.sd_opp)}`;
  $('meL').src=BASE+'/logo/'+me.team_id;$('opL').src=BASE+'/logo/'+op.team_id;$('meH').textContent=me.team+' starters';$('opH').textContent=op.team;
- $('meR').innerHTML=bars(me.rows,'#E5383B');$('opR').innerHTML=bars(op.rows,'#C9C2B8');
+ $('meR').innerHTML=bars(me.rows,'#E5383B')+(isMine&&me.bench&&me.bench.length?(()=>{const t=me.bench.reduce((a,r)=>a+Math.max(r.bank,0),0);return `<h3 class="bh">Bench · ${t?f2(t)+' ':''}not counted</h3><div class="bench">${bars(me.bench,'#8B9099')}</div>`})():'');$('opR').innerHTML=bars(op.rows,'#C9C2B8');
  if(w.sd_diff>0&&left){const up=Phi((mar+6)/w.sd_diff),dn=Phi((mar-6)/w.sd_diff),bits=[];
   if(rm.length)bits.push(`A touchdown by ${esc(last(rm[0].name))} (6 points) moves ${esc(me.team)} to <b>${pct(up)}</b>.`);
   if(ro.length)bits.push(rm.length?`One by ${esc(last(ro[0].name))} drops it to <b>${pct(dn)}</b>.`:`A touchdown by ${esc(last(ro[0].name))} (6 points) drops ${esc(me.team)} to <b>${pct(dn)}</b>.`);
@@ -253,7 +253,7 @@ const logo=(id,c)=>id==null?'':`<img class="logo ${c}" src="${BASE}/logo/${id}" 
 // scores older than the model pull are skipped, since the pull carries newer ones.
 function merge(S,L){if(!S||!S.ok||!L||!L.teams||(L.at&&L.at<S.at))return S;const T=JSON.parse(JSON.stringify(S));
  const upd=side=>{const v=L.teams[side.team_id];if(v==null)return 0;const d=v-side.actual;side.actual=v;
-  side.rows.forEach(r=>{const p=L.players[r.id];if(p!=null)r.bank=p});return d};
+  [...side.rows,...(side.bench||[])].forEach(r=>{const p=L.players[r.id];if(p!=null)r.bank=p});return d};
  Object.values(T.views).forEach(V=>{const w=V.win;w.mu_me+=upd(V.me);w.mu_opp+=upd(V.opp);
   w.p=w.sd_diff>0?Phi((w.mu_me-w.mu_opp)/w.sd_diff):(w.mu_me>w.mu_opp?1:0)});
  T.games.forEach(g=>{if(L.teams[g.hid]!=null)g.hs=L.teams[g.hid];if(L.teams[g.aid]!=null)g.as=L.teams[g.aid];

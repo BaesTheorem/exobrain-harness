@@ -90,6 +90,13 @@ function compute(snap, live) {
                  jersey: r.jersey, bank: p ?? 0, rem: Math.round(w.rem[off + i] * 10) / 10,
                  state: st.state === "in" ? "live" : p == null ? "upcoming" : "final", left: st.state === "in" ? st.left : null };
       }),
+      // Bench and IR: shown with their points, never counted in the score or the odds.
+      bench: (s.bench || []).map(r => {
+        const st = g(r.team), p = pts(r), left = st.state === "in" ? st.left : p == null ? 1 : 0;
+        return { id: r.id, slot: r.slot, name: r.name, team: r.team, opp: r.opp, kick: r.kick, status: r.status,
+                 jersey: r.jersey, bank: p ?? 0, rem: Math.round(left * (r.mean || 0) * 10) / 10,
+                 state: st.state === "in" ? "live" : p == null ? "upcoming" : "final", left: st.state === "in" ? st.left : null };
+      }),
     });
     views[v.id] = { id: v.id, win: { p: w.p, mu_me: w.mu_me, sd_me: w.sd_me, mu_opp: w.mu_opp, sd_opp: w.sd_opp, margin: w.margin, sd_diff: w.sd_diff },
                     me: side(v.me, 0), opp: side(v.opp, v.me.rows.length) };

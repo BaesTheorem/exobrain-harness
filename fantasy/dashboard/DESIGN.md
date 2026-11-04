@@ -38,6 +38,9 @@ Dark only. A score bug is a dark-surface form, and there is no light theme.
 - One radius: 0. Square corners throughout, the broadcast look.
 - No gradients or shadows. The only fills are the 12% red area under the
   win-probability line and the hatch.
+- Our starters card ends with the bench under a "Bench" heading, in mute
+  `#8B9099` bars, so that the accent stays on the points that count. Only
+  our own game shows a bench.
 - Below 980 px the grid is one column; below 640 px the win-probability box
   moves above the two scores.
 
