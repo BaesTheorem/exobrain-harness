@@ -1,0 +1,753 @@
+{
+ "season": 2026,
+ "week": 9,
+ "issued": "2026-11-03T18:06-06:00",
+ "team_id": 12,
+ "team": "Chaos Legion",
+ "opponent": "End-Zone Dancers",
+ "opponent_id": 5,
+ "forecast": {
+  "week": 9,
+  "author": "MIST",
+  "method": "Each median starts at the unit-normalized consensus (ESPN, Sleeper, CBS, FantasyPros, FFToday and the sportsbook props where posted; most props are not up on Tuesday) times the tier median from the residual library, with the 50 and 90 widths from the tier quantiles. Hand moves are on probation (closing line value sign agreement 0.47 on 34 moves), so no median leaves its anchor on a hunch. The two questionable players (Christian Watson, ribs; David Montgomery, groin) have no practice line yet and are priced as a mixture: 0.71 to play, 0.91 of the line when playing, a zero otherwise. The week 7 alarm (q75-q95 slice at 37%) is not acted on by hand: the q75 rebuild test from an interactive session is still not run, so the bands stay at the library's widths. The pending Adonai Mitchell for Josh Downs claim (Wed 2:00 AM) is not on the roster and is not in these lines.",
+  "players": [
+   {
+    "name": "Jayden Daniels",
+    "median": 17.0,
+    "p50": [
+     12.0,
+     22.5
+    ],
+    "p90": [
+     5.0,
+     30.5
+    ],
+    "why": "Consensus 19.1 (ESPN 19.8, Sleeper 18.2, CBS 19.4), no market line yet. Washington +5.5 vs the Rams, implied 21.0 in a 47.5 total. 5.4 carries a game carry the floor; QB starter-tier median 0.89x. Anchor, no hand move.",
+    "id": 4426348,
+    "pos": "QB",
+    "slot": "QB",
+    "consensus": 19.1,
+    "espn": 19.8,
+    "sources": {
+     "espn": 19.8,
+     "sleeper": 18.2,
+     "cbs": 19.4
+    }
+   },
+   {
+    "name": "Kenneth Walker III",
+    "median": 20.5,
+    "p50": [
+     14.0,
+     29.0
+    ],
+    "p90": [
+     7.5,
+     42.5
+    ],
+    "why": "Consensus 21.8, sources inside 2.3. Kansas City -9.5 vs the Jets, implied 28.0: a favorite script for 20.1 carries and 27.0 opportunities a game (volume rank 2). Elite RB tier median 0.94x. Anchor.",
+    "id": 4567048,
+    "pos": "RB",
+    "slot": "RB",
+    "consensus": 21.8,
+    "espn": 23.0,
+    "sources": {
+     "espn": 23.0,
+     "sleeper": 21.6,
+     "cbs": 20.7
+    }
+   },
+   {
+    "name": "Ollie Gordon II",
+    "median": 13.0,
+    "p50": [
+     9.0,
+     18.5
+    ],
+    "p90": [
+     4.5,
+     27.0
+    ],
+    "why": "Consensus 13.9 with a 4.0 spread (ESPN 16.4 high). Miami +7 vs Detroit, implied 21.8, a trailing script that cuts carries; 82% snaps last week and Wright at 12%, so the role is his. RB tier median 0.94x. Anchor.",
+    "id": 4711533,
+    "pos": "RB",
+    "slot": "RB",
+    "consensus": 13.9,
+    "espn": 16.4,
+    "sources": {
+     "espn": 16.4,
+     "sleeper": 13.0,
+     "cbs": 12.4
+    }
+   },
+   {
+    "name": "Christian Watson",
+    "median": 8.5,
+    "p50": [
+     0.0,
+     15.5
+    ],
+    "p90": [
+     0.0,
+     27.0
+    ],
+    "why": "Consensus 14.8 (market 14.7). QUESTIONABLE (ribs), no practice line on Tuesday, so priced at the measured questionable rate 0.71 to play and 0.91 of his line when he plays; a sit is a zero on his own line (lineup-watch covers the slot). ROLE-DOWN to 49% snaps last week. Green Bay +3 at New England.",
+    "id": 4248528,
+    "pos": "WR",
+    "slot": "WR",
+    "consensus": 14.8,
+    "espn": 15.7,
+    "sources": {
+     "espn": 15.7,
+     "sleeper": 16.3,
+     "cbs": 12.3,
+     "market": 14.7
+    }
+   },
+   {
+    "name": "Malik Washington",
+    "median": 8.5,
+    "p50": [
+     4.5,
+     14.0
+    ],
+    "p90": [
+     0.0,
+     23.5
+    ],
+    "why": "Consensus 10.2, sources inside 1.0. 25% target share, BUY on volume rank 29 against points rank 41; Miami trails Detroit by 7 in a 50.5 total, a pass-heavy script. WR tier median 0.83x. Anchor.",
+    "id": 4569603,
+    "pos": "WR",
+    "slot": "WR",
+    "consensus": 10.2,
+    "espn": 9.8,
+    "sources": {
+     "espn": 9.8,
+     "sleeper": 10.8,
+     "cbs": 10.1
+    }
+   },
+   {
+    "name": "Trey McBride",
+    "median": 14.0,
+    "p50": [
+     9.5,
+     21.5
+    ],
+    "p90": [
+     3.5,
+     30.0
+    ],
+    "why": "Consensus 16.0 (CBS 18.4 high, ESPN 14.3), no market line yet. Arizona +12.5 at Seattle, implied 14.5, the lowest team total on our slate; a 28% target share and 95% snaps keep the floor. TE tier median 0.88x. Anchor.",
+    "id": 4361307,
+    "pos": "TE",
+    "slot": "TE",
+    "consensus": 16.0,
+    "espn": 14.3,
+    "sources": {
+     "espn": 14.3,
+     "sleeper": 15.2,
+     "cbs": 18.4
+    }
+   },
+   {
+    "name": "Ja'Marr Chase",
+    "median": 18.0,
+    "p50": [
+     11.0,
+     25.5
+    ],
+    "p90": [
+     3.5,
+     40.5
+    ],
+    "why": "Consensus 19.5 (market 18.0, ESPN 22.9 high). Cincinnati -3 at Atlanta in London, 52.5 total, dome; 96% snaps and a 34% share last week (ROLE-UP). WR elite tier median 0.92x. Anchor.",
+    "id": 4362628,
+    "pos": "WR",
+    "slot": "FLEX",
+    "consensus": 19.5,
+    "espn": 22.9,
+    "sources": {
+     "espn": 22.9,
+     "sleeper": 19.7,
+     "cbs": 17.4,
+     "market": 18.0
+    }
+   },
+   {
+    "name": "Jaguars D/ST",
+    "median": 7.5,
+    "p50": [
+     4.0,
+     12.0
+    ],
+    "p90": [
+     1.0,
+     20.0
+    ],
+    "why": "Consensus 7.5. Jacksonville -10 at Baltimore, Ravens implied 15.2 with Joe Fagnano at QB (market passing line 162.5): the best D/ST spot on the slate. Thursday 7:15 PM. D/ST tier median 0.97x, wide tails both ways.",
+    "id": -16030,
+    "pos": "D/ST",
+    "slot": "D/ST",
+    "consensus": 7.5,
+    "espn": 8.6,
+    "sources": {
+     "espn": 8.6,
+     "sleeper": 7.5,
+     "cbs": 6.3
+    }
+   },
+   {
+    "name": "Brandon Aubrey",
+    "median": 10.0,
+    "p50": [
+     6.0,
+     14.0
+    ],
+    "p90": [
+     1.0,
+     21.5
+    ],
+    "why": "Consensus 10.4, sources inside 0.5. Dallas -6 at Indianapolis, dome, implied 28.8; distance scoring favors his leg. K tier median 0.95x. Anchor.",
+    "id": 3953687,
+    "pos": "K",
+    "slot": "K",
+    "consensus": 10.4,
+    "espn": 10.6,
+    "sources": {
+     "espn": 10.6,
+     "sleeper": 10.1,
+     "cbs": 10.6
+    }
+   },
+   {
+    "name": "David Montgomery",
+    "median": 5.0,
+    "p50": [
+     0.0,
+     10.5
+    ],
+    "p90": [
+     0.0,
+     20.0
+    ],
+    "why": "Bench. Consensus 10.1, spread 4.4. QUESTIONABLE (groin), 14% snaps in his last game; priced at 0.71 to play and 0.91 when playing. Not in the team total.",
+    "id": 4035538,
+    "pos": "RB",
+    "slot": "BE",
+    "consensus": 10.1,
+    "espn": 11.9,
+    "sources": {
+     "espn": 11.9,
+     "sleeper": 11.0,
+     "cbs": 7.5
+    }
+   },
+   {
+    "name": "Rhamondre Stevenson",
+    "median": 10.0,
+    "p50": [
+     5.5,
+     16.5
+    ],
+    "p90": [
+     1.5,
+     27.5
+    ],
+    "why": "Bench. Consensus 11.9, market 13.3. New England -3 vs Green Bay; 77% snaps last week, ROLE-UP. Not in the team total.",
+    "id": 4569173,
+    "pos": "RB",
+    "slot": "BE",
+    "consensus": 11.9,
+    "espn": 11.8,
+    "sources": {
+     "espn": 11.8,
+     "sleeper": 12.1,
+     "cbs": 10.5,
+     "market": 13.3
+    }
+   },
+   {
+    "name": "Josh Downs",
+    "median": 8.5,
+    "p50": [
+     4.5,
+     14.0
+    ],
+    "p90": [
+     0.0,
+     24.0
+    ],
+    "why": "Bench, and the drop in the pending Adonai Mitchell claim (Wed 2:00 AM); if it lands his line is void. Consensus 10.4 (ESPN 8.6 low). Indianapolis +6 vs Dallas.",
+    "id": 4688813,
+    "pos": "WR",
+    "slot": "BE",
+    "consensus": 10.4,
+    "espn": 8.6,
+    "sources": {
+     "espn": 8.6,
+     "sleeper": 10.9,
+     "cbs": 11.8
+    }
+   },
+   {
+    "name": "Devaughn Vele",
+    "median": 7.5,
+    "p50": [
+     4.0,
+     12.5
+    ],
+    "p90": [
+     0.0,
+     21.5
+    ],
+    "why": "Bench. Consensus 9.3. 92% snaps, 19% share, SELL on three touchdowns. New Orleans -1.5 vs Cleveland, dome.",
+    "id": 4569559,
+    "pos": "WR",
+    "slot": "BE",
+    "consensus": 9.3,
+    "espn": 9.9,
+    "sources": {
+     "espn": 9.9,
+     "sleeper": 8.1,
+     "cbs": 9.9
+    }
+   },
+   {
+    "name": "Deshaun Watson",
+    "median": 13.5,
+    "p50": [
+     9.5,
+     18.0
+    ],
+    "p90": [
+     4.0,
+     24.5
+    ],
+    "why": "Bench (the approved QB bridge). Consensus 15.2. Cleveland +1.5 at New Orleans, implied 20.5, dome.",
+    "id": 3122840,
+    "pos": "QB",
+    "slot": "BE",
+    "consensus": 15.2,
+    "espn": 16.2,
+    "sources": {
+     "espn": 16.2,
+     "sleeper": 15.0,
+     "cbs": 14.3
+    }
+   },
+   {
+    "name": "Browns D/ST",
+    "median": 5.5,
+    "p50": [
+     2.0,
+     10.0
+    ],
+    "p90": [
+     -2.5,
+     19.0
+    ],
+    "why": "Bench. Consensus 6.8. New Orleans implied 22.0, 7 points worse than the Jaguars' spot.",
+    "id": -16005,
+    "pos": "D/ST",
+    "slot": "BE",
+    "consensus": 6.8,
+    "espn": 6.2,
+    "sources": {
+     "espn": 6.2,
+     "sleeper": 6.8,
+     "cbs": 7.5
+    }
+   },
+   {
+    "name": "Treylon Burks",
+    "median": 7.0,
+    "p50": [
+     3.5,
+     11.0
+    ],
+    "p90": [
+     0.0,
+     19.0
+    ],
+    "why": "Bench. Consensus 8.2 with a 4.5 spread (Sleeper 5.6). 67% snaps and 19% share last week, ROLE-UP, behind Terry McLaurin's replacement role in Washington.",
+    "id": 4567156,
+    "pos": "WR",
+    "slot": "BE",
+    "consensus": 8.2,
+    "espn": 10.1,
+    "sources": {
+     "espn": 10.1,
+     "sleeper": 5.6,
+     "cbs": 8.9
+    }
+   },
+   {
+    "name": "Jordyn Tyson",
+    "median": 0,
+    "p50": [
+     0,
+     0
+    ],
+    "p90": [
+     0,
+     1
+    ],
+    "why": "IR (hamstring), no practice window: a zero line.",
+    "id": 4880281,
+    "pos": "WR",
+    "slot": "IR",
+    "consensus": 5.2,
+    "espn": 0.0,
+    "sources": {
+     "espn": 0.0,
+     "cbs": 10.4
+    }
+   }
+  ],
+  "team_total": {
+   "median": 128,
+   "p50": [
+    112,
+    145
+   ],
+   "p90": [
+    89,
+    171
+   ],
+   "why": "Consensus starters 133.3 and the baseline bootstrap 130.6 (q25 114, q75 148). Christian Watson is questionable with no practice line: at 0.71 to play and a bench cover near 8.5 (Burks, Vele or Downs by lineup-watch) the WR slot is worth about 2.7 less than his line, so the center moves to 128. Widths from the bootstrap, shifted with the center."
+  },
+  "opp_total": {
+   "median": 125,
+   "p50": [
+    108,
+    143
+   ],
+   "p90": [
+    86,
+    169
+   ],
+   "why": "End-Zone Dancers (Dominic Antonacci): Burrow 20.9, Gibbs 26.5, Judkins 12.6, Olave 15.4, Rice 13.8, Kraft 11.5, Coker 11.8, Patriots D/ST 6.0, Myers 10.0 on consensus (128.4); no holes, fix rate 0.89, last seen 11 hours ago. Starter-tier medians take it to the baseline's 124.9; widths from the bootstrap."
+  },
+  "win_prob": 0.55,
+  "standing": {
+   "median": 1,
+   "p50": [
+    1,
+    2
+   ],
+   "p90": [
+    1,
+    2
+   ],
+   "p_first": 0.54,
+   "p_top2": 0.98,
+   "why": "We are #2 at 6-1 (873.1), End-Zone Dancers #1 at 7-1 (973.1), and we play them. A win (0.55) makes us 7-1 against their 7-2: #1. A loss makes them 8-1 and us 6-2, tied on record with the winner of Namaslay vs The Oprah Winfreys and possibly Waiting for Gordon (vs KC Breathmints); we lead Namaslay by 28.1, The Oprah Winfreys by 76.5 and Waiting for Gordon by 140.6 on Points For, so #3 needs a loss plus Namaslay winning and outscoring us by 28 or more: about 0.015. The baseline sim agrees (0.561 first, 0.986 top two)."
+  }
+ },
+ "baseline": {
+  "players": {
+   "Jayden Daniels": {
+    "q05": 4.64,
+    "q25": 11.84,
+    "q50": 16.73,
+    "q75": 22.49,
+    "q95": 30.51
+   },
+   "Kenneth Walker III": {
+    "q05": 7.5,
+    "q25": 14.22,
+    "q50": 20.61,
+    "q75": 28.56,
+    "q95": 43.79
+   },
+   "Ollie Gordon II": {
+    "q05": 4.78,
+    "q25": 9.41,
+    "q50": 13.18,
+    "q75": 18.17,
+    "q95": 26.18
+   },
+   "Christian Watson": {
+    "q05": 2.6,
+    "q25": 8.35,
+    "q50": 13.61,
+    "q75": 19.13,
+    "q95": 30.88
+   },
+   "Malik Washington": {
+    "q05": 0.53,
+    "q25": 4.65,
+    "q50": 8.52,
+    "q75": 14.7,
+    "q95": 24.52
+   },
+   "Trey McBride": {
+    "q05": 3.7,
+    "q25": 10.2,
+    "q50": 14.22,
+    "q75": 21.68,
+    "q95": 30.01
+   },
+   "Ja'Marr Chase": {
+    "q05": 3.71,
+    "q25": 11.29,
+    "q50": 17.99,
+    "q75": 25.55,
+    "q95": 39.7
+   },
+   "Jaguars D/ST": {
+    "q05": 0.88,
+    "q25": 4.03,
+    "q50": 7.31,
+    "q75": 12.13,
+    "q95": 19.96
+   },
+   "Brandon Aubrey": {
+    "q05": 1.28,
+    "q25": 5.99,
+    "q50": 9.7,
+    "q75": 14.23,
+    "q95": 21.22
+   },
+   "David Montgomery": {
+    "q05": 1.31,
+    "q25": 4.71,
+    "q50": 8.31,
+    "q75": 13.8,
+    "q95": 22.99
+   },
+   "Rhamondre Stevenson": {
+    "q05": 1.54,
+    "q25": 5.53,
+    "q50": 9.89,
+    "q75": 16.09,
+    "q95": 27.08
+   },
+   "Josh Downs": {
+    "q05": 0.0,
+    "q25": 4.65,
+    "q50": 8.88,
+    "q75": 15.0,
+    "q95": 23.77
+   },
+   "Devaughn Vele": {
+    "q05": 0.0,
+    "q25": 4.13,
+    "q50": 7.7,
+    "q75": 13.05,
+    "q95": 21.04
+   },
+   "Deshaun Watson": {
+    "q05": 3.84,
+    "q25": 9.31,
+    "q50": 13.25,
+    "q75": 17.58,
+    "q95": 23.75
+   },
+   "Browns D/ST": {
+    "q05": -2.32,
+    "q25": 2.22,
+    "q50": 5.81,
+    "q75": 10.15,
+    "q95": 19.01
+   },
+   "Treylon Burks": {
+    "q05": 0.0,
+    "q25": 3.47,
+    "q50": 6.79,
+    "q75": 11.25,
+    "q95": 18.74
+   },
+   "Jordyn Tyson": {
+    "q05": 0.0,
+    "q25": 0.5,
+    "q50": 3.53,
+    "q75": 7.05,
+    "q95": 17.72
+   }
+  },
+  "team_total": {
+   "q05": 91.36,
+   "q25": 114.37,
+   "q50": 130.56,
+   "q75": 148.07,
+   "q95": 174.39
+  },
+  "opp_total": {
+   "q05": 84.78,
+   "q25": 107.56,
+   "q50": 124.89,
+   "q75": 142.87,
+   "q95": 170.33
+  },
+  "win_prob": 0.561,
+  "rank": {
+   "q05": 1,
+   "q25": 1,
+   "q50": 1,
+   "q75": 2,
+   "q95": 2
+  },
+  "p_first": 0.561,
+  "p_top2": 0.986,
+  "p_top6": 1.0,
+  "rank_dist": {
+   "1": 0.561,
+   "2": 0.425,
+   "3": 0.014
+  },
+  "sims": 5000,
+  "residual_n": {
+   "QB": 1306,
+   "RB": 2628,
+   "WR": 4184,
+   "TE": 1779,
+   "K": 1283,
+   "D/ST": 1301
+  }
+ },
+ "sources": {
+  "ok": [
+   "cbs",
+   "fantasypros",
+   "fftoday",
+   "market",
+   "sleeper"
+  ],
+  "failed": []
+ },
+ "market_at_forecast": {
+  "4248528": {
+   "name": "Christian Watson",
+   "pos": "WR",
+   "team": "GB",
+   "market": 14.73,
+   "lines": {
+    "rec_yds": 73.5,
+    "receptions": 4.5
+   },
+   "implied": 21.8,
+   "game": "401873049"
+  },
+  "4362628": {
+   "name": "Ja'Marr Chase",
+   "pos": "WR",
+   "team": "CIN",
+   "market": 18.03,
+   "lines": {
+    "rec_yds": 77.5,
+    "receptions": 6.5
+   },
+   "implied": 27.8,
+   "game": "401873038"
+  },
+  "4569173": {
+   "name": "Rhamondre Stevenson",
+   "pos": "RB",
+   "team": "NE",
+   "market": 13.33,
+   "lines": {
+    "carries": 14.5,
+    "rush_yds": 54.5
+   },
+   "implied": 24.8,
+   "game": "401873049"
+  }
+ },
+ "standings_before": [
+  {
+   "team_id": 5,
+   "team": "End-Zone Dancers",
+   "w": 7,
+   "l": 1,
+   "pf": 973.1
+  },
+  {
+   "team_id": 12,
+   "team": "Chaos Legion",
+   "w": 6,
+   "l": 1,
+   "pf": 873.1
+  },
+  {
+   "team_id": 7,
+   "team": "Namaslay",
+   "w": 5,
+   "l": 2,
+   "pf": 845.0
+  },
+  {
+   "team_id": 1,
+   "team": "The Oprah Winfreys",
+   "w": 5,
+   "l": 2,
+   "pf": 796.6
+  },
+  {
+   "team_id": 9,
+   "team": "Waiting for Gordon",
+   "w": 5,
+   "l": 2,
+   "pf": 732.5
+  },
+  {
+   "team_id": 11,
+   "team": "The Mighty Marmots",
+   "w": 4,
+   "l": 3,
+   "pf": 733.0
+  },
+  {
+   "team_id": 4,
+   "team": "Njigba Please!",
+   "w": 3,
+   "l": 4,
+   "pf": 915.7
+  },
+  {
+   "team_id": 13,
+   "team": "Goedel, Escher, Butkus",
+   "w": 3,
+   "l": 5,
+   "pf": 917.9
+  },
+  {
+   "team_id": 10,
+   "team": "Cutie Mark Crusaders",
+   "w": 3,
+   "l": 5,
+   "pf": 906.4
+  },
+  {
+   "team_id": 6,
+   "team": "KC Breathmints",
+   "w": 3,
+   "l": 5,
+   "pf": 843.1
+  },
+  {
+   "team_id": 3,
+   "team": "The Chefs",
+   "w": 2,
+   "l": 5,
+   "pf": 702.0
+  },
+  {
+   "team_id": 14,
+   "team": "Ayahuasca Rodgers",
+   "w": 1,
+   "l": 6,
+   "pf": 767.6
+  },
+  {
+   "team_id": 2,
+   "team": "The Winners",
+   "w": 1,
+   "l": 7,
+   "pf": 892.6
+  }
+ ],
+ "settled": null,
+ "forecast_note": "Not in these lines: the pending Adonai Mitchell for Josh Downs claim (Wed 2:00 AM, priority 12 of 13, a breakout claim that The Winners and Waiting for Gordon can take first). If it lands, Downs' line is void and Mitchell is unforecast. Bands are the library's widths: the q75 rebuild test written for 11-03 was not run (it needs an interactive session), so the week 7 alarm stays open."
+}
