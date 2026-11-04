@@ -449,7 +449,7 @@ def main() -> int:
     #    whose roster moves matter (an absent manager showing up).
     wl = load(WATCHLIST, {"players": [], "teams": []})
     wstate = st.setdefault("watch", {})
-    ids = [p["id"] for p in wl.get("players", [])]
+    ids = [p["id"] for p in wl.get("players", []) if p.get("id") is not None]
     cards = {c["player"]["id"]: c for c in api.player_cards(ids)} if ids else {}
     for wp in wl.get("players", []):
         c = cards.get(wp["id"])

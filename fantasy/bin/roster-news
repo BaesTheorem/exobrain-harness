@@ -45,6 +45,10 @@ def main() -> int:
     since = datetime.now(timezone.utc) - timedelta(hours=args.hours)
     out = []
     for pid, name, tag, status in people:
+        if pid is None:
+            # A watch-list entry written before its ESPN id was known (a pending claim).
+            print(f"roster-news: skipped {name}, no ESPN id on the watch list", file=sys.stderr)
+            continue
         if pid < 0:
             continue  # D/ST feeds are team news; not worth the noise here
         ln = last_name(name)
