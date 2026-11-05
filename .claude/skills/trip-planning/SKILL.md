@@ -1,6 +1,6 @@
 ---
 name: trip-planning
-description: "Plan a trip and find the lowest real cost for each part: flights, hotels, vacation rentals and rental cars. Searches flights through LetsFG, Kiwi, Skiplagged and Google Flights (fli), including split tickets and cheapest-date calendars; checks each finalist flight's on-time record; searches hotels through trivago, Skiplagged, LetsFG and Airbnb; prices rental cars through OctoTrip, Skiplagged and Gondola plus Costco Travel and AutoSlash; then runs the /shopping discount pipeline (promo codes, cashback portals, discounted gift cards, net-cost ranking). Use when Alex says '/trip-planning', 'plan a trip', 'find me flights', 'cheapest flight to', 'how much to fly to', 'cheapest dates to fly', 'find a hotel in', 'where should I stay', 'rent a car', 'rental car in', 'is this fare good', 'when should I book', 'compare these flights', or wants to price out travel for a concert, wedding, conference or vacation."
+description: "Plan a trip and find the lowest real cost for each part: flights, hotels, vacation rentals and rental cars. Searches flights through LetsFG, Kiwi, Skiplagged and Google Flights (fli), including split tickets and cheapest-date calendars; checks each finalist flight's on-time record; searches hotels through trivago, Booking.com, Priceline (including Express Deals), Skiplagged, LetsFG and Airbnb; prices rental cars through OctoTrip, Skiplagged and Gondola plus Costco Travel and AutoSlash; then runs the /shopping discount pipeline (promo codes, cashback portals, discounted gift cards, net-cost ranking). Use when Alex says '/trip-planning', 'plan a trip', 'find me flights', 'cheapest flight to', 'how much to fly to', 'cheapest dates to fly', 'find a hotel in', 'where should I stay', 'check Booking.com', 'Priceline Express Deals', 'rent a car', 'rental car in', 'is this fare good', 'when should I book', 'compare these flights', or wants to price out travel for a concert, wedding, conference or vacation."
 ---
 
 # /trip-planning
@@ -24,7 +24,8 @@ All MCP servers below are registered at user scope. Find their tool names with T
 | Split tickets | LetsFG | Kiwi `search-flight` (Kiwi Guarantee covers a missed connection) |
 | "Where can I go cheaply" | Skiplagged `sk_destinations_anywhere` | |
 | Flight on-time record | LetsFG `check-flight` (below) | |
-| Hotels | trivago (metasearch, radius search around a venue) | Skiplagged `sk_hotels_search` + `sk_hotel_details`, LetsFG `search_hotels` |
+| Hotels | trivago (metasearch, radius search around a venue) | `travel/bin/hotels` (Booking.com + Priceline), Skiplagged `sk_hotels_search` + `sk_hotel_details`, LetsFG `search_hotels` |
+| Opaque hotel deals | `travel/bin/hotels` Priceline Express Deals (`priceline express` rows) | |
 | Hotel price trend by month | trivago `trivago-destination-price-trends` | |
 | Vacation rentals | `airbnb` MCP (runs with `--ignore-robots-txt`) | |
 | Rental cars | `octotrip-cars` `search` (live DiscoverCars prices, no auth) | `gondola` (free account), `skiplagged` `sk_cars_search`, step 5 manual lanes |
@@ -45,6 +46,12 @@ Access notes:
   click`, because the package omits `click`). When it fails or its price disagrees with LetsFG,
   trust LetsFG and the airline's own page.
 - **Kiwi, Skiplagged, trivago, OctoTrip** are hosted servers with no auth.
+- **Booking.com and Priceline** have no MCP server and no public API. `travel/bin/hotels search
+  "<city>" --in <date> --out <date> [--min-stars S] [--refundable] [--name TEXT] [--json]` reads
+  both, with no account and no API key (see `travel/README.md`). Booking.com gives one page of
+  approximately 25 hotels per search, so narrow with `--min-stars`, `--refundable` and `--sort`.
+  Booking.com star ratings are Booking's own, so a motel can show 3 stars. trivago shows only the
+  three best sellers for each hotel, so it often leaves out Booking.com and Priceline.
 - **In a session that started before a server was added**, its tools are not loaded. Call it
   from the shell: `bin/mcp-call <server>` lists tools, `bin/mcp-call <server> <tool> k=v ...`
   calls one. Works for HTTP servers with no auth and for stdio servers.
@@ -113,9 +120,18 @@ cancellations and irregular operations simpler. When the direct fare is within a
   `trivago-accommodation-radius-search` around its coordinates, not the city search.
 - When the dates can move, `trivago-destination-price-trends` shows which month or week is
   cheaper.
-- Check the 3 to 5 best hotels on Skiplagged (`sk_hotel_details` gives the room-level rate) and
+- Run `travel/bin/hotels search` with the same dates and filters, for the Booking.com and
+  Priceline prices. For each of the 3 to 5 best hotels, run it again with `--name "<hotel>"`.
+  Priceline filters by name on its server. When Booking.com does not have the hotel in its top
+  25, the tool prints a search link for Alex.
+- Check the same finalists on Skiplagged (`sk_hotel_details` gives the room-level rate) and
   on LetsFG (`resolve_hotel_city`, then `search_hotels`). LetsFG offers state `refundable` and
   `free_cancellation_until`.
+- **Priceline Express Deals** (`priceline express` rows, flagged `opaque`) hide the hotel name
+  until the booking is paid, and they cannot be refunded or changed. The row gives the star
+  level, the neighborhood and the review range. Show one only when the dates are fixed, and
+  put it in its own row marked "opaque, non-refundable". The cheapest named hotel at the same
+  star level in the same area is the price it must beat.
 - For a group or a stay of 4 or more nights, also search the `airbnb` MCP. Add the cleaning and
   service fees to the nightly rate before you compare.
 - For a long stay, a private room or apartment on Airbnb beats every hotel by a wide margin.
@@ -147,15 +163,19 @@ cancellations and irregular operations simpler. When the direct fare is within a
 ## 6. Run the discount pipeline
 
 Follow `/shopping` steps 3 and 5 on every bookable source: airline direct, hotel direct, the
-LetsFG offer, the OTAs (Expedia, Hotels.com, Booking.com) for hotels, and the rental vendors.
+LetsFG offer, the OTAs (Expedia, Hotels.com, Booking.com, Priceline) for hotels, and the rental vendors.
 
 - **Codes:** `shop codes <domain>` for hotel brands and OTAs. Airline promo codes are rare and
   usually come from the airline's e-mail list, so check the airline's deals page.
-- **Cashback portals:** Rakuten, TopCashback and BeFrugal pay on OTAs and on many hotel brands.
+- **Cashback portals:** Rakuten, TopCashback and BeFrugal pay on OTAs (Booking.com and Priceline
+  included) and on many hotel brands.
   Airlines usually pay 0%. Read the rate from the portal's store page.
 - **Discounted gift cards:** CardCash, Raise and GCX sell Southwest, hotel brand and Hotels.com
   cards at a discount. A gift card cannot be refunded to a card, so use one only on a booking
   that will not change.
+- **OTA programs:** Booking.com Genius (free, a member discount at many hotels after sign-in) and Priceline
+  VIP. The tool reads signed-out prices, so a Genius or VIP rate can be lower. Record it in the
+  notes column as "member rate possible" and do not subtract it from the net cost.
 - **Programs:** the hotel's member rate (free, usually 5 to 10%), Southwest's free bags and
   free changes, a fare's own change fee. Put the value of a free change into the notes column,
   not into the net cost.

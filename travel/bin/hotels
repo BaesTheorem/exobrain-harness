@@ -1,0 +1,347 @@
+#!/usr/bin/env python3
+"""hotels -- live hotel prices from Booking.com and Priceline, as one table.
+
+  hotels search <destination> --in YYYY-MM-DD --out YYYY-MM-DD
+                [--adults N] [--rooms N] [--at booking,priceline]
+                [--sort price|popular|rating] [--min-stars S] [--refundable]
+                [--name TEXT] [-n N] [--json]
+
+      <destination> is free text: "Chicago, IL", "Moab, UT", a neighborhood.
+      Each lane prints its own error and the other lanes still run.
+      --name keeps only hotels whose name contains TEXT (case-insensitive), to
+      price one finalist. Priceline filters by name on its server. Booking
+      cannot, so it filters its 25 most popular hotels and warns on a miss.
+
+Lanes:
+  booking    Booking.com search results page in headless Chromium (plain HTTP
+             gets an AWS WAF challenge). Reads the page's Apollo store, so no
+             HTML parsing. One page of approximately 25 results: the URL
+             offset is ignored and a headless page loads no more, so narrow
+             with --sort, --min-stars and --refundable. Totals include the
+             taxes that Booking lists as excluded.
+  priceline  Priceline's own GraphQL API (getStandaloneHotelListings) over
+             curl_cffi with a Chrome TLS fingerprint. Every headless browser
+             gets a PerimeterX press-and-hold page, but the API does not. The
+             query text is read from a live listings page on each run, so a
+             Priceline schema change does not break the lane. 30 results a page.
+             Express Deals (opaque, name hidden until booked, not refundable)
+             are marked opaque.
+
+Read-only: nothing here signs in, holds a room, or books.
+Python deps: curl_cffi, playwright (+ chromium).
+"""
+
+from __future__ import annotations
+
+import argparse
+import json
+import re
+import sys
+from datetime import date
+from pathlib import Path
+from urllib.parse import quote, urlencode
+
+UA = ("Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 "
+      "(KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36")
+MAX_PAGES = 4
+
+
+class LaneError(Exception):
+    pass
+
+
+# ---------------------------------------------------------------- Booking.com
+
+BOOKING_STORE = 'script[data-capla-store-data="apollo"]'
+BOOKING_SORT = {"price": "price", "popular": "popularity", "rating": "review_score_and_price"}
+
+
+def _booking_page(page, url: str) -> list[dict]:
+    page.goto(url, timeout=60000, wait_until="domcontentloaded")
+    # The WAF challenge runs first and then reloads into the real page, so wait on the
+    # DOM, not on page.content() (which raises while the page navigates).
+    try:
+        page.wait_for_function(f"() => [...document.querySelectorAll('{BOOKING_STORE}')]"
+                               ".some(s => s.textContent.includes('\"search({'))", timeout=45000)
+    except Exception as e:  # noqa: BLE001 -- any timeout or nav error means no results
+        raise LaneError(f"booking: no search results after 45 s ({type(e).__name__})") from e
+    for text in page.eval_on_selector_all(BOOKING_STORE, "els => els.map(e => e.textContent)"):
+        if '"search({' not in text:
+            continue
+        for k, v in json.loads(text)["ROOT_QUERY"].get("searchQueries", {}).items():
+            if k.startswith("search("):
+                return v.get("results") or []
+    raise LaneError("booking: search store found but it held no results")
+
+
+def _booking_row(r: dict, a: argparse.Namespace) -> dict | None:
+    b = r.get("basicPropertyData") or {}
+    p = r.get("priceDisplayInfoIrene") or {}
+    if not p:
+        return None  # sold out
+    stay = ((p.get("displayPrice") or {}).get("amountPerStay") or {}).get("amountUnformatted") or 0
+    excl = ((((p.get("excludedCharges") or {}).get("excludeChargesAggregated") or {})
+             .get("amountPerStay") or {}).get("amountUnformatted") or 0)
+    nights = (a.out - a.in_).days
+    rev = b.get("reviews") or {}
+    loc = b.get("location") or {}
+    qs = urlencode({"checkin": a.in_.isoformat(), "checkout": a.out.isoformat(),
+                    "group_adults": a.adults, "no_rooms": a.rooms, "group_children": 0,
+                    "selected_currency": "USD"})
+    return {
+        "source": "booking",
+        "id": b.get("id"),
+        "name": (r.get("displayName") or {}).get("text"),
+        "stars": ((b.get("starRating") or {}).get("value")),
+        "review": rev.get("totalScore"),
+        "reviews": rev.get("reviewsCount"),
+        "area": loc.get("address"),
+        "nightly": round(stay / nights, 2) if stay else None,
+        "total": round(stay + excl, 2) if stay else None,
+        "total_note": "incl. listed taxes" if excl else "taxes may be extra",
+        "refundable": bool((r.get("policies") or {}).get("showFreeCancellation")),
+        "opaque": False,
+        "url": f"https://www.booking.com/hotel/{loc.get('countryCode', 'us')}/{b.get('pageName')}.html?{qs}",
+    }
+
+
+def booking(a: argparse.Namespace) -> list[dict]:
+    from playwright.sync_api import sync_playwright
+
+    # Booking ignores a hotel name in ss, so --name reads the most popular page and filters.
+    params = {"ss": a.destination, "checkin": a.in_.isoformat(), "checkout": a.out.isoformat(),
+              "group_adults": a.adults, "no_rooms": a.rooms, "group_children": 0,
+              "selected_currency": "USD", "lang": "en-us",
+              "order": BOOKING_SORT["popular" if a.name else a.sort]}
+    nflt = []
+    if a.min_stars:
+        nflt += [f"class={s}" for s in range(int(a.min_stars), 6)]
+    if a.refundable:
+        nflt.append("fc=2")
+    if nflt:
+        params["nflt"] = ";".join(nflt)
+    url = "https://www.booking.com/searchresults.html?" + urlencode(params)
+    with sync_playwright() as pw:
+        b = pw.chromium.launch(headless=True)
+        try:
+            page = b.new_context(user_agent=UA, locale="en-US").new_page()
+            rows = [x for x in (_booking_row(r, a) for r in _booking_page(page, url)) if x]
+        finally:
+            b.close()
+    if a.name and not any(a.name.lower() in (r["name"] or "").lower() for r in rows):
+        raise LaneError(f"booking: {a.name!r} is not in the top 25 by popularity; check by hand: {url}")
+    return rows
+
+
+# ------------------------------------------------------------------ Priceline
+
+PCLN = "https://www.priceline.com"
+PCLN_CACHE = Path(__file__).resolve().parent.parent / "cache" / "priceline-query.json"
+PCLN_SORT = {"price": "PRICE", "popular": "RECOMMENDED", "rating": "REVIEW_SCORE"}
+APOLLO_RE = re.compile(r'\(window\[Symbol\.for\("ApolloSSRDataTransport"\)\] \?\?= \[\]\)\.push\((.*?)\)</script>',
+                       re.S)
+
+
+def _pcln_query(html: str) -> tuple[str, dict]:
+    """The live query text and variables, from the listings page's Apollo transport.
+
+    The good pair is cached, because some page loads carry the query in a form this
+    parser does not find; the cache then stands in for that run.
+    """
+    dec = json.JSONDecoder()
+    for m in APOLLO_RE.finditer(html):
+        body = m.group(1).replace(":undefined", ":null")
+        if "query getStandaloneHotelListings" not in body:
+            continue
+        for qm in re.finditer(r'"query":"', body):
+            try:
+                q, _ = dec.raw_decode(body, qm.start() + len('"query":'))
+            except ValueError:
+                continue
+            j = body.rfind('"variables":', 0, qm.start())
+            if "query getStandaloneHotelListings" not in q or j < 0:
+                continue
+            v, _ = dec.raw_decode(body, j + len('"variables":'))
+            # Client-only fields are resolved in the browser; the server rejects them.
+            q = re.sub(r"\b\w+@client\b", "", q)
+            PCLN_CACHE.parent.mkdir(parents=True, exist_ok=True)
+            PCLN_CACHE.write_text(json.dumps({"query": q, "variables": v}))
+            return q, v
+    if PCLN_CACHE.exists():
+        c = json.loads(PCLN_CACHE.read_text())
+        return c["query"], c["variables"]
+    raise LaneError("priceline: listings page carried no getStandaloneHotelListings query, and no cache")
+
+
+def _text(x) -> str | None:
+    """Priceline sends some labels as a string and others as {name: ...}."""
+    return x.get("name") if isinstance(x, dict) else x
+
+
+def _pcln_row(h: dict, a: argparse.Namespace) -> dict | None:
+    info, rate = h.get("hotelInfo") or {}, h.get("minRateSummary")
+    if not rate:
+        return None
+    # Express Deals hide the hotel: "A 4-Star Hotel in the Loop Area". The typename is
+    # present only in the page's SSR copy, so the name pattern is the primary test.
+    opaque = (bool(re.match(r"A [\d.]+-Star ", info.get("name") or ""))
+              or (info.get("reviewInfo") or {}).get("__typename") == "HotelSopqReviewResponse")
+    scores = {s["label"]: s["score"] for s in
+              ((info.get("reviewInfo") or {}).get("reviewSummary") or {}).get("scores") or []}
+    total_lbl = ((((info.get("reviewInfo") or {}).get("reviewSummary") or {}).get("total") or {})
+                 .get("label") or "")
+    stars = info.get("starRating")
+    if stars is None and (m := re.match(r"A ([\d.]+)-Star", info.get("name") or "")):
+        stars = float(m.group(1))
+    cancel = ((rate.get("cancellationPolicy") or {}).get("label") or "")
+    d_in, d_out = a.in_.strftime("%Y%m%d"), a.out.strftime("%Y%m%d")
+    if opaque:
+        url = (f"{PCLN}/relax-ui/listings?destination={a.pcln_dest}&checkIn={d_in}&checkOut={d_out}"
+               f"&rooms={a.rooms}&adults={a.adults}")
+    else:
+        url = f"{PCLN}/relax/at/{info.get('id')}/from/{d_in}/to/{d_out}/rooms/{a.rooms}/adults/{a.adults}"
+    nightly = (rate.get("nightlyAllRoomsPriceExcludingTax") or {}).get("amount")
+    total = (rate.get("grandTotal") or {}).get("amount")
+    return {
+        "source": "priceline" + (" express" if opaque else ""),
+        "id": None if opaque else info.get("id"),
+        "name": info.get("name"),
+        "stars": float(stars) if stars not in (None, "") else None,
+        "review": scores.get("Overall"),
+        "reviews": re.sub(r"\D", "", total_lbl) or None,
+        "area": _text(info.get("neighborhood")),
+        "nightly": float(nightly) if nightly else None,
+        "total": float(total) if total else None,
+        "total_note": "incl. taxes+fees",
+        "refundable": (not opaque) and "refundable" in cancel.lower() and "non" not in cancel.lower(),
+        "opaque": opaque,
+        "url": url,
+    }
+
+
+def priceline(a: argparse.Namespace) -> list[dict]:
+    from curl_cffi import requests as cr
+
+    s = cr.Session(impersonate="chrome")
+    s.headers.update({"Accept-Language": "en-US"})
+    s.get(PCLN + "/", timeout=30)
+    ac = s.get(f"{PCLN}/svcs/ac/index/hotels/{quote(a.destination)}", timeout=30).json()
+    items = ac.get("searchItems") or []
+    if not items:
+        raise LaneError(f"priceline: no destination match for {a.destination!r}")
+    item = next((x for x in items if x.get("type") == "CITY"), items[0])
+    a.pcln_dest = item.get("cityID") or item.get("id")
+    d_in, d_out = a.in_.strftime("%Y%m%d"), a.out.strftime("%Y%m%d")
+    listing_url = (f"{PCLN}/relax-ui/listings?destination={a.pcln_dest}&checkIn={d_in}&checkOut={d_out}"
+                   f"&rooms={a.rooms}&adults={a.adults}")
+    html = ""
+    for _ in range(2):
+        html = s.get(listing_url, timeout=60).text
+        if "query getStandaloneHotelListings" in html:
+            break
+    if "px-captcha" in html:
+        raise LaneError("priceline: PerimeterX challenge on the listings page")
+    q, v = _pcln_query(html)
+    v = {k: val for k, val in v.items() if val not in ("$undefined", None)}
+    rd = v["requestDetails"]
+    rd.pop("partnerTypeData", None)
+    # Set every search input here, because the variables can come from the cache.
+    rd.update({"checkIn": d_in, "checkOut": d_out, "roomCount": a.rooms,
+               "occupancy": {"adults": str(a.adults), "children": []}})
+    v["locationSearch"] = {"searchType": "DEFAULT", "searchString": str(a.pcln_dest)}
+    v["sort"] = PCLN_SORT[a.sort]
+    filters = []
+    if a.min_stars:
+        filters.append({"filterType": "HOTEL_STAR_LEVEL",
+                        "values": [str(x) for x in range(int(a.min_stars), 6)]})
+    if a.refundable:
+        filters.append({"filterType": "RATE_OPTION", "values": ["FREE_CANCELLATION"]})
+    if a.name:
+        filters.append({"filterType": "PROPERTY_NAME", "values": [a.name]})
+    v["filters"] = filters
+    rows: list[dict] = []
+    pages = MAX_PAGES if a.name else max(1, -(-a.n // 30))
+    for i in range(min(pages, MAX_PAGES)):
+        v["pagination"] = {"offset": i * 30, "pageSize": 30}
+        x = s.post(f"{PCLN}/pws/v0/pcln-graph/?gqlOp=getStandaloneHotelListings",
+                   json={"operationName": "getStandaloneHotelListings", "query": q, "variables": v},
+                   headers={"apollographql-client-name": "relax-ui"}, timeout=60)
+        j = x.json()
+        if j.get("errors") and not j.get("data"):
+            raise LaneError(f"priceline: GraphQL {x.status_code}: {j['errors'][0].get('message', '')[:200]}")
+        listings = ((j.get("data") or {}).get("standaloneHotelListings") or {}).get("listings") or []
+        rows += [r for r in (_pcln_row(h, a) for h in listings) if r]
+        if len(listings) < 30:
+            break
+    return rows
+
+
+# ------------------------------------------------------------------------ CLI
+
+LANES = {"booking": booking, "priceline": priceline}
+
+
+def _fmt(r: dict) -> str:
+    money = (lambda x: f"${x:,.0f}" if x is not None else "-")
+    flags = ("refund" if r["refundable"] else "") + (" opaque" if r["opaque"] else "")
+    stars = f"{r['stars']:g}*" if r.get("stars") else ""
+    review = f"{r['review']}" if r.get("review") else ""
+    return (f"{r['source']:<17} {money(r['nightly']):>6} {money(r['total']):>7}  {stars:<4} {review:<5} "
+            f"{flags:<13} {(r['name'] or '')[:46]:<46} {(r.get('area') or '')[:28]}")
+
+
+def main() -> int:
+    ap = argparse.ArgumentParser(prog="hotels", description=__doc__,
+                                 formatter_class=argparse.RawDescriptionHelpFormatter)
+    sub = ap.add_subparsers(dest="cmd", required=True)
+    s = sub.add_parser("search")
+    s.add_argument("destination")
+    s.add_argument("--in", dest="in_", required=True, type=date.fromisoformat)
+    s.add_argument("--out", required=True, type=date.fromisoformat)
+    s.add_argument("--adults", type=int, default=1)
+    s.add_argument("--rooms", type=int, default=1)
+    s.add_argument("--at", default="booking,priceline")
+    s.add_argument("--sort", choices=["price", "popular", "rating"], default="price")
+    s.add_argument("--min-stars", type=float)
+    s.add_argument("--refundable", action="store_true")
+    s.add_argument("--name")
+    s.add_argument("-n", type=int, default=25, help="rows per lane (default 25)")
+    s.add_argument("--json", action="store_true")
+    a = ap.parse_args()
+    if a.out <= a.in_:
+        ap.error("--out must be after --in")
+
+    rows, errors = [], []
+    for lane in a.at.split(","):
+        try:
+            got = LANES[lane.strip()](a)
+        except KeyError:
+            errors.append(f"{lane}: unknown lane (have {', '.join(LANES)})")
+            continue
+        except Exception as e:  # noqa: BLE001 -- one lane failing must not hide the others
+            errors.append(str(e) if isinstance(e, LaneError) else f"{lane}: {type(e).__name__}: {e}")
+            continue
+        if a.name:
+            got = [r for r in got if a.name.lower() in (r["name"] or "").lower()]
+        if a.min_stars:
+            got = [r for r in got if r["stars"] is None or r["stars"] >= a.min_stars]
+        rows += got[: a.n]
+
+    if a.sort == "price":
+        rows.sort(key=lambda r: (r["total"] is None, r["total"] or 0))
+    if a.json:
+        print(json.dumps({"rows": rows, "errors": errors}, indent=1))
+    else:
+        nights = (a.out - a.in_).days
+        print(f"{a.destination}  {a.in_} to {a.out} ({nights} night{'s' * (nights != 1)}), "
+              f"{a.adults} adult(s), {a.rooms} room(s).  total = whole stay, see total_note in --json")
+        print(f"{'source':<17} {'night':>6} {'total':>7}  {'star':<4} {'rev':<5} {'flags':<13} name")
+        for r in rows:
+            print(_fmt(r))
+        for e in errors:
+            print(f"WARN {e}", file=sys.stderr)
+    return 1 if errors and not rows else 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())

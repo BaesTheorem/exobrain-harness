@@ -1,0 +1,2 @@
+# Priceline GraphQL query cache, rebuilt on every good run of bin/hotels
+cache/
