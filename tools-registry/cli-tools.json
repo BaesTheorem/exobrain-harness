@@ -457,11 +457,11 @@
   },
   {
     "name": "Ghidra",
-    "command": "JAVA_HOME=$(/usr/libexec/java_home -v 21 2>/dev/null || echo /opt/homebrew/opt/openjdk@21) ~/tools/ghidra_12.1.3_PUBLIC/support/analyzeHeadless <proj_dir> <proj> -import <file> -postScript <script.py> -scriptPath <dir>   # GUI: ~/tools/ghidra_12.1.3_PUBLIC/ghidraRun",
-    "repo_dir": "~/tools/ghidra_12.1.3_PUBLIC",
-    "source": "vendored",
+    "command": "/opt/homebrew/opt/ghidra/libexec/support/analyzeHeadless <proj_dir> <proj> -import <file> -postScript <script>   # GUI: ghidraRun",
+    "repo_dir": "/opt/homebrew/opt/ghidra",
+    "source": "built",
     "added": "2026-09-20",
-    "notes": "Standalone zip in ~/tools (cask needs sudo, blocked in non-interactive shells; the release zip does not). analyzeHeadless for batch/scripted runs, ghidraRun for the GUI. Set JAVA_HOME to the openjdk@21 path or it errors 'Unable to locate a Java Runtime'. Downloaded from github.com/NationalSecurityAgency/ghidra releases 2026-09-20."
+    "notes": "Homebrew formula (ghidra 12.2) since 2026-11-06; the vendored 12.1.3 zip in ~/Tools and its openjdk@21 were removed. ghidraRun and pyghidraRun are on PATH; analyzeHeadless lives under libexec/support. The JDK comes with the formula (openjdk@25), so no JAVA_HOME. brew upgrade moves the version dir, so scripts must use /opt/homebrew/opt/ghidra, never Cellar/<version>."
   },
   {
     "name": "govee-ble",
