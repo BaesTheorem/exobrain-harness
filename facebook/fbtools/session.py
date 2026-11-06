@@ -100,7 +100,11 @@ class FacebookSession:
             user_agent=USER_AGENT,
             viewport={"width": 1280, "height": 900},
             locale="en-US",
-            args=["--disable-blink-features=AutomationControlled"],
+            args=[
+                "--disable-blink-features=AutomationControlled",
+                # 50MB cap: the profile's HTTP cache had reached 0.7GB (2026-11-06).
+                "--disk-cache-size=52428800",
+            ],
         )
         # Cookies are validated in config.load_cookies(); Playwright wants a
         # TypedDict shape we build dynamically, so cast past the static check.

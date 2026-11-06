@@ -90,7 +90,11 @@ class BrowserSession:
             viewport={"width": 1280, "height": 900},
             locale="en-US",
             timezone_id="America/Chicago",
-            args=["--disable-blink-features=AutomationControlled"],
+            args=[
+                "--disable-blink-features=AutomationControlled",
+                # 50MB cap: the profile's HTTP cache had reached 1.15GB (2026-11-06).
+                "--disk-cache-size=52428800",
+            ],
         )
         self._ctx.add_cookies(cast("Any", _cookie_dicts(self.jar)))
         self._ctx.on("response", self._on_response)

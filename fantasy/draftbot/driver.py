@@ -203,7 +203,11 @@ def main():
             str(PROFILE),
             headless=False,
             viewport={"width": 1680, "height": 1020},
-            args=["--window-size=1700,1060"],
+            args=[
+                "--window-size=1700,1060",
+                # 50MB cap: the profile's HTTP cache had reached 0.7GB (2026-11-06).
+                "--disk-cache-size=52428800",
+            ],
         )
         page = ctx.pages[0] if ctx.pages else ctx.new_page()
 
