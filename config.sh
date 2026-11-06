@@ -67,6 +67,11 @@ BACKUP_DRIVE_FOLDER_NAME="Exobrain backups"
 # How many uploaded archives to keep locally in the staging dir as off-cloud
 # redundancy (newest first). Un-uploaded archives are never deleted.
 BACKUP_LOCAL_KEEP=1
+# Once LOCAL_BACKUP_DIR holds an md5-verified copy of an uploaded archive, the
+# staged copy goes: Drive and the external disk are then the two copies, and a
+# 19GB archive sits on the internal disk only while the disk is away. 0 keeps
+# the staged copy regardless, which was the rule until 2026-11-06.
+BACKUP_DROP_STAGED_AFTER_SECONDARY=1
 KEEP_DAILY=3      # last N daily archives
 KEEP_WEEKLY=4     # newest archive of each of the last N ISO weeks
 KEEP_MONTHLY=6    # newest archive of each of the last N calendar months
@@ -96,10 +101,13 @@ BACKUP_EXCLUDE_PATHS=(
     "turn-to:^books/[^/]+/candidates/"          # source PDFs, fetched again with aa-get (3.8GB); OCR, notes and book.json stay
     "turn-to:^books/[^/]+/app/pages/"           # page images, rendered again from the scans (3GB)
     "claude-animation:^out/"                    # rendered frames and videos, made again from the scene code (3.6GB)
+    "hp1-sorcerers-stone-macos:^native/game/"   # game files staged from the ISO on Drive (0.5GB); the engine clone and its patch stay
+    "ig-sideload:^(packages|SCInsta/packages|resign-work)/"  # fetched and intermediate IPAs (1.2GB); the signed IPA at the top level stays
+    "common-lot:^data/raw/"                     # county ArcGIS pulls, fetched again by the site's build (0.75GB)
 )
-# Files in the harness tmp/ over this size (MB), and every frames/ dir in it, are
-# left out of the backup: render output and downloaded media, made again on demand.
-BACKUP_TMP_MAX_MB=20
+# The harness tmp/ is left out of the backup whole: it is scratch by convention,
+# maintenance/rotate-logs.sh sweeps it after 21 days, and the small files it
+# used to carry came to 53,000 entries a day (2026-11-06).
 # Abort a run early if the local staging volume has less than this much free.
 BACKUP_MIN_FREE_GB=20
 

@@ -28,8 +28,10 @@ Driven by `../backup-exobrain.sh` (launchd `com.exobrain.backup` daily at 2 AM +
   (`timestamp<TAB>name<TAB>driveFileId<TAB>md5`). The shell script's freshness
   guard reads it; only md5-verified uploads count as backups.
 - `exobrain-collective-*.tar.gz` -- the newest uploaded archive is kept here as
-  off-cloud redundancy (`BACKUP_LOCAL_KEEP`), plus any archive whose upload has
-  not finished yet (never deleted until the cloud md5 matches).
+  off-cloud redundancy (`BACKUP_LOCAL_KEEP`) until the external disk holds an
+  md5-verified copy of it (`BACKUP_DROP_STAGED_AFTER_SECONDARY`, 2026-11-06),
+  plus any archive whose upload has not finished yet (never deleted until the
+  cloud md5 matches).
 - `*.driveupload.json` -- per-archive resumable-session state; deleted when the
   upload confirms.
 

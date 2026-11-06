@@ -226,6 +226,13 @@ secondary_copy() {
         return 0
     fi
     echo "[$(date)] Secondary copy verified: $dest (md5 $got)"
+    # Drive and this disk now both hold it, so the staged copy can go
+    # (config.sh BACKUP_DROP_STAGED_AFTER_SECONDARY). Only an archive the
+    # ledger confirms on Drive qualifies.
+    if [ "${BACKUP_DROP_STAGED_AFTER_SECONDARY:-1}" = "1" ] && grep -qF "$(basename "$src")" "$LEDGER" 2>/dev/null; then
+        echo "[$(date)] Dropping staged copy (confirmed on Drive and on $LOCAL_BACKUP_DIR): $(basename "$src")"
+        rm -f "$src" "$src.driveupload.json"
+    fi
 }
 
 # --- Finish any interrupted upload BEFORE anything else -------------------------
@@ -372,29 +379,23 @@ VAULT_BASENAME="$(basename "$VAULT_DIR")"
 
 # 1. Harness -- whole folder, minus runtime caches. Captures the harness's own
 #    gitignored data automatically (tar doesn't honor .gitignore).
-#    The harness tmp/ is scratch that grew to 16GB on 2026-10-01, mostly render
-#    output and downloaded media (mp4, mkv, iso, zip) that can be made or fetched
-#    again. Its code and notes are small and often exist nowhere else, so skip
-#    only big files and frames/ dirs, by a list made now (bsdtar has no size test).
+#    The harness tmp/ is left out whole (2026-11-06): scratch by convention,
+#    swept by maintenance/rotate-logs.sh after 21 days, and it carried 53,000
+#    small files into every archive. Anything worth keeping moves out of tmp/.
+#    The headless tools' Chrome profiles (instagram, facebook, the draft bot)
+#    keep their cookies but not their HTTP caches: 2.9GB that refills itself.
+#    mist-voice/models is the public XTTS download (README: auto-redownload).
 echo "[$(date)] Adding harness: $HARNESS_BASENAME"
-TMP_SKIP="$WORK/harness-tmp.exclude"
-: > "$TMP_SKIP"
-if [ -d "$HARNESS_DIR/tmp" ]; then
-    (
-        cd "$HARNESS_PARENT" || exit 0
-        find "$HARNESS_BASENAME/tmp" \( -type d -name frames -prune -print \) \
-            -o \( -type f -size +"${BACKUP_TMP_MAX_MB:-20}"M -print \)
-    ) | sed 's/[][*?\\]/\\&/g' > "$TMP_SKIP" || true
-    if [ -s "$TMP_SKIP" ]; then
-        skip_mb=$( (cd "$HARNESS_PARENT" && sed 's/\\\(.\)/\1/g' "$TMP_SKIP" | tr '\n' '\0' | xargs -0 du -sk 2>/dev/null || true) | awk '{s+=$1} END {print int(s/1024)}')
-        echo "[$(date)]   - harness tmp/: $(wc -l < "$TMP_SKIP" | tr -d ' ') large files and frames/ dirs SKIPPED (${skip_mb}MB; over ${BACKUP_TMP_MAX_MB:-20}MB, see config.sh BACKUP_TMP_MAX_MB)"
-    fi
-fi
 #    Virtualenvs are left out like in the repo sweep (CACHE_RE): they were ~7GB
 #    of the 2026-10-16 archive, and a venv does not work on a new machine anyway
 #    (restore rebuilds each one from its requirements file).
 add_section "harness" \
-    -X "$TMP_SKIP" \
+    --exclude="$HARNESS_BASENAME/tmp" \
+    --exclude="$HARNESS_BASENAME/mist-voice/models" \
+    --exclude='Default/Cache' \
+    --exclude='Default/Code Cache' \
+    --exclude='Default/GPUCache' \
+    --exclude='Default/Service Worker/CacheStorage' \
     --exclude='__pycache__' \
     --exclude='*.pyc' \
     --exclude='.DS_Store' \
@@ -584,7 +585,8 @@ fi
 # Cloud: grandfather-father-son via the API (covers archives from the old DriveFS
 # path too -- same folder, and the uploader uses the full drive scope so it sees
 # them). Local: keep the newest BACKUP_LOCAL_KEEP uploaded archives in staging as
-# off-cloud redundancy; never delete a staged archive absent from the ledger.
+# off-cloud redundancy until the external disk holds a verified copy (see
+# secondary_copy); never delete a staged archive absent from the ledger.
 run_uploader prune --daily "$KEEP_DAILY" --weekly "$KEEP_WEEKLY" --monthly "$KEEP_MONTHLY"
 
 kept=0
