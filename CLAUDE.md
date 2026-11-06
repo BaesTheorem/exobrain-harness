@@ -155,6 +155,7 @@ Furthermore, never build graphics or any other assets from scratch what you can 
 | [GSAP](https://github.com/greensock/GSAP) (with ScrollTrigger) / [Lenis](https://github.com/darkroomengineering/lenis) | Scroll-driven motion and smooth scroll, for sites built after an animated reference (added 2026-10-15 for Common Lot) | GSAP no-charge license, commercial use allowed / MIT |
 | [MapLibre GL JS](https://github.com/maplibre/maplibre-gl-js) with [OpenFreeMap](https://github.com/hyperknot/openfreemap) tiles | Web maps (WebGL vector tiles, no API key; styles `positron` and `dark`). Added 2026-10-20 for the KC 311 web app | BSD-3 / tiles free, attribution to OpenMapTiles and OpenStreetMap |
 | [hls.js](https://github.com/video-dev/hls.js) | HLS (`.m3u8`) video playback in browsers without native HLS. Use the `hls.light` build. Added 2026-10-24 for a local video web app | Apache-2.0 |
+| [Plotly.js](https://github.com/plotly/plotly.js) | Interactive 3D scatter and surface charts (WebGL), for a chart that needs a third axis. Observable Plot stays the default for 2D. Added 2026-11-06 for the KC side-business Pareto frontiers (v4.2.0 released 2026-10-29) | MIT |
 
 Retired, do not cite in new work: material-web (maintenance mode), Shoelace (sunset, replaced by Web Awesome), Pico CSS (archived). Before you adopt a library that is not on this list, check that its upstream is alive and that people, not a generator, wrote it, then add it here.
 
