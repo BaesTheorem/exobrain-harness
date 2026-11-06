@@ -334,7 +334,9 @@ itself. Design and limits:
 **The lock-window watcher is already running** (`fantasy/bin/lineup-watch`
 under launchd `com.exobrain.lineup-watch`, every 15 minutes, since
 2026-09-07): it pings Alex only when a starter with a problem is inside 75
-minutes of locking, plus a final call at 20. Do not build a second one; if the
+minutes of locking, plus a final call at 20. With `--fix` it repairs problem
+slots and, since 2026-11-05, applies any swap at `d_net` +1 or more (never a
+bench player in a pending trade). Do not build a second one; if the
 rules need changing, change that script.
 
 ## Matchup promo video

@@ -30,6 +30,10 @@ fifteen minutes before the reports it existed to read.)
    by the `lineup-watch` job. If any remain, fix them now:
    `fantasy/bin/espn-tx swap "<bench player>" --for "<starter>"` (or
    `espn-tx move` into an empty slot) and confirm `"verified": true`.
+   Since 2026-11-05 the same job also applies the top `swaps` row at
+   `d_net` +1 or more every 15 minutes (never a bench player in a pending
+   trade), so an upgrade still listed here means the job has not run yet
+   or the swap is blocked by a trade; apply it under step 4 as before.
 3. QUESTIONABLE starters are priced in `espn check` now (2026-10-15): each
    row carries `practice` (the latest practice line), `p_play` (the share of
    regular contributors with that status and practice who played,

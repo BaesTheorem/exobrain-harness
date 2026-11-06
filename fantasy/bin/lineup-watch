@@ -16,6 +16,14 @@ suspension, and empty slots on sight; DOUBTFUL and a QUESTIONABLE starter
 whose weekly projection ESPN has zeroed inside the window. A QUESTIONABLE
 starter still projected to play is never auto-swapped; that is a ping.
 
+--fix also applies upgrades (Alex, 2026-11-05: "make sure upgrades are also
+automated"): after the problems are repaired, the best swap in `espn check`'s
+`swaps` list is applied when its `d_net` is UPGRADE_GATE (+1) or more, the
+playbook's *The strategic thesis* rule 2. `best_swaps` already offers only
+unlocked bench players into unlocked slots, and a reversal would need its own
+d_net of +1, so the gate is also the hysteresis. A bench player we give away
+in a pending trade is never swapped in: the trade would empty the slot.
+
 Every run also holds the Mac awake across the next lock's ping window, on the
 clock alone and never on whether a problem already exists. See hold_awake() for
 why that window is the only thing sleep actually destroys, and for the limits
@@ -52,6 +60,7 @@ ROSTER_URL = web_urls()["team"]  # ids come from the gitignored espn-credentials
 DEFINITE = {"OUT", "EMPTY", "INJURY_RESERVE", "SUSPENSION", "BYE", "DOUBTFUL"}
 FIX_ON_SIGHT = {"OUT", "EMPTY", "INJURY_RESERVE", "SUSPENSION", "BYE"}
 FIX_IN_WINDOW = {"DOUBTFUL"}
+UPGRADE_GATE = 1.0   # d_net, playbook *The strategic thesis* rule 2
 
 
 def check(retries: int = 3) -> dict:
@@ -115,6 +124,44 @@ def apply_fix(p: dict, dry: bool) -> str | None:
     if not res.get("verified"):
         return None
     return f"{outgoing} ({p.get('kind')}) to the bench, {incoming} in at {res.get('slot')} (verified)"
+
+
+def outgoing_trade_names() -> set[str] | None:
+    """Names of our players in a pending trade. None when the read fails, so
+    the caller skips upgrades instead of trusting an empty set."""
+    try:
+        from espncli.client import Espn  # noqa: PLC0415
+        api = Espn()
+        mine = int(api.creds["team_id"])
+        ids = [it["playerId"] for row in api.pending_transactions()
+               if "TRADE" in str(row.get("type", ""))
+               for it in row.get("items", []) if it.get("fromTeamId") == mine and it.get("playerId")]
+        return set(api.names_for(ids).values()) if ids else set()
+    except Exception as e:  # noqa: BLE001 -- any failure means: do not upgrade
+        print(f"pending read failed, no upgrades this run: {e}")
+        return None
+
+
+def pick_upgrade(d: dict, blocked: set[str]) -> dict | None:
+    for s in d.get("swaps") or []:
+        if (s.get("d_net") or 0) < UPGRADE_GATE:
+            return None  # sorted best first
+        if s.get("bench") in blocked:
+            continue
+        return s
+    return None
+
+
+def apply_upgrade(s: dict, dry: bool) -> str | None:
+    desc = (f"{s['bench']} in for {s['starter']} at {s.get('slot')} "
+            f"(d_net +{s.get('d_net')}, win {s.get('p_before')} to {s.get('p_after')})")
+    if dry:
+        return "DRY-RUN would upgrade: " + desc
+    from espncli.client import Espn  # noqa: PLC0415
+    from espncli.tx import EspnWriter  # noqa: PLC0415
+    api = Espn()
+    res = EspnWriter(api).swap(api.resolve_one(s["bench"])["id"], api.resolve_one(s["starter"])["id"])
+    return desc + " (verified)" if res.get("verified") else None
 
 
 def load_state() -> dict:
@@ -275,6 +322,23 @@ def main() -> int:
             else:
                 print(f"{stamp} FIX FAILED for {todo.get('player')} ({todo.get('kind')}); falling through to a ping")
                 break
+    if args.fix and (d.get("swaps") or []) and (d["swaps"][0].get("d_net") or 0) >= UPGRADE_GATE:
+        blocked = outgoing_trade_names()
+        for _ in range(4 if blocked is not None else 0):  # one verified upgrade per pass
+            up = pick_upgrade(d, blocked or set())
+            if not up:
+                break
+            stamp = time.strftime("%Y-%m-%d %H:%M")
+            done = apply_upgrade(up, args.dry_run)
+            if not done:
+                print(f"{stamp} UPGRADE FAILED {up.get('bench')} for {up.get('starter')}; stopping")
+                break
+            print(f"{stamp} UPGRADED {done}")
+            if args.dry_run:
+                break
+            notify(f"Lineup upgraded: {done}", final=False, dry=False,
+                   ident=f"lineup-up-{up['bench'].replace(' ', '-')}")
+            d = check()
     locks = {}
     for row in d.get("lock_order", []):
         try:
