@@ -625,6 +625,14 @@
     "notes": "Builds the native Inbox iPhone app (SwiftUI Gmail client) and pushes it to the paired iPhone over the devicectl tunnel. Free-team signing expires every 7 days; re-run this when the app stops launching. Phone must be unlocked and on USB or same network."
   },
   {
+    "name": "inbox-setup-link-handler",
+    "command": "./setup_link_handler.sh [--default]",
+    "repo_dir": "~/Documents/inbox-by-gmail-clone",
+    "source": "built",
+    "added": "2026-11-06",
+    "notes": "Rebuilds the applet with osacompile, so re-run after editing link_handler.applescript. --default calls NSWorkspace setDefaultApplication for mailto; macOS can show a confirm dialog. Undo in Mail > Settings > General > Default email reader."
+  },
+  {
     "name": "indeed.py (job-search Indeed lane)",
     "command": "python3 job-search/indeed.py \"<angle>\" ... --days 3 [--no-local]",
     "repo_dir": "/Users/alexhedtke/Documents/Exobrain harness/job-search",
@@ -679,6 +687,14 @@
     "source": "built",
     "added": "2026-10-05",
     "notes": "Needs layers/centerlines.geojson + layers/osm_highways.geojson (fetch_layers.py, fetch_osm_highways.py) and crashes_kcmo.csv. Ramp ids (RP nnnn) cannot be placed. Median error 11 m vs MoDOT coords. Lives in the vault since 2026-10-06."
+  },
+  {
+    "name": "kc-hustle-frontier model",
+    "command": ".venv/bin/python -m hustle.run --draws 4000 && .venv/bin/python -m hustle.backtest",
+    "repo_dir": "~/Documents/kc-hustle-frontier",
+    "source": "built",
+    "added": "2026-11-06",
+    "notes": "Needs research/ideas/*.json, research/unit-econ/*.json and research/scenarios/scenarios.json (schema/SPEC.md). Writes out/results.json and out/results.csv. BLS website blocks scripts by policy; scripts/pull_bls_api.py uses the keyless API v1 (25 queries a day, 10 years per query, cached in raw/bls-api/)."
   },
   {
     "name": "kcmo-jobs",
@@ -1073,6 +1089,14 @@
     "source": "built",
     "added": "2026-10-15",
     "notes": "--deep loads nomic in The Priory venv (about 10 s). Logs each query to ~/Library/Logs/exobrain/zettel-retrievals.jsonl."
+  },
+  {
+    "name": "site-style",
+    "command": "python3 -I scripts/site_style.py https://example.com [URL ...]",
+    "repo_dir": "~/Documents/kc-hustle-frontier",
+    "source": "built",
+    "added": "2026-11-06",
+    "notes": "No browser: reads the HTML and up to 8 linked stylesheets, so JS-rendered sites (Framer, some Webflow) show few or no fonts. Font names are the first family in each font-family rule; CSS variables appear as var(--x)."
   },
   {
     "name": "stalled-repos",
