@@ -257,7 +257,8 @@ def stream_gate_event(st: dict) -> dict | None:
                              text=True, timeout=240, check=True).stdout
         scan = json.loads(out)
     except Exception as exc:
-        print(f"stream-scan unavailable: {exc}")
+        err = (getattr(exc, "stderr", "") or "").strip().splitlines()[-3:]
+        print(f"stream-scan unavailable: {exc}" + (f" | stderr: {' / '.join(err)}" if err else ""))
         return None
     gs = st.setdefault("stream_gate", {})
     for label in ("dst", "k"):
