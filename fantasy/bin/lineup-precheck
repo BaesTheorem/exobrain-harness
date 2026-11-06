@@ -30,7 +30,7 @@ def main() -> int:
     ap.add_argument("--hours", type=float, default=27.0)
     a = ap.parse_args()
     try:
-        r = subprocess.run([str(ESPN), "check", "--json"], env={**os.environ, "ESPN_NO_MARKET": "1"},
+        r = subprocess.run([sys.executable, str(ESPN), "check", "--json"], env={**os.environ, "ESPN_NO_MARKET": "1"},
                            capture_output=True, text=True, timeout=240)
         d = json.loads(r.stdout) if r.returncode == 0 else {}
     except Exception as e:  # noqa: BLE001 - fail open: run the routine

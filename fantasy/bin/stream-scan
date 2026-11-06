@@ -54,7 +54,7 @@ LOOKAHEAD = 2
 
 
 def espn(*args: str) -> object:
-    out = subprocess.run([str(ESPN), *args, "--json"], capture_output=True, text=True, check=True)
+    out = subprocess.run([sys.executable, str(ESPN), *args, "--json"], capture_output=True, text=True, check=True)
     return json.loads(out.stdout)
 
 

@@ -219,7 +219,7 @@ class Espn:
         try:
             import subprocess  # noqa: PLC0415
 
-            subprocess.run([str(FANTASY_DIR / "bin" / "ff"), "refresh"], capture_output=True, timeout=120, check=False)
+            subprocess.run([sys.executable, str(FANTASY_DIR / "bin" / "ff"), "refresh"], capture_output=True, timeout=120, check=False)
             self.creds = load_creds()
         except Exception:  # noqa: BLE001 - the caller raises the auth error instead
             return False

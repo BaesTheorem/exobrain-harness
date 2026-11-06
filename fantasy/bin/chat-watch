@@ -196,7 +196,7 @@ def save_state(state: dict) -> None:
 def unanswered_messages() -> list[dict]:
     """The newest message of every thread somebody else spoke in last."""
     out = subprocess.run(
-        [str(FANTASY / "bin" / "espn"), "chat", "--unanswered", "--fresh", "--json"],
+        [sys.executable, str(FANTASY / "bin" / "espn"), "chat", "--unanswered", "--fresh", "--json"],
         capture_output=True, text=True, timeout=180, check=False, cwd=HARNESS,
     )
     if out.returncode != 0:
@@ -255,14 +255,14 @@ def trade_partners() -> tuple[set[str], bool]:
     """
     try:
         teams = json.loads(subprocess.run(
-            [str(FANTASY / "bin" / "espn"), "teams", "--json"],
+            [sys.executable, str(FANTASY / "bin" / "espn"), "teams", "--json"],
             capture_output=True, text=True, timeout=120, check=True, cwd=HARNESS,
         ).stdout)
         by_id = {int(t["id"]): (t.get("team") or "").strip() for t in teams}
         mine = next(int(t["id"]) for t in teams if t.get("mine"))
 
         rows = _json_objects(subprocess.run(
-            [str(FANTASY / "bin" / "espn-tx"), "pending"],
+            [sys.executable, str(FANTASY / "bin" / "espn-tx"), "pending"],
             capture_output=True, text=True, timeout=120, check=True, cwd=HARNESS,
         ).stdout)
     except (subprocess.SubprocessError, ValueError, KeyError, StopIteration) as e:
