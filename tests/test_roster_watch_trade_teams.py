@@ -67,3 +67,35 @@ def test_vetoed_trade_reads_as_vetoed(rw):
 @pytest.mark.parametrize("row", [trade("t2", 7, 9, 2, 3), trade("t3", 4, 12, 1, 5)])
 def test_unwatched_or_ours_never_pings(rw, row):
     assert rw.watched_trade_events([row], BEFORE, WATCH, {}, 12) == []
+
+
+# League-manager moves (2026-11-06). Positive controls: a flagged LM row, and
+# a player who changes teams with no trade. Controls: a trade, a manager
+# acting on their own team, and a row already reported never ping.
+NAMES = {"1": "P One", "2": "P Two"}
+TN = {4: "Watched", 7: "Seven", 12: "Us"}
+
+
+def lm_row(rid, team, owner=False):
+    return {"id": rid, "type": "ROSTER", "teamId": team, "isLeagueManager": True,
+            "isActingAsTeamOwner": owner, "items": [{"type": "DROP", "playerId": 1, "fromTeamId": team}]}
+
+
+def test_lm_flag_row_pings_once(rw):
+    seen: list = []
+    ev = rw.lm_move_events([lm_row("r1", 12)], {}, {}, NAMES, TN, seen, 12)
+    assert len(ev) == 1 and ev[0]["ours"] and ev[0]["judgment"]
+    assert "LEAGUE MANAGER move on Us" in rw.lm_move_head(ev[0])
+    assert rw.lm_move_events([lm_row("r1", 12)], {}, {}, NAMES, TN, seen, 12) == []
+
+
+def test_team_to_team_without_trade_pings(rw):
+    ev = rw.lm_move_events([], {"1": 12}, {"1": 4}, NAMES, TN, [], 12)
+    assert ev[0]["via"] == "roster" and ev[0]["to_team"] == "Watched" and ev[0]["ours"]
+
+
+def test_trade_owner_move_and_drop_do_not_ping(rw):
+    tr = {"id": "t", "type": "TRADE_ACCEPT", "items": [{"playerId": 1}]}
+    assert rw.lm_move_events([tr], {"1": 12}, {"1": 4}, NAMES, TN, [], 12) == []
+    assert rw.lm_move_events([lm_row("r2", 4, owner=True)], {}, {}, NAMES, TN, [], 12) == []
+    assert rw.lm_move_events([], {"1": 12}, {}, NAMES, TN, [], 12) == []  # dropped to the wire

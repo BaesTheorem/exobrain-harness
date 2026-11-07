@@ -398,6 +398,49 @@ def watched_trade_events(pend: list, teams: list, watch: dict, state: dict, me: 
     return out
 
 
+def lm_move_events(rows: list, prev_holder: dict, holder: dict, names: dict, tname: dict,
+                   seen: list, me: int) -> list[dict]:
+    """League-manager moves on any roster (Alex, 2026-11-06: after the Nacua
+    trade executed, the commissioner is a bye rival, and ESPN's LM Tools can
+    move players back by hand). Two detectors, because no 2026 row has the
+    flag set, so the first has never been seen to fire on real data:
+      1. a transaction row with isLeagueManager and not isActingAsTeamOwner
+         (the same test as league-scan's integrity block);
+      2. a player who is on a different team than at the last run with no
+         TRADE row that names him (a trade is the only owner path from one
+         roster straight to another; a drop then a claim passes through the
+         wire, and a free agent has no team).
+    `seen` (row ids already reported) is extended in place."""
+    out = []
+    flagged = {i.get("playerId") for t in rows if t.get("isLeagueManager") and not t.get("isActingAsTeamOwner")
+               for i in t.get("items") or []}
+    traded = flagged | {i.get("playerId") for t in rows if str(t.get("type", "")).startswith("TRADE")
+              for i in t.get("items") or []}
+    for t in rows:
+        if t.get("isLeagueManager") and not t.get("isActingAsTeamOwner") and t.get("id") not in seen:
+            seen.append(t.get("id"))
+            items = [f"{(i.get('type') or '').lower()} {names.get(str(i.get('playerId')), i.get('playerId'))}"
+                     for i in t.get("items") or []]
+            teams = {i.get(k) for i in t.get("items") or [] for k in ("fromTeamId", "toTeamId")} | {t.get("teamId")}
+            out.append({"kind": "lm_move", "via": "flag", "id": t.get("id"), "type": t.get("type"),
+                        "team": tname.get(t.get("teamId"), str(t.get("teamId"))), "items": items,
+                        "ours": me in teams, "judgment": me in teams})
+    for pid, cur in holder.items():
+        was = prev_holder.get(pid)
+        if was and cur and was != cur and int(pid) not in traded:
+            out.append({"kind": "lm_move", "via": "roster", "player": names.get(str(pid), str(pid)),
+                        "from_team": tname.get(was, str(was)), "to_team": tname.get(cur, str(cur)),
+                        "ours": me in (was, cur), "judgment": me in (was, cur)})
+    return out
+
+
+def lm_move_head(ev: dict) -> str:
+    if ev["via"] == "flag":
+        return f"LEAGUE MANAGER move on {ev['team']}: {', '.join(ev['items']) or ev.get('type')}"
+    return (f"LEAGUE MANAGER move? {ev['player']} went from {ev['from_team']} to {ev['to_team']} "
+            f"with no trade on record")
+
+
 def watched_trade_head(ev: dict) -> str:
     nm = ev.get("names", {})
     sides: dict[str, list[str]] = {}
@@ -555,6 +598,23 @@ def main() -> int:
                            "added": [names.get(str(i), str(i)) for i in sorted(after - before)],
                            "dropped": [names.get(str(i), str(i)) for i in sorted(before - after)],
                            "why": wt["why"], "judgment": True})
+    # 3b. League-manager moves on any roster (lm_move_events).
+    try:
+        cur_wk = api.current_week(api.league("mStatus"))
+        lm_rows = [t for w in range(max(1, cur_wk - 1), cur_wk + 1)
+                   for t in api.league("mTransactions2", period=w).get("transactions", []) or []]
+    except Exception:  # noqa: BLE001 - the roster detector below still runs
+        lm_rows = []
+    from espncli.client import team_name  # noqa: PLC0415
+    holder_now = {str(p): int(tid) for tid, ids in rosters.items() for p in ids}
+    holder_prev = {str(p): int(tid) for tid, ids in prev_r.items() for p in ids}
+    seeded = "lm_seen" in st
+    lm_seen = st.setdefault("lm_seen", [])
+    lm_evs = lm_move_events(lm_rows, holder_prev, holder_now, names,
+                            {t["id"]: team_name(t) for t in data["teams"]}, lm_seen, team_id)
+    if seeded and not st.get("first_run") and prev_r:  # the first pass only records what is there
+        events += lm_evs
+    st["lm_seen"] = lm_seen[-500:]
     st["rosters"] = rosters
     st["roster_names"] = {str(i): names[str(i)] for ids in rosters.values() for i in ids if str(i) in names}
 
@@ -615,6 +675,8 @@ def main() -> int:
             heads.append(f"watch: {ev['player']} changed hands")
         elif ev["kind"] == "watch_ownership":
             heads.append(f"watch: {ev['player']} {ev['from']}% -> {ev['to']}% rostered")
+        elif ev["kind"] == "lm_move":
+            heads.append(lm_move_head(ev))
         elif ev["kind"] == "watched_trade":
             heads.append(watched_trade_head(ev))
         elif ev["kind"] == "watched_team_moved":
