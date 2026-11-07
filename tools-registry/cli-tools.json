@@ -690,11 +690,11 @@
   },
   {
     "name": "kc-hustle-frontier model",
-    "command": ".venv/bin/python -m hustle.run --draws 4000 && .venv/bin/python -m hustle.backtest",
+    "command": ".venv/bin/python -m hustle.run --draws 4000 && .venv/bin/python -m hustle.backtest && .venv/bin/python -m hustle.report && bin/deploy",
     "repo_dir": "~/Documents/kc-hustle-frontier",
     "source": "built",
     "added": "2026-11-06",
-    "notes": "Needs research/ideas/*.json, research/unit-econ/*.json and research/scenarios/scenarios.json (schema/SPEC.md). Writes out/results.json and out/results.csv. BLS website blocks scripts by policy; scripts/pull_bls_api.py uses the keyless API v1 (25 queries a day, 10 years per query, cached in raw/bls-api/)."
+    "notes": "Needs research/ideas/*.json, research/unit-econ/*.json and research/scenarios/scenarios.json (schema/SPEC.md); research/orchestrator-overrides.json patches them per idea or configuration. hustle.report writes out/explorer.html (one 3 MB file, offline) and site/index.html; bin/deploy publishes site/ to a static Worker. BLS website blocks scripts by policy; scripts/pull_bls_api.py uses the keyless API v1 (25 queries a day, 10 years per query, cached in raw/bls-api/)."
   },
   {
     "name": "kcmo-jobs",
