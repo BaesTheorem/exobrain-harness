@@ -13,7 +13,11 @@ and a new MIST Console chat seeded with the thread, so the conversation about
 what to say is already open when he looks. Only the league-wide threads reach
 the model.
 
-    chat-watch [--max-per-day 6] [--dry-run] [--force]
+    chat-watch [--max-per-day 6] [--no-league-replies] [--dry-run] [--force]
+
+--no-league-replies (Alex, 2026-11-06: "stop messaging people") marks the
+league-wide threads handled without a model call or a draft. Direct messages
+and trade-partner messages still escalate to Alex.
 
 INVARIANTS
   - State is keyed by MESSAGE ID, never by timestamp. Clocks, caches and
@@ -472,6 +476,8 @@ def main() -> int:
     ap.add_argument("--max-per-day", type=int, default=6)
     ap.add_argument("--max-age-hours", type=float, default=24.0,
                     help="ignore messages older than this (default 24)")
+    ap.add_argument("--no-league-replies", action="store_true",
+                    help="never draft a league-wide reply; only escalate DMs")
     ap.add_argument("--dry-run", action="store_true")
     ap.add_argument("--force", action="store_true",
                     help="answer even messages already marked handled")
@@ -561,6 +567,14 @@ def main() -> int:
 
     if not pending:
         log("nothing left to answer after escalation")
+        return 0
+
+    if args.no_league_replies:
+        log(f"--no-league-replies: marking {len(pending)} league message(s) "
+            "handled without a reply")
+        if not args.dry_run:
+            state["handled"].extend(m["id"] for m in pending if m.get("id"))
+            save_state(state)
         return 0
 
     if sent_today >= args.max_per_day:

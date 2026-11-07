@@ -11,6 +11,8 @@
     <string>/Users/alexhedtke/.local/bin/mist-launch</string>
     <string>/opt/homebrew/bin/python3</string>
     <string>/Users/alexhedtke/Documents/Exobrain harness/fantasy/bin/chat-watch</string>
+    <!-- Alex, 2026-11-06: no league-chat replies; DMs still escalate to him. -->
+    <string>--no-league-replies</string>
   </array>
   <key>EnvironmentVariables</key>
   <dict>
