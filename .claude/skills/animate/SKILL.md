@@ -64,6 +64,20 @@ and render it through the same `render.mjs`: `node render.mjs --page=<page>.html
   turn spins the camera through the transition. Carry one heading across the whole film.
 - **Speed:** about 32 ms per 1080p frame with bloom on 2 workers, so a 4:19 video at 60 fps renders in about 9 minutes.
 
+## Lit 3D shots with real materials (vork)
+
+When a shot needs physically lit 3D (glTF models, area lights, shadows, depth of field, custom
+Slang shaders) and three.js looks too flat, use `vork` (`~/.local/bin/vork`, source-available,
+research preview). A scene is one JSON file. Start with `vork help`, then `vork help programs --all`
+for the shader hooks. Bundled examples are in `~/.local/lib/vork/examples/`. Copy an example
+before you run its `generate.py`, because the script writes into its own folder.
+
+- **Speed on the M1 Air:** a 720p `std/final` clip is approximately 1 s per frame (48 frames in
+  51 s, 366 MB peak). A new shader program adds 20 to 30 s of compile time on its first render.
+- **No `std/path` on the M1.** The M1 has no hardware ray tracing. The path-traced black-hole
+  example took more than 7 minutes for one 480x270 frame. Use `std/draft` or `std/final`.
+- `.mov` output keeps alpha, so a vork shot can go into a p5.brush or three.js composite.
+
 ## Kinetic typography (the lyrics are the picture)
 
 For a lyric video where the type is the whole image, start from branch `video/spark`

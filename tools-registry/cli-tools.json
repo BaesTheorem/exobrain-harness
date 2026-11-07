@@ -1219,6 +1219,14 @@
     "notes": "Reads every \"> [!quote]\" callout in a note. Match ignores case, punctuation and typography; \"...\" splits a quote into fragments that must occur in order in one file. FUZZY (ratio >= 0.85) means OCR or transcript noise: open the file and copy the real words. Prints up to 3 files per hit with context so you can confirm the speaker. Exit 1 if any quote is missing. Run a positive and a negative control on each new corpus."
   },
   {
+    "name": "vork",
+    "command": "vork render scene.json --profile std/final --out shot.png|clip.mp4|clip.mov",
+    "repo_dir": "~/.local/lib/vork",
+    "source": "built",
+    "added": "2026-11-06",
+    "notes": "v0.1.0, installed 2026-11-06 with VORK_NO_MODIFY_PATH=1 (no shell rc edits). Needs macOS 26 for its Slang compiler. On the M1: std/final 720p approx 1 s/frame; std/path impractical (no hardware ray tracing, 7+ min per small frame). Source-available preview license covers this version only; later versions can be paid. Examples that run generate.py need PYTHONPATH=~/.local/lib/vork/examples and write into their own folder, so copy them first. Update: rerun install.sh from the GitHub release."
+  },
+  {
     "name": "wait-for-network.sh",
     "command": "scripts/wait-for-network.sh && <command>",
     "repo_dir": "~/Documents/Exobrain harness",
