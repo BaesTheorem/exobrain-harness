@@ -34,6 +34,7 @@ Feature phases land as additional modules:
 | 11 ✅ | `staged.py` + `bin/discord-stage` | staged reply: the owner pre-arranges one message (`discord-stage "text" [--guild X] [--channel Y] [--ttl H]`); on his next @mention or reply to MIST in a server she posts it verbatim, no model call, then drops it. If the cue is itself a reply to someone else, the staged text threads under that person's message. Lives in `~/.claude/channels/discord/staged-reply.json`, outside the repo. `show` / `clear` to inspect or cancel |
 | 12 ✅ | `staged.py` + `bin/discord-append` | standing per-person append: `discord-append add USERNAME "text"` puts that line at the end of every reply MIST makes to that user (when they address her, or when the owner cues her by replying to their message). Keyed by login username, never display name. Lives in `~/.claude/channels/discord/appends.json`, outside the repo. `list` / `remove` |
 | 13 ✅ | `modules/clippy.py` + `watches.py` + `bin/discord-watch` | pattern watches: `!watch 5/30m ask "yes/no question about your messages" say "text" [cooldown 30m] [in #channel]` (anyone, self-only). When the user posts COUNT+ times in a channel within WINDOW minutes, a sandboxed model call (guest model, text framed as untrusted) answers the question about those messages; on YES MIST replies in-channel with the text, once per cooldown. Members can also just ask MIST in words: she ends her reply with the `!watch` line and the bot runs it for the speaker only. `!watch off` / `!watch`. Admin view: `bin/discord-watch add|list|remove`. Store `~/.claude/channels/discord/watches.json`, outside the repo |
+| 14 ✅ | `db.py` `chatter_log` + `bin/discord-convos` | conversation log: each message that addresses MIST, the reply she posts, and each error go to the `chatter_log` table in `claudebot.db` (gitignored). `discord-convos [--since 7d] [--guest] [--user NAME] [--channel NAME] [--search WORDS] [--stats] [--json]` shows them by channel and day. The log starts 2026-11-07. Before that date, Discord itself was the only record |
 
 ## Setup
 
@@ -78,7 +79,8 @@ is allowed per token, so stop the launchd job before running `bot.py` by hand.
 | `bot.py` | entry point: client, intents, event wiring, module loader |
 | `handler.py` | command registry + dispatch + permissions + cooldown |
 | `config.py` | token loading + flat single-guild config |
-| `db.py` | SQLite schema + helpers |
+| `db.py` | SQLite schema + helpers, including `chatter_log` |
+| `bin/discord-convos` | read-only viewer for `chatter_log` |
 | `modules/` | feature modules, each with `setup(ctx)` |
 
 ## Chatter: model and thinking depth

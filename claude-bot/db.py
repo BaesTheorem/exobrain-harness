@@ -80,17 +80,36 @@ CREATE TABLE IF NOT EXISTS thread_summoned (
     summoned  TEXT DEFAULT CURRENT_TIMESTAMP
 );
 
--- LLM chat history, with full-text search for the persona's recall
-CREATE TABLE IF NOT EXISTS chatter_messages (
-    id         INTEGER PRIMARY KEY AUTOINCREMENT,
-    user_id    INTEGER NOT NULL,
-    thread_id  INTEGER NOT NULL,
-    role       TEXT NOT NULL,          -- 'user' | 'assistant'
-    content    TEXT NOT NULL,
-    created_at TEXT DEFAULT CURRENT_TIMESTAMP
+-- Every chatter turn: the message that addressed MIST and the reply she
+-- posted (bin/discord-convos reads it). role: 'user' | 'assistant' | 'error'.
+-- Times are UTC. Private data: this file is gitignored.
+CREATE TABLE IF NOT EXISTS chatter_log (
+    id           INTEGER PRIMARY KEY AUTOINCREMENT,
+    ts           TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%SZ','now')),
+    guild        TEXT,                 -- NULL for a DM
+    channel      TEXT,
+    channel_id   INTEGER,
+    message_id   INTEGER,
+    user_id      INTEGER,
+    username     TEXT,
+    display_name TEXT,
+    guest        INTEGER NOT NULL,
+    private      INTEGER NOT NULL,
+    role         TEXT NOT NULL,
+    content      TEXT NOT NULL,
+    model        TEXT,
+    note         TEXT                  -- staged | deflected | error detail
 );
-CREATE VIRTUAL TABLE IF NOT EXISTS chatter_fts
-    USING fts5(content, content='chatter_messages', content_rowid='id');
+CREATE INDEX IF NOT EXISTS chatter_log_ts ON chatter_log(ts);
+CREATE VIRTUAL TABLE IF NOT EXISTS chatter_log_fts
+    USING fts5(content, content='chatter_log', content_rowid='id');
+CREATE TRIGGER IF NOT EXISTS chatter_log_ai AFTER INSERT ON chatter_log BEGIN
+    INSERT INTO chatter_log_fts(rowid, content) VALUES (new.id, new.content);
+END;
+CREATE TRIGGER IF NOT EXISTS chatter_log_ad AFTER DELETE ON chatter_log BEGIN
+    INSERT INTO chatter_log_fts(chatter_log_fts, rowid, content)
+        VALUES ('delete', old.id, old.content);
+END;
 
 -- Bot-wide runtime settings that survive a restart (chatter model, effort)
 CREATE TABLE IF NOT EXISTS settings (
@@ -121,6 +140,9 @@ _DROP_LEGACY = (
     "DROP TABLE IF EXISTS bridge_pending",
     "DROP TABLE IF EXISTS bridge_messagemap",
     "DROP TABLE IF EXISTS bridges",
+    # Never written to; replaced by chatter_log.
+    "DROP TABLE IF EXISTS chatter_fts",
+    "DROP TABLE IF EXISTS chatter_messages",
 )
 
 
@@ -143,6 +165,21 @@ class DB:
 
     def query(self, sql: str, params: tuple = ()) -> list[sqlite3.Row]:
         return self.conn.execute(sql, params).fetchall()
+
+    def log_chat(self, *, role: str, content: str, guest: bool, private: bool,
+                 guild: str | None = None, channel: str | None = None,
+                 channel_id: int | None = None, message_id: int | None = None,
+                 user_id: int | None = None, username: str | None = None,
+                 display_name: str | None = None, model: str | None = None,
+                 note: str | None = None) -> None:
+        """Record one chatter turn for bin/discord-convos."""
+        self.execute(
+            "INSERT INTO chatter_log (guild, channel, channel_id, message_id, user_id,"
+            " username, display_name, guest, private, role, content, model, note)"
+            " VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)",
+            (guild, channel, channel_id, message_id, user_id, username, display_name,
+             int(guest), int(private), role, content, model, note),
+        )
 
     def _migrate_user_prefs(self) -> None:
         """The first schema keyed user_prefs on (user_id, key) with no guild

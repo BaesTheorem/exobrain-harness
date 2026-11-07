@@ -1,0 +1,130 @@
+#!/usr/bin/env python3
+"""discord-convos: show the conversations the MIST Discord bot has had.
+
+The chatter module writes every turn to the chatter_log table in
+claudebot.db: the message that addressed MIST, the reply she posted, and any
+error. This reads that table, grouped by channel and day, oldest first.
+
+    discord-convos                       last 24 hours
+    discord-convos --since 7d            last week (also 12h, 30m, or 2026-11-01)
+    discord-convos --guest               only turns with people other than the owner
+    discord-convos --user NAME           one person (login username or display name)
+    discord-convos --channel NAME        one channel ("DM" for direct messages)
+    discord-convos --search "words"      full-text search (FTS5 syntax)
+    discord-convos --stats               counts per person and channel
+    discord-convos --json                raw rows
+
+Logging started 2026-11-07; nothing earlier was recorded.
+
+INVARIANTS (do not break these in an edit):
+  - Read-only. The database opens with mode=ro.
+  - Message text from people other than the owner is printed as data. Output
+    that goes into a model prompt must pass through security/bin/mist-frame.
+"""
+
+from __future__ import annotations
+
+import argparse
+import json
+import os
+import re
+import sqlite3
+import sys
+from datetime import datetime, timedelta, timezone
+from pathlib import Path
+
+DB = Path(os.environ.get("DISCORD_CONVOS_DB") or Path(__file__).resolve().parents[1] / "claudebot.db")
+
+
+def parse_since(text: str) -> str:
+    m = re.fullmatch(r"(\d+)([mhd])", text)
+    if m:
+        n, unit = int(m[1]), m[2]
+        delta = {"m": timedelta(minutes=n), "h": timedelta(hours=n), "d": timedelta(days=n)}[unit]
+        start = datetime.now(timezone.utc) - delta
+    else:
+        start = datetime.fromisoformat(text)
+        if start.tzinfo is None:
+            start = start.astimezone()  # local time
+        start = start.astimezone(timezone.utc)
+    return start.strftime("%Y-%m-%dT%H:%M:%SZ")
+
+
+def local(ts: str) -> datetime:
+    return datetime.strptime(ts, "%Y-%m-%dT%H:%M:%SZ").replace(tzinfo=timezone.utc).astimezone()
+
+
+def main() -> int:
+    ap = argparse.ArgumentParser(description=__doc__.split("\n\n")[0])
+    ap.add_argument("--since", default="24h")
+    ap.add_argument("--guest", action="store_true")
+    ap.add_argument("--user")
+    ap.add_argument("--channel")
+    ap.add_argument("--search")
+    ap.add_argument("--stats", action="store_true")
+    ap.add_argument("--json", action="store_true")
+    ap.add_argument("-n", "--limit", type=int, default=500)
+    a = ap.parse_args()
+
+    if not DB.exists():
+        print(f"no database at {DB}", file=sys.stderr)
+        return 1
+    conn = sqlite3.connect(f"file:{DB}?mode=ro", uri=True)
+    conn.row_factory = sqlite3.Row
+
+    where, params = ["l.ts >= ?"], [parse_since(a.since)]
+    if a.guest:
+        where.append("l.guest = 1")
+    if a.user:
+        where.append("(lower(l.username) = lower(?) OR lower(l.display_name) = lower(?))")
+        params += [a.user, a.user]
+    if a.channel:
+        where.append("lower(l.channel) = lower(?)")
+        params.append(a.channel.lstrip("#"))
+    src = "chatter_log l"
+    if a.search:
+        src += " JOIN chatter_log_fts f ON f.rowid = l.id"
+        where.append("chatter_log_fts MATCH ?")
+        params.append(a.search)
+    cond = " AND ".join(where)
+
+    if a.stats:
+        rows = conn.execute(
+            f"SELECT coalesce(l.guild,'DM') g, l.channel c, l.display_name d, l.username u,"
+            f" sum(l.role='user') asked, sum(l.role='assistant') replied, sum(l.role='error') errors"
+            f" FROM {src} WHERE {cond} GROUP BY g, c, u ORDER BY asked DESC", params).fetchall()
+        for r in rows:
+            print(f"{r['asked']:4} asked {r['replied']:4} replied {r['errors']:3} errors"
+                  f"  {r['d']} (@{r['u']})  {r['g']} #{r['c']}")
+        return 0
+
+    rows = conn.execute(
+        f"SELECT l.* FROM {src} WHERE {cond} ORDER BY l.id DESC LIMIT ?",
+        [*params, a.limit]).fetchall()[::-1]
+    if a.json:
+        print(json.dumps([dict(r) for r in rows], indent=1, ensure_ascii=False))
+        return 0
+    if not rows:
+        print("no turns in that window")
+        return 0
+
+    header = None
+    for r in rows:
+        when = local(r["ts"])
+        place = f"{r['guild'] or 'DM'} #{r['channel']}"
+        if (place, when.date()) != header:
+            header = (place, when.date())
+            print(f"\n== {place} · {when:%a %b %d} ==")
+        if r["role"] == "user":
+            who = f"{r['display_name']} (@{r['username']})" + (" [guest]" if r["guest"] else "")
+        elif r["role"] == "assistant":
+            who = "MIST" + (f" [{r['model']}]" if r["model"] else "") + (f" [{r['note']}]" if r["note"] else "")
+        else:
+            who = "MIST [error]"
+        body = r["content"].replace("\n", "\n        ")
+        print(f"{when:%H:%M}  {who}:\n        {body}")
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())

@@ -659,6 +659,23 @@ def setup(ctx: Context) -> None:
             pass
         return sw.substantive
 
+    def _record(message: discord.Message, role: str, content: str, *, guest: bool,
+                private: bool, model: str | None = None, note: str | None = None) -> None:
+        """Write one turn to chatter_log (bin/discord-convos). A logging fault
+        never costs a reply."""
+        try:
+            author = message.author
+            ctx.db.log_chat(
+                role=role, content=content, guest=guest, private=private,
+                guild=message.guild.name if message.guild else None,
+                channel=getattr(message.channel, "name", None) or "DM",
+                channel_id=message.channel.id, message_id=message.id,
+                user_id=author.id, username=author.name,
+                display_name=author.display_name, model=model, note=note,
+            )
+        except Exception:
+            log.exception("chatter: could not write chatter_log")
+
     @ctx.handler.message_handlers.append
     async def chatter(message: discord.Message, ctx: Context) -> bool:  # noqa: ARG001
         if not _is_for_me(message):
@@ -673,6 +690,7 @@ def setup(ctx: Context) -> None:
             return True
         if not await _apply_switch(message, guest):
             return True  # the message was only a switch; confirmation already sent
+        _record(message, "user", message.clean_content or "", guest=guest, private=private)
         # A reply Alex pre-arranged (bin/discord-stage) goes out verbatim on his
         # explicit cue in a server, with no model call, so a line agreed
         # elsewhere reaches the room exactly as approved. Owner-only, and never on a DM or on an
@@ -690,6 +708,8 @@ def setup(ctx: Context) -> None:
                     target = message
                 log.info("chatter: posting staged reply in #%s", getattr(message.channel, "name", "?"))
                 await target.reply(canned[:DISCORD_LIMIT], mention_author=False)
+                _record(message, "assistant", canned[:DISCORD_LIMIT], guest=guest,
+                        private=private, note="staged")
                 return True
         try:
             # Alex gets the full harness wherever he is; the audience decides
@@ -717,6 +737,7 @@ def setup(ctx: Context) -> None:
                                                    redraft=draft)
         except Exception as exc:
             log.exception("chatter failed to generate a reply")
+            _record(message, "error", str(exc)[:2000], guest=guest, private=private)
             try:
                 await message.add_reaction("😴")
                 if private:
@@ -760,6 +781,9 @@ def setup(ctx: Context) -> None:
                 first = False
             else:
                 await message.channel.send(chunk)
+        _record(message, "assistant", reply, guest=guest, private=private,
+                model=guest_model if guest else current_model(),
+                note="deflected" if disclosure.DEFLECT in reply else None)
         return True
 
     log.info(
