@@ -78,6 +78,29 @@ before you run its `generate.py`, because the script writes into its own folder.
   example took more than 7 minutes for one 480x270 frame. Use `std/draft` or `std/final`.
 - `.mov` output keeps alpha, so a vork shot can go into a p5.brush or three.js composite.
 
+## Silhouette films (shadow and light)
+
+For a serious piece where light carries the story, start from branch `video/uplift` (`uplift.html`,
+`src/uplift/`, `DESIGN.md`, `CHAPTER_BRIEF.md`). It uses three.js silhouettes against shader skies, the
+rigged CC0 cast posed with the Universal Animation Library clips, and bloom on lights only.
+`CHAPTER_BRIEF.md` is the brief to give chapter agents, and it records these lessons in full.
+
+- **Camera heights are above the ground** (`gcam`). With an absolute height on rolling terrain the
+  camera goes under the ground, and the sky shows through it as a pale band.
+- **A silhouette reads only against the sky or a light.** Keep the camera low so that subjects stand
+  above the horizon, and give each fire a light pool on the ground.
+- **Stars draw in the opaque pass right after the sky dome** (`transparent: false`, additive blending,
+  `renderOrder` -9). As transparent objects they draw over every silhouette.
+- **Close-ups:** use a long lens (fov 15 to 24) from 2 to 3 m, with the subject in profile against the
+  sky. To put hands on a task (striking flint, typing), use two-bone IK over a clip.
+- **Trap errors per shot** (a broken shot draws a red sky). Then a chapter agent's bug cannot stop
+  the other chapters from rendering.
+- **Storyboarding a song whose lyrics cannot enter the chat:** a separate `claude -p --tools ""` call
+  writes a summary of each line with no quotes. Mask every 3-word run it shares with the lyrics, and
+  read only the masked summary. Before a commit, test the staged files for 4-word runs from the lyrics.
+- **Cost:** the 28-shot "Uplift" animatic took about an hour, with two Sonnet chapter agents in
+  parallel. The full 3-minute render at 720p took 2 minutes (26 ms per frame).
+
 ## Kinetic typography (the lyrics are the picture)
 
 For a lyric video where the type is the whole image, start from branch `video/spark`
