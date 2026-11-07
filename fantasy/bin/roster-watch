@@ -352,6 +352,64 @@ def trade_outcome(api, tid: str) -> str:
     return out
 
 
+def watched_trade_events(pend: list, teams: list, watch: dict, state: dict, me: int) -> list[dict]:
+    """Pings for trades between other teams that involve a team on the watch
+    list's `trade_teams` (Alex, 2026-11-06, after Njigba Please! cast the first
+    veto vote of the season against our Nacua trade: "ping me if a trade
+    involving Samy ever occurs again"). ESPN shows another team's trade only
+    after both sides accept it, during the veto review, so the first ping is
+    `opened` (Alex can still vote); the second is `closed`, when the row leaves
+    the pending list, with the outcome read off the rosters. A trade that
+    involves us is left to the trade_offer and trade_resolved events.
+    `state` (id -> the open trade) is updated in place."""
+    from espncli.client import team_name  # noqa: PLC0415
+    tname = {t["id"]: team_name(t) for t in teams}
+    holder, pname = {}, {}
+    for t in teams:
+        for e in (t.get("roster") or {}).get("entries", []):
+            holder[e["playerId"]] = t["id"]
+            pname[e["playerId"]] = e["playerPoolEntry"]["player"]["fullName"]
+    out, open_now = [], set()
+    for t in pend:
+        if not str(t.get("type", "")).startswith("TRADE"):
+            continue
+        items = [i for i in t.get("items") or [] if i.get("playerId") is not None]
+        parties = {i.get(k) for i in items for k in ("fromTeamId", "toTeamId")} - {None}
+        hit = sorted(parties & set(watch))
+        if not hit or me in parties:
+            continue
+        tid = t.get("id")
+        open_now.add(tid)
+        if tid in state:
+            continue
+        moves = [{"player": pname.get(i["playerId"], str(i["playerId"])), "id": i["playerId"],
+                  "from": i.get("fromTeamId"), "to": i.get("toTeamId")} for i in items]
+        state[tid] = {"teams": sorted(parties), "moves": moves, "process_at": t.get("processDate"),
+                      "watched": [watch[h].get("name") or tname.get(h, str(h)) for h in hit]}
+        out.append({"kind": "watched_trade", "phase": "opened", "id": tid, **state[tid],
+                    "names": {str(k): tname.get(k, str(k)) for k in parties}, "judgment": False})
+    for tid in [k for k in state if k not in open_now]:
+        tr = state.pop(tid)
+        landed = [holder.get(m["id"]) == m["to"] for m in tr["moves"]]
+        stayed = [holder.get(m["id"]) == m["from"] for m in tr["moves"]]
+        outcome = "executed" if all(landed) else "vetoed or canceled" if all(stayed) else "closed (see rosters)"
+        out.append({"kind": "watched_trade", "phase": "closed", "id": tid, "outcome": outcome, **tr,
+                    "names": {str(k): tname.get(k, str(k)) for k in tr["teams"]}, "judgment": False})
+    return out
+
+
+def watched_trade_head(ev: dict) -> str:
+    nm = ev.get("names", {})
+    sides: dict[str, list[str]] = {}
+    for m in ev["moves"]:
+        sides.setdefault(nm.get(str(m["to"]), str(m["to"])), []).append(m["player"])
+    gets = "; ".join(f"{team} gets {', '.join(ps)}" for team, ps in sides.items())
+    who = ", ".join(ev.get("watched") or [])
+    if ev["phase"] == "opened":
+        return f"trade watch ({who}): trade in veto review, {gets}. You can vote in ESPN"
+    return f"trade watch ({who}): trade {ev['outcome']}, {gets}"
+
+
 def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--dry-run", action="store_true")
@@ -449,6 +507,9 @@ def main() -> int:
     # 3. The watch list: players we are tracking anywhere in the league, and teams
     #    whose roster moves matter (an absent manager showing up).
     wl = load(WATCHLIST, {"players": [], "teams": []})
+    tw = {int(t["id"]): t for t in wl.get("trade_teams", [])}
+    if tw:
+        events += watched_trade_events(pend, data["teams"], tw, st.setdefault("watched_trades", {}), team_id)
     wstate = st.setdefault("watch", {})
     ids = [p["id"] for p in wl.get("players", []) if p.get("id") is not None]
     cards = {c["player"]["id"]: c for c in api.player_cards(ids)} if ids else {}
@@ -554,6 +615,8 @@ def main() -> int:
             heads.append(f"watch: {ev['player']} changed hands")
         elif ev["kind"] == "watch_ownership":
             heads.append(f"watch: {ev['player']} {ev['from']}% -> {ev['to']}% rostered")
+        elif ev["kind"] == "watched_trade":
+            heads.append(watched_trade_head(ev))
         elif ev["kind"] == "watched_team_moved":
             moves = [f"added {', '.join(ev['added'])}" if ev.get("added") else "",
                      f"dropped {', '.join(ev['dropped'])}" if ev.get("dropped") else ""]
@@ -584,7 +647,7 @@ def main() -> int:
             heads.append(ev["kind"].replace("_", " ") + (f": {ev.get('player')}" if ev.get("player") else ""))
     judgment = any(ev.get("judgment") for ev in events)
     msg = "; ".join(heads)[:400] + (". MIST is on it." if judgment and not args.no_routine else "")
-    link = LEAGUE_URL if any(ev["kind"] == "trade_offer" for ev in events) else ROSTER_URL
+    link = LEAGUE_URL if any(ev["kind"] in ("trade_offer", "watched_trade") for ev in events) else ROSTER_URL
     actions = ["--action", "Ask MIST=console"]
     swap = next((ev for ev in events if ev["kind"] == "swap_gate"), None)
     stream = next((ev for ev in events if ev["kind"] == "stream_gate"), None)
