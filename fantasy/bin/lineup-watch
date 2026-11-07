@@ -160,7 +160,18 @@ def apply_upgrade(s: dict, dry: bool) -> str | None:
     from espncli.client import Espn  # noqa: PLC0415
     from espncli.tx import EspnWriter  # noqa: PLC0415
     api = Espn()
-    res = EspnWriter(api).swap(api.resolve_one(s["bench"])["id"], api.resolve_one(s["starter"])["id"])
+    w = EspnWriter(api)
+    if s.get("starter") in (None, "", "(empty)"):
+        # `espn check` lists an empty slot as a swap with starter "(empty)"; there is
+        # no one to bench, so move the bench player in (2026-11-07: the reversed Nacua
+        # trade left WR empty and resolve_one("(empty)") failed every run).
+        from espncli.client import SLOT_BY_NAME  # noqa: PLC0415
+        slot = SLOT_BY_NAME.get(str(s.get("slot", "")).upper())
+        if slot is None:
+            return None
+        res = w.move(api.resolve_one(s["bench"])["id"], slot)
+    else:
+        res = w.swap(api.resolve_one(s["bench"])["id"], api.resolve_one(s["starter"])["id"])
     return desc + " (verified)" if res.get("verified") else None
 
 
