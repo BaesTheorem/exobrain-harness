@@ -36,7 +36,7 @@ from pathlib import Path
 ENV_PATH = Path.home() / ".claude" / "channels" / "discord" / ".env"
 API = "https://discord.com/api/v10"
 FRAME = Path(__file__).resolve().parents[2] / "security" / "bin" / "mist-frame"
-TEXT_TYPES = {0: "text", 5: "news", 10: "thread", 11: "thread", 12: "private thread", 15: "forum"}
+TEXT_TYPES = {0: "text", 1: "DM", 3: "group DM", 5: "news", 10: "thread", 11: "thread", 12: "private thread", 15: "forum"}
 
 
 def token() -> str:
@@ -144,7 +144,11 @@ def read(tok: str, chan: dict, limit: int, hours: float | None, before: str | No
 def label(c: dict) -> str:
     kind = TEXT_TYPES.get(c.get("type", 0), "channel")
     where = f" in #{c['parent']}" if c.get("parent") else ""
-    return f"#{c['name']} ({kind}{where}, {c.get('guild', '?')}, id {c['id']})"
+    # DM channels have no name; label them by the other person.
+    name = c.get("name") or ", ".join(
+        r.get("username", "?") for r in c.get("recipients", [])) or "?"
+    guild = c.get("guild") or ("DM" if c.get("type") in (1, 3) else "?")
+    return f"#{name} ({kind}{where}, {guild}, id {c['id']})"
 
 
 def main() -> None:
