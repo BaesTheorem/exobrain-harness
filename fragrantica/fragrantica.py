@@ -83,6 +83,8 @@ class Client:
         # once poisoned the shared cookies, and every later page fetch got 403.
         self.http_browser = AsyncSession(impersonate="chrome", timeout=45)
         self.delay = delay
+        self.base_delay = delay
+        self._clean = 0
         self._last_page = 0.0
         self._last_algolia = 0.0
         self._key: dict[str, Any] | None = None
@@ -99,18 +101,25 @@ class Client:
         await self.http_browser.close()
 
     async def fetch(self, url: str, *, paced: bool = True) -> str:
-        if paced:
-            wait = self._last_page + self.delay - time.monotonic()
-            if wait > 0:
-                await asyncio.sleep(wait)
-        for attempt in range(4):
+        """GET a page. Pacing adapts: each 403/429 doubles the delay (max 12 s), 25 clean fetches shorten it again."""
+        for attempt in range(10):
+            if paced:
+                wait = self._last_page + self.delay - time.monotonic()
+                if wait > 0:
+                    await asyncio.sleep(wait)
             r = await self.http.get(url, headers={"Referer": BASE + "/"})
             self._last_page = time.monotonic()
             if r.status_code == 200 and "Just a moment" not in r.text[:3000]:
+                self._clean += 1
+                if self._clean >= 25 and self.delay > self.base_delay:
+                    self.delay = max(self.base_delay, self.delay * 0.75)
+                    self._clean = 0
                 return r.text
             if r.status_code in (403, 429, 500, 502, 503, 504) or "Just a moment" in r.text[:3000]:
-                backoff = 10 * (attempt + 1)
-                log(f"  {r.status_code} on {url}; new session, waiting {backoff} s")
+                self._clean = 0
+                self.delay = min(12.0, max(self.delay * 2, 2.0))
+                backoff = min(120, 15 * (attempt + 1))
+                log(f"  {r.status_code} on {url}; new session, delay now {self.delay:.1f} s, waiting {backoff} s")
                 await self.http.close()
                 self.http = AsyncSession(impersonate="chrome", timeout=45)
                 await asyncio.sleep(backoff)
