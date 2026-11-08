@@ -227,9 +227,19 @@ def notify_discord(channel_id, message):
     )
     try:
         with urllib.request.urlopen(req, timeout=8) as r:
-            r.read()
+            sent = json.load(r)
     except Exception as e:
         log(f"discord send failed: {e}")
+        return
+    # Copy into the bot's conversation log (claude-bot/bin/discord-record).
+    # Shelled out, not imported: top-level dirs are islands. Best effort.
+    try:
+        record = Path(__file__).resolve().parents[1] / "claude-bot" / "bin" / "discord-record"
+        subprocess.run([str(record), "--channel", str(channel_id), "--message-id",
+                        str(sent.get("id") or 0), "--source", "awair-co2-watcher", "--notify"],
+                       input=message, text=True, capture_output=True, timeout=15)
+    except Exception:  # noqa: BLE001 -- the log must never fail a send
+        pass
 
 
 def in_active_hours(now):

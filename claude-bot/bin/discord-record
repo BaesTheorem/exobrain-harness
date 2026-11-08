@@ -1,0 +1,103 @@
+#!/usr/bin/env python3
+"""discord-record: add one outbound MIST message to the conversation log.
+
+The chatter module logs the replies MIST makes. Messages she starts herself
+go out over REST from other code (discord/discord-send.py, bin/discord-dm,
+watchers), and those senders call this after each successful send so that
+bin/discord-convos shows them too.
+
+    echo "text" | discord-record --channel ID [--message-id ID]
+                                 [--source NAME] [--notify]
+
+--notify marks a notification DM to the owner (bin/discord-dm). The viewer
+hides those unless it gets --notify. Exit 0 always: a sender must never fail
+because the log failed. Problems go to stderr.
+
+INVARIANTS (do not break these in an edit):
+  - Never raises, never exits non-zero.
+  - Only GET requests to Discord (to name the channel), never a write.
+"""
+
+from __future__ import annotations
+
+import argparse
+import json
+import os
+import sys
+import urllib.request
+from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+import db  # noqa: E402 -- path set up above
+
+ENV_PATH = Path.home() / ".claude" / "channels" / "discord" / ".env"
+API = "https://discord.com/api/v10"
+
+
+def token() -> str | None:
+    try:
+        for line in ENV_PATH.read_text().splitlines():
+            if line.startswith("DISCORD_BOT_TOKEN="):
+                return line.split("=", 1)[1].strip().strip("'\"")
+    except OSError:
+        pass
+    return None
+
+
+def channel_place(conn: db.DB, channel_id: int) -> tuple[str | None, str]:
+    """(guild name or None for a DM, channel name). Reuse a name already in
+    the log; else ask Discord once."""
+    rows = conn.query("SELECT guild, channel FROM chatter_log WHERE channel_id = ?"
+                      " AND channel IS NOT NULL ORDER BY id DESC LIMIT 1", (channel_id,))
+    if rows:
+        return rows[0]["guild"], rows[0]["channel"]
+    tok = token()
+    if not tok:
+        return None, str(channel_id)
+
+    def get(path: str) -> dict:
+        req = urllib.request.Request(f"{API}{path}", headers={
+            "Authorization": f"Bot {tok}", "User-Agent": "MIST (exobrain-harness, 1.0)"})
+        with urllib.request.urlopen(req, timeout=5) as resp:
+            return json.load(resp)
+
+    try:
+        c = get(f"/channels/{channel_id}")
+        if c.get("type") in (1, 3):  # DM, group DM
+            return None, ", ".join(r.get("username", "?") for r in c.get("recipients", [])) or "DM"
+        guild = None
+        if c.get("guild_id"):
+            guild = get(f"/guilds/{c['guild_id']}").get("name")
+        return guild, c.get("name") or str(channel_id)
+    except Exception as exc:  # noqa: BLE001 -- best effort
+        print(f"discord-record: could not name channel {channel_id}: {exc}", file=sys.stderr)
+        return None, str(channel_id)
+
+
+def main() -> None:
+    ap = argparse.ArgumentParser()
+    ap.add_argument("--channel", type=int, required=True)
+    ap.add_argument("--message-id", type=int)
+    ap.add_argument("--source", default="unknown")
+    ap.add_argument("--notify", action="store_true")
+    a = ap.parse_args()
+    text = sys.stdin.read().strip()
+    if not text:
+        return
+    override = os.environ.get("DISCORD_CONVOS_DB")
+    conn = db.DB(Path(override)) if override else db.DB()
+    guild, channel = channel_place(conn, a.channel)
+    conn.log_chat(role="outbound", content=text, guest=False, private=guild is None,
+                  guild=guild, channel=channel, channel_id=a.channel,
+                  message_id=a.message_id, username="MIST", display_name="MIST",
+                  note=("notify via " if a.notify else "via ") + a.source)
+
+
+if __name__ == "__main__":
+    try:
+        main()
+    except SystemExit:
+        pass
+    except Exception as exc:  # noqa: BLE001 -- never fail the sender
+        print(f"discord-record: {exc}", file=sys.stderr)
+    sys.exit(0)

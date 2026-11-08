@@ -11,10 +11,18 @@ error. This reads that table, grouped by channel and day, oldest first.
     discord-convos --user NAME           one person (login username or display name)
     discord-convos --channel NAME        one channel ("DM" for direct messages)
     discord-convos --search "words"      full-text search (FTS5 syntax)
+    discord-convos --notify              also show notification DMs to the owner
     discord-convos --stats               counts per person and channel
     discord-convos --json                raw rows
 
-Logging started 2026-11-07; nothing earlier was recorded.
+Rows: 'user' (a message that addressed MIST), 'assistant' (her reply),
+'error', and 'outbound' (a message she started, sent over REST by
+discord/discord-send.py, bin/discord-dm or a watcher, and recorded by
+bin/discord-record). Notification DMs to the owner are outbound rows with a
+note that starts with "notify"; they are hidden unless --notify is given.
+
+Replies are logged from 2026-11-07 02:01 and outbound messages from
+2026-11-08 00:50 (CST). Nothing earlier was recorded.
 
 INVARIANTS (do not break these in an edit):
   - Read-only. The database opens with mode=ro.
@@ -61,6 +69,7 @@ def main() -> int:
     ap.add_argument("--user")
     ap.add_argument("--channel")
     ap.add_argument("--search")
+    ap.add_argument("--notify", action="store_true")
     ap.add_argument("--stats", action="store_true")
     ap.add_argument("--json", action="store_true")
     ap.add_argument("-n", "--limit", type=int, default=500)
@@ -73,6 +82,8 @@ def main() -> int:
     conn.row_factory = sqlite3.Row
 
     where, params = ["l.ts >= ?"], [parse_since(a.since)]
+    if not a.notify:
+        where.append("NOT (l.role = 'outbound' AND coalesce(l.note, '') LIKE 'notify%')")
     if a.guest:
         where.append("l.guest = 1")
     if a.user:
@@ -91,10 +102,11 @@ def main() -> int:
     if a.stats:
         rows = conn.execute(
             f"SELECT coalesce(l.guild,'DM') g, l.channel c, l.display_name d, l.username u,"
-            f" sum(l.role='user') asked, sum(l.role='assistant') replied, sum(l.role='error') errors"
+            f" sum(l.role='user') asked, sum(l.role='assistant') replied, sum(l.role='error') errors,"
+            f" sum(l.role='outbound') sent"
             f" FROM {src} WHERE {cond} GROUP BY g, c, u ORDER BY asked DESC", params).fetchall()
         for r in rows:
-            print(f"{r['asked']:4} asked {r['replied']:4} replied {r['errors']:3} errors"
+            print(f"{r['asked']:4} asked {r['replied']:4} replied {r['errors']:3} errors {r['sent']:4} sent"
                   f"  {r['d']} (@{r['u']})  {r['g']} #{r['c']}")
         return 0
 
@@ -119,6 +131,8 @@ def main() -> int:
             who = f"{r['display_name']} (@{r['username']})" + (" [guest]" if r["guest"] else "")
         elif r["role"] == "assistant":
             who = "MIST" + (f" [{r['model']}]" if r["model"] else "") + (f" [{r['note']}]" if r["note"] else "")
+        elif r["role"] == "outbound":
+            who = f"MIST [outbound, {r['note']}]" if r["note"] else "MIST [outbound]"
         else:
             who = "MIST [error]"
         body = r["content"].replace("\n", "\n        ")

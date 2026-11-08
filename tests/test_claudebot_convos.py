@@ -54,3 +54,31 @@ def test_old_window_is_empty(tmp_path):
     path = tmp_path / "bot.db"
     _seed(path)
     assert "no turns" in _run(path, "--since", "2000-01-01T00:00:00", "--user", "nobody")
+
+
+RECORD = REPO / "claude-bot" / "bin" / "discord-record"
+
+
+def _record(path, text, *args):
+    env = {**os.environ, "DISCORD_CONVOS_DB": str(path)}
+    return subprocess.run([sys.executable, str(RECORD), "--channel", "1", *args],
+                          input=text, env=env, capture_output=True, text=True)
+
+
+def test_outbound_reuses_known_channel_and_hides_notify(tmp_path):
+    path = tmp_path / "bot.db"
+    _seed(path)  # channel 1 is already named, so no Discord lookup happens
+    assert _record(path, "hello from MIST", "--source", "discord-send.py").returncode == 0
+    assert _record(path, "watcher alert", "--source", "awair", "--notify").returncode == 0
+    rows = json.loads(_run(path, "--json"))
+    out = [r for r in rows if r["role"] == "outbound"]
+    assert [(r["content"], r["channel"], r["note"]) for r in out] == [
+        ("hello from MIST", "general", "via discord-send.py")]
+    rows = json.loads(_run(path, "--json", "--notify"))
+    assert "watcher alert" in [r["content"] for r in rows]
+
+
+def test_record_never_fails_the_sender(tmp_path):
+    bad = _record(tmp_path / "missing-dir" / "bot.db", "x")
+    assert bad.returncode == 0
+    assert _record(tmp_path / "bot.db", "x", "--message-id", "not-a-number").returncode == 0

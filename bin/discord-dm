@@ -17,12 +17,14 @@ from __future__ import annotations
 
 import json
 import os
+import subprocess
 import sys
 import urllib.request
 from pathlib import Path
 
 HARNESS = Path(__file__).resolve().parent.parent
 BOT_ENV = Path.home() / ".claude/channels/discord/.env"
+RECORD = HARNESS / "claude-bot" / "bin" / "discord-record"
 
 
 def env_value(path: Path, key: str) -> str | None:
@@ -42,6 +44,29 @@ def config() -> tuple[str | None, str | None]:
     return token, chan
 
 
+def record(channel_id, text, message_id=None, notify=False) -> None:
+    """Copy a sent message into the bot's conversation log (best effort).
+    Shelled out, not imported: top-level dirs are islands."""
+    try:
+        ppid = os.getppid()
+        parent = subprocess.run(["ps", "-o", "command=", "-p", str(ppid)],
+                                capture_output=True, text=True, timeout=5).stdout.split()
+        # The calling script, skipping the shell or interpreter that runs it.
+        skip = {"bash", "zsh", "sh", "env", "mist-launch"}
+        source = os.environ.get("DISCORD_SEND_SOURCE") or next(
+            (os.path.basename(w) for w in parent if "/" in w
+             and os.path.basename(w) not in skip
+             and not os.path.basename(w).lower().startswith("python")), "shell")
+        cmd = [str(RECORD), "--channel", str(channel_id), "--source", source]
+        if message_id:
+            cmd += ["--message-id", str(message_id)]
+        if notify:
+            cmd.append("--notify")
+        subprocess.run(cmd, input=text, text=True, capture_output=True, timeout=15)
+    except Exception:  # noqa: BLE001 -- the log must never fail a send
+        pass
+
+
 def send(text: str) -> bool:
     token, chan = config()
     if not (token and chan):
@@ -55,11 +80,13 @@ def send(text: str) -> bool:
         headers={"Authorization": f"Bot {token}", "Content-Type": "application/json",
                  "User-Agent": "DiscordBot (https://exobrain.local, 1.0)"})
     try:
-        with urllib.request.urlopen(req, timeout=20):
-            return True
+        with urllib.request.urlopen(req, timeout=20) as resp:
+            sent = json.load(resp)
     except Exception as e:  # noqa: BLE001  best effort: report and exit non-zero
         print(f"discord-dm: send failed: {e}", file=sys.stderr)
         return False
+    record(chan, text, sent.get("id"), notify=True)
+    return True
 
 
 if __name__ == "__main__":

@@ -19,6 +19,7 @@ and sent as consecutive messages.
 import json
 import mimetypes
 import os
+import subprocess
 import uuid
 import sys
 import urllib.error
@@ -27,6 +28,7 @@ import urllib.request
 ENV_PATH = os.path.expanduser("~/.claude/channels/discord/.env")
 API = "https://discord.com/api/v10"
 LIMIT = 2000
+RECORD = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "claude-bot", "bin", "discord-record")
 
 
 def load_token():
@@ -59,6 +61,29 @@ def chunk(text):
     if buf:
         out.append(buf)
     return out
+
+
+def record(channel_id, text, message_id=None, notify=False):
+    """Copy a sent message into the bot's conversation log (best effort).
+    Shelled out, not imported: top-level dirs are islands."""
+    try:
+        ppid = os.getppid()
+        parent = subprocess.run(["ps", "-o", "command=", "-p", str(ppid)],
+                                capture_output=True, text=True, timeout=5).stdout.split()
+        # The calling script, skipping the shell or interpreter that runs it.
+        skip = {"bash", "zsh", "sh", "env", "mist-launch"}
+        source = os.environ.get("DISCORD_SEND_SOURCE") or next(
+            (os.path.basename(w) for w in parent if "/" in w
+             and os.path.basename(w) not in skip
+             and not os.path.basename(w).lower().startswith("python")), "shell")
+        cmd = [str(RECORD), "--channel", str(channel_id), "--source", source]
+        if message_id:
+            cmd += ["--message-id", str(message_id)]
+        if notify:
+            cmd.append("--notify")
+        subprocess.run(cmd, input=text, text=True, capture_output=True, timeout=15)
+    except Exception:  # noqa: BLE001 -- the log must never fail a send
+        pass
 
 
 def send(token, channel_id, content):
@@ -118,6 +143,7 @@ def main():
             body = exc.read().decode(errors="replace")
             raise SystemExit(f"HTTP {exc.code} from Discord: {body}") from exc
         print(f"sent {msg['id']} with {len(msg.get('attachments', []))} attachment(s)")
+        record(channel_id, f"{content}\n[attachment: {os.path.basename(sys.argv[4])}]", msg["id"])
         return
     if sys.argv[2] == "--file":
         with open(sys.argv[3]) as fh:
@@ -136,6 +162,7 @@ def main():
             body = exc.read().decode(errors="replace")
             raise SystemExit(f"HTTP {exc.code} from Discord: {body}") from exc
         print(f"sent {msg['id']} ({len(piece)} chars)")
+        record(channel_id, piece, msg["id"])
 
 
 if __name__ == "__main__":
