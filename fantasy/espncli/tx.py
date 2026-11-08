@@ -233,6 +233,24 @@ class EspnWriter:
         return {"verified": listed if waiver else self.slot_of(player_id) is not None,
                 "pending_count": len(pend), "response": resp}
 
+    def drop(self, player_id: int, dry_run: bool = False) -> dict[str, Any]:
+        """Release one player to waivers with no add (a ROSTER row with only a
+        DROP item; FREEAGENT refuses a row without an ADD). Refuses a player who is in a
+        pending claim or trade, so a drop cannot void a move already in flight.
+        Verified by the player leaving the roster."""
+        busy = {i.get("playerId") for t in self.pending() for i in t.get("items", [])}
+        if player_id in busy:
+            raise EspnError("player is in a pending claim or trade; cancel that first")
+        if self.slot_of(player_id) is None:
+            raise EspnError("player is not on the roster")
+        body = self._base("ROSTER")  # FREEAGENT 409s without an ADD (2026-11-07)
+        body["items"] = [{"playerId": player_id, "type": "DROP",
+                          "fromTeamId": self.team_id, "toTeamId": 0}]
+        if dry_run:
+            return {"dry_run": body}
+        resp = self._post(body)
+        return {"verified": self.slot_of(player_id) is None, "response": resp}
+
     def propose_trade(self, give_ids: list[int], get_ids: list[int], other_team: int,
                       dry_run: bool = False) -> dict[str, Any]:
         """Send a trade offer: our players to them, theirs to us, one proposal.

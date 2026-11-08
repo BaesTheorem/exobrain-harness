@@ -498,8 +498,11 @@ def main() -> int:
                 ev["starter"] = nxt.get("slot") not in (None, "BE", "IR", "?")
                 ev.update({"idle_week": idle["week"], "next_week": idle["next"],
                            "next_slot": nxt.get("slot"), "next_kickoff": nxt.get("kickoff")})
+            # A player in our IR slot who leaves INJURY_RESERVE no longer
+            # qualifies for it, and ESPN can then block claims (Tyson, 11-07).
             ev["judgment"] = (cur["status"] in NEEDS_JUDGMENT and ev["starter"]
-                              or cur["status"] == "INJURY_RESERVE")
+                              or cur["status"] == "INJURY_RESERVE"
+                              or (cur.get("slot") == 21 and prev.get("status") == "INJURY_RESERVE"))
             events.append(ev)
     for pid in list(st["status"]):
         if pid not in statuses:
