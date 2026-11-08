@@ -1,3 +1,0 @@
-#!/bin/bash
-# Fragrantica reader CLI. See fragrantica/README.md and the module docstring.
-exec python3 "$(cd "$(dirname "$0")/.." && pwd)/fragrantica.py" "$@"

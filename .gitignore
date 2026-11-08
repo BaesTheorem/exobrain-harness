@@ -359,6 +359,3 @@ recipes/bench/.cache/
 # usps/: harvested third-party Reddit text, screenshots, OCR output and probe tracking data stay local
 usps/data/
 usps/private/
-
-# Fragrantica reader: cached perfume records and the rotating Algolia search key
-fragrantica/cache/
