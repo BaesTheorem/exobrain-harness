@@ -179,3 +179,24 @@ def test_claim_rates():
     assert p_claimed("D/ST", {"D/ST": [0, 11]}) == pytest.approx(1 / 13), "0 of 11 reads as 1 in 13, never 0"
     assert p_claimed("TE", {}) == pytest.approx(0.5)
     assert fits("WR", ["RB/WR/TE"]) and fits("D/ST", ["K", "D/ST"]) and not fits("QB", ["RB/WR/TE"])
+
+
+def test_group_trades_keeps_both_sides_and_splits_trades():
+    """The 11-06 Nacua trade and its 11-07 reversal, between the same two
+    teams: a per-message reading showed only MINT's side and merged the two
+    into "MINT sends Nacua, Stevenson and Penix to DOOM"."""
+    raw = {"topics": [
+        topic(500, msg("a", 244, 500, targetId=1, **{"from": 6, "to": 12}),
+              msg("b", 244, 500, targetId=2, **{"from": 12, "to": 6}),
+              msg("c", 244, 500, targetId=3, **{"from": 12, "to": 6})),
+        topic(900, msg("d", 244, 900, targetId=1, **{"from": 12, "to": 6}),
+              msg("e", 244, 900, targetId=2, **{"from": 6, "to": 12}),
+              msg("f", 244, 900, targetId=3, **{"from": 6, "to": 12})),
+    ], "transactions": [], "pending": []}
+    events = league_log.normalize(raw, TEAMS, ME, STARTS)["events"]
+    trades = league_log.group_trades(events)
+    assert [t["at"] for t in trades] == [900, 500], "two trades, newest first"
+    assert trades[0]["sides"] == {12: [1], 6: [2, 3]}
+    assert trades[1]["sides"] == {6: [1], 12: [2, 3]}
+    txt = league_log.trade_text(trades[1], {6: "MINT", 12: "DOOM"}.get, lambda p: f"P{p}", "Fri")
+    assert txt == "MINT>DOOM P1 | DOOM>MINT P2, P3 (Fri)"

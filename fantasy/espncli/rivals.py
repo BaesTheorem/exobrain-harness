@@ -277,7 +277,10 @@ def build(api: Espn) -> tuple[dict[str, Any], list[dict]]:
               "seen_offers": [e["id"] for e in events if e["kind"] == "offer" and me not in
                               ({i["from"] for i in e.get("items", [])} | {i["to"] for i in e.get("items", [])})][:12]}
 
-    changes = [e["id"] for e in events if e["team_id"] != me and e["kind"] not in ("lineup",)
+    # Rival moves, plus both sides of every trade (our side too): `brief`
+    # groups the trade rows with league_log.group_trades.
+    changes = [e["id"] for e in events if e["kind"] not in ("lineup",)
+               and (e["team_id"] != me or e["kind"] in league_log.TRADE_KINDS)
                and now_ms - (e["at"] or 0) < 2 * DAY]
     last_run = max((e["at"] for e in events if e["kind"] == "add" and e["how"] == "waiver"), default=None)
     out = {"at": now_ms, "week": week, "me": me, "board": board, "wire": wire, "opponent": opponent, "race": race,
@@ -335,7 +338,12 @@ def brief(out: dict) -> list[str]:
     now_ms = out["at"]
     lines = [f"League read, week {out['week']}: we pick {me['priority']} of {len(out['board'])}"
              + (f", next waiver run {at_s(out['next_run'])}" if out.get("next_run") else "") + "."]
-    moves = [say(out, i) for i in out["changes"]]
+    evs = [out["events"][i] for i in out["changes"]]
+    moves = [say(out, e["id"]) for e in evs if e["kind"] not in league_log.TRADE_KINDS]
+    moves += ["TRADE " + league_log.trade_text(
+        t, lambda tid: short(by.get(tid, {}), tid),
+        lambda pid: out["names"].get(str(pid), {}).get("name") or "?", at_s(t["at"]))
+        for t in league_log.group_trades(evs)]
     lines.append("Rival moves, 48h: " + ("; ".join(moves[:8]) + (f" (+{len(moves) - 8} more)" if len(moves) > 8 else "")
                                          if moves else "none."))
     for w in [w for w in out["wire"] if w["ours"]]:

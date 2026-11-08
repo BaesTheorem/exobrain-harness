@@ -244,6 +244,39 @@ def normalize(raw: dict[str, Any], teams: list[int], me: int, starts: list[int])
     return {"events": events, "pending": pending}
 
 
+TRADE_KINDS = ("trade", "trade_accepted")
+
+
+def group_trades(events: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """One row per trade, newest first: {at, kind, sides: {team_id: [player_id]}}.
+
+    The feed has one message per player moved, and all messages of a trade
+    share its timestamp. A per-message reading shows only the side of one
+    team, and it shows two different trades between the same pair as one
+    (the 11-06 Nacua trade and its 11-07 reversal, read as "MINT sends
+    Nacua, Stevenson and Penix to DOOM"). So group by time, kind and the
+    two teams, and keep both sides."""
+    out: dict[tuple, dict[str, Any]] = {}
+    for e in events:
+        if e["kind"] not in TRADE_KINDS:
+            continue
+        key = (e["at"], e["kind"], frozenset((e["team_id"], e["other_team_id"])))
+        t = out.setdefault(key, {"at": e["at"], "kind": e["kind"], "sides": {}})
+        t["sides"].setdefault(e["team_id"], []).append(e["player_id"])
+    return sorted(out.values(), key=lambda t: -(t["at"] or 0))
+
+
+def trade_text(t: dict[str, Any], team: Any, name: Any, when: str) -> str:
+    """`MINT>DOOM Puka Nacua | DOOM>MINT Rhamondre Stevenson, Michael Penix Jr. (Fri 8:12p)`.
+    `team` and `name` map a team id and a player id to text."""
+    ids = list(t["sides"])
+    parts = []
+    for tid in ids:
+        other = next((o for o in ids if o != tid), None)
+        parts.append(f"{team(tid)}>{team(other)} " + ", ".join(name(p) for p in t["sides"][tid]))
+    return " | ".join(parts) + f" ({when}" + (", in review" if t["kind"] == "trade_accepted" else "") + ")"
+
+
 def player_ids(log: dict[str, Any]) -> list[int]:
     ids: set[int] = set()
     for e in log["events"]:

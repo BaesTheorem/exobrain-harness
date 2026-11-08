@@ -687,7 +687,7 @@ def league_lines(api: Espn) -> list[str]:
 
 
 def _league_lines(api: Espn) -> list[str]:
-    from .league_log import feed_filter, normalize  # noqa: PLC0415 - league_log imports this module
+    from .league_log import TRADE_KINDS, feed_filter, group_trades, normalize, trade_text  # noqa: PLC0415 - league_log imports this module
 
     me = int(api.creds["team_id"])
     teams = {t["id"]: t.get("abbrev") or team_name(t) for t in api.league("mTeam").get("teams", [])}
@@ -695,18 +695,25 @@ def _league_lines(api: Espn) -> list[str]:
     pend = api.league("mPendingTransactions").get("pendingTransactions") or []
     log = normalize({"topics": feed.get("topics", []), "transactions": [], "pending": pend}, list(teams), me, [])
     cut = (time.time() - 48 * 3600) * 1000
-    recent = [e for e in log["events"] if e["team_id"] != me and e["kind"] != "lineup" and (e["at"] or 0) >= cut]
-    names = api.names_for([e["player_id"] for e in recent if e.get("player_id")])
+    window = [e for e in log["events"] if e["kind"] != "lineup" and (e["at"] or 0) >= cut]
+    # Every trade in the window, ours included, with both sides: a rival-only
+    # reading drops the side we sent and merges two trades between one pair.
+    trades = group_trades(window)
+    recent = [e for e in window if e["team_id"] != me and e["kind"] not in TRADE_KINDS]
+    names = api.names_for([e["player_id"] for e in window if e.get("player_id")])
+    def nm(pid: Any) -> str:
+        return names.get(int(pid), "?") if pid else "?"
     by_team: dict[int, list[str]] = {}
     for e in reversed(recent):
-        nm = names.get(int(e["player_id"]), "?") if e.get("player_id") else "?"
         sign = {"add": "+", "drop": "-"}.get(e["kind"], "")
         tail = " (waiver)" if e["kind"] == "add" and e["how"] == "waiver" else ""
-        if e["kind"] in ("trade", "trade_accepted"):
-            sign, tail = "", f" to {teams.get(e['other_team_id'], '?')}" + (" (in review)" if e["kind"] == "trade_accepted" else "")
-        by_team.setdefault(e["team_id"], []).append(f"{sign}{nm}{tail}")
-    lines = [f"LEAGUE, last 48h: {len(recent)} rival move{'s' if len(recent) != 1 else ''}"
-             + (": " + "; ".join(f"{teams.get(t, t)} {' '.join(v)}" for t, v in by_team.items()) if recent else ".")
+        by_team.setdefault(e["team_id"], []).append(f"{sign}{nm(e['player_id'])}{tail}")
+    parts = [f"{teams.get(t, t)} {' '.join(v)}" for t, v in by_team.items()]
+    parts += ["TRADE " + trade_text(t, lambda i: teams.get(i, "?"), nm,
+                                    (local(t["at"]) or datetime.now(TZ)).strftime("%a %-I:%M%p")) for t in trades]
+    n = len(recent) + len(trades)
+    lines = [f"LEAGUE, last 48h: {n} move{'s' if n != 1 else ''}"
+             + (": " + "; ".join(parts) if parts else ".")
              + " `fantasy/bin/rival-scan` has the board, the wire and the opponent."]
     for p in log["pending"]:
         if p["direction"] != "league":
