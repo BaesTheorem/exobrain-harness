@@ -77,6 +77,27 @@ com.exobrain.niu-kqi` and let it prompt again.
 - Long scans or monitors from the Console go through `mist-progress run`.
 - Commits to the repo read as Alex's work: run `/de-ai` on messages, no attribution.
 
+## Not charging
+
+The charger LED is red while current flows and green at full. A green LED on a pack the
+dashboard shows as low means the pack refused the current. Read before guessing:
+
+```
+kqi read db_k_f_code bms_bat_sta_rt bms_c_cur_rt bms_soc_rt
+kqi poll --seconds 75 bms_bat_sta_rt bms_c_cur_rt bms_soc_rt   # Alex plugs/unplugs during it
+```
+
+- `db_k_f_code` prints the manual's meaning (34 = cold lockout, charging is allowed 0-45 C;
+  31-42 are battery codes, most say "dealer"). 0 = nothing raised, which was the case 2026-11-09.
+- Seen live 2026-11-09: `bms_soc_rt` 100 with a low dashboard, `bms_bat_sta_rt` 0x8001,
+  `bms_c_cur_rt` 0. A few power cycles fixed it; afterwards `bms_soc_rt` 91 and `bms_bat_sta_rt` 1.
+  So first ask Alex to power-cycle the scooter a few times, then re-read.
+- `bms_soh_rt` 0, `bms_dc_fl_t_rt` 255, `db_k_estimated_mileage` 0 are placeholders on the KQi
+  Air (the CLI labels them). They are not symptoms.
+- If it recurs: ask for the dashboard reading, whether the LED flickers red at plug-in, and
+  run `kqi poll` across a plug/unplug. The 2-year warranty covers the battery (Best Buy listing;
+  NIU's own KQi Air page not checked).
+
 ## iPhone app (KQi Rides) and tap-to-unlock
 
 `~/Documents/niu-kqi/ios` is a SwiftUI app (`KQiRides`, bundle `com.alexhedtke.KQiRides`)
