@@ -123,8 +123,10 @@ widget and an iOS 18 control that run `PowerOnScooterIntent` (`ios/Shared/`). It
 `db_k_cmd = 1` only if off, read back, park the link. The NIU app's own power path is
 the same single write (`acc_on`, 2 s ack, one retry). Debug a failed tap from the
 attempt log, `Documents/power-log.jsonl` in the app container (README has the
-`devicectl device copy from` line). The widget shows state only when the App Group
-is in the signed build.
+`devicectl device copy from` line). A scooter whose link the NIU app holds does not
+advertise, so the app reaches it through the phone's open link, matched by BLE name.
+The app needs the scooter's BLE credentials in its Keychain: a NIU sign-in puts them
+there, or the Mac hands them over through `Documents/ble-import.json` (README).
 
 ## Where things live
 
