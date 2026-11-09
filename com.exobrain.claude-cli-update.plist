@@ -17,18 +17,16 @@
          check on login/boot. `claude update` is idempotent, so an extra run is
          harmless. -->
 
-    <!-- Four times a day (local time), not just overnight. Releases ship during
-         US business hours: 2.1.280 published at 10:44 AM on 2026-09-22 carrying
-         the claude-opus-5-5 alias, and a 4 AM-only job left the Console's model
-         picker a release behind for the rest of the day. An up-to-date check is
-         one manifest fetch, so the extra runs cost nothing. -->
+    <!-- Every hour, at minute 0. Releases ship during US business hours at any
+         time: 2.1.280 (claude-opus-5-5) published at 10:44 AM on 2026-09-22, and
+         2.1.321 (claude-fable-5-2) at 1:02 PM on 2026-11-09, both between two runs
+         of the earlier four-a-day schedule. The Console's model picker stayed a
+         release behind for hours each time. An up-to-date check is one manifest
+         fetch, and launchd does not start a second run while one is active. -->
     <key>StartCalendarInterval</key>
-    <array>
-        <dict><key>Hour</key><integer>4</integer><key>Minute</key><integer>0</integer></dict>
-        <dict><key>Hour</key><integer>11</integer><key>Minute</key><integer>0</integer></dict>
-        <dict><key>Hour</key><integer>15</integer><key>Minute</key><integer>0</integer></dict>
-        <dict><key>Hour</key><integer>19</integer><key>Minute</key><integer>0</integer></dict>
-    </array>
+    <dict>
+        <key>Minute</key><integer>0</integer>
+    </dict>
 
     <key>StandardOutPath</key>
     <string>/Users/alexhedtke/Library/Logs/exobrain/claude-cli-update.out</string>
