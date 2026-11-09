@@ -1,6 +1,6 @@
 # Mac Mini Server Migration Plan
 
-> **Historical plan.** Last substantive edit 2026-07-15. The inventory below lists 10 jobs as of that date, while 80 `com.exobrain.*` / `com.mist.*` jobs were loaded on 2026-09-28 (`launchctl list | grep -cE 'exobrain|mist'`), and "Discord is the only off-network entry point" no longer holds: `phone/` (Twilio voice calls) and the MIST Console iOS tunnel are also reachable from outside. For rebuilding a machine use `RESTORE.md`; for the current job list use the generated launchd table in `README.md` (`maintenance/bin/launchd-table`). Kept for the heartbeat-versus-client design, which still applies if the split happens.
+> **Historical plan.** Last substantive edit 2026-07-15. The inventory below lists 10 jobs as of that date, while 80 `com.exobrain.*` / `com.mist.*` jobs were loaded on 2026-09-28 (`launchctl list | grep -cE 'exobrain|mist'`), and "Discord is the only off-network entry point" no longer holds: `phone/` (Twilio voice calls) and the MIST Console iOS tunnel are also reachable from outside. For rebuilding a machine use `RESTORE.md`; for the current job list use the generated launchd table in `README.md` (`maintenance/bin/launchd-table`). Kept for the heartbeat-versus-client design, which still applies if the split happens. The [client devices](#client-devices-claude-code-on-every-device) section (added 2026-11-09) is current.
 
 Move the always-on parts of the exobrain harness to a dedicated Mac Mini so the laptop can sleep without breaking automation, Discord, or phone access.
 
@@ -59,6 +59,7 @@ These are gitignored or local-only -- copy from MacBook to Mini during setup:
 - `~/.config/withings/` (if present beyond `.env`)
 - Discord bot token (lives in `~/.claude/channels/discord/` per the bot script)
 - `~/.claude/` -- global settings, skills, memory directory
+  - When more than one device runs Claude Code, the memory directory also needs a continuous sync. See [client devices](#client-devices-claude-code-on-every-device), Phase 5 step 3.
 - Any OAuth caches for cloud MCPs (Gmail, Calendar, Drive) -- re-authorize from Claude.ai if needed
 - MyChart: `mychart/data/` (copy), then `mychart login <name>` per account on the Mini; never copy the Keychain passkeys
 
@@ -130,13 +131,74 @@ Discord was the only off-network entry point when this plan was written (see the
 
 If a future need for SSH / Screen Sharing from outside the home network emerges, revisit Tailscale (free for personal use, install on Mini + MacBook + iPhone, gives stable reachable hostname). Out of scope for the initial migration.
 
+The client devices need this access: they connect to the Mini through SSH. See [client devices](#client-devices-claude-code-on-every-device).
+
 ## Single-heartbeat rules (commit these to memory)
 
 1. **Watchers and schedulers run on Mini only.** MacBook plists stay disabled.
 2. **Discord bot runs on Mini only.** One token, one connection.
-3. **Manual Claude invocations are fine on either machine** -- both can run skills, edit the vault, push commits, ask questions.
+3. **Manual Claude sessions are permitted on all devices, with the client rules** in [client devices](#client-devices-claude-code-on-every-device). (Changed 2026-11-09. The previous rule is in the [corrections ledger](#corrections-ledger).)
 4. **Don't run `daily-briefing`, `evening-winddown`, or `weekly-review` on both machines on the same day** -- they're idempotent-ish but Obsidian Sync conflicts on the daily note are annoying. Pick one (probably Mini if scheduled, MacBook if manual).
 5. **If the Mini is down**, you can re-enable the MacBook plists as a fallback. Document this in a runbook (TBD).
+
+## Client devices: Claude Code on every device
+
+Added 2026-11-09. This section replaces the idea of one Claude Code on the Mini that operates on the other devices from a distance.
+
+Claude Code's tools operate on the computer that runs the `claude` process. The [Remote Control docs](https://code.claude.com/docs/en/remote-control.md) say: "Execution and filesystem access stay on your machine." A session on the Mini can operate on the MacBook only through `ssh macbook '...'`, and it cannot use the MacBook's display for computer use or the iOS Simulator. Thus each device runs its own Claude Code, and each item in the table below has one owner.
+
+### Owners
+
+| Item | Owner | How the other devices get it |
+|---|---|---|
+| Code | the git remote | pull and push |
+| Vault and the session-memory Zettelkasten | Obsidian Sync | no change |
+| Things 3 | Things Cloud | no change |
+| Auto-memory folder (`~/.claude/projects/<harness key>/memory/`) | the MacBook, with no sync | move it into the vault (Phase 5 step 3) |
+| Watchers, scheduled tasks, Discord bot | the Mini | not applicable (single-heartbeat rules) |
+| MCP servers with tokens or logins: Withings, Plaud, Fitbit, MyChart, LinkedIn | the Mini | stdio through SSH (Phase 5 step 4) |
+| Remote HTTP MCP servers and claude.ai connectors | the remote server | they work on each device that signs in |
+| MCP servers for a local app: Things 3, Blender, Godot, rea | each Mac that has the app | local. A device without the app uses the Mini's server through SSH |
+| A live chat | the device that runs it | Remote Control and cross-session messaging (below) |
+
+### Bridges between devices
+
+Claude Code has these features (examined in the docs on 2026-11-09, with CLI 2.1.319):
+
+- [Remote Control](https://code.claude.com/docs/en/remote-control.md). With `claude remote-control` (server mode) on the Mini, the Claude app (iOS or Android) and claude.ai/code can control the Mini's sessions. Server mode stops after approximately 10 minutes without network, so run it with launchd and `KeepAlive`. A start without a terminal stops at "Workspace not trusted", so first trust the harness folder one time in a terminal. Remote Control needs the claude.ai login, and it does not operate with an API key (`bin/claude-api-gate`).
+- [Cross-session messaging](https://code.claude.com/docs/en/cross-session-messaging.md). A session with Remote Control can send a plain-text task to a Remote Control session on a different machine (v2.1.225 or higher). Set `isolatePeerMachines: true` if each message to a different machine must wait for approval.
+- [Desktop SSH sessions](https://code.claude.com/docs/en/desktop.md#ssh-sessions). The Desktop app on one Mac can open a session that runs on the other Mac. Desktop installs Claude Code in `~/.claude/remote/` on that Mac, and that Mac needs Remote Login (SSH with SFTP).
+
+### Phase 5: set up the clients (after Phase 4)
+
+1. On the Mini, set Remote Login to on (System Settings > General > Sharing). Put the public key of each client in `~/.ssh/authorized_keys`. To stop password login, put `PasswordAuthentication no` and `KbdInteractiveAuthentication no` in a file in `/etc/ssh/sshd_config.d/`. The macOS `sshd_config` includes that folder.
+2. On each client, connect to the tailnet and add this host entry to `~/.ssh/config`:
+   ```
+   Host mini
+     HostName <mini>.<tailnet>.ts.net
+     ControlMaster auto
+     ControlPath ~/.ssh/cm-%r@%h:%p
+     ControlPersist 10m
+     ServerAliveInterval 30
+   ```
+3. Move the auto-memory folder into the vault, for example to `Claude/Auto-memory/`. Then replace `~/.claude/projects/<harness key>/memory` with a symlink to that folder. The memory folders of the other projects point to this folder through symlinks, so they follow. Before the move, make sure that `bin/session-memory` and the other vault scripts do not read that folder. Do not put the folder in a git repo, because it contains personal data (the privacy rules in CLAUDE.md).
+4. On each client, change the command of each token server in `mcp-lazy/servers.local.json` (gitignored, one file for each device) to `ssh -T mini '<server command>'`. The remote shell reads the command again, so put quotes around a path with a space (the harness path has one). A command through SSH does not load `~/.zprofile`, so use absolute paths, as `servers.local.json` does. Then remove the client's copies of those tokens (the Plaud, Fitbit and Withings items in "What does NOT sync"), because a token that refreshes on one device can become invalid on the other.
+5. Give each client `MIST_HOST_ROLE=client`. Change `.claude/hooks/session-start.sh` so that a client does not do the launchd checks or the fallback processing of Plaud and Supernote files. Without this change, a MacBook session processes the files that the Mini's watchers process. (Not built.)
+6. The Mini's routines commit frequently. Add a SessionStart hook on each client that runs `git pull --rebase --autostash` in the harness repo.
+7. Run one MIST Console on each Mac. If a browser on the MacBook uses the Mini's Console, its chats run on the Mini. (Idea, not tested: a per-chat host setting in `bridge.py` that starts `claude` through `ssh`.)
+
+### Checks
+
+These checks do not use the reports from Claude:
+
+- From a MacBook session, build a test app. Then, on the MacBook, examine the result with `ls` and `codesign -v`.
+- With the Mini's watchers on and a MacBook session open, put one test Plaud file in the folder. Things 3 must show one new task, and only one.
+- After one week, the MCP logs on each device must show no `invalid_grant` errors.
+- `ssh mini true` must exit with code 0 from each client, on the home Wi-Fi and on a different network.
+
+### The Pixel
+
+The same model applies. Claude Code runs in the phone's Debian VM and uses the Mini's token servers through SSH. The setup, and the tests that wait for the phone, are in `docs/10-three-devices.md` of the private `pixel-claude-code` repo.
 
 ## Rollback plan
 
@@ -151,7 +213,7 @@ No data is destroyed in either direction since everything syncs via Things Cloud
 ## Decisions locked
 
 - **Computer-use MCP stays on the MacBook.** Mini runs headless, so screen/mouse control there is useless without a Screen Sharing session or HDMI dummy plug. MacBook is the natural home for interactive desktop control.
-- **No Tailscale for now.** Discord is the only remote entry point. Revisit if SSH/Screen Sharing from outside the home network becomes needed.
+- **Tailscale carries SSH between the devices**, at home and away. (Changed 2026-11-09. The previous rule is in the [corrections ledger](#corrections-ledger).)
 - **Awair watcher moves to the Mini.** Mini will sit on the same LAN as the Awair sensor.
 
 ## Open questions / TBD
@@ -189,3 +251,21 @@ Deferred work that wants the Mini's headroom (16GB, always-on) or is a natural f
 - Setup: one weekend afternoon (4-5 hours).
 - Stabilization: 1 week of light monitoring.
 - Recurring cost: ~$1/month electricity.
+
+## Corrections ledger
+
+Newest first. Each entry keeps the previous rule, what falsified it, the rule at this time, and the lesson.
+
+### 2026-11-09: manual sessions on every device
+
+- Was: "Manual Claude invocations are fine on either machine -- both can run skills, edit the vault, push commits, ask questions." (Single-heartbeat rule 3.)
+- Falsified by: a manual session also starts the token MCP servers and the session-start hook. On the MacBook, the servers refresh the tokens that the token refresh caveat gives to the Mini, and the hook does the fallback processing that the Mini's watchers do.
+- Now: manual sessions are permitted on all devices, with the client rules in [client devices](#client-devices-claude-code-on-every-device).
+- Lesson: a rule about which machine does the work must include each stateful item that a session uses, for example MCP tokens and start-up hooks.
+
+### 2026-11-09: Tailscale
+
+- Was: "No Tailscale for now. Discord is the only remote entry point. Revisit if SSH/Screen Sharing from outside the home network becomes needed." (Decisions locked.)
+- Falsified by: on 2026-09-28, the banner of this plan recorded that Discord was not the only entry point, but this decision did not change. Then the client devices needed SSH to the Mini, at home and away.
+- Now: Tailscale carries SSH between the devices.
+- Lesson: if a fact causes a decision ("the only remote entry point"), read the decision again when that fact changes.
