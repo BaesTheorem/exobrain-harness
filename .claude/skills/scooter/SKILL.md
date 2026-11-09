@@ -116,6 +116,16 @@ factory-reset). Setup: any blank NTAG21x + a Shortcuts NFC automation running th
 `ecu_bt_status` bit 32768) already exists but flaps at the range edge; the tap is
 deterministic.
 
+**Lock Screen power button (added 2026-11-09).** `ios/Widget/` holds a Lock Screen
+widget and an iOS 18 control that run `PowerOnScooterIntent` (`ios/Shared/`). It is a
+`LiveActivityIntent`, so iOS runs it in the app's process in the background, and
+`ScooterPower.swift` does the work: saved-identifier reconnect, read the power bit,
+`db_k_cmd = 1` only if off, read back, park the link. The NIU app's own power path is
+the same single write (`acc_on`, 2 s ack, one retry). Debug a failed tap from the
+attempt log, `Documents/power-log.jsonl` in the app container (README has the
+`devicectl device copy from` line). The widget shows state only when the App Group
+is in the signed build.
+
 ## Where things live
 
 - Repo: `~/Documents/niu-kqi` (`kqi_ble.py` CLI + bleak session, `niu_proto.py` frames and
