@@ -359,3 +359,5 @@ recipes/bench/.cache/
 # usps/: harvested third-party Reddit text, screenshots, OCR output and probe tracking data stay local
 usps/data/
 usps/private/
+# Third-party skill from claudia.gallery (reinstall: curl the zip from claudia.gallery/skill/claudia-skill.zip, unzip into .claude/skills/)
+.claude/skills/claudia/

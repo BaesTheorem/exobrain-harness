@@ -168,6 +168,14 @@
     "notes": "Pins the auto-updating claude CLI to one unchanging path (~/.local/share/claude/stable/claude) so its TCC grants, above all Full Disk Access, stop dying every release. Runs on WatchPaths via com.exobrain.claude-stable-path."
   },
   {
+    "name": "claudia-gallery",
+    "command": "python3 ~/.claude/skills/claudia/scripts/claudia.py search WORDS | guide TOPIC | download --film F",
+    "repo_dir": "~/.claude/skills/claudia",
+    "source": "built",
+    "added": "2026-11-10",
+    "notes": "Third-party skill, gitignored; reinstall from https://claudia.gallery/skill/claudia-skill.zip. Read-only MCP also exists (claude mcp add --transport http claudia https://claudia.gallery/mcp), not installed. Terms at claudia.gallery/use: open character, commercial OK, credit 'Claudia by anabology' appreciated; adult only, nothing explicit; do not re-release the ten films' songs or stems. Helper caches in ~/.cache/claudia-gallery."
+  },
+  {
     "name": "comp-infer",
     "command": "python3 job-search/comp-infer.py --note \"<listing note>\" [--write] | --url <ATS URL> --title <title> [--onsite] [--no-agent]",
     "repo_dir": "~/Documents/Exobrain harness/job-search",
