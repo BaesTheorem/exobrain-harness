@@ -20,7 +20,7 @@ Read `~/Documents/mist-atelier/README.md` before the first painting of a session
 - Every canvas change goes through the Studio API. The stroke log is the painting, and `atelier verify` must pass before a work is shown as finished.
 - A persona is invented by MIST. Do not use the name or the signature subject of a living artist.
 - Color comes from tube pigments. Use `st.match()` for palette puddles and `Mix.lerp()` between puddles. Do not reason in RGB after that step.
-- Embed finished images in chat with the raw absolute path. Use a new filename for each version that Alex sees.
+- Before you show a version to Alex, copy `final.jpg` to `shown/<work>-vN.jpg` in the repo. Embed that copy in chat with the raw absolute path. Each version that Alex sees has a new filename.
 
 ## Make a painting
 
