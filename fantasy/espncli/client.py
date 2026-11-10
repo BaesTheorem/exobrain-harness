@@ -578,6 +578,14 @@ def pending_conflicts(api: Espn, txs: list[dict]) -> list[str]:
     cap = sum(v for k, v in slots.items() if k != "IR")
     if total > cap:
         warnings.append(f"  !! roster would be {total}, over the {cap} active spots")
+    elif total < cap:
+        # 2026-11-10: the 11-07 drops of Deshaun Watson and Penix left a spot
+        # open for three days. swap-scan prices only swaps, so no tool saw it.
+        warnings.append(f"  !! roster would be {total} of {cap}: an open spot, an add needs no drop")
+    if counts.get("QB", 0) < 2:
+        # The playbook keeps QB two deep (the Daniels fallback, 2026-09-23).
+        # The same two drops left us one QB deep and nothing said so.
+        warnings.append(f"  !! QB would be {counts.get('QB', 0)}: the playbook keeps QB two deep")
 
     shape = ", ".join(f"{p} {n}" for p, n in sorted(counts.items()) if p != "?")
     head = f"  if every pending action lands: {shape} ({total}/{cap} active)"

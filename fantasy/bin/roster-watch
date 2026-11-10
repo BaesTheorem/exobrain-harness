@@ -213,11 +213,15 @@ def reply_button(label: str, text: str) -> str:
 
 
 def swap_gate_event(st: dict) -> dict | None:
-    """The best bench-for-wire swap, if it clears the gate and has not been offered yet.
+    """The best bench-for-wire swap that clears the gate and has not been offered yet.
 
-    State remembers the last pair offered, so a swap that stays above the gate
-    for days produces one banner, not one every 30 minutes; a different pair,
-    or the same pair after it dropped below the gate and came back, is new.
+    State remembers every pair offered while it stays above the gate, so a swap
+    that stays above the gate for days produces one banner, not one every 30
+    minutes. Each drop and each add is offered with its best partner only. A
+    pair that falls below the gate leaves the set, and it is new if it comes back.
+    Until 2026-11-10 only the single best pair was considered: a HOLD on Malachi
+    Fields for Devin Singletary (+85.8) hid Buccaneers D/ST for Steelers D/ST
+    (+85.1) for eight hours, because the held pair stayed on top.
     """
     try:
         out = subprocess.run([sys.executable, str(SWAP_SCAN), "--json"], capture_output=True,
@@ -227,26 +231,34 @@ def swap_gate_event(st: dict) -> dict | None:
         print(f"swap-scan unavailable: {exc}")
         return None
     gate = float(scan.get("gate", 20.0))
-    best: dict | None = None
+    pairs: list[dict] = []
     for row in scan.get("swaps", []):
         if row.get("pending_drop"):
             continue   # that drop is already spent arming a pending claim (2026-09-20, Noel)
         for c in row.get("candidates", []):
             if c.get("pending_add"):
                 continue   # already claimed with another drop (2026-11-03, Mitchell for Downs, then Burks)
-            if best is None or float(c["gain"]) > float(best["gain"]):
-                best = {"drop": row["drop"], "drop_pos": row["pos"], "add": c["add"],
-                        "add_pos": c["pos"], "avail": c["avail"], "gain": float(c["gain"]),
-                        "owned": c["owned"], "trend": c["trend"], "flags": c.get("flags") or []}
+            if float(c["gain"]) < gate:
+                continue
+            pairs.append({"drop": row["drop"], "drop_pos": row["pos"], "add": c["add"],
+                          "add_pos": c["pos"], "avail": c["avail"], "gain": float(c["gain"]),
+                          "owned": c["owned"], "trend": c["trend"], "flags": c.get("flags") or []})
+    pairs.sort(key=lambda b: -b["gain"])
     gs = st.setdefault("swap_gate", {})
-    if best is None or best["gain"] < gate:
-        gs["offered"] = None
-        return None
-    pair = f"{best['drop']}|{best['add']}"
-    if gs.get("offered") == pair:
-        return None
-    gs["offered"] = pair
-    return {"kind": "swap_gate", "gate": gate, "judgment": False, "rivals": rivals_needing(best["add_pos"]), **best}
+    prev = gs.get("offered") or []
+    if isinstance(prev, str):
+        prev = [prev]   # the state before 2026-11-10 held one pair
+    live = {f"{b['drop']}|{b['add']}" for b in pairs}
+    offered = [p for p in prev if p in live]
+    used_drops = {p.split("|", 1)[0] for p in offered}
+    used_adds = {p.split("|", 1)[1] for p in offered}
+    gs["offered"] = offered
+    for b in pairs:
+        if b["drop"] in used_drops or b["add"] in used_adds:
+            continue
+        offered.append(f"{b['drop']}|{b['add']}")
+        return {"kind": "swap_gate", "gate": gate, "judgment": False, "rivals": rivals_needing(b["add_pos"]), **b}
+    return None
 
 
 def stream_gate_event(st: dict) -> dict | None:

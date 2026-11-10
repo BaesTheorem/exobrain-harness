@@ -132,3 +132,31 @@ def test_every_free_agent_banner_is_logged(rw, tmp_path):
     rw.log_race(path, {**SWAP, "add": "Ryan Flournoy", "add_pos": "WR"}, "2026-10-22 14:30")
     rows = [json.loads(x) for x in path.read_text().splitlines()]
     assert [(r["add"], r["filed"]) for r in rows] == [("Titans D/ST", True), ("Ryan Flournoy", False)]
+
+
+def test_held_swap_does_not_hide_the_next_pair(monkeypatch):
+    """2026-11-10: a HOLD on Fields for Singletary (+85.8) stayed the single best
+    pair, so Buccaneers D/ST for Steelers D/ST (+85.1) was never offered."""
+    loader = importlib.machinery.SourceFileLoader("roster_watch_gate", str(ROOT / "fantasy" / "bin" / "roster-watch"))
+    spec = importlib.util.spec_from_loader("roster_watch_gate", loader)
+    assert spec is not None
+    mod = importlib.util.module_from_spec(spec)
+    loader.exec_module(mod)
+
+    def cand(add, pos, gain):
+        return {"add": add, "pos": pos, "avail": "WVR", "gain": gain, "owned": 5.0, "trend": 0.0}
+    scan = {"gate": 45.4, "swaps": [
+        {"drop": "Devin Singletary", "pos": "RB", "candidates": [cand("Malachi Fields", "WR", 85.8)]},
+        {"drop": "Devaughn Vele", "pos": "WR", "candidates": [cand("Malachi Fields", "WR", 50.0)]},
+        {"drop": "Steelers D/ST", "pos": "D/ST", "candidates": [cand("Buccaneers D/ST", "D/ST", 85.1)]},
+    ]}
+    monkeypatch.setattr(mod.subprocess, "run", lambda *a, **k: SimpleNamespace(stdout=json.dumps(scan)))
+    monkeypatch.setattr(mod, "rivals_needing", lambda pos: [])
+    st = {"swap_gate": {"offered": "Devin Singletary|Malachi Fields"}}   # the pre-fix state shape
+    ev = mod.swap_gate_event(st)
+    assert ev and ev["add"] == "Buccaneers D/ST"          # not hidden, and Fields is not re-offered for Vele
+    assert mod.swap_gate_event(st) is None                # each pair once
+    scan["swaps"][2]["candidates"][0]["gain"] = 10.0      # falls below the gate, then returns
+    assert mod.swap_gate_event(st) is None
+    scan["swaps"][2]["candidates"][0]["gain"] = 85.1
+    assert mod.swap_gate_event(st)["add"] == "Buccaneers D/ST"
