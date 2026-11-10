@@ -1,0 +1,43 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>Label</key>
+    <string>com.alexhedtke.plex</string>
+
+    <key>ProgramArguments</key>
+    <array>
+        <string>/Users/alexhedtke/.local/bin/mist-launch</string>
+        <string>/bin/bash</string>
+        <string>/Users/alexhedtke/Documents/Exobrain harness/maintenance/plex-guard.sh</string>
+    </array>
+
+    <!-- Run while the media drive is mounted. launchd starts the guard when the
+         path appears (plug-in or login) and again if it exits while the drive
+         is present. The guard exits by itself when the drive goes away. -->
+    <key>KeepAlive</key>
+    <dict>
+        <key>PathState</key>
+        <dict>
+            <key>/Volumes/Extreme SSD</key>
+            <true/>
+        </dict>
+    </dict>
+    <key>RunAtLoad</key>
+    <true/>
+    <key>ThrottleInterval</key>
+    <integer>30</integer>
+    <key>ProcessType</key>
+    <string>Background</string>
+
+    <key>StandardOutPath</key>
+    <string>/Users/alexhedtke/Library/Logs/exobrain/plex-guard.out.log</string>
+    <key>StandardErrorPath</key>
+    <string>/Users/alexhedtke/Library/Logs/exobrain/plex-guard.out.log</string>
+
+    <key>AssociatedBundleIdentifiers</key>
+    <array>
+        <string>com.exobrain.mist-console</string>
+    </array>
+</dict>
+</plist>

@@ -251,3 +251,33 @@ portal network that has no internet yet. It records the associated network,
 DHCP lease and default route, DNS servers, MAC randomization state, and related
 checks into `wifi-diag-out.txt` next to the script (gitignored), so MIST can read
 it after you reconnect to a working network. No launchd job.
+
+## plex-guard.sh
+
+Keeps Plex Media Server running while the media SSD (`/Volumes/Extreme SSD`)
+is mounted.
+
+- When the drive mounts, or at login with the drive present, the guard starts
+  Plex. This start is silent.
+- When the server process stops (crash or kill), the guard stops the orphan
+  plug-in processes, starts Plex again, and sends one banner and one Discord DM.
+- When the process exists but `/identity` gives no answer for 5 minutes, the
+  guard stops the hung process and starts it again, with the same alert.
+- When the drive goes away, the guard exits and does not stop Plex.
+
+The guard starts Plex with `open -g -a`, thus a reload of the launchd task does not stop
+the server.
+
+This guard replaces an older version that only started Plex, and that launchd
+did not load. On 2026-11-02 the server stopped without a shutdown line in its
+log, and it stayed down for 7 days.
+
+### Run by
+
+`~/Library/LaunchAgents/com.alexhedtke.plex.plist` (KeepAlive PathState on the
+drive path, RunAtLoad). The log is `~/Library/Logs/exobrain/plex-guard.log`.
+
+```bash
+cp maintenance/com.alexhedtke.plex.plist ~/Library/LaunchAgents/
+launchctl bootstrap gui/$(id -u) ~/Library/LaunchAgents/com.alexhedtke.plex.plist
+```
