@@ -187,3 +187,36 @@ def test_held_swap_does_not_hide_the_next_pair(monkeypatch):
     assert mod.swap_gate_event(st) is None
     scan["swaps"][2]["candidates"][0]["gain"] = 85.1
     assert mod.swap_gate_event(st)["add"] == "Buccaneers D/ST"
+
+
+def test_only_a_held_swap_of_low_value_is_quiet(rw):
+    """2026-11-11: a held Montgomery for Vele swap bannered twice in two days;
+    on the absence model it is worth 0.16 title points. A banner still goes out
+    for a held swap that matters and for every case the model cannot price."""
+    held = {"kind": "swap_gate", "filed": {"held": True, "verified": False, "review": {"verdict": "HOLD"}}}
+    assert rw.mod.quiet_hold(held, 0.16) is True
+    assert rw.mod.quiet_hold(held, 0.005) is True
+    assert rw.mod.quiet_hold(held, 1.7) is False, "a held swap worth 1.7 title points must reach Alex"
+    assert rw.mod.quiet_hold(held, None) is False, "not priced means banner as before"
+    assert rw.mod.quiet_hold(held, rw.mod.QUIET_HOLD_BELOW) is False
+    filed = {"kind": "swap_gate", "filed": {"verified": True, "review": {"verdict": "FILE"}}}
+    assert rw.mod.quiet_hold(filed, 0.01) is False, "a filed swap always reports, with its Undo button"
+    failed = {"kind": "swap_gate", "filed": {"verified": False, "review": {"verdict": "FILE"}}}
+    assert rw.mod.quiet_hold(failed, 0.01) is False, "a file that did not verify is never quiet"
+    assert rw.mod.quiet_hold({**held, "kind": "stream_gate"}, 0.01) is False
+    assert rw.mod.quiet_hold({"kind": "swap_gate"}, 0.01) is False, "no review ran"
+
+
+def test_hold_title_value_fails_open(rw, monkeypatch):
+    from espncli import depth
+    ev = {"drop": "Devaughn Vele", "drop_pos": "WR", "add": "David Montgomery", "add_pos": "RB", "add_rate": 9.52}
+    seen = []
+    monkeypatch.setattr(depth, "swap_title_value", lambda drop, add, drop_pos=None: seen.append((drop, add, drop_pos)) or 0.159)
+    assert rw.mod.hold_title_value(ev) == 0.159
+    assert seen == [("Devaughn Vele", ("David Montgomery", "RB", 9.52), "WR")]
+    assert rw.mod.hold_title_value({**ev, "add_rate": None}) is None, "an event from before this field existed"
+
+    def boom(*a, **k):
+        raise RuntimeError("ESPN is down")
+    monkeypatch.setattr(depth, "swap_title_value", boom)
+    assert rw.mod.hold_title_value(ev) is None, "a pricing failure must never hide a banner"

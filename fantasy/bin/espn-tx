@@ -4,6 +4,8 @@
     espn-tx ir "Jordyn Tyson"                 # bench -> IR slot
     espn-tx move "Player" --to BE|IR|FLEX|RB  # any slot move
     espn-tx swap "Chris Godwin" --for "Christian Watson"   # bench player in, starter out, one transaction
+                                              # (through FLEX when he cannot play the starter's slot and the FLEX player can)
+    espn-tx exchange "Ja'Marr Chase" --with "Christian Watson"   # two starters trade slots (FLEX locks last); no points move
     espn-tx claim "Chris Brooks" [--drop "X"] # waiver claim (or free-agent add with --fa)
     espn-tx drop "Player"                     # release to waivers, no add
     espn-tx plan "In" --for "Out" --week N    # a later week's lineup, carried out at its Tuesday rollover
@@ -35,6 +37,8 @@ def main() -> int:
     p = sub.add_parser("ir"); p.add_argument("name", nargs="+")
     p = sub.add_parser("move"); p.add_argument("name", nargs="+"); p.add_argument("--to", required=True)
     p = sub.add_parser("swap"); p.add_argument("name", nargs="+"); p.add_argument("--for", dest="out", nargs="+", required=True)
+    p = sub.add_parser("exchange", help="two starters trade slots, in one transaction")
+    p.add_argument("name", nargs="+"); p.add_argument("--with", dest="other", nargs="+", required=True)
     p = sub.add_parser("plan", help="set a later week's lineup (ESPN carries it out at that week's Tuesday rollover)")
     p.add_argument("name", nargs="+"); p.add_argument("--for", dest="out", nargs="+", required=True)
     p.add_argument("--week", type=int, required=True)
@@ -130,6 +134,10 @@ def main() -> int:
         out = api.resolve_one(" ".join(args.out))
         print(f"  for {out['name']} (id {out['id']}, {out.get('pos')})")
         res = w.swap(hit["id"], out["id"], dry_run=args.dry_run)
+    elif args.cmd == "exchange":
+        other = api.resolve_one(" ".join(args.other))
+        print(f"  with {other['name']} (id {other['id']}, {other.get('pos')})")
+        res = w.exchange(hit["id"], other["id"], dry_run=args.dry_run)
     elif args.cmd == "drop":
         res = w.drop(hit["id"], dry_run=args.dry_run)
     elif args.cmd == "plan":

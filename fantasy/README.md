@@ -113,6 +113,22 @@ slot, IR, suspension, bye) are announced the first time they appear regardless
 of the clock. A clean lineup writes one log line and nothing else. State in
 `.cache/lineup-watch.json` keeps a problem from being re-announced every run.
 
+With `--fix` (the launchd job passes it) the job also writes, one verified
+transaction at a time: it repairs definite problems, applies the top swap at
+`d_net` +1 or more, and keeps the slot order. Two rules about slots, both
+from 2026-11-11, because a slot does not score but it decides who can cover
+a late scratch:
+
+- **A bench player can enter through FLEX.** When he cannot play the slot of
+  the starter he replaces and the FLEX player can, the FLEX player takes that
+  slot and the bench player takes FLEX, in one transaction of three moves
+  (`espncli.value.flex_route` proposes it, `EspnWriter.swap` makes it). Before
+  this, an RB who was out could only be replaced by a bench RB, even with a
+  better WR on the bench and an RB in FLEX.
+- **FLEX holds the starter who locks last** among the starters of the FLEX
+  player's position (`value.flex_order`, `slot_order` in `espn check`,
+  `espn-tx exchange`). The exchange moves no points and sends no banner.
+
 ```
 bin/lineup-watch --dry-run                # what it would do right now
 bin/lineup-watch --dry-run --window 9999  # treat every lock as imminent
@@ -130,6 +146,13 @@ transactions aimed at the team against the last run. New events go to
 `.cache/incidents.jsonl`, a banner, and (when judgment is needed) the
 `fantasy-incident` routine via the Console's `run-routine.sh`. Install like
 `lineup-watch` with `com.exobrain.roster-watch.plist`.
+
+A swap that the review holds sends no banner when it is worth less than 0.25
+points of title odds on the absence model (`espncli/depth.py`,
+`QUIET_HOLD_BELOW`; the incident row carries `quiet` and `title_value`). The
+model covers RB and WR swaps while the playoff berth is safe. In every other
+case the banner goes out as before, and the gate, the review and the
+auto-file lane do not change.
 
 Swaps that clear the waiver gate or the K and D/ST stream rule are banners
 with Do it / Skip, except one lane that files by itself (Alex, 2026-10-22):

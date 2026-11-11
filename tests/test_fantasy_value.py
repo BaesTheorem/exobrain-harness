@@ -232,3 +232,97 @@ def test_an_empty_rival_slot_is_a_hole_covered_from_the_wire():
     assert m == pytest.approx(0.5 * 8.0)
     # our own side keeps the hole as it stands, so best_swaps shows the fix
     assert "fallback_mean" not in value.with_fallbacks(rows + [phantom[0]])[-1]
+
+
+# ---- the FLEX route and the slot order (2026-11-11) --------------------------
+
+def routed_lineup(flex_actual=None, flex_status="", flex_pos="RB", bench_wr=12.0):
+    """A weak RB starter, a player in FLEX, and a bench WR who cannot play the RB slot."""
+    return [row(1, "QB", "QB", 0, 20.0), row(2, "Top RB", "RB", 2, 18.0), row(3, "Weak RB", "RB", 2, 6.0),
+            row(4, "WR A", "WR", 4, 15.0), row(5, "WR B", "WR", 4, 14.0),
+            row(6, "Flex Player", flex_pos, 23, 11.0, actual=flex_actual, status=flex_status),
+            row(7, "Bench WR", "WR", 20, bench_wr), row(8, "Bench RB", "RB", 20, 7.0)]
+
+
+def test_a_bench_player_enters_through_flex_when_the_flex_player_can_take_the_slot():
+    """2026-11-11: the engine offered the bench RB (7) for the weak RB and
+    never the FLEX back to RB with the bench WR (12) to FLEX."""
+    opp = [row(21, "Their QB", "QB", 0, 60.0)]
+    swaps = value.best_swaps(routed_lineup(), opp, top=10)
+    best = swaps[0]
+    assert (best["bench"], best["starter"], best["slot"]) == ("Bench WR", "Weak RB", "FLEX")
+    assert (best["via"], best["via_slot"], best["via_slotId"]) == ("Flex Player", "RB", 2)
+    assert best["d_proj"] == 6.0, "12 in for 6: the FLEX back still starts, at RB"
+    direct = next(s for s in swaps if (s["bench"], s["starter"]) == ("Bench RB", "Weak RB"))
+    assert direct["via"] is None and direct["slot"] == "RB" and direct["d_proj"] == 1.0
+    assert best["d_net"] > direct["d_net"]
+
+
+@pytest.mark.parametrize("kw, why", [
+    ({"flex_actual": 9.0}, "the FLEX player has kicked off"),
+    ({"flex_status": "OUT"}, "the FLEX player is out himself"),
+    ({"flex_pos": "WR"}, "a WR in FLEX cannot take an RB slot"),
+])
+def test_no_route_through_flex_when_the_flex_player_cannot_move(kw, why):
+    opp = [row(21, "Their QB", "QB", 0, 60.0)]
+    swaps = value.best_swaps(routed_lineup(**kw), opp, top=10)
+    assert not [s for s in swaps if (s["bench"], s["starter"]) == ("Bench WR", "Weak RB")], why
+    assert all(s.get("via") is None for s in swaps)
+
+
+def test_best_fill_takes_the_better_player_through_flex_and_the_direct_fill_on_a_tie():
+    mine = routed_lineup()
+    mine[2]["status"] = "OUT"                                   # Weak RB is the problem starter, id 3
+    opp = [row(21, "Their QB", "QB", 0, 60.0)]
+    fill = value.best_fill(mine, opp, 2, 3)
+    assert fill is not None and fill["name"] == "Bench WR" and fill["via"] == "Flex Player" and fill["via_slotId"] == 2
+    assert value.best_fill(mine, None, 2, 3)["name"] == "Bench WR", "idle week: by projection, the route still counts"
+    worse = routed_lineup(bench_wr=5.0)
+    worse[2]["status"] = "OUT"
+    fill = value.best_fill(worse, opp, 2, 3)
+    assert fill is not None and fill["name"] == "Bench RB" and "via" not in fill, "the direct fill when it is better"
+    tie = routed_lineup(bench_wr=7.0)
+    tie[2]["status"] = "OUT"
+    assert "via" not in value.best_fill(tie, None, 2, 3), "one move less on a tie"
+    assert value.best_fill(mine, opp, 23, 6)["name"] == "Bench WR", "a FLEX problem needs no route"
+    assert "via" not in value.best_fill(mine, opp, 23, 6)
+
+
+def kick(r, hours, locked=False):
+    from datetime import datetime, timedelta, timezone
+    r["kickoff"] = datetime(2026, 12, 31, 19, 15, tzinfo=timezone.utc) + timedelta(hours=hours)
+    r["locked"] = locked
+    return r
+
+
+def test_flex_order_puts_the_latest_kickoff_of_the_flex_position_in_flex():
+    """Week 17, 2026: Chase locks Thursday in FLEX while a WR-slot starter plays Monday."""
+    rows = [kick(row(1, "QB", "QB", 0, 20.0), 60), kick(row(2, "Late RB", "RB", 2, 18.0), 120),
+            kick(row(3, "RB B", "RB", 2, 12.0), 65), kick(row(4, "Sunday WR", "WR", 4, 10.0), 65),
+            kick(row(5, "Monday WR", "WR", 4, 16.0), 96), kick(row(6, "Thursday WR", "WR", 23, 22.0), 0),
+            kick(row(7, "Bench WR", "WR", 20, 9.0), 130)]
+    order = value.flex_order(rows)
+    assert order is not None
+    assert (order["to_flex"], order["from_flex"], order["slot"]) == ("Monday WR", "Thursday WR", "WR")
+    assert (order["to_flex_id"], order["from_flex_id"]) == (5, 6)
+    # The RB plays later still, but a WR cannot take an RB slot, and a bench player is not a starter.
+    rows[4]["slotId"], rows[5]["slotId"] = 23, 4               # apply it: Monday WR in FLEX
+    assert value.flex_order(rows) is None, "FLEX already locks last among the WRs: no second move"
+
+
+def test_flex_order_never_moves_a_locked_player_or_fills_a_hole():
+    def base():
+        return [kick(row(4, "Sunday WR", "WR", 4, 10.0), 65), kick(row(5, "Monday WR", "WR", 4, 16.0), 96),
+                kick(row(6, "Thursday WR", "WR", 23, 22.0), 0)]
+    rows = base()
+    rows[2]["locked"] = True
+    assert value.flex_order(rows) is None, "the FLEX player has kicked off"
+    rows = base()
+    rows[1]["actual"] = 3.0
+    assert value.flex_order(rows)["to_flex"] == "Sunday WR", "a locked later starter is skipped for the next one"
+    rows = base()
+    rows[2] = {**rows[2], "id": None, "name": "(empty)", "phantom": True, "status": "EMPTY"}
+    assert value.flex_order(rows) is None, "an empty FLEX is a problem to fix, not a slot to trade"
+    rows = base()
+    rows[1]["kickoff"] = None                                   # bye
+    assert value.flex_order(rows)["to_flex"] == "Sunday WR"

@@ -49,6 +49,10 @@ INVARIANTS
   never disagree about how wide a wide receiver is.
 - `best_swaps` never proposes moving a locked player, in or out, and never a
   player whose status makes him unusable.
+- Slots do not score. A bench player may enter through FLEX when the FLEX
+  occupant can take the outgoing starter's slot (`flex_route`), and
+  `flex_order` only trades the slots of two starters. Neither ever moves a
+  player who has kicked off.
 """
 
 from __future__ import annotations
@@ -82,7 +86,7 @@ ROS_WEIGHTS = (0.45, 0.35, 0.20)   # weekly projection, prior, season PPG, from 
 SD_FLOOR = 1.5            # points; even a 2-point projection can miss by more than its CV says
 VOLUME_FILE = Path(__file__).resolve().parent.parent / ".cache" / "volume-{season}.json"
 UNUSABLE = {"OUT", "IR", "SUSP", "D", "EMPTY"}   # EMPTY: a starter slot nobody fills (espncli.cli.empty_slot_rows)
-BENCH_SLOT, IR_SLOT = 20, 21
+BENCH_SLOT, IR_SLOT, FLEX_SLOT = 20, 21, 23
 
 
 # ---- currency -------------------------------------------------------------
@@ -398,6 +402,34 @@ def load_points_per_win_pct(week: int, path: Path = LEVERAGE_FILE, now: float | 
         return POINTS_PER_WIN_PCT
 
 
+def unlocked(r: dict) -> bool:
+    """Has not kicked off: no banked points and no lock flag."""
+    return r.get("actual") is None and not r.get("locked")
+
+
+def flex_route(me: list[dict], bench: dict, slot_id: int | None, out_id: int | None = None) -> dict | None:
+    """The FLEX occupant who can take `slot_id`, so that `bench` can take FLEX.
+
+    A bench player who cannot play the slot of the starter he replaces can
+    still enter the lineup when the player in FLEX moves to that slot. Found
+    2026-11-11: with a running back in FLEX and a running back OUT, the
+    engine offered only the bench running back (7.5) for the RB slot, never
+    the FLEX back to RB and the bench receiver (10.6) to FLEX. On 11-07 the
+    same limit left a 14-point back on the bench behind a 10-point receiver.
+    None when the bench player can take the slot himself, when the slot is
+    FLEX, or when the FLEX occupant is the outgoing player, has kicked off,
+    is unusable, or cannot play that slot."""
+    elig = bench.get("eligible") or []
+    if slot_id is None or slot_id == FLEX_SLOT or slot_id in elig or FLEX_SLOT not in elig:
+        return None
+    for f in me:
+        if (f.get("slotId") == FLEX_SLOT and not f.get("phantom") and f.get("id") is not None
+                and f.get("id") != out_id and unlocked(f) and usable(f)
+                and slot_id in (f.get("eligible") or [])):
+            return f
+    return None
+
+
 def best_swaps(me: list[dict], opp: list[dict], mults: dict[str, float] | None = None,
                min_gain: float | None = None, top: int = 5,
                remaining: dict[str, float] | None = None,
@@ -414,7 +446,9 @@ def best_swaps(me: list[dict], opp: list[dict], mults: dict[str, float] | None =
     given, still filters on the win-probability change alone.
 
     Only unlocked, usable bench players into unlocked starter slots they are
-    eligible for. `d_proj` is what the projection-only view would have said,
+    eligible for, or into FLEX when the FLEX occupant can take the outgoing
+    starter's slot (`via`, `via_slot`: one transaction of three moves, see
+    `flex_route`). `d_proj` is what the projection-only view would have said,
     so a reader can see when variance, not the mean, made the call. `d_net`
     is the swap in points of win probability with the projection it costs or
     gains priced at `points_per_win_pct` (the Points For tiebreak): the
@@ -429,13 +463,20 @@ def best_swaps(me: list[dict], opp: list[dict], mults: dict[str, float] | None =
         if b.get("actual") is not None or not usable(b) or row_mean(b) is None:
             continue
         for s in starters:
-            if s.get("actual") is not None or s.get("slotId") not in (b.get("eligible") or []):
+            if s.get("actual") is not None:
                 continue
+            via = None
+            if s.get("slotId") not in (b.get("eligible") or []):
+                via = flex_route(me, b, s.get("slotId"), s.get("id"))
+                if via is None:
+                    continue
             trial = [dict(r) for r in me]
-            for r in trial:
-                if r.get("id") == s.get("id"):
+            for r, src in zip(trial, me, strict=True):
+                if src is s:
                     r["slotId"] = BENCH_SLOT
-                elif r.get("id") == b.get("id"):
+                elif src is b:
+                    r["slotId"] = FLEX_SLOT if via is not None else s["slotId"]
+                elif src is via:
                     r["slotId"] = s["slotId"]
             w1 = win_prob(trial, opp, mults, remaining, corr, opp_fix_rate)
             p = w1["p"]
@@ -445,8 +486,14 @@ def best_swaps(me: list[dict], opp: list[dict], mults: dict[str, float] | None =
             d_net = 100 * (p - base) + d_proj / points_per_win_pct
             if d_net <= min_net or (min_gain is not None and p - base < min_gain):
                 continue
+            # `slot` is where the bench player lands. On a FLEX route that is
+            # FLEX, and `via` moves to `via_slot`, the slot the starter leaves.
             out.append({"bench": b["name"], "bench_pos": b.get("pos"), "starter": s["name"],
-                        "slot": s.get("slot"), "slotId": s.get("slotId"),
+                        "slot": "FLEX" if via is not None else s.get("slot"),
+                        "slotId": FLEX_SLOT if via is not None else s.get("slotId"),
+                        "via": via["name"] if via is not None else None,
+                        "via_slot": s.get("slot") if via is not None else None,
+                        "via_slotId": s.get("slotId") if via is not None else None,
                         "p_before": base, "p_after": round(p, 3), "d_p": round(p - base, 3),
                         "d_proj": round(d_proj, 1), "d_net": round(d_net, 2)})
     out.sort(key=lambda x: -x["d_net"])
@@ -457,25 +504,78 @@ def best_fill(me: list[dict], opp: list[dict] | None, slot_id: int, exclude: int
               mults: dict[str, float] | None = None,
               remaining: dict[str, float] | None = None,
               corr: dict[str, float] | None = None, opp_fix_rate: float = 1.0) -> dict | None:
-    """The bench player to put into `slot_id`: by win probability when there is
-    an opponent to beat, by projection otherwise (idle week, or no matchup)."""
+    """The bench player to put in for the starter in `slot_id`: by win
+    probability when there is an opponent to beat, by projection otherwise
+    (idle week, or no matchup).
+
+    A bench player who cannot play `slot_id` is a candidate too when the FLEX
+    occupant can take that slot (`flex_route`). The row then carries `via`,
+    the player who moves, and the bench player lands in FLEX. On a tie the
+    direct fill wins, because it is one move less."""
     mults = mults or {}
-    bench = [b for b in me if b.get("slotId") == BENCH_SLOT and slot_id in (b.get("eligible") or [])
-             and usable(b) and b.get("id") != exclude and b.get("actual") is None]
-    if not bench:
+    cands: list[tuple[dict, dict | None]] = []
+    for b in me:
+        if b.get("slotId") != BENCH_SLOT or not usable(b) or b.get("id") == exclude or b.get("actual") is not None:
+            continue
+        if slot_id in (b.get("eligible") or []):
+            cands.append((b, None))
+        else:
+            via = flex_route(me, b, slot_id, exclude)
+            if via is not None:
+                cands.append((b, via))
+    if not cands:
         return None
+
+    def placed(b: dict, via: dict | None, p: float | None = None) -> dict:
+        best = dict(b)
+        if via is not None:
+            best["via"], best["via_slotId"] = via["name"], slot_id
+        if p is not None:
+            best["p_after"] = round(p, 3)
+        return best
+
     if not opp:
-        return max(bench, key=lambda b: float(row_mean(b) or 0.0))
+        b, via = max(cands, key=lambda c: (float(row_mean(c[0]) or 0.0), c[1] is None))
+        return placed(b, via)
     scored = []
-    for b in bench:
+    for b, via in cands:
         trial = [dict(r) for r in me]
-        for r in trial:
-            if r.get("id") == exclude:
+        for r, src in zip(trial, me, strict=True):
+            if exclude is not None and src.get("id") == exclude:
                 r["slotId"] = BENCH_SLOT
-            elif r.get("id") == b.get("id"):
+            elif src is b:
+                r["slotId"] = FLEX_SLOT if via is not None else slot_id
+            elif src is via:
                 r["slotId"] = slot_id
-        scored.append((win_prob(trial, opp, mults, remaining, corr, opp_fix_rate)["p"], float(row_mean(b) or 0.0), b))
-    scored.sort(key=lambda t: (-t[0], -t[1]))
-    best = dict(scored[0][2])
-    best["p_after"] = round(scored[0][0], 3)
-    return best
+        p = win_prob(trial, opp, mults, remaining, corr, opp_fix_rate)["p"]
+        scored.append((p, float(row_mean(b) or 0.0), via is None, b, via))
+    scored.sort(key=lambda t: (-t[0], -t[1], not t[2]))
+    return placed(scored[0][3], scored[0][4], scored[0][0])
+
+
+def flex_order(me: list[dict]) -> dict | None:
+    """The exchange of two starters' slots that puts the latest kickoff in FLEX, or None.
+
+    Slots do not score, so the arrangement is free, and it decides who can
+    cover a late scratch. FLEX takes any RB, WR or TE. A starter who is ruled
+    out while he sits in FLEX can be replaced by any of them still unlocked,
+    and while the FLEX player is unlocked `flex_route` can cover an earlier
+    scratch through him. So FLEX holds the starter who locks last, among the
+    starters whose slot the present FLEX player can take (the same position).
+    Twice in 2026 an early game locked FLEX and narrowed the fills that were
+    left (playbook Season log, weeks 1 and 2). Never moves a player who has
+    kicked off, and returns None when FLEX already locks last."""
+    flex = next((r for r in me if r.get("slotId") == FLEX_SLOT and not r.get("phantom") and r.get("id") is not None), None)
+    if flex is None or not unlocked(flex) or not flex.get("kickoff"):
+        return None
+    cands = [r for r in me if is_starter(r) and r is not flex and not r.get("phantom") and r.get("id") is not None
+             and unlocked(r) and r.get("kickoff") and r.get("slotId") in (flex.get("eligible") or [])
+             and FLEX_SLOT in (r.get("eligible") or [])]
+    if not cands:
+        return None
+    late = max(cands, key=lambda r: r["kickoff"])
+    if late["kickoff"] <= flex["kickoff"]:
+        return None
+    return {"to_flex": late["name"], "to_flex_id": late["id"], "from_flex": flex["name"], "from_flex_id": flex["id"],
+            "slot": late.get("slot"), "slotId": late.get("slotId"),
+            "flex_kickoff": flex["kickoff"], "late_kickoff": late["kickoff"]}

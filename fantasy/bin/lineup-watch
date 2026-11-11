@@ -24,6 +24,13 @@ unlocked bench players into unlocked slots, and a reversal would need its own
 d_net of +1, so the gate is also the hysteresis. A bench player we give away
 in a pending trade is never swapped in: the trade would empty the slot.
 
+--fix also keeps the slot order (2026-11-11): when `espn check` reports a
+`slot_order`, the starter who locks last trades slots with the FLEX player.
+No player enters or leaves the lineup, so no points move and no banner is
+sent. FLEX takes any RB, WR or TE, so a late scratch there has the widest
+cover, and while the FLEX player is unlocked a fill can enter through him
+(`espncli.value.flex_route`; the write lane's `swap` makes that route itself).
+
 Every run also holds the Mac awake across the next lock's ping window, on the
 clock alone and never on whether a problem already exists. See hold_awake() for
 why that window is the only thing sleep actually destroys, and for the limits
@@ -153,7 +160,8 @@ def pick_upgrade(d: dict, blocked: set[str]) -> dict | None:
 
 
 def apply_upgrade(s: dict, dry: bool) -> str | None:
-    desc = (f"{s['bench']} in for {s['starter']} at {s.get('slot')} "
+    route = f", {s['via']} to {s.get('via_slot')}" if s.get("via") else ""
+    desc = (f"{s['bench']} in for {s['starter']} at {s.get('slot')}{route} "
             f"(d_net +{s.get('d_net')}, win {s.get('p_before')} to {s.get('p_after')})")
     if dry:
         return "DRY-RUN would upgrade: " + desc
@@ -169,9 +177,30 @@ def apply_upgrade(s: dict, dry: bool) -> str | None:
         slot = SLOT_BY_NAME.get(str(s.get("slot", "")).upper())
         if slot is None:
             return None
-        res = w.move(api.resolve_one(s["bench"])["id"], slot)
+        if s.get("via"):
+            # An empty RB, WR or TE slot filled through FLEX: the FLEX player
+            # takes the empty slot and the bench player takes FLEX, together.
+            via_slot = SLOT_BY_NAME.get(str(s.get("via_slot", "")).upper())
+            if via_slot is None:
+                return None
+            res = w.lineup([(api.resolve_one(s["via"])["id"], via_slot), (api.resolve_one(s["bench"])["id"], slot)])
+        else:
+            res = w.move(api.resolve_one(s["bench"])["id"], slot)
     else:
+        # A swap through FLEX needs no branch here: `swap` finds the route.
         res = w.swap(api.resolve_one(s["bench"])["id"], api.resolve_one(s["starter"])["id"])
+    return desc + " (verified)" if res.get("verified") else None
+
+
+def apply_order(o: dict, dry: bool) -> str | None:
+    """Trade the slots of the FLEX player and the starter who locks last."""
+    desc = (f"{o['to_flex']} to FLEX (locks {o.get('late_kick')}), {o['from_flex']} to {o.get('slot')} "
+            f"(locks {o.get('flex_kick')})")
+    if dry:
+        return "DRY-RUN would order: " + desc
+    from espncli.client import Espn  # noqa: PLC0415
+    from espncli.tx import EspnWriter  # noqa: PLC0415
+    res = EspnWriter(Espn()).exchange(int(o["to_flex_id"]), int(o["from_flex_id"]))
     return desc + " (verified)" if res.get("verified") else None
 
 
@@ -350,6 +379,19 @@ def main() -> int:
             notify(f"Lineup upgraded: {done}", final=False, dry=False,
                    ident=f"lineup-up-{up['bench'].replace(' ', '-')}")
             d = check()
+    if args.fix and d.get("slot_order"):
+        # After the fixes and the upgrades, so it arranges the lineup that will
+        # play. One exchange settles it, and a failure is a log line: the
+        # lineup scores the same either way.
+        stamp = time.strftime("%Y-%m-%d %H:%M")
+        try:
+            done = apply_order(d["slot_order"], args.dry_run)
+        except Exception as e:  # noqa: BLE001 -- the order is a convenience; the pings below must still run
+            done = None
+            print(f"{stamp} ORDER error: {e}")
+        print(f"{stamp} ORDERED {done}" if done else f"{stamp} ORDER FAILED {d['slot_order'].get('to_flex')} to FLEX")
+        if done and not args.dry_run:
+            d = check()
     locks = {}
     for row in d.get("lock_order", []):
         try:
@@ -371,7 +413,10 @@ def main() -> int:
 
     pinged = 0
     for p in problems:
-        key = f"{week}:{p.get('slot')}:{p.get('player')}:{p.get('kind')}"
+        # The player names the problem. The slot is in the key only for an
+        # empty slot, because the slot order can move a player to FLEX and a
+        # key with his slot would announce the same problem twice.
+        key = f"{week}:{p.get('player') or p.get('slot')}:{p.get('kind')}"
         seen = st.get(key, {})
         kick = locks.get(p.get("player"))
         mins = (kick - now).total_seconds() / 60 if kick else None

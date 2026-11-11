@@ -60,6 +60,13 @@ RIVALS_MAX_AGE = 6 * 3600
 ESPN_TX = HERE / "espn-tx"
 HARNESS = FANTASY.parent
 SHORT_MAX = 140                      # banner length of a review reason; the full one goes to the log
+# A swap the review HELD sends no banner when it is worth less than this many
+# points of title odds on the absence model (espncli/depth.py). 0.25 is about
+# one point at the second bench place (0.21). On 2026-11-11 the held swaps were
+# worth 0.16 and 0.005, and a 13-point receiver for the same drops 1.7 to 1.8,
+# so the line is not close to either group. The gate, the review and the
+# auto-file lane do not read this: a FILE verdict files as before.
+QUIET_HOLD_BELOW = 0.25
 PLAYOFF_WEEKS = 3                    # weeks 15-17
 REVIEW_MODEL = "claude-opus-5-5"     # Alex, 2026-11-01: the review runs on Opus 5.5
 REVIEW_TIMEOUT = 900
@@ -238,6 +245,28 @@ def filed_note(ev: dict) -> str:
     return "; the auto-file did not verify, tap Do it"
 
 
+def hold_title_value(ev: dict) -> float | None:
+    """Title points of a held swap through the absence model, or None when the
+    model does not cover it or cannot run. None means: banner as before."""
+    try:
+        from espncli import depth  # noqa: PLC0415 -- only a held swap needs the model
+        if ev.get("add_rate") is None:
+            return None
+        return depth.swap_title_value(ev["drop"], (ev["add"], ev["add_pos"], float(ev["add_rate"])), ev.get("drop_pos"))
+    except Exception as exc:  # noqa: BLE001 -- a pricing failure must never hide a banner
+        print(f"hold value unavailable: {exc}")
+        return None
+
+
+def quiet_hold(ev: dict, value: float | None) -> bool:
+    """A swap the review held and the absence model prices under QUIET_HOLD_BELOW.
+    Only a HOLD is ever quiet: a filed swap, a failed file and a swap the model
+    cannot price all keep their banner."""
+    f = ev.get("filed") or {}
+    return bool(ev.get("kind") == "swap_gate" and f.get("held") and not f.get("verified")
+                and value is not None and value < QUIET_HOLD_BELOW)
+
+
 def reply_button(label: str, text: str) -> str:
     """A mist-notify --action that posts `text` into the Console as Alex's reply."""
     payload = json.dumps({"text": text})
@@ -276,6 +305,7 @@ def swap_gate_event(st: dict) -> dict | None:
                 continue
             pairs.append({"drop": row["drop"], "drop_pos": row["pos"], "add": c["add"],
                           "weeks": float(row.get("weeks") or 0), "games": games_left,
+                          "add_rate": c.get("add_rate"), "drop_rate": row.get("drop_rate"),
                           "add_pos": c["pos"], "avail": c["avail"], "gain": float(c["gain"]),
                           "owned": c["owned"], "trend": c["trend"], "flags": c.get("flags") or []})
     pairs.sort(key=lambda b: -b["gain"])
@@ -704,6 +734,12 @@ def main() -> int:
                 ev["filed"] = filed
                 print(f"{stamp} AUTO-FILE {ev['add']} for {ev.get('drop')}: review={filed['review']['verdict']} "
                       f"verified={filed['verified']} ({filed['review']['reason']})")
+                if filed.get("held") and ev["kind"] == "swap_gate":
+                    ev["title_value"] = hold_title_value(ev)
+                    if quiet_hold(ev, ev["title_value"]):
+                        ev["quiet"] = True
+                        print(f"{stamp} QUIET {ev['add']} for {ev.get('drop')}: held, and worth {ev['title_value']:+.2f} "
+                              f"title points on the absence model (under {QUIET_HOLD_BELOW}); no banner")
             if ev.get("avail") == "FA":
                 log_race(races, ev, stamp)
     with INCIDENTS.open("a") as fh:
@@ -711,6 +747,10 @@ def main() -> int:
             fh.write(json.dumps(ev) + "\n")
     STATE.write_text(json.dumps(st, indent=1))
 
+    # A quiet hold is in the incident log and the state above, and nowhere else.
+    events = [ev for ev in events if not ev.get("quiet")]
+    if not events:
+        return 0
     heads = []
     for ev in events:
         if ev["kind"] == "status":

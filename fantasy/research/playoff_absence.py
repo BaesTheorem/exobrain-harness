@@ -15,13 +15,13 @@ week 10, and it is about twice as large (2026-11-11).
           in weeks 11-14 (the control: it must be lower) and a split by the
           NFL team's record through week 9. Writes out/playoff_absence.json.
 
-  tree    Our live roster against those rates. Each rostered skill player
-          is missing in week 16 or 17 at his position's rate, independently.
-          The best lineup is refilled from the bench and then from the best
-          healthy free agent. Prints the expected lineup, each starter's
-          failure mode in title points (`.cache/leverage.json`
-          `playoff_per_point`), how often each bench place plays, and the
-          value of one more point at each place in the chain.
+  tree    Our live roster against those rates (the model is
+          `espncli/depth.py`). Each rostered skill player is missing in week
+          16 or 17 at his position's rate, independently. The best lineup is
+          refilled from the bench and then from the best healthy free agent.
+          Prints the expected lineup, each starter's failure mode in title
+          points (`.cache/leverage.json` `playoff_per_point`), and the value
+          of one more point at each place in the chain.
 
 A missing stat line counts an injury, a benching and a rest day alike: in
 each case the fantasy slot needs another player. Absences are drawn
@@ -53,7 +53,6 @@ DECISION_WEEK = 10
 PLAYOFF_WEEKS = (15, 16, 17)
 FINAL_WEEKS = (16, 17)                              # the two weeks we play with a bye
 BOOT = 2000
-SIMS = 120_000
 
 
 # ---- rates ------------------------------------------------------------------
@@ -154,107 +153,16 @@ def cmd_rates(args: argparse.Namespace) -> None:
 
 
 # ---- tree -------------------------------------------------------------------
-
-def best_lineup(avail: list[tuple[str, str, float]], wire: dict[str, float]) -> float:
-    """Points of the best QB, 2 RB, 2 WR, TE and FLEX from the players available,
-    with the wire's best player at each position as an unlimited fallback."""
-    qb = max([r for _, p, r in avail if p == "QB"] + [wire["QB"]])
-    te_all = sorted([r for _, p, r in avail if p == "TE"], reverse=True) + [wire["TE"]] * 2
-    rbs = sorted([r for _, p, r in avail if p == "RB"], reverse=True) + [wire["RB"]] * 3
-    wrs = sorted([r for _, p, r in avail if p == "WR"], reverse=True) + [wire["WR"]] * 3
-    return qb + te_all[0] + rbs[0] + rbs[1] + wrs[0] + wrs[1] + max(rbs[2], wrs[2], te_all[1])
-
-
-def expected(roster: list[tuple[str, str, float]], wire: dict[str, float], miss: dict[str, float],
-             rng: np.random.Generator, sims: int = SIMS) -> tuple[float, np.ndarray]:
-    """(mean lineup points, the absence draws) with each player out at his position's rate."""
-    p = np.array([miss[pos] for _, pos, _ in roster])
-    out = rng.random((sims, len(roster))) < p
-    cache: dict[bytes, float] = {}
-    total = 0.0
-    for row in out:
-        key = row.tobytes()
-        if key not in cache:
-            cache[key] = best_lineup([x for x, gone in zip(roster, row, strict=True) if not gone], wire)
-        total += cache[key]
-    return total / sims, out
-
-
-def tree(roster: list[tuple[str, str, float]], wire: dict[str, float], rates: dict[int, dict[str, float]],
-         title_per_point: dict[int, float], seed: int = 11, sims: int = SIMS) -> dict:
-    """Pure: the roster and the rates in, the fault tree out. Title numbers are in points of title odds."""
-    full = best_lineup(roster, wire)
-
-    def run(rs: list[tuple[str, str, float]]) -> dict[int, float]:
-        rng = np.random.default_rng(seed)          # the same draws for every variant with the same roster size
-        return {w: expected(rs, wire, rates[w], rng, sims)[0] for w in FINAL_WEEKS}
-
-    def title(ev: dict[int, float], base: dict[int, float]) -> float:
-        return sum((ev[w] - base[w]) * title_per_point[w] * 100 for w in FINAL_WEEKS)
-
-    base = run(roster)
-    starters, chain = lineup_names(roster, wire)
-    modes = []
-    for name, pos, rate in roster:
-        if name not in starters:
-            continue
-        loss = full - best_lineup([x for x in roster if x[0] != name], wire)
-        modes.append({"player": name, "pos": pos, "rate": rate, "lost_if_out": round(loss, 1),
-                      "p_out": {w: rates[w][pos] for w in FINAL_WEEKS},
-                      "title": round(sum(rates[w][pos] * loss * title_per_point[w] * 100 for w in FINAL_WEEKS), 2)})
-    modes.sort(key=lambda m: -m["title"])
-    plus_one = []
-    for name in [*starters, *chain]:
-        bumped = [(n, p, r + 1.0) if n == name else (n, p, r) for n, p, r in roster]
-        plus_one.append({"player": name, "place": "starter" if name in starters else f"bench {chain.index(name) + 1}",
-                         "title_per_point": round(title(run(bumped), base), 2)})
-    return {"full_health": round(full, 1), "expected": {w: round(v, 1) for w, v in base.items()},
-            "injury_tax_title": round(title(base, dict.fromkeys(FINAL_WEEKS, full)), 1),
-            "failure_modes": modes, "one_more_point": plus_one, "wire": wire}
-
-
-def lineup_names(roster: list[tuple[str, str, float]], wire: dict[str, float]) -> tuple[list[str], list[str]]:
-    """(the seven starters, the RB/WR bench in order of use) at full health."""
-    by = {p: sorted([x for x in roster if x[1] == p], key=lambda x: -x[2]) for p in TOP}
-    starters = [x[0] for x in by["QB"][:1] + by["RB"][:2] + by["WR"][:2] + by["TE"][:1]]
-    rest = sorted(by["RB"][2:] + by["WR"][2:], key=lambda x: -x[2])
-    if rest:
-        starters.append(rest[0][0])
-    chain = [x[0] for x in rest[1:] if x[2] > min(wire["RB"], wire["WR"])]
-    return starters, chain
-
-
-def live_inputs() -> tuple[list[tuple[str, str, float]], dict[str, float]]:
-    """Our roster and the best healthy free agent at each position, on `ros_rate`."""
-    from espncli.cli import pool_rows, roster_rows  # noqa: PLC0415
-    from espncli.client import IR, Espn, norm  # noqa: PLC0415
-    from espncli.value import games_appeared, games_played, load_volume_rows, ros_rate  # noqa: PLC0415
-
-    api = Espn()
-    data = api.league("mTeam", "mRoster", "mSettings", "mStatus")
-    week = api.current_week(data)
-    games = {pt["abbrev"]: games_played(pt["games"], week) for pt in api.pro_teams().values()}
-    appeared = games_appeared(load_volume_rows(api.season), week)
-
-    def rate(r: dict) -> float:
-        return ros_rate(week, r.get("proj"), r.get("season_proj"), r.get("season_actual"),
-                        games.get(r.get("team") or ""), appeared.get(f"{norm(r['name'])}|{r['pos']}"))
-
-    mine = roster_rows(api, api.roster_entries(data, api.resolve_team(data, None)["id"]), week)
-    roster = [(r["name"], r["pos"], round(rate(r), 2)) for r in mine if r["pos"] in TOP and r["slotId"] != IR]
-    wire = {}
-    for pos in TOP:
-        rows = [r for r in pool_rows(api, week, pos, 60, ["FREEAGENT"]) if not r.get("status")]
-        wire[pos] = round(max((rate(r) for r in rows), default=0.0), 2)
-    return roster, wire
-
+# The model is `espncli.depth` (best_lineup, expected, tree): `roster-watch`
+# prices swaps with the same code, so it does not live in a research script.
 
 def cmd_tree(args: argparse.Namespace) -> None:
-    saved = json.loads(OUT.read_text())
-    rates = {w: {pos: saved["by_pos"][pos][str(w)]["miss"] for pos in TOP} for w in FINAL_WEEKS}
+    from espncli import depth  # noqa: PLC0415
+
+    rates = depth.load_rates(OUT)
     per_point = {int(k): float(v) for k, v in json.loads(LEVERAGE.read_text())["playoff_per_point"].items()}
-    roster, wire = live_inputs()
-    out = tree(roster, wire, rates, per_point)
+    roster, wire = depth.live_inputs()
+    out = depth.tree(roster, wire, rates, per_point)
     if args.json:
         json.dump(out, sys.stdout, indent=1)
         return

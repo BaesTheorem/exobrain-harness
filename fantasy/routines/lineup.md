@@ -34,6 +34,12 @@ fifteen minutes before the reports it existed to read.)
    `d_net` +1 or more every 15 minutes (never a bench player in a pending
    trade), so an upgrade still listed here means the job has not run yet
    or the swap is blocked by a trade; apply it under step 4 as before.
+   A fix or a `swaps` row that names `via` enters through FLEX: the FLEX
+   player takes the starter's slot and the bench player takes FLEX.
+   `espn-tx swap` makes those three moves in one transaction, so the
+   command is the same. The job also keeps FLEX on the starter who locks
+   last (`slot order` in `espn check`, `espn-tx exchange`); do not move a
+   player out of FLEX to tidy the lineup.
 3. QUESTIONABLE starters are priced in `espn check` now (2026-10-15): each
    row carries `practice` (the latest practice line), `p_play` (the share of
    regular contributors with that status and practice who played,

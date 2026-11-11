@@ -110,7 +110,9 @@ says (measured 2026-10-22, weeks 1-7):
   our bench or IR and not in a pending row, QB/TE/K/D/ST like for like. Each
   one first goes to a headless Opus 5.5 run of this skill (`opus_review`),
   and only a FILE verdict files. A HOLD becomes a Do it / Skip banner with the
-  reason. A filed swap's banner carries Undo.
+  reason, except an RB or WR swap worth less than 0.25 title points on the
+  absence model (`espncli/depth.py`), which is logged with no banner. A
+  filed swap's banner carries Undo.
   `rival-scan --settle` counts how often a rival takes an unfiled free agent
   first, which decides whether the lane widens.
 - **Needs are computed, not guessed.** For each team: the starter holes this
@@ -239,6 +241,10 @@ the site by hand.
   starter's byes plus the measured 13% injury share,
   never a second QB/TE, Sleeper 24-hour adds as market heat, volume flags as
   the role condition, bye holes two weeks out
+- `python3 fantasy/research/playoff_absence.py tree`: the roster against the
+  measured absence rates (a starter healthy in week 10 is missing in week 16
+  at 15.6% and in week 17 at 18.2%): each starter's failure mode and the
+  value of one more point at each bench place, in title points
 - `fantasy/bin/stash-scan`: injured free agents priced as playoff stashes
   (return odds 0.53, return factor 0.89 on IR and 0.66 otherwise, against the
   starter each would replace, over the `--leverage` weights); `--banner`
@@ -336,7 +342,11 @@ under launchd `com.exobrain.lineup-watch`, every 15 minutes, since
 2026-09-07): it pings Alex only when a starter with a problem is inside 75
 minutes of locking, plus a final call at 20. With `--fix` it repairs problem
 slots and, since 2026-11-05, applies any swap at `d_net` +1 or more (never a
-bench player in a pending trade). Do not build a second one; if the
+bench player in a pending trade). A slot does not score, so the job arranges
+them (2026-11-11): FLEX holds the starter who locks last, and a bench player
+who cannot play a starter's slot enters through FLEX when the FLEX player
+can take that slot (`espn-tx swap` makes the three moves in one
+transaction). Do not build a second one; if the
 rules need changing, change that script.
 
 ## Matchup promo video

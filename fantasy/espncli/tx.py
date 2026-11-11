@@ -27,6 +27,7 @@ from typing import Any
 from . import chat
 from .client import BENCH, IR, SLOT, SLOT_BY_NAME, UA, Espn, EspnError
 
+FLEX = SLOT_BY_NAME["FLEX"]
 WRITES = "https://lm-api-writes.fantasy.espn.com/apis/v3/games/ffl"
 FALLBACK = "https://fantasy.espn.com/apis/v3/games/ffl"
 # Ids of offers we closed ourselves. bin/roster-watch reads it so that our own
@@ -152,30 +153,89 @@ class EspnWriter:
         return {"from": _slot_name(frm), "to": _slot_name(to_slot),
                 "verified": now == to_slot, "now": _slot_name(now), "response": resp}
 
-    def swap(self, in_id: int, out_id: int, dry_run: bool = False) -> dict[str, Any]:
-        """Bench player in, starter out, in ONE transaction.
+    def roster_slots(self) -> dict[int, dict[str, Any]]:
+        """player id -> his lineup slot and the slots he can play, from one roster read."""
+        data = self.api.league("mRoster")
+        out: dict[int, dict[str, Any]] = {}
+        for e in self.api.roster_entries(data, self.team_id):
+            player = (e.get("playerPoolEntry") or {}).get("player") or {}
+            out[e["playerId"]] = {"slot": e["lineupSlotId"], "eligible": player.get("eligibleSlots") or []}
+        return out
 
-        ESPN validates the roster after the whole transaction, so the two
-        LINEUP items have to travel together: a lone "bench to WR" is rejected
-        while the slot is occupied, and a lone "WR to bench" leaves the slot
-        empty if the second call fails.
-        """
-        out_slot, in_slot = self.slot_of(out_id), self.slot_of(in_id)
-        if out_slot is None or in_slot is None:
-            raise EspnError("both players must be on the roster")
-        if in_slot != BENCH:
-            raise EspnError("the incoming player must be on the bench")
+    def lineup(self, moves: list[tuple[int, int]], dry_run: bool = False) -> dict[str, Any]:
+        """Several lineup moves, [(player id, to slot), ...], in ONE transaction.
+
+        ESPN validates the roster after the whole transaction, so moves that
+        depend on each other have to travel together: a lone "bench to WR" is
+        rejected while the slot is occupied, and a lone "WR to bench" leaves
+        the slot empty if the second call fails. Give the moves in the order
+        that empties a slot before it is filled. Verified when the read-back
+        shows every player in the slot he was sent to."""
+        before = self.roster_slots()
+        if any(pid not in before for pid, _ in moves):
+            raise EspnError("every player in a lineup move must be on the roster")
         body = self._base("ROSTER")
-        body["items"] = [
-            {"playerId": out_id, "type": "LINEUP", "fromLineupSlotId": out_slot, "toLineupSlotId": BENCH},
-            {"playerId": in_id, "type": "LINEUP", "fromLineupSlotId": BENCH, "toLineupSlotId": out_slot},
-        ]
+        body["items"] = [{"playerId": pid, "type": "LINEUP", "fromLineupSlotId": before[pid]["slot"],
+                          "toLineupSlotId": to} for pid, to in moves]
         if dry_run:
             return {"dry_run": body}
         resp = self._post(body)
-        now_in, now_out = self.slot_of(in_id), self.slot_of(out_id)
-        return {"slot": _slot_name(out_slot), "verified": now_in == out_slot and now_out == BENCH,
-                "in_now": _slot_name(now_in), "out_now": _slot_name(now_out), "response": resp}
+        after = self.roster_slots()
+        now = {pid: (after.get(pid) or {}).get("slot") for pid, _ in moves}
+        return {"verified": all(now[pid] == to for pid, to in moves),
+                "now": {pid: _slot_name(slot) for pid, slot in now.items()}, "response": resp}
+
+    def flex_route(self, in_id: int, out_id: int, roster: dict[int, dict[str, Any]] | None = None) -> int | None:
+        """The id of the FLEX occupant who can take the outgoing starter's slot
+        when the bench player cannot, so the bench player enters through FLEX
+        (`espncli.value.flex_route` is the engine's copy of this rule). None
+        when the direct swap is legal or no such route exists."""
+        roster = roster or self.roster_slots()
+        out_slot, elig = roster[out_id]["slot"], roster[in_id]["eligible"]
+        if out_slot == FLEX or out_slot in elig or FLEX not in elig:
+            return None
+        return next((pid for pid, r in roster.items()
+                     if r["slot"] == FLEX and pid != out_id and out_slot in r["eligible"]), None)
+
+    def swap(self, in_id: int, out_id: int, dry_run: bool = False) -> dict[str, Any]:
+        """Bench player in, starter out, in ONE transaction.
+
+        When the bench player cannot play the starter's slot and the FLEX
+        occupant can, the FLEX occupant takes that slot and the bench player
+        takes FLEX (2026-11-11). `via` names him in the result, and `slot` is
+        where the bench player landed. With no such route the direct swap is
+        sent as before, and ESPN's own check refuses an illegal one.
+        """
+        roster = self.roster_slots()
+        if in_id not in roster or out_id not in roster:
+            raise EspnError("both players must be on the roster")
+        out_slot = roster[out_id]["slot"]
+        if roster[in_id]["slot"] != BENCH:
+            raise EspnError("the incoming player must be on the bench")
+        via = self.flex_route(in_id, out_id, roster)
+        land = FLEX if via is not None else out_slot
+        moves = [(out_id, BENCH), (in_id, out_slot)] if via is None else [(out_id, BENCH), (via, out_slot), (in_id, FLEX)]
+        res = self.lineup(moves, dry_run)
+        if dry_run:
+            return res
+        after = self.roster_slots()
+        now_in, now_out = (after.get(in_id) or {}).get("slot"), (after.get(out_id) or {}).get("slot")
+        return {"slot": _slot_name(land), "verified": bool(res["verified"]), "via": via,
+                "in_now": _slot_name(now_in), "out_now": _slot_name(now_out), "response": res["response"]}
+
+    def exchange(self, a_id: int, b_id: int, dry_run: bool = False) -> dict[str, Any]:
+        """Two starters trade slots in ONE transaction (the FLEX order rule:
+        the starter who locks last sits in FLEX). No player enters or leaves
+        the lineup, so no points move."""
+        roster = self.roster_slots()
+        if a_id not in roster or b_id not in roster:
+            raise EspnError("both players must be on the roster")
+        a_slot, b_slot = roster[a_id]["slot"], roster[b_id]["slot"]
+        if BENCH in (a_slot, b_slot) or IR in (a_slot, b_slot):
+            raise EspnError("an exchange is between two starters; use swap for a bench player")
+        if b_slot not in roster[a_id]["eligible"] or a_slot not in roster[b_id]["eligible"]:
+            raise EspnError("each player must be able to play the other's slot")
+        return self.lineup([(a_id, b_slot), (b_id, a_slot)], dry_run)
 
     def plan_swap(self, week: int, in_id: int, out_id: int, dry_run: bool = False) -> dict[str, Any]:
         """Set a later week's lineup: `in_id` from the bench into `out_id`'s slot.

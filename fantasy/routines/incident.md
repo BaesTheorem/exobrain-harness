@@ -94,7 +94,10 @@ false, oldest first, then rewrite the file with those lines marked
   it in its free-agent K and D/ST lane (Alex, 2026-10-22); the move is done.
   Log it with the rivals it raced, and read the roster back once. Do not file
   it again. With `filed.verified` false, treat it as a banner Alex has not
-  tapped yet: nothing to file.
+  tapped yet: nothing to file. With `quiet` true, the review held the swap
+  and it is worth less than 0.25 title points on the absence model
+  (`title_value`): no banner went out, and there is nothing to do or to
+  tell Alex.
 
 Finish with one Season log line per incident and one notification to Alex
 summarizing what you did, linked to the roster page.

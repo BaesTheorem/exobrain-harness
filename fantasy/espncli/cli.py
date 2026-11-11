@@ -34,6 +34,7 @@ from espncli.value import (
     best_swaps,
     clock_remaining,
     fix_rate,
+    flex_order,
     load_corr,
     load_points_per_win_pct,
     win_prob,
@@ -529,7 +530,8 @@ def print_win(out: dict, indent: str = "") -> None:
         print(f"{indent}  opponent problem: {pr['kind']} {pr['slot']} {pr['player']} (proj {pts(pr['proj'])}{cover})")
     for sw in out.get("swaps") or []:
         why = "variance" if sw["d_proj"] <= 0 else "projection"
-        print(f"{indent}  swap {sw['bench']} in for {sw['starter']} at {sw['slot']}: "
+        route = f" ({sw['via']} to {sw['via_slot']})" if sw.get("via") else ""
+        print(f"{indent}  swap {sw['bench']} in for {sw['starter']} at {sw['slot']}{route}: "
               f"{sw['p_before']:.0%} -> {sw['p_after']:.0%} ({sw['d_p']:+.1%}, proj {sw['d_proj']:+}, {why}; "
               f"net {sw['d_net']:+.1f}{', apply' if sw['d_net'] >= 1 else ''})")
 
@@ -694,7 +696,9 @@ def cmd_check(api: Espn, args: argparse.Namespace) -> None:
 
     def fix_text(b: dict) -> str:
         extra = f", win {b['p_after']:.0%}" if b.get("p_after") is not None else ""
-        return f"{b['pos']}, proj {pts(b['proj'])}{extra}"
+        # A fill through FLEX: the FLEX player takes the open slot (value.flex_route).
+        route = f", at FLEX, {b['via']} to {SLOT.get(int(b['via_slotId']), '?')}" if b.get("via") else ""
+        return f"{b['pos']}, proj {pts(b['proj'])}{extra}{route}"
 
     # empty slots
     for slot_id, n in counts.items():
@@ -743,7 +747,11 @@ def cmd_check(api: Espn, args: argparse.Namespace) -> None:
             d = local(g.get("date"))
             if d and (first_game is None or d < first_game[0]):
                 first_game = (d, f"{api.pro(g.get('awayProTeamId'))['abbrev']} @ {api.pro(g.get('homeProTeamId'))['abbrev']}")
-    out = {"week": week, "team": team_name(t), "problems": problems, "nudges": nudges[:5],
+    # FLEX holds the starter who locks last (value.flex_order): a free exchange of two slots.
+    order = flex_order(rows)
+    if order:
+        order = {**order, "flex_kick": when(order["flex_kickoff"]), "late_kick": when(order["late_kickoff"])}
+    out = {"week": week, "team": team_name(t), "problems": problems, "nudges": nudges[:5], "slot_order": order,
            "win": mv.get("win") if mv else None, "swaps": mv.get("swaps") if mv else None,
            "opp_problems": mv.get("opp_problems") if mv else None,
            "win_if_opp_unfixed": mv.get("win_if_opp_unfixed") if mv else None,
@@ -794,6 +802,9 @@ def cmd_check(api: Espn, args: argparse.Namespace) -> None:
         print("\n  starters lock in this order:")
         for r in locks:
             print(f"     {when(r['kickoff']):<12} {r['slot']:<5} {r['name']}")
+        if order:
+            print(f"\n  slot order: {order['to_flex']} ({order['late_kick']}) locks after {order['from_flex']} "
+                  f"({order['flex_kick']}); trade their slots so FLEX locks last (no points move)")
         print("\n  Lineup Protection is OFF in this league. Fix problems before the slot's kickoff.")
     emit(args, out, render)
 
