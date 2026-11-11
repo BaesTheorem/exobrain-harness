@@ -943,7 +943,7 @@
     "repo_dir": "fantasy",
     "source": "built",
     "added": "2026-11-11",
-    "notes": "tree needs out/playoff_absence.json (run rates first) and .cache/leverage.json (season_sim --leverage). Reads ESPN with the stored cookies. About 60 s on the 8 GB Mac. Absences are drawn independently."
+    "notes": "tree needs out/playoff_absence.json (run rates first) and .cache/leverage.json (season_sim --leverage), and reads ESPN with the stored cookies. Its model is fantasy/espncli/depth.py: exact, standard library only, because roster-watch imports it under an interpreter with no numpy. rates needs polars and nflreadpy and takes about a minute. Absences are independent in the model."
   },
   {
     "name": "posting-liveness",
