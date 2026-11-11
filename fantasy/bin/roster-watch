@@ -63,7 +63,7 @@ SHORT_MAX = 140                      # banner length of a review reason; the ful
 # A swap the review HELD sends no banner when it is worth less than this many
 # points of title odds on the absence model (espncli/depth.py). 0.25 is about
 # one point at the second bench place (0.21). On 2026-11-11 the held swaps were
-# worth 0.16 and 0.005, and a 13-point receiver for the same drops 1.7 to 1.8,
+# worth 0.15 and 0.00, and a 13-point receiver for the same drops 1.7 to 1.8,
 # so the line is not close to either group. The gate, the review and the
 # auto-file lane do not read this: a FILE verdict files as before.
 QUIET_HOLD_BELOW = 0.25

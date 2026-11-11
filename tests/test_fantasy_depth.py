@@ -28,7 +28,6 @@ PER_POINT = {16: 0.0045, 17: 0.0051}
 ROSTER = [("QB1", "QB", 19.0), ("RB1", "RB", 25.0), ("RB2", "RB", 14.0), ("RB3", "RB", 11.5), ("RB4", "RB", 7.6),
           ("WR1", "WR", 22.5), ("WR2", "WR", 17.0), ("WR3", "WR", 10.6), ("WR4", "WR", 9.8), ("WR5", "WR", 9.0),
           ("WR6", "WR", 8.9), ("TE1", "TE", 15.0)]
-SIMS = 40_000
 
 
 def test_best_lineup_fills_from_the_bench_then_the_wire():
@@ -39,15 +38,26 @@ def test_best_lineup_fills_from_the_bench_then_the_wire():
     assert depth.best_lineup(ROSTER, WIRE) - depth.best_lineup(no_rb1, WIRE) == pytest.approx(25 - 10.6), "RB3 to RB, WR3 to FLEX"
 
 
+def test_the_expected_lineup_is_exact_against_every_case_counted_by_hand():
+    """Two RBs behind a full lineup: four cases, summed by hand."""
+    small = [("QB1", "QB", 19.0), ("RB1", "RB", 20.0), ("RB2", "RB", 10.0), ("WR1", "WR", 15.0), ("WR2", "WR", 12.0),
+             ("TE1", "TE", 9.0)]
+    miss = {"QB": 0.0, "RB": 0.5, "WR": 0.0, "TE": 0.0}
+    fixed = 19 + 15 + 12 + 9                                 # QB, both WRs, the TE never miss here
+    cases = [0.25 * (20 + 10 + 8.8),                         # both RBs play; FLEX is the wire WR (8.8 over the wire RB 7.5)
+             0.25 * (20 + 7.5 + 8.8), 0.25 * (10 + 7.5 + 8.8), 0.25 * (7.5 + 7.5 + 8.8)]
+    assert depth.expected(small, WIRE, miss) == pytest.approx(fixed + sum(cases))
+
+
 def test_with_nobody_missing_the_expected_lineup_is_the_full_one():
-    ev = depth.final_weeks(ROSTER, WIRE, NONE_OUT, sims=2_000)
+    ev = depth.final_weeks(ROSTER, WIRE, NONE_OUT)
     assert ev[16] == pytest.approx(depth.best_lineup(ROSTER, WIRE)) and ev[17] == ev[16]
-    with_absences = depth.final_weeks(ROSTER, WIRE, RATES, sims=SIMS)
+    with_absences = depth.final_weeks(ROSTER, WIRE, RATES)
     assert with_absences[16] < ev[16] - 5 and with_absences[17] < with_absences[16], "week 17 misses more"
 
 
 def test_a_point_is_worth_less_at_each_place_down_the_chain():
-    out = depth.tree(ROSTER, WIRE, RATES, PER_POINT, sims=SIMS)
+    out = depth.tree(ROSTER, WIRE, RATES, PER_POINT)
     place = {r["place"]: r["title_per_point"] for r in out["one_more_point"]}
     assert place["starter"] > place["bench 1"] > place["bench 2"] > place["bench 3"] >= 0
     assert place["bench 1"] > 0.4 and place["bench 3"] < 0.15, "about 0.55 and 0.08 on the 2026-11-11 roster"
@@ -56,7 +66,7 @@ def test_a_point_is_worth_less_at_each_place_down_the_chain():
 
 def test_a_swap_is_priced_by_the_place_the_add_takes():
     def value(drop, add):
-        return depth.swap_value(ROSTER, WIRE, RATES, PER_POINT, drop, add, sims=SIMS)
+        return depth.swap_value(ROSTER, WIRE, RATES, PER_POINT, drop, add)
     bottom = value("WR6", ("Wire WR", "WR", 9.4))            # he lands at the fourth place
     top = value("WR6", ("Good WR", "WR", 13.0))              # he starts at FLEX
     assert 0 <= bottom < 0.15 and top > 1.0 and top > 10 * bottom

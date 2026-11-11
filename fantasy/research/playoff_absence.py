@@ -24,8 +24,8 @@ week 10, and it is about twice as large (2026-11-11).
           of one more point at each place in the chain.
 
 A missing stat line counts an injury, a benching and a rest day alike: in
-each case the fantasy slot needs another player. Absences are drawn
-independently, which is wrong for two players on one NFL team; the error is
+each case the fantasy slot needs another player. Absences are independent
+in the model, which is wrong for two players on one NFL team; the error is
 small against the rates' own intervals.
 
     python3 research/playoff_absence.py rates

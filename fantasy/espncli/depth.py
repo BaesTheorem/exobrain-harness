@@ -7,8 +7,10 @@ usage. The first RB/WR replacement plays in about 60% of playoff weeks and
 the fourth in about 1%, and a bench move is worth the points it adds at the
 place the player takes, not his rate gap times every week.
 
-`expected` draws each rostered skill player out at his position's rate and
-refills the best lineup from the bench, then from the wire. `tree` prices
+`expected` takes each rostered skill player out at his position's rate,
+independently, and refills the best lineup from the bench, then from the
+wire. The mean is exact (a sum over the states of each position), so two
+rosters compare with no sampling noise. `tree` prices
 each starter's absence and one more point at each place. `swap_title_value`
 prices one swap, and `roster-watch` uses it to keep a held swap that is worth
 almost nothing out of the banners.
@@ -16,6 +18,9 @@ almost nothing out of the banners.
 INVARIANTS
 - The pure functions take rows and rates and touch no network. `live_inputs`
   is the one reader, and it only reads.
+- Standard library only. The launchd job's interpreter has no numpy, and an
+  import error here would turn the banner filter off with no report
+  (found 2026-11-11, the first version drew samples with numpy).
 - Nothing here files, moves or drops a player.
 - `swap_title_value` returns None when it cannot price the swap (a position
   outside RB and WR, a berth that is not safe, a missing or old input). None
@@ -28,8 +33,6 @@ import json
 import time
 from pathlib import Path
 
-import numpy as np
-
 FANTASY = Path(__file__).resolve().parent.parent
 RATES_FILE = FANTASY / "research" / "out" / "playoff_absence.json"
 LEVERAGE_FILE = FANTASY / ".cache" / "leverage.json"
@@ -38,7 +41,7 @@ SKILL = ("QB", "RB", "WR", "TE")
 CHAIN = ("RB", "WR")              # the positions a flex-chain swap is priced for
 FINAL_WEEKS = (16, 17)            # the two weeks we play with a bye
 SAFE_BERTH = 0.99                 # playoff odds above which the playoff weeks are nearly all of a move's value
-SIMS = 120_000
+NEED = {"QB": 1, "RB": 3, "WR": 3, "TE": 2}   # players a position can put in the lineup: its slots plus FLEX
 
 Player = tuple[str, str, float]   # name, position, points a game (`value.ros_rate`)
 
@@ -53,27 +56,43 @@ def best_lineup(avail: list[Player], wire: dict[str, float]) -> float:
     return qb + tes[0] + rbs[0] + rbs[1] + wrs[0] + wrs[1] + max(rbs[2], wrs[2], tes[1])
 
 
-def expected(roster: list[Player], wire: dict[str, float], miss: dict[str, float],
-             rng: np.random.Generator, sims: int = SIMS) -> float:
-    """Mean lineup points with each player missing at his position's rate, independently."""
-    p = np.array([miss[pos] for _, pos, _ in roster])
-    out = rng.random((sims, len(roster))) < p
-    cache: dict[bytes, float] = {}
-    total = 0.0
-    for row in out:
-        key = row.tobytes()
-        if key not in cache:
-            cache[key] = best_lineup([x for x, gone in zip(roster, row, strict=True) if not gone], wire)
-        total += cache[key]
-    return total / sims
+def position_states(rates: list[float], p_miss: float, k: int, wire: float) -> dict[tuple[float, ...], float]:
+    """The best `k` players available at one position, with the probability of each case.
+
+    Each rostered player is missing with probability `p_miss`, independently,
+    and the wire supplies any number of players at `wire`. Players are taken
+    best first, so the first `k` who are available are the best `k`."""
+    states: dict[tuple[float, ...], float] = {(): 1.0}
+    for r in sorted(rates, reverse=True):
+        nxt: dict[tuple[float, ...], float] = {}
+        for st, pr in states.items():
+            if len(st) == k:
+                nxt[st] = nxt.get(st, 0.0) + pr
+                continue
+            nxt[st + (r,)] = nxt.get(st + (r,), 0.0) + pr * (1.0 - p_miss)
+            nxt[st] = nxt.get(st, 0.0) + pr * p_miss
+        states = nxt
+    out: dict[tuple[float, ...], float] = {}
+    for st, pr in states.items():
+        top = tuple(sorted(st + (wire,) * k, reverse=True)[:k])
+        out[top] = out.get(top, 0.0) + pr
+    return out
 
 
-def final_weeks(roster: list[Player], wire: dict[str, float], rates: dict[int, dict[str, float]],
-                seed: int = 11, sims: int = SIMS) -> dict[int, float]:
-    """Expected lineup points in each of weeks 16 and 17. One seed for every
-    roster of the same size, so two variants share their draws."""
-    rng = np.random.default_rng(seed)
-    return {w: expected(roster, wire, rates[w], rng, sims) for w in FINAL_WEEKS}
+def expected(roster: list[Player], wire: dict[str, float], miss: dict[str, float]) -> float:
+    """Mean points of the best lineup with each player missing at his position's rate, independently. Exact."""
+    by = {pos: position_states([r for _, p, r in roster if p == pos], miss[pos], NEED[pos], wire[pos]) for pos in SKILL}
+    total = sum(pr * st[0] for st, pr in by["QB"].items())
+    for te, p_te in by["TE"].items():
+        for rb, p_rb in by["RB"].items():
+            for wr, p_wr in by["WR"].items():
+                total += p_te * p_rb * p_wr * (te[0] + rb[0] + rb[1] + wr[0] + wr[1] + max(rb[2], wr[2], te[1]))
+    return total
+
+
+def final_weeks(roster: list[Player], wire: dict[str, float], rates: dict[int, dict[str, float]]) -> dict[int, float]:
+    """Expected lineup points in each of weeks 16 and 17."""
+    return {w: expected(roster, wire, rates[w]) for w in FINAL_WEEKS}
 
 
 def title_points(ev: dict[int, float], base: dict[int, float], per_point: dict[int, float]) -> float:
@@ -93,10 +112,10 @@ def lineup_names(roster: list[Player], wire: dict[str, float]) -> tuple[list[str
 
 
 def tree(roster: list[Player], wire: dict[str, float], rates: dict[int, dict[str, float]],
-         per_point: dict[int, float], seed: int = 11, sims: int = SIMS) -> dict:
+         per_point: dict[int, float]) -> dict:
     """The fault tree: each starter's absence and one more point at each place, in title points."""
     full = best_lineup(roster, wire)
-    base = final_weeks(roster, wire, rates, seed, sims)
+    base = final_weeks(roster, wire, rates)
     starters, chain = lineup_names(roster, wire)
     modes = []
     for name, pos, rate in roster:
@@ -111,22 +130,19 @@ def tree(roster: list[Player], wire: dict[str, float], rates: dict[int, dict[str
     for name in [*starters, *chain]:
         bumped = [(n, p, r + 1.0) if n == name else (n, p, r) for n, p, r in roster]
         plus_one.append({"player": name, "place": "starter" if name in starters else f"bench {chain.index(name) + 1}",
-                         "title_per_point": round(title_points(final_weeks(bumped, wire, rates, seed, sims), base, per_point), 2)})
+                         "title_per_point": round(title_points(final_weeks(bumped, wire, rates), base, per_point), 2)})
     return {"full_health": round(full, 1), "expected": {w: round(v, 1) for w, v in base.items()},
             "injury_tax_title": round(title_points(base, dict.fromkeys(FINAL_WEEKS, full), per_point), 1),
             "failure_modes": modes, "one_more_point": plus_one, "wire": wire}
 
 
 def swap_value(roster: list[Player], wire: dict[str, float], rates: dict[int, dict[str, float]],
-               per_point: dict[int, float], drop: str, add: Player, seed: int = 11, sims: int = SIMS) -> float:
-    """Title points of one swap: the roster with `add` in the place of `drop`, against the roster as it is.
-    The add takes the row of the drop, so both rosters share their draws."""
+               per_point: dict[int, float], drop: str, add: Player) -> float:
+    """Title points of one swap: the roster with `add` in the place of `drop`, against the roster as it is."""
     if not any(n == drop for n, _, _ in roster):
         raise ValueError(f"{drop} is not on the roster")
     after = [add if n == drop else (n, p, r) for n, p, r in roster]
-    # The same draw decides whether the drop or the add is missing only when they
-    # share a position's rate; across RB and WR the rates differ by 2 points or less.
-    return title_points(final_weeks(after, wire, rates, seed, sims), final_weeks(roster, wire, rates, seed, sims), per_point)
+    return title_points(final_weeks(after, wire, rates), final_weeks(roster, wire, rates), per_point)
 
 
 # ---- inputs -----------------------------------------------------------------
