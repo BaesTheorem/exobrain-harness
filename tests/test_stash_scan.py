@@ -88,6 +88,29 @@ def test_return_hint_reads_the_shapes_the_news_uses():
     assert hint([{"headline": "Out for the season"}], 6)[1] is True
 
 
+def test_the_gate_does_not_move_with_the_leverage_scale():
+    """2026-11-11: at 99.9% playoff odds the leverage run put weeks 16 and 17
+    at 74 and 84 units (they were 11 and 12), and the fixed gate of 20 became
+    6 times easier. A stash is judged on the same scale whatever the run says."""
+    inflated = {**{w: 1.0 for w in range(1, 15)}, 15: 2.2, 16: 74.3, 17: 84.5}
+
+    def one(pool, weights):
+        return stash_scan.scan(10, roster(), pool, weights)
+
+    marginal = [r(23, "Marginal WR", "WR", BENCH, 12.0, status="IR")]   # 12 x 0.89 = 10.68 against our 10.0
+    base, big = one(marginal, stash_scan.DEFAULT_WEIGHTS), one([dict(marginal[0])], inflated)
+    assert not base["candidates"][0]["passes"]
+    assert not big["candidates"][0]["passes"], "on the raw 161-unit scale this gain is +58 and clears the gate"
+    assert big["candidates"][0]["units"] == pytest.approx(stash_scan.PLAYOFF_UNITS_REF)
+    assert big["candidates"][0]["gain"] == pytest.approx(base["candidates"][0]["gain"], abs=0.2)
+    star = one([r(20, "Star WR", "WR", BENCH, 18.0, status="IR")], inflated)
+    assert star["candidates"][0]["passes"], "the planted PASS still shows on the inflated scale"
+    # The split between the playoff weeks is kept: a week-17-only return is worth week 17's share.
+    late = {24: [{"story": "He is expected back in Week 17."}]}
+    w17 = stash_scan.scan(10, roster(), [r(24, "Late WR", "WR", BENCH, 18.0, status="IR")], inflated, news=late)
+    assert w17["candidates"][0]["units"] == pytest.approx(25.0 * 84.5 / (2.2 + 74.3 + 84.5), abs=0.1)
+
+
 def test_a_stale_leverage_cache_falls_back_to_the_defaults(tmp_path):
     cache = tmp_path / "leverage.json"
     cache.write_text('{"weight": {"15": 1.5, "16": 8.0, "17": 9.5}}')

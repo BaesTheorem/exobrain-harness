@@ -21,7 +21,13 @@ the measured discounts, against the starter each one would replace for us:
   (`.cache/leverage.json`, weeks 16 and 17 about 11 each), summed from the
   week his news says he is back, or over weeks 15-17 when it says nothing.
 
-The gate is 20 units of points, what +20 regular-season points meant. A
+The gate is 20 units of points, what +20 regular-season points meant on
+2026-10-14, when weeks 15-17 summed to 25 units. The weights are put back on
+that scale before they are used (`on_reference_scale`), so the gate keeps one
+definition: about 0.8 expected points in each playoff week. Found 2026-11-11:
+at 99.9% playoff odds a regular-week point is worth almost nothing to the
+title, the leverage unit collapsed, weeks 15-17 summed to 161 units, and the
+fixed gate of 20 became 6 times easier to clear. A
 PASS goes to the IR slot when the slot is empty and his status is IR;
 otherwise he needs a bench spot until he is back. Only an IR-slot PASS is
 bannered (`--banner`), because the playbook runs this from week 9, when the
@@ -64,6 +70,7 @@ INJURED = {"OUT", "IR"}            # short_status codes
 LAST_WEEK = 17
 REG_SEASON_END = 14
 DEFAULT_WEIGHTS = {**{w: 1.0 for w in range(1, REG_SEASON_END + 1)}, 15: 2.0, 16: 11.0, 17: 12.0}
+PLAYOFF_UNITS_REF = 25.0           # weeks 15-17 in DEFAULT_WEIGHTS: the scale GATE_UNITS is set on
 LEVERAGE_CACHE = FANTASY / ".cache" / "leverage.json"
 LEVERAGE_MAX_AGE = 8 * 86400
 STATE = FANTASY / ".cache" / "stash-scan.json"
@@ -89,6 +96,19 @@ def weights_cached(path: Path = LEVERAGE_CACHE, now: float | None = None) -> tup
         return (w, "season_sim --leverage") if w else (DEFAULT_WEIGHTS, "default (empty cache)")
     except (OSError, ValueError, TypeError):
         return DEFAULT_WEIGHTS, "default (no leverage cache)"
+
+
+def on_reference_scale(weights: dict[int, float]) -> dict[int, float]:
+    """The weights rescaled so weeks 15-17 sum to PLAYOFF_UNITS_REF.
+
+    `season_sim --leverage` divides every week by the mean regular-season
+    week. That mean goes to zero once the playoff berth is safe, so the same
+    playoff week reads as 11 units one Tuesday and 84 the next. The split
+    between weeks 15, 16 and 17 is the part that carries information."""
+    total = sum(v for w, v in weights.items() if REG_SEASON_END < w <= LAST_WEEK)
+    if total <= 0:
+        return dict(weights)
+    return {w: v * PLAYOFF_UNITS_REF / total for w, v in weights.items()}
 
 
 def return_hint(news: list[dict], week: int) -> tuple[int | None, bool, str]:
@@ -133,6 +153,7 @@ def scan(week: int, roster: list[dict], pool: list[dict], weights: dict[int, flo
          appeared: dict[str, int] | None = None, gate: float = GATE_UNITS, top: int = 5) -> dict:
     """Pure: rows in, priced stashes out. `news` is player id -> newest items first."""
     games, appeared, news = games or {}, appeared or {}, news or {}
+    weights = on_reference_scale(weights)
     for p in [*roster, *pool]:
         p["rate"] = ros_rate(week, p.get("proj"), p.get("season_proj"), p.get("season_actual"),
                              games.get(p.get("team") or ""), appeared.get(f"{norm(p['name'])}|{p['pos']}"))

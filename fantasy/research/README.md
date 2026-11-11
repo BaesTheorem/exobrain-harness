@@ -14,6 +14,7 @@ notes in `~/Exobrain/Research/` cite these files. Built 2026-10-15.
 | `sleeper_crawl.py` | Crawls public Sleeper leagues (2024-2025) for the two scripts below | raw files in `/tmp/ffvoi`, never in the repo |
 | `standings_decomp.py` | Where do final standings come from: draft, acquisitions, lineups or schedule luck, and which parts persist for a manager? | `out/standings_decomp.json` |
 | `sleeper_validation.py` | Is `espn check`'s win probability calibrated on real matchups, and is `season_sim.py` calibrated on real seasons? | `out/sleeper_validation.json` |
+| `playoff_absence.py` | How often is a starter of week 10 missing in weeks 15-17 (2021-2025), and what does that cost our live roster in title odds, slot by slot? | `out/playoff_absence.json` |
 
 ## Rules
 
@@ -36,4 +37,6 @@ python3 research/fp_eval.py
 python3 research/sleeper_crawl.py --seed-league <id> --target 1000   # slow: hundreds of leagues, 2024-2025
 python3 research/standings_decomp.py
 python3 research/sleeper_validation.py winprob|byes|all
+python3 research/playoff_absence.py rates        # the measurement (control: weeks 11-14 must be lower)
+python3 research/playoff_absence.py tree         # our roster against it: failure modes, value of each bench place
 ```
