@@ -121,6 +121,13 @@ sent on 2026-11-11 when a library song was attached in its Audio card.
   takes came back at 169.7 s and 170.0 s. The new layer did not stay on the source's
   phrases: its lines were correct at the start and at the end and moved in the middle.
 
+Both kinds put a held bed of sound in the pauses of an a cappella source. For one such
+song, the pauses of the source were 26 dB below the singing, and the pauses of all 23 takes
+were between -2 dB and +7 dB. The style text and the exclude field did not change that.
+`suno raw GET /gen/<id>/aligned_lyrics/v2/` returns `waveform_data`, Suno's own level curve
+of a take. With the line times from the same answer, it gives the pause level with no
+download. It agreed with three measurements from audio to 0.7 dB.
+
 The lyrics default to the source song's own sheet. `--variety` is the form's Variety slider
 (`aug_creativity`). From 1 up, Suno writes the style text again in its own words; the form's
 default is 1. This command leaves it off, and the style is then stored as sent.
@@ -179,15 +186,13 @@ These results are from 2026-11-11. The last column names what gave the answer.
 | A download is a full file | The audio of an unlocked song decoded at the length that Suno gives | `ffprobe` |
 | An unlocked song costs nothing | The download counter did not change | Suno's counter |
 | A locked song is not opened by accident | It gave `not_authorized` and the counter did not change | Suno's counter |
+| An unlock costs one download | Two locked songs were unlocked; the counter went from 20 to 19 to 18 | Suno's counter |
+| A remix is accepted | `add-vocals` two times and `cover` two times, 10 credits each | Suno's balance |
 | The request bodies agree with the website | The two bodies were in step with the live form | `doctor --drift` |
 
 Not examined:
 
-- The unlock of a locked song (`POST /download/authorize`). The code is there and its test
-  uses a fake server. The first `download --yes` of a locked song is its first live use.
 - WAV downloads and M4A downloads.
-- `remix --kind cover` as a live request. Its body is equal to the captured one, key by key.
-  `remix --kind add-vocals` was sent two times, 10 credits each.
 - The `--persona` and `--max-mode` flags. They set fields that the live form also sends.
 - Each call on the official lane after the consent page: the token trade, the tool list and
   a tool call. Their tests use a fake server.
