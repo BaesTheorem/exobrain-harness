@@ -5,10 +5,11 @@ Everything in this directory except this file is gitignored.
 | File | What it is | Rebuild |
 | --- | --- | --- |
 | `session.json` | The Suno login: the `__client` cookie from `auth.suno.com`, the device id, the Clerk session id, and the last API token with its time | `suno auth import` (reads Chrome) or `suno auth set` (paste) |
+| `oauth.json` | The official lane: the OAuth client id that Suno registered for this tool and, after a sign-in, the access token and the refresh token | `suno connect` (registers a client when none is stored) |
 
 The cookie is as good as the password while it lives, so the file is written `0600` and the
 CLI never prints it. The API token in the file carries the account's e-mail address and phone
-number in its claims, so do not paste the file anywhere. `suno auth clear` deletes it.
+number in its claims, so do not paste the file anywhere. `suno auth clear` deletes it. `suno disconnect` revokes and deletes the tokens in `oauth.json`.
 
 ## Getting the login
 

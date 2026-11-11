@@ -398,8 +398,11 @@ Limits to keep in mind:
 
 - The stream that suno.com plays is protected. Do not try to save it. The
   download flow is the only source of audio.
-- Covers, extends and uploads are not in this tool. They are on Suno's official
-  MCP.
+- Covers, extends and uploads are not in this tool. Suno's official MCP has
+  them, and Suno opens it one account at a time. `suno connect --status` shows
+  if Alex's account is signed in. If it is not, try `suno connect` only when he
+  asks: it opens his browser. On 2026-11-11 Suno's page said that the feature
+  was not available for his account yet.
 - Exit status 5 means Suno changed its web API. Run `suno doctor --drift`: it
   captures the live form's request (sent nowhere) and prints what changed.
 - Never put copyrighted lyrics in `--lyrics`. Suno's checks reject them and the

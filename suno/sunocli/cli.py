@@ -25,7 +25,7 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any, Callable
 
-from sunocli import model, session as sess
+from sunocli import model, official, session as sess
 from sunocli.api import (AuthRejected, NotAuthorized, OutcomeUnknown, RateLimited, Rejected,
                          SchemaDrift, SunoClient, SunoError)
 from sunocli.captcha import CaptchaBlocked, token_for
@@ -507,6 +507,65 @@ def cmd_doctor(args: argparse.Namespace, ctx: "Ctx") -> int:
     return 0 if all(ok for _, ok, _ in checks) else 1
 
 
+# -- commands: the official interface ----------------------------------------------------------
+
+
+def spends(tool: Json) -> bool:
+    """A tool can spend or change something unless the server marks it read-only."""
+    return (tool.get("annotations") or {}).get("readOnlyHint") is not True
+
+
+def cmd_connect(args: argparse.Namespace, ctx: "Ctx") -> int:
+    if args.status:
+        state = official.load()
+        if not (state.get("refresh_token") or state.get("access_token")):
+            out("Not connected to Suno's official interface. Run `suno connect`.")
+            return 3
+        left = int(state.get("expires_at", 0) - time.time())
+        out(f"Connected. Scopes: {state.get('scope') or '(not given)'}")
+        out(f"Access token: {'good for ' + str(max(left, 0) // 60) + ' min' if left > 0 else 'expired'}; "
+            f"refresh token: {'yes' if state.get('refresh_token') else 'no'}")
+        return 0
+    note("Opening Suno's sign-in page in the browser. Approve the connection there.\n"
+         "If the page says that the connection is not available for the account, press Ctrl-C: "
+         "Suno has not opened the official interface for that account yet.")
+    official.sign_in()
+    ctx.reset()
+    server = ctx.mcp.initialize()
+    info = server.get("serverInfo") or {}
+    out(f"Connected to {info.get('name', 'Suno MCP')} {info.get('version', '')}".rstrip() +
+        f", {len(ctx.mcp.tools())} tools.")
+    return 0
+
+
+def cmd_disconnect(args: argparse.Namespace, ctx: "Ctx") -> int:
+    official.OfficialAuth().disconnect()
+    out("Disconnected from Suno's official interface.")
+    return 0
+
+
+def cmd_tools(args: argparse.Namespace, ctx: "Ctx") -> int:
+    tools = ctx.mcp.tools()
+    if args.json:
+        emit_json(tools)
+        return 0
+    for tool in tools:
+        first = str(tool.get("description") or "").strip().split("\n")[0][:96]
+        out(f"{tool.get('name', '?'):34} {'spends/changes' if spends(tool) else 'read-only':15} {first}")
+    return 0
+
+
+def cmd_call(args: argparse.Namespace, ctx: "Ctx") -> int:
+    tool = next((t for t in ctx.mcp.tools() if t.get("name") == args.tool), None)
+    if tool is None:
+        raise InputError(f"no official tool named {args.tool!r}; see `suno tools`")
+    if spends(tool):
+        confirm(args, f"The tool '{args.tool}' is not marked read-only: it can spend credits or change the library.")
+    result = ctx.mcp.call(args.tool, json.loads(args.arguments) if args.arguments else {})
+    emit_json(result["data"] if result["data"] is not None else {"text": result["text"]})
+    return 0
+
+
 # -- wiring ------------------------------------------------------------------------------------
 
 
@@ -514,10 +573,19 @@ class Ctx:
     """What a command needs. Tests replace the client, the ledger and the byte fetcher."""
 
     def __init__(self, client: SunoClient | None = None, ledger: Ledger | None = None,
-                 fetch: Callable[[str, Path], int] = fetch_file) -> None:
+                 fetch: Callable[[str, Path], int] = fetch_file,
+                 mcp: official.McpClient | None = None) -> None:
         self._client = client
+        self._mcp = mcp
         self.ledger = ledger or Ledger()
         self.fetch = fetch
+
+    @property
+    def mcp(self) -> official.McpClient:
+        """The official endpoint. Raises NotConnected on first use when there is no sign-in."""
+        if self._mcp is None:
+            self._mcp = official.McpClient(official.OfficialAuth())
+        return self._mcp
 
     @property
     def client(self) -> SunoClient:
@@ -527,6 +595,7 @@ class Ctx:
 
     def reset(self) -> None:
         self._client = None
+        self._mcp = None
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -614,6 +683,15 @@ def build_parser() -> argparse.ArgumentParser:
     r.add_argument("path", help="for example /billing/info/")
     r.add_argument("body", nargs="?", help="JSON body")
 
+    con = add("connect", cmd_connect, "Sign in to Suno's official interface (opens the browser one time).", json_flag=False)
+    con.add_argument("--status", action="store_true", help="show the connection; open nothing")
+    add("disconnect", cmd_disconnect, "Revoke and delete the official sign-in.", json_flag=False)
+    add("tools", cmd_tools, "The tools that Suno's official interface offers.")
+    cl = add("call", cmd_call, "Call one official tool with JSON arguments.", json_flag=False)
+    cl.add_argument("tool")
+    cl.add_argument("arguments", nargs="?", help="JSON object")
+    cl.add_argument("-y", "--yes", action="store_true", help="confirm a tool that is not read-only")
+
     doc = add("doctor", cmd_doctor, "Health checks: login, token, API, bot check, tools.", json_flag=False)
     doc.add_argument("--drift", action="store_true",
                      help="capture the live Create form's request (sent nowhere) and compare shapes")
@@ -628,7 +706,7 @@ def main(argv: list[str] | None = None, ctx: Ctx | None = None) -> int:
     except (InputError, json.JSONDecodeError, FileNotFoundError) as err:
         note(f"suno: {err}")
         return 2
-    except (sess.LoginNeeded, AuthRejected) as err:
+    except (sess.LoginNeeded, AuthRejected, official.NotConnected) as err:
         note(f"suno: {err}")
         return 3
     except (Blocked, CaptchaBlocked) as err:
@@ -640,7 +718,7 @@ def main(argv: list[str] | None = None, ctx: Ctx | None = None) -> int:
     except OutcomeUnknown as err:
         note(f"suno: {err}\nThe request possibly went through. Read `suno list` and `suno jobs` first.")
         return 6
-    except (RateLimited, Rejected, SunoError) as err:
+    except (RateLimited, Rejected, SunoError, official.McpError) as err:
         note(f"suno: {err}")
         return 1
     except KeyboardInterrupt:

@@ -16,7 +16,7 @@ import pytest
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "suno"))
 
-from sunocli import cli, drift, model, session as sess  # noqa: E402
+from sunocli import cli, drift, model, official, session as sess  # noqa: E402
 from sunocli.api import (AuthRejected, NotAuthorized, NotFound, OutcomeUnknown, RateLimited,  # noqa: E402
                          Rejected, SchemaDrift, SunoClient, browser_token)
 from sunocli.ledger import Blocked, Ledger, fingerprint  # noqa: E402
@@ -624,3 +624,203 @@ def test_drift_compare_reports_each_kind_of_change():
         assert expected in problems
     assert drift.compare(live_capture("simple", task="agentic_v2"), PLAN, "dev-1", "0x4AAAAAAAAAAAAAAAAAAAAA") == [
         "[simple] task: live value 'agentic_v2', here 'agentic_thinking'"]
+
+
+# -- the official interface: sign-in and MCP ---------------------------------------------------
+
+
+class HeaderFake:
+    """Like FakeTransport, for the transport that also returns response headers."""
+
+    def __init__(self, *responses):
+        self.responses = list(responses)
+        self.calls = []
+
+    def __call__(self, method, url, body, headers):
+        self.calls.append((method, url, body, headers))
+        status, resp_headers, payload = self.responses.pop(0)
+        return status, resp_headers, (payload if isinstance(payload, bytes) else json.dumps(payload).encode())
+
+
+RESOURCE_META = {"authorization_servers": ["https://as.invalid/api/oauth"],
+                 "scopes_supported": ["credits:spend", "download", "offline_access"]}
+AS_META = {"authorization_endpoint": "https://as.invalid/api/oauth/authorize/",
+           "token_endpoint": "https://as.invalid/api/oauth/token/",
+           "registration_endpoint": "https://as.invalid/api/oauth/register/",
+           "revocation_endpoint": "https://as.invalid/api/oauth/revoke_token/",
+           "code_challenge_methods_supported": ["S256"]}
+JSON_H = {"content-type": "application/json"}
+
+
+def test_pkce_challenge_is_the_s256_of_the_verifier():
+    import hashlib
+
+    verifier, challenge = official.pkce_pair()
+    want = base64.urlsafe_b64encode(hashlib.sha256(verifier.encode()).digest()).decode().rstrip("=")
+    assert challenge == want and "=" not in challenge and len(verifier) >= 43
+
+
+def test_discover_reads_both_documents_and_needs_s256():
+    transport = HeaderFake((200, JSON_H, RESOURCE_META), (200, JSON_H, AS_META))
+    meta = official.discover(transport)
+    assert meta["token_endpoint"].endswith("/token/") and meta["scopes_for_resource"] == RESOURCE_META["scopes_supported"]
+    assert transport.calls[0][1] == official.RESOURCE_METADATA
+    assert transport.calls[1][1] == "https://as.invalid/.well-known/oauth-authorization-server/api/oauth"
+    weak = dict(AS_META, code_challenge_methods_supported=["plain"])
+    with pytest.raises(official.McpError):
+        official.discover(HeaderFake((200, JSON_H, RESOURCE_META), (200, JSON_H, weak)))
+
+
+def test_sign_in_registers_opens_the_browser_and_trades_the_code():
+    from urllib.parse import parse_qs, urlsplit
+
+    transport = HeaderFake((200, JSON_H, RESOURCE_META), (200, JSON_H, AS_META),
+                           (201, JSON_H, {"client_id": "dcr-test"}),
+                           (200, JSON_H, {"access_token": "at-1", "refresh_token": "rt-1", "expires_in": 600,
+                                          "scope": "credits:spend download"}))
+    opened, seen_state = [], []
+
+    def waiter(state):
+        seen_state.append(state)
+        return "code-1"
+
+    state = official.sign_in(transport, opener=opened.append, waiter=waiter, clock=lambda: 1000.0,
+                             persist=False, state={})
+    query = parse_qs(urlsplit(opened[0]).query)
+    assert query["client_id"] == ["dcr-test"] and query["redirect_uri"] == [official.REDIRECT_URI]
+    assert query["code_challenge_method"] == ["S256"] and query["resource"] == [official.MCP_URL]
+    assert query["scope"] == ["credits:spend download offline_access"] and query["state"] == seen_state
+    form = parse_qs(transport.calls[3][2].decode())
+    assert form["grant_type"] == ["authorization_code"] and form["code"] == ["code-1"]
+    import hashlib
+
+    digest = hashlib.sha256(form["code_verifier"][0].encode()).digest()
+    assert base64.urlsafe_b64encode(digest).decode().rstrip("=") == query["code_challenge"][0]
+    assert (state["access_token"], state["refresh_token"], state["expires_at"]) == ("at-1", "rt-1", 1600)
+
+
+def test_sign_in_reuses_a_registered_client_and_stores_nothing_when_refused():
+    transport = HeaderFake((200, JSON_H, RESOURCE_META), (200, JSON_H, AS_META))
+
+    def refused(state):
+        raise official.NotConnected("not available for the account")
+
+    with pytest.raises(official.NotConnected):
+        official.sign_in(transport, opener=lambda url: None, waiter=refused, persist=False,
+                         state={"client_id": "dcr-kept"})
+    assert len(transport.calls) == 2  # no registration, no token request
+
+
+def auth_state(**over) -> dict:
+    state = {"client_id": "dcr-test", "token_endpoint": AS_META["token_endpoint"], "access_token": "at-1",
+             "refresh_token": "rt-1", "expires_at": 2000}
+    state.update(over)
+    return state
+
+
+def test_access_token_is_reused_then_refreshed():
+    transport = HeaderFake((200, JSON_H, {"access_token": "at-2", "expires_in": 600}))
+    now = [1000.0]
+    auth = official.OfficialAuth(transport, auth_state(), clock=lambda: now[0], persist=False)
+    assert auth.token() == "at-1" and not transport.calls
+    now[0] = 1950.0  # less than a minute left
+    assert auth.token() == "at-2"
+    assert b"grant_type=refresh_token" in transport.calls[0][2] and b"refresh_token=rt-1" in transport.calls[0][2]
+    assert auth.state["refresh_token"] == "rt-1" and auth.state["expires_at"] == 2550
+
+
+def test_a_refused_refresh_or_no_sign_in_is_not_connected():
+    auth = official.OfficialAuth(HeaderFake((400, JSON_H, {"error": "invalid_grant"})), auth_state(expires_at=0),
+                                 clock=lambda: 1000.0, persist=False)
+    with pytest.raises(official.NotConnected):
+        auth.token()
+    with pytest.raises(official.NotConnected):
+        official.OfficialAuth(HeaderFake(), {"client_id": "dcr-test"}, persist=False).token()
+
+
+def test_parse_rpc_reads_json_and_event_streams():
+    body = json.dumps({"jsonrpc": "2.0", "id": 3, "result": {"ok": 1}}).encode()
+    assert official.parse_rpc("application/json", body, 3)["result"] == {"ok": 1}
+    stream = (b'event: message\ndata: {"jsonrpc":"2.0","method":"notifications/progress"}\n\n'
+              b'event: message\r\ndata: {"jsonrpc":"2.0","id":3,\r\ndata: "result":{"ok":2}}\r\n\r\n')
+    assert official.parse_rpc("text/event-stream; charset=utf-8", stream, 3)["result"] == {"ok": 2}
+    with pytest.raises(official.McpError):
+        official.parse_rpc("application/json", body, 4)
+
+
+def rpc(result, rid, headers=None):
+    return 200, {**JSON_H, **(headers or {})}, {"jsonrpc": "2.0", "id": rid, "result": result}
+
+
+READ_TOOL = {"name": "get_credits", "description": "Show the balance.", "annotations": {"readOnlyHint": True}}
+PAID_TOOL = {"name": "create_song", "description": "Make a song.\nSpends credits."}
+
+
+def make_mcp(*responses, state=None):
+    transport = HeaderFake(*responses)
+    auth = official.OfficialAuth(HeaderFake(), state or auth_state(), clock=lambda: 1000.0, persist=False)
+    return official.McpClient(auth, transport), transport
+
+
+def test_mcp_handshake_paging_and_headers():
+    mcp, transport = make_mcp(
+        rpc({"protocolVersion": "2025-03-26", "serverInfo": {"name": "Test"}}, 1, {"mcp-session-id": "s-1"}),
+        (202, {}, b""), rpc({"tools": [READ_TOOL], "nextCursor": "c2"}, 2), rpc({"tools": [PAID_TOOL]}, 3),
+        rpc({"content": [{"type": "text", "text": '{"credits": 5}'}]}, 4))
+    assert [t["name"] for t in mcp.tools()] == ["get_credits", "create_song"]
+    assert json.loads(transport.calls[1][2]) == {"jsonrpc": "2.0", "method": "notifications/initialized"}
+    assert json.loads(transport.calls[3][2])["params"] == {"cursor": "c2"}
+    later = transport.calls[2][3]
+    assert later["mcp-session-id"] == "s-1" and later["mcp-protocol-version"] == "2025-03-26"
+    assert later["authorization"] == "Bearer at-1" and "mcp-session-id" not in transport.calls[0][3]
+    assert mcp.call("get_credits")["data"] == {"credits": 5}
+    assert json.loads(transport.calls[4][2])["params"] == {"name": "get_credits", "arguments": {}}
+
+
+def test_mcp_errors_surface_and_a_dead_token_is_replaced_once():
+    mcp, _ = make_mcp(rpc({"protocolVersion": "2025-06-18"}, 1), (202, {}, b""),
+                      rpc({"content": [{"type": "text", "text": "not enough credits"}], "isError": True}, 2))
+    with pytest.raises(official.McpError, match="not enough credits"):
+        mcp.call("create_song", {"prompt": "x"})
+    mcp, _ = make_mcp((200, JSON_H, {"jsonrpc": "2.0", "id": 1, "error": {"code": -32601, "message": "no such method"}}))
+    with pytest.raises(official.McpError, match="no such method"):
+        mcp.request("nope")
+    mcp, transport = make_mcp((401, JSON_H, {"error": "expired"}), rpc({"protocolVersion": "2025-06-18"}, 1))
+    mcp.auth.transport = HeaderFake((200, JSON_H, {"access_token": "at-9", "expires_in": 600}))
+    mcp.request("initialize", {})
+    assert transport.calls[1][3]["authorization"] == "Bearer at-9"
+    mcp, _ = make_mcp((401, JSON_H, {}), (401, JSON_H, {}))
+    mcp.auth.transport = HeaderFake((200, JSON_H, {"access_token": "at-9", "expires_in": 600}))
+    with pytest.raises(official.NotConnected):
+        mcp.request("initialize", {})
+
+
+HANDSHAKE = (rpc({"protocolVersion": "2025-06-18"}, 1), (202, {}, b""))
+
+
+def test_call_needs_yes_unless_the_server_marks_the_tool_read_only(tmp_path, capsys):
+    mcp, transport = make_mcp(*HANDSHAKE, rpc({"tools": [READ_TOOL, PAID_TOOL]}, 2))
+    ctx = cli.Ctx(client=make_client()[0], ledger=Ledger(tmp_path), mcp=mcp)
+    assert cli.main(["call", "create_song", '{"prompt": "x"}'], ctx) == 4
+    assert all(json.loads(c[2]).get("method") != "tools/call" for c in transport.calls)
+    assert "not marked read-only" in capsys.readouterr().err
+
+    mcp, transport = make_mcp(*HANDSHAKE, rpc({"tools": [READ_TOOL, PAID_TOOL]}, 2),
+                              rpc({"content": [{"type": "text", "text": '{"credits": 5}'}]}, 3))
+    ctx = cli.Ctx(client=make_client()[0], ledger=Ledger(tmp_path), mcp=mcp)
+    assert cli.main(["call", "get_credits"], ctx) == 0
+    assert json.loads(capsys.readouterr().out) == {"credits": 5}
+    assert cli.main(["call", "nope"], cli.Ctx(client=make_client()[0], ledger=Ledger(tmp_path),
+                                              mcp=make_mcp(*HANDSHAKE, rpc({"tools": []}, 2))[0])) == 2
+
+
+def test_tools_listing_and_the_not_connected_exits(tmp_path, capsys, monkeypatch):
+    mcp, _ = make_mcp(*HANDSHAKE, rpc({"tools": [READ_TOOL, PAID_TOOL]}, 2))
+    assert cli.main(["tools"], cli.Ctx(client=make_client()[0], ledger=Ledger(tmp_path), mcp=mcp)) == 0
+    lines = capsys.readouterr().out.splitlines()
+    assert "read-only" in lines[0] and "spends/changes" in lines[1] and "Spends credits" not in lines[1]
+
+    monkeypatch.setattr(official, "OAUTH_PATH", tmp_path / "oauth.json")
+    assert cli.main(["connect", "--status"], cli.Ctx(client=make_client()[0], ledger=Ledger(tmp_path))) == 3
+    unsigned = official.McpClient(official.OfficialAuth(HeaderFake(), {}, persist=False), HeaderFake())
+    assert cli.main(["tools"], cli.Ctx(client=make_client()[0], ledger=Ledger(tmp_path), mcp=unsigned)) == 3

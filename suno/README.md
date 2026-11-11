@@ -13,6 +13,7 @@ suno generate --tags "..." --lyrics-file song.txt --title "..." --yes --wait
 suno describe "a slow piano piece for a rainy morning" --yes --wait
 suno download <clip> --yes           audio plus lyrics and metadata
 suno doctor --drift                  health checks and the request-shape check
+suno connect                         sign in to Suno's official interface (see below)
 ```
 
 `<clip>` is a full id, a `suno.com/song/...` link, or the short id that `suno list` prints.
@@ -21,18 +22,29 @@ Add `--json` to a command for machine-readable output.
 ## Read this first: Suno has an official interface
 
 Suno has an official MCP server in beta at `https://api.suno.com/mcp`. It uses an OAuth
-sign-in and is open to all plans, the Free plan included
+sign-in. Suno's FAQ says that it is open to all plans, the Free plan included
 ([Suno help: Suno MCP (Beta)](https://help.suno.com/en/categories/2817153-suno-mcp-beta),
 three articles, each edited 2026-10-28). The scopes that the server gives in its OAuth
 metadata include `credits:spend`, `download`, `library:read` and `library:write`. Suno's
 page names Covers, Extends, Mashups, Speech and audio upload.
 
-This CLI does not use that interface at this time. It talks to the endpoints that the
-suno.com website calls (`https://suno.com/a/api/...`). Suno does not document those
-endpoints and can change them without notice. All the text below is about that web lane.
+Suno opens that interface one account at a time. On 2026-11-11 the sign-in for a paid
+account stopped at Suno's consent page. The page said that connecting AI apps was not
+available for that account at that time. This tool does not go around that.
 
-The paid commands must move to the official interface before this tool gets more commands.
-The official tool list needs a sign-in, thus that work has not started.
+Thus the tool has two lanes:
+
+| Lane | Commands | Condition |
+| --- | --- | --- |
+| Official | `connect`, `disconnect`, `tools`, `call` | Ready. The sign-in was tested as far as the consent page. No tool call was made, because no account that could sign in was available. |
+| Web | all other commands | In use. These send requests to the endpoints that the suno.com website calls (`https://suno.com/a/api/...`). Suno does not document those endpoints and can change them without notice. |
+
+`suno connect` opens Suno's consent page in the browser and waits four minutes for the
+answer. When it succeeds, `suno tools` shows what the official interface offers, and the
+paid commands (`generate`, `describe`, `download`) must then move to it. That work needs the
+official tool list, which only a signed-in account can read.
+
+The text below is about the web lane. Where a different lane applies, the text names it.
 
 ## The two things that cost something
 
@@ -61,15 +73,16 @@ Each paid request gets a receipt in `state/receipts/` before it is sent:
   The download flow is the only source of an audio file, and Suno counts it against the plan.
 - There is no playback in the terminal. `generate` prints a `suno.com/song/...` link for
   each song. Listen there, then download the song that you want.
-- There are no covers, extends, uploads, stems or personas. The official interface has them.
-  No web request was captured for them, and this tool sends only requests that were captured.
+- There are no covers, extends, uploads, stems or personas. Suno's page names most of them
+  for the official interface. No web request was captured for them, and this tool sends only
+  requests that were captured.
 
 ## How it works
 
 ### Login
 
 `suno auth import` reads the `__client` cookie for `auth.suno.com` from Chrome. The code
-also has the profile paths for Brave, Arc and Edge, and those were not tested. It stores
+also has the folder paths for Brave, Arc and Edge, and those were not tested. It stores
 the cookie in `secrets/session.json` with mode `0600`.
 Suno's sign-in server changes that cookie into an API token with a life of one hour. The CLI
 gets a new token after 20 minutes. Each command imports the login by itself when none is
@@ -125,8 +138,10 @@ the check deletes that draft. Do this check when a command stops with exit statu
 | `sunocli/ledger.py` | yes | Receipts and the spend log |
 | `sunocli/captcha.py` | yes | The headless Turnstile step |
 | `sunocli/drift.py` | yes | The request-shape check |
+| `sunocli/official.py` | yes | OAuth sign-in and the client for the official MCP endpoint |
 | `sunocli/cli.py` | yes | Commands |
-| `secrets/session.json` | no | The login |
+| `secrets/session.json` | no | The login for the web lane |
+| `secrets/oauth.json` | no | The client id and tokens for the official lane |
 | `state/` | no | Receipts, spend log, the ids that `list` showed |
 | `library/<title>-<id>/` | no | Downloads: audio, `meta.json`, `lyrics.txt`, `lyrics.lrc` |
 
@@ -153,6 +168,8 @@ Not examined:
   uses a fake server. The first `download --yes` of a locked song is its first live use.
 - WAV downloads and M4A downloads.
 - The `--persona` and `--max-mode` flags. They set fields that the live form also sends.
+- Each call on the official lane after the consent page: the token trade, the tool list and
+  a tool call. Their tests use a fake server.
 
 `pytest tests/test_sunocli.py` has the offline tests.
 
