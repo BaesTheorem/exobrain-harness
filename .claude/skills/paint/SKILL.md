@@ -19,6 +19,7 @@ Read `~/Documents/mist-atelier/README.md` before the first painting of a session
 - No image model, no reference image, no tracing. A painting program computes points, lines and colors. It does not make a picture and then copy it. `atelier paint` runs the lint and refuses a program that reads a file or an image.
 - Every canvas change goes through the Studio API. The stroke log is the painting, and `atelier verify` must pass before a work is shown as finished.
 - A persona is invented by MIST. Do not use the name or the signature subject of a living artist.
+- `personas/mist/` holds what MIST paints as itself. No note, rule or memory sets its subject or its style. Each such work is a free choice at the time. Do not write one that does (Alex, 2026-11-11).
 - Color comes from tube pigments. Use `st.match()` for palette puddles and `Mix.lerp()` between puddles. For a picture of many thousand marks, use `st.atlas().mix_linear(rgb)`. It gives the mixture for a color immediately.
 - Before you show a version to Alex, copy `final.jpg` to `shown/<work>-vN.jpg` in the repo. Embed that copy in chat with the raw absolute path. Each version that Alex sees has a new filename.
 
