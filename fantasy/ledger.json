@@ -9,7 +9,7 @@
    "basis": "ESPN+Sleeper projection vs ECR + CBS/FFT",
    "status": "settling",
    "a_pts": 0.0,
-   "b_pts": 53.1
+   "b_pts": 57.9
   },
   {
    "id": 2,
@@ -19,8 +19,8 @@
    "claim": "board took Barkley at pk10 over Lamb; consensus has Barkley RB9 (259.5) vs our RB4 (294.4)",
    "basis": "the Barkley-at-the-wheel bet",
    "status": "settling",
-   "a_pts": 50.5,
-   "b_pts": 168.3
+   "a_pts": 58.7,
+   "b_pts": 201.8
   },
   {
    "id": 3,
@@ -30,7 +30,7 @@
    "claim": "board took Kyren at pk36 over Smith (ECR gap 20)",
    "basis": "Ringer #33 vs consensus 42",
    "status": "settling",
-   "a_pts": 150.0,
+   "a_pts": 159.1,
    "b_pts": 69.0
   },
   {
@@ -41,8 +41,8 @@
    "claim": "board took Downs at pk114 over Godwin (ECR gap 15)",
    "basis": "same WR-tail optimism cluster",
    "status": "settling",
-   "a_pts": 69.7,
-   "b_pts": 53.1
+   "a_pts": 75.1,
+   "b_pts": 57.9
   },
   {
    "id": 5,
@@ -53,7 +53,7 @@
    "basis": "RB depth vs consensus WR",
    "status": "settling",
    "a_pts": 9.3,
-   "b_pts": 146.8
+   "b_pts": 176.9
   },
   {
    "id": 6,
@@ -63,8 +63,8 @@
    "claim": "WR-tail inflation marker: board rates Tyson WR56/Nailor WR59/Boutte WR63 vs consensus WR72/73/91; if these bench WRs bust as consensus expects, the 'WR waits well' conclusion weakens",
    "basis": "board tail vs consensus tail (intra-board sanity pair)",
    "status": "settling",
-   "a_pts": 0.0,
-   "b_pts": 34.4
+   "a_pts": 5.0,
+   "b_pts": 62.9
   },
   {
    "id": 7,
@@ -74,8 +74,8 @@
    "claim": "signed divergence: 29 percent target share, 0.53 WOPR, 75 percent snaps across his 8 games. Volume is the stickiest signal we measure and it says WR9, not WR14.",
    "basis": "pre-draft sign-off",
    "status": "settling",
-   "a_pts": 56.3,
-   "b_pts": 76.1
+   "a_pts": 66.2,
+   "b_pts": 91.6
   },
   {
    "id": 8,
@@ -85,8 +85,8 @@
    "claim": "signed divergence: 11 TDs on 5.5 targets per game is the textbook regression profile (TD-to-next-TD R2 = 0.079). Our fade agrees with our own SELL flag; consensus TE12 is buying last season touchdowns.",
    "basis": "pre-draft sign-off",
    "status": "settling",
-   "a_pts": 64.0,
-   "b_pts": 67.5
+   "a_pts": 74.0,
+   "b_pts": 78.9
   },
   {
    "id": 9,
@@ -96,8 +96,8 @@
    "claim": "live draft 2026: board took Daniels at pick 50 (ECR 57) over Egbuka (ECR ~34, best available by consensus); the VONA call was that the QB cliff would be gone by pick 55 after four QBs went in the first 40 picks",
    "basis": "examiner --live flag; 16 ECR ranks past consensus",
    "status": "settling",
-   "a_pts": 100.6,
-   "b_pts": 71.1
+   "a_pts": 115.2,
+   "b_pts": 78.0
   }
  ]
 }

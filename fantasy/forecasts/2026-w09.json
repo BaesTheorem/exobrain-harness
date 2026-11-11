@@ -748,6 +748,680 @@
    "pf": 892.6
   }
  ],
- "settled": null,
- "forecast_note": "Not in these lines: the pending Adonai Mitchell for Josh Downs claim (Wed 2:00 AM, priority 12 of 13, a breakout claim that The Winners and Waiting for Gordon can take first). If it lands, Downs' line is void and Mitchell is unforecast. Bands are the library's widths: the q75 rebuild test written for 11-03 was not run (it needs an interactive session), so the week 7 alarm stays open."
+ "settled": {
+  "settled_at": "2026-11-10T18:00-06:00",
+  "players": [
+   {
+    "name": "Jayden Daniels",
+    "pos": "QB",
+    "slot": "QB",
+    "mist": {
+     "actual": 14.6,
+     "where": "in50",
+     "in50": true,
+     "in90": true,
+     "error": -2.4,
+     "width50": 10.5,
+     "width90": 25.5
+    },
+    "baseline": {
+     "actual": 14.6,
+     "where": "in50",
+     "in50": true,
+     "in90": true,
+     "error": -2.2,
+     "width50": 10.6,
+     "width90": 25.9
+    }
+   },
+   {
+    "name": "Kenneth Walker III",
+    "pos": "RB",
+    "slot": "RB",
+    "mist": {
+     "actual": 36.3,
+     "where": "in90",
+     "in50": false,
+     "in90": true,
+     "error": 15.8,
+     "width50": 15.0,
+     "width90": 35.0
+    },
+    "baseline": {
+     "actual": 36.3,
+     "where": "in90",
+     "in50": false,
+     "in90": true,
+     "error": 15.7,
+     "width50": 14.3,
+     "width90": 36.3
+    }
+   },
+   {
+    "name": "Ollie Gordon II",
+    "pos": "RB",
+    "slot": "RB",
+    "mist": {
+     "actual": 7.4,
+     "where": "in90",
+     "in50": false,
+     "in90": true,
+     "error": -5.6,
+     "width50": 9.5,
+     "width90": 22.5
+    },
+    "baseline": {
+     "actual": 7.4,
+     "where": "in90",
+     "in50": false,
+     "in90": true,
+     "error": -5.8,
+     "width50": 8.8,
+     "width90": 21.4
+    }
+   },
+   {
+    "name": "Christian Watson",
+    "pos": "WR",
+    "slot": "WR",
+    "mist": {
+     "actual": 30.1,
+     "where": "above",
+     "in50": false,
+     "in90": false,
+     "error": 21.6,
+     "width50": 15.5,
+     "width90": 27.0
+    },
+    "baseline": {
+     "actual": 30.1,
+     "where": "in90",
+     "in50": false,
+     "in90": true,
+     "error": 16.5,
+     "width50": 10.8,
+     "width90": 28.3
+    }
+   },
+   {
+    "name": "Malik Washington",
+    "pos": "WR",
+    "slot": "WR",
+    "mist": {
+     "actual": 4.1,
+     "where": "in90",
+     "in50": false,
+     "in90": true,
+     "error": -4.4,
+     "width50": 9.5,
+     "width90": 23.5
+    },
+    "baseline": {
+     "actual": 4.1,
+     "where": "in90",
+     "in50": false,
+     "in90": true,
+     "error": -4.4,
+     "width50": 10.0,
+     "width90": 24.0
+    }
+   },
+   {
+    "name": "Trey McBride",
+    "pos": "TE",
+    "slot": "TE",
+    "mist": {
+     "actual": 12.4,
+     "where": "in50",
+     "in50": true,
+     "in90": true,
+     "error": -1.6,
+     "width50": 12.0,
+     "width90": 26.5
+    },
+    "baseline": {
+     "actual": 12.4,
+     "where": "in50",
+     "in50": true,
+     "in90": true,
+     "error": -1.8,
+     "width50": 11.5,
+     "width90": 26.3
+    }
+   },
+   {
+    "name": "Ja'Marr Chase",
+    "pos": "WR",
+    "slot": "FLEX",
+    "mist": {
+     "actual": 31.5,
+     "where": "in90",
+     "in50": false,
+     "in90": true,
+     "error": 13.5,
+     "width50": 14.5,
+     "width90": 37.0
+    },
+    "baseline": {
+     "actual": 31.5,
+     "where": "in90",
+     "in50": false,
+     "in90": true,
+     "error": 13.5,
+     "width50": 14.3,
+     "width90": 36.0
+    }
+   },
+   {
+    "name": "Jaguars D/ST",
+    "pos": "D/ST",
+    "slot": "D/ST",
+    "mist": {
+     "actual": 12.0,
+     "where": "in50",
+     "in50": true,
+     "in90": true,
+     "error": 4.5,
+     "width50": 8.0,
+     "width90": 19.0
+    },
+    "baseline": {
+     "actual": 12.0,
+     "where": "in50",
+     "in50": true,
+     "in90": true,
+     "error": 4.7,
+     "width50": 8.1,
+     "width90": 19.1
+    }
+   },
+   {
+    "name": "Brandon Aubrey",
+    "pos": "K",
+    "slot": "K",
+    "mist": {
+     "actual": 9.0,
+     "where": "in50",
+     "in50": true,
+     "in90": true,
+     "error": -1.0,
+     "width50": 8.0,
+     "width90": 20.5
+    },
+    "baseline": {
+     "actual": 9.0,
+     "where": "in50",
+     "in50": true,
+     "in90": true,
+     "error": -0.7,
+     "width50": 8.2,
+     "width90": 19.9
+    }
+   },
+   {
+    "name": "David Montgomery",
+    "unsettled": "not on the roster at week end"
+   },
+   {
+    "name": "Rhamondre Stevenson",
+    "pos": "RB",
+    "slot": "BE",
+    "mist": {
+     "actual": 14.8,
+     "where": "in50",
+     "in50": true,
+     "in90": true,
+     "error": 4.8,
+     "width50": 11.0,
+     "width90": 26.0
+    },
+    "baseline": {
+     "actual": 14.8,
+     "where": "in50",
+     "in50": true,
+     "in90": true,
+     "error": 4.9,
+     "width50": 10.6,
+     "width90": 25.5
+    }
+   },
+   {
+    "name": "Josh Downs",
+    "unsettled": "not on the roster at week end"
+   },
+   {
+    "name": "Devaughn Vele",
+    "pos": "WR",
+    "slot": "BE",
+    "mist": {
+     "actual": 3.7,
+     "where": "in90",
+     "in50": false,
+     "in90": true,
+     "error": -3.8,
+     "width50": 8.5,
+     "width90": 21.5
+    },
+    "baseline": {
+     "actual": 3.7,
+     "where": "in90",
+     "in50": false,
+     "in90": true,
+     "error": -4.0,
+     "width50": 8.9,
+     "width90": 21.0
+    }
+   },
+   {
+    "name": "Deshaun Watson",
+    "unsettled": "not on the roster at week end"
+   },
+   {
+    "name": "Browns D/ST",
+    "unsettled": "not on the roster at week end"
+   },
+   {
+    "name": "Treylon Burks",
+    "unsettled": "not on the roster at week end"
+   },
+   {
+    "name": "Jordyn Tyson",
+    "pos": "WR",
+    "slot": "IR",
+    "mist": {
+     "actual": 5.0,
+     "where": "above",
+     "in50": false,
+     "in90": false,
+     "error": 5.0,
+     "width50": 0,
+     "width90": 1
+    },
+    "baseline": {
+     "actual": 5.0,
+     "where": "in50",
+     "in50": true,
+     "in90": true,
+     "error": 1.5,
+     "width50": 6.5,
+     "width90": 17.7
+    }
+   }
+  ],
+  "team_total": {
+   "mist": {
+    "actual": 164.8,
+    "where": "in90",
+    "in50": false,
+    "in90": true,
+    "error": 36.8,
+    "width50": 33,
+    "width90": 82
+   },
+   "baseline": {
+    "actual": 164.8,
+    "where": "in90",
+    "in50": false,
+    "in90": true,
+    "error": 34.2,
+    "width50": 33.7,
+    "width90": 83.0
+   }
+  },
+  "opp_total": {
+   "mist": {
+    "actual": 86.4,
+    "where": "in90",
+    "in50": false,
+    "in90": true,
+    "error": -38.6,
+    "width50": 35,
+    "width90": 83
+   },
+   "baseline": {
+    "actual": 86.4,
+    "where": "in90",
+    "in50": false,
+    "in90": true,
+    "error": -38.5,
+    "width50": 35.3,
+    "width90": 85.6
+   }
+  },
+  "result": {
+   "won": true,
+   "us": 164.76,
+   "them": 86.44,
+   "mist_win_prob": 0.55,
+   "baseline_win_prob": 0.561,
+   "mist_brier": 0.2025,
+   "baseline_brier": 0.1927
+  },
+  "standing": {
+   "rank": 1,
+   "mist": {
+    "actual": 1,
+    "where": "in50",
+    "in50": true,
+    "in90": true,
+    "error": null,
+    "width50": 1,
+    "width90": 1
+   },
+   "baseline": {
+    "actual": 1,
+    "where": "in50",
+    "in50": true,
+    "in90": true,
+    "error": null,
+    "width50": 1,
+    "width90": 1
+   },
+   "mist_p_first": 0.54,
+   "baseline_p_first": 0.561,
+   "mist_p_top2": 0.98,
+   "baseline_p_top2": 0.986,
+   "first_brier_mist": 0.2116,
+   "first_brier_baseline": 0.1927
+  },
+  "standings_after": [
+   {
+    "team_id": 12,
+    "team": "Chaos Legion",
+    "w": 7,
+    "l": 1,
+    "pf": 1037.9
+   },
+   {
+    "team_id": 5,
+    "team": "End-Zone Dancers",
+    "w": 7,
+    "l": 2,
+    "pf": 1059.5
+   },
+   {
+    "team_id": 1,
+    "team": "The Oprah Winfreys",
+    "w": 6,
+    "l": 2,
+    "pf": 919.5
+   },
+   {
+    "team_id": 7,
+    "team": "Namaslay",
+    "w": 5,
+    "l": 3,
+    "pf": 958.2
+   },
+   {
+    "team_id": 9,
+    "team": "Waiting for Gordon",
+    "w": 5,
+    "l": 3,
+    "pf": 837.1
+   },
+   {
+    "team_id": 11,
+    "team": "The Mighty Marmots",
+    "w": 5,
+    "l": 3,
+    "pf": 828.9
+   },
+   {
+    "team_id": 13,
+    "team": "Goedel, Escher, Butkus",
+    "w": 4,
+    "l": 5,
+    "pf": 1040.9
+   },
+   {
+    "team_id": 6,
+    "team": "KC Breathmints",
+    "w": 4,
+    "l": 5,
+    "pf": 968.0
+   },
+   {
+    "team_id": 4,
+    "team": "Njigba Please!",
+    "w": 3,
+    "l": 5,
+    "pf": 997.7
+   },
+   {
+    "team_id": 10,
+    "team": "Cutie Mark Crusaders",
+    "w": 3,
+    "l": 6,
+    "pf": 1024.7
+   },
+   {
+    "team_id": 14,
+    "team": "Ayahuasca Rodgers",
+    "w": 2,
+    "l": 6,
+    "pf": 888.5
+   },
+   {
+    "team_id": 3,
+    "team": "The Chefs",
+    "w": 2,
+    "l": 6,
+    "pf": 793.0
+   },
+   {
+    "team_id": 2,
+    "team": "The Winners",
+    "w": 1,
+    "l": 7,
+    "pf": 892.6
+   }
+  ],
+  "source_error": {
+   "espn": {
+    "mae": 6.45,
+    "n": 12
+   },
+   "sleeper": {
+    "mae": 6.52,
+    "n": 11
+   },
+   "cbs": {
+    "mae": 7.71,
+    "n": 12
+   },
+   "consensus": {
+    "mae": 6.43,
+    "n": 12
+   },
+   "mist": {
+    "mae": 7.0,
+    "n": 12
+   },
+   "market": {
+    "mae": 10.13,
+    "n": 3
+   }
+  },
+  "coverage": {
+   "mist": {
+    "n": 14,
+    "cov50": 0.357,
+    "cov90": 0.857,
+    "mae": 11.39
+   },
+   "baseline": {
+    "n": 14,
+    "cov50": 0.429,
+    "cov90": 1.0,
+    "mae": 10.6
+   }
+  },
+  "market": {
+   "n": 11,
+   "mist": {
+    "n": 11,
+    "corr_lean_vs_move": 0.297,
+    "sign_agree_on_moves": 0.667,
+    "moves": 6,
+    "mae": 7.227,
+    "mae_market_close_same_rows": 6.669,
+    "mae_market_then_same_rows": 6.842
+   },
+   "consensus": {
+    "n": 11,
+    "corr_lean_vs_move": 0.092,
+    "sign_agree_on_moves": 0.333,
+    "moves": 6,
+    "mae": 6.6,
+    "mae_market_close_same_rows": 6.669,
+    "mae_market_then_same_rows": 6.842
+   },
+   "espn": {
+    "n": 11,
+    "corr_lean_vs_move": 0.115,
+    "sign_agree_on_moves": 0.5,
+    "moves": 6,
+    "mae": 6.718,
+    "mae_market_close_same_rows": 6.669,
+    "mae_market_then_same_rows": 6.842
+   },
+   "rows": [
+    {
+     "week": 9,
+     "name": "Jayden Daniels",
+     "pos": "QB",
+     "then_src": "open",
+     "market_then": 18.94,
+     "market_close": 19.04,
+     "mist": 17.0,
+     "consensus": 19.1,
+     "espn": 19.8,
+     "actual": 14.6
+    },
+    {
+     "week": 9,
+     "name": "Kenneth Walker III",
+     "pos": "RB",
+     "then_src": "open",
+     "market_then": 19.63,
+     "market_close": 20.67,
+     "mist": 20.5,
+     "consensus": 21.8,
+     "espn": 23.0,
+     "actual": 36.3
+    },
+    {
+     "week": 9,
+     "name": "Ollie Gordon II",
+     "pos": "RB",
+     "then_src": "open",
+     "market_then": 13.77,
+     "market_close": 12.83,
+     "mist": 13.0,
+     "consensus": 13.9,
+     "espn": 16.4,
+     "actual": 7.4
+    },
+    {
+     "week": 9,
+     "name": "Christian Watson",
+     "pos": "WR",
+     "then_src": "forecast-time",
+     "market_then": 14.73,
+     "market_close": 14.13,
+     "mist": 8.5,
+     "consensus": 14.8,
+     "espn": 15.7,
+     "actual": 30.1
+    },
+    {
+     "week": 9,
+     "name": "Malik Washington",
+     "pos": "WR",
+     "then_src": "open",
+     "market_then": 11.3,
+     "market_close": 11.73,
+     "mist": 8.5,
+     "consensus": 10.2,
+     "espn": 9.8,
+     "actual": 4.1
+    },
+    {
+     "week": 9,
+     "name": "Trey McBride",
+     "pos": "TE",
+     "then_src": "open",
+     "market_then": 13.92,
+     "market_close": 14.21,
+     "mist": 14.0,
+     "consensus": 16.0,
+     "espn": 14.3,
+     "actual": 12.4
+    },
+    {
+     "week": 9,
+     "name": "Ja'Marr Chase",
+     "pos": "WR",
+     "then_src": "forecast-time",
+     "market_then": 18.03,
+     "market_close": 18.24,
+     "mist": 18.0,
+     "consensus": 19.5,
+     "espn": 22.9,
+     "actual": 31.5
+    },
+    {
+     "week": 9,
+     "name": "Brandon Aubrey",
+     "pos": "K",
+     "then_src": "open",
+     "market_then": 9.42,
+     "market_close": 9.42,
+     "mist": 10.0,
+     "consensus": 10.4,
+     "espn": 10.6,
+     "actual": 9.0
+    },
+    {
+     "week": 9,
+     "name": "Rhamondre Stevenson",
+     "pos": "RB",
+     "then_src": "forecast-time",
+     "market_then": 13.33,
+     "market_close": 15.36,
+     "mist": 10.0,
+     "consensus": 11.9,
+     "espn": 11.8,
+     "actual": 14.8
+    },
+    {
+     "week": 9,
+     "name": "Devaughn Vele",
+     "pos": "WR",
+     "then_src": "open",
+     "market_then": 9.35,
+     "market_close": 9.88,
+     "mist": 7.5,
+     "consensus": 9.3,
+     "espn": 9.9,
+     "actual": 3.7
+    },
+    {
+     "week": 9,
+     "name": "Jordyn Tyson",
+     "pos": "WR",
+     "then_src": "open",
+     "market_then": 7.78,
+     "market_close": 7.03,
+     "mist": 0,
+     "consensus": 5.2,
+     "espn": 0.0,
+     "actual": 5.0
+    }
+   ]
+  }
+ },
+ "forecast_note": "Not in these lines: the pending Adonai Mitchell for Josh Downs claim (Wed 2:00 AM, priority 12 of 13, a breakout claim that The Winners and Waiting for Gordon can take first). If it lands, Downs' line is void and Mitchell is unforecast. Bands are the library's widths: the q75 rebuild test written for 11-03 was not run (it needs an interactive session), so the week 7 alarm stays open.",
+ "review_note": "Won 164.8 to 86.4 against End-Zone Dancers. Coverage this week: 50% 0.36, 90% 0.86 (n=14); baseline 0.43 and 1.00. Season: 50% 0.49, 90% 0.93 (n=110), inside the 0.50 +/- 0.12 alarm band. WIS: MIST 3.21, baseline 3.26 (difference -0.05, se 0.10). Closing line value: corr 0.188, sign agreement 0.50 on 40 moves. FantasyPros ranks: week 9 MIST minus ECR +4.2 (worse), 3-week mean +7.0. Landing slices: q75-q95 at 35% against a calibrated 20%, at the alarm level for the second time (37% after week 7). The high side is where we miss: Walker 36.3, Chase 31.5 and Christian Watson 30.1 all landed above the 50% band, and Watson above the 90% (0-15.5 / 0-27, the questionable mixture at 0.71 to play cut his top). Judged as variance inside well-shaped bands for Walker and Chase. Watson is a band-shape issue: a zero-or-line mixture pulls the upper quantiles down, and that is the second candidate cause of the q75-q95 excess beside the tier medians under 1.0. No rule change from one week: the q75 rebuild test still waits on an interactive session. Opponent 86.4 landed at the 90% floor (Burrow and Gibbs low), variance."
 }
