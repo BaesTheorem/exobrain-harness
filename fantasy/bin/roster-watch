@@ -59,6 +59,8 @@ REPLY_URL = "http://127.0.0.1:5014/notify-reply"
 RIVALS_MAX_AGE = 6 * 3600
 ESPN_TX = HERE / "espn-tx"
 HARNESS = FANTASY.parent
+SHORT_MAX = 140                      # banner length of a review reason; the full one goes to the log
+PLAYOFF_WEEKS = 3                    # weeks 15-17
 REVIEW_MODEL = "claude-opus-5-5"     # Alex, 2026-11-01: the review runs on Opus 5.5
 REVIEW_TIMEOUT = 900
 SAME_POS_ONLY = {"QB", "TE", "K", "D/ST"}   # never a second QB or TE; K and D/ST swap like for like
@@ -115,8 +117,7 @@ def opus_review(ev: dict) -> dict:
         return {"verdict": "HOLD", "reason": "claude CLI not found"}
     pos = ev.get("add_pos") or ev.get("slot")
     kind = "free-agent add (first come)" if ev.get("avail") == "FA" else "waiver claim"
-    gain = f"+{float(ev['gain']):.1f} pts rest of season against a +{float(ev.get('gate', 0)):.1f} gate" \
-        if ev.get("gain") is not None else str(ev.get("why", ""))
+    gain = gain_text(ev) if ev.get("gain") is not None else str(ev.get("why", ""))
     prompt = (
         "/fantasy-football\n\n"
         "Review mode, read-only. roster-watch (fantasy/bin/roster-watch) found a swap that clears the "
@@ -130,7 +131,8 @@ def opus_review(ev: dict) -> dict:
         "fantasy/routines/COMMON.md (rule 3), and whether a different add on the swap-scan board is "
         "clearly better for the same drop. Run fantasy/bin/swap-scan and other read-only tools as you need.\n\n"
         "End your reply with exactly one line of JSON and nothing after it:\n"
-        '{"verdict": "FILE" or "HOLD", "reason": "one sentence"}'
+        '{"verdict": "FILE" or "HOLD", "reason": "one sentence", '
+        '"short": "the same reason in at most 140 characters, for a phone banner"}'
     )
     try:
         r = subprocess.run([claude, "-p", prompt, "--model", REVIEW_MODEL, "--permission-mode", "bypassPermissions"],
@@ -149,8 +151,38 @@ def parse_verdict(text: str) -> dict:
         except json.JSONDecodeError:
             continue
         verdict = str(v.get("verdict", "")).upper()
-        return {"verdict": "FILE" if verdict == "FILE" else "HOLD", "reason": str(v.get("reason", ""))[:300]}
-    return {"verdict": "HOLD", "reason": "review gave no verdict line"}
+        reason = str(v.get("reason", ""))[:300]
+        return {"verdict": "FILE" if verdict == "FILE" else "HOLD", "reason": reason,
+                "short": clip(str(v.get("short") or reason), SHORT_MAX)}
+    return {"verdict": "HOLD", "reason": "review gave no verdict line", "short": "review gave no verdict line"}
+
+
+def clip(text: str, n: int) -> str:
+    """`text` cut to at most `n` characters at a word boundary, marked when cut."""
+    text = " ".join(text.split())
+    if len(text) <= n:
+        return text
+    return text[: n - 3].rsplit(" ", 1)[0].rstrip(",;:") + "..."
+
+
+def gain_text(ev: dict) -> str:
+    """A swap's gain in points a game, the unit the gate is set in.
+
+    swap-scan's `gain` is the rate gap times a horizon in regular-week units,
+    with weeks 15-17 at their title weight from `.cache/leverage.json`. Found
+    2026-11-11: once our playoff odds reached 99.9%, a regular-week point
+    moved the title odds by almost nothing, weeks 16 and 17 went from about
+    11 units to 74 and 84, and the same 1.46-a-game Montgomery-for-Vele gap
+    bannered as "+66.3 pts" one day and "+241.1 pts" the next. The gate
+    scales the same way, so pass or fail did not change, but the total read
+    as real points to Alex and to the Opus review."""
+    gain, gate, weeks = float(ev["gain"]), float(ev.get("gate") or 0), float(ev.get("weeks") or 0)
+    if weeks <= 0:
+        return f"+{gain:.1f} on the swap-scan horizon (gate +{gate:.1f})"
+    out = f"+{gain / weeks:.2f} pts a game over {ev.get('drop') or 'the drop'} (gate {gate / weeks:.2f})"
+    if ev.get("games"):
+        out += f", about {gain / weeks * ev['games']:+.0f} pts over the {ev['games']} games left"
+    return out
 
 
 def auto_file(ev: dict, bench: dict[str, str]) -> dict | None:
@@ -197,7 +229,8 @@ def filed_note(ev: dict) -> str:
     f = ev.get("filed") or {}
     if not f:
         return ""
-    reason = (f.get("review") or {}).get("reason", "")
+    review = f.get("review") or {}
+    reason = review.get("short") or clip(review.get("reason", ""), SHORT_MAX)
     if f.get("held"):
         return f"; Opus review held it ({reason}), tap Do it to file anyway"
     if f.get("verified"):
@@ -231,6 +264,7 @@ def swap_gate_event(st: dict) -> dict | None:
         print(f"swap-scan unavailable: {exc}")
         return None
     gate = float(scan.get("gate", 20.0))
+    games_left = int(scan.get("remaining_weeks") or 0) + PLAYOFF_WEEKS
     pairs: list[dict] = []
     for row in scan.get("swaps", []):
         if row.get("pending_drop"):
@@ -241,6 +275,7 @@ def swap_gate_event(st: dict) -> dict | None:
             if float(c["gain"]) < gate:
                 continue
             pairs.append({"drop": row["drop"], "drop_pos": row["pos"], "add": c["add"],
+                          "weeks": float(row.get("weeks") or 0), "games": games_left,
                           "add_pos": c["pos"], "avail": c["avail"], "gain": float(c["gain"]),
                           "owned": c["owned"], "trend": c["trend"], "flags": c.get("flags") or []})
     pairs.sort(key=lambda b: -b["gain"])
@@ -668,7 +703,7 @@ def main() -> int:
             if filed:
                 ev["filed"] = filed
                 print(f"{stamp} AUTO-FILE {ev['add']} for {ev.get('drop')}: review={filed['review']['verdict']} "
-                      f"verified={filed['verified']} ({filed['review']['reason'][:160]})")
+                      f"verified={filed['verified']} ({filed['review']['reason']})")
             if ev.get("avail") == "FA":
                 log_race(races, ev, stamp)
     with INCIDENTS.open("a") as fh:
@@ -713,11 +748,11 @@ def main() -> int:
             fl = f", volume {'/'.join(ev['flags'])}" if ev.get("flags") else ""
             if (ev.get("filed") or {}).get("verified"):
                 what = "added" if ev["avail"] == "FA" else "claimed off waivers"
-                heads.append(f"filed: {what} {ev['add']} for {ev['drop']} (+{ev['gain']:.1f} pts rest of season)"
+                heads.append(f"filed: {what} {ev['add']} for {ev['drop']} ({gain_text(ev)})"
                              + filed_note(ev))
             else:
                 heads.append(f"wire: add {ev['add']} ({ev['add_pos']}, {ev['avail']}) for "
-                             f"{ev['drop']} clears the gate, +{ev['gain']:.1f} pts rest of season{fl}"
+                             f"{ev['drop']} clears the gate, {gain_text(ev)}{fl}"
                              + race_note(ev["avail"], ev["add_pos"], ev.get("rivals") or [])
                              + filed_note(ev))
         else:
@@ -760,7 +795,7 @@ def main() -> int:
         actions = [
             "--action", reply_button(
                 "Do it", f"File the swap from roster-watch: drop {swap['drop']}, add {swap['add']} "
-                         f"(swap-scan +{swap['gain']:.1f}; espn-tx claim {how} \"{swap['add']}\" "
+                         f"(swap-scan {gain_text(swap)}; espn-tx claim {how} \"{swap['add']}\" "
                          f"--drop \"{swap['drop']}\")"),
             "--action", reply_button("Skip", f"Skip the {swap['add']} swap; leave {swap['drop']} alone"),
         ]

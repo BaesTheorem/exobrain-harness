@@ -109,8 +109,35 @@ def test_no_rival_still_files(rw, monkeypatch):
 
 def test_parse_verdict_takes_last_json_line(rw):
     text = 'thinking {"verdict": "HOLD", "reason": "draft"}\nfinal\n{"verdict": "FILE", "reason": "clear upgrade"}'
-    assert rw.mod.parse_verdict(text) == {"verdict": "FILE", "reason": "clear upgrade"}
+    assert rw.mod.parse_verdict(text) == {"verdict": "FILE", "reason": "clear upgrade", "short": "clear upgrade"}
     assert rw.mod.parse_verdict("no json here")["verdict"] == "HOLD"
+
+
+def test_banner_uses_the_short_reason_and_never_cuts_mid_word(rw):
+    """2026-11-11: the banner's 400-character cap cut the review's reason at
+    "already held a", the clause that carried the point."""
+    long = "Montgomery has not practiced since 10-11 " * 10
+    v = rw.mod.parse_verdict(json.dumps({"verdict": "HOLD", "reason": long, "short": "no practice since 10-11"}))
+    assert v["short"] == "no practice since 10-11"
+    assert "no practice since 10-11" in rw.mod.filed_note({"filed": {"held": True, "review": v}})
+    # No short field: the reason is clipped at a word boundary and marked.
+    v = rw.mod.parse_verdict(json.dumps({"verdict": "HOLD", "reason": long}))
+    assert len(v["short"]) <= rw.mod.SHORT_MAX and v["short"].endswith("...")
+    assert v["short"][:-3].split()[-1] in long.split()
+    assert rw.mod.clip("short text", 140) == "short text"
+
+
+def test_gain_text_is_per_game_and_ignores_the_leverage_scale(rw):
+    """The same 1.46-a-game gap bannered as +66.3 then +241.1 when the
+    leverage weights moved (2026-11-11). Per game, both read the same."""
+    base = {"drop": "Devaughn Vele", "games": 7}
+    before = rw.mod.gain_text({**base, "gain": 66.3, "gate": 45.4, "weeks": 45.4})
+    after = rw.mod.gain_text({**base, "gain": 241.1, "gate": 165.0, "weeks": 165.0})
+    assert before == after
+    assert after.startswith("+1.46 pts a game over Devaughn Vele (gate 1.00)") and "+10 pts over the 7 games" in after
+    # A different gap must read differently (the check can fail).
+    assert rw.mod.gain_text({**base, "gain": 330.0, "gate": 165.0, "weeks": 165.0}).startswith("+2.00")
+    assert "horizon" in rw.mod.gain_text({"gain": 5.0, "gate": 2.0})
 
 
 def test_stream_event_uses_its_slot_and_drop(rw):
