@@ -14,6 +14,10 @@ no author list, affiliations or conflict statement.
 No API key is necessary. Without one, NCBI permits 3 requests per second,
 so the script waits between calls. Set NCBI_API_KEY to raise the limit.
 The User-Agent is the generic project string and carries no personal data.
+
+Full text: for a paper with a PMCID, get the XML from efetch.fcgi with db=pmc
+and the numeric part of the PMCID. That route also returns author manuscripts,
+for which the Europe PMC fullTextXML endpoint can give a 500 error.
 """
 
 import argparse
