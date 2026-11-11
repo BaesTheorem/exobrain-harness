@@ -78,9 +78,9 @@ rather than duplicating the render/transcribe machinery. See `project_midi_tools
   up to 240s, generated on their GPU. Optional: set `HF_TOKEN` in the harness `.env`
   for higher quota, or `MIST_MUSIC_SPACE` / `--space` to point at a different ACE-Step
   Space if the default is asleep or busy.
-  - **Quality upgrade (not built):** Suno's free tier sounds better but has no free API;
-    it would mean browser-driving a logged-in Suno account (fragile, ToS-gray). Wired as
-    a possible `--backend suno` if we ever want top-tier vocals.
+  - **Better vocals:** `suno/bin/suno` makes the song on a real Suno account (see
+    `suno/README.md`). It is a separate tool, not a `gen` backend: Suno has no way to
+    hear a take before a download, so that flow has two steps.
 
 ## Notes / gotchas
 

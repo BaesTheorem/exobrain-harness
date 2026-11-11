@@ -18,6 +18,7 @@ we never re-tread ground.
 | Alex wants | Tool | Section |
 |---|---|---|
 | **The Suno-style app**: describe or write a song, covers of uploads, repaint, stems, library with art | **MIST Studio** (`mist-music/bin/mist-studio`, :5032) | §0 |
+| **A song on Alex's real Suno account** (best vocals), or its library: timed lyrics, downloads, credits left | `suno/bin/suno` | §4 |
 | Generate a full MP3 song from a prompt (vocals/lyrics/production) | `mist-music gen` | §1 |
 | Hear sheet music (MIDI / MusicXML / photo / scan / PDF of a score) | `mist-music render` | §1 |
 | Transcribe an audio clip → MIDI + MusicXML | `mist-music transcribe` | §1 |
@@ -165,9 +166,9 @@ saved. `render`/`transcribe` default to `mist-music/out/` (gitignored).
   pass `--instrumental`, drop vocal descriptors from the tags, and add tags that
   put the **lead instrument on the melody** ("lead electric guitar carries the
   melody") so nothing sags where a singer would be.
-- **Top-tier vocals:** ACE-Step vocals can be artifacty. For the best voice Alex
-  may take an instrumental bed to **Suno** (free tier, browser-only -- *not* wired
-  as a backend). A Suno `--backend` is the noted future upgrade.
+- **Top-tier vocals:** ACE-Step vocals can be artifacty. For the best voice, make
+  the song on Alex's Suno account with `suno/bin/suno` (§4). Suno has no way to
+  hear a take outside suno.com before a download, so that flow has two steps.
 
 ---
 
@@ -352,6 +353,57 @@ mist-music/bin/unmix select WORK NAME && mist-music/bin/unmix export WORK
 - **Files.** Output goes to `mist-music/out/unmix/` (gitignored, served by the
   Console). The work folder `tmp/unmix/<slug>/` holds approximately 3 GB with
   all candidates. Remove it after the export.
+
+---
+
+## §4 · Suno (`suno/bin/suno`)
+
+A command line for Alex's own Suno account. Read `suno/README.md` before the
+first use in a session: it records which lane the tool is on (the website's own
+endpoints, or Suno's official MCP at `https://api.suno.com/mcp`) and what was
+checked live.
+
+Two things cost something, and the rules for each are different:
+
+- **Credits.** One generation makes two songs for 10 credits. When Alex asks for
+  a song, that is the go-ahead: run `generate` or `describe` with `--yes --wait`.
+  Run `suno status` first and say the balance. Do not make more takes than he
+  asked for.
+- **Downloads.** The plan has a small number for each period, and more are sold
+  in small packs. Never run `download --yes` on a locked song unless Alex named
+  the take. A song that is unlocked (`dl` column says `yes`) downloads again at
+  no cost.
+
+The flow that follows from that:
+
+1. `suno generate --tags "<style>" --lyrics-file song.txt --title "<title>" --yes --wait`
+   (or `suno describe "<one description>" --yes --wait`). Style goes in `--tags`
+   as genre, mood, voice, instruments and tempo. Lyrics take `[Verse]` and
+   `[Chorus]` tags.
+2. Give Alex the two `suno.com/song/...` links. He listens there.
+3. He names a take. `suno download <id> --yes` saves it under
+   `suno/library/<title>-<id>/` and prints the embed line for the chat.
+
+Other uses:
+
+- `suno lyrics <id> --lrc` gives line timings and `--words` gives word timings.
+  Use them for the lyric-video pipeline (§2) and for `bin/song-sync` in the
+  animation kit; they replace a Whisper alignment pass for a Suno song.
+- `suno list -s "<text>"` finds a song in the library. The short id it prints
+  works in every other command.
+- `suno jobs` shows the receipts for paid requests. A request that timed out is
+  never sent a second time by the tool; read `suno list` first.
+
+Limits to keep in mind:
+
+- The stream that suno.com plays is protected. Do not try to save it. The
+  download flow is the only source of audio.
+- Covers, extends and uploads are not in this tool. They are on Suno's official
+  MCP.
+- Exit status 5 means Suno changed its web API. Run `suno doctor --drift`: it
+  captures the live form's request (sent nowhere) and prints what changed.
+- Never put copyrighted lyrics in `--lyrics`. Suno's checks reject them and the
+  lyric rules of this repo forbid them in files and chat.
 
 ---
 

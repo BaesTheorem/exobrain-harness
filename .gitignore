@@ -235,6 +235,13 @@ ami-play/secrets/*
 meetup/secrets/*
 !meetup/secrets/README.md
 
+# Suno CLI -- login cookie + cached token (see suno/secrets/README.md). The paid-request
+# receipts, the spend log and every downloaded song stay local too.
+suno/secrets/*
+!suno/secrets/README.md
+suno/state/
+suno/library/
+
 # Instagram toolkit -- borrowed browser session + scan snapshots + downloaded
 # flyers stay local. Only code, README, and the seed account list are tracked.
 instagram/secrets/*

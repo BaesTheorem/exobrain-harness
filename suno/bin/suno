@@ -1,0 +1,12 @@
+#!/bin/bash
+# Launcher for the Suno CLI (see sunocli/cli.py).
+#
+# A wrapper because the repo path has a space in it, which a #! line cannot hold.
+# /bin/bash, not /bin/sh: under launchd /bin/sh cannot read scripts in ~/Documents
+# (exit 126). uv by absolute path: launchd's PATH has no ~/.local/bin.
+# PYTHONPATH, not cd: a relative --lyrics-file or --out must stay relative to the caller.
+set -euo pipefail
+HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+UV="${UV:-$HOME/.local/bin/uv}"
+export PYTHONPATH="$HERE${PYTHONPATH:+:$PYTHONPATH}"
+exec "$UV" run --no-project --quiet --python 3.12 --with cryptography --with patchright python -m sunocli.cli "$@"
