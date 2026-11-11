@@ -320,6 +320,20 @@ def build_request(args: argparse.Namespace, billing: Json) -> Json:
         weirdness=args.weirdness, style_influence=args.style_influence, **common)
 
 
+def build_remix(args: argparse.Namespace, ctx: "Ctx", billing: Json) -> Json:
+    model_key = model.resolve_model(args.model, billing) if args.model else model.default_model(billing)
+    source = model.normalize_clip(ctx.client.clip(resolve(ctx, args.clip)))
+    lyrics = read_text_arg(args.lyrics, args.lyrics_file) if (args.lyrics or args.lyrics_file) else source["lyrics"]
+    return model.remix_payload(
+        kind=args.kind, clip_id=source["id"], model_key=model_key,
+        title=args.title if args.title is not None else source["title"], tags=args.tags or "",
+        exclude=args.exclude or "", lyrics=lyrics,
+        plan_id=str((billing.get("plan") or {}).get("id") or ""), weirdness=args.weirdness,
+        style_influence=args.style_influence, audio_influence=args.audio_influence,
+        variety=args.variety, max_mode=args.max_mode, request_id=args.request_id,
+        limits=model.limits_for(model_key, billing))
+
+
 def show_clips(ctx: "Ctx", clips: list[Json], as_json: bool, extra: Json | None = None) -> None:
     records = [model.normalize_clip(c) for c in clips]
     remember(ctx, records)
@@ -336,7 +350,7 @@ def show_clips(ctx: "Ctx", clips: list[Json], as_json: bool, extra: Json | None 
 def cmd_generate(args: argparse.Namespace, ctx: "Ctx") -> int:
     client, ledger = ctx.client, ctx.ledger
     billing = client.billing()
-    payload = build_request(args, billing)
+    payload = build_remix(args, ctx, billing) if args.command == "remix" else build_request(args, billing)
     balance = int(billing.get("total_credits_left") or 0)
     cost_note = (f"about {STANDARD_COST} credits for 2 songs" if not args.max_mode
                  else f"more than {STANDARD_COST} credits (Max Mode)")
@@ -631,10 +645,11 @@ def build_parser() -> argparse.ArgumentParser:
     kind.add_argument("--words", action="store_true", help="word-level timings as JSON")
     ly.add_argument("-o", "--out", help="write to a file")
 
-    def creation_flags(sp: argparse.ArgumentParser) -> None:
+    def creation_flags(sp: argparse.ArgumentParser, persona: bool = True) -> None:
         sp.add_argument("--model", help="v6, v6-wild, v6-mini (default: the account's default)")
         sp.add_argument("--max-mode", action="store_true", help="more compute, more credits")
-        sp.add_argument("--persona", help="voice persona id")
+        if persona:
+            sp.add_argument("--persona", help="voice persona id")
         sp.add_argument("--request-id", help="a UUID; the same id never sends twice")
         sp.add_argument("--wait", action="store_true", help="wait until the songs are complete")
         sp.add_argument("--timeout", type=float, default=600, help="seconds to wait (default 600)")
@@ -656,6 +671,21 @@ def build_parser() -> argparse.ArgumentParser:
     d = add("describe", cmd_generate, "Make 2 songs from one description (the form's Simple tab). Spends credits.")
     d.add_argument("description", help="what the song is: subject, style, voice, 'instrumental'")
     creation_flags(d)
+
+    rx = add("remix", cmd_generate, "Make 2 songs from a song in the library: a cover, or added vocals. Spends credits.")
+    rx.add_argument("clip", help="the source song: id, link, or short id")
+    rx.add_argument("--kind", required=True, choices=sorted(model.REMIX_TASKS),
+                    help="cover: recreate the whole song. add-vocals: keep the audio, add a vocal layer")
+    rx.add_argument("--tags", "--style", dest="tags", help="the style of the new part")
+    rx.add_argument("--exclude", help="styles to keep out")
+    rx.add_argument("--lyrics", help="lyrics inline; \\n starts a line (default: the source song's own)")
+    rx.add_argument("--lyrics-file", help="lyrics from a file (- for stdin)")
+    rx.add_argument("--title", help="title (default: the source song's title)")
+    rx.add_argument("--weirdness", type=float, help="0 to 100")
+    rx.add_argument("--style-influence", type=float, help="0 to 100")
+    rx.add_argument("--audio-influence", type=float, help="0 to 100: how close to the source audio")
+    rx.add_argument("--variety", type=int, help="0 to 4. From 1 up, Suno rewrites the style text (default: off)")
+    creation_flags(rx, persona=False)
 
     w = add("wait", cmd_wait, "Wait until songs are complete.")
     w.add_argument("clips", nargs="+")

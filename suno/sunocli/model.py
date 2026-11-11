@@ -13,6 +13,9 @@ INVARIANTS:
 - Suno's limits count UTF-16 code units, as the web form does, so one emoji can count as two.
 - ``title`` and ``tags`` are sent as empty strings when absent. A null title got HTTP 422.
 - Sliders are 0 to 100 on the command line and 0.0 to 1.0 on the wire.
+- ``remix_payload`` mirrors two more captures from the same day (``REMIX_KEYS``). The cover
+  body has no ``cover_start_s``/``cover_end_s`` keys; the add-vocals body has them as null.
+  Neither was captured with a saved lyric draft, so neither carries ``lyrics_project_id``.
 """
 
 from __future__ import annotations
@@ -51,6 +54,16 @@ METADATA_KEYS = {
     "simple": _SHARED_METADATA | {"lyrics_model"},
 }
 MODES = tuple(KEYS)
+
+# Remixes of a song that is in the library, as the form's Audio card sent them on 2026-11-11.
+# "cover" recreates the whole song. "add-vocals" is the form's Edit vocals: it keeps the
+# audio and paints a new vocal layer over it (task "overpainting").
+REMIX_TASKS = {"cover": ("cover", "cover_clip_id"), "add-vocals": ("overpainting", "overpainting_clip_id")}
+REMIX_KEYS = {
+    "cover": (_SHARED_KEYS - {"cover_start_s", "cover_end_s"}) | {"task", "title", "tags", "negative_tags"},
+    "add-vocals": _SHARED_KEYS | {"task", "title", "tags", "negative_tags", "overpainting_clip_id"},
+}
+REMIX_METADATA = _SHARED_METADATA | {"control_sliders", "is_remix"}
 # Fields that differ on every send and say nothing about what was asked for.
 VOLATILE = ("token", "token_provider", "transaction_uuid")
 
@@ -192,6 +205,77 @@ def generate_payload(*, mode: str, model_key: str, title: str = "", tags: str = 
         **tail,
         "lyrics_project_id": None,
     }
+
+
+def remix_payload(*, kind: str, clip_id: str, model_key: str, title: str = "", tags: str = "",
+                  exclude: str = "", lyrics: str = "", plan_id: str = "",
+                  weirdness: float | None = None, style_influence: float | None = None,
+                  audio_influence: float | None = None, variety: int | None = None,
+                  max_mode: bool = False, request_id: str | None = None,
+                  limits: dict[str, int] | None = None) -> Json:
+    """The body for a remix of a library song: ``cover`` or ``add-vocals``.
+
+    ``variety`` is the form's Variety slider (0 to 4, ``aug_creativity`` on the wire). At 1
+    and higher Suno rewrites the style text; None leaves the key out, and the style is then
+    stored as sent.
+    """
+    if kind not in REMIX_TASKS:
+        raise InputError(f"unknown remix kind {kind!r}; one of {', '.join(REMIX_TASKS)}")
+    lim = {**DEFAULT_LIMITS, **(limits or {})}
+    for label, value, cap in (("title", title, lim["title"]), ("style", tags, lim["tags"]),
+                              ("excluded styles", exclude, lim["negative_tags"]),
+                              ("lyrics", lyrics, lim["prompt"])):
+        if utf16_len(value) > cap:
+            raise InputError(f"the {label} text is {utf16_len(value)} characters; the limit is {cap}")
+    if variety is not None and not 0 <= variety <= 4:
+        raise InputError("--variety takes 0 to 4")
+    sliders: Json = {}
+    for key, value in (("weirdness_constraint", _slider(weirdness, "weirdness")),
+                       ("style_weight", _slider(style_influence, "style-influence")),
+                       ("audio_weight", _slider(audio_influence, "audio-influence"))):
+        if value is not None:
+            sliders[key] = value
+    if variety:
+        sliders["aug_creativity"] = variety
+    task, id_key = REMIX_TASKS[kind]
+    body: Json = {
+        "token": None,
+        "task": task,
+        "generation_type": "TEXT",
+        "title": title,
+        "tags": tags,
+        "negative_tags": exclude,
+        "mv": model_key,
+        "prompt": lyrics,
+        "make_instrumental": False,
+        "user_uploaded_images_b64": None,
+        "metadata": {
+            "web_client_pathname": "/create",
+            "create_surface": "desktop_create_form",
+            "is_max_mode": bool(max_mode),
+            "is_mumble": False,
+            "create_mode": "custom",
+            "user_tier": plan_id,
+            "create_session_token": str(uuid.uuid4()),
+            "disable_volume_normalization": False,
+            "control_sliders": sliders,
+            "is_remix": True,
+        },
+        "override_fields": [],
+        "cover_clip_id": clip_id if kind == "cover" else None,
+        "persona_id": None,
+        "artist_clip_id": None,
+        "artist_start_s": None,
+        "artist_end_s": None,
+        "continue_clip_id": None,
+        "continued_aligned_prompt": None,
+        "continue_at": None,
+        "transaction_uuid": request_id or str(uuid.uuid4()),
+        "token_provider": None,
+    }
+    if kind == "add-vocals":
+        body.update(cover_start_s=None, cover_end_s=None, overpainting_clip_id=clip_id)
+    return body
 
 
 def with_token(payload: Json, token: str | None, provider: int | None) -> Json:

@@ -824,3 +824,52 @@ def test_tools_listing_and_the_not_connected_exits(tmp_path, capsys, monkeypatch
     assert cli.main(["connect", "--status"], cli.Ctx(client=make_client()[0], ledger=Ledger(tmp_path))) == 3
     unsigned = official.McpClient(official.OfficialAuth(HeaderFake(), {}, persist=False), HeaderFake())
     assert cli.main(["tools"], cli.Ctx(client=make_client()[0], ledger=Ledger(tmp_path), mcp=unsigned)) == 3
+
+
+# -- remixes of a library song -----------------------------------------------------------------
+
+
+def remix(kind, **over) -> dict:
+    args = dict(kind=kind, clip_id=CLIP_A, model_key="chirp-hawk", title="T", tags="voices", lyrics="A made-up line",
+                plan_id=PLAN)
+    args.update(over)
+    return model.remix_payload(**args)
+
+
+@pytest.mark.parametrize("kind", sorted(model.REMIX_TASKS))
+def test_remix_key_sets_are_the_captured_ones(kind):
+    body = remix(kind)
+    assert set(body) == model.REMIX_KEYS[kind] and set(body["metadata"]) == model.REMIX_METADATA
+    assert body["metadata"]["is_remix"] is True and body["metadata"]["create_mode"] == "custom"
+
+
+def test_cover_and_add_vocals_point_at_the_source_in_different_keys():
+    cover, added = remix("cover"), remix("add-vocals")
+    assert (cover["task"], cover["cover_clip_id"]) == ("cover", CLIP_A) and "overpainting_clip_id" not in cover
+    assert "cover_start_s" not in cover
+    assert (added["task"], added["overpainting_clip_id"], added["cover_clip_id"]) == ("overpainting", CLIP_A, None)
+    assert added["cover_start_s"] is None and added["cover_end_s"] is None
+
+
+def test_variety_off_keeps_the_style_text_as_sent():
+    assert remix("cover")["metadata"]["control_sliders"] == {}
+    assert remix("cover", variety=0)["metadata"]["control_sliders"] == {}
+    assert remix("cover", variety=2, audio_influence=80)["metadata"]["control_sliders"] == {
+        "audio_weight": 0.8, "aug_creativity": 2}
+    with pytest.raises(InputError):
+        remix("cover", variety=5)
+    with pytest.raises(InputError):
+        remix("mashup")
+
+
+def test_remix_command_uses_the_source_lyrics_and_needs_yes(tmp_path, capsys):
+    source = raw_clip(is_download_unlocked=True)
+    client, transport = make_client((200, billing()), (200, source))
+    assert run(["remix", CLIP_A, "--kind", "add-vocals", "--tags", "a small group"], client, tmp_path) == 4
+    assert transport.paths("POST") == []
+    client, transport = make_client((200, billing()), (200, source))
+    assert run(["remix", CLIP_A, "--kind", "add-vocals", "--tags", "a small group", "--exclude", "choir",
+                "--dry-run", "--json"], client, tmp_path) == 0
+    sent = json.loads(capsys.readouterr().out)["would_send"]
+    assert sent["prompt"] == source["metadata"]["prompt"] and sent["title"] == "Test Song"
+    assert sent["overpainting_clip_id"] == CLIP_A and sent["negative_tags"] == "choir"

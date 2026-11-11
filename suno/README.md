@@ -11,6 +11,7 @@ suno info <clip>                     one song: style, lyrics, lock condition, li
 suno lyrics <clip> --lrc             line-timed lyrics (also --words, --json)
 suno generate --tags "..." --lyrics-file song.txt --title "..." --yes --wait
 suno describe "a slow piano piece for a rainy morning" --yes --wait
+suno remix <clip> --kind add-vocals --tags "..." --exclude "..." --yes --wait
 suno download <clip> --yes           audio plus lyrics and metadata
 suno doctor --drift                  health checks and the request-shape check
 suno connect                         sign in to Suno's official interface (see below)
@@ -73,8 +74,8 @@ Each paid request gets a receipt in `state/receipts/` before it is sent:
   The download flow is the only source of an audio file, and Suno counts it against the plan.
 - There is no playback in the terminal. `generate` prints a `suno.com/song/...` link for
   each song. Listen there, then download the song that you want.
-- There are no covers, extends, uploads, stems or personas. Suno's page names most of them
-  for the official interface. No web request was captured for them, and this tool sends only
+- There are no extends, uploads, stems or personas. Suno's page names most of them for the
+  official interface. No web request was captured for them, and this tool sends only
   requests that were captured.
 
 ## How it works
@@ -106,6 +107,24 @@ different. The Simple tab sends one description in `gpt_description_prompt` with
 `task: agentic_thinking`, and it has no title field or style field.
 
 Suno changes the style text. In the lyrics test it stored a longer style than the one sent.
+
+### Remixes of a library song
+
+`suno remix <clip> --kind cover` and `--kind add-vocals` are copies of what the Create form
+sent on 2026-11-11 when a library song was attached in its Audio card.
+
+- `cover` is the form's Cover: "Recreate this song with a different genre or feel". Suno
+  makes the whole song again. Sixteen covers of one 169 s recording came back between 149 s
+  and 203 s. Do not use it when the result must stay the same as the source.
+- `add-vocals` is the form's Edit vocals (`task: overpainting`). It keeps the source audio
+  and puts a new vocal layer on it. With one sheet line for each phrase of the source, two
+  takes came back at 169.7 s and 170.0 s. The new layer did not stay on the source's
+  phrases: its lines were correct at the start and at the end and moved in the middle.
+
+The lyrics default to the source song's own sheet. `--variety` is the form's Variety slider
+(`aug_creativity`). From 1 up, Suno writes the style text again in its own words; the form's
+default is 1. This command leaves it off, and the style is then stored as sent.
+`--audio-influence` is the form's Audio Influence slider, for `cover`. Its form default is 25.
 
 ### Drift check
 
@@ -167,6 +186,8 @@ Not examined:
 - The unlock of a locked song (`POST /download/authorize`). The code is there and its test
   uses a fake server. The first `download --yes` of a locked song is its first live use.
 - WAV downloads and M4A downloads.
+- `remix --kind cover` as a live request. Its body is equal to the captured one, key by key.
+  `remix --kind add-vocals` was sent two times, 10 credits each.
 - The `--persona` and `--max-mode` flags. They set fields that the live form also sends.
 - Each call on the official lane after the consent page: the token trade, the tool list and
   a tool call. Their tests use a fake server.

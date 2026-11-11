@@ -398,11 +398,18 @@ Limits to keep in mind:
 
 - The stream that suno.com plays is protected. Do not try to save it. The
   download flow is the only source of audio.
-- Covers, extends and uploads are not in this tool. Suno's official MCP has
-  them, and Suno opens it one account at a time. `suno connect --status` shows
-  if Alex's account is signed in. If it is not, try `suno connect` only when he
-  asks: it opens his browser. On 2026-11-11 Suno's page said that the feature
-  was not available for his account yet.
+- `suno remix <id> --kind cover|add-vocals` works on a song that is in the
+  library. Read "Remixes of a library song" in `suno/README.md` first. Cover
+  makes the whole song again and its length and phrasing move. Add-vocals keeps
+  the audio and adds a layer, but the layer does not stay on the phrases. For
+  "the same song with one change", edit the audio and do not ask the model.
+- Suno's Variety slider (default 1 in the form) writes the style text again.
+  A style that came back in other words was changed by that slider.
+- Extends and uploads are not in this tool. Suno's official MCP has them, and
+  Suno opens it one account at a time. `suno connect --status` shows if Alex's
+  account is signed in. If it is not, try `suno connect` only when he asks: it
+  opens his browser. On 2026-11-11 Suno's page said that the feature was not
+  available for his account yet.
 - Exit status 5 means Suno changed its web API. Run `suno doctor --drift`: it
   captures the live form's request (sent nowhere) and prints what changed.
 - Never put copyrighted lyrics in `--lyrics`. Suno's checks reject them and the
