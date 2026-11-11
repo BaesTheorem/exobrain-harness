@@ -1,0 +1,115 @@
+#!/usr/bin/env python3
+"""Search PubMed and print abstracts through the NCBI E-utilities API.
+
+Usage:
+    pubmed search "QUERY" [-n N] [--sort date|relevance]
+    pubmed get [--brief] PMID [PMID ...]
+
+`search` prints one line per hit: PMID, year, journal, first author, title.
+`get` prints the full record as PubMed's own abstract text (title, authors,
+journal, abstract, DOI, PMCID), which is the primary source for a citation.
+`get --brief` prints only the citation line, the title and the abstract, with
+no author list, affiliations or conflict statement.
+
+No API key is necessary. Without one, NCBI permits 3 requests per second,
+so the script waits between calls. Set NCBI_API_KEY to raise the limit.
+The User-Agent is the generic project string and carries no personal data.
+"""
+
+import argparse
+import json
+import os
+import sys
+import time
+import urllib.parse
+import urllib.request
+import xml.etree.ElementTree as ET
+
+BASE = "https://eutils.ncbi.nlm.nih.gov/entrez/eutils/"
+USER_AGENT = "exobrain-harness/1.0 (+https://github.com/BaesTheorem/exobrain-harness)"
+PAUSE_S = 0.4
+BATCH = 20
+
+
+def call(endpoint: str, **params: str) -> bytes:
+    """Send one E-utilities request and return the raw body."""
+    key = os.environ.get("NCBI_API_KEY")
+    if key:
+        params["api_key"] = key
+    url = BASE + endpoint + "?" + urllib.parse.urlencode(params)
+    request = urllib.request.Request(url, headers={"User-Agent": USER_AGENT})
+    with urllib.request.urlopen(request, timeout=30) as response:
+        body = response.read()
+    time.sleep(PAUSE_S)
+    return body
+
+
+def search(query: str, count: int, sort: str) -> int:
+    found = json.loads(call("esearch.fcgi", db="pubmed", retmode="json", retmax=str(count), sort=sort, term=query))
+    ids = found["esearchresult"].get("idlist", [])
+    print(f"# {found['esearchresult'].get('count', '0')} total hits, showing {len(ids)}")
+    if not ids:
+        return 0
+    summary = json.loads(call("esummary.fcgi", db="pubmed", retmode="json", id=",".join(ids)))["result"]
+    for pmid in ids:
+        item = summary.get(pmid, {})
+        authors = item.get("authors") or [{}]
+        first = authors[0].get("name", "?")
+        year = item.get("pubdate", "?")[:4]
+        types = ",".join(item.get("pubtype", []))
+        print(f"{pmid}\t{year}\t{item.get('source', '?')}\t{first}\t{item.get('title', '?')}\t[{types}]")
+    return 0
+
+
+def text_of(node: ET.Element | None) -> str:
+    """Return all text below a node, with inline tags such as <i> flattened."""
+    return "".join(node.itertext()).strip() if node is not None else ""
+
+
+def print_brief(xml_body: bytes) -> None:
+    for article in ET.fromstring(xml_body).iter("PubmedArticle"):
+        pmid = text_of(article.find("./MedlineCitation/PMID"))
+        journal = text_of(article.find(".//Journal/ISOAbbreviation"))
+        year = text_of(article.find(".//JournalIssue/PubDate/Year")) or text_of(
+            article.find(".//JournalIssue/PubDate/MedlineDate")
+        )
+        first = text_of(article.find(".//AuthorList/Author/LastName"))
+        doi = text_of(article.find(".//ArticleIdList/ArticleId[@IdType='doi']"))
+        types = ", ".join(text_of(kind) for kind in article.iter("PublicationType"))
+        print(f"## PMID {pmid} | {first} | {journal} {year} | doi:{doi} | {types}")
+        print(text_of(article.find(".//ArticleTitle")))
+        for part in article.iter("AbstractText"):
+            label = part.get("Label")
+            print((f"{label}: " if label else "") + text_of(part))
+        print()
+
+
+def get(pmids: list[str], brief: bool) -> int:
+    for start in range(0, len(pmids), BATCH):
+        chunk = pmids[start : start + BATCH]
+        if brief:
+            print_brief(call("efetch.fcgi", db="pubmed", retmode="xml", id=",".join(chunk)))
+            continue
+        text = call("efetch.fcgi", db="pubmed", rettype="abstract", retmode="text", id=",".join(chunk))
+        sys.stdout.write(text.decode("utf-8", errors="replace"))
+    return 0
+
+
+def main() -> int:
+    parser = argparse.ArgumentParser(description=(__doc__ or "").splitlines()[0])
+    commands = parser.add_subparsers(dest="command", required=True)
+    search_cmd = commands.add_parser("search", help="find PMIDs for a query")
+    search_cmd.add_argument("query")
+    search_cmd.add_argument("-n", type=int, default=8, help="number of hits (default 8)")
+    search_cmd.add_argument("--sort", choices=["date", "relevance"], default="relevance")
+    get_cmd = commands.add_parser("get", help="print abstracts for PMIDs")
+    get_cmd.add_argument("pmids", nargs="+")
+    get_cmd.add_argument("--brief", action="store_true", help="citation line, title and abstract only")
+    args = parser.parse_args()
+    if args.command == "search":
+        return search(args.query, args.n, "pub_date" if args.sort == "date" else "relevance")
+    return get(args.pmids, args.brief)
+
+
+if __name__ == "__main__":
+    sys.exit(main())

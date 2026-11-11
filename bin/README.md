@@ -17,6 +17,7 @@ Loose command-line tools that belong to no single module. Each line below comes 
 | `luma-to-meetup` | Mirrors the Kansas City EA Luma calendar onto the Meetup group, creating each missing future event with a link back to Luma. |
 | `nextdns` | NextDNS profile CLI: relink the home IP, read the query log and domain tallies, edit deny and allow lists, natives and blocklists. Built for the Samsung TV's log-only telemetry baseline. |
 | `pe-triage` | Static triage of a Windows PE file (headers, sections, imports, resources, packer tells, hashes); never executes it. |
+| `pubmed` | Searches PubMed and prints abstracts through the NCBI E-utilities API (no key), so a health or science claim is read from the paper's own abstract. |
 | `spotify-dl` | Downloads a Spotify track by URL or id, taking metadata from the embed page instead of the rate-limited Spotify Web API. Needs Premium. |
 | `yt-transcript` | Pulls a YouTube video's captions as clean, readable text (wraps `yt-dlp`, then strips the auto-caption duplication). |
 
