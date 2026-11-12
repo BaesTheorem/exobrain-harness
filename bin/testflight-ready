@@ -2,13 +2,15 @@
 """Make a TestFlight upload reach Alex's phone without a manual App Store
 Connect visit.
 
-    testflight-ready BUNDLE_ID BUILD [--timeout MIN]
+    testflight-ready BUNDLE_ID BUILD [--timeout MIN] [--give-up HOURS]
 
-1. Wait for Apple to finish processing BUILD (buildUploads COMPLETE).
-2. Make sure the app has an internal group with access to every build, so
+1. Make sure the app has an internal group with access to every build, so
    later builds install automatically. A new app gets a group named "Team".
-3. Put the testers of the other apps' internal groups into it (POST
+2. Put the testers of the other apps' internal groups into it (POST
    /betaTesters; the group relationship endpoint answers 409 for them).
+3. Wait for Apple to finish processing BUILD (buildUploads COMPLETE). After
+   --timeout minutes it sends one "still processing" notice with Apple's own
+   system status, and it keeps waiting for --give-up hours.
 4. If a tester has not accepted this app's invite yet, notify Alex (banner +
    Discord DM). Accepting stays a tap: Apple has no API for it, and the Mac
    TestFlight app ignores an iOS invite link (tested 2026-10-19).
@@ -32,6 +34,9 @@ BIN = Path(__file__).resolve().parent
 tf = SourceFileLoader("testflight_feedback", str(BIN / "testflight-feedback")).load_module()
 NOTIFY = BIN.parent / "mist-voice" / "bin" / "mist-notify"
 GMAIL_INVITES = "https://mail.google.com/mail/u/0/#search/from%3Atestflight_no_reply+invited"
+STATUS_URL = "https://www.apple.com/support/systemstatus/data/developer/system_status_en_US.js"
+USER_AGENT = "exobrain-harness/1.0 (+https://github.com/BaesTheorem/exobrain-harness)"
+WAITING = ("PROCESSING", "AWAITING_UPLOAD", "NOT_FOUND")
 
 
 def call(tok: str, method: str, path: str, body: dict | None = None) -> tuple[int, dict]:
@@ -46,15 +51,54 @@ def call(tok: str, method: str, path: str, body: dict | None = None) -> tuple[in
         return err.code, {"error": err.read()[:400].decode(errors="replace")}
 
 
-def wait_processed(tok: str, app_id: str, build: str, timeout_min: int) -> str:
-    deadline = time.time() + timeout_min * 60
+def apple_incident() -> str | None:
+    """The open incident on Apple's App Processing service, or None."""
+    try:
+        req = urllib.request.Request(STATUS_URL, headers={"User-Agent": USER_AGENT})
+        with urllib.request.urlopen(req, timeout=20) as r:
+            text = r.read().decode("utf-8", "replace")
+        services = json.loads(text[text.index("{"):text.rindex("}") + 1]).get("services", [])
+    except (OSError, ValueError):
+        return None
+    for service in services:
+        if "App Processing" not in service.get("serviceName", ""):
+            continue
+        for event in service.get("events", []):
+            if event.get("eventStatus") != "resolved":
+                return f"{event.get('statusType', 'issue')} since {event.get('startDate', 'an unknown time')}"
+    return None
+
+
+def wait_processed(app_id: str, name: str, build: str, timeout_min: int, give_up_hours: int) -> str:
+    """Poll until Apple leaves the waiting states, or until the give-up time.
+
+    Each poll signs a new token. A token lasts 20 minutes, and one token for
+    the whole wait made every poll after minute 20 answer 401. A 401 has no
+    rows, so the build read as NOT_FOUND and no slow build could ever read as
+    COMPLETE (2026-11-12, during an App Processing incident at Apple). A poll
+    that fails keeps the last state Apple did report.
+    """
+    start = time.time()
+    state, told = "NOT_FOUND", False
     while True:
-        _, d = call(tok, "GET", f"/apps/{app_id}/buildUploads?limit=10")
-        row = next((x for x in d.get("data", []) if x["attributes"].get("cfBundleVersion") == build), None)
-        state = row["attributes"]["state"]["state"] if row else "NOT_FOUND"
-        if state not in ("PROCESSING", "AWAITING_UPLOAD", "NOT_FOUND") or time.time() > deadline:
-            if row and row["attributes"]["state"].get("errors"):
-                print(json.dumps(row["attributes"]["state"]["errors"]), file=sys.stderr)
+        status, d = call(tf.token(tf.env()), "GET", f"/apps/{app_id}/buildUploads?limit=10")
+        if status < 300:
+            row = next((x for x in d.get("data", []) if x["attributes"].get("cfBundleVersion") == build), None)
+            state = row["attributes"]["state"]["state"] if row else "NOT_FOUND"
+            if state not in WAITING:
+                if row and row["attributes"]["state"].get("errors"):
+                    print(json.dumps(row["attributes"]["state"]["errors"]), file=sys.stderr)
+                return state
+        waited = (time.time() - start) / 60
+        if waited > timeout_min and not told:
+            # Slow is not failed: say so once, with Apple's own status, and keep waiting.
+            told = True
+            incident = apple_incident()
+            why = f"Apple reports an App Processing incident ({incident})" if incident else "Apple reports no incident"
+            print(f"{name} build {build}: still {state} after {timeout_min} min. {why}", flush=True)
+            subprocess.run([str(NOTIFY), f"{name} build {build} is still {state} after {timeout_min} minutes. {why}. "
+                            "The watcher keeps waiting.", "TestFlight", "Basso", "--discord"], check=False)
+        if waited > give_up_hours * 60:
             return state
         time.sleep(60)
 
@@ -63,7 +107,8 @@ def main() -> None:
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("bundle_id")
     ap.add_argument("build")
-    ap.add_argument("--timeout", type=int, default=45, help="minutes to wait for processing")
+    ap.add_argument("--timeout", type=int, default=45, help="minutes before the 'still processing' notice")
+    ap.add_argument("--give-up", type=int, default=12, help="hours to wait for processing in total")
     a = ap.parse_args()
     tok = tf.token(tf.env())
 
@@ -73,15 +118,32 @@ def main() -> None:
         sys.exit(f"no App Store Connect record for {a.bundle_id}: make it on the website first")
     app_id, name = app["id"], app["attributes"]["name"]
 
-    state = wait_processed(tok, app_id, a.build, a.timeout)
-    print(f"{name} build {a.build}: {state}")
+    # The group and its testers do not need a processed build, so they go in
+    # first. The build then reaches the phone as soon as Apple finishes.
+    group = ensure_testers(tok, apps, app_id)
+
+    state = wait_processed(app_id, name, a.build, a.timeout, a.give_up)
+    print(f"{name} build {a.build}: {state}", flush=True)
     if state != "COMPLETE":
-        tok = tf.token(tf.env())
         subprocess.run([str(NOTIFY), f"{name} build {a.build} did not finish processing: {state}",
                         "TestFlight", "Basso", "--discord"], check=False)
         sys.exit(1)
     tok = tf.token(tf.env())   # the processing wait can outlive the 20-minute token
 
+    have = {t["attributes"]["email"]: t["attributes"] for t in tf.paged(f"/betaGroups/{group['id']}/betaTesters", tok)}
+    pending = [e for e, t in have.items() if t.get("state") == "INVITED"]
+    if pending:
+        subprocess.run([str(NOTIFY),
+                        f"{name} build {a.build} is ready. Accept the TestFlight invite e-mail on the phone once; "
+                        "later builds then install on their own.",
+                        "TestFlight invite", "Glass", GMAIL_INVITES, "--discord"], check=False)
+        print("invite not accepted yet: notified")
+    else:
+        print("every tester has accepted: the build installs through TestFlight")
+
+
+def ensure_testers(tok: str, apps: list[dict], app_id: str) -> dict:
+    """The app's internal group, with the testers of every other app in it."""
     groups = tf.paged(f"/apps/{app_id}/betaGroups", tok)
     group = next((g for g in groups if g["attributes"].get("isInternalGroup")
                   and g["attributes"].get("hasAccessToAllBuilds")), None)
@@ -112,19 +174,8 @@ def main() -> None:
             "type": "betaTesters",
             "attributes": {"email": email, "firstName": t.get("firstName"), "lastName": t.get("lastName")},
             "relationships": {"betaGroups": {"data": [{"type": "betaGroups", "id": group["id"]}]}}}})
-        print(f"added {email.split('@')[0]}@…: {st}")
-        if st < 300:
-            have[email] = {"state": "INVITED"}
-
-    pending = [e for e, t in have.items() if t.get("state") == "INVITED"]
-    if pending:
-        subprocess.run([str(NOTIFY),
-                        f"{name} build {a.build} is ready. Accept the TestFlight invite e-mail on the phone once; "
-                        "later builds then install on their own.",
-                        "TestFlight invite", "Glass", GMAIL_INVITES, "--discord"], check=False)
-        print("invite not accepted yet: notified")
-    else:
-        print("every tester has accepted: the build installs through TestFlight")
+        print(f"added {email.split('@')[0]}@…: {st}", flush=True)
+    return group
 
 
 if __name__ == "__main__":
