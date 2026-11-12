@@ -1,0 +1,248 @@
+{
+ "meta": {
+  "subtitle": "8 nights in medieval churches. Castles, ruins, a Neolithic tomb and holy wells along the Welsh border.",
+  "overview": "This is the Deanery's official 7-day line (OS Maps, updated March 2026) with three changes: an extra night at Craswall, which gives you a free afternoon for the priory ruins, and short detours to Snodhill Castle and Moccas church. Every night is a booked night sanctuary. Kilpeck is on the map but you do not walk to it.",
+  "before": "Book every night with the Deanery (gvpw@abbeydoredeanery.org) at least two weeks ahead, approximately \u00a322 to \u00a325 per person per night. Ask for one night each at Tyberton, Dorstone, Michaelchurch Escley, Craswall, Clodock, Ewyas Harold and Kingstone. Bring a sleeping bag; there are camp beds but no showers. The route has no waymarks yet (the Deanery hopes to add them in summer 2026), so carry the GPX and OS Explorer 189 and OL13.",
+  "sources": "Route line: Abbeydore Deanery, OS Maps route 30852736 (7 Day, updated 03/03/2026). Directions: Deanery 7-day guide, March 2026. Sites: British Pilgrimage Trust route page, Snodhill Castle Trust, English Heritage, Blanche Parry Golden Valley guide. Positions: OpenStreetMap; holy wells approximate. Detours routed on OpenStreetMap footpaths (FOSSGIS foot router). Climb is from OS elevation sampled about every 260 m, so it is a low estimate. Map \u00a9 OpenFreeMap, OpenMapTiles, OpenStreetMap contributors."
+ },
+ "days": [
+  {
+   "title": "Hereford Cathedral to Tyberton",
+   "from": "hereford",
+   "to": "tyberton",
+   "sleep": "Tyberton church",
+   "side": [],
+   "stops": [
+    {
+     "id": "eaton",
+     "at": "8.0",
+     "text": "Lunch stop. Earlier: a Roman camp interpretation board above Tuck Mill, and an optional turn to Belmont Abbey."
+    },
+    {
+     "id": "madley",
+     "at": "10.5",
+     "text": "Shop and the Red Lion pub. Last supplies before Tyberton."
+    }
+   ],
+   "note": "Flat day along the Wye and across fields. The night before, you can sleep in the cathedral cloisters."
+  },
+  {
+   "title": "Tyberton to Dorstone, over Arthur's Stone",
+   "from": "tyberton",
+   "to": "dorstone",
+   "sleep": "Dorstone church",
+   "side": [],
+   "stops": [
+    {
+     "id": "moccas",
+     "at": "5.9",
+     "side": "~1 km",
+     "text": "About 0.5 km off the route: turn down the lane past the Moccas Court entrance, then come back the same way (Deanery). Then the Moccas nature reserve: ancient oaks and a deer herd, but also the worst road walk of the Way."
+    },
+    {
+     "id": "bredwardine",
+     "at": "10.0",
+     "text": "Look for the sheela-na-gig."
+    },
+    {
+     "id": "arthur",
+     "at": "12.3",
+     "text": "After the steepest hill of the whole route, then downhill through the Spoon Lane holloway."
+    },
+    {
+     "id": "dorstonemotte",
+     "at": "14.7",
+     "text": ""
+    }
+   ],
+   "note": "Bycross Farm campsite and shop is on the escape route, if you need supplies.",
+   "side_km_manual": 1.0
+  },
+  {
+   "title": "Dorstone to Michaelchurch Escley, via Snodhill Castle",
+   "from": "dorstone",
+   "to": "michaelchurch",
+   "sleep": "Michaelchurch Escley church",
+   "side": [],
+   "stops": [
+    {
+     "id": "snodhill",
+     "at": "2.8",
+     "side": "~0.5 km",
+     "text": "At Snodhill Hall, take the first left uphill. The gate and free parking are by the hall; the castle is about 150 m up the lane."
+    },
+    {
+     "id": "peterchurch",
+     "at": "6.0",
+     "text": "Boughton Arms and the village stores."
+    },
+    {
+     "id": "wellpeter",
+     "at": "7.7",
+     "text": "In a field on your right, through a small gate."
+    }
+   ],
+   "note": "Great Wood after Slough Bridge is hard to follow, so keep the GPX open there. Canon Tump nature reserve near the end.",
+   "side_km_manual": 0.5
+  },
+  {
+   "title": "Michaelchurch Escley to Craswall, and the priory",
+   "from": "michaelchurch",
+   "to": "craswall",
+   "sleep": "Craswall church",
+   "side": [
+    "priory_rt"
+   ],
+   "stops": [
+    {
+     "id": "craswall",
+     "at": "6.4",
+     "text": "Arrive by lunch. Drop the big pack here."
+    },
+    {
+     "id": "priory",
+     "side": "4.8 km",
+     "text": "Afternoon out-and-back with a day pack. Ask the Deanery or the farm about access first."
+    }
+   ],
+   "note": "This is the extra night that makes the plan 8 nights. The official 7-day plan walks straight past Craswall to Clodock in one 18.5 km day."
+  },
+  {
+   "title": "Craswall to Clodock, past Longtown Castle",
+   "from": "craswall",
+   "to": "clodock",
+   "sleep": "Clodock church",
+   "side": [],
+   "stops": [
+    {
+     "id": "llanveynoe",
+     "at": "6.6",
+     "text": "After the long drovers' bridleway to the Cat's Back and the Cwm Steps. Cae Thomas' Well (for weak eyes, by legend) is near here; I have no position for it."
+    },
+    {
+     "id": "longtown",
+     "at": "10.1",
+     "text": "Before that, a small waterfall and footbridge in the Olchon valley. Hopes village store and the Crown pub in Longtown."
+    }
+   ],
+   "note": "Highest ground of the walk (about 380 m). Exposed on the bridleway in bad weather."
+  },
+  {
+   "title": "Clodock to Ewyas Harold: churches and mottes",
+   "from": "clodock",
+   "to": "ewyas",
+   "sleep": "Ewyas Harold church hall",
+   "side": [],
+   "stops": [
+    {
+     "id": "wellclydog",
+     "at": "0.4",
+     "text": "Just over the bridge."
+    },
+    {
+     "id": "walterstone",
+     "at": "4.3",
+     "text": "Carpenters Arms pub."
+    },
+    {
+     "id": "llancillo",
+     "at": "7.7",
+     "text": ""
+    },
+    {
+     "id": "rowlestone",
+     "at": "9.6",
+     "text": "Rowlestone Court Farm cafe and ice cream just after."
+    },
+    {
+     "id": "ewyascastle",
+     "at": "11.9",
+     "text": "Chip shop and village stores in Ewyas Harold."
+    }
+   ],
+   "note": "Most climbing of any day (about 410 m up, by a low estimate). Some overgrown sections near New Hunthouse Farm."
+  },
+  {
+   "title": "Ewyas Harold to Kingstone, via Dore Abbey",
+   "from": "ewyas",
+   "to": "kingstone",
+   "sleep": "Kingstone church",
+   "side": [],
+   "stops": [
+    {
+     "id": "wellmartin",
+     "at": "1.5",
+     "text": "Up the steep path onto Ewyas Harold Common; follow the Herefordshire Trail."
+    },
+    {
+     "id": "dore",
+     "at": "2.0",
+     "text": ""
+    }
+   ],
+   "note": "Red Cow restaurant at Morehampton Park Farm mid-day. Nells Wood can be overgrown in summer."
+  },
+  {
+   "title": "Kingstone to Hereford Cathedral",
+   "from": "kingstone",
+   "to": "hereford_end",
+   "sleep": "Home, or Hereford",
+   "side": [],
+   "stops": [
+    {
+     "id": "thruxton",
+     "at": "2.0",
+     "text": "Kilpeck is about 7.5 km south of here by road. If you want it, take a taxi from Kingstone or add a rest day."
+    },
+    {
+     "id": "kilpeck",
+     "opt": true,
+     "text": "86 carved corbels. Not on foot in this plan."
+    }
+   ],
+   "note": "Easy last day. The final stretch from Clehonger repeats the Day 1 path into Hereford."
+  }
+ ],
+ "extra_sites": [
+  {
+   "id": "wellpeter",
+   "name": "St Peter's Well",
+   "kind": "well",
+   "lat": 52.04017,
+   "lon": -2.94756,
+   "approx": true,
+   "blurb": "Spring above Wellbrook Farm; the wells were restored in 2015 (Blanche Parry guide). Position from the Deanery directions."
+  },
+  {
+   "id": "wellclydog",
+   "name": "St Clydog's Well",
+   "kind": "well",
+   "lat": 51.94077,
+   "lon": -2.97793,
+   "approx": true,
+   "blurb": "A true spring across the River Monnow from Clodock church (Blanche Parry guide). Position from the Deanery directions."
+  },
+  {
+   "id": "wellmartin",
+   "name": "St Martin's Well",
+   "kind": "well",
+   "lat": 51.96444,
+   "lon": -2.8959,
+   "approx": true,
+   "blurb": "On Ewyas Harold Common, which is open to the public (Blanche Parry guide). Position approximate."
+  },
+  {
+   "id": "hereford_end",
+   "name": "Hereford Cathedral",
+   "kind": "sanctuary",
+   "lat": 52.05432,
+   "lon": -2.71603,
+   "km": 100.7,
+   "show": false
+  }
+ ],
+ "optional_side": [],
+ "side_names": {
+  "priory_rt": "Detour: Craswall Priory (access not confirmed)"
+ }
+}
