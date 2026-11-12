@@ -71,5 +71,10 @@
   "name": "Scorebug",
   "dir": "~/Documents/scorebug/ios",
   "scheme": "Scorebug"
+ },
+ {
+  "name": "Cleanroom",
+  "dir": "~/Documents/cleanroom/ios",
+  "scheme": "Cleanroom"
  }
 ]
