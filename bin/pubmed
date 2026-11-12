@@ -20,6 +20,8 @@ and the numeric part of the PMCID. That route also returns author manuscripts,
 for which the Europe PMC fullTextXML endpoint can give a 500 error.
 """
 
+from __future__ import annotations
+
 import argparse
 import json
 import os

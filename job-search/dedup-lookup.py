@@ -14,7 +14,7 @@ the note was written to prevent. The apply URL is known before the read, so
 check leads by URL first. On 2026-09-02 that check found 5 of 12 Built In leads
 already noted, one of which had cost a duplicate JD read that day.
 """
-import os, re, sys
+import os, re, sys, urllib.parse
 
 import listings
 
@@ -87,6 +87,39 @@ def company_match(term, n):
     return False
 
 
+def norm_url(u):
+    """Canonical form of an apply URL for comparison.
+
+    Exact string equality missed a USAJOBS note on 2026-11-12: the API hands back
+    https://www.usajobs.gov:443/job/891575400 while the note held the same URL
+    without the port, so the scan wrote a new note over a 7-day-old candidate.
+    Drops the scheme, a default port, "www.", a trailing slash, the fragment and
+    utm_* tracking parameters. Other query parameters stay, because some boards
+    carry the job id there (gh_jid, jk).
+    """
+    p = urllib.parse.urlsplit(u.strip().lower())
+    host = p.hostname or ""
+    if host.startswith("www."):
+        host = host[4:]
+    if p.port and p.port not in (80, 443):
+        host = f"{host}:{p.port}"
+    q = [(k, v) for k, v in urllib.parse.parse_qsl(p.query, keep_blank_values=True)
+         if not k.startswith("utm_")]
+    return host + p.path.rstrip("/") + ("?" + urllib.parse.urlencode(q) if q else "")
+
+
+def url_match(term, n):
+    """Same canonical URL, or the note's job_id is a whole path/query token of the URL.
+
+    The job_id arm catches a board that serves one posting at two URL shapes. The
+    6-character minimum keeps short ids from matching unrelated numbers.
+    """
+    if n["url"] and norm_url(n["url"]) == norm_url(term):
+        return True
+    jid = n["job_id"].strip("'\" ").lower()
+    return len(jid) >= 6 and jid in re.split(r"[/?&=#._-]+", term.lower())
+
+
 notes = load()
 if "--stats" in sys.argv:
     from collections import Counter
@@ -107,7 +140,7 @@ if by_url:
 for term in args:
     t = term.lower()
     if by_url:
-        hits = [n for n in notes if n["url"] and n["url"].lower() == t]
+        hits = [n for n in notes if url_match(term, n)]
     else:
         hits = [n for n in notes if t in n["name"].lower() or t in n["company"].lower()
                 or company_match(term, n)]
