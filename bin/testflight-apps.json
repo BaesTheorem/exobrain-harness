@@ -5,11 +5,6 @@
   "scheme": "MIST"
  },
  {
-  "name": "Switchboard KC",
-  "dir": "~/Documents/switchboard-kc/ios",
-  "script": "scripts/testflight.sh"
- },
- {
   "name": "Inbox",
   "dir": "~/Documents/inbox-by-gmail-clone/ios",
   "scheme": "Inbox",

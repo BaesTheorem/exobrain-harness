@@ -12,11 +12,11 @@ writes the config.
     refresh_key.py --auto    --check, and refresh only when the key is rejected
     refresh_key.py --auto --notify
                              the weekly launchd form: banner + Discord DM on a
-                             rotation (fixed or not), then upload a Switchboard KC
-                             TestFlight build so it carries the new key
+                             rotation (fixed or not)
 
-A refresh that changes the key also redeploys the push Worker and sends the
-key to the Switchboard KC web server (its URL and owner token are in switchboard-kc/web/.env).
+A refresh that changes the key also sends the key to the Switchboard KC web
+server (its URL and owner token are in switchboard-kc/web/.env). The iPhone
+app and its push Worker were retired on 2026-11-12, so nothing is rebuilt.
 
 INVARIANTS:
 - The config is written only after a signed get_main call succeeds with it.
@@ -39,7 +39,6 @@ from pathlib import Path
 
 import civicapi
 
-PUSH_DEPLOY = Path.home() / "Documents" / "switchboard-kc" / "push" / "bin" / "deploy"
 PACKAGE = "com.civicapps.kansascitymo"
 CLASSES = {
     "key": ("com.my.city.app.apicontroller.WebServiceController", r'String KEY = "([^"]+)"'),
@@ -132,10 +131,6 @@ def refresh() -> int:
     civicapi.CONFIG_PATH.write_text(json.dumps(cfg, indent=2) + "\n")
     changed = [k for k in CLASSES if old.get(k) != cfg[k]]
     log(f"config written to {civicapi.CONFIG_PATH}; changed: {', '.join(changed) or 'nothing'}")
-    # The Switchboard KC push Worker (kc311-push) holds its own copy of the key; send it the new one.
-    if changed and PUSH_DEPLOY.exists():
-        r = subprocess.run([str(PUSH_DEPLOY)], capture_output=True, text=True, check=False)
-        log(f"push worker redeploy: {'ok' if r.returncode == 0 else r.stderr.strip()[-300:]}")
     if changed:
         log(f"web server key: {send_web_key(cfg)}")
     print(json.dumps({"ok": True, "changed": changed, "app_version": cfg["app_version"]}))
@@ -181,8 +176,6 @@ def check() -> int:
 
 HARNESS = civicapi.HERE.parent
 NOTIFY = HARNESS / "mist-voice" / "bin" / "mist-notify"
-# Switchboard KC is on TestFlight, so new builds go there, never straight to a phone.
-APP_UPLOAD = Path.home() / "Documents" / "switchboard-kc" / "ios" / "scripts" / "testflight.sh"
 
 
 def notify(msg: str, context: str) -> None:
@@ -193,19 +186,11 @@ def notify(msg: str, context: str) -> None:
     )
 
 
-def rebuild_app() -> str:
-    if not APP_UPLOAD.exists():
-        return "no Switchboard KC app to rebuild"
-    run = subprocess.run([str(APP_UPLOAD)], capture_output=True, text=True)
-    tail = (run.stdout + run.stderr).strip().splitlines()[-2:]
-    return ("TestFlight build uploaded" if run.returncode == 0 else "TestFlight upload FAILED") + ": " + " | ".join(tail)
-
-
 def main() -> int:
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--check", action="store_true", help="probe the current config only")
     ap.add_argument("--auto", action="store_true", help="refresh only when the key is rejected")
-    ap.add_argument("--notify", action="store_true", help="with --auto: notify and rebuild the app on rotation")
+    ap.add_argument("--notify", action="store_true", help="with --auto: notify on rotation")
     args = ap.parse_args()
     if args.check:
         return check()
@@ -218,10 +203,10 @@ def main() -> int:
         result = refresh()
         if args.notify:
             if result == 0:
-                notify(f"The city rotated the myKCMO API key. New key pulled from the APK. {rebuild_app()}.",
+                notify("The city rotated the myKCMO API key. New key pulled from the APK and sent to the Switchboard KC web server.",
                        "mykcmo-refresh-key --auto: key rotated, refresh OK")
             else:
-                notify("The myKCMO API key rotated and the auto-refresh FAILED. Switchboard KC (iPhone and web) and MCP filing are down.",
+                notify("The myKCMO API key rotated and the auto-refresh FAILED. Switchboard KC and MCP filing are down.",
                        "mykcmo-refresh-key --auto: key rotated, refresh failed; run mykcmo/bin/mykcmo-refresh-key by hand")
         return result
     return refresh()

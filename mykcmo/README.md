@@ -16,7 +16,7 @@ Live data, from the myKCMO app backend (`civicapi.py`):
 | `get_report_subtypes` | A type's sub-types, with the form questions, location rule, disclaimer, and duplicate rule |
 | `prepare_311_report` | Stage a report: validate answers, geocode, check for a duplicate, return a review. Files nothing |
 | `submit_311_report` | File the staged report (needs `confirm=True`), with photos |
-| `my_311_reports` | Reports filed from this harness or the KC 311 iPhone app, with live status |
+| `my_311_reports` | Reports filed from this harness or from the Switchboard KC web app with the same reports id, with live status |
 | `get_311_report_status` | One report's live detail and staff timeline |
 | `request_311_updates` | File a 311 Request Update for open reports (`only_due=True`: no movement for 7 days); dry run unless `confirm=True` |
 | `live_311_map` | Public reports near a point, live, sorted by distance |
@@ -52,8 +52,8 @@ web form path cannot send, and it accepts photos.
 - **No login.** KC uses the "default" login type, so no request needs a
   session.
 - **"My reports" is a device id.** The server shows the reports that one
-  `deviceuid` sent. `civic-config.json` holds one id, and the KC 311 iPhone app is
-  built with the same id, so MIST and the phone see the same list.
+  `deviceuid` sent. `civic-config.json` holds one id, and the owner's Switchboard KC
+  web app uses the same id, so MIST and the app see the same list.
 - **Privacy defect in the city's API.** The detail endpoints return the
   reporter's name, email, and phone for all public reports, to all devices.
   `civicapi.strip_reporter` removes these fields before anything leaves the
@@ -79,7 +79,7 @@ keeps out questions about the reporter, such as "E-mail Address".
 Request Update for each open report that has had no movement and no update
 request for 7 days (`civicapi.due_for_update`), then sends one banner and
 one Discord DM. Filed update requests appear in the city's "my reports" list
-for the shared device id, so this job and the KC 311 iPhone app read the
+for the shared device id, so this job and the Switchboard KC web app read the
 same record and never ask twice. The city stores an update request as
 "Administration or Questions", so `is_update_request` also reads the request
 text ("Please send an update on").
@@ -110,8 +110,8 @@ version (jadx), proves the values with one signed read, and only then writes
 
 The launchd agent `com.exobrain.mykcmo-key-watch` (plist in this folder, copy
 it to `~/Library/LaunchAgents/`) runs `--auto --notify` at 11:15 each day.
-On a rotation it refreshes the key, rebuilds and reinstalls the KC 311 iPhone
-app, and sends a banner and a Discord DM.
+On a rotation it refreshes the key, sends the key to the Switchboard KC web
+server, and sends a banner and a Discord DM.
 
 ## KC Streetcar
 
