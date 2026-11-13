@@ -1155,6 +1155,14 @@
     "notes": "Extract PNG pages from a Supernote .note file for vision OCR. A firmware signature bump raises UnsupportedFileFormat -- upgrade supernotelib."
   },
   {
+    "name": "switchboard-check-sources",
+    "command": "npm run check-sources",
+    "repo_dir": "/Users/alexhedtke/Documents/switchboard-kc/web",
+    "source": "built",
+    "added": "2026-11-12",
+    "notes": "Needs Google Chrome (headless, real channel): kcmo.gov refuses the bundled browser. Exit 1 when a page differs from the copy. Reads each page one time."
+  },
+  {
     "name": "switchboard-kc-smoke",
     "command": "node test/smoke.mjs [base-url]",
     "repo_dir": "~/Documents/switchboard-kc/web",
