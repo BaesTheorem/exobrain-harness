@@ -25,6 +25,10 @@ INVARIANTS
   so the model name is part of every cache key.
 - checkpoint.npz holds keys and vectors in one file written by rename, so a
   stop can never leave keys and vectors out of step.
+- The model runs on the CPU with batch size 4. On this 8 GB Mac the default
+  (Metal GPU, batch 16) grew to 5.8 GB and pushed the machine into swap
+  (2026-11-12); the CPU at batch 4 peaks near 1.7 GB (footprint, as top shows it).
+  CPU and GPU vectors differ only by float noise, so the cache stays valid.
 """
 import hashlib
 import json
@@ -35,6 +39,8 @@ import numpy as np
 
 MODEL = "nomic-ai/nomic-embed-text-v1.5"
 CHUNK = 64
+DEVICE = "cpu"
+BATCH = 4
 _model = None
 
 
@@ -44,9 +50,9 @@ def encode(texts: list[str], query: bool = False) -> np.ndarray:
         return np.zeros((0, 768), dtype=np.float32)
     if _model is None:
         from sentence_transformers import SentenceTransformer
-        _model = SentenceTransformer(MODEL, trust_remote_code=True)
+        _model = SentenceTransformer(MODEL, trust_remote_code=True, device=DEVICE)
     prefix = "search_query: " if query else "search_document: "
-    vecs = _model.encode([prefix + t[:4000] for t in texts], batch_size=16,
+    vecs = _model.encode([prefix + t[:4000] for t in texts], batch_size=BATCH,
                          normalize_embeddings=True, show_progress_bar=False)
     return np.asarray(vecs, dtype=np.float32)
 
