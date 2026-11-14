@@ -1,0 +1,6 @@
+#!/bin/sh
+# cuneify: convert ATF transliteration to Unicode cuneiform with the Oracc sign list. See claytablet/README.md.
+HERE="$(cd "$(dirname "$0")/.." && pwd)"
+OSL="${CUNEIFY_OSL:-$HERE/assets/osl.asl}"
+if [ ! -f "$OSL" ]; then echo "cuneify: no sign list at $OSL; run $HERE/bin/claytablet-setup" >&2; exit 2; fi
+exec python3 "$HERE/lib/cuneify.py" --osl "$OSL" "$@"

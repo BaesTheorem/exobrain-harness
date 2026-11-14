@@ -1,0 +1,4 @@
+#!/bin/sh
+# claytablet: render ATF transliteration as a photo-like cuneiform clay tablet. See claytablet/README.md.
+HERE="$(cd "$(dirname "$0")/.." && pwd)"
+exec python3 "$HERE/lib/cli.py" "$@"

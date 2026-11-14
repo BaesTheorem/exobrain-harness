@@ -368,3 +368,7 @@ usps/data/
 usps/private/
 # Third-party skill from claudia.gallery (reinstall: curl the zip from claudia.gallery/skill/claudia-skill.zip, unzip into .claude/skills/)
 .claude/skills/claudia/
+
+# claytablet: downloaded sign list and font (the font is not for redistribution), and renders
+claytablet/assets/
+claytablet/out/

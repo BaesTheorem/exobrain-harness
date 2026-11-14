@@ -1,0 +1,15 @@
+#!/bin/sh
+# claytablet-setup: download the sign list and the Old Babylonian font into claytablet/assets (gitignored).
+set -e
+HERE="$(cd "$(dirname "$0")/.." && pwd)"
+UA="exobrain-harness/1.0 (+https://github.com/BaesTheorem/exobrain-harness)"
+mkdir -p "$HERE/assets"
+cd "$HERE/assets"
+# Oracc sign list, CC0
+curl -fsSL -A "$UA" -o osl.asl "https://raw.githubusercontent.com/oracc/ogsl/master/00lib/osl.asl"
+# Santakku (Old Babylonian cursive) by Sylvie Vanseveren. Free of charge, not for redistribution: fetch, do not commit.
+TMP="$(mktemp -d)"
+curl -fsSL -A "$UA" -o "$TMP/Santakku.zip" "https://hethport.net/cuneifont/download/Santakku.zip"
+unzip -o -q -j "$TMP/Santakku.zip" "Santakku.ttf" "SantakkuM.ttf" -d "$HERE/assets"
+rm -rf "$TMP"
+ls -l "$HERE/assets"
