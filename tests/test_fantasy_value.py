@@ -326,3 +326,34 @@ def test_flex_order_never_moves_a_locked_player_or_fills_a_hole():
     rows = base()
     rows[1]["kickoff"] = None                                   # bye
     assert value.flex_order(rows)["to_flex"] == "Sunday WR"
+
+
+def _cover_rows(status="Q", locked=False, rod_kick=200):
+    from espncli import value
+    RB, FLEX = 2, 23
+    return value, [
+        {"id": 1, "slotId": RB, "status": status, "kickoff": 100, "locked": locked, "actual": None,
+         "proj": 6.0, "eligible": [RB, FLEX, value.BENCH_SLOT], "opp": "DET"},
+        {"id": 2, "slotId": value.BENCH_SLOT, "status": "", "kickoff": rod_kick, "locked": False, "actual": None,
+         "proj": 6.9, "eligible": [RB, FLEX, value.BENCH_SLOT], "opp": "TEN"},
+        {"id": 3, "slotId": value.BENCH_SLOT, "status": "", "kickoff": 300, "locked": False, "actual": None,
+         "proj": 3.0, "eligible": [RB, FLEX, value.BENCH_SLOT], "opp": "ATL"},
+    ]
+
+
+def test_priced_cover_is_the_best_later_bench_player():
+    # 2026-11-15: Stevenson (Q, 8:30 AM) started with Rodriguez (noon) behind him.
+    value, rows = _cover_rows()
+    assert value.priced_covers(rows) == {2}
+
+
+def test_no_cover_once_the_starter_is_healthy_or_locked():
+    value, rows = _cover_rows(status="")
+    assert value.priced_covers(rows) == set()
+    value, rows = _cover_rows(locked=True)
+    assert value.priced_covers(rows) == set()
+
+
+def test_an_earlier_kickoff_cannot_cover():
+    value, rows = _cover_rows(rod_kick=50)
+    assert value.priced_covers(rows) == {3}

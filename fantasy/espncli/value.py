@@ -334,6 +334,34 @@ def with_fallbacks(rows: list[dict], rate: float = 1.0, holes: bool = False) -> 
     return out
 
 
+AT_RISK = {"Q", "D", "QUESTIONABLE", "DOUBTFUL"}
+
+
+def priced_covers(rows: list[dict]) -> set:
+    """Ids of the bench players that with_fallbacks() prices as the cover of an
+    unlocked starter who may not play (`p_play` below 1, or a Q/D status when
+    the injury table is not attached). Dropping one changes the starter's
+    mixture after `d_net` chose him, so roster-watch keeps these off its drop
+    list until the starter locks (2026-11-15: lineup-watch put Rhamondre
+    Stevenson in over Chris Rodriguez Jr. at +1.86 at 7:08 PM, and roster-watch
+    dropped Rodriguez for Xavier Hutchinson at 7:29 PM)."""
+    bench = [r for r in rows if r.get("slotId") == BENCH_SLOT and usable(r) and not r.get("locked")
+             and r.get("actual") is None]
+    out: set = set()
+    for r in rows:
+        if not is_starter(r) or r.get("locked") or r.get("actual") is not None:
+            continue
+        p = r.get("p_play")
+        if not ((p is not None and p < 1) or (p is None and (r.get("status") or "") in AT_RISK)):
+            continue
+        k = r.get("kickoff")
+        cands = [b for b in bench if b.get("id") != r.get("id") and r.get("slotId") in (b.get("eligible") or [])
+                 and (k is None or b.get("kickoff") is None or b["kickoff"] >= k)]
+        if cands:
+            out.add(max(cands, key=lambda b: float(row_mean(b) or 0.0))["id"])
+    return out
+
+
 def win_prob(me: list[dict], opp: list[dict], mults: dict[str, float] | None = None,
              remaining: dict[str, float] | None = None, corr: dict[str, float] | None = None,
              opp_fix_rate: float = 1.0, me_fix_rate: float | None = None) -> dict:

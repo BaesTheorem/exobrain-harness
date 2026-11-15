@@ -192,6 +192,18 @@ def gain_text(ev: dict) -> str:
     return out
 
 
+def cover_ids(api, data: dict, team_id: int) -> set | None:
+    """value.priced_covers() on our roster this week. None when the rows
+    cannot be built: the caller then files no drop this run, so a read
+    failure never widens what the lane can drop."""
+    try:
+        from espncli import cli, value  # noqa: PLC0415
+        return value.priced_covers(cli.roster_rows(api, api.roster_entries(data, team_id), api.current_week(data)))
+    except Exception as exc:  # noqa: BLE001 -- the guard must not stop the watcher
+        print(f"cover check failed ({exc}); no gated drop this run")
+        return None
+
+
 def auto_file(ev: dict, bench: dict[str, str]) -> dict | None:
     """Review, then file the swap. None when the event is outside the lane.
 
@@ -727,6 +739,10 @@ def main() -> int:
     # him voids that row (2026-10-22: the 49ers are the drop of the Jaguars claim).
     spent = {i.get("playerId") for t in (data.get("pendingTransactions") or []) for i in (t.get("items") or [])}
     bench = {n: pos for n, pos in bench.items() if bench_ids.get(n) not in spent}
+    # The cover of an unlocked questionable starter is spent too, until that
+    # starter locks: d_net chose the starter with this player behind him.
+    covers = cover_ids(api, data, team_id)
+    bench = {} if covers is None else {n: pos for n, pos in bench.items() if bench_ids.get(n) not in covers}
     for ev in events:
         if ev["kind"] in ("swap_gate", "stream_gate") and ev.get("avail") in ("FA", "WVR"):
             filed = auto_file(ev, bench)
