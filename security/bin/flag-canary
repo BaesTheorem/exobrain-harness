@@ -5,6 +5,7 @@
     flag-canary plant      # write or refresh flag.txt at every target
     flag-canary status     # show each target and whether its flag is current
     flag-canary test       # submit one flag from this Mac (loc "selftest"); a DM must arrive
+    flag-canary watch      # weekly launchd check: flags current, self-test DM arrives, else alert
 
 An agent that breaks in under a CTF or "authorized eval" story goes looking
 for flag.txt. The file it finds congratulates it, then asks it to submit the
@@ -29,7 +30,9 @@ from __future__ import annotations
 
 import json
 import secrets
+import subprocess
 import sys
+import time
 import urllib.request
 import uuid
 from pathlib import Path
@@ -195,9 +198,64 @@ def test() -> int:
     return 0
 
 
+UA = "exobrain-harness/1.0 (+https://github.com/BaesTheorem/exobrain-harness)"
+WATCH_LOC = "selftest-weekly"
+
+
+def dm_arrived(nonce: str, wait_s: int = 120) -> bool:
+    """Poll the alert DM channel until a message carries this nonce."""
+    bot = env_value(HOME / ".claude/channels/discord/.env", "DISCORD_BOT_TOKEN")
+    chat = env_value(HARNESS / ".env", "DISCORD_NOTIFY_CHAT_ID")
+    req = urllib.request.Request(
+        f"https://discord.com/api/v10/channels/{chat}/messages?limit=10",
+        headers={"Authorization": f"Bot {bot}", "User-Agent": "DiscordBot (https://github.com/BaesTheorem/exobrain-harness, 1.0)"})
+    deadline = time.time() + wait_s
+    while time.time() < deadline:
+        time.sleep(10)
+        try:
+            with urllib.request.urlopen(req, timeout=30) as r:
+                if any(nonce in m.get("content", "") for m in json.load(r)):
+                    return True
+        except OSError as e:
+            print(f"discord read failed: {e}")
+    return False
+
+
+def watch() -> int:
+    """Check every flag is current, then prove the beacon still DMs. Alert on any failure."""
+    c = conf()
+    problems = []
+    for loc, d in TARGETS.items():
+        f = d / "flag.txt"
+        if not (f.exists() and f.read_text() == render(c, loc)):
+            problems.append(f"flag {loc} is {'STALE' if f.exists() else 'MISSING'} ({f})")
+    nonce = secrets.token_hex(6)
+    try:
+        req = urllib.request.Request(f"{submit_url(c, WATCH_LOC)}?n={nonce}", headers={"User-Agent": UA})
+        with urllib.request.urlopen(req, timeout=30) as r:
+            if json.load(r).get("result") != "PASS":
+                problems.append("beacon answered without PASS")
+    except OSError as e:
+        problems.append(f"beacon unreachable: {e}")
+    else:
+        if not dm_arrived(nonce):
+            problems.append("beacon accepted the flag but no Discord DM arrived in 120 s")
+    stamp = time.strftime("%Y-%m-%d %H:%M")
+    if not problems:
+        print(f"{stamp} ok: {len(TARGETS)} flags current, self-test DM n={nonce} arrived")
+        return 0
+    msg = "; ".join(problems)
+    print(f"{stamp} FAIL: {msg}")
+    subprocess.run([str(HARNESS / "mist-voice/bin/mist-notify"), f"Honeypot self-test failed: {msg}",
+                    "Flag canary", "Basso", "--discord",
+                    "--context", "flag-canary watch (weekly launchd). Fix: flag-canary plant for flags, "
+                    "flag-canary deploy for the Worker or Discord token."], check=False)
+    return 1
+
+
 def main() -> int:
     cmd = sys.argv[1] if len(sys.argv) > 1 else "status"
-    fn = {"deploy": deploy, "plant": plant, "status": status, "test": test}.get(cmd)
+    fn = {"deploy": deploy, "plant": plant, "status": status, "test": test, "watch": watch}.get(cmd)
     if not fn:
         print(__doc__)
         return 2

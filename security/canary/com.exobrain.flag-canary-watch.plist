@@ -1,0 +1,38 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>Label</key>
+    <string>com.exobrain.flag-canary-watch</string>
+
+    <!-- Weekly positive control for the flag.txt honeypot: every flag is current,
+         the Worker accepts a submit, and its Discord DM arrives. A silent week of
+         no trips means nothing unless the alarm is proven to ring. Alerts only
+         on failure (banner + Discord DM). -->
+    <key>ProgramArguments</key>
+    <array>
+        <string>/Users/alexhedtke/.local/bin/mist-launch</string>
+        <string>/usr/bin/python3</string>
+        <string>/Users/alexhedtke/Documents/Exobrain harness/security/bin/flag-canary</string>
+        <string>watch</string>
+    </array>
+
+    <!-- Sunday 12:00, when the Mac is usually awake. launchd runs a missed
+         calendar slot at the next wake. -->
+    <key>StartCalendarInterval</key>
+    <dict>
+        <key>Weekday</key><integer>0</integer>
+        <key>Hour</key><integer>12</integer>
+        <key>Minute</key><integer>0</integer>
+    </dict>
+
+    <key>StandardOutPath</key>
+    <string>/Users/alexhedtke/Library/Logs/exobrain/flag-canary-watch.log</string>
+    <key>StandardErrorPath</key>
+    <string>/Users/alexhedtke/Library/Logs/exobrain/flag-canary-watch.err</string>
+    <key>AssociatedBundleIdentifiers</key>
+    <array>
+        <string>com.exobrain.mist-console</string>
+    </array>
+</dict>
+</plist>
