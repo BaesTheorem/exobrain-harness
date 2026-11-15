@@ -156,8 +156,11 @@ def summary_row(s: dict) -> dict:
 
 
 def _filters(min_price: float | None, max_price: float | None, condition: list[str] | None,
-             buying: str | None, local_miles: int | None) -> str:
+             buying: str | None, local_miles: int | None, located: str | None = None) -> str:
     parts = ["deliveryCountry:US"]
+    if located:
+        # Where the item sits, not where it ships: a seller abroad can still ship to the US.
+        parts.append(f"itemLocationCountry:{located.upper()}")
     if min_price is not None or max_price is not None:
         lo = "" if min_price is None else f"{min_price:g}"
         hi = "" if max_price is None else f"{max_price:g}"
@@ -175,12 +178,12 @@ def _filters(min_price: float | None, max_price: float | None, condition: list[s
 
 def search(query: str, n: int = 20, min_price: float | None = None, max_price: float | None = None,
            condition: list[str] | None = None, buying: str | None = None, local_miles: int | None = None,
-           sort: str = "best") -> list[dict]:
+           sort: str = "best", located: str | None = None) -> list[dict]:
     for c in condition or []:
         if c not in CONDITIONS:
             raise LaneError(f"ebay: condition {c!r} is not one of {', '.join(CONDITIONS)}")
     params: dict[str, Any] = {"q": query, "limit": min(max(n, 1), 200),
-                              "filter": _filters(min_price, max_price, condition, buying, local_miles)}
+                              "filter": _filters(min_price, max_price, condition, buying, local_miles, located)}
     if SORTS.get(sort):
         params["sort"] = SORTS[sort]
     d = _browse("item_summary/search", params)

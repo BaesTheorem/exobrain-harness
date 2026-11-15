@@ -19,9 +19,10 @@
       photos, seller and pin. --refresh-docid recaptures the GraphQL doc_id when it drifts.
 
   shop ebay <query> [--condition new,used,...] [--min N] [--max N] [--auction|--bin] [--local MI]
-                    [--sort best|price|price_desc|newest|ending] [-n N] [--json]
+                    [--located CC] [--sort best|price|price_desc|newest|ending] [-n N] [--json]
       Active eBay listings (official Browse API; EBAY_CLIENT_ID/SECRET in .env). Shipping is
-      quoted to HOME_ZIP. Joins the default `find` table, new condition only, once keys exist.
+      quoted to HOME_ZIP. --located US keeps
+      only items that sit in that country (ISO code). Joins the default `find` table, new condition only, once keys exist.
   shop ebay --sold <query> [--days D] [--condition any|new|used] [--min N] [--max N] [-n N]
       What it actually sold for: sold listings plus median, quartiles and range, through the
       Apify actor caffein.dev/ebay-sold-listings (APIFY_TOKEN; about $0.004 per result).
@@ -192,7 +193,8 @@ def cmd_ebay(a) -> int:
             buying = "AUCTION" if a.auction else "FIXED_PRICE" if a.bin else None
             cond = [c.strip() for c in a.condition.split(",")] if a.condition else None
             rows = ebay.search(query, n=a.n, min_price=a.min, max_price=a.max, condition=cond,
-                               buying=buying, local_miles=a.local, sort=a.sort)
+                               buying=buying, local_miles=a.local, sort=a.sort,
+                               located=a.located)
     except LaneError as e:
         print(f"shop: {e}", file=sys.stderr)
         return 1
@@ -319,6 +321,7 @@ def main(argv: list[str]) -> int:
     e.add_argument("--auction", action="store_true")
     e.add_argument("--bin", action="store_true", help="Buy It Now only")
     e.add_argument("--local", type=int, metavar="MILES", help="local pickup within MILES of HOME_ZIP")
+    e.add_argument("--located", metavar="CC", help="only items located in this country (ISO code, e.g. US)")
     e.add_argument("--sort", default="best", choices=["best", "price", "price_desc", "newest", "ending"])
     e.add_argument("-n", type=int, default=30)
     e.add_argument("--json", action="store_true")

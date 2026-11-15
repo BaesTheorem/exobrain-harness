@@ -26,7 +26,7 @@ Target variants are listed in the `price` output, Walmart's count is).
 shop find <query>                    # Target + Walmart (nearest stores) + Flipp weekly ads + Amazon, one table
 shop find <query> --at target,amazon # limit the lanes (--at fbm adds Facebook Marketplace)
 shop fbm <query> [--max N] [--days D] [--radius KM] [--condition ...] [--sort price|date] [--exact]
-shop ebay <query> [--condition new,used,...] [--max N] [--auction|--bin] [--local MI] [--sort price]
+shop ebay <query> [--condition new,used,...] [--max N] [--auction|--bin] [--local MI] [--located US] [--sort price]
 shop ebay --sold <query> [--days 90] [--condition used]   # what it actually sold for
 shop price <url | target:<tcin> | walmart:<id> | flipp:<id> | fbm:<id> | ASIN> [--all-variants] [--json]
 shop clearance <upc> [store]         # in-store penny or clearance price via Penny Lane
