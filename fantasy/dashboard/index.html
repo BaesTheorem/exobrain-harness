@@ -118,7 +118,7 @@ body.stand>:not(#vStand):not(.views):not(script){display:none!important} #vStand
 #sTab td{font-size:16px} #sTab td.o{width:96px} #sTab td.o i{font:500 12px Inter;font-style:normal;color:var(--mute);margin-right:6px}
 #sTab tr.cut td{border-bottom:1px solid var(--mute)} #sTab tr.me td{color:var(--red)} #sTab tr.me td:first-child{color:var(--red)}
 #sTab .bd{font:600 11px 'Barlow Condensed';letter-spacing:1.2px;padding:1px 6px;background:var(--ink);color:var(--bg)} #sTab .bd.x{background:var(--track);color:var(--mute)}
-.own{color:var(--mute);font-weight:500} tr.me .own{color:inherit} #sTab td.wkp{color:var(--mute)} #sTab td,#sTab th{white-space:nowrap} #sTab td:nth-child(2){white-space:normal}
+.own{color:var(--mute);font-weight:500} .tn .own{display:block;text-transform:none;font-size:16px;letter-spacing:0} .tt b .own{font-size:12px} tr.me .own{color:inherit} #sTab td.wkp{color:var(--mute)} #sTab td,#sTab th{white-space:nowrap} #sTab td:nth-child(2){white-space:normal}
 @media (max-width:640px){#sTab .own{display:block;font-size:13px} #sTab .xs{display:none} #sTab th,#sTab td{padding:6px 4px} #sTab td.o{width:auto} #sTab td.o i{display:none} #sTab td:nth-child(2){max-width:110px} #sTab th{letter-spacing:.5px} #sTab th,#sTab td{padding:6px 3px} #sTab td:first-child{width:auto}}
 </style></head><body>
 <nav class="views" role="tablist"><button data-v="scores" class="on">SCORES</button><button data-v="stand">STANDINGS</button><button data-v="wire">WIRE<span class="dot off" id="wdot"></span></button><button data-v="chat">CHAT<span class="dot off" id="unread"></span></button></nav>
@@ -217,9 +217,9 @@ function render(S){S=merge(S,L0);
  const left=rm.length+ro.length;
  $('dek').textContent=left?`${left} starter${left>1?'s':''} still to play · model final ${f1(w.mu_me)} to ${f1(w.mu_opp)} · spread of the rest of the week ${f1(w.sd_diff)} points`:'Every starter on both sides is final.';
  $('p').textContent=pct(w.p);$('pb').textContent=pct(1-w.p);$('tug').style.width=(w.p*100)+'%';$('p').title=me.team;$('pb').title=op.team;
- $('meN').textContent=me.team;$('opN').textContent=op.team;$('meS').textContent=f2(me.actual);$('opS').textContent=f2(op.actual);
+ $('meN').innerHTML=esc(me.team)+ow(me.team_id);$('opN').innerHTML=esc(op.team)+ow(op.team_id);$('meS').textContent=f2(me.actual);$('opS').textContent=f2(op.actual);
  $('meP').textContent=`model final ${f1(w.mu_me)} ± ${f1(w.sd_me)}`;$('opP').textContent=`model final ${f1(w.mu_opp)} ± ${f1(w.sd_opp)}`;
- $('meL').src=BASE+'/logo/'+me.team_id;$('opL').src=BASE+'/logo/'+op.team_id;$('meH').textContent=me.team+' starters';$('opH').textContent=op.team;
+ $('meL').src=BASE+'/logo/'+me.team_id;$('opL').src=BASE+'/logo/'+op.team_id;$('meH').innerHTML=esc(me.team)+ow(me.team_id)+' starters';$('opH').innerHTML=esc(op.team)+ow(op.team_id);
  $('meR').innerHTML=bars(me.rows,'#E5383B')+(isMine&&me.bench&&me.bench.length?(()=>{const t=me.bench.reduce((a,r)=>a+Math.max(r.bank,0),0);return `<h3 class="bh">Bench · ${t?f2(t)+' ':''}not counted</h3><div class="bench">${bars(me.bench,'#8B9099')}</div>`})():'');$('opR').innerHTML=bars(op.rows,'#C9C2B8');
  if(w.sd_diff>0&&left){const up=Phi((mar+6)/w.sd_diff),dn=Phi((mar-6)/w.sd_diff),bits=[];
   if(rm.length)bits.push(`A touchdown by ${esc(last(rm[0].name))} (6 points) moves ${esc(me.team)} to <b>${pct(up)}</b>.`);
@@ -228,7 +228,7 @@ function render(S){S=merge(S,L0);
  const hist=(S.history||[]).map(d=>isMine?d:(d.all&&d.all[SEL]?{t:d.t,...d.all[SEL]}:null)).filter(d=>d&&d.p!=null);hist.push({t:S.scoresAt||S.at,p:w.p,me:me.actual,opp:op.actual});chart(hist,V);
  $('wplg').textContent=hist.length<2?'one reading every 2 minutes while games are on; the line starts at the first one':'one reading every 2 minutes while games are on; hover for the score';
  $('ticker').innerHTML=S.games.map(g=>{const pm=g.mine?(g.h===ours?g.p:1-g.p):g.p;
-  return `<div class="tk${g.id==SEL?' sel':''}${g.mine?' mine':''}" data-id="${g.id}" role="tab" tabindex="0" aria-selected="${g.id==SEL}" title="${esc(g.h)} ${f1(g.hs)} – ${f1(g.as)} ${esc(g.a)}">${logo(g.hid,'s')}<span>${esc(g.h)}</span> ${f2(g.hs)}–${f2(g.as)} <b>${pct(pm)}</b></div>`}).join('');
+  return `<div class="tk${g.id==SEL?' sel':''}${g.mine?' mine':''}" data-id="${g.id}" role="tab" tabindex="0" aria-selected="${g.id==SEL}" title="${esc(g.h+owT(g.hid))} ${f1(g.hs)} – ${f1(g.as)} ${esc(g.a+owT(g.aid))}">${logo(g.hid,'s')}<span>${esc(g.h)}</span> ${f2(g.hs)}–${f2(g.as)} <b>${pct(pm)}</b></div>`}).join('');
  const ST=S.standings&&S.standings.rows&&S.standings.rows.some(r=>r.bye!=null)?S.standings:null;
  if(ST){const me=ST.rows.find(r=>r.mine),rows=[...ST.rows].sort((a,b)=>b.bye-a.bye);
   if(me)$('kv').innerHTML=[['BYE','bye'],['PLAYOFFS','playoffs'],['TITLE','title'],['1 SEED','seed1']].map(([l,k])=>`<div><small>${l}</small><span class="big">${pct(me[k])}</span></div>`).join('');
@@ -261,6 +261,8 @@ function merge(S,L){if(!S||!S.ok||!L||!L.teams||(L.at&&L.at<S.at))return S;const
  T.scoresAt=L.at;return T}
 // ---------- standings ----------
 const own=r=>r.owner?` <span class="own">(${esc(r.owner)})</span>`:'';
+// Owner names by team id, from /api/state (ESPN member records, read by the Worker; the repo holds none).
+let OWN={};const ow=id=>OWN[id]?` <span class="own">(${esc(OWN[id])})</span>`:'',owT=id=>OWN[id]?` (${OWN[id]})`:'';
 const opct=x=>x==null?'–':x>0&&x<.005?'<1%':x<1&&x>.995?'>99%':pct(x);
 function odd(r,k){if(r[k]==null)return '<td class="o">–</td>';
  if(r.clinch&&r.clinch[k])return '<td class="o"><span class="bd">IN</span></td>';
@@ -281,7 +283,7 @@ function renderStand(S){const T=S.standings;if(!T)return;
   R.map((r,i)=>`<tr class="${r.mine?'me':''}${i===1||i===5?' cut':''}"><td>${r.seed||i+1}</td><td>${logo(r.id,'xs')}${esc(r.name)}${own(r)}</td><td>${r.w}-${r.l}${r.t?'-'+r.t:''}</td><td>${f2(r.pf)}</td><td class="wkp xs">${r.week_p==null?'idle':pct(r.week_p)}</td>${odd(r,'bye')}${odd(r,'playoffs')}${odd(r,'title')}</tr>`).join('');
  $('sFoot').innerHTML=`Seeds by win share, then Points For (the league's tiebreak); a rule under 2nd marks the byes and under 6th the playoff cut. WK ${wk} is each team's live chance in this week's game. The small number is the change in points since ${T.pre_at?new Date(T.pre_at).toLocaleString([], {weekday:'short',hour:'numeric',minute:'2-digit'}):'the week\'s first table'}, the week's first table. IN and OUT come from wins alone, with every rival allowed to win out and a tie on wins counted against the claim, so they never mark a team too early. Checked on 857 real leagues from their week-5 standings: the bye odds scored Brier 0.114 against 0.182 for "the current top two", but above 80% they ran high (84% predicted, 65% happened).`}
 const get=async p=>(await fetch(BASE+p,{cache:'no-store'})).json();
-async function tick(){try{const s=await get('/api/state');if(s.ok===false)throw new Error(s.error);S0=s;render(S0)}catch(e){$('err').textContent='Scorebug not reachable ('+e.message+'). Showing the last good reading.'}}
+async function tick(){try{const s=await get('/api/state');if(s.ok===false)throw new Error(s.error);S0=s;if(s.owners)OWN=s.owners;render(S0)}catch(e){$('err').textContent='Scorebug not reachable ('+e.message+'). Showing the last good reading.'}}
 tick();setInterval(tick,10e3);
 document.addEventListener('visibilitychange',()=>{if(!document.hidden)tick()});
 
@@ -294,13 +296,13 @@ function setView(v){document.body.classList.toggle('chat',v==='chat');document.b
 document.querySelector('.views').addEventListener('click',e=>{const b=e.target.closest('button');if(b)setView(b.dataset.v)});
 function chatLogo(id,label){return id!=null?`<img class="logo" style="width:32px;height:32px" src="${BASE}/logo/${id}" alt="">`:`<span class="lg0">${esc((label||'?').slice(0,2).toUpperCase())}</span>`}
 function renderThreads(){if(!C)return;const n=C.threads.filter(unreadT).length,u=$('unread');u.classList.toggle('off',!n);u.textContent=n;
- $('threads').innerHTML=`<div class="newdm"><select id="dmPick"><option value="">New direct message…</option>${C.teams.map(t=>`<option value="${t.id}">${esc(t.name)}</option>`).join('')}</select></div>`+
+ $('threads').innerHTML=`<div class="newdm"><select id="dmPick"><option value="">New direct message…</option>${C.teams.map(t=>`<option value="${t.id}">${esc(t.name+owT(t.id))}</option>`).join('')}</select></div>`+
  C.threads.map(t=>{const m=t.messages[t.messages.length-1];return `<div class="th${t.id===TSEL?' sel':''}" data-id="${esc(t.id)}">${t.dm?chatLogo(t.team_id,t.title):'<span class="lg0" style="color:var(--red)">ALL</span>'}
- <span class="tt"><b>${esc(t.title)}</b><small>${m?esc((m.mine?'You: ':'')+m.content):'No messages yet'}</small></span><small>${t.last?ago(t.last):''}</small>${unreadT(t)?'<i class="u"></i>':''}</div>`}).join('');
+ <span class="tt"><b>${esc(t.title)}${t.dm&&t.team_id!=null?ow(t.team_id):''}</b><small>${m?esc((m.mine?'You: ':'')+m.content):'No messages yet'}</small></span><small>${t.last?ago(t.last):''}</small>${unreadT(t)?'<i class="u"></i>':''}</div>`}).join('');
  $('dmPick').onchange=async e=>{const id=e.target.value;if(!id)return;const r=await post('/api/chat/open',{team_id:+id});if(r.topic){await loadChat(true);openThread(r.topic)}else $('cnt').textContent='Could not open that conversation: '+(r.error||'unknown error')}}
 function renderConv(){const t=C&&C.threads.find(x=>x.id===TSEL);$('send').disabled=!t;if(!t){$('convT').textContent='Pick a conversation';$('msgs').innerHTML='';return}
- $('convT').textContent=t.title;const box=$('msgs'),atEnd=box.scrollHeight-box.scrollTop-box.clientHeight<40;
- box.innerHTML=t.messages.map(m=>`<div class="msg${m.mine?' mine':''}">${m.mine?'':chatLogo(m.team_id,m.who)}<div><div class="meta">${esc(m.who)} · ${ago(m.date)}</div><div class="bub">${esc(m.content)}</div></div></div>`).join('')||'<div class="meta">No messages yet. Say hello.</div>';
+ $('convT').textContent=t.title+(t.dm&&t.team_id!=null?owT(t.team_id):'');const box=$('msgs'),atEnd=box.scrollHeight-box.scrollTop-box.clientHeight<40;
+ box.innerHTML=t.messages.map(m=>`<div class="msg${m.mine?' mine':''}">${m.mine?'':chatLogo(m.team_id,m.who)}<div><div class="meta">${esc(m.who+(m.mine||m.team_id==null?'':owT(m.team_id)))} · ${ago(m.date)}</div><div class="bub">${esc(m.content)}</div></div></div>`).join('')||'<div class="meta">No messages yet. Say hello.</div>';
  if(atEnd||box.dataset.t!==t.id){box.scrollTop=box.scrollHeight;box.dataset.t=t.id}
  seen[t.id]=t.last||Date.now();localStorage.setItem('sb-seen',JSON.stringify(seen))}
 function openThread(id){TSEL=id;document.body.classList.add('open');renderThreads();renderConv();$('txt').focus()}
@@ -342,7 +344,7 @@ function evLine(e){const me=e.team_id===W.me,t=tm(e.team_id);let bd='',what='',h
  else if(e.kind==='offer_declined'){bd='DECLINED';what='<em>declined a trade offer</em>'}
  else if(e.kind==='lineup'){bd='LINEUP';what=`${pn(e.player_id)} <em>${esc(e.detail||'')}${e.auto?', carried out by ESPN from a plan':''}</em>`}
  else if(e.kind==='lineup_plan'){bd='PLAN';what=`<em>set the week ${esc(e.for_week)} lineup in advance (${(e.items||[]).length} move${(e.items||[]).length===1?'':'s'})</em>`}
- return `<div class="wl"><span class="t">${at(e.at)}</span><span class="who${me?' me':''}">${logo(e.team_id,'xs')}${esc(t.abbrev||t.name)}</span><span class="bd${me?' me':hot?' hot':''}">${bd}</span><span class="what">${what}</span></div>`}
+ return `<div class="wl"><span class="t">${at(e.at)}</span><span class="who${me?' me':''}" title="${esc(t.name+owT(e.team_id))}">${logo(e.team_id,'xs')}${esc(t.abbrev||t.name)}</span><span class="bd${me?' me':hot?' hot':''}">${bd}</span><span class="what">${what}</span></div>`}
 function wantEv(e){const k=WKINDS[WF.kind];if(WF.team&&e.team_id!==+WF.team&&e.other_team_id!==+WF.team)return false;if(!k)return e.kind!=='lineup'&&e.kind!=='lineup_plan';return k.includes(e.kind)||k.includes(e.kind+':'+e.how)}
 function renderWire(){if(!W)return;const A=W.analysis,mine=tm(W.me),now=Date.now();
  const rival=W.events.filter(e=>e.team_id!==W.me&&e.kind!=='lineup');const fresh=rival.filter(e=>(e.at||0)>wseen).length,dot=$('wdot');dot.classList.toggle('off',!fresh||document.body.classList.contains('wire'));dot.textContent=fresh;
@@ -361,18 +363,18 @@ function renderWire(){if(!W)return;const A=W.analysis,mine=tm(W.me),now=Date.now
   return `<div class="pend"><span class="bd${p.direction==='league'?' lg':''}">${lab}</span><b>${items}</b><small>${when}</small></div>`}).join('')||'<div class="empty">Nothing in flight.</div>';
  $('wRead').innerHTML=A&&A.brief?A.brief.map(l=>`<p>${esc(l).replace(/^([^:]+:)/,'<b>$1</b>')}</p>`).join(''):'<div class="empty">No analysis yet.</div>';
  // On waivers
- $('wWire').innerHTML=A&&(A.wire||[]).length?A.wire.map(w=>{const r=(A.base_rates||{})[w.pos]||[0,0],need=w.need_teams.map(id=>esc(tm(id).name)).join(', ');
-  const odds=w.class==='recycled'?`dropped${w.dropped_by?' by '+esc(tm(w.dropped_by).name):''}; this league claimed ${r[0]} of ${r[1]} dropped ${esc(w.pos)}s off waivers`:'never dropped here: a breakout draws rival claims';
+ $('wWire').innerHTML=A&&(A.wire||[]).length?A.wire.map(w=>{const r=(A.base_rates||{})[w.pos]||[0,0],need=w.need_teams.map(id=>esc(tm(id).name+owT(id))).join(', ');
+  const odds=w.class==='recycled'?`dropped${w.dropped_by?' by '+esc(tm(w.dropped_by).name+owT(w.dropped_by)):''}; this league claimed ${r[0]} of ${r[1]} dropped ${esc(w.pos)}s off waivers`:'never dropped here: a breakout draws rival claims';
   return `<div class="pend">${w.ours?'<span class="bd">OUR CLAIM</span>':''}<b>${esc(w.name)}</b> <span class="wpos">${w.pos==='D/ST'?'':esc(w.pos)+' · '+esc(w.nfl)+' · '}${f1(w.rate)} a week</span><small>${odds}. Clears ${at(w.clears)}.${need?' Need at '+esc(w.pos)+': '+need+'.':''}${w.lands!=null?` Lands about ${Math.round(w.lands*100)}%.`:''}</small></div>`}).join(''):'<div class="empty">Nobody on waivers worth a look.</div>';
  // Board
  const B=A?Object.fromEntries(A.board.map(b=>[b.team_id,b])):{};
  const rows=[...W.teams].sort((a,b)=>(a.priority??99)-(b.priority??99));
  const need=b=>{if(!b)return'<i>-</i>';const n=(b.needs||[]).map(x=>`${esc(x)} now`),x=(b.needs_next||[]).map(x=>`${esc(x)} wk ${W.week+1}`);return [...n,...x].join(', ')||'<i>covered</i>'};
  $('wBoard').innerHTML='<thead><tr><th>#</th><th>TEAM</th><th class="xs">W-L</th><th style="text-align:left">NEEDS</th><th class="x">TIER</th><th class="x">ADDS</th><th class="x">K/DST</th><th class="xs">SEEN</th></tr></thead><tbody>'+rows.map(t=>{const b=B[t.id];
-  return `<tr data-team="${t.id}" class="${t.mine?'me':''}${String(t.id)===WF.team?' pick':''}"><td>${t.priority??'-'}</td><td>${logo(t.id,'xs')}${esc(t.name)}</td><td class="xs">${esc(t.record)}</td><td class="nd">${need(b)}</td><td class="x">${esc((b&&b.tier)||'-')}</td><td class="x">${b?b.adds:'-'}</td><td class="x">${b?b.kdst_adds:'-'}</td><td class="xs">${since(t.last_seen)}</td></tr>`}).join('')+'</tbody>';
+  return `<tr data-team="${t.id}" class="${t.mine?'me':''}${String(t.id)===WF.team?' pick':''}"><td>${t.priority??'-'}</td><td>${logo(t.id,'xs')}${esc(t.name)}${ow(t.id)}</td><td class="xs">${esc(t.record)}</td><td class="nd">${need(b)}</td><td class="x">${esc((b&&b.tier)||'-')}</td><td class="x">${b?b.adds:'-'}</td><td class="x">${b?b.kdst_adds:'-'}</td><td class="xs">${since(t.last_seen)}</td></tr>`}).join('')+'</tbody>';
  $('wBfoot').textContent='# is waiver priority: 1 claims first, and the order resets each week to the reverse of the standings. NEEDS is a starter slot the bench cannot cover, this week or next (a bye, OUT, IR, or empty). TIER and the adds are from the season record. SEEN is the last move made by hand. Tap a team for its moves.';
  // History
- $('wChips').innerHTML=Object.keys(WKINDS).map(k=>`<button data-k="${k}" class="${WF.kind===k?'on':''}">${k.toUpperCase()}</button>`).join('')+`<select id="wTeam"><option value="">All teams</option>${rows.map(t=>`<option value="${t.id}"${String(t.id)===WF.team?' selected':''}>${esc(t.name)}</option>`).join('')}</select>`;
+ $('wChips').innerHTML=Object.keys(WKINDS).map(k=>`<button data-k="${k}" class="${WF.kind===k?'on':''}">${k.toUpperCase()}</button>`).join('')+`<select id="wTeam"><option value="">All teams</option>${rows.map(t=>`<option value="${t.id}"${String(t.id)===WF.team?' selected':''}>${esc(t.name+owT(t.id))}</option>`).join('')}</select>`;
  $('wTeam').onchange=e=>{WF.team=e.target.value;WF.show=60;renderWire()};
  const all=W.events.filter(wantEv),ev=all.slice(0,WF.show);let wk=null,out='';
  for(const e of ev){if(e.week!==wk){wk=e.week;out+=`<div class="wk">${wk?'WEEK '+wk:'DRAFT DAY'}</div>`}out+=evLine(e)}

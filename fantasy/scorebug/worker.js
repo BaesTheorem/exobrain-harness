@@ -664,7 +664,11 @@ export default {
         const snap = await getSnap(env);
         const st = compute(snap, await espnLive(env, snap));
         st.history = await history(env, snap);
-        try { st.standings = standings(st, snap, await records(env, snap)); } catch (e) { st.standings = { error: String(e.message || e) }; }
+        try {
+          const recs = await records(env, snap);
+          st.owners = Object.fromEntries(recs.filter(r => r.owner).map(r => [r.id, r.owner]));   // every tab shows the owner beside the team
+          st.standings = standings(st, snap, recs);
+        } catch (e) { st.standings = { error: String(e.message || e) }; }
         return json(st);
       }
       if (path === "/api/record" && req.method === "POST") return json(await record(env));
