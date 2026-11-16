@@ -57,6 +57,10 @@ com.exobrain.niu-kqi` and let it prompt again.
 - `kqi monitor --seconds 120` prints what the scooter pushes on its own (ride it, press
   buttons). `kqi raw <hex>` sends one frame.
 - Writes and `cmd` ask for confirmation; pass `-y` only when Alex already said do it.
+- `niulink on|off` sets NIU Link Unlock (phone-proximity unlock). With it on, the iPhone
+  holds a system pairing to "NIU Link ..." that iOS uses as a hands-free audio device, so
+  calls go to a scooter that has no speaker. The cure is `kqi niulink off`, then Forget This
+  Device in the phone's Bluetooth settings. `-y` goes before the subcommand (`kqi -y write ...`).
 
 ## Judgment rules
 
