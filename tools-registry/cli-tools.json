@@ -545,6 +545,14 @@
     "notes": "Reads the vegan Hiker Food Chart xlsx in the vault (Attachments/Hiker Food Chart). Edit solve() keyword args for targets. Uses min(label kcal, macro kcal); drops rows that disagree by >20%. scipy milp."
   },
   {
+    "name": "hotosm-roads",
+    "command": "~/Documents/hotosm-roads/bin/zindi {login|files|download|submit|board|mine}",
+    "repo_dir": "/Users/alexhedtke/Documents/hotosm-roads",
+    "source": "built",
+    "added": "2026-11-17",
+    "notes": "Credentials in Keychain item 'zindi' or ZINDI_USER/ZINDI_PASS. ZINDI_COMP env var picks the competition (default hotosm-african-highway-segmentation). Scorer: uv run python -c 'from hotosm_roads import metrics'. Training on Kaggle GPUs, not the Mac."
+  },
+  {
     "name": "hp1-actor-dumps",
     "command": "python3 scripts/actor-dumps.py RUN_LOG [NAME_PREFIX ...] [--moving]",
     "repo_dir": "/Users/alexhedtke/Documents/hp1-sorcerers-stone-macos",
