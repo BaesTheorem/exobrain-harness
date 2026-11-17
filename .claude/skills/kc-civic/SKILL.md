@@ -73,6 +73,7 @@ This is the primary mode. The method is in `kc-civic/prep-prompt.md`. That file 
 ## Maintenance
 
 - Log: `~/Library/Logs/exobrain/kc-civic.log`. launchd label: `com.exobrain.kc-civic`.
+- Status (2026-11-16): unsubscribed. Alex stopped the job and removed the installed plist. Do not reinstall it. He will subscribe again through the Switchboard KC app. The repo copy of the plist stays for reference.
 - `NotAuthorized`: the calendar token in `kc-civic/secrets/` is missing. Run `kc-civic/bin/kc-civic auth-calendar`, then `--code '<redirected URL>'`. Alex has to click the consent link.
 - A 403 that says "Calendar API has not been used in project" means that the API is off in the Cloud project. Alex enables it in the console.
 - A long manual `prep` and a sync pass can run at the same time. The code merges state after a prep. If the state is lost, the next sync rebuilds it from the `kccivicId` keys on the calendar entries, and nothing is duplicated.

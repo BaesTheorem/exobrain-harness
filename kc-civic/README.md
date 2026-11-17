@@ -51,7 +51,7 @@ bin/kc-civic code show "88-130-04" [--product zoning] # print sections by title 
 4. The calendar entry gets the prep note link and the verdict (`speak`, `written-comment`, `watch`, or `skip`).
 5. One digest notification for each pass (banner and Discord), and only when something new occurred.
 
-launchd runs it at 06:30, 12:30 and 18:30 (`com.exobrain.kc-civic.plist`). The browser work occurs only on the first pass of the day, and the headless Chrome never shows a window.
+launchd runs it at 06:30, 12:30 and 18:30 (`com.exobrain.kc-civic.plist`). The job is not installed at this time: the owner unsubscribed on 2026-11-16 and uses the Switchboard KC app to subscribe. To install it again, copy the plist to `~/Library/LaunchAgents/` and load it with `launchctl bootstrap`. The browser work occurs only on the first pass of the day, and the headless Chrome never shows a window.
 
 ## Security
 
