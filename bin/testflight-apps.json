@@ -32,6 +32,12 @@
   "prep": "cp ../data/fields.json KQiRides/Resources/fields.json && python3 scripts/make-icon-map.py"
  },
  {
+  "name": "KQi Power",
+  "dir": "~/Documents/niu-kqi/ios-power",
+  "scheme": "KQiPower",
+  "prep": "./scripts/prep.sh"
+ },
+ {
   "name": "Clippy Meme",
   "dir": "~/Documents/paperclip-meme/ios",
   "scheme": "ClippyMeme",
