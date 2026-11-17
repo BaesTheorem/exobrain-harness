@@ -58,8 +58,11 @@ def norm(s):
     return re.sub(r"[^a-z]", "", re.sub(r"\b(jr|sr|iii|ii|iv)\b", "", s.lower()))
 
 
-def optimal_lineup(players):
-    """Best legal starting nine by season projection: fixed slots, then flex."""
+def optimal_lineup(players, fill=None):
+    """Best legal starting nine by season projection: fixed slots, then flex.
+
+    `fill` ({pos: proj}) puts a replacement-level player in a fixed slot the
+    roster cannot cover. Without it an empty slot scores 0."""
     by_pos = collections.defaultdict(list)
     for p in players:
         by_pos[p["pos"]].append(p)
@@ -70,9 +73,49 @@ def optimal_lineup(players):
         for p in by_pos[pos][:n]:
             used.add(id(p))
             total += p["proj"]
+        total += max(0, n - len(by_pos[pos][:n])) * (fill or {}).get(pos, 0.0)
     flex = max((p for pos in FLEX for p in by_pos[pos] if id(p) not in used),
                key=lambda p: p["proj"], default=None)
     return total + (flex["proj"] if flex else 0.0)
+
+
+# Points per week a manager gets from the waiver wire for a slot the roster
+# cannot fill (a bye or an injury with no backup). Stated, not fitted: the best
+# free agents in week 11 2026 were TE 8.7 and D/ST 6.6, and managers fix
+# approximately 0.8 of their bye holes, so these sit a little under the wire.
+REPLACEMENT = {"QB": 14.0, "RB": 7.0, "WR": 7.0, "TE": 6.0, "K": 7.0, "D/ST": 5.0}
+# Injury tags that take a player out of the current week, and how many weeks
+# from now each one covers. NFL injured reserve is a 4-game minimum.
+OUT_WEEKS = {"OUT": 1, "SUSPENSION": 1, "DOUBTFUL": 1, "INJURY_RESERVE": 4}
+
+
+def unavailable_weeks(pro_games: dict, week: int, last: int, status: str | None) -> list[int]:
+    """Weeks in week..last a player cannot score: his NFL team's byes, plus the
+    weeks his injury tag covers from `week` on."""
+    off = {w for w in range(week, last + 1) if not pro_games.get(str(w))}
+    off |= set(range(week, min(last, week + OUT_WEEKS.get(status or "", 0) - 1) + 1))
+    return sorted(off)
+
+
+def week_adjustments(team: dict, weeks) -> dict[int, float]:
+    """{week: points per week} to add to a team's strength in each week: its
+    best lineup without the players who are off that week (bye or injury),
+    minus its best lineup with everyone. Zero or negative.
+
+    Added 2026-11-17. Strength alone is the full healthy roster every week, so
+    week 11 2026 (Walker OUT, Watson and Stevenson on bye) priced at 77% while
+    the lineup model, which knows the week, priced it at 52%."""
+    players = team.get("players") or []
+    if not any(p.get("off") for p in players):
+        return {}
+    fill = {pos: v * NFL_WEEKS for pos, v in REPLACEMENT.items()}
+    full = optimal_lineup(players, fill)
+    out = {}
+    for w in weeks:
+        avail = [p for p in players if w not in (p.get("off") or ())]
+        if len(avail) < len(players):
+            out[w] = (optimal_lineup(avail, fill) - full) / NFL_WEEKS
+    return out
 
 
 def load(season):
@@ -85,6 +128,7 @@ def load(season):
     data = cl.league("mTeam", "mRoster", "mMatchup", "mSettings", "mStatus")
     week = Espn.current_week(data)
     appeared = games_appeared(load_volume_rows(season), week)
+    reg = data["settings"]["scheduleSettings"]["matchupPeriodCount"]
     teams = {}
     for t in data["teams"]:
         players = []
@@ -100,10 +144,11 @@ def load(season):
             rate = ros_rate(week, week_proj(p, season, week), season_proj(p, season), before, games,
                             appeared.get(f"{cnorm(p['fullName'])}|{pos}"))
             players.append({"name": p["fullName"], "pos": pos,
-                            "proj": rate * NFL_WEEKS, "preseason": season_proj(p, season) or 0.0})
+                            "proj": rate * NFL_WEEKS, "preseason": season_proj(p, season) or 0.0,
+                            "off": unavailable_weeks(cl.pro(p.get("proTeamId")).get("games", {}), week, reg,
+                                                     p.get("injuryStatus"))})
         teams[t["id"]] = {"name": team_name(t).strip(), "players": players,
                           "espn": optimal_lineup(players)}
-    reg = data["settings"]["scheduleSettings"]["matchupPeriodCount"]
     games = [(m["matchupPeriodId"], m["home"]["teamId"], m["away"]["teamId"])
              for m in data["schedule"]
              if m["matchupPeriodId"] <= reg and "home" in m and "away" in m]
@@ -281,6 +326,13 @@ def _season(teams, games, reg, sims, sigma, tau, seed, actuals=None, force=None,
     steps[:, :first_open - 1, :] = 0.0
     walk = np.cumsum(steps, axis=1)
     scores = strength[:, None, :] + walk[:, :reg, :] + rng.normal(0, sigma, (sims, reg, n))  # sims x weeks x teams
+    # Byes and injuries: a deterministic shift per team and week, so the random
+    # draws (and common random numbers) are untouched.
+    adj = np.zeros((reg, n))
+    for t in ids:
+        for w, d in week_adjustments(teams[t], range(first_open, reg + 1)).items():
+            adj[w - 1, idx[t]] = d
+    scores += adj[None, :, :]
     # A week the lineup model has read: each team scores its lineup's mean and
     # spread, drawn from a separate generator so every other draw stays the
     # same and batches still differ by the intervention alone.
@@ -339,7 +391,7 @@ def _season(teams, games, reg, sims, sigma, tau, seed, actuals=None, force=None,
     if me is not None:
         for r, d in bump.get("playoff", {}).items():
             po[:, r, idx[me]] += d
-    return {"ids": ids, "idx": idx, "mu": mu, "wins": wins, "losses": losses, "pf": pf,
+    return {"ids": ids, "idx": idx, "mu": mu, "adj": adj, "wins": wins, "losses": losses, "pf": pf,
             "pct": pct, "order": order, "seed_of": seed_of, "po": po, "scores": scores}
 
 
@@ -566,7 +618,7 @@ def weekly_odds(teams, games, reg, sims, sigma, tau, seed, actuals, me, week_mom
     but not from them. `source` says whether a week is team strength or the
     lineup model (--this-week)."""
     raw = _season(teams, games, reg, sims, sigma, tau, seed, actuals, week_moments=week_moments)
-    idx, mu, scores = raw["idx"], raw["mu"], raw["scores"]
+    idx, mu, adj, scores = raw["idx"], raw["mu"], raw["adj"], raw["scores"]
     if me not in idx:
         return []
     out = []
@@ -577,10 +629,30 @@ def weekly_odds(teams, games, reg, sims, sigma, tau, seed, actuals, me, week_mom
         mom = (week_moments or {}).get(w, {})
         p_win = float(np.mean(scores[:, w - 1, idx[me]] > scores[:, w - 1, idx[opp]]))
         out.append({"week": w, "opp": teams[opp]["name"], "p_win": round(p_win, 3),
-                    "mu_me": round(float(mom[me][0] if me in mom else mu[idx[me]]), 1),
-                    "mu_opp": round(float(mom[opp][0] if opp in mom else mu[idx[opp]]), 1),
+                    "mu_me": round(float(mom[me][0] if me in mom else mu[idx[me]] + adj[w - 1, idx[me]]), 1),
+                    "mu_opp": round(float(mom[opp][0] if opp in mom else mu[idx[opp]] + adj[w - 1, idx[opp]]), 1),
                     "source": "lineup" if me in mom and opp in mom else "strength"})
     return out
+
+
+def record_line(games, actuals, me, weekly) -> str:
+    """The expected-wins sentence, with the record arithmetic done here.
+
+    Added 2026-11-17: the outlook prose said "3 or 4 more wins, a final record
+    near 11-3" for four games at 73-75% (2.9 expected wins, 13 games in all),
+    and "3.6 more wins" from the same four. Quote this line, do not redo it."""
+    won = lost = 0
+    for w, h, a in games:
+        if w in (actuals or {}) and me in (h, a):
+            ours, theirs = actuals[w][me], actuals[w][a if h == me else h]
+            won += ours > theirs
+            lost += ours < theirs
+    exp = sum(g["p_win"] for g in weekly)
+    total = won + lost + len(weekly)
+    fin_w = won + exp
+    return (f"\nExpected wins in these {len(weekly)} games: {exp:.1f} (0 to {len(weekly)} possible). "
+            f"Now {won}-{lost}; expected final record {fin_w:.1f}-{total - fin_w:.1f} over {total} games, "
+            f"most likely {round(fin_w)}-{total - round(fin_w)}.")
 
 
 def this_week_moments(games, reg, actuals):
@@ -795,7 +867,7 @@ def main():
         say("|---|---|---|---|---|")
         for g in weekly:
             say(f"| {g['week']} | {g['opp']} | {g['mu_me']:.1f} v {g['mu_opp']:.1f} | {g['source']} | {g['p_win']:.0%} |")
-        say(f"\nExpected wins in these {len(weekly)} games: {sum(g['p_win'] for g in weekly):.1f}")
+        say(record_line(games, actuals, me_id, weekly))
     if band:
         say(f"\nOur odds across tau {TAU_SWEEP[0]:g}-{TAU_SWEEP[-1]:g} (roster-strength noise is not measured, so "
             f"quote the band): bye {band['bye'][0]:.0%}-{band['bye'][1]:.0%}, title {band['champ'][0]:.0%}-"

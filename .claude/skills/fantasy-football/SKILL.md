@@ -269,7 +269,10 @@ the site by hand.
   title and bye odds; `python3 fantasy/season_sim.py --json`: bye odds on
   the results so far, as a band over tau 4-12, with team strength drifting 6
   points a week (measured on 857 real Sleeper leagues, 2026-10-15), and our
-  win odds in every remaining game (`weekly`). `--this-week` plays the first
+  win odds in every remaining game (`weekly`). Each future week takes off
+  the players on a bye or under an injury tag, with the wire filling an empty
+  slot. Quote its expected-wins and final-record line as printed; do not
+  redo that arithmetic in prose. `--this-week` plays the first
   unplayed week from the lineup model (`espn scoreboard`'s means and
   spreads) instead of team strength; it does not write the outlook files,
   and before the Friday report its injury prices read Wednesday's practice

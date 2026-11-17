@@ -125,3 +125,48 @@ def test_outcome_table_cells_agree_with_their_locks():
     for k, cell in enumerate(tab["cells"]):
         if bool(k >> j & 1) == home:   # we win in cell k; flip our game for the loss
             assert cell["bye"][me] >= tab["cells"][k ^ (1 << j)]["bye"][me]
+
+
+def test_unavailable_weeks_byes_and_injury_tags():
+    games = {str(w): [{}] for w in range(1, 15) if w != 12}
+    assert ss.unavailable_weeks(games, 11, 14, None) == [12]
+    assert ss.unavailable_weeks(games, 11, 14, "OUT") == [11, 12]
+    assert ss.unavailable_weeks(games, 11, 14, "INJURY_RESERVE") == [11, 12, 13, 14]
+    assert ss.unavailable_weeks(games, 11, 14, "QUESTIONABLE") == [12]
+
+
+def test_week_adjustment_prices_a_bye_against_the_bench():
+    k = ss.NFL_WEEKS
+    players = [{"name": n, "pos": pos, "proj": v * k, "off": off} for n, pos, v, off in [
+        ("QB", "QB", 20, []), ("RB1", "RB", 25, [11]), ("RB2", "RB", 14, []), ("RB3", "RB", 4, []),
+        ("WR1", "WR", 24, []), ("WR2", "WR", 17, [11]), ("WR3", "WR", 9, []), ("TE", "TE", 14, []),
+        ("K", "K", 10, []), ("DST", "D/ST", 7, [12])]]
+    adj = ss.week_adjustments({"players": players}, [11, 12, 13])
+    # Week 11: RB3 and WR3 move up into the RB and WR slots, so the flex is empty.
+    full = 20 + 25 + 14 + 24 + 17 + 14 + 10 + 7 + 9
+    wk11 = 20 + 14 + 4 + 24 + 9 + 14 + 10 + 7 + 0
+    assert adj[11] == pytest.approx((wk11 - full))
+    assert adj[12] == pytest.approx(ss.REPLACEMENT["D/ST"] - 7)   # no second D/ST: the wire fills it
+    assert 13 not in adj
+    assert ss.week_adjustments({"players": [dict(p, off=[]) for p in players]}, [11]) == {}
+
+
+def test_bye_adjustment_lowers_that_week_only():
+    teams, games = league()
+    k = ss.NFL_WEEKS
+    base = ss._season(teams, games, REG, 1000, 25.0, 8.0, 2)
+    roster = [{"name": f"p{i}", "pos": pos, "proj": 15 * k, "off": [3] if i == 0 else []}
+              for i, pos in enumerate(["RB", "RB", "WR", "WR", "QB", "TE", "K", "D/ST", "WR"])]
+    teams[ME] = dict(teams[ME], players=roster)
+    hit = ss._season(teams, games, REG, 1000, 25.0, 8.0, 2)
+    i = hit["idx"][ME]
+    assert np.all(hit["scores"][:, 2, i] < base["scores"][:, 2, i])
+    assert np.array_equal(hit["scores"][:, 3, i], base["scores"][:, 3, i])
+
+
+def test_record_line_does_the_arithmetic():
+    games = [(1, 1, 2), (2, 1, 3), (3, 1, 4), (4, 1, 5)]
+    actuals = {1: {1: 100.0, 2: 90.0}, 2: {1: 80.0, 3: 95.0}}
+    line = ss.record_line(games, actuals, 1, [{"p_win": 0.75}, {"p_win": 0.7}])
+    assert "Now 1-1" in line and "1.4 (0 to 2 possible)" in line
+    assert "2.5-1.5 over 4 games" in line
