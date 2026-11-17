@@ -135,6 +135,21 @@ def _variants(html: str) -> dict[str, str]:
 
 # "About this item": #feature-bullets on older layouts, the product-facts expander since late 2026.
 BULLETS = "#feature-bullets li, #productFactsDesktopExpander li"
+# "Important information" holds the ingredient list, directions and disclaimers on
+# supplement and grocery listings. The bullets often leave the ingredients out.
+IMPORTANT = ("#important-information", "#nic-ingredients-content")
+
+
+def _images(html: str) -> list[str]:
+    """Hi-res gallery images of this item, where label panels (Supplement Facts,
+    ingredients) usually are. Read only from the ImageBlockATF 'colorImages' data:
+    carousels elsewhere on the page carry other products' images."""
+    start = html.find("'colorImages'")
+    if start < 0:
+        return []
+    end = html.find("'colorToAsin'", start)
+    block = html[start:end] if end > 0 else html[start:start + 30000]
+    return list(dict.fromkeys(re.findall(r'"hiRes":"(https://[^"]+)"', block)))
 
 
 def show(asin: str, headed: bool = False, timeout: int = 45, anon: bool = False) -> dict:
@@ -181,6 +196,8 @@ def show(asin: str, headed: bool = False, timeout: int = 45, anon: bool = False)
                 "signed_in": bool(jar) and not page.query_selector("#ap_email"),
                 "bullets": [t for li in page.query_selector_all(BULLETS) if (t := _text(li))],
                 "specs": specs,
+                "important": _first(page, IMPORTANT),
+                "images": _images(page.content()),
             }
         finally:
             b.close()
@@ -282,6 +299,10 @@ def print_product(p: dict, full: bool) -> None:
             print(f"  {k}: {v}")
         for bullet in p["bullets"]:
             print(f"  - {bullet}")
+        if p.get("important"):
+            print(f"  important: {p['important']}")
+        for img in p.get("images", []):
+            print(f"  image: {img}")
     print()
 
 
@@ -297,7 +318,8 @@ def main(argv: list[str] | None = None) -> int:
     sub = ap.add_subparsers(dest="cmd", required=True)
     s = sub.add_parser("search", parents=[common], help="search results: asin, price, rating")
     s.add_argument("query", nargs="+"); s.add_argument("-n", type=int, default=12)
-    d = sub.add_parser("show", parents=[common], help="one product: price, delivery, bullets, specs")
+    d = sub.add_parser("show", parents=[common],
+                       help="one product: price, delivery, bullets, specs, ingredients, gallery images")
     d.add_argument("asin", nargs="+")
     d.add_argument("--anon", action="store_true", help="skip the session (delivery dates become meaningless)")
     d.add_argument("--all-variants", action="store_true",
