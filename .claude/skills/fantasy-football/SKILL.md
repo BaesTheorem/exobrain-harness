@@ -271,7 +271,8 @@ the site by hand.
   points a week (measured on 857 real Sleeper leagues, 2026-10-15), and our
   win odds in every remaining game (`weekly`). Each future week takes off
   the players on a bye or under an injury tag, with the wire filling an empty
-  slot. Quote its expected-wins and final-record line as printed; do not
+  slot (roster-watch's `bye_hole_events` files that fill for the current
+  week, after Opus review). Quote its expected-wins and final-record line as printed; do not
   redo that arithmetic in prose. `--this-week` plays the first
   unplayed week from the lineup model (`espn scoreboard`'s means and
   spreads) instead of team strength; it does not write the outlook files,

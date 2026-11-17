@@ -220,3 +220,51 @@ def test_hold_title_value_fails_open(rw, monkeypatch):
         raise RuntimeError("ESPN is down")
     monkeypatch.setattr(depth, "swap_title_value", boom)
     assert rw.mod.hold_title_value(ev) is None, "a pricing failure must never hide a banner"
+
+
+# Bye-hole fill (2026-11-17): a starter with no bench cover this week gets the
+# best free agent at his slot, with the weakest bench player as the drop.
+
+HOLE = {"kind": "bye_hole", "slot": "TE", "add": "Dalton Schultz", "add_pos": "TE", "avail": "WVR",
+        "drop": "Josh Downs", "player": "Trey McBride", "hole": "BYE", "week": 14, "why": "bye"}
+
+
+def test_bye_hole_crosses_positions_after_review(rw):
+    out = rw.auto_file(dict(HOLE), BENCH)
+    assert out and out["verified"] is True and len(rw.reviewed) == 1
+    assert rw.calls[0][2:] == ["claim", "Dalton Schultz", "--drop", "Josh Downs"]
+
+
+def test_same_cross_position_swap_stays_blocked_outside_the_hole_lane(rw):
+    assert rw.auto_file({**HOLE, "kind": "swap_gate"}, BENCH) is None
+    assert rw.calls == []
+
+
+def test_bye_hole_held_by_review_files_nothing(rw):
+    rw.verdict = {"verdict": "HOLD", "reason": "no"}
+    out = rw.auto_file(dict(HOLE), BENCH)
+    assert out and out["held"] and rw.calls == []
+
+
+def test_bye_hole_drop_must_be_on_the_bench(rw):
+    assert rw.auto_file({**HOLE, "drop": "Ja'Marr Chase"}, BENCH) is None
+    assert rw.calls == []
+
+
+def test_pick_hole_add_skips_injured_and_idle(rw):
+    rows = [{"name": "A", "avail": "WVR", "proj": 9.0, "opp": "BYE", "status": ""},
+            {"name": "B", "avail": "FA", "proj": 8.5, "opp": "KC", "status": "IR"},
+            {"name": "C", "avail": "FA", "proj": 7.0, "opp": "@SF", "status": ""},
+            {"name": "D", "avail": "WVR", "proj": 7.5, "opp": "DEN", "status": "QUESTIONABLE"},
+            {"name": "E", "avail": "WVR", "proj": 8.0, "opp": "NYJ", "status": ""}]
+    assert rw.mod.pick_hole_add(rows, set())["name"] == "E"
+    assert rw.mod.pick_hole_add(rows, {"E"})["name"] == "D"
+
+
+def test_pick_hole_drop_takes_the_weakest_unspent_bench_player(rw):
+    rows = [{"drop": "Rams D/ST", "drop_rate": 6.6, "pending_drop": True},
+            {"drop": "Josh Downs", "drop_rate": 8.2},
+            {"drop": "RJ Harvey", "drop_rate": 9.3},
+            {"drop": "Ja'Marr Chase", "drop_rate": 1.0}]
+    assert rw.mod.pick_hole_drop(rows, BENCH, set())["drop"] == "Josh Downs"
+    assert rw.mod.pick_hole_drop(rows, BENCH, {"Josh Downs"})["drop"] == "RJ Harvey"

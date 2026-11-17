@@ -17,6 +17,10 @@ waiver claim, any position) whose drop is on our bench or IR goes to a
 headless Opus 5.5 run of the skill (`opus_review`). FILE files it through
 espn-tx and the banner carries Undo. HOLD, a timeout, or an unreadable answer
 files nothing and the banner carries Do it / Skip with the review's reason.
+Since 2026-11-17 it also fills a hole in this week's lineup that the bench
+cannot cover (a starter on bye, OUT, IR or suspended, or an empty slot): the
+best free agent at that slot for the weakest bench player, through the same
+review (`bye_hole_events`). lineup-watch then starts him when the claim lands.
 Anything new is appended to
 fantasy/.cache/incidents.jsonl, announced with a clickable banner, and, when
 it needs judgment (a starter going out, an IR designation, a trade offer, a
@@ -71,6 +75,8 @@ PLAYOFF_WEEKS = 3                    # weeks 15-17
 REVIEW_MODEL = "claude-opus-5-5"     # Alex, 2026-11-01: the review runs on Opus 5.5
 REVIEW_TIMEOUT = 900
 SAME_POS_ONLY = {"QB", "TE", "K", "D/ST"}   # never a second QB or TE; K and D/ST swap like for like
+HOLE_KINDS = {"BYE", "OUT", "INJURY_RESERVE", "SUSPENSION", "EMPTY"}   # a starter who scores 0 this week
+HOLE_SKIP_STATUS = {"OUT", "IR", "INJURY_RESERVE", "SUSPENSION", "SUSP", "DOUBTFUL"}
 POS_NAME = {1: "QB", 2: "RB", 3: "WR", 4: "TE", 5: "K", 16: "D/ST"}
 
 
@@ -127,8 +133,10 @@ def opus_review(ev: dict) -> dict:
     gain = gain_text(ev) if ev.get("gain") is not None else str(ev.get("why", ""))
     prompt = (
         "/fantasy-football\n\n"
-        "Review mode, read-only. roster-watch (fantasy/bin/roster-watch) found a swap that clears the "
-        "waiver gate and will file it only if you approve. Do NOT run espn-tx claim, move, or any other "
+        "Review mode, read-only. roster-watch (fantasy/bin/roster-watch) found a swap that "
+        + ("fills a starter's slot that has no bench cover this week (a bye-hole fill, not the value gate)"
+           if ev.get("kind") == "bye_hole" else "clears the waiver gate")
+        + " and will file it only if you approve. Do NOT run espn-tx claim, move, or any other "
         "write yourself, and send no notifications.\n\n"
         f"Swap: add {ev['add']} ({pos}, {kind}), drop {ev['drop']}. {gain}. "
         f"Rivals with the same need: {', '.join(ev.get('rivals') or []) or 'none recorded'}. "
@@ -216,8 +224,8 @@ def auto_file(ev: dict, bench: dict[str, str]) -> dict | None:
     drop = ev.get("drop")
     if ev.get("avail") not in ("FA", "WVR") or not pos or not drop or drop not in bench:
         return None
-    if (pos in SAME_POS_ONLY or bench[drop] in SAME_POS_ONLY) and bench[drop] != pos:
-        return None
+    if ev.get("kind") != "bye_hole" and (pos in SAME_POS_ONLY or bench[drop] in SAME_POS_ONLY) and bench[drop] != pos:
+        return None   # a bye hole crosses positions on purpose: the drop is the weakest bench player
     rivals = ev.get("rivals") or rivals_needing(pos)
     review = opus_review({**ev, "rivals": rivals})
     if review["verdict"] != "FILE":
@@ -286,6 +294,98 @@ def reply_button(label: str, text: str) -> str:
             f"-H 'Content-Type: application/json' -d '{payload}'")
 
 
+_SCAN: dict = {}
+
+
+def swap_scan(fresh: bool = False) -> dict | None:
+    """`swap-scan --json`. The gate reads it fresh; the bye-hole planner, which
+    runs after the gate in the same run, reuses that read (it takes minutes)."""
+    if fresh or "out" not in _SCAN:
+        try:
+            out = subprocess.run([sys.executable, str(SWAP_SCAN), "--json"], capture_output=True,
+                                 text=True, timeout=240, check=True).stdout
+            _SCAN["out"] = json.loads(out)
+        except Exception as exc:  # the watcher's other checks must still run
+            print(f"swap-scan unavailable: {exc}")
+            _SCAN["out"] = None
+    return _SCAN["out"]
+
+
+def _json_cmd(*args: str, timeout: int = 240):
+    try:
+        r = subprocess.run([sys.executable, *args], capture_output=True, text=True, timeout=timeout, check=True)
+        return json.loads(r.stdout)
+    except Exception as exc:  # noqa: BLE001 -- a read failure files nothing
+        print(f"{pathlib.Path(args[0]).name} unavailable: {exc}")
+        return None
+
+
+def pick_hole_add(fa_rows: list[dict], taken: set[str]) -> dict | None:
+    """The free agent with the best projection this week who can play this week."""
+    rows = [r for r in fa_rows if r.get("name") not in taken and r.get("avail") in ("FA", "WVR")
+            and (r.get("proj") or 0) > 0 and str(r.get("opp") or "").upper() != "BYE"
+            and str(r.get("status") or "").upper() not in HOLE_SKIP_STATUS]
+    return max(rows, key=lambda r: r["proj"], default=None)
+
+
+def pick_hole_drop(rows: list[dict], bench: dict[str, str], used: set[str]) -> dict | None:
+    """The bench player with the lowest rest-of-season rate (swap-scan's
+    drop_rate, playoff weeks weighted), not already spent this run or in a
+    pending claim. Only bench players are ever offered."""
+    cands = [r for r in rows if r.get("drop") in bench and r["drop"] not in used and not r.get("pending_drop")]
+    return min(cands, key=lambda r: float(r.get("drop_rate") or 0), default=None)
+
+
+def bye_hole_events(st: dict, bench: dict[str, str]) -> list[dict]:
+    """Starters this week who cannot play (bye, OUT, IR, suspension, an empty
+    slot) and have no bench cover: claim the best free agent at that slot with
+    the weakest bench player as the drop. Once per week and slot.
+
+    Added 2026-11-17 for week 14 (McBride and Aubrey both on bye, no bench TE
+    or K). lineup-watch fixes a hole only from the bench, so before this a hole
+    with no cover was a banner and a zero. The week turns over on Tuesday at
+    02:00 and claims run on Wednesday at 11:00, ahead of every kickoff
+    (Thursday's is 19:15).
+    Every event goes through auto_file, so Opus review approves the drop."""
+    chk = _json_cmd(str(HERE / "espn"), "check", "--json", timeout=200)
+    if not chk:
+        return []
+    holes = [p for p in chk.get("problems") or []
+             if p.get("kind") in HOLE_KINDS and "no usable bench option" in str(p.get("fix") or "")]
+    seen = st.setdefault("bye_hole", {})
+    week = chk.get("week")
+    for k in [k for k in seen if not k.startswith(f"{week}|")]:
+        del seen[k]
+    if not holes:
+        return []
+    scan = swap_scan() or {}
+    rows = scan.get("swaps") or []
+    events, used_drops, taken = [], set(), set()
+    for h in holes:
+        key = f"{week}|{h['slot']}"
+        if key in seen:
+            continue
+        pos = h["slot"].replace("/", "")
+        fa = _json_cmd(str(HERE / "espn"), "fa", "--pos", pos, "--json", "-n", "10", "--no-pending") or []
+        add = pick_hole_add(fa, taken)
+        drop = pick_hole_drop(rows, bench, used_drops)
+        seen[key] = f"{(add or {}).get('name')}|{(drop or {}).get('drop')}"
+        if not add or not drop:
+            events.append({"kind": "bye_hole", "slot": h["slot"], "player": h.get("player"), "hole": h["kind"],
+                           "week": week, "judgment": False, "avail": "none",
+                           "why": "no free agent" if not add else "no bench player to drop"})
+            continue
+        used_drops.add(drop["drop"])
+        taken.add(add["name"])
+        events.append({"kind": "bye_hole", "slot": h["slot"], "player": h.get("player"), "hole": h["kind"],
+                       "week": week, "add": add["name"], "add_pos": add.get("pos") or pos, "avail": add["avail"],
+                       "drop": drop["drop"], "drop_rate": drop.get("drop_rate"), "judgment": False,
+                       "why": f"{h.get('player')} ({h['kind']}) leaves {h['slot']} empty in week {week} with no "
+                              f"bench cover; {add['name']} projects {add['proj']:.1f}, {drop['drop']} is the "
+                              f"weakest bench player ({float(drop.get('drop_rate') or 0):.1f} a game)"})
+    return events
+
+
 def swap_gate_event(st: dict) -> dict | None:
     """The best bench-for-wire swap that clears the gate and has not been offered yet.
 
@@ -297,12 +397,8 @@ def swap_gate_event(st: dict) -> dict | None:
     Fields for Devin Singletary (+85.8) hid Buccaneers D/ST for Steelers D/ST
     (+85.1) for eight hours, because the held pair stayed on top.
     """
-    try:
-        out = subprocess.run([sys.executable, str(SWAP_SCAN), "--json"], capture_output=True,
-                             text=True, timeout=240, check=True).stdout
-        scan = json.loads(out)
-    except Exception as exc:  # the watcher's other checks must still run
-        print(f"swap-scan unavailable: {exc}")
+    scan = swap_scan(fresh=True)
+    if scan is None:
         return None
     gate = float(scan.get("gate", 20.0))
     games_left = int(scan.get("remaining_weeks") or 0) + PLAYOFF_WEEKS
@@ -720,6 +816,7 @@ def main() -> int:
         sg = stream_gate_event(st)
         if sg:
             events.append(sg)
+        events.extend(bye_hole_events(st, bench))
 
     st["status"] = statuses
     st["first_run"] = False
@@ -744,7 +841,7 @@ def main() -> int:
     covers = cover_ids(api, data, team_id)
     bench = {} if covers is None else {n: pos for n, pos in bench.items() if bench_ids.get(n) not in covers}
     for ev in events:
-        if ev["kind"] in ("swap_gate", "stream_gate") and ev.get("avail") in ("FA", "WVR"):
+        if ev["kind"] in ("swap_gate", "stream_gate", "bye_hole") and ev.get("avail") in ("FA", "WVR"):
             filed = auto_file(ev, bench)
             if filed:
                 ev["filed"] = filed
@@ -800,6 +897,17 @@ def main() -> int:
                     heads.append(f"stream {ev['slot']}: {ev['add']} ({ev['avail']}) for {ev.get('drop') or ev['ours']}, {ev['why']}"
                                  + race_note(ev["avail"], ev["slot"], rivals_needing(ev["slot"]))
                                  + filed_note(ev))
+        elif ev["kind"] == "bye_hole":
+            if ev.get("avail") == "none":
+                heads.append(f"week {ev['week']} {ev['slot']} hole: {ev['player']} ({ev['hole']}), {ev['why']}; "
+                             "fill it by hand")
+            elif (ev.get("filed") or {}).get("verified"):
+                what = "added" if ev["avail"] == "FA" else "claimed off waivers"
+                heads.append(f"filed: {what} {ev['add']} for {ev['drop']} to fill {ev['slot']} "
+                             f"({ev['player']} {ev['hole']}, week {ev['week']})" + filed_note(ev))
+            else:
+                heads.append(f"week {ev['week']} {ev['slot']} hole: add {ev['add']} ({ev['avail']}) for {ev['drop']}, "
+                             f"{ev['player']} is {ev['hole']} with no bench cover" + filed_note(ev))
         elif ev["kind"] == "swap_gate":
             fl = f", volume {'/'.join(ev['flags'])}" if ev.get("flags") else ""
             if (ev.get("filed") or {}).get("verified"):
@@ -818,7 +926,8 @@ def main() -> int:
     link = LEAGUE_URL if any(ev["kind"] in ("trade_offer", "watched_trade") for ev in events) else ROSTER_URL
     actions = ["--action", "Ask MIST=console"]
     swap = next((ev for ev in events if ev["kind"] == "swap_gate"), None)
-    stream = next((ev for ev in events if ev["kind"] == "stream_gate"), None)
+    stream = next((ev for ev in events if ev["kind"] == "stream_gate"
+                   or (ev["kind"] == "bye_hole" and ev.get("avail") in ("FA", "WVR"))), None)
     if stream and not swap and stream["avail"] == "BE":
         actions = [
             "--action", reply_button(
