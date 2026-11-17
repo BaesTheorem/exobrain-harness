@@ -132,6 +132,13 @@ advertise, so the app reaches it through the phone's open link, matched by BLE n
 The app needs the scooter's BLE credentials in its Keychain: a NIU sign-in puts them
 there, or the Mac hands them over through `Documents/ble-import.json` (README).
 
+**KQi Power (added 2026-11-16).** `~/Documents/niu-kqi/ios-power` is the Lock Screen power
+button as its own app (`KQiPower`, bundle `com.alexhedtke.KQiPower`). It compiles the
+Bluetooth, power and widget files of KQi Rides in place, so a fix in `ios/` ships in both
+apps: build both after a change to a shared file. It has its own App Group and its own power
+log. Release it with `bin/testflight-upload ~/Documents/niu-kqi/ios-power --scheme KQiPower
+--prep ./scripts/prep.sh`.
+
 ## Where things live
 
 - Repo: `~/Documents/niu-kqi` (`kqi_ble.py` CLI + bleak session, `niu_proto.py` frames and
