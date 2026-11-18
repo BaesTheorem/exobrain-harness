@@ -1,0 +1,777 @@
+{
+ "season": 2026,
+ "week": 11,
+ "issued": "2026-11-17T18:08-06:00",
+ "team_id": 12,
+ "team": "Chaos Legion",
+ "opponent": "Namaslay",
+ "opponent_id": 7,
+ "forecast": {
+  "week": 11,
+  "author": "MIST",
+  "method": "Each median is the unit-normalized consensus (ESPN, Sleeper, CBS, FantasyPros and the sportsbook props where posted; FFToday failed this week) times the tier median from the residual library, with the 50 and 90 widths from the tier quantiles. Hand moves stay on probation (closing line value sign agreement 0.489 on 47 moves), so no median leaves its anchor; the one shaped line is Kenneth Walker III, a questionable mixture. The q75-q95 slice fell to 33% (from 35%), so no width change. The pending Keon Coleman claim (for Germie Bernard, Wed 2:00 AM) is not on the roster and is not in these lines.",
+  "players": [
+   {
+    "name": "Bo Nix",
+    "median": 16.5,
+    "p50": [
+     11.5,
+     22.0
+    ],
+    "p90": [
+     4.5,
+     30.0
+    ],
+    "why": "Starts over Daniels because lineup-watch saw ESPN alone for him (20.8, no market line attached) at 2:03 AM; consensus 18.6 (Sleeper 17.9, CBS 19.2, market 16.7). Denver -10 vs Las Vegas, implied 25.2. QB tier median 0.89x. Anchor, no hand move.",
+    "id": 4426338,
+    "pos": "QB",
+    "slot": "QB",
+    "consensus": 18.6,
+    "espn": 20.8,
+    "sources": {
+     "espn": 20.8,
+     "sleeper": 17.9,
+     "cbs": 19.2,
+     "market": 16.7
+    }
+   },
+   {
+    "name": "Kenneth Walker III",
+    "median": 19.5,
+    "p50": [
+     11,
+     27.5
+    ],
+    "p90": [
+     0,
+     42
+    ],
+    "why": "QUESTIONABLE (groin) after missing week 10; no practice line yet, news says expected to play. Consensus 22.0 (ESPN 25.7, Sleeper 18.4), Kansas City -16.5 vs Arizona, implied 29.0. Priced as a mixture at about 0.85 to play (90 floor at 0) on the elite RB tier quantiles; the Wednesday to Friday reports reprice him.",
+    "id": 4567048,
+    "pos": "RB",
+    "slot": "RB",
+    "consensus": 22.0,
+    "espn": 25.7,
+    "sources": {
+     "espn": 25.7,
+     "sleeper": 18.4
+    }
+   },
+   {
+    "name": "Ollie Gordon II",
+    "median": 10.0,
+    "p50": [
+     6.0,
+     17.0
+    ],
+    "p90": [
+     1.5,
+     28.0
+    ],
+    "why": "Consensus 12.3, sources inside 2.5. Miami +16.5 at Buffalo, implied 14.5, a trailing script; 71% snaps and 20 carries last week. RB 7-13 tier median 0.83x. Anchor, no hand move.",
+    "id": 4711533,
+    "pos": "RB",
+    "slot": "RB",
+    "consensus": 12.3,
+    "espn": 13.8,
+    "sources": {
+     "espn": 13.8,
+     "sleeper": 11.3,
+     "cbs": 12.2,
+     "market": 12.0
+    }
+   },
+   {
+    "name": "Malik Washington",
+    "median": 6.5,
+    "p50": [
+     3.5,
+     11.0
+    ],
+    "p90": [
+     0.0,
+     18.5
+    ],
+    "why": "Consensus 8.1, sources inside 1.6. Starts with Christian Watson on bye. Miami implied 14.5 at Buffalo. WR 7-13 tier. Anchor, no hand move.",
+    "id": 4569603,
+    "pos": "WR",
+    "slot": "WR",
+    "consensus": 8.1,
+    "espn": 7.7,
+    "sources": {
+     "espn": 7.7,
+     "sleeper": 8.9,
+     "cbs": 7.3,
+     "market": 8.6
+    }
+   },
+   {
+    "name": "Xavier Hutchinson",
+    "median": 6.5,
+    "p50": [
+     3.5,
+     11.0
+    ],
+    "p90": [
+     0.0,
+     18.0
+    ],
+    "why": "Consensus 8.0, wide spread 5.2 (ESPN 10.7, Sleeper 5.5). Houston -12.5 vs Indianapolis, implied 28.5, Thursday night. WR 7-13 tier. Anchor, no hand move.",
+    "id": 4686422,
+    "pos": "WR",
+    "slot": "WR",
+    "consensus": 8.0,
+    "espn": 10.7,
+    "sources": {
+     "espn": 10.7,
+     "sleeper": 5.5,
+     "cbs": 7.2,
+     "market": 8.6
+    }
+   },
+   {
+    "name": "Trey McBride",
+    "median": 12.5,
+    "p50": [
+     8.5,
+     19.0
+    ],
+    "p90": [
+     3.5,
+     26.0
+    ],
+    "why": "Consensus 14.4 (CBS 16.5 high, ESPN 12.9). Arizona +16.5 at Kansas City, implied 12.5, a trailing script that feeds his target share. TE 13+ tier median 0.87x. Anchor, no hand move.",
+    "id": 4361307,
+    "pos": "TE",
+    "slot": "TE",
+    "consensus": 14.4,
+    "espn": 12.9,
+    "sources": {
+     "espn": 12.9,
+     "sleeper": 13.8,
+     "cbs": 16.5
+    }
+   },
+   {
+    "name": "Ja'Marr Chase",
+    "median": 20.0,
+    "p50": [
+     12.5,
+     29.5
+    ],
+    "p90": [
+     4.0,
+     46.0
+    ],
+    "why": "Consensus 22.2 (market 22.6). Cincinnati -6.5 at Washington, implied 30.0 in a 53.5 total, Monday night, the last lock. Elite WR tier median 0.91x. Anchor, no hand move.",
+    "id": 4362628,
+    "pos": "WR",
+    "slot": "FLEX",
+    "consensus": 22.2,
+    "espn": 25.4,
+    "sources": {
+     "espn": 25.4,
+     "sleeper": 21.5,
+     "cbs": 19.4,
+     "market": 22.6
+    }
+   },
+   {
+    "name": "Jaguars D/ST",
+    "median": 8.0,
+    "p50": [
+     4.5,
+     13.0
+    ],
+    "p90": [
+     1.0,
+     21.0
+    ],
+    "why": "Consensus 8.1. Jacksonville -6 vs the Giants, Giants implied 20.2 (stream-scan hold, no free agent faces a line 4 lower). D/ST 7-13 tier. Anchor, no hand move.",
+    "id": -16030,
+    "pos": "D/ST",
+    "slot": "D/ST",
+    "consensus": 8.1,
+    "espn": 7.0,
+    "sources": {
+     "espn": 7.0,
+     "sleeper": 8.1,
+     "cbs": 9.1
+    }
+   },
+   {
+    "name": "Brandon Aubrey",
+    "median": 10.0,
+    "p50": [
+     6.0,
+     14.5
+    ],
+    "p90": [
+     1.5,
+     22.0
+    ],
+    "why": "Consensus 10.6, sources inside 1.3. Dallas -8.5 vs Tennessee, implied 31.5, dome. K tier median 0.96x. Anchor, no hand move.",
+    "id": 3953687,
+    "pos": "K",
+    "slot": "K",
+    "consensus": 10.6,
+    "espn": 11.2,
+    "sources": {
+     "espn": 11.2,
+     "sleeper": 9.9,
+     "cbs": 10.6
+    }
+   },
+   {
+    "name": "Jayden Daniels",
+    "median": 18.5,
+    "p50": [
+     13.0,
+     24.0
+    ],
+    "p90": [
+     5.0,
+     33.0
+    ],
+    "why": "Bench (see Bo Nix). Consensus 20.6, sources inside 2.0 (market 19.7). Washington +6.5 vs Cincinnati, implied 23.5 in a 53.5 total, Monday night. QB tier median 0.89x. Anchor, no hand move.",
+    "id": 4426348,
+    "pos": "QB",
+    "slot": "BE",
+    "consensus": 20.6,
+    "espn": 19.6,
+    "sources": {
+     "espn": 19.6,
+     "sleeper": 21.3,
+     "cbs": 21.6,
+     "market": 19.7
+    }
+   },
+   {
+    "name": "Christian Watson",
+    "median": 0,
+    "p50": [
+     0,
+     0
+    ],
+    "p90": [
+     0,
+     1
+    ],
+    "why": "Bench, Green Bay on bye week 11. A zero line.",
+    "id": 4248528,
+    "pos": "WR",
+    "slot": "BE",
+    "consensus": 0.0,
+    "espn": 0.0,
+    "sources": {
+     "espn": 0.0
+    }
+   },
+   {
+    "name": "Devin Singletary",
+    "median": 3.0,
+    "p50": [
+     1.0,
+     6.5
+    ],
+    "p90": [
+     0.0,
+     13.0
+    ],
+    "why": "Bench, Walker's only cover this week (Stevenson on bye). Consensus 4.6; 8% snaps last week (ROLE-DOWN). RB 0-7 tier. Anchor, no hand move.",
+    "id": 4040761,
+    "pos": "RB",
+    "slot": "BE",
+    "consensus": 4.6,
+    "espn": 3.7,
+    "sources": {
+     "espn": 3.7,
+     "sleeper": 4.6,
+     "cbs": 5.5,
+     "market": 4.5
+    }
+   },
+   {
+    "name": "Rhamondre Stevenson",
+    "median": 0,
+    "p50": [
+     0,
+     0
+    ],
+    "p90": [
+     0,
+     1
+    ],
+    "why": "Bench, New England on bye week 11. A zero line.",
+    "id": 4569173,
+    "pos": "RB",
+    "slot": "BE",
+    "consensus": 0.0,
+    "espn": 0.0,
+    "sources": {
+     "espn": 0.0
+    }
+   },
+   {
+    "name": "Germie Bernard",
+    "median": 4.0,
+    "p50": [
+     0.5,
+     8.0
+    ],
+    "p90": [
+     0.0,
+     18.5
+    ],
+    "why": "Bench, and the drop in the pending Keon Coleman claim (Wed 2:00 AM); if it lands, this line is void. Consensus 5.6 (ESPN 3.2). 95% snaps but 10% target share last week. Anchor, no hand move.",
+    "id": 4685261,
+    "pos": "WR",
+    "slot": "BE",
+    "consensus": 5.6,
+    "espn": 3.2,
+    "sources": {
+     "espn": 3.2,
+     "sleeper": 6.6,
+     "cbs": 7.0
+    }
+   },
+   {
+    "name": "Mack Hollins",
+    "median": 0,
+    "p50": [
+     0,
+     0
+    ],
+    "p90": [
+     0,
+     1
+    ],
+    "why": "Bench, ESPN projects 0.0 (no game this week). A zero line.",
+    "id": 2991662,
+    "pos": "WR",
+    "slot": "BE",
+    "consensus": 0.0,
+    "espn": 0.0,
+    "sources": {
+     "espn": 0.0
+    }
+   },
+   {
+    "name": "Buccaneers D/ST",
+    "median": 4.0,
+    "p50": [
+     1.5,
+     7.0
+    ],
+    "p90": [
+     -1.5,
+     13.5
+    ],
+    "why": "Bench. Consensus 4.8; Tampa Bay at Detroit, Lions implied about 25.8. Anchor, no hand move.",
+    "id": -16027,
+    "pos": "D/ST",
+    "slot": "BE",
+    "consensus": 4.8,
+    "espn": 4.6,
+    "sources": {
+     "espn": 4.6,
+     "sleeper": 5.7,
+     "cbs": 4.2
+    }
+   }
+  ],
+  "team_total": {
+   "median": 121,
+   "p50": [
+    105,
+    138
+   ],
+   "p90": [
+    84,
+    164
+   ],
+   "why": "Consensus starters 124.3 with Bo Nix at QB; the baseline bootstrap 121.1 (q25 105.1, q75 138.0). No holes; Walker questionable with Singletary (4.6) as the only cover, so the bottom of the 90 band carries the Walker-out case. Widths from the bootstrap."
+  },
+  "opp_total": {
+   "median": 107,
+   "p50": [
+    93,
+    123
+   ],
+   "p90": [
+    73,
+    147
+   ],
+   "why": "Namaslay: Trevor Lawrence 19.4, Javonte Williams 18.8, Amon-Ra St. Brown 18.3, Tetairoa McMillan 13.6, Jameson Williams 11.6, T.J. Hockenson 9.0 (questionable, Sun 7:20 PM), Justice Hill 8.1, Zvada 7.7, Commanders D/ST 4.1 on consensus, 110.6. No holes; their week 11 lineup was set in advance on 09-12, and their fix rate is 0.78, so Hockenson is the one open risk. Baseline 107.0 (q25 92.9, q75 122.8)."
+  },
+  "win_prob": 0.66,
+  "standing": {
+   "median": 1,
+   "p50": [
+    1,
+    1
+   ],
+   "p90": [
+    1,
+    2
+   ],
+   "p_first": 0.995,
+   "p_top2": 0.999,
+   "why": "We are #1 at 8-1 (1141.2). End-Zone Dancers (7-2, 1059.5) play Goedel, Escher, Butkus. A win keeps us #1. A loss with an End-Zone Dancers win makes both 8-2, and we stay #1 on Points For unless they outscore us by 81.7 or more this week. No team below them can reach 8-2. So #2 needs a loss and an 82-point gap: about 0.005."
+  }
+ },
+ "baseline": {
+  "players": {
+   "Bo Nix": {
+    "q05": 4.52,
+    "q25": 11.53,
+    "q50": 16.34,
+    "q75": 21.93,
+    "q95": 29.89
+   },
+   "Kenneth Walker III": {
+    "q05": 7.55,
+    "q25": 14.23,
+    "q50": 20.99,
+    "q75": 28.62,
+    "q95": 44.19
+   },
+   "Ollie Gordon II": {
+    "q05": 1.76,
+    "q25": 5.57,
+    "q50": 9.92,
+    "q75": 16.05,
+    "q95": 27.05
+   },
+   "Malik Washington": {
+    "q05": 0.0,
+    "q25": 3.74,
+    "q50": 6.95,
+    "q75": 11.37,
+    "q95": 18.6
+   },
+   "Xavier Hutchinson": {
+    "q05": 0.0,
+    "q25": 3.47,
+    "q50": 6.72,
+    "q75": 11.76,
+    "q95": 19.11
+   },
+   "Trey McBride": {
+    "q05": 3.33,
+    "q25": 8.71,
+    "q50": 12.6,
+    "q75": 19.3,
+    "q95": 27.01
+   },
+   "Ja'Marr Chase": {
+    "q05": 3.49,
+    "q25": 12.98,
+    "q50": 20.42,
+    "q75": 29.97,
+    "q95": 46.31
+   },
+   "Jaguars D/ST": {
+    "q05": 0.93,
+    "q25": 4.06,
+    "q50": 7.89,
+    "q75": 13.26,
+    "q95": 21.61
+   },
+   "Brandon Aubrey": {
+    "q05": 1.31,
+    "q25": 6.1,
+    "q50": 9.8,
+    "q75": 14.38,
+    "q95": 21.84
+   },
+   "Jayden Daniels": {
+    "q05": 5.04,
+    "q25": 12.85,
+    "q50": 18.35,
+    "q75": 24.45,
+    "q95": 33.26
+   },
+   "Christian Watson": {
+    "q05": 0.0,
+    "q25": 0.0,
+    "q50": 0.0,
+    "q75": 0.0,
+    "q95": 0.0
+   },
+   "Devin Singletary": {
+    "q05": 0.0,
+    "q25": 1.25,
+    "q50": 3.13,
+    "q75": 6.5,
+    "q95": 12.88
+   },
+   "Rhamondre Stevenson": {
+    "q05": 0.0,
+    "q25": 0.0,
+    "q50": 0.0,
+    "q75": 0.0,
+    "q95": 0.0
+   },
+   "Germie Bernard": {
+    "q05": 0.0,
+    "q25": 0.77,
+    "q50": 3.69,
+    "q75": 8.02,
+    "q95": 19.0
+   },
+   "Mack Hollins": {
+    "q05": 0.0,
+    "q25": 0.0,
+    "q50": 0.0,
+    "q75": 0.0,
+    "q95": 0.0
+   },
+   "Buccaneers D/ST": {
+    "q05": -1.44,
+    "q25": 1.65,
+    "q50": 4.08,
+    "q75": 6.96,
+    "q95": 13.2
+   }
+  },
+  "team_total": {
+   "q05": 83.92,
+   "q25": 105.09,
+   "q50": 121.06,
+   "q75": 138.03,
+   "q95": 163.73
+  },
+  "opp_total": {
+   "q05": 73.2,
+   "q25": 92.85,
+   "q50": 106.99,
+   "q75": 122.75,
+   "q95": 147.31
+  },
+  "win_prob": 0.654,
+  "rank": {
+   "q05": 1,
+   "q25": 1,
+   "q50": 1,
+   "q75": 1,
+   "q95": 1
+  },
+  "p_first": 0.999,
+  "p_top2": 1.0,
+  "p_top6": 1.0,
+  "rank_dist": {
+   "1": 0.999,
+   "2": 0.001
+  },
+  "sims": 5000,
+  "residual_n": {
+   "QB": 1392,
+   "RB": 2799,
+   "WR": 4449,
+   "TE": 1911,
+   "K": 1368,
+   "D/ST": 1387
+  }
+ },
+ "sources": {
+  "ok": [
+   "cbs",
+   "fantasypros",
+   "market",
+   "sleeper"
+  ],
+  "failed": [
+   "fftoday"
+  ]
+ },
+ "market_at_forecast": {
+  "4426338": {
+   "name": "Bo Nix",
+   "pos": "QB",
+   "team": "DEN",
+   "market": 16.66,
+   "lines": {
+    "pass_yds": 217.5,
+    "completions": 21.5,
+    "pass_td": 1.5,
+    "carries": 4.5,
+    "rush_yds": 10.5,
+    "pass_att": 31.5
+   },
+   "implied": 25.2,
+   "game": "401873075"
+  },
+  "4711533": {
+   "name": "Ollie Gordon II",
+   "pos": "RB",
+   "team": "MIA",
+   "market": 11.97,
+   "lines": {
+    "carries": 14.5,
+    "rush_yds": 58.5
+   },
+   "implied": 14.5,
+   "game": "401873070"
+  },
+  "4569603": {
+   "name": "Malik Washington",
+   "pos": "WR",
+   "team": "MIA",
+   "market": 8.55,
+   "lines": {
+    "rec_yds": 31.5,
+    "receptions": 3.5
+   },
+   "implied": 14.5,
+   "game": "401873070"
+  },
+  "4686422": {
+   "name": "Xavier Hutchinson",
+   "pos": "WR",
+   "team": "HOU",
+   "market": 8.59,
+   "lines": {
+    "rec_yds": 35.5,
+    "receptions": 2.5
+   },
+   "implied": 28.5,
+   "game": "401873066"
+  },
+  "4362628": {
+   "name": "Ja'Marr Chase",
+   "pos": "WR",
+   "team": "CIN",
+   "market": 22.58,
+   "lines": {
+    "rec_yds": 95.5,
+    "receptions": 8.5
+   },
+   "implied": 30.0,
+   "game": "401873078"
+  },
+  "4426348": {
+   "name": "Jayden Daniels",
+   "pos": "QB",
+   "team": "WSH",
+   "market": 19.69,
+   "lines": {
+    "pass_yds": 232.5,
+    "completions": 20.5,
+    "pass_td": 1.5,
+    "rush_yds": 35.5,
+    "ints": 0.5,
+    "pass_att": 31.5,
+    "pass_rush_yds": 272.5
+   },
+   "implied": 23.5,
+   "game": "401873078"
+  },
+  "4040761": {
+   "name": "Devin Singletary",
+   "pos": "RB",
+   "team": "NYG",
+   "market": 4.45,
+   "lines": {
+    "rush_yds": 12.5
+   },
+   "implied": 20.2,
+   "game": "401873069"
+  }
+ },
+ "standings_before": [
+  {
+   "team_id": 12,
+   "team": "Chaos Legion",
+   "w": 8,
+   "l": 1,
+   "pf": 1141.2
+  },
+  {
+   "team_id": 5,
+   "team": "End-Zone Dancers",
+   "w": 7,
+   "l": 2,
+   "pf": 1059.5
+  },
+  {
+   "team_id": 1,
+   "team": "The Oprah Winfreys",
+   "w": 6,
+   "l": 3,
+   "pf": 1037.1
+  },
+  {
+   "team_id": 9,
+   "team": "Waiting for Gordon",
+   "w": 6,
+   "l": 3,
+   "pf": 967.7
+  },
+  {
+   "team_id": 11,
+   "team": "The Mighty Marmots",
+   "w": 6,
+   "l": 3,
+   "pf": 963.4
+  },
+  {
+   "team_id": 7,
+   "team": "Namaslay",
+   "w": 5,
+   "l": 4,
+   "pf": 1054.6
+  },
+  {
+   "team_id": 4,
+   "team": "Njigba Please!",
+   "w": 4,
+   "l": 5,
+   "pf": 1121.6
+  },
+  {
+   "team_id": 10,
+   "team": "Cutie Mark Crusaders",
+   "w": 4,
+   "l": 6,
+   "pf": 1149.0
+  },
+  {
+   "team_id": 13,
+   "team": "Goedel, Escher, Butkus",
+   "w": 4,
+   "l": 6,
+   "pf": 1136.3
+  },
+  {
+   "team_id": 6,
+   "team": "KC Breathmints",
+   "w": 4,
+   "l": 6,
+   "pf": 1036.6
+  },
+  {
+   "team_id": 14,
+   "team": "Ayahuasca Rodgers",
+   "w": 3,
+   "l": 6,
+   "pf": 1029.7
+  },
+  {
+   "team_id": 3,
+   "team": "The Chefs",
+   "w": 2,
+   "l": 7,
+   "pf": 887.6
+  },
+  {
+   "team_id": 2,
+   "team": "The Winners",
+   "w": 1,
+   "l": 8,
+   "pf": 989.3
+  }
+ ],
+ "settled": null,
+ "forecast_note": "Not in these lines: the pending Keon Coleman claim (WR, Buffalo, for Germie Bernard, Wed 2:00 AM, priority 13 of 13; The Winners and Cutie Mark Crusaders have a WR need and pick ahead). If it lands, Bernard's line is void and Coleman is unforecast. Tool gap found while forecasting: lineup-watch put Bo Nix in for Jayden Daniels at 2:03 AM (d_net +2.1) because Nix had no market line attached, so the engine read his ESPN 20.8 against Daniels' blended 19.7. Daniels leads on every other source (consensus 20.6 against 18.6). The swap is about 2 points in a week where a win is worth 0.3 title points, so no hand move (the watcher would reverse it); the fix (a player with no market line must not keep ESPN alone against a blended rival) waits for an interactive session."
+}

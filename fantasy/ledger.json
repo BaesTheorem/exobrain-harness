@@ -20,7 +20,7 @@
    "basis": "the Barkley-at-the-wheel bet",
    "status": "settling",
    "a_pts": 58.7,
-   "b_pts": 201.8
+   "b_pts": 222.0
   },
   {
    "id": 3,
@@ -30,7 +30,7 @@
    "claim": "board took Kyren at pk36 over Smith (ECR gap 20)",
    "basis": "Ringer #33 vs consensus 42",
    "status": "settling",
-   "a_pts": 159.1,
+   "a_pts": 164.3,
    "b_pts": 69.0
   },
   {
@@ -41,7 +41,7 @@
    "claim": "board took Downs at pk114 over Godwin (ECR gap 15)",
    "basis": "same WR-tail optimism cluster",
    "status": "settling",
-   "a_pts": 75.1,
+   "a_pts": 90.4,
    "b_pts": 57.9
   },
   {
@@ -53,7 +53,7 @@
    "basis": "RB depth vs consensus WR",
    "status": "settling",
    "a_pts": 9.3,
-   "b_pts": 176.9
+   "b_pts": 183.6
   },
   {
    "id": 6,
@@ -63,7 +63,7 @@
    "claim": "WR-tail inflation marker: board rates Tyson WR56/Nailor WR59/Boutte WR63 vs consensus WR72/73/91; if these bench WRs bust as consensus expects, the 'WR waits well' conclusion weakens",
    "basis": "board tail vs consensus tail (intra-board sanity pair)",
    "status": "settling",
-   "a_pts": 5.0,
+   "a_pts": 24.0,
    "b_pts": 62.9
   },
   {
@@ -74,8 +74,8 @@
    "claim": "signed divergence: 29 percent target share, 0.53 WOPR, 75 percent snaps across his 8 games. Volume is the stickiest signal we measure and it says WR9, not WR14.",
    "basis": "pre-draft sign-off",
    "status": "settling",
-   "a_pts": 66.2,
-   "b_pts": 91.6
+   "a_pts": 79.4,
+   "b_pts": 116.0
   },
   {
    "id": 8,
@@ -86,7 +86,7 @@
    "basis": "pre-draft sign-off",
    "status": "settling",
    "a_pts": 74.0,
-   "b_pts": 78.9
+   "b_pts": 83.7
   },
   {
    "id": 9,
@@ -96,7 +96,7 @@
    "claim": "live draft 2026: board took Daniels at pick 50 (ECR 57) over Egbuka (ECR ~34, best available by consensus); the VONA call was that the QB cliff would be gone by pick 55 after four QBs went in the first 40 picks",
    "basis": "examiner --live flag; 16 ECR ranks past consensus",
    "status": "settling",
-   "a_pts": 115.2,
+   "a_pts": 136.0,
    "b_pts": 78.0
   }
  ]
