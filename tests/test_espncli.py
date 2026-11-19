@@ -380,3 +380,14 @@ def test_bye_holes_are_last_weeks_starters_whose_team_is_off():
             {"id": 4, "opp": "KC", "slotId": 4}]
     assert cli.bye_holes({1, 2, 4}, rows) == (2, 1)
     assert cli.bye_holes(set(), rows) == (0, 0)
+
+
+def test_playing_proj_ignores_a_zeroed_week_for_a_questionable_player():
+    # Walker, week 11 2026: DNP Wednesday, ESPN 0.0 for the week, 164.2 rest
+    # of season. The playing half must not be 0, or the cover math benches him.
+    walker = {"proj": 0.0, "season_proj": 164.17, "season_actual": 196.4, "bye": 5}
+    assert 18 < cli.playing_proj(walker, 11) < 25
+    # A live weekly projection is used as it is.
+    assert cli.playing_proj({**walker, "proj": 22.0}, 11) == 22.0
+    # No role at all stays zero.
+    assert cli.playing_proj({"proj": 0.0, "season_proj": 0.0, "bye": 5}, 11) == 0.0

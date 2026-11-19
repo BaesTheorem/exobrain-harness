@@ -37,6 +37,7 @@ from espncli.value import (
     flex_order,
     load_corr,
     load_points_per_win_pct,
+    ros_rate,
     win_prob,
 )
 from espncli.client import (
@@ -306,6 +307,16 @@ def matchup_view(api: Espn, week: int, data: dict, team_id: int) -> dict | None:
             continue
         entries, prov = side_entries(api, data, s)
         rows = roster_rows(api, entries, week)
+        # The matchup's own entries carry the week's stats only. The season
+        # rows come from mRoster, and playing_proj needs them when ESPN zeroes
+        # a questionable player's week (Walker, week 11 2026).
+        season = {}
+        for e in api.roster_entries(data, s["teamId"]):
+            p = (e.get("playerPoolEntry") or {}).get("player") or {}
+            season[p.get("id")] = (season_proj(p, api.season), season_actual(p, api.season))
+        for r in rows:
+            if r.get("season_proj") is None and r.get("id") in season:
+                r["season_proj"], r["season_actual"] = season[r["id"]]
         sides[key] = {
             "team_id": s["teamId"], "team": names.get(s["teamId"], f"Team {s['teamId']}"),
             "projected": starters_proj(rows), "actual": starters_actual(rows),
@@ -1347,15 +1358,39 @@ def attach_injury(api: Espn, week: int, rows: list[dict]) -> int:
         r["practice"] = pr
         r["p_play"] = cell["p_play"]
         ratio = cell.get("ratio")
+        if ratio is None and r.get("proj") is not None and float(r["proj"]) <= 0:
+            # A thin cell (RB, Q, DNP) carries no ratio; without one the zeroed
+            # week survived as the playing half (Walker, week 11 2026).
+            ratio = Q_PLAYED_RATIO
         if ratio is not None and r.get("proj") is not None and ESPN_STATUS_Q.get(r.get("status") or "") == "Q":
             r["injury_ratio"] = ratio
-            espn = float(r["proj"]) * ratio
+            espn = playing_proj(r, week) * ratio
             r["mean"] = blend(espn, r["market"]) if r.get("market") is not None else round(espn, 1)
         n += 1
     return n
 
 
 ESPN_STATUS_Q = {"Q": "Q", "QUESTIONABLE": "Q"}
+# Points over projection for a questionable player who played, all positions
+# and practice lines pooled (ffmodel/injury.py, nflverse 2016-2025).
+Q_PLAYED_RATIO = 0.91
+
+
+def playing_proj(r: dict, week: int) -> float:
+    """Points for a questionable player if he plays. ESPN's weekly number,
+    except when ESPN projects 0.0 for the week while his rest-of-season
+    projection is still alive: then his ros_rate. ESPN zeroes a questionable
+    starter's week before the team decides (Kenneth Walker III, week 11 2026:
+    DNP Wednesday, 0.0 for the week, 164.2 for the rest of the season), and
+    with no prop line the mixture then read his playing half as 0 points, so
+    the watcher benched him for a 3.7-point cover. p_play already prices the
+    chance that he sits; the zero counted it twice."""
+    proj = float(r.get("proj") or 0.0)
+    if proj > 0 or not r.get("season_proj"):
+        return proj
+    bye = int(r.get("bye") or 0)
+    games = max(0, week - 1 - (1 if 0 < bye < week else 0))
+    return ros_rate(week, None, r.get("season_proj"), r.get("season_actual"), games=games)
 
 
 def local_iso(s: str | None) -> datetime | None:
