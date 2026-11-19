@@ -9,7 +9,7 @@ Python script that fetches recent messages from Discord channels via REST API. G
 
 **To rebuild**: Create a Python script (stdlib only, `urllib.request`) that:
 1. Reads `DISCORD_BOT_TOKEN` from `~/.claude/channels/discord/.env` (a `KEY=value` file; the same token `claude-bot/` and `discord-send.py` use). It does not read the process environment, so the plist needs no token.
-2. Fetches messages from a `CHANNELS` dict mapping channel IDs to `{"name": "..."}`, paginating back `--hours N` (default 24). For the channel named `Hangouts` it also fetches recent threads.
+2. Fetches messages from a `CHANNELS` dict mapping channel IDs to `{"name": "..."}`, paginating back `--hours N` (default 24). For every channel it also fetches the messages in its threads, active (from the guild-wide `/threads/active` endpoint) and archived. Each message records `mentions_everyone` and, for a poll, a compact `poll` object with the question, each answer and its vote count. Before 2026-11-19 the fetcher read archived threads only and dropped polls, so a live planning thread with a date poll did not reach the digest.
 3. Maps Discord user IDs/usernames to real names via a `USERNAME_MAP` dict (the reason the script is gitignored).
 4. Writes `discord/discord-digest.json` with this shape, plus a timestamped copy to `~/My Drive/Discord/`:
    ```json
