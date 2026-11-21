@@ -212,10 +212,14 @@ EXEC_ANY = re.compile(
     # perl and ruby: `eval $x`, `system "..."`, `exec(...)`.
     + r"|(?<![\w.$'\"])(?:eval|system|exec)\s*[(\"'$`{]"
 )
-# A script that fetches over the network by itself.
+# A script that fetches over the network by itself. A URL literal alone is
+# data, not a fetch: jobs-scan scripts exec a local helper and carry a listing
+# URL as a string (denied as a false positive 10/29, 11/12, 11/21), so only a
+# construct that can open a connection counts.
 NET_IN_SCRIPT = re.compile(
-    r"\burllib\b|\burlopen\b|\brequests\.\w+\(|\bhttpx\b|\bhttp\.client\b|\bsocket\b|\bfetch\(|"
-    r"https?://|\bLWP::|\bNet::HTTP\b|\bopen-uri\b"
+    r"\burllib3?\b|\burlopen\b|\brequests\.\w+\(|\bhttpx\b|\baiohttp\b|\bpycurl\b|"
+    r"\bhttp\.client\b|\bsocket\b|\bfetch\(|\brequire\(\s*['\"]https?['\"]|"
+    r"\bfile_get_contents\s*\(\s*['\"]https?://|\bLWP::|\bNet::HTTP\b|\bopen-uri\b|\bURI\.open\b"
 )
 OSASCRIPT = re.compile(r"\bosascript\b")
 OSASCRIPT_DENY: list[tuple[str, str]] = [
