@@ -21,6 +21,7 @@ shop codes <domain> [--extra CODE ...] [--no-guess]
 shop cart <shopify-product-url> --codes A B --harvest --max-stack 3 [--qty N] [--selling-plan ID]
 shop best tmp/shopping/<item>.json
 shop clearance <upc> [store] | --retailer homedepot <item-id> [store]
+shop label "<ingredients>"                   # color additives (FD&C + natural), tint, haze; exit 0 = CLEAR
 shop amazon search|show|url|orders|auth ...   # the full Amazon tool
 ```
 
@@ -66,6 +67,13 @@ shipping options (defaulting to the store nearest this machine's IP). Search pag
 price only in the top-level `price` field; every `priceInfo` string is empty there. Always read
 the seller: marketplace sellers post wild markups, and `find` prints the seller when it is not
 Walmart. `/store/finder` hits the "Robot or human?" wall, so store choice is Walmart's.
+
+The same page carries the label: `idml.ingredients` and `idml.nutritionFacts`, so `shop price
+walmart:<id>` prints the ingredient panel, calories per serving and the `shop label` color
+verdict. Marketplace listings sometimes fill the ingredient field with junk ("Caffeine Free"),
+so read it before trusting a CLEAR. About 70 item pages in 25 seconds from four workers tripped
+the "Robot or human?" wall for this IP for more than ten minutes (2026-11-21); fetch one at a
+time, two seconds apart.
 
 ### Flipp (weekly ads)
 

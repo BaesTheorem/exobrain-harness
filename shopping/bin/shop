@@ -52,6 +52,10 @@
                                    Test codes and combinations on a live Shopify cart (never checks out)
   shop best <offers.json>          Rank every source x every legal code subset by net cost
   shop clearance <upc> [store]     In-store penny and clearance price via Penny Lane
+  shop label "<ingredients>"       Screen an ingredient list for color additives (FD&C and
+                                   "natural": beet, spirulina, caramel, vegetable juice), tinting
+                                   ingredients and clouding agents. Exit 0 only when CLEAR.
+                                   `shop price walmart:<id>` prints the same verdict.
   shop amazon <search|show|orders|auth|url> ...
                                    The full Amazon tool, including order history and the Chrome session
 
@@ -148,8 +152,25 @@ def cmd_price(a) -> int:
             v = r["variants"]
             shown = v if isinstance(v, int) else "; ".join(f"{x['id']} {x['name']}" for x in v)
             print(f"  variants: {shown}")
+        if r.get("calories") is not None:
+            print(f"  calories per serving: {r['calories']:g}")
+        if r.get("ingredients"):
+            from shoptools import labels
+            print(f"  ingredients: {r['ingredients']}")
+            print(f"  colors: {labels.describe(r['ingredients'])}")
         print()
     return 0
+
+
+def cmd_label(a) -> int:
+    from shoptools import labels
+    text = " ".join(a.text) if a.text else sys.stdin.read()
+    verdict, hits = labels.classify(text)
+    if a.json:
+        print(json.dumps({"verdict": verdict, **hits}, indent=2))
+    else:
+        print(labels.describe(text))
+    return 0 if verdict == "CLEAR" else 1
 
 
 def cmd_fbm(a) -> int:
@@ -381,6 +402,9 @@ def main(argv: list[str]) -> int:
     g4.add_argument("--location", help="cosentinos: EZConnect location id (default: Downtown Market)")
     g4.add_argument("--json", action="store_true")
 
+    lb = sub.add_parser("label", help="screen an ingredient list for colors, tinting and haze")
+    lb.add_argument("text", nargs="*", help="ingredient text (reads stdin when empty)")
+    lb.add_argument("--json", action="store_true")
     cl = sub.add_parser("clearance", help="in-store penny/clearance price via Penny Lane")
     cl.add_argument("item", help="UPC, or an item id when --retailer is given")
     cl.add_argument("store", nargs="?", help="store id (Penny Lane's configured stores by default)")
@@ -423,6 +447,8 @@ def main(argv: list[str]) -> int:
         return cmd_grocery(a)
     if a.cmd == "clearance":
         return cmd_clearance(a)
+    if a.cmd == "label":
+        return cmd_label(a)
     ap.error(f"unknown command {a.cmd}")
     return 2
 

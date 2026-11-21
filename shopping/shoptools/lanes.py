@@ -142,9 +142,22 @@ def _next_data(html: str, where: str) -> dict:
     return json.loads(m.group(1))
 
 
+def _walmart_calories(nf: dict | None) -> float | None:
+    """Label calories from idml.nutritionFacts; None when the listing has no panel."""
+    main = ((nf or {}).get("calorieInfo") or {}).get("mainNutrient") or {}
+    amount = main.get("amount")
+    if main.get("name") != "Calories" or amount is None:
+        return None
+    try:
+        return float(str(amount))
+    except ValueError:
+        return None
+
+
 def walmart_item(item_id: str) -> dict:
     r = session().get(WALMART_IP.format(item_id), timeout=30)
-    p = _next_data(r.text, f"/ip/{item_id}")["props"]["pageProps"]["initialData"]["data"]["product"]
+    data = _next_data(r.text, f"/ip/{item_id}")["props"]["pageProps"]["initialData"]["data"]
+    p, idml = data["product"], data.get("idml") or {}
     pi = p.get("priceInfo") or {}
     cur = pi.get("currentPrice") or {}
     return {
@@ -162,6 +175,10 @@ def walmart_item(item_id: str) -> dict:
         "fulfillment": [{"type": f.get("type"), "status": f.get("availabilityStatus"),
                          "where": f.get("locationText")} for f in p.get("fulfillmentOptions") or []],
         "variants": len(p.get("variantsMap") or {}),
+        # The ingredient panel and label calories, from the manufacturer feed. Marketplace
+        # listings sometimes carry junk here ("Caffeine Free"), so read it before trusting it.
+        "ingredients": ((idml.get("ingredients") or {}).get("ingredients") or {}).get("value"),
+        "calories": _walmart_calories(idml.get("nutritionFacts")),
     }
 
 
