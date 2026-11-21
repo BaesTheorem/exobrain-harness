@@ -208,6 +208,22 @@
     "notes": "Scans People/ notes for CRM overdue status (category/frequency/last_contact). Read-only. --all shows non-overdue too; --today YYYY-MM-DD to backdate. Reports incomplete frontmatter separately instead of dropping it. Built for the daily briefing's CRM step."
   },
   {
+    "name": "D&D sheet browser tests",
+    "command": "python3 tests/test_landing.py [desktop early bypass returning ios android layout print sw firefox classic ...] ; python3 tests/test_saveas.py [unit chromium webkit firefox]",
+    "repo_dir": "~/Documents/dnd-character-sheet",
+    "source": "built",
+    "added": "2026-11-21",
+    "notes": "Playwright Python, headless Chromium + WebKit + Firefox (playwright install chromium webkit firefox). Exit code 1 on any FAIL. Screenshots go to tmp/test-out (gitignored). The native save dialog is stubbed; a real iPhone or Android phone is still needed for Add to Home Screen."
+  },
+  {
+    "name": "D&D sheet landing pictures",
+    "command": "python3 design/landing-shot.py",
+    "repo_dir": "~/Documents/dnd-character-sheet",
+    "source": "built",
+    "added": "2026-11-21",
+    "notes": "Needs playwright + pillow; pngquant for small files (falls back to full-colour PNG). Writes landing-shot-light.png and landing-shot-dark.png in the repo root; raw captures in tmp/test-out. Prints what it built, so a renamed race or a new pending choice shows in the output."
+  },
+  {
     "name": "dedup-lookup",
     "command": "python3 job-search/dedup-lookup.py \"<company or title>\" | --stats",
     "repo_dir": "/Users/alexhedtke/Documents/Exobrain harness/job-search",
@@ -928,6 +944,14 @@
     "source": "built",
     "added": "2026-10-08",
     "notes": "Run tools/assets/fetch_models.py first (sources go to the gitignored sources/models/). Output: site/assets/models/*.glb (Draco for the big ones). Blender 4.2+; preview renders use EEVEE. The skull source is CC BY-SA 4.0, so skull.glb is too."
+  },
+  {
+    "name": "Pages stand-in server",
+    "command": "python3 tests/serve.py --root ~/Documents/dnd-character-sheet --port 8765",
+    "repo_dir": "~/Documents/dnd-character-sheet",
+    "source": "built",
+    "added": "2026-11-21",
+    "notes": "Threaded, 127.0.0.1 only, gzip on .html/.js/.json/.webmanifest, Cache-Control max-age=600, ACAO *. No directory listings. The landing page tests start and stop it themselves when the port is free."
   },
   {
     "name": "penny-lane",
