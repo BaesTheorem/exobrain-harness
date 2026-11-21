@@ -7,8 +7,8 @@ description: Manage Alex's TTRPG campaigns. Session prep (Lazy DM methodology), 
 
 Manage TTRPG campaigns in the Obsidian vault.
 
-**Campaign folders live under**: `/Users/alexhedtke/Exobrain/`
-Each campaign has its own folder (e.g., `Calimport DnD Campaign/`). All notes for a campaign stay in its folder.
+**Campaign folders live under**: `/Users/alexhedtke/Exobrain/Areas/Adventure & Creativity/TTRPG Campaigns/`
+Each campaign has its own folder (e.g., `Calimport DnD Campaign/`, which has a reusable `Session Prep Template.md`). All notes for a campaign stay in its folder.
 
 ## Campaign Identification
 
