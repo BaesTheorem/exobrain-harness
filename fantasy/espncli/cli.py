@@ -1326,7 +1326,66 @@ def attach_market(api: Espn, week: int, rows: list[dict]) -> int:
         r["market"] = m["market"]
         r["mean"] = blend(float(r["proj"]), m["market"]) if r.get("proj") is not None else m["market"]
         n += 1
+    if mk:
+        attach_standin(api, week, rows)
     return n
+
+
+# Positions where Sleeper's full-PPR number is on this league's scale (the
+# forecast's unit anchors). K and D/ST score differently there, so they keep
+# ESPN alone, as every K and D/ST does (the books post no D/ST line).
+STANDIN_POS = ("QB", "RB", "WR", "TE")
+
+
+def attach_standin(api: Espn, week: int, rows: list[dict]) -> int:
+    """A row with no betting line takes Sleeper's projection in the market's
+    half of the blend. Without it, that row kept ESPN alone while its rival
+    was blended, and the two numbers were not comparable: lineup-watch
+    started Bo Nix (ESPN 20.8, no line yet) over Jayden Daniels (blend 19.7)
+    in week 11 2026, though Sleeper, CBS and the later line all had Daniels
+    ahead. Sleeper ties the market out of sample (ffmodel/README.md), so it
+    is the measured stand-in; a positional ESPN-to-market ratio is not (QB
+    0.98 on the week 11 lines, so it would not have moved Nix). A Sleeper
+    zero is a status signal, not a points estimate, and is skipped. Returns
+    how many rows took a stand-in."""
+    todo = [r for r in rows if r.get("market") is None and r.get("actual") is None
+            and r.get("proj") is not None and r.get("pos") in STANDIN_POS]
+    if not todo:
+        return 0
+    table = sleeper_cached(api.season, week)
+    if not table:
+        return 0
+    from forecast import key_for  # noqa: PLC0415 -- forecast imports this module at load
+
+    n = 0
+    for r in todo:
+        v = table.get(key_for(r.get("name") or "", r["pos"]))
+        if v is None or v < 1.0:
+            continue
+        r["standin"] = round(v, 1)
+        r["mean"] = blend(float(r["proj"]), v)
+        n += 1
+    return n
+
+
+def sleeper_cached(season: int, week: int, ttl: float = 1800.0) -> dict[str, float]:
+    """forecast.sleeper_proj, kept 30 minutes in .cache/ like the market
+    pull. Any failure returns {} and the rows keep ESPN alone."""
+    import time  # noqa: PLC0415
+
+    path = Path(__file__).resolve().parent.parent / ".cache" / f"sleeper-{season}-w{week:02d}.json"
+    try:
+        if path.exists() and time.time() - path.stat().st_mtime < ttl:
+            return json.loads(path.read_text())
+        from forecast import sleeper_proj  # noqa: PLC0415 -- forecast imports this module at load
+
+        out = sleeper_proj(season, week)
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(json.dumps(out))
+        return out
+    except Exception as e:  # noqa: BLE001 - the lineup check must run without the stand-in
+        print(f"sleeper stand-in: unavailable ({e})", file=sys.stderr)
+        return {}
 
 
 def attach_injury(api: Espn, week: int, rows: list[dict]) -> int:
@@ -1365,7 +1424,8 @@ def attach_injury(api: Espn, week: int, rows: list[dict]) -> int:
         if ratio is not None and r.get("proj") is not None and ESPN_STATUS_Q.get(r.get("status") or "") == "Q":
             r["injury_ratio"] = ratio
             espn = playing_proj(r, week) * ratio
-            r["mean"] = blend(espn, r["market"]) if r.get("market") is not None else round(espn, 1)
+            half = r["market"] if r.get("market") is not None else r.get("standin")
+            r["mean"] = blend(espn, half) if half is not None else round(espn, 1)
         n += 1
     return n
 

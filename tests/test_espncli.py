@@ -391,3 +391,22 @@ def test_playing_proj_ignores_a_zeroed_week_for_a_questionable_player():
     assert cli.playing_proj({**walker, "proj": 22.0}, 11) == 22.0
     # No role at all stays zero.
     assert cli.playing_proj({"proj": 0.0, "season_proj": 0.0, "bye": 5}, 11) == 0.0
+
+
+def test_a_row_with_no_line_takes_sleeper_in_the_markets_half(monkeypatch):
+    # Week 11 2026: Nix had no line at 2:03 AM and kept ESPN's 20.8 alone,
+    # so he out-read Daniels' blend (20.3) and lineup-watch started him.
+    monkeypatch.setattr(cli, "sleeper_cached", lambda season, week: {"QB:bonix": 17.9, "RB:kennethwalker": 0.0})
+    api = Namespace(season=2026)
+    rows = [
+        {"name": "Bo Nix", "pos": "QB", "proj": 20.8, "mean": 20.8, "actual": None},
+        {"name": "Jayden Daniels", "pos": "QB", "proj": 19.6, "market": 20.5, "mean": 20.3, "actual": None},
+        {"name": "Kenneth Walker III", "pos": "RB", "proj": 3.0, "mean": 3.0, "actual": None},
+        {"name": "Jaguars D/ST", "pos": "D/ST", "proj": 7.0, "mean": 7.0, "actual": None},
+    ]
+    assert cli.attach_standin(api, 11, rows) == 1
+    nix, daniels, walker, dst = rows
+    assert nix["standin"] == 17.9 and nix["mean"] == cli.blend(20.8, 17.9) < daniels["mean"]
+    assert daniels["mean"] == 20.3 and "standin" not in daniels   # a real line is never replaced
+    assert walker["mean"] == 3.0 and "standin" not in walker      # a Sleeper zero is a status, not points
+    assert dst["mean"] == 7.0 and "standin" not in dst            # off the league's scale there
