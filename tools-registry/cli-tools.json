@@ -659,10 +659,10 @@
   {
     "name": "inbox-iphone-build-install",
     "command": "./scripts/build-install.sh",
-    "repo_dir": "/Users/alexhedtke/Documents/inbox-by-gmail-clone/ios",
+    "repo_dir": "~/Documents/inbox-by-gmail-clone/ios",
     "source": "built",
     "added": "2026-08-23",
-    "notes": "Builds the native Inbox iPhone app (SwiftUI Gmail client) and pushes it to the paired iPhone over the devicectl tunnel. Free-team signing expires every 7 days; re-run this when the app stops launching. Phone must be unlocked and on USB or same network."
+    "notes": "NOT the release path. Inbox is on TestFlight, so a new build ships with bin/testflight-upload ~/Documents/inbox-by-gmail-clone/ios --scheme Inbox --prep ./scripts/make-credentials.sh. Use this script only as a compile check, or when Alex asks for a cable install. It needs the phone unlocked."
   },
   {
     "name": "inbox-setup-link-handler",
