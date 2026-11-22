@@ -55,14 +55,20 @@ export default {
     const cf = request.cf || {};
     if (await firstHit(ip, loc)) {
       const body = request.method === "POST" ? (await request.text()).slice(0, 600) : "";
+      // flag-canary test/watch submit loc "selftest*". Label those as routine so the
+      // weekly positive control does not read as an incident. The IP line stays, so
+      // a self-test from a strange network is still visible.
+      const selftest = loc.startsWith("selftest");
       const lines = [
-        `(⊙o⊙) **Canary tripped:** something read the flag.txt at \`${loc}\` and submitted the flag.`,
+        selftest
+          ? `(´‿ˋ) **Canary self-test** (\`${loc}\`): the beacon works. No action needed if the IP below is home.`
+          : `(⊙o⊙) **Canary tripped:** something read the flag.txt at \`${loc}\` and submitted the flag.`,
         `IP ${ip} · ${cf.country || "?"} · AS${cf.asn || "?"} ${cf.asOrganization || ""}`,
         `${request.method} ${url.pathname.replace(env.CANARY_TOKEN, "<token>")}${url.search}`,
         `UA: ${(request.headers.get("user-agent") || "(none)").slice(0, 200)}`,
       ];
       if (body) lines.push("Body: " + body);
-      lines.push("If this is not you or MIST testing, check that location's access log and sessions now.");
+      if (!selftest) lines.push("If this is not you or MIST testing, check that location's access log and sessions now.");
       ctx.waitUntil(discord(env, lines.join("\n")));
     }
     return new Response(JSON.stringify(ACCEPTED), { headers: { "content-type": "application/json" } });
