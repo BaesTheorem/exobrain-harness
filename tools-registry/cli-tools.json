@@ -1074,6 +1074,14 @@
     "notes": "npm global rea-agents (~/.npm-global/bin/rea); source clone at ~/Documents/rea, scratch at ~/Documents/rea-work. Providers: brew ghidra 12.1.4 + openjdk@21 (REA accepts 12.1.x only), and Hopper demo in ~/Applications. Hopper needs Spotlight indexing ON (its launcher finds the app by mdfind) and Automation permission for the calling app to control Hopper. IDA Free 9.3 + loopback-patched ida-free-mcp plugin installed, waiting for an npm release with the native IDA profile. Provider env is in ~/.zshenv and in the MCP env. MCP is user-scope behind mcp-lazy (idle 0). First Ghidra query takes ~40 s on a tiny binary. Output is swallowed inside mist-progress run, so redirect to a file. Update with bin/rea-update (the skill runs it first); never bare rea setup."
   },
   {
+    "name": "realesrgan-ncnn-vulkan",
+    "command": "~/Documents/tools-dl/realesrgan/realesrgan-ncnn-vulkan -i in.png -o out.png -n realesrgan-x4plus -m ~/Documents/tools-dl/realesrgan/models",
+    "repo_dir": "~/Documents/tools-dl/realesrgan",
+    "source": "built",
+    "added": "2026-11-22",
+    "notes": "v0.2.5.0 macOS build, runs on the M1 GPU through Vulkan/MoltenVK. Give it a crop of the native pixels, not an image that was already resized. Models: realesrgan-x4plus (photos), x4plus-anime, animevideov3 x2/x3/x4."
+  },
+  {
     "name": "render_dice.py",
     "command": "/Applications/Blender.app/Contents/MacOS/Blender -b --factory-startup -P tools/render_dice.py -- OUT_DIR HDRI [--size 512] [--samples 96] [--yaws 0,23,-31,47]",
     "repo_dir": "/Users/alexhedtke/Documents/turn-to",
