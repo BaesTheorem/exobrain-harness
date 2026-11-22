@@ -216,6 +216,14 @@
     "notes": "Playwright Python, headless Chromium + WebKit + Firefox (playwright install chromium webkit firefox). Exit code 1 on any FAIL. Screenshots go to tmp/test-out (gitignored). The native save dialog is stubbed; a real iPhone or Android phone is still needed for Add to Home Screen."
   },
   {
+    "name": "D&D sheet data tests",
+    "command": "python3 tests/test_tags.py ; python3 tests/test_textfix.py [shipped parity character update restore stored | live | copy]",
+    "repo_dir": "/Users/alexhedtke/Documents/dnd-character-sheet",
+    "source": "built",
+    "added": "2026-11-22",
+    "notes": "test_tags.py needs a local 5etools mirror (FIVETOOLS_ROOT, default ~/My Drive/5etools) and skips the comparisons without one; the mirror's scripts run in a blank headless page with every network request aborted. test_textfix.py reads older builds from git history. By-name checks: live (needs the network, run after a deploy), copy (SHEET_COPY=/path/file.html; SHEET_LIVE=1 for the real site; the file is copied first and never written). Exit code 1 on any FAIL."
+  },
+  {
     "name": "D&D sheet landing pictures",
     "command": "python3 design/landing-shot.py",
     "repo_dir": "~/Documents/dnd-character-sheet",
