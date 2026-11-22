@@ -49,13 +49,14 @@ async function espnLive(env, snap) {
     fetch(url, { headers: { cookie, "user-agent": UA, accept: "application/json" } }).then(r => r.ok ? r.json() : Promise.reject(new Error(`ESPN league ${r.status}`))),
     fetch(`${NFL}?seasontype=2&week=${snap.week}&dates=${snap.season}`, { headers: { "user-agent": UA } }).then(r => r.ok ? r.json() : Promise.reject(new Error(`NFL scoreboard ${r.status}`))),
   ]);
-  const teams = {}, players = {}, lineups = {};
+  const teams = {}, players = {}, lineups = {}, decided = {};   // decided: ESPN has closed the matchup
   for (const m of league.schedule || []) {
     if (m.matchupPeriodId !== snap.week) continue;
     for (const k of ["home", "away"]) {
       const s = m[k];
       if (!s) continue;
       teams[s.teamId] = s.totalPointsLive ?? s.totalPoints ?? 0;
+      decided[s.teamId] = !!m.winner && m.winner !== "UNDECIDED";
       lineups[s.teamId] = [];
       for (const e of (s.rosterForCurrentScoringPeriod || {}).entries || []) {
         players[e.playerPoolEntry.id] = e.playerPoolEntry.appliedStatTotal ?? 0;
@@ -72,7 +73,7 @@ async function espnLive(env, snap) {
       if (ab) games[ab] = { state: st.state, left };
     }
   }
-  memo = { at: Date.now(), key, val: { teams, players, lineups, games, at: new Date().toISOString() } };
+  memo = { at: Date.now(), key, val: { teams, players, lineups, decided, games, at: new Date().toISOString() } };
   return memo.val;
 }
 
@@ -501,10 +502,26 @@ async function records(env, snap) {
 // One row per team: ESPN's W-L, PF and seed, this week's live win chance, and
 // the season odds mixed from the Mac's outcome table at the live chances
 // (season.js). A table from another week falls back to its own pregame run.
-function standings(st, snap, recs) {
+// The live table: ESPN's record and PF with this week's games counted as if
+// they ended now. A lead is a W, a tie on points a tie, and a game neither
+// team has scored in yet is not counted. A matchup ESPN has closed is
+// already in its record, so it adds nothing.
+function liveRecord(r, g, decided) {
+  if (!g || decided[r.id]) return { lw: r.w, ll: r.l, lt: r.t, lpf: r.pf, res: null, wk: null, wk_opp: null };
+  const started = g.pts > 0 || g.opp > 0;
+  const res = !started ? null : g.pts > g.opp ? "W" : g.pts < g.opp ? "L" : "T";
+  return { lw: r.w + (res === "W"), ll: r.l + (res === "L"), lt: r.t + (res === "T"),
+           lpf: Math.round((r.pf + g.pts) * 100) / 100, res, wk: g.pts, wk_opp: g.opp };
+}
+
+function standings(st, snap, recs, decided = {}) {
   const table = snap.season_table;
   const live = {};
-  for (const g of st.games) { live[g.hid] = g.p; live[g.aid] = 1 - g.p; }
+  const wk = {};
+  for (const g of st.games) {
+    live[g.hid] = g.p; live[g.aid] = 1 - g.p;
+    wk[g.hid] = { pts: g.hs, opp: g.as }; wk[g.aid] = { pts: g.as, opp: g.hs };
+  }
   let odds = null, current = false;
   if (table) {
     current = table.week === st.week;
@@ -518,11 +535,14 @@ function standings(st, snap, recs) {
   const byId = Object.fromEntries((odds?.teams || []).map(t => [t.id, t]));
   const rows = recs.map(r => {
     const o = byId[r.id];
-    return { ...r, mine: r.id === (st.team_id ?? st.views[st.mine]?.me.team_id), week_p: live[r.id] ?? null,
+    return { ...r, ...liveRecord(r, wk[r.id], decided), mine: r.id === (st.team_id ?? st.views[st.mine]?.me.team_id), week_p: live[r.id] ?? null,
              ...(o ? { bye: o.bye, playoffs: o.playoffs, title: o.title, seed1: o.seed1, base: o.base, clinch: o.clinch, out: o.out } : {}) };
   });
   const pct = r => (r.w + r.t / 2) / Math.max(r.w + r.l + r.t, 1);
   rows.sort((a, b) => (a.seed && b.seed) ? a.seed - b.seed : pct(b) - pct(a) || b.pf - a.pf);
+  // Rank on the live record by the league's own order: win share, then Points For.
+  const lpct = r => (r.lw + r.lt / 2) / Math.max(r.lw + r.ll + r.lt, 1);
+  [...rows].sort((a, b) => lpct(b) - lpct(a) || b.lpf - a.lpf).forEach((r, i) => { r.live_rank = i + 1; r.lpct = Math.round(lpct(r) * 1000) / 1000; });
   return { week: st.week, table_week: table?.week ?? null, current, built: table?.at ?? null,
            weeks_played: table?.weeks_played ?? null,
            seasons: table ? table.sims * table.cells.length : null, pre_at: table?.pre_at ?? null, rows };
@@ -662,12 +682,13 @@ export default {
       }
       if (path === "/api/state") {
         const snap = await getSnap(env);
-        const st = compute(snap, await espnLive(env, snap));
+        const lv = await espnLive(env, snap);
+        const st = compute(snap, lv);
         st.history = await history(env, snap);
         try {
           const recs = await records(env, snap);
           st.owners = Object.fromEntries(recs.filter(r => r.owner).map(r => [r.id, r.owner]));   // every tab shows the owner beside the team
-          st.standings = standings(st, snap, recs);
+          st.standings = standings(st, snap, recs, lv.decided);
         } catch (e) { st.standings = { error: String(e.message || e) }; }
         return json(st);
       }

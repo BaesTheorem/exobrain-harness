@@ -116,7 +116,7 @@ body.stand>:not(#vStand):not(.views):not(script){display:none!important} #vStand
 #sTab{margin-top:16px} #sTab th,#sTab td{padding:7px 8px} #sTab th:nth-child(2),#sTab td:nth-child(2){text-align:left}
 #sTab td:first-child{color:var(--mute);width:28px} #sTab td:nth-child(2){max-width:240px;font-weight:600;font-size:16px}
 #sTab td{font-size:16px} #sTab td.o{width:96px} #sTab td.o i{font:500 12px Inter;font-style:normal;color:var(--mute);margin-right:6px}
-#sTab tr.cut td{border-bottom:1px solid var(--mute)} #sTab tr.me td{color:var(--red)} #sTab tr.me td:first-child{color:var(--red)}
+#sTab tr.cut td{border-bottom:1px solid var(--mute)} #sTab td:first-child i{font:500 12px Inter;font-style:normal;color:var(--mute);margin-left:4px} #sTab td.wk{color:var(--mute)} #sTab td.wk b{font-weight:600;color:var(--ink);margin-right:4px} #sTab tr.me td.wk b{color:inherit} #sTab tr.me td{color:var(--red)} #sTab tr.me td:first-child{color:var(--red)}
 #sTab .bd{font:600 11px 'Barlow Condensed';letter-spacing:1.2px;padding:1px 6px;background:var(--ink);color:var(--bg)} #sTab .bd.x{background:var(--track);color:var(--mute)}
 .own{color:var(--mute);font-weight:500} .tn .own{display:block;text-transform:none;font-size:16px;letter-spacing:0} .tt b .own{font-size:12px} tr.me .own{color:inherit} #sTab td.wkp{color:var(--mute)} #sTab td,#sTab th{white-space:nowrap} #sTab td:nth-child(2){white-space:normal}
 @media (max-width:640px){#sTab .own{display:block;font-size:13px} #sTab .xs{display:none} #sTab th,#sTab td{padding:6px 4px} #sTab td.o{width:auto} #sTab td.o i{display:none} #sTab td:nth-child(2){max-width:110px} #sTab th{letter-spacing:.5px} #sTab th,#sTab td{padding:6px 3px} #sTab td:first-child{width:auto}}
@@ -144,7 +144,7 @@ body.stand>:not(#vStand):not(.views):not(script){display:none!important} #vStand
 <div id="vStand">
 <div class="chyron"><div class="tag" id="sTag">STANDINGS</div><div class="txt" id="sHead">Reading the league…</div></div>
 <div class="dek" id="sDek"></div><div class="err" id="sErr"></div>
-<div class="card"><table id="sTab"></table><div class="foot" id="sFoot"></div></div>
+<div class="card"><div class="chips" id="sChips"><button data-m="live">LIVE TABLE</button><button data-m="espn">ESPN TABLE</button></div><table id="sTab"></table><div class="foot" id="sFoot"></div></div>
 </div>
 <div id="vWire">
 <div class="chyron"><div class="tag" id="wTag">THE WIRE</div><div class="txt" id="wHead">Reading the league…</div></div>
@@ -269,6 +269,8 @@ function odd(r,k){if(r[k]==null)return '<td class="o">–</td>';
  if(r.out&&r.out[k])return '<td class="o"><span class="bd x">OUT</span></td>';
  const d=r.base?Math.round((r[k]-r.base[k])*100):0;
  return `<td class="o">${d?`<i>${(d>0?'+':'−')+Math.abs(d)}</i>`:''}${opct(r[k])}</td>`}
+let SM=null;   // standings mode: 'live', 'espn', or null (live while this week has scores)
+$('sChips').addEventListener('click',e=>{const b=e.target.closest('button');if(!b)return;SM=b.dataset.m;if(S0)renderStand(S0)});
 function renderStand(S){const T=S.standings;if(!T)return;
  if(T.error){$('sErr').textContent='Standings not reachable ('+T.error+').';return}$('sErr').textContent='';
  const R=T.rows,has=R.some(r=>r.bye!=null),wk=T.week;
@@ -279,9 +281,17 @@ function renderStand(S){const T=S.standings;if(!T)return;
    :`${R[0].name} holds the 1 seed at ${R[0].w}-${R[0].l}; no team's playoff odds have moved a point this week`}
  $('sHead').textContent=head;
  $('sDek').textContent=has?`Odds from ${T.seasons?T.seasons.toLocaleString():'the'} simulated seasons, mixed at each game's live win chance every 10 s${T.current?'':` (table from week ${T.table_week}: odds before its games)`}. Built ${T.built?new Date(T.built).toLocaleString([], {weekday:'short',hour:'numeric',minute:'2-digit'}):'by the Mac'}. W-L and PF from ESPN.`:'W-L and PF from ESPN. The odds wait for the Mac\'s first outcome table.';
+ const anyRes=R.some(r=>r.res),L=SM==='live'||(SM==null&&anyRes);
+ document.querySelectorAll('#sChips button').forEach(b=>b.classList.toggle('on',(b.dataset.m==='live')===L));
+ const lpct=x=>x==null?'–':x>=1?'1.000':x.toFixed(3).replace(/^0/,'');
+ if(L){const Q=[...R].sort((a,b)=>a.live_rank-b.live_rank);
+  $('sTab').innerHTML=`<tr><th>#</th><th>TEAM</th><th>W-L</th><th>PCT</th><th>PF</th><th class="xs">WK ${wk}</th><th>BYE</th><th>PLAYOFFS</th><th>TITLE</th></tr>`+
+   Q.map((r,i)=>{const s0=R.indexOf(r)+1,d=s0-r.live_rank;
+    return `<tr class="${r.mine?'me':''}${i===1||i===5?' cut':''}"><td>${r.live_rank}${d?`<i>${(d>0?'+':'−')+Math.abs(d)}</i>`:''}</td><td>${logo(r.id,'xs')}${esc(r.name)}${own(r)}</td><td>${r.lw}-${r.ll}${r.lt?'-'+r.lt:''}</td><td>${lpct(r.lpct)}</td><td>${f2(r.lpf)}</td><td class="wk xs">${r.wk==null?'idle':`<b>${r.res||'·'}</b>${f2(r.wk)}–${f2(r.wk_opp)}`}</td>${odd(r,'bye')}${odd(r,'playoffs')}${odd(r,'title')}</tr>`}).join('');
+ }else
  $('sTab').innerHTML=`<tr><th>#</th><th>TEAM</th><th>W-L</th><th>PF</th><th class="xs">WK ${wk}</th><th>BYE</th><th>PLAYOFFS</th><th>TITLE</th></tr>`+
   R.map((r,i)=>`<tr class="${r.mine?'me':''}${i===1||i===5?' cut':''}"><td>${r.seed||i+1}</td><td>${logo(r.id,'xs')}${esc(r.name)}${own(r)}</td><td>${r.w}-${r.l}${r.t?'-'+r.t:''}</td><td>${f2(r.pf)}</td><td class="wkp xs">${r.week_p==null?'idle':pct(r.week_p)}</td>${odd(r,'bye')}${odd(r,'playoffs')}${odd(r,'title')}</tr>`).join('');
- $('sFoot').innerHTML=`Seeds by win share, then Points For (the league's tiebreak); a rule under 2nd marks the byes and under 6th the playoff cut. WK ${wk} is each team's live chance in this week's game. The small number is the change in points since ${T.pre_at?new Date(T.pre_at).toLocaleString([], {weekday:'short',hour:'numeric',minute:'2-digit'}):'the week\'s first table'}, the week's first table. IN and OUT come from wins alone, with every rival allowed to win out and a tie on wins counted against the claim, so they never mark a team too early. Checked on 857 real leagues from their week-5 standings: the bye odds scored Brier 0.114 against 0.182 for "the current top two", but above 80% they ran high (84% predicted, 65% happened).`}
+ $('sFoot').innerHTML=(L?`LIVE TABLE counts this week's games as if they ended now: a lead is a W, and a game with no points yet does not count. PF adds this week's live points. The rank uses the league's order (win share, then Points For); the small number beside it is the move from ESPN's seed. WK ${wk} is the result if it ended now and the score, ours first. `:'')+`Seeds by win share, then Points For (the league's tiebreak); a rule under 2nd marks the byes and under 6th the playoff cut. ${L?'':`WK ${wk} is each team's live chance in this week's game. `}The small number is the change in points since ${T.pre_at?new Date(T.pre_at).toLocaleString([], {weekday:'short',hour:'numeric',minute:'2-digit'}):'the week\'s first table'}, the week's first table. IN and OUT come from wins alone, with every rival allowed to win out and a tie on wins counted against the claim, so they never mark a team too early. Checked on 857 real leagues from their week-5 standings: the bye odds scored Brier 0.114 against 0.182 for "the current top two", but above 80% they ran high (84% predicted, 65% happened).`}
 const get=async p=>(await fetch(BASE+p,{cache:'no-store'})).json();
 async function tick(){try{const s=await get('/api/state');if(s.ok===false)throw new Error(s.error);S0=s;if(s.owners)OWN=s.owners;render(S0)}catch(e){$('err').textContent='Scorebug not reachable ('+e.message+'). Showing the last good reading.'}}
 tick();setInterval(tick,10e3);

@@ -91,6 +91,14 @@ Same tokens, type and square corners; nothing new in the palette.
   nothing under one point. A clinch is the ink-on-light
   `IN` badge, an elimination the track-colored `OUT` badge.
 - Red stays ours: our row only.
+- LIVE TABLE and ESPN TABLE chips above the table (the WIRE chip style).
+  LIVE is the default while any game of the week has points. It counts this
+  week's games as if they ended now (a lead is a W, a game with no points
+  yet does not count), adds the live points to PF, and ranks by win share
+  then PF. Columns: #, TEAM, W-L, PCT (`.800`), PF, WK N (the result letter
+  in ink, then the score with ours first, in mute), BYE, PLAYOFFS, TITLE.
+  The move from ESPN's seed sits beside the rank in small mute Inter
+  (`4 +2`). ESPN TABLE is the table above, unchanged. (Added 2026-11-22.)
 - Below 640 px the table drops WK N and the change numbers, and team names
   wrap to two lines; every other cell stays on one line.
 
