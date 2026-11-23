@@ -303,7 +303,7 @@ Method, cheapest first:
 1. Copy two or three distinctive JD phrases (tool names in an odd form such as "Iru/Kandji", an unusual duty line) and run them through WebSearch with no domain filter. Then run them again with `allowed_domains` set to the ATS hosts (Greenhouse, Lever, Ashby). Mirrors such as Remotive and BuiltIn often name the employer when the intermediary does not.
 2. Open a mirror that names an employer and take its outbound apply link (`curl` the page, grep `href` for an ATS host). In the 2026-10-19 case, a Remotive mirror named the employer and linked its Greenhouse posting.
 3. Confirm on the ATS API that the body and the pay band match the intermediary copy. Then read the posting's `company_name` and `first_published`.
-4. Run Contact Research against the real employer. Hiring managers often post the role themselves, and that post is the best outreach opening.
+4. If Alex asks for contacts, run Contact Research against the real employer, not the intermediary. Hiring managers often post the role themselves, and that post is the best outreach opening.
 
 Scan scripts and alert emails surface these reposts every day, so this step belongs to the JD read, before a candidate note is written.
 
@@ -367,16 +367,16 @@ Then: rewrite only what the scorecard says is weak, within the surgical tailorin
 - **The video's fallback advice -- white-text keyword stuffing -- is explicitly rejected here.** PDF parsing strips color, so the screener sees hidden text in plain sight; it is detected, penalized, and prevalent enough (~1-10% per Greenhouse/ManpowerGroup) that recruiters look for it. Same verdict as prompt injection: own-goal. See [[ATS & AI-Screening Playbook]].
 - This is a **content** lever only. It does nothing for document parseability, which is the #1 actual auto-fail cause. The builder owns that half and neither substitutes for the other.
 
-## Contact Research (MANDATORY for every qualifying JD)
+## Contact Research (ON DEMAND ONLY)
 
-For **every** posting that clears the 4 hard gates (not just Strong Fits), research the people around the role and record them on the listing note. This is required at audit time, in scan mode, in the apply pipeline, and in the daily-briefing scan -- any time a listing note is created or promoted. Read `/linkedin` first (READ-ONLY, human-paced; never send or connect). For each qualifying JD, identify and capture:
+**Run this only when Alex asks for it** (Alex 2026-11-23: "I just want to do that on-demand"). It does not run in the daily scan, in `/job-search scan`, in audits, or in the apply pipeline unless he asks. Superseded rule, kept for the record: "MANDATORY for every qualifying JD, at audit time, in scan mode, in the apply pipeline, and in the daily-briefing scan." When he does ask, research the people around the role and record them on the listing note. Read `/linkedin` first (READ-ONLY, human-paced; never send or connect). For each qualifying JD, identify and capture:
 
 1. **Recruiter(s) / Talent Acquisition** -- esp. anyone covering IT/security/technical reqs. `get_company_employees` filtered by ("recruiter" OR "talent").
 2. **Hiring manager (and the chain above)** -- IT/Security Manager, IT Director, Information Security Manager, CISO, or whoever the role reports into. At smaller orgs security often rolls up under IT Infrastructure/Operations -- note that.
 3. **Same-role employees** -- current people holding the same/similar title (signals team size and whether the seat is net-new).
 4. **Likely teammates** -- others on the IT/Security/Infrastructure team Alex would work alongside.
 
-Method: `search_companies` to confirm the company URN (disambiguate look-alikes), then `get_company_employees` across a few title-keyword passes, then `get_person_profile` on **every person you record on the note**, not only the top few. Cross-reference every name against Alex's People/ notes (`Areas/Relationships & Community/People/`) and CRM for warm-intro paths. Record findings in the listing note: fill `contact` / `contact_url` frontmatter with the single highest-impact target, and list the rest under `## Highest-impact contact` (rename to "## People around this role" when there are several) with **Name | Title | LinkedIn | why-relevant**. For Strong-Fit roles (esp. high comp + remote), continue to mode 1 step 6 (draft outreach + `/crm potential` tasks). For weaker-but-qualifying roles, capturing the contacts on the note is enough -- no outreach task required unless Alex asks.
+Method: `search_companies` to confirm the company URN (disambiguate look-alikes), then `search_people` with `current_company` set to the numeric URN across a few title-keyword passes (`get_company_employees` ignored its `keywords` filter on 2026-11-23: two different keyword passes gave the same list), then `get_person_profile` on **every person you record on the note**, not only the top few. Cross-reference every name against Alex's People/ notes (`Areas/Relationships & Community/People/`) and CRM for warm-intro paths. Record findings in the listing note: fill `contact` / `contact_url` frontmatter with the single highest-impact target, and list the rest under `## Highest-impact contact` (rename to "## People around this role" when there are several) with **Name | Title | LinkedIn | why-relevant**. For Strong-Fit roles (esp. high comp + remote), continue to mode 1 step 6 (draft outreach + `/crm potential` tasks). For weaker-but-qualifying roles, capturing the contacts on the note is enough -- no outreach task required unless Alex asks.
 
 **Every recorded contact has a read title** (Alex 2026-10-09). Copy the Title cell from the current entry in the person's Experience section. An affiliation is not a title: "<Employer> employee", "<Former employer> alum", "1 company alum works here" and "role not read" all mean the profile was never opened. On 2026-10-07 the warmest contact on a candidate note went down as "<Employer> employee, <former employer> alum". Their profile named an in-house legal role in one click, and that changed what she could do for Alex. The warm-path contacts need the read most, because their role decides what kind of ask is possible. If the MCP cannot read a profile, write `not read (<reason>)` in the Title cell so the gap stays visible. Always use the table format, because the check below reads tables only. Before you finish the note, run `python3 job-search/contact-check.py --note "<note path>"`. It exits 1 on any blank or placeholder title, and `contact-check.py` with no arguments audits every active listing.
 
@@ -564,7 +564,7 @@ When Alex shares a job posting URL or text, evaluate fit:
 
 5. If the verdict is "apply" or "apply with caveats," ask if Alex wants a cover letter and/or company research.
 
-6. **Cold outreach trigger** (Strong Fit only, especially when compensation and remote opportunity are both good):
+6. **Cold outreach** (only when Alex asks for contacts on this role, per "Contact Research"; then Strong Fit first, especially when compensation and remote opportunity are both good):
    - **LinkedIn people search** (via `linkedin` MCP -- read `/linkedin` for read-only rules and pacing): Find the hiring manager, team lead, or department head at the company. Use `get_company_employees` with the company LinkedIn URL and a keyword filter for titles like "IT Manager", "Hiring Manager", "IT Director", "CISO". Pull richer detail on individuals with `get_person_profile`. Draft any outreach as text for Alex to send manually -- never send through the MCP.
    - Cross-reference results against Alex's People/ notes and CRM for warm intro paths
    - Create Things 3 tasks for cold outreach via `/crm potential [name]` for each identified person, with context about the role and why reaching out matters
@@ -669,7 +669,7 @@ Runs modes 1→2→3 in sequence:
 1. Audit the posting for fit
 2. If fit is "Strong" or "Moderate," automatically research the company
 3. Generate a tailored cover letter
-4. Surface any network connections at the company
+4. Surface network connections at the company only if Alex asks for contacts (see "Contact Research")
 5. Create a Things 3 task: "Apply to [Role] at [Company]" with the cover letter and research in the notes field. If routing to a project (e.g., "Job hunting"), verify the project has an Obsidian backlink in its notes field (`obsidian://open?vault=Exobrain&file=Projects/...`). If missing, add it via `update_project`.
 
 ## Per-Listing Notes & Bases Tracker (canonical)
@@ -781,7 +781,7 @@ Truthful nulls: omit `comp_min` / `comp_max` if unlisted (set `comp_listed: fals
 
 Added 2026-10-22 (Alex standing instruction). The raw JD callout is text only. A full-page image of the posting is the record of the pay range as the employer showed it, which matters weeks later in a salary conversation, after the posting has changed or gone. Some ATS pages also print the band outside the JD body, where the text copy misses it.
 
-**The last step after a note passes all four gates** (fit-gate PASS or OVERRIDE, contacts recorded) is:
+**The last step after a note passes all four gates** (fit-gate PASS or OVERRIDE) is:
 
 ```bash
 python3 "Exobrain harness/job-search/jd-snapshot.py" --note "<listing note path>"
@@ -936,7 +936,7 @@ When called as part of the daily briefing (every day, weekends included):
    - Pacing: no numerical cap, but follow `/linkedin` qualitative rules -- batch JD reads in small groups (2-4 per turn) with reasoning between, vary keyword angles day-to-day, no tight loops. The natural ceiling is "I've exhausted reasonable search angles," not an arbitrary count.
    - Target volume: 2-5 new verified candidates per day → hits the 10-20 weekly app goal.
 
-4. **Contact research + cold outreach surfacing**: For **every** new verified candidate, run the mandatory Contact Research (see "Contact Research" section above) -- recruiter(s), hiring manager(s), same-role employees, likely teammates -- and record them on the listing note. Then, for candidates scoring Strong Fit (especially high comp + remote), follow mode 1 step 6: draft outreach and create `/crm potential <name>` Things 3 tasks for the top 1-2 targets. Cap outreach-task creation at the top 1-2 candidates per day to keep MCP pacing reasonable; the contact *capture* on the note applies to all qualifying candidates.
+4. **No contact research in the scan** (Alex 2026-11-23). Do not look up recruiters, hiring managers or teammates, and do not create outreach tasks. Contact Research runs only when Alex asks for it on a given role (see "Contact Research"). Leave `contact` / `contact_url` empty on new notes unless the posting itself names a person.
 
 5. **Weekly pace check**: Count apps submitted since the most recent Sunday (today, if today is Sunday) vs 10-20 goal. If behind mid-week, suggest time blocks from calendar gaps.
 
