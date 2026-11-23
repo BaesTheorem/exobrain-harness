@@ -1,0 +1,143 @@
+#!/usr/bin/env python3
+"""do816: dump every Do816 (Kansas City) event card for a date range as JSON.
+
+Do816 moved to SvelteKit in late 2026. A day page renders its cards client-side,
+but the same data ships as /events/YYYY/M/D/__data.json in the "devalue" flat
+array format. This decodes that format and paginates with ?page=N until a page
+adds no new events.
+
+Usage:
+  local-events/bin/do816 --start 2026-11-23 --days 30 [--workers 4] > out.json
+
+INVARIANTS
+- Output is one JSON array of event dicts, deduplicated by url.
+- A failed day is logged to stderr and skipped; it never aborts the run.
+"""
+
+from __future__ import annotations
+
+import argparse
+import datetime as dt
+import json
+import sys
+import urllib.request
+from concurrent.futures import ThreadPoolExecutor
+from typing import Any
+
+UA = (
+    "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 "
+    "(KHTML, like Gecko) Chrome/130 Safari/537.36"
+)
+MAX_PAGES = 8
+
+
+def hydrate(flat: list[Any]) -> Any:
+    """Decode a devalue flat array (index 0 is the root)."""
+    memo: dict[int, Any] = {}
+
+    def h(i: int) -> Any:
+        if i < 0:
+            return None  # devalue specials: undefined, NaN, holes
+        if i in memo:
+            return memo[i]
+        v = flat[i]
+        if isinstance(v, dict):
+            out: dict[str, Any] = {}
+            memo[i] = out
+            for k, j in v.items():
+                out[k] = h(j)
+            return out
+        if isinstance(v, list):
+            if v and isinstance(v[0], str) and v[0] in ("Date", "Set", "Map", "BigInt", "RegExp"):
+                memo[i] = v[1] if len(v) > 1 else None
+                return memo[i]
+            out_l: list[Any] = []
+            memo[i] = out_l
+            out_l.extend(h(j) for j in v)
+            return out_l
+        memo[i] = v
+        return v
+
+    return h(0)
+
+
+def fetch(url: str) -> Any:
+    req = urllib.request.Request(url, headers={"User-Agent": UA})
+    with urllib.request.urlopen(req, timeout=25) as r:  # noqa: S310 (fixed https host)
+        return json.load(r)
+
+
+def find_events(node: Any, acc: list[dict[str, Any]]) -> None:
+    """Collect every dict that looks like an event card (has url under /events/ and a title)."""
+    if isinstance(node, dict):
+        url = node.get("url") or node.get("path") or node.get("permalink")
+        if isinstance(url, str) and url.startswith("/events/") and (node.get("title") or node.get("name")):
+            acc.append(node)
+        for v in node.values():
+            find_events(v, acc)
+    elif isinstance(node, list):
+        for v in node:
+            find_events(v, acc)
+
+
+def flatten(card: dict[str, Any]) -> dict[str, Any]:
+    out: dict[str, Any] = {}
+    for k, v in card.items():
+        if isinstance(v, (str, int, float, bool)) or v is None:
+            out[k] = v
+        elif isinstance(v, dict):
+            for k2, v2 in v.items():
+                if isinstance(v2, (str, int, float, bool)):
+                    out[f"{k}.{k2}"] = v2
+        elif isinstance(v, list) and all(isinstance(x, str) for x in v):
+            out[k] = v
+    return out
+
+
+def day(d: dt.date) -> list[dict[str, Any]]:
+    base = f"https://do816.com/events/{d.year}/{d.month}/{d.day}"
+    seen: dict[str, dict[str, Any]] = {}
+    for page in range(1, MAX_PAGES + 1):
+        url = f"{base}/__data.json" + (f"?page={page}" if page > 1 else "")
+        try:
+            raw = fetch(url)
+        except Exception as e:  # noqa: BLE001 (log and skip the day)
+            print(f"do816: {d} page {page}: {e}", file=sys.stderr)
+            break
+        cards: list[dict[str, Any]] = []
+        for n in raw.get("nodes", []):
+            if isinstance(n, dict) and n.get("type") == "data":
+                find_events(hydrate(n["data"]), cards)
+        new = 0
+        for c in cards:
+            f = flatten(c)
+            u = str(f.get("url") or f.get("path") or f.get("permalink"))
+            f["url"] = "https://do816.com" + u if u.startswith("/") else u
+            if u not in seen:
+                f["day"] = d.isoformat()
+                seen[u] = f
+                new += 1
+        if new == 0:
+            break
+    return list(seen.values())
+
+
+def main() -> None:
+    ap = argparse.ArgumentParser(description=__doc__.splitlines()[0])
+    ap.add_argument("--start", default=dt.date.today().isoformat())
+    ap.add_argument("--days", type=int, default=7)
+    ap.add_argument("--workers", type=int, default=4)
+    a = ap.parse_args()
+    start = dt.date.fromisoformat(a.start)
+    days = [start + dt.timedelta(i) for i in range(a.days)]
+    out: dict[str, dict[str, Any]] = {}
+    with ThreadPoolExecutor(a.workers) as ex:
+        for evs in ex.map(day, days):
+            for e in evs:
+                out.setdefault(str(e.get("url")), e)
+    print(f"do816: {len(out)} unique events over {a.days} days", file=sys.stderr)
+    json.dump(list(out.values()), sys.stdout, indent=1)
+
+
+if __name__ == "__main__":
+    main()
