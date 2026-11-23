@@ -11,11 +11,57 @@
 # both work. The server has no switch for this, so the wrapper patches the
 # platform check before the browser module binds it.
 #
+# Second patch (2026-11-23): real headless Chromium names itself HeadlessChrome
+# in the user agent and the sec-ch-ua brands. LinkedIn sits behind Cloudflare,
+# and Cloudflare holds a HeadlessChrome browser on its "Performing security
+# verification" page (seen on /company/<slug>/people/, 30 s with no pass). The
+# same profile with a plain Chrome identity loads that page in under 5 s. So
+# every page gets a CDP Emulation.setUserAgentOverride that drops "Headless"
+# from the user agent and the client hints together. Upstream removed its own
+# user-agent setting because a string-only override left the client hints
+# contradicting it; this one sets both. Service workers keep the old identity.
+#
 # Same CLI as mcp-server-linkedin; all arguments pass through.
 exec /Users/alexhedtke/.local/share/uv/tools/mcp-server-linkedin/bin/python -c '
 import sys
 import linkedin_mcp_server.hidden_target as hidden_target
 hidden_target.hidden_target_is_supported = lambda: False
+
+import asyncio, platform, re
+from patchright.async_api import BrowserType
+
+async def _plain_chrome(context, page):
+    try:
+        cdp = await context.new_cdp_session(page)
+        ua = (await cdp.send("Browser.getVersion"))["userAgent"]
+        if "HeadlessChrome" not in ua:
+            return
+        major = re.search(r"HeadlessChrome/(\d+)", ua).group(1)
+        brands = [("Chromium", major), ("Google Chrome", major), ("Not?A_Brand", "99")]
+        await cdp.send("Emulation.setUserAgentOverride", {
+            "userAgent": ua.replace("HeadlessChrome", "Chrome"),
+            "userAgentMetadata": {
+                "brands": [{"brand": b, "version": v} for b, v in brands],
+                "fullVersionList": [{"brand": b, "version": v + ".0.0.0"} for b, v in brands],
+                "platform": "macOS",
+                "platformVersion": platform.mac_ver()[0] or "15.0.0",
+                "architecture": "arm" if platform.machine() == "arm64" else "x86",
+                "bitness": "64", "model": "", "mobile": False,
+            },
+        })
+    except Exception as exc:
+        print("linkedin-mcp: user agent override failed:", exc, file=sys.stderr)
+
+_launch = BrowserType.launch_persistent_context
+async def _launch_plain(self, *args, **kwargs):
+    context = await _launch(self, *args, **kwargs)
+    if kwargs.get("headless", True):
+        for page in context.pages:
+            await _plain_chrome(context, page)
+        context.on("page", lambda page: asyncio.ensure_future(_plain_chrome(context, page)))
+    return context
+BrowserType.launch_persistent_context = _launch_plain
+
 from linkedin_mcp_server.cli_main import main
 sys.argv[0] = "mcp-server-linkedin"
 sys.exit(main())
