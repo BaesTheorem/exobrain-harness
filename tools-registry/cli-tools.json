@@ -922,6 +922,14 @@
     "notes": "Narrate a note or piped text in Alex's cloned MIST voice. Slower than real time, so pre-render only. Needs serve.py running."
   },
   {
+    "name": "norris-jumps",
+    "command": "scripts/norris-jumps.py --patrol 240",
+    "repo_dir": "/Users/alexhedtke/Documents/hp1-sorcerers-stone-macos",
+    "source": "built",
+    "added": "2026-11-23",
+    "notes": "Needs a built engine (--build build2 or build) and the staged game. Runs muted through scripts/run-test.sh; --patrol mode reports cats that stand still 4 s in patrol. Without --patrol it runs each jump once, which is a weaker check."
+  },
+  {
     "name": "ocr_book.py (Turn To)",
     "command": "~/Documents/turn-to/.venv/bin/python tools/ocr_book.py BOOK.pdf OUT_DIR [--first N --last N] [--unit line|token]",
     "repo_dir": "/Users/alexhedtke/Documents/turn-to",
