@@ -772,6 +772,601 @@
    "pf": 989.3
   }
  ],
- "settled": null,
+ "settled": {
+  "settled_at": "2026-11-24T11:03-06:00",
+  "players": [
+   {
+    "name": "Bo Nix",
+    "pos": "QB",
+    "slot": "QB",
+    "mist": {
+     "actual": 11.5,
+     "where": "in50",
+     "in50": true,
+     "in90": true,
+     "error": -5.0,
+     "width50": 10.5,
+     "width90": 25.5
+    },
+    "baseline": {
+     "actual": 11.5,
+     "where": "in90",
+     "in50": false,
+     "in90": true,
+     "error": -4.8,
+     "width50": 10.4,
+     "width90": 25.4
+    }
+   },
+   {
+    "name": "Kenneth Walker III",
+    "pos": "RB",
+    "slot": "RB",
+    "mist": {
+     "actual": 0.0,
+     "where": "in90",
+     "in50": false,
+     "in90": true,
+     "error": -19.5,
+     "width50": 16.5,
+     "width90": 42
+    },
+    "baseline": {
+     "actual": 0.0,
+     "where": "below",
+     "in50": false,
+     "in90": false,
+     "error": -21.0,
+     "width50": 14.4,
+     "width90": 36.6
+    }
+   },
+   {
+    "name": "Ollie Gordon II",
+    "pos": "RB",
+    "slot": "RB",
+    "mist": {
+     "actual": 8.7,
+     "where": "in50",
+     "in50": true,
+     "in90": true,
+     "error": -1.3,
+     "width50": 11.0,
+     "width90": 26.5
+    },
+    "baseline": {
+     "actual": 8.7,
+     "where": "in50",
+     "in50": true,
+     "in90": true,
+     "error": -1.2,
+     "width50": 10.5,
+     "width90": 25.3
+    }
+   },
+   {
+    "name": "Malik Washington",
+    "pos": "WR",
+    "slot": "WR",
+    "mist": {
+     "actual": 7.1,
+     "where": "in50",
+     "in50": true,
+     "in90": true,
+     "error": 0.6,
+     "width50": 7.5,
+     "width90": 18.5
+    },
+    "baseline": {
+     "actual": 7.1,
+     "where": "in50",
+     "in50": true,
+     "in90": true,
+     "error": 0.1,
+     "width50": 7.6,
+     "width90": 18.6
+    }
+   },
+   {
+    "name": "Xavier Hutchinson",
+    "pos": "WR",
+    "slot": "WR",
+    "mist": {
+     "actual": 3.3,
+     "where": "in90",
+     "in50": false,
+     "in90": true,
+     "error": -3.2,
+     "width50": 7.5,
+     "width90": 18.0
+    },
+    "baseline": {
+     "actual": 3.3,
+     "where": "in90",
+     "in50": false,
+     "in90": true,
+     "error": -3.4,
+     "width50": 8.3,
+     "width90": 19.1
+    }
+   },
+   {
+    "name": "Trey McBride",
+    "pos": "TE",
+    "slot": "TE",
+    "mist": {
+     "actual": 14.8,
+     "where": "in50",
+     "in50": true,
+     "in90": true,
+     "error": 2.3,
+     "width50": 10.5,
+     "width90": 22.5
+    },
+    "baseline": {
+     "actual": 14.8,
+     "where": "in50",
+     "in50": true,
+     "in90": true,
+     "error": 2.2,
+     "width50": 10.6,
+     "width90": 23.7
+    }
+   },
+   {
+    "name": "Ja'Marr Chase",
+    "pos": "WR",
+    "slot": "FLEX",
+    "mist": {
+     "actual": 8.1,
+     "where": "in90",
+     "in50": false,
+     "in90": true,
+     "error": -11.9,
+     "width50": 17.0,
+     "width90": 42.0
+    },
+    "baseline": {
+     "actual": 8.1,
+     "where": "in90",
+     "in50": false,
+     "in90": true,
+     "error": -12.3,
+     "width50": 17.0,
+     "width90": 42.8
+    }
+   },
+   {
+    "name": "Jaguars D/ST",
+    "pos": "D/ST",
+    "slot": "D/ST",
+    "mist": {
+     "actual": 5.0,
+     "where": "in50",
+     "in50": true,
+     "in90": true,
+     "error": -3.0,
+     "width50": 8.5,
+     "width90": 20.0
+    },
+    "baseline": {
+     "actual": 5.0,
+     "where": "in50",
+     "in50": true,
+     "in90": true,
+     "error": -2.9,
+     "width50": 9.2,
+     "width90": 20.7
+    }
+   },
+   {
+    "name": "Brandon Aubrey",
+    "pos": "K",
+    "slot": "K",
+    "mist": {
+     "actual": 10.0,
+     "where": "in50",
+     "in50": true,
+     "in90": true,
+     "error": 0.0,
+     "width50": 8.5,
+     "width90": 20.5
+    },
+    "baseline": {
+     "actual": 10.0,
+     "where": "in50",
+     "in50": true,
+     "in90": true,
+     "error": 0.2,
+     "width50": 8.3,
+     "width90": 20.5
+    }
+   },
+   {
+    "name": "Jayden Daniels",
+    "pos": "QB",
+    "slot": "BE",
+    "mist": {
+     "actual": 17.1,
+     "where": "in50",
+     "in50": true,
+     "in90": true,
+     "error": -1.4,
+     "width50": 11.0,
+     "width90": 28.0
+    },
+    "baseline": {
+     "actual": 17.1,
+     "where": "in50",
+     "in50": true,
+     "in90": true,
+     "error": -1.3,
+     "width50": 11.6,
+     "width90": 28.2
+    }
+   },
+   {
+    "name": "Christian Watson",
+    "unsettled": "not on the roster at week end"
+   },
+   {
+    "name": "Devin Singletary",
+    "unsettled": "not on the roster at week end"
+   },
+   {
+    "name": "Rhamondre Stevenson",
+    "unsettled": "not on the roster at week end"
+   },
+   {
+    "name": "Germie Bernard",
+    "unsettled": "not on the roster at week end"
+   },
+   {
+    "name": "Mack Hollins",
+    "unsettled": "not on the roster at week end"
+   },
+   {
+    "name": "Buccaneers D/ST",
+    "unsettled": "not on the roster at week end"
+   }
+  ],
+  "team_total": {
+   "mist": {
+    "actual": 87.8,
+    "where": "in90",
+    "in50": false,
+    "in90": true,
+    "error": -33.2,
+    "width50": 33,
+    "width90": 80
+   },
+   "baseline": {
+    "actual": 87.8,
+    "where": "in90",
+    "in50": false,
+    "in90": true,
+    "error": -33.3,
+    "width50": 32.9,
+    "width90": 79.8
+   }
+  },
+  "opp_total": {
+   "mist": {
+    "actual": 142.0,
+    "where": "in90",
+    "in50": false,
+    "in90": true,
+    "error": 35.0,
+    "width50": 30,
+    "width90": 74
+   },
+   "baseline": {
+    "actual": 142.0,
+    "where": "in90",
+    "in50": false,
+    "in90": true,
+    "error": 35.0,
+    "width50": 29.9,
+    "width90": 74.1
+   }
+  },
+  "result": {
+   "won": false,
+   "us": 87.76,
+   "them": 142.04,
+   "mist_win_prob": 0.66,
+   "baseline_win_prob": 0.654,
+   "mist_brier": 0.4356,
+   "baseline_brier": 0.4277
+  },
+  "standing": {
+   "rank": 1,
+   "mist": {
+    "actual": 1,
+    "where": "in50",
+    "in50": true,
+    "in90": true,
+    "error": null,
+    "width50": 0,
+    "width90": 1
+   },
+   "baseline": {
+    "actual": 1,
+    "where": "in50",
+    "in50": true,
+    "in90": true,
+    "error": null,
+    "width50": 0,
+    "width90": 0
+   },
+   "mist_p_first": 0.995,
+   "baseline_p_first": 0.999,
+   "mist_p_top2": 0.999,
+   "baseline_p_top2": 1.0,
+   "first_brier_mist": 0.0,
+   "first_brier_baseline": 0.0
+  },
+  "standings_after": [
+   {
+    "team_id": 12,
+    "team": "Chaos Legion",
+    "w": 8,
+    "l": 2,
+    "pf": 1228.9
+   },
+   {
+    "team_id": 1,
+    "team": "The Oprah Winfreys",
+    "w": 7,
+    "l": 3,
+    "pf": 1181.4
+   },
+   {
+    "team_id": 5,
+    "team": "End-Zone Dancers",
+    "w": 7,
+    "l": 3,
+    "pf": 1152.8
+   },
+   {
+    "team_id": 7,
+    "team": "Namaslay",
+    "w": 6,
+    "l": 4,
+    "pf": 1196.7
+   },
+   {
+    "team_id": 9,
+    "team": "Waiting for Gordon",
+    "w": 6,
+    "l": 4,
+    "pf": 1070.0
+   },
+   {
+    "team_id": 11,
+    "team": "The Mighty Marmots",
+    "w": 6,
+    "l": 4,
+    "pf": 1049.7
+   },
+   {
+    "team_id": 4,
+    "team": "Njigba Please!",
+    "w": 5,
+    "l": 5,
+    "pf": 1222.6
+   },
+   {
+    "team_id": 13,
+    "team": "Goedel, Escher, Butkus",
+    "w": 5,
+    "l": 6,
+    "pf": 1258.5
+   },
+   {
+    "team_id": 10,
+    "team": "Cutie Mark Crusaders",
+    "w": 4,
+    "l": 6,
+    "pf": 1149.0
+   },
+   {
+    "team_id": 6,
+    "team": "KC Breathmints",
+    "w": 4,
+    "l": 7,
+    "pf": 1114.6
+   },
+   {
+    "team_id": 14,
+    "team": "Ayahuasca Rodgers",
+    "w": 3,
+    "l": 7,
+    "pf": 1122.3
+   },
+   {
+    "team_id": 3,
+    "team": "The Chefs",
+    "w": 3,
+    "l": 7,
+    "pf": 996.2
+   },
+   {
+    "team_id": 2,
+    "team": "The Winners",
+    "w": 2,
+    "l": 8,
+    "pf": 1104.2
+   }
+  ],
+  "source_error": {
+   "espn": {
+    "mae": 7.3,
+    "n": 10
+   },
+   "sleeper": {
+    "mae": 5.32,
+    "n": 10
+   },
+   "cbs": {
+    "mae": 4.17,
+    "n": 9
+   },
+   "market": {
+    "mae": 5.41,
+    "n": 6
+   },
+   "consensus": {
+    "mae": 6.01,
+    "n": 10
+   },
+   "mist": {
+    "mae": 4.82,
+    "n": 10
+   }
+  },
+  "coverage": {
+   "mist": {
+    "n": 12,
+    "cov50": 0.583,
+    "cov90": 1.0,
+    "mae": 9.7
+   },
+   "baseline": {
+    "n": 12,
+    "cov50": 0.5,
+    "cov90": 0.917,
+    "mae": 9.81
+   }
+  },
+  "market": {
+   "n": 8,
+   "mist": {
+    "n": 8,
+    "corr_lean_vs_move": -0.243,
+    "sign_agree_on_moves": 0.0,
+    "moves": 4,
+    "mae": 3.213,
+    "mae_market_close_same_rows": 4.894,
+    "mae_market_then_same_rows": 4.461
+   },
+   "consensus": {
+    "n": 8,
+    "corr_lean_vs_move": -0.154,
+    "sign_agree_on_moves": 0.5,
+    "moves": 4,
+    "mae": 4.375,
+    "mae_market_close_same_rows": 4.894,
+    "mae_market_then_same_rows": 4.461
+   },
+   "espn": {
+    "n": 8,
+    "corr_lean_vs_move": 0.023,
+    "sign_agree_on_moves": 0.75,
+    "moves": 4,
+    "mae": 5.662,
+    "mae_market_close_same_rows": 4.894,
+    "mae_market_then_same_rows": 4.461
+   },
+   "rows": [
+    {
+     "week": 11,
+     "name": "Bo Nix",
+     "pos": "QB",
+     "then_src": "forecast-time",
+     "market_then": 16.66,
+     "market_close": 17.18,
+     "mist": 16.5,
+     "consensus": 18.6,
+     "espn": 20.8,
+     "actual": 11.5
+    },
+    {
+     "week": 11,
+     "name": "Ollie Gordon II",
+     "pos": "RB",
+     "then_src": "forecast-time",
+     "market_then": 11.97,
+     "market_close": 11.55,
+     "mist": 10.0,
+     "consensus": 12.3,
+     "espn": 13.8,
+     "actual": 8.7
+    },
+    {
+     "week": 11,
+     "name": "Malik Washington",
+     "pos": "WR",
+     "then_src": "forecast-time",
+     "market_then": 8.55,
+     "market_close": 8.77,
+     "mist": 6.5,
+     "consensus": 8.1,
+     "espn": 7.7,
+     "actual": 7.1
+    },
+    {
+     "week": 11,
+     "name": "Xavier Hutchinson",
+     "pos": "WR",
+     "then_src": "forecast-time",
+     "market_then": 8.59,
+     "market_close": 10.05,
+     "mist": 6.5,
+     "consensus": 8.0,
+     "espn": 10.7,
+     "actual": 3.3
+    },
+    {
+     "week": 11,
+     "name": "Trey McBride",
+     "pos": "TE",
+     "then_src": "open",
+     "market_then": 11.59,
+     "market_close": 11.79,
+     "mist": 12.5,
+     "consensus": 14.4,
+     "espn": 12.9,
+     "actual": 14.8
+    },
+    {
+     "week": 11,
+     "name": "Ja'Marr Chase",
+     "pos": "WR",
+     "then_src": "forecast-time",
+     "market_then": 22.58,
+     "market_close": 23.24,
+     "mist": 20.0,
+     "consensus": 22.2,
+     "espn": 25.4,
+     "actual": 8.1
+    },
+    {
+     "week": 11,
+     "name": "Brandon Aubrey",
+     "pos": "K",
+     "then_src": "open",
+     "market_then": 10.24,
+     "market_close": 9.98,
+     "mist": 10.0,
+     "consensus": 10.6,
+     "espn": 11.2,
+     "actual": 10.0
+    },
+    {
+     "week": 11,
+     "name": "Jayden Daniels",
+     "pos": "QB",
+     "then_src": "forecast-time",
+     "market_then": 19.69,
+     "market_close": 21.13,
+     "mist": 18.5,
+     "consensus": 20.6,
+     "espn": 19.6,
+     "actual": 17.1
+    }
+   ]
+  }
+ },
  "forecast_note": "Not in these lines: the pending Keon Coleman claim (WR, Buffalo, for Germie Bernard, Wed 2:00 AM, priority 13 of 13; The Winners and Cutie Mark Crusaders have a WR need and pick ahead). If it lands, Bernard's line is void and Coleman is unforecast. Tool gap found while forecasting: lineup-watch put Bo Nix in for Jayden Daniels at 2:03 AM (d_net +2.1) because Nix had no market line attached, so the engine read his ESPN 20.8 against Daniels' blended 19.7. Daniels leads on every other source (consensus 20.6 against 18.6). The swap is about 2 points in a week where a win is worth 0.3 title points, so no hand move (the watcher would reverse it); the fix (a player with no market line must not keep ESPN alone against a blended rival) waits for an interactive session."
 }
