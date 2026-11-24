@@ -601,8 +601,11 @@ fi
 # GPS points freshness (location/receiver.py, fed by Overland on the phone).
 # The receiver can be up while the phone stopped sending, so check the newest
 # day file, not the launchd job. Silent until the first point arrives.
+# A disabled receiver is a decision, not a fault, so the check stays quiet then.
 GPS_DIR="$HARNESS/location/data/points"
-if [ -d "$GPS_DIR" ]; then
+if launchctl print-disabled "gui/$(id -u)" 2>/dev/null | grep -q '"com.exobrain.overland-receiver" => disabled'; then
+  echo "OK: GPS receiver disabled (launchctl enable gui/$(id -u)/com.exobrain.overland-receiver to restore)"
+elif [ -d "$GPS_DIR" ]; then
   GPS_NEWEST=$(ls "$GPS_DIR" 2>/dev/null | grep -oE '^20[0-9]{2}-[0-9]{2}-[0-9]{2}' | sort | tail -1)
   if [ -n "$GPS_NEWEST" ]; then
     GPS_AGE_D=$(( ($(date +%s) - $(date -j -f %Y-%m-%d "$GPS_NEWEST" +%s)) / 86400 ))
