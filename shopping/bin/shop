@@ -92,7 +92,7 @@ def _row(r: dict) -> str:
         extra += f"  thru {r['valid_to']}"
     if r.get("sponsored"):
         extra += "  [ad]"
-    return f"{r.get('retailer') or '?':<12} {price:>10}  {str(r.get('id') or ''):<12} {r.get('title', '')[:70]}{extra}"
+    return f"{r.get('retailer') or '?':<12} {price:>10}  {str(r.get('id') or ''):<12} {(r.get('title') or '')[:70]}{extra}"
 
 
 def cmd_find(a) -> int:
