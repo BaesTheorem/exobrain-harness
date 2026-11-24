@@ -9,10 +9,19 @@ metadata:
 
 # /penny
 
-Penny Lane answers one question a community penny list cannot: **is it on the
-shelf at Alex's store right now?** It pulls the public penny lists, checks every
-reported item live at his watched stores, sweeps Home Depot's in-store Special
-Values nightly, and scores each (item, store) 0 to 100 with reasons. Read the
+Penny Lane answers one question a community penny list cannot: **has Alex's
+store gone to the penny state, and is a unit likely to be there?** It pulls the
+public penny lists, checks every reported item live at his watched stores,
+sweeps Home Depot's in-store Special Values nightly, and scores each (item,
+store) 0 to 100 with reasons.
+
+**No API shows a penny the way a register does** (measured 2026-11-24). Home
+Depot never returns $0.01: a pennied item reads status CLEARANCE, clearance
+price removed, count 0 or absent. Dollar General returns a catalog flag with a
+placeholder count. So `penny` means CONFIRMED by two kinds of source (the store
+record shows the penny state AND a community list has the item), `likely` means
+the store record alone, and no stage claims a unit is on the shelf. Say so when
+you report results; never tell Alex an item "is on the shelf at a penny". Read the
 repo README before deep work: it has the lane table (what each retailer's API
 returns and its request budget) and the signal list.
 
@@ -21,7 +30,9 @@ returns and its request budget) and the signal list.
 ```bash
 P=http://127.0.0.1:5033
 curl -s "$P/api/predictions?min_score=50&sort=score&limit=30"     # ranked (item, store) pairs
-curl -s "$P/api/predictions?stage=penny&sort=msrp"                # confirmed pennies on a shelf, biggest first
+curl -s "$P/api/predictions?stage=penny&sort=msrp"                # confirmed pennies (store record + a list), biggest first
+curl -s "$P/api/predictions?stage=likely&sort=score"              # probably pennied here (store record only)
+curl -s "$P/api/predictions?stage=penny&count=1"                  # how many items
 curl -s "$P/api/predictions?store=3021&min_score=25"              # one store
 curl -s "$P/api/reports?sort=retail"                              # community lists, merged, with local stock
 curl -s "$P/api/item/homedepot/204512007"                         # one item: per-store state, history, reports
@@ -30,7 +41,8 @@ curl -s "$P/api/status"                                           # counts, watc
 ```
 
 Sort keys for `/api/predictions`: `score`, `msrp`, `savings`, `recent`. Stages:
-`penny` (register $0.01, stock on shelf), `imminent` (70+), `late` (50+),
+`penny` (confirmed, 80 to 99: the score ranks the chance a unit is still
+there), `likely` (55 to 85), `imminent` (70+, real stock, deep markdown), `late` (50+),
 `early` (30+), `watch`, `gone` (nothing on the shelf, capped at 20).
 MSRP is the lane's original price, else the community feed's retail.
 
@@ -72,12 +84,18 @@ changes: `launchctl kickstart -k gui/$UID/com.exobrain.penny-lane`.
 
 ## Alerts
 
-Banner (mist-notify) on every new alert; **Discord DM the moment a penny with
-MSRP at or above $100 is on a watched shelf** (`notify.discord.min_msrp` in
-`config.json`; the DM goes through the MIST bot token and
-`DISCORD_NOTIFY_CHAT_ID`). The hourly pulse covers reported items worth $100+
-and anything scoring 50+, at Home Depot and Dollar General only. Alerts dedupe
-for 3 days per (kind, item, store).
+Banner (mist-notify) on every new alert, one digest per run; **Discord DM for
+new confirmed pennies only, at any MSRP** (the DM goes through the MIST bot
+token and `DISCORD_NOTIFY_CHAT_ID`). Alert kinds: `penny_confirmed`,
+`penny_likely`, `imminent` (`penny_on_shelf` rows date from before 2026-11-24
+and were Dollar General flags, never confirmed). A penny alert never repeats
+per (item, store); `imminent` dedupes for 3 days. The hourly pulse covers
+reported items worth $100+ and anything scoring 50+ that is not yet in a penny
+stage, at Home Depot and Dollar General only.
+
+After a change to the stage rules, seed before the next scheduled run or every
+pair alerts at once: `bin/penny predict --no-notify`, then delete the
+`ntfy_seeded_v2` row in `kv` so the public topics seed without a push.
 
 ## Lane budgets (do not exceed; see README for the evidence)
 
