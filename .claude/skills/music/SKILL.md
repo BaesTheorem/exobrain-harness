@@ -24,6 +24,7 @@ we never re-tread ground.
 | Transcribe an audio clip → MIDI + MusicXML | `mist-music transcribe` | §1 |
 | **Compose a solo piano piece in code** (Python score, performed and rendered on a sampled grand) | `mist-music/piano/` (pianokit) | §1b |
 | **Compose a piece that loops with no seam** (Shepard tones, pure tuning, math structures; plays as a gapless loop in the Console) | `mist-music/loops/` (loopkit) | §1c |
+| **Cover a tune in a different scale or mode** ("in the Dorian scale", "make it Phrygian", often with a style such as Celtic) | `mist-music/modal/` (modalkit) | §1d |
 | **Captioned lyric video** from a track + a still + lyrics | `lyrics-video/` pipeline | §2 |
 | **Remove the vocals from a real song** (instrumental, karaoke, a cappella), source from Alex's YouTube Music Premium | `mist-music/bin/unmix` | §3 |
 
@@ -218,6 +219,34 @@ uv run --with matplotlib mist-music/loops/<piece>.py --measure   # measure the l
 - **You cannot hear the render, so measure it.** Check the seam with a control: the sample step across the wrap must be in the range of the steps in the period, and a window that is a few samples too long must show a step. Check the harmony with a control: find the triad in each bar, then move the labels by one bar.
 - Pure tuning drifts by a comma per cycle. Give the `Loop` a `glide` that pays it back, or the loop does not close. Name chords from the first cycle, because the raw chain drifts away from equal temperament in later cycles.
 - Write the layer balance as LUFS targets and set the gains from the cached stems. A mix-only change takes approximately 1 minute. A full render of 216 s takes approximately 10 minutes.
+
+---
+
+## §1d · A tune in a different scale (`mist-music/modal/`, modalkit)
+
+When Alex asks for a cover "in the X scale" or "in X mode" (often with a style
+in parentheses, such as "Dorian (Celtic)"), move the notes with `modalkit` and
+write a piece file. Do not give the original recording to a cover model for
+this task: a cover model keeps the notes, so the scale does not change. Read
+`mist-music/modal/README.md` before you write a piece.
+
+```bash
+mist-music/bin/modal-cover fetch <Hooktheory TheoryTab URL>           # melody and chords as scale degrees
+mist-music/bin/modal-cover remap FILE.json --scale dorian --tonic A    # the tune in the new scale, and the notes that moved
+uv run mist-music/modal/private/<piece>.py --dump                      # census of the written notes, no audio
+uv run mist-music/modal/private/<piece>.py --tag v1                    # render, balance table, scale checks
+uv run mist-music/modal/private/<piece>.py --control                   # the same arrangement in natural minor: must fail the test
+mist-music/bin/modal-cover check TAKE.mp3 --scale dorian --tonic A --lead NOTES.json   # any audio, for example a generated take
+```
+
+- **Start from the notes, and test the notes against the recording.** A Hooktheory tab gives each note as a scale degree in a named scale. Measure the tempo and the number of bars of the recording. Then move the tab along the recording's chroma in all 12 transpositions: the written key must have the highest score. A tab can be incomplete. In the first piece it had no bridge and no outro, and those came from the spectrum of the recording.
+- **Find the source scale before you map to the target.** The first request was for Dorian, and the source was Phrygian dominant, not major. The degree map needs the two scales.
+- **Choose the key for the instruments.** E Dorian has the same notes as the home scale of a D whistle, and A Dorian changes one of them (C sharp to C). The first piece uses the two keys.
+- **The tone that defines the new scale can be absent from the melody.** If the census shows it below approximately 3%, the arrangement must supply it: the chord that has it at the cadences, a short scale passage through it, an inner voice.
+- **You cannot hear the render, so measure it, and keep a control.** Decide with `transcribed_census` (Basic Pitch) and the `--control` render. A spectrum census counts overtones, and an untuned drum put 30% of the low band on two pitch classes that are not in the scale.
+- **Piece files go in `mist-music/modal/private/`** (gitignored), because they hold the melody of a different composer. Give each render a new `--tag`.
+- **A band take** (`mist-music/modal/bandtake.py`, an ACE-Step cover of the render) can change notes. Run `modal-cover check` on each take before you say that it is in the scale.
+- The style module is `celtic.py` (tin whistle, fiddle, banjo, guitar, bouzouki, harp, bass, pipe drone, bodhran). For a different style, write a new module on the same `Tone` and `MidiPart` records.
 
 ---
 

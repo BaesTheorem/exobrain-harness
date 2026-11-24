@@ -290,6 +290,11 @@ mist-music/studio/library/
 mist-music/studio/uploads/
 mist-music/studio/config.json
 mist-music/studio/downloads/
+
+# modalkit (mist-music/modal): piece files and source tabs for covers of other people's tunes, and downloaded soundfonts
+mist-music/modal/private/*
+!mist-music/modal/private/README.md
+mist-music/modal/soundfonts/*.sf2
 running-quest/.state.json
 
 # Pokemon GO account exports and box scans (personal data; README explains the layout)

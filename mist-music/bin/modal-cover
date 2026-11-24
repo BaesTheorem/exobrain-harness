@@ -1,0 +1,93 @@
+#!/usr/bin/env -S uv run --script
+# /// script
+# requires-python = ">=3.11"
+# dependencies = ["mido>=1.3", "numpy>=1.26"]
+# ///
+"""modal-cover: the command line of modalkit (mist-music/modal).
+
+Move a tune from one scale to another, and check audio against a scale.
+
+  modal-cover scales
+  modal-cover fetch URL [--slug NAME]          save the sections of a Hooktheory TheoryTab page
+  modal-cover remap FILE.json --scale dorian --tonic A [--octave 4]
+  modal-cover check AUDIO --scale dorian --tonic A [--from S] [--to S] [--lead NOTES.json] [--no-transcribe]
+
+`remap` prints the tune in the new scale, the notes that had no equal in the new
+scale, and the census of the result. `check` reads any audio file (a render, a
+generated take, a recording): the spectrum by pitch class, the tonal centre in
+the low band, the notes that Basic Pitch hears, and (with --lead) a test that
+the tune is still there. The arrangement and the render are a piece file: see
+mist-music/modal/README.md.
+"""
+
+from __future__ import annotations
+
+import argparse
+import json
+import sys
+from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "modal"))
+import modalkit as mk  # noqa: E402  (the kit folder, on the path from the line above)
+
+PRIVATE = Path(__file__).resolve().parents[1] / "modal" / "private" / "sources"
+
+
+def main() -> int:
+    ap = argparse.ArgumentParser(prog="modal-cover", description="move a tune to another scale, and check the result")
+    sub = ap.add_subparsers(dest="cmd", required=True)
+    sub.add_parser("scales", help="list the scales")
+    f = sub.add_parser("fetch", help="save the sections of a Hooktheory TheoryTab page")
+    f.add_argument("url")
+    f.add_argument("--slug", help="folder name under modal/private/sources (default: from the URL)")
+    r = sub.add_parser("remap", help="print a section in a new scale")
+    r.add_argument("file", type=Path)
+    r.add_argument("--scale", required=True)
+    r.add_argument("--tonic", required=True, help="note name of the new tonic: A, F#, Bb")
+    r.add_argument("--octave", type=int, default=4, help="octave number of the tonic that starts octave 0 (default 4)")
+    c = sub.add_parser("check", help="check an audio file against a scale")
+    c.add_argument("audio", type=Path)
+    c.add_argument("--scale", required=True)
+    c.add_argument("--tonic", required=True)
+    c.add_argument("--from", dest="t0", type=float, default=0.0, help="start of the window in seconds")
+    c.add_argument("--to", dest="t1", type=float, help="end of the window in seconds")
+    c.add_argument("--lead", type=Path, help="JSON list of [start s, end s, MIDI pitch]: the expected tune")
+    c.add_argument("--no-transcribe", action="store_true", help="skip the Basic Pitch pass")
+    args = ap.parse_args()
+
+    if args.cmd == "scales":
+        for name, tones in mk.SCALES.items():
+            print(f"{name:<18} " + " ".join(f"{t:2d}" for t in tones))
+        return 0
+    if args.cmd == "fetch":
+        slug = args.slug or args.url.rstrip("/").rsplit("/", 1)[-1].replace("---", "-")
+        for p in mk.fetch_hooktheory(args.url, PRIVATE / slug):
+            sec = mk.load_section(p)
+            print(f"{p}  {mk.PC_NAMES[sec.tonic]} {sec.scale}, {len(sec.notes)} notes, {len(sec.chords)} chords, {sec.bars()} bars")
+        return 0
+    tonic = mk.pc(args.tonic)
+    if args.cmd == "remap":
+        src = mk.load_section(args.file)
+        dst, moves = mk.remap(src, args.scale, tonic)
+        base = 12 * (args.octave + 1) + tonic
+        print(f"source: {mk.PC_NAMES[src.tonic]} {src.scale}")
+        print(mk.describe(dst, base))
+        for was, now, how in sorted({(m.was, m.now, m.how) for m in moves}):
+            print(f"  altered note {was} -> {now} ({how})")
+        same, merged, steps = mk.contour(src, dst)
+        print(f"  contour: {same} of {steps} steps keep their direction, {merged} became a repeated note")
+        print(mk.format_report(mk.census([(d, p) for _, d, p in mk.midi_notes(dst, base)], tonic), args.scale, tonic, "census of the notes"))
+        return 0
+    print(mk.audio_report(args.audio, tonic, args.scale, args.t0, args.t1, f"spectrum of {args.audio.name}"))
+    if not args.no_transcribe:
+        heard = mk.transcribe(args.audio)
+        print(mk.format_report(mk.transcribed_census(heard, tonic, args.t0, args.t1), args.scale, tonic,
+                               f"Basic Pitch transcription ({len(heard)} notes in the file)"))
+    if args.lead:
+        events = [(a, b, int(p)) for a, b, p in json.loads(args.lead.read_text())]
+        print(mk.format_presence(mk.melody_presence(args.audio, events)))
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

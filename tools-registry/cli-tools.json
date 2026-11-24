@@ -882,6 +882,14 @@
     "notes": "Live progress bar in the MIST Console. Wrap ANY download/upload/install/clone that takes more than a few seconds. Also start/set/done for progress you compute yourself."
   },
   {
+    "name": "modalkit",
+    "command": "uv run mist-music/modal/private/<piece>.py [--dump] [--control] [--tag vN]",
+    "repo_dir": "mist-music/modal",
+    "source": "built",
+    "added": "2026-11-24",
+    "notes": "Workflow and measured lessons: mist-music/modal/README.md. Pieces live in mist-music/modal/private (gitignored, they hold other people's melodies; in the daily backup). Needs fluidsynth, FluidR3Mono_GM.sf3, the pipe soundfont in modal/soundfonts (see CREDITS) and mp32mid (Basic Pitch) for the transcription check. bandtake.py sends rendered audio to the ACE-Step cover model through the MIST Studio engine; run it with mist-music/.venv/bin/python. On 2026-11-24 both free Spaces failed at model load. Overtones and an untuned drum both corrupt a spectrum census: decide with the transcription census and the --control render."
+  },
+  {
     "name": "monthly-climate-history",
     "command": "./monthly-climate-history.py [--variable tavg|dewpoint|humidity] [--month N] [--county MO-095] [--start YYYY] [--end YYYY]",
     "repo_dir": "weather",

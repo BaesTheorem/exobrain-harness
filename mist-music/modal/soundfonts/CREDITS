@@ -1,0 +1,19 @@
+Soundfonts that celtic.py uses
+
+FluidR3Mono_GM.sf3 (fiddle, banjo, steel guitar, harp, acoustic bass)
+  Original stereo version by Frank Wen, copyright 2000-2002. Mono version by Michael Cowgill, copyright 2014-16.
+  MIT license. Installed by the midi-tools setup in ~/Library/Audio/Sounds/Banks, not in this folder.
+  License text: https://github.com/musescore/MuseScore/blob/2.3.2/share/sound/FluidR3Mono_License.md
+
+fs-uilleann-pipe.sf2 (pipe drone)
+  "FS Uilleann Pipe" by Mr Fuzzywump, made from a sample by luis_audp on Freesound.
+  Licensed under Creative Commons Attribution 3.0: http://creativecommons.org/licenses/by/3.0/
+  Source: https://musical-artifacts.com/artifacts/3062
+  The site puts a Cloudflare challenge on file downloads. Download the file in a browser and save it here with this name.
+  A piece that uses the drone puts this credit in the comment tag of its MP3.
+
+Tested and not used
+  Musical Artifacts 546 "Tin Whistle AIR": in tune, but its header names Extreme Sample Converter, so the
+  samples probably come from a commercial library.
+  Musical Artifacts 10263 (tin whistle): 33 to 93 cents out of tune on D5, A5 and E6.
+  Musical Artifacts 2179 (tin whistle): 60 cents sharp on D5, and no sound on A5 and E6.
