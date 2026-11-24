@@ -255,7 +255,7 @@ The same machine also runs launchd jobs owned by sibling repos and gitignored di
 | `com.exobrain.rotate-logs` | `maintenance/com.exobrain.rotate-logs.plist` | Calendar: Sun 04:00 | `maintenance/rotate-logs.sh` | Rotates the scheduled-job logs in ~/Library/Logs/exobrain. | yes |
 | `com.exobrain.tcc-carry-forward` | `maintenance/com.exobrain.tcc-carry-forward.plist` | WatchPaths: `~/.local/share/claude/versions`; RunAtLoad | `maintenance/venv/bin/mist-tcc-python3` |  | yes |
 | `com.exobrain.mem-watchdog` | `mem-watchdog/com.exobrain.mem-watchdog.plist` | KeepAlive daemon; RunAtLoad | `mem-watchdog/mem-watchdog.py` (installed copy) | Memory watchdog for the 8GB MacBook Air (v4). | yes |
-| `com.exobrain.mist-studio` | `mist-music/studio/com.exobrain.mist-studio.plist` | KeepAlive daemon; RunAtLoad | `mist-music/studio/server.py` | MIST Studio: the Flask app. | yes |
+| `com.exobrain.mist-studio` | `mist-music/studio/com.exobrain.mist-studio.plist` | On demand (the app starts it) | `mist-music/studio/server.py` | MIST Studio: the Flask app. | yes |
 | `com.exobrain.mount-reminders` | `mount-reminders/com.exobrain.mount-reminders.plist` | every 10 min; RunAtLoad | `mount-reminders/on-mount.sh` | Raise a banner when a named volume mounts and there is work waiting on it. | yes |
 | `com.exobrain.quest-watch` | `running-quest/com.exobrain.quest-watch.plist` | every 30 min; RunAtLoad | `running-quest/quest_watch.py` | The running quest's Mac-side loop: verify, celebrate, nudge. | yes |
 | `com.exobrain.haircut-check` | `salon-ramon/com.exobrain.haircut-check.plist` | Calendar: 10:00 | `salon-ramon/run-haircut-check.sh` | Haircut booking nudge -- Salon Ramón, Brookside, every 6 weeks. | yes |
