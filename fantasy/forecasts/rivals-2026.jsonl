@@ -279,3 +279,4 @@
 {"at": 1795390224392, "week": 11, "player_id": 3124679, "pos": "K", "class": "fresh", "p_other": null, "ours": false, "need_teams": [], "trend": 1.25, "rate": 9.81, "clears": 1795593600000, "outcome": null}
 {"at": 1795390224392, "week": 11, "player_id": 4682648, "pos": "WR", "class": "fresh", "p_other": null, "ours": false, "need_teams": [2, 10], "trend": 0.03, "rate": 7.43, "clears": 1795593600000, "outcome": null}
 {"at": 1795390224392, "week": 11, "player_id": 4686612, "pos": "WR", "class": "fresh", "p_other": null, "ours": false, "need_teams": [2, 10], "trend": 0.12, "rate": 6.95, "clears": 1795593600000, "outcome": null}
+{"at": 1795476623025, "week": 11, "player_id": 4685261, "pos": "WR", "class": "fresh", "p_other": null, "ours": false, "need_teams": [2, 10], "trend": -0.1, "rate": 6.86, "clears": 1795593600000, "outcome": null}
