@@ -468,7 +468,8 @@ fi
 # false-flagged the long-lived KeepAlive daemons (claude-bot showed a -15 from
 # an earlier restart while happily connected to Discord for days). Periodic jobs
 # are idle between fires with PID "-", so their real failures still surface.
-ROUTINE_FAILS=$(launchctl list 2>/dev/null | awk '$3 ~ /^com\.(mist\.routine|exobrain)\./ && $3 != "com.exobrain.imessage-sync" && $1 == "-" && $2 != "-" && $2 != "0" {print $3" (exit "$2")"}')
+# Exit -15 is SIGTERM: someone stopped an on-demand server on purpose.
+ROUTINE_FAILS=$(launchctl list 2>/dev/null | awk '$3 ~ /^com\.(mist\.routine|exobrain)\./ && $3 != "com.exobrain.imessage-sync" && $1 == "-" && $2 != "-" && $2 != "0" && $2 != "-15" {print $3" (exit "$2")"}')
 if [ -n "$ROUTINE_FAILS" ]; then
   echo "WARN: scheduled routine(s) failing on last run -- investigate run-routine logs:"
   while IFS= read -r line; do
