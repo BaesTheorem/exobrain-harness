@@ -231,10 +231,14 @@ this task: a cover model keeps the notes, so the scale does not change. Read
 `mist-music/modal/README.md` before you write a piece.
 
 ```bash
-mist-music/bin/modal-cover fetch <Hooktheory TheoryTab URL>           # melody and chords as scale degrees
-mist-music/bin/modal-cover remap FILE.json --scale dorian --tonic A    # the tune in the new scale, and the notes that moved
+mist-music/bin/modal-cover fetch <Hooktheory TheoryTab URL>            # melody and chords as scale degrees
+mist-music/bin/modal-cover measure REC.wav --bpm 100 116               # tempo and one beat of the grid
+mist-music/bin/modal-cover align REC.wav TAB.json --bpm 105 --grid T   # where the tab sits; the written key must win
+mist-music/bin/modal-cover roll REC.wav --bpm 105 --bar1 T --bars 27-30   # the notes of bars that no tab has
+mist-music/bin/modal-cover f0 REC.wav --bpm 105 --bar1 T --bars 11-14  # one line, by pitch tracker
+mist-music/bin/modal-cover remap TAB.json --scale dorian --tonic A     # the tune in the new scale, and the notes that moved
 uv run mist-music/modal/private/<piece>.py --dump                      # census of the written notes, no audio
-uv run mist-music/modal/private/<piece>.py --tag v1                    # render, balance table, scale checks
+uv run mist-music/modal/private/<piece>.py --tag v1                    # render, balance and stem tables, scale checks
 uv run mist-music/modal/private/<piece>.py --control                   # the same arrangement in natural minor: must fail the test
 mist-music/bin/modal-cover check TAKE.mp3 --scale dorian --tonic A --lead NOTES.json   # any audio, for example a generated take
 ```
@@ -246,7 +250,9 @@ mist-music/bin/modal-cover check TAKE.mp3 --scale dorian --tonic A --lead NOTES.
 - **You cannot hear the render, so measure it, and keep a control.** Decide with `transcribed_census` (Basic Pitch) and the `--control` render. A spectrum census counts overtones, and an untuned drum put 30% of the low band on two pitch classes that are not in the scale.
 - **Piece files go in `mist-music/modal/private/`** (gitignored), because they hold the melody of a different composer. Give each render a new `--tag`.
 - **A band take** (`mist-music/modal/bandtake.py`, an ACE-Step cover of the render) can change notes. Run `modal-cover check` on each take before you say that it is in the scale.
-- The style module is `celtic.py` (tin whistle, fiddle, banjo, guitar, bouzouki, harp, bass, pipe drone, bodhran). For a different style, write a new module on the same `Tone` and `MidiPart` records.
+- **Survey the full recording before you write.** The second piece had the same theme as the first, but a different intro, a fast line below the theme, chords where the first piece has a solo, and two more beats before one chorus. A tab did not show the last three.
+- **Read the table of stems after each render.** The mix gives each stem one loudness for the full piece, so a change in one section moves the other sections of that stem.
+- The style module is `celtic.py` (tin whistle, fiddle, banjo, guitar, bouzouki, harp, bass, pipe drone, bodhran). A piece writes its parts with `celtic.Band`: start from `private/screwbot_factory_2.py`. For a different style, write a new module on the same `Tone` and `MidiPart` records.
 
 ---
 

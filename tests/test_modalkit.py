@@ -97,3 +97,22 @@ def test_parse_hooktheory_reads_degrees_accidentals_and_rests():
     assert (sec.tonic, sec.scale, sec.beats, sec.bars()) == (7, "phrygianDominant", 8.0, 2)
     assert sec.notes == [mk.Note(beat=0, dur=0.5, degree=6, acc=1, octave=1)]
     assert sec.chords[0].omits == (3,)
+
+
+def test_a_tab_that_changes_key_becomes_one_part_for_each_key():
+    payload = {"song": "x", "jsonData": __import__("json").dumps({
+        "keys": [{"beat": 1, "scale": "phrygian", "tonic": "C"}, {"beat": 5, "scale": "phrygianDominant", "tonic": "C"}],
+        "tempos": [{"bpm": 110}], "meters": [{"numBeats": 2}], "endBeat": 9,
+        "notes": [{"sd": "3", "beat": 1, "isRest": False, "octave": 0, "duration": 1},
+                  {"sd": "3", "beat": 5, "isRest": False, "octave": 0, "duration": 1}],
+        "chords": []})}
+    first, second = mk.parse_hooktheory_parts(payload, name="t")
+    assert (first.scale, first.start, first.beats) == ("phrygian", 0, 4)
+    assert (second.scale, second.start, second.beats) == ("phrygianDominant", 4, 4)
+    assert [n.beat for n in second.notes] == [4]                 # beats stay relative to the whole tab
+    # the same degree 3 is E flat in the first part and E in the second; both land on the Dorian third
+    for part in (first, second):
+        dst, _ = mk.remap(part, "dorian", "A")
+        assert pitches(dst, 57) == [60]
+    with pytest.raises(ValueError):
+        mk.parse_hooktheory(payload, name="t")

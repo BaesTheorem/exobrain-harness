@@ -1,15 +1,16 @@
 # modalkit: a tune in a different scale
 
-modalkit moves a tune from one scale to a different scale, arranges it for a band, and measures the result against the new scale. The first piece was a Phrygian dominant game tune played as a Dorian reel.
+modalkit moves a tune from one scale to a different scale, arranges it for a band, and measures the result against the new scale. The first two pieces were Phrygian dominant game tunes played as Dorian reels.
 
 ## Files
 
 | File | Content |
 | --- | --- |
 | `modalkit.py` | The tune as scale degrees, the remap to a new scale, and the checks |
-| `celtic.py` | A session band in code, from tin whistle to bodhran |
+| `survey.py` | Reads a recording: tempo, bar structure, the position of a tab, a spectral piano-roll, a pitch tracker |
+| `celtic.py` | A session band in code, from tin whistle to bodhran. A piece writes its parts with the `Band` class |
 | `bandtake.py` | Sends rendered audio to the ACE-Step cover model, for a take that sounds recorded |
-| `../bin/modal-cover` | The command line: `scales`, `fetch`, `remap`, `check` |
+| `../bin/modal-cover` | The command line: `scales`, `fetch`, `remap`, `measure`, `align`, `roll`, `f0`, `check` |
 | `private/` | Piece files and source tabs. Not in git |
 | `soundfonts/` | Downloaded soundfonts. Not in git. `CREDITS` records each one |
 
@@ -21,16 +22,20 @@ In a new scale, each note keeps its degree number and takes the pitch that the n
 
 An altered note has a pitch that the source scale does not contain. If the new scale contains that pitch, the note takes it. If not, the note moves to the nearest tone of the new scale. If two tones are at the same distance, the note takes the tone with the same degree number. The result has scale tones only. `remap` prints each altered note, and `contour` counts the melodic steps that became one pitch two times.
 
+A tab can change key. `load_sections` gives one part for each key, and each part gets its own remap. Two source scales can give the same notes in the new scale: a Phrygian intro and a Phrygian dominant verse are the same in Dorian. The source's change of color is then absent, and the arrangement must show that position by a different method.
+
 ## Procedure for a cover
 
 1. Find the notes. Run `modal-cover fetch URL` for a Hooktheory tab, or type a `Section` by hand.
-2. Download the recording. Measure its tempo, its number of bars and its structure.
-3. Move the tab along the recording's chroma, in all 12 transpositions. The written key must have the highest score.
-4. Run `modal-cover remap FILE.json --scale dorian --tonic A`. Read the altered notes and the census.
-5. Write a piece file in `private/`. It puts the remapped notes in bars and writes each part as `Tone` records.
-6. Run the piece with `--dump`. Read the census of all written notes.
-7. Run the piece. Read the balance table and the three audio checks.
-8. Run the piece with `--control`. The control must give the opposite result on the test for the new scale.
+2. Download the recording. Run `modal-cover measure AUDIO --bpm LOW HIGH` to get the tempo and one beat of the grid.
+3. Run `modal-cover align AUDIO TAB.json --bpm B --grid T` for each tab. The written key must have the highest score.
+4. Read the best start beats. They give the position of each section and the downbeat.
+5. Run `measure` again with `--bar1` to see the structure. Read the bars that no tab has with `roll` and `f0`.
+6. Run `modal-cover remap FILE.json --scale dorian --tonic A`. Read the altered notes and the census.
+7. Write a piece file in `private/`. Make a `Band`, put the remapped notes at their beats, and write each part.
+8. Run the piece with `--dump`. Read the census of all written notes.
+9. Run the piece. Read the balance table, the table of stems and the audio checks.
+10. Run the piece with `--control`. The control must give the opposite result on the test for the new scale.
 
 ## The checks
 
@@ -44,7 +49,7 @@ An altered note has a pitch that the source scale does not contain. If the new s
 
 The control is the same arrangement with each sixth degree a semitone lower (natural minor). On the first piece, the transcription of the cover gave F sharp 2.8% and F 0.0%. The transcription of the control gave F sharp 0.0% and F 4.9%.
 
-## Measured results from the first piece
+## Measured results from the first two pieces
 
 - A spectrum census counts overtones. The fifth harmonic of each A is a C sharp, and the third harmonic of each B is an F sharp. An A Dorian mix showed 2% of its energy on C sharp with no C sharp in the score. Use the transcription census for the decision, and keep the control.
 - An analysis window of 186 ms cannot isolate semitones below 400 Hz. The census uses 0.74 s for the middle band and 1.5 s for the low band.
@@ -55,12 +60,17 @@ The control is the same arrangement with each sixth degree a semitone lower (nat
 - The melody instruments must be louder than the band. In the first mix they were 1 to 2 LU below the band in the verses. In the last mix they are approximately 3 LU above it in the verses and 5 LU above it in the solo.
 - In a Hooktheory tab, the melody line can hold two voices. Notes two octaves below the melody were a bass answer in the recording.
 - A constant-Q spectrum shows the third harmonic of a middle-register note as a strong note a twelfth higher. Compare with a pitch tracker before you say that a tab is incorrect.
+- `align` tests full beats, so its downbeat can be incorrect by one sixteenth. On the second piece the tracker showed each note of the tab one slot before its written position, and bar 1 moved by one slot.
+- The mix sets each stem to one loudness for the full piece. If you make one section of a stem softer, the other sections of that stem become louder. Read the table of stems after each run of the piece.
+- Two lines can have the lead at the same time. In the second piece a fast line continues below the theme, and the fast line measured 0.8 LU above the theme. `stem_table` shows each voice.
+- With a velocity floor of 56, the softest held fiddle chord was as loud as the riff that it accompanied. `Band` uses a floor of 34 for the fiddle.
+- A section of the source can have chords and no tune. The cover of the second piece gives the top voice of those chords to the whistle, with the fiddle a third or a sixth below.
 
 ## Band takes
 
 `bandtake.py take SOURCE.mp3 "tags" -o OUT.mp3` sends rendered audio through the cover task of ACE-Step 1.5. It uses the backend that MIST Studio is set to. The model can change notes, so run `modal-cover check OUT.mp3 --scale S --tonic T --lead NOTES.json` on each take. A piece writes `NOTES.json` to `tmp/modal-cache/` when it renders.
 
-On 2026-11-24 the free Space returned "Model not fully initialized" for each of its two models. The older Space returned a repository error. No take was made on that date.
+On 2026-11-24 the free Space returned "Model not fully initialized" for each of its two models. The older Space returned a repository error. The result was the same on 2026-11-25, so there is no take of the first two pieces.
 
 ## Private files
 

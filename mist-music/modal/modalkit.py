@@ -114,6 +114,7 @@ class Section:
     notes: list[Note] = field(default_factory=list)
     chords: list[Chord] = field(default_factory=list)
     source: str = ""
+    start: float = 0.0   # first beat of this part inside its tab (a tab that changes key has several parts)
 
     def bars(self) -> int:
         return int(round(self.beats / self.meter))
@@ -133,29 +134,44 @@ def midi_notes(sec: Section, tonic_midi: int) -> list[tuple[float, float, int]]:
 
 # ---------------------------------------------------------------- sources
 
-def parse_hooktheory(payload: dict, name: str = "", source: str = "") -> Section:
-    """One Hooktheory section (the object from the public song endpoint) -> Section."""
+def parse_hooktheory_parts(payload: dict, name: str = "", source: str = "") -> list[Section]:
+    """One Hooktheory section (the object from the public song endpoint) as one Section for
+    each key it passes through. Beats stay relative to the start of the whole tab, and
+    Section.start is the first beat of the part."""
     j = json.loads(payload["jsonData"]) if "jsonData" in payload else payload
-    key = j["keys"][0]
-    if len(j["keys"]) > 1:
-        raise ValueError(f"{name}: the section changes key at beat {j['keys'][1]['beat']}; split it first")
-    notes = []
-    for n in j["notes"]:
-        if n["isRest"]:
-            continue
-        sd = n["sd"]
-        notes.append(Note(beat=n["beat"] - 1, dur=n["duration"], degree=int(sd.strip("#b")),
-                          acc=sd.count("#") - sd.count("b"), octave=n["octave"]))
-    chords = []
-    for c in j["chords"]:
-        if c["isRest"]:
-            continue
-        chords.append(Chord(beat=c["beat"] - 1, dur=c["duration"], root=c["root"], kind=c["type"],
-                            applied=c["applied"] or 0, inversion=c["inversion"] or 0,
-                            omits=tuple(c["omits"] or ()), borrowed=c["borrowed"] or ""))
-    return Section(name=name or payload.get("song", ""), tonic=pc(key["tonic"]), scale=key["scale"],
-                   bpm=float(j["tempos"][0]["bpm"]), meter=int(j["meters"][0]["numBeats"]),
-                   beats=float(j["endBeat"]) - 1, notes=notes, chords=chords, source=source)
+    keys = sorted(j["keys"], key=lambda k: k["beat"])
+    bounds = [k["beat"] - 1 for k in keys] + [float(j["endBeat"]) - 1]
+    base = name or payload.get("song", "")
+    parts = []
+    for i, key in enumerate(keys):
+        lo, hi = bounds[i], bounds[i + 1]
+        notes = []
+        for n in j["notes"]:
+            if n["isRest"] or not lo <= n["beat"] - 1 < hi:
+                continue
+            sd = n["sd"]
+            notes.append(Note(beat=n["beat"] - 1, dur=n["duration"], degree=int(sd.strip("#b")),
+                              acc=sd.count("#") - sd.count("b"), octave=n["octave"]))
+        chords = []
+        for c in j["chords"]:
+            if c["isRest"] or not lo <= c["beat"] - 1 < hi:
+                continue
+            chords.append(Chord(beat=c["beat"] - 1, dur=c["duration"], root=c["root"], kind=c["type"],
+                                applied=c["applied"] or 0, inversion=c["inversion"] or 0,
+                                omits=tuple(c["omits"] or ()), borrowed=c["borrowed"] or ""))
+        parts.append(Section(name=base if len(keys) == 1 else f"{base} part {i + 1}", tonic=pc(key["tonic"]),
+                             scale=key["scale"], bpm=float(j["tempos"][0]["bpm"]), meter=int(j["meters"][0]["numBeats"]),
+                             beats=hi - lo, notes=notes, chords=chords, source=source, start=lo))
+    return parts
+
+
+def parse_hooktheory(payload: dict, name: str = "", source: str = "") -> Section:
+    """A Hooktheory section that stays in one key. For a section that changes key, use
+    parse_hooktheory_parts(): each part needs its own remap."""
+    parts = parse_hooktheory_parts(payload, name, source)
+    if len(parts) > 1:
+        raise ValueError(f"{name}: the section changes key at beat {parts[1].start + 1:g}; use load_sections()")
+    return parts[0]
 
 
 def fetch_hooktheory(url: str, dest: Path) -> list[Path]:
@@ -187,6 +203,12 @@ def fetch_hooktheory(url: str, dest: Path) -> list[Path]:
 def load_section(path: Path) -> Section:
     data = json.loads(path.read_text())
     return parse_hooktheory(data, name=data.get("_section", path.stem), source=data.get("_url", str(path)))
+
+
+def load_sections(path: Path) -> list[Section]:
+    """The parts of a saved tab, one for each key."""
+    data = json.loads(path.read_text())
+    return parse_hooktheory_parts(data, name=data.get("_section", path.stem), source=data.get("_url", str(path)))
 
 
 # ---------------------------------------------------------------- remap
@@ -258,7 +280,7 @@ def describe(sec: Section, tonic_midi: int | None = None) -> str:
         bar = int(beat // sec.meter)
         slot = (beat - bar * sec.meter) * 4
         rows.setdefault(bar, []).append(f"{slot:g}:{SHARP_NAMES[p % 12]}{p // 12 - 1}/{dur * 4:g}")
-    head = f"{sec.name}: {PC_NAMES[sec.tonic]} {sec.scale}, {sec.bpm:g} BPM, {sec.bars()} bars"
+    head = f"{sec.name}: {PC_NAMES[sec.tonic]} {sec.scale}, {sec.bpm:g} BPM, {sec.bars()} bars of {sec.meter}/4"
     return "\n".join([head] + [f"  bar {b + 1:02d} | " + "  ".join(rows[b]) for b in sorted(rows)])
 
 
@@ -314,7 +336,8 @@ def format_report(c: np.ndarray, dst: str, tonic: int, title: str) -> str:
 
 # ---------------------------------------------------------------- checks on audio
 
-def _decode(path: Path, sr: int) -> np.ndarray:
+def decode(path: Path, sr: int) -> np.ndarray:
+    """Any audio file as mono float64 at sr, through ffmpeg."""
     import subprocess
     raw = subprocess.run(["ffmpeg", "-loglevel", "error", "-i", str(path), "-f", "f32le", "-ac", "1", "-ar", str(sr), "-"],
                          capture_output=True, check=True).stdout
@@ -336,7 +359,7 @@ def audio_census(path: Path, t0: float = 0.0, t1: float | None = None, sr: int =
     energy sits outside the scale in any real mix. Read this census against a
     control render, or use transcribed_census(), which counts note fundamentals.
     """
-    x = _decode(path, sr)
+    x = decode(path, sr)
     x = x[int(t0 * sr): int(t1 * sr) if t1 is not None else len(x)]
     c4 = 440.0 * 2 ** (-9 / 12)
 
@@ -398,7 +421,7 @@ def melody_presence(path: Path, events: list[tuple[float, float, int]], sr: int 
     Returns 12 scores, one per transposition in semitones: the mean share of spectral energy
     on the expected pitch class while each note sounds. A take that keeps the tune puts
     shift 0 clearly on top. The other 11 shifts are the control."""
-    x = _decode(path, sr)
+    x = decode(path, sr)
     n, hop = 4096, 1024
     f = np.fft.rfftfreq(n, 1 / sr)
     m = np.nonzero((f >= 196.0) & (f <= 4000.0))[0]

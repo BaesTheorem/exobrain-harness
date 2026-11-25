@@ -464,8 +464,8 @@ def write_mp3(y: np.ndarray, path: Path, meta: dict[str, str]) -> tuple[float, f
     return loudness(path)
 
 
-def balance(placed: dict[str, np.ndarray], leads: Iterable[str], clock: Clock, sections: Sequence[tuple[str, int, int]]) -> str:
-    """Lead bus against the accompaniment bus in each section (bars are 1-based, inclusive).
+def balance_spans(placed: dict[str, np.ndarray], leads: Iterable[str], clock: Clock, spans: Sequence[tuple[str, float, float]]) -> str:
+    """Lead bus against the accompaniment bus in each span (name, first slot, end slot).
     A lead that sits 3 to 6 LU over the band reads clearly."""
     lead_names = set(leads)
     n = max(len(v) for v in placed.values())
@@ -473,8 +473,237 @@ def balance(placed: dict[str, np.ndarray], leads: Iterable[str], clock: Clock, s
     for name, y in placed.items():
         (lead if name in lead_names else acc)[: len(y)] += y
     rows = ["section            lead    band    lead minus band"]
-    for name, b0, b1 in sections:
-        a, e = int(clock.t((b0 - 1) * 16) * SR), int(clock.t(b1 * 16) * SR)
+    for name, s0, s1 in spans:
+        a, e = int(clock.t(s0) * SR), int(clock.t(s1) * SR)
         la, ac = lufs_active(lead[a:e], -70.0), lufs_active(acc[a:e], -70.0)
         rows.append(f"{name:<16} {la:7.1f} {ac:7.1f} {la - ac:+9.1f} LU")
     return "\n".join(rows)
+
+
+def stem_table(placed: dict[str, np.ndarray], clock: Clock, spans: Sequence[tuple[str, float, float]]) -> str:
+    """Loudness of each stem in each span, to see which voice is on top when two lines share the lead."""
+    names = list(placed)
+    rows = [f"{'section':<18}" + "".join(f"{n[:8]:>9}" for n in names)]
+    for name, s0, s1 in spans:
+        a, e = int(clock.t(s0) * SR), int(clock.t(s1) * SR)
+        cells = []
+        for n in names:
+            v = lufs_active(placed[n][a:e], -70.0)
+            cells.append(f"{'-':>9}" if v < -65 else f"{v:9.1f}")
+        rows.append(f"{name:<18}" + "".join(cells))
+    return "\n".join(rows)
+
+
+def balance(placed: dict[str, np.ndarray], leads: Iterable[str], clock: Clock, sections: Sequence[tuple[str, int, int]]) -> str:
+    """balance_spans() for sections given as bars of 4/4 (1-based, inclusive)."""
+    return balance_spans(placed, leads, clock, [(name, (b0 - 1) * 16, b1 * 16) for name, b0, b1 in sections])
+
+
+# ---------------------------------------------------------------- the band
+
+DORIAN = (0, 2, 3, 5, 7, 9, 10)
+STRUM = {"X": (104, 3.5), "D": (84, 2.5), "d": (62, 1.6), "u": (52, 1.2)}   # velocity, ring in slots
+# Bodhran bars of sixteen strokes: a plain reel, and a bar that leans on the 3+3+2 of the tune's stabs
+REEL = [.9, .3, .45, .35, .6, .3, .45, .35, .85, .3, .45, .35, .6, .3, .5, .4]
+TRES = [.95, .25, .35, .8, .3, .35, .8, .3, .85, .3, .62, .3, .72, .3, .45, .4]
+# A guitar in DADGAD for A Dorian and E Dorian, low string first. "G5" is the subtonic chord with
+# its major seventh (F sharp, the Dorian sixth of A) as an inner voice, a ninth under a melody G.
+DADGAD = {
+    "Am": [45, 52, 57, 60, 64], "G5": [43, 50, 54, 62, 67], "G": [43, 50, 55, 59, 62, 67], "G/B": [47, 50, 55, 62, 67],
+    "D": [38, 45, 50, 57, 62, 66], "D/F#": [42, 50, 57, 62, 66], "Em": [40, 47, 52, 55, 59, 64], "E5": [40, 47, 52, 59, 64],
+    "Bm": [47, 54, 59, 62, 66], "C": [48, 52, 55, 60, 64], "A": [45, 52, 57, 61, 64], "A5": [45, 52, 57, 64, 69],
+    "F#m": [42, 49, 54, 57, 61],
+}
+LEVELS = {"whistle": -18.0, "fiddle": -19.5, "banjo": -21.5, "guitar": -27.5, "bouzouki": -30.5, "harp": -28.0,
+          "bass": -26.0, "bodhran": -27.0, "drone": -32.0}   # LUFS of the sounding parts; from the first piece's mix
+SENDS = {"whistle": 0.0, "fiddle": 0.0, "banjo": -4.0, "guitar": -6.0, "bouzouki": -5.0, "harp": -2.0, "bass": -14.0,
+         "bodhran": -8.0, "drone": -3.0}
+PANS = {"whistle": 0.18, "fiddle": -0.3, "banjo": 0.3, "guitar": -0.5, "bouzouki": 0.55, "harp": -0.12, "bass": 0.0,
+        "bodhran": -0.12, "drone": 0.0}
+LEADS = ("whistle", "fiddle", "banjo")
+
+
+def step(p: int, tonic: int, k: int, scale: Sequence[int] = DORIAN) -> int:
+    """The pitch k scale steps from p (p moves to the nearest scale tone first)."""
+    rel, octv = (p - tonic) % 12, (p - tonic) // 12
+    j = min(range(len(scale)), key=lambda i: abs(scale[i] - rel)) + k
+    return tonic + 12 * (octv + j // len(scale)) + scale[j % len(scale)]
+
+
+def cut(p: int, tonic: int, scale: Sequence[int] = DORIAN) -> int:
+    """Semitones up to the cut note: two scale steps above."""
+    return step(p, tonic, 2, scale) - p
+
+
+def tap(p: int, tonic: int, scale: Sequence[int] = DORIAN) -> int:
+    """Semitones down to the tap note: one scale step below."""
+    return p - step(p, tonic, -1, scale)
+
+
+class Band:
+    """The nine parts of the session band, and the helpers that write them.
+
+    A piece makes one Band, writes notes with lead(), rhythm(), low(), harp_roll(),
+    bod_bar(), bod_roll() and drone_span(), then calls render(). Positions are
+    absolute slots (sixteenths from the start), so a bar of any length works.
+    Every written note goes into `written` for the census, and the piece adds the
+    notes of the tune to `tune` for the presence test.
+    """
+
+    def __init__(self, clock: Clock, chords: dict[str, list[int]] | None = None, seed: int = 11) -> None:
+        self.clock = clock
+        self.ch = chords or DADGAD
+        self.rng = np.random.default_rng(seed)
+        self.whistle: list[Tone] = []
+        self.fiddle: list[Tone] = []
+        self.fiddle_low: list[Tone] = []      # the second string of a double stop
+        self.banjo: list[Tone] = []
+        self.harp: list[Tone] = []
+        self.bass: list[Tone] = []
+        self.gtr_single: list[Tone] = []
+        self.bod: list[Stroke] = []
+        self.gtr = MidiPart({0: STEEL_GUITAR, 1: STEEL_GUITAR})
+        self.bouz = MidiPart({0: STEEL_GUITAR})
+        self.drone = MidiPart({0: BAGPIPE, 1: BAGPIPE})
+        self.written: list[tuple[float, float, int]] = []    # (slot, length in slots, pitch)
+        self.tune: list[tuple[float, float, int]] = []
+        # MIDI velocity for Tone.vel 0 and 1 on the fiddle. The floor is low so that a held chord can sit
+        # under a riff: with a floor of 56 a "quiet" long note still swelled to the level of the riff.
+        self.fiddle_vel = (34, 124)
+
+    def count(self, slot: float, dur: float, p: int) -> None:
+        self.written.append((slot, dur, p))
+
+    def lead(self, part: list[Tone], tone: Tone) -> None:
+        part.append(tone)
+        self.count(tone.slot, tone.dur, tone.pitch)
+
+    def low(self, slot: float, dur: float, p: int, vel: float = 0.8) -> None:
+        self.lead(self.bass, Tone(slot, dur, p, vel=vel))
+
+    def rhythm(self, slot0: float, pattern: str, chords: dict[int, str], riff: dict[int, tuple[int, float]] | None = None,
+               level: float = 1.0, bz: float = 1.0) -> None:
+        """Guitar and bouzouki from slot0, one pattern character for each sixteenth:
+        X D d = down strums (loud to soft), u = up strum on the top strings, r = one low
+        string (the riff note of that slot, or the chord root), . = nothing. `chords` maps
+        a slot inside the pattern to the chord that starts there."""
+        cur = ""
+        for i, sym in enumerate(pattern):
+            cur = chords.get(i, cur)
+            if sym == ".":
+                continue
+            notes = self.ch[cur]
+            if sym == "r":
+                p, d = (riff or {}).get(i, (notes[0], 2.0))
+                self.lead(self.gtr_single, Tone(slot0 + i, max(d, 2.0), p, vel=min(1.0, 0.85 * level)))
+                continue
+            v, ring = STRUM[sym]
+            down = sym != "u"
+            pts = notes if down else notes[-3:]
+            strum(self.gtr, 0, self.clock, slot0 + i, pts, v * level, down=down, ring=ring, rng=self.rng)
+            for p in pts:
+                self.count(slot0 + i, ring, p)
+            if bz > 0:
+                top = [p + 12 for p in (notes[-4:] if down else notes[-3:])]
+                strum(self.bouz, 0, self.clock, slot0 + i, top, v * 0.92 * level * bz, down=down, ring=ring, spread=0.009, rng=self.rng)
+                for p in top:
+                    self.count(slot0 + i, ring, p)
+
+    def hit(self, slot: float, chord: str, vel: float, ring: float = 2.2, harp: float = 0.6, bass: bool = True) -> None:
+        """One chord from the whole rhythm section: guitar, bouzouki, a harp roll and the bass."""
+        notes = self.ch[chord]
+        strum(self.gtr, 0, self.clock, slot, notes, vel, ring=ring, rng=self.rng)
+        strum(self.bouz, 0, self.clock, slot, [p + 12 for p in notes[-4:]], vel * 0.92, ring=ring, rng=self.rng)
+        for p in notes:
+            self.count(slot, ring, p)
+        if harp > 0:
+            self.harp_roll(slot, [p + 12 for p in notes[-4:]], harp, spread=0.12, ring=4)
+        if bass:
+            self.low(slot, ring + 0.3, notes[0], 0.82)
+
+    def bod_bar(self, slot0: float, vels: Sequence[float], level: float = 1.0) -> None:
+        """Strokes on successive sixteenths. A loud stroke is open, a soft stroke is pressed."""
+        for i, v in enumerate(vels):
+            if v > 0:
+                self.bod.append(Stroke(slot0 + i, min(1.0, v * level), "D" if i % 2 == 0 else "U",
+                                       tone=0.08 if v >= 0.75 else (0.35 if v >= 0.55 else 0.7)))
+
+    def bod_roll(self, slot0: float, slot1: float, v0: float, v1: float, per_slot: float = 1.5) -> None:
+        """A roll from v0 to v1: triplets (per_slot 1.5) or thirty-seconds (per_slot 2)."""
+        n = max(2, int(round((slot1 - slot0) * per_slot)))
+        for k in range(n):
+            q = k / (n - 1)
+            kind = "DUD"[k % 3] if per_slot == 1.5 else "DU"[k % 2]
+            self.bod.append(Stroke(slot0 + (slot1 - slot0) * k / n, v0 + (v1 - v0) * q, kind, tone=0.5 - 0.4 * q))
+
+    def harp_roll(self, slot: float, pitches: Sequence[int], vel: float, spread: float = 0.2, ring: float = 10.0) -> None:
+        for i, p in enumerate(pitches):
+            self.harp.append(Tone(slot + i * spread, ring, p, vel=min(1.0, vel * (1 + 0.04 * i))))
+            self.count(slot, 4.0, p)
+
+    def drone_span(self, ch: int, pitches: Sequence[int], slot0: float, slot1: float, level: int,
+                   fade_in: float = 0.5, fade_out: float = 0.4) -> None:
+        """A pipe drone with a swell in and out (controller 11). Use one channel for each drone pitch set
+        that overlaps a different set. A drone is quiet, so the census counts a quarter of its length."""
+        t0, t1 = self.clock.t(slot0), self.clock.t(slot1)
+        for q in np.linspace(0, 1, 12):
+            self.drone.cc(ch, t0 + fade_in * q, 11, level * q**1.5)
+            self.drone.cc(ch, t1 - fade_out * (1 - q), 11, level * (1 - q) ** 1.5)
+        for p in pitches:
+            self.drone.note(ch, t0, t1 + 0.05, p, 90)
+            self.count(slot0, (slot1 - slot0) * 0.25, p)
+
+    def census(self, tonic: int, slot0: float = 0.0, slot1: float = 1e12) -> list[tuple[float, int]]:
+        """(length, pitch) of the written notes that start in [slot0, slot1), for modalkit.census()."""
+        return [(d, p) for s, d, p in self.written if slot0 <= s < slot1]
+
+    def substitute(self, fix) -> None:
+        """Change pitches in every part: fix(slot, pitch) -> pitch. This makes a control render,
+        for example the same arrangement with the sixth degree a semitone lower."""
+        for part in (self.whistle, self.fiddle, self.fiddle_low, self.banjo, self.harp, self.bass, self.gtr_single):
+            for t in part:
+                t.pitch = fix(t.slot, t.pitch)
+        times = np.array([self.clock.t(s) for s in np.arange(0.0, 4096.0)])
+
+        def slot_of(tick: int) -> float:
+            return float(np.searchsorted(times, tick / MidiPart.TPS + 0.02) - 1)
+
+        for mp in (self.gtr, self.bouz, self.drone):
+            held: dict[tuple[int, int], list[int]] = {}
+            fixed = []
+            for tick, order, msg in sorted(mp.ev, key=lambda e: (e[0], e[1])):
+                if msg.type == "note_on":
+                    p = fix(slot_of(tick), msg.note)
+                    held.setdefault((msg.channel, msg.note), []).append(p)
+                    msg = msg.copy(note=p)
+                elif msg.type == "note_off" and held.get((msg.channel, msg.note)):
+                    msg = msg.copy(note=held[(msg.channel, msg.note)].pop(0))
+                fixed.append((tick, order, msg))
+            mp.ev = fixed
+
+    def render(self, out: Path, total: float, meta: dict[str, str], levels: dict[str, float] | None = None,
+               target_lufs: float = -16.0) -> dict[str, np.ndarray]:
+        """Render the nine stems, mix them and write the MP3. Returns the stems at mix level."""
+        lv = {**LEVELS, **(levels or {})}
+        c = self.clock
+        fid = MidiPart({0: FIDDLE, 1: FIDDLE, 2: FIDDLE, 3: FIDDLE}, bend_range=4)
+        table = tuning_table(GM_BANK, FIDDLE, [t.pitch for t in self.fiddle + self.fiddle_low])
+        bowed(fid, self.fiddle, c, chans=(0, 1), tuning=table, seed=2, vel=self.fiddle_vel)
+        bowed(fid, self.fiddle_low, c, chans=(2, 3), tuning=table, seed=6, vel=self.fiddle_vel)
+        bj, hp, bs = MidiPart({0: BANJO}), MidiPart({0: HARP}), MidiPart({0: ACOUSTIC_BASS})
+        plucked(bj, 0, self.banjo, c, ring=0.5, seed=4)
+        plucked(hp, 0, self.harp, c, ring=2.4, seed=5, vel=(40, 112))
+        plucked(bs, 0, self.bass, c, ring=6.0, seed=7, vel=(60, 118))
+        plucked(self.gtr, 1, self.gtr_single, c, ring=1.2, seed=8, vel=(60, 122))
+        audio = {
+            "whistle": whistle(self.whistle, c, total), "fiddle": fid.render(GM_BANK, total),
+            "banjo": bj.render(GM_BANK, total), "guitar": self.gtr.render(GM_BANK, total),
+            "bouzouki": self.bouz.render(GM_BANK, total), "harp": hp.render(GM_BANK, total),
+            "bass": bs.render(GM_BANK, total), "bodhran": bodhran(self.bod, c, total),
+            "drone": self.drone.render(FONTS / "fs-uilleann-pipe.sf2", total),
+        }
+        stems = [Stem(name, pan(x, PANS[name]), lv[name], send=SENDS[name], lead=name in LEADS) for name, x in audio.items()]
+        y, placed = mixdown(stems, target_lufs=target_lufs, wet_db=-11.5, rt60=1.15)
+        lufs, peak = write_mp3(y, out, meta)
+        print(f"wrote {out}  {len(y) / SR:.1f} s  {lufs:.1f} LUFS  peak {peak:.1f} dBFS")
+        return placed

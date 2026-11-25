@@ -887,7 +887,7 @@
     "repo_dir": "mist-music/modal",
     "source": "built",
     "added": "2026-11-24",
-    "notes": "Workflow and measured lessons: mist-music/modal/README.md. Pieces live in mist-music/modal/private (gitignored, they hold other people's melodies; in the daily backup). Needs fluidsynth, FluidR3Mono_GM.sf3, the pipe soundfont in modal/soundfonts (see CREDITS) and mp32mid (Basic Pitch) for the transcription check. bandtake.py sends rendered audio to the ACE-Step cover model through the MIST Studio engine; run it with mist-music/.venv/bin/python. On 2026-11-24 both free Spaces failed at model load. Overtones and an untuned drum both corrupt a spectrum census: decide with the transcription census and the --control render."
+    "notes": "Workflow and measured lessons: mist-music/modal/README.md. Pieces live in mist-music/modal/private (gitignored, they hold other people's melodies; in the daily backup); start a new piece from screwbot_factory_2.py, which uses celtic.Band. Needs fluidsynth, FluidR3Mono_GM.sf3, the pipe soundfont in modal/soundfonts (see CREDITS) and mp32mid (Basic Pitch) for the transcription check. bandtake.py sends rendered audio to the ACE-Step cover model through the MIST Studio engine; run it with mist-music/.venv/bin/python. On 2026-11-24 and 2026-11-25 both free Spaces failed at model load. Overtones and an untuned drum both corrupt a spectrum census: decide with the transcription census and the --control render. The mix gives each stem one loudness for the full piece: read the stem table after each render."
   },
   {
     "name": "monthly-climate-history",

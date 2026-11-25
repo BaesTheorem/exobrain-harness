@@ -5,12 +5,26 @@
 # ///
 """modal-cover: the command line of modalkit (mist-music/modal).
 
-Move a tune from one scale to another, and check audio against a scale.
+Move a tune from one scale to another, read the recording it comes from, and
+check audio against a scale.
 
   modal-cover scales
-  modal-cover fetch URL [--slug NAME]          save the sections of a Hooktheory TheoryTab page
+  modal-cover fetch URL [--slug NAME]             save the sections of a Hooktheory TheoryTab page
   modal-cover remap FILE.json --scale dorian --tonic A [--octave 4]
+
+  modal-cover measure AUDIO --bpm 100 116 [--bar1 SECONDS] [--meter 4]
+  modal-cover align AUDIO FILE.json --bpm 105 --grid SECONDS [--bars 3-10]
+  modal-cover roll AUDIO --bpm 105 --bar1 SECONDS --bars 27,28,29,30
+  modal-cover f0 AUDIO --bpm 105 --bar1 SECONDS --bars 11-14 [--band 500 3500]
+
   modal-cover check AUDIO --scale dorian --tonic A [--from S] [--to S] [--lead NOTES.json] [--no-transcribe]
+
+`measure` finds the tempo and the sixteenth grid of a recording with a constant
+tempo. With --bar1 it also prints the form, bar by bar. `align` slides a saved
+tab over the recording in all 12 transpositions: the written key must win, and
+the best start beats show where the passage sits. `roll` prints the strongest
+pitches of each sixteenth, for the bars that no tab has. `f0` follows one line
+with a pitch tracker, for the cases where `roll` and a tab disagree.
 
 `remap` prints the tune in the new scale, the notes that had no equal in the new
 scale, and the census of the result. `check` reads any audio file (a render, a
@@ -29,8 +43,17 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "modal"))
 import modalkit as mk  # noqa: E402  (the kit folder, on the path from the line above)
+import survey  # noqa: E402
 
 PRIVATE = Path(__file__).resolve().parents[1] / "modal" / "private" / "sources"
+
+
+def bar_list(spec: str) -> list[int]:
+    out: list[int] = []
+    for part in spec.split(","):
+        a, _, b = part.partition("-")
+        out += list(range(int(a), int(b or a) + 1))
+    return out
 
 
 def main() -> int:
@@ -45,6 +68,34 @@ def main() -> int:
     r.add_argument("--scale", required=True)
     r.add_argument("--tonic", required=True, help="note name of the new tonic: A, F#, Bb")
     r.add_argument("--octave", type=int, default=4, help="octave number of the tonic that starts octave 0 (default 4)")
+    m = sub.add_parser("measure", help="tempo grid and bar form of a recording")
+    m.add_argument("audio", type=Path)
+    m.add_argument("--bpm", type=float, nargs=2, required=True, metavar=("LOW", "HIGH"), help="the tempo range to search")
+    m.add_argument("--bar1", type=float, help="time of bar 1 beat 1 in seconds: prints the form")
+    m.add_argument("--meter", type=int, default=4)
+    a = sub.add_parser("align", help="slide a saved tab over a recording, in 12 transpositions")
+    a.add_argument("audio", type=Path)
+    a.add_argument("file", type=Path)
+    a.add_argument("--bpm", type=float, required=True)
+    a.add_argument("--grid", type=float, required=True, help="time of any beat of the grid, from `measure`")
+    a.add_argument("--bars", help="tab bars to use, 1-based and inclusive, for example 3-10 (default: each key part whole)")
+    a.add_argument("--fine", action="store_true", help="a 93 ms window, for a line that moves in sixteenths")
+    a.add_argument("--top", type=int, default=8, help="how many start beats to print")
+    o = sub.add_parser("roll", help="strongest pitches of each sixteenth in the named bars")
+    o.add_argument("audio", type=Path)
+    o.add_argument("--bpm", type=float, required=True)
+    o.add_argument("--bar1", type=float, required=True, help="time of bar 1 beat 1 in seconds")
+    o.add_argument("--bars", required=True, help="for example 27-30 or 3,4,11")
+    o.add_argument("--meter", type=int, default=4)
+    z = sub.add_parser("f0", help="one tracked pitch for each sixteenth in the named bars")
+    z.add_argument("audio", type=Path)
+    z.add_argument("--bpm", type=float, required=True)
+    z.add_argument("--bar1", type=float, required=True, help="time of bar 1 beat 1 in seconds")
+    z.add_argument("--bars", required=True)
+    z.add_argument("--band", type=float, nargs=2, default=(500.0, 3500.0), metavar=("LOW", "HIGH"),
+                   help="the band in Hz that holds the line: 500 3500 for a high lead, 230 1100 around middle C")
+    z.add_argument("--meter", type=int, default=4)
+    z.add_argument("--threshold", type=float, default=0.35, help="lower reports fewer notes and errs less (default 0.35)")
     c = sub.add_parser("check", help="check an audio file against a scale")
     c.add_argument("audio", type=Path)
     c.add_argument("--scale", required=True)
@@ -62,21 +113,60 @@ def main() -> int:
     if args.cmd == "fetch":
         slug = args.slug or args.url.rstrip("/").rsplit("/", 1)[-1].replace("---", "-")
         for p in mk.fetch_hooktheory(args.url, PRIVATE / slug):
-            sec = mk.load_section(p)
-            print(f"{p}  {mk.PC_NAMES[sec.tonic]} {sec.scale}, {len(sec.notes)} notes, {len(sec.chords)} chords, {sec.bars()} bars")
+            for sec in mk.load_sections(p):
+                print(f"{p.name}  {sec.name}: {mk.PC_NAMES[sec.tonic]} {sec.scale}, from beat {sec.start:g}, "
+                      f"{len(sec.notes)} notes, {len(sec.chords)} chords, {sec.bars()} bars of {sec.meter}/4, {sec.bpm:g} BPM")
+        return 0
+    if args.cmd == "measure":
+        x = survey.load(args.audio)
+        bpm, off, ratio = survey.tempo_grid(x, *args.bpm)
+        print(f"{len(x) / survey.SR:.2f} s; tempo {bpm:.2f} BPM; a grid beat at {off:.3f} s (best score {ratio:.2f} x the median)")
+        low = survey.onset_envelope(x, (30.0, 160.0))
+        beat = 60.0 / bpm
+        import numpy as np
+        phases = []
+        for ph in range(args.meter):
+            idx = np.clip(np.searchsorted(low[1], np.arange(off + ph * beat, len(x) / survey.SR, args.meter * beat)), 0, len(low[0]) - 1)
+            phases.append(float(low[0][idx].mean()))
+        print("low-band onset energy on each beat phase: " + "  ".join(f"{off + i * beat:.3f} s: {v:.1f}" for i, v in enumerate(phases)))
+        if args.bar1 is not None:
+            print(survey.form(x, bpm, args.bar1, args.meter))
+        else:
+            print("Run `align` to find the downbeat, then run `measure` again with --bar1 for the form.")
+        return 0
+    if args.cmd == "align":
+        x = survey.load(args.audio)
+        for sec in mk.load_sections(args.file):
+            notes = mk.midi_notes(sec, 60 + sec.tonic)
+            lo, hi = sec.start, sec.start + sec.beats
+            if args.bars:
+                wanted = bar_list(args.bars)
+                lo, hi = (wanted[0] - 1) * sec.meter, wanted[-1] * sec.meter
+            events = [(b - lo, d, p % 12) for b, d, p in notes if lo <= b < hi]
+            if not events:
+                continue
+            print(f"== {sec.name}: {mk.PC_NAMES[sec.tonic]} {sec.scale}, tab beats {lo:g} to {hi:g}")
+            print(survey.align(x, args.bpm, args.grid, events, hi - lo, top=args.top, fine=args.fine))
+        return 0
+    if args.cmd == "f0":
+        print(survey.f0_track(survey.load(args.audio), args.bpm, args.bar1, bar_list(args.bars), tuple(args.band), args.meter,
+                              args.threshold))
+        return 0
+    if args.cmd == "roll":
+        print(survey.roll(survey.load(args.audio), args.bpm, args.bar1, bar_list(args.bars), args.meter))
         return 0
     tonic = mk.pc(args.tonic)
     if args.cmd == "remap":
-        src = mk.load_section(args.file)
-        dst, moves = mk.remap(src, args.scale, tonic)
-        base = 12 * (args.octave + 1) + tonic
-        print(f"source: {mk.PC_NAMES[src.tonic]} {src.scale}")
-        print(mk.describe(dst, base))
-        for was, now, how in sorted({(m.was, m.now, m.how) for m in moves}):
-            print(f"  altered note {was} -> {now} ({how})")
-        same, merged, steps = mk.contour(src, dst)
-        print(f"  contour: {same} of {steps} steps keep their direction, {merged} became a repeated note")
-        print(mk.format_report(mk.census([(d, p) for _, d, p in mk.midi_notes(dst, base)], tonic), args.scale, tonic, "census of the notes"))
+        for src in mk.load_sections(args.file):
+            dst, moves = mk.remap(src, args.scale, tonic)
+            base = 12 * (args.octave + 1) + tonic
+            print(f"source: {mk.PC_NAMES[src.tonic]} {src.scale}")
+            print(mk.describe(dst, base))
+            for was, now, how in sorted({(mv.was, mv.now, mv.how) for mv in moves}):
+                print(f"  altered note {was} -> {now} ({how})")
+            same, merged, steps = mk.contour(src, dst)
+            print(f"  contour: {same} of {steps} steps keep their direction, {merged} became a repeated note")
+            print(mk.format_report(mk.census([(d, p) for _, d, p in mk.midi_notes(dst, base)], tonic), args.scale, tonic, "census of the notes"))
         return 0
     print(mk.audio_report(args.audio, tonic, args.scale, args.t0, args.t1, f"spectrum of {args.audio.name}"))
     if not args.no_transcribe:
@@ -84,7 +174,7 @@ def main() -> int:
         print(mk.format_report(mk.transcribed_census(heard, tonic, args.t0, args.t1), args.scale, tonic,
                                f"Basic Pitch transcription ({len(heard)} notes in the file)"))
     if args.lead:
-        events = [(a, b, int(p)) for a, b, p in json.loads(args.lead.read_text())]
+        events = [(a0, b0, int(p)) for a0, b0, p in json.loads(args.lead.read_text())]
         print(mk.format_presence(mk.melody_presence(args.audio, events)))
     return 0
 
