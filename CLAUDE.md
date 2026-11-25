@@ -156,6 +156,7 @@ Furthermore, never build graphics or any other assets from scratch what you can 
 | [MapLibre GL JS](https://github.com/maplibre/maplibre-gl-js) with [OpenFreeMap](https://github.com/hyperknot/openfreemap) tiles | Web maps (WebGL vector tiles, no API key; styles `positron` and `dark`). Added 2026-10-20 for the KC 311 web app | BSD-3 / tiles free, attribution to OpenMapTiles and OpenStreetMap |
 | [hls.js](https://github.com/video-dev/hls.js) | HLS (`.m3u8`) video playback in browsers without native HLS. Use the `hls.light` build. Added 2026-10-24 for a local video web app | Apache-2.0 |
 | [Plotly.js](https://github.com/plotly/plotly.js) | Interactive 3D scatter and surface charts (WebGL), for a chart that needs a third axis. Observable Plot stays the default for 2D. Added 2026-11-06 for the KC side-business Pareto frontiers (v4.2.0 released 2026-10-29) | MIT |
+| [inapp-spy](https://github.com/shalanah/inapp-spy) | Finds a browser inside another app (Facebook, Instagram, LinkedIn web views), where a web app cannot install. No UI. Added 2026-11-24 for the Home Screen offer of Switchboard KC. v5.0.10 released 2026-06-14 and no commit since, so check upstream again before the next use | MIT |
 
 Retired, do not cite in new work: material-web (maintenance mode), Shoelace (sunset, replaced by Web Awesome), Pico CSS (archived). Before you adopt a library that is not on this list, check that its upstream is alive and that people, not a generator, wrote it, then add it here.
 
