@@ -280,6 +280,14 @@
     "notes": "Dribbble refuses bare curl; this uses headless Chromium with a normal user agent and fetches the images through the browser context. Saves only images 600 px wide or more plus og:image."
   },
   {
+    "name": "duel-rpg-build-decks",
+    "command": "python3 ~/Documents/duel-rpg/tools/build_decks.py [deck]",
+    "repo_dir": "~/Documents/duel-rpg",
+    "source": "built",
+    "added": "2026-11-27",
+    "notes": "Reads decks/*.txt (a '# lflist: <name>' header, then '<count> <card name>' lines under #main / #extra / #side) and writes game/decks/*.ydk. Needs data/ from bin/duel-setup. For a whitelist list such as 2005.4 GOAT it picks the code the list permits, so GOAT and pre-errata prints resolve by plain card name. Exits 1 and names each bad card."
+  },
+  {
     "name": "exposure_audit.py",
     "command": "python3 .claude/skills/cybersecurity-bodyguard/scripts/exposure_audit.py",
     "repo_dir": "~/Documents/Exobrain harness",
@@ -936,6 +944,14 @@
     "source": "built",
     "added": "2026-11-23",
     "notes": "Needs a built engine (--build build2 or build) and the staged game. Runs muted through scripts/run-test.sh; --patrol mode reports cats that stand still 4 s in patrol. Without --patrol it runs each jump once, which is a weaker check."
+  },
+  {
+    "name": "ocgcore-bridge",
+    "command": "~/Documents/duel-rpg/build/bridge/ocgcore-bridge --scripts ~/Documents/duel-rpg/data/CardScripts --cdb ~/Documents/duel-rpg/data/BabelCDB/cards.cdb",
+    "repo_dir": "~/Documents/duel-rpg",
+    "source": "vendored",
+    "added": "2026-11-27",
+    "notes": "Built by duel-rpg bin/duel-setup from the pinned submodule vendor/ocgcore-bridge (v0.1.3, AGPL-3.0). One duel per process, newline-delimited JSON on stdin and stdout, protocol in vendor/ocgcore-bridge/docs/protocol.md. GOAT duels need --cdb for cards.cdb, goat-entries.cdb and cards-unofficial.cdb and init rules=goat. The fork request copies a duel for look-ahead and needs a Unix-like system. Card scripts and databases must stay at the commits in data/pins.json."
   },
   {
     "name": "ocr_book.py (Turn To)",
