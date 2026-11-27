@@ -288,6 +288,14 @@
     "notes": "Reads decks/*.txt (a '# lflist: <name>' header, then '<count> <card name>' lines under #main / #extra / #side) and writes game/decks/*.ydk. Needs data/ from bin/duel-setup. For a whitelist list such as 2005.4 GOAT it picks the code the list permits, so GOAT and pre-errata prints resolve by plain card name. Exits 1 and names each bad card."
   },
   {
+    "name": "duel-rpg-fetch-assets",
+    "command": "python3 ~/Documents/duel-rpg/tools/fetch_assets.py [kit-slug]",
+    "repo_dir": "~/Documents/duel-rpg",
+    "source": "built",
+    "added": "2026-11-27",
+    "notes": "Reads game/assets/kits.json and unpacks each kit's GLB files, textures, color variations and License.txt into game/assets/kenney/<slug>/. Zips are cached in build/downloads. The site gives a signed link at /download-link/<hex of 'assets/slug'> and answers 403 without the asset page as Referer. Run 'godot --headless --path game --import' after new kits."
+  },
+  {
     "name": "exposure_audit.py",
     "command": "python3 .claude/skills/cybersecurity-bodyguard/scripts/exposure_audit.py",
     "repo_dir": "~/Documents/Exobrain harness",

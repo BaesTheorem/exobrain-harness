@@ -52,6 +52,18 @@ The reason this setup exists: **textured GLBs segfault `godot --headless`**, so 
 - Grep test output for `SCRIPT ERROR` before diagnosing a hang: a GDScript parse error boots a silent empty scene that looks identical to a freeze.
 - Mute every test run (`--audio-driver Dummy`) unless audio is the thing under test.
 
+### Rendering with no window (screenshots and frame times while the Mac is in use)
+
+A windowed Godot run activates itself at startup, even under `open -g`, and takes the keyboard from whoever is at the Mac. `~/Documents/duel-rpg/bin/godot-offscreen` avoids that: it loads a small library into Godot (`tools/offscreen/noactivate.m`, allowed by the official build's entitlements) that blocks activation and keeps the window off screen. The GPU still renders.
+
+- The script must draw for itself. With no visible window Godot skips its own draw, so set `RenderingServer.render_loop_enabled = false`, disable the root viewport, render into a `SubViewport`, and call `RenderingServer.force_draw(false)` per frame. `game/look/offscreen.gd` in that repo wraps this, with `save_png` and `time_frames`.
+- `game/look/contact_sheet.gd` renders every model of a kit on one labeled sheet. Use it to see a kit before a level uses it.
+- Check focus did not move with `lsappinfo info -only name "$(lsappinfo front)"`, and list windows with `tools/offscreen/windows.js`.
+- `godot --headless --path game --import` imported 360 textured Kenney GLBs with no crash (Godot 4.7.2), and headless scripts can load them to read sizes and animation names.
+- GPU time from `viewport_get_measured_render_time_gpu` reads 0 on the Metal driver. Time frames by wall clock over many `force_draw` calls and read the image back before stopping the clock.
+- On the 8 GB M1 Air the Mobile renderer drew a low-poly city scene in 5 ms at 2560 x 1600 with MSAA 4x. Forward+ took 18 to 23 ms for the same picture. Start flat-shaded projects on Mobile.
+- A `blend_mul` material drew differently in Mobile and Forward+. Use plain alpha blending for ground darkening.
+
 ## Working in Blender
 
 - Blender's socket does not open on launch. The bootstrap starts it via a deferred timer; if you opened Blender by hand, click **N sidebar > BlenderMCP > Connect to Claude**.
