@@ -288,6 +288,14 @@
     "notes": "Reads decks/*.txt (a '# lflist: <name>' header, then '<count> <card name>' lines under #main / #extra / #side) and writes game/decks/*.ydk. Needs data/ from bin/duel-setup. For a whitelist list such as 2005.4 GOAT it picks the code the list permits, so GOAT and pre-errata prints resolve by plain card name. Exits 1 and names each bad card."
   },
   {
+    "name": "duel-rpg-card-data",
+    "command": "python3 ~/Documents/duel-rpg/tools/build_card_data.py && python3 ~/Documents/duel-rpg/tools/fetch_card_images.py <deck> [...] | --all",
+    "repo_dir": "~/Documents/duel-rpg",
+    "source": "built",
+    "added": "2026-11-27",
+    "notes": "build_card_data.py reads the pinned EDOPro databases in data/BabelCDB and the GOAT list, and writes data/cards.json (name, text, kind, ATK, DEF, Level, Type, Attribute, picture code, limit). A print with 2005 rulings or pre-errata text has a nine-digit code and shares the picture of its alias. fetch_card_images.py downloads 268x391 pictures from YGOPRODeck into game/cache/pics/small at five a second at most and skips what exists. Both outputs are gitignored."
+  },
+  {
     "name": "duel-rpg-fetch-assets",
     "command": "python3 ~/Documents/duel-rpg/tools/fetch_assets.py [kit-slug | character]",
     "repo_dir": "~/Documents/duel-rpg",
@@ -302,6 +310,14 @@
     "source": "built",
     "added": "2026-11-27",
     "notes": "Uses the public Sketchfab search API (no account) with several queries and tags, keeps models that mention the game, and matches model names to the monsters of a card list in data/. Flags uploaders whose descriptions name an official game as posting game extractions. Writes out/existing-models.json. A download needs a Sketchfab token. Name matching is by substring, so a few matches are wrong."
+  },
+  {
+    "name": "duel-rpg-make-clip",
+    "command": "python3 ~/Documents/duel-rpg/tools/make_clip.py [--frames out/demo] [--fps 15] [--width 640] [--seconds 40] [--name duel]",
+    "repo_dir": "~/Documents/duel-rpg",
+    "source": "built",
+    "added": "2026-11-27",
+    "notes": "Reads frame-00001.jpg and so on. Writes out/<name>.mp4 with ffmpeg (libx264) and out/<name>.webp with Pillow (animated WebP: 671 frames at 640 px came to 3.5 MB). The frames come from game/duel/demo.gd run under bin/godot-offscreen with --fixed-fps 30, which makes each frame one thirtieth of a second of game time."
   },
   {
     "name": "duel-rpg-make-monster",
