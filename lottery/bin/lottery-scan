@@ -1,0 +1,161 @@
+#!/usr/bin/env python3
+"""Show which lottery games near Kansas City are a positive-expectation bet today.
+
+Reads the live jackpots for Show Me Cash and MO Millions (molottery.com) and
+Super Kansas Cash (playonkansas.com results API), computes each game's return
+per dollar before and after tax, and compares the jackpot with the break-even
+levels. With --scratchers it also reads all Missouri Scratchers prize tables
+(about 75 pages, 90 seconds) and ranks the unsold tickets by return.
+
+It never buys anything and holds no account. A trigger is information for a
+person to act on.
+
+Usage:
+  lottery-scan                  # jackpot games only, 5 seconds
+  lottery-scan --scratchers     # add the Scratchers table
+  lottery-scan --json           # machine-readable
+  lottery-scan --ledger         # append the reading to lottery/data/ledger.jsonl
+  lottery-scan --notify         # banner and Discord DM, only when a trigger is on
+Exit code: 0 when no trigger is on, 10 when at least one is.
+"""
+
+from __future__ import annotations
+
+import argparse
+import json
+import subprocess
+import sys
+from datetime import datetime
+from pathlib import Path
+
+HERE = Path(__file__).resolve().parent.parent
+sys.path.insert(0, str(HERE))
+
+import lottery_ev as ev  # noqa: E402  (sibling module, loaded after the path insert)
+
+LEDGER = HERE / "data" / "ledger.jsonl"
+NOTIFY = HERE.parent / "mist-voice" / "bin" / "mist-notify"
+
+
+def jackpot_rows() -> list[dict]:
+    rows = []
+    readings = {
+        "smc": ev.mo_jackpot("show-me-cash/show-me-cash.jsp"),
+        "mom": ev.mo_jackpot("mo-millions/mo-millions.jsp"),
+    }
+    ks = ev.ks_last_draw()
+    note = {None: "winner count not published, check before a buy", 0: "no winner, next is higher"}.get(ks["winners"], "hit, reset")
+    readings["skc"] = {
+        "jackpot": 100000.0 if ks["winners"] else ks["jackpot"],
+        "next_draw": f"after the {ks['draw']} draw: {note}",
+    }
+    for key, game in ev.GAMES.items():
+        reading = readings[key]
+        jackpot = reading["jackpot"]
+        row = {
+            "key": key,
+            "game": game.name,
+            "jackpot": jackpot,
+            "next_draw": reading["next_draw"],
+            "break_even_pre_tax": ev.break_even(game, False, False),
+            "break_even_pre_tax_unpopular": ev.break_even(game, False, True),
+            "break_even_after_tax": ev.break_even(game, True, True),
+        }
+        if jackpot:
+            row["return_pre_tax"] = ev.ticket_return(game, jackpot, False, True)
+            row["return_after_tax"] = ev.ticket_return(game, jackpot, True, True)
+            row["trigger"] = (
+                "after-tax positive" if row["return_after_tax"] >= 1
+                else "pre-tax positive" if row["return_pre_tax"] >= 1
+                else ""
+            )
+        else:
+            row["trigger"] = "unread"
+        rows.append(row)
+    return rows
+
+
+def scratcher_rows() -> list[dict]:
+    def progress(n: int, total: int) -> None:
+        print(f"\r  reading Scratchers {n}/{total}", end="", file=sys.stderr, flush=True)
+
+    games = ev.fetch_scratchers(progress)
+    print("", file=sys.stderr)
+    rows = [r for r in (ev.scratcher_return(g) for g in games) if r and r["on_sale"]]
+    for r in rows:
+        r["trigger"] = (
+            "after-tax positive" if r["return_after_tax"] >= 1
+            else "pre-tax positive" if r["return_now"] >= 1
+            else "no top prize left" if r["top_prizes_left"] == 0
+            else ""
+        )
+    return sorted(rows, key=lambda r: -r["return_now"])
+
+
+def money(value: float | None) -> str:
+    return "n/a" if value is None else f"${value:,.0f}"
+
+
+def render(jackpots: list[dict], scratchers: list[dict] | None) -> str:
+    out = [f"Lottery scan, {datetime.now():%Y-%m-%d %H:%M}", ""]
+    out.append(f"{'game':<24}{'jackpot':>12}{'pre-tax':>9}{'after tax':>10}{'even pre':>14}{'even after':>14}  status")
+    for r in jackpots:
+        pre = f"{r['return_pre_tax']:.2f}" if "return_pre_tax" in r else "n/a"
+        net = f"{r['return_after_tax']:.2f}" if "return_after_tax" in r else "n/a"
+        out.append(
+            f"{r['game']:<24}{money(r['jackpot']):>12}{pre:>9}{net:>10}"
+            f"{money(r['break_even_pre_tax_unpopular']):>14}{money(r['break_even_after_tax']):>14}  "
+            f"{r['trigger'] or 'below break-even'} ({r['next_draw']})"
+        )
+    out.append("")
+    out.append("Returns are per dollar, with the least-picked numbers. 'even pre' and 'even after'")
+    out.append("are the advertised jackpots at which a ticket returns its price before and after tax.")
+    if scratchers is not None:
+        out.append("")
+        out.append(f"Missouri Scratchers on sale: {len(scratchers)}. Top 8 by return on unsold tickets:")
+        out.append(f"{'#':>4} {'game':<30}{'$':>4}{'printed':>9}{'sold':>7}{'now':>7}{'after tax':>10}{'turns + at':>11}  top prizes left")
+        for r in scratchers[:8]:
+            out.append(
+                f"{r['game']:>4} {r['name'][:30]:<30}{r['price']:>4.0f}{r['printed_return']:>9.3f}{r['sold']:>7.3f}"
+                f"{r['return_now']:>7.3f}{r['return_after_tax']:>10.3f}{r['turns_positive_at']:>11.3f}  "
+                f"{r['top_prizes_left']}/{r['top_prizes_total']} x {money(r['top_prize'])}"
+            )
+        dead = [r for r in scratchers if r["top_prizes_left"] == 0]
+        if dead:
+            names = ", ".join(f"#{r['game']} {r['name']}" for r in dead)
+            out.append(f"On sale with no top prize left (do not buy): {names}")
+    return "\n".join(out)
+
+
+def main() -> int:
+    parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
+    parser.add_argument("--scratchers", action="store_true", help="also read every Missouri Scratchers prize table")
+    parser.add_argument("--json", action="store_true", help="print JSON")
+    parser.add_argument("--ledger", action="store_true", help="append the reading to the ledger file")
+    parser.add_argument("--notify", action="store_true", help="send a banner and a Discord DM when a trigger is on")
+    args = parser.parse_args()
+
+    jackpots = jackpot_rows()
+    scratchers = scratcher_rows() if args.scratchers else None
+    positive = [r for r in jackpots if "positive" in r["trigger"]]
+    positive += [r for r in (scratchers or []) if "positive" in r["trigger"]]
+    reading = {"time": datetime.now().isoformat(timespec="minutes"), "jackpots": jackpots, "scratchers": scratchers}
+
+    if args.ledger:
+        LEDGER.parent.mkdir(parents=True, exist_ok=True)
+        slim = dict(reading, scratchers=(scratchers or [])[:8] if scratchers is not None else None)
+        with LEDGER.open("a") as fh:
+            fh.write(json.dumps(slim) + "\n")
+    print(json.dumps(reading, indent=1) if args.json else render(jackpots, scratchers))
+
+    if args.notify and positive and NOTIFY.exists():
+        lines = [f"{r.get('game') or r.get('name')}: {r['trigger']}" for r in positive]
+        subprocess.run(
+            [str(NOTIFY), "\n".join(lines), "Lottery trigger", "Glass", "--discord", "--context", render(jackpots, scratchers)],
+            check=False,
+        )
+    return 10 if positive else 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

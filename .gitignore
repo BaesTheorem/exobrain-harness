@@ -377,3 +377,6 @@ usps/private/
 # claytablet: downloaded sign list and font (the font is not for redistribution), and renders
 claytablet/assets/
 claytablet/out/
+
+# Lottery scanner: local ledger of readings (see lottery/README.md)
+lottery/data/
