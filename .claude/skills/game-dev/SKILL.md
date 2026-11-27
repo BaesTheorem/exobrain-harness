@@ -64,6 +64,16 @@ A windowed Godot run activates itself at startup, even under `open -g`, and take
 - On the 8 GB M1 Air the Mobile renderer drew a low-poly city scene in 5 ms at 2560 x 1600 with MSAA 4x. Forward+ took 18 to 23 ms for the same picture. Start flat-shaded projects on Mobile.
 - A `blend_mul` material drew differently in Mobile and Forward+. Use plain alpha blending for ground darkening.
 
+### Anime-style people and 3D creatures (worked out in `~/Documents/duel-rpg`, 2026-11-27)
+
+Alex rejected chunky toy-kit people as too childish and asked for anime-style characters. The path that worked, all scriptable:
+
+- **Characters:** VRM files from VRoid Studio, imported with the `godot-vrm` addon (MIT, use its HEAD commit, the `v2.1.0` tag is a subtree without the MToon shader). pixiv's nine beta sample models are CC0 and sit in `madjin/vrm-samples`. Each imports with a `GeneralSkeleton` in Godot's humanoid bone names and renders with MToon under the Mobile renderer.
+- **Animations:** the free Standard part of the Quaternius Universal Animation Library (CC0, 43 animations, Unreal bone names). Give its `.glb.import` a `retarget/bone_map` under `_subresources` and Godot retargets it at import, then every animation plays on every VRM (`game/world/people.gd`, `game/tools/make_ual_bone_map.gd`). itch.io free downloads work by script: POST `<page>/download_url` with the page's `csrf_token`, then POST `<page>/file/<upload_id>?source=game_download` with no key.
+- **Texture memory:** a VRoid model holds about 28 textures up to 2048 px, uncompressed in Godot: nine characters took 1.1 GB of video memory. Shrink the textures inside the file before import (`tools/optimize_vrm.py --max 512`, 142 MB to 24 MB each, no visible loss at game distance). A post-import script that compresses to BPTC took over 10 minutes for one character. Do not use it.
+- **Creatures from 2D art:** redraw the art as a whole-body figure on white with `mist-image --ref`, then send that to an image-to-3D Space on Hugging Face (`tools/monsters/make_monster.py`, TRELLIS.2 through `gradio_client` under `uv run --with gradio_client`). One model took 62 s and held up from all sides. The free ZeroGPU allowance ended after two runs in a day. PRO is $9 a month for 40 minutes a day.
+- **Scale check:** real-proportion people look small next to chunky kit monsters and far cameras. Add a camera behind the shoulder for stills that must show the characters.
+
 ## Working in Blender
 
 - Blender's socket does not open on launch. The bootstrap starts it via a deferred timer; if you opened Blender by hand, click **N sidebar > BlenderMCP > Connect to Claude**.

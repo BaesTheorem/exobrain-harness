@@ -289,11 +289,27 @@
   },
   {
     "name": "duel-rpg-fetch-assets",
-    "command": "python3 ~/Documents/duel-rpg/tools/fetch_assets.py [kit-slug]",
+    "command": "python3 ~/Documents/duel-rpg/tools/fetch_assets.py [kit-slug | character]",
     "repo_dir": "~/Documents/duel-rpg",
     "source": "built",
     "added": "2026-11-27",
-    "notes": "Reads game/assets/kits.json and unpacks each kit's GLB files, textures, color variations and License.txt into game/assets/kenney/<slug>/. Zips are cached in build/downloads. The site gives a signed link at /download-link/<hex of 'assets/slug'> and answers 403 without the asset page as Referer. Run 'godot --headless --path game --import' after new kits."
+    "notes": "Kits: reads game/assets/kits.json and unpacks each kit's GLB files, textures, color variations and License.txt into game/assets/kenney/<slug>/. The site gives a signed link at /download-link/<hex of 'assets/slug'> and answers 403 without the asset page as Referer. Characters: reads game/assets/characters/characters.json, downloads each VRM at a pinned commit, and runs optimize_vrm.py. Zips and originals are cached in build/downloads. Run 'godot --headless --path game --import' after."
+  },
+  {
+    "name": "duel-rpg-make-monster",
+    "command": "HF_TOKEN=... uv run --with gradio_client ~/Documents/duel-rpg/tools/monsters/make_monster.py <card code> [...]",
+    "repo_dir": "~/Documents/duel-rpg",
+    "source": "built",
+    "added": "2026-11-27",
+    "notes": "Three steps, each skipped when its file exists: art crop from YGOPRODeck, whole-body redraw with mist-image --ref (set MIST_IMAGE if not on PATH), model with the TRELLIS.2 Space on Hugging Face (make_model.py). Output in game/cache/{art,ref,models}, gitignored. One model took 62 s. A free Hugging Face account was refused after two runs in one day (ZeroGPU limit). The Space takes no fewer than 100000 faces. --reference-only stops after the redraw."
+  },
+  {
+    "name": "duel-rpg-optimize-vrm",
+    "command": "python3 ~/Documents/duel-rpg/tools/optimize_vrm.py in.vrm out.vrm --max 512",
+    "repo_dir": "~/Documents/duel-rpg",
+    "source": "built",
+    "added": "2026-11-27",
+    "notes": "Pure Python with Pillow. Rewrites the GLB container: every embedded PNG is resized to --max on its longer side and all buffer views are written again with new offsets. A VRoid model went from 142 MB to 24 MB of video memory and from 18 MB to 6 MB on disk. Works on any .glb with embedded PNG textures."
   },
   {
     "name": "exposure_audit.py",
