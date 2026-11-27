@@ -75,18 +75,17 @@ class Api:
             raise RosyError("salon lookup came back empty")
         return payload
 
-    def employees(self) -> list[dict]:
-        payload = self._request(
-            "GET",
-            "/employees",
-            {
-                "salonId": self.salon_id,
-                "includes": "schedule,imageUrl,description,performsServices,servicesCount",
-                "active": "true",
-                "online": "true",
-                "renters": "false",
-            },
-        )
+    def employees(self, online: bool = True) -> list[dict]:
+        """Staff who take online bookings; online=False adds the ones who do not."""
+        params = {
+            "salonId": self.salon_id,
+            "includes": "schedule,imageUrl,description,performsServices,servicesCount",
+            "active": "true",
+            "renters": "false",
+        }
+        if online:
+            params["online"] = "true"
+        payload = self._request("GET", "/employees", params)
         return self._items(payload, "employees")
 
     def services(self) -> list[dict]:

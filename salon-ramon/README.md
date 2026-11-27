@@ -36,6 +36,12 @@ python3 schedule.py pending --date YYYY-MM-DD --provider "[Stylist]"
 python3 schedule.py record  --date YYYY-MM-DD --provider "[Stylist]"
 ```
 
+**Exit codes of `ramon`.** 2 means no session, 3 means an API error, and 4
+means the stylist is on staff but has online booking switched off. The salon
+does this when a stylist is away or booked solid. The runner treats 4 as a
+salon condition, not an outage: it exits 0, sends one notice a week
+(`schedule.py offline`), and clears the gate on the first good slot search.
+
 **Booking ahead.** Ramon fills months out, so `bookAhead` in `config.json`
 (2) keeps that many cuts queued. When the queue is short the job hunts at once,
 aimed 6 weeks past the last queued appointment, not 12 days before a due date.

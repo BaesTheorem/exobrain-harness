@@ -69,17 +69,39 @@ fi
 # the session could not be re-minted; an empty list means no openings. Keep
 # those apart: the first fails the job (the session-start check sees it), the
 # second is ordinary for Ramon.
+#
+# Exit 4 is a third case: Ramon is still on staff but the salon switched off
+# his online booking (away, or booked solid). That is not an outage and no
+# code change fixes it, so tell Alex once a week and stop for today with
+# exit 0. Before 2026-11-26 this failed the job as "salon unreachable".
 slots() {
-    "$RAMON" slots --days 180 --since "$1" --until "$2" --limit 500 --json
+    local rc=0
+    "$RAMON" slots --days 180 --since "$1" --until "$2" --limit 500 --json || rc=$?
+    [[ $rc == 0 ]] && "${SCHEDULE[@]}" offline --clear > /dev/null
+    return $rc
 }
+
+# Runs in the main shell (not inside $(...)), so its exits end the job.
+slots_failed() {
+    local rc=$1 what=$2
+    if [[ $rc == 4 ]]; then
+        echo "[$(date)] Ramon is not taking online bookings right now (${what}); nothing to search."
+        if "${SCHEDULE[@]}" offline; then
+            "$NOTIFY" "Ramon has switched off online booking, so I cannot book or swap haircuts for now. Your booked appointments still stand. To book now, call the salon at ${SALON_PHONE}. I check every morning and start again when online booking comes back." \
+                "Haircut" none "https://www.salonramon.com/" --reply --discord || true
+        fi
+        exit 0
+    fi
+    echo "[$(date)] Salon unreachable while ${what}."
+    exit 1
+}
+SALON_PHONE="$(python3 -c 'import json,sys; print(json.load(open(sys.argv[1]))["phone"])' "$SCRIPT_DIR/config.json")"
 
 HUNT_CANDS="[]"
 if [[ "$HAS_HUNT" == 1 ]]; then
     read -r H_SINCE H_UNTIL H_TARGET < <(field 'h=v["hunt"]; print(h["since"], h["until"], h["target"])')
-    if ! RAW="$(slots "$H_SINCE" "$H_UNTIL")"; then
-        echo "[$(date)] Salon unreachable while hunting ${H_SINCE}..${H_UNTIL}."
-        exit 1
-    fi
+    RC=0; RAW="$(slots "$H_SINCE" "$H_UNTIL")" || RC=$?
+    [[ $RC == 0 ]] || slots_failed $RC "hunting ${H_SINCE}..${H_UNTIL}"
     HUNT_CANDS="$(printf '%s' "$RAW" | "${SCHEDULE[@]}" candidates --kind hunt)"
     if [[ "$HUNT_CANDS" == "[]" ]]; then
         echo "[$(date)] No openings ${H_SINCE}..${H_UNTIL} for the cut due ${H_TARGET}; will look again tomorrow."
@@ -94,10 +116,8 @@ fi
 SWAP_TEXT=""
 while read -r W_DATE W_TIME W_ID W_SINCE W_UNTIL; do
     [[ -z "${W_DATE:-}" ]] && continue
-    if ! RAW="$(slots "$W_SINCE" "$W_UNTIL")"; then
-        echo "[$(date)] Salon unreachable while watching ${W_DATE}."
-        exit 1
-    fi
+    RC=0; RAW="$(slots "$W_SINCE" "$W_UNTIL")" || RC=$?
+    [[ $RC == 0 ]] || slots_failed $RC "watching ${W_DATE}"
     CANDS="$(printf '%s' "$RAW" | "${SCHEDULE[@]}" candidates --kind swap --current "$W_DATE $W_TIME")"
     if [[ "$CANDS" == "[]" ]]; then
         echo "[$(date)] Watching ${W_DATE} ${W_TIME}: no preferred opening ${W_SINCE}..${W_UNTIL}."

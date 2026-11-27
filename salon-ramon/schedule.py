@@ -43,6 +43,8 @@ Usage:
     python3 schedule.py reject --at "YYYY-MM-DD HH:MM"   # a slot MIST found blocked
     python3 schedule.py swap --old-date D --date D --time HH:MM --id N
     python3 schedule.py nudge                   # exit 0 once per cycle when nothing is open
+    python3 schedule.py offline                 # exit 0 once a week while the stylist is off online booking
+    python3 schedule.py offline --clear         # online booking is back; reset the gate
     python3 schedule.py record --date YYYY-MM-DD [--provider "[Stylist]"]
 """
 
@@ -436,6 +438,31 @@ def _cmd_nudge(_: argparse.Namespace) -> int:
     return 0
 
 
+# While the stylist has online booking switched off, remind Alex this often.
+OFFLINE_RENOTIFY_DAYS = 7
+
+
+def _cmd_offline(args: argparse.Namespace) -> int:
+    """Exit 0 (and mark it) when the 'stylist is off online booking' notice is due.
+
+    The condition can last weeks, so one notice is too easy to lose and a daily
+    one is noise. Clearing on the first good slot search re-arms it.
+    """
+    state = load_state()
+    if args.clear:
+        if state.pop("provider_offline_notified", None) is not None:
+            save_state(state)
+            print("online booking is back")
+        return 0
+    last = state.get("provider_offline_notified")
+    today = date.today()
+    if last and (today - date.fromisoformat(last)).days < OFFLINE_RENOTIFY_DAYS:
+        return 1
+    state["provider_offline_notified"] = today.isoformat()
+    save_state(state)
+    return 0
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description="Haircut cadence tracker.")
     sub = parser.add_subparsers(dest="cmd", required=True)
@@ -474,6 +501,9 @@ def main(argv: list[str] | None = None) -> int:
     sw.add_argument("--id", type=int, required=True)
     sw.set_defaults(func=_cmd_swap)
     sub.add_parser("nudge", help="once-per-cycle 'nothing open' gate").set_defaults(func=_cmd_nudge)
+    off = sub.add_parser("offline", help="weekly 'stylist is off online booking' gate")
+    off.add_argument("--clear", action="store_true", help="online booking is back")
+    off.set_defaults(func=_cmd_offline)
 
     rec = sub.add_parser("record", help="record a completed haircut")
     rec.add_argument("--date", help="YYYY-MM-DD (default: today)")

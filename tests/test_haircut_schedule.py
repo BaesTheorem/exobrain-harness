@@ -358,3 +358,18 @@ def test_swap_replaces_the_entry_and_drops_the_watch(tmp_path, monkeypatch):
               "--time", "15:30", "--id", "9"])
     (new,) = mod.load_state()["pending"]
     assert new == {"date": "2032-01-07", "time": "15:30", "id": 9, "provider": "[Stylist]"}
+
+
+def test_offline_notice_fires_once_a_week_and_rearms_on_clear(tmp_path, monkeypatch):
+    mod = load_schedule(tmp_path, monkeypatch, {"last_haircut": "2031-08-16"})
+    args = lambda clear=False: mod.argparse.Namespace(clear=clear)  # noqa: E731
+    assert mod._cmd_offline(args()) == 0
+    assert mod._cmd_offline(args()) == 1
+    stale = (date.today() - timedelta(days=mod.OFFLINE_RENOTIFY_DAYS)).isoformat()
+    state = json.loads(mod.STATE_PATH.read_text())
+    state["provider_offline_notified"] = stale
+    mod.STATE_PATH.write_text(json.dumps(state))
+    assert mod._cmd_offline(args()) == 0
+    assert mod._cmd_offline(args(clear=True)) == 0
+    assert "provider_offline_notified" not in json.loads(mod.STATE_PATH.read_text())
+    assert mod._cmd_offline(args()) == 0

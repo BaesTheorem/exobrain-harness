@@ -72,6 +72,17 @@ def _employee_label(emp: dict) -> str:
     return f"{emp.get('firstName', '')} {emp.get('lastName', '')}".strip()
 
 
+class ProviderOffline(RuntimeError):
+    """The provider still works at the salon but has online booking switched off.
+
+    The salon does this when a stylist is away or fully booked. It is not an
+    outage, so the scheduled runner must not report it as one (exit 4).
+    """
+
+    def __init__(self, name: str):
+        super().__init__(f"{name} is on staff but not taking online bookings right now")
+
+
 class Session:
     """Everything a command needs: an API handle plus the salon's own rules."""
 
@@ -92,6 +103,9 @@ class Session:
         if not found:
             found = _pick(self.api.employees(), name, "lastName")
         if not found:
+            everyone = self.api.employees(online=False)
+            if _pick(everyone, name, "firstName") or _pick(everyone, name, "lastName"):
+                raise ProviderOffline(name)
             raise SystemExit(f"no provider matching {name!r}")
         return found
 
@@ -370,6 +384,9 @@ def main(argv: list[str] | None = None) -> int:
     except RosyError as exc:
         print(f"api: {exc}", file=sys.stderr)
         return 3
+    except ProviderOffline as exc:
+        print(f"provider: {exc}", file=sys.stderr)
+        return 4
 
 
 if __name__ == "__main__":
