@@ -2,7 +2,7 @@
 
 A scanner that shows when a lottery game near Kansas City is a positive-expectation bet.
 
-A lottery game gives 50 to 82 cents for each dollar on a usual day. Three local games have a jackpot that increases until a player wins it. After many draws with no winner, the expected value of a ticket can be more than its price. Missouri also publishes the full prize table of each Scratchers game each day. From that table, the tool calculates the expected value of the tickets that are not sold. The tool reads those public numbers and does the arithmetic. It does not buy tickets and it holds no account.
+A lottery game gives 20 to 90 cents for each dollar on a usual day. Three local games have a jackpot that increases until a player wins it. After many draws with no winner, the expected value of a ticket can be more than its price. Missouri also publishes the full prize table of each Scratchers game each day. From that table, the tool calculates the expected value of the tickets that are not sold. The tool reads those public numbers and does the arithmetic. It does not buy tickets and it holds no account.
 
 ## Use
 
@@ -43,7 +43,7 @@ The tool calculates these levels from the prize tables in `lottery_ev.py`. They 
 - Jackpot games: expected value = fixed prizes + jackpot x probability of a win x expected share. The expected share uses a Poisson count of other winners. Sales for each draw increase with the jackpot. The slope comes from the draw history of each lottery.
 - Least-picked numbers: in Show Me Cash, players pick the numbers 32 to 39 less frequently than the other numbers. A set from that range has approximately half the co-winners of an average set. This multiplier comes from the winner counts of 4,780 draws.
 - Scratchers: the sold share comes from the prize tiers between 2.5 times the ticket price and $600. Players claim those prizes quickly. Players claim the lowest tiers late or not at all, so the counts of those tiers overstate the prizes that stay in the game. Prize tiers with 200 or more prizes are taken at the printed rate. Rarer prizes are taken at the unclaimed count.
-- Tax: a 2026 single filer with $30,000 of other income. The model uses the IRS brackets and the 90 percent limit on the deduction of losing tickets (IRC 165(d)). Missouri tax is 4.7 percent. Kansas tax is 5.58 percent with no deduction for losing tickets. The result is an estimate for planning.
+- Tax: a 2026 single filer with $30,000 of other income. The model uses the IRS brackets and the 90 percent limit on the deduction of losing tickets (IRC 165(d)). Missouri tax is 4.7 percent. Kansas tax is 5.58 percent (the 2025 top rate, because the 2026 rate was not checked) with no deduction for losing tickets. The result is an estimate for planning.
 
 ## Checks
 

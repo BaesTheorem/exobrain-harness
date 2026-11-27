@@ -52,7 +52,7 @@ FED_BRACKETS = (
 )
 STANDARD_DEDUCTION = 16100
 MO_RATE = 0.047
-KS_RATE = 0.0558
+KS_RATE = 0.0558  # 2025 top rate (KDOR booklet IP25); the 2026 rate was not checked
 LOSS_DEDUCTION_SHARE = 0.90
 OTHER_INCOME = 30000  # assumed ordinary income of the player
 
