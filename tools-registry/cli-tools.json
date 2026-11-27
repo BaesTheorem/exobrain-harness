@@ -296,6 +296,14 @@
     "notes": "Kits: reads game/assets/kits.json and unpacks each kit's GLB files, textures, color variations and License.txt into game/assets/kenney/<slug>/. The site gives a signed link at /download-link/<hex of 'assets/slug'> and answers 403 without the asset page as Referer. Characters: reads game/assets/characters/characters.json, downloads each VRM at a pinned commit, and runs optimize_vrm.py. Zips and originals are cached in build/downloads. Run 'godot --headless --path game --import' after."
   },
   {
+    "name": "duel-rpg-find-existing-models",
+    "command": "python3 ~/Documents/duel-rpg/tools/monsters/find_existing.py [--list \"2005.4 GOAT\"]",
+    "repo_dir": "~/Documents/duel-rpg",
+    "source": "built",
+    "added": "2026-11-27",
+    "notes": "Uses the public Sketchfab search API (no account) with several queries and tags, keeps models that mention the game, and matches model names to the monsters of a card list in data/. Flags uploaders whose descriptions name an official game as posting game extractions. Writes out/existing-models.json. A download needs a Sketchfab token. Name matching is by substring, so a few matches are wrong."
+  },
+  {
     "name": "duel-rpg-make-monster",
     "command": "HF_TOKEN=... uv run --with gradio_client ~/Documents/duel-rpg/tools/monsters/make_monster.py <card code> [...]",
     "repo_dir": "~/Documents/duel-rpg",
