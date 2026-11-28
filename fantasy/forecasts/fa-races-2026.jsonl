@@ -8,3 +8,4 @@
 {"ts": "2026-11-12 12:17", "kind": "swap_gate", "add": "David Montgomery", "pos": "RB", "drop": "Devaughn Vele", "rivals": 2, "filed": false}
 {"ts": "2026-11-12 17:03", "kind": "swap_gate", "add": "David Montgomery", "pos": "RB", "drop": "Devaughn Vele", "rivals": 0, "filed": false}
 {"ts": "2026-11-14 19:29", "kind": "swap_gate", "add": "Xavier Hutchinson", "pos": "WR", "drop": "Chris Rodriguez Jr.", "rivals": 1, "filed": true}
+{"ts": "2026-11-27 16:51", "kind": "swap_gate", "add": "Josh Cameron", "pos": "WR", "drop": "Pat Bryant", "rivals": 1, "filed": false}

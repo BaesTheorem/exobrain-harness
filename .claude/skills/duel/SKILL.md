@@ -93,8 +93,13 @@ has EDOPro spawn the bot itself; you're joining as a network client instead.
 ## 3. Join, and arm it before he's done clicking
 
 ```
-$B/mist-duel --wait --deck <CODE>        # run_in_background: true
+$B/mist-duel --wait --deck <CODE>        # run_in_background: true, timeout: 7200000
 ```
+
+**Always pass `timeout: 7200000` on this background call.** The default
+background limit is 30 minutes. At that limit the harness kills the command,
+and the bot process dies with it, so MIST forfeits by disconnect. This occurred
+on 2026-11-27 at turn 5 of a won position, while Alex held a chain window.
 
 `--wait` polls port 7911 for up to 30 minutes and joins the moment the room
 exists, so you don't have to coordinate timing. Run it in the background; it
